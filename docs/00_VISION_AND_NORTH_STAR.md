@@ -28,7 +28,7 @@ Run seasons.
 Learn individual players.
 Recreate their behaviour.
 Simulate hypothetical player matchups.
-Create digital versions of historical players.
+Create digital versions of historical and concurrent players.
 
 ## Shared foundation
 
