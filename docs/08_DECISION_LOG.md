@@ -358,6 +358,42 @@ S3 should proceed as a sequence of small movement-literacy probes. The next step
 
 Revisit if a small parameter sweep produces consistent gains over mode `3` while passing the v2c/S3 side gate on both routed maps.
 
+---
+
+## Decision
+
+Use `sidemove=200` as the next S3 strafe probe candidate.
+
+### Date
+
+2026-06-05
+
+### Decision
+
+For the next bounded S3 experiment, test mode `4` with `--moveprobe-sidemove 200` across maps/repeats before adding cadence cvars or stateful movement logic.
+
+### Alternatives Considered
+
+- Keep default `400` because it passed `frobodm2`.
+- Use `300` because it helped `/ goldenboy` on `dm3`.
+- Add a new cvar for alternation cadence immediately.
+
+### Evidence
+
+The S3b `dm3` sweep showed:
+
+- `20260605T231737Z`, `sidemove=200`: both bots passed the side/plausibility gate.
+- `20260605T231819Z`, `sidemove=300`: `/ bro` failed low-speed at `51.1%`.
+- Prior `20260605T231115Z`, default `400`: `/ bro` failed low-speed at `63.0%`.
+
+### Expected Consequences
+
+The next experiment can stay parameter-only and avoid adding controller complexity. If `200` repeats across maps, it becomes the first candidate S3 strafe magnitude.
+
+### Revisit Conditions
+
+Revisit if repeat runs show `200` is unstable, or if a slower alternation cadence becomes necessary to reduce low-speed behavior without dropping side coverage.
+
 ### Revisit Conditions
 
 Revisit if the command hook cannot express useful movement without fighting aim/combat logic, if KTX maintainability becomes poor, or if a cleaner movement-brain boundary appears elsewhere in Frogbot source.

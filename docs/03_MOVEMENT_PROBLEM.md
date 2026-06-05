@@ -144,6 +144,15 @@ Moveprobe mode `4` adds an alternating route-relative sidemove command on top of
 
 This proves a bounded strafe signal can be emitted and measured, but does not prove better movement. The first S3a primitive is therefore a partial/negative result: alternating `+/-400` sidemove at the current cadence can keep bots moving on `frobodm2`, but appears too disruptive or map-sensitive on `dm3`.
 
+## S3b Sidemove Parameter Diagnosis
+
+S3b reused mode `4` on `dm3` but changed the sidemove magnitude:
+
+- `20260605T231737Z`, `sidemove=200`: both bots passed the side/plausibility gate. `/ bro` low-speed improved from the `400` run's `63.0%` to `26.9%`; `/ goldenboy` low-speed was `28.3%`.
+- `20260605T231819Z`, `sidemove=300`: side command coverage still exceeded `91%`, but `/ bro` failed low-speed at `51.1%`; `/ goldenboy` passed at `5.6%`.
+
+This suggests the first usable S3 strafe parameter is smaller than the default `400`. It still does not beat route-yaw mode `3` on speed or simplicity, so the next proof should verify `sidemove=200` across maps/repeats before adding cadence or state.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

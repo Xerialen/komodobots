@@ -233,6 +233,8 @@ Verified one-command parser behavior:
 20260605T225802Z: json=0 md=0 events=1 demo=64591 bytes map=dm3 moveprobe=3 commands=196 movementPlayers=2
 20260605T231033Z: json=0 md=0 events=1 demo=68834 bytes map=frobodm2 moveprobe=4 commands=197 movementPlayers=2
 20260605T231115Z: json=0 md=0 events=1 demo=71271 bytes map=dm3 moveprobe=4 commands=196 movementPlayers=2
+20260605T231737Z: json=0 md=0 events=1 demo=63831 bytes map=dm3 moveprobe=4 sidemove=200 commands=196 movementPlayers=2
+20260605T231819Z: json=0 md=0 events=1 demo=66789 bytes map=dm3 moveprobe=4 sidemove=300 commands=196 movementPlayers=2
 ```
 
 For now, `events=1` with stderr `qw-analyze: end of demo` is accepted if `events.txt` is written and JSON/Markdown exits are zero. JSON is the canonical smoke-run parser artifact.
@@ -313,6 +315,12 @@ Fresh S2 emitted-command evidence:
 
 20260605T231115Z dm3 moveprobe mode 4, S3a side gate:
   side coverage >93% for both bots, but / bro failed low-speed=63.0%; / goldenboy barely passed low-speed=39.0%
+
+20260605T231737Z dm3 moveprobe mode 4, sidemove=200, S3b side gate:
+  both bots passed; / bro avg=228.5 p95=387.6 low=26.9%; / goldenboy avg=197.3 p95=377.7 low=28.3%
+
+20260605T231819Z dm3 moveprobe mode 4, sidemove=300, S3b side gate:
+  / bro failed low=51.1%; / goldenboy passed low=5.6%; both bots had side coverage >91%
 ```
 
 ## Open questions
