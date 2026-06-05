@@ -12,6 +12,10 @@ This document maps the core sources Komodobots depends on. It should help Codex 
 
 Repository: https://github.com/QW-Group/ktx
 
+Local checkout: `C:\Users\benya\projects\quakeworld\engine\ktx`
+
+Observed local commit during the 2026-06-05 headless environment inspection: `08807da`.
+
 Why it matters:
 
 - Current server-side Frogbots implementation.
@@ -27,6 +31,25 @@ Important files/anchors to verify and revisit:
 - `src/bot_loadmap.c` and `src/marker_load.c` — external `.bot` route loading.
 - `resources/example-configs/ktx/bots/maps/frobodm2.bot` — practical route file reference.
 
+Deployment note:
+
+- `servexeri:~/nquakesv/` has a live KTX install built from commit `08807da`, with `ktx/qwprogs.so`, `ktx/bots/maps/frobodm2.bot`, `qw/maps/dm2.bsp`, and `qw/maps/frobodm2.bsp` present as of 2026-06-05.
+
+### MVDSV server
+
+Repository: https://github.com/QW-Group/mvdsv
+
+Why it matters:
+
+- Runs the QuakeWorld server process that hosts KTX.
+- Provides server-side MVD recording and demo sidecar handling.
+- Candidate executable for Komodobots lab ports.
+
+Deployment note:
+
+- `servexeri:~/nquakesv/` has `mvdsv` and `build/mvdsv/mvdsv` present; the build checkout reported commit `90aa017` during the 2026-06-05 inspection.
+- Existing ports are `28501`, `28502`, and `28503`. User clarified on 2026-06-05 that no one plays on this server, so lab automation may use any port; a separate temporary port/process is still useful for cleanup and repeatability.
+
 ### DrLex Frogbots
 
 Repository: https://github.com/DrLex0/quake-frogbots
@@ -39,9 +62,38 @@ Why it matters:
 
 ## Analysis and data sources
 
+### Komodobots lab automation
+
+Preferred local runner: `C:\Users\benya\projects\quakeworld\komodobots\scripts\run_bot_lab.py`
+
+Implementation/default runner: `C:\Users\benya\projects\quakeworld\komodobots\scripts\run_frobodm2_lab.py`
+
+Local client shim: `C:\Users\benya\projects\quakeworld\komodobots\experiments\qw_min_client.py`
+
+Movement metrics extractor: `C:\Users\benya\projects\quakeworld\komodobots\scripts\extract_movement_metrics.py`
+
+Why it matters:
+
+- `scripts/run_bot_lab.py` is the preferred one-command lab runner entry point.
+- The runner SSHes to `servexeri`, creates a named MVDSV/KTX screen session, loads a selected map, runs the client shim, copies the generated MVD to `artifacts/lab-runs/<run-id>/`, parses it through WSL `qw-analyze-v20`, writes `run-summary.md` plus `movement-metrics.md`, and stops only its owned screen session.
+- `experiments/qw_min_client.py` is the protocol-narrow connected-client control path for KTX commands such as `botcmd addbot`.
+- `scripts/extract_movement_metrics.py` derives per-player horizontal speed, distance, speed-threshold time ratios, and stationary time from `events.txt` kind `5` player origin samples.
+
+Verification:
+
+- `20260605T190849Z` and `20260605T191116Z` were successful one-command `frobodm2` lab runs on `servexeri:28599`.
+- `20260605T200124Z` was a successful one-command `dm3` lab run on `servexeri:28599`.
+- `20260605T201217Z` was a fresh `frobodm2` run with automatic movement metrics for `/ bro` and `/ goldenboy`.
+- `20260605T201313Z` was a fresh `dm3` run with automatic movement metrics for `/ bro` and `/ goldenboy`.
+- Stock `dm2` has `dm2.bsp` and `dm2.loc`, but no `ktx/bots/maps/dm2.bot`; do not treat stock `dm2` as a Frogbot-supported map unless a real route appears.
+
 ### mvd_analyzer
 
 Repository: https://github.com/galfthan/mvd_analyzer
+
+Local checkout: `C:\Users\benya\projects\quakeworld\tools\mvd_analyzer`
+
+Observed local commit during the 2026-06-05 headless environment inspection: `fab7808`.
 
 Why it matters:
 
@@ -54,6 +106,25 @@ Relevant areas:
 - `mvd-reader/MVD_FORMAT.md`
 - `mvd-analytics/RESULT_SCHEMA.md`
 - CLI: `mvd-analytics/cmd/qw-analyze`
+
+Runtime note:
+
+- WSL `Ubuntu-24.04` has a prebuilt `~/mvd-mcp-bundle/` with `mvd-api`, `mvd-mcp`, `run-mcp.sh`, and `bsps/dm2.bsp`.
+- Bundle README says it was built from commit `7d83ebe`; this differs from the local source checkout and should be pinned before metrics become regression evidence.
+
+### ezquake-render-runner / ezquake-test
+
+Repository: `Xerialen/ezquake-render-runner`
+
+Local checkout: `C:\Users\benya\projects\quakeworld\hud\ezquake-test`
+
+Observed local commit during the 2026-06-05 headless environment inspection: `64156c9`.
+
+Why it matters:
+
+- Existing headless ezQuake/Xvfb render harness used for HUD validation.
+- Useful for visual validation after lab MVDs exist.
+- Not sufficient by itself for Komodobots server experiments because it replays existing demos rather than starting KTX/MVDSV or generating new MVDs.
 
 ### qw-sim
 
