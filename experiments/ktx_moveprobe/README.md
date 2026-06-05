@@ -80,6 +80,26 @@ Known v2a comparison runs:
 | `20260605T222047Z` | `1` | Variable movement preserved; final buttons included jump. |
 | `20260605T222129Z` | `2` | Constant `yaw=90 forward=800 side=0 up=0 buttons=2`; movement collapsed. |
 | `20260605T224811Z` | `3` | Route-derived yaw varied and mostly emitted `forward=800`; `/ goldenboy` moved plausibly, while `/ bro` was stationary for 59.7% of active time. |
+| `20260605T225720Z` | `3` | Fresh `frobodm2` repeat; both bots passed the v2c command/plausibility gate. |
+| `20260605T225802Z` | `3` | Fresh `dm3` repeat; both bots passed the v2c command/plausibility gate. |
+
+## Plausibility summary
+
+Use the v2c helper to summarize command coverage and movement plausibility across run artifacts:
+
+```bash
+python scripts/summarize_moveprobe_plausibility.py 20260605T225720Z 20260605T225802Z --output-md artifacts/lab-runs/moveprobe-v2c-fresh-summary.md
+```
+
+Default gate thresholds are intentionally simple and provisional:
+
+- expected forward command coverage >= `80%`
+- jump-button command coverage >= `80%`
+- distinct sampled yaw values >= `10`
+- stationary time <= `25%`
+- low-speed time <= `40%`
+
+The gate is not a realism score. It is a guard against accidentally treating speed alone as success while ignoring stationary or command-coverage failures.
 
 ## Rollback
 

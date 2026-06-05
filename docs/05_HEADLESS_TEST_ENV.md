@@ -31,7 +31,7 @@ Third lab milestone on 2026-06-05: `scripts/extract_movement_metrics.py` now der
 
 Fourth lab milestone on 2026-06-05: movement metrics schema v2 adds vertical-motion and airborne-proxy metrics: air-proxy time ratio, run cadence, average air-proxy duration, and post-landing speed delta/loss over a fixed window.
 
-Fifth lab milestone on 2026-06-05: the first S2 movement override probe patched KTX `BotSetCommand()` after the prewar-freeze guard and immediately before button assembly and `trap_SetBotCMD(...)`. Moveprobe mode `1` forced jump while preserving Frogbot direction/combat and produced a normal `frobodm2` run with three frags and movement metrics. Moveprobe mode `2` replaced the final movement command with a fixed command plus forced jump and produced full lab artifacts, but the bots became nearly stationary. Moveprobe mode `3` used route-derived yaw and produced mixed evidence: one plausible bot and one stuck-prone bot. This proves command perturbation is possible and useful movement is plausible, but S2 still needs repeatability and explicit plausibility gates.
+Fifth lab milestone on 2026-06-05: the first S2 movement override probe patched KTX `BotSetCommand()` after the prewar-freeze guard and immediately before button assembly and `trap_SetBotCMD(...)`. Moveprobe mode `1` forced jump while preserving Frogbot direction/combat and produced a normal `frobodm2` run with three frags and movement metrics. Moveprobe mode `2` replaced the final movement command with a fixed command plus forced jump and produced full lab artifacts, but the bots became nearly stationary. Moveprobe mode `3` used route-derived yaw; after an initial mixed run, fresh `frobodm2` and `dm3` repeats passed explicit command/plausibility gates for all bot rows. S2 movement override feasibility is provisionally satisfied pending review, while aim/combat separation remains open.
 
 ## Environment Diagram
 
@@ -158,7 +158,7 @@ The bundle README says it was built from mvd_analyzer commit `7d83ebe`, while th
 | Record MVD automatically | Proven on `frobodm2` and `dm3` | KTX saved non-empty MVDs after `sv_demostop`. |
 | Parse MVD automatically | Proven for summary/events | `qw-analyze-v20` parsed JSON/Markdown summary exit 0; events mode emitted data then exited 1 with `qw-analyze: end of demo`. |
 | Generate movement report automatically | Proven v2 | `scripts/extract_movement_metrics.py` writes speed plus airborne-proxy movement metrics from MVD event position samples. |
-| Test movement overrides automatically | Partial useful probe proven | `experiments/ktx_moveprobe/frogbot-moveprobe.patch` hooks KTX `BotSetCommand()` after the prewar-freeze guard and before button assembly/`trap_SetBotCMD(...)`; `20260605T213149Z` proved a forced-jump command perturbation can preserve spawn/combat/MVD/parser/metrics, and `20260605T224811Z` showed route-yaw mode `3` can move one bot plausibly. Repeatable useful direction replacement remains unproven. |
+| Test movement overrides automatically | Provisionally proven | `experiments/ktx_moveprobe/frogbot-moveprobe.patch` hooks KTX `BotSetCommand()` after the prewar-freeze guard and before button assembly/`trap_SetBotCMD(...)`; `20260605T225720Z` and `20260605T225802Z` passed explicit mode `3` command/plausibility gates on two routed maps. |
 | Visual validation | Available for playback | `ezquake-test` / `~/hud-runner` can render existing demos headlessly; useful after new MVDs exist. |
 
 ## One-command Bot Runner
@@ -241,6 +241,8 @@ Verified repeatability runs:
 | `20260605T222047Z` | `28599` | `65648` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2a forced-jump mode `1`, command logging enabled, `196` commands parsed. |
 | `20260605T222129Z` | `28599` | `47234` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2a fixed-command mode `2`, command logging enabled, `197` commands parsed, near-stationary metrics. |
 | `20260605T224811Z` | `28599` | `59812` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2b route-yaw mode `3`, command logging enabled, `197` commands parsed, mixed movement plausibility. |
+| `20260605T225720Z` | `28599` | `67335` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2c route-yaw mode `3`, command logging enabled, `197` commands parsed, both bots passed plausibility gate. |
+| `20260605T225802Z` | `28599` | `64591` bytes | `json=0`, `md=0`, `events=1` | `dm3`; S2 v2c route-yaw mode `3`, command logging enabled, `196` commands parsed, both bots passed plausibility gate. |
 
 In verified runs, `quakestat -qws localhost:28599 -P -nh` reported `DOWN` after cleanup.
 
@@ -415,7 +417,7 @@ The current runner uses session names shaped like `komodobots_lab_<port>_<run-id
 - Determinism is unknown. The lab must record seed/config/server version details before comparing movement runs.
 - Stock `dm2` can load, record, and parse, but it is not a Frogbot-supported route target in this environment. User confirmed there is no point building routes for it now.
 - A first-pass movement report schema exists, but it is still position-derived and does not yet infer ground-truth jump commands, grounded state, or usercmd intent.
-- The S2 v2b moveprobe proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`, and that route-derived yaw can produce plausible movement for at least one bot. It does not yet prove repeatable useful movement-vector replacement; one bot in the v2b run still had high stationary time.
+- The S2 v2c moveprobe proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`, and that route-derived yaw can pass provisional command/plausibility gates on two routed maps. It does not yet solve aim/combat separation or bunnyjumping.
 
 ## Troubleshooting
 
@@ -443,4 +445,4 @@ Move the repeatable runner one notch closer to the north star:
 
 1. Keep `dm2` as a `qw-sim` continuity map, not as a Frogbot route-building target.
 2. Use routed maps such as `frobodm2` and `dm3` to generate bot movement demos.
-3. Repeat/refine the route-yaw moveprobe with explicit plausibility gates now that partial useful movement is observed. Success should include stationary/low-speed thresholds and command coverage, not speed alone.
+3. After review, start an S3a bounded bunnyjump-primitive probe. Keep it time-boxed and measured against the v2c plausibility gate; do not treat speed alone as success.

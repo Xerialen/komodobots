@@ -629,3 +629,86 @@ The command evidence is direct and strong. The behavior evidence is mixed and co
 ### Follow-up
 
 Run moveprobe v2c before advancing to S3: make the plausibility gate explicit, repeat mode `3` across at least `frobodm2` and `dm3` or multiple short runs, and summarize stationary/low-speed ratios plus route-yaw command coverage. If the route-yaw probe is still split, refine fallback/recovery rather than declaring S2 complete.
+
+## 2026-06-05 - S2 Moveprobe v2c Repeatability and Plausibility Gate
+
+### Experiment
+
+Added `scripts/summarize_moveprobe_plausibility.py`, a small artifact summarizer that combines per-run `movement-metrics.json` and `moveprobe-commands.json` into an explicit gate:
+
+- expected forward command coverage >= `80%`
+- jump-button command coverage >= `80%`
+- distinct sampled yaw values >= `10`
+- stationary time <= `25%`
+- low-speed time <= `40%`
+
+The goal was to make the "not speed alone" rule executable before deciding whether route-yaw mode `3` is enough S2 evidence.
+
+Then temporarily deployed the patched KTX build again and ran fresh route-yaw mode `3` repeats:
+
+```bash
+python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 3 --moveprobe-log-commands --moveprobe-log-interval 0.25
+python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 3 --moveprobe-log-commands --moveprobe-log-interval 0.25
+```
+
+### Result
+
+Fresh `frobodm2` repeat `20260605T225720Z`:
+
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Command rows parsed: `197`.
+- `/ bro`: PASS, `110` commands, forward coverage `82.7%`, jump coverage `82.7%`, `107` distinct sampled yaws, avg `278.1` qu/s, p95 `462.6` qu/s, stationary `6.5%`, low-speed `22.1%`, air proxy `28.7%`.
+- `/ goldenboy`: PASS, `87` commands, forward coverage `95.4%`, jump coverage `95.4%`, `87` distinct sampled yaws, avg `370.3` qu/s, p95 `466.7` qu/s, stationary `0.2%`, low-speed `5.1%`, air proxy `26.2%`.
+- No frags recorded in the short run, though command logs included firing-button combinations (`1` and `3`).
+
+Fresh `dm3` repeat `20260605T225802Z`:
+
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Command rows parsed: `196`.
+- `/ bro`: PASS, `110` commands, forward coverage `99.1%`, jump coverage `99.1%`, `110` distinct sampled yaws, avg `299.8` qu/s, p95 `450.4` qu/s, stationary `1.1%`, low-speed `1.4%`, air proxy `58.5%`.
+- `/ goldenboy`: PASS, `86` commands, forward coverage `95.3%`, jump coverage `95.3%`, `84` distinct sampled yaws, avg `393.6` qu/s, p95 `462.7` qu/s, stationary `0.0%`, low-speed `1.7%`, air proxy `7.9%`.
+- No frags recorded in the short run.
+
+After the runs:
+
+```text
+deployed qwprogs hash matched backup
+servexeri ~/nquakesv/build/ktx: clean master...origin/master
+quakestat localhost:28599: DOWN
+```
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/lab-runs/20260605T225720Z/run-summary.md`
+- `artifacts/lab-runs/20260605T225720Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260605T225720Z/movement-metrics.md`
+- `artifacts/lab-runs/20260605T225802Z/run-summary.md`
+- `artifacts/lab-runs/20260605T225802Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260605T225802Z/movement-metrics.md`
+- `artifacts/lab-runs/moveprobe-v2c-fresh-summary.md`
+
+Validation:
+
+- `python -m unittest discover -s tests -v`
+- `python -m py_compile scripts\extract_movement_metrics.py scripts\run_frobodm2_lab.py scripts\run_bot_lab.py scripts\summarize_moveprobe_plausibility.py experiments\qw_min_client.py tests\test_extract_movement_metrics.py tests\test_moveprobe_plausibility.py`
+- `git diff --check -- . ':(exclude)experiments/ktx_moveprobe/frogbot-moveprobe.patch'`
+- Local KTX `git apply --check` from a clean checkout.
+- Remote KTX apply/build/deploy/reverse/rebuild completed cleanly.
+
+### Interpretation
+
+S2 movement override feasibility is provisionally satisfied pending review. The final command seam can be observed and replaced, fixed-command replacement failed as expected, and route-yaw mode `3` produced repeatable movement that passes an explicit non-speed-only gate on two routed maps.
+
+This does not mean Komodobots has a realistic movement brain. Mode `3` still commandeers view yaw, so aim/movement separation and combat realism remain unresolved. The short v2c runs did not record frags. The result should be treated as permission to propose S3, not as a final controller.
+
+### Confidence
+
+Medium-high for S2 movement-feasibility.
+
+Medium-low for player-believability implications, because aim/combat separation is still open and the runs are short.
+
+### Follow-up
+
+Ask Claude to review S2 exit. If accepted, start S3a: a bounded bunnyjump-primitive probe that compares a minimal yaw/strafe/jump policy against mode `3` and baseline metrics, uses the v2c plausibility gate, and keeps combat/aim limitations explicit.

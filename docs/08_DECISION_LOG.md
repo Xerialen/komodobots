@@ -316,11 +316,13 @@ The v2a emitted-command comparison (`20260605T222006Z`, `20260605T222047Z`, `202
 
 The v2b route-yaw run (`20260605T224811Z`) showed that mode `3` can emit route-derived yaw with mostly `forward=800` and jump-bearing buttons. `/ goldenboy` moved plausibly, but `/ bro` spent `59.7%` of active time stationary.
 
+The v2c repeatability check added an explicit command/plausibility gate and fresh route-yaw mode `3` repeats. `20260605T225720Z` on `frobodm2` and `20260605T225802Z` on `dm3` passed the gate for all four bot rows.
+
 ### Expected Consequences
 
-S2 can proceed with instrumentation and small controller probes inside the server-native KTX/Frogbot loop instead of rewriting the bot stack.
+S2 can proceed with instrumentation and small controller probes inside the server-native KTX/Frogbot loop instead of rewriting the bot stack. The project can treat movement override feasibility as provisionally satisfied pending review.
 
-The next controller/probe should replace movement direction/yaw more carefully than the fixed-command mode while leaving combat and the rest of the lab loop intact. S2 is not complete until useful replacement produces both final-command evidence and consistently plausible movement behavior, including low stationary time rather than speed alone.
+The next controller/probe should move toward a bounded S3 bunnyjump primitive while keeping combat/aim separation explicit. Mode `3` proves movement feasibility, not a final player-realism controller.
 
 ### Revisit Conditions
 

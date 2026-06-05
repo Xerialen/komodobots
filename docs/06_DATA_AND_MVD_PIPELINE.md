@@ -60,6 +60,7 @@ For DM2 big-room bunnyjump lab work and routed-map bot movement evidence, start 
 Current implemented first pass:
 
 - Script: `scripts/extract_movement_metrics.py`
+- Plausibility summarizer: `scripts/summarize_moveprobe_plausibility.py`
 - Input: `events.txt` from `qw-analyze-v20 -format events`
 - Position source: line-delimited JSON events with `kind:5`, `PlayerNum`, `Origin`, and `TimeMs`
 - Player naming source: `kind:1` player info events
@@ -87,6 +88,13 @@ Current metric fields per named player:
 - dropped teleport/respawn-like segments above 2500 qu/s
 
 Current limitation: these are position-derived metrics. The airborne fields are proxies derived from Z-motion runs, not ground-truth jump button, grounded flag, friction-window, or legal usercmd intent.
+
+Moveprobe plausibility gate:
+
+- Schema: `komodobots.moveprobe_plausibility.v1`
+- Inputs: per-run `movement-metrics.json` plus `moveprobe-commands.json`
+- Default gate: expected forward command coverage >= `80%`, jump-button command coverage >= `80%`, at least `10` distinct sampled yaw values, stationary time <= `25%`, low-speed time <= `40%`
+- Purpose: prevent speed-only interpretation by requiring command coverage and low stuck/low-speed behavior
 
 S2 moveprobe note:
 
@@ -220,6 +228,8 @@ Verified one-command parser behavior:
 20260605T222047Z: json=0 md=0 events=1 demo=65648 bytes map=frobodm2 moveprobe=1 commands=196 movementPlayers=2
 20260605T222129Z: json=0 md=0 events=1 demo=47234 bytes map=frobodm2 moveprobe=2 commands=197 movementPlayers=2
 20260605T224811Z: json=0 md=0 events=1 demo=59812 bytes map=frobodm2 moveprobe=3 commands=197 movementPlayers=2
+20260605T225720Z: json=0 md=0 events=1 demo=67335 bytes map=frobodm2 moveprobe=3 commands=197 movementPlayers=2
+20260605T225802Z: json=0 md=0 events=1 demo=64591 bytes map=dm3 moveprobe=3 commands=196 movementPlayers=2
 ```
 
 For now, `events=1` with stderr `qw-analyze: end of demo` is accepted if `events.txt` is written and JSON/Markdown exits are zero. JSON is the canonical smoke-run parser artifact.
@@ -288,6 +298,12 @@ Fresh S2 emitted-command evidence:
 20260605T224811Z frobodm2 moveprobe mode 3, route-yaw command logging:
   commands=197; sampled yaw varied by route direction, with forward=800 in 189/197 rows
   / bro avg=137.4 p95=442.4 airProxy=8.9% stationary=59.7%; / goldenboy avg=330.8 p95=464.6 airProxy=27.6% stationary=1.3%
+
+20260605T225720Z frobodm2 moveprobe mode 3, v2c gate:
+  both bots passed; / bro stationary=6.5% low=22.1%; / goldenboy stationary=0.2% low=5.1%
+
+20260605T225802Z dm3 moveprobe mode 3, v2c gate:
+  both bots passed; / bro stationary=1.1% low=1.4%; / goldenboy stationary=0.0% low=1.7%
 ```
 
 ## Open questions

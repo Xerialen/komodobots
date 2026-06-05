@@ -128,7 +128,12 @@ The v2b route-yaw probe then added moveprobe mode `3`:
 
 - `20260605T224811Z`, route-yaw mode `3`: command logging showed varied route-derived yaw, mostly `forward=800`, and jump-bearing buttons. `/ goldenboy` moved plausibly with avg `330.8` qu/s, p95 `464.6` qu/s, and `27.6%` air proxy. `/ bro` had p95 `442.4` qu/s, but also `59.7%` stationary time and avg only `137.4` qu/s.
 
-This proves the final emitted command can be observed and replaced. It also gives partial positive evidence that a route-derived movement command can move through the existing KTX/Frogbot shell. It still does not complete S2, because the same run produced one plausible bot and one stuck-prone bot. The next proof should repeat or refine mode `3` with explicit plausibility gates such as stationary/low-speed ratios and route-derived command coverage, not speed alone.
+The v2c repeatability check added `scripts/summarize_moveprobe_plausibility.py` and reran mode `3`:
+
+- `20260605T225720Z`, `frobodm2`: both bots passed the v2c gate. `/ bro` stationary `6.5%`, low-speed `22.1%`; `/ goldenboy` stationary `0.2%`, low-speed `5.1%`.
+- `20260605T225802Z`, `dm3`: both bots passed the v2c gate. `/ bro` stationary `1.1%`, low-speed `1.4%`; `/ goldenboy` stationary `0.0%`, low-speed `1.7%`.
+
+This proves the final emitted command can be observed and replaced, and gives repeatable positive movement-feasibility evidence for a route-derived command policy on two routed maps. It is enough to treat S2 as provisionally satisfied pending review. It does not solve aim/movement separation or bunnyjumping: mode `3` still commandeers view yaw, and the fresh short runs recorded no frags.
 
 ## Working hypothesis
 

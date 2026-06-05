@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+"""Summarize moveprobe command coverage and movement plausibility for lab runs."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from collections import Counter
+from pathlib import Path
+from typing import Iterable
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+ARTIFACT_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
+
+
+def read_json(path: Path) -> dict:
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def read_run_env(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.exists():
+        return values
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if "=" in line:
+            key, value = line.split("=", 1)
+            values[key] = value
+    return values
+
+
+def ratio(count: int, total: int) -> float:
+    if total <= 0:
+        return 0.0
+    return count / total
+
+
+def command_rows_by_player(commands: dict) -> dict[str, list[dict]]:
+    rows_by_player: dict[str, list[dict]] = {}
+    for row in commands.get("commands", []):
+        name = str(row.get("name", "")).strip()
+        if name:
+            rows_by_player.setdefault(name, []).append(row)
+    return rows_by_player
+
+
+def summarize_player(
+    movement_row: dict,
+    command_rows: list[dict],
+    *,
+    expected_forward: int,
+    max_stationary_ratio: float,
+    max_low_speed_ratio: float,
+    min_forward_ratio: float,
+    min_jump_ratio: float,
+    min_yaw_unique: int,
+) -> dict[str, object]:
+    command_count = len(command_rows)
+    forward_counts = Counter(int(row.get("move", {}).get("forward", 0)) for row in command_rows)
+    jump_count = sum(1 for row in command_rows if int(row.get("buttons", 0)) & 2)
+    yaw_values = {
+        round(float(row.get("angles", {}).get("yaw", 0.0)), 1)
+        for row in command_rows
+    }
+
+    stationary_ratio = float(movement_row.get("stationary_time_ratio", 0.0))
+    low_speed_ratio = float(movement_row.get("low_speed_time_ratio", 0.0))
+    forward_expected_ratio = ratio(forward_counts[expected_forward], command_count)
+    jump_button_ratio = ratio(jump_count, command_count)
+    yaw_unique_count = len(yaw_values)
+
+    reasons: list[str] = []
+    if command_count == 0:
+        reasons.append("no command rows")
+    if forward_expected_ratio < min_forward_ratio:
+        reasons.append(f"forward coverage {forward_expected_ratio:.1%} < {min_forward_ratio:.1%}")
+    if jump_button_ratio < min_jump_ratio:
+        reasons.append(f"jump coverage {jump_button_ratio:.1%} < {min_jump_ratio:.1%}")
+    if yaw_unique_count < min_yaw_unique:
+        reasons.append(f"yaw variety {yaw_unique_count} < {min_yaw_unique}")
+    if stationary_ratio > max_stationary_ratio:
+        reasons.append(f"stationary {stationary_ratio:.1%} > {max_stationary_ratio:.1%}")
+    if low_speed_ratio > max_low_speed_ratio:
+        reasons.append(f"low-speed {low_speed_ratio:.1%} > {max_low_speed_ratio:.1%}")
+
+    return {
+        "player": movement_row.get("name", ""),
+        "slot": movement_row.get("slot"),
+        "command_count": command_count,
+        "forward_expected_ratio": round(forward_expected_ratio, 3),
+        "jump_button_ratio": round(jump_button_ratio, 3),
+        "yaw_unique_count": yaw_unique_count,
+        "avg_horizontal_speed_qu_per_s": movement_row.get("avg_horizontal_speed_qu_per_s", 0.0),
+        "p95_horizontal_speed_qu_per_s": movement_row.get("p95_horizontal_speed_qu_per_s", 0.0),
+        "stationary_time_ratio": movement_row.get("stationary_time_ratio", 0.0),
+        "low_speed_time_ratio": movement_row.get("low_speed_time_ratio", 0.0),
+        "airborne_proxy_time_ratio": movement_row.get("airborne_proxy_time_ratio", 0.0),
+        "passes_gate": not reasons,
+        "failure_reasons": reasons,
+    }
+
+
+def summarize_run(
+    run_dir: Path,
+    *,
+    expected_forward: int,
+    max_stationary_ratio: float,
+    max_low_speed_ratio: float,
+    min_forward_ratio: float,
+    min_jump_ratio: float,
+    min_yaw_unique: int,
+) -> dict[str, object]:
+    if not run_dir.is_dir():
+        raise FileNotFoundError(f"Missing run directory: {run_dir}")
+
+    movement = read_json(run_dir / "movement-metrics.json")
+    commands = read_json(run_dir / "moveprobe-commands.json")
+    run_env = read_run_env(run_dir / "run.env")
+    rows_by_player = command_rows_by_player(commands)
+
+    players = []
+    for movement_row in movement.get("players", []):
+        name = str(movement_row.get("name", "")).strip()
+        players.append(
+            summarize_player(
+                movement_row,
+                rows_by_player.get(name, []),
+                expected_forward=expected_forward,
+                max_stationary_ratio=max_stationary_ratio,
+                max_low_speed_ratio=max_low_speed_ratio,
+                min_forward_ratio=min_forward_ratio,
+                min_jump_ratio=min_jump_ratio,
+                min_yaw_unique=min_yaw_unique,
+            )
+        )
+
+    return {
+        "run_id": run_dir.name,
+        "map": run_env.get("MAP", ""),
+        "moveprobe_mode": run_env.get("MOVEPROBE_MODE", ""),
+        "players": players,
+        "passes_gate": all(player["passes_gate"] for player in players) and bool(players),
+    }
+
+
+def fmt_percent(value: object) -> str:
+    try:
+        return f"{float(value) * 100.0:.1f}%"
+    except (TypeError, ValueError):
+        return ""
+
+
+def fmt_number(value: object, digits: int = 1) -> str:
+    try:
+        return f"{float(value):.{digits}f}"
+    except (TypeError, ValueError):
+        return ""
+
+
+def build_markdown(summary: dict[str, object]) -> str:
+    lines = [
+        "# Moveprobe Plausibility Summary",
+        "",
+        "Gate: command coverage and movement plausibility, not speed alone.",
+        "",
+        "| Run | Map | Mode | Player | Gate | Cmds | Forward | Jump | Yaws | Avg | P95 | Stationary | Low | Air | Reasons |",
+        "|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
+    ]
+    for run in summary.get("runs", []):
+        for player in run.get("players", []):
+            reasons = "; ".join(player.get("failure_reasons", []))
+            gate = "PASS" if player.get("passes_gate") else "FAIL"
+            lines.append(
+                f"| `{run.get('run_id')}` | `{run.get('map')}` | `{run.get('moveprobe_mode')}` | "
+                f"`{player.get('player')}` | {gate} | `{player.get('command_count')}` | "
+                f"{fmt_percent(player.get('forward_expected_ratio'))} | "
+                f"{fmt_percent(player.get('jump_button_ratio'))} | "
+                f"`{player.get('yaw_unique_count')}` | "
+                f"`{fmt_number(player.get('avg_horizontal_speed_qu_per_s'))}` | "
+                f"`{fmt_number(player.get('p95_horizontal_speed_qu_per_s'))}` | "
+                f"{fmt_percent(player.get('stationary_time_ratio'))} | "
+                f"{fmt_percent(player.get('low_speed_time_ratio'))} | "
+                f"{fmt_percent(player.get('airborne_proxy_time_ratio'))} | {reasons} |"
+            )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def build_summary(args: argparse.Namespace) -> dict[str, object]:
+    runs = []
+    for run_id in args.run_ids:
+        run_path = Path(run_id)
+        if not run_path.is_dir():
+            run_path = args.artifacts_root / run_id
+        runs.append(
+            summarize_run(
+                run_path,
+                expected_forward=args.expected_forward,
+                max_stationary_ratio=args.max_stationary_ratio,
+                max_low_speed_ratio=args.max_low_speed_ratio,
+                min_forward_ratio=args.min_forward_ratio,
+                min_jump_ratio=args.min_jump_ratio,
+                min_yaw_unique=args.min_yaw_unique,
+            )
+        )
+
+    return {
+        "schema": "komodobots.moveprobe_plausibility.v1",
+        "thresholds": {
+            "expected_forward": args.expected_forward,
+            "max_stationary_ratio": args.max_stationary_ratio,
+            "max_low_speed_ratio": args.max_low_speed_ratio,
+            "min_forward_ratio": args.min_forward_ratio,
+            "min_jump_ratio": args.min_jump_ratio,
+            "min_yaw_unique": args.min_yaw_unique,
+        },
+        "runs": runs,
+        "passes_gate": all(run["passes_gate"] for run in runs) and bool(runs),
+    }
+
+
+def parse_args(argv: Iterable[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Summarize moveprobe plausibility across lab runs.")
+    parser.add_argument("run_ids", nargs="+", help="Run IDs under artifacts/lab-runs, or explicit run directories.")
+    parser.add_argument("--artifacts-root", type=Path, default=ARTIFACT_ROOT, help="Lab artifact root.")
+    parser.add_argument("--expected-forward", type=int, default=800, help="Expected forward command value.")
+    parser.add_argument("--max-stationary-ratio", type=float, default=0.25, help="Maximum acceptable stationary time ratio.")
+    parser.add_argument("--max-low-speed-ratio", type=float, default=0.40, help="Maximum acceptable low-speed time ratio.")
+    parser.add_argument("--min-forward-ratio", type=float, default=0.80, help="Minimum expected-forward command coverage.")
+    parser.add_argument("--min-jump-ratio", type=float, default=0.80, help="Minimum jump-button command coverage.")
+    parser.add_argument("--min-yaw-unique", type=int, default=10, help="Minimum distinct sampled yaw values per player.")
+    parser.add_argument("--output-json", type=Path, help="Optional JSON output path.")
+    parser.add_argument("--output-md", type=Path, help="Optional Markdown output path.")
+    return parser.parse_args(list(argv))
+
+
+def main(argv: Iterable[str] = sys.argv[1:]) -> int:
+    args = parse_args(argv)
+    summary = build_summary(args)
+    markdown = build_markdown(summary)
+
+    if args.output_json:
+        args.output_json.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if args.output_md:
+        args.output_md.write_text(markdown, encoding="utf-8")
+
+    print(markdown)
+    return 0 if summary["passes_gate"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

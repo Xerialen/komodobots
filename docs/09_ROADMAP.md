@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S2 - Movement Override Feasibility`
+`S2 exit review / S3 proposal`
 
 ## Stage Status Table
 
@@ -44,8 +44,8 @@ Current active stage:
 |---------|---------|---------|
 | S0 Smoke Test | Complete | Bot moves, MVD recorded, MVD parsed |
 | S1 Baseline | Complete | Measured current Frogbot movement with speed and airborne-proxy metrics |
-| S2 Override | Active; route-yaw probe produced mixed partial evidence | Prove useful movement-vector replacement with repeated plausible behavior and explicit stationary/low-speed gates |
-| S3 Bunnyjump Controller | Pending | Better movement than baseline |
+| S2 Override | Provisionally satisfied pending review | Route-yaw mode `3` passed explicit v2c command/plausibility gates on `frobodm2` and `dm3` |
+| S3 Bunnyjump Controller | Proposed next | First bounded bunnyjump primitive, judged against v2c plausibility gate and not speed alone |
 | S4 Human Comparison | Pending | Metric comparison against human demos |
 | S5 Milton Reference | Pending | Elite movement reference dataset |
 | S6 Route Primitives | Pending | Route-level movement behaviours |
