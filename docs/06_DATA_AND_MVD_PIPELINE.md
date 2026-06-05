@@ -219,6 +219,7 @@ Verified one-command parser behavior:
 20260605T222006Z: json=0 md=0 events=1 demo=71105 bytes map=frobodm2 moveprobe=0 commands=196 movementPlayers=2
 20260605T222047Z: json=0 md=0 events=1 demo=65648 bytes map=frobodm2 moveprobe=1 commands=196 movementPlayers=2
 20260605T222129Z: json=0 md=0 events=1 demo=47234 bytes map=frobodm2 moveprobe=2 commands=197 movementPlayers=2
+20260605T224811Z: json=0 md=0 events=1 demo=59812 bytes map=frobodm2 moveprobe=3 commands=197 movementPlayers=2
 ```
 
 For now, `events=1` with stderr `qw-analyze: end of demo` is accepted if `events.txt` is written and JSON/Markdown exits are zero. JSON is the canonical smoke-run parser artifact.
@@ -283,6 +284,10 @@ Fresh S2 emitted-command evidence:
 20260605T222129Z frobodm2 moveprobe mode 2, command logging:
   commands=197; both bots emitted yaw=[90.0], forward=[800], side=[0], up=[0], buttons=[2]
   / bro avg=1.9 p95=0.0 airProxy=0.0%; / goldenboy avg=1.6 p95=0.0 airProxy=0.0%
+
+20260605T224811Z frobodm2 moveprobe mode 3, route-yaw command logging:
+  commands=197; sampled yaw varied by route direction, with forward=800 in 189/197 rows
+  / bro avg=137.4 p95=442.4 airProxy=8.9% stationary=59.7%; / goldenboy avg=330.8 p95=464.6 airProxy=27.6% stationary=1.3%
 ```
 
 ## Open questions

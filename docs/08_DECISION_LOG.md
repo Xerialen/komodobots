@@ -314,11 +314,13 @@ Run `20260605T213149Z` proved a forced-jump perturbation can preserve bot spawni
 
 The v2a emitted-command comparison (`20260605T222006Z`, `20260605T222047Z`, `20260605T222129Z`) showed stock variable commands, forced-jump commands with jump-bearing final buttons, and fixed mode `2` commands with constant `yaw=90 forward=800 side=0 up=0 buttons=2`. Mode `2` still collapsed behavior to near-stationary movement.
 
+The v2b route-yaw run (`20260605T224811Z`) showed that mode `3` can emit route-derived yaw with mostly `forward=800` and jump-bearing buttons. `/ goldenboy` moved plausibly, but `/ bro` spent `59.7%` of active time stationary.
+
 ### Expected Consequences
 
 S2 can proceed with instrumentation and small controller probes inside the server-native KTX/Frogbot loop instead of rewriting the bot stack.
 
-The next controller should replace movement direction/yaw more carefully than the fixed-command mode while leaving combat and the rest of the lab loop intact. S2 is not complete until that useful replacement produces both final-command evidence and plausible movement behavior.
+The next controller/probe should replace movement direction/yaw more carefully than the fixed-command mode while leaving combat and the rest of the lab loop intact. S2 is not complete until useful replacement produces both final-command evidence and consistently plausible movement behavior, including low stationary time rather than speed alone.
 
 ### Revisit Conditions
 

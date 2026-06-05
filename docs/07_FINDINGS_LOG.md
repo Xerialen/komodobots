@@ -567,3 +567,65 @@ S2 should continue with a tiny useful controller probe. The controller should be
 ### Follow-up
 
 Build moveprobe v2b: replace fixed mode `2` with, or add mode `3` for, a minimal controlled movement policy that uses a plausible yaw/direction source instead of a constant world yaw. Run it on a routed map and require both emitted-command evidence and movement plausibility checks before calling S2 complete.
+
+## 2026-06-05 - S2 Moveprobe v2b Route-Yaw Probe
+
+### Experiment
+
+Added moveprobe mode `3` to the KTX experiment patch. Mode `3` uses Frogbot's current horizontal route movement direction (`self->fb.dir_move_`) as the desired yaw, emits a simple `forwardmove` command, allows optional `sidemove`/`upmove`, and forces jump. If the route direction is empty for a frame, the mode leaves the already-computed stock command intact for that frame.
+
+Temporarily deployed the patched `qwprogs.so` to `servexeri`, ran one short `frobodm2` lab with command logging, then restored the deployed `qwprogs.so` from backup.
+
+```bash
+python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 3 --moveprobe-log-commands --moveprobe-log-interval 0.25
+```
+
+### Result
+
+Run `20260605T224811Z` completed the full lab loop:
+
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Command rows parsed: `197`.
+- `/ bro`: `108/110` sampled commands emitted `forward=800`, `107/110` emitted buttons `2`, and yaw had `44` distinct sampled values. Movement was mixed: avg `137.4` qu/s, p95 `442.4` qu/s, air proxy `8.9%`, but stationary time was `59.7%`.
+- `/ goldenboy`: `81/87` sampled commands emitted `forward=800`, `81/87` emitted buttons `2`, and yaw had `87` distinct sampled values. Movement was plausible: avg `330.8` qu/s, p95 `464.6` qu/s, over maxspeed `62.6%`, air proxy `27.6%`, stationary time `1.3%`.
+
+After the run:
+
+```text
+deployed qwprogs hash matched backup
+servexeri ~/nquakesv/build/ktx: clean master...origin/master
+quakestat localhost:28599: DOWN
+```
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/lab-runs/20260605T224811Z/run-summary.md`
+- `artifacts/lab-runs/20260605T224811Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260605T224811Z/movement-metrics.md`
+
+Validation:
+
+- `python -m unittest discover -s tests -v`
+- `python -m py_compile scripts\extract_movement_metrics.py scripts\run_frobodm2_lab.py scripts\run_bot_lab.py experiments\qw_min_client.py tests\test_extract_movement_metrics.py`
+- `git diff --check -- . ':(exclude)experiments/ktx_moveprobe/frogbot-moveprobe.patch'`
+- `git diff --check -- experiments/ktx_moveprobe/frogbot-moveprobe.patch`
+- Local KTX `git apply --check` from a clean checkout.
+- Remote KTX apply/build/deploy/reverse/rebuild completed cleanly.
+
+### Interpretation
+
+Mode `3` is meaningful partial progress. The emitted-command evidence shows the seam can drive route-derived yaw and forward movement, not only a constant fixed command. The behavior evidence is not strong enough to close S2: one bot moved plausibly, while the other still spent most of the run stationary.
+
+The likely lesson is that "route-derived yaw plus always-forward/jump" is closer to useful movement than fixed world yaw, but it still conflicts with route state, aim, local geometry, or recovery in enough cases that a single successful-looking bot cannot be treated as a general movement replacement.
+
+### Confidence
+
+Medium.
+
+The command evidence is direct and strong. The behavior evidence is mixed and comes from one short run, so the conclusion should remain cautious.
+
+### Follow-up
+
+Run moveprobe v2c before advancing to S3: make the plausibility gate explicit, repeat mode `3` across at least `frobodm2` and `dm3` or multiple short runs, and summarize stationary/low-speed ratios plus route-yaw command coverage. If the route-yaw probe is still split, refine fallback/recovery rather than declaring S2 complete.

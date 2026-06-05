@@ -31,7 +31,7 @@ Third lab milestone on 2026-06-05: `scripts/extract_movement_metrics.py` now der
 
 Fourth lab milestone on 2026-06-05: movement metrics schema v2 adds vertical-motion and airborne-proxy metrics: air-proxy time ratio, run cadence, average air-proxy duration, and post-landing speed delta/loss over a fixed window.
 
-Fifth lab milestone on 2026-06-05: the first S2 movement override probe patched KTX `BotSetCommand()` after the prewar-freeze guard and immediately before button assembly and `trap_SetBotCMD(...)`. Moveprobe mode `1` forced jump while preserving Frogbot direction/combat and produced a normal `frobodm2` run with three frags and movement metrics. Moveprobe mode `2` replaced the final movement command with a fixed command plus forced jump and produced full lab artifacts, but the bots became nearly stationary. This proves command perturbation is possible; it does not yet prove useful movement-vector replacement.
+Fifth lab milestone on 2026-06-05: the first S2 movement override probe patched KTX `BotSetCommand()` after the prewar-freeze guard and immediately before button assembly and `trap_SetBotCMD(...)`. Moveprobe mode `1` forced jump while preserving Frogbot direction/combat and produced a normal `frobodm2` run with three frags and movement metrics. Moveprobe mode `2` replaced the final movement command with a fixed command plus forced jump and produced full lab artifacts, but the bots became nearly stationary. Moveprobe mode `3` used route-derived yaw and produced mixed evidence: one plausible bot and one stuck-prone bot. This proves command perturbation is possible and useful movement is plausible, but S2 still needs repeatability and explicit plausibility gates.
 
 ## Environment Diagram
 
@@ -158,7 +158,7 @@ The bundle README says it was built from mvd_analyzer commit `7d83ebe`, while th
 | Record MVD automatically | Proven on `frobodm2` and `dm3` | KTX saved non-empty MVDs after `sv_demostop`. |
 | Parse MVD automatically | Proven for summary/events | `qw-analyze-v20` parsed JSON/Markdown summary exit 0; events mode emitted data then exited 1 with `qw-analyze: end of demo`. |
 | Generate movement report automatically | Proven v2 | `scripts/extract_movement_metrics.py` writes speed plus airborne-proxy movement metrics from MVD event position samples. |
-| Test movement overrides automatically | First probe proven | `experiments/ktx_moveprobe/frogbot-moveprobe.patch` hooks KTX `BotSetCommand()` after the prewar-freeze guard and before button assembly/`trap_SetBotCMD(...)`; `20260605T213149Z` proved a forced-jump command perturbation can preserve spawn/combat/MVD/parser/metrics. Useful direction replacement remains unproven. |
+| Test movement overrides automatically | Partial useful probe proven | `experiments/ktx_moveprobe/frogbot-moveprobe.patch` hooks KTX `BotSetCommand()` after the prewar-freeze guard and before button assembly/`trap_SetBotCMD(...)`; `20260605T213149Z` proved a forced-jump command perturbation can preserve spawn/combat/MVD/parser/metrics, and `20260605T224811Z` showed route-yaw mode `3` can move one bot plausibly. Repeatable useful direction replacement remains unproven. |
 | Visual validation | Available for playback | `ezquake-test` / `~/hud-runner` can render existing demos headlessly; useful after new MVDs exist. |
 
 ## One-command Bot Runner
@@ -176,11 +176,12 @@ python scripts/run_bot_lab.py --duration 40 --bot-count 2
 python scripts/run_bot_lab.py --map dm3 --duration 40 --bot-count 2
 python scripts/run_bot_lab.py --map frobodm2 --duration 40 --bot-count 2 --moveprobe-mode 1
 python scripts/run_bot_lab.py --map frobodm2 --duration 20 --bot-count 2 --moveprobe-mode 0 --moveprobe-log-commands
+python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 3 --moveprobe-log-commands
 ```
 
 The `--moveprobe-*` options only change behavior when the S2 KTX patch from `experiments/ktx_moveprobe/` is applied to the server-side KTX build. Without that patch, the runner still records the cvars in `lab.cfg` and `run.env`, but stock KTX ignores them.
 
-`--moveprobe-log-commands` enables the patch's sampled `FBMOVEPROBE_CMD` console rows. The runner parses those rows from `screen.log` into `moveprobe-commands.json` and `moveprobe-commands.md`, making it possible to compare the actual command values emitted by stock mode `0`, forced-jump mode `1`, and fixed-command mode `2`.
+`--moveprobe-log-commands` enables the patch's sampled `FBMOVEPROBE_CMD` console rows. The runner parses those rows from `screen.log` into `moveprobe-commands.json` and `moveprobe-commands.md`, making it possible to compare the actual command values emitted by stock mode `0`, forced-jump mode `1`, fixed-command mode `2`, and route-yaw mode `3`.
 
 What it does:
 
@@ -239,6 +240,7 @@ Verified repeatability runs:
 | `20260605T222006Z` | `28599` | `71105` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2a stock mode `0`, command logging enabled, `196` commands parsed. |
 | `20260605T222047Z` | `28599` | `65648` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2a forced-jump mode `1`, command logging enabled, `196` commands parsed. |
 | `20260605T222129Z` | `28599` | `47234` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2a fixed-command mode `2`, command logging enabled, `197` commands parsed, near-stationary metrics. |
+| `20260605T224811Z` | `28599` | `59812` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2b route-yaw mode `3`, command logging enabled, `197` commands parsed, mixed movement plausibility. |
 
 In verified runs, `quakestat -qws localhost:28599 -P -nh` reported `DOWN` after cleanup.
 
@@ -413,7 +415,7 @@ The current runner uses session names shaped like `komodobots_lab_<port>_<run-id
 - Determinism is unknown. The lab must record seed/config/server version details before comparing movement runs.
 - Stock `dm2` can load, record, and parse, but it is not a Frogbot-supported route target in this environment. User confirmed there is no point building routes for it now.
 - A first-pass movement report schema exists, but it is still position-derived and does not yet infer ground-truth jump commands, grounded state, or usercmd intent.
-- The S2 v2a moveprobe now proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`. It does not yet prove useful movement-vector replacement; the fixed-command mode collapsed into wall/stationary behavior.
+- The S2 v2b moveprobe proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`, and that route-derived yaw can produce plausible movement for at least one bot. It does not yet prove repeatable useful movement-vector replacement; one bot in the v2b run still had high stationary time.
 
 ## Troubleshooting
 
@@ -441,4 +443,4 @@ Move the repeatable runner one notch closer to the north star:
 
 1. Keep `dm2` as a `qw-sim` continuity map, not as a Frogbot route-building target.
 2. Use routed maps such as `frobodm2` and `dm3` to generate bot movement demos.
-3. Replace the fixed-command moveprobe with a tiny useful controller probe now that the emitted-command seam is confirmed. Success should include plausibility checks such as not wall-humping or going stationary, not speed alone.
+3. Repeat/refine the route-yaw moveprobe with explicit plausibility gates now that partial useful movement is observed. Success should include stationary/low-speed thresholds and command coverage, not speed alone.

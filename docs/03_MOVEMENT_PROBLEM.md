@@ -124,7 +124,11 @@ The v2a comparison then directly logged the final command values:
 - `20260605T222047Z`, forced-jump mode `1`: variable yaw/movement commands preserved, while final buttons included jump (`2` or `3`).
 - `20260605T222129Z`, fixed-command mode `2`: both bots emitted constant `yaw=90`, `forward=800`, `side=0`, `up=0`, `buttons=2`, and movement collapsed to roughly `1.6`-`1.9` qu/s average with `0.0%` air proxy.
 
-This proves the final emitted command can be observed and replaced. It still does not complete S2, because useful movement-vector replacement is not proven. The next proof should replace direction/yaw with a tiny controlled policy that can move plausibly for a bounded corridor or direction test while preserving combat and route shell behavior. Success must include plausibility checks such as not wall-humping or collapsing into stationary behavior, not only speed.
+The v2b route-yaw probe then added moveprobe mode `3`:
+
+- `20260605T224811Z`, route-yaw mode `3`: command logging showed varied route-derived yaw, mostly `forward=800`, and jump-bearing buttons. `/ goldenboy` moved plausibly with avg `330.8` qu/s, p95 `464.6` qu/s, and `27.6%` air proxy. `/ bro` had p95 `442.4` qu/s, but also `59.7%` stationary time and avg only `137.4` qu/s.
+
+This proves the final emitted command can be observed and replaced. It also gives partial positive evidence that a route-derived movement command can move through the existing KTX/Frogbot shell. It still does not complete S2, because the same run produced one plausible bot and one stuck-prone bot. The next proof should repeat or refine mode `3` with explicit plausibility gates such as stationary/low-speed ratios and route-derived command coverage, not speed alone.
 
 ## Working hypothesis
 

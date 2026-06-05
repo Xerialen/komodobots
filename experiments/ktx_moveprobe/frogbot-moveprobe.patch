@@ -1,8 +1,8 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..c76eff5 100644
+index c0654d1..ac33c1c 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -422,6 +422,77 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +422,105 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -31,6 +31,34 @@ index c0654d1..c76eff5 100644
 +
 +		self->fb.desired_angle[PITCH] = 0;
 +		self->fb.desired_angle[YAW] = cvar("k_fb_moveprobe_yaw");
++		self->fb.desired_angle[ROLL] = 0;
++
++		direction[0] = forwardmove;
++		direction[1] = cvar("k_fb_moveprobe_sidemove");
++		direction[2] = cvar("k_fb_moveprobe_upmove");
++
++		*jumping = true;
++	}
++
++	if (mode == 3)
++	{
++		vec3_t route_direction;
++		float forwardmove = cvar("k_fb_moveprobe_forwardmove");
++
++		if (forwardmove <= 0)
++		{
++			forwardmove = 800;
++		}
++
++		VectorCopy(self->fb.dir_move_, route_direction);
++		route_direction[2] = 0;
++		if (VectorNormalize(route_direction) <= 0)
++		{
++			return;
++		}
++
++		self->fb.desired_angle[PITCH] = 0;
++		self->fb.desired_angle[YAW] = vectoyaw(route_direction);
 +		self->fb.desired_angle[ROLL] = 0;
 +
 +		direction[0] = forwardmove;
@@ -80,7 +108,7 @@ index c0654d1..c76eff5 100644
  void BotSetCommand(gedict_t *self)
  {
  	extern float last_frame_time;
-@@ -556,8 +627,11 @@ void BotSetCommand(gedict_t *self)
+@@ -556,8 +655,11 @@ void BotSetCommand(gedict_t *self)
  		impulse = 0;
  	}
  
