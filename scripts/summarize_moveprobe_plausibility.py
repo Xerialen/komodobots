@@ -96,12 +96,19 @@ def summarize_player(
     max_stationary_ratio: float,
     max_low_speed_ratio: float,
     min_forward_ratio: float,
+    min_horizontal_ratio: float,
     min_jump_ratio: float,
     min_side_ratio: float,
     min_yaw_unique: int,
 ) -> dict[str, object]:
     command_count = len(command_rows)
     forward_counts = Counter(int(row.get("move", {}).get("forward", 0)) for row in command_rows)
+    horizontal_count = sum(
+        1
+        for row in command_rows
+        if int(row.get("move", {}).get("forward", 0)) != 0
+        or int(row.get("move", {}).get("side", 0)) != 0
+    )
     side_nonzero_count = sum(1 for row in command_rows if int(row.get("move", {}).get("side", 0)) != 0)
     jump_count = sum(1 for row in command_rows if int(row.get("buttons", 0)) & 2)
     yaw_values = {
@@ -112,6 +119,7 @@ def summarize_player(
     stationary_ratio = float(movement_row.get("stationary_time_ratio", 0.0))
     low_speed_ratio = float(movement_row.get("low_speed_time_ratio", 0.0))
     forward_expected_ratio = ratio(forward_counts[expected_forward], command_count)
+    horizontal_move_ratio = ratio(horizontal_count, command_count)
     side_nonzero_ratio = ratio(side_nonzero_count, command_count)
     jump_button_ratio = ratio(jump_count, command_count)
     yaw_unique_count = len(yaw_values)
@@ -121,6 +129,8 @@ def summarize_player(
         reasons.append("no command rows")
     if forward_expected_ratio < min_forward_ratio:
         reasons.append(f"forward coverage {forward_expected_ratio:.1%} < {min_forward_ratio:.1%}")
+    if horizontal_move_ratio < min_horizontal_ratio:
+        reasons.append(f"horizontal command coverage {horizontal_move_ratio:.1%} < {min_horizontal_ratio:.1%}")
     if jump_button_ratio < min_jump_ratio:
         reasons.append(f"jump coverage {jump_button_ratio:.1%} < {min_jump_ratio:.1%}")
     if side_nonzero_ratio < min_side_ratio:
@@ -137,6 +147,7 @@ def summarize_player(
         "slot": movement_row.get("slot"),
         "command_count": command_count,
         "forward_expected_ratio": round(forward_expected_ratio, 3),
+        "horizontal_move_ratio": round(horizontal_move_ratio, 3),
         "side_nonzero_ratio": round(side_nonzero_ratio, 3),
         "jump_button_ratio": round(jump_button_ratio, 3),
         "yaw_unique_count": yaw_unique_count,
@@ -157,6 +168,7 @@ def summarize_run(
     max_stationary_ratio: float,
     max_low_speed_ratio: float,
     min_forward_ratio: float,
+    min_horizontal_ratio: float,
     min_jump_ratio: float,
     min_side_ratio: float,
     min_yaw_unique: int,
@@ -190,6 +202,7 @@ def summarize_run(
                 max_stationary_ratio=max_stationary_ratio,
                 max_low_speed_ratio=max_low_speed_ratio,
                 min_forward_ratio=min_forward_ratio,
+                min_horizontal_ratio=min_horizontal_ratio,
                 min_jump_ratio=min_jump_ratio,
                 min_side_ratio=min_side_ratio,
                 min_yaw_unique=min_yaw_unique,
@@ -228,9 +241,10 @@ def build_markdown(summary: dict[str, object]) -> str:
         "Gate: command coverage and movement plausibility, not speed alone.",
         "",
         "Expected forward defaults to each run's `MOVEPROBE_FORWARDMOVE`, falling back to `800`.",
+        "For aim-independent probes with variable local forward values, set `--min-forward-ratio 0` and use `--min-horizontal-ratio` instead.",
         "",
-        "| Run | Map | Mode | Player | Gate | Cmds | Forward | Side | Jump | Yaws | Avg | P95 | Stationary | Low | Air | Reasons |",
-        "|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
+        "| Run | Map | Mode | Player | Gate | Cmds | Forward | Move | Side | Jump | Yaws | Avg | P95 | Stationary | Low | Air | Reasons |",
+        "|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
     ]
     for run in summary.get("runs", []):
         for warning in run.get("warnings", []):
@@ -242,6 +256,7 @@ def build_markdown(summary: dict[str, object]) -> str:
                 f"| `{run.get('run_id')}` | `{run.get('map')}` | `{run.get('moveprobe_mode')}` | "
                 f"`{player.get('player')}` | {gate} | `{player.get('command_count')}` | "
                 f"{fmt_percent(player.get('forward_expected_ratio'))} | "
+                f"{fmt_percent(player.get('horizontal_move_ratio'))} | "
                 f"{fmt_percent(player.get('side_nonzero_ratio'))} | "
                 f"{fmt_percent(player.get('jump_button_ratio'))} | "
                 f"`{player.get('yaw_unique_count')}` | "
@@ -268,6 +283,7 @@ def build_summary(args: argparse.Namespace) -> dict[str, object]:
                 max_stationary_ratio=args.max_stationary_ratio,
                 max_low_speed_ratio=args.max_low_speed_ratio,
                 min_forward_ratio=args.min_forward_ratio,
+                min_horizontal_ratio=args.min_horizontal_ratio,
                 min_jump_ratio=args.min_jump_ratio,
                 min_side_ratio=args.min_side_ratio,
                 min_yaw_unique=args.min_yaw_unique,
@@ -282,6 +298,7 @@ def build_summary(args: argparse.Namespace) -> dict[str, object]:
             "max_stationary_ratio": args.max_stationary_ratio,
             "max_low_speed_ratio": args.max_low_speed_ratio,
             "min_forward_ratio": args.min_forward_ratio,
+            "min_horizontal_ratio": args.min_horizontal_ratio,
             "min_jump_ratio": args.min_jump_ratio,
             "min_side_ratio": args.min_side_ratio,
             "min_yaw_unique": args.min_yaw_unique,
@@ -304,6 +321,12 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument("--max-stationary-ratio", type=float, default=0.25, help="Maximum acceptable stationary time ratio.")
     parser.add_argument("--max-low-speed-ratio", type=float, default=0.40, help="Maximum acceptable low-speed time ratio.")
     parser.add_argument("--min-forward-ratio", type=float, default=0.80, help="Minimum expected-forward command coverage.")
+    parser.add_argument(
+        "--min-horizontal-ratio",
+        type=float,
+        default=0.0,
+        help="Minimum nonzero horizontal command coverage. Useful when local forward/side values vary by view angle.",
+    )
     parser.add_argument("--min-jump-ratio", type=float, default=0.80, help="Minimum jump-button command coverage.")
     parser.add_argument("--min-side-ratio", type=float, default=0.0, help="Minimum nonzero-side command coverage. Defaults to 0 for non-strafe probes.")
     parser.add_argument("--min-yaw-unique", type=int, default=10, help="Minimum distinct sampled yaw values per player.")

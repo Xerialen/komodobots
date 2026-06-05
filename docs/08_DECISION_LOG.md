@@ -438,3 +438,40 @@ S3 continues, but the next useful code should be a small mode or diagnostic that
 ### Revisit Conditions
 
 Revisit if preserving combat view makes command coverage or movement plausibility collapse, or if source inspection shows a cleaner existing Frogbot field than `desired_angle` for separating movement intent from aim.
+
+---
+
+## Decision
+
+Diagnose the aim-independent movement split before adding a corrective policy.
+
+### Date
+
+2026-06-05
+
+### Decision
+
+Treat S3d mode `5` as a mechanical success but behavioral split. It proved that KTX can emit route/strafe commands projected relative to preserved combat yaw, but it did not pass the movement plausibility gate for both bots.
+
+The next S3 experiment should add route-vs-view diagnostics instead of changing the movement policy again. Specifically, capture or summarize route yaw, preserved view yaw, yaw delta, and backward-command ratio so the project can tell whether `/ bro` fails because it is often trying to run backward/sideways relative to its aim.
+
+### Alternatives Considered
+
+- Tune mode `5` sidemove or cadence immediately.
+- Add a no-backpedal clamp immediately.
+- Revert to route-yaw mode `4` because it passed S3c.
+
+### Evidence
+
+S3d runs with mode `5 --moveprobe-sidemove 200`:
+
+- `20260605T234620Z`, `frobodm2`: command coverage passed for both bots. `/ goldenboy` passed the behavior gate and recorded one SSG frag, but `/ bro` failed stationary `74.7%` and low-speed `79.2%`.
+- `20260605T234701Z`, `dm3`: command coverage passed for both bots. `/ goldenboy` passed, but `/ bro` failed stationary `40.5%` and low-speed `53.8%`.
+
+### Expected Consequences
+
+S3 remains focused on aim/movement separation. The next code should improve observability first, then decide whether a no-backpedal clamp, route-side preference, or another policy is justified.
+
+### Revisit Conditions
+
+Revisit if diagnostics show the split is unrelated to yaw delta/backward commands, or if command logging cannot capture enough route context without a more durable controller boundary.

@@ -162,6 +162,15 @@ S3c reran mode `4` with `--moveprobe-sidemove 200` on both routed maps:
 
 This validates `sidemove=200` as a repeatable route-yaw strafe candidate. It does not prove player realism. Compared with route-yaw mode `3`, mode `4` lowers high-speed spikes and remains aim-commandeering. The next useful step should test aim-independent movement math: keep the real combat view angle and compute `forwardmove`/`sidemove` from route intent relative to that view.
 
+## S3d Aim-Independent Movement-Vector Probe
+
+S3d added mode `5`: preserve `self->fb.desired_angle`, build a route-relative movement vector with optional alternating strafe, then project it into local `forwardmove`/`sidemove` commands using the preserved combat yaw.
+
+- `20260605T234620Z`, `frobodm2`: all command coverage gates passed with horizontal/side/jump coverage above `85%`, but `/ bro` failed behavior gates with `74.7%` stationary and `79.2%` low-speed time. `/ goldenboy` passed with avg `256.0` qu/s and `21.2%` low-speed time. The run recorded one SSG frag by `/ goldenboy`.
+- `20260605T234701Z`, `dm3`: all command coverage gates passed with horizontal/side/jump coverage above `93%`, but `/ bro` failed behavior gates with `40.5%` stationary and `53.8%` low-speed time. `/ goldenboy` passed with avg `219.6` qu/s and `24.7%` low-speed time.
+
+This is an important split result. The final-command seam can emit aim-independent route/strafe commands, but preserving combat yaw makes movement behavior fragile for at least `/ bro`. The next useful step is not a larger controller; it is diagnosing whether the failures correlate with route-vs-view yaw delta, backward command ratios, or specific route states.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

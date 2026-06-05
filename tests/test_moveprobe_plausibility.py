@@ -117,6 +117,7 @@ class MoveprobePlausibilityTests(unittest.TestCase):
                 max_stationary_ratio=0.25,
                 max_low_speed_ratio=0.4,
                 min_forward_ratio=0.8,
+                min_horizontal_ratio=0.8,
                 min_jump_ratio=0.8,
                 min_side_ratio=0.8,
                 min_yaw_unique=10,
@@ -138,6 +139,7 @@ class MoveprobePlausibilityTests(unittest.TestCase):
                 max_stationary_ratio=0.25,
                 max_low_speed_ratio=0.4,
                 min_forward_ratio=0.8,
+                min_horizontal_ratio=0.8,
                 min_jump_ratio=0.8,
                 min_side_ratio=0.8,
                 min_yaw_unique=10,
@@ -159,6 +161,7 @@ class MoveprobePlausibilityTests(unittest.TestCase):
                 max_stationary_ratio=0.25,
                 max_low_speed_ratio=0.4,
                 min_forward_ratio=0.8,
+                min_horizontal_ratio=0.8,
                 min_jump_ratio=0.8,
                 min_side_ratio=0.8,
                 min_yaw_unique=10,
@@ -172,6 +175,32 @@ class MoveprobePlausibilityTests(unittest.TestCase):
         self.assertEqual(summary["players"][0]["forward_expected_ratio"], 1.0)
         self.assertIn("duplicate player names present", summary["warnings"][0])
         self.assertIn("Warning", markdown)
+
+    def test_summarize_run_can_gate_variable_horizontal_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_dir = Path(temp_dir) / "run-horizontal"
+            write_run(run_dir, stationary_ratio=0.05)
+            commands_path = run_dir / "moveprobe-commands.json"
+            commands = json.loads(commands_path.read_text(encoding="utf-8"))
+            for index, row in enumerate(commands["commands"]):
+                row["move"] = {"forward": 400 - index, "side": 200 + index}
+            commands_path.write_text(json.dumps(commands), encoding="utf-8")
+
+            summary = plausibility.summarize_run(
+                run_dir,
+                expected_forward=800,
+                max_stationary_ratio=0.25,
+                max_low_speed_ratio=0.4,
+                min_forward_ratio=0.0,
+                min_horizontal_ratio=0.8,
+                min_jump_ratio=0.8,
+                min_side_ratio=0.8,
+                min_yaw_unique=10,
+            )
+
+        self.assertTrue(summary["passes_gate"])
+        self.assertEqual(summary["players"][0]["forward_expected_ratio"], 0.0)
+        self.assertEqual(summary["players"][0]["horizontal_move_ratio"], 1.0)
 
 
 if __name__ == "__main__":

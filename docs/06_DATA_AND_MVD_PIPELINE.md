@@ -95,6 +95,7 @@ Moveprobe plausibility gate:
 - Inputs: per-run `movement-metrics.json` plus `moveprobe-commands.json`
 - Default gate: expected forward command coverage >= `80%`, jump-button command coverage >= `80%`, at least `10` distinct sampled yaw values, stationary time <= `25%`, low-speed time <= `40%`
 - S3a side gate: pass `--min-side-ratio 0.8` to require nonzero sidemove coverage for strafe probes
+- S3d horizontal command gate: pass `--min-forward-ratio 0 --min-horizontal-ratio 0.8 --min-side-ratio 0.8` when exact local forward values vary because movement is projected relative to preserved combat yaw
 - Expected-forward handling: by default the summarizer derives the expected forward command from each run's `MOVEPROBE_FORWARDMOVE` in `run.env`, then falls back to `800`; use `--expected-forward` for older/custom artifacts.
 - Command matching: movement rows are matched to command rows by movement `user_id` and command `ed` when possible, then by netname as a fallback. Duplicate bot netnames are unsupported for artifacts that require the fallback.
 - Purpose: prevent speed-only interpretation by requiring command coverage and low stuck/low-speed behavior
@@ -239,6 +240,8 @@ Verified one-command parser behavior:
 20260605T231819Z: json=0 md=0 events=1 demo=66789 bytes map=dm3 moveprobe=4 sidemove=300 commands=196 movementPlayers=2
 20260605T233120Z: json=0 md=0 events=1 demo=68715 bytes map=frobodm2 moveprobe=4 sidemove=200 commands=197 movementPlayers=2
 20260605T233202Z: json=0 md=0 events=1 demo=63803 bytes map=dm3 moveprobe=4 sidemove=200 commands=196 movementPlayers=2
+20260605T234620Z: json=0 md=0 events=1 demo=62771 bytes map=frobodm2 moveprobe=5 sidemove=200 commands=197 movementPlayers=2
+20260605T234701Z: json=0 md=0 events=1 demo=62921 bytes map=dm3 moveprobe=5 sidemove=200 commands=195 movementPlayers=2
 ```
 
 For now, `events=1` with stderr `qw-analyze: end of demo` is accepted if `events.txt` is written and JSON/Markdown exits are zero. JSON is the canonical smoke-run parser artifact.
@@ -331,6 +334,12 @@ Fresh S2 emitted-command evidence:
 
 20260605T233202Z dm3 moveprobe mode 4, sidemove=200, S3c side gate:
   both bots passed; / bro avg=248.8 p95=383.1 low=16.7%; / goldenboy avg=293.3 p95=386.5 low=10.9%
+
+20260605T234620Z frobodm2 moveprobe mode 5, sidemove=200, S3d horizontal/side gate:
+  command coverage passed for both; / bro failed stationary=74.7% low=79.2%; / goldenboy passed avg=256.0 p95=381.5 low=21.2%; one SSG frag
+
+20260605T234701Z dm3 moveprobe mode 5, sidemove=200, S3d horizontal/side gate:
+  command coverage passed for both; / bro failed stationary=40.5% low=53.8%; / goldenboy passed avg=219.6 p95=381.4 low=24.7%
 ```
 
 ## Open questions

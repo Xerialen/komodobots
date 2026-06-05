@@ -775,13 +775,14 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument(
         "--moveprobe-mode",
         type=int,
-        choices=(0, 1, 2, 3, 4),
+        choices=(0, 1, 2, 3, 4, 5),
         default=0,
         help=(
             "Set k_fb_moveprobe_mode in the generated KTX lab config. "
             "Requires the S2 KTX patch to affect behavior. "
             "0=off, 1=force jump, 2=fixed movement command, "
-            "3=route-yaw movement command, 4=route-yaw alternating strafe."
+            "3=route-yaw movement command, 4=route-yaw alternating strafe, "
+            "5=aim-independent route/strafe projection."
         ),
     )
     parser.add_argument(

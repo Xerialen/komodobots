@@ -1,8 +1,8 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..a9002fd 100644
+index c0654d1..321fb82 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -422,6 +422,146 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +422,192 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -106,6 +106,52 @@ index c0654d1..a9002fd 100644
 +
 +		*jumping = true;
 +	}
++
++	else if (mode == 5)
++	{
++		vec3_t route_direction;
++		vec3_t route_right;
++		vec3_t desired_move;
++		vec3_t move_angles;
++		int slot = NUM_FOR_EDICT(self) - 1;
++		float forwardmove = cvar("k_fb_moveprobe_forwardmove");
++		float sidemove = cvar("k_fb_moveprobe_sidemove");
++		float strafe_sign = (((int)(g_globalvars.time * 5) + slot) & 1) ? 1 : -1;
++
++		if (forwardmove <= 0)
++		{
++			forwardmove = 800;
++		}
++		if (sidemove < 0)
++		{
++			sidemove = -sidemove;
++		}
++
++		VectorCopy(self->fb.dir_move_, route_direction);
++		route_direction[2] = 0;
++		if (VectorNormalize(route_direction) <= 0)
++		{
++			return;
++		}
++
++		route_right[0] = route_direction[1];
++		route_right[1] = -route_direction[0];
++		route_right[2] = 0;
++
++		VectorScale(route_direction, forwardmove, desired_move);
++		VectorMA(desired_move, sidemove * strafe_sign, route_right, desired_move);
++
++		VectorCopy(self->fb.desired_angle, move_angles);
++		move_angles[PITCH] = 0;
++		move_angles[ROLL] = 0;
++		trap_makevectors(move_angles);
++
++		direction[0] = DotProduct(g_globalvars.v_forward, desired_move);
++		direction[1] = DotProduct(g_globalvars.v_right, desired_move);
++		direction[2] = cvar("k_fb_moveprobe_upmove");
++
++		*jumping = true;
++	}
 +}
 +
 +static void BotLogMoveProbeCommand(gedict_t *self, int cmd_msec, vec3_t direction,
@@ -149,7 +195,7 @@ index c0654d1..a9002fd 100644
  void BotSetCommand(gedict_t *self)
  {
  	extern float last_frame_time;
-@@ -556,8 +696,11 @@ void BotSetCommand(gedict_t *self)
+@@ -556,8 +742,11 @@ void BotSetCommand(gedict_t *self)
  		impulse = 0;
  	}
  

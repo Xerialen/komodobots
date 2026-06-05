@@ -914,3 +914,76 @@ Medium-low for any claim beyond that, because both runs still rely on route-yaw 
 ### Follow-up
 
 Ask Claude to review S3c. Proposed S3d: add the smallest aim-independent movement-vector probe. Preserve the bot's real combat view angle, compute `forwardmove`/`sidemove` from desired route direction relative to that view, and compare against mode `4 --moveprobe-sidemove 200` with the same command/plausibility gates.
+
+## 2026-06-05 - S3d Aim-Independent Movement-Vector Probe
+
+### Experiment
+
+Added moveprobe mode `5`. Unlike mode `3`/`4`, mode `5` does not set route yaw into `self->fb.desired_angle`. It preserves the bot's current combat view yaw, builds a route-relative movement vector with optional alternating `sidemove`, then projects that world-space intent into local `forwardmove`/`sidemove` commands.
+
+Because local `forwardmove` is expected to vary when the view yaw is preserved, the plausibility helper now supports `--min-horizontal-ratio`. The S3d summary disables exact-forward coverage and requires horizontal/side/jump command coverage instead.
+
+Temporarily deployed the patched KTX build and ran:
+
+```bash
+python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 5 --moveprobe-sidemove 200 --moveprobe-log-commands --moveprobe-log-interval 0.25
+python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 5 --moveprobe-sidemove 200 --moveprobe-log-commands --moveprobe-log-interval 0.25
+python scripts/summarize_moveprobe_plausibility.py 20260605T234620Z 20260605T234701Z --min-forward-ratio 0 --min-horizontal-ratio 0.8 --min-side-ratio 0.8 --output-md artifacts/lab-runs/moveprobe-s3d-summary.md
+```
+
+### Result
+
+`frobodm2`, run `20260605T234620Z`:
+
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Command rows parsed: `197`.
+- `/ bro`: FAIL, forward/horizontal/side/jump coverage `0.0%`/`96.4%`/`96.4%`/`96.4%`, `45` distinct sampled yaws, avg `61.2` qu/s, p95 `348.6` qu/s, stationary `74.7%`, low-speed `79.2%`, air proxy `8.0%`.
+- `/ goldenboy`: PASS, forward/horizontal/side/jump coverage `0.0%`/`85.1%`/`85.1%`/`85.1%`, `78` distinct sampled yaws, avg `256.0` qu/s, p95 `381.5` qu/s, stationary `2.8%`, low-speed `21.2%`, air proxy `26.9%`.
+- One SSG frag: `/ goldenboy` killed `/ bro` at `22855` ms.
+
+`dm3`, run `20260605T234701Z`:
+
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Command rows parsed: `195`.
+- `/ bro`: FAIL, forward/horizontal/side/jump coverage `0.9%`/`93.6%`/`93.6%`/`93.6%`, `59` distinct sampled yaws, avg `144.4` qu/s, p95 `367.8` qu/s, stationary `40.5%`, low-speed `53.8%`, air proxy `14.8%`.
+- `/ goldenboy`: PASS, forward/horizontal/side/jump coverage `0.0%`/`98.8%`/`98.8%`/`98.8%`, `84` distinct sampled yaws, avg `219.6` qu/s, p95 `381.4` qu/s, stationary `1.5%`, low-speed `24.7%`, air proxy `32.8%`.
+
+After the runs:
+
+```text
+deployed qwprogs hash matched backup
+servexeri ~/nquakesv/build/ktx: clean master...origin/master
+quakestat localhost:28599: DOWN
+```
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/lab-runs/20260605T234620Z/run-summary.md`
+- `artifacts/lab-runs/20260605T234620Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260605T234620Z/movement-metrics.md`
+- `artifacts/lab-runs/20260605T234701Z/run-summary.md`
+- `artifacts/lab-runs/20260605T234701Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260605T234701Z/movement-metrics.md`
+- `artifacts/lab-runs/moveprobe-s3d-summary.md`
+
+### Interpretation
+
+S3d proves the command seam can emit aim-independent route/strafe commands without taking over view yaw. The command gate passed for both bots on both maps.
+
+Behavior did not generalize. `/ goldenboy` passed both maps, but `/ bro` failed stationary/low-speed gates on both maps. This suggests the next problem is not basic command emission; it is the aim/move conflict created when the bot tries to preserve combat view while following route intent.
+
+The current command logs show many large negative local forward values in mode `5`. That is compatible with a bot trying to move route-relative while looking away from the route, but the current log does not include route yaw or yaw-delta context.
+
+### Confidence
+
+High for the command-emission claim.
+
+Medium for the behavioral split, based on one run per map.
+
+Low for root cause. The next run needs route-vs-view diagnostics before adding a corrective policy.
+
+### Follow-up
+
+Ask Claude to review S3d. Proposed S3e: add route-vs-view diagnostics to the command log and summarizer. Capture route yaw, preserved view yaw, yaw delta, negative-forward/backward-command ratio, and compare those against stationary/low-speed behavior for the mode `5` split before changing the controller policy.
