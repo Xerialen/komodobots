@@ -118,7 +118,13 @@ Two patched `frobodm2` runs on 2026-06-05 produced different evidence:
 - `20260605T213010Z`, moveprobe mode `2`: replacing the final movement command with fixed `yaw=90 forwardmove=800` and forced jump still spawned bots, recorded an MVD, parsed successfully, and produced metrics, but the bots were nearly stationary. This proves the command can be replaced, and also shows a naive fixed command is not useful movement.
 - `20260605T213149Z`, moveprobe mode `1`: forcing jump while preserving Frogbot movement direction and combat produced a normal lab run with three frags and strong movement metrics. This proves a small final-command override can ride inside the existing KTX/Frogbot shell without breaking spawn, combat, MVD recording, parsing, or metrics.
 
-This does not complete S2. The v2a scaffold now instruments sampled `FBMOVEPROBE_CMD` rows with the exact `msec`, angles, movement values, buttons, and impulse handed to `trap_SetBotCMD(...)`, but the comparison run still needs to be performed. The next proof must compare stock, mode `1`, and mode `2` command logs, confirm the movement vector itself can be replaced, and only then replace direction/yaw with a useful controlled movement policy. Success must include plausibility checks such as not wall-humping or collapsing into stationary behavior, not only speed.
+The v2a comparison then directly logged the final command values:
+
+- `20260605T222006Z`, stock mode `0`: variable yaw/movement commands and normal firing button values.
+- `20260605T222047Z`, forced-jump mode `1`: variable yaw/movement commands preserved, while final buttons included jump (`2` or `3`).
+- `20260605T222129Z`, fixed-command mode `2`: both bots emitted constant `yaw=90`, `forward=800`, `side=0`, `up=0`, `buttons=2`, and movement collapsed to roughly `1.6`-`1.9` qu/s average with `0.0%` air proxy.
+
+This proves the final emitted command can be observed and replaced. It still does not complete S2, because useful movement-vector replacement is not proven. The next proof should replace direction/yaw with a tiny controlled policy that can move plausibly for a bounded corridor or direction test while preserving combat and route shell behavior. Success must include plausibility checks such as not wall-humping or collapsing into stationary behavior, not only speed.
 
 ## Working hypothesis
 

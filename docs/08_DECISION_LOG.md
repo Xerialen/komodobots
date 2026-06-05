@@ -312,13 +312,13 @@ Run `20260605T213010Z` proved fixed-command replacement plus forced jump can pro
 
 Run `20260605T213149Z` proved a forced-jump perturbation can preserve bot spawning, combat, MVD recording, parser output, and movement metrics.
 
-The v2a scaffold now emits sampled final-command rows before `trap_SetBotCMD(...)`, but the stock/mode `1`/mode `2` comparison run has not yet been produced.
+The v2a emitted-command comparison (`20260605T222006Z`, `20260605T222047Z`, `20260605T222129Z`) showed stock variable commands, forced-jump commands with jump-bearing final buttons, and fixed mode `2` commands with constant `yaw=90 forward=800 side=0 up=0 buttons=2`. Mode `2` still collapsed behavior to near-stationary movement.
 
 ### Expected Consequences
 
 S2 can proceed with instrumentation and small controller probes inside the server-native KTX/Frogbot loop instead of rewriting the bot stack.
 
-The next step should run the emitted-command comparison before building a controller. The next controller should replace movement direction/yaw more carefully than the fixed-command mode while leaving combat and the rest of the lab loop intact.
+The next controller should replace movement direction/yaw more carefully than the fixed-command mode while leaving combat and the rest of the lab loop intact. S2 is not complete until that useful replacement produces both final-command evidence and plausible movement behavior.
 
 ### Revisit Conditions
 

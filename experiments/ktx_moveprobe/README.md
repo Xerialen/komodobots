@@ -64,7 +64,15 @@ When command logging is enabled, the runner parses `screen.log` and writes:
 - `moveprobe-commands.json`
 - `moveprobe-commands.md`
 
-The intended S2 v2a comparison is three short runs with `--moveprobe-log-commands`: stock mode `0`, forced-jump mode `1`, and fixed-command mode `2`. The comparison should verify final `msec`, view angles, movement command values, buttons, and impulses before any controller work continues.
+The S2 v2a comparison is three short runs with `--moveprobe-log-commands`: stock mode `0`, forced-jump mode `1`, and fixed-command mode `2`. The comparison verifies final `msec`, view angles, movement command values, buttons, and impulses before any controller work continues.
+
+Known v2a comparison runs:
+
+| Run ID | Mode | Result |
+|---|---:|---|
+| `20260605T222006Z` | `0` | Stock variable commands logged; movement remained plausible. |
+| `20260605T222047Z` | `1` | Variable movement preserved; final buttons included jump. |
+| `20260605T222129Z` | `2` | Constant `yaw=90 forward=800 side=0 up=0 buttons=2`; movement collapsed. |
 
 ## Rollback
 

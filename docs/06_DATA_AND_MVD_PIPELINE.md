@@ -216,6 +216,9 @@ Verified one-command parser behavior:
 20260605T205353Z: json=0 md=0 events=1 demo=109061 bytes map=dm3 movementPlayers=2 schema=v2
 20260605T213010Z: json=0 md=0 events=1 demo=73890 bytes map=frobodm2 moveprobe=2 movementPlayers=2
 20260605T213149Z: json=0 md=0 events=1 demo=109520 bytes map=frobodm2 moveprobe=1 movementPlayers=2
+20260605T222006Z: json=0 md=0 events=1 demo=71105 bytes map=frobodm2 moveprobe=0 commands=196 movementPlayers=2
+20260605T222047Z: json=0 md=0 events=1 demo=65648 bytes map=frobodm2 moveprobe=1 commands=196 movementPlayers=2
+20260605T222129Z: json=0 md=0 events=1 demo=47234 bytes map=frobodm2 moveprobe=2 commands=197 movementPlayers=2
 ```
 
 For now, `events=1` with stderr `qw-analyze: end of demo` is accepted if `events.txt` is written and JSON/Markdown exits are zero. JSON is the canonical smoke-run parser artifact.
@@ -264,6 +267,22 @@ Fresh S2 movement override evidence:
 20260605T213149Z frobodm2 moveprobe mode 1, forced jump:
   / bro       avg=330.7 p95=464.8 over320=66.4% airProxy=17.0% cadence=29.7/min
   / goldenboy avg=383.4 p95=464.0 over320=80.9% airProxy=19.1% cadence=37.0/min
+```
+
+Fresh S2 emitted-command evidence:
+
+```text
+20260605T222006Z frobodm2 moveprobe mode 0, command logging:
+  commands=196; stock commands had variable yaw, forward, side, and buttons [0,1,3] / [0,1]
+  / bro avg=363.5 p95=464.1 airProxy=25.2%; / goldenboy avg=410.4 p95=633.8 airProxy=37.1%
+
+20260605T222047Z frobodm2 moveprobe mode 1, command logging:
+  commands=196; movement/yaw stayed variable, final buttons were [2,3], proving forced jump in emitted commands
+  / bro avg=189.9 p95=463.9 airProxy=11.4%; / goldenboy avg=434.2 p95=595.2 airProxy=18.6%
+
+20260605T222129Z frobodm2 moveprobe mode 2, command logging:
+  commands=197; both bots emitted yaw=[90.0], forward=[800], side=[0], up=[0], buttons=[2]
+  / bro avg=1.9 p95=0.0 airProxy=0.0%; / goldenboy avg=1.6 p95=0.0 airProxy=0.0%
 ```
 
 ## Open questions

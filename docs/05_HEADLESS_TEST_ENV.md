@@ -236,6 +236,9 @@ Verified repeatability runs:
 | `20260605T205353Z` | `28599` | `109061` bytes | `json=0`, `md=0`, `events=1` | `dm3`; two bots, v2 baseline metrics written. |
 | `20260605T213010Z` | `28599` | `73890` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 moveprobe mode `2`, fixed command replacement plus forced jump, two bots, one telefrag, near-stationary metrics. |
 | `20260605T213149Z` | `28599` | `109520` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 moveprobe mode `1`, forced jump perturbation, two bots, three frags, movement metrics written. |
+| `20260605T222006Z` | `28599` | `71105` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2a stock mode `0`, command logging enabled, `196` commands parsed. |
+| `20260605T222047Z` | `28599` | `65648` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2a forced-jump mode `1`, command logging enabled, `196` commands parsed. |
+| `20260605T222129Z` | `28599` | `47234` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2a fixed-command mode `2`, command logging enabled, `197` commands parsed, near-stationary metrics. |
 
 In verified runs, `quakestat -qws localhost:28599 -P -nh` reported `DOWN` after cleanup.
 
@@ -410,7 +413,7 @@ The current runner uses session names shaped like `komodobots_lab_<port>_<run-id
 - Determinism is unknown. The lab must record seed/config/server version details before comparing movement runs.
 - Stock `dm2` can load, record, and parse, but it is not a Frogbot-supported route target in this environment. User confirmed there is no point building routes for it now.
 - A first-pass movement report schema exists, but it is still position-derived and does not yet infer ground-truth jump commands, grounded state, or usercmd intent.
-- The first S2 moveprobe proves the final command can be perturbed before `trap_SetBotCMD(...)`. It does not yet prove useful movement-vector replacement; the fixed-command mode collapsed into wall/stationary behavior.
+- The S2 v2a moveprobe now proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`. It does not yet prove useful movement-vector replacement; the fixed-command mode collapsed into wall/stationary behavior.
 
 ## Troubleshooting
 
@@ -438,4 +441,4 @@ Move the repeatable runner one notch closer to the north star:
 
 1. Keep `dm2` as a `qw-sim` continuity map, not as a Frogbot route-building target.
 2. Use routed maps such as `frobodm2` and `dm3` to generate bot movement demos.
-3. Instrument the exact final command values handed to `trap_SetBotCMD(...)` for stock, mode `1`, and mode `2`, then replace the fixed-command moveprobe with a tiny useful controller only after the movement-vector seam is confirmed. Success should include plausibility checks such as not wall-humping or going stationary, not speed alone.
+3. Replace the fixed-command moveprobe with a tiny useful controller probe now that the emitted-command seam is confirmed. Success should include plausibility checks such as not wall-humping or going stationary, not speed alone.

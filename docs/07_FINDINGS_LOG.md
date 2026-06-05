@@ -459,17 +459,17 @@ S2 has its first positive evidence: Frogbot commands can be perturbed near the f
 
 Mode `2` is also useful negative evidence. Blind fixed-command replacement, even with forced jump, is not a movement brain; it can satisfy the plumbing proof while producing unusable behavior.
 
-The next S2 step should first instrument the exact values handed to `trap_SetBotCMD(...)` for stock, mode `1`, and mode `2`. Only after confirming that the movement vector itself is controllable should the lab build a tiny controller that replaces direction/yaw more intelligently than mode `2`, while preserving combat and route shell behavior.
+At this point, the next S2 step was to instrument the exact values handed to `trap_SetBotCMD(...)` for stock, mode `1`, and mode `2`. That follow-up is recorded in the v2a entries below.
 
 ### Confidence
 
 High that `BotSetCommand()` is a real control point for command perturbation.
 
-Medium that this is the right long-term integration point for replacing movement vectors. It is source-grounded and measured, but the probe is still a patch outside upstream KTX and has not yet logged the actual values emitted to `trap_SetBotCMD(...)`.
+Medium that this is the right long-term integration point for replacing movement vectors. It is source-grounded and measured, but the probe is still a patch outside upstream KTX.
 
 ### Follow-up
 
-Build moveprobe v2a instrumentation: keep the `BotSetCommand()` hook, log the final `msec`, angles, movement values, buttons, and impulse handed to `trap_SetBotCMD(...)`, and compare stock/mode `1`/mode `2`. Then build moveprobe v2b as a tiny controller only after the movement-vector seam is confirmed. Evaluate plausibility, not speed alone.
+Build moveprobe v2a instrumentation: keep the `BotSetCommand()` hook, log the final `msec`, angles, movement values, buttons, and impulse handed to `trap_SetBotCMD(...)`, and compare stock/mode `1`/mode `2`. This follow-up is now complete in the v2a comparison entry below.
 
 ## 2026-06-05 - S2 Moveprobe v2a Instrumentation Scaffold
 
@@ -486,7 +486,7 @@ Code changes:
 
 ### Result
 
-Implementation scaffold only. No new patched remote comparison run has been performed yet for stock/mode `1`/mode `2` command logs.
+Implementation scaffold only at the time of this entry. The patched remote comparison run was performed afterward and is recorded in the next entry.
 
 ### Interpretation
 
@@ -494,4 +494,76 @@ This addresses the main uncertainty left by the first S2 probe: MVD movement met
 
 ### Follow-up
 
-Run three short `frobodm2` labs against patched KTX with `--moveprobe-log-commands`: stock mode `0`, forced-jump mode `1`, and fixed-command mode `2`. Compare `moveprobe-commands.md` with movement metrics before attempting moveprobe v2b controller work.
+Run three short `frobodm2` labs against patched KTX with `--moveprobe-log-commands`: stock mode `0`, forced-jump mode `1`, and fixed-command mode `2`. This follow-up is now complete in the v2a comparison entry below.
+
+## 2026-06-05 - S2 Moveprobe v2a Emitted-Command Comparison
+
+### Experiment
+
+Temporarily deployed the v2a patched KTX build on `servexeri`, then ran three short `frobodm2` labs with command logging enabled:
+
+```bash
+python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 0 --moveprobe-log-commands --moveprobe-log-interval 0.25
+python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 1 --moveprobe-log-commands --moveprobe-log-interval 0.25
+python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 2 --moveprobe-yaw 90 --moveprobe-forwardmove 800 --moveprobe-log-commands --moveprobe-log-interval 0.25
+```
+
+The deployed `qwprogs` target was backed up before patch deployment and restored afterward.
+
+### Result
+
+Stock mode `0`:
+
+- Run `20260605T222006Z`.
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- `196` final command rows parsed.
+- Command rows showed variable yaw, forward, side, and normal firing button combinations (`0`, `1`, `3` for `/ bro`; `0`, `1` for `/ goldenboy`).
+- Movement stayed plausible for a short Frogbot run: `/ bro` avg `363.5` qu/s, `/ goldenboy` avg `410.4` qu/s.
+
+Forced-jump mode `1`:
+
+- Run `20260605T222047Z`.
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- `196` final command rows parsed.
+- Command rows kept variable yaw/movement values while final buttons were jump-bearing (`2` or `3`), proving the forced-jump perturbation reaches `trap_SetBotCMD(...)`.
+- Movement did not collapse overall, though `/ bro` had much more stationary time in this short run.
+
+Fixed-command mode `2`:
+
+- Run `20260605T222129Z`.
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- `197` final command rows parsed.
+- Both bots emitted constant `yaw=90`, `forward=800`, `side=0`, `up=0`, `buttons=2`, `impulse=0`.
+- Movement collapsed: `/ bro` avg `1.9` qu/s, `/ goldenboy` avg `1.6` qu/s, both with `0.0%` air proxy and p95 speed `0.0` qu/s.
+
+After all runs:
+
+```text
+servexeri ~/nquakesv/build/ktx: clean master...origin/master
+deployed qwprogs hash matched backup
+quakestat localhost:28599: DOWN
+```
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/lab-runs/20260605T222006Z/run-summary.md`
+- `artifacts/lab-runs/20260605T222006Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260605T222006Z/movement-metrics.md`
+- `artifacts/lab-runs/20260605T222047Z/run-summary.md`
+- `artifacts/lab-runs/20260605T222047Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260605T222047Z/movement-metrics.md`
+- `artifacts/lab-runs/20260605T222129Z/run-summary.md`
+- `artifacts/lab-runs/20260605T222129Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260605T222129Z/movement-metrics.md`
+
+### Interpretation
+
+The final command-emission seam is now directly observed. Mode `1` proves button perturbation reaches the final bot command while preserving Frogbot's variable movement shell. Mode `2` proves movement/yaw replacement reaches the final command, but also proves a blind fixed command is not useful movement.
+
+S2 should continue with a tiny useful controller probe. The controller should be deliberately bounded, such as steering along a short direction/corridor while preserving combat and the existing route shell. It should be judged on command evidence plus behavior plausibility, not speed alone.
+
+### Follow-up
+
+Build moveprobe v2b: replace fixed mode `2` with, or add mode `3` for, a minimal controlled movement policy that uses a plausible yaw/direction source instead of a constant world yaw. Run it on a routed map and require both emitted-command evidence and movement plausibility checks before calling S2 complete.
