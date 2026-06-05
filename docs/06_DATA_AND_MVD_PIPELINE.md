@@ -65,6 +65,7 @@ Current implemented first pass:
 - Player naming source: `kind:1` player info events
 - Default excluded slots: unnamed players, which filters out the control-client shim
 - Outputs: `movement-metrics.json` and `movement-metrics.md`
+- Schema: `komodobots.movement_metrics.v2`
 
 Current metric fields per named player:
 
@@ -78,9 +79,14 @@ Current metric fields per named player:
 - time ratio above server `MaxSpeed`, usually 320 qu/s
 - time ratio above 400 qu/s
 - path efficiency
+- vertical-motion time ratio
+- airborne-proxy time ratio
+- airborne-proxy run count and cadence per minute
+- average airborne-proxy duration
+- post-landing speed delta/loss over a fixed window
 - dropped teleport/respawn-like segments above 2500 qu/s
 
-Current limitation: these are position-derived metrics. They do not yet infer jump button rhythm, airborne state, friction windows, or legal usercmd intent.
+Current limitation: these are position-derived metrics. The airborne fields are proxies derived from Z-motion runs, not ground-truth jump button, grounded flag, friction-window, or legal usercmd intent.
 
 ## Human comparison sets
 
@@ -198,6 +204,8 @@ Verified one-command parser behavior:
 20260605T200124Z: json=0 md=0 events=1 demo=102929 bytes map=dm3 totalFrags=1
 20260605T201217Z: json=0 md=0 events=1 demo=110679 bytes map=frobodm2 movementPlayers=2
 20260605T201313Z: json=0 md=0 events=1 demo=106867 bytes map=dm3 movementPlayers=2
+20260605T205256Z: json=0 md=0 events=1 demo=105711 bytes map=frobodm2 movementPlayers=2 schema=v2
+20260605T205353Z: json=0 md=0 events=1 demo=109061 bytes map=dm3 movementPlayers=2 schema=v2
 ```
 
 For now, `events=1` with stderr `qw-analyze: end of demo` is accepted if `events.txt` is written and JSON/Markdown exits are zero. JSON is the canonical smoke-run parser artifact.
@@ -222,6 +230,18 @@ Fresh first-pass movement evidence:
 20260605T201313Z dm3:
   / bro       avg=287.4 max=581.4 p95=462.7 over320=53.0% over400=37.0%
   / goldenboy avg=324.6 max=535.6 p95=449.0 over320=63.1% over400=53.6%
+```
+
+Fresh v2 baseline movement evidence:
+
+```text
+20260605T205256Z frobodm2:
+  / bro       avg=311.8 p95=456.5 over320=58.2% airProxy=18.1% cadence=32.6/min postLandingDelta=+11.9
+  / goldenboy avg=346.4 p95=464.0 over320=68.6% airProxy=16.7% cadence=29.5/min postLandingDelta=+9.7
+
+20260605T205353Z dm3:
+  / bro       avg=279.4 p95=450.2 over320=47.2% airProxy=25.0% cadence=22.2/min postLandingDelta=+36.6
+  / goldenboy avg=92.8  p95=365.3 over320=7.5%  airProxy=36.7% cadence=14.7/min postLandingDelta=+28.8
 ```
 
 ## Open questions

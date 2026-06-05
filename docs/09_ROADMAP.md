@@ -36,15 +36,15 @@ flowchart TD
 
 Current active stage:
 
-`S0 - Smoke Test: lab loop breathes`
+`S2 - Movement Override Feasibility`
 
 ## Stage Status Table
 
 | Stage | Status | Evidence Needed |
 |---------|---------|---------|
-| S0 Smoke Test | Active | Bot moves, MVD recorded, MVD parsed |
-| S1 Baseline | Pending | Measured current Frogbot movement |
-| S2 Override | Pending | Proof movement can be replaced |
+| S0 Smoke Test | Complete | Bot moves, MVD recorded, MVD parsed |
+| S1 Baseline | Complete | Measured current Frogbot movement with speed and airborne-proxy metrics |
+| S2 Override | Active | Proof movement can be replaced |
 | S3 Bunnyjump Controller | Pending | Better movement than baseline |
 | S4 Human Comparison | Pending | Metric comparison against human demos |
 | S5 Milton Reference | Pending | Elite movement reference dataset |

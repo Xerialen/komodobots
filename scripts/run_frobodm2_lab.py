@@ -376,6 +376,13 @@ def find_bot_entries(screen_log: str) -> list[str]:
     return entries
 
 
+def fmt_number(value: object, digits: int = 1) -> str:
+    try:
+        return f"{float(value):.{digits}f}"
+    except (TypeError, ValueError):
+        return ""
+
+
 def write_summary(
     local_run_dir: Path,
     host: str,
@@ -458,10 +465,12 @@ def write_summary(
             except (TypeError, ValueError):
                 over_maxspeed = ""
             lines.append(
-                f"- `{player.get('name')}`: avg `{player.get('avg_horizontal_speed_qu_per_s')}` qu/s, "
-                f"max `{player.get('max_horizontal_speed_qu_per_s')}` qu/s, "
-                f"p95 `{player.get('p95_horizontal_speed_qu_per_s')}` qu/s, "
-                f"over maxspeed `{over_maxspeed}`"
+                f"- `{player.get('name')}`: avg `{fmt_number(player.get('avg_horizontal_speed_qu_per_s'))}` qu/s, "
+                f"max `{fmt_number(player.get('max_horizontal_speed_qu_per_s'))}` qu/s, "
+                f"p95 `{fmt_number(player.get('p95_horizontal_speed_qu_per_s'))}` qu/s, "
+                f"over maxspeed `{over_maxspeed}`, "
+                f"air proxy `{float(player.get('airborne_proxy_time_ratio', 0.0)) * 100.0:.1f}%`, "
+                f"cadence `{fmt_number(player.get('jump_cadence_per_min'))}`/min"
             )
     else:
         lines.append("- No named-player movement metrics recorded.")

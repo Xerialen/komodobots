@@ -10,15 +10,12 @@ The lab exists to generate evidence, not assumptions.
 
 ## First test environment
 
-Stock DM2.
+Use routed Frogbot maps for bot-generated movement evidence:
 
-Primary area: big room.
+- `frobodm2`
+- `dm3`
 
-Reason:
-
-- Real target map.
-- Open enough to isolate movement.
-- Avoids immediately coupling experiments to trick routes.
+Keep stock `dm2` as the `qw-sim` continuity map, not as a Frogbot route-building target. User clarified on 2026-06-05 that Frogbots have never worked on stock `dm2`, which is why `frobodm2` exists.
 
 ## Phase 0
 
@@ -33,6 +30,8 @@ Requirements:
 - parse MVD
 - generate report
 
+Status: complete. The one-command runner records and parses MVDs on routed maps.
+
 ## Phase 1
 
 Measure baseline Frogbots.
@@ -43,6 +42,8 @@ Questions:
 - What speeds do they achieve?
 - How often do they jump?
 - How often do they lose speed?
+
+Status: complete for first baseline. Movement report v2 measures speed, vertical-motion ratio, airborne proxy, cadence, and post-landing speed delta.
 
 ## Phase 2
 

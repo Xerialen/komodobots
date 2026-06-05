@@ -1,6 +1,6 @@
 # Headless Test Environment
 
-Status: repeatable bot lab runner verified on `frobodm2` and `dm3` 2026-06-05. First-pass movement metrics are generated automatically.
+Status: repeatable bot lab runner verified on `frobodm2` and `dm3` 2026-06-05. Baseline movement v2 metrics are generated automatically.
 
 ## Purpose
 
@@ -28,6 +28,8 @@ Second lab milestone on 2026-06-05: `scripts/run_frobodm2_lab.py` made that path
 Map clarification from the user on 2026-06-05: stock `dm2` matters because `qw-sim` was built around it, not because it is the ideal bunnyhopping lab. Frogbots have never worked on stock `dm2`; `frobodm2` exists for that reason. Do not spend effort building stock `dm2` Frogbot routes for this lab. Use Frogbot-supported maps such as `frobodm2` and `dm3` for bot movement evidence, while keeping stock `dm2` in mind for `qw-sim` continuity.
 
 Third lab milestone on 2026-06-05: `scripts/extract_movement_metrics.py` now derives per-bot movement tables from `events.txt` kind `5` player origin samples. The runner writes `movement-metrics.json` and `movement-metrics.md` automatically after parsing the MVD.
+
+Fourth lab milestone on 2026-06-05: movement metrics schema v2 adds vertical-motion and airborne-proxy metrics: air-proxy time ratio, run cadence, average air-proxy duration, and post-landing speed delta/loss over a fixed window.
 
 ## Environment Diagram
 
@@ -153,7 +155,7 @@ The bundle README says it was built from mvd_analyzer commit `7d83ebe`, while th
 | Spawn bots automatically | Proven on routed maps via scripted client | MVDSV console `botcmd` failed as `Unknown command`; a minimal connected QW client successfully sent `botcmd addbot` twice. |
 | Record MVD automatically | Proven on `frobodm2` and `dm3` | KTX saved non-empty MVDs after `sv_demostop`. |
 | Parse MVD automatically | Proven for summary/events | `qw-analyze-v20` parsed JSON/Markdown summary exit 0; events mode emitted data then exited 1 with `qw-analyze: end of demo`. |
-| Generate movement report automatically | Proven first pass | `scripts/extract_movement_metrics.py` writes `movement-metrics.json` and `movement-metrics.md` from MVD event position samples. |
+| Generate movement report automatically | Proven v2 | `scripts/extract_movement_metrics.py` writes speed plus airborne-proxy movement metrics from MVD event position samples. |
 | Test movement overrides automatically | Missing | Requires either KTX instrumentation or a controlled bot command override path. |
 | Visual validation | Available for playback | `ezquake-test` / `~/hud-runner` can render existing demos headlessly; useful after new MVDs exist. |
 
@@ -221,6 +223,8 @@ Verified repeatability runs:
 | `20260605T200124Z` | `28599` | `102929` bytes | `json=0`, `md=0`, `events=1` | `dm3`; two bots observed, one frag, summary written. |
 | `20260605T201217Z` | `28599` | `110679` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; two bots, two frags, movement metrics written. |
 | `20260605T201313Z` | `28599` | `106867` bytes | `json=0`, `md=0`, `events=1` | `dm3`; two bots, one frag, movement metrics written. |
+| `20260605T205256Z` | `28599` | `105711` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; two bots, v2 baseline metrics written. |
+| `20260605T205353Z` | `28599` | `109061` bytes | `json=0`, `md=0`, `events=1` | `dm3`; two bots, v2 baseline metrics written. |
 
 In verified runs, `quakestat -qws localhost:28599 -P -nh` reported `DOWN` after cleanup.
 
