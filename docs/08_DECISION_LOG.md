@@ -399,3 +399,42 @@ Stop expanding route-yaw mode `4` if `sidemove=200` does not generalize beyond m
 ### Revisit Conditions
 
 Revisit if the command hook cannot express useful movement without fighting aim/combat logic, if KTX maintainability becomes poor, or if a cleaner movement-brain boundary appears elsewhere in Frogbot source.
+
+---
+
+## Decision
+
+Pivot the next S3 probe toward aim-independent movement.
+
+### Date
+
+2026-06-05
+
+### Decision
+
+Treat mode `4 --moveprobe-sidemove 200` as the first repeatable route-yaw strafe candidate, but do not add more route-yaw cadence or state before testing aim-independent movement math.
+
+The next experiment should preserve the bot's actual combat view angle and compute `forwardmove`/`sidemove` from the desired route direction relative to that view. This is the smallest step that connects Movement Realism to Player Realism.
+
+### Alternatives Considered
+
+- Keep tuning route-yaw sidemove magnitude/cadence after S3c passed.
+- Promote mode `4` into a larger bunnyjump controller.
+- Stop S3 because the side/plausibility gate is green.
+
+### Evidence
+
+S3c validated `sidemove=200` across the two routed maps:
+
+- `20260605T233120Z`, `frobodm2`: both bots passed the side/plausibility gate and one RL frag was recorded.
+- `20260605T233202Z`, `dm3`: both bots passed the side/plausibility gate.
+
+The same evidence still inherits the route-yaw limitation: the probe gets route-relative movement by pointing view yaw at the route. Believable players can aim at enemies while moving route-relative, so the next proof must decouple movement command calculation from aim commandeering.
+
+### Expected Consequences
+
+S3 continues, but the next useful code should be a small mode or diagnostic that tests relative forward/side command mixing. If that fails, the project learns where the aim/move boundary actually is before investing in a final bunnyjump controller.
+
+### Revisit Conditions
+
+Revisit if preserving combat view makes command coverage or movement plausibility collapse, or if source inspection shows a cleaner existing Frogbot field than `desired_angle` for separating movement intent from aim.

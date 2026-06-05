@@ -153,6 +153,15 @@ S3b reused mode `4` on `dm3` but changed the sidemove magnitude:
 
 This suggests the first usable S3 strafe parameter is smaller than the default `400`. It still does not beat route-yaw mode `3` on speed or simplicity, so the next proof should verify `sidemove=200` across maps/repeats before adding cadence or state.
 
+## S3c Cross-Map Sidemove Validation
+
+S3c reran mode `4` with `--moveprobe-sidemove 200` on both routed maps:
+
+- `20260605T233120Z`, `frobodm2`: both bots passed the side/plausibility gate. `/ bro` averaged `279.6` qu/s with `7.4%` low-speed time; `/ goldenboy` averaged `306.7` qu/s with `4.6%` low-speed time. The run recorded one RL frag.
+- `20260605T233202Z`, `dm3`: both bots passed the side/plausibility gate. `/ bro` averaged `248.8` qu/s with `16.7%` low-speed time; `/ goldenboy` averaged `293.3` qu/s with `10.9%` low-speed time.
+
+This validates `sidemove=200` as a repeatable route-yaw strafe candidate. It does not prove player realism. Compared with route-yaw mode `3`, mode `4` lowers high-speed spikes and remains aim-commandeering. The next useful step should test aim-independent movement math: keep the real combat view angle and compute `forwardmove`/`sidemove` from route intent relative to that view.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.
