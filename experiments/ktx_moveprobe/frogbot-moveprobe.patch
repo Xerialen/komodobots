@@ -2,7 +2,7 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
 index c0654d1..a9002fd 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -422,6 +422,144 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +422,146 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -23,7 +23,7 @@ index c0654d1..a9002fd 100644
 +		return;
 +	}
 +
-+	if (mode == 2)
++	else if (mode == 2)
 +	{
 +		// Probe-only: string cvar lookups keep this patch small; do not copy
 +		// this hot-path pattern into a durable movement controller.
@@ -40,7 +40,7 @@ index c0654d1..a9002fd 100644
 +		*jumping = true;
 +	}
 +
-+	if (mode == 3)
++	else if (mode == 3)
 +	{
 +		vec3_t route_direction;
 +		float forwardmove = cvar("k_fb_moveprobe_forwardmove");
@@ -68,7 +68,7 @@ index c0654d1..a9002fd 100644
 +		*jumping = true;
 +	}
 +
-+	if (mode == 4)
++	else if (mode == 4)
 +	{
 +		vec3_t route_direction;
 +		int slot = NUM_FOR_EDICT(self) - 1;
@@ -111,6 +111,8 @@ index c0654d1..a9002fd 100644
 +static void BotLogMoveProbeCommand(gedict_t *self, int cmd_msec, vec3_t direction,
 +								   int buttons, int impulse)
 +{
++	// Probe-only: current lab runs start fresh KTX processes, so this throttle
++	// state is zeroed. Reset it before reusing the logger in a long-lived server.
 +	static float last_log_time[MAX_CLIENTS];
 +	int ednum = NUM_FOR_EDICT(self);
 +	int slot = ednum - 1;
@@ -147,7 +149,7 @@ index c0654d1..a9002fd 100644
  void BotSetCommand(gedict_t *self)
  {
  	extern float last_frame_time;
-@@ -556,8 +694,11 @@ void BotSetCommand(gedict_t *self)
+@@ -556,8 +696,11 @@ void BotSetCommand(gedict_t *self)
  		impulse = 0;
  	}
  

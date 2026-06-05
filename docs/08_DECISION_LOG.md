@@ -394,6 +394,8 @@ The next experiment can stay parameter-only and avoid adding controller complexi
 
 Revisit if repeat runs show `200` is unstable, or if a slower alternation cadence becomes necessary to reduce low-speed behavior without dropping side coverage.
 
+Stop expanding route-yaw mode `4` if `sidemove=200` does not generalize beyond mode `3` across `frobodm2` and `dm3`. The next branch should then be aim-independent movement: compute `forwardmove` and `sidemove` from a desired route velocity relative to the bot's actual combat view angle, rather than continuing to tune a view-yaw-commandeering scaffold.
+
 ### Revisit Conditions
 
 Revisit if the command hook cannot express useful movement without fighting aim/combat logic, if KTX maintainability becomes poor, or if a cleaner movement-brain boundary appears elsewhere in Frogbot source.

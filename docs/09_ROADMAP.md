@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S3a - Bounded Bunnyjump Primitive`
+`S3c - Cross-map/repeat validation for sidemove 200`
 
 ## Stage Status Table
 
@@ -57,3 +57,9 @@ Whenever a stage changes, update this file and record supporting evidence in:
 
 - docs/07_FINDINGS_LOG.md
 - docs/08_DECISION_LOG.md
+
+## Route-Yaw Scaffold Stop Condition
+
+Mode `3` and mode `4` deliberately commandeer view yaw to align movement with Frogbot route intent. That proves movement override mechanics, but it is not a believable player controller because a real player can aim at an enemy while moving route-relative.
+
+S3c may validate `sidemove=200` because it is cheap and keeps the lab honest. If `sidemove=200` does not generalize beyond mode `3` across `frobodm2` and `dm3`, stop tuning sidemove/cadence cvars and pivot to aim-independent movement: compute `forwardmove` and `sidemove` from a desired route velocity relative to the bot's real combat view angle.

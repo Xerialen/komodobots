@@ -46,6 +46,48 @@ def command_rows_by_player(commands: dict) -> dict[str, list[dict]]:
     return rows_by_player
 
 
+def command_rows_by_ed(commands: dict) -> dict[int, list[dict]]:
+    rows_by_ed: dict[int, list[dict]] = {}
+    for row in commands.get("commands", []):
+        try:
+            ed = int(row.get("ed"))
+        except (TypeError, ValueError):
+            continue
+        rows_by_ed.setdefault(ed, []).append(row)
+    return rows_by_ed
+
+
+def command_rows_for_player(
+    movement_row: dict,
+    rows_by_ed: dict[int, list[dict]],
+    rows_by_player: dict[str, list[dict]],
+) -> list[dict]:
+    try:
+        ed = int(movement_row.get("user_id"))
+    except (TypeError, ValueError):
+        ed = 0
+    if ed and ed in rows_by_ed:
+        return rows_by_ed[ed]
+
+    name = str(movement_row.get("name", "")).strip()
+    return rows_by_player.get(name, [])
+
+
+def resolve_expected_forward(expected_forward: int | None, run_env: dict[str, str]) -> int:
+    if expected_forward is not None:
+        return expected_forward
+    try:
+        return int(float(run_env.get("MOVEPROBE_FORWARDMOVE", "")))
+    except (TypeError, ValueError):
+        return 800
+
+
+def duplicate_names(rows: Iterable[dict]) -> list[str]:
+    names = [str(row.get("name", "")).strip() for row in rows]
+    counts = Counter(name for name in names if name)
+    return sorted(name for name, count in counts.items() if count > 1)
+
+
 def summarize_player(
     movement_row: dict,
     command_rows: list[dict],
@@ -111,7 +153,7 @@ def summarize_player(
 def summarize_run(
     run_dir: Path,
     *,
-    expected_forward: int,
+    expected_forward: int | None,
     max_stationary_ratio: float,
     max_low_speed_ratio: float,
     min_forward_ratio: float,
@@ -125,16 +167,26 @@ def summarize_run(
     movement = read_json(run_dir / "movement-metrics.json")
     commands = read_json(run_dir / "moveprobe-commands.json")
     run_env = read_run_env(run_dir / "run.env")
+    expected_forward_value = resolve_expected_forward(expected_forward, run_env)
+    movement_rows = movement.get("players", [])
+    duplicate_movement_names = duplicate_names(movement_rows)
+    warnings = []
+    if duplicate_movement_names:
+        warnings.append(
+            "duplicate player names present; command matching prefers movement user_id "
+            "to command ed, then falls back to netname for older artifacts: "
+            + ", ".join(duplicate_movement_names)
+        )
+    rows_by_ed = command_rows_by_ed(commands)
     rows_by_player = command_rows_by_player(commands)
 
     players = []
-    for movement_row in movement.get("players", []):
-        name = str(movement_row.get("name", "")).strip()
+    for movement_row in movement_rows:
         players.append(
             summarize_player(
                 movement_row,
-                rows_by_player.get(name, []),
-                expected_forward=expected_forward,
+                command_rows_for_player(movement_row, rows_by_ed, rows_by_player),
+                expected_forward=expected_forward_value,
                 max_stationary_ratio=max_stationary_ratio,
                 max_low_speed_ratio=max_low_speed_ratio,
                 min_forward_ratio=min_forward_ratio,
@@ -148,6 +200,8 @@ def summarize_run(
         "run_id": run_dir.name,
         "map": run_env.get("MAP", ""),
         "moveprobe_mode": run_env.get("MOVEPROBE_MODE", ""),
+        "expected_forward": expected_forward_value,
+        "warnings": warnings,
         "players": players,
         "passes_gate": all(player["passes_gate"] for player in players) and bool(players),
     }
@@ -173,10 +227,14 @@ def build_markdown(summary: dict[str, object]) -> str:
         "",
         "Gate: command coverage and movement plausibility, not speed alone.",
         "",
+        "Expected forward defaults to each run's `MOVEPROBE_FORWARDMOVE`, falling back to `800`.",
+        "",
         "| Run | Map | Mode | Player | Gate | Cmds | Forward | Side | Jump | Yaws | Avg | P95 | Stationary | Low | Air | Reasons |",
         "|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
     ]
     for run in summary.get("runs", []):
+        for warning in run.get("warnings", []):
+            lines.append(f"> Warning for `{run.get('run_id')}`: {warning}")
         for player in run.get("players", []):
             reasons = "; ".join(player.get("failure_reasons", []))
             gate = "PASS" if player.get("passes_gate") else "FAIL"
@@ -220,6 +278,7 @@ def build_summary(args: argparse.Namespace) -> dict[str, object]:
         "schema": "komodobots.moveprobe_plausibility.v1",
         "thresholds": {
             "expected_forward": args.expected_forward,
+            "expected_forward_default": "run_env_MOVEPROBE_FORWARDMOVE_or_800",
             "max_stationary_ratio": args.max_stationary_ratio,
             "max_low_speed_ratio": args.max_low_speed_ratio,
             "min_forward_ratio": args.min_forward_ratio,
@@ -236,7 +295,12 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Summarize moveprobe plausibility across lab runs.")
     parser.add_argument("run_ids", nargs="+", help="Run IDs under artifacts/lab-runs, or explicit run directories.")
     parser.add_argument("--artifacts-root", type=Path, default=ARTIFACT_ROOT, help="Lab artifact root.")
-    parser.add_argument("--expected-forward", type=int, default=800, help="Expected forward command value.")
+    parser.add_argument(
+        "--expected-forward",
+        type=int,
+        default=None,
+        help="Expected forward command value. Defaults to MOVEPROBE_FORWARDMOVE from run.env, falling back to 800.",
+    )
     parser.add_argument("--max-stationary-ratio", type=float, default=0.25, help="Maximum acceptable stationary time ratio.")
     parser.add_argument("--max-low-speed-ratio", type=float, default=0.40, help="Maximum acceptable low-speed time ratio.")
     parser.add_argument("--min-forward-ratio", type=float, default=0.80, help="Minimum expected-forward command coverage.")
