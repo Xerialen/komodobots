@@ -22,6 +22,11 @@ THRESHOLDS = {
     "maxspeed_qu_per_s": 320.0,
     "high_speed_qu_per_s": 400.0,
     "teleport_speed_qu_per_s": 2500.0,
+    "vertical_epsilon_qu": 0.25,
+    "vertical_speed_qu_per_s": 40.0,
+    "airborne_min_duration_ms": 120.0,
+    "airborne_min_z_delta_qu": 4.0,
+    "landing_window_ms": 250.0,
 }
 
 
@@ -69,6 +74,31 @@ class MovementMetricsTests(unittest.TestCase):
         self.assertAlmostEqual(metrics["avg_horizontal_speed_qu_per_s"], 75.0)
         self.assertAlmostEqual(metrics["max_horizontal_speed_qu_per_s"], 100.0)
         self.assertAlmostEqual(metrics["low_speed_time_ratio"], 0.5)
+
+    def test_slot_metrics_reports_airborne_proxy_and_landing_speed_loss(self) -> None:
+        metrics = compute_slot_metrics(
+            slot=1,
+            name="/ hopper",
+            samples=[
+                {"time_ms": 0, "origin": [0.0, 0.0, 0.0]},
+                {"time_ms": 100, "origin": [40.0, 0.0, 10.0]},
+                {"time_ms": 200, "origin": [80.0, 0.0, 20.0]},
+                {"time_ms": 300, "origin": [120.0, 0.0, 10.0]},
+                {"time_ms": 400, "origin": [160.0, 0.0, 0.0]},
+                {"time_ms": 650, "origin": [240.0, 0.0, 0.0]},
+            ],
+            thresholds=THRESHOLDS,
+        )
+
+        self.assertEqual(metrics["airborne_proxy_count"], 1)
+        self.assertAlmostEqual(metrics["airborne_proxy_time_s"], 0.4)
+        self.assertAlmostEqual(metrics["airborne_proxy_time_ratio"], 0.615)
+        self.assertAlmostEqual(metrics["jump_cadence_per_min"], 92.308)
+        self.assertEqual(metrics["landing_speed_window_count"], 1)
+        self.assertAlmostEqual(metrics["avg_landing_pre_speed_qu_per_s"], 400.0)
+        self.assertAlmostEqual(metrics["avg_landing_post_speed_qu_per_s"], 320.0)
+        self.assertAlmostEqual(metrics["avg_post_landing_speed_delta_qu_per_s"], -80.0)
+        self.assertAlmostEqual(metrics["avg_post_landing_speed_loss_ratio"], 0.2)
 
     def test_compute_movement_metrics_excludes_unnamed_slots(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

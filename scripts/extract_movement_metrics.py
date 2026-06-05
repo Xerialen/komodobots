@@ -20,12 +20,17 @@ from pathlib import Path
 from typing import Iterable, TypedDict
 
 
-SCHEMA = "komodobots.movement_metrics.v1"
+SCHEMA = "komodobots.movement_metrics.v2"
 DEFAULT_STATIONARY_SPEED = 10.0
 DEFAULT_LOW_SPEED = 100.0
 DEFAULT_HIGH_SPEED = 400.0
 DEFAULT_TELEPORT_SPEED = 2500.0
 DEFAULT_MAXSPEED = 320.0
+DEFAULT_VERTICAL_EPSILON = 0.25
+DEFAULT_VERTICAL_SPEED = 40.0
+DEFAULT_AIRBORNE_MIN_DURATION_MS = 120
+DEFAULT_AIRBORNE_MIN_Z_DELTA = 4.0
+DEFAULT_LANDING_WINDOW_MS = 250
 
 
 class Sample(TypedDict):
@@ -93,6 +98,93 @@ def round_float(value: float, digits: int = 3) -> float:
     return 0.0
 
 
+def weighted_speed_for_window(segments: list[dict], start_ms: int, end_ms: int) -> float | None:
+    total_ms = 0
+    weighted_speed = 0.0
+    for segment in segments:
+        overlap_ms = max(0, min(segment["end_ms"], end_ms) - max(segment["start_ms"], start_ms))
+        if overlap_ms <= 0:
+            continue
+        total_ms += overlap_ms
+        weighted_speed += segment["horizontal_speed_qu_per_s"] * overlap_ms
+    if total_ms <= 0:
+        return None
+    return weighted_speed / total_ms
+
+
+def summarize_airborne_proxy(segments: list[dict], thresholds: dict[str, float]) -> dict:
+    min_duration_ms = int(thresholds["airborne_min_duration_ms"])
+    min_z_delta = thresholds["airborne_min_z_delta_qu"]
+    landing_window_ms = int(thresholds["landing_window_ms"])
+
+    runs: list[dict] = []
+    current: dict | None = None
+    for segment in segments:
+        if segment["vertical_motion"]:
+            if current is None:
+                current = {
+                    "start_ms": segment["start_ms"],
+                    "end_ms": segment["end_ms"],
+                    "z_min": min(segment["start_z"], segment["end_z"]),
+                    "z_max": max(segment["start_z"], segment["end_z"]),
+                }
+            else:
+                current["end_ms"] = segment["end_ms"]
+                current["z_min"] = min(current["z_min"], segment["start_z"], segment["end_z"])
+                current["z_max"] = max(current["z_max"], segment["start_z"], segment["end_z"])
+        elif current is not None:
+            duration_ms = current["end_ms"] - current["start_ms"]
+            z_delta = current["z_max"] - current["z_min"]
+            if duration_ms >= min_duration_ms and z_delta >= min_z_delta:
+                runs.append({**current, "duration_ms": duration_ms, "z_delta_qu": z_delta})
+            current = None
+
+    if current is not None:
+        duration_ms = current["end_ms"] - current["start_ms"]
+        z_delta = current["z_max"] - current["z_min"]
+        if duration_ms >= min_duration_ms and z_delta >= min_z_delta:
+            runs.append({**current, "duration_ms": duration_ms, "z_delta_qu": z_delta})
+
+    pre_speeds: list[float] = []
+    post_speeds: list[float] = []
+    post_deltas: list[float] = []
+    post_losses: list[float] = []
+    for run in runs:
+        landing_ms = run["end_ms"]
+        pre_speed = weighted_speed_for_window(segments, landing_ms - landing_window_ms, landing_ms)
+        post_speed = weighted_speed_for_window(segments, landing_ms, landing_ms + landing_window_ms)
+        if pre_speed is None or post_speed is None:
+            continue
+        pre_speeds.append(pre_speed)
+        post_speeds.append(post_speed)
+        delta = post_speed - pre_speed
+        post_deltas.append(delta)
+        loss = pre_speed - post_speed
+        post_losses.append(loss)
+
+    durations = [run["duration_ms"] for run in runs]
+    z_deltas = [run["z_delta_qu"] for run in runs]
+    avg_pre_speed = sum(pre_speeds) / len(pre_speeds) if pre_speeds else 0.0
+    avg_post_speed = sum(post_speeds) / len(post_speeds) if post_speeds else 0.0
+    avg_loss = avg_pre_speed - avg_post_speed
+    avg_loss_ratio = avg_loss / avg_pre_speed if avg_pre_speed > 0 else 0.0
+
+    return {
+        "airborne_proxy_count": len(runs),
+        "airborne_proxy_time_ms": sum(durations),
+        "avg_airborne_proxy_duration_ms": sum(durations) / len(durations) if durations else 0.0,
+        "max_airborne_proxy_duration_ms": max(durations) if durations else 0,
+        "avg_airborne_proxy_z_delta_qu": sum(z_deltas) / len(z_deltas) if z_deltas else 0.0,
+        "max_airborne_proxy_z_delta_qu": max(z_deltas) if z_deltas else 0.0,
+        "landing_speed_window_count": len(post_deltas),
+        "avg_landing_pre_speed_qu_per_s": avg_pre_speed,
+        "avg_landing_post_speed_qu_per_s": avg_post_speed,
+        "avg_post_landing_speed_delta_qu_per_s": sum(post_deltas) / len(post_deltas) if post_deltas else 0.0,
+        "avg_post_landing_speed_loss_qu_per_s": avg_loss if post_losses else 0.0,
+        "avg_post_landing_speed_loss_ratio": avg_loss_ratio if post_losses else 0.0,
+    }
+
+
 def compute_slot_metrics(
     *,
     slot: int,
@@ -127,6 +219,22 @@ def compute_slot_metrics(
             "over_maxspeed_time_ratio": 0.0,
             "over_400_time_s": 0.0,
             "over_400_time_ratio": 0.0,
+            "vertical_motion_time_s": 0.0,
+            "vertical_motion_time_ratio": 0.0,
+            "airborne_proxy_time_s": 0.0,
+            "airborne_proxy_time_ratio": 0.0,
+            "airborne_proxy_count": 0,
+            "jump_cadence_per_min": 0.0,
+            "avg_airborne_proxy_duration_ms": 0.0,
+            "max_airborne_proxy_duration_ms": 0,
+            "avg_airborne_proxy_z_delta_qu": 0.0,
+            "max_airborne_proxy_z_delta_qu": 0.0,
+            "landing_speed_window_count": 0,
+            "avg_landing_pre_speed_qu_per_s": 0.0,
+            "avg_landing_post_speed_qu_per_s": 0.0,
+            "avg_post_landing_speed_delta_qu_per_s": 0.0,
+            "avg_post_landing_speed_loss_qu_per_s": 0.0,
+            "avg_post_landing_speed_loss_ratio": 0.0,
             "dropped_teleport_segments": 0,
             "start_origin": [],
             "end_origin": [],
@@ -138,8 +246,10 @@ def compute_slot_metrics(
     low_speed_ms = 0
     over_maxspeed_ms = 0
     over_high_speed_ms = 0
+    vertical_motion_ms = 0
     dropped_teleport_segments = 0
     speeds: list[float] = []
+    accepted_segments: list[dict] = []
     max_speed = 0.0
     max_speed_time_ms = 0
     segment_count = 0
@@ -153,18 +263,37 @@ def compute_slot_metrics(
 
         dx = current["origin"][0] - previous["origin"][0]
         dy = current["origin"][1] - previous["origin"][1]
+        dz = current["origin"][2] - previous["origin"][2]
         distance = math.hypot(dx, dy)
         speed = distance / (dt_ms / 1000.0)
+        vertical_speed = dz / (dt_ms / 1000.0)
 
-        if speed > thresholds["teleport_speed_qu_per_s"]:
+        if speed > thresholds["teleport_speed_qu_per_s"] or abs(vertical_speed) > thresholds["teleport_speed_qu_per_s"]:
             dropped_teleport_segments += 1
             previous = current
             continue
+
+        vertical_motion = (
+            abs(dz) >= thresholds["vertical_epsilon_qu"]
+            or abs(vertical_speed) >= thresholds["vertical_speed_qu_per_s"]
+        )
 
         segment_count += 1
         active_ms += dt_ms
         horizontal_distance += distance
         speeds.append(speed)
+        accepted_segments.append(
+            {
+                "start_ms": previous["time_ms"],
+                "end_ms": current["time_ms"],
+                "dt_ms": dt_ms,
+                "horizontal_speed_qu_per_s": speed,
+                "start_z": previous["origin"][2],
+                "end_z": current["origin"][2],
+                "vertical_speed_qu_per_s": vertical_speed,
+                "vertical_motion": vertical_motion,
+            }
+        )
 
         if speed > max_speed:
             max_speed = speed
@@ -177,6 +306,8 @@ def compute_slot_metrics(
             over_maxspeed_ms += dt_ms
         if speed > thresholds["high_speed_qu_per_s"]:
             over_high_speed_ms += dt_ms
+        if vertical_motion:
+            vertical_motion_ms += dt_ms
 
         previous = current
 
@@ -186,6 +317,8 @@ def compute_slot_metrics(
     last_origin = ordered[-1]["origin"]
     net_distance = math.hypot(last_origin[0] - first_origin[0], last_origin[1] - first_origin[1])
     path_efficiency = net_distance / horizontal_distance if horizontal_distance > 0 else 0.0
+    airborne = summarize_airborne_proxy(accepted_segments, thresholds)
+    airborne_ms = airborne["airborne_proxy_time_ms"]
 
     return {
         "slot": slot,
@@ -212,6 +345,24 @@ def compute_slot_metrics(
         "over_maxspeed_time_ratio": round_float(over_maxspeed_ms / active_ms if active_ms else 0.0),
         "over_400_time_s": round_float(over_high_speed_ms / 1000.0),
         "over_400_time_ratio": round_float(over_high_speed_ms / active_ms if active_ms else 0.0),
+        "vertical_motion_time_s": round_float(vertical_motion_ms / 1000.0),
+        "vertical_motion_time_ratio": round_float(vertical_motion_ms / active_ms if active_ms else 0.0),
+        "airborne_proxy_time_s": round_float(airborne_ms / 1000.0),
+        "airborne_proxy_time_ratio": round_float(airborne_ms / active_ms if active_ms else 0.0),
+        "airborne_proxy_count": airborne["airborne_proxy_count"],
+        "jump_cadence_per_min": round_float(
+            airborne["airborne_proxy_count"] / active_s * 60.0 if active_s else 0.0
+        ),
+        "avg_airborne_proxy_duration_ms": round_float(airborne["avg_airborne_proxy_duration_ms"]),
+        "max_airborne_proxy_duration_ms": airborne["max_airborne_proxy_duration_ms"],
+        "avg_airborne_proxy_z_delta_qu": round_float(airborne["avg_airborne_proxy_z_delta_qu"]),
+        "max_airborne_proxy_z_delta_qu": round_float(airborne["max_airborne_proxy_z_delta_qu"]),
+        "landing_speed_window_count": airborne["landing_speed_window_count"],
+        "avg_landing_pre_speed_qu_per_s": round_float(airborne["avg_landing_pre_speed_qu_per_s"]),
+        "avg_landing_post_speed_qu_per_s": round_float(airborne["avg_landing_post_speed_qu_per_s"]),
+        "avg_post_landing_speed_delta_qu_per_s": round_float(airborne["avg_post_landing_speed_delta_qu_per_s"]),
+        "avg_post_landing_speed_loss_qu_per_s": round_float(airborne["avg_post_landing_speed_loss_qu_per_s"]),
+        "avg_post_landing_speed_loss_ratio": round_float(airborne["avg_post_landing_speed_loss_ratio"]),
         "dropped_teleport_segments": dropped_teleport_segments,
         "start_origin": [round_float(part) for part in first_origin],
         "end_origin": [round_float(part) for part in last_origin],
@@ -227,6 +378,11 @@ def compute_movement_metrics(
     low_speed: float = DEFAULT_LOW_SPEED,
     high_speed: float = DEFAULT_HIGH_SPEED,
     teleport_speed: float = DEFAULT_TELEPORT_SPEED,
+    vertical_epsilon: float = DEFAULT_VERTICAL_EPSILON,
+    vertical_speed: float = DEFAULT_VERTICAL_SPEED,
+    airborne_min_duration_ms: int = DEFAULT_AIRBORNE_MIN_DURATION_MS,
+    airborne_min_z_delta: float = DEFAULT_AIRBORNE_MIN_Z_DELTA,
+    landing_window_ms: int = DEFAULT_LANDING_WINDOW_MS,
 ) -> dict:
     if run_dir is None:
         run_dir = events_path.parent
@@ -311,6 +467,11 @@ def compute_movement_metrics(
         "maxspeed_qu_per_s": float(maxspeed),
         "high_speed_qu_per_s": float(high_speed),
         "teleport_speed_qu_per_s": float(teleport_speed),
+        "vertical_epsilon_qu": float(vertical_epsilon),
+        "vertical_speed_qu_per_s": float(vertical_speed),
+        "airborne_min_duration_ms": float(airborne_min_duration_ms),
+        "airborne_min_z_delta_qu": float(airborne_min_z_delta),
+        "landing_window_ms": float(landing_window_ms),
     }
 
     player_metrics = []
@@ -383,8 +544,11 @@ def write_markdown(metrics: dict, output_path: Path) -> None:
         f"- Over maxspeed: horizontal speed > `{thresholds['maxspeed_qu_per_s']}` qu/s.",
         f"- High speed: horizontal speed > `{thresholds['high_speed_qu_per_s']}` qu/s.",
         f"- Teleport guard: segments > `{thresholds['teleport_speed_qu_per_s']}` qu/s are excluded.",
+        f"- Vertical motion proxy: abs(delta Z) >= `{thresholds['vertical_epsilon_qu']}` qu or vertical speed >= `{thresholds['vertical_speed_qu_per_s']}` qu/s.",
+        f"- Airborne proxy run: vertical-motion run lasting >= `{thresholds['airborne_min_duration_ms']}` ms with Z range >= `{thresholds['airborne_min_z_delta_qu']}` qu.",
+        f"- Landing speed delta window: `{thresholds['landing_window_ms']}` ms before/after each airborne-proxy run end.",
         "",
-        "## Players",
+        "## Speed",
         "",
     ]
 
@@ -415,6 +579,32 @@ def write_markdown(metrics: dict, output_path: Path) -> None:
                 f"{player['dropped_teleport_segments']} |"
             )
 
+        lines.extend(
+            [
+                "",
+                "## Airborne Proxy",
+                "",
+                "| Slot | Player | Vertical | Air | Runs | Cadence/min | Avg air ms | Max Z | Post delta | Loss | Loss % | Windows |",
+                "|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for player in players:
+            lines.append(
+                "| "
+                f"{player['slot']} | "
+                f"`{player['name']}` | "
+                f"{pct(player['vertical_motion_time_ratio'])} | "
+                f"{pct(player['airborne_proxy_time_ratio'])} | "
+                f"{player['airborne_proxy_count']} | "
+                f"{player['jump_cadence_per_min']:.1f} | "
+                f"{player['avg_airborne_proxy_duration_ms']:.1f} | "
+                f"{player['max_airborne_proxy_z_delta_qu']:.1f} | "
+                f"{player['avg_post_landing_speed_delta_qu_per_s']:.1f} | "
+                f"{player['avg_post_landing_speed_loss_qu_per_s']:.1f} | "
+                f"{pct(player['avg_post_landing_speed_loss_ratio'])} | "
+                f"{player['landing_speed_window_count']} |"
+            )
+
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -427,6 +617,11 @@ def write_movement_metrics(
     low_speed: float = DEFAULT_LOW_SPEED,
     high_speed: float = DEFAULT_HIGH_SPEED,
     teleport_speed: float = DEFAULT_TELEPORT_SPEED,
+    vertical_epsilon: float = DEFAULT_VERTICAL_EPSILON,
+    vertical_speed: float = DEFAULT_VERTICAL_SPEED,
+    airborne_min_duration_ms: int = DEFAULT_AIRBORNE_MIN_DURATION_MS,
+    airborne_min_z_delta: float = DEFAULT_AIRBORNE_MIN_Z_DELTA,
+    landing_window_ms: int = DEFAULT_LANDING_WINDOW_MS,
 ) -> dict:
     if events_path is None:
         events_path = run_dir / "events.txt"
@@ -441,6 +636,11 @@ def write_movement_metrics(
         low_speed=low_speed,
         high_speed=high_speed,
         teleport_speed=teleport_speed,
+        vertical_epsilon=vertical_epsilon,
+        vertical_speed=vertical_speed,
+        airborne_min_duration_ms=airborne_min_duration_ms,
+        airborne_min_z_delta=airborne_min_z_delta,
+        landing_window_ms=landing_window_ms,
     )
 
     json_path = run_dir / "movement-metrics.json"
@@ -465,6 +665,11 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument("--low-speed", type=float, default=DEFAULT_LOW_SPEED)
     parser.add_argument("--high-speed", type=float, default=DEFAULT_HIGH_SPEED)
     parser.add_argument("--teleport-speed", type=float, default=DEFAULT_TELEPORT_SPEED)
+    parser.add_argument("--vertical-epsilon", type=float, default=DEFAULT_VERTICAL_EPSILON)
+    parser.add_argument("--vertical-speed", type=float, default=DEFAULT_VERTICAL_SPEED)
+    parser.add_argument("--airborne-min-duration-ms", type=int, default=DEFAULT_AIRBORNE_MIN_DURATION_MS)
+    parser.add_argument("--airborne-min-z-delta", type=float, default=DEFAULT_AIRBORNE_MIN_Z_DELTA)
+    parser.add_argument("--landing-window-ms", type=int, default=DEFAULT_LANDING_WINDOW_MS)
     return parser.parse_args(list(argv))
 
 
@@ -479,6 +684,11 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         low_speed=args.low_speed,
         high_speed=args.high_speed,
         teleport_speed=args.teleport_speed,
+        vertical_epsilon=args.vertical_epsilon,
+        vertical_speed=args.vertical_speed,
+        airborne_min_duration_ms=args.airborne_min_duration_ms,
+        airborne_min_z_delta=args.airborne_min_z_delta,
+        landing_window_ms=args.landing_window_ms,
     )
     print(f"players={len(metrics.get('players', []))}")
     print(f"json={run_dir / 'movement-metrics.json'}")

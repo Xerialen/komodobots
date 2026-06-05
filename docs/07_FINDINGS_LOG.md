@@ -319,3 +319,74 @@ Medium that these metrics are enough for bunnyhopping evaluation until airborne/
 ### Follow-up
 
 Compare these bot metrics against human/reference MVDs and add the next movement layer: airborne segmentation, jump cadence, and speed gain/loss around ground contacts.
+
+---
+
+## 2026-06-05 - Baseline Movement Report v2
+
+### Experiment
+
+Extended `scripts/extract_movement_metrics.py` from horizontal-speed reporting to baseline movement v2. The report now adds vertical-motion and airborne-proxy metrics derived from MVD player origin samples:
+
+- vertical-motion time ratio
+- airborne-proxy time ratio
+- airborne-proxy run count
+- jump cadence per minute
+- average airborne-proxy duration
+- post-landing speed delta/loss over a 250 ms window
+
+Ran fresh 40 second lab baselines:
+
+```bash
+python scripts/run_bot_lab.py --map frobodm2 --duration 40 --bot-count 2
+python scripts/run_bot_lab.py --map dm3 --duration 40 --bot-count 2
+```
+
+### Result
+
+Run `20260605T205256Z` on `frobodm2`:
+
+- `/ bro`: avg `311.8` qu/s, p95 `456.5` qu/s, over 320 qu/s `58.2%`, air proxy `18.1%`, cadence `32.6/min`, post-landing delta `+11.9` qu/s.
+- `/ goldenboy`: avg `346.4` qu/s, p95 `464.0` qu/s, over 320 qu/s `68.6%`, air proxy `16.7%`, cadence `29.5/min`, post-landing delta `+9.7` qu/s.
+
+Run `20260605T205353Z` on `dm3`:
+
+- `/ bro`: avg `279.4` qu/s, p95 `450.2` qu/s, over 320 qu/s `47.2%`, air proxy `25.0%`, cadence `22.2/min`, post-landing delta `+36.6` qu/s.
+- `/ goldenboy`: avg `92.8` qu/s, p95 `365.3` qu/s, over 320 qu/s `7.5%`, air proxy `36.7%`, cadence `14.7/min`, post-landing delta `+28.8` qu/s.
+
+Both runs parsed JSON/Markdown successfully, accepted the known events-mode exit `1`, observed two named bots, and left `servexeri:28599` down after cleanup. The temporary stock `dm2.bot` route remained absent.
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/lab-runs/20260605T205256Z/run-summary.md`
+- `artifacts/lab-runs/20260605T205256Z/movement-metrics.md`
+- `artifacts/lab-runs/20260605T205353Z/run-summary.md`
+- `artifacts/lab-runs/20260605T205353Z/movement-metrics.md`
+
+Remote demos:
+
+- `/home/xerial/nquakesv/ktx/demos/ffa_2[frobodm2]20260605-2053.mvd`
+- `/home/xerial/nquakesv/ktx/demos/ffa_2[dm3]20260605-2054.mvd`
+
+Validation:
+
+- `python -m py_compile scripts\extract_movement_metrics.py scripts\run_frobodm2_lab.py scripts\run_bot_lab.py experiments\qw_min_client.py tests\test_extract_movement_metrics.py`
+- `python -m unittest discover -s tests -v`
+
+### Interpretation
+
+S1 baseline is now good enough to serve the next stage. The lab has a repeatable movement report that captures speed, vertical motion, and an explicit airborne proxy. It still does not prove true jump input timing, but it gives S2 movement-override experiments a baseline scoreboard.
+
+The `dm3` run shows why multiple baselines matter: one bot had low average horizontal speed while still showing large air-proxy time, likely because route/map behavior can create vertical movement without strong horizontal bunnyhopping. Future comparisons should use several runs per map or aggregate distributions.
+
+### Confidence
+
+High that baseline Frogbot movement can now be measured automatically from generated MVDs.
+
+Medium that the airborne proxy tracks bunnyhopping itself. It is a useful approximation until grounded flags, collision context, or usercmd reconstruction exist.
+
+### Follow-up
+
+Start S2: prove that movement can be isolated and replaced without breaking KTX/Frogbot spawning, combat participation, MVD recording, and parser/metric generation.

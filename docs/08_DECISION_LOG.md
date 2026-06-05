@@ -248,3 +248,35 @@ The metrics remain position-derived and should not be overclaimed as legal userc
 ### Revisit Conditions
 
 Revisit once `qw-sim` can compute equivalent metrics directly, once parser versioning is pinned for regression use, or once airborne/jump-state reconstruction changes the canonical metric source.
+
+---
+
+## Decision
+
+Label vertical movement as an airborne proxy, not ground truth.
+
+### Date
+
+2026-06-05
+
+### Decision
+
+For baseline movement report v2, derive air/jump-like metrics from vertical movement runs in MVD position samples, and label them explicitly as `airborne_proxy` metrics. A qualifying run is currently a vertical-motion sequence lasting at least 120 ms with at least 4 qu of Z range.
+
+### Alternatives Considered
+
+- Call the metric true airborne time.
+- Wait for engine-side grounded flags before adding any vertical/jump metric.
+- Use only horizontal speed until movement overrides exist.
+
+### Evidence
+
+MVD event position samples expose origin over time, but not normal player usercmds or an explicit grounded flag. Fresh v2 baseline runs on `frobodm2` and `dm3` produced useful vertical-motion summaries, but `dm3` also showed that high air-proxy time can coexist with weak horizontal speed. This means the metric is useful, but should not be overclaimed as bunnyhopping proof by itself.
+
+### Expected Consequences
+
+The lab can now track speed plus a jump-like proxy across baseline and future movement-controller experiments. Reports should continue to show the threshold method so comparisons remain reproducible.
+
+### Revisit Conditions
+
+Revisit if `qw-analyze-v20`, `qw-sim`, KTX instrumentation, or a movement override path exposes real grounded state, jump commands, or collision-plane context.
