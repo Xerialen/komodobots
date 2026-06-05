@@ -400,7 +400,7 @@ Start S2: prove that movement can be isolated and replaced without breaking KTX/
 Added the first S2 movement override probe:
 
 - `experiments/ktx_moveprobe/frogbot-moveprobe.patch` applies to KTX commit `08807da`.
-- The patch hooks `src/bot_movement.c::BotSetCommand()` immediately before `trap_SetBotCMD(...)`.
+- The patch hooks `src/bot_movement.c::BotSetCommand()` after the prewar-freeze guard and immediately before button assembly and `trap_SetBotCMD(...)`.
 - `scripts/run_bot_lab.py` / `scripts/run_frobodm2_lab.py` can now write `k_fb_moveprobe_*` cvars into generated lab configs and summaries.
 
 Temporarily deployed the patched KTX build to `servexeri`, with deployed `qwprogs.so` backups before each run, then restored the stock deployed library and reversed the KTX source patch after the runs.
@@ -455,18 +455,18 @@ quakestat localhost:28599: DOWN
 
 ### Interpretation
 
-S2 has its first positive evidence: Frogbot movement can be modified at the final command-emission point while preserving the existing KTX/Frogbot shell, MVD recording, parser output, and metric generation.
+S2 has its first positive evidence: Frogbot commands can be perturbed near the final command-emission point while preserving the existing KTX/Frogbot shell, MVD recording, parser output, and metric generation.
 
 Mode `2` is also useful negative evidence. Blind fixed-command replacement is not a movement brain; it can satisfy the plumbing proof while producing unusable behavior.
 
-The next S2 step should be a tiny useful controller that replaces direction/yaw more intelligently than mode `2`, while preserving combat and route shell behavior.
+The next S2 step should first instrument the exact values handed to `trap_SetBotCMD(...)` for stock, mode `1`, and mode `2`. Only after confirming that the movement vector itself is controllable should the lab build a tiny controller that replaces direction/yaw more intelligently than mode `2`, while preserving combat and route shell behavior.
 
 ### Confidence
 
-High that `BotSetCommand()` is a real control point for final bot command override.
+High that `BotSetCommand()` is a real control point for command perturbation.
 
-Medium that this is the right long-term integration point. It is source-grounded and measured, but the probe is still a patch outside upstream KTX and has not been shaped into a maintainable extension.
+Medium that this is the right long-term integration point for replacing movement vectors. It is source-grounded and measured, but the probe is still a patch outside upstream KTX and has not yet logged the actual values emitted to `trap_SetBotCMD(...)`.
 
 ### Follow-up
 
-Build moveprobe v2: keep the final-command hook, but replace the fixed command with a bounded controller that steers toward a short target direction or marker corridor, then compare against baseline and mode `2` stationary failure.
+Build moveprobe v2a instrumentation: keep the `BotSetCommand()` hook, log the final `msec`, angles, movement values, buttons, and impulse handed to `trap_SetBotCMD(...)`, and compare stock/mode `1`/mode `2`. Then build moveprobe v2b as a tiny controller only after the movement-vector seam is confirmed. Evaluate plausibility, not speed alone.

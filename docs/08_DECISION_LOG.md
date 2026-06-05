@@ -293,7 +293,7 @@ Use `BotSetCommand()` as the first S2 movement override control point.
 
 ### Decision
 
-For the first movement override feasibility probe, hook KTX/Frogbots at `src/bot_movement.c::BotSetCommand()` immediately before `trap_SetBotCMD(...)`.
+For the first movement override feasibility probe, hook KTX/Frogbots at `src/bot_movement.c::BotSetCommand()` after the prewar-freeze guard and immediately before button assembly and `trap_SetBotCMD(...)`.
 
 Keep this as an experiment patch in Komodobots (`experiments/ktx_moveprobe/frogbot-moveprobe.patch`) until the project has enough evidence to justify an upstreamable KTX extension.
 
@@ -314,9 +314,9 @@ Run `20260605T213149Z` proved a forced-jump perturbation can preserve bot spawni
 
 ### Expected Consequences
 
-S2 can proceed with small controller probes inside the server-native KTX/Frogbot loop instead of rewriting the bot stack.
+S2 can proceed with instrumentation and small controller probes inside the server-native KTX/Frogbot loop instead of rewriting the bot stack.
 
-The next controller should replace movement direction/yaw more carefully than the fixed-command mode while leaving combat and the rest of the lab loop intact.
+The next step should instrument emitted command values before building a controller. The next controller should replace movement direction/yaw more carefully than the fixed-command mode while leaving combat and the rest of the lab loop intact.
 
 ### Revisit Conditions
 

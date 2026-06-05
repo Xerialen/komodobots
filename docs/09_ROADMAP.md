@@ -44,7 +44,7 @@ Current active stage:
 |---------|---------|---------|
 | S0 Smoke Test | Complete | Bot moves, MVD recorded, MVD parsed |
 | S1 Baseline | Complete | Measured current Frogbot movement with speed and airborne-proxy metrics |
-| S2 Override | Active; first command-emission probe complete | Prove useful movement can be replaced, not just perturbed |
+| S2 Override | Active; first command-perturbation probe complete | Instrument emitted commands, then prove useful movement-vector replacement |
 | S3 Bunnyjump Controller | Pending | Better movement than baseline |
 | S4 Human Comparison | Pending | Metric comparison against human demos |
 | S5 Milton Reference | Pending | Elite movement reference dataset |

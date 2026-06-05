@@ -31,7 +31,7 @@ Third lab milestone on 2026-06-05: `scripts/extract_movement_metrics.py` now der
 
 Fourth lab milestone on 2026-06-05: movement metrics schema v2 adds vertical-motion and airborne-proxy metrics: air-proxy time ratio, run cadence, average air-proxy duration, and post-landing speed delta/loss over a fixed window.
 
-Fifth lab milestone on 2026-06-05: the first S2 movement override probe patched KTX `BotSetCommand()` immediately before `trap_SetBotCMD(...)`. Moveprobe mode `1` forced jump while preserving Frogbot direction/combat and produced a normal `frobodm2` run with three frags and movement metrics. Moveprobe mode `2` replaced the final movement command with a fixed command and produced full lab artifacts, but the bots became nearly stationary. This proves the command-emission point is controllable, not that useful movement replacement is solved.
+Fifth lab milestone on 2026-06-05: the first S2 movement override probe patched KTX `BotSetCommand()` after the prewar-freeze guard and immediately before button assembly and `trap_SetBotCMD(...)`. Moveprobe mode `1` forced jump while preserving Frogbot direction/combat and produced a normal `frobodm2` run with three frags and movement metrics. Moveprobe mode `2` replaced the final movement command with a fixed command and produced full lab artifacts, but the bots became nearly stationary. This proves command perturbation is possible; it does not yet prove useful movement-vector replacement.
 
 ## Environment Diagram
 
@@ -158,7 +158,7 @@ The bundle README says it was built from mvd_analyzer commit `7d83ebe`, while th
 | Record MVD automatically | Proven on `frobodm2` and `dm3` | KTX saved non-empty MVDs after `sv_demostop`. |
 | Parse MVD automatically | Proven for summary/events | `qw-analyze-v20` parsed JSON/Markdown summary exit 0; events mode emitted data then exited 1 with `qw-analyze: end of demo`. |
 | Generate movement report automatically | Proven v2 | `scripts/extract_movement_metrics.py` writes speed plus airborne-proxy movement metrics from MVD event position samples. |
-| Test movement overrides automatically | First probe proven | `experiments/ktx_moveprobe/frogbot-moveprobe.patch` hooks KTX `BotSetCommand()` before `trap_SetBotCMD(...)`; `20260605T213149Z` proved a forced-jump command perturbation can preserve spawn/combat/MVD/parser/metrics. Useful direction replacement remains unproven. |
+| Test movement overrides automatically | First probe proven | `experiments/ktx_moveprobe/frogbot-moveprobe.patch` hooks KTX `BotSetCommand()` after the prewar-freeze guard and before button assembly/`trap_SetBotCMD(...)`; `20260605T213149Z` proved a forced-jump command perturbation can preserve spawn/combat/MVD/parser/metrics. Useful direction replacement remains unproven. |
 | Visual validation | Available for playback | `ezquake-test` / `~/hud-runner` can render existing demos headlessly; useful after new MVDs exist. |
 
 ## One-command Bot Runner
@@ -406,7 +406,7 @@ The current runner uses session names shaped like `komodobots_lab_<port>_<run-id
 - Determinism is unknown. The lab must record seed/config/server version details before comparing movement runs.
 - Stock `dm2` can load, record, and parse, but it is not a Frogbot-supported route target in this environment. User confirmed there is no point building routes for it now.
 - A first-pass movement report schema exists, but it is still position-derived and does not yet infer ground-truth jump commands, grounded state, or usercmd intent.
-- The first S2 moveprobe proves the final command can be altered before `trap_SetBotCMD(...)`. It does not prove a useful replacement movement brain; the fixed-command mode collapsed into wall/stationary behavior.
+- The first S2 moveprobe proves the final command can be perturbed before `trap_SetBotCMD(...)`. It does not yet prove useful movement-vector replacement; the fixed-command mode collapsed into wall/stationary behavior.
 
 ## Troubleshooting
 
@@ -434,4 +434,4 @@ Move the repeatable runner one notch closer to the north star:
 
 1. Keep `dm2` as a `qw-sim` continuity map, not as a Frogbot route-building target.
 2. Use routed maps such as `frobodm2` and `dm3` to generate bot movement demos.
-3. Replace the fixed-command moveprobe with a tiny useful controller: preserve combat/route shell, choose a short target direction or marker-to-marker corridor, and verify it improves on the near-stationary mode `2` result while still producing MVD/parser/metrics artifacts.
+3. Instrument the exact final command values handed to `trap_SetBotCMD(...)` for stock, mode `1`, and mode `2`, then replace the fixed-command moveprobe with a tiny useful controller only after the movement-vector seam is confirmed. Success should include plausibility checks such as not wall-humping or going stationary, not speed alone.

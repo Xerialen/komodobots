@@ -105,7 +105,7 @@ The real target is a movement mode or controller with:
 
 ## First movement override evidence
 
-The first S2 probe found a real command-emission seam in KTX/Frogbots:
+The first S2 probe found a candidate command-emission seam in KTX/Frogbots:
 
 `src/bot_movement.c::BotSetCommand()` computes the final bot command and sends it through `trap_SetBotCMD(...)`.
 
@@ -118,7 +118,7 @@ Two patched `frobodm2` runs on 2026-06-05 produced different evidence:
 - `20260605T213010Z`, moveprobe mode `2`: replacing the final movement command with fixed `yaw=90 forwardmove=800` still spawned bots, recorded an MVD, parsed successfully, and produced metrics, but the bots were nearly stationary. This proves the command can be replaced, and also shows a naive fixed command is not useful movement.
 - `20260605T213149Z`, moveprobe mode `1`: forcing jump while preserving Frogbot movement direction and combat produced a normal lab run with three frags and strong movement metrics. This proves a small final-command override can ride inside the existing KTX/Frogbot shell without breaking spawn, combat, MVD recording, parsing, or metrics.
 
-This does not complete S2. The next proof must replace direction/yaw with a useful controlled movement policy, not only perturb jump or pin movement to a wall.
+This does not complete S2. The next proof must instrument the actual values handed to `trap_SetBotCMD(...)`, confirm the movement vector itself can be replaced, and then replace direction/yaw with a useful controlled movement policy. Success must include plausibility checks such as not wall-humping or collapsing into stationary behavior, not only speed.
 
 ## Working hypothesis
 

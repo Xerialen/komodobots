@@ -90,7 +90,7 @@ Current limitation: these are position-derived metrics. The airborne fields are 
 
 S2 moveprobe note:
 
-The first KTX command-emission probe can change the final bot command before `trap_SetBotCMD(...)`, but the current MVD-derived metrics still observe only resulting movement. They cannot directly prove that the jump button was pressed; they show the behavioral consequence.
+The first KTX command-emission probe can perturb the final bot command before `trap_SetBotCMD(...)`, but the current MVD-derived metrics still observe only resulting movement. They cannot directly prove that the jump button was pressed or that a specific movement vector reached `trap_SetBotCMD(...)`; they show the behavioral consequence.
 
 ## Human comparison sets
 

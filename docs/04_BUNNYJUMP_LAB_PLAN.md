@@ -57,12 +57,12 @@ Determine whether movement can be isolated and swapped without breaking the rest
 
 Status: first probe complete, S2 still active.
 
-The KTX moveprobe patch hooks `BotSetCommand()` immediately before `trap_SetBotCMD(...)`.
+The KTX moveprobe patch hooks `BotSetCommand()` after the prewar-freeze guard and immediately before button assembly and `trap_SetBotCMD(...)`.
 
 - Mode `1` forced jump while preserving existing Frogbot direction and combat. Run `20260605T213149Z` spawned two bots, recorded three frags, parsed successfully, and generated movement metrics.
 - Mode `2` replaced the final movement command with a fixed command. Run `20260605T213010Z` still produced the full lab artifact set, but the bots became nearly stationary.
 
-Interpretation: the movement command can be perturbed/replaced at the final command-emission point, but useful movement replacement is not yet proven.
+Interpretation: the final command can be perturbed, and fixed-command replacement reaches the lab artifact loop, but useful movement-vector replacement is not yet proven. The next step is to instrument the exact values emitted to `trap_SetBotCMD(...)` before building a controller.
 
 ## Future phases
 

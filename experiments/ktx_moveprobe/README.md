@@ -18,7 +18,7 @@ git apply /path/to/frogbot-moveprobe.patch
 cmake --build build
 ```
 
-The patch adds `k_fb_moveprobe_mode` handling inside `BotSetCommand()`, immediately before `trap_SetBotCMD(...)` is called.
+The patch adds `k_fb_moveprobe_mode` handling inside `BotSetCommand()` after the prewar-freeze guard and immediately before button assembly and `trap_SetBotCMD(...)`.
 
 Modes:
 
