@@ -166,6 +166,38 @@ class MovementMetricsTests(unittest.TestCase):
         self.assertEqual(args.moveprobe_sidemove, 120)
         self.assertEqual(args.moveprobe_upmove, 0)
 
+    def test_runner_accepts_moveprobe_command_logging_options(self) -> None:
+        args = run_frobodm2_lab.parse_args(
+            [
+                "--moveprobe-log-commands",
+                "--moveprobe-log-interval",
+                "0.5",
+            ]
+        )
+
+        self.assertTrue(args.moveprobe_log_commands)
+        self.assertEqual(args.moveprobe_log_interval, 0.5)
+
+    def test_parse_moveprobe_command_logs(self) -> None:
+        commands = run_frobodm2_lab.parse_moveprobe_command_logs(
+            "\n".join(
+                [
+                    "noise before",
+                    'FBMOVEPROBE_CMD time=12.250 ed=3 name=/ goldenboy mode=2 msec=13 angles=0.0,90.0,0.0 move=800,0,0 buttons=3 impulse=0',
+                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=2 msec=12 angles=0.0,90.0,0.0 move=0,400,0 buttons=2 impulse=7',
+                ]
+            )
+        )
+
+        self.assertEqual(len(commands), 2)
+        self.assertEqual(commands[0]["name"], "/ goldenboy")
+        self.assertEqual(commands[0]["mode"], 2)
+        self.assertEqual(commands[0]["msec"], 13)
+        self.assertEqual(commands[0]["angles"], {"pitch": 0.0, "yaw": 90.0, "roll": 0.0})
+        self.assertEqual(commands[1]["move"], {"forward": 0, "side": 400, "up": 0})
+        self.assertEqual(commands[1]["buttons"], 2)
+        self.assertEqual(commands[1]["impulse"], 7)
+
     def test_remote_port_down_treats_empty_or_down_as_free(self) -> None:
         original_run = run_frobodm2_lab.run
 

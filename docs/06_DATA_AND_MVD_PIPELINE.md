@@ -92,6 +92,8 @@ S2 moveprobe note:
 
 The first KTX command-emission probe can perturb the final bot command before `trap_SetBotCMD(...)`, but the current MVD-derived metrics still observe only resulting movement. They cannot directly prove that the jump button was pressed or that a specific movement vector reached `trap_SetBotCMD(...)`; they show the behavioral consequence.
 
+The v2a instrumentation path fills that gap for patched KTX runs. With `--moveprobe-log-commands`, KTX emits sampled `FBMOVEPROBE_CMD` console rows immediately before `trap_SetBotCMD(...)`, and the runner writes parsed `moveprobe-commands.json` / `moveprobe-commands.md` artifacts. These command logs are not a replacement for MVD behavior metrics; they are the control-plane evidence that the intended command values reached the final bot syscall.
+
 ## Human comparison sets
 
 Preferred order:
@@ -116,7 +118,7 @@ Target loop:
 7. Generate metrics and report.
 8. Append findings to `docs/07_FINDINGS_LOG.md`.
 
-For S2 moveprobe runs, the runner also records the active moveprobe cvars in `lab.cfg`, `run.env`, and `run-summary.md`.
+For S2 moveprobe runs, the runner also records the active moveprobe cvars in `lab.cfg`, `run.env`, and `run-summary.md`. When command logging is enabled, the same run directory includes `moveprobe-commands.json` and `moveprobe-commands.md`.
 
 ## Current parser entry points
 

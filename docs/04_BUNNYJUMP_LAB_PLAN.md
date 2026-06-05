@@ -62,7 +62,7 @@ The KTX moveprobe patch hooks `BotSetCommand()` after the prewar-freeze guard an
 - Mode `1` forced jump while preserving existing Frogbot direction and combat. Run `20260605T213149Z` spawned two bots, recorded three frags, parsed successfully, and generated movement metrics.
 - Mode `2` replaced the final movement command with a fixed command and forced jump. Run `20260605T213010Z` still produced the full lab artifact set, but the bots became nearly stationary.
 
-Interpretation: the final command can be perturbed, and fixed-command replacement reaches the lab artifact loop, but useful movement-vector replacement is not yet proven. The next step is to instrument the exact values emitted to `trap_SetBotCMD(...)` before building a controller.
+Interpretation: the final command can be perturbed, and fixed-command replacement reaches the lab artifact loop, but useful movement-vector replacement is not yet proven. The command instrumentation scaffold now exists; the next step is to run the stock/mode `1`/mode `2` comparison of exact values emitted to `trap_SetBotCMD(...)` before building a controller.
 
 ## Future phases
 

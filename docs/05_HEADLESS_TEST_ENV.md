@@ -175,9 +175,12 @@ Useful verification forms:
 python scripts/run_bot_lab.py --duration 40 --bot-count 2
 python scripts/run_bot_lab.py --map dm3 --duration 40 --bot-count 2
 python scripts/run_bot_lab.py --map frobodm2 --duration 40 --bot-count 2 --moveprobe-mode 1
+python scripts/run_bot_lab.py --map frobodm2 --duration 20 --bot-count 2 --moveprobe-mode 0 --moveprobe-log-commands
 ```
 
 The `--moveprobe-*` options only change behavior when the S2 KTX patch from `experiments/ktx_moveprobe/` is applied to the server-side KTX build. Without that patch, the runner still records the cvars in `lab.cfg` and `run.env`, but stock KTX ignores them.
+
+`--moveprobe-log-commands` enables the patch's sampled `FBMOVEPROBE_CMD` console rows. The runner parses those rows from `screen.log` into `moveprobe-commands.json` and `moveprobe-commands.md`, making it possible to compare the actual command values emitted by stock mode `0`, forced-jump mode `1`, and fixed-command mode `2`.
 
 What it does:
 
@@ -192,7 +195,8 @@ What it does:
 9. Copies the remote run directory to `artifacts/lab-runs/<run-id>/`.
 10. Runs `~/qw-sim/bin/qw-analyze-v20` through WSL in `json`, `md`, and `events` modes.
 11. Derives movement metrics from `events.txt` kind `5` player origin samples.
-12. Writes `run-summary.md`, `movement-metrics.json`, and `movement-metrics.md`.
+12. Derives optional moveprobe command logs from `screen.log` when the patched KTX build emits `FBMOVEPROBE_CMD` rows.
+13. Writes `run-summary.md`, `movement-metrics.json`, `movement-metrics.md`, and optional `moveprobe-commands.*` artifacts.
 
 Local artifact layout:
 

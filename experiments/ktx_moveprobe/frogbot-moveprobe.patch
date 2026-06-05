@@ -1,22 +1,8 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
+index c0654d1..c76eff5 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -406,22 +406,57 @@ static void BestJumpingDirection(gedict_t *self)
- static void BestJumpingDirection(gedict_t *self)
- {
- 	float raw_avg_angle = AverageTraceAngle(self, false, self->fb.debug_path);
- 	float avg_angle;
- 
- 	if (raw_avg_angle < 0)
- 	{
- 		avg_angle = min(raw_avg_angle, -15);
- 	}
- 	else
- 	{
- 		avg_angle = max(raw_avg_angle, 15);
- 	}
- 
- 	RotatePointAroundVector(self->fb.dir_move_, g_globalvars.v_up, g_globalvars.v_forward,
+@@ -422,6 +422,77 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -55,24 +41,54 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
 +	}
 +}
 +
++static void BotLogMoveProbeCommand(gedict_t *self, int cmd_msec, vec3_t direction,
++								   int buttons, int impulse)
++{
++	static float last_log_time[MAX_CLIENTS];
++	int ednum = NUM_FOR_EDICT(self);
++	int slot = ednum - 1;
++	int mode;
++	float interval;
++
++	if (!cvar("k_fb_moveprobe_log_commands") || slot < 0 || slot >= MAX_CLIENTS)
++	{
++		return;
++	}
++
++	interval = cvar("k_fb_moveprobe_log_interval");
++	if (interval < 0)
++	{
++		interval = 0;
++	}
++
++	if ((interval > 0) && last_log_time[slot]
++		&& ((g_globalvars.time - last_log_time[slot]) < interval))
++	{
++		return;
++	}
++
++	last_log_time[slot] = g_globalvars.time;
++	mode = (int)cvar("k_fb_moveprobe_mode");
++
++	G_cprint("FBMOVEPROBE_CMD time=%.3f ed=%d name=%s mode=%d msec=%d "
++			 "angles=%.1f,%.1f,%.1f move=%d,%d,%d buttons=%d impulse=%d\n",
++			 g_globalvars.time, ednum, self->netname, mode, cmd_msec,
++			 PASSVEC3(self->fb.desired_angle), PASSINTVEC3(direction),
++			 buttons, impulse);
++}
++
  void BotSetCommand(gedict_t *self)
  {
  	extern float last_frame_time;
- 	float msec_since_last = (last_frame_time - self->fb.last_cmd_sent) * 1000;
-@@ -546,14 +581,16 @@ void BotSetCommand(gedict_t *self)
- 	else if (self->fb.min_move_time > g_globalvars.time)
- 	{
- 		VectorClear(direction);
- 	}
- 
- 	// Keep bots on spawns before match start
- 	if (match_in_progress != 2 && cvar(FB_CVAR_FREEZE_PREWAR))
- 	{
- 		jumping = firing = false;
- 		VectorClear(direction);
+@@ -556,8 +627,11 @@ void BotSetCommand(gedict_t *self)
  		impulse = 0;
  	}
  
 +	BotApplyMoveProbe(self, &jumping, direction);
 +
  	buttons |= (firing ? 1 : 0);
+ 	buttons |= (jumping ? 2 : 0);
++	BotLogMoveProbeCommand(self, cmd_msec, direction, buttons, impulse);
+ 	trap_SetBotCMD(NUM_FOR_EDICT(self), cmd_msec, PASSVEC3(self->fb.desired_angle),
+ 					PASSVEC3(direction), buttons, impulse);
+ 

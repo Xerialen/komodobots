@@ -118,7 +118,7 @@ Two patched `frobodm2` runs on 2026-06-05 produced different evidence:
 - `20260605T213010Z`, moveprobe mode `2`: replacing the final movement command with fixed `yaw=90 forwardmove=800` and forced jump still spawned bots, recorded an MVD, parsed successfully, and produced metrics, but the bots were nearly stationary. This proves the command can be replaced, and also shows a naive fixed command is not useful movement.
 - `20260605T213149Z`, moveprobe mode `1`: forcing jump while preserving Frogbot movement direction and combat produced a normal lab run with three frags and strong movement metrics. This proves a small final-command override can ride inside the existing KTX/Frogbot shell without breaking spawn, combat, MVD recording, parsing, or metrics.
 
-This does not complete S2. The next proof must instrument the actual values handed to `trap_SetBotCMD(...)`, confirm the movement vector itself can be replaced, and then replace direction/yaw with a useful controlled movement policy. Success must include plausibility checks such as not wall-humping or collapsing into stationary behavior, not only speed.
+This does not complete S2. The v2a scaffold now instruments sampled `FBMOVEPROBE_CMD` rows with the exact `msec`, angles, movement values, buttons, and impulse handed to `trap_SetBotCMD(...)`, but the comparison run still needs to be performed. The next proof must compare stock, mode `1`, and mode `2` command logs, confirm the movement vector itself can be replaced, and only then replace direction/yaw with a useful controlled movement policy. Success must include plausibility checks such as not wall-humping or collapsing into stationary behavior, not only speed.
 
 ## Working hypothesis
 

@@ -56,6 +56,8 @@ moveprobe_yaw="$8"
 moveprobe_forwardmove="$9"
 moveprobe_sidemove="${10}"
 moveprobe_upmove="${11}"
+moveprobe_log_commands="${12}"
+moveprobe_log_interval="${13}"
 
 session="komodobots_lab_${map_name}_${port}_${run_id}"
 rundir="$HOME/komodobots-lab/runs/$run_id"
@@ -138,6 +140,8 @@ set k_fb_moveprobe_yaw $moveprobe_yaw
 set k_fb_moveprobe_forwardmove $moveprobe_forwardmove
 set k_fb_moveprobe_sidemove $moveprobe_sidemove
 set k_fb_moveprobe_upmove $moveprobe_upmove
+set k_fb_moveprobe_log_commands $moveprobe_log_commands
+set k_fb_moveprobe_log_interval $moveprobe_log_interval
 timelimit 1
 fraglimit 0
 samelevel 1
@@ -166,6 +170,8 @@ MOVEPROBE_YAW=$moveprobe_yaw
 MOVEPROBE_FORWARDMOVE=$moveprobe_forwardmove
 MOVEPROBE_SIDEMOVE=$moveprobe_sidemove
 MOVEPROBE_UPMOVE=$moveprobe_upmove
+MOVEPROBE_LOG_COMMANDS=$moveprobe_log_commands
+MOVEPROBE_LOG_INTERVAL=$moveprobe_log_interval
 START_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 
@@ -380,6 +386,131 @@ def read_json(path: Path) -> dict:
         return json.load(handle)
 
 
+MOVEPROBE_COMMAND_RE = re.compile(
+    r"FBMOVEPROBE_CMD\s+"
+    r"time=(?P<time>-?\d+(?:\.\d+)?)\s+"
+    r"ed=(?P<ed>\d+)\s+"
+    r"name=(?P<name>.*?)\s+"
+    r"mode=(?P<mode>-?\d+)\s+"
+    r"msec=(?P<msec>-?\d+)\s+"
+    r"angles=(?P<pitch>-?\d+(?:\.\d+)?),(?P<yaw>-?\d+(?:\.\d+)?),(?P<roll>-?\d+(?:\.\d+)?)\s+"
+    r"move=(?P<forward>-?\d+),(?P<side>-?\d+),(?P<up>-?\d+)\s+"
+    r"buttons=(?P<buttons>\d+)\s+"
+    r"impulse=(?P<impulse>-?\d+)"
+)
+
+
+def parse_moveprobe_command_logs(screen_log: str) -> list[dict[str, object]]:
+    commands: list[dict[str, object]] = []
+    for line in screen_log.splitlines():
+        match = MOVEPROBE_COMMAND_RE.search(line)
+        if not match:
+            continue
+        groups = match.groupdict()
+        commands.append(
+            {
+                "time_s": float(groups["time"]),
+                "ed": int(groups["ed"]),
+                "name": groups["name"].strip(),
+                "mode": int(groups["mode"]),
+                "msec": int(groups["msec"]),
+                "angles": {
+                    "pitch": float(groups["pitch"]),
+                    "yaw": float(groups["yaw"]),
+                    "roll": float(groups["roll"]),
+                },
+                "move": {
+                    "forward": int(groups["forward"]),
+                    "side": int(groups["side"]),
+                    "up": int(groups["up"]),
+                },
+                "buttons": int(groups["buttons"]),
+                "impulse": int(groups["impulse"]),
+            }
+        )
+    return commands
+
+
+def compact_unique(values: Iterable[object], limit: int = 12) -> list[object]:
+    unique = sorted(set(values))
+    if len(unique) <= limit:
+        return list(unique)
+    return list(unique[:limit]) + [f"... {len(unique) - limit} more"]
+
+
+def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str, object]:
+    players: dict[tuple[int, str], list[dict[str, object]]] = {}
+    for command in commands:
+        key = (int(command["ed"]), str(command["name"]))
+        players.setdefault(key, []).append(command)
+
+    player_rows = []
+    for (ed, name), rows in sorted(players.items()):
+        msec_values = [int(row["msec"]) for row in rows]
+        angles = [row["angles"] for row in rows]
+        moves = [row["move"] for row in rows]
+        player_rows.append(
+            {
+                "ed": ed,
+                "name": name,
+                "count": len(rows),
+                "first_time_s": rows[0]["time_s"],
+                "last_time_s": rows[-1]["time_s"],
+                "msec_min": min(msec_values),
+                "msec_max": max(msec_values),
+                "yaw_values": compact_unique(round(float(angle["yaw"]), 1) for angle in angles),
+                "forward_values": compact_unique(int(move["forward"]) for move in moves),
+                "side_values": compact_unique(int(move["side"]) for move in moves),
+                "up_values": compact_unique(int(move["up"]) for move in moves),
+                "button_values": compact_unique(int(row["buttons"]) for row in rows),
+                "impulse_values": compact_unique(int(row["impulse"]) for row in rows),
+            }
+        )
+
+    return {
+        "command_count": len(commands),
+        "players": player_rows,
+        "commands": commands,
+    }
+
+
+def write_moveprobe_command_logs(local_run_dir: Path) -> dict[str, object]:
+    screen_log = (local_run_dir / "screen.log").read_text(encoding="utf-8", errors="replace")
+    commands = parse_moveprobe_command_logs(screen_log)
+    summary = summarize_moveprobe_commands(commands)
+
+    json_path = local_run_dir / "moveprobe-commands.json"
+    md_path = local_run_dir / "moveprobe-commands.md"
+    json_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+
+    lines = [
+        "# Moveprobe Command Log",
+        "",
+        f"- Commands parsed: `{summary['command_count']}`",
+        "",
+    ]
+    players = summary.get("players", [])
+    if players:
+        lines.extend(["## Players", ""])
+        for player in players:
+            lines.append(
+                f"- `{player['name']}` ed `{player['ed']}`: `{player['count']}` commands, "
+                f"time `{fmt_number(player['first_time_s'], 3)}`-`{fmt_number(player['last_time_s'], 3)}`s, "
+                f"msec `{player['msec_min']}`-`{player['msec_max']}`, "
+                f"yaw `{player['yaw_values']}`, "
+                f"forward `{player['forward_values']}`, "
+                f"side `{player['side_values']}`, "
+                f"up `{player['up_values']}`, "
+                f"buttons `{player['button_values']}`, "
+                f"impulses `{player['impulse_values']}`"
+            )
+    else:
+        lines.append("- No `FBMOVEPROBE_CMD` lines found in `screen.log`.")
+
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return summary
+
+
 def find_bot_entries(screen_log: str) -> list[str]:
     entries = []
     for line in screen_log.splitlines():
@@ -427,6 +558,8 @@ def write_summary(
         "forwardmove": "",
         "sidemove": "",
         "upmove": "",
+        "log_commands": "",
+        "log_interval": "",
     }
     run_env = local_run_dir / "run.env"
     if run_env.exists():
@@ -447,7 +580,14 @@ def write_summary(
                 moveprobe["sidemove"] = line.split("=", 1)[1]
             elif line.startswith("MOVEPROBE_UPMOVE="):
                 moveprobe["upmove"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_LOG_COMMANDS="):
+                moveprobe["log_commands"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_LOG_INTERVAL="):
+                moveprobe["log_interval"] = line.split("=", 1)[1]
     events_stderr = (local_run_dir / "events.txt.stderr").read_text(encoding="utf-8", errors="replace").strip()
+    command_log_path = local_run_dir / "moveprobe-commands.json"
+    command_log = read_json(command_log_path) if command_log_path.exists() else {}
+    command_count = command_log.get("command_count", 0) if isinstance(command_log, dict) else 0
 
     lines = [
         f"# {map_name} lab run {run_id}",
@@ -462,6 +602,8 @@ def write_summary(
         f"- Route file: `{route_file}`",
         f"- Movement probe mode: `{moveprobe['mode']}`",
         f"- Movement probe command: `yaw={moveprobe['yaw']} forwardmove={moveprobe['forwardmove']} sidemove={moveprobe['sidemove']} upmove={moveprobe['upmove']}`",
+        f"- Movement probe command logging: `enabled={moveprobe['log_commands']} interval={moveprobe['log_interval']}`",
+        f"- Movement probe commands parsed: `{command_count}`",
         f"- Remote demo: `{remote_demo}`",
         f"- Local demo: `{local_run_dir / 'demo.mvd'}`",
         f"- Demo size: `{demo_size}` bytes",
@@ -574,6 +716,8 @@ def run_remote_lab(
     moveprobe_forwardmove: int,
     moveprobe_sidemove: int,
     moveprobe_upmove: int,
+    moveprobe_log_commands: bool,
+    moveprobe_log_interval: float,
     local_run_dir: Path,
 ) -> None:
     proc = run(
@@ -594,6 +738,8 @@ def run_remote_lab(
             str(moveprobe_forwardmove),
             str(moveprobe_sidemove),
             str(moveprobe_upmove),
+            "1" if moveprobe_log_commands else "0",
+            str(moveprobe_log_interval),
         ],
         input_text=REMOTE_SCRIPT,
         check=False,
@@ -660,6 +806,20 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         default=0,
         help="upmove used by movement-probe mode 2. Defaults to 0.",
     )
+    parser.add_argument(
+        "--moveprobe-log-commands",
+        action="store_true",
+        help=(
+            "Enable KTX moveprobe command logging when the S2 patch is applied. "
+            "The runner parses FBMOVEPROBE_CMD lines from screen.log."
+        ),
+    )
+    parser.add_argument(
+        "--moveprobe-log-interval",
+        type=float,
+        default=0.25,
+        help="Minimum seconds between command log samples per bot. Defaults to 0.25.",
+    )
     parser.add_argument("--wsl-distro", default="Ubuntu-24.04", help="WSL distro for parser. Defaults to Ubuntu-24.04.")
     parser.add_argument("--analyzer", default=DEFAULT_ANALYZER, help="Path to qw-analyze-v20 inside WSL.")
     parser.add_argument(
@@ -700,11 +860,14 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             args.moveprobe_forwardmove,
             args.moveprobe_sidemove,
             args.moveprobe_upmove,
+            args.moveprobe_log_commands,
+            args.moveprobe_log_interval,
             local_run_dir,
         )
         scp_from_remote(args.host, run_id, local_run_dir)
         parser_exits = run_analyzer(local_run_dir, args.wsl_distro, args.analyzer)
         movement_metrics = write_movement_metrics(local_run_dir)
+        write_moveprobe_command_logs(local_run_dir)
         write_summary(local_run_dir, args.host, port, run_id, args.map_name, parser_exits)
 
         summary = local_run_dir / "run-summary.md"

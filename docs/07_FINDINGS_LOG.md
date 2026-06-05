@@ -470,3 +470,28 @@ Medium that this is the right long-term integration point for replacing movement
 ### Follow-up
 
 Build moveprobe v2a instrumentation: keep the `BotSetCommand()` hook, log the final `msec`, angles, movement values, buttons, and impulse handed to `trap_SetBotCMD(...)`, and compare stock/mode `1`/mode `2`. Then build moveprobe v2b as a tiny controller only after the movement-vector seam is confirmed. Evaluate plausibility, not speed alone.
+
+## 2026-06-05 - S2 Moveprobe v2a Instrumentation Scaffold
+
+### Experiment
+
+Extended the S2 moveprobe scaffold so patched KTX can emit sampled final-command rows immediately before `trap_SetBotCMD(...)`.
+
+Code changes:
+
+- `experiments/ktx_moveprobe/frogbot-moveprobe.patch` now adds `k_fb_moveprobe_log_commands` and `k_fb_moveprobe_log_interval`.
+- When command logging is enabled, KTX prints `FBMOVEPROBE_CMD` rows with final `msec`, angles, movement command values, buttons, and impulse.
+- `scripts/run_bot_lab.py` / `scripts/run_frobodm2_lab.py` now accept `--moveprobe-log-commands` and `--moveprobe-log-interval`.
+- The runner parses command rows from `screen.log` into `moveprobe-commands.json` and `moveprobe-commands.md`.
+
+### Result
+
+Implementation scaffold only. No new patched remote comparison run has been performed yet for stock/mode `1`/mode `2` command logs.
+
+### Interpretation
+
+This addresses the main uncertainty left by the first S2 probe: MVD movement metrics show behavioral consequences, but not the exact final command emitted by KTX. The next evidence-producing step is a three-run comparison with command logging enabled.
+
+### Follow-up
+
+Run three short `frobodm2` labs against patched KTX with `--moveprobe-log-commands`: stock mode `0`, forced-jump mode `1`, and fixed-command mode `2`. Compare `moveprobe-commands.md` with movement metrics before attempting moveprobe v2b controller work.
