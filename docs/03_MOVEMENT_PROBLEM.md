@@ -98,10 +98,27 @@ The real target is a movement mode or controller with:
 
 ## What is not yet proven
 
-- Whether movement can be cleanly replaced without rewriting the bot stack.
+- Whether movement can be cleanly replaced with useful movement without rewriting the bot stack.
 - Whether elite movement can be learned from MVD-derived evidence.
 - Whether route logic and movement logic are sufficiently decoupled.
 - Whether KTX/Frogbots should remain the substrate or be replaced by a new bot architecture.
+
+## First movement override evidence
+
+The first S2 probe found a real command-emission seam in KTX/Frogbots:
+
+`src/bot_movement.c::BotSetCommand()` computes the final bot command and sends it through `trap_SetBotCMD(...)`.
+
+Experiment patch:
+
+`experiments/ktx_moveprobe/frogbot-moveprobe.patch`
+
+Two patched `frobodm2` runs on 2026-06-05 produced different evidence:
+
+- `20260605T213010Z`, moveprobe mode `2`: replacing the final movement command with fixed `yaw=90 forwardmove=800` still spawned bots, recorded an MVD, parsed successfully, and produced metrics, but the bots were nearly stationary. This proves the command can be replaced, and also shows a naive fixed command is not useful movement.
+- `20260605T213149Z`, moveprobe mode `1`: forcing jump while preserving Frogbot movement direction and combat produced a normal lab run with three frags and strong movement metrics. This proves a small final-command override can ride inside the existing KTX/Frogbot shell without breaking spawn, combat, MVD recording, parsing, or metrics.
+
+This does not complete S2. The next proof must replace direction/yaw with a useful controlled movement policy, not only perturb jump or pin movement to a wall.
 
 ## Working hypothesis
 

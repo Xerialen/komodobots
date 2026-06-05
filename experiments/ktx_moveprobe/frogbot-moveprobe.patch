@@ -1,0 +1,71 @@
+diff --git a/src/bot_movement.c b/src/bot_movement.c
+--- a/src/bot_movement.c
++++ b/src/bot_movement.c
+@@ -406,22 +406,55 @@ static void BestJumpingDirection(gedict_t *self)
+ static void BestJumpingDirection(gedict_t *self)
+ {
+ 	float raw_avg_angle = AverageTraceAngle(self, false, self->fb.debug_path);
+ 	float avg_angle;
+ 
+ 	if (raw_avg_angle < 0)
+ 	{
+ 		avg_angle = min(raw_avg_angle, -15);
+ 	}
+ 	else
+ 	{
+ 		avg_angle = max(raw_avg_angle, 15);
+ 	}
+ 
+ 	RotatePointAroundVector(self->fb.dir_move_, g_globalvars.v_up, g_globalvars.v_forward,
+ 							avg_angle);
+ }
+ 
++static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, qbool *firing, int *impulse,
++							  vec3_t direction)
++{
++	int mode = (int)cvar("k_fb_moveprobe_mode");
++
++	if ((mode <= 0) || intermission_running || ISDEAD(self))
++	{
++		return;
++	}
++
++	if (mode == 1)
++	{
++		*jumping = true;
++
++		return;
++	}
++
++	if (mode == 2)
++	{
++		float forwardmove = cvar("k_fb_moveprobe_forwardmove");
++
++		self->fb.desired_angle[PITCH] = 0;
++		self->fb.desired_angle[YAW] = cvar("k_fb_moveprobe_yaw");
++		self->fb.desired_angle[ROLL] = 0;
++
++		direction[0] = forwardmove ? forwardmove : 800;
++		direction[1] = cvar("k_fb_moveprobe_sidemove");
++		direction[2] = cvar("k_fb_moveprobe_upmove");
++
++		*jumping = true;
++	}
++}
++
+ void BotSetCommand(gedict_t *self)
+ {
+ 	extern float last_frame_time;
+ 	float msec_since_last = (last_frame_time - self->fb.last_cmd_sent) * 1000;
+@@ -546,8 +579,10 @@ void BotSetCommand(gedict_t *self)
+ 	else if (self->fb.min_move_time > g_globalvars.time)
+ 	{
+ 		VectorClear(direction);
+ 	}
+ 
++	BotApplyMoveProbe(self, &jumping, &firing, &impulse, direction);
++
+ 	// Keep bots on spawns before match start
+ 	if (match_in_progress != 2 && cvar(FB_CVAR_FREEZE_PREWAR))
+ 	{
+ 		jumping = firing = false;

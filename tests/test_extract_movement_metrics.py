@@ -144,6 +144,28 @@ class MovementMetricsTests(unittest.TestCase):
         with self.assertRaises(argparse.ArgumentTypeError):
             run_frobodm2_lab.validate_run_id("bad;touch nope")
 
+    def test_runner_accepts_moveprobe_options(self) -> None:
+        args = run_frobodm2_lab.parse_args(
+            [
+                "--moveprobe-mode",
+                "2",
+                "--moveprobe-yaw",
+                "90",
+                "--moveprobe-forwardmove",
+                "700",
+                "--moveprobe-sidemove",
+                "120",
+                "--moveprobe-upmove",
+                "0",
+            ]
+        )
+
+        self.assertEqual(args.moveprobe_mode, 2)
+        self.assertEqual(args.moveprobe_yaw, 90.0)
+        self.assertEqual(args.moveprobe_forwardmove, 700)
+        self.assertEqual(args.moveprobe_sidemove, 120)
+        self.assertEqual(args.moveprobe_upmove, 0)
+
     def test_remote_port_down_treats_empty_or_down_as_free(self) -> None:
         original_run = run_frobodm2_lab.run
 

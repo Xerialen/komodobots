@@ -1,6 +1,6 @@
 # Headless Test Environment
 
-Status: repeatable bot lab runner verified on `frobodm2` and `dm3` 2026-06-05. Baseline movement v2 metrics are generated automatically.
+Status: repeatable bot lab runner verified on `frobodm2` and `dm3` 2026-06-05. Baseline movement v2 metrics are generated automatically. First S2 KTX final-command movement probe verified on `frobodm2`.
 
 ## Purpose
 
@@ -30,6 +30,8 @@ Map clarification from the user on 2026-06-05: stock `dm2` matters because `qw-s
 Third lab milestone on 2026-06-05: `scripts/extract_movement_metrics.py` now derives per-bot movement tables from `events.txt` kind `5` player origin samples. The runner writes `movement-metrics.json` and `movement-metrics.md` automatically after parsing the MVD.
 
 Fourth lab milestone on 2026-06-05: movement metrics schema v2 adds vertical-motion and airborne-proxy metrics: air-proxy time ratio, run cadence, average air-proxy duration, and post-landing speed delta/loss over a fixed window.
+
+Fifth lab milestone on 2026-06-05: the first S2 movement override probe patched KTX `BotSetCommand()` immediately before `trap_SetBotCMD(...)`. Moveprobe mode `1` forced jump while preserving Frogbot direction/combat and produced a normal `frobodm2` run with three frags and movement metrics. Moveprobe mode `2` replaced the final movement command with a fixed command and produced full lab artifacts, but the bots became nearly stationary. This proves the command-emission point is controllable, not that useful movement replacement is solved.
 
 ## Environment Diagram
 
@@ -156,7 +158,7 @@ The bundle README says it was built from mvd_analyzer commit `7d83ebe`, while th
 | Record MVD automatically | Proven on `frobodm2` and `dm3` | KTX saved non-empty MVDs after `sv_demostop`. |
 | Parse MVD automatically | Proven for summary/events | `qw-analyze-v20` parsed JSON/Markdown summary exit 0; events mode emitted data then exited 1 with `qw-analyze: end of demo`. |
 | Generate movement report automatically | Proven v2 | `scripts/extract_movement_metrics.py` writes speed plus airborne-proxy movement metrics from MVD event position samples. |
-| Test movement overrides automatically | Missing | Requires either KTX instrumentation or a controlled bot command override path. |
+| Test movement overrides automatically | First probe proven | `experiments/ktx_moveprobe/frogbot-moveprobe.patch` hooks KTX `BotSetCommand()` before `trap_SetBotCMD(...)`; `20260605T213149Z` proved a forced-jump command perturbation can preserve spawn/combat/MVD/parser/metrics. Useful direction replacement remains unproven. |
 | Visual validation | Available for playback | `ezquake-test` / `~/hud-runner` can render existing demos headlessly; useful after new MVDs exist. |
 
 ## One-command Bot Runner
@@ -172,7 +174,10 @@ Useful verification forms:
 ```bash
 python scripts/run_bot_lab.py --duration 40 --bot-count 2
 python scripts/run_bot_lab.py --map dm3 --duration 40 --bot-count 2
+python scripts/run_bot_lab.py --map frobodm2 --duration 40 --bot-count 2 --moveprobe-mode 1
 ```
+
+The `--moveprobe-*` options only change behavior when the S2 KTX patch from `experiments/ktx_moveprobe/` is applied to the server-side KTX build. Without that patch, the runner still records the cvars in `lab.cfg` and `run.env`, but stock KTX ignores them.
 
 What it does:
 
@@ -225,6 +230,8 @@ Verified repeatability runs:
 | `20260605T201313Z` | `28599` | `106867` bytes | `json=0`, `md=0`, `events=1` | `dm3`; two bots, one frag, movement metrics written. |
 | `20260605T205256Z` | `28599` | `105711` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; two bots, v2 baseline metrics written. |
 | `20260605T205353Z` | `28599` | `109061` bytes | `json=0`, `md=0`, `events=1` | `dm3`; two bots, v2 baseline metrics written. |
+| `20260605T213010Z` | `28599` | `73890` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 moveprobe mode `2`, fixed command replacement, two bots, one telefrag, near-stationary metrics. |
+| `20260605T213149Z` | `28599` | `109520` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 moveprobe mode `1`, forced jump perturbation, two bots, three frags, movement metrics written. |
 
 In verified runs, `quakestat -qws localhost:28599 -P -nh` reported `DOWN` after cleanup.
 
@@ -398,7 +405,8 @@ The current runner uses session names shaped like `komodobots_lab_<port>_<run-id
 - `go` was not on PATH in WSL during inspection. Rebuilding `mvd_analyzer` from source needs a toolchain fix, even though the prebuilt bundle works.
 - Determinism is unknown. The lab must record seed/config/server version details before comparing movement runs.
 - Stock `dm2` can load, record, and parse, but it is not a Frogbot-supported route target in this environment. User confirmed there is no point building routes for it now.
-- A first-pass movement report schema exists, but it is still position-derived and does not yet infer jump rhythm, airborne time, or usercmd intent.
+- A first-pass movement report schema exists, but it is still position-derived and does not yet infer ground-truth jump commands, grounded state, or usercmd intent.
+- The first S2 moveprobe proves the final command can be altered before `trap_SetBotCMD(...)`. It does not prove a useful replacement movement brain; the fixed-command mode collapsed into wall/stationary behavior.
 
 ## Troubleshooting
 
@@ -426,4 +434,4 @@ Move the repeatable runner one notch closer to the north star:
 
 1. Keep `dm2` as a `qw-sim` continuity map, not as a Frogbot route-building target.
 2. Use routed maps such as `frobodm2` and `dm3` to generate bot movement demos.
-3. Compare the first derived bot movement metrics against human/reference movement distributions, starting with horizontal speed and time above 320/400 qu/s.
+3. Replace the fixed-command moveprobe with a tiny useful controller: preserve combat/route shell, choose a short target direction or marker-to-marker corridor, and verify it improves on the near-stationary mode `2` result while still producing MVD/parser/metrics artifacts.

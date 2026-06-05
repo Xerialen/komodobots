@@ -280,3 +280,44 @@ The lab can now track speed plus a jump-like proxy across baseline and future mo
 ### Revisit Conditions
 
 Revisit if `qw-analyze-v20`, `qw-sim`, KTX instrumentation, or a movement override path exposes real grounded state, jump commands, or collision-plane context.
+
+---
+
+## Decision
+
+Use `BotSetCommand()` as the first S2 movement override control point.
+
+### Date
+
+2026-06-05
+
+### Decision
+
+For the first movement override feasibility probe, hook KTX/Frogbots at `src/bot_movement.c::BotSetCommand()` immediately before `trap_SetBotCMD(...)`.
+
+Keep this as an experiment patch in Komodobots (`experiments/ktx_moveprobe/frogbot-moveprobe.patch`) until the project has enough evidence to justify an upstreamable KTX extension.
+
+### Alternatives Considered
+
+- Rewrite Frogbot path/routing logic first.
+- Drive movement from an external client instead of server-native Frogbots.
+- Add route-file hacks to force specific movement.
+- Wait for `qw-sim` or human-demo comparison before attempting overrides.
+
+### Evidence
+
+KTX source inspection showed `BotSetCommand()` is the final command-emission point for bot `msec`, angles, movement values, buttons, and impulses.
+
+Run `20260605T213010Z` proved fixed-command replacement can produce MVD/parser/metrics artifacts, though the movement collapsed.
+
+Run `20260605T213149Z` proved a forced-jump perturbation can preserve bot spawning, combat, MVD recording, parser output, and movement metrics.
+
+### Expected Consequences
+
+S2 can proceed with small controller probes inside the server-native KTX/Frogbot loop instead of rewriting the bot stack.
+
+The next controller should replace movement direction/yaw more carefully than the fixed-command mode while leaving combat and the rest of the lab loop intact.
+
+### Revisit Conditions
+
+Revisit if the command hook cannot express useful movement without fighting aim/combat logic, if KTX maintainability becomes poor, or if a cleaner movement-brain boundary appears elsewhere in Frogbot source.

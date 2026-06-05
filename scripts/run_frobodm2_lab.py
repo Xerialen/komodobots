@@ -51,6 +51,11 @@ duration="$3"
 bot_count="$4"
 bot_spacing="$5"
 map_name="$6"
+moveprobe_mode="$7"
+moveprobe_yaw="$8"
+moveprobe_forwardmove="$9"
+moveprobe_sidemove="${10}"
+moveprobe_upmove="${11}"
 
 session="komodobots_lab_${map_name}_${port}_${run_id}"
 rundir="$HOME/komodobots-lab/runs/$run_id"
@@ -128,6 +133,11 @@ set k_defmap $map_name
 set k_fb_enabled 0
 set k_count 0
 set k_matchless_countdown 0
+set k_fb_moveprobe_mode $moveprobe_mode
+set k_fb_moveprobe_yaw $moveprobe_yaw
+set k_fb_moveprobe_forwardmove $moveprobe_forwardmove
+set k_fb_moveprobe_sidemove $moveprobe_sidemove
+set k_fb_moveprobe_upmove $moveprobe_upmove
 timelimit 1
 fraglimit 0
 samelevel 1
@@ -151,6 +161,11 @@ CFG=$cfg_path
 ROUTE_FILE=$route_file
 ROUTE_FILE_PRESENT_ORIGINAL=$route_file_present_original
 ROUTE_FILE_USED=$route_file_used
+MOVEPROBE_MODE=$moveprobe_mode
+MOVEPROBE_YAW=$moveprobe_yaw
+MOVEPROBE_FORWARDMOVE=$moveprobe_forwardmove
+MOVEPROBE_SIDEMOVE=$moveprobe_sidemove
+MOVEPROBE_UPMOVE=$moveprobe_upmove
 START_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 
@@ -406,6 +421,13 @@ def write_summary(
     route_present_original = ""
     route_used = ""
     route_file = ""
+    moveprobe = {
+        "mode": "",
+        "yaw": "",
+        "forwardmove": "",
+        "sidemove": "",
+        "upmove": "",
+    }
     run_env = local_run_dir / "run.env"
     if run_env.exists():
         for line in run_env.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -415,6 +437,16 @@ def write_summary(
                 route_used = line.split("=", 1)[1]
             elif line.startswith("ROUTE_FILE="):
                 route_file = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_MODE="):
+                moveprobe["mode"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_YAW="):
+                moveprobe["yaw"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_FORWARDMOVE="):
+                moveprobe["forwardmove"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_SIDEMOVE="):
+                moveprobe["sidemove"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_UPMOVE="):
+                moveprobe["upmove"] = line.split("=", 1)[1]
     events_stderr = (local_run_dir / "events.txt.stderr").read_text(encoding="utf-8", errors="replace").strip()
 
     lines = [
@@ -428,6 +460,8 @@ def write_summary(
         f"- Route file originally present: `{route_present_original}`",
         f"- Route file used: `{route_used}`",
         f"- Route file: `{route_file}`",
+        f"- Movement probe mode: `{moveprobe['mode']}`",
+        f"- Movement probe command: `yaw={moveprobe['yaw']} forwardmove={moveprobe['forwardmove']} sidemove={moveprobe['sidemove']} upmove={moveprobe['upmove']}`",
         f"- Remote demo: `{remote_demo}`",
         f"- Local demo: `{local_run_dir / 'demo.mvd'}`",
         f"- Demo size: `{demo_size}` bytes",
@@ -535,6 +569,11 @@ def run_remote_lab(
     bot_count: int,
     bot_spacing: float,
     map_name: str,
+    moveprobe_mode: int,
+    moveprobe_yaw: float,
+    moveprobe_forwardmove: int,
+    moveprobe_sidemove: int,
+    moveprobe_upmove: int,
     local_run_dir: Path,
 ) -> None:
     proc = run(
@@ -550,6 +589,11 @@ def run_remote_lab(
             str(bot_count),
             str(bot_spacing),
             map_name,
+            str(moveprobe_mode),
+            str(moveprobe_yaw),
+            str(moveprobe_forwardmove),
+            str(moveprobe_sidemove),
+            str(moveprobe_upmove),
         ],
         input_text=REMOTE_SCRIPT,
         check=False,
@@ -582,6 +626,40 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument("--duration", type=float, default=45.0, help="Client run duration in seconds. Defaults to 45.")
     parser.add_argument("--bot-count", type=int, default=2, help="Number of botcmd addbot commands. Defaults to 2.")
     parser.add_argument("--bot-spacing", type=float, default=8.0, help="Seconds between bot adds. Defaults to 8.")
+    parser.add_argument(
+        "--moveprobe-mode",
+        type=int,
+        choices=(0, 1, 2),
+        default=0,
+        help=(
+            "Set k_fb_moveprobe_mode in the generated KTX lab config. "
+            "Requires the S2 KTX patch to affect behavior. 0=off, 1=force jump, 2=fixed movement command."
+        ),
+    )
+    parser.add_argument(
+        "--moveprobe-yaw",
+        type=float,
+        default=0.0,
+        help="Yaw used by movement-probe mode 2. Defaults to 0.",
+    )
+    parser.add_argument(
+        "--moveprobe-forwardmove",
+        type=int,
+        default=800,
+        help="forwardmove used by movement-probe mode 2. Defaults to 800.",
+    )
+    parser.add_argument(
+        "--moveprobe-sidemove",
+        type=int,
+        default=0,
+        help="sidemove used by movement-probe mode 2. Defaults to 0.",
+    )
+    parser.add_argument(
+        "--moveprobe-upmove",
+        type=int,
+        default=0,
+        help="upmove used by movement-probe mode 2. Defaults to 0.",
+    )
     parser.add_argument("--wsl-distro", default="Ubuntu-24.04", help="WSL distro for parser. Defaults to Ubuntu-24.04.")
     parser.add_argument("--analyzer", default=DEFAULT_ANALYZER, help="Path to qw-analyze-v20 inside WSL.")
     parser.add_argument(
@@ -617,6 +695,11 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             args.bot_count,
             args.bot_spacing,
             args.map_name,
+            args.moveprobe_mode,
+            args.moveprobe_yaw,
+            args.moveprobe_forwardmove,
+            args.moveprobe_sidemove,
+            args.moveprobe_upmove,
             local_run_dir,
         )
         scp_from_remote(args.host, run_id, local_run_dir)

@@ -88,6 +88,10 @@ Current metric fields per named player:
 
 Current limitation: these are position-derived metrics. The airborne fields are proxies derived from Z-motion runs, not ground-truth jump button, grounded flag, friction-window, or legal usercmd intent.
 
+S2 moveprobe note:
+
+The first KTX command-emission probe can change the final bot command before `trap_SetBotCMD(...)`, but the current MVD-derived metrics still observe only resulting movement. They cannot directly prove that the jump button was pressed; they show the behavioral consequence.
+
 ## Human comparison sets
 
 Preferred order:
@@ -111,6 +115,8 @@ Target loop:
 6. Parse MVD with `mvd_analyzer` and/or `qw-sim`.
 7. Generate metrics and report.
 8. Append findings to `docs/07_FINDINGS_LOG.md`.
+
+For S2 moveprobe runs, the runner also records the active moveprobe cvars in `lab.cfg`, `run.env`, and `run-summary.md`.
 
 ## Current parser entry points
 
@@ -206,6 +212,8 @@ Verified one-command parser behavior:
 20260605T201313Z: json=0 md=0 events=1 demo=106867 bytes map=dm3 movementPlayers=2
 20260605T205256Z: json=0 md=0 events=1 demo=105711 bytes map=frobodm2 movementPlayers=2 schema=v2
 20260605T205353Z: json=0 md=0 events=1 demo=109061 bytes map=dm3 movementPlayers=2 schema=v2
+20260605T213010Z: json=0 md=0 events=1 demo=73890 bytes map=frobodm2 moveprobe=2 movementPlayers=2
+20260605T213149Z: json=0 md=0 events=1 demo=109520 bytes map=frobodm2 moveprobe=1 movementPlayers=2
 ```
 
 For now, `events=1` with stderr `qw-analyze: end of demo` is accepted if `events.txt` is written and JSON/Markdown exits are zero. JSON is the canonical smoke-run parser artifact.
@@ -242,6 +250,18 @@ Fresh v2 baseline movement evidence:
 20260605T205353Z dm3:
   / bro       avg=279.4 p95=450.2 over320=47.2% airProxy=25.0% cadence=22.2/min postLandingDelta=+36.6
   / goldenboy avg=92.8  p95=365.3 over320=7.5%  airProxy=36.7% cadence=14.7/min postLandingDelta=+28.8
+```
+
+Fresh S2 movement override evidence:
+
+```text
+20260605T213010Z frobodm2 moveprobe mode 2, fixed command:
+  / bro       avg=1.8   p95=0.0   over320=0.1%  airProxy=0.0% cadence=0.0/min
+  / goldenboy avg=1.0   p95=0.0   over320=0.1%  airProxy=0.0% cadence=0.0/min
+
+20260605T213149Z frobodm2 moveprobe mode 1, forced jump:
+  / bro       avg=330.7 p95=464.8 over320=66.4% airProxy=17.0% cadence=29.7/min
+  / goldenboy avg=383.4 p95=464.0 over320=80.9% airProxy=19.1% cadence=37.0/min
 ```
 
 ## Open questions

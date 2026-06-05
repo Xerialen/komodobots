@@ -390,3 +390,83 @@ Medium that the airborne proxy tracks bunnyhopping itself. It is a useful approx
 ### Follow-up
 
 Start S2: prove that movement can be isolated and replaced without breaking KTX/Frogbot spawning, combat participation, MVD recording, and parser/metric generation.
+
+---
+
+## 2026-06-05 - S2 KTX Final-Command Moveprobe
+
+### Experiment
+
+Added the first S2 movement override probe:
+
+- `experiments/ktx_moveprobe/frogbot-moveprobe.patch` applies to KTX commit `08807da`.
+- The patch hooks `src/bot_movement.c::BotSetCommand()` immediately before `trap_SetBotCMD(...)`.
+- `scripts/run_bot_lab.py` / `scripts/run_frobodm2_lab.py` can now write `k_fb_moveprobe_*` cvars into generated lab configs and summaries.
+
+Temporarily deployed the patched KTX build to `servexeri`, with deployed `qwprogs.so` backups before each run, then restored the stock deployed library and reversed the KTX source patch after the runs.
+
+Ran two `frobodm2` experiments:
+
+```bash
+python scripts/run_bot_lab.py --map frobodm2 --duration 40 --bot-count 2 --moveprobe-mode 2 --moveprobe-yaw 90 --moveprobe-forwardmove 800
+python scripts/run_bot_lab.py --map frobodm2 --duration 40 --bot-count 2 --moveprobe-mode 1
+```
+
+### Result
+
+Moveprobe mode `2` replaced the final movement command with a fixed command:
+
+- Run `20260605T213010Z`.
+- Bots spawned and the lab produced MVD/parser/metrics artifacts.
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- The run recorded one telefrag.
+- Movement collapsed to near-stationary behavior: `/ bro` avg `1.8` qu/s, `/ goldenboy` avg `1.0` qu/s, both with `0.0%` air proxy.
+
+Moveprobe mode `1` forced jump while preserving Frogbot direction/combat:
+
+- Run `20260605T213149Z`.
+- Bots spawned, fought, recorded three frags, and the lab produced MVD/parser/metrics artifacts.
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- `/ bro`: avg `330.7` qu/s, p95 `464.8` qu/s, over maxspeed `66.4%`, air proxy `17.0%`, cadence `29.7/min`.
+- `/ goldenboy`: avg `383.4` qu/s, p95 `464.0` qu/s, over maxspeed `80.9%`, air proxy `19.1%`, cadence `37.0/min`.
+
+After both runs, `servexeri:28599` was down and `~/nquakesv/build/ktx` was clean on `master...origin/master`.
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/lab-runs/20260605T213010Z/run-summary.md`
+- `artifacts/lab-runs/20260605T213010Z/movement-metrics.md`
+- `artifacts/lab-runs/20260605T213149Z/run-summary.md`
+- `artifacts/lab-runs/20260605T213149Z/movement-metrics.md`
+
+Patch and docs:
+
+- `experiments/ktx_moveprobe/frogbot-moveprobe.patch`
+- `experiments/ktx_moveprobe/README.md`
+
+Remote restore checks:
+
+```text
+servexeri ~/nquakesv/build/ktx: clean master...origin/master
+quakestat localhost:28599: DOWN
+```
+
+### Interpretation
+
+S2 has its first positive evidence: Frogbot movement can be modified at the final command-emission point while preserving the existing KTX/Frogbot shell, MVD recording, parser output, and metric generation.
+
+Mode `2` is also useful negative evidence. Blind fixed-command replacement is not a movement brain; it can satisfy the plumbing proof while producing unusable behavior.
+
+The next S2 step should be a tiny useful controller that replaces direction/yaw more intelligently than mode `2`, while preserving combat and route shell behavior.
+
+### Confidence
+
+High that `BotSetCommand()` is a real control point for final bot command override.
+
+Medium that this is the right long-term integration point. It is source-grounded and measured, but the probe is still a patch outside upstream KTX and has not been shaped into a maintainable extension.
+
+### Follow-up
+
+Build moveprobe v2: keep the final-command hook, but replace the fixed command with a bounded controller that steers toward a short target direction or marker corridor, then compare against baseline and mode `2` stationary failure.
