@@ -94,6 +94,7 @@ Moveprobe plausibility gate:
 - Schema: `komodobots.moveprobe_plausibility.v1`
 - Inputs: per-run `movement-metrics.json` plus `moveprobe-commands.json`
 - Default gate: expected forward command coverage >= `80%`, jump-button command coverage >= `80%`, at least `10` distinct sampled yaw values, stationary time <= `25%`, low-speed time <= `40%`
+- S3a side gate: pass `--min-side-ratio 0.8` to require nonzero sidemove coverage for strafe probes
 - Purpose: prevent speed-only interpretation by requiring command coverage and low stuck/low-speed behavior
 
 S2 moveprobe note:
@@ -230,6 +231,8 @@ Verified one-command parser behavior:
 20260605T224811Z: json=0 md=0 events=1 demo=59812 bytes map=frobodm2 moveprobe=3 commands=197 movementPlayers=2
 20260605T225720Z: json=0 md=0 events=1 demo=67335 bytes map=frobodm2 moveprobe=3 commands=197 movementPlayers=2
 20260605T225802Z: json=0 md=0 events=1 demo=64591 bytes map=dm3 moveprobe=3 commands=196 movementPlayers=2
+20260605T231033Z: json=0 md=0 events=1 demo=68834 bytes map=frobodm2 moveprobe=4 commands=197 movementPlayers=2
+20260605T231115Z: json=0 md=0 events=1 demo=71271 bytes map=dm3 moveprobe=4 commands=196 movementPlayers=2
 ```
 
 For now, `events=1` with stderr `qw-analyze: end of demo` is accepted if `events.txt` is written and JSON/Markdown exits are zero. JSON is the canonical smoke-run parser artifact.
@@ -304,6 +307,12 @@ Fresh S2 emitted-command evidence:
 
 20260605T225802Z dm3 moveprobe mode 3, v2c gate:
   both bots passed; / bro stationary=1.1% low=1.4%; / goldenboy stationary=0.0% low=1.7%
+
+20260605T231033Z frobodm2 moveprobe mode 4, S3a side gate:
+  both bots passed with side coverage >94%; one RL frag; / bro avg=281.4 p95=358.9; / goldenboy avg=294.4 p95=364.5
+
+20260605T231115Z dm3 moveprobe mode 4, S3a side gate:
+  side coverage >93% for both bots, but / bro failed low-speed=63.0%; / goldenboy barely passed low-speed=39.0%
 ```
 
 ## Open questions

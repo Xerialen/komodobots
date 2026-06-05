@@ -324,6 +324,40 @@ S2 can proceed with instrumentation and small controller probes inside the serve
 
 The next controller/probe should move toward a bounded S3 bunnyjump primitive while keeping combat/aim separation explicit. Mode `3` proves movement feasibility, not a final player-realism controller.
 
+---
+
+## Decision
+
+Treat S3a mode `4` as a measured negative/partial result, not a better controller.
+
+### Date
+
+2026-06-05
+
+### Decision
+
+Do not promote the first alternating-strafe mode `4` into a larger controller yet. Keep it as a disposable S3a probe and diagnose parameters before adding more logic.
+
+### Alternatives Considered
+
+- Declare mode `4` the first bunnyjump primitive because it emits sidemove and passes `frobodm2`.
+- Skip parameter diagnosis and add more controller state immediately.
+- Revert to mode `3` and postpone strafe experiments.
+
+### Evidence
+
+Run `20260605T231033Z` on `frobodm2` passed the side/plausibility gate and recorded one RL frag, proving the alternating side command can be emitted and still keep the lab alive.
+
+Run `20260605T231115Z` on `dm3` emitted side commands with over `93%` coverage, but `/ bro` failed low-speed at `63.0%` and `/ goldenboy` barely passed at `39.0%`.
+
+### Expected Consequences
+
+S3 should proceed as a sequence of small movement-literacy probes. The next step should vary sidemove magnitude or cadence and compare against mode `3`, rather than adding a larger bunnyjump controller.
+
+### Revisit Conditions
+
+Revisit if a small parameter sweep produces consistent gains over mode `3` while passing the v2c/S3 side gate on both routed maps.
+
 ### Revisit Conditions
 
 Revisit if the command hook cannot express useful movement without fighting aim/combat logic, if KTX maintainability becomes poor, or if a cleaner movement-brain boundary appears elsewhere in Frogbot source.

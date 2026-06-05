@@ -36,19 +36,22 @@ Modes:
 | `1` | Force the jump button while preserving existing Frogbot movement direction and combat. |
 | `2` | Replace the final movement command with fixed yaw/forward/sidemove/upmove values and force jump while leaving firing and weapon selection intact. |
 | `3` | Set yaw from Frogbot route intent, send forward/sidemove/upmove command values, and force jump. This is a movement probe, not a combat-aim-preserving controller. |
+| `4` | S3a probe: set yaw from Frogbot route intent, emit forward plus alternating side commands, and force jump. This is a bounded strafe/jump primitive, not a final bunnyjump controller. |
 
-Mode `2` and `3` cvars:
+Mode `2`, `3`, and `4` cvars:
 
 | Cvar | Default in runner | Meaning |
 |---|---:|---|
 | `k_fb_moveprobe_yaw` | `0` | Bot view yaw used for fixed-command mode `2`. |
-| `k_fb_moveprobe_forwardmove` | `800` | Forward command sent to `trap_SetBotCMD` in modes `2` and `3`. |
-| `k_fb_moveprobe_sidemove` | `0` | Side command sent to `trap_SetBotCMD` in modes `2` and `3`. |
-| `k_fb_moveprobe_upmove` | `0` | Up command sent to `trap_SetBotCMD` in modes `2` and `3`. |
+| `k_fb_moveprobe_forwardmove` | `800` | Forward command sent to `trap_SetBotCMD` in modes `2`, `3`, and `4`. |
+| `k_fb_moveprobe_sidemove` | `0` | Side command sent to `trap_SetBotCMD` in modes `2` and `3`; mode `4` treats `0` as a default alternating `+/-400`. |
+| `k_fb_moveprobe_upmove` | `0` | Up command sent to `trap_SetBotCMD` in modes `2`, `3`, and `4`. |
 | `k_fb_moveprobe_log_commands` | `0` | When `1`, print sampled final command rows before `trap_SetBotCMD`. |
 | `k_fb_moveprobe_log_interval` | `0.25` | Minimum seconds between command log samples per bot. Use `0` for every command. |
 
 Mode `3` ignores `k_fb_moveprobe_yaw`; it computes yaw from `self->fb.dir_move_` when Frogbot has a non-zero horizontal route direction. If that route vector is empty for a frame, mode `3` leaves the already-computed stock command intact for that frame.
+
+Mode `4` also ignores `k_fb_moveprobe_yaw`. It uses the same route-derived yaw as mode `3`, but alternates the sign of `sidemove` about five times per second, offset by bot slot. This is only a bounded S3a movement-literacy probe.
 
 ## Runner
 
@@ -59,6 +62,7 @@ python scripts/run_bot_lab.py --map frobodm2 --duration 40 --bot-count 2 --movep
 python scripts/run_bot_lab.py --map frobodm2 --duration 40 --bot-count 2 --moveprobe-mode 2 --moveprobe-yaw 90
 python scripts/run_bot_lab.py --map frobodm2 --duration 20 --bot-count 2 --moveprobe-mode 0 --moveprobe-log-commands
 python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 3 --moveprobe-log-commands
+python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 4 --moveprobe-log-commands
 ```
 
 Each run records the mode and command values in `run.env`, `lab.cfg`, and `run-summary.md`.
@@ -82,6 +86,8 @@ Known v2a comparison runs:
 | `20260605T224811Z` | `3` | Route-derived yaw varied and mostly emitted `forward=800`; `/ goldenboy` moved plausibly, while `/ bro` was stationary for 59.7% of active time. |
 | `20260605T225720Z` | `3` | Fresh `frobodm2` repeat; both bots passed the v2c command/plausibility gate. |
 | `20260605T225802Z` | `3` | Fresh `dm3` repeat; both bots passed the v2c command/plausibility gate. |
+| `20260605T231033Z` | `4` | S3a alternating strafe on `frobodm2`; side command emitted and both bots passed gate, with one RL frag. |
+| `20260605T231115Z` | `4` | S3a alternating strafe on `dm3`; side command emitted, but `/ bro` failed low-speed gate at `63.0%`. |
 
 ## Plausibility summary
 
@@ -94,12 +100,19 @@ python scripts/summarize_moveprobe_plausibility.py 20260605T225720Z 20260605T225
 Default gate thresholds are intentionally simple and provisional:
 
 - expected forward command coverage >= `80%`
+- nonzero side command coverage >= `0%` by default, or `80%` for S3a mode `4`
 - jump-button command coverage >= `80%`
 - distinct sampled yaw values >= `10`
 - stationary time <= `25%`
 - low-speed time <= `40%`
 
 The gate is not a realism score. It is a guard against accidentally treating speed alone as success while ignoring stationary or command-coverage failures.
+
+For S3a mode `4`, run the same helper with `--min-side-ratio 0.8` so the report proves a strafe command was actually emitted:
+
+```bash
+python scripts/summarize_moveprobe_plausibility.py 20260605T231033Z 20260605T231115Z --min-side-ratio 0.8 --output-md artifacts/lab-runs/moveprobe-s3a-summary.md
+```
 
 ## Rollback
 

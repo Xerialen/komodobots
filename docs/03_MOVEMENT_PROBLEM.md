@@ -135,6 +135,15 @@ The v2c repeatability check added `scripts/summarize_moveprobe_plausibility.py` 
 
 This proves the final emitted command can be observed and replaced, and gives repeatable positive movement-feasibility evidence for a route-derived command policy on two routed maps. It is enough to treat S2 as provisionally satisfied pending review. It does not solve aim/movement separation or bunnyjumping: mode `3` still commandeers view yaw, and the fresh short runs recorded no frags.
 
+## First S3a Bunnyjump-Primitive Evidence
+
+Moveprobe mode `4` adds an alternating route-relative sidemove command on top of mode `3`:
+
+- `20260605T231033Z`, `frobodm2`: both bots passed the stricter S3a gate with nonzero side coverage above `94%`, low stationary/low-speed time, and one RL frag. Movement was plausible, but p95 speeds (`358.9` and `364.5` qu/s) were lower than the mode `3` v2c repeat.
+- `20260605T231115Z`, `dm3`: side/jump/forward command coverage was above `93%`, but `/ bro` failed low-speed time at `63.0%`; `/ goldenboy` barely passed low-speed at `39.0%`.
+
+This proves a bounded strafe signal can be emitted and measured, but does not prove better movement. The first S3a primitive is therefore a partial/negative result: alternating `+/-400` sidemove at the current cadence can keep bots moving on `frobodm2`, but appears too disruptive or map-sensitive on `dm3`.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

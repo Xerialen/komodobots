@@ -68,7 +68,7 @@ Interpretation: the final command can be perturbed and directly observed. The st
 
 ## Future phases
 
-- Bunnyjump controller experiments.
+- Bunnyjump controller experiments: active as S3a probe. Mode `4` proved an alternating side command can be emitted, but the first `dm3` run failed the low-speed gate; next step is a small sidemove/cadence diagnosis before making the primitive larger.
 - Human-demo comparisons.
 - Route primitives.
 - Rocket-jump behaviour.

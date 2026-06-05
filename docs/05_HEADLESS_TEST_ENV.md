@@ -243,6 +243,8 @@ Verified repeatability runs:
 | `20260605T224811Z` | `28599` | `59812` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2b route-yaw mode `3`, command logging enabled, `197` commands parsed, mixed movement plausibility. |
 | `20260605T225720Z` | `28599` | `67335` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2c route-yaw mode `3`, command logging enabled, `197` commands parsed, both bots passed plausibility gate. |
 | `20260605T225802Z` | `28599` | `64591` bytes | `json=0`, `md=0`, `events=1` | `dm3`; S2 v2c route-yaw mode `3`, command logging enabled, `196` commands parsed, both bots passed plausibility gate. |
+| `20260605T231033Z` | `28599` | `68834` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S3a mode `4`, alternating side command logged, both bots passed stricter side/plausibility gate, one RL frag. |
+| `20260605T231115Z` | `28599` | `71271` bytes | `json=0`, `md=0`, `events=1` | `dm3`; S3a mode `4`, alternating side command logged, `/ bro` failed low-speed gate. |
 
 In verified runs, `quakestat -qws localhost:28599 -P -nh` reported `DOWN` after cleanup.
 
@@ -417,7 +419,7 @@ The current runner uses session names shaped like `komodobots_lab_<port>_<run-id
 - Determinism is unknown. The lab must record seed/config/server version details before comparing movement runs.
 - Stock `dm2` can load, record, and parse, but it is not a Frogbot-supported route target in this environment. User confirmed there is no point building routes for it now.
 - A first-pass movement report schema exists, but it is still position-derived and does not yet infer ground-truth jump commands, grounded state, or usercmd intent.
-- The S2 v2c moveprobe proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`, and that route-derived yaw can pass provisional command/plausibility gates on two routed maps. It does not yet solve aim/combat separation or bunnyjumping.
+- The S2 v2c moveprobe proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`, and that route-derived yaw can pass provisional command/plausibility gates on two routed maps. S3a mode `4` proves nonzero alternating side commands can also be emitted, but the first `dm3` run failed the low-speed gate. Aim/combat separation and bunnyjumping remain open.
 
 ## Troubleshooting
 
@@ -445,4 +447,4 @@ Move the repeatable runner one notch closer to the north star:
 
 1. Keep `dm2` as a `qw-sim` continuity map, not as a Frogbot route-building target.
 2. Use routed maps such as `frobodm2` and `dm3` to generate bot movement demos.
-3. After review, start an S3a bounded bunnyjump-primitive probe. Keep it time-boxed and measured against the v2c plausibility gate; do not treat speed alone as success.
+3. Run an S3b parameter diagnosis: compare mode `4` with smaller `--moveprobe-sidemove` values or a slower alternation cadence on `dm3`, using `--min-side-ratio 0.8` and the same low-speed gate.

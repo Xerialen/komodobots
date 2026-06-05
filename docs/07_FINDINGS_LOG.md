@@ -712,3 +712,74 @@ Medium-low for player-believability implications, because aim/combat separation 
 ### Follow-up
 
 Ask Claude to review S2 exit. If accepted, start S3a: a bounded bunnyjump-primitive probe that compares a minimal yaw/strafe/jump policy against mode `3` and baseline metrics, uses the v2c plausibility gate, and keeps combat/aim limitations explicit.
+
+## 2026-06-05 - S3a Bounded Alternating-Strafe Probe
+
+### Experiment
+
+Added moveprobe mode `4` to the KTX experiment patch. Mode `4` uses the same route-derived yaw as mode `3`, emits `forwardmove`, alternates sidemove sign roughly five times per second with a bot-slot offset, and forces jump. If `k_fb_moveprobe_sidemove` is `0`, mode `4` uses a default `400` sidemove magnitude.
+
+Updated the runner to accept `--moveprobe-mode 4` and extended `scripts/summarize_moveprobe_plausibility.py` with `--min-side-ratio`, so S3a can require nonzero side command coverage.
+
+Temporarily deployed the patched KTX build again and ran:
+
+```bash
+python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 4 --moveprobe-log-commands --moveprobe-log-interval 0.25
+python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 4 --moveprobe-log-commands --moveprobe-log-interval 0.25
+python scripts/summarize_moveprobe_plausibility.py 20260605T231033Z 20260605T231115Z --min-side-ratio 0.8 --output-md artifacts/lab-runs/moveprobe-s3a-summary.md
+```
+
+### Result
+
+Fresh `frobodm2` S3a run `20260605T231033Z`:
+
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Command rows parsed: `197`.
+- Command logs showed side values `[-400, 0, 400]` for both bots.
+- `/ bro`: PASS, forward/side/jump coverage `94.5%`, `109` distinct sampled yaws, avg `281.4` qu/s, p95 `358.9` qu/s, stationary `1.3%`, low-speed `12.3%`, air proxy `20.1%`.
+- `/ goldenboy`: PASS, forward/side/jump coverage `96.6%`, `82` distinct sampled yaws, avg `294.4` qu/s, p95 `364.5` qu/s, stationary `0.6%`, low-speed `9.3%`, air proxy `9.8%`.
+- One RL frag: `/ bro` killed `/ goldenboy` at `12866` ms.
+
+Fresh `dm3` S3a run `20260605T231115Z`:
+
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Command rows parsed: `196`.
+- Command logs showed side values `[-400, 0, 400]` for both bots.
+- `/ bro`: FAIL, forward/side/jump coverage `95.5%`, `108` distinct sampled yaws, avg `142.4` qu/s, p95 `349.2` qu/s, stationary `0.1%`, low-speed `63.0%`, air proxy `54.9%`.
+- `/ goldenboy`: PASS, forward/side/jump coverage `93.0%`, `85` distinct sampled yaws, avg `151.6` qu/s, p95 `334.1` qu/s, stationary `1.6%`, low-speed `39.0%`, air proxy `58.0%`.
+
+After the runs:
+
+```text
+deployed qwprogs hash matched backup
+servexeri ~/nquakesv/build/ktx: clean master...origin/master
+quakestat localhost:28599: DOWN
+```
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/lab-runs/20260605T231033Z/run-summary.md`
+- `artifacts/lab-runs/20260605T231033Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260605T231033Z/movement-metrics.md`
+- `artifacts/lab-runs/20260605T231115Z/run-summary.md`
+- `artifacts/lab-runs/20260605T231115Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260605T231115Z/movement-metrics.md`
+- `artifacts/lab-runs/moveprobe-s3a-summary.md`
+
+### Interpretation
+
+S3a proves that a bounded strafe signal can be emitted and measured through the same final-command seam. It does not prove a useful bunnyjump primitive yet. Compared with route-yaw mode `3`, mode `4` reduced p95 speed on `frobodm2` and produced poor low-speed behavior on `dm3`, especially for `/ bro`.
+
+The most likely conclusion is that hard alternating `+/-400` sidemove at this cadence is too crude and map-sensitive. The next useful step should be parameter diagnosis, not a larger controller.
+
+### Confidence
+
+Medium for the command-emission claim.
+
+Medium-high that this exact mode `4` is not yet a better movement primitive than mode `3`.
+
+### Follow-up
+
+Ask Claude to review the mixed S3a result. Proposed S3b: run a tiny parameter sweep on `dm3`, starting with smaller `--moveprobe-sidemove` magnitudes such as `200` and `300`, or add a cvar for slower alternation cadence if needed. Keep `--min-side-ratio 0.8` and the low-speed gate.
