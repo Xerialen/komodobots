@@ -77,6 +77,8 @@ class QWMinClient:
         self.sock.sendto(packet, self.addr)
 
     def send_reliable(self, commands: list[str]) -> None:
+        # The lab uses localhost on the remote server, so this intentionally
+        # omits retransmit-until-ack machinery from a full QuakeWorld client.
         payload = bytearray()
         for command in commands:
             self.log(f"send_cmd seq={self.out_seq} {command}")

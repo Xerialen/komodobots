@@ -294,7 +294,10 @@ def remote_port_is_down(host: str, port: int) -> bool:
         ["ssh", host, f"quakestat -qws localhost:{port} -P -nh 2>/dev/null || true"],
         check=False,
     )
-    return "DOWN" in proc.stdout
+    if proc.returncode != 0:
+        raise RuntimeError(f"Could not query port {port} on {host}: {proc.stderr.strip()}")
+    output = proc.stdout.strip()
+    return not output or "DOWN" in output
 
 
 def choose_port(host: str, requested_port: int, explicit: bool) -> int:
@@ -555,12 +558,18 @@ def validate_map_name(map_name: str) -> str:
     return map_name
 
 
+def validate_run_id(run_id: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", run_id):
+        raise argparse.ArgumentTypeError("Run IDs may only contain letters, digits, underscore, or dash.")
+    return run_id
+
+
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a one-command Komodobots bot lab.")
     parser.add_argument("--host", default="servexeri", help="SSH host. Defaults to servexeri.")
     parser.add_argument("--port", type=int, default=28599, help="Preferred MVDSV UDP port. Defaults to 28599.")
     parser.add_argument("--map", dest="map_name", type=validate_map_name, default="frobodm2", help="Map to load. Defaults to frobodm2.")
-    parser.add_argument("--run-id", default=None, help="Run ID. Defaults to current UTC timestamp.")
+    parser.add_argument("--run-id", type=validate_run_id, default=None, help="Run ID. Defaults to current UTC timestamp.")
     parser.add_argument("--duration", type=float, default=45.0, help="Client run duration in seconds. Defaults to 45.")
     parser.add_argument("--bot-count", type=int, default=2, help="Number of botcmd addbot commands. Defaults to 2.")
     parser.add_argument("--bot-spacing", type=float, default=8.0, help="Seconds between bot adds. Defaults to 8.")
