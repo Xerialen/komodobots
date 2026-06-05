@@ -255,7 +255,7 @@ Fresh v2 baseline movement evidence:
 Fresh S2 movement override evidence:
 
 ```text
-20260605T213010Z frobodm2 moveprobe mode 2, fixed command:
+20260605T213010Z frobodm2 moveprobe mode 2, fixed command plus forced jump:
   / bro       avg=1.8   p95=0.0   over320=0.1%  airProxy=0.0% cadence=0.0/min
   / goldenboy avg=1.0   p95=0.0   over320=0.1%  airProxy=0.0% cadence=0.0/min
 

@@ -31,7 +31,7 @@ Third lab milestone on 2026-06-05: `scripts/extract_movement_metrics.py` now der
 
 Fourth lab milestone on 2026-06-05: movement metrics schema v2 adds vertical-motion and airborne-proxy metrics: air-proxy time ratio, run cadence, average air-proxy duration, and post-landing speed delta/loss over a fixed window.
 
-Fifth lab milestone on 2026-06-05: the first S2 movement override probe patched KTX `BotSetCommand()` after the prewar-freeze guard and immediately before button assembly and `trap_SetBotCMD(...)`. Moveprobe mode `1` forced jump while preserving Frogbot direction/combat and produced a normal `frobodm2` run with three frags and movement metrics. Moveprobe mode `2` replaced the final movement command with a fixed command and produced full lab artifacts, but the bots became nearly stationary. This proves command perturbation is possible; it does not yet prove useful movement-vector replacement.
+Fifth lab milestone on 2026-06-05: the first S2 movement override probe patched KTX `BotSetCommand()` after the prewar-freeze guard and immediately before button assembly and `trap_SetBotCMD(...)`. Moveprobe mode `1` forced jump while preserving Frogbot direction/combat and produced a normal `frobodm2` run with three frags and movement metrics. Moveprobe mode `2` replaced the final movement command with a fixed command plus forced jump and produced full lab artifacts, but the bots became nearly stationary. This proves command perturbation is possible; it does not yet prove useful movement-vector replacement.
 
 ## Environment Diagram
 
@@ -230,7 +230,7 @@ Verified repeatability runs:
 | `20260605T201313Z` | `28599` | `106867` bytes | `json=0`, `md=0`, `events=1` | `dm3`; two bots, one frag, movement metrics written. |
 | `20260605T205256Z` | `28599` | `105711` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; two bots, v2 baseline metrics written. |
 | `20260605T205353Z` | `28599` | `109061` bytes | `json=0`, `md=0`, `events=1` | `dm3`; two bots, v2 baseline metrics written. |
-| `20260605T213010Z` | `28599` | `73890` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 moveprobe mode `2`, fixed command replacement, two bots, one telefrag, near-stationary metrics. |
+| `20260605T213010Z` | `28599` | `73890` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 moveprobe mode `2`, fixed command replacement plus forced jump, two bots, one telefrag, near-stationary metrics. |
 | `20260605T213149Z` | `28599` | `109520` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 moveprobe mode `1`, forced jump perturbation, two bots, three frags, movement metrics written. |
 
 In verified runs, `quakestat -qws localhost:28599 -P -nh` reported `DOWN` after cleanup.

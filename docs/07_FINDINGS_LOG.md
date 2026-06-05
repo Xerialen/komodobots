@@ -414,7 +414,7 @@ python scripts/run_bot_lab.py --map frobodm2 --duration 40 --bot-count 2 --movep
 
 ### Result
 
-Moveprobe mode `2` replaced the final movement command with a fixed command:
+Moveprobe mode `2` replaced the final movement command with a fixed command plus forced jump:
 
 - Run `20260605T213010Z`.
 - Bots spawned and the lab produced MVD/parser/metrics artifacts.
@@ -457,7 +457,7 @@ quakestat localhost:28599: DOWN
 
 S2 has its first positive evidence: Frogbot commands can be perturbed near the final command-emission point while preserving the existing KTX/Frogbot shell, MVD recording, parser output, and metric generation.
 
-Mode `2` is also useful negative evidence. Blind fixed-command replacement is not a movement brain; it can satisfy the plumbing proof while producing unusable behavior.
+Mode `2` is also useful negative evidence. Blind fixed-command replacement, even with forced jump, is not a movement brain; it can satisfy the plumbing proof while producing unusable behavior.
 
 The next S2 step should first instrument the exact values handed to `trap_SetBotCMD(...)` for stock, mode `1`, and mode `2`. Only after confirming that the movement vector itself is controllable should the lab build a tiny controller that replaces direction/yaw more intelligently than mode `2`, while preserving combat and route shell behavior.
 

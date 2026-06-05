@@ -308,7 +308,7 @@ Keep this as an experiment patch in Komodobots (`experiments/ktx_moveprobe/frogb
 
 KTX source inspection showed `BotSetCommand()` is the final command-emission point for bot `msec`, angles, movement values, buttons, and impulses.
 
-Run `20260605T213010Z` proved fixed-command replacement can produce MVD/parser/metrics artifacts, though the movement collapsed.
+Run `20260605T213010Z` proved fixed-command replacement plus forced jump can produce MVD/parser/metrics artifacts, though the movement collapsed.
 
 Run `20260605T213149Z` proved a forced-jump perturbation can preserve bot spawning, combat, MVD recording, parser output, and movement metrics.
 

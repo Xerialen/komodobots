@@ -26,7 +26,7 @@ Modes:
 |---:|---|
 | `0` | Off. Stock Frogbot command emission. |
 | `1` | Force the jump button while preserving existing Frogbot movement direction and combat. |
-| `2` | Replace the final movement command with fixed yaw/forward/sidemove/upmove values while leaving firing and weapon selection intact. |
+| `2` | Replace the final movement command with fixed yaw/forward/sidemove/upmove values and force jump while leaving firing and weapon selection intact. |
 
 Mode `2` cvars:
 
