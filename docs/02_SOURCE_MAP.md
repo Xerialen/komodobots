@@ -62,6 +62,26 @@ Why it matters:
 
 ## Analysis and data sources
 
+### Komodobots autonomous agent cards
+
+Repo-specific cards:
+
+- `C:\Users\benya\projects\quakeworld\komodobots\agents\phasekeeper.md`
+- `C:\Users\benya\projects\quakeworld\komodobots\agents\code-sentinel.md`
+- `C:\Users\benya\projects\quakeworld\komodobots\agents\merge-steward.md`
+
+Generic vault templates:
+
+- `C:\Users\benya\Workspace\thevault\agents\phasekeeper.md`
+- `C:\Users\benya\Workspace\thevault\agents\code-sentinel.md`
+- `C:\Users\benya\Workspace\thevault\agents\merge-steward.md`
+
+Why it matters:
+
+- These cards define the unattended developer/reviewer/merger split for roadmap phase work.
+- `AGENTS.md` remains the authoritative repository instruction contract; the cards are operational prompts that must defer to it.
+- The split is meant to keep one top-level roadmap stage per PR, prevent unattended stacked-PR sprawl, and ensure Code Sentinel review happens before Merge Steward merges.
+
 ### Komodobots lab automation
 
 Preferred local runner: `C:\Users\benya\projects\quakeworld\komodobots\scripts\run_bot_lab.py`

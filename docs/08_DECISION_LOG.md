@@ -280,3 +280,43 @@ The lab can now track speed plus a jump-like proxy across baseline and future mo
 ### Revisit Conditions
 
 Revisit if `qw-analyze-v20`, `qw-sim`, KTX instrumentation, or a movement override path exposes real grounded state, jump commands, or collision-plane context.
+
+---
+
+## Decision
+
+Use a three-agent autonomous pipeline for roadmap phase work.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+Store Komodobots-specific autonomous agent cards under `agents/`, adapted from Benjamin's generic vault templates. Use three separated roles:
+
+- Phasekeeper implements one top-level roadmap stage per PR.
+- Code Sentinel reviews and hardens the stage PR for slop, validation gaps, and roadmap drift.
+- Merge Steward performs the final merge gate and merges only when all gates pass.
+
+The default rule is that future top-level stages start from updated `main` after the previous stage PR merges. Stacked PRs are explicit exceptions, not the normal unattended pattern.
+
+### Alternatives Considered
+
+- Continue with one autonomous agent that implements, reviews, and keeps adding work to the same PR.
+- Let the developer agent merge when review appears clean.
+- Keep the templates only in the vault and rely on each runtime prompt to remember Komodobots-specific branch and PR rules.
+
+### Evidence
+
+The earlier unattended S2-to-S7 loop created a legacy cross-stage PR plus a stacked S7 child PR. That proved the need for stricter role boundaries, one-stage PR containers, and a dedicated merge gate before the next stage begins.
+
+The repo-specific cards point back to `AGENTS.md`, `docs/00_VISION_AND_NORTH_STAR.md`, and `docs/09_ROADMAP.md` so autonomous work stays aligned with the lab's evidence-producing goal.
+
+### Expected Consequences
+
+Developer automation can continue making progress without turning into a rolling mega-PR. Review and merge decisions become separate checkpoints. Future Claude or Codex runs can use the same role contracts while still following Komodobots-specific docs, branches, and PR state.
+
+### Revisit Conditions
+
+Revisit if the three-agent loop stalls unattended work, if GitHub automation cannot reliably detect Code Sentinel verdicts, if the project chooses a different branching policy, or if roadmap stages become too large or too small for one-PR boundaries.

@@ -4,6 +4,8 @@ This file is the shared instruction contract for all coding agents working in th
 
 Tool-specific files such as `CLAUDE.md` and `codex.md` should stay thin and point back here. Do not let them drift into separate project instructions.
 
+Repo-specific autonomous agent cards live in `agents/`. They are operational role prompts only; this file remains authoritative if instructions conflict.
+
 ## Read order
 
 Before making changes, read:
