@@ -2277,3 +2277,40 @@ Medium that cadence should become a controller target, because the evidence has 
 ### Follow-up
 
 Ask Claude to review S7c. Proposed S7d: decide what to do with bot-comparable repeated axes: keep cadence as a diagnostic target, broaden exact-player/bot samples, or design a tiny controller probe, while keeping the generic land-speed gap visible.
+
+## 2026-06-06 - S7d Cadence Normalization Decision
+
+### Experiment
+
+Decided the S7c bot-comparable cadence path before controller work, using only existing committed artifacts. Added a small normalization helper that consumes the S7c aggregate and derives cadence per non-stationary minute, non-low-speed minute, and airborne-proxy minute.
+
+### Result
+
+- Generated `experiments/human_comparison/evidence/cadence-normalization-s7d-dm3.*`.
+- Confirmed that `jump_cadence_per_min` is already active-row normalized (`airborne_proxy_count / active_time_s * 60`), so S7d tests stricter denominators rather than calling S7c raw match-wall-clock cadence.
+- Non-stationary cadence range: exact-player `44.2` to `55.6`/min; S3g `/ bro` `92.1`/min above range; `/ goldenboy` `44.4`/min within range.
+- Non-low-speed cadence range: exact-player `48.7` to `61.3`/min; S3g `/ bro` `124.1`/min above range; `/ goldenboy` `53.3`/min within range.
+- Airborne-proxy cadence range: exact-player `128.0` to `143.1`/min; S3g `/ bro` `207.6`/min and `/ goldenboy` `174.4`/min both above range.
+
+### Evidence
+
+Committed artifacts:
+
+- `scripts/decide_cadence_normalization.py`
+- `experiments/human_comparison/evidence/cadence-normalization-s7d-dm3.json`
+- `experiments/human_comparison/evidence/cadence-normalization-s7d-dm3.md`
+- `tests/test_cadence_normalization_decision.py`
+
+### Interpretation
+
+S7d keeps cadence as a diagnostic signal, not a controller target. Movement-time normalization does not overturn the S7c mixed relation: `/ goldenboy` remains human-range and `/ bro` remains high. Airborne-proxy normalization is stricter and puts both bots above the exact-player range, which suggests the current cadence signal is entangled with air-rhythm/proxy segmentation and the unresolved land-speed gap.
+
+### Confidence
+
+High that the arithmetic is source-grounded in the committed S7c aggregate and the existing movement-metrics cadence definition.
+
+Medium that airborne-proxy-normalized cadence reflects true jump rhythm, because airborne proxy is still position-derived rather than a grounded/usercmd label.
+
+### Follow-up
+
+Ask Code Sentinel to review S7d. Proposed S7e: broaden or dissect cadence evidence before controller work. The smallest next action is to add more bot rows and/or inspect airborne-proxy segmentation so cadence can be separated from the unresolved land-speed and air-rhythm gaps.

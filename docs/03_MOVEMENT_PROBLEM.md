@@ -322,6 +322,18 @@ Result:
 
 Interpretation: S7c completes the narrow handoff from "cadence might matter" to "cadence can be compared against bots." It does not justify a broad player-specific movement controller yet. The next useful step is S7d: decide whether cadence should remain a diagnostic target, whether S7 needs broader exact-player/bot samples, or whether a tiny controller probe is justified while the land-speed gap stays visible.
 
+## S7d Cadence Normalization Decision
+
+S7d did not rerun the lab and did not change controller behavior. It added `scripts/decide_cadence_normalization.py`, consumed the S7c aggregate, and wrote `experiments/human_comparison/evidence/cadence-normalization-s7d-dm3.*`.
+
+Important metric correction: `jump_cadence_per_min` is already active-row normalized (`airborne_proxy_count / active_time_s * 60`), not full match wall-clock cadence. S7d tested stricter normalizations:
+
+- Non-stationary cadence: reference `44.2` to `55.6`/min; S3g `/ bro` `92.1`/min above range; `/ goldenboy` `44.4`/min within range.
+- Non-low-speed cadence: reference `48.7` to `61.3`/min; S3g `/ bro` `124.1`/min above range; `/ goldenboy` `53.3`/min within range.
+- Airborne-proxy cadence: reference `128.0` to `143.1`/min; S3g `/ bro` `207.6`/min and `/ goldenboy` `174.4`/min both above range.
+
+Interpretation: cadence stays diagnostic and is not controller-authorizing yet. Movement-time normalization does not overturn the mixed S7c relation, and airborne-proxy normalization suggests the cadence signal is entangled with air-rhythm/proxy segmentation. The next useful step is S7e: broaden bot rows or inspect airborne-proxy segmentation before any cadence controller probe.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.
