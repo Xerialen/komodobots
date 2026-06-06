@@ -924,3 +924,44 @@ S6c should convert route-state tags into an actionable explanation or next probe
 ### Revisit Conditions
 
 Revisit if Claude finds a bug in the S6b logging fields, if path state `32768` cannot be decoded from KTX flags, if a repeated S6b run does not reproduce any route-state pattern, or if the route-state tags show that current low-speed windows are measurement artifacts rather than movement/route behavior.
+
+---
+
+## Decision
+
+Inspect water-path/swim intent before controller tuning.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S6c decodes the repeated `/ bro` `water.LG` low-speed pattern as `WATER_PATH` route behavior on linked/goal marker `59`, especially the repeated `.bot` edge `276->59 idx=[0]`. The samples do not show `STUCK_PATH` or blocked obstruction state, and the final sampled mode `7` command remains strong.
+
+The next goal is S6d: inspect water-path/swim movement intent around `water.LG` before changing mode `7`. The missing context is waterlevel/watertype, swim arrow/upmove intent, velocity, and raw route `dir_move` behavior around the low native `dir_speed` samples.
+
+### Alternatives Considered
+
+- Add mode `8` to push through the water path with a new command heuristic.
+- Increase mode `7` command magnitude or force nonzero upmove immediately.
+- Treat `WATER_PATH` attribution as enough to skip to S7 player-specific movement.
+- Repeat the same S6b run before decoding the missing water/swim fields.
+
+### Evidence
+
+S6c route-state attribution over run `20260606T031102Z`:
+
+- `path_state=32768` decodes to `WATER_PATH`; `STUCK_PATH` is `524288`.
+- KTX route calculation sets `WATER_PATH` when either endpoint marker is in water and uses `sv_maxwaterspeed` for route time.
+- `dir_speed` is captured by `SetDirectionMove()` before `dir_move_` is normalized.
+- The repeated `water.LG` group has `3` windows, linked/goal marker `59`, `blocked=0`, no `STUCK_PATH`, avg sampled command near `824`, and avg native `dir_speed=0.338`.
+- The worst repeated windows use `276->59 idx=[0]` with native `dir_speed` averages `0.059` and `0.196`.
+
+### Expected Consequences
+
+S6d should either derive the missing water/swim context from existing artifacts or add a tiny diagnostic suffix to the command log. If water/swim intent explains the low-speed windows, the next controller work should target swimming/water-path handling rather than generic land movement or command magnitude.
+
+### Revisit Conditions
+
+Revisit if Claude finds a bug in the S6c flag decoding or `.bot` edge attribution, if another S6b-style run fails to reproduce the water-path pattern, or if waterlevel/swim/upmove evidence shows that the low native `dir_speed` samples are not actually water-path movement intent.

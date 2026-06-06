@@ -1859,3 +1859,74 @@ Medium for route-cause interpretation until the path-state values are decoded ag
 ### Follow-up
 
 Ask Claude to review S6b. Proposed S6c: use the route-state-tagged low-speed windows to decode repeated marker/path-state/blocked patterns, starting with `/ bro` at `water.LG` linked/goal marker `59` and path state `32768`, before changing mode `7` or adding another movement-command heuristic.
+
+## 2026-06-06 - S6c Route-State Window Attribution
+
+### Experiment
+
+Added `scripts/attribute_route_state_windows.py` and applied it to the existing S6b `dm3` run `20260606T031102Z`.
+
+The script uses:
+
+- `experiments/ktx_moveprobe/evidence/route-state-s6b-diagnosis.json`
+- `artifacts/lab-runs/20260606T031102Z/moveprobe-commands.json`
+- KTX/Frogbot flag definitions from `include/fb_globals.h`
+- KTX route/water behavior from `src/route_calc.c`
+- KTX `dir_speed` meaning from `src/bot_movement.c`
+- Frogbot map edges from `resources/example-configs/ktx/bots/maps/dm3.bot`
+
+No KTX patch, remote deploy, or controller change was made for S6c.
+
+### Result
+
+Decoded source facts:
+
+- `path_state=32768` is `WATER_PATH`.
+- `STUCK_PATH` is `524288`.
+- bot state `128` is `AWARE_SURROUNDINGS`.
+- KTX route calculation sets `WATER_PATH` when either path endpoint marker is in water and computes the path time using `sv_maxwaterspeed`.
+- `SetDirectionMove()` stores `dir_speed` as the pre-normalization magnitude, then normalizes `dir_move_`.
+
+Repeated pattern summary:
+
+| Player | Windows | Location | Linked | Goal | Water | Stuck | Blocked | Low native dir | Dir speed avg | Avg cmd | Classification |
+|---|---:|---|---|---|---:|---:|---:|---:|---:|---:|---|
+| `/ bro` | 3 | `water.LG` | `[59]` | `[59]` | yes | no | 0.0% | 62.5% | 0.338 | 824.0 | `water_path_without_obstruction` |
+| `/ bro` | 1 | `Quad` | `[91,119,170]` | `[3]` | no | no | 0.0% | 20.0% | 0.774 | 659.1 | `route_state_unresolved` |
+| `/ bro` | 1 | `bridge.low` | `[161]` | `[10]` | no | no | 0.0% | 0.0% | 0.700 | 824.0 | `route_state_unresolved` |
+
+Window details:
+
+- Rank 2, `13193-14307`, `water.LG`: mixed edge samples `273->59 idx=[4]` and `37->59 idx=[2]`; path state includes both `0` and `WATER_PATH`; dir_speed avg `0.787`.
+- Rank 3, `24441-25517`, `water.LG`: repeated edge `276->59 idx=[0]`; path state `WATER_PATH`; dir_speed avg `0.059`.
+- Rank 4, `21860-22918`, `water.LG`: repeated edge `276->59 idx=[0]`; path state `WATER_PATH`; dir_speed avg `0.196`.
+
+### Evidence
+
+Artifacts:
+
+- `experiments/ktx_moveprobe/evidence/route-state-s6c-attribution.json`
+- `experiments/ktx_moveprobe/evidence/route-state-s6c-attribution.md`
+
+Validation:
+
+- `python -m unittest tests.test_attribute_route_state_windows -v` -> 3 passed
+- `PYTHONPYCACHEPREFIX=<temp> python -m py_compile scripts\attribute_route_state_windows.py tests\test_attribute_route_state_windows.py` -> clean
+
+### Interpretation
+
+S6c attributes the strongest repeated S6b low-speed pattern to water-path route behavior, not stuck/blocked obstruction recovery and not missing final command magnitude.
+
+The key signal is that native Frogbot `dir_speed` collapses on repeated `276->59` water-path windows while the mode `7` probe still emits strong sampled movement commands near `824`. This suggests the next missing evidence is water/swim intent context around the route primitive: `waterlevel`, `swim_arrow`, `upmove`, velocity, and/or raw `dir_move` behavior.
+
+### Confidence
+
+High that `32768` is `WATER_PATH` and not `STUCK_PATH`.
+
+High that the repeated `water.LG` windows had `blocked=0` and strong sampled command context.
+
+Medium that water-path/swim handling is the cause of low movement realism, because S6c attributes the repeated route state but does not yet expose waterlevel/upmove/swim intent.
+
+### Follow-up
+
+Ask Claude to review S6c. Proposed S6d: inspect water-path movement intent around `water.LG` by adding or deriving minimal `waterlevel`, `swim_arrow`, `upmove`, velocity, and route `dir_move` context before changing mode `7`.

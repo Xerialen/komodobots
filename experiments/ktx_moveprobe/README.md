@@ -219,6 +219,14 @@ S6b extends the same command log with the `route=` suffix and updates `scripts/d
 
 The diagnosis helper reports command/sample clock overlap and treats corrupt sibling JSON artifacts as warnings, so a bad or mismatched artifact is visible in the output instead of silently looking like missing commands. `--run-id` may be either a run id under `artifacts/lab-runs/` or an explicit existing run directory; explicit paths are read-only by design.
 
+S6c decodes those route-state values against KTX/Frogbot source and `dm3.bot` route edges:
+
+```bash
+python scripts/attribute_route_state_windows.py --output-json experiments/ktx_moveprobe/evidence/route-state-s6c-attribution.json --output-md experiments/ktx_moveprobe/evidence/route-state-s6c-attribution.md
+```
+
+S6c result: `path_state=32768` is `WATER_PATH`, not `STUCK_PATH`. The repeated `/ bro` `water.LG` pattern groups `3` low-speed windows around linked/goal marker `59`, with `.bot` edge `276->59 idx=[0]` in the worst windows, `blocked=0`, sampled command near `824`, and low native `dir_speed`. The next step is water-path/swim-intent diagnosis, not another command mode.
+
 ## Rollback
 
 This is an experiment patch. After running it against `servexeri`, restore the deployed `qwprogs.so` from the backup made before copying the patched build, and reset or reverse-apply the source checkout patch.

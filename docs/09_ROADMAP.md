@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S6c - Route-state window attribution`
+`S6d - Water-path swim-intent diagnosis`
 
 ## Stage Status Table
 
@@ -48,7 +48,7 @@ Current active stage:
 | S3 Bunnyjump Controller | Provisionally satisfied pending human anchor | S3g mode `7` passed `dm3` and `frobodm2` while preserving combat yaw, removing backward commands, and bounding sampled command magnitude near `824.6` |
 | S4 Human Comparison | First same-map anchor complete | S4c parsed one human `dm3` 4on4 demo and compared it against S3g `dm3`; S3g is not yet human-like on the observed movement ranges |
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
-| S6 Route Primitives | Active | S6b adds route-state logging and tags `/ bro` low-speed windows with marker/goal/path-state context; S6c should decode repeated marker/path-state patterns before controller tuning |
+| S6 Route Primitives | Active | S6c decoded repeated `/ bro` `water.LG` windows as `WATER_PATH` route behavior with low native `dir_speed`; S6d should inspect water/swim intent before controller tuning |
 | S7 Player Specific | Pending | Player-style movement models |
 
 ## Roadmap Rule
@@ -74,4 +74,6 @@ S6a route-state diagnosis inspected S3g `dm3` run `20260606T003718Z` without cha
 
 S6b route-state logging ran `dm3` mode `7` as `20260606T031102Z`. The new `route=` command suffix exposed marker/goal/path-state/blocked context. `/ bro` had `17` low-speed windows and all `5` analyzed top windows still had strong sampled command context; repeated `water.LG` windows shared linked/goal marker `59`, path state `32768`, and `blocked=0`. `/ goldenboy` had no S6-threshold low-speed windows in the same run.
 
-The next branch is S6c: route-state window attribution. Decode the repeated marker/path-state/blocked patterns, starting with `/ bro` at `water.LG`, before changing mode `7` or adding another command heuristic.
+S6c route-state attribution decoded `32768` as `WATER_PATH`, not `STUCK_PATH`, and grouped `3` `/ bro` `water.LG` low-speed windows around linked/goal marker `59`. The worst repeated windows use the `.bot` edge `276->59 idx=[0]`, have `blocked=0`, keep sampled command magnitude near `824`, and show low native `dir_speed` before the probe normalizes route direction.
+
+The next branch is S6d: inspect water-path/swim-intent context around `water.LG` before changing mode `7` or adding another command heuristic.

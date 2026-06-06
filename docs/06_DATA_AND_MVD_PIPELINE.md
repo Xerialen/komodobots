@@ -115,6 +115,15 @@ Route-state diagnosis:
 - Robustness: the diagnosis reports command/sample clock overlap so a timestamp-epoch mismatch does not look like missing commands, and corrupt sibling JSON artifacts are warned about and ignored rather than aborting the run.
 - Purpose: decide whether the next experiment needs route-state instrumentation before changing controller command values
 
+Route-state attribution:
+
+- Schema: `komodobots.route_state_attribution.v1`
+- Script: `scripts/attribute_route_state_windows.py`
+- Inputs: S6 diagnosis JSON, the run's `moveprobe-commands.json`, and the Frogbot `.bot` route-map file
+- Output: decoded path/bot state flags, grouped repeated low-speed patterns, touch-to-linked `.bot` map edges, and a next missing-field/controller decision
+- S6c result: `32768` decodes to `WATER_PATH`, not `STUCK_PATH`; repeated `/ bro` `water.LG` windows use linked/goal marker `59`, often the `276->59` `.bot` edge, with `blocked=0` and low native `dir_speed`
+- Purpose: convert route-state tags into source-grounded attribution before changing mode `7`
+
 S2 moveprobe note:
 
 The first KTX command-emission probe can perturb the final bot command before `trap_SetBotCMD(...)`, but the current MVD-derived metrics still observe only resulting movement. They cannot directly prove that the jump button was pressed or that a specific movement vector reached `trap_SetBotCMD(...)`; they show the behavioral consequence.
@@ -242,9 +251,21 @@ S6b result:
 - `/ goldenboy` had avg `285.5`, p95 `381.3`, low-speed `7.0%`, and no low-speed windows meeting the S6 threshold.
 - Repeated `/ bro` low-speed route context included `water.LG` windows with linked marker `59`, goal marker `59`, path state `32768`, and `blocked=0`.
 
-Current S6 data step:
+S6b next data step:
 
 Use the route-state-tagged windows to identify repeated marker/path-state/blocked patterns before changing mode `7` or adding another movement-command heuristic.
+
+S6c result:
+
+- Added `scripts/attribute_route_state_windows.py`.
+- Generated `experiments/ktx_moveprobe/evidence/route-state-s6c-attribution.*` from the existing S6b run, no new controller run.
+- Decoded `path_state=32768` as `WATER_PATH`; `STUCK_PATH` is `524288`.
+- Grouped `3` `/ bro` `water.LG` low-speed windows with linked/goal marker `59`, `blocked=0`, no `STUCK_PATH`, avg command near `824`, and avg native `dir_speed=0.338`.
+- The worst repeated windows use the `.bot` edge `276->59 idx=[0]` and have native `dir_speed` averages of `0.059` and `0.196`.
+
+Current S6 data step:
+
+Inspect water-path/swim-intent context around `water.LG`, especially waterlevel, swim arrow/upmove intent, velocity, and route `dir_move` behavior, before changing mode `7`.
 
 ## Bot-generated MVD loop
 

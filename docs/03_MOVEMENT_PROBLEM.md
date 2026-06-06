@@ -225,6 +225,20 @@ Result:
 
 Interpretation: S6b closes the route-state observability gap, but it does not yet explain or fix the movement gap. The next useful step is to decode repeated marker/path-state patterns, especially `/ bro` at `water.LG`, before changing mode `7`.
 
+## S6c Route-State Attribution
+
+S6c decoded the S6b route-state windows against KTX/Frogbot source flags and the `dm3.bot` route table without changing KTX or running a new controller experiment.
+
+Result:
+
+- `path_state=32768` decodes to `WATER_PATH`; `STUCK_PATH` is `524288`.
+- KTX sets `WATER_PATH` in route calculation when either endpoint marker is in water and uses `sv_maxwaterspeed` for that path's route time.
+- `dir_speed` is the pre-normalization magnitude captured by `SetDirectionMove()`; the probe then normalizes `dir_move_` and emits its fixed route/strafe command.
+- The repeated `/ bro` `water.LG` pattern groups `3` top low-speed windows with linked/goal marker `59`, `blocked=0`, no `STUCK_PATH`, avg sampled command near `824`, and avg native `dir_speed=0.338`.
+- The worst two repeated windows are on the `.bot` edge `276->59 idx=[0]`; their native `dir_speed` averages are `0.059` and `0.196` while sampled command magnitude stays high.
+
+Interpretation: the current gap is not missing final command magnitude and not obvious obstruction recovery. The strongest repeated S6b pattern is a water-path route primitive where native Frogbot movement intent magnitude collapses before the mode `7` probe normalizes direction. The next useful step is to inspect water-path/swim intent (`waterlevel`, `swim_arrow`, `upmove`, velocity/dir_move context) around `water.LG`, not to add a new command mode.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.
