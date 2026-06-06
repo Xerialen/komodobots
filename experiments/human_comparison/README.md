@@ -390,3 +390,28 @@ ratio. The from-scratch trigger is not reached; the next useful step is S7l:
 design a smaller context-gated air-transition probe that either excludes
 low-dir-speed/`WATER_PATH` contexts or scores them as hard stop-condition slices
 before another lab rerun.
+
+## Current S7l Result
+
+S7l designs that context-gated probe without changing controller behavior or
+rerunning the lab:
+
+```text
+experiments/human_comparison/evidence/context-gated-probe-design-s7l-dm3.json
+experiments/human_comparison/evidence/context-gated-probe-design-s7l-dm3.md
+```
+
+| Bucket | Clean rows | Clean segments | Route-dirty segments | Clean p50 |
+|---|---:|---:|---:|---:|
+| Pre-air window | `2` | `326` | `1,445` | `229.0` qu/s |
+| Airborne-proxy segments | `3` | `844` | `1,179` | `101.8` qu/s |
+| Non-airborne segments | `3` | `3,613` | `766` | `303.9` qu/s |
+
+S7l keeps the KTX/Frogbots path alive for one more bounded probe. The next
+probe must gate on live clean route context, not offline labels: no `WATER_PATH`,
+no low-dir-speed route primitive, diagnostics present, and inside the intended
+air-transition window. Route-dirty slices are guardrails, not success evidence.
+
+The next useful step is S7m: implement and run this context-gated air-transition
+probe, then compare clean and route-dirty slices separately against S7k/S7g
+baselines.

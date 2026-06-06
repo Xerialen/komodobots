@@ -1563,6 +1563,57 @@ Revisit the Frogbots-vs-from-scratch choice if S7l/S7m show that context-gated c
 
 ## Decision
 
+Proceed to one context-gated air-transition probe before abandoning Frogbots.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S7l turns the S7k failed-bucket diagnosis into a stricter probe contract. It finds enough clean air-transition evidence to justify one more bounded KTX/Frogbots controller probe, but route-dirty contexts must remain guardrails and cannot count as success evidence.
+
+Clean target slices:
+
+- Pre-air: `2` player rows, `326` segments, p50 `229.0` qu/s.
+- Airborne-proxy: `3` player rows, `844` segments, p50 `101.8` qu/s.
+
+Route-dirty guardrail slices:
+
+- Pre-air: `1` player row, `1,445` segments.
+- Airborne-proxy: `1` player row, `1,179` segments.
+- Non-airborne: `1` player row, `766` segments.
+
+The next runtime probe must gate on live Frogbot route/water state, not offline labels. It may change horizontal command budget only in clean transition context and must preserve route, water, probe-activation, and cadence diagnostics.
+
+### Alternatives Considered
+
+- Abandon Frogbots after S7j because the first air-transition probe failed.
+- Treat the S7j failure as a water-only or route-only problem.
+- Increase the mode-8 transition scale/window without separating clean and dirty contexts.
+- Start a route-primitive fix before proving whether clean air-transition slices can improve.
+
+### Evidence
+
+S7l design artifact:
+
+- `experiments/human_comparison/evidence/context-gated-probe-design-s7l-dm3.json`
+- `experiments/human_comparison/evidence/context-gated-probe-design-s7l-dm3.md`
+
+The artifact records context-gate rules, allowed/forbidden follow-up changes, stop conditions, and the Frogbots-vs-from-scratch gates.
+
+### Expected Consequences
+
+S7m should implement and run a temporary context-gated air-transition probe. It should compare clean pre-air/airborne slices separately from route-dirty slices. All-segment speed gains remain insufficient. Missing route/cadence/probe diagnostics make the result inconclusive.
+
+### Revisit Conditions
+
+Revisit a from-scratch stack if the S7m clean-context probe still cannot improve target air-transition buckets under strong command coverage, or if KTX/Frogbots cannot expose the live state needed to gate the probe without corrupting server-native behavior.
+
+---
+
+## Decision
+
 Use first-person QWD POV demos as the supervised action-label source.
 
 ### Date
