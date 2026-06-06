@@ -3013,3 +3013,68 @@ Medium for the start-context attribution because the first run used ordinary bot
 ### Follow-up
 
 Repair mode-9 setup so activation happens inside the recorded MVD window and at least one bot enters the start radius under measured conditions. Only then rerun the SNG probe and re-evaluate control-point advancement.
+
+## 2026-06-06 - QWD SNG Setup Repair Rerun
+
+### Experiment
+
+Temporarily redeployed the existing mode-9 KTX moveprobe patch, reran the `dm3_sng_shortcut.qwd` hybrid probe, and changed only setup/radius timing inputs: same QWD control points, same `96` qu point radius, same `forwardmove=320` / `sidemove=508` profile, but widened the start radius from `192` to `320` qu. The live KTX module was restored to stock after the run.
+
+The first attempted `65` second rerun produced useful command logs but no committed evidence because the minimal client timed out, the match ended, and KTX canceled/deleted the MVD. The accepted rerun used the original `45` second duration to avoid that timeout.
+
+### Result
+
+Run `20260606T231007Z` repaired the timing/start-context evidence blocker but still did not prove the SNG move was learned.
+
+- The run produced a non-empty MVD, parser output, movement metrics, and `867` sampled command rows.
+- QWD active samples: `627`.
+- Max active seconds: `16.591`.
+- Max advanced control points inside the parsed MVD window: `4`.
+- `qwd_activation_mvd_overlap`, `control_point_advancement`, diagnostic preservation, QWD command profile, and route-dirty guardrails all passed.
+- The run was rejected by `waypoint_only_slow_success`: `/ bro` advanced `4` points but had low-speed ratio `0.429` and stationary ratio `0.253`, above the `0.40` / `0.25` guardrails.
+- `/ goldenboy` activated for `181` rows but advanced `0` points.
+
+### Evidence
+
+Committed artifacts:
+
+- `experiments/qwd_route_probe/evidence/qwd-sng-setup-repair-result-dm3.json`
+- `experiments/qwd_route_probe/evidence/qwd-sng-setup-repair-result-dm3.md`
+- `experiments/qwd_route_probe/evidence/qwd-sng-setup-repair-diagnosis-dm3.json`
+- `experiments/qwd_route_probe/evidence/qwd-sng-setup-repair-diagnosis-dm3.md`
+
+Validation commands:
+
+```powershell
+git apply --check C:\Users\benya\projects\quakeworld\komodobots\experiments\ktx_moveprobe\frogbot-moveprobe.patch
+ssh servexeri 'set -e; cd ~/nquakesv/build/ktx; git apply --check ~/komodobots-lab/qwd-sng-setup-repair.patch; git apply ~/komodobots-lab/qwd-sng-setup-repair.patch; cmake --build build -- -j2'
+python scripts\run_bot_lab.py --map dm3 --duration 45 --bot-count 2 --bot-spacing 6 --moveprobe-mode 9 --moveprobe-forwardmove 320 --moveprobe-sidemove 508 --moveprobe-qwd-waypoints "<14 QWD control points>" --moveprobe-qwd-point-radius 96 --moveprobe-qwd-start-radius 320 --moveprobe-log-commands --moveprobe-log-interval 0.1
+python scripts\compare_qwd_sng_hybrid_probe.py --bot-run-id 20260606T231007Z --stage qwd-sng-setup-repair-dm3 --output-json experiments\qwd_route_probe\evidence\qwd-sng-setup-repair-result-dm3.json --output-md experiments\qwd_route_probe\evidence\qwd-sng-setup-repair-result-dm3.md
+python scripts\diagnose_qwd_sng_probe.py --bot-run-id 20260606T231007Z --stage qwd-sng-setup-repair-dm3 --result-json experiments\qwd_route_probe\evidence\qwd-sng-setup-repair-result-dm3.json --output-json experiments\qwd_route_probe\evidence\qwd-sng-setup-repair-diagnosis-dm3.json --output-md experiments\qwd_route_probe\evidence\qwd-sng-setup-repair-diagnosis-dm3.md
+python -m py_compile scripts\diagnose_qwd_sng_probe.py
+python -m unittest tests.test_diagnose_qwd_sng_probe -v
+```
+
+Remote rollback checks:
+
+```text
+live symlink -> qwprogs-1.48-dev-08807d.so
+~/nquakesv/build/ktx: clean master...origin/master
+localhost:28599 DOWN
+```
+
+### Interpretation
+
+The QWD-to-Frogbot path crossed a real milestone: a human-derived SNG control sequence can now activate and advance the required four points inside a recorded MVD window. That keeps KTX/Frogbots viable for a narrower follow-up.
+
+It is still not learned movement. The guardrails correctly block the claim because the bot reached those points with too much slow/stationary time. The remaining issue is now controller-vs-route-vs-radius/context attribution, not MVD timing.
+
+### Confidence
+
+High that timing/start-context setup was repaired for this run.
+
+Medium that the slow-success rejection is a controller-policy problem; the widened `320` qu start radius may also be introducing a loose setup context that needs diagnosis before widening control further.
+
+### Follow-up
+
+Diagnose the accepted setup-repair run's slow-success windows before another live controller change. The next smallest useful experiment is to inspect `/ bro`'s active QWD segments around control points `0..4`, sampled route/blocked/dir-speed context, and emitted command profile to decide whether to tighten start radius/context, adjust projection, or abandon the SNG probe path.

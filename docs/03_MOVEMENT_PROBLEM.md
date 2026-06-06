@@ -443,6 +443,22 @@ Result:
 
 Interpretation: S7k does not trigger a from-scratch rebuild. The failure is bounded enough to justify one narrower context-gated Frogbot/KTX probe: keep the engine-native substrate, but gate or separately score low-dir-speed/`WATER_PATH` contexts before another air-transition command-policy change.
 
+## QWD SNG Setup Repair Result
+
+The QWD-derived `dm3_sng_shortcut.qwd` branch tests whether exact human POV commands plus trajectory control points can improve Frogbot movement on `dm3` without abandoning the KTX/Frogbots server-native shell.
+
+The first mode-9 SNG runtime probe activated too late for clean MVD evidence. The setup-repair run `20260606T231007Z` widened only the activation radius from `192` to `320` qu while preserving the same control points, `96` qu point radius, and `forwardmove=320` / `sidemove=508` command profile.
+
+Result:
+
+- QWD active samples: `627`.
+- Max active seconds: `16.591`.
+- Max advanced control points inside the parsed MVD window: `4`.
+- Diagnostics remained present: route, water, command, QWD state, cadence, and movement metrics.
+- The run is rejected by `waypoint_only_slow_success`: `/ bro` advanced the first four points with low-speed ratio `0.429` and stationary ratio `0.253`.
+
+Interpretation: this repairs the evidence-window problem but not the movement problem. The bot can be steered through early SNG control points inside real server physics, but it is still too slow/stationary to count as learned human-like movement. The next movement question is whether that slow traversal comes from controller projection, route/map context, or a too-loose setup radius.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

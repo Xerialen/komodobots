@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`QWD-DM3-SNG - Repair QWD-derived SNG probe activation/control-point advancement before expanding`
+`QWD-DM3-SNG - Diagnose slow-success rejection after setup-repaired SNG advancement`
 
 ## Stage Status Table
 
@@ -50,7 +50,7 @@ Current active stage:
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
 | S6 Route Primitives | Closed for now | S6f found `276->59` is explicit and reciprocal, but marker `276` lacks static geometry, so no tiny route-data fix is justified from `dm3.bot` alone |
 | S7 Player Specific | Paused behind QWD decision track | S7l found enough clean air-transition evidence for one narrower Frogbots probe, but the QWD action/trajectory bridge is now the faster Frogbots-vs-from-scratch decision path |
-| QWD DM3 Route Transfer | Active but inconclusive | The first mode-9 SNG runtime probe activated and preserved diagnostics, but its active control-point advancement happened outside the parsed MVD movement window; repair timing/start context before controller changes or expansion |
+| QWD DM3 Route Transfer | Active but rejected by guardrails | Setup repair run `20260606T231007Z` advanced `4` SNG control points inside the parsed MVD window, but `/ bro` crossed the slow/stationary guardrails, so diagnose slow-success/controller-vs-context before widening control or trying other DM3 QWD moves |
 
 ## Roadmap Rule
 
@@ -113,4 +113,6 @@ The first QWD-to-Frogbot mapping used `dm3_sng_shortcut.qwd`. The human trajecto
 
 The QWD SNG hybrid probe design turns that mapping into a bounded server-loop contract without changing KTX behavior yet. It preserves `14` QWD control points, proposes temporary mode `9`, recommends waypoint-attraction `forwardmove=320` plus QWD-style `sidemove=508`, forbids `dm3.bot` mutation, and requires route/water/command/probe/cadence/movement diagnostics. The next QWD branch should implement and run that mode, then decide whether positive SNG evidence justifies trying the remaining DM3 QWD moves.
 
-The first QWD SNG hybrid server-loop probe implemented temporary mode `9`, runner QWD-cvar transport, QWD command-state parsing, and a scorer against the design guardrails. Run `20260606T221429Z` activated the QWD probe for `11` sampled rows and `1.12` seconds, preserved route/water/probe/cadence diagnostics, and passed slow/route-dirty success guardrails, but advanced only `2` control points against the required `4`. Follow-up diagnosis aligned command-log server time to MVD-relative event time and found the active `/ goldenboy` rows landed at `47044-48082` ms, outside the parsed `45816` ms MVD movement window; `/ bro` never reached the configured start radius. The result remains `qwd_sng_hybrid_probe_inconclusive`. The next QWD branch should repair timing/start-context setup so QWD activation overlaps recorded MVD movement evidence before changing controller projection or trying other DM3 QWD moves.
+The first QWD SNG hybrid server-loop probe implemented temporary mode `9`, runner QWD-cvar transport, QWD command-state parsing, and a scorer against the design guardrails. Run `20260606T221429Z` activated the QWD probe for `11` sampled rows and `1.12` seconds, preserved route/water/probe/cadence diagnostics, and passed slow/route-dirty success guardrails, but advanced only `2` control points against the required `4`. Follow-up diagnosis aligned command-log server time to MVD-relative event time and found the active `/ goldenboy` rows landed at `47044-48082` ms, outside the parsed `45816` ms MVD movement window; `/ bro` never reached the configured start radius. The result remains `qwd_sng_hybrid_probe_inconclusive`.
+
+The QWD SNG setup repair reran the same mode `9`, QWD control points, `96` qu point radius, and `forwardmove=320` / `sidemove=508` profile with start radius widened to `320` qu. Run `20260606T231007Z` produced valid MVD evidence and repaired the timing/start-context blocker: `627` QWD active samples, `16.591` max active seconds, and `4` control points advanced inside the parsed MVD window. The scorer still rejects the run because `/ bro` advanced those points with low-speed ratio `0.429` and stationary ratio `0.253`, crossing the `0.40` / `0.25` slow-success guardrails. The next QWD branch should diagnose whether that slow success is controller projection, route/context, or loose-radius setup before widening QWD control or trying other DM3 QWD moves.
