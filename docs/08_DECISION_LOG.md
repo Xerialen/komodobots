@@ -1300,3 +1300,43 @@ S7 should not spend a branch tuning cadence until the position-derived airborne-
 ### Revisit Conditions
 
 Revisit if Code Sentinel finds the broadened bot-run selection is unsafe, if raw segment inspection shows airborne-proxy cadence is a reliable grounded jump-rhythm proxy, or if new bot rows contradict the all-above airborne-proxy relation.
+
+---
+
+## Decision
+
+Pivot from cadence control to air-rhythm and land-speed evidence after S7f.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S7f inspected raw airborne-proxy segment distributions from existing exact-player and unchanged mode-7 bot artifacts. The result does not justify a cadence controller.
+
+Cadence remains diagnostic. The next stage should characterize the land-speed gap around route and air segments before another controller probe.
+
+### Alternatives Considered
+
+- Start a cadence controller because all broadened bot rows are above the airborne-proxy cadence range.
+- Treat the airborne-proxy cadence gap as a metric bug and drop cadence entirely.
+- Rerun KTX immediately with another controller tweak.
+- Keep broadening cadence rows without inspecting the underlying air segment shape.
+
+### Evidence
+
+S7f raw airborne-proxy segment evidence:
+
+- Player-median air duration: exact-player `325.0` ms, bot `217.2` ms, bot/reference p50 ratio `0.668`.
+- Player-median air Z range: exact-player `43.8` qu, bot `11.5` qu, ratio `0.264`.
+- Player-median air speed: exact-player `431.8` qu/s, bot `114.4` qu/s, ratio `0.265`.
+- Raw active average speed ratio is `0.735`, preserving the broader land-speed deficit.
+
+### Expected Consequences
+
+The next PR should not tune jump cadence directly. It should use the existing evidence to characterize where the bot speed deficit appears around route and air segments, then decide whether a controller probe should target speed production, air rhythm, or another route/movement primitive.
+
+### Revisit Conditions
+
+Revisit if Code Sentinel finds a raw segment extraction bug, if a grounded-state or usercmd-aware metric replaces the current position-derived airborne proxy, or if broader bot rows produce human-scale airborne segments while still showing cadence problems.

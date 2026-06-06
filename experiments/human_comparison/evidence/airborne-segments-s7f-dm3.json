@@ -1,0 +1,2001 @@
+{
+  "bot_players": [
+    {
+      "accepted_segment_count": 1255,
+      "active_time_s": 25.507,
+      "airborne_distribution": {
+        "avg_airborne_speed_qu_per_s": {
+          "count": 39,
+          "max": 359.032,
+          "mean": 123.161,
+          "min": 35.725,
+          "p50": 104.114,
+          "p90": 210.592,
+          "p95": 281.438
+        },
+        "duration_ms": {
+          "count": 39,
+          "max": 792.0,
+          "mean": 289.308,
+          "min": 143.0,
+          "p50": 205.0,
+          "p90": 485.0,
+          "p95": 490.0
+        },
+        "gap_since_previous_airborne_ms": {
+          "count": 38,
+          "max": 7027.0,
+          "mean": 325.579,
+          "min": 15.0,
+          "p50": 41.0,
+          "p90": 523.3,
+          "p95": 734.2
+        },
+        "landing_delta_qu_per_s": {
+          "count": 39,
+          "max": 226.492,
+          "mean": 10.862,
+          "min": -106.125,
+          "p50": 3.231,
+          "p90": 117.345,
+          "p95": 182.515
+        },
+        "landing_post_speed_qu_per_s": {
+          "count": 39,
+          "max": 347.286,
+          "mean": 133.148,
+          "min": 0.0,
+          "p50": 106.474,
+          "p90": 286.822,
+          "p95": 295.861
+        },
+        "landing_pre_speed_qu_per_s": {
+          "count": 39,
+          "max": 357.578,
+          "mean": 122.286,
+          "min": 41.111,
+          "p50": 102.534,
+          "p90": 212.757,
+          "p95": 254.85
+        },
+        "z_delta_qu": {
+          "count": 39,
+          "max": 256.0,
+          "mean": 21.881,
+          "min": 4.375,
+          "p50": 5.875,
+          "p90": 47.575,
+          "p95": 63.0
+        }
+      },
+      "airborne_proxy_count": 39,
+      "dropped_teleport_segments": 2,
+      "events_path": "artifacts/lab-runs/20260606T003718Z/events.txt",
+      "group": "bot",
+      "identity": "/ bro",
+      "matched_name": "/ bro",
+      "metrics_airborne_proxy_time_ratio": 0.442,
+      "metrics_avg_horizontal_speed_qu_per_s": 190.149,
+      "metrics_jump_cadence_per_min": 91.74,
+      "metrics_p95_horizontal_speed_qu_per_s": 361.014,
+      "raw_active_avg_speed_qu_per_s": 190.149,
+      "raw_segment_p95_speed_qu_per_s": 361.014,
+      "run_id": "20260606T003718Z",
+      "sample_airborne_runs_by_duration": [
+        {
+          "avg_airborne_speed_qu_per_s": 112.852,
+          "duration_ms": 792.0,
+          "end_ms": 5132,
+          "landing_delta_qu_per_s": 157.88,
+          "landing_post_speed_qu_per_s": 260.414,
+          "landing_pre_speed_qu_per_s": 102.534,
+          "start_ms": 4340,
+          "z_delta_qu": 256.0
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 35.725,
+          "duration_ms": 490.0,
+          "end_ms": 17011,
+          "landing_delta_qu_per_s": 34.407,
+          "landing_post_speed_qu_per_s": 75.518,
+          "landing_pre_speed_qu_per_s": 41.111,
+          "start_ms": 16521,
+          "z_delta_qu": 63.0
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 43.81,
+          "duration_ms": 490.0,
+          "end_ms": 18595,
+          "landing_delta_qu_per_s": 25.17,
+          "landing_post_speed_qu_per_s": 70.133,
+          "landing_pre_speed_qu_per_s": 44.963,
+          "start_ms": 18105,
+          "z_delta_qu": 63.0
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 80.579,
+          "duration_ms": 485.0,
+          "end_ms": 16035,
+          "landing_delta_qu_per_s": 19.942,
+          "landing_post_speed_qu_per_s": 112.464,
+          "landing_pre_speed_qu_per_s": 92.521,
+          "start_ms": 15550,
+          "z_delta_qu": 7.25
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 279.238,
+          "duration_ms": 485.0,
+          "end_ms": 19873,
+          "landing_delta_qu_per_s": -97.322,
+          "landing_post_speed_qu_per_s": 143.713,
+          "landing_pre_speed_qu_per_s": 241.035,
+          "start_ms": 19388,
+          "z_delta_qu": 47.875
+        }
+      ],
+      "sample_count": 1258,
+      "source_path": "artifacts/lab-runs/20260606T003718Z/movement-metrics.json"
+    },
+    {
+      "accepted_segment_count": 955,
+      "active_time_s": 19.417,
+      "airborne_distribution": {
+        "avg_airborne_speed_qu_per_s": {
+          "count": 14,
+          "max": 349.093,
+          "mean": 196.569,
+          "min": 55.514,
+          "p50": 164.757,
+          "p90": 319.636,
+          "p95": 333.748
+        },
+        "duration_ms": {
+          "count": 14,
+          "max": 1093.0,
+          "mean": 344.5,
+          "min": 123.0,
+          "p50": 229.5,
+          "p90": 857.2,
+          "p95": 1083.25
+        },
+        "gap_since_previous_airborne_ms": {
+          "count": 13,
+          "max": 2478.0,
+          "mean": 1050.231,
+          "min": 20.0,
+          "p50": 792.0,
+          "p90": 2306.2,
+          "p95": 2392.2
+        },
+        "landing_delta_qu_per_s": {
+          "count": 14,
+          "max": 217.674,
+          "mean": -0.602,
+          "min": -238.985,
+          "p50": 6.246,
+          "p90": 153.458,
+          "p95": 210.333
+        },
+        "landing_post_speed_qu_per_s": {
+          "count": 14,
+          "max": 368.533,
+          "mean": 194.76,
+          "min": 19.927,
+          "p50": 150.421,
+          "p90": 347.892,
+          "p95": 358.404
+        },
+        "landing_pre_speed_qu_per_s": {
+          "count": 14,
+          "max": 348.771,
+          "mean": 195.362,
+          "min": 66.796,
+          "p50": 167.63,
+          "p90": 318.36,
+          "p95": 332.005
+        },
+        "z_delta_qu": {
+          "count": 14,
+          "max": 235.25,
+          "mean": 38.08,
+          "min": 5.5,
+          "p50": 17.188,
+          "p90": 64.8,
+          "p95": 129.137
+        }
+      },
+      "airborne_proxy_count": 14,
+      "dropped_teleport_segments": 5,
+      "events_path": "artifacts/lab-runs/20260606T003718Z/events.txt",
+      "group": "bot",
+      "identity": "/ goldenboy",
+      "matched_name": "/ goldenboy",
+      "metrics_airborne_proxy_time_ratio": 0.248,
+      "metrics_avg_horizontal_speed_qu_per_s": 248.179,
+      "metrics_jump_cadence_per_min": 43.261,
+      "metrics_p95_horizontal_speed_qu_per_s": 375.273,
+      "raw_active_avg_speed_qu_per_s": 248.179,
+      "raw_segment_p95_speed_qu_per_s": 375.273,
+      "run_id": "20260606T003718Z",
+      "sample_airborne_runs_by_duration": [
+        {
+          "avg_airborne_speed_qu_per_s": 74.12,
+          "duration_ms": 1093.0,
+          "end_ms": 18248,
+          "landing_delta_qu_per_s": -48.493,
+          "landing_post_speed_qu_per_s": 19.927,
+          "landing_pre_speed_qu_per_s": 68.42,
+          "start_ms": 17155,
+          "z_delta_qu": 72.0
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 129.414,
+          "duration_ms": 1078.0,
+          "end_ms": 9561,
+          "landing_delta_qu_per_s": 8.437,
+          "landing_post_speed_qu_per_s": 91.404,
+          "landing_pre_speed_qu_per_s": 82.966,
+          "start_ms": 8483,
+          "z_delta_qu": 235.25
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 90.247,
+          "duration_ms": 342.0,
+          "end_ms": 9924,
+          "landing_delta_qu_per_s": 206.38,
+          "landing_post_speed_qu_per_s": 296.057,
+          "landing_pre_speed_qu_per_s": 89.677,
+          "start_ms": 9582,
+          "z_delta_qu": 35.125
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 142.444,
+          "duration_ms": 342.0,
+          "end_ms": 21068,
+          "landing_delta_qu_per_s": -48.162,
+          "landing_post_speed_qu_per_s": 68.225,
+          "landing_pre_speed_qu_per_s": 116.387,
+          "start_ms": 20726,
+          "z_delta_qu": 48.0
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 304.126,
+          "duration_ms": 328.0,
+          "end_ms": 13133,
+          "landing_delta_qu_per_s": -238.985,
+          "landing_post_speed_qu_per_s": 59.544,
+          "landing_pre_speed_qu_per_s": 298.529,
+          "start_ms": 12805,
+          "z_delta_qu": 19.375
+        }
+      ],
+      "sample_count": 961,
+      "source_path": "artifacts/lab-runs/20260606T003718Z/movement-metrics.json"
+    },
+    {
+      "accepted_segment_count": 1257,
+      "active_time_s": 25.527,
+      "airborne_distribution": {
+        "avg_airborne_speed_qu_per_s": {
+          "count": 59,
+          "max": 348.177,
+          "mean": 106.671,
+          "min": 47.785,
+          "p50": 97.593,
+          "p90": 105.348,
+          "p95": 185.425
+        },
+        "duration_ms": {
+          "count": 59,
+          "max": 491.0,
+          "mean": 219.102,
+          "min": 158.0,
+          "p50": 200.0,
+          "p90": 273.0,
+          "p95": 385.6
+        },
+        "gap_since_previous_airborne_ms": {
+          "count": 58,
+          "max": 5502.0,
+          "mean": 201.431,
+          "min": 20.0,
+          "p50": 21.0,
+          "p90": 336.9,
+          "p95": 653.45
+        },
+        "landing_delta_qu_per_s": {
+          "count": 59,
+          "max": 215.453,
+          "mean": 2.77,
+          "min": -50.189,
+          "p50": 1.115,
+          "p90": 15.91,
+          "p95": 16.933
+        },
+        "landing_post_speed_qu_per_s": {
+          "count": 59,
+          "max": 356.515,
+          "mean": 108.087,
+          "min": 53.765,
+          "p50": 96.024,
+          "p90": 104.554,
+          "p95": 282.042
+        },
+        "landing_pre_speed_qu_per_s": {
+          "count": 59,
+          "max": 348.278,
+          "mean": 105.317,
+          "min": 45.817,
+          "p50": 96.206,
+          "p90": 105.425,
+          "p95": 157.029
+        },
+        "z_delta_qu": {
+          "count": 59,
+          "max": 62.875,
+          "mean": 8.981,
+          "min": 4.0,
+          "p50": 5.375,
+          "p90": 20.5,
+          "p95": 33.162
+        }
+      },
+      "airborne_proxy_count": 59,
+      "dropped_teleport_segments": 1,
+      "events_path": "artifacts/lab-runs/20260606T031102Z/events.txt",
+      "group": "bot",
+      "identity": "/ bro",
+      "matched_name": "/ bro",
+      "metrics_airborne_proxy_time_ratio": 0.506,
+      "metrics_avg_horizontal_speed_qu_per_s": 136.285,
+      "metrics_jump_cadence_per_min": 138.677,
+      "metrics_p95_horizontal_speed_qu_per_s": 359.605,
+      "raw_active_avg_speed_qu_per_s": 136.285,
+      "raw_segment_p95_speed_qu_per_s": 359.605,
+      "run_id": "20260606T031102Z",
+      "sample_airborne_runs_by_duration": [
+        {
+          "avg_airborne_speed_qu_per_s": 47.785,
+          "duration_ms": 491.0,
+          "end_ms": 9622,
+          "landing_delta_qu_per_s": 16.647,
+          "landing_post_speed_qu_per_s": 62.465,
+          "landing_pre_speed_qu_per_s": 45.817,
+          "start_ms": 9131,
+          "z_delta_qu": 62.875
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 170.216,
+          "duration_ms": 450.0,
+          "end_ms": 8181,
+          "landing_delta_qu_per_s": -40.691,
+          "landing_post_speed_qu_per_s": 97.955,
+          "landing_pre_speed_qu_per_s": 138.646,
+          "start_ms": 7731,
+          "z_delta_qu": 46.875
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 117.262,
+          "duration_ms": 409.0,
+          "end_ms": 10961,
+          "landing_delta_qu_per_s": 9.932,
+          "landing_post_speed_qu_per_s": 88.771,
+          "landing_pre_speed_qu_per_s": 78.839,
+          "start_ms": 10552,
+          "z_delta_qu": 43.625
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 87.569,
+          "duration_ms": 383.0,
+          "end_ms": 22146,
+          "landing_delta_qu_per_s": -6.461,
+          "landing_post_speed_qu_per_s": 74.091,
+          "landing_pre_speed_qu_per_s": 80.551,
+          "start_ms": 21763,
+          "z_delta_qu": 5.375
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 331.763,
+          "duration_ms": 303.0,
+          "end_ms": 1658,
+          "landing_delta_qu_per_s": 28.409,
+          "landing_post_speed_qu_per_s": 356.515,
+          "landing_pre_speed_qu_per_s": 328.106,
+          "start_ms": 1355,
+          "z_delta_qu": 32.0
+        }
+      ],
+      "sample_count": 1259,
+      "source_path": "artifacts/lab-runs/20260606T031102Z/movement-metrics.json"
+    },
+    {
+      "accepted_segment_count": 960,
+      "active_time_s": 19.498,
+      "airborne_distribution": {
+        "avg_airborne_speed_qu_per_s": {
+          "count": 8,
+          "max": 287.486,
+          "mean": 156.208,
+          "min": 42.193,
+          "p50": 124.613,
+          "p90": 284.326,
+          "p95": 285.906
+        },
+        "duration_ms": {
+          "count": 8,
+          "max": 1236.0,
+          "mean": 365.75,
+          "min": 185.0,
+          "p50": 242.5,
+          "p90": 599.0,
+          "p95": 917.5
+        },
+        "gap_since_previous_airborne_ms": {
+          "count": 7,
+          "max": 7491.0,
+          "mean": 1873.571,
+          "min": 21.0,
+          "p50": 834.0,
+          "p90": 4225.8,
+          "p95": 5858.4
+        },
+        "landing_delta_qu_per_s": {
+          "count": 8,
+          "max": 206.399,
+          "mean": 84.998,
+          "min": -29.029,
+          "p50": 87.415,
+          "p90": 174.191,
+          "p95": 190.295
+        },
+        "landing_post_speed_qu_per_s": {
+          "count": 8,
+          "max": 320.003,
+          "mean": 239.596,
+          "min": 114.237,
+          "p50": 250.694,
+          "p90": 306.4,
+          "p95": 313.201
+        },
+        "landing_pre_speed_qu_per_s": {
+          "count": 8,
+          "max": 301.749,
+          "mean": 154.598,
+          "min": 64.222,
+          "p50": 138.231,
+          "p90": 284.158,
+          "p95": 292.954
+        },
+        "z_delta_qu": {
+          "count": 8,
+          "max": 344.0,
+          "mean": 64.0,
+          "min": 13.625,
+          "p50": 24.0,
+          "p90": 133.562,
+          "p95": 238.781
+        }
+      },
+      "airborne_proxy_count": 8,
+      "dropped_teleport_segments": 1,
+      "events_path": "artifacts/lab-runs/20260606T031102Z/events.txt",
+      "group": "bot",
+      "identity": "/ goldenboy",
+      "matched_name": "/ goldenboy",
+      "metrics_airborne_proxy_time_ratio": 0.15,
+      "metrics_avg_horizontal_speed_qu_per_s": 285.483,
+      "metrics_jump_cadence_per_min": 24.618,
+      "metrics_p95_horizontal_speed_qu_per_s": 381.309,
+      "raw_active_avg_speed_qu_per_s": 285.483,
+      "raw_segment_p95_speed_qu_per_s": 381.309,
+      "run_id": "20260606T031102Z",
+      "sample_airborne_runs_by_duration": [
+        {
+          "avg_airborne_speed_qu_per_s": 229.06,
+          "duration_ms": 1236.0,
+          "end_ms": 17455,
+          "landing_delta_qu_per_s": -29.029,
+          "landing_post_speed_qu_per_s": 114.237,
+          "landing_pre_speed_qu_per_s": 143.266,
+          "start_ms": 16219,
+          "z_delta_qu": 344.0
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 86.787,
+          "duration_ms": 326.0,
+          "end_ms": 17802,
+          "landing_delta_qu_per_s": 206.399,
+          "landing_post_speed_qu_per_s": 276.778,
+          "landing_pre_speed_qu_per_s": 70.379,
+          "start_ms": 17476,
+          "z_delta_qu": 43.375
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 282.972,
+          "duration_ms": 286.0,
+          "end_ms": 24584,
+          "landing_delta_qu_per_s": 43.384,
+          "landing_post_speed_qu_per_s": 320.003,
+          "landing_pre_speed_qu_per_s": 276.619,
+          "start_ms": 24298,
+          "z_delta_qu": 32.0
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 155.989,
+          "duration_ms": 280.0,
+          "end_ms": 21231,
+          "landing_delta_qu_per_s": 125.195,
+          "landing_post_speed_qu_per_s": 281.292,
+          "landing_pre_speed_qu_per_s": 156.097,
+          "start_ms": 20951,
+          "z_delta_qu": 32.0
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 42.193,
+          "duration_ms": 205.0,
+          "end_ms": 23485,
+          "landing_delta_qu_per_s": 160.388,
+          "landing_post_speed_qu_per_s": 224.61,
+          "landing_pre_speed_qu_per_s": 64.222,
+          "start_ms": 23280,
+          "z_delta_qu": 16.0
+        }
+      ],
+      "sample_count": 962,
+      "source_path": "artifacts/lab-runs/20260606T031102Z/movement-metrics.json"
+    },
+    {
+      "accepted_segment_count": 1256,
+      "active_time_s": 25.507,
+      "airborne_distribution": {
+        "avg_airborne_speed_qu_per_s": {
+          "count": 50,
+          "max": 330.978,
+          "mean": 128.86,
+          "min": 53.018,
+          "p50": 98.196,
+          "p90": 270.68,
+          "p95": 294.428
+        },
+        "duration_ms": {
+          "count": 50,
+          "max": 812.0,
+          "mean": 249.42,
+          "min": 144.0,
+          "p50": 205.0,
+          "p90": 404.5,
+          "p95": 428.25
+        },
+        "gap_since_previous_airborne_ms": {
+          "count": 49,
+          "max": 3127.0,
+          "mean": 220.408,
+          "min": 15.0,
+          "p50": 41.0,
+          "p90": 423.2,
+          "p95": 538.8
+        },
+        "landing_delta_qu_per_s": {
+          "count": 50,
+          "max": 116.281,
+          "mean": 0.755,
+          "min": -99.361,
+          "p50": -0.326,
+          "p90": 24.628,
+          "p95": 51.719
+        },
+        "landing_post_speed_qu_per_s": {
+          "count": 50,
+          "max": 352.712,
+          "mean": 128.196,
+          "min": 0.0,
+          "p50": 99.394,
+          "p90": 306.962,
+          "p95": 329.871
+        },
+        "landing_pre_speed_qu_per_s": {
+          "count": 50,
+          "max": 328.119,
+          "mean": 127.44,
+          "min": 54.95,
+          "p50": 99.07,
+          "p90": 263.592,
+          "p95": 290.91
+        },
+        "z_delta_qu": {
+          "count": 50,
+          "max": 256.0,
+          "mean": 12.475,
+          "min": 4.125,
+          "p50": 5.5,
+          "p90": 13.375,
+          "p95": 26.15
+        }
+      },
+      "airborne_proxy_count": 50,
+      "dropped_teleport_segments": 2,
+      "events_path": "artifacts/lab-runs/20260606T041805Z/events.txt",
+      "group": "bot",
+      "identity": "/ bro",
+      "matched_name": "/ bro",
+      "metrics_airborne_proxy_time_ratio": 0.489,
+      "metrics_avg_horizontal_speed_qu_per_s": 183.855,
+      "metrics_jump_cadence_per_min": 117.615,
+      "metrics_p95_horizontal_speed_qu_per_s": 365.491,
+      "raw_active_avg_speed_qu_per_s": 183.855,
+      "raw_segment_p95_speed_qu_per_s": 365.491,
+      "run_id": "20260606T041805Z",
+      "sample_airborne_runs_by_duration": [
+        {
+          "avg_airborne_speed_qu_per_s": 268.129,
+          "duration_ms": 812.0,
+          "end_ms": 4197,
+          "landing_delta_qu_per_s": 63.969,
+          "landing_post_speed_qu_per_s": 326.999,
+          "landing_pre_speed_qu_per_s": 263.03,
+          "start_ms": 3385,
+          "z_delta_qu": 256.0
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 285.507,
+          "duration_ms": 445.0,
+          "end_ms": 10920,
+          "landing_delta_qu_per_s": -25.013,
+          "landing_post_speed_qu_per_s": 243.639,
+          "landing_pre_speed_qu_per_s": 268.653,
+          "start_ms": 10475,
+          "z_delta_qu": 44.75
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 91.338,
+          "duration_ms": 444.0,
+          "end_ms": 17556,
+          "landing_delta_qu_per_s": 1.766,
+          "landing_post_speed_qu_per_s": 86.024,
+          "landing_pre_speed_qu_per_s": 84.258,
+          "start_ms": 17112,
+          "z_delta_qu": 6.125
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 98.05,
+          "duration_ms": 409.0,
+          "end_ms": 18573,
+          "landing_delta_qu_per_s": -7.68,
+          "landing_post_speed_qu_per_s": 88.847,
+          "landing_pre_speed_qu_per_s": 96.527,
+          "start_ms": 18164,
+          "z_delta_qu": 5.125
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 99.272,
+          "duration_ms": 409.0,
+          "end_ms": 22411,
+          "landing_delta_qu_per_s": 13.52,
+          "landing_post_speed_qu_per_s": 111.135,
+          "landing_pre_speed_qu_per_s": 97.615,
+          "start_ms": 22002,
+          "z_delta_qu": 5.625
+        }
+      ],
+      "sample_count": 1259,
+      "source_path": "artifacts/lab-runs/20260606T041805Z/movement-metrics.json"
+    },
+    {
+      "accepted_segment_count": 959,
+      "active_time_s": 19.478,
+      "airborne_distribution": {
+        "avg_airborne_speed_qu_per_s": {
+          "count": 6,
+          "max": 334.485,
+          "mean": 275.546,
+          "min": 119.198,
+          "p50": 295.596,
+          "p90": 327.021,
+          "p95": 330.753
+        },
+        "duration_ms": {
+          "count": 6,
+          "max": 464.0,
+          "mean": 295.5,
+          "min": 205.0,
+          "p50": 255.5,
+          "p90": 426.0,
+          "p95": 445.0
+        },
+        "gap_since_previous_airborne_ms": {
+          "count": 5,
+          "max": 11937.0,
+          "mean": 3040.0,
+          "min": 102.0,
+          "p50": 848.0,
+          "p90": 7827.8,
+          "p95": 9882.4
+        },
+        "landing_delta_qu_per_s": {
+          "count": 6,
+          "max": 150.968,
+          "mean": -30.764,
+          "min": -286.872,
+          "p50": 26.799,
+          "p90": 108.572,
+          "p95": 129.77
+        },
+        "landing_post_speed_qu_per_s": {
+          "count": 6,
+          "max": 365.813,
+          "mean": 242.228,
+          "min": 0.0,
+          "p50": 292.577,
+          "p90": 358.7,
+          "p95": 362.256
+        },
+        "landing_pre_speed_qu_per_s": {
+          "count": 6,
+          "max": 332.269,
+          "mean": 272.993,
+          "min": 112.066,
+          "p50": 294.47,
+          "p90": 325.769,
+          "p95": 329.019
+        },
+        "z_delta_qu": {
+          "count": 6,
+          "max": 80.0,
+          "mean": 36.75,
+          "min": 15.0,
+          "p50": 22.812,
+          "p90": 71.938,
+          "p95": 75.969
+        }
+      },
+      "airborne_proxy_count": 6,
+      "dropped_teleport_segments": 2,
+      "events_path": "artifacts/lab-runs/20260606T041805Z/events.txt",
+      "group": "bot",
+      "identity": "/ goldenboy",
+      "matched_name": "/ goldenboy",
+      "metrics_airborne_proxy_time_ratio": 0.091,
+      "metrics_avg_horizontal_speed_qu_per_s": 286.476,
+      "metrics_jump_cadence_per_min": 18.482,
+      "metrics_p95_horizontal_speed_qu_per_s": 386.332,
+      "raw_active_avg_speed_qu_per_s": 286.476,
+      "raw_segment_p95_speed_qu_per_s": 386.332,
+      "run_id": "20260606T041805Z",
+      "sample_airborne_runs_by_duration": [
+        {
+          "avg_airborne_speed_qu_per_s": 334.485,
+          "duration_ms": 464.0,
+          "end_ms": 9273,
+          "landing_delta_qu_per_s": -10.148,
+          "landing_post_speed_qu_per_s": 322.121,
+          "landing_pre_speed_qu_per_s": 332.269,
+          "start_ms": 8809,
+          "z_delta_qu": 80.0
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 319.557,
+          "duration_ms": 388.0,
+          "end_ms": 22492,
+          "landing_delta_qu_per_s": -168.456,
+          "landing_post_speed_qu_per_s": 150.814,
+          "landing_pre_speed_qu_per_s": 319.27,
+          "start_ms": 22104,
+          "z_delta_qu": 63.875
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 289.125,
+          "duration_ms": 266.0,
+          "end_ms": 25782,
+          "landing_delta_qu_per_s": -286.872,
+          "landing_post_speed_qu_per_s": 0.0,
+          "landing_pre_speed_qu_per_s": 286.872,
+          "start_ms": 25516,
+          "z_delta_qu": 29.625
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 302.067,
+          "duration_ms": 245.0,
+          "end_ms": 21455,
+          "landing_delta_qu_per_s": 63.745,
+          "landing_post_speed_qu_per_s": 365.813,
+          "landing_pre_speed_qu_per_s": 302.067,
+          "start_ms": 21210,
+          "z_delta_qu": 15.0
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 119.198,
+          "duration_ms": 205.0,
+          "end_ms": 23545,
+          "landing_delta_qu_per_s": 150.968,
+          "landing_post_speed_qu_per_s": 263.034,
+          "landing_pre_speed_qu_per_s": 112.066,
+          "start_ms": 23340,
+          "z_delta_qu": 16.0
+        }
+      ],
+      "sample_count": 962,
+      "source_path": "artifacts/lab-runs/20260606T041805Z/movement-metrics.json"
+    }
+  ],
+  "bot_summary": {
+    "airborne_proxy_count": {
+      "count": 6,
+      "max": 59.0,
+      "mean": 29.333,
+      "min": 6.0,
+      "p50": 26.5,
+      "p90": 54.5,
+      "p95": 56.75
+    },
+    "airborne_proxy_total_count": 176,
+    "metrics_airborne_proxy_time_ratio": {
+      "count": 6,
+      "max": 0.506,
+      "mean": 0.321,
+      "min": 0.091,
+      "p50": 0.345,
+      "p90": 0.497,
+      "p95": 0.502
+    },
+    "metrics_jump_cadence_per_min": {
+      "count": 6,
+      "max": 138.677,
+      "mean": 72.399,
+      "min": 18.482,
+      "p50": 67.501,
+      "p90": 128.146,
+      "p95": 133.411
+    },
+    "player_count": 6,
+    "player_p50_avg_airborne_speed_qu_per_s": {
+      "count": 6,
+      "max": 295.596,
+      "mean": 147.478,
+      "min": 97.593,
+      "p50": 114.364,
+      "p90": 230.177,
+      "p95": 262.886
+    },
+    "player_p50_duration_ms": {
+      "count": 6,
+      "max": 255.5,
+      "mean": 222.917,
+      "min": 200.0,
+      "p50": 217.25,
+      "p90": 249.0,
+      "p95": 252.25
+    },
+    "player_p50_landing_delta_qu_per_s": {
+      "count": 6,
+      "max": 87.415,
+      "mean": 20.747,
+      "min": -0.326,
+      "p50": 4.739,
+      "p90": 57.107,
+      "p95": 72.261
+    },
+    "player_p50_landing_post_speed_qu_per_s": {
+      "count": 6,
+      "max": 292.577,
+      "mean": 165.931,
+      "min": 96.024,
+      "p50": 128.447,
+      "p90": 271.635,
+      "p95": 282.106
+    },
+    "player_p50_landing_pre_speed_qu_per_s": {
+      "count": 6,
+      "max": 294.47,
+      "mean": 149.69,
+      "min": 96.206,
+      "p50": 120.382,
+      "p90": 231.05,
+      "p95": 262.76
+    },
+    "player_p50_z_delta_qu": {
+      "count": 6,
+      "max": 24.0,
+      "mean": 13.458,
+      "min": 5.375,
+      "p50": 11.531,
+      "p90": 23.406,
+      "p95": 23.703
+    },
+    "raw_active_avg_speed_qu_per_s": {
+      "count": 6,
+      "max": 286.476,
+      "mean": 221.738,
+      "min": 136.285,
+      "p50": 219.164,
+      "p90": 285.98,
+      "p95": 286.228
+    },
+    "raw_segment_p95_speed_qu_per_s": {
+      "count": 6,
+      "max": 386.332,
+      "mean": 371.504,
+      "min": 359.605,
+      "p50": 370.382,
+      "p90": 383.821,
+      "p95": 385.076
+    }
+  },
+  "comparison": {
+    "player_p50_avg_airborne_speed_qu_per_s": {
+      "bot": {
+        "count": 6,
+        "max": 295.596,
+        "mean": 147.478,
+        "min": 97.593,
+        "p50": 114.364,
+        "p90": 230.177,
+        "p95": 262.886
+      },
+      "bot_to_reference_p50_ratio": 0.265,
+      "reference": {
+        "count": 6,
+        "max": 442.993,
+        "mean": 431.493,
+        "min": 420.704,
+        "p50": 431.829,
+        "p90": 441.173,
+        "p95": 442.083
+      }
+    },
+    "player_p50_duration_ms": {
+      "bot": {
+        "count": 6,
+        "max": 255.5,
+        "mean": 222.917,
+        "min": 200.0,
+        "p50": 217.25,
+        "p90": 249.0,
+        "p95": 252.25
+      },
+      "bot_to_reference_p50_ratio": 0.668,
+      "reference": {
+        "count": 6,
+        "max": 330.0,
+        "mean": 325.833,
+        "min": 324.0,
+        "p50": 325.0,
+        "p90": 328.0,
+        "p95": 329.0
+      }
+    },
+    "player_p50_landing_pre_speed_qu_per_s": {
+      "bot": {
+        "count": 6,
+        "max": 294.47,
+        "mean": 149.69,
+        "min": 96.206,
+        "p50": 120.382,
+        "p90": 231.05,
+        "p95": 262.76
+      },
+      "bot_to_reference_p50_ratio": 0.284,
+      "reference": {
+        "count": 6,
+        "max": 441.678,
+        "mean": 426.2,
+        "min": 411.325,
+        "p50": 424.404,
+        "p90": 439.616,
+        "p95": 440.647
+      }
+    },
+    "player_p50_z_delta_qu": {
+      "bot": {
+        "count": 6,
+        "max": 24.0,
+        "mean": 13.458,
+        "min": 5.375,
+        "p50": 11.531,
+        "p90": 23.406,
+        "p95": 23.703
+      },
+      "bot_to_reference_p50_ratio": 0.264,
+      "reference": {
+        "count": 6,
+        "max": 43.75,
+        "mean": 43.75,
+        "min": 43.75,
+        "p50": 43.75,
+        "p90": 43.75,
+        "p95": 43.75
+      }
+    },
+    "raw_active_avg_speed_qu_per_s": {
+      "bot": {
+        "count": 6,
+        "max": 286.476,
+        "mean": 221.738,
+        "min": 136.285,
+        "p50": 219.164,
+        "p90": 285.98,
+        "p95": 286.228
+      },
+      "bot_to_reference_p50_ratio": 0.735,
+      "reference": {
+        "count": 6,
+        "max": 314.236,
+        "mean": 298.584,
+        "min": 282.769,
+        "p50": 298.323,
+        "p90": 310.312,
+        "p95": 312.274
+      }
+    },
+    "raw_segment_p95_speed_qu_per_s": {
+      "bot": {
+        "count": 6,
+        "max": 386.332,
+        "mean": 371.504,
+        "min": 359.605,
+        "p50": 370.382,
+        "p90": 383.821,
+        "p95": 385.076
+      },
+      "bot_to_reference_p50_ratio": 0.713,
+      "reference": {
+        "count": 6,
+        "max": 535.023,
+        "mean": 518.923,
+        "min": 505.786,
+        "p50": 519.47,
+        "p90": 529.961,
+        "p95": 532.492
+      }
+    }
+  },
+  "decision": {
+    "active_speed_p50_ratio": 0.735,
+    "airborne_speed_p50_ratio": 0.265,
+    "duration_p50_ratio": 0.668,
+    "next_goal": "S7g should characterize the land-speed gap around route and air segments before another controller probe. Cadence should stay diagnostic until bots can produce human-scale airborne segments and horizontal speed.",
+    "reason": "Raw airborne-proxy segments are not human-like jumps: bot player-median airborne runs are shorter, much lower-Z, and much slower than the exact-player references. The high airborne-proxy-normalized cadence is therefore a symptom of broken air/land rhythm, not a controller-ready cadence target.",
+    "verdict": "pivot_from_cadence_to_air_rhythm_and_land_speed_gap",
+    "z_delta_p50_ratio": 0.264
+  },
+  "map": "dm3",
+  "method": "S7f replays the movement-metrics airborne proxy over raw events.txt kind 5 samples, then records compact per-player distributions for the exact-player dm3 reference rows and unchanged mode-7 bot rows.",
+  "reference_players": [
+    {
+      "accepted_segment_count": 85658,
+      "active_time_s": 1199.415,
+      "airborne_distribution": {
+        "avg_airborne_speed_qu_per_s": {
+          "count": 898,
+          "max": 663.651,
+          "mean": 378.508,
+          "min": 0.0,
+          "p50": 433.327,
+          "p90": 532.84,
+          "p95": 560.32
+        },
+        "duration_ms": {
+          "count": 898,
+          "max": 2540.0,
+          "mean": 468.384,
+          "min": 122.0,
+          "p50": 330.0,
+          "p90": 766.9,
+          "p95": 1006.15
+        },
+        "gap_since_previous_airborne_ms": {
+          "count": 897,
+          "max": 11022.0,
+          "mean": 865.315,
+          "min": 13.0,
+          "p50": 44.0,
+          "p90": 2594.2,
+          "p95": 4251.4
+        },
+        "landing_delta_qu_per_s": {
+          "count": 898,
+          "max": 301.305,
+          "mean": -14.11,
+          "min": -599.306,
+          "p50": 3.443,
+          "p90": 98.953,
+          "p95": 180.114
+        },
+        "landing_post_speed_qu_per_s": {
+          "count": 898,
+          "max": 672.956,
+          "mean": 355.552,
+          "min": 0.0,
+          "p50": 358.636,
+          "p90": 531.534,
+          "p95": 560.663
+        },
+        "landing_pre_speed_qu_per_s": {
+          "count": 898,
+          "max": 675.927,
+          "mean": 369.662,
+          "min": 0.0,
+          "p50": 424.077,
+          "p90": 538.959,
+          "p95": 565.42
+        },
+        "z_delta_qu": {
+          "count": 898,
+          "max": 515.375,
+          "mean": 66.345,
+          "min": 4.0,
+          "p50": 43.75,
+          "p90": 159.138,
+          "p95": 220.606
+        }
+      },
+      "airborne_proxy_count": 898,
+      "dropped_teleport_segments": 42,
+      "events_path": "artifacts/human-demos/s5a/s5a-milton-dm3-blue-vs-anza-20260602-2022/events.txt",
+      "group": "reference",
+      "identity": "Milton",
+      "matched_name": "Milton",
+      "metrics_airborne_proxy_time_ratio": 0.351,
+      "metrics_avg_horizontal_speed_qu_per_s": 314.236,
+      "metrics_jump_cadence_per_min": 44.922,
+      "metrics_p95_horizontal_speed_qu_per_s": 535.023,
+      "raw_active_avg_speed_qu_per_s": 314.236,
+      "raw_segment_p95_speed_qu_per_s": 535.023,
+      "run_id": "s5a-milton-dm3-blue-vs-anza-20260602-2022",
+      "sample_airborne_runs_by_duration": [
+        {
+          "avg_airborne_speed_qu_per_s": 161.188,
+          "duration_ms": 2540.0,
+          "end_ms": 894154,
+          "landing_delta_qu_per_s": 0.706,
+          "landing_post_speed_qu_per_s": 185.548,
+          "landing_pre_speed_qu_per_s": 184.842,
+          "start_ms": 891614,
+          "z_delta_qu": 175.25
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 117.55,
+          "duration_ms": 2193.0,
+          "end_ms": 82946,
+          "landing_delta_qu_per_s": 73.978,
+          "landing_post_speed_qu_per_s": 177.744,
+          "landing_pre_speed_qu_per_s": 103.766,
+          "start_ms": 80753,
+          "z_delta_qu": 152.75
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 262.458,
+          "duration_ms": 2030.0,
+          "end_ms": 747374,
+          "landing_delta_qu_per_s": -66.639,
+          "landing_post_speed_qu_per_s": 115.73,
+          "landing_pre_speed_qu_per_s": 182.37,
+          "start_ms": 745344,
+          "z_delta_qu": 273.75
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 336.701,
+          "duration_ms": 2019.0,
+          "end_ms": 547838,
+          "landing_delta_qu_per_s": 4.366,
+          "landing_post_speed_qu_per_s": 186.509,
+          "landing_pre_speed_qu_per_s": 182.143,
+          "start_ms": 545819,
+          "z_delta_qu": 515.375
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 184.359,
+          "duration_ms": 1947.0,
+          "end_ms": 432767,
+          "landing_delta_qu_per_s": 1.123,
+          "landing_post_speed_qu_per_s": 186.658,
+          "landing_pre_speed_qu_per_s": 185.535,
+          "start_ms": 430820,
+          "z_delta_qu": 46.5
+        }
+      ],
+      "sample_count": 85701,
+      "source_path": "experiments/human_comparison/evidence/human-milton-s5a-summary.json"
+    },
+    {
+      "accepted_segment_count": 85870,
+      "active_time_s": 1199.245,
+      "airborne_distribution": {
+        "avg_airborne_speed_qu_per_s": {
+          "count": 840,
+          "max": 1067.937,
+          "mean": 384.746,
+          "min": 22.329,
+          "p50": 442.993,
+          "p90": 533.828,
+          "p95": 568.032
+        },
+        "duration_ms": {
+          "count": 840,
+          "max": 3106.0,
+          "mean": 439.411,
+          "min": 122.0,
+          "p50": 324.0,
+          "p90": 717.4,
+          "p95": 1003.45
+        },
+        "gap_since_previous_airborne_ms": {
+          "count": 839,
+          "max": 25312.0,
+          "mean": 978.638,
+          "min": 13.0,
+          "p50": 43.0,
+          "p90": 2781.2,
+          "p95": 4990.7
+        },
+        "landing_delta_qu_per_s": {
+          "count": 840,
+          "max": 495.597,
+          "mean": -12.523,
+          "min": -908.125,
+          "p50": 5.828,
+          "p90": 79.46,
+          "p95": 199.741
+        },
+        "landing_post_speed_qu_per_s": {
+          "count": 840,
+          "max": 664.548,
+          "mean": 365.923,
+          "min": 0.0,
+          "p50": 368.458,
+          "p90": 527.192,
+          "p95": 565.101
+        },
+        "landing_pre_speed_qu_per_s": {
+          "count": 840,
+          "max": 1084.785,
+          "mean": 378.446,
+          "min": 2.5,
+          "p50": 441.678,
+          "p90": 537.9,
+          "p95": 573.703
+        },
+        "z_delta_qu": {
+          "count": 840,
+          "max": 459.875,
+          "mean": 62.881,
+          "min": 4.5,
+          "p50": 43.75,
+          "p90": 155.638,
+          "p95": 216.662
+        }
+      },
+      "airborne_proxy_count": 840,
+      "dropped_teleport_segments": 55,
+      "events_path": "artifacts/human-demos/s7b/s7b-milton-dm3-blue-vs-red-20260601-1914/events.txt",
+      "group": "reference",
+      "identity": "Milton",
+      "matched_name": "Milton",
+      "metrics_airborne_proxy_time_ratio": 0.308,
+      "metrics_avg_horizontal_speed_qu_per_s": 306.388,
+      "metrics_jump_cadence_per_min": 42.026,
+      "metrics_p95_horizontal_speed_qu_per_s": 524.898,
+      "raw_active_avg_speed_qu_per_s": 306.388,
+      "raw_segment_p95_speed_qu_per_s": 524.898,
+      "run_id": "s7b-milton-dm3-blue-vs-red-20260601-1914",
+      "sample_airborne_runs_by_duration": [
+        {
+          "avg_airborne_speed_qu_per_s": 206.942,
+          "duration_ms": 3106.0,
+          "end_ms": 793942,
+          "landing_delta_qu_per_s": -56.861,
+          "landing_post_speed_qu_per_s": 128.593,
+          "landing_pre_speed_qu_per_s": 185.454,
+          "start_ms": 790836,
+          "z_delta_qu": 296.0
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 186.951,
+          "duration_ms": 1961.0,
+          "end_ms": 17547,
+          "landing_delta_qu_per_s": -17.695,
+          "landing_post_speed_qu_per_s": 166.671,
+          "landing_pre_speed_qu_per_s": 184.365,
+          "start_ms": 15586,
+          "z_delta_qu": 66.875
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 233.613,
+          "duration_ms": 1954.0,
+          "end_ms": 724361,
+          "landing_delta_qu_per_s": 8.084,
+          "landing_post_speed_qu_per_s": 172.637,
+          "landing_pre_speed_qu_per_s": 164.552,
+          "start_ms": 722407,
+          "z_delta_qu": 295.875
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 170.46,
+          "duration_ms": 1874.0,
+          "end_ms": 294469,
+          "landing_delta_qu_per_s": 1.927,
+          "landing_post_speed_qu_per_s": 176.766,
+          "landing_pre_speed_qu_per_s": 174.839,
+          "start_ms": 292595,
+          "z_delta_qu": 109.25
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 113.691,
+          "duration_ms": 1685.0,
+          "end_ms": 795655,
+          "landing_delta_qu_per_s": 31.155,
+          "landing_post_speed_qu_per_s": 66.863,
+          "landing_pre_speed_qu_per_s": 35.708,
+          "start_ms": 793970,
+          "z_delta_qu": 207.0
+        }
+      ],
+      "sample_count": 85926,
+      "source_path": "artifacts/human-demos/s7b/s7b-milton-dm3-blue-vs-red-20260601-1914/human-summary.json"
+    },
+    {
+      "accepted_segment_count": 85552,
+      "active_time_s": 1198.701,
+      "airborne_distribution": {
+        "avg_airborne_speed_qu_per_s": {
+          "count": 880,
+          "max": 1094.351,
+          "mean": 373.745,
+          "min": 0.0,
+          "p50": 430.331,
+          "p90": 534.058,
+          "p95": 572.301
+        },
+        "duration_ms": {
+          "count": 880,
+          "max": 2837.0,
+          "mean": 466.275,
+          "min": 123.0,
+          "p50": 326.0,
+          "p90": 766.0,
+          "p95": 1064.2
+        },
+        "gap_since_previous_airborne_ms": {
+          "count": 879,
+          "max": 23311.0,
+          "mean": 886.457,
+          "min": 13.0,
+          "p50": 45.0,
+          "p90": 2525.4,
+          "p95": 3905.1
+        },
+        "landing_delta_qu_per_s": {
+          "count": 880,
+          "max": 369.636,
+          "mean": -21.732,
+          "min": -920.676,
+          "p50": 4.565,
+          "p90": 91.999,
+          "p95": 228.805
+        },
+        "landing_post_speed_qu_per_s": {
+          "count": 880,
+          "max": 992.325,
+          "mean": 341.685,
+          "min": 0.0,
+          "p50": 354.478,
+          "p90": 525.754,
+          "p95": 556.006
+        },
+        "landing_pre_speed_qu_per_s": {
+          "count": 880,
+          "max": 1040.054,
+          "mean": 363.417,
+          "min": 0.0,
+          "p50": 424.731,
+          "p90": 534.968,
+          "p95": 577.145
+        },
+        "z_delta_qu": {
+          "count": 880,
+          "max": 395.875,
+          "mean": 62.318,
+          "min": 4.5,
+          "p50": 43.75,
+          "p90": 153.35,
+          "p95": 180.194
+        }
+      },
+      "airborne_proxy_count": 880,
+      "dropped_teleport_segments": 93,
+      "events_path": "artifacts/human-demos/s5b/s5b-carapace-dm3-book-vs-s-20260526-2011/events.txt",
+      "group": "reference",
+      "identity": "carapace",
+      "matched_name": "carapace",
+      "metrics_airborne_proxy_time_ratio": 0.342,
+      "metrics_avg_horizontal_speed_qu_per_s": 282.769,
+      "metrics_jump_cadence_per_min": 44.048,
+      "metrics_p95_horizontal_speed_qu_per_s": 524.898,
+      "raw_active_avg_speed_qu_per_s": 282.769,
+      "raw_segment_p95_speed_qu_per_s": 524.898,
+      "run_id": "s5b-carapace-dm3-book-vs-s-20260526-2011",
+      "sample_airborne_runs_by_duration": [
+        {
+          "avg_airborne_speed_qu_per_s": 273.48,
+          "duration_ms": 2837.0,
+          "end_ms": 707316,
+          "landing_delta_qu_per_s": 0.885,
+          "landing_post_speed_qu_per_s": 185.464,
+          "landing_pre_speed_qu_per_s": 184.58,
+          "start_ms": 704479,
+          "z_delta_qu": 300.625
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 179.263,
+          "duration_ms": 2791.0,
+          "end_ms": 864251,
+          "landing_delta_qu_per_s": 97.585,
+          "landing_post_speed_qu_per_s": 171.941,
+          "landing_pre_speed_qu_per_s": 74.356,
+          "start_ms": 861460,
+          "z_delta_qu": 286.75
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 188.626,
+          "duration_ms": 2784.0,
+          "end_ms": 1108957,
+          "landing_delta_qu_per_s": 5.72,
+          "landing_post_speed_qu_per_s": 186.377,
+          "landing_pre_speed_qu_per_s": 180.657,
+          "start_ms": 1106173,
+          "z_delta_qu": 204.375
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 213.787,
+          "duration_ms": 2446.0,
+          "end_ms": 387818,
+          "landing_delta_qu_per_s": -2.85,
+          "landing_post_speed_qu_per_s": 178.336,
+          "landing_pre_speed_qu_per_s": 181.186,
+          "start_ms": 385372,
+          "z_delta_qu": 288.125
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 149.094,
+          "duration_ms": 2439.0,
+          "end_ms": 50363,
+          "landing_delta_qu_per_s": 81.551,
+          "landing_post_speed_qu_per_s": 119.835,
+          "landing_pre_speed_qu_per_s": 38.283,
+          "start_ms": 47924,
+          "z_delta_qu": 201.625
+        }
+      ],
+      "sample_count": 85646,
+      "source_path": "artifacts/human-demos/s5b/s5b-carapace-dm3-book-vs-s-20260526-2011/human-summary.json"
+    },
+    {
+      "accepted_segment_count": 85042,
+      "active_time_s": 1199.454,
+      "airborne_distribution": {
+        "avg_airborne_speed_qu_per_s": {
+          "count": 807,
+          "max": 852.027,
+          "mean": 386.764,
+          "min": 0.0,
+          "p50": 439.353,
+          "p90": 514.313,
+          "p95": 548.306
+        },
+        "duration_ms": {
+          "count": 807,
+          "max": 2463.0,
+          "mean": 419.002,
+          "min": 122.0,
+          "p50": 325.0,
+          "p90": 650.4,
+          "p95": 826.5
+        },
+        "gap_since_previous_airborne_ms": {
+          "count": 806,
+          "max": 38323.0,
+          "mean": 1069.128,
+          "min": 13.0,
+          "p50": 44.0,
+          "p90": 2845.0,
+          "p95": 5078.0
+        },
+        "landing_delta_qu_per_s": {
+          "count": 807,
+          "max": 348.409,
+          "mean": -20.899,
+          "min": -570.573,
+          "p50": 2.128,
+          "p90": 85.584,
+          "p95": 193.222
+        },
+        "landing_post_speed_qu_per_s": {
+          "count": 807,
+          "max": 712.913,
+          "mean": 357.403,
+          "min": 0.0,
+          "p50": 366.749,
+          "p90": 505.008,
+          "p95": 543.1
+        },
+        "landing_pre_speed_qu_per_s": {
+          "count": 807,
+          "max": 814.315,
+          "mean": 378.302,
+          "min": 0.0,
+          "p50": 437.555,
+          "p90": 518.38,
+          "p95": 545.825
+        },
+        "z_delta_qu": {
+          "count": 807,
+          "max": 395.875,
+          "mean": 60.537,
+          "min": 4.0,
+          "p50": 43.75,
+          "p90": 124.875,
+          "p95": 198.612
+        }
+      },
+      "airborne_proxy_count": 807,
+      "dropped_teleport_segments": 40,
+      "events_path": "artifacts/human-demos/s7b/s7b-carapace-dm3-s-vs-sr-20260520-2032/events.txt",
+      "group": "reference",
+      "identity": "carapace",
+      "matched_name": "carapace",
+      "metrics_airborne_proxy_time_ratio": 0.282,
+      "metrics_avg_horizontal_speed_qu_per_s": 295.323,
+      "metrics_jump_cadence_per_min": 40.368,
+      "metrics_p95_horizontal_speed_qu_per_s": 508.889,
+      "raw_active_avg_speed_qu_per_s": 295.323,
+      "raw_segment_p95_speed_qu_per_s": 508.889,
+      "run_id": "s7b-carapace-dm3-s-vs-sr-20260520-2032",
+      "sample_airborne_runs_by_duration": [
+        {
+          "avg_airborne_speed_qu_per_s": 233.159,
+          "duration_ms": 2463.0,
+          "end_ms": 1177252,
+          "landing_delta_qu_per_s": -0.342,
+          "landing_post_speed_qu_per_s": 182.545,
+          "landing_pre_speed_qu_per_s": 182.887,
+          "start_ms": 1174789,
+          "z_delta_qu": 238.125
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 97.975,
+          "duration_ms": 1790.0,
+          "end_ms": 23469,
+          "landing_delta_qu_per_s": 32.712,
+          "landing_post_speed_qu_per_s": 69.303,
+          "landing_pre_speed_qu_per_s": 36.591,
+          "start_ms": 21679,
+          "z_delta_qu": 238.375
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 210.223,
+          "duration_ms": 1763.0,
+          "end_ms": 85249,
+          "landing_delta_qu_per_s": -6.619,
+          "landing_post_speed_qu_per_s": 160.489,
+          "landing_pre_speed_qu_per_s": 167.108,
+          "start_ms": 83486,
+          "z_delta_qu": 362.625
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 97.919,
+          "duration_ms": 1563.0,
+          "end_ms": 87470,
+          "landing_delta_qu_per_s": 31.609,
+          "landing_post_speed_qu_per_s": 65.225,
+          "landing_pre_speed_qu_per_s": 33.617,
+          "start_ms": 85907,
+          "z_delta_qu": 198.0
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 83.102,
+          "duration_ms": 1521.0,
+          "end_ms": 643139,
+          "landing_delta_qu_per_s": 20.748,
+          "landing_post_speed_qu_per_s": 60.072,
+          "landing_pre_speed_qu_per_s": 39.324,
+          "start_ms": 641618,
+          "z_delta_qu": 218.125
+        }
+      ],
+      "sample_count": 85083,
+      "source_path": "artifacts/human-demos/s7b/s7b-carapace-dm3-s-vs-sr-20260520-2032/human-summary.json"
+    },
+    {
+      "accepted_segment_count": 86456,
+      "active_time_s": 1199.353,
+      "airborne_distribution": {
+        "avg_airborne_speed_qu_per_s": {
+          "count": 971,
+          "max": 796.287,
+          "mean": 361.778,
+          "min": 0.0,
+          "p50": 420.704,
+          "p90": 506.525,
+          "p95": 532.922
+        },
+        "duration_ms": {
+          "count": 971,
+          "max": 2284.0,
+          "mean": 443.505,
+          "min": 121.0,
+          "p50": 325.0,
+          "p90": 734.0,
+          "p95": 957.5
+        },
+        "gap_since_previous_airborne_ms": {
+          "count": 970,
+          "max": 23109.0,
+          "mean": 789.481,
+          "min": 13.0,
+          "p50": 44.0,
+          "p90": 2102.7,
+          "p95": 3582.75
+        },
+        "landing_delta_qu_per_s": {
+          "count": 971,
+          "max": 504.26,
+          "mean": -14.096,
+          "min": -732.872,
+          "p50": 2.203,
+          "p90": 109.635,
+          "p95": 201.811
+        },
+        "landing_post_speed_qu_per_s": {
+          "count": 971,
+          "max": 984.523,
+          "mean": 339.624,
+          "min": 0.0,
+          "p50": 347.728,
+          "p90": 497.076,
+          "p95": 531.343
+        },
+        "landing_pre_speed_qu_per_s": {
+          "count": 971,
+          "max": 988.265,
+          "mean": 353.72,
+          "min": 0.0,
+          "p50": 411.325,
+          "p90": 506.814,
+          "p95": 533.79
+        },
+        "z_delta_qu": {
+          "count": 971,
+          "max": 411.375,
+          "mean": 61.326,
+          "min": 4.625,
+          "p50": 43.75,
+          "p90": 144.875,
+          "p95": 200.375
+        }
+      },
+      "airborne_proxy_count": 971,
+      "dropped_teleport_segments": 51,
+      "events_path": "artifacts/human-demos/s5b/s5b-yeti-dm3-red-vs-blue-20260530-0322/events.txt",
+      "group": "reference",
+      "identity": "yeti",
+      "matched_name": "yeti",
+      "metrics_airborne_proxy_time_ratio": 0.359,
+      "metrics_avg_horizontal_speed_qu_per_s": 291.468,
+      "metrics_jump_cadence_per_min": 48.576,
+      "metrics_p95_horizontal_speed_qu_per_s": 505.786,
+      "raw_active_avg_speed_qu_per_s": 291.468,
+      "raw_segment_p95_speed_qu_per_s": 505.786,
+      "run_id": "s5b-yeti-dm3-red-vs-blue-20260530-0322",
+      "sample_airborne_runs_by_duration": [
+        {
+          "avg_airborne_speed_qu_per_s": 195.645,
+          "duration_ms": 2284.0,
+          "end_ms": 875345,
+          "landing_delta_qu_per_s": 16.348,
+          "landing_post_speed_qu_per_s": 168.611,
+          "landing_pre_speed_qu_per_s": 152.263,
+          "start_ms": 873061,
+          "z_delta_qu": 277.25
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 285.068,
+          "duration_ms": 1921.0,
+          "end_ms": 1033335,
+          "landing_delta_qu_per_s": 56.35,
+          "landing_post_speed_qu_per_s": 159.723,
+          "landing_pre_speed_qu_per_s": 103.374,
+          "start_ms": 1031414,
+          "z_delta_qu": 411.375
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 153.016,
+          "duration_ms": 1870.0,
+          "end_ms": 849633,
+          "landing_delta_qu_per_s": 4.746,
+          "landing_post_speed_qu_per_s": 182.966,
+          "landing_pre_speed_qu_per_s": 178.22,
+          "start_ms": 847763,
+          "z_delta_qu": 158.875
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 171.843,
+          "duration_ms": 1782.0,
+          "end_ms": 1055183,
+          "landing_delta_qu_per_s": 66.291,
+          "landing_post_speed_qu_per_s": 102.107,
+          "landing_pre_speed_qu_per_s": 35.816,
+          "start_ms": 1053401,
+          "z_delta_qu": 217.375
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 301.91,
+          "duration_ms": 1633.0,
+          "end_ms": 343928,
+          "landing_delta_qu_per_s": -68.013,
+          "landing_post_speed_qu_per_s": 101.352,
+          "landing_pre_speed_qu_per_s": 169.365,
+          "start_ms": 342295,
+          "z_delta_qu": 234.875
+        }
+      ],
+      "sample_count": 86508,
+      "source_path": "artifacts/human-demos/s5b/s5b-yeti-dm3-red-vs-blue-20260530-0322/human-summary.json"
+    },
+    {
+      "accepted_segment_count": 86560,
+      "active_time_s": 1199.418,
+      "airborne_distribution": {
+        "avg_airborne_speed_qu_per_s": {
+          "count": 1019,
+          "max": 1526.612,
+          "mean": 374.029,
+          "min": 9.615,
+          "p50": 422.249,
+          "p90": 509.094,
+          "p95": 534.958
+        },
+        "duration_ms": {
+          "count": 1019,
+          "max": 2373.0,
+          "mean": 423.187,
+          "min": 121.0,
+          "p50": 325.0,
+          "p90": 672.2,
+          "p95": 858.4
+        },
+        "gap_since_previous_airborne_ms": {
+          "count": 1018,
+          "max": 17070.0,
+          "mean": 730.606,
+          "min": 13.0,
+          "p50": 43.0,
+          "p90": 2020.5,
+          "p95": 3224.5
+        },
+        "landing_delta_qu_per_s": {
+          "count": 1019,
+          "max": 801.631,
+          "mean": -11.869,
+          "min": -701.13,
+          "p50": 1.665,
+          "p90": 116.948,
+          "p95": 222.435
+        },
+        "landing_post_speed_qu_per_s": {
+          "count": 1019,
+          "max": 1304.155,
+          "mean": 350.998,
+          "min": 0.0,
+          "p50": 358.26,
+          "p90": 507.411,
+          "p95": 535.86
+        },
+        "landing_pre_speed_qu_per_s": {
+          "count": 1019,
+          "max": 1579.146,
+          "mean": 362.867,
+          "min": 2.0,
+          "p50": 417.837,
+          "p90": 510.563,
+          "p95": 534.79
+        },
+        "z_delta_qu": {
+          "count": 1019,
+          "max": 419.5,
+          "mean": 60.796,
+          "min": 4.125,
+          "p50": 43.75,
+          "p90": 116.45,
+          "p95": 211.637
+        }
+      },
+      "airborne_proxy_count": 1019,
+      "dropped_teleport_segments": 43,
+      "events_path": "artifacts/human-demos/s7b/s7b-yeti-dm3-red-vs-blue-20260528-2109/events.txt",
+      "group": "reference",
+      "identity": "yeti",
+      "matched_name": "yeti",
+      "metrics_airborne_proxy_time_ratio": 0.36,
+      "metrics_avg_horizontal_speed_qu_per_s": 301.323,
+      "metrics_jump_cadence_per_min": 50.975,
+      "metrics_p95_horizontal_speed_qu_per_s": 514.041,
+      "raw_active_avg_speed_qu_per_s": 301.323,
+      "raw_segment_p95_speed_qu_per_s": 514.041,
+      "run_id": "s7b-yeti-dm3-red-vs-blue-20260528-2109",
+      "sample_airborne_runs_by_duration": [
+        {
+          "avg_airborne_speed_qu_per_s": 142.081,
+          "duration_ms": 2373.0,
+          "end_ms": 80042,
+          "landing_delta_qu_per_s": 40.137,
+          "landing_post_speed_qu_per_s": 84.586,
+          "landing_pre_speed_qu_per_s": 44.45,
+          "start_ms": 77669,
+          "z_delta_qu": 211.625
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 251.164,
+          "duration_ms": 1844.0,
+          "end_ms": 15875,
+          "landing_delta_qu_per_s": 3.636,
+          "landing_post_speed_qu_per_s": 187.167,
+          "landing_pre_speed_qu_per_s": 183.531,
+          "start_ms": 14031,
+          "z_delta_qu": 265.25
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 110.733,
+          "duration_ms": 1830.0,
+          "end_ms": 20511,
+          "landing_delta_qu_per_s": 25.368,
+          "landing_post_speed_qu_per_s": 61.0,
+          "landing_pre_speed_qu_per_s": 35.632,
+          "start_ms": 18681,
+          "z_delta_qu": 239.375
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 204.928,
+          "duration_ms": 1792.0,
+          "end_ms": 77585,
+          "landing_delta_qu_per_s": 5.124,
+          "landing_post_speed_qu_per_s": 183.408,
+          "landing_pre_speed_qu_per_s": 178.285,
+          "start_ms": 75793,
+          "z_delta_qu": 341.5
+        },
+        {
+          "avg_airborne_speed_qu_per_s": 107.797,
+          "duration_ms": 1524.0,
+          "end_ms": 343584,
+          "landing_delta_qu_per_s": 26.879,
+          "landing_post_speed_qu_per_s": 185.286,
+          "landing_pre_speed_qu_per_s": 158.407,
+          "start_ms": 342060,
+          "z_delta_qu": 213.125
+        }
+      ],
+      "sample_count": 86604,
+      "source_path": "artifacts/human-demos/s7b/s7b-yeti-dm3-red-vs-blue-20260528-2109/human-summary.json"
+    }
+  ],
+  "reference_summary": {
+    "airborne_proxy_count": {
+      "count": 6,
+      "max": 1019.0,
+      "mean": 902.5,
+      "min": 807.0,
+      "p50": 889.0,
+      "p90": 995.0,
+      "p95": 1007.0
+    },
+    "airborne_proxy_total_count": 5415,
+    "metrics_airborne_proxy_time_ratio": {
+      "count": 6,
+      "max": 0.36,
+      "mean": 0.334,
+      "min": 0.282,
+      "p50": 0.347,
+      "p90": 0.359,
+      "p95": 0.36
+    },
+    "metrics_jump_cadence_per_min": {
+      "count": 6,
+      "max": 50.975,
+      "mean": 45.153,
+      "min": 40.368,
+      "p50": 44.485,
+      "p90": 49.776,
+      "p95": 50.375
+    },
+    "player_count": 6,
+    "player_p50_avg_airborne_speed_qu_per_s": {
+      "count": 6,
+      "max": 442.993,
+      "mean": 431.493,
+      "min": 420.704,
+      "p50": 431.829,
+      "p90": 441.173,
+      "p95": 442.083
+    },
+    "player_p50_duration_ms": {
+      "count": 6,
+      "max": 330.0,
+      "mean": 325.833,
+      "min": 324.0,
+      "p50": 325.0,
+      "p90": 328.0,
+      "p95": 329.0
+    },
+    "player_p50_landing_delta_qu_per_s": {
+      "count": 6,
+      "max": 5.828,
+      "mean": 3.305,
+      "min": 1.665,
+      "p50": 2.823,
+      "p90": 5.197,
+      "p95": 5.512
+    },
+    "player_p50_landing_post_speed_qu_per_s": {
+      "count": 6,
+      "max": 368.458,
+      "mean": 359.052,
+      "min": 347.728,
+      "p50": 358.448,
+      "p90": 367.604,
+      "p95": 368.031
+    },
+    "player_p50_landing_pre_speed_qu_per_s": {
+      "count": 6,
+      "max": 441.678,
+      "mean": 426.2,
+      "min": 411.325,
+      "p50": 424.404,
+      "p90": 439.616,
+      "p95": 440.647
+    },
+    "player_p50_z_delta_qu": {
+      "count": 6,
+      "max": 43.75,
+      "mean": 43.75,
+      "min": 43.75,
+      "p50": 43.75,
+      "p90": 43.75,
+      "p95": 43.75
+    },
+    "raw_active_avg_speed_qu_per_s": {
+      "count": 6,
+      "max": 314.236,
+      "mean": 298.584,
+      "min": 282.769,
+      "p50": 298.323,
+      "p90": 310.312,
+      "p95": 312.274
+    },
+    "raw_segment_p95_speed_qu_per_s": {
+      "count": 6,
+      "max": 535.023,
+      "mean": 518.923,
+      "min": 505.786,
+      "p50": 519.47,
+      "p90": 529.961,
+      "p95": 532.492
+    }
+  },
+  "schema": "komodobots.airborne_proxy_segments.v1",
+  "source_bot_evidence_path": "experiments/human_comparison/evidence/cadence-evidence-s7e-dm3.json",
+  "source_bot_evidence_stage": "s7e-cadence-evidence-dm3",
+  "source_reference_aggregate_path": "experiments/human_comparison/evidence/human-reference-s7c-bot-comparable-cadence-dm3-aggregate.json",
+  "source_reference_aggregate_stage": "s7c-bot-comparable-cadence-dm3",
+  "stage": "s7f-airborne-segments-dm3",
+  "thresholds": {
+    "airborne_min_duration_ms": 120.0,
+    "airborne_min_z_delta_qu": 4.0,
+    "high_speed_qu_per_s": 400.0,
+    "landing_window_ms": 250.0,
+    "low_speed_qu_per_s": 100.0,
+    "stationary_speed_qu_per_s": 10.0,
+    "teleport_speed_qu_per_s": 2500.0,
+    "vertical_epsilon_qu": 0.25,
+    "vertical_speed_qu_per_s": 40.0
+  },
+  "warnings": []
+}

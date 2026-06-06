@@ -2359,3 +2359,43 @@ Medium that airborne-proxy cadence represents true jump rhythm, because the prox
 ### Follow-up
 
 Ask Code Sentinel to review S7e. Proposed S7f: inspect raw airborne-proxy segment distributions, or deliberately pivot back to the larger land-speed gap, before any cadence controller probe.
+
+## 2026-06-06 - S7f Raw Airborne-Proxy Segment Inspection
+
+### Experiment
+
+Inspected raw airborne-proxy segment distributions without rerunning the lab or changing KTX/Frogbot movement behavior. Added `scripts/inspect_airborne_proxy_segments.py`, replayed the movement-metrics airborne proxy over raw `events.txt` kind `5` samples, and compared:
+
+- Six exact-player `dm3` reference rows from the S7c aggregate.
+- Six unchanged mode-7 bot rows from the S7e evidence.
+
+### Result
+
+- Generated `experiments/human_comparison/evidence/airborne-segments-s7f-dm3.*`.
+- Player-median airborne-proxy duration: exact-player `325.0` ms, bot `217.2` ms, bot/reference p50 ratio `0.668`.
+- Player-median airborne-proxy Z range: exact-player `43.8` qu, bot `11.5` qu, ratio `0.264`.
+- Player-median airborne-proxy horizontal speed: exact-player `431.8` qu/s, bot `114.4` qu/s, ratio `0.265`.
+- Raw active average speed ratio is `0.735`, so the broader land-speed gap remains visible even outside the airborne-proxy subset.
+
+### Evidence
+
+Committed artifacts:
+
+- `scripts/inspect_airborne_proxy_segments.py`
+- `tests/test_inspect_airborne_proxy_segments.py`
+- `experiments/human_comparison/evidence/airborne-segments-s7f-dm3.json`
+- `experiments/human_comparison/evidence/airborne-segments-s7f-dm3.md`
+
+### Interpretation
+
+S7f explains why cadence should stay diagnostic. The bot airborne-proxy segments are not human-scale jumps; they are shorter, lower-Z, and much slower vertical-motion runs. The all-above airborne-proxy cadence relation from S7d/S7e is therefore a symptom of broken air/land rhythm and horizontal-speed production, not authorization for a cadence controller.
+
+### Confidence
+
+High that the segment distributions are source-grounded in the same `events.txt` samples and thresholds as `movement-metrics.json`.
+
+Medium that the current airborne proxy fully captures real grounded/airborne state, because it is still position-derived rather than an engine grounded flag or usercmd label.
+
+### Follow-up
+
+Ask Code Sentinel to review S7f. Proposed S7g: characterize the land-speed gap around route and air segments before another controller probe. Cadence should remain diagnostic until bots produce human-scale airborne segments and horizontal speed.

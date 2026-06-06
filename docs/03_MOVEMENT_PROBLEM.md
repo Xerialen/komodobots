@@ -346,6 +346,20 @@ S7e did not rerun the lab and did not change controller behavior. It added `scri
 
 Interpretation: S7e strengthens S7d rather than overturning it. Cadence remains diagnostic, not controller-authorizing, because all unchanged mode-7 bot rows are above the exact-player airborne-proxy cadence range while raw and movement-time cadence remain unstable/mixed. The next useful step is S7f: inspect raw airborne-proxy segment distributions or pivot back to the larger land-speed gap before any cadence controller probe.
 
+## S7f Raw Airborne-Proxy Segment Inspection
+
+S7f did not rerun the lab and did not change controller behavior. It added `scripts/inspect_airborne_proxy_segments.py`, replayed the existing movement-metrics airborne proxy over raw `events.txt` kind `5` samples, and generated `experiments/human_comparison/evidence/airborne-segments-s7f-dm3.*`.
+
+Result:
+
+- Scope: six exact-player `dm3` reference rows from the S7c aggregate and six unchanged mode-7 bot rows from S7e.
+- Player-median airborne-proxy duration: exact-player `325.0` ms versus bot `217.2` ms; bot/reference p50 ratio `0.668`.
+- Player-median airborne-proxy Z range: exact-player `43.8` qu versus bot `11.5` qu; ratio `0.264`.
+- Player-median airborne-proxy horizontal speed: exact-player `431.8` qu/s versus bot `114.4` qu/s; ratio `0.265`.
+- Raw active average speed ratio is less extreme at `0.735`, but still confirms the broader land-speed gap.
+
+Interpretation: the bot airborne-proxy runs are not human-like jumps. They are shorter, lower-Z, and much slower vertical-motion blips. The high airborne-proxy-normalized cadence is therefore a symptom of broken air/land rhythm and low horizontal speed, not a controller-ready cadence target. The next useful step is S7g: characterize the land-speed gap around route and air segments before another controller probe.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.
