@@ -2633,3 +2633,59 @@ Medium that the exact next probe should be air-transition again, because S7k sup
 ### Follow-up
 
 Ask Claude/Code Sentinel to review S7k. Proposed S7l: design a smaller context-gated air-transition probe that either excludes low-dir-speed/`WATER_PATH` contexts or treats them as hard stop-condition slices before another lab rerun.
+
+## 2026-06-06 - QWD POV Usercmd Extractor Phase 1
+
+### Experiment
+
+Added a standalone QWD POV-demo usercmd extractor for Phase 1 action labels. The parser walks flat `.qwd` records, decodes `dem_cmd` as the ezQuake raw `usercmd_t` dump plus following viewangle payload, skips length-prefixed `dem_read` payloads, and emits `komodobots.qwd_usercmd.v1` line-delimited JSON.
+
+The source-grounded layout is the ezQuake/qwprot `usercmd_t`: `byte msec`, three bytes padding, `float angles[3]`, `short forwardmove/sidemove/upmove`, `byte buttons`, `byte impulse`, for a validated size of `24` bytes.
+
+### Result
+
+- Synthetic unit tests lock the byte layout and round-trip known `dem_cmd` values.
+- A truncated `dem_cmd` fails explicitly instead of silently desyncing.
+- Real QWD files walked to exact EOF with no warnings.
+- Phase 2 state/action pairing is deliberately not implemented in this step.
+
+### Evidence
+
+Validation commands:
+
+```powershell
+python -m unittest tests.test_qwd_usercmd -v
+python tools/qwd_usercmd/qwd_usercmd.py "C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos\tricks\dm2_big_to_gl.qwd" --output artifacts/qwd-usercmd/dm2_big_to_gl.ndjson --include-cmd-angles
+python tools/qwd_usercmd/qwd_usercmd.py "C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos\tricks\dm2_bunny_to_gl.qwd" --output artifacts/qwd-usercmd/dm2_bunny_to_gl.ndjson --include-cmd-angles --strict-plausibility
+```
+
+Focused tests: `6` tests passed.
+
+Real-demo parse summaries:
+
+- `dm2_big_to_gl.qwd`: SHA-256 `44456a0a1cf2e386bc3230907c40975c433ff0654ea727974474cf8a9e33f6f7`, `50112` bytes read of `50112`, `eof_clean=true`, `375` command frames, `388` `dem_read` records, `1` `dem_set`, duration `4.858` s, command rate `77.192` fps, warnings `[]`.
+- `dm2_bunny_to_gl.qwd`: `162582` bytes read of `162582`, `eof_clean=true`, `1537` command frames, `1389` `dem_read` records, `1` `dem_set`, duration `20.736` s, command rate `74.122` fps, warnings `[]`.
+
+Plausibility evidence from `dm2_bunny_to_gl.qwd`: `msec` range `12..53`, `forwardmove` range `-400..380`, `sidemove` range `-380..380`, `upmove=0`, buttons `[0, 1, 2, 3]`, impulses `[2, 7]`, and `1086` distinct rounded yaw samples.
+
+Committed artifacts:
+
+- `tools/qwd_usercmd/qwd_usercmd.py`
+- `tools/qwd_usercmd/README.md`
+- `tests/test_qwd_usercmd.py`
+
+Raw NDJSON outputs remain ignored under `artifacts/qwd-usercmd/`.
+
+### Interpretation
+
+POV QWDs can supply exact human input/action labels for movement research, while MVDs remain the state/evaluation source. This weakens the earlier assumption that human learning must be purely inverse control when a matching POV QWD exists, but it does not change the MVD limitation for ordinary server-side demos.
+
+### Confidence
+
+High for Phase 1 action-stream extraction on current ezQuake-style QWDs, because the parser is source-grounded, layout-tested, and walked two real files to clean EOF.
+
+Medium for broad QWD compatibility until more POV demos from different client builds are checked, because `dem_cmd` stores a raw in-memory struct and old/non-ezQuake builds could differ.
+
+### Follow-up
+
+Ask Claude/Code Sentinel to review the QWD layout and record walking. The next smallest useful experiment is Phase 2 design: parse enough QWD `dem_read` client state to pair each command with observed movement state without assuming MVD `DF_` playerinfo flags apply to QWD.

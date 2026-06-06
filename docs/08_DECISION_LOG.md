@@ -1558,3 +1558,50 @@ S7l should design a context-gated air-transition probe before another lab rerun.
 ### Revisit Conditions
 
 Revisit the Frogbots-vs-from-scratch choice if S7l/S7m show that context-gated controller probes still cannot improve air-transition buckets without broad regressions, or if the route/map state needed to gate those probes cannot be observed or controlled inside KTX/Frogbots.
+
+---
+
+## Decision
+
+Use first-person QWD POV demos as the supervised action-label source.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+Use `.qwd` POV demos for exact human action labels when such demos are available. Keep normal MVDs as the movement-state/evaluation source rather than treating them as usercmd data.
+
+The Phase 1 extractor emits `komodobots.qwd_usercmd.v1` rows containing `time_s`, `msec`, `view_angles`, `forwardmove`, `sidemove`, `upmove`, `buttons`, and `impulse`. Phase 2 state/action pairing is deferred until the QWD `dem_read` client-state path is source-checked and parsed safely.
+
+### Alternatives Considered
+
+- Continue treating all human demo learning as inverse control only.
+- Try to recover exact player input from server-side MVDs.
+- Jump directly to a QWD state/action dataset before validating the raw action stream.
+- Train on POV actions before checking client/build layout compatibility.
+
+### Evidence
+
+Source checks:
+
+- ezQuake `src/cl_demo.c::CL_WriteDemoCmd()` writes a raw `usercmd_t` plus viewangles for `dem_cmd`.
+- ezQuake `src/sv_ents.c` confirms normal server broadcasts/MVD paths do not preserve movement intent as exact usercmd labels.
+- `src/qwprot/src/protocol.h::usercmd_t` validates the current `24` byte layout used by the extractor.
+
+Validation:
+
+- `python -m unittest tests.test_qwd_usercmd -v` passed `6` focused tests.
+- `dm2_big_to_gl.qwd` parsed cleanly: `50112/50112` bytes read, `375` commands, no warnings.
+- `dm2_bunny_to_gl.qwd` parsed cleanly with `--strict-plausibility`: `162582/162582` bytes read, `1537` commands, no warnings, plausible movement/action ranges.
+
+### Expected Consequences
+
+Komodobots now has a path to supervised movement actions for player POV data without rebuilding the engine or pretending MVDs contain key presses. This can eventually support behavioral cloning or policy imitation experiments, but only after Phase 2 safely pairs actions with observed state.
+
+The current Frogbots decision path still uses KTX/Frogbots as the engine-native substrate. QWD usercmd extraction is a data-pipeline addition, not proof that a learned controller should replace the current bounded Frogbot probes immediately.
+
+### Revisit Conditions
+
+Revisit if additional POV QWDs from older/client-diverse builds fail clean EOF or plausibility checks, if the `usercmd_t` raw-struct layout differs by build, or if QWD `dem_read` state parsing cannot be made reliable enough to align observations with actions.
