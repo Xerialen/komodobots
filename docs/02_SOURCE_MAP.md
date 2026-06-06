@@ -104,6 +104,8 @@ S7j failed-bucket diagnosis helper: `C:\Users\benya\projects\quakeworld\komodobo
 
 Context-gated probe design helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\design_context_gated_probe.py`
 
+QWD POV usercmd extractor: `C:\Users\benya\projects\quakeworld\komodobots\tools\qwd_usercmd\qwd_usercmd.py`
+
 KTX movement probe patch: `C:\Users\benya\projects\quakeworld\komodobots\experiments\ktx_moveprobe\frogbot-moveprobe.patch`
 
 Why it matters:
@@ -128,6 +130,7 @@ Why it matters:
 - `scripts/compare_air_transition_probe.py` evaluates a follow-up bot probe against the committed S7i contract. It combines the new bot run with the S7f reference rows, reruns S7g-style context buckets, reports transition-probe activation, preserves cadence as diagnostic, and applies the S7i stop conditions.
 - `scripts/diagnose_s7j_failed_buckets.py` consumes the corrected S7j result plus S7g baseline context and recomputes per-segment command/probe/route context for the failed pre-air, airborne-proxy, and non-airborne buckets before another movement probe.
 - `scripts/design_context_gated_probe.py` consumes the committed S7k diagnosis and writes the S7l design-only context gate for the next probe. It separates clean air-transition candidate slices from route-guardrail/measurement-risk slices and requires future success claims to be made on clean-context buckets rather than all-segment or route-dirty gains.
+- `tools/qwd_usercmd/qwd_usercmd.py` extracts exact first-person `.qwd` POV-demo `usercmd_t` streams into `komodobots.qwd_usercmd.v1` line-delimited JSON. It is the Phase 1 action-label path for human commands, separate from MVD state/evaluation evidence.
 - `experiments/ktx_moveprobe/frogbot-moveprobe.patch` is the first S2 KTX source probe. It applies to KTX commit `08807da`, hooks `src/bot_movement.c::BotSetCommand()` after the prewar-freeze guard, and adds cvar-controlled command perturbation immediately before button assembly and `trap_SetBotCMD(...)`.
 - The same patch includes v2a command instrumentation. When `k_fb_moveprobe_log_commands=1`, KTX prints sampled `FBMOVEPROBE_CMD` rows containing the final `msec`, angles, movement command values, buttons, and impulse about to be sent to `trap_SetBotCMD(...)`.
 - The patch also includes v2b mode `3`, a route-yaw probe that sets yaw from `self->fb.dir_move_`, emits simple movement command values, and forces jump when a route direction is available.
@@ -255,6 +258,16 @@ Why it matters:
 
 - Useful for understanding client usercmd construction.
 - Example: default `cl_forwardspeed`, `cl_sidespeed`, and command clamping.
+- QWD POV demos are the current source-grounded path for exact human action labels.
+- Verified local source commit for QWD usercmd extraction: `b443a89b2c663acd9ed95fad02407da0efc2ea04`.
+- Verified `src/qwprot` submodule commit for `usercmd_t`: `dd5165c1b702efeaee391b94f491cd1220018691`.
+
+Important files/anchors:
+
+- `src/cl_demo.c` - `CL_WriteDemoCmd()` writes `float demotime`, `byte dem_cmd`, raw `usercmd_t`, then three viewangle floats; `CL_WriteDemoMessage()` writes length-prefixed `dem_read`; the read loop switches on `message_type & 7`.
+- `src/qwprot/src/protocol.h` - `usercmd_t` layout: `byte msec`, `vec3_t angles`, `short forwardmove/sidemove/upmove`, `byte buttons`, `byte impulse`; current layout validates as `24` bytes with compiler padding after `msec`.
+- `src/com_msg.c` - `MSG_WriteDeltaUsercmd()` / read side cross-check the canonical command field set and sizes.
+- `src/sv_ents.c` - server broadcast/MVD path zeroes normal movement intent, so MVDs remain state/evaluation evidence rather than exact human input labels.
 
 ## External conceptual sources
 

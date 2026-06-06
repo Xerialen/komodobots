@@ -24,6 +24,30 @@ The likely problem is inverse control:
 
 Observed movement trace -> infer or optimize a legal command policy that produces similar movement inside the real server loop.
 
+## QWD POV demos as action labels
+
+First-person QuakeWorld `.qwd` POV demos are the exception to the MVD limitation above. A recording client writes its own outgoing `usercmd_t` as `dem_cmd` records, so POV QWDs can provide exact per-frame action labels:
+
+```text
+time_s, msec, view_angles, forwardmove, sidemove, upmove, buttons, impulse
+```
+
+Current extractor:
+
+- Tool: `tools/qwd_usercmd/qwd_usercmd.py`
+- Schema: `komodobots.qwd_usercmd.v1`
+- Source basis: ezQuake `src/cl_demo.c::CL_WriteDemoCmd()`, `src/qwprot/src/protocol.h::usercmd_t`, `src/com_msg.c::MSG_WriteDeltaUsercmd()`
+- Validated raw `usercmd_t` size: `24` bytes, including compiler padding after `msec`
+- Output: line-delimited JSON with one header row and one `usercmd` row per `dem_cmd`
+
+Phase 1 status:
+
+- `dm2_big_to_gl.qwd` parsed cleanly to EOF: `50112` bytes read, `375` command frames, `388` `dem_read` records, no warnings, command rate `77.192` fps.
+- `dm2_bunny_to_gl.qwd` parsed cleanly to EOF with `--strict-plausibility`: `162582` bytes read, `1537` command frames, `1389` `dem_read` records, no warnings, command rate `74.122` fps.
+- The longer trick demo showed plausible action ranges: `msec` `12..53`, `forwardmove` `-400..380`, `sidemove` `-380..380`, buttons `[0, 1, 2, 3]`, impulses `[2, 7]`, and `1086` distinct rounded yaw samples.
+
+Phase 2 remains deferred. Pairing actions with observed movement state requires parsing the surrounding QWD `dem_read` service stream, including QWD-specific player/clientdata formats. Do not assume the existing MVD `DF_` playerinfo path can be reused unchanged; QWD playerinfo/clientdata uses different flags and should be source-checked before producing `komodobots.qwd_movement_dataset.v1`.
+
 ## Available or expected signals
 
 From `mvd_analyzer`, `qw-sim`, and related parsers, Komodobots expects to work with:
