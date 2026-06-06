@@ -53,6 +53,22 @@ def round_value(value: object, digits: int = 3) -> float | None:
     return round(number, digits)
 
 
+def safe_time_ms(event: dict[str, object], data: dict[str, object]) -> int | None:
+    try:
+        return coerce_time_ms(event, data)
+    except (TypeError, ValueError):
+        return None
+
+
+def valid_origin3(value: object) -> list[float] | None:
+    if not isinstance(value, list) or len(value) < 3:
+        return None
+    try:
+        return [float(part) for part in value[:3]]
+    except (TypeError, ValueError):
+        return None
+
+
 def load_position_samples(run_dir: Path) -> tuple[dict[int, dict[str, object]], dict[int, list[dict[str, object]]]]:
     events_path = run_dir / "events.txt"
     if not events_path.exists():
@@ -95,16 +111,17 @@ def load_position_samples(run_dir: Path) -> tuple[dict[int, dict[str, object]], 
                 if name:
                     info["name"] = name
                     if info["first_named_time_ms"] is None:
-                        info["first_named_time_ms"] = coerce_time_ms(event, data)
+                        info["first_named_time_ms"] = safe_time_ms(event, data)
                 continue
             if event.get("kind") != 5:
                 continue
             slot = optional_int(data.get("PlayerNum"))
             origin = coerce_origin(data.get("Origin"))
-            if slot is None or origin is None:
+            time_ms = safe_time_ms(event, data)
+            if slot is None or origin is None or time_ms is None:
                 continue
             samples_by_slot.setdefault(slot, []).append(
-                {"time_ms": coerce_time_ms(event, data), "origin": origin}
+                {"time_ms": time_ms, "origin": origin}
             )
 
     filtered: dict[int, list[dict[str, object]]] = {}
@@ -159,10 +176,10 @@ def closest_approaches(
     for index, point in enumerate(control_points[:limit]):
         best: tuple[float, dict[str, object]] | None = None
         for sample in samples:
-            origin = sample.get("origin")
-            if not isinstance(origin, list):
+            origin = valid_origin3(sample.get("origin"))
+            if origin is None:
                 continue
-            current = distance([float(part) for part in origin[:3]], point)
+            current = distance(origin, point)
             if best is None or current < best[0]:
                 best = (current, sample)
         rows.append(
@@ -186,10 +203,10 @@ def sequential_reach_count(
     for sample in samples:
         if index >= len(control_points):
             break
-        origin = sample.get("origin")
-        if not isinstance(origin, list):
+        origin = valid_origin3(sample.get("origin"))
+        if origin is None:
             continue
-        if distance([float(part) for part in origin[:3]], control_points[index]) <= radius:
+        if distance(origin, control_points[index]) <= radius:
             index += 1
     return index
 

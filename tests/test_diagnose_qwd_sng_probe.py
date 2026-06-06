@@ -127,6 +127,29 @@ class DiagnoseQwdSngProbeTests(unittest.TestCase):
         self.assertEqual(report["players"][0]["classification"], "spawn_or_route_context_missed_start_radius")
         self.assertEqual(report["players"][0]["mvd_sequential_control_points_reached"], 0)
 
+    def test_malformed_position_rows_do_not_crash(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "run1"
+            run_dir.mkdir()
+            (run_dir / "analysis.json").write_text(json.dumps({"match": {"duration": 5000}}), encoding="utf-8")
+            lines = [
+                {
+                    "kind": 1,
+                    "time": 0,
+                    "data": {"Player": {"Slot": 1, "UserID": 2, "Name": "/ bot", "Spectator": False}, "Time": 0},
+                },
+                {"kind": 5, "time": 1, "data": {"PlayerNum": 1, "Origin": [1, 2, 3], "TimeMs": "bad"}},
+                {"kind": 5, "time": 2, "data": {"PlayerNum": 1, "Origin": [1, 2], "TimeMs": 2000}},
+            ]
+            (run_dir / "events.txt").write_text("\n".join(json.dumps(line) for line in lines) + "\n", encoding="utf-8")
+
+            players, samples = diagnosis.load_position_samples(run_dir)
+
+        self.assertEqual(players[1]["name"], "/ bot")
+        self.assertEqual(samples, {})
+        self.assertEqual(diagnosis.closest_approaches([{"time_ms": 0, "origin": [1, 2]}], [[0, 0, 0]])[0]["min_distance_qu"], None)
+        self.assertEqual(diagnosis.sequential_reach_count([{"time_ms": 0, "origin": [1, 2]}], [[0, 0, 0]], radius=96), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
