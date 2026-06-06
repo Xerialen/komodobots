@@ -2586,3 +2586,48 @@ Medium that two short two-bot `dm3` runs fully characterize the mode, because th
 ### Follow-up
 
 Ask Code Sentinel to review S7j. Proposed S7k: inspect the failed bucket and command/probe activation context before trying another controller probe.
+
+## 2026-06-06 - S7k Failed-Bucket Diagnosis
+
+### Experiment
+
+Diagnosed the corrected S7j failure without adding another movement mode or rerunning the lab. Added `scripts/diagnose_s7j_failed_buckets.py`, consumed:
+
+- `experiments/human_comparison/evidence/air-transition-probe-s7j-dm3.json`,
+- `experiments/human_comparison/evidence/land-speed-gap-s7g-dm3.json`,
+- local corrected S7j run artifacts `20260606T163907Z` and `20260606T164610Z`.
+
+The script recomputes per-segment command/probe/route context for the failed pre-air, airborne-proxy, and non-airborne buckets.
+
+### Result
+
+- Generated `experiments/human_comparison/evidence/failed-bucket-diagnosis-s7k-dm3.*`.
+- Pre-air stayed failed: S7g/S7j p50 `207.1 -> 149.7` qu/s, with strong command ratio `0.936`, probe-active ratio `0.091`, low-dir ratio `0.565`, and `WATER_PATH` ratio `0.469`.
+- Airborne-proxy stayed failed: `122.6 -> 100.4` qu/s, with strong command ratio `0.925`, probe-active ratio `0.140`, low-dir ratio `0.535`, and `WATER_PATH` ratio `0.404`.
+- Non-airborne guardrail failure was route/context contaminated: `312.1 -> 286.3` qu/s overall, but `/ goldenboy` in `20260606T164610Z` had non-airborne p50 `100.8` qu/s, low-dir ratio `0.626`, and `WATER_PATH` ratio `0.614`.
+- The clean first run rows still show air-transition weakness without `WATER_PATH`: `/ bro` airborne p50 `101.8` qu/s and `/ goldenboy` airborne p50 `181.2` qu/s while `WATER_PATH` ratio was `0.000`.
+
+### Evidence
+
+Committed artifacts:
+
+- `scripts/diagnose_s7j_failed_buckets.py`
+- `tests/test_diagnose_s7j_failed_buckets.py`
+- `experiments/human_comparison/evidence/failed-bucket-diagnosis-s7k-dm3.json`
+- `experiments/human_comparison/evidence/failed-bucket-diagnosis-s7k-dm3.md`
+
+### Interpretation
+
+Water is not the whole problem. `WATER_PATH` and low-dir-speed context explain the non-airborne guardrail contamination and part of the air-bucket mix, but the intended air-transition buckets still fail under strong command/probe coverage even in rows without `WATER_PATH`.
+
+This is also not yet evidence that Frogbots lack high-level intelligence or full 3D map understanding. The current failure split is lower-level: command-policy/physics timing around air transitions plus route/map-context guardrails around low-dir-speed and `WATER_PATH`.
+
+### Confidence
+
+High that S7k identifies the dominant bucket-context split in the corrected S7j artifacts.
+
+Medium that the exact next probe should be air-transition again, because S7k supports a narrower context-gated probe but does not design it yet.
+
+### Follow-up
+
+Ask Claude/Code Sentinel to review S7k. Proposed S7l: design a smaller context-gated air-transition probe that either excludes low-dir-speed/`WATER_PATH` contexts or treats them as hard stop-condition slices before another lab rerun.

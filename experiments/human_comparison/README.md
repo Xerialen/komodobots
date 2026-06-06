@@ -366,3 +366,27 @@ the all-segment and route-context gains do not count when the intended pre-air
 and airborne buckets regress and non-airborne speed fails the S7i guardrail. The
 next useful step is S7k: inspect failed bucket and command/probe activation
 context before trying another controller probe.
+
+## Current S7k Result
+
+S7k diagnoses the corrected S7j failed buckets without changing controller
+behavior or rerunning the lab:
+
+```text
+experiments/human_comparison/evidence/failed-bucket-diagnosis-s7k-dm3.json
+experiments/human_comparison/evidence/failed-bucket-diagnosis-s7k-dm3.md
+```
+
+| Bucket | S7g bot p50 | S7j bot p50 | Context classification |
+|---|---:|---:|---|
+| Pre-air window | `207.1` qu/s | `149.7` qu/s | `mixed_controller_and_route_context` |
+| Airborne-proxy segments | `122.6` qu/s | `100.4` qu/s | `mixed_controller_and_route_context` |
+| Non-airborne segments | `312.1` qu/s | `286.3` qu/s | `route_or_map_context_guardrail_contamination` |
+
+Water is not the whole S7j failure. `WATER_PATH` and low-dir-speed context
+explain the non-airborne guardrail contamination and part of the air-bucket mix,
+but first-run air-transition rows were still too slow with `0.000` `WATER_PATH`
+ratio. The from-scratch trigger is not reached; the next useful step is S7l:
+design a smaller context-gated air-transition probe that either excludes
+low-dir-speed/`WATER_PATH` contexts or scores them as hard stop-condition slices
+before another lab rerun.

@@ -1,0 +1,1048 @@
+{
+  "bucket_diagnoses": [
+    {
+      "bucket": "pre_air_window_segments",
+      "classification": {
+        "cause_class": "mixed_controller_and_route_context",
+        "confidence": "medium",
+        "reason": "The failed air bucket has strong command coverage but also substantial route low-dir-speed or WATER_PATH context."
+      },
+      "context": {
+        "bucket": "pre_air_window_segments",
+        "label": "Pre-air window",
+        "low_dir_speed_count": 1139,
+        "low_dir_speed_ratio": 0.565,
+        "max_player_low_dir_speed_ratio": 0.729,
+        "max_player_water_path_ratio": 0.683,
+        "player_p50_speed_summary": {
+          "count": 4,
+          "max": 255.952,
+          "mean": 160.699,
+          "min": 87.5,
+          "p50": 149.673,
+          "p90": 239.802,
+          "p95": 247.877
+        },
+        "player_row_count": 4,
+        "probe_active_count": 183,
+        "probe_active_ratio": 0.091,
+        "probe_state_count": 2015,
+        "route_dominated_players": [
+          {
+            "low_dir_speed_ratio": 0.729,
+            "p50_speed_qu_per_s": 97.227,
+            "player": "/ goldenboy",
+            "run_id": "20260606T164610Z",
+            "water_path_ratio": 0.683
+          }
+        ],
+        "sampled_command_count": 2015,
+        "sampled_command_ratio": 0.915,
+        "segment_count": 2202,
+        "strong_command_count": 1886,
+        "strong_command_ratio": 0.936,
+        "water_path_count": 946,
+        "water_path_ratio": 0.469
+      },
+      "current_bot_to_reference_p50_ratio": 0.358,
+      "label": "Pre-air window",
+      "ratio_to_s7g_baseline": 0.723,
+      "regressed_more_than_5pct": true,
+      "s7g_bot_p50_speed_qu_per_s": 207.089,
+      "s7j_bot_p50_speed_qu_per_s": 149.673
+    },
+    {
+      "bucket": "airborne_proxy_segments",
+      "classification": {
+        "cause_class": "mixed_controller_and_route_context",
+        "confidence": "medium",
+        "reason": "The failed air bucket has strong command coverage but also substantial route low-dir-speed or WATER_PATH context."
+      },
+      "context": {
+        "bucket": "airborne_proxy_segments",
+        "label": "Airborne-proxy segments",
+        "low_dir_speed_count": 996,
+        "low_dir_speed_ratio": 0.535,
+        "max_player_low_dir_speed_ratio": 0.758,
+        "max_player_water_path_ratio": 0.665,
+        "player_p50_speed_summary": {
+          "count": 4,
+          "max": 181.25,
+          "mean": 112.717,
+          "min": 68.75,
+          "p50": 100.433,
+          "p90": 157.415,
+          "p95": 169.332
+        },
+        "player_row_count": 4,
+        "probe_active_count": 261,
+        "probe_active_ratio": 0.14,
+        "probe_state_count": 1860,
+        "route_dominated_players": [
+          {
+            "low_dir_speed_ratio": 0.758,
+            "p50_speed_qu_per_s": 99.067,
+            "player": "/ goldenboy",
+            "run_id": "20260606T164610Z",
+            "water_path_ratio": 0.665
+          }
+        ],
+        "sampled_command_count": 1860,
+        "sampled_command_ratio": 0.919,
+        "segment_count": 2023,
+        "strong_command_count": 1721,
+        "strong_command_ratio": 0.925,
+        "water_path_count": 752,
+        "water_path_ratio": 0.404
+      },
+      "current_bot_to_reference_p50_ratio": 0.232,
+      "label": "Airborne-proxy segments",
+      "ratio_to_s7g_baseline": 0.819,
+      "regressed_more_than_5pct": true,
+      "s7g_bot_p50_speed_qu_per_s": 122.626,
+      "s7j_bot_p50_speed_qu_per_s": 100.433
+    },
+    {
+      "bucket": "non_airborne_segments",
+      "classification": {
+        "cause_class": "route_or_map_context_guardrail_contamination",
+        "confidence": "high",
+        "reason": "The non-airborne guardrail regression is concentrated in route low-dir-speed and/or WATER_PATH context, so it should not be read as a pure air-transition controller failure."
+      },
+      "context": {
+        "bucket": "non_airborne_segments",
+        "label": "Non-airborne segments",
+        "low_dir_speed_count": 635,
+        "low_dir_speed_ratio": 0.168,
+        "max_player_low_dir_speed_ratio": 0.626,
+        "max_player_water_path_ratio": 0.614,
+        "player_p50_speed_summary": {
+          "count": 4,
+          "max": 331.78,
+          "mean": 251.286,
+          "min": 100.778,
+          "p50": 286.294,
+          "p90": 323.422,
+          "p95": 327.601
+        },
+        "player_row_count": 4,
+        "probe_active_count": 780,
+        "probe_active_ratio": 0.206,
+        "probe_state_count": 3784,
+        "route_dominated_players": [
+          {
+            "low_dir_speed_ratio": 0.626,
+            "p50_speed_qu_per_s": 100.778,
+            "player": "/ goldenboy",
+            "run_id": "20260606T164610Z",
+            "water_path_ratio": 0.614
+          }
+        ],
+        "sampled_command_count": 3784,
+        "sampled_command_ratio": 0.864,
+        "segment_count": 4379,
+        "strong_command_count": 3527,
+        "strong_command_ratio": 0.932,
+        "water_path_count": 384,
+        "water_path_ratio": 0.101
+      },
+      "current_bot_to_reference_p50_ratio": 0.895,
+      "label": "Non-airborne segments",
+      "ratio_to_s7g_baseline": 0.917,
+      "regressed_more_than_5pct": true,
+      "s7g_bot_p50_speed_qu_per_s": 312.121,
+      "s7j_bot_p50_speed_qu_per_s": 286.294
+    }
+  ],
+  "command_margin_ms": 150,
+  "decision": {
+    "frogbots_vs_from_scratch": "continue_frogbots_for_next_bounded_stage",
+    "next_goal": "S7l should design a smaller air-transition probe that either excludes low-dir-speed/WATER_PATH contexts or treats them as hard stop-condition slices before another lab rerun.",
+    "reason": "S7k separates the corrected S7j failure into a controller/timing problem in the intended air buckets plus route/map-context contamination in the non-airborne guardrail. This does not disprove the KTX/Frogbots substrate; it says the next probe must be narrower and context-gated.",
+    "verdict": "continue_frogbots_with_context_gated_probe"
+  },
+  "decision_gates": [
+    {
+      "abandon_or_rebuild_if": "The needed movement evidence cannot be gathered inside KTX/Frogbots, or controller hooks corrupt core server-native behavior.",
+      "continue_frogbots_if": "KTX/Frogbots continue to spawn, fight, accept controller overrides, emit command diagnostics, and produce MVD evidence without rebuilding physics/collision/combat.",
+      "gate": "engine_native_substrate"
+    },
+    {
+      "abandon_or_rebuild_if": "Multiple bounded primitives cannot improve target buckets without broad regressions that cannot be attributed or gated.",
+      "continue_frogbots_if": "A tiny movement primitive improves a target human-comparable bucket while preserving non-target guardrails and route/cadence diagnostics.",
+      "gate": "isolated_movement_primitive"
+    },
+    {
+      "abandon_or_rebuild_if": "Frogbot route state is too opaque or too static to separate movement-controller failures from map-understanding failures.",
+      "continue_frogbots_if": "Route/map failures can be exposed as guardrails or corrected with narrow route/context changes.",
+      "gate": "route_and_map_context"
+    }
+  ],
+  "map": "dm3",
+  "method": "S7k reuses corrected S7j artifacts and recomputes per-segment command/probe/route context for the failed pre-air, airborne-proxy, and non-airborne buckets. It does not rerun the lab or add a movement mode.",
+  "player_bucket_context": [
+    {
+      "bucket": "pre_air_window_segments",
+      "command_magnitude": {
+        "count": 159,
+        "max": 1030.0,
+        "mean": 768.253,
+        "min": 0.0,
+        "p50": 824.0,
+        "p90": 824.411,
+        "p95": 1030.0
+      },
+      "dropped_teleport_segments": 2,
+      "label": "Pre-air window",
+      "low_dir_speed_count": 14,
+      "low_dir_speed_ratio": 0.088,
+      "path_state_values": [
+        0
+      ],
+      "player": "/ bro",
+      "probe_active_count": 13,
+      "probe_active_ratio": 0.082,
+      "probe_active_speed": {
+        "count": 13,
+        "max": 116.946,
+        "mean": 80.78,
+        "min": 53.571,
+        "p50": 83.385,
+        "p90": 88.388,
+        "p95": 99.811
+      },
+      "probe_inactive_speed": {
+        "count": 146,
+        "max": 383.752,
+        "mean": 177.598,
+        "min": 29.762,
+        "p50": 155.307,
+        "p90": 323.403,
+        "p95": 349.665
+      },
+      "probe_on_ground_ratio": 0.912,
+      "probe_state_count": 159,
+      "route_dir_speed": {
+        "count": 159,
+        "max": 31.535,
+        "mean": 2.625,
+        "min": 0.0,
+        "p50": 1.0,
+        "p90": 1.0,
+        "p95": 31.535
+      },
+      "run_id": "20260606T163907Z",
+      "sampled_command_count": 159,
+      "sampled_command_ratio": 0.768,
+      "segment_count": 207,
+      "speed": {
+        "count": 207,
+        "max": 400.439,
+        "mean": 208.077,
+        "min": 29.762,
+        "p50": 202.118,
+        "p90": 349.665,
+        "p95": 370.069
+      },
+      "strong_command_count": 145,
+      "strong_command_ratio": 0.912,
+      "water_path_count": 0,
+      "water_path_ratio": 0.0,
+      "weak_command_count": 14
+    },
+    {
+      "bucket": "airborne_proxy_segments",
+      "command_magnitude": {
+        "count": 159,
+        "max": 1030.0,
+        "mean": 743.613,
+        "min": 0.0,
+        "p50": 824.0,
+        "p90": 1030.0,
+        "p95": 1030.0
+      },
+      "dropped_teleport_segments": 2,
+      "label": "Airborne-proxy segments",
+      "low_dir_speed_count": 22,
+      "low_dir_speed_ratio": 0.138,
+      "path_state_values": [
+        0
+      ],
+      "player": "/ bro",
+      "probe_active_count": 26,
+      "probe_active_ratio": 0.164,
+      "probe_active_speed": {
+        "count": 26,
+        "max": 120.708,
+        "mean": 95.974,
+        "min": 53.571,
+        "p50": 99.703,
+        "p90": 116.095,
+        "p95": 119.767
+      },
+      "probe_inactive_speed": {
+        "count": 133,
+        "max": 402.191,
+        "mean": 130.269,
+        "min": 0.0,
+        "p50": 97.828,
+        "p90": 348.543,
+        "p95": 370.841
+      },
+      "probe_on_ground_ratio": 0.755,
+      "probe_state_count": 159,
+      "route_dir_speed": {
+        "count": 159,
+        "max": 31.535,
+        "mean": 1.606,
+        "min": 0.0,
+        "p50": 1.0,
+        "p90": 1.0,
+        "p95": 1.0
+      },
+      "run_id": "20260606T163907Z",
+      "sampled_command_count": 159,
+      "sampled_command_ratio": 0.803,
+      "segment_count": 198,
+      "speed": {
+        "count": 198,
+        "max": 402.191,
+        "mean": 159.612,
+        "min": 0.0,
+        "p50": 101.8,
+        "p90": 320.593,
+        "p95": 360.399
+      },
+      "strong_command_count": 137,
+      "strong_command_ratio": 0.862,
+      "water_path_count": 0,
+      "water_path_ratio": 0.0,
+      "weak_command_count": 22
+    },
+    {
+      "bucket": "non_airborne_segments",
+      "command_magnitude": {
+        "count": 908,
+        "max": 1030.721,
+        "mean": 843.765,
+        "min": 0.0,
+        "p50": 824.0,
+        "p90": 1030.0,
+        "p95": 1030.396
+      },
+      "dropped_teleport_segments": 2,
+      "label": "Non-airborne segments",
+      "low_dir_speed_count": 16,
+      "low_dir_speed_ratio": 0.018,
+      "path_state_values": [
+        0,
+        2098176
+      ],
+      "player": "/ bro",
+      "probe_active_count": 151,
+      "probe_active_ratio": 0.166,
+      "probe_active_speed": {
+        "count": 151,
+        "max": 344.261,
+        "mean": 146.669,
+        "min": 0.0,
+        "p50": 131.088,
+        "p90": 321.484,
+        "p95": 326.901
+      },
+      "probe_inactive_speed": {
+        "count": 757,
+        "max": 418.904,
+        "mean": 246.07,
+        "min": 0.0,
+        "p50": 310.951,
+        "p90": 369.328,
+        "p95": 383.701
+      },
+      "probe_on_ground_ratio": 0.889,
+      "probe_state_count": 908,
+      "route_dir_speed": {
+        "count": 908,
+        "max": 243.451,
+        "mean": 4.422,
+        "min": 0.0,
+        "p50": 1.0,
+        "p90": 1.0,
+        "p95": 1.0
+      },
+      "run_id": "20260606T163907Z",
+      "sampled_command_count": 908,
+      "sampled_command_ratio": 0.858,
+      "segment_count": 1058,
+      "speed": {
+        "count": 1058,
+        "max": 418.904,
+        "mean": 235.873,
+        "min": 0.0,
+        "p50": 303.921,
+        "p90": 366.801,
+        "p95": 383.131
+      },
+      "strong_command_count": 892,
+      "strong_command_ratio": 0.982,
+      "water_path_count": 0,
+      "water_path_ratio": 0.0,
+      "weak_command_count": 16
+    },
+    {
+      "bucket": "pre_air_window_segments",
+      "command_magnitude": {
+        "count": 60,
+        "max": 1030.0,
+        "mean": 865.011,
+        "min": 823.452,
+        "p50": 823.905,
+        "p90": 1030.0,
+        "p95": 1030.0
+      },
+      "dropped_teleport_segments": 1,
+      "label": "Pre-air window",
+      "low_dir_speed_count": 0,
+      "low_dir_speed_ratio": 0.0,
+      "path_state_values": [
+        0
+      ],
+      "player": "/ goldenboy",
+      "probe_active_count": 12,
+      "probe_active_ratio": 0.2,
+      "probe_active_speed": {
+        "count": 12,
+        "max": 335.002,
+        "mean": 195.837,
+        "min": 26.62,
+        "p50": 214.64,
+        "p90": 331.261,
+        "p95": 334.102
+      },
+      "probe_inactive_speed": {
+        "count": 48,
+        "max": 395.285,
+        "mean": 226.055,
+        "min": 108.621,
+        "p50": 210.457,
+        "p90": 330.945,
+        "p95": 343.926
+      },
+      "probe_on_ground_ratio": 0.8,
+      "probe_state_count": 60,
+      "route_dir_speed": {
+        "count": 60,
+        "max": 1.0,
+        "mean": 0.956,
+        "min": 0.687,
+        "p50": 0.999,
+        "p90": 1.0,
+        "p95": 1.0
+      },
+      "run_id": "20260606T163907Z",
+      "sampled_command_count": 60,
+      "sampled_command_ratio": 0.504,
+      "segment_count": 119,
+      "speed": {
+        "count": 119,
+        "max": 421.725,
+        "mean": 256.599,
+        "min": 26.62,
+        "p50": 255.952,
+        "p90": 381.145,
+        "p95": 395.565
+      },
+      "strong_command_count": 60,
+      "strong_command_ratio": 1.0,
+      "water_path_count": 0,
+      "water_path_ratio": 0.0,
+      "weak_command_count": 0
+    },
+    {
+      "bucket": "airborne_proxy_segments",
+      "command_magnitude": {
+        "count": 77,
+        "max": 1030.433,
+        "mean": 767.735,
+        "min": 0.0,
+        "p50": 823.831,
+        "p90": 824.36,
+        "p95": 1030.433
+      },
+      "dropped_teleport_segments": 1,
+      "label": "Airborne-proxy segments",
+      "low_dir_speed_count": 7,
+      "low_dir_speed_ratio": 0.091,
+      "path_state_values": [
+        0
+      ],
+      "player": "/ goldenboy",
+      "probe_active_count": 7,
+      "probe_active_ratio": 0.091,
+      "probe_active_speed": {
+        "count": 7,
+        "max": 257.467,
+        "mean": 154.699,
+        "min": 32.055,
+        "p50": 171.745,
+        "p90": 243.003,
+        "p95": 250.235
+      },
+      "probe_inactive_speed": {
+        "count": 70,
+        "max": 218.839,
+        "mean": 150.699,
+        "min": 45.332,
+        "p50": 172.722,
+        "p90": 212.592,
+        "p95": 215.979
+      },
+      "probe_on_ground_ratio": 0.896,
+      "probe_state_count": 77,
+      "route_dir_speed": {
+        "count": 77,
+        "max": 1.0,
+        "mean": 0.905,
+        "min": 0.0,
+        "p50": 1.0,
+        "p90": 1.0,
+        "p95": 1.0
+      },
+      "run_id": "20260606T163907Z",
+      "sampled_command_count": 77,
+      "sampled_command_ratio": 0.588,
+      "segment_count": 131,
+      "speed": {
+        "count": 131,
+        "max": 318.198,
+        "mean": 170.839,
+        "min": 32.055,
+        "p50": 181.25,
+        "p90": 218.839,
+        "p95": 286.21
+      },
+      "strong_command_count": 70,
+      "strong_command_ratio": 0.909,
+      "water_path_count": 0,
+      "water_path_ratio": 0.0,
+      "weak_command_count": 7
+    },
+    {
+      "bucket": "non_airborne_segments",
+      "command_magnitude": {
+        "count": 694,
+        "max": 1030.578,
+        "mean": 826.697,
+        "min": 0.0,
+        "p50": 824.0,
+        "p90": 1030.0,
+        "p95": 1030.059
+      },
+      "dropped_teleport_segments": 1,
+      "label": "Non-airborne segments",
+      "low_dir_speed_count": 31,
+      "low_dir_speed_ratio": 0.045,
+      "path_state_values": [
+        0,
+        512
+      ],
+      "player": "/ goldenboy",
+      "probe_active_count": 133,
+      "probe_active_ratio": 0.192,
+      "probe_active_speed": {
+        "count": 133,
+        "max": 406.682,
+        "mean": 313.115,
+        "min": 18.823,
+        "p50": 332.721,
+        "p90": 376.191,
+        "p95": 386.338
+      },
+      "probe_inactive_speed": {
+        "count": 561,
+        "max": 422.294,
+        "mean": 319.493,
+        "min": 21.462,
+        "p50": 331.309,
+        "p90": 372.107,
+        "p95": 385.529
+      },
+      "probe_on_ground_ratio": 0.791,
+      "probe_state_count": 694,
+      "route_dir_speed": {
+        "count": 694,
+        "max": 230.528,
+        "mean": 5.237,
+        "min": 0.0,
+        "p50": 0.998,
+        "p90": 1.0,
+        "p95": 1.0
+      },
+      "run_id": "20260606T163907Z",
+      "sampled_command_count": 694,
+      "sampled_command_ratio": 0.837,
+      "segment_count": 829,
+      "speed": {
+        "count": 829,
+        "max": 422.294,
+        "mean": 320.912,
+        "min": 18.823,
+        "p50": 331.78,
+        "p90": 376.379,
+        "p95": 392.01
+      },
+      "strong_command_count": 663,
+      "strong_command_ratio": 0.955,
+      "water_path_count": 0,
+      "water_path_ratio": 0.0,
+      "weak_command_count": 31
+    },
+    {
+      "bucket": "pre_air_window_segments",
+      "command_magnitude": {
+        "count": 411,
+        "max": 1030.092,
+        "mean": 643.566,
+        "min": 0.0,
+        "p50": 824.0,
+        "p90": 1030.0,
+        "p95": 1030.017
+      },
+      "dropped_teleport_segments": 1,
+      "label": "Pre-air window",
+      "low_dir_speed_count": 115,
+      "low_dir_speed_ratio": 0.28,
+      "path_state_values": [
+        0
+      ],
+      "player": "/ bro",
+      "probe_active_count": 100,
+      "probe_active_ratio": 0.243,
+      "probe_active_speed": {
+        "count": 100,
+        "max": 336.573,
+        "mean": 87.667,
+        "min": 0.0,
+        "p50": 64.931,
+        "p90": 195.098,
+        "p95": 262.172
+      },
+      "probe_inactive_speed": {
+        "count": 311,
+        "max": 399.707,
+        "mean": 123.613,
+        "min": 0.0,
+        "p50": 88.829,
+        "p90": 321.738,
+        "p95": 345.613
+      },
+      "probe_on_ground_ratio": 0.633,
+      "probe_state_count": 411,
+      "route_dir_speed": {
+        "count": 411,
+        "max": 1.01,
+        "mean": 0.716,
+        "min": 0.0,
+        "p50": 1.0,
+        "p90": 1.0,
+        "p95": 1.0
+      },
+      "run_id": "20260606T164610Z",
+      "sampled_command_count": 411,
+      "sampled_command_ratio": 0.954,
+      "segment_count": 431,
+      "speed": {
+        "count": 431,
+        "max": 399.707,
+        "mean": 124.566,
+        "min": 0.0,
+        "p50": 87.5,
+        "p90": 321.429,
+        "p95": 342.482
+      },
+      "strong_command_count": 296,
+      "strong_command_ratio": 0.72,
+      "water_path_count": 0,
+      "water_path_ratio": 0.0,
+      "weak_command_count": 115
+    },
+    {
+      "bucket": "airborne_proxy_segments",
+      "command_magnitude": {
+        "count": 494,
+        "max": 1030.381,
+        "mean": 710.986,
+        "min": 0.0,
+        "p50": 824.0,
+        "p90": 1030.0,
+        "p95": 1030.049
+      },
+      "dropped_teleport_segments": 1,
+      "label": "Airborne-proxy segments",
+      "low_dir_speed_count": 110,
+      "low_dir_speed_ratio": 0.223,
+      "path_state_values": [
+        0
+      ],
+      "player": "/ bro",
+      "probe_active_count": 169,
+      "probe_active_ratio": 0.342,
+      "probe_active_speed": {
+        "count": 169,
+        "max": 109.271,
+        "mean": 63.959,
+        "min": 6.25,
+        "p50": 65.476,
+        "p90": 93.99,
+        "p95": 97.628
+      },
+      "probe_inactive_speed": {
+        "count": 325,
+        "max": 118.585,
+        "mean": 64.994,
+        "min": 0.0,
+        "p50": 67.604,
+        "p90": 97.026,
+        "p95": 103.954
+      },
+      "probe_on_ground_ratio": 0.421,
+      "probe_state_count": 494,
+      "route_dir_speed": {
+        "count": 494,
+        "max": 1.01,
+        "mean": 0.757,
+        "min": 0.0,
+        "p50": 1.0,
+        "p90": 1.0,
+        "p95": 1.0
+      },
+      "run_id": "20260606T164610Z",
+      "sampled_command_count": 494,
+      "sampled_command_ratio": 0.959,
+      "segment_count": 515,
+      "speed": {
+        "count": 515,
+        "max": 352.003,
+        "mean": 75.311,
+        "min": 0.0,
+        "p50": 68.75,
+        "p90": 99.495,
+        "p95": 112.673
+      },
+      "strong_command_count": 384,
+      "strong_command_ratio": 0.777,
+      "water_path_count": 0,
+      "water_path_ratio": 0.0,
+      "weak_command_count": 110
+    },
+    {
+      "bucket": "non_airborne_segments",
+      "command_magnitude": {
+        "count": 1557,
+        "max": 1030.652,
+        "mean": 781.539,
+        "min": 0.0,
+        "p50": 824.0,
+        "p90": 1030.0,
+        "p95": 1030.092
+      },
+      "dropped_teleport_segments": 1,
+      "label": "Non-airborne segments",
+      "low_dir_speed_count": 197,
+      "low_dir_speed_ratio": 0.127,
+      "path_state_values": [
+        0
+      ],
+      "player": "/ bro",
+      "probe_active_count": 467,
+      "probe_active_ratio": 0.3,
+      "probe_active_speed": {
+        "count": 467,
+        "max": 436.069,
+        "mean": 207.533,
+        "min": 0.0,
+        "p50": 200.799,
+        "p90": 361.717,
+        "p95": 385.98
+      },
+      "probe_inactive_speed": {
+        "count": 1090,
+        "max": 412.926,
+        "mean": 229.48,
+        "min": 0.0,
+        "p50": 254.721,
+        "p90": 366.616,
+        "p95": 380.173
+      },
+      "probe_on_ground_ratio": 0.703,
+      "probe_state_count": 1557,
+      "route_dir_speed": {
+        "count": 1557,
+        "max": 1.01,
+        "mean": 0.857,
+        "min": 0.0,
+        "p50": 1.0,
+        "p90": 1.0,
+        "p95": 1.0
+      },
+      "run_id": "20260606T164610Z",
+      "sampled_command_count": 1557,
+      "sampled_command_ratio": 0.902,
+      "segment_count": 1726,
+      "speed": {
+        "count": 1726,
+        "max": 436.069,
+        "mean": 233.886,
+        "min": 0.0,
+        "p50": 268.667,
+        "p90": 368.565,
+        "p95": 383.357
+      },
+      "strong_command_count": 1360,
+      "strong_command_ratio": 0.873,
+      "water_path_count": 0,
+      "water_path_ratio": 0.0,
+      "weak_command_count": 197
+    },
+    {
+      "bucket": "pre_air_window_segments",
+      "command_magnitude": {
+        "count": 1385,
+        "max": 1030.282,
+        "mean": 832.658,
+        "min": 823.361,
+        "p50": 824.0,
+        "p90": 824.41,
+        "p95": 824.546
+      },
+      "dropped_teleport_segments": 0,
+      "label": "Pre-air window",
+      "low_dir_speed_count": 1010,
+      "low_dir_speed_ratio": 0.729,
+      "path_state_values": [
+        0,
+        32768
+      ],
+      "player": "/ goldenboy",
+      "probe_active_count": 58,
+      "probe_active_ratio": 0.042,
+      "probe_active_speed": {
+        "count": 58,
+        "max": 118.151,
+        "mean": 59.879,
+        "min": 8.418,
+        "p50": 50.797,
+        "p90": 108.451,
+        "p95": 113.5
+      },
+      "probe_inactive_speed": {
+        "count": 1327,
+        "max": 336.341,
+        "mean": 94.233,
+        "min": 13.31,
+        "p50": 96.898,
+        "p90": 111.835,
+        "p95": 116.052
+      },
+      "probe_on_ground_ratio": 0.112,
+      "probe_state_count": 1385,
+      "route_dir_speed": {
+        "count": 1385,
+        "max": 46.481,
+        "mean": 0.686,
+        "min": 0.002,
+        "p50": 0.053,
+        "p90": 1.0,
+        "p95": 1.0
+      },
+      "run_id": "20260606T164610Z",
+      "sampled_command_count": 1385,
+      "sampled_command_ratio": 0.958,
+      "segment_count": 1445,
+      "speed": {
+        "count": 1445,
+        "max": 395.532,
+        "mean": 102.827,
+        "min": 8.418,
+        "p50": 97.227,
+        "p90": 114.905,
+        "p95": 267.857
+      },
+      "strong_command_count": 1385,
+      "strong_command_ratio": 1.0,
+      "water_path_count": 946,
+      "water_path_ratio": 0.683,
+      "weak_command_count": 0
+    },
+    {
+      "bucket": "airborne_proxy_segments",
+      "command_magnitude": {
+        "count": 1130,
+        "max": 1030.282,
+        "mean": 834.786,
+        "min": 823.383,
+        "p50": 824.0,
+        "p90": 824.468,
+        "p95": 1029.816
+      },
+      "dropped_teleport_segments": 0,
+      "label": "Airborne-proxy segments",
+      "low_dir_speed_count": 857,
+      "low_dir_speed_ratio": 0.758,
+      "path_state_values": [
+        0,
+        32768
+      ],
+      "player": "/ goldenboy",
+      "probe_active_count": 59,
+      "probe_active_ratio": 0.052,
+      "probe_active_speed": {
+        "count": 59,
+        "max": 118.151,
+        "mean": 57.366,
+        "min": 8.418,
+        "p50": 34.708,
+        "p90": 107.798,
+        "p95": 113.417
+      },
+      "probe_inactive_speed": {
+        "count": 1071,
+        "max": 262.175,
+        "mean": 92.969,
+        "min": 13.31,
+        "p50": 98.821,
+        "p90": 112.673,
+        "p95": 115.574
+      },
+      "probe_on_ground_ratio": 0.108,
+      "probe_state_count": 1130,
+      "route_dir_speed": {
+        "count": 1130,
+        "max": 46.481,
+        "mean": 0.705,
+        "min": 0.002,
+        "p50": 0.05,
+        "p90": 1.0,
+        "p95": 1.0
+      },
+      "run_id": "20260606T164610Z",
+      "sampled_command_count": 1130,
+      "sampled_command_ratio": 0.958,
+      "segment_count": 1179,
+      "speed": {
+        "count": 1179,
+        "max": 383.09,
+        "mean": 100.672,
+        "min": 8.418,
+        "p50": 99.067,
+        "p90": 114.916,
+        "p95": 121.353
+      },
+      "strong_command_count": 1130,
+      "strong_command_ratio": 1.0,
+      "water_path_count": 752,
+      "water_path_ratio": 0.665,
+      "weak_command_count": 0
+    },
+    {
+      "bucket": "non_airborne_segments",
+      "command_magnitude": {
+        "count": 625,
+        "max": 1030.282,
+        "mean": 816.444,
+        "min": 0.0,
+        "p50": 824.001,
+        "p90": 824.366,
+        "p95": 824.509
+      },
+      "dropped_teleport_segments": 0,
+      "label": "Non-airborne segments",
+      "low_dir_speed_count": 391,
+      "low_dir_speed_ratio": 0.626,
+      "path_state_values": [
+        0,
+        32768
+      ],
+      "player": "/ goldenboy",
+      "probe_active_count": 29,
+      "probe_active_ratio": 0.046,
+      "probe_active_speed": {
+        "count": 29,
+        "max": 368.379,
+        "mean": 293.889,
+        "min": 16.836,
+        "p50": 327.868,
+        "p90": 341.357,
+        "p95": 357.626
+      },
+      "probe_inactive_speed": {
+        "count": 596,
+        "max": 401.754,
+        "mean": 117.075,
+        "min": 6.25,
+        "p50": 94.58,
+        "p90": 318.75,
+        "p95": 327.858
+      },
+      "probe_on_ground_ratio": 0.214,
+      "probe_state_count": 625,
+      "route_dir_speed": {
+        "count": 625,
+        "max": 46.481,
+        "mean": 0.459,
+        "min": 0.0,
+        "p50": 0.065,
+        "p90": 1.0,
+        "p95": 1.0
+      },
+      "run_id": "20260606T164610Z",
+      "sampled_command_count": 625,
+      "sampled_command_ratio": 0.816,
+      "segment_count": 766,
+      "speed": {
+        "count": 766,
+        "max": 401.754,
+        "mean": 162.478,
+        "min": 6.25,
+        "p50": 100.778,
+        "p90": 342.125,
+        "p95": 359.796
+      },
+      "strong_command_count": 612,
+      "strong_command_ratio": 0.979,
+      "water_path_count": 384,
+      "water_path_ratio": 0.614,
+      "weak_command_count": 13
+    }
+  ],
+  "s7g_context_decision": {
+    "airborne_p50_ratio": 0.283,
+    "next_goal": "S7h should decide whether the first controller probe targets air-transition horizontal speed production or a narrow route primitive such as WATER_PATH low-dir-speed recovery.",
+    "non_air_p50_ratio": 0.975,
+    "post_air_p50_ratio": 0.505,
+    "pre_air_p50_ratio": 0.495,
+    "reason": "The broad all-segment speed gap is not equally distributed. Bot non-airborne p50 speed is close to the exact-player non-airborne p50, but bot pre-air, airborne, and post-air windows are far below reference speed. Route-state samples also expose very slow WATER_PATH/low-dir-speed spans, so the next controller evidence should target speed production around air transitions and route primitives rather than cadence.",
+    "route_water_path_bot_p50_speed_qu_per_s": 95.279,
+    "verdict": "land_speed_gap_concentrates_around_air_transitions_and_route_low_dir_speed"
+  },
+  "s7j_stop_condition_verdict": {
+    "air_transition_buckets_improved": [],
+    "failed_stop_conditions": [
+      "all_segment_proxy_win",
+      "air_transition_regression",
+      "non_airborne_guardrail"
+    ],
+    "inconclusive_stop_conditions": [],
+    "next_goal": "S7k should inspect the failed bucket and command/probe activation context before trying another controller probe.",
+    "reason": "S7j produced evidence, but stop conditions failed: all_segment_proxy_win, air_transition_regression, non_airborne_guardrail.",
+    "verdict": "air_transition_probe_rejected_by_s7i_stop_conditions"
+  },
+  "schema": "komodobots.s7j_failed_bucket_diagnosis.v1",
+  "source_s7g_path": "experiments/human_comparison/evidence/land-speed-gap-s7g-dm3.json",
+  "source_s7g_stage": "s7g-land-speed-gap-dm3",
+  "source_s7j_path": "experiments/human_comparison/evidence/air-transition-probe-s7j-dm3.json",
+  "source_s7j_stage": "s7j-air-transition-probe-dm3",
+  "stage": "s7k-failed-bucket-diagnosis-dm3",
+  "transition_window_ms": 400,
+  "warnings": []
+}
