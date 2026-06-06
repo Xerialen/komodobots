@@ -44,6 +44,9 @@ DEFAULT_OUTPUT_JSON = (
 DEFAULT_OUTPUT_MD = (
     REPO_ROOT / "experiments" / "human_comparison" / "evidence" / "failed-bucket-diagnosis-s7k-dm3.md"
 )
+DEFAULT_CONTEXT_SOURCE = (
+    REPO_ROOT / "experiments" / "human_comparison" / "evidence" / "failed-bucket-context-source-s7k-dm3.json"
+)
 
 FAILED_BUCKETS = ("pre_air_window_segments", "airborne_proxy_segments", "non_airborne_segments")
 BUCKET_LABELS = {
@@ -132,7 +135,8 @@ def summarize_bucket_context(
     transition_window_ms: int,
     command_margin_ms: int,
 ) -> dict[str, object]:
-    run_dir = repo_path(row.get("events_path", "")).parent
+    events_path = row.get("events_path") or ""
+    run_dir = repo_path(events_path).parent
     _info, samples = load_player_samples(run_dir, str(row.get("identity", "")))
     segments, dropped_teleports = build_segments(samples, thresholds())
     airborne_runs = sorted(extract_airborne_runs(segments, thresholds()), key=lambda run: int(run["start_ms"]))
@@ -195,13 +199,14 @@ def summarize_bucket_context(
                 probe_on_ground_count += 1
         state = command_route_state(command)
         if state:
-            path_states.append(path_state(state))
+            p_state = path_state(state)
+            path_states.append(p_state)
             dir_speed = route_dir_speed(state)
             if dir_speed is not None:
                 dir_speeds.append(dir_speed)
                 if dir_speed < LOW_ROUTE_DIR_SPEED:
                     low_dir_speed_count += 1
-            if path_state(state) & WATER_PATH:
+            if p_state & WATER_PATH:
                 water_path_count += 1
 
     segment_count = len(speeds)
@@ -393,6 +398,32 @@ def decision_gates() -> list[dict[str, object]]:
     ]
 
 
+def load_context_source(path: Path) -> list[dict[str, object]]:
+    loaded = load_json(path)
+    rows = loaded.get("player_bucket_context", [])
+    if not isinstance(rows, list):
+        raise S7kInputError(f"{portable_path(path)} did not contain a `player_bucket_context` list.")
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def context_source_payload(
+    player_context: list[dict[str, object]],
+    *,
+    stage: str,
+    s7j_path: Path,
+    transition_window_ms: int,
+    command_margin_ms: int,
+) -> dict[str, object]:
+    return {
+        "schema": "komodobots.s7j_failed_bucket_context_source.v1",
+        "stage": f"{stage}-context-source",
+        "source_s7j_path": portable_path(s7j_path),
+        "transition_window_ms": transition_window_ms,
+        "command_margin_ms": command_margin_ms,
+        "player_bucket_context": player_context,
+    }
+
+
 def make_decision(bucket_diagnoses: list[dict[str, object]]) -> dict[str, object]:
     cause_classes = {str(row.get("classification", {}).get("cause_class", "")) for row in bucket_diagnoses}
     if "measurement_alignment_risk" in cause_classes:
@@ -437,6 +468,8 @@ def build_report(
     *,
     s7j_path: Path,
     s7g_path: Path,
+    context_source_path: Path | None,
+    refresh_context_source: bool,
     stage: str,
     transition_window_ms: int,
     command_margin_ms: int,
@@ -446,19 +479,24 @@ def build_report(
     bot_players = [row for row in land_speed.get("bot_players", []) if isinstance(row, dict)]
     player_context: list[dict[str, object]] = []
     warnings: list[str] = []
-    for row in bot_players:
-        for bucket in FAILED_BUCKETS:
-            try:
-                player_context.append(
-                    summarize_bucket_context(
-                        row,
-                        bucket,
-                        transition_window_ms=transition_window_ms,
-                        command_margin_ms=command_margin_ms,
+    context_source_mode = "raw_artifacts"
+    if context_source_path and context_source_path.exists() and not refresh_context_source:
+        player_context = load_context_source(context_source_path)
+        context_source_mode = "committed_context_source"
+    else:
+        for row in bot_players:
+            for bucket in FAILED_BUCKETS:
+                try:
+                    player_context.append(
+                        summarize_bucket_context(
+                            row,
+                            bucket,
+                            transition_window_ms=transition_window_ms,
+                            command_margin_ms=command_margin_ms,
+                        )
                     )
-                )
-            except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
-                warnings.append(f"{row.get('identity', '')} `{row.get('run_id', '')}` {bucket}: {exc}")
+                except (FileNotFoundError, ValueError, TypeError, json.JSONDecodeError) as exc:
+                    warnings.append(f"{row.get('identity', '')} `{row.get('run_id', '')}` {bucket}: {exc}")
 
     bucket_contexts = [combine_context(player_context, bucket) for bucket in FAILED_BUCKETS]
     bucket_diagnoses = []
@@ -488,6 +526,8 @@ def build_report(
         "source_s7j_stage": s7j.get("stage", ""),
         "source_s7g_path": portable_path(s7g_path),
         "source_s7g_stage": s7g.get("stage", ""),
+        "context_source_path": portable_path(context_source_path) if context_source_path else "",
+        "context_source_mode": context_source_mode,
         "transition_window_ms": transition_window_ms,
         "command_margin_ms": command_margin_ms,
         "warnings": warnings,
@@ -532,6 +572,7 @@ def write_markdown(report: dict[str, object], output_path: Path) -> None:
         f"- Map: `{report.get('map', '')}`",
         f"- Source S7j result: `{report.get('source_s7j_path', '')}`",
         f"- Source S7g baseline: `{report.get('source_s7g_path', '')}`",
+        f"- Context source: `{report.get('context_source_path', '')}` (`{report.get('context_source_mode', '')}`)",
         f"- Transition window: `{report.get('transition_window_ms')}` ms",
         f"- Command match margin: `{report.get('command_margin_ms')}` ms",
         f"- {report.get('method', '')}",
@@ -634,6 +675,17 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument("--stage", default="s7k-failed-bucket-diagnosis-dm3", help="Evidence stage label.")
     parser.add_argument("--s7j", type=Path, default=DEFAULT_S7J, help="Corrected S7j result JSON.")
     parser.add_argument("--s7g", type=Path, default=DEFAULT_S7G, help="S7g baseline/context JSON.")
+    parser.add_argument(
+        "--context-source",
+        type=Path,
+        default=DEFAULT_CONTEXT_SOURCE,
+        help="Committed compact per-player context source for clean-checkout reproducibility.",
+    )
+    parser.add_argument(
+        "--refresh-context-source",
+        action="store_true",
+        help="Recompute the compact context source from local raw lab artifacts.",
+    )
     parser.add_argument("--output-json", type=Path, default=DEFAULT_OUTPUT_JSON, help="Output evidence JSON.")
     parser.add_argument("--output-md", type=Path, default=DEFAULT_OUTPUT_MD, help="Output evidence Markdown.")
     parser.add_argument("--transition-window-ms", type=int, default=400)
@@ -650,12 +702,32 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         s7g,
         s7j_path=args.s7j,
         s7g_path=args.s7g,
+        context_source_path=args.context_source,
+        refresh_context_source=args.refresh_context_source,
         stage=args.stage,
         transition_window_ms=args.transition_window_ms,
         command_margin_ms=args.command_margin_ms,
     )
     validate_report(report)
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
+    args.output_md.parent.mkdir(parents=True, exist_ok=True)
+    if report.get("context_source_mode") == "raw_artifacts" and args.context_source:
+        args.context_source.parent.mkdir(parents=True, exist_ok=True)
+        args.context_source.write_text(
+            json.dumps(
+                context_source_payload(
+                    report.get("player_bucket_context", []),
+                    stage=args.stage,
+                    s7j_path=args.s7j,
+                    transition_window_ms=args.transition_window_ms,
+                    command_margin_ms=args.command_margin_ms,
+                ),
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
     args.output_json.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     write_markdown(report, args.output_md)
     print(f"Wrote S7j failed-bucket diagnosis: {args.output_md}")

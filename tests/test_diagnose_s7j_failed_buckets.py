@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
+import json
 from pathlib import Path
 
 
@@ -41,6 +43,85 @@ def context(
 
 
 class S7jFailedBucketDiagnosisTests(unittest.TestCase):
+    def test_load_context_source_supplies_committed_reproducibility_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "context.json"
+            path.write_text(
+                '{"player_bucket_context": [{"bucket": "pre_air_window_segments", "segment_count": 1}]}',
+                encoding="utf-8",
+            )
+
+            rows = s7k.load_context_source(path)
+
+        self.assertEqual(rows[0]["bucket"], "pre_air_window_segments")
+
+    def test_output_markdown_parent_is_created_for_custom_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            s7j = root / "s7j.json"
+            s7g = root / "s7g.json"
+            context_source = root / "context" / "source.json"
+            output_json = root / "json" / "out.json"
+            output_md = root / "md" / "out.md"
+            s7j.write_text(
+                json.dumps(
+                    {
+                        "map": "dm3",
+                        "bucket_changes": [
+                            failed_change("pre_air_window_segments"),
+                            failed_change("airborne_proxy_segments"),
+                            failed_change("non_airborne_segments"),
+                        ],
+                        "decision": {},
+                        "land_speed_comparison": {"bot_players": []},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            s7g.write_text('{"decision": {}}', encoding="utf-8")
+            context_source.parent.mkdir()
+            context_source.write_text(
+                json.dumps(
+                    {
+                        "player_bucket_context": [
+                            context("pre_air_window_segments"),
+                            context("airborne_proxy_segments"),
+                            context("non_airborne_segments", low_dir=0.8, water=0.7),
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            s7k.main(
+                [
+                    "--s7j",
+                    str(s7j),
+                    "--s7g",
+                    str(s7g),
+                    "--context-source",
+                    str(context_source),
+                    "--output-json",
+                    str(output_json),
+                    "--output-md",
+                    str(output_md),
+                ]
+            )
+
+            self.assertTrue(output_md.exists())
+
+    def test_context_source_payload_records_source_and_rows(self) -> None:
+        payload = s7k.context_source_payload(
+            [{"bucket": "non_airborne_segments"}],
+            stage="s7k-test",
+            s7j_path=REPO_ROOT / "s7j.json",
+            transition_window_ms=400,
+            command_margin_ms=150,
+        )
+
+        self.assertEqual(payload["schema"], "komodobots.s7j_failed_bucket_context_source.v1")
+        self.assertEqual(payload["player_bucket_context"][0]["bucket"], "non_airborne_segments")
+
     def test_non_airborne_water_context_is_route_guardrail_contamination(self) -> None:
         classification = s7k.classify_bucket_failure(
             failed_change("non_airborne_segments"),

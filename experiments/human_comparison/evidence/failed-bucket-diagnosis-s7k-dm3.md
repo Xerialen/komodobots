@@ -5,6 +5,7 @@
 - Map: `dm3`
 - Source S7j result: `experiments/human_comparison/evidence/air-transition-probe-s7j-dm3.json`
 - Source S7g baseline: `experiments/human_comparison/evidence/land-speed-gap-s7g-dm3.json`
+- Context source: `experiments/human_comparison/evidence/failed-bucket-context-source-s7k-dm3.json` (`committed_context_source`)
 - Transition window: `400` ms
 - Command match margin: `150` ms
 - S7k reuses corrected S7j artifacts and recomputes per-segment command/probe/route context for the failed pre-air, airborne-proxy, and non-airborne buckets. It does not rerun the lab or add a movement mode.
