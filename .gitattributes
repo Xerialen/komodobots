@@ -1,0 +1,5 @@
+# Stored patch artifacts need LF line endings for `git apply`, while their
+# inner diff context can legitimately contain whitespace that ordinary source
+# files should not.
+.gitattributes text eol=lf
+*.patch text eol=lf whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab

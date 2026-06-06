@@ -18,6 +18,10 @@ git apply /path/to/frogbot-moveprobe.patch
 cmake --build build
 ```
 
+Patch artifacts are pinned to LF line endings by the repo `.gitattributes`. Keep
+them that way: CRLF-normalized patch files can fail `git apply` against the
+pinned KTX checkout even when their textual diff appears unchanged.
+
 The patch adds `k_fb_moveprobe_mode` handling inside `BotSetCommand()` after the prewar-freeze guard and immediately before button assembly and `trap_SetBotCMD(...)`.
 
 It can also emit sampled command rows with the exact values about to be handed to `trap_SetBotCMD(...)`:
