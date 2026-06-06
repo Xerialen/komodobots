@@ -1060,3 +1060,75 @@ Low for any single-cause explanation.
 ### Follow-up
 
 Ask Claude to review S3e. Proposed S3f: add the smallest no-backpedal/forward-hemisphere correction to mode `5`. If projected local `forwardmove` is negative, clamp or remap it so the bot strafes instead of backpedaling, then run `dm3` first with the same horizontal/side/jump and low-speed gates. If that does not improve the `dm3` low-speed rows, stop policy tuning and inspect route state/obstruction rather than adding controller complexity.
+
+## 2026-06-06 - S3f No-Backpedal Correction Probe
+
+### Experiment
+
+Added moveprobe mode `6`, a small corrective variant of mode `5`.
+
+Mode `6` preserves combat view yaw and uses the same route/strafe projection as mode `5`. If the projected local `forwardmove` is negative, it folds that removed backpedal magnitude into local `sidemove` and clamps local forward to `0`.
+
+Temporarily deployed the patched KTX build and ran `dm3` first. Because `dm3` improved and passed, repeated on `frobodm2`:
+
+```bash
+python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 6 --moveprobe-sidemove 200 --moveprobe-log-commands --moveprobe-log-interval 0.25
+python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 6 --moveprobe-sidemove 200 --moveprobe-log-commands --moveprobe-log-interval 0.25
+python scripts/summarize_moveprobe_plausibility.py 20260606T001705Z 20260606T001825Z --min-forward-ratio 0 --min-horizontal-ratio 0.8 --min-side-ratio 0.8 --output-md artifacts/lab-runs/moveprobe-s3f-summary.md
+```
+
+### Result
+
+`dm3`, run `20260606T001705Z`:
+
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Command rows parsed: `196`.
+- `/ bro`: PASS, horizontal/side/jump coverage `93.6%`, backward commands `0.0%`, absolute yaw-delta avg `82.2`, p90 `163.1`, above-90 ratio `43.6%`, avg `167.4` qu/s, p95 `362.9` qu/s, stationary `3.1%`, low-speed `38.3%`.
+- `/ goldenboy`: PASS, horizontal coverage `88.4%`, side coverage `87.2%`, jump coverage `88.4%`, backward commands `0.0%`, absolute yaw-delta avg `66.3`, p90 `124.2`, above-90 ratio `40.7%`, avg `236.0` qu/s, p95 `382.4` qu/s, stationary `1.8%`, low-speed `24.4%`.
+- One SG frag: `/ bro` killed `/ goldenboy` at `11126` ms.
+
+`frobodm2`, run `20260606T001825Z`:
+
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Command rows parsed: `197`.
+- `/ bro`: PASS, horizontal/side/jump coverage `94.5%`, backward commands `0.0%`, absolute yaw-delta avg `84.3`, p90 `167.1`, above-90 ratio `50.0%`, avg `246.3` qu/s, p95 `361.0` qu/s, stationary `1.7%`, low-speed `13.8%`.
+- `/ goldenboy`: PASS, horizontal/side/jump coverage `85.1%`, backward commands `0.0%`, absolute yaw-delta avg `85.8`, p90 `163.2`, above-90 ratio `51.7%`, avg `217.3` qu/s, p95 `374.6` qu/s, stationary `3.6%`, low-speed `26.8%`.
+- One GL frag: `/ goldenboy` killed `/ bro` at `13358` ms.
+
+After both deployments:
+
+```text
+deployed qwprogs hash matched backup
+servexeri ~/nquakesv/build/ktx: clean master...origin/master
+quakestat localhost:28599: DOWN
+```
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/lab-runs/20260606T001705Z/run-summary.md`
+- `artifacts/lab-runs/20260606T001705Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260606T001705Z/movement-metrics.md`
+- `artifacts/lab-runs/20260606T001825Z/run-summary.md`
+- `artifacts/lab-runs/20260606T001825Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260606T001825Z/movement-metrics.md`
+- `artifacts/lab-runs/moveprobe-s3f-summary.md`
+
+### Interpretation
+
+S3f is positive corrective evidence. Removing sustained backpedal commands flipped the `dm3` mode `5` low-speed failure into a pass for both bots, then repeated as a pass on `frobodm2`.
+
+It is not a final movement policy. The command logs show very large folded side commands, often near or above `1100`, while yaw deltas remain large. That may pass this coarse plausibility gate but is unlikely to be the right durable command surface for believable player movement.
+
+### Confidence
+
+High for the claim that mode `6` removes sampled backward commands and passes the current gate on both routed maps.
+
+Medium for the claim that no-backpedal behavior is a useful corrective direction.
+
+Low for the realism of the current folded side magnitudes.
+
+### Follow-up
+
+Ask Claude to review S3f. Proposed S3g: keep the no-backpedal correction, but add a bounded-command variant that caps or normalizes local `forwardmove`/`sidemove` magnitudes after projection. Rerun `dm3` and `frobodm2` with the same gates and compare against mode `6`; if bounded commands fail, inspect route state/obstruction before adding controller complexity.

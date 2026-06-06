@@ -2,7 +2,7 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
 index c0654d1..3f6886d 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -422,6 +422,222 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +422,234 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -107,7 +107,7 @@ index c0654d1..3f6886d 100644
 +		*jumping = true;
 +	}
 +
-+	else if (mode == 5)
++	else if ((mode == 5) || (mode == 6))
 +	{
 +		vec3_t route_direction;
 +		vec3_t route_right;
@@ -149,6 +149,18 @@ index c0654d1..3f6886d 100644
 +		direction[0] = DotProduct(g_globalvars.v_forward, desired_move);
 +		direction[1] = DotProduct(g_globalvars.v_right, desired_move);
 +		direction[2] = cvar("k_fb_moveprobe_upmove");
++
++		if ((mode == 6) && (direction[0] < 0))
++		{
++			float side_sign = direction[1] < 0 ? -1 : 1;
++
++			if (direction[1] == 0)
++			{
++				side_sign = strafe_sign;
++			}
++			direction[1] += -direction[0] * side_sign;
++			direction[0] = 0;
++		}
 +
 +		*jumping = true;
 +	}

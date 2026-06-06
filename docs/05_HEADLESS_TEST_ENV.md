@@ -35,6 +35,8 @@ Fifth lab milestone on 2026-06-05: the first S2 movement override probe patched 
 
 Sixth lab milestone on 2026-06-06: S3e added route-vs-view diagnostic logging to mode `5` command rows. The fresh diagnostic run passed on `frobodm2` but failed both `dm3` bot rows on low-speed, with the strongest yaw/backward signal on `/ bro`. This keeps the next step small: test whether avoiding negative local `forwardmove` helps before building a larger controller.
 
+Seventh lab milestone on 2026-06-06: S3f added mode `6`, a no-backpedal variant of mode `5`. It passed the current horizontal/side/jump behavior gate on both `dm3` and `frobodm2`, but generated very large side commands after folding negative forward into strafe. This is a successful corrective probe, not a final controller.
+
 ## Environment Diagram
 
 ```text
@@ -160,7 +162,7 @@ The bundle README says it was built from mvd_analyzer commit `7d83ebe`, while th
 | Record MVD automatically | Proven on `frobodm2` and `dm3` | KTX saved non-empty MVDs after `sv_demostop`. |
 | Parse MVD automatically | Proven for summary/events | `qw-analyze-v20` parsed JSON/Markdown summary exit 0; events mode emitted data then exited 1 with `qw-analyze: end of demo`. |
 | Generate movement report automatically | Proven v2 | `scripts/extract_movement_metrics.py` writes speed plus airborne-proxy movement metrics from MVD event position samples. |
-| Test movement overrides automatically | Provisionally proven | `experiments/ktx_moveprobe/frogbot-moveprobe.patch` hooks KTX `BotSetCommand()` after the prewar-freeze guard and before button assembly/`trap_SetBotCMD(...)`; `20260605T225720Z` and `20260605T225802Z` passed explicit mode `3` command/plausibility gates on two routed maps. S3d/S3e mode `5` proves aim-independent command emission, but movement policy remains split. |
+| Test movement overrides automatically | Provisionally proven | `experiments/ktx_moveprobe/frogbot-moveprobe.patch` hooks KTX `BotSetCommand()` after the prewar-freeze guard and before button assembly/`trap_SetBotCMD(...)`; `20260605T225720Z` and `20260605T225802Z` passed explicit mode `3` command/plausibility gates on two routed maps. S3d/S3e mode `5` proves aim-independent command emission; S3f mode `6` proves a no-backpedal correction can pass the current gate, with command-magnitude caveats. |
 | Visual validation | Available for playback | `ezquake-test` / `~/hud-runner` can render existing demos headlessly; useful after new MVDs exist. |
 
 ## One-command Bot Runner
@@ -183,7 +185,7 @@ python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-s
 
 The `--moveprobe-*` options only change behavior when the S2 KTX patch from `experiments/ktx_moveprobe/` is applied to the server-side KTX build. Without that patch, the runner still records the cvars in `lab.cfg` and `run.env`, but stock KTX ignores them.
 
-`--moveprobe-log-commands` enables the patch's sampled `FBMOVEPROBE_CMD` console rows. The runner parses those rows from `screen.log` into `moveprobe-commands.json` and `moveprobe-commands.md`, making it possible to compare the actual command values emitted by stock mode `0`, forced-jump mode `1`, fixed-command mode `2`, route-yaw modes `3`/`4`, and aim-independent mode `5`. S3e diagnostic rows also include route yaw, view yaw, yaw delta, and backward-command flags.
+`--moveprobe-log-commands` enables the patch's sampled `FBMOVEPROBE_CMD` console rows. The runner parses those rows from `screen.log` into `moveprobe-commands.json` and `moveprobe-commands.md`, making it possible to compare the actual command values emitted by stock mode `0`, forced-jump mode `1`, fixed-command mode `2`, route-yaw modes `3`/`4`, aim-independent mode `5`, and no-backpedal mode `6`. S3e/S3f diagnostic rows also include route yaw, view yaw, yaw delta, and backward-command flags.
 
 What it does:
 
@@ -255,6 +257,8 @@ Verified repeatability runs:
 | `20260605T234701Z` | `28599` | `62921` bytes | `json=0`, `md=0`, `events=1` | `dm3`; S3d mode `5` with `sidemove=200`, command coverage passed, `/ bro` failed behavior gates, `/ goldenboy` passed. |
 | `20260606T000331Z` | `28599` | `70414` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S3e mode `5` diagnostics, both bots passed horizontal/side behavior gate, one SSG frag. |
 | `20260606T000414Z` | `28599` | `74149` bytes | `json=0`, `md=0`, `events=1` | `dm3`; S3e mode `5` diagnostics, both bots passed command gates but failed low-speed behavior gate. |
+| `20260606T001705Z` | `28599` | `68881` bytes | `json=0`, `md=0`, `events=1` | `dm3`; S3f mode `6`, both bots passed horizontal/side behavior gate, one SG frag. |
+| `20260606T001825Z` | `28599` | `70030` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S3f mode `6`, both bots passed horizontal/side behavior gate, one GL frag. |
 
 In verified runs, `quakestat -qws localhost:28599 -P -nh` reported `DOWN` after cleanup.
 
@@ -429,7 +433,7 @@ The current runner uses session names shaped like `komodobots_lab_<port>_<run-id
 - Determinism is unknown. The lab must record seed/config/server version details before comparing movement runs.
 - Stock `dm2` can load, record, and parse, but it is not a Frogbot-supported route target in this environment. User confirmed there is no point building routes for it now.
 - A first-pass movement report schema exists, but it is still position-derived and does not yet infer ground-truth jump commands, grounded state, or usercmd intent.
-- The S2 v2c moveprobe proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`, and that route-derived yaw can pass provisional command/plausibility gates on two routed maps. S3 mode `4` proves nonzero alternating side commands can also be emitted; S3c indicates `sidemove=200` is repeatable across `frobodm2` and `dm3`. S3d/S3e mode `5` proves aim-independent route/strafe commands can be emitted and diagnosed, but behavior remains split. Yaw delta/backward commands are a partial suspect, not a complete explanation. Aim/combat separation and bunnyjumping remain open.
+- The S2 v2c moveprobe proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`, and that route-derived yaw can pass provisional command/plausibility gates on two routed maps. S3 mode `4` proves nonzero alternating side commands can also be emitted; S3c indicates `sidemove=200` is repeatable across `frobodm2` and `dm3`. S3d/S3e mode `5` proves aim-independent route/strafe commands can be emitted and diagnosed, but behavior remains split. S3f mode `6` passes the current gate by removing backpedal commands, but command magnitudes are not yet realistic. Aim/combat separation and bunnyjumping remain open.
 
 ## Troubleshooting
 
@@ -457,4 +461,4 @@ Move the repeatable runner one notch closer to the north star:
 
 1. Keep `dm2` as a `qw-sim` continuity map, not as a Frogbot route-building target.
 2. Use routed maps such as `frobodm2` and `dm3` to generate bot movement demos.
-3. Run S3f no-backpedal/forward-hemisphere correction on mode `5`, starting with `dm3`, and compare against the S3e diagnostic gate before adding any larger controller state.
+3. Run S3g bounded-command no-backpedal correction: preserve S3f's forward-hemisphere behavior, but cap or normalize local command magnitudes before repeating `dm3` and `frobodm2`.

@@ -513,3 +513,40 @@ If the no-backpedal probe improves `dm3` without breaking command coverage, the 
 ### Revisit Conditions
 
 Revisit if S3f fails the low-speed gate on `dm3`, if it harms combat/view behavior, or if diagnostics show most low-speed time occurs without backward commands.
+
+---
+
+## Decision
+
+Bound no-backpedal command magnitudes before expanding movement policy.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+Treat S3f mode `6` as a positive corrective probe, not as a final controller. The next S3 experiment should keep the forward-hemisphere/no-backpedal property but cap or normalize the resulting local command magnitudes before running more policy work.
+
+### Alternatives Considered
+
+- Promote mode `6` because it passed the current gate on both routed maps.
+- Tune the sidemove magnitude again.
+- Add cadence/stateful bunnyjump logic on top of mode `6`.
+- Revert to route-yaw mode `4` because it has smaller command values.
+
+### Evidence
+
+S3f runs with mode `6 --moveprobe-sidemove 200`:
+
+- `20260606T001705Z`, `dm3`: both bots passed the gate. `/ bro` low-speed improved from S3e `43.1%` to `38.3%`; `/ goldenboy` improved from `52.8%` to `24.4%`; both had `0.0%` backward commands.
+- `20260606T001825Z`, `frobodm2`: both bots passed with `0.0%` backward commands.
+- Command logs showed local side values around `1100` after folding backpedal into strafe.
+
+### Expected Consequences
+
+The next experiment can test whether the no-backpedal idea survives a more realistic command bound. If it does, S3 has a better candidate for aim-independent movement literacy. If it does not, the project should inspect route state, obstruction, or a cleaner movement-intent boundary instead of adding more controller state.
+
+### Revisit Conditions
+
+Revisit if a bounded no-backpedal variant fails both maps, if side-command caps reintroduce low-speed behavior, or if command values are already being clamped downstream in a way that makes local magnitude tuning misleading.

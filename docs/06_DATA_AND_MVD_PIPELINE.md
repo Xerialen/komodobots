@@ -97,6 +97,7 @@ Moveprobe plausibility gate:
 - S3a side gate: pass `--min-side-ratio 0.8` to require nonzero sidemove coverage for strafe probes
 - S3d horizontal command gate: pass `--min-forward-ratio 0 --min-horizontal-ratio 0.8 --min-side-ratio 0.8` when exact local forward values vary because movement is projected relative to preserved combat yaw
 - S3e diagnostics: command rows may include `route_yaw`, `view_yaw`, `yaw_delta`, and `backward`; the summary reports backward-command ratio plus absolute yaw-delta average, p90, and ratio above 90 degrees
+- S3f no-backpedal gate: use the same horizontal/side/jump thresholds as S3e, then inspect command magnitudes because folding negative forward into side can create very large side values
 - Expected-forward handling: by default the summarizer derives the expected forward command from each run's `MOVEPROBE_FORWARDMOVE` in `run.env`, then falls back to `800`; use `--expected-forward` for older/custom artifacts.
 - Command matching: movement rows are matched to command rows by movement `user_id` and command `ed` when possible, then by netname as a fallback. Duplicate bot netnames are unsupported for artifacts that require the fallback.
 - Purpose: prevent speed-only interpretation by requiring command coverage and low stuck/low-speed behavior
@@ -245,6 +246,8 @@ Verified one-command parser behavior:
 20260605T234701Z: json=0 md=0 events=1 demo=62921 bytes map=dm3 moveprobe=5 sidemove=200 commands=195 movementPlayers=2
 20260606T000331Z: json=0 md=0 events=1 demo=70414 bytes map=frobodm2 moveprobe=5 sidemove=200 diagnostics=1 commands=196 movementPlayers=2
 20260606T000414Z: json=0 md=0 events=1 demo=74149 bytes map=dm3 moveprobe=5 sidemove=200 diagnostics=1 commands=195 movementPlayers=2
+20260606T001705Z: json=0 md=0 events=1 demo=68881 bytes map=dm3 moveprobe=6 sidemove=200 diagnostics=1 commands=196 movementPlayers=2
+20260606T001825Z: json=0 md=0 events=1 demo=70030 bytes map=frobodm2 moveprobe=6 sidemove=200 diagnostics=1 commands=197 movementPlayers=2
 ```
 
 For now, `events=1` with stderr `qw-analyze: end of demo` is accepted if `events.txt` is written and JSON/Markdown exits are zero. JSON is the canonical smoke-run parser artifact.
@@ -349,6 +352,12 @@ Fresh S2 emitted-command evidence:
 
 20260606T000414Z dm3 moveprobe mode 5, sidemove=200, S3e diagnostics:
   command coverage passed for both, but both failed low-speed; / bro back=41.3% yawDeltaAvg=79.6 yawDeltaP90=154.7 low=43.1%; / goldenboy back=14.0% yawDeltaAvg=44.7 yawDeltaP90=99.4 low=52.8%
+
+20260606T001705Z dm3 moveprobe mode 6, sidemove=200, S3f no-backpedal:
+  both bots passed; / bro back=0.0% yawDeltaAvg=82.2 yawDeltaP90=163.1 low=38.3%; / goldenboy back=0.0% yawDeltaAvg=66.3 yawDeltaP90=124.2 low=24.4%; one SG frag
+
+20260606T001825Z frobodm2 moveprobe mode 6, sidemove=200, S3f no-backpedal:
+  both bots passed; / bro back=0.0% yawDeltaAvg=84.3 yawDeltaP90=167.1 low=13.8%; / goldenboy back=0.0% yawDeltaAvg=85.8 yawDeltaP90=163.2 low=26.8%; one GL frag
 ```
 
 ## Open questions

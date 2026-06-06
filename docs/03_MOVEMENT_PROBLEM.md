@@ -180,6 +180,15 @@ S3e kept mode `5`'s aim-independent projection policy, but added command-log dia
 
 The diagnostics support a narrow claim: large route-vs-view disagreement and backward local commands are plausible contributors, especially for `/ bro` on `dm3`. They do not fully explain the split, because `/ goldenboy` can still fail low-speed with a much lower backward-command ratio. The next smallest useful corrective experiment should therefore be tiny and falsifiable: clamp or remap negative local forward commands in mode `5`, run `dm3` first against the same gate, and stop if that does not improve low-speed behavior.
 
+## S3f No-Backpedal Correction Probe
+
+S3f added mode `6`: reuse mode `5`'s aim-independent projection, but when projected local `forwardmove` is negative, fold that removed backpedal magnitude into local `sidemove` and clamp local forward to `0`.
+
+- `20260606T001705Z`, `dm3`: both bots passed the horizontal/side/jump behavior gate. `/ bro` improved from S3e low-speed `43.1%` to `38.3%`, with backward commands dropping from `41.3%` to `0.0%`. `/ goldenboy` improved from S3e low-speed `52.8%` to `24.4%`, also with backward commands `0.0%`. The run recorded one SG frag by `/ bro`.
+- `20260606T001825Z`, `frobodm2`: both bots passed. `/ bro` low-speed was `13.8%`; `/ goldenboy` low-speed was `26.8%`; both had `0.0%` backward commands. The run recorded one GL frag by `/ goldenboy`.
+
+This is useful evidence that sustained backpedal commands were part of the mode `5` failure. It is not final-controller evidence. Mode `6` passes the current gate partly by emitting very large local side commands, often around `1100`, after folding backpedal into strafe. The next useful experiment should bound command magnitudes while preserving the no-backpedal property, then rerun the same gates.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

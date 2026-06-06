@@ -806,14 +806,15 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument(
         "--moveprobe-mode",
         type=int,
-        choices=(0, 1, 2, 3, 4, 5),
+        choices=(0, 1, 2, 3, 4, 5, 6),
         default=0,
         help=(
             "Set k_fb_moveprobe_mode in the generated KTX lab config. "
             "Requires the S2 KTX patch to affect behavior. "
             "0=off, 1=force jump, 2=fixed movement command, "
             "3=route-yaw movement command, 4=route-yaw alternating strafe, "
-            "5=aim-independent route/strafe projection."
+            "5=aim-independent route/strafe projection, "
+            "6=mode 5 with negative forward folded into sidemove."
         ),
     )
     parser.add_argument(
@@ -826,19 +827,19 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         "--moveprobe-forwardmove",
         type=int,
         default=800,
-        help="forwardmove used by movement-probe modes 2, 3, and 4. Defaults to 800.",
+        help="forwardmove used by movement-probe modes 2, 3, 4, 5, and 6. Defaults to 800.",
     )
     parser.add_argument(
         "--moveprobe-sidemove",
         type=int,
         default=0,
-        help="sidemove used by movement-probe modes 2, 3, and 4. Mode 4 treats 0 as 400. Defaults to 0.",
+        help="sidemove used by movement-probe modes 2, 3, 4, 5, and 6. Mode 4 treats 0 as 400. Defaults to 0.",
     )
     parser.add_argument(
         "--moveprobe-upmove",
         type=int,
         default=0,
-        help="upmove used by movement-probe modes 2, 3, and 4. Defaults to 0.",
+        help="upmove used by movement-probe modes 2, 3, 4, 5, and 6. Defaults to 0.",
     )
     parser.add_argument(
         "--moveprobe-log-commands",

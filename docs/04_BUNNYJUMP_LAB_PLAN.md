@@ -68,7 +68,7 @@ Interpretation: the final command can be perturbed and directly observed. The st
 
 ## Future phases
 
-- Bunnyjump controller experiments: active as S3. Mode `4` proved an alternating side command can be emitted. S3c found `sidemove=200` passes the side/plausibility gate on both `frobodm2` and `dm3`, but it still commandeers view yaw. S3d mode `5` proved aim-independent commands can be emitted, but behavior split. S3e diagnostics show yaw delta/backward commands are a plausible partial cause, especially for `/ bro` on `dm3`, but not the whole explanation. Next step is a tiny S3f no-backpedal/forward-hemisphere correction probe before any larger controller work.
+- Bunnyjump controller experiments: active as S3. Mode `4` proved an alternating side command can be emitted. S3c found `sidemove=200` passes the side/plausibility gate on both `frobodm2` and `dm3`, but it still commandeers view yaw. S3d/S3e mode `5` proved aim-independent commands can be emitted and diagnosed, but behavior split. S3f mode `6` removed backward commands and passed both routed maps, but did so with very large folded side commands. Next step is a bounded-command S3g probe before any larger controller work.
 - Human-demo comparisons.
 - Route primitives.
 - Rocket-jump behaviour.

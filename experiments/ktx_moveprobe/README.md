@@ -44,15 +44,16 @@ Modes:
 | `3` | Set yaw from Frogbot route intent, send forward/sidemove/upmove command values, and force jump. This is a movement probe, not a combat-aim-preserving controller. |
 | `4` | S3a probe: set yaw from Frogbot route intent, emit forward plus alternating side commands, and force jump. This is a bounded strafe/jump primitive, not a final bunnyjump controller. |
 | `5` | S3d probe: preserve combat view yaw, project route/strafe intent into local forward/sidemove commands, and force jump. This tests aim-independent movement math, not a final controller. |
+| `6` | S3f probe: start from mode `5`, but when the projected local forward command is negative, fold that backpedal amount into sidemove and clamp forward to `0`. This tests a no-backpedal correction, not a final controller. |
 
-Mode `2`, `3`, `4`, and `5` cvars:
+Mode `2`, `3`, `4`, `5`, and `6` cvars:
 
 | Cvar | Default in runner | Meaning |
 |---|---:|---|
 | `k_fb_moveprobe_yaw` | `0` | Bot view yaw used for fixed-command mode `2`. |
-| `k_fb_moveprobe_forwardmove` | `800` | Forward command sent to `trap_SetBotCMD` in modes `2`, `3`, and `4`; route-intent scale for mode `5`. |
-| `k_fb_moveprobe_sidemove` | `0` | Side command sent to `trap_SetBotCMD` in modes `2` and `3`; mode `4` treats `0` as a default alternating `+/-400`; mode `5` uses the value as a route-relative strafe component. |
-| `k_fb_moveprobe_upmove` | `0` | Up command sent to `trap_SetBotCMD` in modes `2`, `3`, `4`, and `5`. |
+| `k_fb_moveprobe_forwardmove` | `800` | Forward command sent to `trap_SetBotCMD` in modes `2`, `3`, and `4`; route-intent scale for modes `5` and `6`. |
+| `k_fb_moveprobe_sidemove` | `0` | Side command sent to `trap_SetBotCMD` in modes `2` and `3`; mode `4` treats `0` as a default alternating `+/-400`; modes `5` and `6` use the value as a route-relative strafe component. |
+| `k_fb_moveprobe_upmove` | `0` | Up command sent to `trap_SetBotCMD` in modes `2`, `3`, `4`, `5`, and `6`. |
 | `k_fb_moveprobe_log_commands` | `0` | When `1`, print sampled final command rows before `trap_SetBotCMD`. |
 | `k_fb_moveprobe_log_interval` | `0.25` | Minimum seconds between command log samples per bot. Use `0` for every command. |
 
@@ -61,6 +62,8 @@ Mode `3` ignores `k_fb_moveprobe_yaw`; it computes yaw from `self->fb.dir_move_`
 Mode `4` also ignores `k_fb_moveprobe_yaw`. It uses the same route-derived yaw as mode `3`, but alternates the sign of `sidemove` about five times per second, offset by bot slot. This is only a bounded S3a movement-literacy probe.
 
 Mode `5` preserves `self->fb.desired_angle` instead of setting route yaw. It builds a desired route-relative movement vector, optionally adds the alternating strafe component, then projects that world vector into local `forwardmove`/`sidemove` commands using the preserved combat yaw. Exact `forwardmove=800` coverage is not expected in mode `5`; use horizontal-command coverage instead.
+
+Mode `6` uses the same aim-independent projection as mode `5`, then clamps negative local `forwardmove` to `0` and transfers the removed magnitude into local `sidemove`. This keeps the bot from deliberately backpedaling when route intent is behind its preserved view angle.
 
 The S3e diagnostic suffix is shaped as `diag=<route_yaw>,<view_yaw>,<yaw_delta>,<backward>`. `backward=1` means the emitted local `forwardmove` is negative.
 
@@ -75,6 +78,7 @@ python scripts/run_bot_lab.py --map frobodm2 --duration 20 --bot-count 2 --movep
 python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 3 --moveprobe-log-commands
 python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 4 --moveprobe-log-commands
 python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 5 --moveprobe-sidemove 200 --moveprobe-log-commands
+python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 6 --moveprobe-sidemove 200 --moveprobe-log-commands
 ```
 
 Each run records the mode and command values in `run.env`, `lab.cfg`, and `run-summary.md`.
@@ -108,6 +112,8 @@ Known v2a comparison runs:
 | `20260605T234701Z` | `5` | S3d `dm3` aim-independent projection; command coverage passed, `/ goldenboy` passed behavior gate, `/ bro` failed stationary/low-speed gates. |
 | `20260606T000331Z` | `5` | S3e `frobodm2` diagnostics; both bots passed, `/ bro` showed more yaw/backward conflict than `/ goldenboy`, one SSG frag. |
 | `20260606T000414Z` | `5` | S3e `dm3` diagnostics; both bots passed command gates but failed low-speed, with the strongest yaw/backward signal on `/ bro`. |
+| `20260606T001705Z` | `6` | S3f `dm3` no-backpedal correction; both bots passed with `0.0%` backward commands, one SG frag. |
+| `20260606T001825Z` | `6` | S3f `frobodm2` no-backpedal correction; both bots passed with `0.0%` backward commands, one GL frag. |
 
 ## Plausibility summary
 
@@ -166,6 +172,14 @@ python scripts/summarize_moveprobe_plausibility.py 20260606T000331Z 20260606T000
 ```
 
 S3e interpretation: yaw delta and negative local `forwardmove` are plausible contributors to the `dm3` mode `5` split, but not a complete explanation. The next proposed probe is S3f: prevent sustained backpedal commands in mode `5` and test `dm3` first.
+
+The S3f no-backpedal correction uses mode `6` and the same gate:
+
+```bash
+python scripts/summarize_moveprobe_plausibility.py 20260606T001705Z 20260606T001825Z --min-forward-ratio 0 --min-horizontal-ratio 0.8 --min-side-ratio 0.8 --output-md artifacts/lab-runs/moveprobe-s3f-summary.md
+```
+
+S3f interpretation: mode `6` passes both routed maps and removes sampled backward commands, but folded side commands can reach roughly `1100`. The next proposed probe is S3g: bound or normalize local command magnitudes while preserving the no-backpedal property.
 
 ## Rollback
 
