@@ -63,6 +63,7 @@ Current implemented first pass:
 - Plausibility summarizer: `scripts/summarize_moveprobe_plausibility.py`
 - Route-state diagnosis helper: `scripts/diagnose_route_state.py`
 - Airborne proxy segment inspector: `scripts/inspect_airborne_proxy_segments.py`
+- Land-speed gap characterization helper: `scripts/characterize_land_speed_gap.py`
 - Input: `events.txt` from `qw-analyze-v20 -format events`
 - Position source: line-delimited JSON events with `kind:5`, `PlayerNum`, `Origin`, and `TimeMs`
 - Player naming source: `kind:1` player info events
@@ -592,6 +593,9 @@ s7e-cadence-evidence-dm3, broadened mode-7 cadence evidence:
 s7f-airborne-segments-dm3, raw airborne-proxy segment inspection:
   S7f replays the movement-metrics airborne proxy over raw events.txt kind 5 samples for the S7c exact-player references and S7e unchanged mode-7 bot rows. Bot player-median air duration is 217.2 ms vs reference 325.0 ms, Z range is 11.5 qu vs 43.8 qu, and air speed is 114.4 qu/s vs 431.8 qu/s. Cadence stays diagnostic; next work should characterize land-speed and air-rhythm gaps.
   The S7f evidence writer now fails before writing outputs if any requested reference or bot row cannot be resolved from the ignored raw artifacts, preventing clean-checkout regeneration from silently overwriting committed evidence with an empty report.
+
+s7g-land-speed-gap-dm3, context-bucketed segment speed:
+  S7g reuses the S7f row set and buckets accepted movement segments by airborne-proxy overlap, 400 ms pre/post-air windows, sampled moveprobe command strength, and route-state hints where available. Bot non-airborne p50 speed is close to reference (312.1 vs 320.0 qu/s), but bot airborne p50 is 122.6 vs 433.8, pre-air is 207.1 vs 418.0, post-air is 184.5 vs 365.7, and route WATER_PATH samples sit near 95.3 qu/s. The next work should choose between air-transition speed production and a narrow route primitive target before any controller probe.
 ```
 
 ## Open questions
