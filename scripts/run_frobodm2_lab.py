@@ -402,6 +402,10 @@ MOVEPROBE_COMMAND_RE = re.compile(
     r"(?:\s+route=(?P<linked_marker>-?\d+),(?P<touch_marker>-?\d+),"
     r"(?P<goal_ed>-?\d+),(?P<goal_marker>-?\d+),(?P<path_state>-?\d+),"
     r"(?P<bot_state>-?\d+),(?P<blocked>\d+),(?P<dir_speed>-?\d+(?:\.\d+)?))?"
+    r"(?:\s+water=(?P<waterlevel>-?\d+),(?P<watertype>-?\d+),(?P<player_flags>-?\d+),"
+    r"(?P<swim_arrow>-?\d+),(?P<emitted_upmove>-?\d+(?:\.\d+)?),"
+    r"(?P<velocity_x>-?\d+(?:\.\d+)?),(?P<velocity_y>-?\d+(?:\.\d+)?),(?P<velocity_z>-?\d+(?:\.\d+)?),"
+    r"(?P<dir_move_x>-?\d+(?:\.\d+)?),(?P<dir_move_y>-?\d+(?:\.\d+)?),(?P<dir_move_z>-?\d+(?:\.\d+)?))?"
 )
 
 
@@ -449,6 +453,24 @@ def parse_moveprobe_command_logs(screen_log: str) -> list[dict[str, object]]:
                 "blocked": bool(int(groups["blocked"])),
                 "dir_speed": float(groups["dir_speed"]),
             }
+        if groups.get("waterlevel") is not None:
+            row["water_state"] = {
+                "waterlevel": int(groups["waterlevel"]),
+                "watertype": int(groups["watertype"]),
+                "flags": int(groups["player_flags"]),
+                "swim_arrow": int(groups["swim_arrow"]),
+                "emitted_upmove": float(groups["emitted_upmove"]),
+                "velocity": {
+                    "x": float(groups["velocity_x"]),
+                    "y": float(groups["velocity_y"]),
+                    "z": float(groups["velocity_z"]),
+                },
+                "dir_move": {
+                    "x": float(groups["dir_move_x"]),
+                    "y": float(groups["dir_move_y"]),
+                    "z": float(groups["dir_move_z"]),
+                },
+            }
         commands.append(row)
     return commands
 
@@ -477,6 +499,11 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
             for row in rows
             if isinstance(row.get("route_state", {}), dict) and row.get("route_state")
         ]
+        water_states = [
+            row.get("water_state", {})
+            for row in rows
+            if isinstance(row.get("water_state", {}), dict) and row.get("water_state")
+        ]
         yaw_deltas = [
             round(float(diagnostic["yaw_delta"]), 1)
             for diagnostic in diagnostics
@@ -504,6 +531,7 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
                 "yaw_delta_values": compact_unique(yaw_deltas) if yaw_deltas else [],
                 "backward_ratio": round(backward_count / len(rows), 3),
                 "route_state": summarize_route_states(route_states),
+                "water_state": summarize_water_states(water_states),
                 "button_values": compact_unique(int(row["buttons"]) for row in rows),
                 "impulse_values": compact_unique(int(row["impulse"]) for row in rows),
             }
@@ -531,6 +559,40 @@ def summarize_route_states(route_states: list[dict[str, object]]) -> dict[str, o
         "bot_state_values": compact_unique(int(state.get("bot_state", 0)) for state in route_states),
         "blocked_ratio": round(blocked_count / len(route_states), 3),
         "dir_speed_values": compact_unique(round(float(state.get("dir_speed", 0.0)), 3) for state in route_states),
+    }
+
+
+def summarize_water_states(water_states: list[dict[str, object]]) -> dict[str, object]:
+    if not water_states:
+        return {"sample_count": 0}
+
+    waterlevel_gt1 = sum(1 for state in water_states if int(state.get("waterlevel", 0)) > 1)
+    waterlevel_gt2 = sum(1 for state in water_states if int(state.get("waterlevel", 0)) > 2)
+    swim_nonzero = sum(1 for state in water_states if int(state.get("swim_arrow", 0)) != 0)
+    upmove_nonzero = sum(1 for state in water_states if abs(float(state.get("emitted_upmove", 0.0))) > 0.01)
+    velocity_z = [
+        round(float(state.get("velocity", {}).get("z", 0.0)), 1)
+        for state in water_states
+        if isinstance(state.get("velocity", {}), dict)
+    ]
+    dir_move_z = [
+        round(float(state.get("dir_move", {}).get("z", 0.0)), 3)
+        for state in water_states
+        if isinstance(state.get("dir_move", {}), dict)
+    ]
+    return {
+        "sample_count": len(water_states),
+        "waterlevel_values": compact_unique(int(state.get("waterlevel", 0)) for state in water_states),
+        "watertype_values": compact_unique(int(state.get("watertype", 0)) for state in water_states),
+        "flags_values": compact_unique(int(state.get("flags", 0)) for state in water_states),
+        "swim_arrow_values": compact_unique(int(state.get("swim_arrow", 0)) for state in water_states),
+        "emitted_upmove_values": compact_unique(round(float(state.get("emitted_upmove", 0.0)), 1) for state in water_states),
+        "waterlevel_gt1_ratio": round(waterlevel_gt1 / len(water_states), 3),
+        "waterlevel_gt2_ratio": round(waterlevel_gt2 / len(water_states), 3),
+        "swim_arrow_nonzero_ratio": round(swim_nonzero / len(water_states), 3),
+        "emitted_upmove_nonzero_ratio": round(upmove_nonzero / len(water_states), 3),
+        "velocity_z_values": compact_unique(velocity_z),
+        "dir_move_z_values": compact_unique(dir_move_z),
     }
 
 
@@ -564,6 +626,7 @@ def write_moveprobe_command_logs(local_run_dir: Path) -> dict[str, object]:
                 f"yawDelta `{player['yaw_delta_values']}`, "
                 f"backward `{fmt_percent(player['backward_ratio'])}`, "
                 f"route `{player['route_state']}`, "
+                f"water `{player['water_state']}`, "
                 f"buttons `{player['button_values']}`, "
                 f"impulses `{player['impulse_values']}`"
             )

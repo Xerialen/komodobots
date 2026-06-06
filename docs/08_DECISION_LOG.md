@@ -965,3 +965,43 @@ S6d should either derive the missing water/swim context from existing artifacts 
 ### Revisit Conditions
 
 Revisit if Claude finds a bug in the S6c flag decoding or `.bot` edge attribution, if another S6b-style run fails to reproduce the water-path pattern, or if waterlevel/swim/upmove evidence shows that the low native `dir_speed` samples are not actually water-path movement intent.
+
+---
+
+## Decision
+
+Try a tiny water-edge upmove preservation probe before route-edge rewrites.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S6d reproduced the `/ bro` `water.LG` low-speed pattern on a fresh `dm3` mode `7` run and added water/swim context. The repeated water-path windows were shallow edge-water samples (`waterlevel` `[1]` or `[1, 2]`), not active deep swim: `swim_arrow=0`, no sampled `waterlevel > 2`, and emitted `upmove=0`.
+
+The next goal is S6e: preserve native Frogbot vertical command intent only for water-edge samples where stock KTX would have allowed vertical movement (`waterlevel > 1`), while keeping mode `7`'s horizontal no-backpedal bounded behavior unchanged. This is a targeted diagnostic/controller probe, not a new general movement heuristic.
+
+### Alternatives Considered
+
+- Treat S6d as enough evidence to rewrite the `276->59` route edge.
+- Add a generic mode `8` speed or command-magnitude change.
+- Force a fixed nonzero upmove everywhere in mode `7`.
+- Keep adding water fields before testing the most direct hypothesis.
+
+### Evidence
+
+S6d water-state attribution over run `20260606T041805Z`:
+
+- `/ bro` had `12` low-speed windows; all `5` analyzed top windows were near `water.LG`.
+- The analyzed `/ bro` windows had strong sampled horizontal commands near `824`, `WATER_PATH`, and `blocked=0`.
+- Repeated water-path groups had no sampled deep-water state, no swim-arrow intent, and `0.0%` emitted upmove.
+- Raw route `dir_move_z` was sometimes nonzero in the same windows; the current mode `7` code overwrites `direction[2]` from `k_fb_moveprobe_upmove`, defaulting to `0`.
+
+### Expected Consequences
+
+If S6e reduces or removes the repeated `water.LG` low-speed windows without hurting normal movement, water-edge vertical command preservation becomes the first targeted route-primitive fix candidate. If it does not, the next step should inspect `.bot` edge geometry around `276->59` and marker `59`, not tune upmove values.
+
+### Revisit Conditions
+
+Revisit if Claude finds that S6d's water-state fields are logged after a point that makes the inference invalid, if `waterlevel > 1` does not correspond to stock vertical command emission in KTX source, or if S6e changes movement outside the water-edge windows in a way that makes the comparison non-local.

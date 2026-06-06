@@ -1931,3 +1931,52 @@ Medium that water-path/swim handling is the cause of low movement realism, becau
 ### Follow-up
 
 Ask Claude to review S6c. Proposed S6d: inspect water-path movement intent around `water.LG` by adding or deriving minimal `waterlevel`, `swim_arrow`, `upmove`, velocity, and route `dir_move` context before changing mode `7`.
+
+## 2026-06-06 - S6d Water-Path Swim-Intent Diagnosis
+
+### Experiment
+
+Extended the sampled KTX `FBMOVEPROBE_CMD` rows with a `water=` suffix containing waterlevel, watertype, player flags, `swim_arrow`, emitted `upmove`, current velocity, and raw route `dir_move`. Reran a short `dm3` mode `7` probe as `20260606T041805Z`.
+
+The live KTX library was backed up before deployment and restored afterward; the restored live hash matched the backup hash `23d45401251ee802549c924f3179cf0cd76e0132dd7727778994c0464b8143e0`.
+
+### Result
+
+- `/ bro`: avg `183.9`, p95 `365.5`, low-speed `33.7%`, and `12` low-speed windows.
+- `/ goldenboy`: avg `286.5`, p95 `386.3`, low-speed `8.4%`, and `2` low-speed windows.
+- All `5` analyzed `/ bro` top windows were near `water.LG`, had strong sampled commands near `824`, had `blocked=0`, and included `WATER_PATH`.
+- The repeated `/ bro` water-path groups had waterlevel `[1]` or `[1, 2]`, no sampled `waterlevel > 2`, `swim_arrow=0`, and emitted `upmove=0`.
+- The lowest native `dir_speed` windows remained on or near `.bot` edge `276->59 idx=[0]`, with dir_speed averages `0.050`, `0.051`, and `0.064` in the sharpest windows.
+
+### Evidence
+
+Artifacts:
+
+- `experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json`
+- `experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.md`
+
+Validation:
+
+- `python -m unittest discover -s tests -v` -> 41 passed
+- `py_compile` on changed scripts/tests -> clean
+- external KTX `git apply --check` -> clean
+- `git diff --check` -> clean, with only CRLF normalization warnings
+- Remote KTX source checkout was clean after deployment; live `qwprogs.so` was restored to the backup hash.
+
+### Interpretation
+
+S6d does not support an active deep-swim explanation for the repeated `water.LG` windows. `BotWaterMove()` only sets `swim_arrow` once `waterlevel > 2`, and the analyzed window samples did not reach that depth.
+
+The sharper hypothesis is a shallow water-edge transition: mode `7` overwrites emitted `direction[2]` from `k_fb_moveprobe_upmove`, defaulting to `0`, while some failing samples have `waterlevel=2` and nonzero raw `dir_move_z`. The next useful experiment should preserve native water-edge vertical command intent in a tiny, bounded way and stop if it does not reduce the `water.LG` low-speed windows.
+
+### Confidence
+
+High that S6d water-state logging works and is parsed into nested command artifacts.
+
+High that the repeated `water.LG` failure reproduced on a fresh run with `WATER_PATH`, `blocked=0`, strong commands, no `swim_arrow`, and zero emitted upmove.
+
+Medium that preserving native water-edge upmove will help, because S6d did not log pre-probe stock `direction[2]` directly; it inferred the likely missing vertical command from KTX source and raw `dir_move_z`.
+
+### Follow-up
+
+Ask Claude to review S6d. Proposed S6e: add the smallest mode `7` water-edge upmove preservation probe, rerun one short `dm3` sample, and compare only the repeated `water.LG` low-speed windows. If it does not improve those windows, stop upmove tuning and inspect `.bot` edge geometry around `276->59`.

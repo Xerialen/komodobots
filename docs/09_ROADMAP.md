@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S6d - Water-path swim-intent diagnosis`
+`S6e - Water-edge upmove preservation probe`
 
 ## Stage Status Table
 
@@ -48,7 +48,7 @@ Current active stage:
 | S3 Bunnyjump Controller | Provisionally satisfied pending human anchor | S3g mode `7` passed `dm3` and `frobodm2` while preserving combat yaw, removing backward commands, and bounding sampled command magnitude near `824.6` |
 | S4 Human Comparison | First same-map anchor complete | S4c parsed one human `dm3` 4on4 demo and compared it against S3g `dm3`; S3g is not yet human-like on the observed movement ranges |
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
-| S6 Route Primitives | Active | S6c decoded repeated `/ bro` `water.LG` windows as `WATER_PATH` route behavior with low native `dir_speed`; S6d should inspect water/swim intent before controller tuning |
+| S6 Route Primitives | Active | S6d showed repeated `/ bro` `water.LG` windows are shallow water-edge samples with no swim_arrow and no emitted upmove; S6e should test native water-edge upmove preservation before route-edge rewrites |
 | S7 Player Specific | Pending | Player-style movement models |
 
 ## Roadmap Rule
@@ -76,4 +76,6 @@ S6b route-state logging ran `dm3` mode `7` as `20260606T031102Z`. The new `route
 
 S6c route-state attribution decoded `32768` as `WATER_PATH`, not `STUCK_PATH`, and grouped `3` `/ bro` `water.LG` low-speed windows around linked/goal marker `59`. The worst repeated windows use the `.bot` edge `276->59 idx=[0]`, have `blocked=0`, keep sampled command magnitude near `824`, and show low native `dir_speed` before the probe normalizes route direction.
 
-The next branch is S6d: inspect water-path/swim-intent context around `water.LG` before changing mode `7` or adding another command heuristic.
+S6d water-path diagnosis reran `dm3` mode `7` as `20260606T041805Z` with water/swim command logging. The repeated `/ bro` `water.LG` windows reproduced with `WATER_PATH`, `blocked=0`, and strong sampled commands. Window samples were waterlevel `[1]` or `[1, 2]`, never deep water, with `swim_arrow=0` and emitted `upmove=0`.
+
+The next branch is S6e: preserve native water-edge vertical command intent only when stock KTX would allow it (`waterlevel > 1`), rerun one short `dm3` probe, and compare the repeated `water.LG` windows. If that does not help, stop upmove tuning and inspect `.bot` edge geometry around `276->59`.

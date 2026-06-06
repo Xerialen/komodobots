@@ -38,6 +38,12 @@ S6b diagnostic rows also append minimal route-state context:
 FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=7 msec=12 angles=0.0,90.0,0.0 move=0,824,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,0 route=12,10,42,14,524288,8192,1,1.250
 ```
 
+S6d diagnostic rows further append water/swim context:
+
+```text
+FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=7 msec=12 angles=0.0,90.0,0.0 move=0,824,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,0 route=12,10,42,14,32768,128,0,0.050 water=3,-3,528,16,120.0,25.5,-4.0,80.0,0.100,0.200,0.300
+```
+
 Those rows are deliberately console-oriented, temporary probe output. They exist to compare stock, forced-jump, fixed-command, route-yaw, and aim-independent runs before building a real movement controller.
 
 Modes:
@@ -77,6 +83,8 @@ Mode `7` uses the same no-backpedal correction as mode `6`, then normalizes loca
 The S3e diagnostic suffix is shaped as `diag=<route_yaw>,<view_yaw>,<yaw_delta>,<backward>`. `backward=1` means the emitted local `forwardmove` is negative. `yaw_delta` and `view_yaw` are interpretable for aim-independent modes `5`, `6`, and `7`; route-yaw modes `3` and `4` overwrite view yaw from the route, so their deltas are structural noise.
 
 The S6b diagnostic suffix is shaped as `route=<linked_marker>,<touch_marker>,<goal_ed>,<goal_marker>,<path_state>,<bot_state>,<blocked>,<dir_speed>`. Marker ids are Frogbot marker indexes plus one, or `-1` when absent. `goal_ed` is the current Quake edict number from `self->s.v.goalentity`; `goal_marker` is that entity's marker when available. `blocked=1` means either the `STUCK_PATH` bit is present in `path_state` or `fb.obstruction_normal` is currently non-zero. This is trace context only, not a new movement mode.
+
+The S6d diagnostic suffix is shaped as `water=<waterlevel>,<watertype>,<flags>,<swim_arrow>,<emitted_upmove>,<velocity_x>,<velocity_y>,<velocity_z>,<dir_move_x>,<dir_move_y>,<dir_move_z>`. It exists to inspect whether `WATER_PATH` low-speed windows are shallow-water edge handling, active swim intent, missing vertical/upmove emission, route-edge geometry, or still unknown. `swim_arrow` uses the Frogbot `UP=16` / `DOWN=32` constants. `dir_move_*` is the raw Frogbot route movement vector sampled at command time.
 
 ## Runner
 
@@ -226,6 +234,12 @@ python scripts/attribute_route_state_windows.py --output-json experiments/ktx_mo
 ```
 
 S6c result: `path_state=32768` is `WATER_PATH`, not `STUCK_PATH`. The repeated `/ bro` `water.LG` pattern groups `3` low-speed windows around linked/goal marker `59`, with `.bot` edge `276->59 idx=[0]` in the worst windows, `blocked=0`, sampled command near `824`, and low native `dir_speed`. The next step is water-path/swim-intent diagnosis, not another command mode.
+
+S6d extends the same command log with the `water=` suffix and updates the attribution helper to summarize waterlevel, watertype, player water flags, swim arrow, emitted upmove, velocity, and raw `dir_move` in the same low-speed windows:
+
+```bash
+python scripts/attribute_route_state_windows.py --stage s6d-water-path --diagnosis-json artifacts/lab-runs/<run-id>/s6d-water-path-diagnosis.json --output-json experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json --output-md experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.md
+```
 
 ## Rollback
 

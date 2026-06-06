@@ -132,6 +132,15 @@ class RouteStateAttributionTests(unittest.TestCase):
                                     "blocked": False,
                                     "dir_speed": 0.05,
                                 },
+                                "water_state": {
+                                    "waterlevel": 3,
+                                    "watertype": -3,
+                                    "flags": 528,
+                                    "swim_arrow": 16,
+                                    "emitted_upmove": 120.0,
+                                    "velocity": {"x": 1.0, "y": 2.0, "z": 80.0},
+                                    "dir_move": {"x": 0.1, "y": 0.2, "z": 0.3},
+                                },
                             }
                         ]
                     }
@@ -152,7 +161,16 @@ class RouteStateAttributionTests(unittest.TestCase):
         self.assertEqual(attribution["patterns"][0]["goal_marker_values"], [2])
         self.assertTrue(attribution["patterns"][0]["contains_water_path"])
         self.assertEqual(attribution["patterns"][0]["blocked_ratio"], 0.0)
+        self.assertEqual(attribution["patterns"][0]["water_state"]["waterlevel_values"], [3])
+        self.assertEqual(attribution["patterns"][0]["water_state"]["watertype_names"], ["CONTENT_WATER"])
+        self.assertEqual(attribution["patterns"][0]["water_state"]["swim_arrow_names"], ["UP"])
+        self.assertEqual(attribution["patterns"][0]["water_state"]["emitted_upmove_nonzero_ratio"], 1.0)
+        self.assertEqual(attribution["windows"][0]["water_state"]["dir_move_z_avg"], 0.3)
         self.assertEqual(attribution["windows"][0]["route_samples"][0]["touch_to_link_path"]["path_indexes"], [0])
+        self.assertEqual(
+            attribution["windows"][0]["route_samples"][0]["water_state"]["flags"]["names"],
+            ["FL_INWATER", "FL_ONGROUND"],
+        )
 
 
 if __name__ == "__main__":

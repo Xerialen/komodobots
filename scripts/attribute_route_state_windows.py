@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Iterable
 
 
-SCHEMA = "komodobots.route_state_attribution.v1"
+SCHEMA = "komodobots.route_state_attribution.v2"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ARTIFACT_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
 DEFAULT_DIAGNOSIS = REPO_ROOT / "experiments" / "ktx_moveprobe" / "evidence" / "route-state-s6b-diagnosis.json"
@@ -53,6 +53,32 @@ BOT_STATE_SPECS = (
     (8192, "WAIT"),
 )
 
+PLAYER_FLAG_SPECS = (
+    (1, "FL_FLY"),
+    (2, "FL_SWIM"),
+    (8, "FL_CLIENT"),
+    (16, "FL_INWATER"),
+    (32, "FL_MONSTER"),
+    (512, "FL_ONGROUND"),
+    (1024, "FL_PARTIALGROUND"),
+    (2048, "FL_WATERJUMP"),
+)
+
+CONTENT_NAMES = {
+    -1: "CONTENT_EMPTY",
+    -2: "CONTENT_SOLID",
+    -3: "CONTENT_WATER",
+    -4: "CONTENT_SLIME",
+    -5: "CONTENT_LAVA",
+    -6: "CONTENT_SKY",
+}
+
+SWIM_ARROW_NAMES = {
+    0: "none",
+    16: "UP",
+    32: "DOWN",
+}
+
 EXTERNAL_PATH_FLAG_CHARS = {
     "w": "WATERJUMP_",
     "6": "DM6_DOOR",
@@ -91,6 +117,13 @@ def round_float(value: object, digits: int = 3) -> float:
     if not math.isfinite(number):
         return 0.0
     return round(number, digits)
+
+
+def coerce_int(value: object, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def decode_flags(value: object, specs: Iterable[tuple[int, str]]) -> dict[str, object]:
@@ -252,6 +285,82 @@ def route_sample(row: dict, bot_map: dict[str, object]) -> dict[str, object]:
         "linked_marker_info": marker_summary(linked, bot_map),
         "touch_marker_info": marker_summary(touch, bot_map),
         "goal_marker_info": marker_summary(goal_marker, bot_map),
+        "water_state": water_sample(row),
+    }
+
+
+def content_name(value: int) -> str:
+    return CONTENT_NAMES.get(value, f"unknown:{value}")
+
+
+def swim_arrow_name(value: int) -> str:
+    return SWIM_ARROW_NAMES.get(value, f"unknown:{value}")
+
+
+def vector_sample(state: dict[str, object], key: str) -> dict[str, float]:
+    vector = state.get(key, {}) if isinstance(state.get(key), dict) else {}
+    return {
+        "x": round_float(vector.get("x", 0.0), 3),
+        "y": round_float(vector.get("y", 0.0), 3),
+        "z": round_float(vector.get("z", 0.0), 3),
+    }
+
+
+def water_sample(row: dict) -> dict[str, object]:
+    state = row.get("water_state", {}) if isinstance(row.get("water_state"), dict) else {}
+    if not state:
+        return {"present": False}
+    watertype = coerce_int(state.get("watertype", 0))
+    swim_arrow = coerce_int(state.get("swim_arrow", 0))
+    flags = coerce_int(state.get("flags", 0))
+    return {
+        "present": True,
+        "waterlevel": coerce_int(state.get("waterlevel", 0)),
+        "watertype": {"value": watertype, "name": content_name(watertype)},
+        "flags": decode_flags(flags, PLAYER_FLAG_SPECS),
+        "swim_arrow": {"value": swim_arrow, "name": swim_arrow_name(swim_arrow)},
+        "emitted_upmove": round_float(state.get("emitted_upmove", 0.0), 1),
+        "velocity": vector_sample(state, "velocity"),
+        "dir_move": vector_sample(state, "dir_move"),
+    }
+
+
+def summarize_water_samples(samples: list[dict]) -> dict[str, object]:
+    water_samples = [
+        sample.get("water_state", {})
+        for sample in samples
+        if isinstance(sample.get("water_state", {}), dict) and sample.get("water_state", {}).get("present")
+    ]
+    if not water_samples:
+        return {"sample_count": 0}
+
+    waterlevels = [coerce_int(sample.get("waterlevel", 0)) for sample in water_samples]
+    swim_arrows = [coerce_int(sample.get("swim_arrow", {}).get("value", 0)) for sample in water_samples]
+    emitted_upmoves = [round_float(sample.get("emitted_upmove", 0.0), 1) for sample in water_samples]
+    velocity_z = [round_float(sample.get("velocity", {}).get("z", 0.0), 1) for sample in water_samples]
+    dir_move_z = [round_float(sample.get("dir_move", {}).get("z", 0.0), 3) for sample in water_samples]
+    sample_count = len(water_samples)
+    return {
+        "sample_count": sample_count,
+        "waterlevel_values": compact_values(waterlevels),
+        "watertype_values": compact_values(coerce_int(sample.get("watertype", {}).get("value", 0)) for sample in water_samples),
+        "watertype_names": compact_values(str(sample.get("watertype", {}).get("name", "")) for sample in water_samples),
+        "player_flag_names": compact_values(
+            name for sample in water_samples for name in sample.get("flags", {}).get("names", [])
+        ),
+        "swim_arrow_values": compact_values(swim_arrows),
+        "swim_arrow_names": compact_values(str(sample.get("swim_arrow", {}).get("name", "")) for sample in water_samples),
+        "emitted_upmove_values": compact_values(emitted_upmoves),
+        "waterlevel_gt1_ratio": round_float(sum(1 for value in waterlevels if value > 1) / sample_count),
+        "waterlevel_gt2_ratio": round_float(sum(1 for value in waterlevels if value > 2) / sample_count),
+        "swim_arrow_nonzero_ratio": round_float(sum(1 for value in swim_arrows if value != 0) / sample_count),
+        "emitted_upmove_nonzero_ratio": round_float(
+            sum(1 for value in emitted_upmoves if abs(value) > 0.01) / sample_count
+        ),
+        "velocity_z_avg": round_float(sum(velocity_z) / len(velocity_z) if velocity_z else 0.0, 1),
+        "velocity_z_values": compact_values(velocity_z),
+        "dir_move_z_avg": round_float(sum(dir_move_z) / len(dir_move_z) if dir_move_z else 0.0),
+        "dir_move_z_values": compact_values(dir_move_z),
     }
 
 
@@ -266,6 +375,7 @@ def classify_window(samples: list[dict]) -> dict[str, object]:
     blocked = any(sample["blocked"] for sample in samples)
     dir_speeds = [float(sample["dir_speed"]) for sample in samples]
     low_dir_ratio = sum(1 for value in dir_speeds if value < 0.25) / len(dir_speeds) if dir_speeds else 0.0
+    water_summary = summarize_water_samples(samples)
     if "WATER_PATH" in path_names and not blocked and "STUCK_PATH" not in path_names:
         classification = "water_path_without_obstruction"
     elif blocked or "STUCK_PATH" in path_names:
@@ -279,12 +389,20 @@ def classify_window(samples: list[dict]) -> dict[str, object]:
         notes.append("No sampled blocked/STUCK_PATH signal was present.")
     if low_dir_ratio:
         notes.append(f"{low_dir_ratio:.1%} of sampled commands had native dir_speed below 0.25 before the probe normalized direction.")
+    if water_summary.get("sample_count"):
+        if water_summary.get("waterlevel_gt2_ratio") == 0:
+            notes.append("No sampled command was deep water (waterlevel > 2), so BotWaterMove swim_arrow may be inactive.")
+        if water_summary.get("swim_arrow_nonzero_ratio") == 0:
+            notes.append("No sampled swim_arrow intent was active.")
+        if water_summary.get("emitted_upmove_nonzero_ratio") == 0:
+            notes.append("No sampled emitted upmove was active.")
     return {
         "classification": classification,
         "contains_water_path": "WATER_PATH" in path_names,
         "contains_stuck_path": "STUCK_PATH" in path_names,
         "blocked_sample_count": sum(1 for sample in samples if sample["blocked"]),
         "low_dir_speed_ratio": round_float(low_dir_ratio),
+        "water_state": water_summary,
         "notes": notes,
     }
 
@@ -309,6 +427,7 @@ def build_window_attribution(player: dict, window: dict, commands: dict, bot_map
     samples = [route_sample(row, bot_map) for row in rows if isinstance(row.get("route_state"), dict)]
     path_values = compact_values(sample["path_state"]["value"] for sample in samples)
     dir_speeds = [float(sample["dir_speed"]) for sample in samples]
+    water_summary = summarize_water_samples(samples)
     return {
         "player": player.get("name", ""),
         "rank": window.get("rank", ""),
@@ -328,6 +447,7 @@ def build_window_attribution(player: dict, window: dict, commands: dict, bot_map
         "dir_speed_avg": round_float(sum(dir_speeds) / len(dir_speeds) if dir_speeds else 0.0),
         "dir_speed_min": round_float(min(dir_speeds) if dir_speeds else 0.0),
         "dir_speed_max": round_float(max(dir_speeds) if dir_speeds else 0.0),
+        "water_state": water_summary,
         "route_samples": samples,
         "attribution": classify_window(samples),
     }
@@ -354,6 +474,13 @@ def group_patterns(windows: list[dict]) -> list[dict[str, object]]:
             for row in rows
             for sample in row.get("route_samples", [])
         ]
+        route_samples = [
+            sample
+            for row in rows
+            for sample in row.get("route_samples", [])
+            if isinstance(sample, dict)
+        ]
+        water_summary = summarize_water_samples(route_samples)
         avg_commands = [float(row.get("avg_horizontal_command") or 0.0) for row in rows]
         blocked_sample_count = sum(
             1
@@ -373,6 +500,13 @@ def group_patterns(windows: list[dict]) -> list[dict[str, object]]:
             notes.append(
                 f"{low_dir_speed_ratio:.1%} of grouped command samples had native dir_speed below 0.25 before the probe normalized direction."
             )
+        if water_summary.get("sample_count"):
+            if water_summary.get("waterlevel_gt2_ratio") == 0:
+                notes.append("No grouped command sample was deep water (waterlevel > 2).")
+            if water_summary.get("swim_arrow_nonzero_ratio") == 0:
+                notes.append("No grouped command sample had swim_arrow intent.")
+            if water_summary.get("emitted_upmove_nonzero_ratio") == 0:
+                notes.append("No grouped command sample emitted nonzero upmove.")
         patterns.append(
             {
                 "player": rows[0]["player"],
@@ -390,6 +524,7 @@ def group_patterns(windows: list[dict]) -> list[dict[str, object]]:
                 "low_dir_speed_ratio": round_float(low_dir_speed_ratio),
                 "dir_speed_avg": round_float(sum(dir_values) / len(dir_values) if dir_values else 0.0),
                 "dir_speed_min": round_float(min(dir_values) if dir_values else 0.0),
+                "water_state": water_summary,
                 "avg_horizontal_command_avg": round_float(
                     sum(avg_commands) / len(avg_commands) if avg_commands else 0.0,
                     1,
@@ -448,14 +583,14 @@ def build_attribution(args: argparse.Namespace) -> dict[str, object]:
 
     patterns = group_patterns(windows)
     interpretation = [
-        "S6c used the existing S6b run and source route definitions; no KTX patch or controller behavior changed.",
+        "This attribution is diagnostic-only; it decodes sampled route and water/swim state without adding a new movement mode.",
         "The repeated water.LG low-speed pattern decodes path_state 32768 as WATER_PATH, not STUCK_PATH.",
         "The repeated water-path windows have blocked=0, so obstruction recovery is not the current explanation.",
-        "In the worst repeated windows, native Frogbot dir_speed is very low before the probe normalizes direction, while sampled command magnitude remains strong.",
+        "When water_state samples are present, waterlevel/swim_arrow/upmove/velocity/dir_move context can distinguish shallow-water edge handling from active swim intent.",
     ]
     next_goal = (
-        "S6d should inspect water-path movement intent around water.LG by adding or deriving minimal waterlevel/"
-        "swim_arrow/upmove/velocity context before changing mode 7."
+        "S6e should use the S6d water/swim evidence to choose the smallest targeted fix: swim/upmove handling, route-edge "
+        "geometry diagnosis, or a repeated-run check if the water-path pattern is not reproduced."
     )
     return {
         "schema": SCHEMA,
@@ -465,7 +600,9 @@ def build_attribution(args: argparse.Namespace) -> dict[str, object]:
             "commands_json": portable_path(commands_path),
             "bot_map": portable_path(args.bot_map),
             "flag_definitions": portable_path(DEFAULT_KTX_ROOT / "include" / "fb_globals.h"),
+            "player_flag_definitions": portable_path(DEFAULT_KTX_ROOT / "include" / "g_consts.h"),
             "water_path_assignment": portable_path(DEFAULT_KTX_ROOT / "src" / "route_calc.c"),
+            "swim_arrow_assignment": portable_path(DEFAULT_KTX_ROOT / "src" / "bot_botwater.c"),
             "dir_speed_assignment": portable_path(DEFAULT_KTX_ROOT / "src" / "bot_movement.c"),
         },
         "marker_index_invariant": bot_map.get("marker_index_invariant", ""),
@@ -494,6 +631,12 @@ def pct(value: object) -> str:
         return ""
 
 
+def water_summary_label(summary: dict[str, object], key: str) -> object:
+    if not isinstance(summary, dict) or int(summary.get("sample_count", 0)) <= 0:
+        return ""
+    return summary.get(key, "")
+
+
 def write_markdown(attribution: dict[str, object], output_path: Path) -> None:
     lines = [
         f"# Route-State Attribution {attribution.get('stage', '')}",
@@ -513,10 +656,11 @@ def write_markdown(attribution: dict[str, object], output_path: Path) -> None:
         "",
         "## Repeated Patterns",
         "",
-        "| Player | Windows | Locations | Linked | Goal | Water | Stuck | Blocked | Low dir | Dir speed avg | Avg cmd | Classification |",
-        "|---|---:|---|---|---|---:|---:|---:|---:|---:|---:|---|",
+        "| Player | Windows | Locations | Linked | Goal | Water path | Water levels | Swim | Upmove | Dir z avg | Blocked | Low dir | Dir speed avg | Avg cmd | Classification |",
+        "|---|---:|---|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|---|",
     ]
     for pattern in attribution.get("patterns", []):
+        water = pattern.get("water_state", {}) if isinstance(pattern.get("water_state"), dict) else {}
         lines.append(
             "| "
             f"`{pattern.get('player', '')}` | "
@@ -525,7 +669,10 @@ def write_markdown(attribution: dict[str, object], output_path: Path) -> None:
             f"`{pattern.get('linked_marker_values', [])}` | "
             f"`{pattern.get('goal_marker_values', [])}` | "
             f"{'yes' if pattern.get('contains_water_path') else 'no'} | "
-            f"{'yes' if pattern.get('contains_stuck_path') else 'no'} | "
+            f"`{water_summary_label(water, 'waterlevel_values')}` | "
+            f"`{water_summary_label(water, 'swim_arrow_names')}` | "
+            f"{pct(water.get('emitted_upmove_nonzero_ratio')) if water else ''} | "
+            f"{water_summary_label(water, 'dir_move_z_avg')} | "
             f"{pct(pattern.get('blocked_ratio'))} | "
             f"{pct(pattern.get('low_dir_speed_ratio'))} | "
             f"{pattern.get('dir_speed_avg', 0)} | "
@@ -538,8 +685,8 @@ def write_markdown(attribution: dict[str, object], output_path: Path) -> None:
             "",
             "## Window Attribution",
             "",
-            "| Player | Rank | Window | Location | Avg cmd | Linked | Touch | Goal | Path state | Blocked | Dir speed avg | Classification |",
-            "|---|---:|---|---|---:|---|---|---|---|---:|---:|---|",
+            "| Player | Rank | Window | Location | Avg cmd | Linked | Touch | Goal | Path state | Water levels | Swim | Upmove | Dir z avg | Vel z avg | Blocked | Dir speed avg | Classification |",
+            "|---|---:|---|---|---:|---|---|---|---|---|---|---:|---:|---:|---:|---:|---|",
         ]
     )
     for window in attribution.get("windows", []):
@@ -547,6 +694,7 @@ def write_markdown(attribution: dict[str, object], output_path: Path) -> None:
             f"{row.get('value')}:{','.join(row.get('names', [])) or 'none'}"
             for row in window.get("path_state_values", [])
         ]
+        water = window.get("water_state", {}) if isinstance(window.get("water_state"), dict) else {}
         lines.append(
             "| "
             f"`{window.get('player', '')}` | "
@@ -558,6 +706,11 @@ def write_markdown(attribution: dict[str, object], output_path: Path) -> None:
             f"`{window.get('touch_marker_values', [])}` | "
             f"`{window.get('goal_marker_values', [])}` | "
             f"`{states}` | "
+            f"`{water_summary_label(water, 'waterlevel_values')}` | "
+            f"`{water_summary_label(water, 'swim_arrow_names')}` | "
+            f"{pct(water.get('emitted_upmove_nonzero_ratio')) if water else ''} | "
+            f"{water_summary_label(water, 'dir_move_z_avg')} | "
+            f"{water_summary_label(water, 'velocity_z_avg')} | "
             f"{pct(window.get('blocked_ratio'))} | "
             f"{window.get('dir_speed_avg', 0)} | "
             f"`{window.get('attribution', {}).get('classification', '')}` |"

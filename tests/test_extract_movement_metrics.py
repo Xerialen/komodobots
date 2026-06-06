@@ -218,7 +218,7 @@ class MovementMetricsTests(unittest.TestCase):
                 [
                     "noise before",
                     'FBMOVEPROBE_CMD time=12.250 ed=3 name=/ goldenboy mode=2 msec=13 angles=0.0,90.0,0.0 move=800,0,0 buttons=3 impulse=0',
-                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=5 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1 route=12,10,42,14,524288,8192,1,1.250',
+                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=5 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1 route=12,10,42,14,524288,8192,1,1.250 water=3,-3,528,16,120.0,25.5,-4.0,80.0,0.100,0.200,0.300',
                 ]
             )
         )
@@ -249,6 +249,13 @@ class MovementMetricsTests(unittest.TestCase):
                 "dir_speed": 1.25,
             },
         )
+        self.assertEqual(commands[1]["water_state"]["waterlevel"], 3)
+        self.assertEqual(commands[1]["water_state"]["watertype"], -3)
+        self.assertEqual(commands[1]["water_state"]["flags"], 528)
+        self.assertEqual(commands[1]["water_state"]["swim_arrow"], 16)
+        self.assertEqual(commands[1]["water_state"]["emitted_upmove"], 120.0)
+        self.assertEqual(commands[1]["water_state"]["velocity"], {"x": 25.5, "y": -4.0, "z": 80.0})
+        self.assertEqual(commands[1]["water_state"]["dir_move"], {"x": 0.1, "y": 0.2, "z": 0.3})
 
     def test_remote_port_down_treats_empty_or_down_as_free(self) -> None:
         original_run = run_frobodm2_lab.run

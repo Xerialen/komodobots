@@ -2,7 +2,7 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
 index c0654d1..3f6886d 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -422,6 +422,278 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +422,282 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -269,13 +269,17 @@ index c0654d1..3f6886d 100644
 +	G_cprint("FBMOVEPROBE_CMD time=%.3f ed=%d name=%s mode=%d msec=%d "
 +			 "angles=%.1f,%.1f,%.1f move=%d,%d,%d buttons=%d impulse=%d "
 +			 "diag=%.1f,%.1f,%.1f,%d "
-+			 "route=%d,%d,%d,%d,%d,%d,%d,%.3f\n",
++			 "route=%d,%d,%d,%d,%d,%d,%d,%.3f "
++			 "water=%d,%d,%d,%d,%.1f,%.1f,%.1f,%.1f,%.3f,%.3f,%.3f\n",
 +			 g_globalvars.time, ednum, self->netname, mode, cmd_msec,
 +			 PASSVEC3(self->fb.desired_angle), PASSINTVEC3(direction),
 +			 buttons, impulse, route_yaw, view_yaw, yaw_delta, backward,
 +			 BotMoveProbeMarkerIndex(self->fb.linked_marker),
 +			 BotMoveProbeMarkerIndex(self->fb.touch_marker), goalentity, goal_marker,
-+			 self->fb.path_state, self->fb.state, blocked, self->fb.dir_speed);
++			 self->fb.path_state, self->fb.state, blocked, self->fb.dir_speed,
++			 (int)self->s.v.waterlevel, (int)self->s.v.watertype, (int)self->s.v.flags,
++			 (int)self->fb.swim_arrow, direction[2],
++			 PASSVEC3(self->s.v.velocity), PASSVEC3(self->fb.dir_move_));
 +}
 +
  void BotSetCommand(gedict_t *self)

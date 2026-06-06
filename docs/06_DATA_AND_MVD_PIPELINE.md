@@ -117,12 +117,13 @@ Route-state diagnosis:
 
 Route-state attribution:
 
-- Schema: `komodobots.route_state_attribution.v1`
+- Schema: `komodobots.route_state_attribution.v2`
 - Script: `scripts/attribute_route_state_windows.py`
 - Inputs: S6 diagnosis JSON, the run's `moveprobe-commands.json`, and the Frogbot `.bot` route-map file
-- Output: decoded path/bot state flags, grouped repeated low-speed patterns, touch-to-linked `.bot` map edges, and a next missing-field/controller decision
+- Output: decoded path/bot state flags, grouped repeated low-speed patterns, touch-to-linked `.bot` map edges, optional water/swim state summaries, and a next missing-field/controller decision
 - S6c result: `32768` decodes to `WATER_PATH`, not `STUCK_PATH`; repeated `/ bro` `water.LG` windows use linked/goal marker `59`, often the `276->59` `.bot` edge, with `blocked=0` and low native `dir_speed`
 - S6c robustness: the helper documents the marker-index invariant used for `.bot` edge attribution, drops malformed command rows without `time_s`, and constrains JSON-derived default run ids to the lab run-id character set.
+- S6d result: water-state rows add `waterlevel`, `watertype`, player flags, `swim_arrow`, emitted `upmove`, velocity, and raw route `dir_move`; the repeated `/ bro` `water.LG` windows had waterlevel `[1]` or `[1, 2]`, no deep-water samples, no swim-arrow intent, and no emitted upmove.
 - Purpose: convert route-state tags into source-grounded attribution before changing mode `7`
 
 S2 moveprobe note:
@@ -401,6 +402,7 @@ Verified one-command parser behavior:
 20260606T001825Z: json=0 md=0 events=1 demo=70030 bytes map=frobodm2 moveprobe=6 sidemove=200 diagnostics=1 commands=197 movementPlayers=2
 20260606T003718Z: json=0 md=0 events=1 demo=69549 bytes map=dm3 moveprobe=7 sidemove=200 diagnostics=1 commands=195 movementPlayers=2
 20260606T003808Z: json=0 md=0 events=1 demo=66511 bytes map=frobodm2 moveprobe=7 sidemove=200 diagnostics=1 commands=197 movementPlayers=2
+20260606T041805Z: json=0 md=0 events=1 demo=66369 bytes map=dm3 moveprobe=7 sidemove=200 diagnostics=1 route=1 water=1 commands=196 movementPlayers=2
 ```
 
 For now, `events=1` with stderr `qw-analyze: end of demo` is accepted if `events.txt` is written and JSON/Markdown exits are zero. JSON is the canonical smoke-run parser artifact.
@@ -517,6 +519,9 @@ Fresh S2 emitted-command evidence:
 
 20260606T003808Z frobodm2 moveprobe mode 7, sidemove=200, S3g bounded no-backpedal:
   both bots passed; / bro maxMove=824.5 back=0.0% yawDeltaAvg=59.9 yawDeltaP90=135.5 low=5.5%; / goldenboy maxMove=824.6 back=0.0% yawDeltaAvg=65.8 yawDeltaP90=149.3 low=2.7%
+
+20260606T041805Z dm3 moveprobe mode 7, sidemove=200, S6d water-state diagnostics:
+  / bro repeated water.LG windows had WATER_PATH, blocked=0, strong command near 824, waterlevels [1] or [1,2], swim_arrow=0, and emitted upmove=0; / goldenboy had no repeated WATER_PATH water.LG pattern
 ```
 
 ## Open questions

@@ -239,6 +239,19 @@ Result:
 
 Interpretation: the current gap is not missing final command magnitude and not obvious obstruction recovery. The strongest repeated S6b pattern is a water-path route primitive where native Frogbot movement intent magnitude collapses before the mode `7` probe normalizes direction. The next useful step is to inspect water-path/swim intent (`waterlevel`, `swim_arrow`, `upmove`, velocity/dir_move context) around `water.LG`, not to add a new command mode.
 
+## S6d Water-Path Swim-Intent Diagnosis
+
+S6d extended command logging with `waterlevel`, `watertype`, player flags, `swim_arrow`, emitted `upmove`, velocity, and raw route `dir_move`, then reran a short `dm3` mode `7` probe (`20260606T041805Z`).
+
+Result:
+
+- `/ bro` again produced repeated top low-speed windows at `water.LG`, all with strong sampled horizontal commands near `824`, `WATER_PATH`, and `blocked=0`.
+- The grouped `/ bro` water-path windows had waterlevel values `[1]` or `[1, 2]`, no deep-water window samples (`waterlevel > 2`), `swim_arrow=0`, and emitted `upmove=0`.
+- The worst repeated windows stayed on or near `.bot` edge `276->59 idx=[0]`, with native `dir_speed` averages as low as `0.050` to `0.064`.
+- Raw `dir_move_z` was not always zero in these windows, but mode `7` currently overwrites emitted `direction[2]` from `k_fb_moveprobe_upmove`, whose default is `0`.
+
+Interpretation: the repeated `water.LG` failure is not active deep-water swimming, because `BotWaterMove()` only sets `swim_arrow` after `waterlevel > 2` and no such window samples were observed. The sharper S6d hypothesis is a shallow water-edge route transition where mode `7` may be suppressing native vertical movement at `waterlevel == 2`. The next useful experiment is a tiny water-edge upmove preservation probe, not generic speed tuning.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.
