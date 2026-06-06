@@ -433,7 +433,7 @@ The current runner uses session names shaped like `komodobots_lab_<port>_<run-id
 - Determinism is unknown. The lab must record seed/config/server version details before comparing movement runs.
 - Stock `dm2` can load, record, and parse, but it is not a Frogbot-supported route target in this environment. User confirmed there is no point building routes for it now.
 - A first-pass movement report schema exists, but it is still position-derived and does not yet infer ground-truth jump commands, grounded state, or usercmd intent.
-- The S2 v2c moveprobe proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`, and that route-derived yaw can pass provisional command/plausibility gates on two routed maps. S3 mode `4` proves nonzero alternating side commands can also be emitted; S3c indicates `sidemove=200` is repeatable across `frobodm2` and `dm3`. S3d/S3e mode `5` proves aim-independent route/strafe commands can be emitted and diagnosed, but behavior remains split. S3f mode `6` passes the current gate by removing backpedal commands, but command magnitudes are not yet realistic. Aim/combat separation and bunnyjumping remain open.
+- The S2 v2c moveprobe proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`, and that route-derived yaw can pass provisional command/plausibility gates on two routed maps. S3 mode `4` proves nonzero alternating side commands can also be emitted; S3c indicates `sidemove=200` is repeatable across `frobodm2` and `dm3`. S3d/S3e mode `5` proves aim-independent route/strafe commands can be emitted and diagnosed, but behavior remains split. S3f mode `6` removes backpedal commands but emits large folded side commands. S3g mode `7` bounds those commands and passes both routed maps, so the next gap is human-demo comparison rather than more command tuning.
 
 ## Troubleshooting
 
@@ -461,4 +461,4 @@ Move the repeatable runner one notch closer to the north star:
 
 1. Keep `dm2` as a `qw-sim` continuity map, not as a Frogbot route-building target.
 2. Use routed maps such as `frobodm2` and `dm3` to generate bot movement demos.
-3. Run S3g bounded-command no-backpedal correction: preserve S3f's forward-hemisphere behavior, but cap or normalize local command magnitudes before repeating `dm3` and `frobodm2`.
+3. Start S4a human-demo comparison scaffolding: inventory candidate human MVDs, parse at least one through the movement pipeline, and record whether a real DM2 comparison set is present or missing.

@@ -552,3 +552,42 @@ S3g is the last planned command-magnitude probe before a branch point. Continuin
 ### Revisit Conditions
 
 Revisit if a bounded no-backpedal variant fails both maps, if side-command caps reintroduce low-speed behavior, if command values are already being clamped downstream in a way that makes local magnitude tuning misleading, or if S3 produces another green gate without a clearer path to human-anchored plausibility.
+
+---
+
+## Decision
+
+Branch from S3 command probes to S4 human comparison scaffolding.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+Treat S3g mode `7` as the best current S3 movement-literacy candidate and stop adding command-magnitude heuristics until the lab has a human-demo comparison anchor.
+
+The next goal is S4a: inventory human MVD candidates, parse at least one defensible human demo through the movement-metrics pipeline, and record whether a true DM2 comparison set is available or missing.
+
+### Alternatives Considered
+
+- Promote mode `7` as a believable movement controller.
+- Add more mode `7` tuning, such as cadence, cap, or route-state variants.
+- Inspect Frogbot route/obstruction state before human comparison.
+- Jump directly to Milton or a learned movement controller.
+
+### Evidence
+
+S3g runs with mode `7 --moveprobe-sidemove 200`:
+
+- `20260606T003718Z`, `dm3`: both bots passed. `/ bro` low-speed improved from S3f `38.3%` to `26.1%`; `/ goldenboy` improved from `24.4%` to `18.9%`. Both had `0.0%` backward commands and max horizontal command `824.5`.
+- `20260606T003808Z`, `frobodm2`: both bots passed. `/ bro` low-speed improved from S3f `13.8%` to `5.5%`; `/ goldenboy` improved from `26.8%` to `2.7%`. Max horizontal command stayed near `824.6`.
+- Local human/demo candidates exist under `C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos`, but the visible filenames are `aerowalk`, `e1m2`, and trick demos rather than a clear DM2 comparison set.
+
+### Expected Consequences
+
+The lab should move from self-defined movement gates toward a human-anchored comparison. If no DM2 human set is present locally, S4a should record that gap explicitly and either use a smaller non-DM2 parser proof or prepare the acquisition criteria for a real DM2 set.
+
+### Revisit Conditions
+
+Revisit S3 command work only after human comparison shows a specific mismatch that mode `7` cannot explain, or if S4a cannot parse human MVDs with the current pipeline.

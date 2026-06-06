@@ -806,7 +806,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument(
         "--moveprobe-mode",
         type=int,
-        choices=(0, 1, 2, 3, 4, 5, 6),
+        choices=(0, 1, 2, 3, 4, 5, 6, 7),
         default=0,
         help=(
             "Set k_fb_moveprobe_mode in the generated KTX lab config. "
@@ -814,7 +814,8 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
             "0=off, 1=force jump, 2=fixed movement command, "
             "3=route-yaw movement command, 4=route-yaw alternating strafe, "
             "5=aim-independent route/strafe projection, "
-            "6=mode 5 with negative forward folded into sidemove."
+            "6=mode 5 with negative forward folded into sidemove, "
+            "7=mode 6 with bounded horizontal command magnitude."
         ),
     )
     parser.add_argument(
@@ -823,7 +824,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         default=0.0,
         help=(
             "Yaw used only by movement-probe mode 2. Modes 3 and 4 derive yaw "
-            "from Frogbot route intent; modes 5 and 6 preserve combat view yaw. "
+            "from Frogbot route intent; modes 5, 6, and 7 preserve combat view yaw. "
             "Defaults to 0."
         ),
     )
@@ -831,19 +832,19 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         "--moveprobe-forwardmove",
         type=int,
         default=800,
-        help="forwardmove used by movement-probe modes 2, 3, 4, 5, and 6. Defaults to 800.",
+        help="forwardmove used by movement-probe modes 2, 3, 4, 5, 6, and 7. Defaults to 800.",
     )
     parser.add_argument(
         "--moveprobe-sidemove",
         type=int,
         default=0,
-        help="sidemove used by movement-probe modes 2, 3, 4, 5, and 6. Mode 4 treats 0 as 400. Defaults to 0.",
+        help="sidemove used by movement-probe modes 2, 3, 4, 5, 6, and 7. Mode 4 treats 0 as 400. Defaults to 0.",
     )
     parser.add_argument(
         "--moveprobe-upmove",
         type=int,
         default=0,
-        help="upmove used by movement-probe modes 2, 3, 4, 5, and 6. Defaults to 0.",
+        help="upmove used by movement-probe modes 2, 3, 4, 5, 6, and 7. Defaults to 0.",
     )
     parser.add_argument(
         "--moveprobe-log-commands",

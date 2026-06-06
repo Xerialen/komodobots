@@ -2,7 +2,7 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
 index c0654d1..3f6886d 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -422,6 +422,238 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +422,256 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -107,7 +107,7 @@ index c0654d1..3f6886d 100644
 +		*jumping = true;
 +	}
 +
-+	else if ((mode == 5) || (mode == 6))
++	else if ((mode == 5) || (mode == 6) || (mode == 7))
 +	{
 +		vec3_t route_direction;
 +		vec3_t route_right;
@@ -152,7 +152,7 @@ index c0654d1..3f6886d 100644
 +		direction[1] = DotProduct(g_globalvars.v_right, desired_move);
 +		direction[2] = cvar("k_fb_moveprobe_upmove");
 +
-+		if ((mode == 6) && (direction[0] < 0))
++		if (((mode == 6) || (mode == 7)) && (direction[0] < 0))
 +		{
 +			float side_sign = direction[1] < 0 ? -1 : 1;
 +
@@ -162,6 +162,24 @@ index c0654d1..3f6886d 100644
 +			}
 +			direction[1] += -direction[0] * side_sign;
 +			direction[0] = 0;
++		}
++
++		if (mode == 7)
++		{
++			vec3_t command_horizontal;
++			float max_horizontal = VectorLength(desired_move);
++			float command_horizontal_speed;
++
++			command_horizontal[0] = direction[0];
++			command_horizontal[1] = direction[1];
++			command_horizontal[2] = 0;
++			command_horizontal_speed = VectorLength(command_horizontal);
++			if ((max_horizontal > 0) && (command_horizontal_speed > max_horizontal))
++			{
++				float scale = max_horizontal / command_horizontal_speed;
++				direction[0] *= scale;
++				direction[1] *= scale;
++			}
 +		}
 +
 +		*jumping = true;
@@ -225,7 +243,7 @@ index c0654d1..3f6886d 100644
 +	if (VectorNormalize(route_direction) > 0)
 +	{
 +		route_yaw = anglemod(vectoyaw(route_direction));
-+		// yaw_delta is interpretable for aim-independent modes 5/6. Route-yaw
++		// yaw_delta is interpretable for aim-independent modes 5/6/7. Route-yaw
 +		// modes set view yaw from route yaw, so their deltas are structural noise.
 +		yaw_delta = BotMoveProbeAngleDelta(route_yaw, view_yaw);
 +	}

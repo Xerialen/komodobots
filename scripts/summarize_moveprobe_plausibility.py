@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from collections import Counter
 from pathlib import Path
@@ -125,6 +126,13 @@ def summarize_player(
     side_nonzero_count = sum(1 for row in command_rows if int(row.get("move", {}).get("side", 0)) != 0)
     backward_count = sum(1 for row in command_rows if int(row.get("move", {}).get("forward", 0)) < 0)
     jump_count = sum(1 for row in command_rows if int(row.get("buttons", 0)) & 2)
+    move_vectors = [
+        (
+            int(row.get("move", {}).get("forward", 0)),
+            int(row.get("move", {}).get("side", 0)),
+        )
+        for row in command_rows
+    ]
     yaw_values = {
         round(float(row.get("angles", {}).get("yaw", 0.0)), 1)
         for row in command_rows
@@ -146,6 +154,12 @@ def summarize_player(
     yaw_delta_abs_avg = sum(yaw_delta_values) / len(yaw_delta_values) if yaw_delta_values else 0.0
     yaw_delta_abs_p90 = percentile(yaw_delta_values, 0.90)
     yaw_delta_over_90_ratio = ratio(sum(1 for value in yaw_delta_values if value > 90.0), len(yaw_delta_values))
+    max_abs_forward_command = max((abs(forward) for forward, _side in move_vectors), default=0)
+    max_abs_side_command = max((abs(side) for _forward, side in move_vectors), default=0)
+    max_horizontal_command = max(
+        (math.hypot(forward, side) for forward, side in move_vectors),
+        default=0.0,
+    )
 
     reasons: list[str] = []
     if command_count == 0:
@@ -179,6 +193,9 @@ def summarize_player(
         "yaw_delta_abs_avg": round(yaw_delta_abs_avg, 1),
         "yaw_delta_abs_p90": round(yaw_delta_abs_p90, 1),
         "yaw_delta_over_90_ratio": round(yaw_delta_over_90_ratio, 3),
+        "max_abs_forward_command": max_abs_forward_command,
+        "max_abs_side_command": max_abs_side_command,
+        "max_horizontal_command": round(max_horizontal_command, 1),
         "avg_horizontal_speed_qu_per_s": movement_row.get("avg_horizontal_speed_qu_per_s", 0.0),
         "p95_horizontal_speed_qu_per_s": movement_row.get("p95_horizontal_speed_qu_per_s", 0.0),
         "stationary_time_ratio": movement_row.get("stationary_time_ratio", 0.0),
@@ -271,8 +288,8 @@ def build_markdown(summary: dict[str, object]) -> str:
         "Expected forward defaults to each run's `MOVEPROBE_FORWARDMOVE`, falling back to `800`.",
         "For aim-independent probes with variable local forward values, set `--min-forward-ratio 0` and use `--min-horizontal-ratio` instead.",
         "",
-        "| Run | Map | Mode | Player | Gate | Cmds | Forward | Move | Side | Back | Jump | Yaws | Abs delta avg | Abs delta p90 | >90 | Avg | P95 | Stationary | Low | Air | Reasons |",
-        "|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
+        "| Run | Map | Mode | Player | Gate | Cmds | Forward | Move | Side | Back | Jump | Yaws | MaxF | MaxS | MaxMove | Abs delta avg | Abs delta p90 | >90 | Avg | P95 | Stationary | Low | Air | Reasons |",
+        "|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
     ]
     for run in summary.get("runs", []):
         for warning in run.get("warnings", []):
@@ -289,6 +306,9 @@ def build_markdown(summary: dict[str, object]) -> str:
                 f"{fmt_percent(player.get('backward_command_ratio'))} | "
                 f"{fmt_percent(player.get('jump_button_ratio'))} | "
                 f"`{player.get('yaw_unique_count')}` | "
+                f"`{player.get('max_abs_forward_command')}` | "
+                f"`{player.get('max_abs_side_command')}` | "
+                f"`{fmt_number(player.get('max_horizontal_command'))}` | "
                 f"`{fmt_number(player.get('yaw_delta_abs_avg'))}` | "
                 f"`{fmt_number(player.get('yaw_delta_abs_p90'))}` | "
                 f"{fmt_percent(player.get('yaw_delta_over_90_ratio'))} | "

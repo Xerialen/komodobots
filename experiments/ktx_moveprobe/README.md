@@ -45,15 +45,16 @@ Modes:
 | `4` | S3a probe: set yaw from Frogbot route intent, emit forward plus alternating side commands, and force jump. This is a bounded strafe/jump primitive, not a final bunnyjump controller. |
 | `5` | S3d probe: preserve combat view yaw, project route/strafe intent into local forward/sidemove commands, and force jump. This tests aim-independent movement math, not a final controller. |
 | `6` | S3f probe: start from mode `5`, but when the projected local forward command is negative, fold that backpedal amount into sidemove and clamp forward to `0`. This tests a no-backpedal correction, not a final controller. |
+| `7` | S3g probe: start from mode `6`, then cap horizontal command magnitude to the original route/strafe intent magnitude. This tests whether no-backpedal survives without very large folded sidemove. |
 
-Mode `2`, `3`, `4`, `5`, and `6` cvars:
+Mode `2`, `3`, `4`, `5`, `6`, and `7` cvars:
 
 | Cvar | Default in runner | Meaning |
 |---|---:|---|
 | `k_fb_moveprobe_yaw` | `0` | Bot view yaw used for fixed-command mode `2`. |
-| `k_fb_moveprobe_forwardmove` | `800` | Forward command sent to `trap_SetBotCMD` in modes `2`, `3`, and `4`; route-intent scale for modes `5` and `6`. |
-| `k_fb_moveprobe_sidemove` | `0` | Side command sent to `trap_SetBotCMD` in modes `2` and `3`; mode `4` treats `0` as a default alternating `+/-400`; modes `5` and `6` use the value as a route-relative strafe component. |
-| `k_fb_moveprobe_upmove` | `0` | Up command sent to `trap_SetBotCMD` in modes `2`, `3`, `4`, `5`, and `6`. |
+| `k_fb_moveprobe_forwardmove` | `800` | Forward command sent to `trap_SetBotCMD` in modes `2`, `3`, and `4`; route-intent scale for modes `5`, `6`, and `7`. |
+| `k_fb_moveprobe_sidemove` | `0` | Side command sent to `trap_SetBotCMD` in modes `2` and `3`; mode `4` treats `0` as a default alternating `+/-400`; modes `5`, `6`, and `7` use the value as a route-relative strafe component. |
+| `k_fb_moveprobe_upmove` | `0` | Up command sent to `trap_SetBotCMD` in modes `2`, `3`, `4`, `5`, `6`, and `7`. |
 | `k_fb_moveprobe_log_commands` | `0` | When `1`, print sampled final command rows before `trap_SetBotCMD`. |
 | `k_fb_moveprobe_log_interval` | `0.25` | Minimum seconds between command log samples per bot. Use `0` for every command. |
 
@@ -65,7 +66,9 @@ Mode `5` preserves `self->fb.desired_angle` instead of setting route yaw. It bui
 
 Mode `6` uses the same aim-independent projection as mode `5`, then clamps negative local `forwardmove` to `0` and transfers the removed magnitude into local `sidemove`. This keeps the bot from deliberately backpedaling when route intent is behind its preserved view angle.
 
-The S3e diagnostic suffix is shaped as `diag=<route_yaw>,<view_yaw>,<yaw_delta>,<backward>`. `backward=1` means the emitted local `forwardmove` is negative. `yaw_delta` and `view_yaw` are interpretable for aim-independent modes `5` and `6`; route-yaw modes `3` and `4` overwrite view yaw from the route, so their deltas are structural noise.
+Mode `7` uses the same no-backpedal correction as mode `6`, then normalizes local horizontal command magnitude back down to the intended route/strafe magnitude. With the usual `forwardmove=800 sidemove=200`, the expected cap is about `825`.
+
+The S3e diagnostic suffix is shaped as `diag=<route_yaw>,<view_yaw>,<yaw_delta>,<backward>`. `backward=1` means the emitted local `forwardmove` is negative. `yaw_delta` and `view_yaw` are interpretable for aim-independent modes `5`, `6`, and `7`; route-yaw modes `3` and `4` overwrite view yaw from the route, so their deltas are structural noise.
 
 ## Runner
 
@@ -79,6 +82,7 @@ python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-s
 python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 4 --moveprobe-log-commands
 python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 5 --moveprobe-sidemove 200 --moveprobe-log-commands
 python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 6 --moveprobe-sidemove 200 --moveprobe-log-commands
+python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 7 --moveprobe-sidemove 200 --moveprobe-log-commands
 ```
 
 Each run records the mode and command values in `run.env`, `lab.cfg`, and `run-summary.md`.
@@ -114,6 +118,8 @@ Known v2a comparison runs:
 | `20260606T000414Z` | `5` | S3e `dm3` diagnostics; both bots passed command gates but failed low-speed, with the strongest yaw/backward signal on `/ bro`. |
 | `20260606T001705Z` | `6` | S3f `dm3` no-backpedal correction; both bots passed with `0.0%` backward commands, one SG frag. |
 | `20260606T001825Z` | `6` | S3f `frobodm2` no-backpedal correction; both bots passed with `0.0%` backward commands, one GL frag. |
+| `20260606T003718Z` | `7` | S3g `dm3` bounded no-backpedal correction; both bots passed, `MaxMove` stayed about `824.5`, one SG frag. |
+| `20260606T003808Z` | `7` | S3g `frobodm2` bounded no-backpedal correction; both bots passed, `MaxMove` stayed about `824.6`. |
 
 ## Plausibility summary
 
@@ -135,7 +141,7 @@ Default gate thresholds are intentionally simple and provisional:
 
 By default, `--expected-forward` is derived from each run's `MOVEPROBE_FORWARDMOVE` in `run.env` and falls back to `800`. Pass `--expected-forward` explicitly when summarizing older or custom artifacts whose intended forward command is not recorded.
 
-For mode `5`, use `--min-forward-ratio 0 --min-horizontal-ratio 0.8 --min-side-ratio 0.8`, because the preserved view yaw makes exact local `forwardmove=800` coverage the wrong signal.
+For modes `5`, `6`, and `7`, use `--min-forward-ratio 0 --min-horizontal-ratio 0.8 --min-side-ratio 0.8`, because the preserved view yaw makes exact local `forwardmove=800` coverage the wrong signal.
 
 The helper matches movement rows to command rows by movement `user_id` and command `ed` when both are available. For older artifacts without those IDs it falls back to bot netname, so duplicate bot names are ambiguous and should be avoided in comparison runs.
 
@@ -181,7 +187,15 @@ python scripts/summarize_moveprobe_plausibility.py 20260606T001705Z 20260606T001
 
 S3f interpretation: mode `6` passes both routed maps and removes sampled backward commands, but folded side commands can reach roughly `1100`. The next proposed probe is S3g: bound or normalize local command magnitudes while preserving the no-backpedal property.
 
-Committed derived summaries live under `experiments/ktx_moveprobe/evidence/` for S3e and S3f. Raw MVDs and full run directories stay ignored under `artifacts/`.
+The S3g bounded no-backpedal correction uses mode `7` and the same gate:
+
+```bash
+python scripts/summarize_moveprobe_plausibility.py 20260606T003718Z 20260606T003808Z --min-forward-ratio 0 --min-horizontal-ratio 0.8 --min-side-ratio 0.8 --output-md artifacts/lab-runs/moveprobe-s3g-summary.md
+```
+
+S3g interpretation: mode `7` passes both routed maps while keeping sampled horizontal command magnitude near the intended `824.6` cap. This is a better S3 candidate than mode `6`, but the next step should anchor the gate against human-demo movement before more command tuning.
+
+Committed derived summaries live under `experiments/ktx_moveprobe/evidence/` for S3e, S3f, and S3g. Raw MVDs and full run directories stay ignored under `artifacts/`.
 
 ## Rollback
 

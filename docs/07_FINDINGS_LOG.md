@@ -1136,3 +1136,77 @@ Low for the realism of the current folded side magnitudes.
 ### Follow-up
 
 Ask Claude to review S3f. Proposed S3g: keep the no-backpedal correction, but add a bounded-command variant that caps or normalizes local `forwardmove`/`sidemove` magnitudes after projection. Rerun `dm3` and `frobodm2` with the same gates and compare against mode `6`. Treat S3g as the final command-magnitude probe before branching to route/obstruction inspection or S4 human comparison; do not keep tuning tiny command heuristics only to satisfy the current gates.
+
+## 2026-06-06 - S3g Bounded No-Backpedal Command Probe
+
+### Experiment
+
+Added moveprobe mode `7`, a bounded variant of mode `6`.
+
+Mode `7` preserves combat view yaw, uses the same route/strafe projection as mode `5`, applies the same no-backpedal fold as mode `6`, then normalizes local horizontal command magnitude back down to the original route/strafe intent magnitude. With `forwardmove=800` and `sidemove=200`, the expected cap is about `824.6`.
+
+Temporarily deployed the patched KTX build and ran `dm3` first. Because `dm3` passed and the magnitude cap held, repeated on `frobodm2`:
+
+```bash
+python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 7 --moveprobe-sidemove 200 --moveprobe-log-commands --moveprobe-log-interval 0.25
+python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 7 --moveprobe-sidemove 200 --moveprobe-log-commands --moveprobe-log-interval 0.25
+python scripts/summarize_moveprobe_plausibility.py 20260606T003718Z 20260606T003808Z --min-forward-ratio 0 --min-horizontal-ratio 0.8 --min-side-ratio 0.8 --output-md artifacts/lab-runs/moveprobe-s3g-summary.md
+```
+
+### Result
+
+`dm3`, run `20260606T003718Z`:
+
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Command rows parsed: `195`.
+- `/ bro`: PASS, horizontal/side/jump coverage `98.2%`, backward commands `0.0%`, max horizontal command `824.5`, absolute yaw-delta avg `85.8`, p90 `157.7`, avg `190.1` qu/s, p95 `361.0` qu/s, stationary `0.4%`, low-speed `26.1%`.
+- `/ goldenboy`: PASS, horizontal/side/jump coverage `94.2%`, backward commands `0.0%`, max horizontal command `824.5`, absolute yaw-delta avg `77.8`, p90 `157.5`, avg `248.2` qu/s, p95 `375.3` qu/s, stationary `2.5%`, low-speed `18.9%`.
+- One SG frag: `/ bro` killed `/ goldenboy` at `12846` ms.
+
+`frobodm2`, run `20260606T003808Z`:
+
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Command rows parsed: `197`.
+- `/ bro`: PASS, horizontal/side/jump coverage `99.1%`, backward commands `0.0%`, max horizontal command `824.5`, absolute yaw-delta avg `59.9`, p90 `135.5`, avg `322.0` qu/s, p95 `386.2` qu/s, stationary `0.1%`, low-speed `5.5%`.
+- `/ goldenboy`: PASS, horizontal/side/jump coverage `98.9%`, backward commands `0.0%`, max horizontal command `824.6`, absolute yaw-delta avg `65.8`, p90 `149.3`, avg `312.1` qu/s, p95 `392.5` qu/s, stationary `0.0%`, low-speed `2.7%`.
+- No frags recorded.
+
+After both deployments:
+
+```text
+deployed qwprogs hash matched backup
+servexeri ~/nquakesv/build/ktx: clean master...origin/master
+quakestat localhost:28599: DOWN
+```
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/lab-runs/20260606T003718Z/run-summary.md`
+- `artifacts/lab-runs/20260606T003718Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260606T003718Z/movement-metrics.md`
+- `artifacts/lab-runs/20260606T003808Z/run-summary.md`
+- `artifacts/lab-runs/20260606T003808Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260606T003808Z/movement-metrics.md`
+- `artifacts/lab-runs/moveprobe-s3g-summary.md`
+- `experiments/ktx_moveprobe/evidence/moveprobe-s3g-summary.md`
+- `experiments/ktx_moveprobe/evidence/moveprobe-s3g-summary.json`
+
+### Interpretation
+
+S3g is stronger than S3f as an S3 movement-literacy candidate. It preserves combat yaw, removes sampled backward commands, passes the current gate on both routed maps, and bounds sampled horizontal command magnitude near `824.6` instead of relying on folded side values around `1100`.
+
+This is still not a realism verdict. The current gate is project-defined and lacks a human reference distribution. More command tuning would risk optimizing the gate rather than proving believability.
+
+### Confidence
+
+High for the claim that mode `7` passes the current S3 gate on `dm3` and `frobodm2` while bounding sampled command magnitude.
+
+Medium for treating mode `7` as the best current S3 movement-literacy candidate.
+
+Low for any claim that mode `7` is human-like before human-demo comparison.
+
+### Follow-up
+
+Ask Claude to review S3g. Proposed S4a: build the first human-demo comparison scaffold. Inventory candidate human MVDs, starting with local files under `C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos`, parse one or more through the existing MVD movement pipeline, record whether a real DM2 human comparison set is present or missing, and compare S3g bot movement metrics against whatever human baseline is defensible. Do not add another movement-command heuristic until the gate has a human anchor.

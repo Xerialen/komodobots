@@ -241,7 +241,11 @@ class MoveprobePlausibilityTests(unittest.TestCase):
         self.assertEqual(player["yaw_delta_sample_count"], 12)
         self.assertEqual(player["yaw_delta_abs_avg"], 90.0)
         self.assertEqual(player["yaw_delta_over_90_ratio"], 0.5)
+        self.assertEqual(player["max_abs_forward_command"], 400)
+        self.assertEqual(player["max_abs_side_command"], 200)
+        self.assertEqual(player["max_horizontal_command"], 447.2)
         self.assertIn("Abs delta avg", markdown)
+        self.assertIn("MaxMove", markdown)
 
 
 if __name__ == "__main__":

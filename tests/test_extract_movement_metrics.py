@@ -148,7 +148,7 @@ class MovementMetricsTests(unittest.TestCase):
         args = run_frobodm2_lab.parse_args(
             [
                 "--moveprobe-mode",
-                "6",
+                "7",
                 "--moveprobe-yaw",
                 "90",
                 "--moveprobe-forwardmove",
@@ -160,7 +160,7 @@ class MovementMetricsTests(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(args.moveprobe_mode, 6)
+        self.assertEqual(args.moveprobe_mode, 7)
         self.assertEqual(args.moveprobe_yaw, 90.0)
         self.assertEqual(args.moveprobe_forwardmove, 700)
         self.assertEqual(args.moveprobe_sidemove, 120)

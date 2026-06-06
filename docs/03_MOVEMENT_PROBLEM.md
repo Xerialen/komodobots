@@ -189,6 +189,15 @@ S3f added mode `6`: reuse mode `5`'s aim-independent projection, but when projec
 
 This is useful evidence that sustained backpedal commands were part of the mode `5` failure. It is not final-controller evidence. Mode `6` passes the current gate partly by emitting very large local side commands, often around `1100`, after folding backpedal into strafe. The next useful experiment should bound command magnitudes while preserving the no-backpedal property, then rerun the same gates.
 
+## S3g Bounded No-Backpedal Probe
+
+S3g added mode `7`: reuse mode `6`'s no-backpedal correction, then normalize local horizontal command magnitude back down to the original route/strafe intent magnitude.
+
+- `20260606T003718Z`, `dm3`: both bots passed. `/ bro` had `0.0%` backward commands, max horizontal command `824.5`, and low-speed `26.1%`; `/ goldenboy` had max horizontal command `824.5` and low-speed `18.9%`. The run recorded one SG frag by `/ bro`.
+- `20260606T003808Z`, `frobodm2`: both bots passed. `/ bro` had max horizontal command `824.5` and low-speed `5.5%`; `/ goldenboy` had max horizontal command `824.6` and low-speed `2.7%`.
+
+This is the best S3 movement-literacy candidate so far: it preserves combat yaw, avoids sustained backpedal commands, and no longer relies on very large folded sidemove values. It still is not a realism verdict. The next step should anchor these bot metrics against human-demo movement instead of adding another command heuristic.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.
