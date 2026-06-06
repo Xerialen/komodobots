@@ -252,6 +252,19 @@ Result:
 
 Interpretation: the repeated `water.LG` failure is not active deep-water swimming, because `BotWaterMove()` only sets `swim_arrow` after `waterlevel > 2` and no such window samples were observed. The sharper S6d hypothesis is a shallow water-edge route transition where mode `7` may be suppressing native vertical movement at `waterlevel == 2`. The next useful experiment is a tiny water-edge upmove preservation probe, not generic speed tuning.
 
+## S6e Water-Edge Upmove Probe
+
+S6e changed only mode `7` vertical command handling: when `waterlevel > 1`, it preserves the native pre-probe `direction[2]`; otherwise mode `7` still uses `k_fb_moveprobe_upmove` and keeps the same aim-independent, no-backpedal, bounded horizontal projection. A single short `dm3` run (`20260606T044000Z`) tested that hypothesis.
+
+Result:
+
+- `/ bro` worsened overall: avg `153.0`, p95 `377.7`, low-speed `46.3%`, and `3` low-speed windows, including one very long `YA.box` blocked/STUCK_PATH-style window.
+- `/ goldenboy` also worsened overall: avg `152.7`, p95 `346.7`, low-speed `39.3%`, and `7` low-speed windows.
+- The repeated `water.LG` / `276->59` WATER_PATH pattern did not disappear; it appeared on `/ goldenboy` with `2` grouped windows, linked/goal marker `59`, waterlevels `[1, 2]`, `blocked=0`, and strong sampled command magnitude near `824`.
+- S6e did emit nonzero upmove in some `/ goldenboy` water-edge samples, but that did not remove the repeated low-speed `water.LG` pattern.
+
+Interpretation: S6e hit the stop condition. Native water-edge upmove preservation is not sufficient as a route-primitive fix, and more upmove tuning would be speculative. The next useful S6 step is a static/diagnostic `.bot` route-edge geometry audit around `276->59` and marker `59`, then a pivot back toward the headline land-speed/bunnyhop gap or broader human-reference evidence.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

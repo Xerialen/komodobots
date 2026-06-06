@@ -2008,3 +2008,52 @@ These fixes reduce the chance that a future S6 or S7 result looks numerically va
 ### Follow-up
 
 Continue with S6e only after this review-hardening commit is pushed and Claude has the updated PR context. Keep S6e timeboxed; after the water-edge probe, the next substantive branch should either attack the headline land-speed/bunnyhop gap or broaden the reference corpus, per Claude's north-star caution.
+
+## 2026-06-06 - S6e Water-Edge Upmove Preservation Probe
+
+### Experiment
+
+Changed only mode `7` vertical command handling in the KTX moveprobe patch: for `waterlevel > 1`, mode `7` now preserves the native pre-probe `direction[2]`; for all other samples it still uses `k_fb_moveprobe_upmove`. Horizontal mode `7` behavior stayed unchanged: aim-independent projection, no-backpedal folding, and bounded command magnitude.
+
+Reran one short `dm3` mode `7` sample as `20260606T044000Z`.
+
+The live KTX library was backed up before deployment and restored afterward; the restored live `qwprogs.so` hash matched the backup hash `23d45401251ee802549c924f3179cf0cd76e0132dd7727778994c0464b8143e0`.
+
+### Result
+
+- `/ bro`: avg `153.0`, p95 `377.7`, low-speed `46.3%`, and `3` low-speed windows.
+- `/ goldenboy`: avg `152.7`, p95 `346.7`, low-speed `39.3%`, and `7` low-speed windows.
+- `/ bro` no longer had the same repeated top `water.LG` water-path group; instead it produced a very long `YA.box` low-speed window with `STUCK_PATH`/blocked context.
+- `/ goldenboy` produced the repeated `water.LG` / `276->59` WATER_PATH pattern: `2` grouped windows, linked/goal marker `59`, waterlevels `[1, 2]`, `blocked=0`, avg command `823.9`, low native dir ratio `80.0%`, and dir speed avg `0.240`.
+- S6e emitted nonzero upmove in some `/ goldenboy` water-edge samples (`13.3%` of grouped samples), but the repeated low-speed pattern persisted.
+
+### Evidence
+
+Artifacts:
+
+- `experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json`
+- `experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.md`
+
+Validation:
+
+- S6e run `20260606T044000Z`: parser exits `json=0`, `md=0`, `events=1` with `qw-analyze: end of demo`, movement players `2`, parsed commands `195`.
+- external KTX `git apply --check` -> clean
+- Remote KTX source checkout was clean after deployment; live `qwprogs.so` was restored to the backup hash and port `28599` was down.
+
+### Interpretation
+
+S6e hit the stop condition. Native water-edge upmove preservation did not reduce or remove the repeated `water.LG` / `276->59` WATER_PATH low-speed pattern. It also worsened overall low-speed ratios in this one short run.
+
+This means the next step should not be another upmove value or generic movement-command tweak. The most local remaining S6 question is whether the `.bot` route edge geometry around `276->59` / marker `59` is producing a bad desired route vector or edge transition.
+
+### Confidence
+
+High that the S6e patch was deployed, logged, and restored cleanly.
+
+High that the repeated water-path pattern persisted despite some nonzero emitted upmove.
+
+Medium that S6e is conclusively bad, because this is one short stochastic Frogbot run; however, the explicit stop condition was "stop upmove tuning if repeated water.LG windows do not improve," and that condition was met.
+
+### Follow-up
+
+Ask Claude to review S6e. Proposed S6f: inspect `dm3.bot` route-edge geometry around `276->59` and marker `59` without a new controller change. If that audit does not reveal a tiny route-data fix, pivot away from S6 water-edge tuning and back toward the headline land-speed/bunnyhop gap or broader human reference evidence.

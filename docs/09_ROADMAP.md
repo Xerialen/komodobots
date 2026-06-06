@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S6e - Water-edge upmove preservation probe`
+`S6f - DM3 water-edge route geometry audit`
 
 ## Stage Status Table
 
@@ -48,7 +48,7 @@ Current active stage:
 | S3 Bunnyjump Controller | Provisionally satisfied pending human anchor | S3g mode `7` passed `dm3` and `frobodm2` while preserving combat yaw, removing backward commands, and bounding sampled command magnitude near `824.6` |
 | S4 Human Comparison | First same-map anchor complete | S4c parsed one human `dm3` 4on4 demo and compared it against S3g `dm3`; S3g is not yet human-like on the observed movement ranges |
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
-| S6 Route Primitives | Active | S6d showed repeated `/ bro` `water.LG` windows are shallow water-edge samples with no swim_arrow and no emitted upmove; S6e should test native water-edge upmove preservation before route-edge rewrites |
+| S6 Route Primitives | Active | S6e preserved native water-edge upmove but did not remove the repeated `water.LG` / `276->59` WATER_PATH low-speed pattern; S6f should inspect route-edge geometry before any more controller tuning |
 | S7 Player Specific | Pending | Player-style movement models |
 
 ## Roadmap Rule
@@ -78,4 +78,4 @@ S6c route-state attribution decoded `32768` as `WATER_PATH`, not `STUCK_PATH`, a
 
 S6d water-path diagnosis reran `dm3` mode `7` as `20260606T041805Z` with water/swim command logging. The repeated `/ bro` `water.LG` windows reproduced with `WATER_PATH`, `blocked=0`, and strong sampled commands. Window samples were waterlevel `[1]` or `[1, 2]`, never deep water, with `swim_arrow=0` and emitted `upmove=0`.
 
-The next branch is S6e: preserve native water-edge vertical command intent only when stock KTX would allow it (`waterlevel > 1`), rerun one short `dm3` probe, and compare the repeated `water.LG` windows. If that does not help, stop upmove tuning and inspect `.bot` edge geometry around `276->59`.
+S6e preserved native water-edge vertical command intent only when stock KTX would allow it (`waterlevel > 1`) and reran one short `dm3` probe as `20260606T044000Z`. It did not help: repeated `water.LG` / `276->59` WATER_PATH windows persisted on `/ goldenboy`, and both bots had worse low-speed ratios. The next branch is S6f: inspect `.bot` edge geometry around `276->59` and marker `59` without another controller change. If that audit does not reveal a tiny route-data fix, pivot back toward the headline land-speed/bunnyhop gap or broader human reference evidence.

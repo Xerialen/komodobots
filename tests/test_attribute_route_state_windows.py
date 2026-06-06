@@ -148,7 +148,7 @@ class RouteStateAttributionTests(unittest.TestCase):
                 encoding="utf-8",
             )
             args = SimpleNamespace(
-                stage="test",
+                stage="s6e-water-edge-upmove",
                 diagnosis_json=diagnosis_path,
                 commands_json=commands_path,
                 bot_map=bot_map_path,
@@ -157,6 +157,8 @@ class RouteStateAttributionTests(unittest.TestCase):
             attribution = attribute.build_attribution(args)
 
         self.assertEqual(attribution["patterns"][0]["classification"], "water_path_without_obstruction")
+        self.assertIn("native pre-probe upmove", attribution["controller_change"])
+        self.assertIn("S6f", attribution["next_goal"])
         self.assertEqual(attribution["patterns"][0]["linked_marker_values"], [2])
         self.assertEqual(attribution["patterns"][0]["goal_marker_values"], [2])
         self.assertTrue(attribution["patterns"][0]["contains_water_path"])

@@ -583,8 +583,12 @@ def build_attribution(args: argparse.Namespace) -> dict[str, object]:
                 windows.append(build_window_attribution(player, window, commands, bot_map))
 
     patterns = group_patterns(windows)
+    is_s6e = str(args.stage).lower().startswith("s6e")
+    controller_change = "none"
+    if is_s6e:
+        controller_change = "mode 7 preserves native pre-probe upmove when waterlevel > 1"
     interpretation = [
-        "This attribution is diagnostic-only; it decodes sampled route and water/swim state without adding a new movement mode.",
+        "This attribution decodes sampled route and water/swim state for the current S6 window set.",
         "The repeated water.LG low-speed pattern decodes path_state 32768 as WATER_PATH, not STUCK_PATH.",
         "The repeated water-path windows have blocked=0, so obstruction recovery is not the current explanation.",
         "When water_state samples are present, waterlevel/swim_arrow/upmove/velocity/dir_move context can distinguish shallow-water edge handling from active swim intent.",
@@ -593,9 +597,15 @@ def build_attribution(args: argparse.Namespace) -> dict[str, object]:
         "S6e should use the S6d water/swim evidence to choose the smallest targeted fix: swim/upmove handling, route-edge "
         "geometry diagnosis, or a repeated-run check if the water-path pattern is not reproduced."
     )
+    if is_s6e:
+        next_goal = (
+            "S6f should inspect dm3.bot route-edge geometry around 276->59 / marker 59 and stop water-upmove tuning; "
+            "after that narrow audit, pivot toward the headline land-speed/bunnyhop gap or broader human reference evidence."
+        )
     return {
         "schema": SCHEMA,
         "stage": args.stage,
+        "controller_change": controller_change,
         "sources": {
             "diagnosis_json": portable_path(args.diagnosis_json),
             "commands_json": portable_path(commands_path),
@@ -646,7 +656,7 @@ def write_markdown(attribution: dict[str, object], output_path: Path) -> None:
         "",
         f"- Run: `{attribution.get('run', {}).get('run_id', '')}`",
         f"- Map: `{attribution.get('run', {}).get('map', '')}` / `{attribution.get('run', {}).get('map_title', '')}`",
-        "- Controller change: `none`",
+        f"- Controller change: `{attribution.get('controller_change', 'none')}`",
         f"- Marker index invariant: {attribution.get('marker_index_invariant', '')}",
         "",
         "## Decoded Flags",

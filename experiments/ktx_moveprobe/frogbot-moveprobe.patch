@@ -2,7 +2,7 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
 index c0654d1..3f6886d 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -422,6 +422,282 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +422,284 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -116,6 +116,7 @@ index c0654d1..3f6886d 100644
 +		int slot = NUM_FOR_EDICT(self) - 1;
 +		float forwardmove = cvar("k_fb_moveprobe_forwardmove");
 +		float sidemove = cvar("k_fb_moveprobe_sidemove");
++		float native_upmove = direction[2];
 +		float strafe_sign = (((int)(g_globalvars.time * 5) + slot) & 1) ? 1 : -1;
 +
 +		if (forwardmove <= 0)
@@ -150,7 +151,8 @@ index c0654d1..3f6886d 100644
 +
 +		direction[0] = DotProduct(g_globalvars.v_forward, desired_move);
 +		direction[1] = DotProduct(g_globalvars.v_right, desired_move);
-+		direction[2] = cvar("k_fb_moveprobe_upmove");
++		direction[2] = ((mode == 7) && (self->s.v.waterlevel > 1))
++			? native_upmove : cvar("k_fb_moveprobe_upmove");
 +
 +		if (((mode == 6) || (mode == 7)) && (direction[0] < 0))
 +		{

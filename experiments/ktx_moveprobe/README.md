@@ -241,6 +241,14 @@ S6d extends the same command log with the `water=` suffix and updates the attrib
 python scripts/attribute_route_state_windows.py --stage s6d-water-path --diagnosis-json artifacts/lab-runs/<run-id>/s6d-water-path-diagnosis.json --output-json experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json --output-md experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.md
 ```
 
+S6e changes only mode `7` vertical command handling: when `waterlevel > 1`, it preserves the native pre-probe `direction[2]`; otherwise mode `7` still uses `k_fb_moveprobe_upmove` and keeps its horizontal aim-independent/no-backpedal/bounded behavior.
+
+```bash
+python scripts/attribute_route_state_windows.py --stage s6e-water-edge-upmove --diagnosis-json artifacts/lab-runs/<run-id>/s6e-water-edge-diagnosis.json --output-json experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json --output-md experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.md
+```
+
+S6e result: a short `dm3` rerun did not remove the repeated `water.LG` / `276->59` WATER_PATH low-speed pattern; it shifted to `/ goldenboy`, and both bots had worse low-speed ratios. Stop upmove tuning here and inspect `.bot` route-edge geometry around `276->59` / marker `59` before adding another controller change.
+
 ## Rollback
 
 This is an experiment patch. After running it against `servexeri`, restore the deployed `qwprogs.so` from the backup made before copying the patched build, and reset or reverse-apply the source checkout patch.

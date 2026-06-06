@@ -1005,3 +1005,43 @@ If S6e reduces or removes the repeated `water.LG` low-speed windows without hurt
 ### Revisit Conditions
 
 Revisit if Claude finds that S6d's water-state fields are logged after a point that makes the inference invalid, if `waterlevel > 1` does not correspond to stock vertical command emission in KTX source, or if S6e changes movement outside the water-edge windows in a way that makes the comparison non-local.
+
+---
+
+## Decision
+
+Stop upmove tuning after S6e and inspect route-edge geometry.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S6e tested the most direct water-edge hypothesis by preserving native pre-probe `direction[2]` only when `waterlevel > 1` in mode `7`. The run did emit nonzero upmove in some water-edge samples, but it did not remove the repeated `water.LG` / `276->59` WATER_PATH low-speed pattern; the pattern appeared on `/ goldenboy`, and both bots had worse low-speed ratios in the short sample.
+
+The next goal is S6f: inspect the `dm3.bot` route-edge geometry around `276->59` and marker `59` without adding another controller change. This is a route-data/diagnosis audit, not another movement-command heuristic.
+
+### Alternatives Considered
+
+- Force a fixed nonzero upmove in water-edge windows.
+- Preserve native upmove for all waterlevels, including shallow `waterlevel == 1`.
+- Increase mode `7` horizontal command magnitude to push through the water edge.
+- Abandon S6 immediately and jump to S7 player-specific movement.
+
+### Evidence
+
+S6e run `20260606T044000Z`:
+
+- `/ bro`: avg `153.0`, p95 `377.7`, low-speed `46.3%`.
+- `/ goldenboy`: avg `152.7`, p95 `346.7`, low-speed `39.3%`.
+- Repeated `/ goldenboy` `water.LG` group: `2` windows, linked/goal marker `59`, `.bot` edge `276->59 idx=[0]`, waterlevels `[1, 2]`, `blocked=0`, avg command `823.9`, and low native dir ratio `80.0%`.
+- S6e emitted nonzero upmove in `13.3%` of that grouped sample, but the low-speed WATER_PATH pattern remained.
+
+### Expected Consequences
+
+S6f should determine whether marker positions, edge direction, or explicit path commands around `276->59` explain the low native route-vector magnitude. If no tiny route-data explanation appears, stop spending S6 effort on the water edge and return to the larger movement-realism gap: land-speed/bunnyhop behavior and stronger human reference evidence.
+
+### Revisit Conditions
+
+Revisit if Claude finds an implementation bug in the S6e native-upmove preservation, if a repeat run contradicts the negative result, or if route-edge geometry shows that upmove preservation should have been applied at a different point in the stock command pipeline.

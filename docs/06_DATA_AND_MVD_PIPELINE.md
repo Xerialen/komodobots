@@ -403,6 +403,7 @@ Verified one-command parser behavior:
 20260606T003718Z: json=0 md=0 events=1 demo=69549 bytes map=dm3 moveprobe=7 sidemove=200 diagnostics=1 commands=195 movementPlayers=2
 20260606T003808Z: json=0 md=0 events=1 demo=66511 bytes map=frobodm2 moveprobe=7 sidemove=200 diagnostics=1 commands=197 movementPlayers=2
 20260606T041805Z: json=0 md=0 events=1 demo=66369 bytes map=dm3 moveprobe=7 sidemove=200 diagnostics=1 route=1 water=1 commands=196 movementPlayers=2
+20260606T044000Z: json=0 md=0 events=1 demo=68091 bytes map=dm3 moveprobe=7 sidemove=200 diagnostics=1 route=1 water=1 commands=195 movementPlayers=2
 ```
 
 For now, `events=1` with stderr `qw-analyze: end of demo` is accepted if `events.txt` is written and JSON/Markdown exits are zero. JSON is the canonical smoke-run parser artifact.
@@ -522,6 +523,9 @@ Fresh S2 emitted-command evidence:
 
 20260606T041805Z dm3 moveprobe mode 7, sidemove=200, S6d water-state diagnostics:
   / bro repeated water.LG windows had WATER_PATH, blocked=0, strong command near 824, waterlevels [1] or [1,2], swim_arrow=0, and emitted upmove=0; / goldenboy had no repeated WATER_PATH water.LG pattern
+
+20260606T044000Z dm3 moveprobe mode 7, sidemove=200, S6e water-edge upmove preservation:
+  / bro avg=153.0 p95=377.7 low=46.3%; / goldenboy avg=152.7 p95=346.7 low=39.3%; repeated water.LG/276->59 WATER_PATH windows persisted on / goldenboy despite some nonzero emitted upmove at waterlevel 2
 ```
 
 ## Open questions
