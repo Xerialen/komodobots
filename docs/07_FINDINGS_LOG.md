@@ -2633,3 +2633,44 @@ Medium that the exact next probe should be air-transition again, because S7k sup
 ### Follow-up
 
 Ask Claude/Code Sentinel to review S7k. Proposed S7l: design a smaller context-gated air-transition probe that either excludes low-dir-speed/`WATER_PATH` contexts or treats them as hard stop-condition slices before another lab rerun.
+
+## 2026-06-06 - S7l Context-Gated Probe Design
+
+### Experiment
+
+Designed the narrower air-transition probe requested by S7k without changing controller behavior or rerunning the lab. Added `scripts/design_context_gated_probe.py`, consuming:
+
+- `experiments/human_comparison/evidence/failed-bucket-diagnosis-s7k-dm3.json`.
+
+The helper splits S7k player/bucket rows into `clean_air_transition_candidate`, `route_guardrail_slice`, and `measurement_risk` slices so the next probe cannot pass on all-segment or route-dirty gains alone.
+
+### Result
+
+- Generated `experiments/human_comparison/evidence/context-gated-probe-design-s7l-dm3.*`.
+- Clean pre-air evidence is sufficient for a bounded claim path: `2` player rows, `326` segments, p50 `229.0` qu/s.
+- Clean airborne-proxy evidence is sufficient for a bounded claim path: `3` player rows, `844` segments, p50 `101.8` qu/s.
+- Route-dirty evidence remains substantial and must be scored as a guardrail: pre-air `1` row / `1,445` segments, airborne-proxy `1` row / `1,179` segments, non-airborne `1` row / `766` segments.
+- The next probe must activate only in live clean route context: no `WATER_PATH`, no low-dir-speed route primitive, command/probe diagnostics present, and inside the intended transition window.
+
+### Evidence
+
+Committed artifacts:
+
+- `scripts/design_context_gated_probe.py`
+- `tests/test_design_context_gated_probe.py`
+- `experiments/human_comparison/evidence/context-gated-probe-design-s7l-dm3.json`
+- `experiments/human_comparison/evidence/context-gated-probe-design-s7l-dm3.md`
+
+### Interpretation
+
+S7l does not prove movement realism improved. It proves the next Frogbots test can be made sharper: clean air-transition slices exist, but route-dirty slices are large enough that they must be excluded from success claims and preserved as hard guardrails. This keeps the KTX/Frogbots hypothesis alive for one more bounded probe without treating water or all-segment speed as the whole problem.
+
+### Confidence
+
+High that S7l accurately encodes the S7k split into a stricter probe contract.
+
+Medium that the next implementation will be easy inside KTX, because S7l requires the future patch to gate on live Frogbot route/water state rather than offline labels.
+
+### Follow-up
+
+Ask Claude/Code Sentinel to review S7l. Proposed S7m: implement and run the context-gated air-transition probe, then compare clean and route-dirty slices separately against S7k/S7g baselines.
