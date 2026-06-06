@@ -2661,6 +2661,8 @@ Committed artifacts:
 - `experiments/human_comparison/evidence/context-gated-probe-design-s7l-dm3.json`
 - `experiments/human_comparison/evidence/context-gated-probe-design-s7l-dm3.md`
 
+Review hardening after Claude/Gemini feedback wraps missing/corrupt JSON and invalid segment counts in the typed `ContextGatedProbeInputError` path, and documents the intentional low-dir/WATER_PATH dirty-threshold asymmetry. The design artifact semantics remain unchanged.
+
 ### Interpretation
 
 S7l does not prove movement realism improved. It proves the next Frogbots test can be made sharper: clean air-transition slices exist, but route-dirty slices are large enough that they must be excluded from success claims and preserved as hard guardrails. This keeps the KTX/Frogbots hypothesis alive for one more bounded probe without treating water or all-segment speed as the whole problem.

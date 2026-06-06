@@ -39,11 +39,23 @@ class ContextGatedProbeInputError(RuntimeError):
 
 
 def load_json(path: Path) -> dict[str, object]:
-    with path.open("r", encoding="utf-8") as handle:
-        loaded = json.load(handle)
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            loaded = json.load(handle)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ContextGatedProbeInputError(f"Could not read {portable_path(path)} as JSON: {exc}") from exc
     if not isinstance(loaded, dict):
         raise ContextGatedProbeInputError(f"{portable_path(path)} did not contain a JSON object.")
     return loaded
+
+
+def count_value(value: object, *, field_name: str) -> int:
+    if value in (None, ""):
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ContextGatedProbeInputError(f"{field_name} must be an integer-like value, got {value!r}.") from exc
 
 
 def rounded(value: object, digits: int = 3) -> float | None:
@@ -67,6 +79,7 @@ def speed_p50(row: dict[str, object]) -> float | None:
 def is_route_dirty(row: dict[str, object]) -> bool:
     low_dir = optional_float(row.get("low_dir_speed_ratio")) or 0.0
     water = optional_float(row.get("water_path_ratio")) or 0.0
+    # Low-dir exactly at the limit is dirty; WATER_PATH exactly at the tiny tolerance stays clean.
     return low_dir >= MAX_CLEAN_LOW_DIR_RATIO or water > MAX_CLEAN_WATER_PATH_RATIO
 
 
@@ -90,7 +103,7 @@ def compact_player_row(row: dict[str, object]) -> dict[str, object]:
         "label": row.get("label", row.get("bucket", "")),
         "player": row.get("player", ""),
         "run_id": row.get("run_id", ""),
-        "segment_count": int(row.get("segment_count", 0) or 0),
+        "segment_count": count_value(row.get("segment_count"), field_name="segment_count"),
         "p50_speed_qu_per_s": rounded(speed_p50(row)),
         "sampled_command_ratio": rounded(row.get("sampled_command_ratio")),
         "strong_command_ratio": rounded(row.get("strong_command_ratio")),
@@ -103,7 +116,7 @@ def compact_player_row(row: dict[str, object]) -> dict[str, object]:
 
 def summarize_slice(rows: list[dict[str, object]], bucket: str, slice_name: str) -> dict[str, object]:
     selected = [row for row in rows if row.get("bucket") == bucket and row.get("context_class") == slice_name]
-    segment_count = sum(int(row.get("segment_count", 0) or 0) for row in selected)
+    segment_count = sum(count_value(row.get("segment_count"), field_name="segment_count") for row in selected)
     p50_values = [value for row in selected if (value := optional_float(row.get("p50_speed_qu_per_s"))) is not None]
     return {
         "bucket": bucket,
@@ -119,7 +132,11 @@ def summarize_slice(rows: list[dict[str, object]], bucket: str, slice_name: str)
 def bucket_context_slices(player_rows: list[dict[str, object]]) -> list[dict[str, object]]:
     slices: list[dict[str, object]] = []
     for bucket in (*FAILED_AIR_BUCKETS, *GUARDRAIL_BUCKETS):
-        bucket_total = sum(int(row.get("segment_count", 0) or 0) for row in player_rows if row.get("bucket") == bucket)
+        bucket_total = sum(
+            count_value(row.get("segment_count"), field_name="segment_count")
+            for row in player_rows
+            if row.get("bucket") == bucket
+        )
         for slice_name in ("clean_air_transition_candidate", "route_guardrail_slice", "measurement_risk"):
             summary = summarize_slice(player_rows, bucket, slice_name)
             summary["segment_ratio_in_bucket"] = ratio(int(summary["segment_count"]), bucket_total)
@@ -145,8 +162,8 @@ def route_slice_by_bucket(slices: list[dict[str, object]]) -> dict[str, dict[str
 
 def clean_bucket_ready(slice_row: dict[str, object]) -> bool:
     return (
-        int(slice_row.get("player_row_count", 0) or 0) >= MIN_CLEAN_PLAYER_ROWS
-        and int(slice_row.get("segment_count", 0) or 0) >= MIN_CLEAN_SEGMENTS
+        count_value(slice_row.get("player_row_count"), field_name="player_row_count") >= MIN_CLEAN_PLAYER_ROWS
+        and count_value(slice_row.get("segment_count"), field_name="segment_count") >= MIN_CLEAN_SEGMENTS
     )
 
 
@@ -193,8 +210,8 @@ def probe_contract(slices: list[dict[str, object]]) -> dict[str, object]:
         "required_clean_target_buckets": [
             {
                 "bucket": bucket,
-                "clean_player_rows": int(clean.get(bucket, {}).get("player_row_count", 0) or 0),
-                "clean_segments": int(clean.get(bucket, {}).get("segment_count", 0) or 0),
+                "clean_player_rows": count_value(clean.get(bucket, {}).get("player_row_count"), field_name="player_row_count"),
+                "clean_segments": count_value(clean.get(bucket, {}).get("segment_count"), field_name="segment_count"),
                 "ready_for_probe_claim": clean_bucket_ready(clean.get(bucket, {})),
             }
             for bucket in FAILED_AIR_BUCKETS
@@ -202,8 +219,8 @@ def probe_contract(slices: list[dict[str, object]]) -> dict[str, object]:
         "route_guardrail_buckets": [
             {
                 "bucket": bucket,
-                "route_player_rows": int(route.get(bucket, {}).get("player_row_count", 0) or 0),
-                "route_segments": int(route.get(bucket, {}).get("segment_count", 0) or 0),
+                "route_player_rows": count_value(route.get(bucket, {}).get("player_row_count"), field_name="player_row_count"),
+                "route_segments": count_value(route.get(bucket, {}).get("segment_count"), field_name="segment_count"),
             }
             for bucket in (*FAILED_AIR_BUCKETS, *GUARDRAIL_BUCKETS)
         ],

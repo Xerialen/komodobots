@@ -96,6 +96,25 @@ class ContextGatedProbeDesignTests(unittest.TestCase):
         with self.assertRaises(s7l.ContextGatedProbeInputError):
             s7l.validate_report(report)
 
+    def test_load_json_wraps_missing_or_invalid_json_in_typed_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            missing = root / "missing.json"
+            invalid = root / "invalid.json"
+            invalid.write_text("{not-json", encoding="utf-8")
+
+            with self.assertRaises(s7l.ContextGatedProbeInputError):
+                s7l.load_json(missing)
+            with self.assertRaises(s7l.ContextGatedProbeInputError):
+                s7l.load_json(invalid)
+
+    def test_non_numeric_segment_count_uses_typed_error(self) -> None:
+        rows = ready_rows()
+        rows[0]["segment_count"] = "not-a-count"
+
+        with self.assertRaises(s7l.ContextGatedProbeInputError):
+            s7l.build_report(s7k_like(rows), stage="s7l-test")
+
     def test_main_writes_custom_json_and_markdown(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
