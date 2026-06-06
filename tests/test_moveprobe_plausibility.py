@@ -105,6 +105,21 @@ def write_duplicate_name_run(run_dir: Path) -> None:
     )
 
 
+def write_diagnostic_run(run_dir: Path) -> None:
+    write_run(run_dir, stationary_ratio=0.05)
+    commands_path = run_dir / "moveprobe-commands.json"
+    commands = json.loads(commands_path.read_text(encoding="utf-8"))
+    for index, row in enumerate(commands["commands"]):
+        row["move"] = {"forward": -400 if index < 6 else 400, "side": 200, "up": 0}
+        row["diagnostics"] = {
+            "route_yaw": 270.0 if index < 6 else 90.0,
+            "view_yaw": 90.0,
+            "yaw_delta": 180.0 if index < 6 else 0.0,
+            "backward": index < 6,
+        }
+    commands_path.write_text(json.dumps(commands), encoding="utf-8")
+
+
 class MoveprobePlausibilityTests(unittest.TestCase):
     def test_summarize_run_passes_gate_for_plausible_player(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -201,6 +216,32 @@ class MoveprobePlausibilityTests(unittest.TestCase):
         self.assertTrue(summary["passes_gate"])
         self.assertEqual(summary["players"][0]["forward_expected_ratio"], 0.0)
         self.assertEqual(summary["players"][0]["horizontal_move_ratio"], 1.0)
+
+    def test_summarize_run_reports_yaw_delta_and_backward_ratios(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_dir = Path(temp_dir) / "run-diagnostic"
+            write_diagnostic_run(run_dir)
+
+            summary = plausibility.summarize_run(
+                run_dir,
+                expected_forward=800,
+                max_stationary_ratio=0.25,
+                max_low_speed_ratio=0.4,
+                min_forward_ratio=0.0,
+                min_horizontal_ratio=0.8,
+                min_jump_ratio=0.8,
+                min_side_ratio=0.8,
+                min_yaw_unique=10,
+            )
+            markdown = plausibility.build_markdown({"runs": [summary]})
+
+        player = summary["players"][0]
+        self.assertTrue(player["passes_gate"])
+        self.assertEqual(player["backward_command_ratio"], 0.5)
+        self.assertEqual(player["yaw_delta_sample_count"], 12)
+        self.assertEqual(player["yaw_delta_abs_avg"], 90.0)
+        self.assertEqual(player["yaw_delta_over_90_ratio"], 0.5)
+        self.assertIn("Abs delta avg", markdown)
 
 
 if __name__ == "__main__":

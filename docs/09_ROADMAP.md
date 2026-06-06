@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S3e - Aim/move conflict diagnosis`
+`S3f - No-backpedal correction probe`
 
 ## Stage Status Table
 
@@ -45,7 +45,7 @@ Current active stage:
 | S0 Smoke Test | Complete | Bot moves, MVD recorded, MVD parsed |
 | S1 Baseline | Complete | Measured current Frogbot movement with speed and airborne-proxy metrics |
 | S2 Override | Provisionally satisfied pending review | Route-yaw mode `3` passed explicit v2c command/plausibility gates on `frobodm2` and `dm3` |
-| S3 Bunnyjump Controller | Active; aim-independent command emission proven but behavior split | Diagnose route-vs-view yaw deltas and backward command ratios before adding a corrective policy |
+| S3 Bunnyjump Controller | Active; aim-independent command emission and diagnostics proven but behavior split | Run one no-backpedal correction probe on `dm3`, then decide whether to continue policy work or inspect route/obstruction state |
 | S4 Human Comparison | Pending | Metric comparison against human demos |
 | S5 Milton Reference | Pending | Elite movement reference dataset |
 | S6 Route Primitives | Pending | Route-level movement behaviours |
@@ -62,4 +62,4 @@ Whenever a stage changes, update this file and record supporting evidence in:
 
 Mode `3` and mode `4` deliberately commandeer view yaw to align movement with Frogbot route intent. That proves movement override mechanics, but it is not a believable player controller because a real player can aim at an enemy while moving route-relative.
 
-S3c validated `sidemove=200` as a repeatable route-yaw strafe candidate on `frobodm2` and `dm3`, but mode `3` and mode `4` still commandeer aim. S3d mode `5` then emitted aim-independent route/strafe commands, but `/ bro` failed behavior gates on both maps. The next branch is diagnosis: quantify route-vs-view yaw deltas and backward command ratios before adding a corrective policy.
+S3c validated `sidemove=200` as a repeatable route-yaw strafe candidate on `frobodm2` and `dm3`, but mode `3` and mode `4` still commandeer aim. S3d mode `5` then emitted aim-independent route/strafe commands, but behavior split. S3e diagnostics showed route-vs-view yaw deltas and backward local commands are plausible contributors, especially for `/ bro` on `dm3`, but not a complete explanation. The next branch is one small no-backpedal correction probe before any larger controller work.

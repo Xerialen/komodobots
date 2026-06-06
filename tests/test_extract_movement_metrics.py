@@ -184,7 +184,7 @@ class MovementMetricsTests(unittest.TestCase):
                 [
                     "noise before",
                     'FBMOVEPROBE_CMD time=12.250 ed=3 name=/ goldenboy mode=2 msec=13 angles=0.0,90.0,0.0 move=800,0,0 buttons=3 impulse=0',
-                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=2 msec=12 angles=0.0,90.0,0.0 move=0,400,0 buttons=2 impulse=7',
+                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=5 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1',
                 ]
             )
         )
@@ -194,9 +194,14 @@ class MovementMetricsTests(unittest.TestCase):
         self.assertEqual(commands[0]["mode"], 2)
         self.assertEqual(commands[0]["msec"], 13)
         self.assertEqual(commands[0]["angles"], {"pitch": 0.0, "yaw": 90.0, "roll": 0.0})
-        self.assertEqual(commands[1]["move"], {"forward": 0, "side": 400, "up": 0})
+        self.assertEqual(commands[1]["mode"], 5)
+        self.assertEqual(commands[1]["move"], {"forward": -200, "side": 400, "up": 0})
         self.assertEqual(commands[1]["buttons"], 2)
         self.assertEqual(commands[1]["impulse"], 7)
+        self.assertEqual(
+            commands[1]["diagnostics"],
+            {"route_yaw": 270.0, "view_yaw": 90.0, "yaw_delta": 180.0, "backward": True},
+        )
 
     def test_remote_port_down_treats_empty_or_down_as_free(self) -> None:
         original_run = run_frobodm2_lab.run

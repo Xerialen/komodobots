@@ -987,3 +987,76 @@ Low for root cause. The next run needs route-vs-view diagnostics before adding a
 ### Follow-up
 
 Ask Claude to review S3d. Proposed S3e: add route-vs-view diagnostics to the command log and summarizer. Capture route yaw, preserved view yaw, yaw delta, negative-forward/backward-command ratio, and compare those against stationary/low-speed behavior for the mode `5` split before changing the controller policy.
+
+## 2026-06-06 - S3e Aim/Move Diagnostic Logging
+
+### Experiment
+
+Added route-vs-view diagnostics to the moveprobe command log and plausibility summary:
+
+- KTX command rows now append `diag=route_yaw,view_yaw,yaw_delta,backward`.
+- `scripts/run_frobodm2_lab.py` parses the optional diagnostic fields into `moveprobe-commands.json` and `moveprobe-commands.md`.
+- `scripts/summarize_moveprobe_plausibility.py` reports backward-command ratio plus absolute yaw-delta average, p90, and ratio above 90 degrees.
+
+Temporarily deployed the patched KTX build and ran:
+
+```bash
+python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 5 --moveprobe-sidemove 200 --moveprobe-log-commands --moveprobe-log-interval 0.25
+python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 5 --moveprobe-sidemove 200 --moveprobe-log-commands --moveprobe-log-interval 0.25
+python scripts/summarize_moveprobe_plausibility.py 20260606T000331Z 20260606T000414Z --min-forward-ratio 0 --min-horizontal-ratio 0.8 --min-side-ratio 0.8 --output-md artifacts/lab-runs/moveprobe-s3e-summary.md
+```
+
+### Result
+
+`frobodm2`, run `20260606T000331Z`:
+
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Command rows parsed: `196`.
+- `/ bro`: PASS, horizontal/side/jump coverage `96.4%`, backward commands `22.7%`, absolute yaw-delta avg `53.1`, p90 `110.9`, above-90 ratio `19.1%`, avg `264.5` qu/s, p95 `382.4` qu/s, stationary `3.3%`, low-speed `14.3%`.
+- `/ goldenboy`: PASS, horizontal/side/jump coverage `98.8%`, backward commands `14.0%`, absolute yaw-delta avg `44.2`, p90 `91.8`, above-90 ratio `10.5%`, avg `316.7` qu/s, p95 `389.1` qu/s, stationary `0.5%`, low-speed `4.0%`.
+- One SSG frag: `/ goldenboy` killed `/ bro` at `24532` ms.
+
+`dm3`, run `20260606T000414Z`:
+
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Command rows parsed: `195`.
+- `/ bro`: FAIL, horizontal/side/jump coverage `99.1%`, backward commands `41.3%`, absolute yaw-delta avg `79.6`, p90 `154.7`, above-90 ratio `43.1%`, avg `149.8` qu/s, p95 `370.2` qu/s, stationary `0.1%`, low-speed `43.1%`.
+- `/ goldenboy`: FAIL, horizontal/side/jump coverage `98.8%`, backward commands `14.0%`, absolute yaw-delta avg `44.7`, p90 `99.4`, above-90 ratio `16.3%`, avg `168.5` qu/s, p95 `382.1` qu/s, stationary `4.9%`, low-speed `52.8%`.
+
+After the runs:
+
+```text
+deployed qwprogs hash matched backup
+servexeri ~/nquakesv/build/ktx: clean master...origin/master
+quakestat localhost:28599: DOWN
+```
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/lab-runs/20260606T000331Z/run-summary.md`
+- `artifacts/lab-runs/20260606T000331Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260606T000331Z/movement-metrics.md`
+- `artifacts/lab-runs/20260606T000414Z/run-summary.md`
+- `artifacts/lab-runs/20260606T000414Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260606T000414Z/movement-metrics.md`
+- `artifacts/lab-runs/moveprobe-s3e-summary.md`
+
+### Interpretation
+
+S3e supports the yaw-conflict hypothesis only partially. `/ bro` on `dm3` has the clearest failure signature: high backward-command ratio, high yaw-delta p90, many samples above 90 degrees, and a failing low-speed gate.
+
+The same explanation is not sufficient by itself. `/ goldenboy` on `dm3` also failed the low-speed gate while its backward-command ratio stayed at `14.0%`, close to its passing `frobodm2` row. The next corrective policy must therefore be small and judged as a falsifiable probe, not as a confirmed root-cause fix.
+
+### Confidence
+
+High for the diagnostic logging and summary fields.
+
+Medium for the claim that yaw delta/backward commands contribute to the split.
+
+Low for any single-cause explanation.
+
+### Follow-up
+
+Ask Claude to review S3e. Proposed S3f: add the smallest no-backpedal/forward-hemisphere correction to mode `5`. If projected local `forwardmove` is negative, clamp or remap it so the bot strafes instead of backpedaling, then run `dm3` first with the same horizontal/side/jump and low-speed gates. If that does not improve the `dm3` low-speed rows, stop policy tuning and inspect route state/obstruction rather than adding controller complexity.

@@ -1,8 +1,8 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..321fb82 100644
+index c0654d1..3f6886d 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -422,6 +422,192 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +422,222 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -154,6 +154,22 @@ index c0654d1..321fb82 100644
 +	}
 +}
 +
++static float BotMoveProbeAngleDelta(float route_yaw, float view_yaw)
++{
++	float delta = anglemod(route_yaw) - anglemod(view_yaw);
++
++	if (delta > 180)
++	{
++		delta -= 360;
++	}
++	else if (delta < -180)
++	{
++		delta += 360;
++	}
++
++	return delta;
++}
++
 +static void BotLogMoveProbeCommand(gedict_t *self, int cmd_msec, vec3_t direction,
 +								   int buttons, int impulse)
 +{
@@ -164,6 +180,11 @@ index c0654d1..321fb82 100644
 +	int slot = ednum - 1;
 +	int mode;
 +	float interval;
++	float route_yaw = 0;
++	float view_yaw = anglemod(self->fb.desired_angle[YAW]);
++	float yaw_delta = 0;
++	int backward = direction[0] < 0;
++	vec3_t route_direction;
 +
 +	if (!cvar("k_fb_moveprobe_log_commands") || slot < 0 || slot >= MAX_CLIENTS)
 +	{
@@ -185,17 +206,26 @@ index c0654d1..321fb82 100644
 +	last_log_time[slot] = g_globalvars.time;
 +	mode = (int)cvar("k_fb_moveprobe_mode");
 +
++	VectorCopy(self->fb.dir_move_, route_direction);
++	route_direction[2] = 0;
++	if (VectorNormalize(route_direction) > 0)
++	{
++		route_yaw = anglemod(vectoyaw(route_direction));
++		yaw_delta = BotMoveProbeAngleDelta(route_yaw, view_yaw);
++	}
++
 +	G_cprint("FBMOVEPROBE_CMD time=%.3f ed=%d name=%s mode=%d msec=%d "
-+			 "angles=%.1f,%.1f,%.1f move=%d,%d,%d buttons=%d impulse=%d\n",
++			 "angles=%.1f,%.1f,%.1f move=%d,%d,%d buttons=%d impulse=%d "
++			 "diag=%.1f,%.1f,%.1f,%d\n",
 +			 g_globalvars.time, ednum, self->netname, mode, cmd_msec,
 +			 PASSVEC3(self->fb.desired_angle), PASSINTVEC3(direction),
-+			 buttons, impulse);
++			 buttons, impulse, route_yaw, view_yaw, yaw_delta, backward);
 +}
 +
  void BotSetCommand(gedict_t *self)
  {
  	extern float last_frame_time;
-@@ -556,8 +742,11 @@ void BotSetCommand(gedict_t *self)
+@@ -556,8 +772,11 @@ void BotSetCommand(gedict_t *self)
  		impulse = 0;
  	}
  

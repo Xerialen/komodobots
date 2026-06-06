@@ -1,6 +1,6 @@
 # KTX Frogbot Movement Probe
 
-Status: S2 experiment scaffold.
+Status: S2/S3 experiment scaffold.
 
 ## Purpose
 
@@ -26,7 +26,13 @@ It can also emit sampled command rows with the exact values about to be handed t
 FBMOVEPROBE_CMD time=12.250 ed=3 name=/ goldenboy mode=2 msec=13 angles=0.0,90.0,0.0 move=800,0,0 buttons=2 impulse=0
 ```
 
-Those rows are deliberately console-oriented, temporary probe output. They exist to compare stock, forced-jump, and fixed-command runs before building a real movement controller.
+S3e diagnostic rows append route-vs-view context:
+
+```text
+FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=5 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1
+```
+
+Those rows are deliberately console-oriented, temporary probe output. They exist to compare stock, forced-jump, fixed-command, route-yaw, and aim-independent runs before building a real movement controller.
 
 Modes:
 
@@ -55,6 +61,8 @@ Mode `3` ignores `k_fb_moveprobe_yaw`; it computes yaw from `self->fb.dir_move_`
 Mode `4` also ignores `k_fb_moveprobe_yaw`. It uses the same route-derived yaw as mode `3`, but alternates the sign of `sidemove` about five times per second, offset by bot slot. This is only a bounded S3a movement-literacy probe.
 
 Mode `5` preserves `self->fb.desired_angle` instead of setting route yaw. It builds a desired route-relative movement vector, optionally adds the alternating strafe component, then projects that world vector into local `forwardmove`/`sidemove` commands using the preserved combat yaw. Exact `forwardmove=800` coverage is not expected in mode `5`; use horizontal-command coverage instead.
+
+The S3e diagnostic suffix is shaped as `diag=<route_yaw>,<view_yaw>,<yaw_delta>,<backward>`. `backward=1` means the emitted local `forwardmove` is negative.
 
 ## Runner
 
@@ -98,6 +106,8 @@ Known v2a comparison runs:
 | `20260605T233202Z` | `4` | S3c `dm3` repeat with `sidemove=200`; both bots passed side/plausibility gate. |
 | `20260605T234620Z` | `5` | S3d `frobodm2` aim-independent projection; command coverage passed, `/ goldenboy` passed behavior gate, `/ bro` failed stationary/low-speed gates. |
 | `20260605T234701Z` | `5` | S3d `dm3` aim-independent projection; command coverage passed, `/ goldenboy` passed behavior gate, `/ bro` failed stationary/low-speed gates. |
+| `20260606T000331Z` | `5` | S3e `frobodm2` diagnostics; both bots passed, `/ bro` showed more yaw/backward conflict than `/ goldenboy`, one SSG frag. |
+| `20260606T000414Z` | `5` | S3e `dm3` diagnostics; both bots passed command gates but failed low-speed, with the strongest yaw/backward signal on `/ bro`. |
 
 ## Plausibility summary
 
@@ -148,6 +158,14 @@ The S3d aim-independent movement-vector probe uses horizontal command coverage i
 ```bash
 python scripts/summarize_moveprobe_plausibility.py 20260605T234620Z 20260605T234701Z --min-forward-ratio 0 --min-horizontal-ratio 0.8 --min-side-ratio 0.8 --output-md artifacts/lab-runs/moveprobe-s3d-summary.md
 ```
+
+The S3e diagnostic check uses the same gate and adds backward/yaw-delta columns:
+
+```bash
+python scripts/summarize_moveprobe_plausibility.py 20260606T000331Z 20260606T000414Z --min-forward-ratio 0 --min-horizontal-ratio 0.8 --min-side-ratio 0.8 --output-md artifacts/lab-runs/moveprobe-s3e-summary.md
+```
+
+S3e interpretation: yaw delta and negative local `forwardmove` are plausible contributors to the `dm3` mode `5` split, but not a complete explanation. The next proposed probe is S3f: prevent sustained backpedal commands in mode `5` and test `dm3` first.
 
 ## Rollback
 

@@ -397,6 +397,8 @@ MOVEPROBE_COMMAND_RE = re.compile(
     r"move=(?P<forward>-?\d+),(?P<side>-?\d+),(?P<up>-?\d+)\s+"
     r"buttons=(?P<buttons>\d+)\s+"
     r"impulse=(?P<impulse>-?\d+)"
+    r"(?:\s+diag=(?P<route_yaw>-?\d+(?:\.\d+)?),(?P<view_yaw>-?\d+(?:\.\d+)?),"
+    r"(?P<yaw_delta>-?\d+(?:\.\d+)?),(?P<backward>\d+))?"
 )
 
 
@@ -407,27 +409,33 @@ def parse_moveprobe_command_logs(screen_log: str) -> list[dict[str, object]]:
         if not match:
             continue
         groups = match.groupdict()
-        commands.append(
-            {
-                "time_s": float(groups["time"]),
-                "ed": int(groups["ed"]),
-                "name": groups["name"].strip(),
-                "mode": int(groups["mode"]),
-                "msec": int(groups["msec"]),
-                "angles": {
-                    "pitch": float(groups["pitch"]),
-                    "yaw": float(groups["yaw"]),
-                    "roll": float(groups["roll"]),
-                },
-                "move": {
-                    "forward": int(groups["forward"]),
-                    "side": int(groups["side"]),
-                    "up": int(groups["up"]),
-                },
-                "buttons": int(groups["buttons"]),
-                "impulse": int(groups["impulse"]),
+        row: dict[str, object] = {
+            "time_s": float(groups["time"]),
+            "ed": int(groups["ed"]),
+            "name": groups["name"].strip(),
+            "mode": int(groups["mode"]),
+            "msec": int(groups["msec"]),
+            "angles": {
+                "pitch": float(groups["pitch"]),
+                "yaw": float(groups["yaw"]),
+                "roll": float(groups["roll"]),
+            },
+            "move": {
+                "forward": int(groups["forward"]),
+                "side": int(groups["side"]),
+                "up": int(groups["up"]),
+            },
+            "buttons": int(groups["buttons"]),
+            "impulse": int(groups["impulse"]),
+        }
+        if groups.get("route_yaw") is not None:
+            row["diagnostics"] = {
+                "route_yaw": float(groups["route_yaw"]),
+                "view_yaw": float(groups["view_yaw"]),
+                "yaw_delta": float(groups["yaw_delta"]),
+                "backward": bool(int(groups["backward"])),
             }
-        )
+        commands.append(row)
     return commands
 
 
@@ -449,6 +457,18 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
         msec_values = [int(row["msec"]) for row in rows]
         angles = [row["angles"] for row in rows]
         moves = [row["move"] for row in rows]
+        diagnostics = [row.get("diagnostics", {}) for row in rows]
+        yaw_deltas = [
+            round(float(diagnostic["yaw_delta"]), 1)
+            for diagnostic in diagnostics
+            if "yaw_delta" in diagnostic
+        ]
+        backward_count = sum(
+            1
+            for row in rows
+            if int(row["move"]["forward"]) < 0
+            or bool(row.get("diagnostics", {}).get("backward", False))
+        )
         player_rows.append(
             {
                 "ed": ed,
@@ -462,6 +482,8 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
                 "forward_values": compact_unique(int(move["forward"]) for move in moves),
                 "side_values": compact_unique(int(move["side"]) for move in moves),
                 "up_values": compact_unique(int(move["up"]) for move in moves),
+                "yaw_delta_values": compact_unique(yaw_deltas) if yaw_deltas else [],
+                "backward_ratio": round(backward_count / len(rows), 3),
                 "button_values": compact_unique(int(row["buttons"]) for row in rows),
                 "impulse_values": compact_unique(int(row["impulse"]) for row in rows),
             }
@@ -501,6 +523,8 @@ def write_moveprobe_command_logs(local_run_dir: Path) -> dict[str, object]:
                 f"forward `{player['forward_values']}`, "
                 f"side `{player['side_values']}`, "
                 f"up `{player['up_values']}`, "
+                f"yawDelta `{player['yaw_delta_values']}`, "
+                f"backward `{fmt_percent(player['backward_ratio'])}`, "
                 f"buttons `{player['button_values']}`, "
                 f"impulses `{player['impulse_values']}`"
             )
@@ -525,6 +549,13 @@ def find_bot_entries(screen_log: str) -> list[str]:
 def fmt_number(value: object, digits: int = 1) -> str:
     try:
         return f"{float(value):.{digits}f}"
+    except (TypeError, ValueError):
+        return ""
+
+
+def fmt_percent(value: object) -> str:
+    try:
+        return f"{float(value) * 100.0:.1f}%"
     except (TypeError, ValueError):
         return ""
 

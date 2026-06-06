@@ -171,6 +171,15 @@ S3d added mode `5`: preserve `self->fb.desired_angle`, build a route-relative mo
 
 This is an important split result. The final-command seam can emit aim-independent route/strafe commands, but preserving combat yaw makes movement behavior fragile for at least `/ bro`. The next useful step is not a larger controller; it is diagnosing whether the failures correlate with route-vs-view yaw delta, backward command ratios, or specific route states.
 
+## S3e Aim/Move Conflict Diagnostics
+
+S3e kept mode `5`'s aim-independent projection policy, but added command-log diagnostics: route yaw from `self->fb.dir_move_`, preserved view yaw, route-vs-view yaw delta, and whether the emitted local `forwardmove` was negative.
+
+- `20260606T000331Z`, `frobodm2`: both bots passed the horizontal/side/jump behavior gate. `/ bro` had `22.7%` backward commands, absolute yaw-delta avg `53.1`, p90 `110.9`, and low-speed `14.3%`. `/ goldenboy` had `14.0%` backward commands, absolute yaw-delta avg `44.2`, p90 `91.8`, and low-speed `4.0%`. The run recorded one SSG frag by `/ goldenboy`.
+- `20260606T000414Z`, `dm3`: both bots passed command coverage but failed the low-speed gate. `/ bro` had the strongest aim/move conflict signal: `41.3%` backward commands, absolute yaw-delta avg `79.6`, p90 `154.7`, `43.1%` of samples above 90 degrees, and low-speed `43.1%`. `/ goldenboy` failed low-speed at `52.8%` despite only `14.0%` backward commands and yaw-delta avg `44.7`.
+
+The diagnostics support a narrow claim: large route-vs-view disagreement and backward local commands are plausible contributors, especially for `/ bro` on `dm3`. They do not fully explain the split, because `/ goldenboy` can still fail low-speed with a much lower backward-command ratio. The next smallest useful corrective experiment should therefore be tiny and falsifiable: clamp or remap negative local forward commands in mode `5`, run `dm3` first against the same gate, and stop if that does not improve low-speed behavior.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

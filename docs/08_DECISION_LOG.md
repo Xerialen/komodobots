@@ -475,3 +475,41 @@ S3 remains focused on aim/movement separation. The next code should improve obse
 ### Revisit Conditions
 
 Revisit if diagnostics show the split is unrelated to yaw delta/backward commands, or if command logging cannot capture enough route context without a more durable controller boundary.
+
+---
+
+## Decision
+
+Run one tiny no-backpedal correction probe before expanding the controller.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+Use S3e diagnostics to justify exactly one small S3f policy probe: keep mode `5` aim-independent movement, but prevent negative local `forwardmove` from becoming a sustained backpedal. Start on `dm3`, because S3e made both `dm3` bot rows fail low-speed while `frobodm2` passed.
+
+This is not a final bunnyjump controller. It is a falsifiable correction test for the aim/move boundary.
+
+### Alternatives Considered
+
+- Treat yaw delta/backward ratio as the full root cause and build a larger aim-independent controller.
+- Revert to route-yaw mode `4` because it passes the current gate.
+- Tune sidemove/cadence again without addressing preserved combat yaw.
+- Stop S3 and move to human comparison.
+
+### Evidence
+
+S3e runs with mode `5 --moveprobe-sidemove 200`:
+
+- `20260606T000331Z`, `frobodm2`: both bots passed. `/ bro` had `22.7%` backward commands and yaw-delta p90 `110.9`; `/ goldenboy` had `14.0%` backward commands and yaw-delta p90 `91.8`.
+- `20260606T000414Z`, `dm3`: both bots failed low-speed. `/ bro` had the strongest conflict signal with `41.3%` backward commands, yaw-delta p90 `154.7`, and `43.1%` yaw deltas above 90 degrees. `/ goldenboy` still failed low-speed despite only `14.0%` backward commands.
+
+### Expected Consequences
+
+If the no-backpedal probe improves `dm3` without breaking command coverage, the project learns that negative local forward commands are a real part of the aim-independent movement failure. If it does not improve, the project should stop tuning command values and inspect route state, obstruction, or a cleaner Frogbot movement-intent boundary.
+
+### Revisit Conditions
+
+Revisit if S3f fails the low-speed gate on `dm3`, if it harms combat/view behavior, or if diagnostics show most low-speed time occurs without backward commands.
