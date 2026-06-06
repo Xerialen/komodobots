@@ -841,3 +841,45 @@ S6a should inspect route/segment state and movement traces around sustained low-
 ### Revisit Conditions
 
 Revisit if S6a cannot access route/segment state from the current artifacts or KTX patch point, if Claude recommends expanding the aggregate before route diagnosis, or if a simple trace analysis shows the gap is a measurement artifact rather than route behavior.
+
+---
+
+## Decision
+
+Add route-state logging before changing the movement controller again.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S6a shows the current S3g `dm3` artifacts can locate low-speed windows and join sampled final command context, but they cannot attribute those windows to route node choice, next waypoint, target entity, obstruction, or route primitive state.
+
+The next goal is S6b: add minimal KTX/Frogbot route-state logging around the same command boundary. Do not add mode `8`, increase command magnitude, or tune mode `7` until low-speed windows can be tagged with route context.
+
+### Alternatives Considered
+
+- Tune mode `7` against the S5b p95 gap.
+- Add another movement command heuristic without route attribution.
+- Expand the human/elite reference set again before inspecting route state.
+- Treat `route_yaw` as sufficient route-state evidence.
+
+### Evidence
+
+S6a route-state diagnosis over run `20260606T003718Z`:
+
+- `/ bro`: `7` low-speed windows of at least `250` ms; longest low contribution `1198` ms; all `5` analyzed top windows had strong sampled command context.
+- `/ goldenboy`: `4` low-speed windows; longest low contribution `1078` ms; `3` of `4` analyzed windows had strong sampled command context.
+- Overall: `8` of `9` analyzed top low-speed windows had average sampled horizontal command at or above `400`.
+- Current artifacts expose route direction (`route_yaw`) but not route node, next waypoint, target entity, obstruction state, or route primitive identity.
+
+### Expected Consequences
+
+S6b should keep the patch small and diagnostic. It should log route state near `BotSetCommand()` or the adjacent Frogbot route-selection boundary, then rerun a short S3g-style `dm3` experiment and feed the result through `scripts/diagnose_route_state.py`.
+
+The expected deliverable is attribution-ready evidence, not improved movement yet.
+
+### Revisit Conditions
+
+Revisit if Claude identifies an existing Frogbot route-state artifact already available in the MVD/parser output, if KTX route state cannot be logged safely at the current patch point, or if a rerun shows the sampled strong-command/low-speed relationship was an artifact of the short S3g run.

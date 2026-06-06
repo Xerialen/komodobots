@@ -198,6 +198,20 @@ S3g added mode `7`: reuse mode `6`'s no-backpedal correction, then normalize loc
 
 This is the best S3 movement-literacy candidate so far: it preserves combat yaw, avoids sustained backpedal commands, and no longer relies on very large folded sidemove values. It still is not a realism verdict. The next step should anchor these bot metrics against human-demo movement instead of adding another command heuristic.
 
+## S6a Route-State Diagnosis
+
+S6a added `scripts/diagnose_route_state.py` and inspected the existing S3g `dm3` run `20260606T003718Z` instead of changing movement commands again.
+
+Result:
+
+- Current artifacts expose MVD position samples, sampled final moveprobe commands, route yaw, view yaw, yaw delta, backward-command state, and map-entity locations.
+- Current artifacts do not expose Frogbot route node, next waypoint, target entity, obstruction, or route primitive state.
+- `/ bro` had `7` low-speed windows of at least `250` ms; the longest contributed `1198` ms of low-speed time near `water.LG`.
+- `/ goldenboy` had `4` such low-speed windows; the longest contributed `1078` ms near `RA`.
+- Across the top windows, `8` of `9` showed low speed despite average sampled horizontal command at or above `400`; most were near the expected mode `7` cap around `824`.
+
+Interpretation: S3g's high-speed gap is not explained by missing final movement command emission. The current evidence can identify where the bot loses speed and whether strong commands were sampled nearby, but it cannot say whether the cause is route choice, route-node transitions, obstruction handling, or missing route-level movement intent. The next useful step is minimal route-state logging, not mode `8`.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

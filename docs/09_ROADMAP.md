@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S6a - Route primitive/state diagnosis`
+`S6b - Minimal route-state logging`
 
 ## Stage Status Table
 
@@ -48,7 +48,7 @@ Current active stage:
 | S3 Bunnyjump Controller | Provisionally satisfied pending human anchor | S3g mode `7` passed `dm3` and `frobodm2` while preserving combat yaw, removing backward commands, and bounding sampled command magnitude near `824.6` |
 | S4 Human Comparison | First same-map anchor complete | S4c parsed one human `dm3` 4on4 demo and compared it against S3g `dm3`; S3g is not yet human-like on the observed movement ranges |
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
-| S6 Route Primitives | Active | Diagnose route/segment state behind S3g low-p95 movement before adding controller heuristics |
+| S6 Route Primitives | Active | S6a showed low-speed windows despite strong sampled commands, but current artifacts lack route node/goal/obstruction state; S6b should add minimal route-state logging |
 | S7 Player Specific | Pending | Player-style movement models |
 
 ## Roadmap Rule
@@ -70,4 +70,6 @@ S5a proved exact-player reference selection is feasible from Turso metadata plus
 
 S5b aggregates three exact-player `dm3` references from Milton, carapace, and yeti. The aggregate reference p95 range is `505.8` to `535.0`, while S3g `dm3` bots are `361.0` to `375.3`. The average-speed range is also lower for S3g: reference `282.8` to `314.2`, bots `190.1` to `248.2`.
 
-The next branch is S6a: route primitive/state diagnosis. Inspect where S3g loses sustained high-speed movement on `dm3`, using route/segment state or movement-position evidence before adding more command heuristics.
+S6a route-state diagnosis inspected S3g `dm3` run `20260606T003718Z` without changing movement commands. The current artifacts expose position traces, sampled final commands, route yaw, view yaw, yaw delta, backward-command diagnostics, and map-entity locations, but no Frogbot route node, next waypoint, target entity, obstruction, or route primitive state. Eight of nine analyzed top low-speed windows showed low speed despite average sampled horizontal command at or above `400`.
+
+The next branch is S6b: minimal route-state logging. Add enough KTX/Frogbot instrumentation to tag low-speed windows with route node/goal/obstruction context before changing mode `7` or adding another command heuristic.

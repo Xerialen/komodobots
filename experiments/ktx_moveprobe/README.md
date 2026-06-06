@@ -197,6 +197,16 @@ S3g interpretation: mode `7` passes both routed maps while keeping sampled horiz
 
 Committed derived summaries live under `experiments/ktx_moveprobe/evidence/` for S3e, S3f, and S3g. Raw MVDs and full run directories stay ignored under `artifacts/`.
 
+## Route-state diagnosis
+
+S6a uses the existing S3g `dm3` run and asks whether low-speed windows can be explained from current artifacts before adding another command mode:
+
+```bash
+python scripts/diagnose_route_state.py --stage s6a-route-state --run-id 20260606T003718Z --output-json artifacts/lab-runs/20260606T003718Z/s6a-route-state-diagnosis.json --output-md artifacts/lab-runs/20260606T003718Z/s6a-route-state-diagnosis.md
+```
+
+Result: the artifacts expose position traces, sampled final commands, route yaw, view yaw, yaw delta, backward-command state, and map-entity locations. They do not expose Frogbot route node, next waypoint, target entity, obstruction, or route primitive state. In the S3g `dm3` run, `8` of `9` analyzed top low-speed windows still had average sampled horizontal command at or above `400`. The next step is route-state logging, not mode `8`.
+
 ## Rollback
 
 This is an experiment patch. After running it against `servexeri`, restore the deployed `qwprogs.so` from the backup made before copying the patched build, and reset or reverse-apply the source checkout patch.

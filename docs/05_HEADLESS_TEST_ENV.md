@@ -1,6 +1,6 @@
 # Headless Test Environment
 
-Status: repeatable bot lab runner verified on `frobodm2` and `dm3` through 2026-06-06. Baseline movement v2 metrics are generated automatically. KTX final-command movement probes now include route-vs-view diagnostics for S3 aim/move experiments.
+Status: repeatable bot lab runner verified on `frobodm2` and `dm3` through 2026-06-06. Baseline movement v2 metrics are generated automatically. KTX final-command movement probes include route-vs-view diagnostics, and S6a route-state diagnosis can analyze low-speed windows from existing artifacts.
 
 ## Purpose
 
@@ -36,6 +36,8 @@ Fifth lab milestone on 2026-06-05: the first S2 movement override probe patched 
 Sixth lab milestone on 2026-06-06: S3e added route-vs-view diagnostic logging to mode `5` command rows. The fresh diagnostic run passed on `frobodm2` but failed both `dm3` bot rows on low-speed, with the strongest yaw/backward signal on `/ bro`. This keeps the next step small: test whether avoiding negative local `forwardmove` helps before building a larger controller.
 
 Seventh lab milestone on 2026-06-06: S3f added mode `6`, a no-backpedal variant of mode `5`. It passed the current horizontal/side/jump behavior gate on both `dm3` and `frobodm2`, but generated very large side commands after folding negative forward into strafe. This is a successful corrective probe, not a final controller.
+
+Eighth lab milestone on 2026-06-06: S6a added route-state diagnosis over the existing S3g `dm3` artifacts. It found that `8` of `9` analyzed top low-speed windows had strong sampled movement commands nearby, but the artifacts do not expose route node, next waypoint, target entity, obstruction, or route primitive state. The lab now needs minimal KTX route-state logging before another controller heuristic.
 
 ## Environment Diagram
 

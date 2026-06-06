@@ -1691,3 +1691,76 @@ High that S3g is below this tiny aggregate on avg and p95 movement.
 ### Follow-up
 
 Ask Claude to review S5b. Proposed S6a: route primitive/state diagnosis. Inspect S3g `dm3` movement traces around low-speed stretches and route/segment state if available, to decide whether the gap is route choice, obstruction/turn behavior, or missing route-level movement intent.
+
+## 2026-06-06 - S6a Route-State Diagnosis
+
+### Experiment
+
+Added `scripts/diagnose_route_state.py` and applied it to the existing S3g `dm3` run `20260606T003718Z`.
+
+The script uses only existing artifacts:
+
+- `events.txt` kind `5` position samples
+- `analysis.json` map entities and match duration
+- `run.env`
+- `moveprobe-commands.json`
+
+It detects low-speed windows, joins sampled command rows around those windows, reports nearest map-entity locations, and records whether route node/goal/obstruction state is present in the current artifacts.
+
+### Result
+
+Artifact capability:
+
+- Position trace: available.
+- Command trace: available, `195` sampled command rows.
+- Command diagnostics: `backward`, `route_yaw`, `view_yaw`, `yaw_delta`.
+- Map-entity location context: available.
+- Route node/goal/obstruction state: not available.
+
+Player summary:
+
+| Player | Avg | P95 | Max | Low | Low windows | Longest low | Top windows with strong-command low speed |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `/ bro` | 190.1 | 361.0 | 449.4 | 26.1% | 7 | 1198 ms | 5 / 5 |
+| `/ goldenboy` | 248.2 | 375.3 | 415.0 | 18.9% | 4 | 1078 ms | 3 / 4 |
+
+Top-window interpretation:
+
+- `8` of `9` analyzed low-speed windows showed low speed despite average sampled horizontal command at or above `400`.
+- `/ bro` had repeated low-speed windows near `water.LG` and `bridge.low` with sampled horizontal command around `824`.
+- `/ goldenboy` had one low-speed window with no sampled command rows nearby, but the other analyzed windows had strong or mixed-strong command context.
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/lab-runs/20260606T003718Z/s6a-route-state-diagnosis.md`
+- `artifacts/lab-runs/20260606T003718Z/s6a-route-state-diagnosis.json`
+- `experiments/ktx_moveprobe/evidence/route-state-s6a-diagnosis.md`
+- `experiments/ktx_moveprobe/evidence/route-state-s6a-diagnosis.json`
+
+Validation:
+
+- `python -m unittest tests.test_diagnose_route_state -v` -> 4 passed
+- `python -m unittest discover -s tests -v` -> 26 passed
+- `PYTHONPYCACHEPREFIX=<temp> python -m py_compile ...` for scripts/tests -> clean
+- `git diff --check` -> clean, with only CRLF normalization warnings
+- SHA-256 checks confirmed committed S6a JSON/Markdown evidence matches the generated run-artifact copies
+
+### Interpretation
+
+S6a suggests the S3g high-speed gap is not simply missing final-command emission: low-speed windows often happen while the sampled final command is still strong and jump-bearing.
+
+However, the current artifacts cannot distinguish route choice, route-node transitions, obstruction/blocked behavior, or missing route-level movement intent. `route_yaw` is available, but route state itself is not.
+
+### Confidence
+
+High that current artifacts lack route node/goal/obstruction state.
+
+High that the inspected low-speed windows often coincide with strong sampled commands.
+
+Medium for cause attribution, because S6a deliberately proves that attribution is not possible from the current artifacts alone.
+
+### Follow-up
+
+Ask Claude to review S6a. Proposed S6b: add minimal route-state logging around the Frogbot command boundary so future low-speed windows can be tagged with route node/goal/obstruction context before changing mode `7` or adding a new command heuristic.

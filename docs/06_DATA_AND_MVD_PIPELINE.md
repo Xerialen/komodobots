@@ -61,6 +61,7 @@ Current implemented first pass:
 
 - Script: `scripts/extract_movement_metrics.py`
 - Plausibility summarizer: `scripts/summarize_moveprobe_plausibility.py`
+- Route-state diagnosis helper: `scripts/diagnose_route_state.py`
 - Input: `events.txt` from `qw-analyze-v20 -format events`
 - Position source: line-delimited JSON events with `kind:5`, `PlayerNum`, `Origin`, and `TimeMs`
 - Player naming source: `kind:1` player info events
@@ -103,6 +104,14 @@ Moveprobe plausibility gate:
 - Expected-forward handling: by default the summarizer derives the expected forward command from each run's `MOVEPROBE_FORWARDMOVE` in `run.env`, then falls back to `800`; use `--expected-forward` for older/custom artifacts.
 - Command matching: movement rows are matched to command rows by movement `user_id` and command `ed` when possible, then by netname as a fallback. Duplicate bot netnames are unsupported for artifacts that require the fallback.
 - Purpose: prevent speed-only interpretation by requiring command coverage and low stuck/low-speed behavior
+
+Route-state diagnosis:
+
+- Schema: `komodobots.route_state_diagnosis.v1`
+- Inputs: a lab run's `events.txt`, `analysis.json`, `run.env`, and `moveprobe-commands.json`
+- Output: top low-speed windows per named bot, nearest map-entity location context, sampled command strength, jump ratio, yaw-delta summary, and artifact capability flags
+- Current limitation: S3g artifacts expose route direction as `route_yaw`, but not route node, next waypoint, route goal, obstruction state, or route primitive identity
+- Purpose: decide whether the next experiment needs route-state instrumentation before changing controller command values
 
 S2 moveprobe note:
 
@@ -204,9 +213,18 @@ S5b result:
 - S3g `/ bro` is below reference avg/p95/stationary ranges and above low-speed/air ranges.
 - S3g `/ goldenboy` is below reference avg/p95/stationary/air ranges while staying inside the low-speed range.
 
+S6a result:
+
+- Added `scripts/diagnose_route_state.py`.
+- Diagnosed S3g `dm3` run `20260606T003718Z`.
+- `/ bro`: `7` low-speed windows of at least `250` ms; longest low contribution `1198` ms.
+- `/ goldenboy`: `4` low-speed windows; longest low contribution `1078` ms.
+- Top-window command context: `8` of `9` analyzed windows had average sampled horizontal command at or above `400`, many near the mode `7` cap around `824`.
+- Artifact capability verdict: position/command/route-yaw evidence is available, but route node/goal/obstruction state is not.
+
 Next S6 data step:
 
-Begin route primitive/state diagnosis instead of command tuning. The aggregate points to missing sustained high-speed movement, so S6a should inspect bot route/segment state around low-speed stretches in the S3g `dm3` run and decide whether the bot is choosing poor route primitives, losing speed at turns/obstructions, or simply lacking a route-level movement intent distinct from command projection.
+Add minimal route-state logging around the Frogbot command boundary so low-speed windows can be tagged with route node, next goal, obstruction/blocked state, or route primitive before changing the movement controller again.
 
 ## Bot-generated MVD loop
 
