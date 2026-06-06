@@ -1,0 +1,93 @@
+name: Lab CI
+
+# Runs the Komodobots bot lab on the self-hosted runner on `servexeri`
+# (always-on, has the MVDSV/KTX/Frogbot stack + qw-analyze-v20), then reports
+# movement metrics back on the PR. This is how Codex gets an autonomous lab
+# feedback loop WITHOUT any SSH/host access — it only ever touches the repo.
+
+# Manual-only for now: this lab runs on the self-hosted `servexeri` runner and
+# is intended for the (not-yet-tried) Codex Cloud feedback loop. The pull_request
+# trigger was disabled on 2026-06-06 so it stops failing on every PR while the
+# native parser work is still open. Re-add the `pull_request:` block below to
+# restore automatic per-PR runs once the lab step passes natively.
+on:
+  workflow_dispatch:
+    inputs:
+      map:
+        description: "Map (frobodm2 | dm3)"
+        default: frobodm2
+      duration:
+        description: "Client run duration (seconds)"
+        default: "30"
+      bot_count:
+        description: "Number of bots"
+        default: "2"
+
+concurrency:
+  group: lab-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  bot-lab:
+    runs-on: [self-hosted, servexeri, komodobots-lab]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run bot lab on servexeri
+        id: lab
+        env:
+          MAP: ${{ github.event.inputs.map || 'frobodm2' }}
+          DURATION: ${{ github.event.inputs.duration || '30' }}
+          BOT_COUNT: ${{ github.event.inputs.bot_count || '2' }}
+        run: |
+          set -o pipefail
+          # NOTE: requires the lab to run natively on Linux (native parser mode).
+          # Until that lands, this step fails at to_wsl_path — see the handoff.
+          python3 scripts/run_bot_lab.py \
+            --host servexeri \
+            --map "$MAP" \
+            --duration "$DURATION" \
+            --bot-count "$BOT_COUNT" 2>&1 | tee lab-stdout.txt
+          RUN_DIR=$(ls -1dt artifacts/lab-runs/*/ 2>/dev/null | head -1)
+          echo "run_dir=${RUN_DIR}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-run-${{ github.run_id }}
+          path: |
+            artifacts/lab-runs/**
+            lab-stdout.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Comment result on PR
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          RUN_DIR="${{ steps.lab.outputs.run_dir }}"
+          M="${RUN_DIR}movement-metrics.md"
+          {
+            echo "## 🤖 Bot-lab CI — ${{ job.status }}"
+            echo
+            echo "- map \`${{ github.event.inputs.map || 'frobodm2' }}\` · run \`${RUN_DIR:-none}\` · [full artifacts & log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            if [ -f "$M" ]; then
+              echo
+              echo "<details><summary>movement-metrics.md</summary>"
+              echo
+              cat "$M"
+              echo
+              echo "</details>"
+            else
+              echo "- ⚠️ no \`movement-metrics.md\` produced — see job log / artifacts."
+            fi
+          } > lab-comment.md
+          gh pr comment "$PR" --body-file lab-comment.md -R "${{ github.repository }}"

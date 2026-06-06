@@ -12,6 +12,9 @@ Before making changes, read:
 2. `docs/01_PROJECT_BRIEF.md`
 3. `docs/02_SOURCE_MAP.md`
 4. `codex/START_HERE.md` if working through Codex
+5. The relevant open PR, issue, branch, comments, latest commits, and check status
+
+After reading docs, reconcile them against live repository state before acting. If documentation and live state disagree, trust live state and update the relevant doc before continuing.
 
 ## North star
 
@@ -29,6 +32,83 @@ This is unproven.
 
 The first project objective is to build a repeatable lab that can prove or disprove this hypothesis.
 
+## Autonomous three-agent loop
+
+This repository may be worked by three unattended agents:
+
+```text
+Phasekeeper implements stage work -> Code Sentinel reviews/hardens -> Merge Warden merges if gates pass -> Phasekeeper starts the next stage from updated main
+```
+
+Role boundaries are mandatory:
+
+- Phasekeeper implements the current stage, updates docs/evidence, opens or updates the stage PR, and responds to review feedback that stays inside the same stage.
+- Code Sentinel reviews and hardens PRs for code slop, validation gaps, documentation gaps, and north-star drift.
+- Merge Warden performs the final merge gate and merges only when all gates pass.
+
+Hard separation:
+
+- Phasekeeper must not merge.
+- Code Sentinel must not merge.
+- Merge Warden must not implement feature work, fix tests, or start the next stage.
+
+## Stage and PR rules
+
+Use the current project stage implied by `docs/01_PROJECT_BRIEF.md`, any active roadmap/current-stage document, open issues, and open PRs.
+
+Default invariant:
+
+```text
+One top-level project stage equals one PR.
+```
+
+A PR may contain substeps inside the same stage. A PR may propose the next stage. A PR must not implement the next top-level stage.
+
+Stacked PRs are not the default. Do not create, continue, or merge stacked PRs unless Benjamin explicitly authorizes stacking.
+
+## Agent polling rules
+
+Agents may run on a loop, but they must be quiet unless useful work is available.
+
+On every loop, first inspect repo/PR state and then choose exactly one of these outcomes:
+
+1. Do nothing because no work is currently assigned to this role.
+2. Make a small scoped change and record evidence.
+3. Leave one useful review/gate comment because state changed or a blocker was found.
+4. Stop and ask Benjamin because the next action requires human judgment.
+
+Do not post repeated comments with the same conclusion. Do not create new branches or PRs when an appropriate one already exists. Do not fight another agent over the same branch.
+
+## Code Sentinel verdict rule
+
+Every Code Sentinel PR review must end with exactly one of these lines:
+
+```text
+MERGE_WARDEN: READY
+MERGE_WARDEN: READY_WITH_NON_BLOCKING_CAVEATS
+MERGE_WARDEN: BLOCKED
+```
+
+The verdict must name the current PR head SHA. Merge Warden may only consume a Code Sentinel verdict if it references the current head SHA. If new commits have been pushed after the verdict, Merge Warden must refuse to merge and request a fresh Code Sentinel review.
+
+## Merge gate rule
+
+Merge Warden may merge only when all are true:
+
+- Target repository and PR are unambiguous.
+- PR is open and non-draft.
+- PR targets the correct base branch, normally `main`.
+- PR belongs to the intended current project stage.
+- PR does not include later-stage work.
+- PR is mergeable.
+- Required checks pass.
+- If no checks exist, that absence is explicitly noted.
+- Code Sentinel has emitted `MERGE_WARDEN: READY` or `MERGE_WARDEN: READY_WITH_NON_BLOCKING_CAVEATS` for the current head SHA.
+- No unresolved actionable review feedback remains.
+- The PR body or latest agent comment records what changed, evidence produced, docs updated, validation run, stage status, and next step.
+
+Merge Warden must refuse clearly if any gate fails.
+
 ## Documentation rules
 
 Documentation is a first-class deliverable.
@@ -44,9 +124,19 @@ Use this routing:
 - Experiment result -> update `docs/07_FINDINGS_LOG.md`
 - Architecture/project decision -> update `docs/08_DECISION_LOG.md`
 
+## Verification workflow
+
+No theoretical code. Everything important must be proven.
+
+Before modifying source, define how the change will be validated. Where possible, run the validation first to establish the current baseline or failure mode.
+
+After implementing, run the validation again. If validation fails, fix the issue or document the blocker. Do not declare success without real output.
+
+Record terminal output, logs, metrics, screenshots, MVD-analysis output, or other evidence in the relevant doc or PR comment.
+
 ## Before finishing any task
 
-Answer these in the final message or commit summary:
+Answer these in the final message, PR body, PR comment, or commit summary:
 
 - What changed?
 - What evidence was produced?
