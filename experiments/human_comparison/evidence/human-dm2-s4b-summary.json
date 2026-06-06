@@ -1,0 +1,173 @@
+{
+  "artifact_dir": "artifacts\\human-demos\\s4b\\s4b-dm2-blue-vs-red-20260228-0512",
+  "comparison_context": {
+    "bot_summary": {
+      "available": true,
+      "maps": [
+        "dm3",
+        "frobodm2"
+      ],
+      "path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\experiments\\ktx_moveprobe\\evidence\\moveprobe-s3g-summary.json",
+      "run_count": 2,
+      "schema": "komodobots.moveprobe_plausibility.v1"
+    },
+    "note": "Use this as a true-DM2 human anchor, but not as a direct S3g comparison until bot evidence exists on DM2 or a map-matched human sample exists.",
+    "same_map_comparable_to_s3g": false,
+    "verdict": "human_dm2_available_but_s3g_not_dm2"
+  },
+  "demo": {
+    "copied_demo": "artifacts\\human-demos\\s4b\\s4b-dm2-blue-vs-red-20260228-0512\\demo.mvd",
+    "demo_kind": "4on4",
+    "inferred_map_from_name": "dm2",
+    "map": "dm2",
+    "name": "4on4_blue_vs_red[dm2]20260228-0512.mvd",
+    "sha256": "f8269d8139b129426b569eaf6b2be278964d740bd0365647f4410db74da76585",
+    "size_bytes": 8624854,
+    "source_path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\source\\4on4_blue_vs_red[dm2]20260228-0512.mvd"
+  },
+  "ignored_named_slots": [
+    {
+      "active_time_s": 4.624,
+      "airborne_proxy_time_ratio": 0.0,
+      "avg_horizontal_speed_qu_per_s": 0.0,
+      "jump_cadence_per_min": 0.0,
+      "low_speed_time_ratio": 1.0,
+      "max_horizontal_speed_qu_per_s": 0.0,
+      "name": "blaze",
+      "p95_horizontal_speed_qu_per_s": 0.0,
+      "sample_count": 339,
+      "slot": 10,
+      "stationary_time_ratio": 1.0
+    }
+  ],
+  "inventory": {
+    "demo_count": 1,
+    "dm2_candidate_count": 1,
+    "has_dm2_candidate": true,
+    "root": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\source"
+  },
+  "match": {
+    "duration_ms": 747424,
+    "frag_count": 4,
+    "map": "dm2",
+    "map_title": "Claustrophobopolis"
+  },
+  "movement_players": [
+    {
+      "active_time_s": 763.029,
+      "airborne_proxy_time_ratio": 0.296,
+      "avg_horizontal_speed_qu_per_s": 292.495,
+      "jump_cadence_per_min": 45.45,
+      "low_speed_time_ratio": 0.169,
+      "max_horizontal_speed_qu_per_s": 1144.392,
+      "name": "BLooD_DoG(D_P)",
+      "p95_horizontal_speed_qu_per_s": 491.396,
+      "sample_count": 55492,
+      "slot": 0,
+      "stationary_time_ratio": 0.101
+    },
+    {
+      "active_time_s": 762.375,
+      "airborne_proxy_time_ratio": 0.378,
+      "avg_horizontal_speed_qu_per_s": 292.292,
+      "jump_cadence_per_min": 57.924,
+      "low_speed_time_ratio": 0.191,
+      "max_horizontal_speed_qu_per_s": 1425.219,
+      "name": "Nico",
+      "p95_horizontal_speed_qu_per_s": 486.912,
+      "sample_count": 55492,
+      "slot": 1,
+      "stationary_time_ratio": 0.121
+    },
+    {
+      "active_time_s": 763.125,
+      "airborne_proxy_time_ratio": 0.211,
+      "avg_horizontal_speed_qu_per_s": 272.883,
+      "jump_cadence_per_min": 35.774,
+      "low_speed_time_ratio": 0.16,
+      "max_horizontal_speed_qu_per_s": 2339.05,
+      "name": "Zord",
+      "p95_horizontal_speed_qu_per_s": 429.036,
+      "sample_count": 55492,
+      "slot": 4,
+      "stationary_time_ratio": 0.078
+    },
+    {
+      "active_time_s": 762.348,
+      "airborne_proxy_time_ratio": 0.195,
+      "avg_horizontal_speed_qu_per_s": 257.143,
+      "jump_cadence_per_min": 35.653,
+      "low_speed_time_ratio": 0.198,
+      "max_horizontal_speed_qu_per_s": 1738.976,
+      "name": "Schotty",
+      "p95_horizontal_speed_qu_per_s": 392.232,
+      "sample_count": 55492,
+      "slot": 5,
+      "stationary_time_ratio": 0.11
+    },
+    {
+      "active_time_s": 763.127,
+      "airborne_proxy_time_ratio": 0.202,
+      "avg_horizontal_speed_qu_per_s": 255.557,
+      "jump_cadence_per_min": 33.179,
+      "low_speed_time_ratio": 0.238,
+      "max_horizontal_speed_qu_per_s": 1074.603,
+      "name": "grl",
+      "p95_horizontal_speed_qu_per_s": 463.254,
+      "sample_count": 55492,
+      "slot": 6,
+      "stationary_time_ratio": 0.168
+    },
+    {
+      "active_time_s": 763.134,
+      "airborne_proxy_time_ratio": 0.211,
+      "avg_horizontal_speed_qu_per_s": 228.03,
+      "jump_cadence_per_min": 33.651,
+      "low_speed_time_ratio": 0.337,
+      "max_horizontal_speed_qu_per_s": 2118.005,
+      "name": "foobar",
+      "p95_horizontal_speed_qu_per_s": 482.473,
+      "sample_count": 55492,
+      "slot": 7,
+      "stationary_time_ratio": 0.262
+    },
+    {
+      "active_time_s": 750.412,
+      "airborne_proxy_time_ratio": 0.254,
+      "avg_horizontal_speed_qu_per_s": 252.988,
+      "jump_cadence_per_min": 41.177,
+      "low_speed_time_ratio": 0.274,
+      "max_horizontal_speed_qu_per_s": 2031.181,
+      "name": "SEX",
+      "p95_horizontal_speed_qu_per_s": 467.312,
+      "sample_count": 54625,
+      "slot": 8,
+      "stationary_time_ratio": 0.195
+    },
+    {
+      "active_time_s": 762.672,
+      "airborne_proxy_time_ratio": 0.251,
+      "avg_horizontal_speed_qu_per_s": 264.416,
+      "jump_cadence_per_min": 39.965,
+      "low_speed_time_ratio": 0.218,
+      "max_horizontal_speed_qu_per_s": 2144.489,
+      "name": "vegeta",
+      "p95_horizontal_speed_qu_per_s": 481.922,
+      "sample_count": 55492,
+      "slot": 9,
+      "stationary_time_ratio": 0.117
+    }
+  ],
+  "parser": {
+    "event_count": 501300,
+    "exits": {
+      "events": 1,
+      "json": 0,
+      "md": 0
+    },
+    "position_event_count": 443408
+  },
+  "run_id": "s4b-dm2-blue-vs-red-20260228-0512",
+  "schema": "komodobots.human_mvd_analysis.v1",
+  "stage": "s4b-dm2"
+}

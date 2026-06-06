@@ -142,6 +142,21 @@ Next S4 data step:
 
 Select or acquire a real DM2 human comparison set before using human metrics to judge S3g. Per thevault `quakeworld/mvds.md`, avoid mass-downloads from `hub.quakeworld.nu`; prefer existing bulk corpora such as the `servexeri` `/mnt/usb-ssd/4on4-corpus/demos/` set and its manifest, or other bulk sources that avoid hub egress.
 
+S4b result:
+
+- Inspected `servexeri:/mnt/usb-ssd/4on4-corpus/manifest.tsv`.
+- Manifest rows: `6409`; DM2 rows: `1598`; `4on4_` DM2 rows: `1450`; cleanish 4on4 DM2 rows after excluding `tmp` and missing files: `1171`.
+- Copied one selected existing corpus file, not from hub: `4on4_blue_vs_red[dm2]20260228-0512.mvd`.
+- Manifest SHA-256/size matched the local artifact: `f8269d8139b129426b569eaf6b2be278964d740bd0365647f4410db74da76585`, `8624854` bytes.
+- Parsed run `s4b-dm2-blue-vs-red-20260228-0512` as `dm2` / `Claustrophobopolis`.
+- Parser exits: `json=0`, `md=0`, `events=1`; event count: `501300`; position events: `443408`.
+- Active movement rows: eight 4on4 players; one short zero-distance named slot was kept out of the compact summary.
+- Comparison verdict: `human_dm2_available_but_s3g_not_dm2`. S4 now has a true DM2 human reference file, but S3g is still not map-matched because the current bot evidence is `dm3` and `frobodm2`.
+
+Next S4 comparison step:
+
+Before making a S3g-vs-human realism claim, either produce S3g-style bot evidence on DM2 or parse map-matched human `dm3` data from the same corpus. Because stock `dm2` currently lacks a Frogbot route file, the smallest useful comparison is likely one human `dm3` 4on4 demo matched against the existing S3g `dm3` bot run.
+
 ## Bot-generated MVD loop
 
 Target loop:

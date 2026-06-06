@@ -16,7 +16,7 @@
 - Inventory root: `C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos`
 - Local demos inventoried: `5`
 - Local DM2 candidates: `0`
-- Ignored named slots: `6` (active < 1s or samples < 10)
+- Ignored named slots: `6` (active < 1s, samples < 10, or distance < 100qu)
 
 ## Movement Players
 

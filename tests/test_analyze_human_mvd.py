@@ -20,6 +20,7 @@ class HumanMvdAnalysisTests(unittest.TestCase):
         self.assertEqual(analyze_human_mvd.infer_map_from_text("1on1_reppie_vs_locust_aerowalk.mvd"), "aerowalk")
         self.assertEqual(analyze_human_mvd.infer_map_from_match_title("The Abandoned Base"), "dm3")
         self.assertEqual(analyze_human_mvd.infer_map_from_match_title("Frogbotrophobopolis"), "frobodm2")
+        self.assertEqual(analyze_human_mvd.format_stage_label("s4b-dm2"), "S4b-dm2")
 
     def test_inventory_records_dm2_gap_and_hashes_files(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -36,6 +37,12 @@ class HumanMvdAnalysisTests(unittest.TestCase):
         maps = {demo["name"]: demo["inferred_map"] for demo in inventory["demos"]}
         self.assertEqual(maps["ffa_frobodm2.mvd"], "frobodm2")
         self.assertTrue(all(demo["sha256"] for demo in inventory["demos"]))
+
+    def test_comparison_note_distinguishes_dm2_anchor_from_parser_proof(self) -> None:
+        verdict = analyze_human_mvd.comparison_verdict("dm2", ["dm3", "frobodm2"], True)
+
+        self.assertEqual(verdict, "human_dm2_available_but_s3g_not_dm2")
+        self.assertIn("true-DM2 human anchor", analyze_human_mvd.comparison_note(verdict))
 
     def test_build_summary_marks_aerowalk_as_parser_proof_only_against_s3g(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -56,6 +63,7 @@ class HumanMvdAnalysisTests(unittest.TestCase):
                                 "name": "reppie",
                                 "sample_count": 40,
                                 "active_time_s": 3,
+                                "horizontal_distance_qu": 960,
                                 "avg_horizontal_speed_qu_per_s": 320,
                                 "p95_horizontal_speed_qu_per_s": 420,
                                 "max_horizontal_speed_qu_per_s": 500,
@@ -69,11 +77,26 @@ class HumanMvdAnalysisTests(unittest.TestCase):
                                 "name": "inactive",
                                 "sample_count": 2,
                                 "active_time_s": 0,
+                                "horizontal_distance_qu": 0,
                                 "avg_horizontal_speed_qu_per_s": 0,
                                 "p95_horizontal_speed_qu_per_s": 0,
                                 "max_horizontal_speed_qu_per_s": 0,
                                 "stationary_time_ratio": 0,
                                 "low_speed_time_ratio": 0,
+                                "airborne_proxy_time_ratio": 0,
+                                "jump_cadence_per_min": 0,
+                            },
+                            {
+                                "slot": 3,
+                                "name": "idle",
+                                "sample_count": 40,
+                                "active_time_s": 3,
+                                "horizontal_distance_qu": 0,
+                                "avg_horizontal_speed_qu_per_s": 0,
+                                "p95_horizontal_speed_qu_per_s": 0,
+                                "max_horizontal_speed_qu_per_s": 0,
+                                "stationary_time_ratio": 1,
+                                "low_speed_time_ratio": 1,
                                 "airborne_proxy_time_ratio": 0,
                                 "jump_cadence_per_min": 0,
                             }
@@ -94,15 +117,18 @@ class HumanMvdAnalysisTests(unittest.TestCase):
                 inventory={"demo_count": 1, "dm2_candidate_count": 0, "has_dm2_candidate": False, "root": "root"},
                 parser_exits={"json": 0, "md": 0, "events": 1},
                 bot_summary_path=bot_summary,
+                stage="s4a",
             )
 
+        self.assertEqual(summary["stage"], "s4a")
         self.assertEqual(summary["demo"]["map"], "aerowalk")
         self.assertEqual(summary["match"]["frag_count"], 2)
         self.assertFalse(summary["comparison_context"]["same_map_comparable_to_s3g"])
         self.assertEqual(summary["comparison_context"]["verdict"], "parser_proof_only_no_local_dm2")
         self.assertEqual(summary["movement_players"][0]["name"], "reppie")
         self.assertEqual(len(summary["movement_players"]), 1)
-        self.assertEqual(summary["ignored_named_slots"][0]["name"], "inactive")
+        self.assertEqual([row["name"] for row in summary["ignored_named_slots"]], ["inactive", "idle"])
+        self.assertIn("parser proof", summary["comparison_context"]["note"])
 
 
 if __name__ == "__main__":

@@ -641,3 +641,50 @@ S4 can proceed without overclaiming. The project now has a repeatable human-demo
 ### Revisit Conditions
 
 Revisit if a local or corpus DM2 candidate cannot be parsed by the scaffold, if the parser cannot identify enough active players in real 4on4 demos, or if a map-matched non-DM2 comparison becomes a better short-term anchor than DM2.
+
+---
+
+## Decision
+
+Resolve map mismatch before judging S3g against human movement.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+Treat S4b as successful true-DM2 human data selection, but not as a direct S3g comparison. The selected DM2 MVD gives S4 a real human DM2 anchor. However, S3g bot evidence is currently on `dm3` and `frobodm2`, so a S3g-vs-S4b realism claim would still be map-mismatched.
+
+The next goal is S4c: produce the first map-matched human comparison for S3g, most likely by selecting and parsing one human `dm3` 4on4 demo from the same existing corpus.
+
+### Alternatives Considered
+
+- Compare S3g `dm3`/`frobodm2` directly against the new human `dm2` summary.
+- Stop S4 after finding one DM2 human reference.
+- Try to generate S3g DM2 bot evidence immediately despite no known Frogbot `dm2.bot` route file.
+- Return to movement-command tuning before any map-matched human anchor exists.
+
+### Evidence
+
+S4b selected `4on4_blue_vs_red[dm2]20260228-0512.mvd` from the existing `servexeri` 4on4 corpus:
+
+- Manifest rows: `6409`.
+- DM2 rows: `1598`.
+- `4on4_` DM2 rows: `1450`.
+- Cleanish 4on4 DM2 rows after excluding `tmp` and missing files: `1171`.
+- Selected file hash/size: `f8269d8139b129426b569eaf6b2be278964d740bd0365647f4410db74da76585`, `8624854` bytes.
+- Parsed as `dm2` / `Claustrophobopolis`, duration `747424` ms, with eight active 4on4 movement rows.
+
+S3g evidence remains:
+
+- `20260606T003718Z`, `dm3`.
+- `20260606T003808Z`, `frobodm2`.
+
+### Expected Consequences
+
+The lab now has a true DM2 human reference and a reasoned next step. S4c should make the first direct map-matched human-vs-bot comparison possible before any claim that mode `7` is human-like.
+
+### Revisit Conditions
+
+Revisit if a DM2 Frogbot route appears, if a better server-native bot path can generate DM2 bot evidence quickly, or if a human `dm3` corpus sample fails to parse through the current scaffold.

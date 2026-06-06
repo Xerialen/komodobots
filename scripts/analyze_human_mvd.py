@@ -41,6 +41,7 @@ INVENTORY_SCHEMA = "komodobots.human_mvd_inventory.v1"
 SUMMARY_SCHEMA = "komodobots.human_mvd_analysis.v1"
 MIN_ACTIVE_TIME_S = 1.0
 MIN_ACTIVE_SAMPLE_COUNT = 10
+MIN_HORIZONTAL_DISTANCE_QU = 100.0
 
 MAP_TOKENS = (
     "frobodm2",
@@ -76,6 +77,17 @@ def round_float(value: object, digits: int = 3) -> float:
 def slugify(value: str, *, fallback: str = "demo") -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
     return slug or fallback
+
+
+def format_stage_label(value: object) -> str:
+    text = str(value or "s4a")
+    head, separator, tail = text.partition("-")
+    match = re.fullmatch(r"s(\d+)([a-z]?)", head.lower())
+    if match:
+        label = f"S{match.group(1)}{match.group(2)}"
+    else:
+        label = head
+    return f"{label}{separator}{tail}" if separator else label
 
 
 def sha256_file(path: Path) -> str:
@@ -223,7 +235,12 @@ def is_active_movement_player(player: dict[str, object]) -> bool:
     except (TypeError, ValueError):
         sample_count = 0
     active_time_s = round_float(player.get("active_time_s"))
-    return sample_count >= MIN_ACTIVE_SAMPLE_COUNT and active_time_s >= MIN_ACTIVE_TIME_S
+    horizontal_distance = round_float(player.get("horizontal_distance_qu"))
+    return (
+        sample_count >= MIN_ACTIVE_SAMPLE_COUNT
+        and active_time_s >= MIN_ACTIVE_TIME_S
+        and horizontal_distance >= MIN_HORIZONTAL_DISTANCE_QU
+    )
 
 
 def compact_player_metrics(metrics: dict[str, object]) -> list[dict[str, object]]:
@@ -267,6 +284,17 @@ def comparison_verdict(human_map: str, bot_maps: list[str], has_dm2_candidate: b
     return "parser_proof_only_map_mismatch"
 
 
+def comparison_note(verdict: str) -> str:
+    if verdict == "same_map_human_reference_available":
+        return "This is map-matched to at least one S3g bot run and can seed a small comparison."
+    if verdict == "human_dm2_available_but_s3g_not_dm2":
+        return (
+            "Use this as a true-DM2 human anchor, but not as a direct S3g comparison "
+            "until bot evidence exists on DM2 or a map-matched human sample exists."
+        )
+    return "Use this as a parser proof only until a DM2 or map-matched human set is available."
+
+
 def build_human_summary(
     *,
     run_dir: Path,
@@ -274,6 +302,7 @@ def build_human_summary(
     inventory: dict[str, object],
     parser_exits: dict[str, int],
     bot_summary_path: Path,
+    stage: str = "s4a",
 ) -> dict[str, object]:
     analysis = load_json_if_present(run_dir / "analysis.json")
     metrics = load_json_if_present(run_dir / "movement-metrics.json")
@@ -286,9 +315,11 @@ def build_human_summary(
     bot_maps = [str(value) for value in bot_context.get("maps", [])]
     same_map = bool(human_map and human_map in bot_maps)
     has_dm2_candidate = bool(inventory.get("has_dm2_candidate"))
+    verdict = comparison_verdict(human_map, bot_maps, has_dm2_candidate)
 
     return {
         "schema": SUMMARY_SCHEMA,
+        "stage": stage,
         "run_id": run_dir.name,
         "artifact_dir": str(run_dir),
         "demo": {
@@ -325,12 +356,8 @@ def build_human_summary(
         "comparison_context": {
             "bot_summary": bot_context,
             "same_map_comparable_to_s3g": same_map,
-            "verdict": comparison_verdict(human_map, bot_maps, has_dm2_candidate),
-            "note": (
-                "Use this as a parser proof only until a DM2 or map-matched human set is available."
-                if not same_map
-                else "This is map-matched to at least one S3g bot run and can seed a small comparison."
-            ),
+            "verdict": verdict,
+            "note": comparison_note(verdict),
         },
     }
 
@@ -348,9 +375,10 @@ def write_human_summary_markdown(summary: dict[str, object], output_path: Path) 
     inventory = summary.get("inventory", {})
     comparison = summary.get("comparison_context", {})
     bot_summary = comparison.get("bot_summary", {}) if isinstance(comparison, dict) else {}
+    stage = format_stage_label(summary.get("stage") or "s4a")
 
     lines = [
-        "# Human MVD S4a Summary",
+        f"# Human MVD {stage} Summary",
         "",
         "## Demo",
         "",
@@ -369,7 +397,8 @@ def write_human_summary_markdown(summary: dict[str, object], output_path: Path) 
         f"- Local demos inventoried: `{inventory.get('demo_count')}`",
         f"- Local DM2 candidates: `{inventory.get('dm2_candidate_count')}`",
         f"- Ignored named slots: `{len(summary.get('ignored_named_slots', []))}` "
-        f"(active < {MIN_ACTIVE_TIME_S:g}s or samples < {MIN_ACTIVE_SAMPLE_COUNT})",
+        f"(active < {MIN_ACTIVE_TIME_S:g}s, samples < {MIN_ACTIVE_SAMPLE_COUNT}, "
+        f"or distance < {MIN_HORIZONTAL_DISTANCE_QU:g}qu)",
         "",
         "## Movement Players",
         "",
@@ -419,6 +448,7 @@ def analyze_demo(
     distro: str,
     analyzer: str,
     bot_summary_path: Path,
+    stage: str,
 ) -> dict[str, object]:
     run_dir = artifact_root / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -459,6 +489,7 @@ def analyze_demo(
         inventory=inventory,
         parser_exits=parser_exits,
         bot_summary_path=bot_summary_path,
+        stage=stage,
     )
     (run_dir / "human-summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     write_human_summary_markdown(summary, run_dir / "human-summary.md")
@@ -471,6 +502,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument("--recursive", action="store_true", help="Inventory demos recursively under --demo-root.")
     parser.add_argument("--demo", help="Specific demo path, or filename relative to --demo-root, to analyze.")
     parser.add_argument("--run-id", help="Artifact run id. Defaults to s4a-<demo-stem>.")
+    parser.add_argument("--stage", default="s4a", help="Evidence stage label used in summaries and output filenames.")
     parser.add_argument("--artifact-root", type=Path, default=DEFAULT_ARTIFACT_ROOT, help="Output artifact root.")
     parser.add_argument("--distro", default="Ubuntu-24.04", help="WSL distro containing qw-analyze-v20.")
     parser.add_argument("--analyzer", default=DEFAULT_ANALYZER, help="Analyzer path inside WSL.")
@@ -499,7 +531,8 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         return 0
 
     demo_path = resolve_demo_path(args.demo, args.demo_root)
-    run_id = args.run_id or f"s4a-{slugify(demo_path.stem)}"
+    stage_slug = slugify(args.stage, fallback="stage")
+    run_id = args.run_id or f"{stage_slug}-{slugify(demo_path.stem)}"
     summary = analyze_demo(
         demo_path=demo_path,
         inventory=inventory,
@@ -508,10 +541,11 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         distro=args.distro,
         analyzer=args.analyzer,
         bot_summary_path=args.bot_summary,
+        stage=args.stage,
     )
 
-    summary_json = artifact_root / "human-demo-s4a-summary.json"
-    summary_md = artifact_root / "human-demo-s4a-summary.md"
+    summary_json = artifact_root / f"human-demo-{stage_slug}-summary.json"
+    summary_md = artifact_root / f"human-demo-{stage_slug}-summary.md"
     summary_json.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     write_human_summary_markdown(summary, summary_md)
     print(f"Wrote inventory: {inventory_md}")

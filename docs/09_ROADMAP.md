@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S4b - True DM2 human comparison set selection`
+`S4c - Map-matched human comparison for S3g`
 
 ## Stage Status Table
 
@@ -46,7 +46,7 @@ Current active stage:
 | S1 Baseline | Complete | Measured current Frogbot movement with speed and airborne-proxy metrics |
 | S2 Override | Provisionally satisfied pending review | Route-yaw mode `3` passed explicit v2c command/plausibility gates on `frobodm2` and `dm3` |
 | S3 Bunnyjump Controller | Provisionally satisfied pending human anchor | S3g mode `7` passed `dm3` and `frobodm2` while preserving combat yaw, removing backward commands, and bounding sampled command magnitude near `824.6` |
-| S4 Human Comparison | Active | S4a parsed a local human `aerowalk` demo and found no local DM2 candidate; S4b must select/acquire a real DM2 human comparison set |
+| S4 Human Comparison | Active | S4b parsed one true human `dm2` 4on4 demo; S4c must resolve the map mismatch before judging S3g |
 | S5 Milton Reference | Pending | Elite movement reference dataset |
 | S6 Route Primitives | Pending | Route-level movement behaviours |
 | S7 Player Specific | Pending | Player-style movement models |
@@ -64,4 +64,4 @@ Mode `3` and mode `4` deliberately commandeer view yaw to align movement with Fr
 
 S3c validated `sidemove=200` as a repeatable route-yaw strafe candidate on `frobodm2` and `dm3`, but mode `3` and mode `4` still commandeer aim. S3d mode `5` then emitted aim-independent route/strafe commands, but behavior split. S3e diagnostics showed route-vs-view yaw deltas and backward local commands are plausible contributors, especially for `/ bro` on `dm3`, but not a complete explanation. S3f mode `6` removed backward commands and passed both routed maps, but did so with very large folded side commands. S3g mode `7` bounded those commands and passed both routed maps.
 
-S4a built the human-demo parser scaffold and parsed one local `aerowalk` duel, but found no local true `dm2` candidate. The next branch is S4b DM2 human set selection before any S3g realism claim or larger controller work.
+S4a built the human-demo parser scaffold and parsed one local `aerowalk` duel, but found no local true `dm2` candidate. S4b selected and parsed one true human `dm2` 4on4 demo from the existing `servexeri` corpus, but S3g bot evidence is on `dm3` and `frobodm2`. The next branch is S4c map-matched human comparison before any S3g realism claim or larger controller work.

@@ -155,5 +155,6 @@
     "position_event_count": 35447
   },
   "run_id": "s4a-1on1-reppie-vs-locust-aerowalk",
-  "schema": "komodobots.human_mvd_analysis.v1"
+  "schema": "komodobots.human_mvd_analysis.v1",
+  "stage": "s4a"
 }

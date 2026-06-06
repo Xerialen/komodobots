@@ -1278,3 +1278,108 @@ Low for any movement-realism comparison until S4 has a DM2 or map-matched human 
 ### Follow-up
 
 Ask Claude to review S4a. Proposed S4b: select or acquire a real DM2 human comparison set and run it through the same scaffold. Prefer existing bulk corpora noted in thevault, especially the `servexeri` `/mnt/usb-ssd/4on4-corpus/demos/` manifest/corpus; do not mass-download from `hub.quakeworld.nu`.
+
+## 2026-06-06 - S4b True-DM2 Human Demo Selection
+
+### Experiment
+
+Selected one true DM2 human 4on4 MVD from the existing `servexeri` corpus instead of downloading from hub.
+
+Remote corpus:
+
+```text
+servexeri:/mnt/usb-ssd/4on4-corpus/manifest.tsv
+servexeri:/mnt/usb-ssd/4on4-corpus/demos/
+```
+
+Selection filters:
+
+- Existing corpus file; no hub download.
+- Basename starts with `4on4_`.
+- Basename contains `[dm2]`.
+- Basename does not contain `tmp`.
+- File exists under the corpus demo root.
+- Single moderate-size 2026 demo for the first S4b parse.
+
+Selected:
+
+```text
+4on4_blue_vs_red[dm2]20260228-0512.mvd
+```
+
+Ran:
+
+```bash
+python scripts/analyze_human_mvd.py --demo-root artifacts/human-demos/source --artifact-root artifacts/human-demos/s4b --stage s4b-dm2 --demo 4on4_blue_vs_red[dm2]20260228-0512.mvd --run-id s4b-dm2-blue-vs-red-20260228-0512
+```
+
+### Result
+
+Corpus inventory:
+
+- Manifest rows: `6409`.
+- DM2 rows: `1598`.
+- `4on4_` DM2 rows: `1450`.
+- Cleanish 4on4 DM2 rows after excluding `tmp` and missing files: `1171`.
+
+Selected demo verification:
+
+- Manifest SHA-256: `f8269d8139b129426b569eaf6b2be278964d740bd0365647f4410db74da76585`.
+- Manifest size: `8624854` bytes.
+- Local transferred artifact matched the manifest hash and size.
+
+Parsed demo:
+
+- Run id: `s4b-dm2-blue-vs-red-20260228-0512`.
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Event count: `501300`; position events: `443408`.
+- Match title/map: `Claustrophobopolis` / `dm2`.
+- Duration: `747424` ms.
+- Active movement rows: eight 4on4 players.
+- One short zero-distance named slot, `blaze`, was excluded from the compact active-player summary.
+- Comparison verdict: `human_dm2_available_but_s3g_not_dm2`.
+
+Active-player movement summary:
+
+| Player | Avg | P95 | Stationary | Low | Air | Cadence/min |
+|---|---:|---:|---:|---:|---:|---:|
+| `BLooD_DoG(D_P)` | 292.5 | 491.4 | 10.1% | 16.9% | 29.6% | 45.5 |
+| `Nico` | 292.3 | 486.9 | 12.1% | 19.1% | 37.8% | 57.9 |
+| `Zord` | 272.9 | 429.0 | 7.8% | 16.0% | 21.1% | 35.8 |
+| `Schotty` | 257.1 | 392.2 | 11.0% | 19.8% | 19.5% | 35.7 |
+| `grl` | 255.6 | 463.3 | 16.8% | 23.8% | 20.2% | 33.2 |
+| `foobar` | 228.0 | 482.5 | 26.2% | 33.7% | 21.1% | 33.7 |
+| `SEX` | 253.0 | 467.3 | 19.5% | 27.4% | 25.4% | 41.2 |
+| `vegeta` | 264.4 | 481.9 | 11.7% | 21.8% | 25.1% | 40.0 |
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/human-demos/s4b/human-demo-inventory.md`
+- `artifacts/human-demos/s4b/human-demo-s4b-dm2-summary.md`
+- `artifacts/human-demos/s4b/s4b-dm2-blue-vs-red-20260228-0512/movement-metrics.md`
+- `experiments/human_comparison/evidence/human-dm2-s4b-selection.md`
+- `experiments/human_comparison/evidence/human-dm2-s4b-selection.json`
+- `experiments/human_comparison/evidence/human-dm2-s4b-inventory.md`
+- `experiments/human_comparison/evidence/human-dm2-s4b-inventory.json`
+- `experiments/human_comparison/evidence/human-dm2-s4b-summary.md`
+- `experiments/human_comparison/evidence/human-dm2-s4b-summary.json`
+
+### Interpretation
+
+S4b fills the specific data gap discovered in S4a: a true DM2 human reference is available from the existing corpus and parses through the same movement pipeline.
+
+It still does not make S3g human-like. S3g bot evidence is on `dm3` and `frobodm2`, while this human reference is `dm2`. The result is useful as a DM2 human anchor, but not as a direct S3g comparison.
+
+### Confidence
+
+High for the corpus selection counts and selected file provenance.
+
+High that the selected MVD is a true DM2 human 4on4 demo and parses through the current pipeline.
+
+Low for any S3g-vs-human comparison until maps are matched or bot evidence exists on DM2.
+
+### Follow-up
+
+Ask Claude to review S4b. Proposed S4c: resolve the map mismatch before making realism claims. Since stock `dm2` lacks a Frogbot route file, the smallest useful next comparison is likely to select and parse one human `dm3` 4on4 demo from the same corpus, then compare its movement summary against the existing S3g `dm3` bot run. If Claude prefers preserving the S4 DM2 path instead, the alternative is to generate DM2 bot evidence by adding/finding a real DM2 route or another server-native bot path.
