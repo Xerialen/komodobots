@@ -459,6 +459,22 @@ Result:
 
 Interpretation: this repairs the evidence-window problem but not the movement problem. The bot can be steered through early SNG control points inside real server physics, but it is still too slow/stationary to count as learned human-like movement. The next movement question is whether that slow traversal comes from controller projection, route/map context, or a too-loose setup radius.
 
+## QWD SNG Slow-Success Attribution
+
+The slow-success diagnosis did not rerun KTX and did not change movement behavior. It added `scripts/diagnose_qwd_sng_slow_success.py`, consumed the setup-repaired run `20260606T231007Z`, split active QWD commands by current control-point target, and joined those phases to MVD movement segments.
+
+Result:
+
+- `/ bro` was the slow-success candidate.
+- Widening the start radius to `320` qu activated `/ bro` immediately at `t=0` from `281.954` qu away from CP0.
+- The original `192` qu design radius would first have activated at `31652` ms, when `/ bro` was `83.332` qu from CP0.
+- The CP0 active phase had p50 speed `84.385` qu/s, low-speed ratio `0.526`, stationary ratio `0.383`, and blocked ratio `0.371`.
+- After advancing through four control points, `/ bro` still stayed `181.154` qu from CP4 against a `96` qu point radius.
+- The active command profile was strong: side ratio `1.0`, jump ratio `1.0`, median horizontal command `600.0`.
+- Water and low-dir-speed route context were not primary in the slow-success candidate phases.
+
+Interpretation: the current SNG evidence is route-geometry transfer plus slow/stuck traversal, not human-like movement. This keeps Frogbots viable as the server-native substrate, but blocks expansion to other DM3 QWD moves until the SNG activation and phase-level success gates are tightened.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

@@ -138,3 +138,15 @@ Run `20260606T231007Z` widened only the mode-9 QWD start radius from `192` to `3
 - `/ bro` stationary ratio: `0.253`
 
 Decision status: the setup/timing blocker is repaired, which strengthens the case that KTX/Frogbots can act as a server-native shell for QWD-derived control. It is still not proof that Frogbots learned SNG. The current blocker is slow/stationary traversal while hitting the first four control points. Do not expand to all DM3 QWD moves until that slow-success rejection is diagnosed and a follow-up SNG run passes the guardrails.
+
+Slow-success diagnosis:
+
+`experiments/qwd_route_probe/evidence/qwd-sng-slow-success-diagnosis-dm3.*` attributes the rejected `/ bro` advancement to loose setup plus a post-CP3 progression gap:
+
+- `320` qu start radius activated `/ bro` at `t=0` from `281.954` qu away
+- the original `192` qu design radius would first have activated at `31652` ms, when `/ bro` was `83.332` qu from CP0
+- CP0 active phase p50 speed was `84.385` qu/s, with low-speed `0.526`, stationary `0.383`, and blocked `0.371`
+- after four advanced points, CP4 still stayed `181.154` qu away against a `96` qu point radius
+- active side/jump commands were strong, and water/low-dir-speed were not primary
+
+Decision status: continue Frogbots for one tighter SNG setup/phase-gate step, but still do not expand to all DM3 QWD moves. The live substrate can accept QWD-derived control, but the current SNG evidence is route geometry plus slow/stuck traversal, not believable human-like movement.

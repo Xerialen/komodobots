@@ -116,6 +116,8 @@ QWD SNG hybrid probe comparison helper: `C:\Users\benya\projects\quakeworld\komo
 
 QWD SNG hybrid probe diagnosis helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\diagnose_qwd_sng_probe.py`
 
+QWD SNG slow-success attribution helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\diagnose_qwd_sng_slow_success.py`
+
 KTX movement probe patch: `C:\Users\benya\projects\quakeworld\komodobots\experiments\ktx_moveprobe\frogbot-moveprobe.patch`
 
 Why it matters:
@@ -146,6 +148,7 @@ Why it matters:
 - `scripts/design_qwd_sng_hybrid_probe.py` consumes the committed `dm3_sng_shortcut.qwd` route-mapping artifact and writes the first design-only contract for a temporary KTX hybrid waypoint/controller probe. It preserves the QWD waypoint string, side-dominant command profile, diagnostics requirements, and stop conditions without changing KTX or Frogbot behavior.
 - `scripts/compare_qwd_sng_hybrid_probe.py` scores temporary mode-9 SNG hybrid server-loop runs against that design contract. It requires QWD activation, control-point advancement, command/MVD window overlap, route/water/cadence diagnostics, active command-profile coverage, and slow/route-dirty guardrails before any positive claim.
 - `scripts/diagnose_qwd_sng_probe.py` aligns mode-9 command-log server time to MVD-relative event time, checks closest MVD approach to QWD control points, and classifies whether failures are timing-window, start-context, guardrail, or control-point advancement issues before another live run. It prefers the actual run's recorded QWD radii over design defaults so setup-repair reruns are diagnosed with their real activation radius.
+- `scripts/diagnose_qwd_sng_slow_success.py` consumes the setup-repaired mode-9 SNG run and splits active QWD commands by current control-point target, joins each phase to MVD movement segments, and attributes slow-success failures to setup radius, route/map context, command-profile weakness, or post-control-point progression gaps.
 - `experiments/ktx_moveprobe/frogbot-moveprobe.patch` is the first S2 KTX source probe. It applies to KTX commit `08807da`, hooks `src/bot_movement.c::BotSetCommand()` after the prewar-freeze guard, and adds cvar-controlled command perturbation immediately before button assembly and `trap_SetBotCMD(...)`.
 - The same patch includes v2a command instrumentation. When `k_fb_moveprobe_log_commands=1`, KTX prints sampled `FBMOVEPROBE_CMD` rows containing the final `msec`, angles, movement command values, buttons, and impulse about to be sent to `trap_SetBotCMD(...)`.
 - The patch also includes v2b mode `3`, a route-yaw probe that sets yaw from `self->fb.dir_move_`, emits simple movement command values, and forces jump when a route direction is available.
