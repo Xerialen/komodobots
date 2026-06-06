@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Iterable
 
 from extract_movement_metrics import write_movement_metrics
-from run_frobodm2_lab import DEFAULT_ANALYZER, run_analyzer
+from run_frobodm2_lab import DEFAULT_ANALYZER, run_analyzer, validate_run_id
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -206,13 +206,16 @@ def load_json_if_present(path: Path) -> dict[str, object]:
 
 
 def resolve_demo_path(demo: str, root: Path) -> Path:
+    resolved_root = root.resolve()
     candidate = Path(demo)
-    if candidate.is_file():
-        return candidate.resolve()
-    rooted = root / demo
-    if rooted.is_file():
-        return rooted.resolve()
-    raise FileNotFoundError(f"Could not find demo {demo!r} or {rooted}")
+    resolved = candidate.resolve() if candidate.is_absolute() else (resolved_root / candidate).resolve()
+    try:
+        resolved.relative_to(resolved_root)
+    except ValueError as error:
+        raise ValueError(f"Demo path must stay under --demo-root: {resolved_root}") from error
+    if resolved.is_file():
+        return resolved
+    raise FileNotFoundError(f"Could not find demo {demo!r} under {resolved_root}")
 
 
 def write_run_env(path: Path, values: dict[str, object]) -> None:
@@ -700,8 +703,8 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Inventory and analyze local human QuakeWorld MVD demos.")
     parser.add_argument("--demo-root", type=Path, default=DEFAULT_DEMO_ROOT, help="Directory containing human MVDs.")
     parser.add_argument("--recursive", action="store_true", help="Inventory demos recursively under --demo-root.")
-    parser.add_argument("--demo", help="Specific demo path, or filename relative to --demo-root, to analyze.")
-    parser.add_argument("--run-id", help="Artifact run id. Defaults to s4a-<demo-stem>.")
+    parser.add_argument("--demo", help="Specific demo path under --demo-root, or filename relative to it, to analyze.")
+    parser.add_argument("--run-id", type=validate_run_id, help="Artifact run id. Defaults to s4a-<demo-stem>.")
     parser.add_argument("--stage", default="s4a", help="Evidence stage label used in summaries and output filenames.")
     parser.add_argument("--artifact-root", type=Path, default=DEFAULT_ARTIFACT_ROOT, help="Output artifact root.")
     parser.add_argument("--distro", default="Ubuntu-24.04", help="WSL distro containing qw-analyze-v20.")

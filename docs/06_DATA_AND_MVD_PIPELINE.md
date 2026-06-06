@@ -135,6 +135,8 @@ Current S4a human-demo scaffold:
 - Script: `scripts/analyze_human_mvd.py`
 - Default inventory root: `C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos`
 - Artifact root: `artifacts/human-demos/`
+- Specific `--demo` values must resolve under `--demo-root`; set `--demo-root` to the intended source directory rather than passing arbitrary absolute paths.
+- Explicit `--run-id` values use the same safe run-id character set as the bot lab runner.
 - Raw demo and parser outputs remain ignored.
 - Small derived evidence can be promoted to `experiments/human_comparison/evidence/`.
 - Output schemas: `komodobots.human_mvd_inventory.v1` and `komodobots.human_mvd_analysis.v1`

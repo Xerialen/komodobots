@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import sys
 import tempfile
@@ -38,6 +40,27 @@ class HumanMvdAnalysisTests(unittest.TestCase):
         maps = {demo["name"]: demo["inferred_map"] for demo in inventory["demos"]}
         self.assertEqual(maps["ffa_frobodm2.mvd"], "frobodm2")
         self.assertTrue(all(demo["sha256"] for demo in inventory["demos"]))
+
+    def test_resolve_demo_path_stays_under_demo_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "root"
+            root.mkdir()
+            demo = root / "inside.mvd"
+            demo.write_bytes(b"demo")
+            outside = Path(temp_dir) / "outside.mvd"
+            outside.write_bytes(b"outside")
+
+            self.assertEqual(analyze_human_mvd.resolve_demo_path("inside.mvd", root), demo.resolve())
+            self.assertEqual(analyze_human_mvd.resolve_demo_path(str(demo), root), demo.resolve())
+            with self.assertRaises(ValueError):
+                analyze_human_mvd.resolve_demo_path("../outside.mvd", root)
+            with self.assertRaises(ValueError):
+                analyze_human_mvd.resolve_demo_path(str(outside), root)
+
+    def test_run_id_validator_rejects_path_escape(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                analyze_human_mvd.parse_args(["--run-id", "../../escape"])
 
     def test_comparison_note_distinguishes_dm2_anchor_from_parser_proof(self) -> None:
         verdict = analyze_human_mvd.comparison_verdict("dm2", ["dm3", "frobodm2"], True)
