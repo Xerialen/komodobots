@@ -376,6 +376,22 @@ Result:
 
 Interpretation: the speed gap is not uniform. Generic non-airborne p50 speed can be human-scale in the current bot row set, but speed production around air transitions collapses, and sampled route `WATER_PATH`/low-dir-speed contexts remain extremely slow. The next useful step is S7h: choose whether the first controller probe targets air-transition horizontal speed production or a narrow route primitive such as `WATER_PATH` low-dir-speed recovery.
 
+## S7h Controller Probe Target Decision
+
+S7h did not rerun the lab and did not change controller behavior. It added `scripts/choose_controller_probe_target.py`, consumed `experiments/human_comparison/evidence/land-speed-gap-s7g-dm3.json`, and compared two possible first probe targets:
+
+- air-transition horizontal speed production,
+- narrow route `WATER_PATH` low-dir-speed recovery.
+
+Result:
+
+- Generated `experiments/human_comparison/evidence/controller-probe-target-s7h-dm3.*`.
+- Air-transition was selected as `preferred_first_probe_target`.
+- Air-transition evidence is human-comparable across the exact-player and bot row set: pre-air ratio `0.495`, airborne ratio `0.283`, post-air ratio `0.505`, while non-airborne ratio is near reference at `0.975`.
+- `WATER_PATH` remains a `secondary_guardrail_target`: p50 speed is only `95.3` qu/s, but the evidence is bot-only route diagnostics with no exact-player reference bucket and only `2` bot rows contributing `WATER_PATH` player p50s.
+
+Interpretation: the first controller probe should target air-transition horizontal speed production, not generic all-segment speed, cadence, or a route-only primitive. The route `WATER_PATH` gap remains important, but it should be monitored as a guardrail and deferred narrow target unless the air-transition probe fails or makes route context worse.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

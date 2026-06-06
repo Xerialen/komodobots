@@ -1385,3 +1385,43 @@ The next PR should decide the first probe target before changing movement comman
 ### Revisit Conditions
 
 Revisit if Code Sentinel finds a segment-bucketing bug, if route-state command sampling is too sparse to trust, or if broader bot rows show non-airborne speed is not actually human-scale.
+
+---
+
+## Decision
+
+Choose air-transition horizontal speed production as the first controller probe target.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S7h chooses `air_transition_horizontal_speed` as the first controller-probe target and defers `water_path_low_dir_speed_recovery` to a guardrail/later narrow route target.
+
+The reason is evidence priority: air-transition speed is human-comparable across the exact-player and bot row set and is clearly context-specific, while `WATER_PATH` is very slow but bot-only and route-diagnostic.
+
+### Alternatives Considered
+
+- Start a generic all-segment speed probe.
+- Start a cadence controller despite S7d/S7e/S7f evidence that cadence is diagnostic.
+- Start with a narrow `WATER_PATH` recovery probe.
+- Rerun the lab before making a target decision from committed S7g context.
+
+### Evidence
+
+S7h controller-target evidence:
+
+- Air-transition candidate: pre-air ratio `0.495`, airborne ratio `0.283`, post-air ratio `0.505`, non-airborne ratio `0.975`.
+- Each air-transition bucket has six reference player p50s and six bot player p50s.
+- `WATER_PATH` candidate: bot p50 speed `95.3` qu/s, low-dir-speed p50 `141.0` qu/s, and `3,674` route-state matched bot segments.
+- `WATER_PATH` has no exact-player reference bucket and only `2` bot rows contributing `WATER_PATH` player p50s.
+
+### Expected Consequences
+
+S7i should design a tiny air-transition horizontal-speed probe. The probe must keep cadence diagnostic, retain route diagnostics, and reject all-segment speed gains if pre-air/airborne/post-air buckets or `WATER_PATH` context get worse.
+
+### Revisit Conditions
+
+Revisit if Code Sentinel finds the S7h target scoring unsafe, if the S7g route-state caveat becomes blocking, or if an S7i probe cannot be designed without hiding combat/route regressions.

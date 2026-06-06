@@ -284,3 +284,25 @@ far below reference and route `WATER_PATH` contexts are extremely slow. The next
 useful step is S7h: choose whether the first controller probe targets
 air-transition horizontal speed production or a narrow route primitive such as
 `WATER_PATH` low-dir-speed recovery.
+
+## Current S7h Result
+
+S7h chooses the first controller-probe target from the S7g context without
+rerunning the lab:
+
+```text
+experiments/human_comparison/evidence/controller-probe-target-s7h-dm3.json
+experiments/human_comparison/evidence/controller-probe-target-s7h-dm3.md
+```
+
+| Candidate | Priority | Human comparable | Key evidence |
+|---|---|---:|---|
+| Air-transition horizontal speed production | `preferred_first_probe_target` | `true` | pre-air `0.495`, air `0.283`, post-air `0.505`, non-air `0.975` |
+| Route `WATER_PATH` low-dir-speed recovery | `secondary_guardrail_target` | `false` | `WATER_PATH` `95.3` qu/s, low-dir `141.0` qu/s, route-matched segments `3,674` |
+
+The first controller probe should target air-transition horizontal speed
+production because that gap is broad and human-comparable. `WATER_PATH` remains
+a guardrail and deferred narrow route target because it is very slow but
+bot-only and route-diagnostic. S7i should design a tiny probe that keeps cadence
+diagnostic, retains route diagnostics, and rejects all-segment speed gains if
+air-transition buckets or `WATER_PATH` context get worse.

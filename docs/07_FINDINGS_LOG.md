@@ -2443,3 +2443,43 @@ Medium that route-state context fully explains the low-speed samples, because on
 ### Follow-up
 
 Ask Code Sentinel to review S7g. Proposed S7h: decide whether the first controller probe targets air-transition horizontal speed production or a narrow route primitive such as `WATER_PATH` low-dir-speed recovery.
+
+## 2026-06-06 - S7h Controller Probe Target Decision
+
+### Experiment
+
+Chose the first controller-probe target without rerunning the lab or changing KTX/Frogbot movement behavior. Added `scripts/choose_controller_probe_target.py`, consumed `experiments/human_comparison/evidence/land-speed-gap-s7g-dm3.json`, and compared:
+
+- air-transition horizontal speed production,
+- route `WATER_PATH` low-dir-speed recovery.
+
+### Result
+
+- Generated `experiments/human_comparison/evidence/controller-probe-target-s7h-dm3.*`.
+- Selected target: `air_transition_horizontal_speed`.
+- Deferred target: `water_path_low_dir_speed_recovery`.
+- Air-transition evidence is human-comparable across all six exact-player reference rows and six bot rows: pre-air ratio `0.495`, airborne ratio `0.283`, post-air ratio `0.505`, and non-airborne ratio `0.975`.
+- Route `WATER_PATH` remains important but secondary: p50 speed is `95.3` qu/s, route-state matched bot segments total `3,674`, and only `2` bot rows contribute `WATER_PATH` player p50s with no exact-player reference bucket.
+
+### Evidence
+
+Committed artifacts:
+
+- `scripts/choose_controller_probe_target.py`
+- `tests/test_choose_controller_probe_target.py`
+- `experiments/human_comparison/evidence/controller-probe-target-s7h-dm3.json`
+- `experiments/human_comparison/evidence/controller-probe-target-s7h-dm3.md`
+
+### Interpretation
+
+S7h chooses air-transition horizontal speed production as the first controller-probe target because it is broader and human-comparable. `WATER_PATH` is too slow to ignore, but it is a narrow bot-only route diagnostic, so it should be a guardrail and deferred route primitive rather than the first probe.
+
+### Confidence
+
+High that the target choice follows S7g evidence and does not use PR-body claims or markdown scraping.
+
+Medium that the first air-transition probe will isolate the right controller mechanism, because S7h is a target-selection step and does not yet test a new command policy.
+
+### Follow-up
+
+Ask Code Sentinel to review S7h. Proposed S7i: design a tiny air-transition horizontal-speed probe with unchanged cadence reporting, unchanged route diagnostics, and stop conditions that reject all-segment speed gains if air-transition buckets or `WATER_PATH` context get worse.
