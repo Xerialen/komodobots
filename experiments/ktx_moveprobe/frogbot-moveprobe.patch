@@ -2,7 +2,7 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
 index c0654d1..3f6886d 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -422,6 +422,256 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +422,278 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -202,6 +202,11 @@ index c0654d1..3f6886d 100644
 +	return delta;
 +}
 +
++static int BotMoveProbeMarkerIndex(gedict_t *marker)
++{
++	return marker ? marker->fb.index + 1 : -1;
++}
++
 +static void BotLogMoveProbeCommand(gedict_t *self, int cmd_msec, vec3_t direction,
 +								   int buttons, int impulse)
 +{
@@ -217,6 +222,9 @@ index c0654d1..3f6886d 100644
 +	float yaw_delta = 0;
 +	int backward = direction[0] < 0;
 +	vec3_t route_direction;
++	int goalentity = self->s.v.goalentity;
++	int goal_marker = -1;
++	int blocked = 0;
 +
 +	if (!cvar("k_fb_moveprobe_log_commands") || slot < 0 || slot >= MAX_CLIENTS)
 +	{
@@ -248,12 +256,26 @@ index c0654d1..3f6886d 100644
 +		yaw_delta = BotMoveProbeAngleDelta(route_yaw, view_yaw);
 +	}
 +
++	if (goalentity > 0)
++	{
++		goal_marker = BotMoveProbeMarkerIndex(g_edicts[goalentity].fb.touch_marker);
++	}
++
++	blocked = (self->fb.path_state & STUCK_PATH)
++		|| self->fb.obstruction_normal[0]
++		|| self->fb.obstruction_normal[1]
++		|| self->fb.obstruction_normal[2];
++
 +	G_cprint("FBMOVEPROBE_CMD time=%.3f ed=%d name=%s mode=%d msec=%d "
 +			 "angles=%.1f,%.1f,%.1f move=%d,%d,%d buttons=%d impulse=%d "
-+			 "diag=%.1f,%.1f,%.1f,%d\n",
++			 "diag=%.1f,%.1f,%.1f,%d "
++			 "route=%d,%d,%d,%d,%d,%d,%d,%.3f\n",
 +			 g_globalvars.time, ednum, self->netname, mode, cmd_msec,
 +			 PASSVEC3(self->fb.desired_angle), PASSINTVEC3(direction),
-+			 buttons, impulse, route_yaw, view_yaw, yaw_delta, backward);
++			 buttons, impulse, route_yaw, view_yaw, yaw_delta, backward,
++			 BotMoveProbeMarkerIndex(self->fb.linked_marker),
++			 BotMoveProbeMarkerIndex(self->fb.touch_marker), goalentity, goal_marker,
++			 self->fb.path_state, self->fb.state, blocked, self->fb.dir_speed);
 +}
 +
  void BotSetCommand(gedict_t *self)

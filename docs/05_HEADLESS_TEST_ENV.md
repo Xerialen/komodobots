@@ -1,6 +1,6 @@
 # Headless Test Environment
 
-Status: repeatable bot lab runner verified on `frobodm2` and `dm3` through 2026-06-06. Baseline movement v2 metrics are generated automatically. KTX final-command movement probes include route-vs-view diagnostics, and S6a route-state diagnosis can analyze low-speed windows from existing artifacts.
+Status: repeatable bot lab runner verified on `frobodm2` and `dm3` through 2026-06-06. Baseline movement v2 metrics are generated automatically. KTX final-command movement probes include route-vs-view diagnostics, and S6b route-state logging can tag low-speed windows with Frogbot marker/goal/path-state context.
 
 ## Purpose
 
@@ -37,7 +37,9 @@ Sixth lab milestone on 2026-06-06: S3e added route-vs-view diagnostic logging to
 
 Seventh lab milestone on 2026-06-06: S3f added mode `6`, a no-backpedal variant of mode `5`. It passed the current horizontal/side/jump behavior gate on both `dm3` and `frobodm2`, but generated very large side commands after folding negative forward into strafe. This is a successful corrective probe, not a final controller.
 
-Eighth lab milestone on 2026-06-06: S6a added route-state diagnosis over the existing S3g `dm3` artifacts. It found that `8` of `9` analyzed top low-speed windows had strong sampled movement commands nearby, but the artifacts do not expose route node, next waypoint, target entity, obstruction, or route primitive state. The lab now needs minimal KTX route-state logging before another controller heuristic.
+Eighth lab milestone on 2026-06-06: S6a added route-state diagnosis over the existing S3g `dm3` artifacts. It found that `8` of `9` analyzed top low-speed windows had strong sampled movement commands nearby, but the artifacts did not expose route node, next waypoint, target entity, obstruction, or route primitive state.
+
+Ninth lab milestone on 2026-06-06: S6b added minimal KTX route-state logging to sampled command rows and reran `dm3` mode `7` as `20260606T031102Z`. The diagnosis can now tag low-speed windows with marker, goal, path-state, bot-state, blocked, and route `dir_speed` context. `/ bro` repeated low-speed windows at `water.LG` with linked/goal marker `59`, path state `32768`, and `blocked=0`.
 
 ## Environment Diagram
 
@@ -164,7 +166,7 @@ The bundle README says it was built from mvd_analyzer commit `7d83ebe`, while th
 | Record MVD automatically | Proven on `frobodm2` and `dm3` | KTX saved non-empty MVDs after `sv_demostop`. |
 | Parse MVD automatically | Proven for summary/events | `qw-analyze-v20` parsed JSON/Markdown summary exit 0; events mode emitted data then exited 1 with `qw-analyze: end of demo`. |
 | Generate movement report automatically | Proven v2 | `scripts/extract_movement_metrics.py` writes speed plus airborne-proxy movement metrics from MVD event position samples. |
-| Test movement overrides automatically | Provisionally proven | `experiments/ktx_moveprobe/frogbot-moveprobe.patch` hooks KTX `BotSetCommand()` after the prewar-freeze guard and before button assembly/`trap_SetBotCMD(...)`; `20260605T225720Z` and `20260605T225802Z` passed explicit mode `3` command/plausibility gates on two routed maps. S3d/S3e mode `5` proves aim-independent command emission; S3f mode `6` proves a no-backpedal correction can pass the current gate, with command-magnitude caveats. |
+| Test movement overrides automatically | Provisionally proven | `experiments/ktx_moveprobe/frogbot-moveprobe.patch` hooks KTX `BotSetCommand()` after the prewar-freeze guard and before button assembly/`trap_SetBotCMD(...)`; `20260605T225720Z` and `20260605T225802Z` passed explicit mode `3` command/plausibility gates on two routed maps. S3d/S3e mode `5` proves aim-independent command emission; S3f mode `6` proves a no-backpedal correction can pass the current gate, with command-magnitude caveats. S6b route-state logging proves the same command trace can be tagged with marker/goal/path-state/blocked context. |
 | Visual validation | Available for playback | `ezquake-test` / `~/hud-runner` can render existing demos headlessly; useful after new MVDs exist. |
 
 ## One-command Bot Runner
@@ -435,7 +437,7 @@ The current runner uses session names shaped like `komodobots_lab_<port>_<run-id
 - Determinism is unknown. The lab must record seed/config/server version details before comparing movement runs.
 - Stock `dm2` can load, record, and parse, but it is not a Frogbot-supported route target in this environment. User confirmed there is no point building routes for it now.
 - A first-pass movement report schema exists, but it is still position-derived and does not yet infer ground-truth jump commands, grounded state, or usercmd intent.
-- The S2 v2c moveprobe proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`, and that route-derived yaw can pass provisional command/plausibility gates on two routed maps. S3 mode `4` proves nonzero alternating side commands can also be emitted; S3c indicates `sidemove=200` is repeatable across `frobodm2` and `dm3`. S3d/S3e mode `5` proves aim-independent route/strafe commands can be emitted and diagnosed, but behavior remains split. S3f mode `6` removes backpedal commands but emits large folded side commands. S3g mode `7` bounds those commands and passes both routed maps. S4c/S5a/S5b human and elite references show S3g remains below same-map reference avg/p95 movement, so the next gap is S6 route primitive/state diagnosis rather than more command tuning.
+- The S2 v2c moveprobe proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`, and that route-derived yaw can pass provisional command/plausibility gates on two routed maps. S3 mode `4` proves nonzero alternating side commands can also be emitted; S3c indicates `sidemove=200` is repeatable across `frobodm2` and `dm3`. S3d/S3e mode `5` proves aim-independent route/strafe commands can be emitted and diagnosed, but behavior remains split. S3f mode `6` removes backpedal commands but emits large folded side commands. S3g mode `7` bounds those commands and passes both routed maps. S4c/S5a/S5b human and elite references show S3g remains below same-map reference avg/p95 movement. S6b adds route-state tags to low-speed windows, so the next gap is route-state attribution rather than more command tuning.
 
 ## Troubleshooting
 

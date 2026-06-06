@@ -218,7 +218,7 @@ class MovementMetricsTests(unittest.TestCase):
                 [
                     "noise before",
                     'FBMOVEPROBE_CMD time=12.250 ed=3 name=/ goldenboy mode=2 msec=13 angles=0.0,90.0,0.0 move=800,0,0 buttons=3 impulse=0',
-                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=5 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1',
+                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=5 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1 route=12,10,42,14,524288,8192,1,1.250',
                 ]
             )
         )
@@ -235,6 +235,19 @@ class MovementMetricsTests(unittest.TestCase):
         self.assertEqual(
             commands[1]["diagnostics"],
             {"route_yaw": 270.0, "view_yaw": 90.0, "yaw_delta": 180.0, "backward": True},
+        )
+        self.assertEqual(
+            commands[1]["route_state"],
+            {
+                "linked_marker": 12,
+                "touch_marker": 10,
+                "goal_ed": 42,
+                "goal_marker": 14,
+                "path_state": 524288,
+                "bot_state": 8192,
+                "blocked": True,
+                "dir_speed": 1.25,
+            },
         )
 
     def test_remote_port_down_treats_empty_or_down_as_free(self) -> None:

@@ -1766,3 +1766,96 @@ Medium for cause attribution, because S6a deliberately proves that attribution i
 ### Follow-up
 
 Ask Claude to review S6a. Proposed S6b: add minimal route-state logging around the Frogbot command boundary so future low-speed windows can be tagged with route node/goal/obstruction context before changing mode `7` or adding a new command heuristic.
+
+## 2026-06-06 - S6b Minimal Route-State Logging
+
+### Experiment
+
+Extended the temporary KTX moveprobe patch so each sampled `FBMOVEPROBE_CMD` row appends:
+
+```text
+route=<linked_marker>,<touch_marker>,<goal_ed>,<goal_marker>,<path_state>,<bot_state>,<blocked>,<dir_speed>
+```
+
+The Python runner now parses this into nested `route_state` rows, and `scripts/diagnose_route_state.py` summarizes those values inside low-speed windows.
+
+Temporarily deployed the patched KTX build to `servexeri`, backed up the live `qwprogs.so`, ran one short S3g-style `dm3` probe, then restored the deployed module and reversed the remote source patch:
+
+```bash
+python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 7 --moveprobe-sidemove 200 --moveprobe-log-commands --moveprobe-log-interval 0.25 --run-id 20260606T031102Z
+python scripts/diagnose_route_state.py --stage s6b-route-state --run-id 20260606T031102Z --output-json artifacts/lab-runs/20260606T031102Z/s6b-route-state-diagnosis.json --output-md artifacts/lab-runs/20260606T031102Z/s6b-route-state-diagnosis.md
+```
+
+Remote restore checks:
+
+```text
+deployed qwprogs hash matched backup: 23d45401251ee802549c924f3179cf0cd76e0132dd7727778994c0464b8143e0
+servexeri ~/nquakesv/build/ktx: clean master...origin/master
+quakestat localhost:28599: DOWN
+```
+
+### Result
+
+Run `20260606T031102Z`:
+
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Command rows parsed: `196`.
+- Route-state capability: available.
+- Route-state keys: `blocked`, `bot_state`, `dir_speed`, `goal_ed`, `goal_marker`, `linked_marker`, `path_state`, `touch_marker`.
+- Command/sample clock sanity: `ok`, with `21666` ms overlap after the `150` ms command-window margin.
+
+Player summary:
+
+| Player | Avg | P95 | Max | Low | Low windows | Longest low | Top windows with strong-command low speed |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `/ bro` | 136.3 | 359.6 | 406.2 | 52.1% | 17 | 1646 ms | 5 / 5 |
+| `/ goldenboy` | 285.5 | 381.3 | 427.8 | 7.0% | 0 | 0 ms | 0 / 0 |
+
+Top route-state windows for `/ bro`:
+
+| Rank | Window | Location | Avg cmd | Route state | Blocked |
+|---:|---|---|---:|---|---:|
+| 1 | `3181-5292` | `Quad` | 659.1 | `L[-1,91,119,170] T[43,119,168,170,172] G[-1,3] P[0]` | 0.0% |
+| 2 | `13193-14307` | `water.LG` | 824.1 | `L[59] T[37,273] G[59] P[0,32768]` | 0.0% |
+| 3 | `24441-25517` | `water.LG` | 823.8 | `L[59] T[276] G[59] P[32768]` | 0.0% |
+| 4 | `21860-22918` | `water.LG` | 824.1 | `L[59] T[276] G[59] P[32768]` | 0.0% |
+| 5 | `9008-9882` | `bridge.low` | 824.0 | `L[161] T[159] G[10] P[0]` | 0.0% |
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/lab-runs/20260606T031102Z/run-summary.md`
+- `artifacts/lab-runs/20260606T031102Z/moveprobe-commands.md`
+- `artifacts/lab-runs/20260606T031102Z/movement-metrics.md`
+- `artifacts/lab-runs/20260606T031102Z/s6b-route-state-diagnosis.md`
+- `artifacts/lab-runs/20260606T031102Z/s6b-route-state-diagnosis.json`
+- `experiments/ktx_moveprobe/evidence/route-state-s6b-diagnosis.md`
+- `experiments/ktx_moveprobe/evidence/route-state-s6b-diagnosis.json`
+
+Validation:
+
+- `git -C C:\Users\benya\projects\quakeworld\engine\ktx apply --check experiments\ktx_moveprobe\frogbot-moveprobe.patch` -> clean
+- `python -m unittest tests.test_extract_movement_metrics tests.test_diagnose_route_state -v` -> passed
+- `PYTHONPYCACHEPREFIX=<temp> python -m py_compile scripts\run_frobodm2_lab.py scripts\diagnose_route_state.py tests\test_extract_movement_metrics.py tests\test_diagnose_route_state.py` -> clean
+- S6b lab command completed cleanly
+- S6b diagnosis command completed cleanly
+- Claude's S6a robustness feedback was addressed in the diagnosis script: sibling JSON artifacts are guarded, command/sample clock overlap is reported, non-dict command/map-entity rows are tolerated, and the explicit run-directory input is documented as read-only by design.
+
+### Interpretation
+
+S6b satisfies the logging goal. The artifact gap from S6a is closed: low-speed windows can now be tagged with Frogbot marker, goal, path-state, bot-state, blocked, and route `dir_speed` context.
+
+This run does not show an obstruction flag explanation. The analyzed `/ bro` windows all had `blocked=0`, and repeated `water.LG` windows share linked/goal marker `59` with path state `32768`. That points the next investigation toward route-state/path-flag interpretation and repeated marker transitions, not another command magnitude change.
+
+### Confidence
+
+High that S6b route-state logging works and is parsed into the diagnosis artifact.
+
+High that `/ bro` had repeated low-speed windows despite strong sampled commands in this run.
+
+Medium for route-cause interpretation until the path-state values are decoded against KTX route flags and repeated on at least one more short run.
+
+### Follow-up
+
+Ask Claude to review S6b. Proposed S6c: use the route-state-tagged low-speed windows to decode repeated marker/path-state/blocked patterns, starting with `/ bro` at `water.LG` linked/goal marker `59` and path state `32768`, before changing mode `7` or adding another movement-command heuristic.

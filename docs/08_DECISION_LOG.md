@@ -883,3 +883,44 @@ The expected deliverable is attribution-ready evidence, not improved movement ye
 ### Revisit Conditions
 
 Revisit if Claude identifies an existing Frogbot route-state artifact already available in the MVD/parser output, if KTX route state cannot be logged safely at the current patch point, or if a rerun shows the sampled strong-command/low-speed relationship was an artifact of the short S3g run.
+
+---
+
+## Decision
+
+Use route-state-tagged low-speed windows before controller tuning.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S6b successfully adds minimal route-state logging to sampled moveprobe command rows. The lab can now tag low-speed windows with linked marker, touch marker, goal entity, goal marker, path-state flags, bot-state flags, blocked state, and route `dir_speed`.
+
+The next goal is S6c: decode and attribute repeated route-state patterns in the S6b low-speed windows before changing mode `7` or adding another movement-command heuristic.
+
+### Alternatives Considered
+
+- Treat S6b as enough evidence to start mode `8`.
+- Increase mode `7` command magnitude to chase the S5b p95 gap.
+- Add more route-state fields immediately before analyzing the fields already captured.
+- Expand the human reference aggregate before understanding the S6b route-state windows.
+
+### Evidence
+
+S6b route-state diagnosis over run `20260606T031102Z`:
+
+- Route-state capability is now available with keys `blocked`, `bot_state`, `dir_speed`, `goal_ed`, `goal_marker`, `linked_marker`, `path_state`, and `touch_marker`.
+- The diagnosis reports command/sample clock overlap as `ok`, so the low-speed command joins are not currently explained by a timestamp-epoch mismatch.
+- `/ bro`: avg `136.3`, p95 `359.6`, low-speed `52.1%`, `17` low-speed windows, and all `5` analyzed top windows had strong sampled command context.
+- `/ goldenboy`: avg `285.5`, p95 `381.3`, low-speed `7.0%`, and no low-speed windows meeting the S6 threshold.
+- Repeated `/ bro` `water.LG` windows were tagged with linked/goal marker `59`, path state `32768`, and `blocked=0`.
+
+### Expected Consequences
+
+S6c should convert route-state tags into an actionable explanation or next probe. If marker `59` / path state `32768` corresponds to a known route flag or water/air primitive, the next experiment should target that route primitive. If repeated windows do not explain the movement gap, S6c should decide what additional route context is missing rather than hiding uncertainty behind another command mode.
+
+### Revisit Conditions
+
+Revisit if Claude finds a bug in the S6b logging fields, if path state `32768` cannot be decoded from KTX flags, if a repeated S6b run does not reproduce any route-state pattern, or if the route-state tags show that current low-speed windows are measurement artifacts rather than movement/route behavior.

@@ -110,7 +110,9 @@ Route-state diagnosis:
 - Schema: `komodobots.route_state_diagnosis.v1`
 - Inputs: a lab run's `events.txt`, `analysis.json`, `run.env`, and `moveprobe-commands.json`
 - Output: top low-speed windows per named bot, nearest map-entity location context, sampled command strength, jump ratio, yaw-delta summary, and artifact capability flags
-- Current limitation: S3g artifacts expose route direction as `route_yaw`, but not route node, next waypoint, route goal, obstruction state, or route primitive identity
+- S6a limitation: S3g artifacts exposed route direction as `route_yaw`, but not route node, next waypoint, route goal, obstruction state, or route primitive identity.
+- S6b route-state rows add linked/touch marker ids, goal entity/marker ids, path/bot state flags, blocked state, and route `dir_speed` through the sampled `route=` command suffix.
+- Robustness: the diagnosis reports command/sample clock overlap so a timestamp-epoch mismatch does not look like missing commands, and corrupt sibling JSON artifacts are warned about and ignored rather than aborting the run.
 - Purpose: decide whether the next experiment needs route-state instrumentation before changing controller command values
 
 S2 moveprobe note:
@@ -225,9 +227,24 @@ S6a result:
 - Top-window command context: `8` of `9` analyzed windows had average sampled horizontal command at or above `400`, many near the mode `7` cap around `824`.
 - Artifact capability verdict: position/command/route-yaw evidence is available, but route node/goal/obstruction state is not.
 
-Next S6 data step:
+S6a next data step:
 
 Add minimal route-state logging around the Frogbot command boundary so low-speed windows can be tagged with route node, next goal, obstruction/blocked state, or route primitive before changing the movement controller again.
+
+S6b result:
+
+- Extended the KTX moveprobe command log with `route=linked_marker,touch_marker,goal_ed,goal_marker,path_state,bot_state,blocked,dir_speed`.
+- Updated `scripts/run_frobodm2_lab.py` to parse those fields into nested `route_state` command rows.
+- Updated `scripts/diagnose_route_state.py` to summarize route-state values inside low-speed windows.
+- Ran `dm3` mode `7`, run `20260606T031102Z`, with command logging enabled.
+- Capability verdict changed from no route-state context to yes: route-state keys `blocked`, `bot_state`, `dir_speed`, `goal_ed`, `goal_marker`, `linked_marker`, `path_state`, and `touch_marker` were present.
+- `/ bro` had avg `136.3`, p95 `359.6`, low-speed `52.1%`, and `17` low-speed windows. All `5` analyzed top windows still had strong sampled command context.
+- `/ goldenboy` had avg `285.5`, p95 `381.3`, low-speed `7.0%`, and no low-speed windows meeting the S6 threshold.
+- Repeated `/ bro` low-speed route context included `water.LG` windows with linked marker `59`, goal marker `59`, path state `32768`, and `blocked=0`.
+
+Current S6 data step:
+
+Use the route-state-tagged windows to identify repeated marker/path-state/blocked patterns before changing mode `7` or adding another movement-command heuristic.
 
 ## Bot-generated MVD loop
 

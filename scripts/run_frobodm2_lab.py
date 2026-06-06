@@ -399,6 +399,9 @@ MOVEPROBE_COMMAND_RE = re.compile(
     r"impulse=(?P<impulse>-?\d+)"
     r"(?:\s+diag=(?P<route_yaw>-?\d+(?:\.\d+)?),(?P<view_yaw>-?\d+(?:\.\d+)?),"
     r"(?P<yaw_delta>-?\d+(?:\.\d+)?),(?P<backward>\d+))?"
+    r"(?:\s+route=(?P<linked_marker>-?\d+),(?P<touch_marker>-?\d+),"
+    r"(?P<goal_ed>-?\d+),(?P<goal_marker>-?\d+),(?P<path_state>-?\d+),"
+    r"(?P<bot_state>-?\d+),(?P<blocked>\d+),(?P<dir_speed>-?\d+(?:\.\d+)?))?"
 )
 
 
@@ -435,6 +438,17 @@ def parse_moveprobe_command_logs(screen_log: str) -> list[dict[str, object]]:
                 "yaw_delta": float(groups["yaw_delta"]),
                 "backward": bool(int(groups["backward"])),
             }
+        if groups.get("linked_marker") is not None:
+            row["route_state"] = {
+                "linked_marker": int(groups["linked_marker"]),
+                "touch_marker": int(groups["touch_marker"]),
+                "goal_ed": int(groups["goal_ed"]),
+                "goal_marker": int(groups["goal_marker"]),
+                "path_state": int(groups["path_state"]),
+                "bot_state": int(groups["bot_state"]),
+                "blocked": bool(int(groups["blocked"])),
+                "dir_speed": float(groups["dir_speed"]),
+            }
         commands.append(row)
     return commands
 
@@ -458,6 +472,11 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
         angles = [row["angles"] for row in rows]
         moves = [row["move"] for row in rows]
         diagnostics = [row.get("diagnostics", {}) for row in rows]
+        route_states = [
+            row.get("route_state", {})
+            for row in rows
+            if isinstance(row.get("route_state", {}), dict) and row.get("route_state")
+        ]
         yaw_deltas = [
             round(float(diagnostic["yaw_delta"]), 1)
             for diagnostic in diagnostics
@@ -484,6 +503,7 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
                 "up_values": compact_unique(int(move["up"]) for move in moves),
                 "yaw_delta_values": compact_unique(yaw_deltas) if yaw_deltas else [],
                 "backward_ratio": round(backward_count / len(rows), 3),
+                "route_state": summarize_route_states(route_states),
                 "button_values": compact_unique(int(row["buttons"]) for row in rows),
                 "impulse_values": compact_unique(int(row["impulse"]) for row in rows),
             }
@@ -493,6 +513,24 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
         "command_count": len(commands),
         "players": player_rows,
         "commands": commands,
+    }
+
+
+def summarize_route_states(route_states: list[dict[str, object]]) -> dict[str, object]:
+    if not route_states:
+        return {"sample_count": 0}
+
+    blocked_count = sum(1 for state in route_states if bool(state.get("blocked", False)))
+    return {
+        "sample_count": len(route_states),
+        "linked_marker_values": compact_unique(int(state.get("linked_marker", -1)) for state in route_states),
+        "touch_marker_values": compact_unique(int(state.get("touch_marker", -1)) for state in route_states),
+        "goal_ed_values": compact_unique(int(state.get("goal_ed", -1)) for state in route_states),
+        "goal_marker_values": compact_unique(int(state.get("goal_marker", -1)) for state in route_states),
+        "path_state_values": compact_unique(int(state.get("path_state", 0)) for state in route_states),
+        "bot_state_values": compact_unique(int(state.get("bot_state", 0)) for state in route_states),
+        "blocked_ratio": round(blocked_count / len(route_states), 3),
+        "dir_speed_values": compact_unique(round(float(state.get("dir_speed", 0.0)), 3) for state in route_states),
     }
 
 
@@ -525,6 +563,7 @@ def write_moveprobe_command_logs(local_run_dir: Path) -> dict[str, object]:
                 f"up `{player['up_values']}`, "
                 f"yawDelta `{player['yaw_delta_values']}`, "
                 f"backward `{fmt_percent(player['backward_ratio'])}`, "
+                f"route `{player['route_state']}`, "
                 f"buttons `{player['button_values']}`, "
                 f"impulses `{player['impulse_values']}`"
             )

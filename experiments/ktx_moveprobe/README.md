@@ -32,6 +32,12 @@ S3e diagnostic rows append route-vs-view context:
 FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=5 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1
 ```
 
+S6b diagnostic rows also append minimal route-state context:
+
+```text
+FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=7 msec=12 angles=0.0,90.0,0.0 move=0,824,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,0 route=12,10,42,14,524288,8192,1,1.250
+```
+
 Those rows are deliberately console-oriented, temporary probe output. They exist to compare stock, forced-jump, fixed-command, route-yaw, and aim-independent runs before building a real movement controller.
 
 Modes:
@@ -69,6 +75,8 @@ Mode `6` uses the same aim-independent projection as mode `5`, then clamps negat
 Mode `7` uses the same no-backpedal correction as mode `6`, then normalizes local horizontal command magnitude back down to the intended route/strafe magnitude. With the usual `forwardmove=800 sidemove=200`, the expected cap is about `825`.
 
 The S3e diagnostic suffix is shaped as `diag=<route_yaw>,<view_yaw>,<yaw_delta>,<backward>`. `backward=1` means the emitted local `forwardmove` is negative. `yaw_delta` and `view_yaw` are interpretable for aim-independent modes `5`, `6`, and `7`; route-yaw modes `3` and `4` overwrite view yaw from the route, so their deltas are structural noise.
+
+The S6b diagnostic suffix is shaped as `route=<linked_marker>,<touch_marker>,<goal_ed>,<goal_marker>,<path_state>,<bot_state>,<blocked>,<dir_speed>`. Marker ids are Frogbot marker indexes plus one, or `-1` when absent. `goal_ed` is the current Quake edict number from `self->s.v.goalentity`; `goal_marker` is that entity's marker when available. `blocked=1` means either the `STUCK_PATH` bit is present in `path_state` or `fb.obstruction_normal` is currently non-zero. This is trace context only, not a new movement mode.
 
 ## Runner
 
@@ -205,7 +213,11 @@ S6a uses the existing S3g `dm3` run and asks whether low-speed windows can be ex
 python scripts/diagnose_route_state.py --stage s6a-route-state --run-id 20260606T003718Z --output-json artifacts/lab-runs/20260606T003718Z/s6a-route-state-diagnosis.json --output-md artifacts/lab-runs/20260606T003718Z/s6a-route-state-diagnosis.md
 ```
 
-Result: the artifacts expose position traces, sampled final commands, route yaw, view yaw, yaw delta, backward-command state, and map-entity locations. They do not expose Frogbot route node, next waypoint, target entity, obstruction, or route primitive state. In the S3g `dm3` run, `8` of `9` analyzed top low-speed windows still had average sampled horizontal command at or above `400`. The next step is route-state logging, not mode `8`.
+S6a result: the artifacts expose position traces, sampled final commands, route yaw, view yaw, yaw delta, backward-command state, and map-entity locations. They do not expose Frogbot route node, next waypoint, target entity, obstruction, or route primitive state. In the S3g `dm3` run, `8` of `9` analyzed top low-speed windows still had average sampled horizontal command at or above `400`. At that point the next step was route-state logging, not mode `8`.
+
+S6b extends the same command log with the `route=` suffix and updates `scripts/diagnose_route_state.py` to summarize route-state values inside each low-speed window. Run `20260606T031102Z` proved route-state context is available; the next step is to decode repeated marker/path-state patterns before mode `7` changes again.
+
+The diagnosis helper reports command/sample clock overlap and treats corrupt sibling JSON artifacts as warnings, so a bad or mismatched artifact is visible in the output instead of silently looking like missing commands. `--run-id` may be either a run id under `artifacts/lab-runs/` or an explicit existing run directory; explicit paths are read-only by design.
 
 ## Rollback
 

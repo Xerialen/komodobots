@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S6b - Minimal route-state logging`
+`S6c - Route-state window attribution`
 
 ## Stage Status Table
 
@@ -48,7 +48,7 @@ Current active stage:
 | S3 Bunnyjump Controller | Provisionally satisfied pending human anchor | S3g mode `7` passed `dm3` and `frobodm2` while preserving combat yaw, removing backward commands, and bounding sampled command magnitude near `824.6` |
 | S4 Human Comparison | First same-map anchor complete | S4c parsed one human `dm3` 4on4 demo and compared it against S3g `dm3`; S3g is not yet human-like on the observed movement ranges |
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
-| S6 Route Primitives | Active | S6a showed low-speed windows despite strong sampled commands, but current artifacts lack route node/goal/obstruction state; S6b should add minimal route-state logging |
+| S6 Route Primitives | Active | S6b adds route-state logging and tags `/ bro` low-speed windows with marker/goal/path-state context; S6c should decode repeated marker/path-state patterns before controller tuning |
 | S7 Player Specific | Pending | Player-style movement models |
 
 ## Roadmap Rule
@@ -72,4 +72,6 @@ S5b aggregates three exact-player `dm3` references from Milton, carapace, and ye
 
 S6a route-state diagnosis inspected S3g `dm3` run `20260606T003718Z` without changing movement commands. The current artifacts expose position traces, sampled final commands, route yaw, view yaw, yaw delta, backward-command diagnostics, and map-entity locations, but no Frogbot route node, next waypoint, target entity, obstruction, or route primitive state. Eight of nine analyzed top low-speed windows showed low speed despite average sampled horizontal command at or above `400`.
 
-The next branch is S6b: minimal route-state logging. Add enough KTX/Frogbot instrumentation to tag low-speed windows with route node/goal/obstruction context before changing mode `7` or adding another command heuristic.
+S6b route-state logging ran `dm3` mode `7` as `20260606T031102Z`. The new `route=` command suffix exposed marker/goal/path-state/blocked context. `/ bro` had `17` low-speed windows and all `5` analyzed top windows still had strong sampled command context; repeated `water.LG` windows shared linked/goal marker `59`, path state `32768`, and `blocked=0`. `/ goldenboy` had no S6-threshold low-speed windows in the same run.
+
+The next branch is S6c: route-state window attribution. Decode the repeated marker/path-state/blocked patterns, starting with `/ bro` at `water.LG`, before changing mode `7` or adding another command heuristic.

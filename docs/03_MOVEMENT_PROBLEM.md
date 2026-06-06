@@ -212,6 +212,19 @@ Result:
 
 Interpretation: S3g's high-speed gap is not explained by missing final movement command emission. The current evidence can identify where the bot loses speed and whether strong commands were sampled nearby, but it cannot say whether the cause is route choice, route-node transitions, obstruction handling, or missing route-level movement intent. The next useful step is minimal route-state logging, not mode `8`.
 
+## S6b Route-State Logging
+
+S6b extended the same moveprobe command log with route-state fields and reran a short S3g-style `dm3` probe (`20260606T031102Z`).
+
+Result:
+
+- Route-state fields are now available in `moveprobe-commands.json`: linked marker, touch marker, goal entity, goal marker, path state, bot state, blocked state, and route `dir_speed`.
+- `/ bro` had avg `136.3`, p95 `359.6`, low-speed `52.1%`, and `17` low-speed windows; all `5` analyzed top windows still had strong sampled command context.
+- `/ goldenboy` had avg `285.5`, p95 `381.3`, low-speed `7.0%`, and no S6-threshold low-speed windows.
+- Repeated `/ bro` windows near `water.LG` shared linked/goal marker `59`, path state `32768`, and `blocked=0`.
+
+Interpretation: S6b closes the route-state observability gap, but it does not yet explain or fix the movement gap. The next useful step is to decode repeated marker/path-state patterns, especially `/ bro` at `water.LG`, before changing mode `7`.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

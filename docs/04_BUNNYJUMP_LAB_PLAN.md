@@ -70,6 +70,6 @@ Interpretation: the final command can be perturbed and directly observed. The st
 
 - Bunnyjump controller experiments: S3g mode `7` is the current best movement-literacy candidate. It preserves combat yaw, removes sampled backward commands, passes both routed maps, and bounds sampled horizontal command magnitude near `824.6`. Do not add more command heuristics until human/elite reference evidence points to a specific missing behavior.
 - Human-demo comparisons: S4c provides a first same-map `dm3` human anchor for S3g, S5a proves exact Milton/elite selection is feasible from metadata, and S5b aggregates Milton/carapace/yeti `dm3` references. S3g remains below the reference avg/p95 movement ranges.
-- Route primitives: S6a diagnosed the existing S3g `dm3` trace and found that top low-speed windows mostly happen despite strong sampled commands, while route node/goal/obstruction state is absent from current artifacts. The next step is minimal route-state logging before controller changes.
+- Route primitives: S6a diagnosed the existing S3g `dm3` trace and found that top low-speed windows mostly happen despite strong sampled commands, while route node/goal/obstruction state was absent from current artifacts. S6b adds route-state logging and tags repeated `/ bro` `water.LG` windows with linked/goal marker `59`, path state `32768`, and `blocked=0`. The next step is route-state attribution before controller changes.
 - Rocket-jump behaviour.
 - Player-specific movement models.

@@ -21,7 +21,6 @@ from extract_movement_metrics import (
     coerce_origin,
     coerce_time_ms,
     percentile,
-    read_json_if_present,
     read_run_env,
     round_float,
 )
@@ -39,15 +38,22 @@ DEFAULT_STRONG_COMMAND = 400.0
 
 ROUTE_STATE_KEYS = {
     "blocked",
+    "bot_state",
+    "dir_speed",
     "goal",
     "goal_ent",
+    "goal_ed",
+    "goal_marker",
+    "linked_marker",
     "next_marker",
     "obstruction",
+    "path_state",
     "route_index",
     "route_node",
     "route_segment",
     "target",
     "target_ent",
+    "touch_marker",
     "waypoint",
 }
 
@@ -66,9 +72,37 @@ class SlotInfo(TypedDict, total=False):
     first_named_time_ms: int | None
 
 
-def read_json(path: Path) -> dict:
-    with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+def read_artifact_json(path: Path, *, artifact_name: str | None = None, warnings: list[str] | None = None) -> dict:
+    if not path.exists():
+        return {}
+    label = artifact_name or path.name
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            loaded = json.load(handle)
+    except json.JSONDecodeError as exc:
+        if warnings is not None:
+            warnings.append(f"{label} could not be parsed as JSON: {exc.msg} at line {exc.lineno}, column {exc.colno}.")
+        return {}
+    except OSError as exc:
+        if warnings is not None:
+            warnings.append(f"{label} could not be read: {exc}.")
+        return {}
+    if not isinstance(loaded, dict):
+        if warnings is not None:
+            warnings.append(f"{label} did not contain a JSON object; ignoring it.")
+        return {}
+    return loaded
+
+
+def dict_or_empty(value: object) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def int_value(value: object, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def coerce_yaw(value: object) -> float | None:
@@ -91,15 +125,31 @@ def vector_length(forward: object, side: object) -> float:
         return 0.0
 
 
+def compact_unique_values(values: Iterable[object], limit: int = 12) -> list[object]:
+    unique = sorted(set(values))
+    if len(unique) <= limit:
+        return list(unique)
+    return list(unique[:limit]) + [f"... {len(unique) - limit} more"]
+
+
 def command_time_ms(row: dict) -> int:
+    if not isinstance(row, dict):
+        return 0
     try:
         return int(round(float(row.get("time_s", 0.0)) * 1000.0))
     except (TypeError, ValueError):
         return 0
 
 
-def load_position_trace(events_path: Path, run_dir: Path) -> tuple[dict[int, SlotInfo], dict[int, list[Sample]], dict]:
-    analysis = read_json_if_present(run_dir / "analysis.json")
+def load_position_trace(
+    events_path: Path,
+    run_dir: Path,
+    *,
+    analysis: dict | None = None,
+    warnings: list[str] | None = None,
+) -> tuple[dict[int, SlotInfo], dict[int, list[Sample]], dict]:
+    if analysis is None:
+        analysis = read_artifact_json(run_dir / "analysis.json", artifact_name="analysis.json", warnings=warnings)
     match = analysis.get("match", {}) if isinstance(analysis, dict) else {}
     match_duration_ms = coerce_optional_int(match.get("duration"))
 
@@ -320,6 +370,8 @@ def command_rows_by_player(commands: dict) -> tuple[dict[int, list[dict]], dict[
     by_ed: dict[int, list[dict]] = {}
     by_name: dict[str, list[dict]] = {}
     for row in commands.get("commands", []):
+        if not isinstance(row, dict):
+            continue
         try:
             ed = int(row.get("ed"))
         except (TypeError, ValueError):
@@ -342,6 +394,89 @@ def rows_for_slot(info: SlotInfo, by_ed: dict[int, list[dict]], by_name: dict[st
     return sorted(by_name.get(str(info.get("name", "")).strip(), []), key=command_time_ms)
 
 
+def time_range_summary(times: list[int]) -> dict[str, object]:
+    if not times:
+        return {"count": 0}
+    return {"count": len(times), "min_ms": min(times), "max_ms": max(times)}
+
+
+def command_times_ms(commands: dict) -> list[int]:
+    times = []
+    for row in commands.get("commands", []):
+        if not isinstance(row, dict):
+            continue
+        try:
+            times.append(int(round(float(row.get("time_s")) * 1000.0)))
+        except (TypeError, ValueError):
+            continue
+    return times
+
+
+def sample_times_ms(samples_by_slot: dict[int, list[Sample]]) -> list[int]:
+    return [int(sample["time_ms"]) for samples in samples_by_slot.values() for sample in samples]
+
+
+def summarize_clock_overlap(samples_by_slot: dict[int, list[Sample]], commands: dict, *, margin_ms: int) -> dict:
+    sample_times = sample_times_ms(samples_by_slot)
+    command_times = command_times_ms(commands)
+    summary = {
+        "sample_time_range_ms": time_range_summary(sample_times),
+        "command_time_range_ms": time_range_summary(command_times),
+        "margin_ms": margin_ms,
+        "overlaps": False,
+        "overlap_ms": 0,
+        "status": "missing_samples_or_commands",
+    }
+    if not sample_times:
+        summary["status"] = "no_position_samples"
+        return summary
+    if not command_times:
+        summary["status"] = "no_commands"
+        return summary
+
+    sample_min = min(sample_times)
+    sample_max = max(sample_times)
+    command_min = min(command_times) - margin_ms
+    command_max = max(command_times) + margin_ms
+    overlap_start = max(sample_min, command_min)
+    overlap_end = min(sample_max, command_max)
+    overlaps = overlap_start <= overlap_end
+    summary.update(
+        {
+            "overlaps": overlaps,
+            "overlap_ms": max(0, overlap_end - overlap_start),
+            "status": "ok" if overlaps else "no_clock_overlap",
+        }
+    )
+    return summary
+
+
+def summarize_route_states(route_states: list[dict]) -> dict[str, object]:
+    if not route_states:
+        return {"sample_count": 0}
+
+    blocked_count = sum(1 for state in route_states if bool(state.get("blocked", False)))
+    dir_speeds = [round(float(state.get("dir_speed", 0.0)), 3) for state in route_states]
+    return {
+        "sample_count": len(route_states),
+        "linked_marker_values": compact_unique_values(
+            int(state.get("linked_marker", -1)) for state in route_states
+        ),
+        "touch_marker_values": compact_unique_values(
+            int(state.get("touch_marker", -1)) for state in route_states
+        ),
+        "goal_ed_values": compact_unique_values(int(state.get("goal_ed", -1)) for state in route_states),
+        "goal_marker_values": compact_unique_values(
+            int(state.get("goal_marker", -1)) for state in route_states
+        ),
+        "path_state_values": compact_unique_values(int(state.get("path_state", 0)) for state in route_states),
+        "bot_state_values": compact_unique_values(int(state.get("bot_state", 0)) for state in route_states),
+        "blocked_ratio": round_float(blocked_count / len(route_states)),
+        "dir_speed_avg": round_float(sum(dir_speeds) / len(dir_speeds) if dir_speeds else 0.0, 3),
+        "dir_speed_values": compact_unique_values(dir_speeds),
+    }
+
+
 def summarize_commands_for_window(
     command_rows: list[dict],
     *,
@@ -350,6 +485,7 @@ def summarize_commands_for_window(
     margin_ms: int = DEFAULT_COMMAND_MARGIN_MS,
     strong_command: float = DEFAULT_STRONG_COMMAND,
 ) -> dict:
+    command_rows = [row for row in command_rows if isinstance(row, dict)]
     exact_rows = [
         row for row in command_rows if start_ms <= command_time_ms(row) <= end_ms
     ]
@@ -358,17 +494,22 @@ def summarize_commands_for_window(
         for row in command_rows
         if start_ms - margin_ms <= command_time_ms(row) <= end_ms + margin_ms
     ]
-    magnitudes = [
-        vector_length(row.get("move", {}).get("forward", 0), row.get("move", {}).get("side", 0))
-        for row in rows
-    ]
+    magnitudes = []
+    for row in rows:
+        move = dict_or_empty(row.get("move", {}))
+        magnitudes.append(vector_length(move.get("forward", 0), move.get("side", 0)))
     yaw_deltas = [
-        abs(float(row.get("diagnostics", {}).get("yaw_delta", 0.0)))
+        abs(float(dict_or_empty(row.get("diagnostics", {})).get("yaw_delta", 0.0)))
         for row in rows
-        if "yaw_delta" in row.get("diagnostics", {})
+        if "yaw_delta" in dict_or_empty(row.get("diagnostics", {}))
     ]
-    jump_count = sum(1 for row in rows if int(row.get("buttons", 0)) & 2)
-    backward_count = sum(1 for row in rows if bool(row.get("diagnostics", {}).get("backward", False)))
+    route_states = [
+        row.get("route_state", {})
+        for row in rows
+        if isinstance(row.get("route_state", {}), dict) and row.get("route_state")
+    ]
+    jump_count = sum(1 for row in rows if int_value(row.get("buttons", 0)) & 2)
+    backward_count = sum(1 for row in rows if bool(dict_or_empty(row.get("diagnostics", {})).get("backward", False)))
     strong_count = sum(1 for magnitude in magnitudes if magnitude >= strong_command)
 
     return {
@@ -390,6 +531,7 @@ def summarize_commands_for_window(
         "yaw_delta_over_90_ratio": round_float(
             sum(1 for value in yaw_deltas if value > 90.0) / len(yaw_deltas) if yaw_deltas else 0.0
         ),
+        "route_state": summarize_route_states(route_states),
     }
 
 
@@ -407,6 +549,8 @@ def load_map_entities(analysis: dict) -> list[dict]:
     entities: list[dict] = []
     map_entities = analysis.get("mapEntities", {}) if isinstance(analysis, dict) else {}
     for entity in map_entities.get("entities", []) if isinstance(map_entities, dict) else []:
+        if not isinstance(entity, dict):
+            continue
         try:
             x = float(entity.get("x"))
             y = float(entity.get("y"))
@@ -458,6 +602,8 @@ def detect_capabilities(commands: dict, analysis: dict) -> dict:
     route_state_keys: set[str] = set()
     command_count = 0
     for row in commands.get("commands", []):
+        if not isinstance(row, dict):
+            continue
         command_count += 1
         for key in row.keys():
             if key in ROUTE_STATE_KEYS:
@@ -466,8 +612,22 @@ def detect_capabilities(commands: dict, analysis: dict) -> dict:
         if isinstance(diagnostics, dict):
             diagnostic_keys.update(str(key) for key in diagnostics.keys())
             route_state_keys.update(str(key) for key in diagnostics.keys() if str(key) in ROUTE_STATE_KEYS)
+        route_state = row.get("route_state", {})
+        if isinstance(route_state, dict):
+            route_state_keys.update(str(key) for key in route_state.keys() if str(key) in ROUTE_STATE_KEYS)
 
     entities = load_map_entities(analysis)
+    notes = [
+        "Artifacts expose position traces, sampled final commands, view yaw, route yaw, and backward-command diagnostics when command logging is enabled.",
+    ]
+    if route_state_keys:
+        notes.append(
+            "Command rows also expose route-state context such as marker ids, goal entity/marker ids, path/bot state flags, blocked state, and route dir_speed."
+        )
+    else:
+        notes.append(
+            "They do not expose Frogbot route node, next waypoint, target entity, obstruction, or route primitive state."
+        )
     return {
         "position_trace_available": True,
         "command_trace_available": command_count > 0,
@@ -477,10 +637,7 @@ def detect_capabilities(commands: dict, analysis: dict) -> dict:
         "route_node_or_goal_state_available": bool(route_state_keys),
         "route_state_keys": sorted(route_state_keys),
         "map_entity_locations_available": bool(entities),
-        "notes": [
-            "Current S3g artifacts expose position traces, sampled final commands, view yaw, route yaw, and backward-command diagnostics.",
-            "They do not expose Frogbot route node, next waypoint, target entity, obstruction, or route primitive state.",
-        ],
+        "notes": notes,
     }
 
 
@@ -571,15 +728,31 @@ def build_diagnosis(args: argparse.Namespace) -> dict:
     if not run_dir.is_dir():
         raise FileNotFoundError(f"Missing run directory: {run_dir}")
 
-    analysis = read_json_if_present(run_dir / "analysis.json")
-    commands = read_json_if_present(run_dir / "moveprobe-commands.json")
+    warnings: list[str] = []
+    analysis = read_artifact_json(run_dir / "analysis.json", artifact_name="analysis.json", warnings=warnings)
+    commands = read_artifact_json(
+        run_dir / "moveprobe-commands.json",
+        artifact_name="moveprobe-commands.json",
+        warnings=warnings,
+    )
     run_env = read_run_env(run_dir)
-    players, samples_by_slot, trace_meta = load_position_trace(run_dir / "events.txt", run_dir)
+    players, samples_by_slot, trace_meta = load_position_trace(
+        run_dir / "events.txt",
+        run_dir,
+        analysis=analysis,
+        warnings=warnings,
+    )
     samples_by_slot = filtered_named_samples(
         players,
         samples_by_slot,
         match_duration_ms=trace_meta["match_duration_clamp_ms"],
     )
+    clock_overlap = summarize_clock_overlap(samples_by_slot, commands, margin_ms=args.command_margin_ms)
+    trace_meta["clock_overlap"] = clock_overlap
+    if clock_overlap.get("status") == "no_clock_overlap":
+        warnings.append(
+            "Command timestamps do not overlap filtered position-sample timestamps; low-speed windows may show no sampled commands because artifact clocks use different epochs."
+        )
     by_ed, by_name = command_rows_by_player(commands)
     entities = load_map_entities(analysis)
 
@@ -608,17 +781,33 @@ def build_diagnosis(args: argparse.Namespace) -> dict:
     total_top_windows = sum(player["low_windows"]["top_windows_analyzed"] for player in player_summaries)
 
     interpretation = [
-        "S6a used existing MVD position samples plus sampled final moveprobe commands; no new controller heuristic was added.",
-        "Current artifacts can show where low-speed spans happen and whether strong commands were sampled nearby.",
+        "This diagnosis used MVD position samples plus sampled final moveprobe commands; no new controller heuristic was added.",
+        "The artifacts can show where low-speed spans happen and whether strong commands were sampled nearby.",
     ]
     if not route_state_available:
         interpretation.append(
             "Current artifacts cannot attribute those spans to a Frogbot route node, next waypoint, obstruction, or route primitive."
         )
+    else:
+        interpretation.append(
+            "Route-state logging can now tag low-speed spans with marker, goal, path-state, bot-state, blocked, and dir_speed context."
+        )
     if windows_with_strong_commands:
         interpretation.append(
             f"{windows_with_strong_commands} of {total_top_windows} analyzed low-speed windows show low speed despite average sampled horizontal command >= {args.strong_command:.0f}."
         )
+    if clock_overlap.get("status") == "no_clock_overlap":
+        interpretation.append(
+            "Command/sample clock overlap failed, so command-window joins should be treated as a clock sanity failure rather than movement evidence."
+        )
+    next_goal = (
+        "S6c should use route-state-tagged low-speed windows to identify repeated marker/path-state/blocked patterns "
+        "before changing mode 7 or adding another movement-command heuristic."
+        if route_state_available
+        else "S6b should add minimal route-state logging around the Frogbot command boundary "
+        "so low-speed windows can be tagged with route node/goal/obstruction context before "
+        "changing the movement controller again."
+    )
 
     return {
         "schema": SCHEMA,
@@ -641,14 +830,11 @@ def build_diagnosis(args: argparse.Namespace) -> dict:
             "top_windows": args.top_windows,
         },
         "trace": trace_meta,
+        "warnings": warnings,
         "capabilities": capabilities,
         "players": player_summaries,
         "interpretation": interpretation,
-        "next_goal": (
-            "S6b should add minimal route-state logging around the Frogbot command boundary "
-            "so low-speed windows can be tagged with route node/goal/obstruction context before "
-            "changing the movement controller again."
-        ),
+        "next_goal": next_goal,
     }
 
 
@@ -675,6 +861,16 @@ def loc_label(rows: list[dict]) -> str:
     return f"`{loc}` ({number(distance, 0)}q)"
 
 
+def route_state_label(route_state: dict) -> str:
+    if not route_state or not route_state.get("sample_count"):
+        return ""
+    linked = route_state.get("linked_marker_values", [])
+    touch = route_state.get("touch_marker_values", [])
+    goal = route_state.get("goal_marker_values", [])
+    path = route_state.get("path_state_values", [])
+    return f"`L{linked} T{touch} G{goal} P{path}`"
+
+
 def write_markdown(diagnosis: dict, output_path: Path) -> None:
     capabilities = diagnosis.get("capabilities", {})
     route_state = "yes" if capabilities.get("route_node_or_goal_state_available") else "no"
@@ -696,6 +892,19 @@ def write_markdown(diagnosis: dict, output_path: Path) -> None:
     ]
     for note in capabilities.get("notes", []):
         lines.append(f"- {note}")
+    clock_overlap = diagnosis.get("trace", {}).get("clock_overlap", {})
+    if isinstance(clock_overlap, dict) and clock_overlap:
+        lines.extend(
+            [
+                f"- Command/sample clock overlap: `{clock_overlap.get('status', '')}` "
+                f"(overlap `{clock_overlap.get('overlap_ms', 0)}` ms, margin `{clock_overlap.get('margin_ms', '')}` ms).",
+            ]
+        )
+    warnings = diagnosis.get("warnings", [])
+    if warnings:
+        lines.extend(["", "## Warnings", ""])
+        for warning in warnings:
+            lines.append(f"- {warning}")
     lines.extend(
         [
             "",
@@ -725,13 +934,14 @@ def write_markdown(diagnosis: dict, output_path: Path) -> None:
             "",
             "## Top Low-Speed Windows",
             "",
-            "| Player | Rank | Window | Low ms | Avg low | From | To | Cmds | Avg cmd | Strong | Jump | Abs delta p90 | Hint |",
-            "|---|---:|---|---:|---:|---|---|---:|---:|---:|---:|---:|---|",
+            "| Player | Rank | Window | Low ms | Avg low | From | To | Cmds | Avg cmd | Strong | Jump | Abs delta p90 | Route | Blocked | Hint |",
+            "|---|---:|---|---:|---:|---|---|---:|---:|---:|---:|---:|---|---:|---|",
         ]
     )
     for player in diagnosis.get("players", []):
         for window in player.get("top_windows", []):
             command = window.get("command_summary", {})
+            route_state = command.get("route_state", {}) if isinstance(command.get("route_state"), dict) else {}
             lines.append(
                 "| "
                 f"`{player.get('name', '')}` | "
@@ -746,6 +956,8 @@ def write_markdown(diagnosis: dict, output_path: Path) -> None:
                 f"{pct(command.get('strong_command_ratio'))} | "
                 f"{pct(command.get('jump_button_ratio'))} | "
                 f"{number(command.get('yaw_delta_abs_p90'))} | "
+                f"{route_state_label(route_state)} | "
+                f"{pct(route_state.get('blocked_ratio'))} | "
                 f"`{window.get('hint', '')}` |"
             )
 
@@ -759,7 +971,11 @@ def write_markdown(diagnosis: dict, output_path: Path) -> None:
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Diagnose S6 route-state gaps from lab artifacts.")
     parser.add_argument("--stage", default="s6a-route-state", help="Stage label for outputs.")
-    parser.add_argument("--run-id", required=True, help="Run id or explicit run directory.")
+    parser.add_argument(
+        "--run-id",
+        required=True,
+        help="Run id under --artifacts-root, or an explicit existing run directory to read by design.",
+    )
     parser.add_argument("--artifacts-root", type=Path, default=DEFAULT_ARTIFACT_ROOT, help="Lab run artifact root.")
     parser.add_argument("--low-speed", type=float, default=DEFAULT_LOW_SPEED, help="Low-speed threshold in qu/s.")
     parser.add_argument("--teleport-speed", type=float, default=DEFAULT_TELEPORT_SPEED, help="Teleport guard in qu/s.")
