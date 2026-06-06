@@ -227,3 +227,29 @@ S7e strengthens the S7d stop condition. Cadence remains useful as a diagnostic
 axis, but it is not controller-authorizing because all unchanged mode-7 bot rows
 are above the exact-player airborne-proxy cadence range while raw and
 movement-time cadence remain mixed.
+
+## Current S7f Result
+
+S7f inspects the raw airborne-proxy segment distributions behind the S7d/S7e
+cadence warning:
+
+```text
+experiments/human_comparison/evidence/airborne-segments-s7f-dm3.json
+experiments/human_comparison/evidence/airborne-segments-s7f-dm3.md
+```
+
+The helper replays the existing movement-metrics airborne proxy over raw
+`events.txt` kind `5` samples for the six exact-player `dm3` reference rows and
+six unchanged mode-7 bot rows.
+
+| Axis | Reference | Bot | Bot/ref p50 |
+|---|---:|---:|---:|
+| Player-median air duration | `325.0` ms | `217.2` ms | `0.668` |
+| Player-median air Z range | `43.8` qu | `11.5` qu | `0.264` |
+| Player-median air speed | `431.8` qu/s | `114.4` qu/s | `0.265` |
+| Raw active avg speed | `298.3` qu/s | `219.2` qu/s | `0.735` |
+
+The bot airborne-proxy runs are not human-like jumps. They are shorter,
+lower-Z, and much slower vertical-motion runs, so cadence remains diagnostic.
+The next useful step is S7g: characterize the land-speed gap around route and
+air segments before another controller probe.

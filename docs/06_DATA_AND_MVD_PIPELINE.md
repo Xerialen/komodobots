@@ -62,6 +62,7 @@ Current implemented first pass:
 - Script: `scripts/extract_movement_metrics.py`
 - Plausibility summarizer: `scripts/summarize_moveprobe_plausibility.py`
 - Route-state diagnosis helper: `scripts/diagnose_route_state.py`
+- Airborne proxy segment inspector: `scripts/inspect_airborne_proxy_segments.py`
 - Input: `events.txt` from `qw-analyze-v20 -format events`
 - Position source: line-delimited JSON events with `kind:5`, `PlayerNum`, `Origin`, and `TimeMs`
 - Player naming source: `kind:1` player info events
@@ -587,6 +588,9 @@ s7c-player-signatures-dm3, bot-comparable cadence scaffold:
 
 s7e-cadence-evidence-dm3, broadened mode-7 cadence evidence:
   S7e adds unchanged S6b/S6d diagnostic dm3 mode-7 bot rows to S3g, while excluding the S6e water-edge behavior variant. Raw and movement-time cadence remain mixed, but every broadened bot row stays above the exact-player airborne-proxy cadence range.
+
+s7f-airborne-segments-dm3, raw airborne-proxy segment inspection:
+  S7f replays the movement-metrics airborne proxy over raw events.txt kind 5 samples for the S7c exact-player references and S7e unchanged mode-7 bot rows. Bot player-median air duration is 217.2 ms vs reference 325.0 ms, Z range is 11.5 qu vs 43.8 qu, and air speed is 114.4 qu/s vs 431.8 qu/s. Cadence stays diagnostic; next work should characterize land-speed and air-rhythm gaps.
 ```
 
 ## Open questions
