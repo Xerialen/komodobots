@@ -188,6 +188,26 @@ Next S5 comparison step:
 
 Promote S5b as a tiny reference aggregate before S6 route primitives: select a small, bounded set of exact-player `dm3` references from Milton and/or the elite targets already proven selectable, parse compact summaries, and report a multi-demo range so one Milton match does not become the sole target.
 
+S5b result:
+
+- Added `scripts/summarize_reference_aggregate.py` to combine exact-player human summaries into compact reference ranges and compare same-map S3g bot rows.
+- Selected three exact-player `dm3` references by metadata, with no hub download and no bulk content scan:
+  - `Milton`: `4on4_blue_vs_anza[dm3]20260602-2022.mvd`
+  - `carapace`: `4on4_book_vs_-s-[dm3]20260526-2011.mvd`
+  - `yeti`: `4on4_red_vs_blue[dm3]20260530-0322.mvd`
+- Reference rows:
+  - `Milton`: avg `314.2`, p95 `535.0`, stationary `5.9%`, low `12.4%`, air `35.1%`, cadence `44.9`/min.
+  - `carapace`: avg `282.8`, p95 `524.9`, stationary `11.5%`, low `19.6%`, air `34.2%`, cadence `44.0`/min.
+  - `yeti`: avg `291.5`, p95 `505.8`, stationary `7.5%`, low `15.4%`, air `35.9%`, cadence `48.6`/min.
+- Aggregate p95 range: reference `505.8` to `535.0`; S3g `dm3` bots `361.0` to `375.3`.
+- Aggregate average-speed range: reference `282.8` to `314.2`; S3g `dm3` bots `190.1` to `248.2`.
+- S3g `/ bro` is below reference avg/p95/stationary ranges and above low-speed/air ranges.
+- S3g `/ goldenboy` is below reference avg/p95/stationary/air ranges while staying inside the low-speed range.
+
+Next S6 data step:
+
+Begin route primitive/state diagnosis instead of command tuning. The aggregate points to missing sustained high-speed movement, so S6a should inspect bot route/segment state around low-speed stretches in the S3g `dm3` run and decide whether the bot is choosing poor route primitives, losing speed at turns/obstructions, or simply lacking a route-level movement intent distinct from command projection.
+
 ## Bot-generated MVD loop
 
 Target loop:

@@ -1,0 +1,286 @@
+{
+  "artifact_dir": "artifacts\\human-demos\\s5b\\s5b-carapace-dm3-book-vs-s-20260526-2011",
+  "comparison_context": {
+    "bot_summary": {
+      "available": true,
+      "maps": [
+        "dm3",
+        "frobodm2"
+      ],
+      "path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\experiments\\ktx_moveprobe\\evidence\\moveprobe-s3g-summary.json",
+      "run_count": 2,
+      "schema": "komodobots.moveprobe_plausibility.v1"
+    },
+    "note": "This is map-matched to at least one S3g bot run and can seed a small comparison.",
+    "same_map_comparable_to_s3g": true,
+    "verdict": "same_map_human_reference_available"
+  },
+  "demo": {
+    "copied_demo": "artifacts\\human-demos\\s5b\\s5b-carapace-dm3-book-vs-s-20260526-2011\\demo.mvd",
+    "demo_kind": "4on4",
+    "inferred_map_from_name": "dm3",
+    "map": "dm3",
+    "name": "4on4_book_vs_-s-[dm3]20260526-2011.mvd",
+    "sha256": "45f653c08fbb5488e2619a24ee0dd71347316e60265b8e4caaff0f3607ce0f30",
+    "size_bytes": 12812333,
+    "source_path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\source\\4on4_book_vs_-s-[dm3]20260526-2011.mvd"
+  },
+  "ignored_named_slots": [],
+  "inventory": {
+    "demo_count": 5,
+    "dm2_candidate_count": 1,
+    "has_dm2_candidate": true,
+    "map_inference_method": "filename_token_heuristic",
+    "root": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\source"
+  },
+  "match": {
+    "duration_ms": 1199998,
+    "frag_count": 4,
+    "map": "dm3",
+    "map_title": "The Abandoned Base"
+  },
+  "movement_players": [
+    {
+      "active_time_s": 1199.419,
+      "airborne_proxy_time_ratio": 0.249,
+      "avg_horizontal_speed_qu_per_s": 286.699,
+      "jump_cadence_per_min": 35.867,
+      "low_speed_time_ratio": 0.187,
+      "max_horizontal_speed_qu_per_s": 1375.808,
+      "name": "Milton",
+      "p95_horizontal_speed_qu_per_s": 497.962,
+      "sample_count": 85646,
+      "slot": 0,
+      "stationary_time_ratio": 0.121
+    },
+    {
+      "active_time_s": 1198.886,
+      "airborne_proxy_time_ratio": 0.288,
+      "avg_horizontal_speed_qu_per_s": 264.821,
+      "jump_cadence_per_min": 37.885,
+      "low_speed_time_ratio": 0.221,
+      "max_horizontal_speed_qu_per_s": 1418.391,
+      "name": "andeh",
+      "p95_horizontal_speed_qu_per_s": 508.38,
+      "sample_count": 85646,
+      "slot": 1,
+      "stationary_time_ratio": 0.137
+    },
+    {
+      "active_time_s": 1199.271,
+      "airborne_proxy_time_ratio": 0.236,
+      "avg_horizontal_speed_qu_per_s": 281.716,
+      "jump_cadence_per_min": 32.27,
+      "low_speed_time_ratio": 0.149,
+      "max_horizontal_speed_qu_per_s": 2195.086,
+      "name": "wimsuit",
+      "p95_horizontal_speed_qu_per_s": 468.793,
+      "sample_count": 85646,
+      "slot": 2,
+      "stationary_time_ratio": 0.077
+    },
+    {
+      "active_time_s": 1198.701,
+      "airborne_proxy_time_ratio": 0.342,
+      "avg_horizontal_speed_qu_per_s": 282.769,
+      "jump_cadence_per_min": 44.048,
+      "low_speed_time_ratio": 0.196,
+      "max_horizontal_speed_qu_per_s": 1500.833,
+      "name": "carapace",
+      "p95_horizontal_speed_qu_per_s": 524.898,
+      "sample_count": 85646,
+      "slot": 3,
+      "stationary_time_ratio": 0.115
+    },
+    {
+      "active_time_s": 1198.885,
+      "airborne_proxy_time_ratio": 0.362,
+      "avg_horizontal_speed_qu_per_s": 291.837,
+      "jump_cadence_per_min": 46.393,
+      "low_speed_time_ratio": 0.17,
+      "max_horizontal_speed_qu_per_s": 1346.883,
+      "name": "Javve",
+      "p95_horizontal_speed_qu_per_s": 508.071,
+      "sample_count": 85646,
+      "slot": 4,
+      "stationary_time_ratio": 0.092
+    },
+    {
+      "active_time_s": 1198.882,
+      "airborne_proxy_time_ratio": 0.287,
+      "avg_horizontal_speed_qu_per_s": 290.074,
+      "jump_cadence_per_min": 39.086,
+      "low_speed_time_ratio": 0.158,
+      "max_horizontal_speed_qu_per_s": 1333.984,
+      "name": "sae",
+      "p95_horizontal_speed_qu_per_s": 500.08,
+      "sample_count": 85646,
+      "slot": 5,
+      "stationary_time_ratio": 0.077
+    },
+    {
+      "active_time_s": 1198.659,
+      "airborne_proxy_time_ratio": 0.375,
+      "avg_horizontal_speed_qu_per_s": 274.97,
+      "jump_cadence_per_min": 51.307,
+      "low_speed_time_ratio": 0.222,
+      "max_horizontal_speed_qu_per_s": 1690.613,
+      "name": "reppie",
+      "p95_horizontal_speed_qu_per_s": 527.549,
+      "sample_count": 85646,
+      "slot": 6,
+      "stationary_time_ratio": 0.129
+    },
+    {
+      "active_time_s": 1198.45,
+      "airborne_proxy_time_ratio": 0.307,
+      "avg_horizontal_speed_qu_per_s": 255.186,
+      "jump_cadence_per_min": 38.9,
+      "low_speed_time_ratio": 0.219,
+      "max_horizontal_speed_qu_per_s": 1458.816,
+      "name": "bps",
+      "p95_horizontal_speed_qu_per_s": 485.458,
+      "sample_count": 85646,
+      "slot": 7,
+      "stationary_time_ratio": 0.127
+    }
+  ],
+  "parser": {
+    "event_count": 781980,
+    "exits": {
+      "events": 1,
+      "json": 0,
+      "md": 0
+    },
+    "position_event_count": 694448
+  },
+  "run_id": "s5b-carapace-dm3-book-vs-s-20260526-2011",
+  "same_map_movement_comparison": {
+    "available": true,
+    "bot_player_count": 2,
+    "bot_players": [
+      {
+        "against_human_range": {
+          "airborne_proxy_time_ratio": "above_human_max",
+          "avg_horizontal_speed_qu_per_s": "below_human_min",
+          "low_speed_time_ratio": "above_human_max",
+          "p95_horizontal_speed_qu_per_s": "below_human_min",
+          "stationary_time_ratio": "below_human_min"
+        },
+        "player": "/ bro",
+        "run_id": "20260606T003718Z",
+        "values": {
+          "airborne_proxy_time_ratio": 0.442,
+          "avg_horizontal_speed_qu_per_s": 190.149,
+          "low_speed_time_ratio": 0.261,
+          "p95_horizontal_speed_qu_per_s": 361.014,
+          "stationary_time_ratio": 0.004
+        }
+      },
+      {
+        "against_human_range": {
+          "airborne_proxy_time_ratio": "within_human_range",
+          "avg_horizontal_speed_qu_per_s": "below_human_min",
+          "low_speed_time_ratio": "within_human_range",
+          "p95_horizontal_speed_qu_per_s": "below_human_min",
+          "stationary_time_ratio": "below_human_min"
+        },
+        "player": "/ goldenboy",
+        "run_id": "20260606T003718Z",
+        "values": {
+          "airborne_proxy_time_ratio": 0.248,
+          "avg_horizontal_speed_qu_per_s": 248.179,
+          "low_speed_time_ratio": 0.189,
+          "p95_horizontal_speed_qu_per_s": 375.273,
+          "stationary_time_ratio": 0.025
+        }
+      }
+    ],
+    "fields": [
+      {
+        "bot": {
+          "count": 2,
+          "max": 248.179,
+          "mean": 219.164,
+          "min": 190.149
+        },
+        "field": "avg_horizontal_speed_qu_per_s",
+        "human": {
+          "count": 8,
+          "max": 291.837,
+          "mean": 278.509,
+          "min": 255.186
+        },
+        "label": "Avg"
+      },
+      {
+        "bot": {
+          "count": 2,
+          "max": 375.273,
+          "mean": 368.144,
+          "min": 361.014
+        },
+        "field": "p95_horizontal_speed_qu_per_s",
+        "human": {
+          "count": 8,
+          "max": 527.549,
+          "mean": 502.649,
+          "min": 468.793
+        },
+        "label": "P95"
+      },
+      {
+        "bot": {
+          "count": 2,
+          "max": 0.025,
+          "mean": 0.015,
+          "min": 0.004
+        },
+        "field": "stationary_time_ratio",
+        "human": {
+          "count": 8,
+          "max": 0.137,
+          "mean": 0.109,
+          "min": 0.077
+        },
+        "label": "Stationary"
+      },
+      {
+        "bot": {
+          "count": 2,
+          "max": 0.261,
+          "mean": 0.225,
+          "min": 0.189
+        },
+        "field": "low_speed_time_ratio",
+        "human": {
+          "count": 8,
+          "max": 0.222,
+          "mean": 0.19,
+          "min": 0.149
+        },
+        "label": "Low"
+      },
+      {
+        "bot": {
+          "count": 2,
+          "max": 0.442,
+          "mean": 0.345,
+          "min": 0.248
+        },
+        "field": "airborne_proxy_time_ratio",
+        "human": {
+          "count": 8,
+          "max": 0.375,
+          "mean": 0.306,
+          "min": 0.236
+        },
+        "label": "Air"
+      }
+    ],
+    "human_player_count": 8,
+    "note": "Single-demo, same-map descriptive comparison only; it anchors S3g metrics against human movement ranges but is not a realism verdict."
+  },
+  "schema": "komodobots.human_mvd_analysis.v1",
+  "stage": "s5b-carapace-dm3"
+}

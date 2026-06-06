@@ -1,0 +1,223 @@
+{
+  "bot_comparison": [
+    {
+      "against_reference_range": {
+        "airborne_proxy_time_ratio": "above_human_max",
+        "avg_horizontal_speed_qu_per_s": "below_human_min",
+        "low_speed_time_ratio": "above_human_max",
+        "p95_horizontal_speed_qu_per_s": "below_human_min",
+        "stationary_time_ratio": "below_human_min"
+      },
+      "player": "/ bro",
+      "run_id": "20260606T003718Z",
+      "values": {
+        "airborne_proxy_time_ratio": 0.442,
+        "avg_horizontal_speed_qu_per_s": 190.149,
+        "low_speed_time_ratio": 0.261,
+        "p95_horizontal_speed_qu_per_s": 361.014,
+        "stationary_time_ratio": 0.004
+      }
+    },
+    {
+      "against_reference_range": {
+        "airborne_proxy_time_ratio": "below_human_min",
+        "avg_horizontal_speed_qu_per_s": "below_human_min",
+        "low_speed_time_ratio": "within_human_range",
+        "p95_horizontal_speed_qu_per_s": "below_human_min",
+        "stationary_time_ratio": "below_human_min"
+      },
+      "player": "/ goldenboy",
+      "run_id": "20260606T003718Z",
+      "values": {
+        "airborne_proxy_time_ratio": 0.248,
+        "avg_horizontal_speed_qu_per_s": 248.179,
+        "low_speed_time_ratio": 0.189,
+        "p95_horizontal_speed_qu_per_s": 375.273,
+        "stationary_time_ratio": 0.025
+      }
+    }
+  ],
+  "bot_rows": [
+    {
+      "airborne_proxy_time_ratio": 0.442,
+      "avg_horizontal_speed_qu_per_s": 190.149,
+      "low_speed_time_ratio": 0.261,
+      "map": "dm3",
+      "p95_horizontal_speed_qu_per_s": 361.014,
+      "player": "/ bro",
+      "run_id": "20260606T003718Z",
+      "stationary_time_ratio": 0.004
+    },
+    {
+      "airborne_proxy_time_ratio": 0.248,
+      "avg_horizontal_speed_qu_per_s": 248.179,
+      "low_speed_time_ratio": 0.189,
+      "map": "dm3",
+      "p95_horizontal_speed_qu_per_s": 375.273,
+      "player": "/ goldenboy",
+      "run_id": "20260606T003718Z",
+      "stationary_time_ratio": 0.025
+    }
+  ],
+  "bot_summary_path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\experiments\\ktx_moveprobe\\evidence\\moveprobe-s3g-summary.json",
+  "excluded_reference_rows": [],
+  "map": "dm3",
+  "notes": [
+    "Tiny exact-player reference aggregate; useful for movement-range anchoring, not a player-style model.",
+    "Reference rows are selected by metadata before parsing; raw demos and events remain outside Git."
+  ],
+  "ranges": [
+    {
+      "bot": {
+        "count": 2,
+        "max": 248.179,
+        "mean": 219.164,
+        "min": 190.149
+      },
+      "field": "avg_horizontal_speed_qu_per_s",
+      "label": "Avg",
+      "reference": {
+        "count": 3,
+        "max": 314.236,
+        "mean": 296.158,
+        "min": 282.769
+      }
+    },
+    {
+      "bot": {
+        "count": 2,
+        "max": 375.273,
+        "mean": 368.144,
+        "min": 361.014
+      },
+      "field": "p95_horizontal_speed_qu_per_s",
+      "label": "P95",
+      "reference": {
+        "count": 3,
+        "max": 535.023,
+        "mean": 521.902,
+        "min": 505.786
+      }
+    },
+    {
+      "bot": {
+        "count": 2,
+        "max": 0.025,
+        "mean": 0.015,
+        "min": 0.004
+      },
+      "field": "stationary_time_ratio",
+      "label": "Stationary",
+      "reference": {
+        "count": 3,
+        "max": 0.115,
+        "mean": 0.083,
+        "min": 0.059
+      }
+    },
+    {
+      "bot": {
+        "count": 2,
+        "max": 0.261,
+        "mean": 0.225,
+        "min": 0.189
+      },
+      "field": "low_speed_time_ratio",
+      "label": "Low",
+      "reference": {
+        "count": 3,
+        "max": 0.196,
+        "mean": 0.158,
+        "min": 0.124
+      }
+    },
+    {
+      "bot": {
+        "count": 2,
+        "max": 0.442,
+        "mean": 0.345,
+        "min": 0.248
+      },
+      "field": "airborne_proxy_time_ratio",
+      "label": "Air",
+      "reference": {
+        "count": 3,
+        "max": 0.359,
+        "mean": 0.351,
+        "min": 0.342
+      }
+    },
+    {
+      "bot": null,
+      "field": "jump_cadence_per_min",
+      "label": "Cadence/min",
+      "reference": {
+        "count": 3,
+        "max": 48.576,
+        "mean": 45.849,
+        "min": 44.048
+      }
+    }
+  ],
+  "reference_count": 3,
+  "reference_rows": [
+    {
+      "airborne_proxy_time_ratio": 0.351,
+      "avg_horizontal_speed_qu_per_s": 314.236,
+      "demo": "4on4_blue_vs_anza[dm3]20260602-2022.mvd",
+      "duration_ms": 1200013,
+      "jump_cadence_per_min": 44.922,
+      "low_speed_time_ratio": 0.124,
+      "map": "dm3",
+      "map_title": "The Abandoned Base",
+      "matched_player": "Milton",
+      "p95_horizontal_speed_qu_per_s": 535.023,
+      "run_id": "s5a-milton-dm3-blue-vs-anza-20260602-2022",
+      "sha256": "9ca8f72b3afa95ba87830a83478c51bb9b3dd626b733190a4ca2d84b4d66490e",
+      "stationary_time_ratio": 0.059,
+      "summary_path": "experiments\\human_comparison\\evidence\\human-milton-s5a-summary.json",
+      "target_player": "Milton"
+    },
+    {
+      "airborne_proxy_time_ratio": 0.342,
+      "avg_horizontal_speed_qu_per_s": 282.769,
+      "demo": "4on4_book_vs_-s-[dm3]20260526-2011.mvd",
+      "duration_ms": 1199998,
+      "jump_cadence_per_min": 44.048,
+      "low_speed_time_ratio": 0.196,
+      "map": "dm3",
+      "map_title": "The Abandoned Base",
+      "matched_player": "carapace",
+      "p95_horizontal_speed_qu_per_s": 524.898,
+      "run_id": "s5b-carapace-dm3-book-vs-s-20260526-2011",
+      "sha256": "45f653c08fbb5488e2619a24ee0dd71347316e60265b8e4caaff0f3607ce0f30",
+      "stationary_time_ratio": 0.115,
+      "summary_path": "artifacts\\human-demos\\s5b\\s5b-carapace-dm3-book-vs-s-20260526-2011\\human-summary.json",
+      "target_player": "carapace"
+    },
+    {
+      "airborne_proxy_time_ratio": 0.359,
+      "avg_horizontal_speed_qu_per_s": 291.468,
+      "demo": "4on4_red_vs_blue[dm3]20260530-0322.mvd",
+      "duration_ms": 1200062,
+      "jump_cadence_per_min": 48.576,
+      "low_speed_time_ratio": 0.154,
+      "map": "dm3",
+      "map_title": "The Abandoned Base",
+      "matched_player": "yeti",
+      "p95_horizontal_speed_qu_per_s": 505.786,
+      "run_id": "s5b-yeti-dm3-red-vs-blue-20260530-0322",
+      "sha256": "adedb2eccb861ebbc96f551fc21c738dc8740ecd327ea11990ede2802f83aff7",
+      "stationary_time_ratio": 0.075,
+      "summary_path": "artifacts\\human-demos\\s5b\\s5b-yeti-dm3-red-vs-blue-20260530-0322\\human-summary.json",
+      "target_player": "yeti"
+    }
+  ],
+  "schema": "komodobots.reference_aggregate.v1",
+  "stage": "s5b-elite-dm3",
+  "targets": [
+    "Milton",
+    "carapace",
+    "yeti"
+  ]
+}

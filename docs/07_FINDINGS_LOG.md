@@ -1607,3 +1607,87 @@ Low for any player-specific movement conclusion until S5 has a tiny aggregate.
 ### Follow-up
 
 Ask Claude to review S5a. Proposed S5b: build a tiny Milton/elite reference aggregate. Select a small bounded set of exact-player `dm3` demos from the proven metadata path, parse compact summaries, and report multi-demo movement ranges before S6 route primitives or S7 player-specific movement.
+
+## 2026-06-06 - S5b Tiny Milton/Elite Reference Aggregate
+
+### Experiment
+
+Added `scripts/summarize_reference_aggregate.py` and selected two more exact-player `dm3` references using the metadata path proven in S5a. Raw demos and event streams remain ignored under `artifacts/`.
+
+Selected targets:
+
+- `Milton`: `4on4_blue_vs_anza[dm3]20260602-2022.mvd`
+- `carapace`: `4on4_book_vs_-s-[dm3]20260526-2011.mvd`
+- `yeti`: `4on4_red_vs_blue[dm3]20260530-0322.mvd`
+
+Ran:
+
+```bash
+python scripts/analyze_human_mvd.py --demo-root artifacts/human-demos/source --artifact-root artifacts/human-demos/s5b --stage s5b-carapace-dm3 --demo 4on4_book_vs_-s-[dm3]20260526-2011.mvd --run-id s5b-carapace-dm3-book-vs-s-20260526-2011
+python scripts/analyze_human_mvd.py --demo-root artifacts/human-demos/source --artifact-root artifacts/human-demos/s5b --stage s5b-yeti-dm3 --demo 4on4_red_vs_blue[dm3]20260530-0322.mvd --run-id s5b-yeti-dm3-red-vs-blue-20260530-0322
+python scripts/summarize_reference_aggregate.py --stage s5b-elite-dm3 --map dm3 --target Milton=experiments/human_comparison/evidence/human-milton-s5a-summary.json --target carapace=artifacts/human-demos/s5b/s5b-carapace-dm3-book-vs-s-20260526-2011/human-summary.json --target yeti=artifacts/human-demos/s5b/s5b-yeti-dm3-red-vs-blue-20260530-0322/human-summary.json --output-json artifacts/human-demos/s5b/reference-s5b-elite-dm3-aggregate.json --output-md artifacts/human-demos/s5b/reference-s5b-elite-dm3-aggregate.md
+```
+
+### Result
+
+Reference rows:
+
+| Target | Avg | P95 | Stationary | Low | Air | Cadence/min |
+|---|---:|---:|---:|---:|---:|---:|
+| `Milton` | 314.2 | 535.0 | 5.9% | 12.4% | 35.1% | 44.9 |
+| `carapace` | 282.8 | 524.9 | 11.5% | 19.6% | 34.2% | 44.0 |
+| `yeti` | 291.5 | 505.8 | 7.5% | 15.4% | 35.9% | 48.6 |
+
+Aggregate range against S3g `dm3` bot run `20260606T003718Z`:
+
+| Metric | Ref min | Ref mean | Ref max | Bot min | Bot mean | Bot max |
+|---|---:|---:|---:|---:|---:|---:|
+| Avg | 282.8 | 296.2 | 314.2 | 190.1 | 219.2 | 248.2 |
+| P95 | 505.8 | 521.9 | 535.0 | 361.0 | 368.1 | 375.3 |
+| Stationary | 5.9% | 8.3% | 11.5% | 0.4% | 1.5% | 2.5% |
+| Low | 12.4% | 15.8% | 19.6% | 18.9% | 22.5% | 26.1% |
+| Air | 34.2% | 35.1% | 35.9% | 24.8% | 34.5% | 44.2% |
+| Cadence/min | 44.0 | 45.8 | 48.6 | | | |
+
+Bot rows versus the aggregate:
+
+| Bot | Avg range | P95 range | Stationary range | Low range | Air range |
+|---|---|---|---|---|---|
+| `/ bro` | `below_human_min` | `below_human_min` | `below_human_min` | `above_human_max` | `above_human_max` |
+| `/ goldenboy` | `below_human_min` | `below_human_min` | `below_human_min` | `within_human_range` | `below_human_min` |
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/human-demos/s5b/s5b-carapace-dm3-book-vs-s-20260526-2011/human-summary.md`
+- `artifacts/human-demos/s5b/s5b-yeti-dm3-red-vs-blue-20260530-0322/human-summary.md`
+- `artifacts/human-demos/s5b/reference-s5b-elite-dm3-aggregate.md`
+- `experiments/human_comparison/evidence/human-reference-s5b-selection.md`
+- `experiments/human_comparison/evidence/human-reference-s5b-selection.json`
+- `experiments/human_comparison/evidence/human-carapace-s5b-summary.md`
+- `experiments/human_comparison/evidence/human-carapace-s5b-summary.json`
+- `experiments/human_comparison/evidence/human-yeti-s5b-summary.md`
+- `experiments/human_comparison/evidence/human-yeti-s5b-summary.json`
+- `experiments/human_comparison/evidence/human-reference-s5b-aggregate.md`
+- `experiments/human_comparison/evidence/human-reference-s5b-aggregate.json`
+
+### Interpretation
+
+S5b is a stronger anchor than S5a because it avoids making one Milton match the whole target. It still remains deliberately tiny.
+
+The aggregate shows a stable high-speed gap: S3g's p95 speed is far below all three exact-player references, and S3g's average speed is also below the reference range. The current bot gate did not require sustained high-speed movement, so more mode `7` command tuning would optimize the wrong surface.
+
+The next useful experiment should inspect route primitive/state behavior around low-speed stretches, not add another movement-command heuristic.
+
+### Confidence
+
+High for the aggregate mechanics and target-row provenance.
+
+Medium for the reference range because it is three exact-player rows, not a large distribution.
+
+High that S3g is below this tiny aggregate on avg and p95 movement.
+
+### Follow-up
+
+Ask Claude to review S5b. Proposed S6a: route primitive/state diagnosis. Inspect S3g `dm3` movement traces around low-speed stretches and route/segment state if available, to decide whether the gap is route choice, obstruction/turn behavior, or missing route-level movement intent.

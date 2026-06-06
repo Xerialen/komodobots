@@ -81,3 +81,26 @@ stationary `5.9%`, low-speed `12.4%`, airborne proxy `35.1%`, and cadence
 This is still a single-match reference, not a style model. The next S5 step
 should build a tiny aggregate from a few exact-player elite/Milton samples before
 moving to S6 route primitives or S7 player-specific movement.
+
+## Current S5b Result
+
+S5b aggregates three exact-player `dm3` references selected by metadata:
+
+```text
+Milton   -> 4on4_blue_vs_anza[dm3]20260602-2022.mvd
+carapace -> 4on4_book_vs_-s-[dm3]20260526-2011.mvd
+yeti     -> 4on4_red_vs_blue[dm3]20260530-0322.mvd
+```
+
+The aggregate range is intentionally tiny but no longer a single-match target:
+
+| Metric | Reference range | S3g bot range |
+|---|---:|---:|
+| Avg | `282.8-314.2` | `190.1-248.2` |
+| P95 | `505.8-535.0` | `361.0-375.3` |
+| Low | `12.4%-19.6%` | `18.9%-26.1%` |
+| Air | `34.2%-35.9%` | `24.8%-44.2%` |
+
+This points away from more command-value tuning and toward S6 route/state
+diagnosis: the current bot command projection can emit bounded movement, but the
+result is not sustaining elite-like high-speed movement on `dm3`.

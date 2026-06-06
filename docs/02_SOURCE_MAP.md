@@ -86,6 +86,7 @@ Why it matters:
 - `scripts/extract_movement_metrics.py` derives per-player horizontal speed, distance, speed-threshold time ratios, and stationary time from `events.txt` kind `5` player origin samples.
 - `scripts/summarize_moveprobe_plausibility.py` combines per-run `movement-metrics.json` and `moveprobe-commands.json` artifacts into an explicit command-coverage plus stationary/low-speed gate.
 - `scripts/analyze_human_mvd.py` inventories local human `.mvd` candidates, copies one selected demo into `artifacts/human-demos/<run-id>/`, parses it through the same `qw-analyze-v20` and movement-metrics path, and writes compact human comparison summaries.
+- `scripts/summarize_reference_aggregate.py` combines a tiny exact-player reference set into committed JSON/Markdown ranges and compares them against same-map S3g bot rows.
 - `experiments/ktx_moveprobe/frogbot-moveprobe.patch` is the first S2 KTX source probe. It applies to KTX commit `08807da`, hooks `src/bot_movement.c::BotSetCommand()` after the prewar-freeze guard, and adds cvar-controlled command perturbation immediately before button assembly and `trap_SetBotCMD(...)`.
 - The same patch includes v2a command instrumentation. When `k_fb_moveprobe_log_commands=1`, KTX prints sampled `FBMOVEPROBE_CMD` rows containing the final `msec`, angles, movement command values, buttons, and impulse about to be sent to `trap_SetBotCMD(...)`.
 - The patch also includes v2b mode `3`, a route-yaw probe that sets yaw from `self->fb.dir_move_`, emits simple movement command values, and forces jump when a route direction is available.
@@ -120,6 +121,7 @@ Verification:
 - `s4b-dm2-blue-vs-red-20260228-0512` parsed one true DM2 human 4on4 demo selected from `servexeri:/mnt/usb-ssd/4on4-corpus/demos/`. The corpus manifest had 6,409 rows, 1,598 DM2 rows, 1,450 `4on4_` DM2 rows, and 1,171 cleanish 4on4 DM2 rows after excluding `tmp` and missing files. The selected file was `4on4_blue_vs_red[dm2]20260228-0512.mvd`, SHA-256 `f8269d8139b129426b569eaf6b2be278964d740bd0365647f4410db74da76585`.
 - `s4c-dm3-blue-vs-red-20260426-0307` parsed one map-matched human `dm3` 4on4 demo selected from the same existing corpus. The exact `[dm3]` inventory had 1,663 rows, 1,629 `4on4_` rows, 1,247 cleanish existing rows, and 444 moderate-size cleanish 2026 rows. The selected file was `4on4_blue_vs_red[dm3]20260426-0307.mvd`, SHA-256 `6897a00a4c185751ac82c579c091437cc5b82701df14cc2178da4792924ad4fe`.
 - `s5a-milton-dm3-blue-vs-anza-20260602-2022` parsed one exact `Milton` `dm3` 4on4 reference demo selected by Turso `player_games` metadata cross-referenced with the same corpus manifest. The selected file was `4on4_blue_vs_anza[dm3]20260602-2022.mvd`, SHA-256 `9ca8f72b3afa95ba87830a83478c51bb9b3dd626b733190a4ca2d84b4d66490e`.
+- `s5b-elite-dm3` aggregates three exact-player `dm3` references: `Milton`, `carapace`, and `yeti`. It shows the reference p95 range is `505.8` to `535.0` qu/s, while S3g `dm3` bots are `361.0` to `375.3`.
 - Stock `dm2` has `dm2.bsp` and `dm2.loc`, but no `ktx/bots/maps/dm2.bot`; do not treat stock `dm2` as a Frogbot-supported map unless a real route appears.
 
 ### mvd_analyzer

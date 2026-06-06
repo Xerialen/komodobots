@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S5b - Tiny Milton/elite reference aggregate`
+`S6a - Route primitive/state diagnosis`
 
 ## Stage Status Table
 
@@ -47,8 +47,8 @@ Current active stage:
 | S2 Override | Provisionally satisfied pending review | Route-yaw mode `3` passed explicit v2c command/plausibility gates on `frobodm2` and `dm3` |
 | S3 Bunnyjump Controller | Provisionally satisfied pending human anchor | S3g mode `7` passed `dm3` and `frobodm2` while preserving combat yaw, removing backward commands, and bounding sampled command magnitude near `824.6` |
 | S4 Human Comparison | First same-map anchor complete | S4c parsed one human `dm3` 4on4 demo and compared it against S3g `dm3`; S3g is not yet human-like on the observed movement ranges |
-| S5 Milton Reference | Active | S5a proved exact-player Milton/elite selection from Turso metadata plus the existing corpus; S5b should aggregate a tiny reference set |
-| S6 Route Primitives | Pending | Route-level movement behaviours |
+| S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
+| S6 Route Primitives | Active | Diagnose route/segment state behind S3g low-p95 movement before adding controller heuristics |
 | S7 Player Specific | Pending | Player-style movement models |
 
 ## Roadmap Rule
@@ -68,4 +68,6 @@ S4a built the human-demo parser scaffold and parsed one local `aerowalk` duel, b
 
 S5a proved exact-player reference selection is feasible from Turso metadata plus the existing corpus manifest, then parsed one exact `Milton` `dm3` sample. That sample shows a sharper S3g gap than the generic S4c human sample: S3g is below the sample's p95 range and `/ bro` is below average speed while above low-speed and airborne-proxy ranges.
 
-The next branch is S5b: build a tiny Milton/elite reference aggregate so the project does not tune against a single match before S6 route primitives or S7 player-specific movement.
+S5b aggregates three exact-player `dm3` references from Milton, carapace, and yeti. The aggregate reference p95 range is `505.8` to `535.0`, while S3g `dm3` bots are `361.0` to `375.3`. The average-speed range is also lower for S3g: reference `282.8` to `314.2`, bots `190.1` to `248.2`.
+
+The next branch is S6a: route primitive/state diagnosis. Inspect where S3g loses sustained high-speed movement on `dm3`, using route/segment state or movement-position evidence before adding more command heuristics.

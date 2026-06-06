@@ -795,3 +795,49 @@ S5b should create a small but less brittle reference range before S6 route primi
 ### Revisit Conditions
 
 Revisit if a multi-demo aggregate cannot be produced quickly from the existing corpus, if exact player aliases make target selection unreliable, or if Claude recommends moving to S6 route-state instrumentation before expanding the reference set.
+
+---
+
+## Decision
+
+Move from S5 reference anchoring to S6 route primitive/state diagnosis.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+Treat S5b as sufficient for the first elite movement anchor: the lab now has a tiny exact-player `dm3` aggregate for Milton, carapace, and yeti. It is not a style model, but it is enough to show S3g's current movement gap is sustained high-speed behavior rather than only a command-emission problem.
+
+The next goal is S6a: inspect route primitive/state behavior around the S3g `dm3` low-speed and low-p95 result before adding more movement command heuristics.
+
+### Alternatives Considered
+
+- Expand S5 into a larger elite reference corpus immediately.
+- Start S7 player-specific movement from the Milton sample.
+- Tune mode `7` forward/side/cadence values against the aggregate.
+- Return to DM2 route acquisition before diagnosing the existing `dm3` gap.
+
+### Evidence
+
+S5b aggregate:
+
+- Reference targets: `Milton`, `carapace`, `yeti`.
+- Reference avg speed range: `282.8` to `314.2`; S3g bot range: `190.1` to `248.2`.
+- Reference p95 speed range: `505.8` to `535.0`; S3g bot range: `361.0` to `375.3`.
+- Reference low-speed range: `12.4%` to `19.6%`; S3g bot range: `18.9%` to `26.1%`.
+- Reference airborne-proxy range: `34.2%` to `35.9%`; S3g bot range: `24.8%` to `44.2%`.
+
+S3g interpretation:
+
+- `/ bro` is below reference avg/p95/stationary ranges and above low-speed/air ranges.
+- `/ goldenboy` is below reference avg/p95/stationary/air ranges and only within low-speed range.
+
+### Expected Consequences
+
+S6a should inspect route/segment state and movement traces around sustained low-speed periods. If the bot is losing speed because route primitives are too coarse, turning into geometry, or failing to carry velocity between route intents, the next controller work should target that route-state boundary rather than blindly increasing command magnitude.
+
+### Revisit Conditions
+
+Revisit if S6a cannot access route/segment state from the current artifacts or KTX patch point, if Claude recommends expanding the aggregate before route diagnosis, or if a simple trace analysis shows the gap is a measurement artifact rather than route behavior.
