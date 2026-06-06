@@ -2540,25 +2540,26 @@ Ask Code Sentinel to review S7i. Proposed S7j: implement and run the tiny air-tr
 
 ### Experiment
 
-Implemented and ran the S7i-constrained tiny controller probe. The KTX moveprobe patch now includes mode `8`, which starts from mode `7` and scales the desired horizontal command budget only while the bot is in a takeoff/recent-air/recent-landing transition window. The runner now accepts:
+Implemented and ran the S7i-constrained tiny controller probe. The KTX moveprobe patch now includes mode `8`, which starts from mode `7` and scales the desired horizontal command budget only while the bot is in a takeoff/recent-air/recent-landing transition window. Claude review caught that the first version passed a hardcoded `true` jump gate, making every grounded frame transition-active; the committed patch now uses the pre-probe `*jumping` state. The runner now accepts:
 
 ```bash
-python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 8 --moveprobe-sidemove 200 --moveprobe-transition-scale 1.25 --moveprobe-transition-window 0.4 --moveprobe-log-commands --moveprobe-log-interval 0.25 --run-id 20260606T161101Z
+python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 8 --moveprobe-sidemove 200 --moveprobe-transition-scale 1.25 --moveprobe-transition-window 0.4 --moveprobe-log-commands --moveprobe-log-interval 0.25 --run-id 20260606T163907Z
+python scripts/run_bot_lab.py --map dm3 --duration 45 --bot-count 2 --bot-spacing 6 --moveprobe-mode 8 --moveprobe-sidemove 200 --moveprobe-transition-scale 1.25 --moveprobe-transition-window 0.4 --moveprobe-log-commands --moveprobe-log-interval 0.25 --run-id 20260606T164610Z
 ```
 
-The temporary patched KTX build was deployed to `servexeri`, the lab was run once, the live `qwprogs` module was restored to its original SHA-256 hash, and the remote KTX checkout was returned clean.
+The temporary patched KTX build was deployed to `servexeri`, the lab was run twice, the live `qwprogs` module was restored to its original SHA-256 hash after each run, and the remote KTX checkout was returned clean.
 
 ### Result
 
 - Generated `experiments/human_comparison/evidence/air-transition-probe-s7j-dm3.*`.
-- Probe activation reporting worked: `195` sampled command rows had `probe_state`, and `127` were transition-active (`65.1%`).
-- Pre-air p50 improved from `207.1` to `209.1` qu/s.
-- Airborne-proxy p50 improved from `122.6` to `182.7` qu/s.
-- Post-air p50 improved from `184.5` to `202.4` qu/s.
-- All accepted segment p50 fell from `222.0` to `188.0` qu/s.
-- Non-airborne p50 fell from `312.1` to `275.0` qu/s, ratio `0.881`, failing the S7i `0.95` guardrail.
-- Route low-dir-speed p50 fell from `141.0` to `71.4` qu/s.
-- Route `WATER_PATH` p50 improved slightly from `95.3` to `98.2` qu/s, but only one S7j bot row contributed.
+- Probe activation reporting worked: `546` sampled command rows had `probe_state`, and `110` were transition-active (`20.1%`).
+- Pre-air p50 fell from `207.1` to `149.7` qu/s.
+- Airborne-proxy p50 fell from `122.6` to `100.4` qu/s.
+- Post-air p50 fell from `184.5` to `179.6` qu/s.
+- All accepted segment p50 improved only slightly from `222.0` to `230.0` qu/s.
+- Non-airborne p50 fell from `312.1` to `286.3` qu/s, failing the S7i guardrail.
+- Route low-dir-speed p50 improved from `141.0` to `201.2` qu/s.
+- Route `WATER_PATH` p50 stayed barely above baseline where present: `95.3 -> 96.2` qu/s.
 
 ### Evidence
 
@@ -2574,14 +2575,14 @@ Committed artifacts:
 
 ### Interpretation
 
-S7j is useful negative evidence. The transition-only horizontal budget lever affects the intended air-transition buckets, so the target was real. But it is not acceptable controller behavior because the same run loses non-airborne speed and route-low-dir-speed context. Do not promote mode `8` or claim movement realism improved from the air bucket gains alone.
+S7j is rejected evidence, not accepted controller behavior. Claude's gate fix was necessary, and the second corrected run restored enough `WATER_PATH` guardrail coverage to make the verdict stricter than "inconclusive." The combined fixed runs show that the mode-8 lever can shift aggregate speed, but it worsens the intended air-transition buckets and fails the non-airborne guardrail. Do not promote mode `8` or claim movement realism improved.
 
 ### Confidence
 
-High that the result follows the S7i stop-condition contract and uses local validation plus one real lab run.
+High that the result follows the S7i stop-condition contract and uses local validation plus two real lab runs.
 
-Medium that one short two-bot `dm3` run fully characterizes the mode, because the failure is enough to reject the current probe but not enough to identify the root cause.
+Medium that two short two-bot `dm3` runs fully characterize the mode, because the current evidence is enough to reject this exact probe but not enough to choose the next controller policy.
 
 ### Follow-up
 
-Ask Code Sentinel to review S7j. Proposed S7k: inspect S7j per-player non-airborne and route-low-dir-speed regression context, including probe-active versus inactive command samples, before trying another controller probe.
+Ask Code Sentinel to review S7j. Proposed S7k: inspect the failed bucket and command/probe activation context before trying another controller probe.

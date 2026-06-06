@@ -1,114 +1,127 @@
 {
   "bot_run_ids": [
-    "20260606T161101Z"
+    "20260606T163907Z",
+    "20260606T164610Z"
   ],
   "bucket_changes": [
     {
       "baseline_bot_p50_speed_qu_per_s": 207.089,
       "baseline_bot_player_count": 6,
       "bucket": "pre_air_window_segments",
-      "current_bot_p50_speed_qu_per_s": 209.053,
-      "current_bot_player_count": 2,
-      "current_bot_to_reference_p50_ratio": 0.5,
-      "improved_vs_s7g_baseline": true,
+      "current_bot_p50_speed_qu_per_s": 149.673,
+      "current_bot_player_count": 4,
+      "current_bot_to_reference_p50_ratio": 0.358,
+      "improved_vs_s7g_baseline": false,
       "label": "Pre-air window",
-      "ratio_to_s7g_baseline": 1.009,
-      "regressed_more_than_5pct": false
+      "ratio_to_s7g_baseline": 0.723,
+      "regressed_more_than_5pct": true
     },
     {
       "baseline_bot_p50_speed_qu_per_s": 122.626,
       "baseline_bot_player_count": 6,
       "bucket": "airborne_proxy_segments",
-      "current_bot_p50_speed_qu_per_s": 182.66,
-      "current_bot_player_count": 2,
-      "current_bot_to_reference_p50_ratio": 0.421,
-      "improved_vs_s7g_baseline": true,
+      "current_bot_p50_speed_qu_per_s": 100.433,
+      "current_bot_player_count": 4,
+      "current_bot_to_reference_p50_ratio": 0.232,
+      "improved_vs_s7g_baseline": false,
       "label": "Airborne-proxy segments",
-      "ratio_to_s7g_baseline": 1.49,
-      "regressed_more_than_5pct": false
+      "ratio_to_s7g_baseline": 0.819,
+      "regressed_more_than_5pct": true
     },
     {
       "baseline_bot_p50_speed_qu_per_s": 184.529,
       "baseline_bot_player_count": 6,
       "bucket": "post_air_window_segments",
-      "current_bot_p50_speed_qu_per_s": 202.366,
-      "current_bot_player_count": 2,
-      "current_bot_to_reference_p50_ratio": 0.553,
-      "improved_vs_s7g_baseline": true,
+      "current_bot_p50_speed_qu_per_s": 179.63,
+      "current_bot_player_count": 4,
+      "current_bot_to_reference_p50_ratio": 0.491,
+      "improved_vs_s7g_baseline": false,
       "label": "Post-air window",
-      "ratio_to_s7g_baseline": 1.097,
+      "ratio_to_s7g_baseline": 0.973,
       "regressed_more_than_5pct": false
     },
     {
       "baseline_bot_p50_speed_qu_per_s": 221.993,
       "baseline_bot_player_count": 6,
       "bucket": "all_segments",
-      "current_bot_p50_speed_qu_per_s": 188.014,
-      "current_bot_player_count": 2,
-      "current_bot_to_reference_p50_ratio": 0.563,
-      "improved_vs_s7g_baseline": false,
+      "current_bot_p50_speed_qu_per_s": 229.995,
+      "current_bot_player_count": 4,
+      "current_bot_to_reference_p50_ratio": 0.689,
+      "improved_vs_s7g_baseline": true,
       "label": "All accepted segments",
-      "ratio_to_s7g_baseline": 0.847,
-      "regressed_more_than_5pct": true
+      "ratio_to_s7g_baseline": 1.036,
+      "regressed_more_than_5pct": false
     },
     {
       "baseline_bot_p50_speed_qu_per_s": 312.121,
       "baseline_bot_player_count": 6,
       "bucket": "non_airborne_segments",
-      "current_bot_p50_speed_qu_per_s": 275.012,
-      "current_bot_player_count": 2,
-      "current_bot_to_reference_p50_ratio": 0.859,
+      "current_bot_p50_speed_qu_per_s": 286.294,
+      "current_bot_player_count": 4,
+      "current_bot_to_reference_p50_ratio": 0.895,
       "improved_vs_s7g_baseline": false,
       "label": "Non-airborne segments",
-      "ratio_to_s7g_baseline": 0.881,
+      "ratio_to_s7g_baseline": 0.917,
       "regressed_more_than_5pct": true
     },
     {
       "baseline_bot_p50_speed_qu_per_s": 141.017,
       "baseline_bot_player_count": 4,
       "bucket": "route_low_dir_speed_segments",
-      "current_bot_p50_speed_qu_per_s": 71.434,
-      "current_bot_player_count": 2,
+      "current_bot_p50_speed_qu_per_s": 201.208,
+      "current_bot_player_count": 4,
       "current_bot_to_reference_p50_ratio": null,
-      "improved_vs_s7g_baseline": false,
+      "improved_vs_s7g_baseline": true,
       "label": "Route low-dir-speed segments",
-      "ratio_to_s7g_baseline": 0.507,
-      "regressed_more_than_5pct": true
+      "ratio_to_s7g_baseline": 1.427,
+      "regressed_more_than_5pct": false
     },
     {
       "baseline_bot_p50_speed_qu_per_s": 95.279,
       "baseline_bot_player_count": 2,
       "bucket": "route_water_path_segments",
-      "current_bot_p50_speed_qu_per_s": 98.169,
+      "current_bot_p50_speed_qu_per_s": 96.164,
       "current_bot_player_count": 1,
       "current_bot_to_reference_p50_ratio": null,
       "improved_vs_s7g_baseline": true,
       "label": "Route WATER_PATH segments",
-      "ratio_to_s7g_baseline": 1.03,
+      "ratio_to_s7g_baseline": 1.009,
       "regressed_more_than_5pct": false
     }
   ],
   "cadence_axes": [
     {
       "bot": {
-        "count": 2,
-        "max": 82.263,
-        "mean": 54.994,
-        "min": 27.725
+        "count": 4,
+        "max": 148.624,
+        "mean": 55.811,
+        "min": 18.463
       },
       "bot_relation": "mixed_bot_relation",
       "bot_rows": [
         {
-          "against_reference": "above_reference_max",
+          "against_reference": "below_reference_min",
           "player": "/ bro",
-          "run_id": "20260606T161101Z",
-          "value": 82.263
+          "run_id": "20260606T163907Z",
+          "value": 25.874
         },
         {
           "against_reference": "below_reference_min",
           "player": "/ goldenboy",
-          "run_id": "20260606T161101Z",
-          "value": 27.725
+          "run_id": "20260606T163907Z",
+          "value": 18.463
+        },
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ bro",
+          "run_id": "20260606T164610Z",
+          "value": 30.282
+        },
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ goldenboy",
+          "run_id": "20260606T164610Z",
+          "value": 148.624
         }
       ],
       "field": "jump_cadence_per_min",
@@ -120,24 +133,36 @@
     },
     {
       "bot": {
-        "count": 2,
-        "max": 113.938,
-        "mean": 75.114,
-        "min": 36.289
+        "count": 4,
+        "max": 297.248,
+        "mean": 99.254,
+        "min": 19.172
       },
       "bot_relation": "mixed_bot_relation",
       "bot_rows": [
         {
-          "against_reference": "above_reference_max",
+          "against_reference": "below_reference_min",
           "player": "/ bro",
-          "run_id": "20260606T161101Z",
-          "value": 113.938
+          "run_id": "20260606T163907Z",
+          "value": 33.866
         },
         {
           "against_reference": "below_reference_min",
           "player": "/ goldenboy",
-          "run_id": "20260606T161101Z",
-          "value": 36.289
+          "run_id": "20260606T163907Z",
+          "value": 19.172
+        },
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ bro",
+          "run_id": "20260606T164610Z",
+          "value": 46.731
+        },
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ goldenboy",
+          "run_id": "20260606T164610Z",
+          "value": 297.248
         }
       ],
       "field": "jump_cadence_per_non_low_speed_min",
@@ -149,24 +174,36 @@
     },
     {
       "bot": {
-        "count": 2,
-        "max": 215.913,
-        "mean": 184.545,
-        "min": 153.177
+        "count": 4,
+        "max": 245.254,
+        "mean": 169.369,
+        "min": 131.661
       },
-      "bot_relation": "all_bots_above_reference_range",
+      "bot_relation": "mixed_bot_relation",
       "bot_rows": [
         {
           "against_reference": "above_reference_max",
           "player": "/ bro",
-          "run_id": "20260606T161101Z",
-          "value": 215.913
+          "run_id": "20260606T163907Z",
+          "value": 164.803
+        },
+        {
+          "against_reference": "within_reference_range",
+          "player": "/ goldenboy",
+          "run_id": "20260606T163907Z",
+          "value": 135.757
+        },
+        {
+          "against_reference": "within_reference_range",
+          "player": "/ bro",
+          "run_id": "20260606T164610Z",
+          "value": 131.661
         },
         {
           "against_reference": "above_reference_max",
           "player": "/ goldenboy",
-          "run_id": "20260606T161101Z",
-          "value": 153.177
+          "run_id": "20260606T164610Z",
+          "value": 245.254
         }
       ],
       "field": "jump_cadence_per_airborne_proxy_min",
@@ -178,181 +215,84 @@
     }
   ],
   "decision": {
-    "air_transition_buckets_improved": [
-      "pre_air_window_segments",
-      "airborne_proxy_segments",
-      "post_air_window_segments"
-    ],
+    "air_transition_buckets_improved": [],
     "failed_stop_conditions": [
+      "all_segment_proxy_win",
+      "air_transition_regression",
       "non_airborne_guardrail"
     ],
     "inconclusive_stop_conditions": [],
     "next_goal": "S7k should inspect the failed bucket and command/probe activation context before trying another controller probe.",
-    "reason": "S7j produced evidence, but stop conditions failed: non_airborne_guardrail.",
+    "reason": "S7j produced evidence, but stop conditions failed: all_segment_proxy_win, air_transition_regression, non_airborne_guardrail.",
     "verdict": "air_transition_probe_rejected_by_s7i_stop_conditions"
   },
   "land_speed_comparison": {
     "bot_players": [
       {
-        "airborne_proxy_count": 35,
-        "dropped_teleport_segments": 1,
-        "events_path": "artifacts/lab-runs/20260606T161101Z/events.txt",
+        "airborne_proxy_count": 11,
+        "dropped_teleport_segments": 2,
+        "events_path": "artifacts/lab-runs/20260606T163907Z/events.txt",
         "group": "bot",
         "identity": "/ bro",
         "moveprobe_command_count": 109,
         "route_state_segment_count": 1067,
-        "run_id": "20260606T161101Z",
-        "sampled_strong_command_segment_count": 1053,
-        "segment_count": 1257,
+        "run_id": "20260606T163907Z",
+        "sampled_strong_command_segment_count": 1029,
+        "segment_count": 1256,
         "speed_buckets": {
           "airborne_proxy_segments": {
-            "count": 479,
-            "max": 382.069,
-            "mean": 115.592,
-            "min": 11.905,
-            "p50": 103.078,
-            "p90": 216.842,
-            "p95": 324.773
+            "count": 198,
+            "max": 402.191,
+            "mean": 159.612,
+            "min": 0.0,
+            "p50": 101.8,
+            "p90": 320.593,
+            "p95": 360.399
           },
           "all_segments": {
-            "count": 1257,
-            "max": 407.45,
-            "mean": 200.048,
+            "count": 1256,
+            "max": 418.904,
+            "mean": 223.851,
             "min": 0.0,
-            "p50": 137.216,
-            "p90": 352.155,
-            "p95": 370.327
+            "p50": 273.177,
+            "p90": 363.495,
+            "p95": 380.243
           },
           "non_airborne_segments": {
-            "count": 778,
-            "max": 407.45,
-            "mean": 252.046,
+            "count": 1058,
+            "max": 418.904,
+            "mean": 235.873,
             "min": 0.0,
-            "p50": 318.689,
-            "p90": 365.22,
-            "p95": 380.819
+            "p50": 303.921,
+            "p90": 366.801,
+            "p95": 383.131
           },
           "post_air_window_segments": {
-            "count": 562,
-            "max": 398.875,
-            "mean": 102.564,
+            "count": 200,
+            "max": 402.191,
+            "mean": 200.951,
             "min": 0.0,
-            "p50": 101.19,
-            "p90": 134.872,
-            "p95": 181.035
+            "p50": 205.486,
+            "p90": 364.531,
+            "p95": 380.245
           },
           "pre_air_window_segments": {
-            "count": 551,
-            "max": 356.743,
-            "mean": 109.238,
-            "min": 0.0,
-            "p50": 103.078,
-            "p90": 167.705,
-            "p95": 319.992
-          },
-          "route_low_dir_speed_segments": {
-            "count": 167,
-            "max": 331.486,
-            "mean": 90.067,
-            "min": 17.857,
-            "p50": 67.868,
-            "p90": 164.624,
-            "p95": 268.499
-          },
-          "route_water_path_segments": {
-            "count": 345,
-            "max": 128.695,
-            "mean": 90.17,
-            "min": 0.0,
-            "p50": 98.169,
-            "p90": 119.406,
-            "p95": 122.748
-          },
-          "sampled_strong_command_segments": {
-            "count": 1053,
-            "max": 407.45,
-            "mean": 180.065,
-            "min": 0.0,
-            "p50": 118.585,
-            "p90": 340.831,
-            "p95": 365.131
-          },
-          "sampled_weak_command_segments": {
-            "count": 14,
-            "max": 331.486,
-            "mean": 257.534,
-            "min": 43.75,
-            "p50": 302.935,
-            "p90": 327.457,
-            "p95": 329.134
-          }
-        }
-      },
-      {
-        "airborne_proxy_count": 9,
-        "dropped_teleport_segments": 2,
-        "events_path": "artifacts/lab-runs/20260606T161101Z/events.txt",
-        "group": "bot",
-        "identity": "/ goldenboy",
-        "moveprobe_command_count": 86,
-        "route_state_segment_count": 769,
-        "run_id": "20260606T161101Z",
-        "sampled_strong_command_segment_count": 718,
-        "segment_count": 959,
-        "speed_buckets": {
-          "airborne_proxy_segments": {
-            "count": 174,
-            "max": 371.914,
-            "mean": 219.284,
-            "min": 5.952,
-            "p50": 262.242,
-            "p90": 333.298,
-            "p95": 346.916
-          },
-          "all_segments": {
-            "count": 959,
-            "max": 787.897,
-            "mean": 218.094,
-            "min": 0.0,
-            "p50": 238.812,
-            "p90": 357.988,
-            "p95": 379.681
-          },
-          "non_airborne_segments": {
-            "count": 785,
-            "max": 787.897,
-            "mean": 217.83,
-            "min": 0.0,
-            "p50": 231.334,
-            "p90": 363.29,
-            "p95": 392.368
-          },
-          "post_air_window_segments": {
-            "count": 146,
-            "max": 420.054,
-            "mean": 261.451,
-            "min": 17.857,
-            "p50": 303.542,
-            "p90": 371.212,
-            "p95": 380.497
-          },
-          "pre_air_window_segments": {
-            "count": 169,
-            "max": 787.897,
-            "mean": 296.388,
-            "min": 17.857,
-            "p50": 315.027,
-            "p90": 378.55,
-            "p95": 429.662
-          },
-          "route_low_dir_speed_segments": {
-            "count": 13,
-            "max": 125.156,
-            "mean": 78.507,
+            "count": 207,
+            "max": 400.439,
+            "mean": 208.077,
             "min": 29.762,
-            "p50": 75.0,
-            "p90": 121.429,
-            "p95": 125.062
+            "p50": 202.118,
+            "p90": 349.665,
+            "p95": 370.069
+          },
+          "route_low_dir_speed_segments": {
+            "count": 38,
+            "max": 383.752,
+            "mean": 259.848,
+            "min": 86.668,
+            "p50": 305.518,
+            "p90": 369.041,
+            "p95": 371.752
           },
           "route_water_path_segments": {
             "count": 0,
@@ -364,123 +304,408 @@
             "p95": null
           },
           "sampled_strong_command_segments": {
-            "count": 718,
-            "max": 787.897,
-            "mean": 219.425,
+            "count": 1029,
+            "max": 418.904,
+            "mean": 212.215,
             "min": 0.0,
-            "p50": 250.319,
-            "p90": 362.283,
-            "p95": 383.629
+            "p50": 223.67,
+            "p90": 359.094,
+            "p95": 379.68
           },
           "sampled_weak_command_segments": {
-            "count": 51,
-            "max": 416.505,
-            "mean": 261.911,
-            "min": 29.762,
-            "p50": 322.163,
-            "p90": 368.803,
-            "p95": 383.741
+            "count": 38,
+            "max": 383.752,
+            "mean": 259.848,
+            "min": 86.668,
+            "p50": 305.518,
+            "p90": 369.041,
+            "p95": 371.752
+          }
+        }
+      },
+      {
+        "airborne_proxy_count": 6,
+        "dropped_teleport_segments": 1,
+        "events_path": "artifacts/lab-runs/20260606T163907Z/events.txt",
+        "group": "bot",
+        "identity": "/ goldenboy",
+        "moveprobe_command_count": 86,
+        "route_state_segment_count": 771,
+        "run_id": "20260606T163907Z",
+        "sampled_strong_command_segment_count": 733,
+        "segment_count": 960,
+        "speed_buckets": {
+          "airborne_proxy_segments": {
+            "count": 131,
+            "max": 318.198,
+            "mean": 170.839,
+            "min": 32.055,
+            "p50": 181.25,
+            "p90": 218.839,
+            "p95": 286.21
+          },
+          "all_segments": {
+            "count": 960,
+            "max": 422.294,
+            "mean": 300.433,
+            "min": 18.823,
+            "p50": 325.96,
+            "p90": 374.427,
+            "p95": 388.167
+          },
+          "non_airborne_segments": {
+            "count": 829,
+            "max": 422.294,
+            "mean": 320.912,
+            "min": 18.823,
+            "p50": 331.78,
+            "p90": 376.379,
+            "p95": 392.01
+          },
+          "post_air_window_segments": {
+            "count": 114,
+            "max": 392.309,
+            "mean": 215.584,
+            "min": 18.823,
+            "p50": 197.966,
+            "p90": 347.972,
+            "p95": 360.078
+          },
+          "pre_air_window_segments": {
+            "count": 119,
+            "max": 421.725,
+            "mean": 256.599,
+            "min": 26.62,
+            "p50": 255.952,
+            "p90": 381.145,
+            "p95": 395.565
+          },
+          "route_low_dir_speed_segments": {
+            "count": 38,
+            "max": 422.294,
+            "mean": 308.034,
+            "min": 172.722,
+            "p50": 328.945,
+            "p90": 381.012,
+            "p95": 396.004
+          },
+          "route_water_path_segments": {
+            "count": 0,
+            "max": null,
+            "mean": null,
+            "min": null,
+            "p50": null,
+            "p90": null,
+            "p95": null
+          },
+          "sampled_strong_command_segments": {
+            "count": 733,
+            "max": 417.208,
+            "mean": 301.237,
+            "min": 18.823,
+            "p50": 326.08,
+            "p90": 368.035,
+            "p95": 383.779
+          },
+          "sampled_weak_command_segments": {
+            "count": 38,
+            "max": 422.294,
+            "mean": 308.034,
+            "min": 172.722,
+            "p50": 328.945,
+            "p90": 381.012,
+            "p95": 396.004
+          }
+        }
+      },
+      {
+        "airborne_proxy_count": 23,
+        "dropped_teleport_segments": 1,
+        "events_path": "artifacts/lab-runs/20260606T164610Z/events.txt",
+        "group": "bot",
+        "identity": "/ bro",
+        "moveprobe_command_count": 187,
+        "route_state_segment_count": 2051,
+        "run_id": "20260606T164610Z",
+        "sampled_strong_command_segment_count": 1744,
+        "segment_count": 2241,
+        "speed_buckets": {
+          "airborne_proxy_segments": {
+            "count": 515,
+            "max": 352.003,
+            "mean": 75.311,
+            "min": 0.0,
+            "p50": 68.75,
+            "p90": 99.495,
+            "p95": 112.673
+          },
+          "all_segments": {
+            "count": 2241,
+            "max": 436.069,
+            "mean": 197.444,
+            "min": 0.0,
+            "p50": 186.814,
+            "p90": 360.772,
+            "p95": 378.339
+          },
+          "non_airborne_segments": {
+            "count": 1726,
+            "max": 436.069,
+            "mean": 233.886,
+            "min": 0.0,
+            "p50": 268.667,
+            "p90": 368.565,
+            "p95": 383.357
+          },
+          "post_air_window_segments": {
+            "count": 441,
+            "max": 415.519,
+            "mean": 179.866,
+            "min": 0.0,
+            "p50": 161.294,
+            "p90": 349.833,
+            "p95": 369.226
+          },
+          "pre_air_window_segments": {
+            "count": 431,
+            "max": 399.707,
+            "mean": 124.566,
+            "min": 0.0,
+            "p50": 87.5,
+            "p90": 321.429,
+            "p95": 342.482
+          },
+          "route_low_dir_speed_segments": {
+            "count": 307,
+            "max": 412.926,
+            "mean": 121.308,
+            "min": 0.0,
+            "p50": 62.5,
+            "p90": 333.366,
+            "p95": 364.482
+          },
+          "route_water_path_segments": {
+            "count": 0,
+            "max": null,
+            "mean": null,
+            "min": null,
+            "p50": null,
+            "p90": null,
+            "p95": null
+          },
+          "sampled_strong_command_segments": {
+            "count": 1744,
+            "max": 436.069,
+            "mean": 195.953,
+            "min": 0.0,
+            "p50": 178.316,
+            "p90": 357.847,
+            "p95": 376.785
+          },
+          "sampled_weak_command_segments": {
+            "count": 307,
+            "max": 412.926,
+            "mean": 121.308,
+            "min": 0.0,
+            "p50": 62.5,
+            "p90": 333.366,
+            "p95": 364.482
+          }
+        }
+      },
+      {
+        "airborne_proxy_count": 98,
+        "dropped_teleport_segments": 0,
+        "events_path": "artifacts/lab-runs/20260606T164610Z/events.txt",
+        "group": "bot",
+        "identity": "/ goldenboy",
+        "moveprobe_command_count": 164,
+        "route_state_segment_count": 1755,
+        "run_id": "20260606T164610Z",
+        "sampled_strong_command_segment_count": 1742,
+        "segment_count": 1945,
+        "speed_buckets": {
+          "airborne_proxy_segments": {
+            "count": 1179,
+            "max": 383.09,
+            "mean": 100.672,
+            "min": 8.418,
+            "p50": 99.067,
+            "p90": 114.916,
+            "p95": 121.353
+          },
+          "all_segments": {
+            "count": 1945,
+            "max": 401.754,
+            "mean": 125.013,
+            "min": 6.25,
+            "p50": 100.0,
+            "p90": 321.85,
+            "p95": 339.074
+          },
+          "non_airborne_segments": {
+            "count": 766,
+            "max": 401.754,
+            "mean": 162.478,
+            "min": 6.25,
+            "p50": 100.778,
+            "p90": 342.125,
+            "p95": 359.796
+          },
+          "post_air_window_segments": {
+            "count": 1452,
+            "max": 395.532,
+            "mean": 100.542,
+            "min": 6.25,
+            "p50": 97.127,
+            "p90": 114.735,
+            "p95": 120.708
+          },
+          "pre_air_window_segments": {
+            "count": 1445,
+            "max": 395.532,
+            "mean": 102.827,
+            "min": 8.418,
+            "p50": 97.227,
+            "p90": 114.905,
+            "p95": 267.857
+          },
+          "route_low_dir_speed_segments": {
+            "count": 1248,
+            "max": 401.754,
+            "mean": 93.936,
+            "min": 6.25,
+            "p50": 96.898,
+            "p90": 111.919,
+            "p95": 115.574
+          },
+          "route_water_path_segments": {
+            "count": 1136,
+            "max": 123.04,
+            "mean": 91.351,
+            "min": 13.31,
+            "p50": 96.164,
+            "p90": 111.278,
+            "p95": 114.919
+          },
+          "sampled_strong_command_segments": {
+            "count": 1742,
+            "max": 368.379,
+            "mean": 101.502,
+            "min": 6.25,
+            "p50": 97.227,
+            "p90": 114.905,
+            "p95": 141.838
+          },
+          "sampled_weak_command_segments": {
+            "count": 13,
+            "max": 401.754,
+            "mean": 341.356,
+            "min": 314.351,
+            "p50": 339.495,
+            "p90": 362.841,
+            "p95": 379.362
           }
         }
       }
     ],
     "bot_summary": {
       "airborne_proxy_segments": {
-        "count": 2,
-        "max": 262.242,
-        "mean": 182.66,
-        "min": 103.078,
-        "p50": 182.66,
-        "p90": 246.326,
-        "p95": 254.284
+        "count": 4,
+        "max": 181.25,
+        "mean": 112.717,
+        "min": 68.75,
+        "p50": 100.433,
+        "p90": 157.415,
+        "p95": 169.332
       },
       "all_segments": {
-        "count": 2,
-        "max": 238.812,
-        "mean": 188.014,
-        "min": 137.216,
-        "p50": 188.014,
-        "p90": 228.652,
-        "p95": 233.732
+        "count": 4,
+        "max": 325.96,
+        "mean": 221.488,
+        "min": 100.0,
+        "p50": 229.995,
+        "p90": 310.125,
+        "p95": 318.043
       },
       "non_airborne_segments": {
-        "count": 2,
-        "max": 318.689,
-        "mean": 275.012,
-        "min": 231.334,
-        "p50": 275.012,
-        "p90": 309.954,
-        "p95": 314.321
+        "count": 4,
+        "max": 331.78,
+        "mean": 251.286,
+        "min": 100.778,
+        "p50": 286.294,
+        "p90": 323.422,
+        "p95": 327.601
       },
-      "player_count": 2,
+      "player_count": 4,
       "post_air_window_segments": {
-        "count": 2,
-        "max": 303.542,
-        "mean": 202.366,
-        "min": 101.19,
-        "p50": 202.366,
-        "p90": 283.307,
-        "p95": 293.424
+        "count": 4,
+        "max": 205.486,
+        "mean": 165.468,
+        "min": 97.127,
+        "p50": 179.63,
+        "p90": 203.23,
+        "p95": 204.358
       },
       "pre_air_window_segments": {
-        "count": 2,
-        "max": 315.027,
-        "mean": 209.053,
-        "min": 103.078,
-        "p50": 209.053,
-        "p90": 293.832,
-        "p95": 304.43
+        "count": 4,
+        "max": 255.952,
+        "mean": 160.699,
+        "min": 87.5,
+        "p50": 149.673,
+        "p90": 239.802,
+        "p95": 247.877
       },
       "route_low_dir_speed_segments": {
-        "count": 2,
-        "max": 75.0,
-        "mean": 71.434,
-        "min": 67.868,
-        "p50": 71.434,
-        "p90": 74.287,
-        "p95": 74.643
+        "count": 4,
+        "max": 328.945,
+        "mean": 198.465,
+        "min": 62.5,
+        "p50": 201.208,
+        "p90": 321.917,
+        "p95": 325.431
       },
       "route_water_path_segments": {
         "count": 1,
-        "max": 98.169,
-        "mean": 98.169,
-        "min": 98.169,
-        "p50": 98.169,
-        "p90": 98.169,
-        "p95": 98.169
+        "max": 96.164,
+        "mean": 96.164,
+        "min": 96.164,
+        "p50": 96.164,
+        "p90": 96.164,
+        "p95": 96.164
       },
       "sampled_strong_command_segments": {
-        "count": 2,
-        "max": 250.319,
-        "mean": 184.452,
-        "min": 118.585,
-        "p50": 184.452,
-        "p90": 237.146,
-        "p95": 243.732
+        "count": 4,
+        "max": 326.08,
+        "mean": 206.323,
+        "min": 97.227,
+        "p50": 200.993,
+        "p90": 295.357,
+        "p95": 310.718
       },
       "sampled_weak_command_segments": {
-        "count": 2,
-        "max": 322.163,
-        "mean": 312.549,
-        "min": 302.935,
-        "p50": 312.549,
-        "p90": 320.24,
-        "p95": 321.202
+        "count": 4,
+        "max": 339.495,
+        "mean": 259.115,
+        "min": 62.5,
+        "p50": 317.231,
+        "p90": 336.33,
+        "p95": 337.912
       }
     },
     "command_margin_ms": 150,
     "comparison": {
       "airborne_proxy_segments": {
         "bot_player_p50_speed": {
-          "count": 2,
-          "max": 262.242,
-          "mean": 182.66,
-          "min": 103.078,
-          "p50": 182.66,
-          "p90": 246.326,
-          "p95": 254.284
+          "count": 4,
+          "max": 181.25,
+          "mean": 112.717,
+          "min": 68.75,
+          "p50": 100.433,
+          "p90": 157.415,
+          "p95": 169.332
         },
-        "bot_to_reference_p50_ratio": 0.421,
+        "bot_to_reference_p50_ratio": 0.232,
         "label": "Airborne-proxy segments",
         "reference_player_p50_speed": {
           "count": 6,
@@ -494,15 +719,15 @@
       },
       "all_segments": {
         "bot_player_p50_speed": {
-          "count": 2,
-          "max": 238.812,
-          "mean": 188.014,
-          "min": 137.216,
-          "p50": 188.014,
-          "p90": 228.652,
-          "p95": 233.732
+          "count": 4,
+          "max": 325.96,
+          "mean": 221.488,
+          "min": 100.0,
+          "p50": 229.995,
+          "p90": 310.125,
+          "p95": 318.043
         },
-        "bot_to_reference_p50_ratio": 0.563,
+        "bot_to_reference_p50_ratio": 0.689,
         "label": "All accepted segments",
         "reference_player_p50_speed": {
           "count": 6,
@@ -516,15 +741,15 @@
       },
       "non_airborne_segments": {
         "bot_player_p50_speed": {
-          "count": 2,
-          "max": 318.689,
-          "mean": 275.012,
-          "min": 231.334,
-          "p50": 275.012,
-          "p90": 309.954,
-          "p95": 314.321
+          "count": 4,
+          "max": 331.78,
+          "mean": 251.286,
+          "min": 100.778,
+          "p50": 286.294,
+          "p90": 323.422,
+          "p95": 327.601
         },
-        "bot_to_reference_p50_ratio": 0.859,
+        "bot_to_reference_p50_ratio": 0.895,
         "label": "Non-airborne segments",
         "reference_player_p50_speed": {
           "count": 6,
@@ -538,15 +763,15 @@
       },
       "post_air_window_segments": {
         "bot_player_p50_speed": {
-          "count": 2,
-          "max": 303.542,
-          "mean": 202.366,
-          "min": 101.19,
-          "p50": 202.366,
-          "p90": 283.307,
-          "p95": 293.424
+          "count": 4,
+          "max": 205.486,
+          "mean": 165.468,
+          "min": 97.127,
+          "p50": 179.63,
+          "p90": 203.23,
+          "p95": 204.358
         },
-        "bot_to_reference_p50_ratio": 0.553,
+        "bot_to_reference_p50_ratio": 0.491,
         "label": "Post-air window",
         "reference_player_p50_speed": {
           "count": 6,
@@ -560,15 +785,15 @@
       },
       "pre_air_window_segments": {
         "bot_player_p50_speed": {
-          "count": 2,
-          "max": 315.027,
-          "mean": 209.053,
-          "min": 103.078,
-          "p50": 209.053,
-          "p90": 293.832,
-          "p95": 304.43
+          "count": 4,
+          "max": 255.952,
+          "mean": 160.699,
+          "min": 87.5,
+          "p50": 149.673,
+          "p90": 239.802,
+          "p95": 247.877
         },
-        "bot_to_reference_p50_ratio": 0.5,
+        "bot_to_reference_p50_ratio": 0.358,
         "label": "Pre-air window",
         "reference_player_p50_speed": {
           "count": 6,
@@ -582,13 +807,13 @@
       },
       "route_low_dir_speed_segments": {
         "bot_player_p50_speed": {
-          "count": 2,
-          "max": 75.0,
-          "mean": 71.434,
-          "min": 67.868,
-          "p50": 71.434,
-          "p90": 74.287,
-          "p95": 74.643
+          "count": 4,
+          "max": 328.945,
+          "mean": 198.465,
+          "min": 62.5,
+          "p50": 201.208,
+          "p90": 321.917,
+          "p95": 325.431
         },
         "bot_to_reference_p50_ratio": null,
         "label": "Route low-dir-speed segments",
@@ -605,12 +830,12 @@
       "route_water_path_segments": {
         "bot_player_p50_speed": {
           "count": 1,
-          "max": 98.169,
-          "mean": 98.169,
-          "min": 98.169,
-          "p50": 98.169,
-          "p90": 98.169,
-          "p95": 98.169
+          "max": 96.164,
+          "mean": 96.164,
+          "min": 96.164,
+          "p50": 96.164,
+          "p90": 96.164,
+          "p95": 96.164
         },
         "bot_to_reference_p50_ratio": null,
         "label": "Route WATER_PATH segments",
@@ -626,13 +851,13 @@
       },
       "sampled_strong_command_segments": {
         "bot_player_p50_speed": {
-          "count": 2,
-          "max": 250.319,
-          "mean": 184.452,
-          "min": 118.585,
-          "p50": 184.452,
-          "p90": 237.146,
-          "p95": 243.732
+          "count": 4,
+          "max": 326.08,
+          "mean": 206.323,
+          "min": 97.227,
+          "p50": 200.993,
+          "p90": 295.357,
+          "p95": 310.718
         },
         "bot_to_reference_p50_ratio": null,
         "label": "Sampled strong-command segments",
@@ -648,13 +873,13 @@
       },
       "sampled_weak_command_segments": {
         "bot_player_p50_speed": {
-          "count": 2,
-          "max": 322.163,
-          "mean": 312.549,
-          "min": 302.935,
-          "p50": 312.549,
-          "p90": 320.24,
-          "p95": 321.202
+          "count": 4,
+          "max": 339.495,
+          "mean": 259.115,
+          "min": 62.5,
+          "p50": 317.231,
+          "p90": 336.33,
+          "p95": 337.912
         },
         "bot_to_reference_p50_ratio": null,
         "label": "Sampled weak-command segments",
@@ -670,13 +895,13 @@
       }
     },
     "decision": {
-      "airborne_p50_ratio": 0.421,
+      "airborne_p50_ratio": 0.232,
       "next_goal": "S7h should decide whether the first controller probe targets air-transition horizontal speed production or a narrow route primitive such as WATER_PATH low-dir-speed recovery.",
-      "non_air_p50_ratio": 0.859,
-      "post_air_p50_ratio": 0.553,
-      "pre_air_p50_ratio": 0.5,
+      "non_air_p50_ratio": 0.895,
+      "post_air_p50_ratio": 0.491,
+      "pre_air_p50_ratio": 0.358,
       "reason": "The broad all-segment speed gap is not equally distributed. Bot non-airborne p50 speed is close to the exact-player non-airborne p50, but bot pre-air, airborne, and post-air windows are far below reference speed. Route-state samples also expose very slow WATER_PATH/low-dir-speed spans, so the next controller evidence should target speed production around air transitions and route primitives rather than cadence.",
-      "route_water_path_bot_p50_speed_qu_per_s": 98.169,
+      "route_water_path_bot_p50_speed_qu_per_s": 96.164,
       "verdict": "land_speed_gap_concentrates_around_air_transitions_and_route_low_dir_speed"
     },
     "low_route_dir_speed": 0.25,
@@ -1354,28 +1579,50 @@
         "active_scale_values": [
           1.25
         ],
-        "on_ground_ratio": 0.44,
+        "on_ground_ratio": 0.817,
         "player": "/ bro",
-        "run_id": "20260606T161101Z",
+        "run_id": "20260606T163907Z",
         "sample_count": 109,
-        "transition_active_count": 55,
-        "transition_active_ratio": 0.505
+        "transition_active_count": 21,
+        "transition_active_ratio": 0.193
       },
       {
         "active_scale_values": [
           1.25
         ],
-        "on_ground_ratio": 0.756,
+        "on_ground_ratio": 0.802,
         "player": "/ goldenboy",
-        "run_id": "20260606T161101Z",
+        "run_id": "20260606T163907Z",
         "sample_count": 86,
-        "transition_active_count": 72,
-        "transition_active_ratio": 0.837
+        "transition_active_count": 16,
+        "transition_active_ratio": 0.186
+      },
+      {
+        "active_scale_values": [
+          1.25
+        ],
+        "on_ground_ratio": 0.62,
+        "player": "/ bro",
+        "run_id": "20260606T164610Z",
+        "sample_count": 187,
+        "transition_active_count": 66,
+        "transition_active_ratio": 0.353
+      },
+      {
+        "active_scale_values": [
+          1.25
+        ],
+        "on_ground_ratio": 0.122,
+        "player": "/ goldenboy",
+        "run_id": "20260606T164610Z",
+        "sample_count": 164,
+        "transition_active_count": 7,
+        "transition_active_ratio": 0.043
       }
     ],
-    "sample_count": 195,
-    "transition_active_count": 127,
-    "transition_active_ratio": 0.651,
+    "sample_count": 546,
+    "transition_active_count": 110,
+    "transition_active_ratio": 0.201,
     "warnings": []
   },
   "probe_contract": {
@@ -1401,9 +1648,22 @@
       "forwardmove": "800",
       "map": "dm3",
       "moveprobe_mode": "8",
-      "run_id": "20260606T161101Z",
+      "run_id": "20260606T163907Z",
       "sidemove": "200",
-      "source_metrics_path": "artifacts/lab-runs/20260606T161101Z/movement-metrics.json",
+      "source_metrics_path": "artifacts/lab-runs/20260606T163907Z/movement-metrics.json",
+      "transition_scale": "1.25",
+      "transition_window": "0.4",
+      "upmove": "0"
+    },
+    {
+      "command_log_interval": "0.25",
+      "command_logging": "1",
+      "forwardmove": "800",
+      "map": "dm3",
+      "moveprobe_mode": "8",
+      "run_id": "20260606T164610Z",
+      "sidemove": "200",
+      "source_metrics_path": "artifacts/lab-runs/20260606T164610Z/movement-metrics.json",
       "transition_scale": "1.25",
       "transition_window": "0.4",
       "upmove": "0"
@@ -1426,36 +1686,35 @@
     },
     {
       "details": {
-        "sample_count": 195,
-        "transition_active_count": 127,
-        "transition_active_ratio": 0.651
+        "sample_count": 546,
+        "transition_active_count": 110,
+        "transition_active_ratio": 0.201
       },
       "id": "probe_activation_reporting",
       "status": "pass"
     },
     {
       "details": {
-        "air_transition_buckets_improved": [
-          "pre_air_window_segments",
-          "airborne_proxy_segments",
-          "post_air_window_segments"
-        ],
-        "all_segments_improved": false
+        "air_transition_buckets_improved": [],
+        "all_segments_improved": true
       },
       "id": "all_segment_proxy_win",
-      "status": "pass"
+      "status": "reject"
     },
     {
       "details": {
-        "regressed_buckets": [],
+        "regressed_buckets": [
+          "pre_air_window_segments",
+          "airborne_proxy_segments"
+        ],
         "tolerance_ratio": 0.95
       },
       "id": "air_transition_regression",
-      "status": "pass"
+      "status": "reject"
     },
     {
       "details": {
-        "ratio_to_s7g_baseline": 0.881,
+        "ratio_to_s7g_baseline": 0.917,
         "tolerance_ratio": 0.95
       },
       "id": "non_airborne_guardrail",
@@ -1464,7 +1723,7 @@
     {
       "details": {
         "current_bot_player_count": 1,
-        "ratio_to_s7g_baseline": 1.03,
+        "ratio_to_s7g_baseline": 1.009,
         "tolerance_ratio": 0.95
       },
       "id": "water_path_guardrail",

@@ -342,25 +342,27 @@ experiments/human_comparison/evidence/air-transition-probe-s7j-dm3.md
 ```
 
 The probe starts from mode `7` and scales horizontal command budget only during
-takeoff/recent-air/recent-landing windows. The single committed lab run is
-`20260606T161101Z` on `dm3` with transition scale `1.25` and window `0.4`.
-Probe state was reported in `195` sampled command rows and was transition-active
-in `127` of them.
+takeoff/recent-air/recent-landing windows. Claude review caught that the first
+mode-8 patch hardcoded the jump gate as active on every grounded frame; the
+committed comparison now uses corrected lab runs `20260606T163907Z` and
+`20260606T164610Z` on `dm3` with transition scale `1.25` and window `0.4`.
+Probe state was reported in `546` sampled command rows and was transition-active
+in `110` of them.
 
 | Bucket | S7g bot p50 | S7j bot p50 | S7j/S7g |
 |---|---:|---:|---:|
-| Pre-air window | `207.1` qu/s | `209.1` qu/s | `1.009` |
-| Airborne-proxy segments | `122.6` qu/s | `182.7` qu/s | `1.490` |
-| Post-air window | `184.5` qu/s | `202.4` qu/s | `1.097` |
-| All accepted segments | `222.0` qu/s | `188.0` qu/s | `0.847` |
-| Non-airborne segments | `312.1` qu/s | `275.0` qu/s | `0.881` |
-| Route low-dir-speed segments | `141.0` qu/s | `71.4` qu/s | `0.507` |
-| Route `WATER_PATH` segments | `95.3` qu/s | `98.2` qu/s | `1.030` |
+| Pre-air window | `207.1` qu/s | `149.7` qu/s | `0.723` |
+| Airborne-proxy segments | `122.6` qu/s | `100.4` qu/s | `0.819` |
+| Post-air window | `184.5` qu/s | `179.6` qu/s | `0.973` |
+| All accepted segments | `222.0` qu/s | `230.0` qu/s | `1.036` |
+| Non-airborne segments | `312.1` qu/s | `286.3` qu/s | `0.917` |
+| Route low-dir-speed segments | `141.0` qu/s | `201.2` qu/s | `1.427` |
+| Route `WATER_PATH` segments | `95.3` qu/s | `96.2` qu/s | `1.009` |
 
 Verdict: `air_transition_probe_rejected_by_s7i_stop_conditions`.
 
-The air-transition lever is real, but the current mode `8` is not acceptable
-controller behavior because it fails the non-airborne guardrail and worsens
-route low-dir-speed context. The next useful step is S7k: inspect the failed
-bucket and command/probe activation context before trying another controller
-probe.
+The air-transition lever is measurable, but the corrected mode `8` is rejected:
+the all-segment and route-context gains do not count when the intended pre-air
+and airborne buckets regress and non-airborne speed fails the S7i guardrail. The
+next useful step is S7k: inspect failed bucket and command/probe activation
+context before trying another controller probe.

@@ -604,7 +604,7 @@ s7i-air-transition-probe-design-dm3, probe contract before controller code:
   S7i consumes S7g land-speed, S7h target-decision, and S7e cadence evidence. It writes a design-only JSON/Markdown artifact with baseline bucket values, required post-probe measurements, and stop conditions. The artifact forbids cadence, route-file, all-segment-speed, combat, parser, and lab-runner changes in the next probe; S7j must preserve cadence and route diagnostics and reject all-segment speed gains if air-transition or WATER_PATH context regresses.
 
 s7j-air-transition-probe-dm3, mode-8 probe result against S7i stop conditions:
-  S7j temporarily deploys a mode-8 KTX moveprobe build, runs `20260606T161101Z` on `dm3`, records transition probe state in sampled commands, and restores the live KTX module afterward. The comparison artifact shows pre-air, airborne-proxy, and post-air p50 speeds improved, but non-airborne p50 fell from `312.1` to `275.0` qu/s, so the S7i `non_airborne_guardrail` rejects the probe. Route `WATER_PATH` p50 improved slightly but only one bot row contributed.
+  S7j temporarily deploys corrected mode-8 KTX moveprobe builds, runs `20260606T163907Z` and `20260606T164610Z` on `dm3`, records transition probe state in sampled commands, and restores the live KTX module afterward. The combined comparison artifact rejects mode `8` under S7i stop conditions: all accepted p50 improved only `222.0 -> 230.0` and `WATER_PATH` stayed barely above baseline where present, but pre-air fell `207.1 -> 149.7`, airborne-proxy fell `122.6 -> 100.4`, post-air fell `184.5 -> 179.6`, and non-airborne fell below tolerance `312.1 -> 286.3`.
 ```
 
 ## Open questions

@@ -17,6 +17,7 @@ from characterize_land_speed_gap import (
     optional_float,
 )
 from decide_cadence_normalization import add_derived_axes
+from run_frobodm2_lab import validate_run_id
 from summarize_reference_aggregate import portable_path
 
 
@@ -96,7 +97,13 @@ def summarize_numbers(values: list[float]) -> dict[str, object]:
 
 
 def compact_unique(values: Iterable[object], limit: int = 12) -> list[object]:
-    unique = sorted(set(values), key=lambda value: str(value))
+    def sort_key(value: object) -> tuple[int, float | str]:
+        number = optional_float(value)
+        if number is not None:
+            return (0, number)
+        return (1, str(value))
+
+    unique = sorted(set(values), key=sort_key)
     if len(unique) <= limit:
         return unique
     return [*unique[:limit], f"... {len(unique) - limit} more"]
@@ -111,7 +118,7 @@ def load_run_env(run_dir: Path) -> dict[str, str]:
         if "=" not in raw_line:
             continue
         key, value = raw_line.split("=", 1)
-        env[key] = value
+        env[key.strip()] = value.strip()
     return env
 
 
@@ -205,7 +212,7 @@ def build_probe_source(
         "map": s7f.get("map", "dm3"),
         "source_airborne_segments_path": portable_path(s7f_path),
         "source_airborne_segments_stage": s7f.get("stage", ""),
-        "reference_players": [row for row in s7f.get("reference_players", []) if isinstance(row, dict)],
+        "reference_players": [row for row in s7f.get("reference_players") or [] if isinstance(row, dict)],
         "bot_players": bot_rows,
     }
 
@@ -243,7 +250,12 @@ def summarize_probe_activation(run_ids: list[str], artifacts_root: Path) -> dict
                     if states
                     else None,
                     "active_scale_values": compact_unique(
-                        round(float(state.get("transition_scale", 1.0)), 3) for state in active
+                        scale
+                        for scale in (
+                            rounded(state.get("transition_scale"), 3)
+                            for state in active
+                        )
+                        if scale is not None
                     ),
                 }
             )
@@ -316,7 +328,7 @@ def bucket_changes(design: dict[str, object], land_speed: dict[str, object]) -> 
 def build_cadence_axes(design: dict[str, object], cadence_rows: list[dict[str, object]]) -> list[dict[str, object]]:
     design_axes = {
         str(axis.get("field")): axis
-        for axis in design.get("cadence_baselines", [])
+        for axis in design.get("cadence_baselines") or []
         if isinstance(axis, dict) and axis.get("field")
     }
     axes = []
@@ -744,7 +756,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument("--design", type=Path, default=DEFAULT_DESIGN, help="S7i probe design JSON.")
     parser.add_argument("--s7f", type=Path, default=DEFAULT_S7F, help="S7f airborne segment evidence JSON.")
     parser.add_argument("--artifacts-root", type=Path, default=DEFAULT_ARTIFACTS_ROOT)
-    parser.add_argument("--bot-run-id", action="append", dest="bot_run_ids", required=True)
+    parser.add_argument("--bot-run-id", action="append", dest="bot_run_ids", type=validate_run_id, required=True)
     parser.add_argument("--output-json", type=Path, default=DEFAULT_OUTPUT_JSON, help="Output evidence JSON.")
     parser.add_argument("--output-md", type=Path, default=DEFAULT_OUTPUT_MD, help="Output evidence Markdown.")
     return parser.parse_args(list(argv))

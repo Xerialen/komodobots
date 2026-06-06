@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
+from contextlib import redirect_stderr
+from io import StringIO
 from pathlib import Path
 
 
@@ -55,6 +58,50 @@ def activation(sample_count: int = 12, active_count: int = 6) -> dict[str, objec
 
 
 class AirTransitionProbeResultTests(unittest.TestCase):
+    def test_parse_args_rejects_unsafe_run_id(self) -> None:
+        with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
+            probe_result.parse_args(["--bot-run-id", "bad;touch nope"])
+
+    def test_load_run_env_strips_keys_and_values(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            (run_dir / "run.env").write_text("MOVEPROBE_MODE = 8 \n", encoding="utf-8")
+
+            env = probe_result.load_run_env(run_dir)
+
+        self.assertEqual(env["MOVEPROBE_MODE"], "8")
+
+    def test_source_and_cadence_inputs_tolerate_null_lists(self) -> None:
+        source = probe_result.build_probe_source(
+            {"reference_players": None},
+            [],
+            stage="test",
+            s7f_path=REPO_ROOT / "missing.json",
+        )
+        axes = probe_result.build_cadence_axes({"cadence_baselines": None}, [])
+
+        self.assertEqual(source["reference_players"], [])
+        self.assertEqual(len(axes), len(probe_result.CADENCE_FIELDS))
+
+    def test_probe_activation_skips_non_numeric_active_scales(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "run1"
+            run_dir.mkdir()
+            (run_dir / "moveprobe-commands.json").write_text(
+                '{"commands": ['
+                '{"name": "/ bro", "probe_state": {"transition_active": true, "on_ground": false, "transition_scale": "oops"}},'
+                '{"name": "/ bro", "probe_state": {"transition_active": true, "on_ground": false, "transition_scale": 1.25}}'
+                ']}',
+                encoding="utf-8",
+            )
+
+            summary = probe_result.summarize_probe_activation(["run1"], Path(tmp))
+
+        self.assertEqual(summary["players"][0]["active_scale_values"], [1.25])
+
+    def test_compact_unique_sorts_numbers_numerically(self) -> None:
+        self.assertEqual(probe_result.compact_unique([10.0, 1.25, 1.0]), [1.0, 1.25, 10.0])
+
     def test_all_segment_win_without_air_gain_rejects(self) -> None:
         changes = complete_changes(
             pre_air_window_segments=200.0,

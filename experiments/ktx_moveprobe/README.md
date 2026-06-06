@@ -93,7 +93,7 @@ Mode `6` uses the same aim-independent projection as mode `5`, then clamps negat
 
 Mode `7` uses the same no-backpedal correction as mode `6`, then normalizes local horizontal command magnitude back down to the intended route/strafe magnitude. With the usual `forwardmove=800 sidemove=200`, the expected cap is about `825`.
 
-Mode `8` uses the same aim-independent, no-backpedal, bounded behavior as mode `7`, but scales the desired horizontal command magnitude by `k_fb_moveprobe_transition_scale` only when the bot is jumping from ground, recently left ground, or recently landed inside `k_fb_moveprobe_transition_window`. Outside those windows, mode `8` should match mode `7` horizontal behavior. S7j rejected the current mode-8 probe because it regressed non-airborne speed, so do not treat it as accepted controller behavior.
+Mode `8` uses the same aim-independent, no-backpedal, bounded behavior as mode `7`, but scales the desired horizontal command magnitude by `k_fb_moveprobe_transition_scale` only when the pre-probe bot logic is jumping from ground, recently left ground, or recently landed inside `k_fb_moveprobe_transition_window`. Outside those windows, mode `8` should match mode `7` horizontal behavior. S7j rejects the corrected probe under the S7i stop conditions because pre-air, airborne-proxy, post-air, and non-airborne buckets regressed in the combined fixed runs, so do not treat it as accepted controller behavior.
 
 The S3e diagnostic suffix is shaped as `diag=<route_yaw>,<view_yaw>,<yaw_delta>,<backward>`. `backward=1` means the emitted local `forwardmove` is negative. `yaw_delta` and `view_yaw` are interpretable for aim-independent modes `5`, `6`, and `7`; route-yaw modes `3` and `4` overwrite view yaw from the route, so their deltas are structural noise.
 
@@ -142,7 +142,7 @@ Known v2a comparison runs:
 | `20260605T225802Z` | `3` | Fresh `dm3` repeat; both bots passed the v2c command/plausibility gate. |
 | `20260605T231033Z` | `4` | S3a alternating strafe on `frobodm2`; side command emitted and both bots passed gate, with one RL frag. |
 | `20260605T231115Z` | `4` | S3a alternating strafe on `dm3`; side command emitted, but `/ bro` failed low-speed gate at `63.0%`. |
-| `20260606T161101Z` | `8` | S7j air-transition probe on `dm3`; pre-air/airborne/post-air p50s improved, but non-airborne p50 regressed and the S7i stop condition rejected the probe. |
+| `20260606T163907Z`, `20260606T164610Z` | `8` | Corrected S7j air-transition probes on `dm3`; combined evidence rejects mode `8` under S7i stop conditions because all-segment and route-context gains were outweighed by pre-air, airborne-proxy, post-air, and non-airborne regressions. |
 | `20260605T231737Z` | `4` | S3b `dm3` with `sidemove=200`; both bots passed side/plausibility gate. |
 | `20260605T231819Z` | `4` | S3b `dm3` with `sidemove=300`; side command emitted, but `/ bro` failed low-speed gate at `51.1%`. |
 | `20260605T233120Z` | `4` | S3c `frobodm2` with `sidemove=200`; both bots passed side/plausibility gate and one RL frag was recorded. |

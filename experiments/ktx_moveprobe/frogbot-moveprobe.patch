@@ -227,7 +227,7 @@ index c0654d1..4f12b5e 100644
 +			}
 +			transition_window = bound(0.05f, transition_window, 1.0f);
 +			transition_scale = bound(1.0f, transition_scale, 2.0f);
-+			transition_active = BotMoveProbeTransitionActive(self, slot, true, transition_window);
++			transition_active = BotMoveProbeTransitionActive(self, slot, *jumping, transition_window);
 +			if (transition_active)
 +			{
 +				VectorScale(desired_move, transition_scale, desired_move);
