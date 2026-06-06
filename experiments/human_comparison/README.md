@@ -201,3 +201,29 @@ Movement-time normalization keeps `/ goldenboy` inside the exact-player range,
 but airborne-proxy normalization puts both S3g bots above the reference range.
 Cadence should therefore stay diagnostic for now. A cadence controller would
 risk optimizing a proxy before the air-rhythm and land-speed gaps are understood.
+
+## Current S7e Result
+
+S7e broadens the bot side of the cadence evidence without rerunning the lab:
+
+```text
+experiments/human_comparison/evidence/cadence-evidence-s7e-dm3.json
+experiments/human_comparison/evidence/cadence-evidence-s7e-dm3.md
+```
+
+The included bot rows come from existing unchanged `dm3` mode-7 artifacts:
+`20260606T003718Z`, `20260606T031102Z`, and `20260606T041805Z`.
+Run `20260606T044000Z` is excluded because S6e changed water-edge vertical
+command behavior.
+
+| Axis | Reference range | Broadened bot range | Relation |
+|---|---:|---:|---|
+| Active cadence | `40.4-51.0`/min | `18.5-138.7`/min | mixed |
+| Non-stationary cadence | `44.2-55.6`/min | `18.6-146.6`/min | mixed |
+| Non-low-speed cadence | `48.7-61.3`/min | `20.2-289.5`/min | mixed |
+| Air-proxy cadence | `128.0-143.1`/min | `164.1-274.1`/min | all bots above |
+
+S7e strengthens the S7d stop condition. Cadence remains useful as a diagnostic
+axis, but it is not controller-authorizing because all unchanged mode-7 bot rows
+are above the exact-player airborne-proxy cadence range while raw and
+movement-time cadence remain mixed.

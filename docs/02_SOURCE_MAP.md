@@ -88,6 +88,8 @@ Player movement signature helper: `C:\Users\benya\projects\quakeworld\komodobots
 
 Cadence normalization decision helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\decide_cadence_normalization.py`
 
+Cadence evidence broadening helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\broaden_cadence_evidence.py`
+
 KTX movement probe patch: `C:\Users\benya\projects\quakeworld\komodobots\experiments\ktx_moveprobe\frogbot-moveprobe.patch`
 
 Why it matters:
@@ -104,6 +106,7 @@ Why it matters:
 - `scripts/summarize_reference_aggregate.py` combines a tiny exact-player reference set into committed JSON/Markdown ranges and compares them against same-map S3g bot rows. S7c compares bot rows across every reference field, including cadence.
 - `scripts/summarize_player_movement_signatures.py` turns exact-player aggregates into compact S7 signature scaffolds, explicitly separating broad S3g-vs-human movement gaps from candidate player-style axes. S7b adds repeated-player stability axes that compare between-player mean spread against within-player spread; S7c treats cadence as bot-comparable instead of reference-only.
 - `scripts/decide_cadence_normalization.py` consumes the S7c aggregate and derives non-stationary, non-low-speed, and airborne-proxy normalized cadence comparisons before any cadence controller work.
+- `scripts/broaden_cadence_evidence.py` consumes the S7c aggregate plus existing `dm3` mode-7 bot movement artifacts to broaden S7e cadence evidence without rerunning KTX or changing controller behavior.
 - `experiments/ktx_moveprobe/frogbot-moveprobe.patch` is the first S2 KTX source probe. It applies to KTX commit `08807da`, hooks `src/bot_movement.c::BotSetCommand()` after the prewar-freeze guard, and adds cvar-controlled command perturbation immediately before button assembly and `trap_SetBotCMD(...)`.
 - The same patch includes v2a command instrumentation. When `k_fb_moveprobe_log_commands=1`, KTX prints sampled `FBMOVEPROBE_CMD` rows containing the final `msec`, angles, movement command values, buttons, and impulse about to be sent to `trap_SetBotCMD(...)`.
 - The patch also includes v2b mode `3`, a route-yaw probe that sets yaw from `self->fb.dir_move_`, emits simple movement command values, and forces jump when a route direction is available.
@@ -149,6 +152,7 @@ Verification:
 - `s7b-repeated-elite-dm3` selects and parses one additional manifest-backed `dm3` reference for each target player: `Milton` from `4on4_blue_vs_red[dm3]20260601-1914.mvd`, `carapace` from `4on4_-s-_vs_]sr[[dm3]20260520-2032.mvd`, and `yeti` from `4on4_red_vs_blue[dm3]20260528-2109.mvd`. `s7b-player-signatures-dm3` aggregates six rows and finds cadence is the only repeated reference-only candidate axis; avg/p95 remain generic land-speed gaps and low/air/stationary overlap too much for controller targets.
 - `s7c-bot-comparable-cadence-dm3` regenerates the committed S3g summary from existing artifacts so bot rows carry cadence, then writes `human-reference-s7c-bot-comparable-cadence-dm3-aggregate.*` and `player-signatures-s7c-dm3.*`. Cadence is now a bot-comparable repeated candidate axis: `/ bro` is above the human cadence range and `/ goldenboy` is within it, while avg/p95 remain generic land-speed gaps.
 - `s7d-cadence-normalization-dm3` derives cadence per non-stationary minute, non-low-speed minute, and airborne-proxy minute from the S7c aggregate. It keeps cadence as diagnostic rather than controller-authorizing because both S3g bots are above the exact-player airborne-proxy-normalized range.
+- `s7e-cadence-evidence-dm3` broadens bot cadence evidence from existing unchanged `dm3` mode-7 artifacts: S3g `20260606T003718Z`, S6b `20260606T031102Z`, and S6d `20260606T041805Z`. S6e `20260606T044000Z` is excluded because it changed water-edge vertical command behavior.
 - `s6a-route-state` diagnoses S3g `dm3` run `20260606T003718Z`. The existing artifacts expose position traces, sampled final commands, route yaw, view yaw, yaw delta, backward command state, and map-entity locations, but no Frogbot route node, next waypoint, target entity, obstruction, or route primitive state. Eight of nine analyzed top low-speed windows still had average sampled horizontal command at or above `400`.
 - `s6b-route-state` diagnoses S6b `dm3` run `20260606T031102Z` with the new `route=` command suffix. Route-state context is now available; `/ bro` had `17` low-speed windows, repeated `water.LG` windows tagged with linked/goal marker `59`, path state `32768`, and `blocked=0`, while `/ goldenboy` had no S6-threshold low-speed windows.
 - `s6d-water-path` diagnoses S6d `dm3` run `20260606T041805Z` with the new `water=` command suffix. The repeated `/ bro` `water.LG` windows again had strong sampled commands, linked/goal marker `59`, `WATER_PATH`, and `blocked=0`; water-state attribution showed window samples at waterlevel `1` with occasional `2`, no deep-water samples, `swim_arrow=0`, and emitted `upmove=0`.

@@ -1255,3 +1255,48 @@ S7 should remain evidence-first. If S7e shows cadence is stable across more bot 
 ### Revisit Conditions
 
 Revisit if Code Sentinel finds a normalization bug, if broader bot samples show the current S3g bot relation is misleading, or if a better grounded jump/airborne metric replaces the current position-derived airborne proxy.
+
+---
+
+## Decision
+
+Keep cadence diagnostic after S7e broadening; do not start cadence control yet.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S7e broadened the bot cadence evidence from two S3g `dm3` rows to six existing unchanged mode-7 `dm3` rows. The broader evidence still does not justify a cadence controller.
+
+Cadence remains a useful diagnostic axis, but controller work should wait until raw airborne-proxy segment distributions are inspected or the project intentionally pivots back to the larger land-speed gap.
+
+The next goal is S7f: inspect raw airborne-proxy segment distributions, or pivot back to the larger land-speed gap, before any cadence controller probe.
+
+### Alternatives Considered
+
+- Treat the broadened `/ bro` high cadence rows as authorization to lower cadence directly.
+- Treat the low `/ goldenboy` raw cadence rows as evidence that cadence is not relevant.
+- Include S6e `20260606T044000Z` as another mode-7 bot row despite its water-edge behavior change.
+- Start a tiny cadence controller before inspecting the airborne-proxy segmentation.
+
+### Evidence
+
+S7e broadened cadence evidence:
+
+- Included unchanged mode-7 bot runs: `20260606T003718Z`, `20260606T031102Z`, and `20260606T041805Z`.
+- Excluded S6e `20260606T044000Z` because it changed water-edge vertical command behavior.
+- Active cadence: exact-player `40.4` to `51.0`/min; broadened bot `18.5` to `138.7`/min; relation mixed.
+- Non-stationary cadence: exact-player `44.2` to `55.6`/min; broadened bot `18.6` to `146.6`/min; relation mixed.
+- Non-low-speed cadence: exact-player `48.7` to `61.3`/min; broadened bot `20.2` to `289.5`/min; relation mixed.
+- Airborne-proxy cadence: exact-player `128.0` to `143.1`/min; broadened bot `164.1` to `274.1`/min; all bot rows above range.
+- Bot p95 speed remains below exact-player p95 ranges, preserving the larger land-speed gap.
+
+### Expected Consequences
+
+S7 should not spend a branch tuning cadence until the position-derived airborne-proxy signal is understood. If S7f shows the proxy is over-segmenting bot air rhythm, fix the metric or segment interpretation before controller work. If S7f shows cadence is only a symptom, pivot back to land-speed/bunnyhop realism.
+
+### Revisit Conditions
+
+Revisit if Code Sentinel finds the broadened bot-run selection is unsafe, if raw segment inspection shows airborne-proxy cadence is a reliable grounded jump-rhythm proxy, or if new bot rows contradict the all-above airborne-proxy relation.

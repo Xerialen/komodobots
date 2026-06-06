@@ -334,6 +334,18 @@ Important metric correction: `jump_cadence_per_min` is already active-row normal
 
 Interpretation: cadence stays diagnostic and is not controller-authorizing yet. Movement-time normalization does not overturn the mixed S7c relation, and airborne-proxy normalization suggests the cadence signal is entangled with air-rhythm/proxy segmentation. The next useful step is S7e: broaden bot rows or inspect airborne-proxy segmentation before any cadence controller probe.
 
+## S7e Cadence Evidence Broadening
+
+S7e did not rerun the lab and did not change controller behavior. It added `scripts/broaden_cadence_evidence.py`, consumed the S7c exact-player aggregate, and broadened the bot side from the original S3g `dm3` row pair to six rows by adding existing S6b/S6d diagnostic `dm3` mode-7 reruns:
+
+- Included unchanged mode-7 runs: `20260606T003718Z`, `20260606T031102Z`, and `20260606T041805Z`.
+- Excluded `20260606T044000Z` because S6e changed water-edge vertical command behavior and is therefore a mode-7 variant rather than an unchanged diagnostic rerun.
+- Active cadence remains mixed: exact-player `40.4` to `51.0`/min; broadened bots `18.5` to `138.7`/min.
+- Non-stationary and non-low-speed cadence also remain mixed.
+- Airborne-proxy cadence is consistently high: exact-player `128.0` to `143.1`/min; all six broadened bot rows `164.1` to `274.1`/min.
+
+Interpretation: S7e strengthens S7d rather than overturning it. Cadence remains diagnostic, not controller-authorizing, because all unchanged mode-7 bot rows are above the exact-player airborne-proxy cadence range while raw and movement-time cadence remain unstable/mixed. The next useful step is S7f: inspect raw airborne-proxy segment distributions or pivot back to the larger land-speed gap before any cadence controller probe.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

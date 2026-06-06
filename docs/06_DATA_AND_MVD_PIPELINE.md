@@ -263,6 +263,15 @@ S7d cadence normalization result:
 - Airborne-proxy normalization moves both S3g bots above the exact-player range: reference `128.0` to `143.1`/min, `/ goldenboy` `174.4`/min, `/ bro` `207.6`/min.
 - S7d therefore keeps cadence as a diagnostic signal rather than a controller target. The next evidence step should broaden bot rows or inspect airborne-proxy segmentation before cadence control.
 
+S7e cadence evidence broadening result:
+
+- Added `scripts/broaden_cadence_evidence.py` and generated `experiments/human_comparison/evidence/cadence-evidence-s7e-dm3.*` from existing artifacts.
+- Included unchanged `dm3` mode-7 bot artifacts `20260606T003718Z`, `20260606T031102Z`, and `20260606T041805Z`, producing six bot rows.
+- Excluded `20260606T044000Z` because S6e changed water-edge vertical command behavior.
+- Active and movement-time cadence remain mixed across the broadened bot rows.
+- Airborne-proxy cadence stays consistently above the exact-player range: reference `128.0` to `143.1`/min, broadened bots `164.1` to `274.1`/min.
+- S7e strengthens the diagnostic decision: cadence should not become a controller target until raw airborne-proxy segments or the larger land-speed gap are understood.
+
 S6a result:
 
 - Added `scripts/diagnose_route_state.py`.
@@ -575,6 +584,9 @@ s7b-player-signatures-dm3, repeated-player stability scaffold:
 
 s7c-player-signatures-dm3, bot-comparable cadence scaffold:
   S7c carries existing S3g bot cadence into the committed S3g summary and compares it against the repeated exact-player range. / bro is above the human cadence range at 91.7/min, / goldenboy is within it at 43.3/min, and cadence becomes a bot-comparable repeated candidate axis while avg/p95 remain generic land-speed gaps.
+
+s7e-cadence-evidence-dm3, broadened mode-7 cadence evidence:
+  S7e adds unchanged S6b/S6d diagnostic dm3 mode-7 bot rows to S3g, while excluding the S6e water-edge behavior variant. Raw and movement-time cadence remain mixed, but every broadened bot row stays above the exact-player airborne-proxy cadence range.
 ```
 
 ## Open questions
