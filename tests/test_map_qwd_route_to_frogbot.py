@@ -28,6 +28,21 @@ class QwdRouteToFrogbotMappingTests(unittest.TestCase):
         self.assertEqual(recommendation["next_probe"], "route_following_probe")
         self.assertIn("direct Frogbot edges", recommendation["reason"])
 
+    def test_zero_distance_direct_fit_is_valid(self) -> None:
+        mapping_summary = {
+            "nearest_marker_distance_qu": {"p95": 0.0, "within_128_ratio": 1.0},
+            "bot_graph_alignment": {
+                "direct_edge_ratio": 1.0,
+                "graph_reachable_ratio": 1.0,
+                "shortest_path_edges_p50": 0.0,
+            },
+        }
+        demo_summary = {"commands": {"nonzero_side_ratio": 0.0, "nonzero_forward_ratio": 0.0}}
+
+        recommendation = mapper.choose_probe_recommendation(mapping_summary, demo_summary)
+
+        self.assertEqual(recommendation["next_probe"], "route_following_probe")
+
     def test_spatial_fit_without_direct_edges_recommends_hybrid(self) -> None:
         mapping_summary = {
             "nearest_marker_distance_qu": {"p95": 115.0, "within_128_ratio": 0.95},
@@ -56,6 +71,12 @@ class QwdRouteToFrogbotMappingTests(unittest.TestCase):
         self.assertEqual([row["marker_id"] for row in collapsed], [1, 2])
         self.assertEqual(collapsed[0]["waypoint_count"], 2)
         self.assertEqual(collapsed[0]["max_nearest_distance_qu"], 8)
+
+    def test_empty_static_markers_raise_clear_error(self) -> None:
+        waypoints = [{"origin": [0, 0, 0]}]
+
+        with self.assertRaisesRegex(ValueError, "No static markers"):
+            mapper.map_waypoints_to_markers(waypoints, [])
 
 
 if __name__ == "__main__":

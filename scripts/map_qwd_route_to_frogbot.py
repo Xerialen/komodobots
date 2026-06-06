@@ -84,6 +84,16 @@ def round_float(value: object, digits: int = 3) -> float | None:
     return round(number, digits)
 
 
+def metric_or_default(value: object, default: float) -> float:
+    if value is None:
+        return default
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return number if math.isfinite(number) else default
+
+
 def distance_3d(a: Sequence[float], b: Sequence[float]) -> float:
     return math.dist(a, b)
 
@@ -128,6 +138,8 @@ def nearest_marker(point: Sequence[float], markers: Sequence[dict[str, object]])
 
 
 def map_waypoints_to_markers(waypoints: Sequence[dict[str, object]], markers: Sequence[dict[str, object]]) -> list[dict[str, object]]:
+    if not markers:
+        raise ValueError("No static markers found in bot map to map waypoints to.")
     rows: list[dict[str, object]] = []
     for waypoint in waypoints:
         origin = [float(value) for value in waypoint["origin"]]
@@ -269,10 +281,18 @@ def choose_probe_recommendation(mapping_summary: dict[str, object], demo_summary
     distances = mapping_summary["nearest_marker_distance_qu"]
     graph = mapping_summary["bot_graph_alignment"]
     commands = demo_summary.get("commands", {}) if isinstance(demo_summary.get("commands"), dict) else {}
-    marker_fit = (distances.get("p95") or 9999) <= 192 and (distances.get("within_128_ratio") or 0) >= 0.75
-    direct_fit = (graph.get("direct_edge_ratio") or 0) >= 0.6
-    graph_fit = (graph.get("graph_reachable_ratio") or 0) >= 0.9 and (graph.get("shortest_path_edges_p50") or 9999) <= 5
-    side_dominant = (commands.get("nonzero_side_ratio") or 0) > (commands.get("nonzero_forward_ratio") or 0)
+    marker_fit = (
+        metric_or_default(distances.get("p95"), 9999.0) <= 192
+        and metric_or_default(distances.get("within_128_ratio"), 0.0) >= 0.75
+    )
+    direct_fit = metric_or_default(graph.get("direct_edge_ratio"), 0.0) >= 0.6
+    graph_fit = (
+        metric_or_default(graph.get("graph_reachable_ratio"), 0.0) >= 0.9
+        and metric_or_default(graph.get("shortest_path_edges_p50"), 9999.0) <= 5
+    )
+    side_dominant = metric_or_default(commands.get("nonzero_side_ratio"), 0.0) > metric_or_default(
+        commands.get("nonzero_forward_ratio"), 0.0
+    )
 
     if marker_fit and direct_fit:
         recommendation = "route_following_probe"
@@ -430,7 +450,9 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     return parser.parse_args(list(argv))
 
 
-def main(argv: Iterable[str] = sys.argv[1:]) -> int:
+def main(argv: Iterable[str] | None = None) -> int:
+    if argv is None:
+        argv = sys.argv[1:]
     args = parse_args(argv)
     report = build_report(args)
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
