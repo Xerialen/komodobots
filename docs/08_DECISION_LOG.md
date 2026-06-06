@@ -1469,3 +1469,47 @@ S7j should implement and run only the tiny air-transition probe. It must reject 
 ### Revisit Conditions
 
 Revisit if Code Sentinel finds the S7i contract too broad, if a mode-8 implementation cannot preserve mode-7 behavior outside transition windows, or if post-probe diagnostics cannot report the required buckets.
+
+---
+
+## Decision
+
+Reject the corrected mode-8 air-transition probe under S7i stop conditions.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S7j implements and runs the S7i-constrained mode-8 probe. Claude review caught that the first implementation passed a hardcoded `true` into the transition gate, making every grounded frame transition-active. After fixing the gate to use pre-probe jump intent, the probe was rerun as `20260606T163907Z` and `20260606T164610Z`.
+
+The combined corrected evidence rejects mode `8` under the S7i contract. All accepted segment speed improved only slightly and `WATER_PATH` stayed barely above baseline where present, but the intended pre-air and airborne-proxy buckets regressed and non-airborne speed fell below tolerance. Keep the air-transition target alive, but move the roadmap to S7k diagnosis of failed bucket and command/probe activation context before another command-policy change.
+
+### Alternatives Considered
+
+- Promote mode `8` because one corrected run improved multiple speed buckets.
+- Increase transition scale or window and rerun immediately.
+- Switch directly to a `WATER_PATH` route primitive probe.
+- Treat the small all-segment and `WATER_PATH` gains as success despite target-bucket regressions.
+
+### Evidence
+
+S7j comparison against S7g/S7i baselines:
+
+- Probe activation rows: `546` sampled rows, `110` transition-active, active ratio `0.201`.
+- Pre-air p50: `207.1 -> 149.7` qu/s.
+- Airborne-proxy p50: `122.6 -> 100.4` qu/s.
+- Post-air p50: `184.5 -> 179.6` qu/s.
+- All accepted segment p50: `222.0 -> 230.0` qu/s.
+- Non-airborne p50: `312.1 -> 286.3` qu/s, failing the S7i `0.95` tolerance.
+- Route low-dir-speed p50: `141.0 -> 201.2` qu/s.
+- Route `WATER_PATH` p50: `95.3 -> 96.2` qu/s from one S7j bot row.
+
+### Expected Consequences
+
+S7k should not add another movement mode. It should inspect the failed air-transition and non-airborne buckets, correlate them with command/probe activation context, then decide whether another probe is justified.
+
+### Revisit Conditions
+
+Revisit if Code Sentinel finds the S7j comparison flawed, if S7k shows the bucket regressions are caused by a measurement artifact, or if a later probe improves air-transition buckets while preserving non-airborne and route context.

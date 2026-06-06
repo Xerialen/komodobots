@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S7j - Implement and run tiny air-transition horizontal-speed probe`
+`S7k - Diagnose corrected S7j failed buckets before another probe`
 
 ## Stage Status Table
 
@@ -49,7 +49,7 @@ Current active stage:
 | S4 Human Comparison | First same-map anchor complete | S4c parsed one human `dm3` 4on4 demo and compared it against S3g `dm3`; S3g is not yet human-like on the observed movement ranges |
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
 | S6 Route Primitives | Closed for now | S6f found `276->59` is explicit and reciprocal, but marker `276` lacks static geometry, so no tiny route-data fix is justified from `dm3.bot` alone |
-| S7 Player Specific | Active | S7i designed the tiny air-transition probe contract; S7j should implement and run it only if cadence and WATER_PATH guardrails stay intact |
+| S7 Player Specific | Active | Corrected S7j produced guardrail-complete evidence and failed S7i stop conditions; S7k should diagnose the failed buckets before another probe |
 
 ## Roadmap Rule
 
@@ -99,3 +99,5 @@ S7g characterized accepted segment speed by context using the S7f row set. Bot a
 S7h selected air-transition horizontal speed production as the first controller-probe target from the committed S7g context. Air-transition evidence is human-comparable across six reference and six bot rows (`0.495` pre-air ratio, `0.283` airborne ratio, `0.505` post-air ratio) while generic non-airborne speed is near reference (`0.975`). `WATER_PATH` remains a guardrail and deferred narrow route target because it is very slow (`95.3` qu/s) but bot-only and route-diagnostic. The next branch is S7i: design a tiny air-transition horizontal-speed probe with unchanged cadence reporting, unchanged route diagnostics, and stop conditions that reject all-segment speed gains if air-transition buckets or `WATER_PATH` context get worse.
 
 S7i designed the tiny air-transition horizontal-speed probe before changing controller behavior. The design consumes S7g/S7h/S7e evidence, preserves mode-7 behavior outside a future takeoff/air-transition command-budget probe, keeps cadence diagnostic, and requires pre-air/airborne/post-air/non-air/route/cadence reporting. Stop conditions reject all-segment speed gains if air-transition buckets do not improve, if non-airborne or `WATER_PATH` context regresses, or if cadence/route reporting disappears. The next branch is S7j: implement and run the tiny probe only if it preserves that contract.
+
+S7j implemented mode `8` and reran the tiny air-transition horizontal-budget probe on `dm3` after fixing the transition gate to use the pre-probe jump intent instead of hardcoding active grounded frames. The combined fixed runs `20260606T163907Z` and `20260606T164610Z` reported transition activation in `546` command samples, active in `110` of them. The combined evidence rejects the probe under S7i stop conditions: all accepted segment p50 improved (`222.0 -> 230.0`), and `WATER_PATH` passed where present (`95.3 -> 96.2`), but pre-air p50 fell (`207.1 -> 149.7`), airborne-proxy p50 fell (`122.6 -> 100.4`), and non-airborne p50 fell below tolerance (`312.1 -> 286.3`). The next branch is S7k: inspect failed bucket and command/probe activation context before another controller probe.

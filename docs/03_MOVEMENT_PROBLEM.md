@@ -414,6 +414,22 @@ Stop conditions:
 
 Interpretation: S7i turns the S7h decision into a reviewable contract before controller code. The next useful branch is S7j: implement and run the tiny air-transition probe only if the patch preserves this contract.
 
+## S7j Air-Transition Probe Result
+
+S7j implemented the S7i contract as moveprobe mode `8`: start from mode `7`, scale horizontal command budget only during takeoff/air-transition windows, keep cadence diagnostic, and preserve route/water/probe command logging. Claude review caught that the first mode-8 call used a hardcoded `true` jump gate, which made every grounded frame transition-active. The patch now uses the pre-probe `*jumping` state. It temporarily deployed corrected KTX builds, ran `dm3` lab runs `20260606T163907Z` and `20260606T164610Z`, restored the original server module after each run, and generated `experiments/human_comparison/evidence/air-transition-probe-s7j-dm3.*`.
+
+Result:
+
+- Probe activation fired and was measured across the two fixed runs: `546` command rows carried `probe=` state, with `110` transition-active samples (`20.1%`).
+- All accepted segment p50 improved only slightly from `222.0` to `230.0` qu/s, and route `WATER_PATH` stayed barely above baseline where present (`95.3 -> 96.2` qu/s).
+- The intended air-transition buckets regressed versus S7g: pre-air p50 `207.1 -> 149.7` qu/s and airborne p50 `122.6 -> 100.4` qu/s.
+- Post-air p50 was nearly flat but still below baseline: `184.5 -> 179.6` qu/s.
+- Non-airborne p50 failed the S7i guardrail: `312.1 -> 286.3` qu/s.
+- Route low-dir-speed p50 improved from `141.0` to `201.2` qu/s, but that is not enough to offset the target-bucket and non-airborne failures.
+- Cadence stayed diagnostic rather than proof of success.
+
+Interpretation: Claude's gate fix was required and the comparison now has guardrail-complete evidence. The corrected mode `8` probe is rejected by the S7i stop conditions: a small all-segment gain is not useful when pre-air, airborne, post-air, and non-airborne context get worse. The next useful branch is S7k: inspect the failed bucket and command/probe activation context before trying another controller probe.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.
