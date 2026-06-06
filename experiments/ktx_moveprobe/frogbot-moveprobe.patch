@@ -256,7 +256,7 @@ index c0654d1..3f6886d 100644
 +		yaw_delta = BotMoveProbeAngleDelta(route_yaw, view_yaw);
 +	}
 +
-+	if (goalentity > 0)
++	if ((goalentity > 0) && (goalentity < MAX_EDICTS))
 +	{
 +		goal_marker = BotMoveProbeMarkerIndex(g_edicts[goalentity].fb.touch_marker);
 +	}

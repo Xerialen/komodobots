@@ -1,4 +1,9 @@
 {
+  "bot_map_summary": {
+    "markers_without_static_origin_count": 65,
+    "referenced_marker_count": 298,
+    "static_create_marker_count": 234
+  },
   "flag_decoding": {
     "bot_state_128": {
       "bits": [
@@ -46,6 +51,7 @@
     "The repeated water-path windows have blocked=0, so obstruction recovery is not the current explanation.",
     "In the worst repeated windows, native Frogbot dir_speed is very low before the probe normalizes direction, while sampled command magnitude remains strong."
   ],
+  "marker_index_invariant": "Attribution assumes logged marker->fb.index + 1 matches the .bot file's 1-based marker ids. CreateMarker ids are assigned by file order; item/runtime marker ids can be referenced by route commands without static origins.",
   "next_goal": "S6d should inspect water-path movement intent around water.LG by adding or deriving minimal waterlevel/swim_arrow/upmove/velocity context before changing mode 7.",
   "patterns": [
     {

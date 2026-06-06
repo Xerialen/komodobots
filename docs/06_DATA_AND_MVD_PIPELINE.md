@@ -122,6 +122,7 @@ Route-state attribution:
 - Inputs: S6 diagnosis JSON, the run's `moveprobe-commands.json`, and the Frogbot `.bot` route-map file
 - Output: decoded path/bot state flags, grouped repeated low-speed patterns, touch-to-linked `.bot` map edges, and a next missing-field/controller decision
 - S6c result: `32768` decodes to `WATER_PATH`, not `STUCK_PATH`; repeated `/ bro` `water.LG` windows use linked/goal marker `59`, often the `276->59` `.bot` edge, with `blocked=0` and low native `dir_speed`
+- S6c robustness: the helper documents the marker-index invariant used for `.bot` edge attribution, drops malformed command rows without `time_s`, and constrains JSON-derived default run ids to the lab run-id character set.
 - Purpose: convert route-state tags into source-grounded attribution before changing mode `7`
 
 S2 moveprobe note:

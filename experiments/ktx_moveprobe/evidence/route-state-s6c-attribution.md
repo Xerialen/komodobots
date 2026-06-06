@@ -5,6 +5,7 @@
 - Run: `20260606T031102Z`
 - Map: `dm3` / `The Abandoned Base`
 - Controller change: `none`
+- Marker index invariant: Attribution assumes logged marker->fb.index + 1 matches the .bot file's 1-based marker ids. CreateMarker ids are assigned by file order; item/runtime marker ids can be referenced by route commands without static origins.
 
 ## Decoded Flags
 

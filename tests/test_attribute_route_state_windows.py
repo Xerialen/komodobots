@@ -50,6 +50,26 @@ class RouteStateAttributionTests(unittest.TestCase):
         self.assertEqual(parsed["markers"][1]["zone"], 17)
         self.assertEqual(parsed["paths"][(1, 2)]["path_indexes"], [0])
         self.assertEqual(parsed["paths"][(1, 2)]["explicit_flags"], ["ROCKET_JUMP", "JUMP_LEDGE"])
+        self.assertIn("marker->fb.index + 1", parsed["marker_index_invariant"])
+        self.assertEqual(parsed["static_create_marker_count"], 2)
+        self.assertEqual(parsed["referenced_marker_count"], 2)
+
+    def test_command_rows_for_window_skips_missing_time_s(self) -> None:
+        commands = {
+            "commands": [
+                {"name": "/ bro", "route_state": {}},
+                {"time_s": 1.0, "name": "/ bro", "route_state": {}},
+            ]
+        }
+
+        rows = attribute.command_rows_for_window(commands, "/ bro", 950, 1050, 75)
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["time_s"], 1.0)
+
+    def test_default_commands_path_rejects_unsafe_run_id_from_diagnosis(self) -> None:
+        with self.assertRaises(ValueError):
+            attribute.default_commands_path("../escape")
 
     def test_build_attribution_groups_water_path_without_obstruction(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -1912,6 +1912,7 @@ Validation:
 
 - `python -m unittest tests.test_attribute_route_state_windows -v` -> 3 passed
 - `PYTHONPYCACHEPREFIX=<temp> python -m py_compile scripts\attribute_route_state_windows.py tests\test_attribute_route_state_windows.py` -> clean
+- Claude's S6c review follow-up was addressed after initial attribution: the output now documents the marker-index invariant, malformed command rows without `time_s` are dropped instead of treated as time zero, JSON-derived default command paths require safe lab run ids, and the KTX patch now bounds `goalentity < MAX_EDICTS` before reading `g_edicts[goalentity]`.
 
 ### Interpretation
 

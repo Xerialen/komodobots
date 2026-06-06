@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -18,6 +19,7 @@ DEFAULT_ARTIFACT_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
 DEFAULT_DIAGNOSIS = REPO_ROOT / "experiments" / "ktx_moveprobe" / "evidence" / "route-state-s6b-diagnosis.json"
 DEFAULT_KTX_ROOT = REPO_ROOT.parent / "engine" / "ktx"
 DEFAULT_BOT_MAP_ROOT = DEFAULT_KTX_ROOT / "resources" / "example-configs" / "ktx" / "bots" / "maps"
+RUN_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 PATH_FLAG_SPECS = (
     (1 << 1, "WATERJUMP_"),
@@ -116,17 +118,21 @@ def compact_values(values: Iterable[object]) -> list[object]:
     return sorted(set(values))
 
 
-def command_time_ms(row: dict) -> int:
+def command_time_ms(row: dict) -> int | None:
     try:
         return int(round(float(row.get("time_s")) * 1000.0))
     except (TypeError, ValueError):
-        return 0
+        return None
 
 
 def parse_bot_map(path: Path) -> dict[str, object]:
+    # Frogbot logs marker->fb.index + 1. The .bot route commands use the same
+    # 1-based ids; CreateMarker gives static origins for only a subset because
+    # item/runtime markers can be referenced later by SetZone/SetMarkerPath.
     markers: dict[int, dict[str, object]] = {}
     paths: dict[tuple[int, int], dict[str, object]] = {}
     marker_id = 0
+    referenced_markers: set[int] = set()
 
     for raw_line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         line = raw_line.strip()
@@ -145,14 +151,17 @@ def parse_bot_map(path: Path) -> dict[str, object]:
                 markers[marker_id]["source"] = "CreateMarker"
             elif command == "SetGoal" and len(parts) >= 3:
                 marker = int(parts[1])
+                referenced_markers.add(marker)
                 markers.setdefault(marker, {"id": marker})["goal"] = int(parts[2])
             elif command == "SetZone" and len(parts) >= 3:
                 marker = int(parts[1])
+                referenced_markers.add(marker)
                 markers.setdefault(marker, {"id": marker})["zone"] = int(parts[2])
             elif command == "SetMarkerPath" and len(parts) >= 4:
                 source = int(parts[1])
                 path_index = int(parts[2])
                 target = int(parts[3])
+                referenced_markers.update((source, target))
                 path_row = paths.setdefault(
                     (source, target),
                     {"source": source, "target": target, "path_indexes": [], "explicit_flags": []},
@@ -172,6 +181,13 @@ def parse_bot_map(path: Path) -> dict[str, object]:
     return {
         "path": portable_path(path),
         "marker_count": len(markers),
+        "static_create_marker_count": marker_id,
+        "referenced_marker_count": len(referenced_markers),
+        "markers_without_static_origin": sorted(marker for marker in referenced_markers if marker not in markers or not markers[marker].get("origin")),
+        "marker_index_invariant": (
+            "Attribution assumes logged marker->fb.index + 1 matches the .bot file's 1-based marker ids. "
+            "CreateMarker ids are assigned by file order; item/runtime marker ids can be referenced by route commands without static origins."
+        ),
         "markers": markers,
         "paths": paths,
     }
@@ -208,9 +224,11 @@ def command_rows_for_window(commands: dict, player_name: str, start_ms: int, end
         if not isinstance(row, dict) or str(row.get("name", "")).strip() != player_name:
             continue
         time_ms = command_time_ms(row)
+        if time_ms is None:
+            continue
         if start_ms - margin_ms <= time_ms <= end_ms + margin_ms:
             rows.append(row)
-    return sorted(rows, key=command_time_ms)
+    return sorted(rows, key=lambda row: command_time_ms(row) or -1)
 
 
 def route_sample(row: dict, bot_map: dict[str, object]) -> dict[str, object]:
@@ -235,6 +253,12 @@ def route_sample(row: dict, bot_map: dict[str, object]) -> dict[str, object]:
         "touch_marker_info": marker_summary(touch, bot_map),
         "goal_marker_info": marker_summary(goal_marker, bot_map),
     }
+
+
+def default_commands_path(run_id: str) -> Path:
+    if not RUN_ID_RE.fullmatch(run_id):
+        raise ValueError(f"Diagnosis run_id is not a safe lab run id: {run_id!r}")
+    return DEFAULT_ARTIFACT_ROOT / run_id / "moveprobe-commands.json"
 
 
 def classify_window(samples: list[dict]) -> dict[str, object]:
@@ -407,7 +431,7 @@ def unique_edge_labels(window: dict[str, object]) -> list[str]:
 def build_attribution(args: argparse.Namespace) -> dict[str, object]:
     diagnosis = read_json(args.diagnosis_json)
     run_id = str(diagnosis.get("run", {}).get("run_id", ""))
-    commands_path = args.commands_json or DEFAULT_ARTIFACT_ROOT / run_id / "moveprobe-commands.json"
+    commands_path = args.commands_json or default_commands_path(run_id)
     commands = read_json(commands_path)
     bot_map = parse_bot_map(args.bot_map)
     run = dict(diagnosis.get("run", {})) if isinstance(diagnosis.get("run", {}), dict) else {}
@@ -444,6 +468,12 @@ def build_attribution(args: argparse.Namespace) -> dict[str, object]:
             "water_path_assignment": portable_path(DEFAULT_KTX_ROOT / "src" / "route_calc.c"),
             "dir_speed_assignment": portable_path(DEFAULT_KTX_ROOT / "src" / "bot_movement.c"),
         },
+        "marker_index_invariant": bot_map.get("marker_index_invariant", ""),
+        "bot_map_summary": {
+            "static_create_marker_count": bot_map.get("static_create_marker_count", 0),
+            "referenced_marker_count": bot_map.get("referenced_marker_count", 0),
+            "markers_without_static_origin_count": len(bot_map.get("markers_without_static_origin", [])),
+        },
         "run": run,
         "flag_decoding": {
             "path_state_32768": decode_flags(32768, PATH_FLAG_SPECS),
@@ -473,6 +503,7 @@ def write_markdown(attribution: dict[str, object], output_path: Path) -> None:
         f"- Run: `{attribution.get('run', {}).get('run_id', '')}`",
         f"- Map: `{attribution.get('run', {}).get('map', '')}` / `{attribution.get('run', {}).get('map_title', '')}`",
         "- Controller change: `none`",
+        f"- Marker index invariant: {attribution.get('marker_index_invariant', '')}",
         "",
         "## Decoded Flags",
         "",
