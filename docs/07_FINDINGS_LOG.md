@@ -1210,3 +1210,71 @@ Low for any claim that mode `7` is human-like before human-demo comparison.
 ### Follow-up
 
 Ask Claude to review S3g. Proposed S4a: build the first human-demo comparison scaffold. Inventory candidate human MVDs, starting with local files under `C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos`, parse one or more through the existing MVD movement pipeline, record whether a real DM2 human comparison set is present or missing, and compare S3g bot movement metrics against whatever human baseline is defensible. Do not add another movement-command heuristic until the gate has a human anchor.
+
+## 2026-06-06 - S4a Human-Demo Comparison Scaffold
+
+### Experiment
+
+Added `scripts/analyze_human_mvd.py`, a local human-demo inventory and parser scaffold. It inventories `.mvd` files, copies a selected demo into `artifacts/human-demos/<run-id>/`, parses it with `qw-analyze-v20`, runs the existing movement metrics extractor, and writes compact JSON/Markdown summaries.
+
+Ran:
+
+```bash
+python scripts/analyze_human_mvd.py --demo 1on1_reppie_vs_locust_aerowalk.mvd --run-id s4a-1on1-reppie-vs-locust-aerowalk
+```
+
+### Result
+
+Local inventory root:
+
+```text
+C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos
+```
+
+Inventory result:
+
+- `5` demos inventoried.
+- Inferred maps: `aerowalk`, `e1m2`, `ztricks`, `ztricks2`.
+- Inferred true `dm2` candidates: `0`.
+
+Parsed demo `1on1_reppie_vs_locust_aerowalk.mvd`:
+
+- Run id: `s4a-1on1-reppie-vs-locust-aerowalk`.
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Event count: `58,517`; position events: `35,447`.
+- Match title/map: `Aerowalk` / `aerowalk`.
+- Duration: `600057` ms.
+- Active movement players: `reppie` and `locust`.
+- `reppie`: avg `319.7` qu/s, p95 `533.3`, stationary `5.6%`, low-speed `11.9%`, airborne proxy `43.7%`, cadence `39.7`/min.
+- `locust`: avg `315.2` qu/s, p95 `518.0`, stationary `6.0%`, low-speed `12.0%`, airborne proxy `39.5%`, cadence `34.8`/min.
+- Six named slots with less than `1` second active time or fewer than `10` samples were excluded from the compact active-player summary.
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/human-demos/human-demo-inventory.md`
+- `artifacts/human-demos/human-demo-s4a-summary.md`
+- `artifacts/human-demos/s4a-1on1-reppie-vs-locust-aerowalk/movement-metrics.md`
+- `experiments/human_comparison/evidence/human-demo-inventory.md`
+- `experiments/human_comparison/evidence/human-demo-inventory.json`
+- `experiments/human_comparison/evidence/human-demo-s4a-summary.md`
+- `experiments/human_comparison/evidence/human-demo-s4a-summary.json`
+
+### Interpretation
+
+S4a proves the existing parser and movement-metrics pipeline can process a human MVD and produce compact evidence alongside S3 bot summaries.
+
+It does not prove S3g is human-like. The parsed human demo is an `aerowalk` duel, while S3g bot evidence is on `dm3` and `frobodm2`. The local inventory also has no inferred true `dm2` demo. Any direct S3g-vs-human judgement from this run would be map-mismatched and misleading.
+
+### Confidence
+
+High for the parser/scaffold proof and local inventory result.
+
+High that no true local DM2 candidate was present in the inspected folder.
+
+Low for any movement-realism comparison until S4 has a DM2 or map-matched human set.
+
+### Follow-up
+
+Ask Claude to review S4a. Proposed S4b: select or acquire a real DM2 human comparison set and run it through the same scaffold. Prefer existing bulk corpora noted in thevault, especially the `servexeri` `/mnt/usb-ssd/4on4-corpus/demos/` manifest/corpus; do not mass-download from `hub.quakeworld.nu`.

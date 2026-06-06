@@ -591,3 +591,53 @@ The lab should move from self-defined movement gates toward a human-anchored com
 ### Revisit Conditions
 
 Revisit S3 command work only after human comparison shows a specific mismatch that mode `7` cannot explain, or if S4a cannot parse human MVDs with the current pipeline.
+
+---
+
+## Decision
+
+Treat S4a as a parser proof, not as a human movement baseline.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+Use `scripts/analyze_human_mvd.py` as the first S4 human-demo scaffold and keep its conclusion narrow. The local `xerialqw-bench` demo folder can be inventoried and parsed, but the first successful human run is an `aerowalk` duel, not a DM2 comparison set and not map-matched to S3g.
+
+The next goal is S4b: select or acquire a real DM2 human comparison set, then run the same scaffold before making any S3g-vs-human plausibility claim.
+
+### Alternatives Considered
+
+- Compare S3g `dm3`/`frobodm2` metrics directly against the `aerowalk` duel.
+- Treat the local `e1m2` 4on4 demo as enough human evidence.
+- Resume S3 command tuning because S4a did not find DM2 locally.
+- Download demos ad hoc from `hub.quakeworld.nu`.
+
+### Evidence
+
+S4a inventory:
+
+- Five local demos found under `C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos`.
+- Inferred maps: `aerowalk`, `e1m2`, `ztricks`, and `ztricks2`.
+- Inferred true `dm2` candidates: `0`.
+
+S4a parser proof:
+
+- `1on1_reppie_vs_locust_aerowalk.mvd` parsed with `json=0`, `md=0`, `events=1`.
+- Movement metrics produced active rows for `reppie` and `locust`.
+- Compact evidence is committed under `experiments/human_comparison/evidence/`.
+
+thevault data note:
+
+- `thevault/quakeworld/mvds.md` says not to mass-download from `hub.quakeworld.nu`.
+- It records existing larger corpora on `servexeri`, including `/mnt/usb-ssd/4on4-corpus/demos/` and `/mnt/usb-ssd/4on4-corpus/manifest.tsv`, which should be preferred for S4b inventory/selection.
+
+### Expected Consequences
+
+S4 can proceed without overclaiming. The project now has a repeatable human-demo parser path, but a missing DM2 set is the blocking data gap for a useful human anchor.
+
+### Revisit Conditions
+
+Revisit if a local or corpus DM2 candidate cannot be parsed by the scaffold, if the parser cannot identify enough active players in real 4on4 demos, or if a map-matched non-DM2 comparison becomes a better short-term anchor than DM2.

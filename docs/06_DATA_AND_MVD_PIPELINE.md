@@ -120,6 +120,28 @@ Preferred order:
 
 Milton is the long-term player-specific reference, but the first lab may use any clean DM2 movement data to validate the analysis pipeline.
 
+Current S4a human-demo scaffold:
+
+- Script: `scripts/analyze_human_mvd.py`
+- Default inventory root: `C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos`
+- Artifact root: `artifacts/human-demos/`
+- Raw demo and parser outputs remain ignored.
+- Small derived evidence can be promoted to `experiments/human_comparison/evidence/`.
+- Output schemas: `komodobots.human_mvd_inventory.v1` and `komodobots.human_mvd_analysis.v1`
+
+S4a result:
+
+- Inventoried five local human/trick demos: two `aerowalk`, one `e1m2`, and two trick demos.
+- Found zero inferred true `dm2` candidates locally.
+- Parsed `1on1_reppie_vs_locust_aerowalk.mvd` successfully through `qw-analyze-v20` and `scripts/extract_movement_metrics.py`.
+- Parser exits: `json=0`, `md=0`, `events=1` with `events=1` matching the known end-of-demo behavior.
+- Active movement rows: `reppie` and `locust`; six named slots with less than `1` second or fewer than `10` samples were kept out of the compact summary.
+- Comparison verdict: parser proof only. The human demo is `aerowalk`; S3g bot evidence is `dm3` and `frobodm2`, so the current evidence is not map-comparable and not a DM2 realism baseline.
+
+Next S4 data step:
+
+Select or acquire a real DM2 human comparison set before using human metrics to judge S3g. Per thevault `quakeworld/mvds.md`, avoid mass-downloads from `hub.quakeworld.nu`; prefer existing bulk corpora such as the `servexeri` `/mnt/usb-ssd/4on4-corpus/demos/` set and its manifest, or other bulk sources that avoid hub egress.
+
 ## Bot-generated MVD loop
 
 Target loop:
@@ -194,6 +216,8 @@ artifacts/lab-runs/<run-id>/
 ```
 
 The runner intentionally stores raw artifacts outside Git. `.gitignore` excludes `artifacts/`. Small derived summaries that support PR claims can be promoted into Git under `experiments/ktx_moveprobe/evidence/`.
+
+Human-demo artifacts follow the same split: raw demos, `analysis.json`, and full `events.txt` stay in `artifacts/human-demos/`; compact inventory and S4 summaries can be committed under `experiments/human_comparison/evidence/`.
 
 Current generated files:
 
