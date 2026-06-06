@@ -1927,3 +1927,49 @@ The next PR should not claim movement realism or route learning. It should produ
 ### Revisit Conditions
 
 Revisit expansion to the remaining DM3 QWD moves only after SNG advancement passes both in-window control-point advancement and slow/stationary guardrails. Revisit abandoning Frogbots if repeated QWD-derived probes can only reach points through slow/stuck behavior or require invasive route/map rewrites that undermine the KTX/Frogbots substrate hypothesis.
+
+---
+
+## Decision
+
+Treat QWD SNG slow-success as a setup/phase-gating failure, not learned movement.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+Do not expand the QWD-derived method to the remaining DM3 QWD moves yet. The setup-repaired SNG run advanced enough control points inside the MVD window, but the slow-success attribution shows that the positive geometry came through a loose start-radius window and then stalled before the next target radius.
+
+The next stage should tighten activation around the real CP0 approach and add phase-level success gates before changing projection policy.
+
+### Alternatives Considered
+
+- Declare SNG learned because `/ bro` advanced `4` control points inside the MVD window.
+- Treat the failure as water or low-dir-speed route context and pivot to route repair.
+- Increase command strength or change projection policy immediately.
+- Expand to all other DM3 QWD moves now that mode `9` can advance geometry.
+
+### Evidence
+
+Slow-success diagnosis artifact:
+
+- `experiments/qwd_route_probe/evidence/qwd-sng-slow-success-diagnosis-dm3.*`
+
+Key measurements:
+
+- `/ bro` activated at `t=0` under the widened `320` qu start radius while `281.954` qu from CP0.
+- With the original `192` qu design radius, `/ bro` first crossed the start gate at `31652` ms and `83.332` qu from CP0.
+- The CP0 active phase had p50 speed `84.385` qu/s, low-speed ratio `0.526`, stationary ratio `0.383`, and blocked ratio `0.371`.
+- `/ bro` emitted strong QWD-style commands during active phases: side ratio `1.0`, jump ratio `1.0`, median horizontal command `600.0`.
+- CP4 remained outside the point radius: closest distance `181.154` qu against the `96` qu point radius.
+- Water and low-dir-speed route context were not primary for the slow-success candidate phases.
+
+### Expected Consequences
+
+The next PR should be a tight setup/phase gate or design for such a gate, not a broad controller policy change. A future positive SNG claim must show phase-level movement quality, not just aggregate control-point advancement.
+
+### Revisit Conditions
+
+Revisit expanding to remaining DM3 QWD moves only after a follow-up SNG run passes in-window advancement, slow/stationary guardrails, and phase-level target-radius gates under tightened activation. Revisit from-scratch if SNG remains achievable only through loose, slow, or route-stalled behavior.

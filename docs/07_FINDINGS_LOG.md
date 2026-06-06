@@ -3078,3 +3078,50 @@ Medium that the slow-success rejection is a controller-policy problem; the widen
 ### Follow-up
 
 Diagnose the accepted setup-repair run's slow-success windows before another live controller change. The next smallest useful experiment is to inspect `/ bro`'s active QWD segments around control points `0..4`, sampled route/blocked/dir-speed context, and emitted command profile to decide whether to tighten start radius/context, adjust projection, or abandon the SNG probe path.
+
+## 2026-06-06 - QWD SNG Slow-Success Attribution
+
+### Experiment
+
+Diagnosed the setup-repaired SNG run `20260606T231007Z` without another KTX rerun. Added `scripts/diagnose_qwd_sng_slow_success.py` to split active mode-9 QWD commands by current control-point target, join those phases to MVD movement segments, and check whether the slow-success rejection came from controller projection, route/map context, or loose setup radius.
+
+### Result
+
+The slow-success failure is best attributed to loose setup activation plus a post-CP3 progression gap, not water and not missing QWD-style commands.
+
+- `/ bro` was the slow-success candidate.
+- The widened `320` qu start radius activated `/ bro` immediately at `t=0` from `281.954` qu away; the original `192` qu design radius would first have triggered at `31652` ms, when `/ bro` was `83.332` qu from CP0.
+- `/ bro`'s CP0 active phase lasted `0-29677` ms with p50 speed `84.385` qu/s, low-speed ratio `0.526`, stationary ratio `0.383`, and blocked ratio `0.371`.
+- `/ bro` still had strong command profile during those phases: side ratio `1.0`, jump ratio `1.0`, median horizontal command `600.0`.
+- `/ bro` advanced to target index `4`, but during the CP4 phase the closest MVD approach to CP4 was `181.154` qu, outside the `96` qu point radius.
+- Water and low route direction speed were not primary in the slow-success candidate phases: `water_path_ratio=0.0` and low-dir ratios near `0.0`.
+
+### Evidence
+
+Committed artifacts:
+
+- `scripts/diagnose_qwd_sng_slow_success.py`
+- `tests/test_diagnose_qwd_sng_slow_success.py`
+- `experiments/qwd_route_probe/evidence/qwd-sng-slow-success-diagnosis-dm3.json`
+- `experiments/qwd_route_probe/evidence/qwd-sng-slow-success-diagnosis-dm3.md`
+
+Validation:
+
+```powershell
+python -m unittest tests.test_diagnose_qwd_sng_slow_success -v
+python scripts\diagnose_qwd_sng_slow_success.py --bot-run-id 20260606T231007Z --stage qwd-sng-slow-success-diagnosis-dm3 --output-json experiments\qwd_route_probe\evidence\qwd-sng-slow-success-diagnosis-dm3.json --output-md experiments\qwd_route_probe\evidence\qwd-sng-slow-success-diagnosis-dm3.md
+```
+
+### Interpretation
+
+This strengthens the evidence that KTX/Frogbots can accept QWD-derived control inside the real server loop, but it blocks the stronger claim that Frogbots learned SNG. The widened start radius made the probe active through a long slow/blocked setup window, and the bot still failed to enter the next target radius after CP3. The next useful step is setup/phase gating, not broader projection changes or expanding to all DM3 QWD moves.
+
+### Confidence
+
+High for the attribution from existing artifacts: it uses the same committed result, sampled QWD command state, route/water diagnostics, and MVD position samples.
+
+Medium for the next repair shape because a tighter setup gate may need a live rerun to prove whether SNG traversal can pass movement guardrails.
+
+### Follow-up
+
+Tighten SNG activation around the real CP0 approach and add phase-level success gates before changing projection policy or trying other DM3 QWD moves.

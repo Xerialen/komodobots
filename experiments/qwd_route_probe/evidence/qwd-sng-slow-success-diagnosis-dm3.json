@@ -1,0 +1,382 @@
+{
+  "decision": {
+    "next_goal": "Tighten SNG activation around the real CP0 approach and add phase-level success gates before changing projection policy or trying other DM3 QWD moves.",
+    "reason": "The advancing bot was activated by the widened start radius long before a tight start-radius crossing, then still failed to enter the next target radius after CP3. This is not learned SNG.",
+    "verdict": "qwd_sng_slow_success_attributed_to_loose_setup_and_post_cp3_gap"
+  },
+  "method": "Offline attribution of the setup-repaired SNG run. It splits active QWD commands by current control-point target, joins each phase to MVD movement segments, and checks whether the slow guardrail failure is setup, route/map context, or command-profile weakness.",
+  "players": [
+    {
+      "active_phases": [
+        {
+          "active_duration_s": 29.677,
+          "active_mvd_range_ms": {
+            "max": 29677,
+            "min": 0
+          },
+          "closest_target_during_phase": {
+            "distance_qu": 227.386,
+            "origin": [
+              235.875,
+              -236.75,
+              -142.625
+            ],
+            "time_ms": 29430
+          },
+          "commands": {
+            "blocked_ratio": 0.371,
+            "command_rows": 286,
+            "jump_ratio": 1.0,
+            "low_dir_speed_ratio": 0.003,
+            "median_horizontal_command": 600.0,
+            "qwd_distance_qu": {
+              "max": 355.904,
+              "min": 227.668,
+              "p50": 306.015
+            },
+            "side_nonzero_ratio": 1.0,
+            "water_path_ratio": 0.0,
+            "waterlevel_gt0_ratio": 0.0
+          },
+          "control_point_index": 0,
+          "movement": {
+            "avg_speed_qu_per_s": 113.63,
+            "duration_s": 29.675,
+            "horizontal_distance_qu": 3371.981,
+            "low_speed_ratio": 0.526,
+            "p50_speed_qu_per_s": 84.385,
+            "p95_speed_qu_per_s": 320.278,
+            "segment_count": 1436,
+            "stationary_ratio": 0.383
+          }
+        },
+        {
+          "active_duration_s": 0.318,
+          "active_mvd_range_ms": {
+            "max": 31756,
+            "min": 31438
+          },
+          "closest_target_during_phase": {
+            "distance_qu": 158.42,
+            "origin": [
+              251.5,
+              -299.625,
+              69.125
+            ],
+            "time_ms": 31755
+          },
+          "commands": {
+            "blocked_ratio": 0.0,
+            "command_rows": 4,
+            "jump_ratio": 1.0,
+            "low_dir_speed_ratio": 0.0,
+            "median_horizontal_command": 600.0,
+            "qwd_distance_qu": {
+              "max": 171.671,
+              "min": 105.749,
+              "p50": 142.505
+            },
+            "side_nonzero_ratio": 1.0,
+            "water_path_ratio": 0.0,
+            "waterlevel_gt0_ratio": 0.0
+          },
+          "control_point_index": 2,
+          "movement": {
+            "avg_speed_qu_per_s": 393.075,
+            "duration_s": 0.289,
+            "horizontal_distance_qu": 113.599,
+            "low_speed_ratio": 0.0,
+            "p50_speed_qu_per_s": 429.657,
+            "p95_speed_qu_per_s": 462.954,
+            "segment_count": 14,
+            "stationary_ratio": 0.0
+          }
+        },
+        {
+          "active_duration_s": 3.848,
+          "active_mvd_range_ms": {
+            "max": 35707,
+            "min": 31859
+          },
+          "closest_target_during_phase": {
+            "distance_qu": 98.719,
+            "origin": [
+              235.625,
+              -59.0,
+              56.0
+            ],
+            "time_ms": 35664
+          },
+          "commands": {
+            "blocked_ratio": 0.0,
+            "command_rows": 38,
+            "jump_ratio": 1.0,
+            "low_dir_speed_ratio": 0.0,
+            "median_horizontal_command": 600.0,
+            "qwd_distance_qu": {
+              "max": 273.37,
+              "min": 99.086,
+              "p50": 119.997
+            },
+            "side_nonzero_ratio": 1.0,
+            "water_path_ratio": 0.0,
+            "waterlevel_gt0_ratio": 0.0
+          },
+          "control_point_index": 3,
+          "movement": {
+            "avg_speed_qu_per_s": 185.442,
+            "duration_s": 3.848,
+            "horizontal_distance_qu": 713.58,
+            "low_speed_ratio": 0.22,
+            "p50_speed_qu_per_s": 212.592,
+            "p95_speed_qu_per_s": 319.591,
+            "segment_count": 187,
+            "stationary_ratio": 0.006
+          }
+        },
+        {
+          "active_duration_s": 9.908,
+          "active_mvd_range_ms": {
+            "max": 45719,
+            "min": 35811
+          },
+          "closest_target_during_phase": {
+            "distance_qu": 181.154,
+            "origin": [
+              272.0,
+              -2.0,
+              56.0
+            ],
+            "time_ms": 43814
+          },
+          "commands": {
+            "blocked_ratio": 0.0,
+            "command_rows": 96,
+            "jump_ratio": 1.0,
+            "low_dir_speed_ratio": 0.0,
+            "median_horizontal_command": 600.0,
+            "qwd_distance_qu": {
+              "max": 281.324,
+              "min": 183.876,
+              "p50": 231.677
+            },
+            "side_nonzero_ratio": 1.0,
+            "water_path_ratio": 0.0,
+            "waterlevel_gt0_ratio": 0.0
+          },
+          "control_point_index": 4,
+          "movement": {
+            "avg_speed_qu_per_s": 165.077,
+            "duration_s": 9.903,
+            "horizontal_distance_qu": 1634.753,
+            "low_speed_ratio": 0.279,
+            "p50_speed_qu_per_s": 167.091,
+            "p95_speed_qu_per_s": 301.404,
+            "segment_count": 481,
+            "stationary_ratio": 0.002
+          }
+        }
+      ],
+      "classification": {
+        "flags": [
+          "loose_start_radius_contaminated_active_window",
+          "cp0_phase_low_speed_before_tight_start",
+          "cp0_phase_stationary_before_tight_start",
+          "cp0_route_blocked_context",
+          "post_cp3_target_gap_remains_outside_point_radius",
+          "strong_qwd_side_profile_present",
+          "strong_jump_profile_present",
+          "water_path_not_primary",
+          "low_dir_speed_not_primary"
+        ],
+        "verdict": "loose_setup_radius_plus_post_cp3_progression_gap"
+      },
+      "player": "/ bro",
+      "slot": 1,
+      "slow_success_candidate": true,
+      "start_radius_sensitivity": [
+        {
+          "distance_qu": 281.954,
+          "first_time_ms": 0,
+          "origin": [
+            192.0,
+            -208.0,
+            -175.0
+          ],
+          "radius_qu": 320.0
+        },
+        {
+          "distance_qu": 255.283,
+          "first_time_ms": 27516,
+          "origin": [
+            240.0,
+            -238.75,
+            -176.0
+          ],
+          "radius_qu": 256.0
+        },
+        {
+          "distance_qu": 83.332,
+          "first_time_ms": 31652,
+          "origin": [
+            226.25,
+            -317.875,
+            74.75
+          ],
+          "radius_qu": 192.0
+        },
+        {
+          "distance_qu": 83.332,
+          "first_time_ms": 31652,
+          "origin": [
+            226.25,
+            -317.875,
+            74.75
+          ],
+          "radius_qu": 160.0
+        },
+        {
+          "distance_qu": 83.332,
+          "first_time_ms": 31652,
+          "origin": [
+            226.25,
+            -317.875,
+            74.75
+          ],
+          "radius_qu": 128.0
+        },
+        {
+          "distance_qu": 83.332,
+          "first_time_ms": 31652,
+          "origin": [
+            226.25,
+            -317.875,
+            74.75
+          ],
+          "radius_qu": 96.0
+        }
+      ],
+      "user_id": 2
+    },
+    {
+      "active_phases": [
+        {
+          "active_duration_s": 16.431,
+          "active_mvd_range_ms": {
+            "max": 45719,
+            "min": 29288
+          },
+          "closest_target_during_phase": {
+            "distance_qu": 232.805,
+            "origin": [
+              200.375,
+              -240.0,
+              -134.125
+            ],
+            "time_ms": 29839
+          },
+          "commands": {
+            "blocked_ratio": 0.623,
+            "command_rows": 159,
+            "jump_ratio": 1.0,
+            "low_dir_speed_ratio": 0.0,
+            "median_horizontal_command": 600.0,
+            "qwd_distance_qu": {
+              "max": 396.227,
+              "min": 232.815,
+              "p50": 313.025
+            },
+            "side_nonzero_ratio": 1.0,
+            "water_path_ratio": 0.0,
+            "waterlevel_gt0_ratio": 0.0
+          },
+          "control_point_index": 0,
+          "movement": {
+            "avg_speed_qu_per_s": 81.989,
+            "duration_s": 16.426,
+            "horizontal_distance_qu": 1346.748,
+            "low_speed_ratio": 0.681,
+            "p50_speed_qu_per_s": 0.0,
+            "p95_speed_qu_per_s": 330.038,
+            "segment_count": 798,
+            "stationary_ratio": 0.615
+          }
+        }
+      ],
+      "classification": {
+        "flags": [
+          "cp0_phase_low_speed_before_tight_start",
+          "cp0_phase_stationary_before_tight_start",
+          "cp0_route_blocked_context",
+          "strong_qwd_side_profile_present",
+          "strong_jump_profile_present",
+          "water_path_not_primary",
+          "low_dir_speed_not_primary"
+        ],
+        "verdict": "not_slow_success_candidate"
+      },
+      "player": "/ goldenboy",
+      "slot": 2,
+      "slow_success_candidate": false,
+      "start_radius_sensitivity": [
+        {
+          "distance_qu": 318.855,
+          "first_time_ms": 29450,
+          "origin": [
+            184.375,
+            -140.375,
+            -176.0
+          ],
+          "radius_qu": 320.0
+        },
+        {
+          "distance_qu": 253.881,
+          "first_time_ms": 29675,
+          "origin": [
+            172.625,
+            -226.125,
+            -137.0
+          ],
+          "radius_qu": 256.0
+        },
+        {
+          "distance_qu": null,
+          "first_time_ms": null,
+          "origin": [],
+          "radius_qu": 192.0
+        },
+        {
+          "distance_qu": null,
+          "first_time_ms": null,
+          "origin": [],
+          "radius_qu": 160.0
+        },
+        {
+          "distance_qu": null,
+          "first_time_ms": null,
+          "origin": [],
+          "radius_qu": 128.0
+        },
+        {
+          "distance_qu": null,
+          "first_time_ms": null,
+          "origin": [],
+          "radius_qu": 96.0
+        }
+      ],
+      "user_id": 3
+    }
+  ],
+  "run_config": {
+    "design_start_radius": 192.0,
+    "map": "dm3",
+    "moveprobe_mode": "9",
+    "qwd_point_radius": "96.0",
+    "qwd_start_radius": "320.0"
+  },
+  "run_id": "20260606T231007Z",
+  "schema": "komodobots.qwd_sng_slow_success_diagnosis.v1",
+  "source_result_path": "experiments/qwd_route_probe/evidence/qwd-sng-setup-repair-result-dm3.json",
+  "source_result_verdict": "qwd_sng_hybrid_probe_rejected_by_guardrails",
+  "stage": "qwd-sng-slow-success-diagnosis-dm3"
+}

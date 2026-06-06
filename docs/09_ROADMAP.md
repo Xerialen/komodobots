@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`QWD-DM3-SNG - Diagnose slow-success rejection after setup-repaired SNG advancement`
+`QWD-DM3-SNG - Tighten SNG activation and phase gates after slow-success attribution`
 
 ## Stage Status Table
 
@@ -50,7 +50,7 @@ Current active stage:
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
 | S6 Route Primitives | Closed for now | S6f found `276->59` is explicit and reciprocal, but marker `276` lacks static geometry, so no tiny route-data fix is justified from `dm3.bot` alone |
 | S7 Player Specific | Paused behind QWD decision track | S7l found enough clean air-transition evidence for one narrower Frogbots probe, but the QWD action/trajectory bridge is now the faster Frogbots-vs-from-scratch decision path |
-| QWD DM3 Route Transfer | Active but rejected by guardrails | Setup repair run `20260606T231007Z` advanced `4` SNG control points inside the parsed MVD window, but `/ bro` crossed the slow/stationary guardrails, so diagnose slow-success/controller-vs-context before widening control or trying other DM3 QWD moves |
+| QWD DM3 Route Transfer | Active but blocked from expansion | Slow-success diagnosis attributes `/ bro`'s rejected SNG advancement to loose `320` qu activation plus a post-CP3 progression gap; next evidence must tighten activation/phase gates before projection changes or other DM3 QWD moves |
 
 ## Roadmap Rule
 
@@ -115,4 +115,6 @@ The QWD SNG hybrid probe design turns that mapping into a bounded server-loop co
 
 The first QWD SNG hybrid server-loop probe implemented temporary mode `9`, runner QWD-cvar transport, QWD command-state parsing, and a scorer against the design guardrails. Run `20260606T221429Z` activated the QWD probe for `11` sampled rows and `1.12` seconds, preserved route/water/probe/cadence diagnostics, and passed slow/route-dirty success guardrails, but advanced only `2` control points against the required `4`. Follow-up diagnosis aligned command-log server time to MVD-relative event time and found the active `/ goldenboy` rows landed at `47044-48082` ms, outside the parsed `45816` ms MVD movement window; `/ bro` never reached the configured start radius. The result remains `qwd_sng_hybrid_probe_inconclusive`.
 
-The QWD SNG setup repair reran the same mode `9`, QWD control points, `96` qu point radius, and `forwardmove=320` / `sidemove=508` profile with start radius widened to `320` qu. Run `20260606T231007Z` produced valid MVD evidence and repaired the timing/start-context blocker: `627` QWD active samples, `16.591` max active seconds, and `4` control points advanced inside the parsed MVD window. The scorer still rejects the run because `/ bro` advanced those points with low-speed ratio `0.429` and stationary ratio `0.253`, crossing the `0.40` / `0.25` slow-success guardrails. The next QWD branch should diagnose whether that slow success is controller projection, route/context, or loose-radius setup before widening QWD control or trying other DM3 QWD moves.
+The QWD SNG setup repair reran the same mode `9`, QWD control points, `96` qu point radius, and `forwardmove=320` / `sidemove=508` profile with start radius widened to `320` qu. Run `20260606T231007Z` produced valid MVD evidence and repaired the timing/start-context blocker: `627` QWD active samples, `16.591` max active seconds, and `4` control points advanced inside the parsed MVD window. The scorer still rejects the run because `/ bro` advanced those points with low-speed ratio `0.429` and stationary ratio `0.253`, crossing the `0.40` / `0.25` slow-success guardrails.
+
+The QWD SNG slow-success diagnosis split that accepted run by active control-point phase. `/ bro` was activated by the loose `320` qu start radius at `t=0` from `281.954` qu away, while the original `192` qu design radius would first have activated at `31652` ms when the bot was `83.332` qu from CP0. The CP0 phase had p50 speed `84.385` qu/s, low-speed ratio `0.526`, stationary ratio `0.383`, and blocked ratio `0.371`; after advancing through four points, the bot still remained `181.154` qu from CP4 against a `96` qu radius. Strong side/jump commands were present, and water/low-dir-speed were not primary. The next QWD branch should tighten activation and phase-level success gates before projection changes or trying other DM3 QWD moves.

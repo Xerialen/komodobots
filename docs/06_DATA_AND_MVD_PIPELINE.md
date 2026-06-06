@@ -108,6 +108,7 @@ First QWD SNG hybrid runtime probe:
 - Runner/parser plumbing: `scripts/run_frobodm2_lab.py`
 - Scorer: `scripts/compare_qwd_sng_hybrid_probe.py`
 - Diagnosis: `scripts/diagnose_qwd_sng_probe.py`
+- Slow-success attribution: `scripts/diagnose_qwd_sng_slow_success.py`
 - Bot run: `20260606T221429Z`
 - Result artifact: `experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-result-dm3.*`
 - Diagnosis artifact: `experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-diagnosis-dm3.*`
@@ -148,6 +149,16 @@ Measured repair result:
 - The result is still rejected by `waypoint_only_slow_success`: `/ bro` advances `4` points but has low-speed ratio `0.429` and stationary ratio `0.253`, above the configured `0.40` / `0.25` guardrails.
 
 Interpretation: the evidence-window/setup blocker is repaired, but the movement is still not accepted as learned SNG. The next step should diagnose why `/ bro` can reach the first four points only with slow/stationary behavior before widening control, changing projection, or applying the method to other DM3 QWD moves.
+
+QWD SNG slow-success attribution:
+
+- Artifact: `experiments/qwd_route_probe/evidence/qwd-sng-slow-success-diagnosis-dm3.*`
+- The widened `320` qu start radius activated `/ bro` immediately at `t=0` from `281.954` qu away from CP0; the original `192` qu design radius would first have triggered at `31652` ms, when `/ bro` was `83.332` qu from CP0.
+- `/ bro` spent the CP0 active phase from `0-29677` ms with p50 speed `84.385` qu/s, low-speed ratio `0.526`, stationary ratio `0.383`, and blocked ratio `0.371`, while still emitting a strong side/jump profile.
+- After advancing through four control points, `/ bro` remained outside the next target radius: CP4 closest distance during the CP4 phase was `181.154` qu against a `96` qu point radius.
+- Water and low route direction speed were not primary in the slow-success candidate phases: `water_path_ratio=0.0` and low-dir ratios near `0.0`.
+
+Interpretation: the setup repair proved that QWD-derived control can advance geometry inside the recorded MVD window, but the slow-success rejection is best attributed to loose activation plus a post-CP3 progression gap. It is not proof that Frogbots learned the SNG move, and it blocks expanding the method to other DM3 QWD moves until activation/phase success gates are tightened.
 
 ## Available or expected signals
 
