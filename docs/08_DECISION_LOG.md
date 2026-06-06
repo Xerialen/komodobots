@@ -1165,8 +1165,50 @@ S7b repeated reference evidence:
 
 ### Expected Consequences
 
-S7c should either turn cadence/tempo into a comparable bot-vs-human signal or prove that the current S3g summaries are too incomplete for player-style decisions. Player-specific movement control should remain blocked until at least one repeated style axis is both stable enough and bot-comparable.
+The intended S7c branch was to either turn cadence/tempo into a comparable bot-vs-human signal or prove that the current S3g summaries were too incomplete for player-style decisions. S7c later fulfilled the comparable-signal path from existing artifacts; player-specific movement control remains blocked until S7d decides the smallest evidence-producing use of that signal.
 
 ### Revisit Conditions
 
 Revisit if Claude finds a bug in S7b stability classification, if bot-side cadence already exists in committed evidence and was missed, or if broader reference rows contradict cadence as the strongest repeated axis.
+
+---
+
+## Decision
+
+Treat bot-comparable cadence as an S7d design input, not a controller authorization.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S7c proved that the repeated cadence axis can be compared against S3g bots using existing committed artifacts. It should be carried forward as a diagnostic/player-style candidate, but it is not enough by itself to start broad player-specific movement control.
+
+The next goal is S7d: decide the smallest evidence-producing action for bot-comparable repeated axes. Candidate paths are to keep cadence as a diagnostic target, broaden exact-player and bot samples first, or design a tiny controller probe that tests cadence without hiding the unresolved land-speed gap.
+
+### Alternatives Considered
+
+- Start a Milton/carapace/yeti-specific movement controller now that cadence is bot-comparable.
+- Treat `/ goldenboy` being inside the human cadence range as evidence that cadence is solved.
+- Treat `/ bro` being far above the human cadence range as proof that cadence alone explains the movement gap.
+- Drop cadence and return immediately to generic avg/p95 land-speed optimization.
+
+### Evidence
+
+S7c bot-comparable cadence evidence:
+
+- Exact-player `dm3` cadence range: `40.4` to `51.0`/min.
+- S3g `/ bro` cadence: `91.7`/min, above the repeated human range.
+- S3g `/ goldenboy` cadence: `43.3`/min, within the repeated human range.
+- Repeated-player cadence stability: between-player mean spread `7.6`/min, max within-player spread `3.7`/min, separation ratio `2.06`.
+- Cadence classification changed from `repeated_reference_only_candidate_axis` to `repeated_candidate_style_axis`.
+- Avg and p95 still remain generic land-speed gaps: reference avg `282.8` to `314.2` versus S3g `190.1` to `248.2`; reference p95 `505.8` to `535.0` versus S3g `361.0` to `375.3`.
+
+### Expected Consequences
+
+S7d should make a product/experiment decision before adding controller code. A cadence-specific probe is acceptable only if it is tiny, separately measured, and cannot obscure the broader high-speed movement deficit. If S7d cannot justify such a probe, broaden samples or return to generic movement-realism work.
+
+### Revisit Conditions
+
+Revisit if Claude finds a cadence propagation or classification bug, if additional bot rows show the current two-bot relation is misleading, or if richer movement metrics reveal a better repeated player-style axis than cadence.

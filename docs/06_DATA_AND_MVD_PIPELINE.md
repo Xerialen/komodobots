@@ -101,6 +101,7 @@ Moveprobe plausibility gate:
 - S3e diagnostics: command rows may include `route_yaw`, `view_yaw`, `yaw_delta`, and `backward`; the summary reports backward-command ratio plus absolute yaw-delta average, p90, and ratio above 90 degrees. `yaw_delta` is interpretable for aim-independent modes `5`/`6`/`7`; route-yaw modes `3`/`4` make the field structural rather than diagnostic.
 - S3f no-backpedal gate: use the same horizontal/side/jump thresholds as S3e, then inspect command magnitudes because folding negative forward into side can create very large side values
 - S3g bounded-command gate: use the same horizontal/side/jump thresholds as S3e/S3f, then inspect `max_abs_forward_command`, `max_abs_side_command`, and `max_horizontal_command` in the summary
+- S7c bot-comparable cadence: the plausibility summary also carries `jump_cadence_per_min` from `movement-metrics.json` so existing S3g bot cadence can be compared against human reference rows without rerunning the lab.
 - Expected-forward handling: by default the summarizer derives the expected forward command from each run's `MOVEPROBE_FORWARDMOVE` in `run.env`, then falls back to `800`; use `--expected-forward` for older/custom artifacts.
 - Command matching: movement rows are matched to command rows by movement `user_id` and command `ed` when possible, then by netname as a fallback. Duplicate bot netnames are unsupported for artifacts that require the fallback.
 - Purpose: prevent speed-only interpretation by requiring command coverage and low stuck/low-speed behavior
@@ -244,7 +245,15 @@ S7b repeated-reference result:
 - Generated `experiments/human_comparison/evidence/human-reference-s7b-selection.*`, `human-reference-s7b-repeated-dm3-aggregate.*`, and `player-signatures-s7b-dm3.*`.
 - The six-row aggregate removes the single-demo stop condition but keeps avg/p95 as generic S3g-vs-human land-speed gaps.
 - Low-speed and airborne proxy are mixed/overlapping under repeated samples.
-- Jump cadence is the only repeated reference-only candidate axis, so S7c should make cadence/tempo bot-comparable before controller work.
+- Jump cadence is the only repeated reference-only candidate axis; S7c below made cadence/tempo bot-comparable before controller work.
+
+S7c bot-comparable cadence result:
+
+- Regenerated `experiments/ktx_moveprobe/evidence/moveprobe-s3g-summary.*` from existing S3g artifacts so bot rows carry `jump_cadence_per_min`.
+- Generated `experiments/human_comparison/evidence/human-reference-s7c-bot-comparable-cadence-dm3-aggregate.*` and `player-signatures-s7c-dm3.*`.
+- Exact-player `dm3` cadence range is `40.4` to `51.0`/min; S3g `/ bro` is above that range at `91.7`/min, while `/ goldenboy` is within it at `43.3`/min.
+- Cadence is now a bot-comparable repeated candidate axis with mixed bot relation.
+- Avg and p95 still show the generic land-speed gap, so S7d should decide whether cadence is a diagnostic target, a tiny controller-probe target, or needs broader sampling first.
 
 S6a result:
 
@@ -554,13 +563,16 @@ s7b-repeated-elite-dm3, repeated exact-player dm3 references:
   selected one additional manifest-backed dm3 demo each for Milton, carapace, and yeti from Turso player_games/games metadata plus the existing servexeri corpus manifest. The three local copies were SHA-256 verified before parsing. The aggregate now has six reference rows, while raw demos/events remain ignored under artifacts/human-demos/.
 
 s7b-player-signatures-dm3, repeated-player stability scaffold:
-  avg and p95 stay generic S3g-vs-human land-speed gaps. Low-speed and airborne proxy are mixed/overlapping under repeated samples. Jump cadence is the only repeated reference-only candidate axis, but S3g bot summaries do not yet carry that metric.
+  avg and p95 stay generic S3g-vs-human land-speed gaps. Low-speed and airborne proxy are mixed/overlapping under repeated samples. Jump cadence is the only repeated reference-only candidate axis before S7c.
+
+s7c-player-signatures-dm3, bot-comparable cadence scaffold:
+  S7c carries existing S3g bot cadence into the committed S3g summary and compares it against the repeated exact-player range. / bro is above the human cadence range at 91.7/min, / goldenboy is within it at 43.3/min, and cadence becomes a bot-comparable repeated candidate axis while avg/p95 remain generic land-speed gaps.
 ```
 
 ## Open questions
 
 - Can/should the current `events.txt` kind `5` position stream remain canonical for first-pass movement metrics?
-- Can `qw-sim` already compute all required movement metrics, especially cadence/tempo metrics that S7b now needs on the bot side?
+- Can `qw-sim` compute richer cadence/tempo and route-context metrics beyond the current position-derived cadence field?
 - Where will broader human reference MVDs live if S7 needs more than two demos per target?
 - How should generated MVD artifacts be stored without bloating Git?
 - Can bot experiments be made deterministic enough for regression testing?

@@ -2231,3 +2231,49 @@ Medium that cadence is a durable style axis, because S7b has only two demos per 
 ### Follow-up
 
 Ask Claude to review S7b. Proposed S7c: make the surviving repeated axes bot-comparable and controller-relevant by adding bot-side cadence/tempo metrics to the S3g summaries, then decide whether low-speed/cadence warrant player-style targets or whether more exact-player references are needed.
+
+## 2026-06-06 - S7c Bot-Comparable Cadence
+
+### Experiment
+
+Made the S7b surviving repeated axis bot-comparable without rerunning the lab. The raw S3g movement artifacts already contained `jump_cadence_per_min`, so S7c carried that field through `scripts/summarize_moveprobe_plausibility.py`, `scripts/summarize_reference_aggregate.py`, and `scripts/summarize_player_movement_signatures.py`.
+
+### Result
+
+- Regenerated `experiments/ktx_moveprobe/evidence/moveprobe-s3g-summary.*` from existing S3g runs `20260606T003718Z` and `20260606T003808Z`.
+- Generated a fresh S7c repeated aggregate and signature report:
+  - `experiments/human_comparison/evidence/human-reference-s7c-bot-comparable-cadence-dm3-aggregate.*`
+  - `experiments/human_comparison/evidence/player-signatures-s7c-dm3.*`
+- Exact-player `dm3` cadence range is `40.4` to `51.0`/min, mean `45.2`/min.
+- S3g `/ bro` cadence is `91.7`/min, above the repeated human range.
+- S3g `/ goldenboy` cadence is `43.3`/min, within the repeated human range.
+- Cadence is now classified as a bot-comparable repeated candidate style axis with mixed bot relation, rather than a reference-only axis.
+- Avg and p95 remain generic land-speed gaps: reference avg `282.8` to `314.2` versus S3g `190.1` to `248.2`; reference p95 `505.8` to `535.0` versus S3g `361.0` to `375.3`.
+- Claude review follow-up added explicit `bot_source_run_ids` to the S7c aggregate/signature evidence so the carried S3g cadence source is auditable from the committed files.
+
+### Evidence
+
+Committed artifacts:
+
+- `experiments/ktx_moveprobe/evidence/moveprobe-s3g-summary.json`
+- `experiments/ktx_moveprobe/evidence/moveprobe-s3g-summary.md`
+- `experiments/human_comparison/evidence/human-reference-s7c-bot-comparable-cadence-dm3-aggregate.json`
+- `experiments/human_comparison/evidence/human-reference-s7c-bot-comparable-cadence-dm3-aggregate.md`
+- `experiments/human_comparison/evidence/player-signatures-s7c-dm3.json`
+- `experiments/human_comparison/evidence/player-signatures-s7c-dm3.md`
+
+Focused validation covered cadence propagation in the moveprobe plausibility summary, bot cadence classification in the reference aggregate, and bot-comparable repeated cadence handling in the player-signature scaffold.
+
+### Interpretation
+
+S7c completes the narrow handoff from repeated reference-only cadence to bot-comparable cadence. It does not authorize a broad player-specific controller. `/ goldenboy` already sits inside the human cadence range while still below human avg/p95 speed, so cadence alone is not a realism score. `/ bro` is far above the cadence range, making cadence useful as a diagnostic target for repeated-jump behavior.
+
+### Confidence
+
+High that the committed S3g artifacts already contained the bot cadence values and that S7c only changed summarization/evidence handling.
+
+Medium that cadence should become a controller target, because the evidence has only two bot rows and two demos per exact player.
+
+### Follow-up
+
+Ask Claude to review S7c. Proposed S7d: decide what to do with bot-comparable repeated axes: keep cadence as a diagnostic target, broaden exact-player/bot samples, or design a tiny controller probe, while keeping the generic land-speed gap visible.

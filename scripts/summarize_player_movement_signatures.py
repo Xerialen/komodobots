@@ -67,7 +67,7 @@ STYLE_FIELDS = (
         "family": "jump_cadence",
         "min_abs_spread": 2.0,
         "min_relative_spread": 0.05,
-        "bot_comparable": False,
+        "bot_comparable": True,
     },
 )
 
@@ -494,6 +494,7 @@ def build_signature_report(
         "map": aggregate.get("map", ""),
         "reference_count": len(reference_rows),
         "bot_count": len(bot_rows),
+        "bot_source_run_ids": aggregate.get("bot_source_run_ids", []),
         "player_signatures": player_signature_rows(reference_rows, reference_summaries),
         "feature_axes": axes,
         "stability_axes": stability_axes,
@@ -525,6 +526,12 @@ def build_signature_report(
                 "cadence/tempo metrics to the S3g summaries, then decide whether low-speed/cadence warrant "
                 "player-style targets or whether more exact-player references are needed."
             )
+            if repeated_reference_only_axes
+            else (
+                "S7d should decide what to do with the bot-comparable repeated axes: keep cadence as a diagnostic "
+                "target, broaden exact-player/bot samples, or design a tiny controller probe, while keeping the "
+                "generic land-speed gap visible."
+            )
         ),
     }
 
@@ -548,6 +555,7 @@ def write_markdown(report: dict[str, object], output_path: Path) -> None:
         f"- Source aggregate: `{report.get('source_aggregate_path', '')}`",
         f"- Reference rows: `{report.get('reference_count', 0)}`",
         f"- S3g bot rows: `{report.get('bot_count', 0)}`",
+        f"- Bot source run IDs: `{', '.join(report.get('bot_source_run_ids', []))}`",
         f"- Stop condition: `{report.get('stop_condition_triggered')}`",
         f"- Stop reason: {report.get('stop_condition_reason', '')}",
         "",

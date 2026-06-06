@@ -24,6 +24,8 @@ SCHEMA = "komodobots.reference_aggregate.v1"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BOT_SUMMARY = REPO_ROOT / "experiments" / "ktx_moveprobe" / "evidence" / "moveprobe-s3g-summary.json"
 
+# Cadence is S7c's extra bot-comparable field; keep this in sync with
+# summarize_player_movement_signatures.py STYLE_FIELDS bot_comparable axes.
 REFERENCE_FIELDS = COMPARISON_FIELDS + (("jump_cadence_per_min", "Cadence/min"),)
 
 
@@ -99,10 +101,14 @@ def bot_rows_for_map(bot_summary_path: Path, map_name: str) -> list[dict[str, ob
                 "map": run.get("map", ""),
                 "player": player.get("player", ""),
             }
-            for field, _label in COMPARISON_FIELDS:
+            for field, _label in REFERENCE_FIELDS:
                 row[field] = optional_round_float(player.get(field))
             rows.append(row)
     return rows
+
+
+def source_run_ids(rows: Iterable[dict[str, object]]) -> list[str]:
+    return sorted({str(row.get("run_id", "")) for row in rows if row.get("run_id")})
 
 
 def build_aggregate(
@@ -129,7 +135,7 @@ def build_aggregate(
     for field, label in REFERENCE_FIELDS:
         reference_summary = summarize_numeric_field(map_matched_rows, field)
         ranges_by_field[field] = reference_summary
-        bot_summary = summarize_numeric_field(bot_rows, field) if field in dict(COMPARISON_FIELDS) else None
+        bot_summary = summarize_numeric_field(bot_rows, field)
         ranges.append(
             {
                 "field": field,
@@ -145,10 +151,10 @@ def build_aggregate(
             {
                 "run_id": row.get("run_id", ""),
                 "player": row.get("player", ""),
-                "values": {field: row.get(field) for field, _label in COMPARISON_FIELDS},
+                "values": {field: row.get(field) for field, _label in REFERENCE_FIELDS},
                 "against_reference_range": {
                     field: classify_against_range(row.get(field), ranges_by_field[field])
-                    for field, _label in COMPARISON_FIELDS
+                    for field, _label in REFERENCE_FIELDS
                 },
             }
         )
@@ -163,6 +169,7 @@ def build_aggregate(
         "excluded_reference_rows": excluded_reference_rows,
         "warnings": warnings,
         "bot_summary_path": portable_path(bot_summary_path),
+        "bot_source_run_ids": source_run_ids(bot_rows),
         "bot_rows": bot_rows,
         "ranges": ranges,
         "bot_comparison": bot_comparison,
@@ -183,6 +190,7 @@ def write_markdown(aggregate: dict[str, object], output_path: Path) -> None:
         f"- Reference rows: `{aggregate.get('reference_count', 0)}`",
         f"- Targets: `{', '.join(aggregate.get('targets', []))}`",
         f"- Bot summary: `{aggregate.get('bot_summary_path', '')}`",
+        f"- Bot source run IDs: `{', '.join(aggregate.get('bot_source_run_ids', []))}`",
         "",
     ]
     for note in aggregate.get("notes", []):
@@ -244,8 +252,8 @@ def write_markdown(aggregate: dict[str, object], output_path: Path) -> None:
             "",
             "## S3g Bot Rows",
             "",
-            "| Bot | Avg | Avg range | P95 | P95 range | Stationary | Stationary range | Low | Low range | Air | Air range |",
-            "|---|---:|---|---:|---|---:|---|---:|---|---:|---|",
+            "| Bot | Avg | Avg range | P95 | P95 range | Stationary | Stationary range | Low | Low range | Air | Air range | Cadence/min | Cadence range |",
+            "|---|---:|---|---:|---|---:|---|---:|---|---:|---|---:|---|",
         ]
     )
     for row in aggregate.get("bot_comparison", []):
@@ -267,7 +275,9 @@ def write_markdown(aggregate: dict[str, object], output_path: Path) -> None:
             f"{format_comparison_value('low_speed_time_ratio', values.get('low_speed_time_ratio'))} | "
             f"`{ranges.get('low_speed_time_ratio', '')}` | "
             f"{format_comparison_value('airborne_proxy_time_ratio', values.get('airborne_proxy_time_ratio'))} | "
-            f"`{ranges.get('airborne_proxy_time_ratio', '')}` |"
+            f"`{ranges.get('airborne_proxy_time_ratio', '')}` | "
+            f"{format_comparison_value('jump_cadence_per_min', values.get('jump_cadence_per_min'))} | "
+            f"`{ranges.get('jump_cadence_per_min', '')}` |"
         )
 
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
