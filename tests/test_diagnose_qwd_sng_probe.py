@@ -21,6 +21,7 @@ def write_design(path: Path) -> None:
                     {"qwd_origin": [1000.0, 0.0, 0.0]},
                     {"qwd_origin": [1100.0, 0.0, 0.0]},
                     {"qwd_origin": [1200.0, 0.0, 0.0]},
+                    {"qwd_origin": [1300.0, 0.0, 0.0]},
                 ],
                 "probe_contract": {
                     "suggested_cvars": {
@@ -34,9 +35,17 @@ def write_design(path: Path) -> None:
     )
 
 
-def write_result(path: Path) -> None:
+def write_result(
+    path: Path,
+    *,
+    verdict: str = "qwd_sng_hybrid_probe_inconclusive",
+    failed_stop_conditions: list[str] | None = None,
+) -> None:
+    decision: dict[str, object] = {"verdict": verdict}
+    if failed_stop_conditions is not None:
+        decision["failed_stop_conditions"] = failed_stop_conditions
     path.write_text(
-        json.dumps({"decision": {"verdict": "qwd_sng_hybrid_probe_inconclusive"}}),
+        json.dumps({"decision": decision}),
         encoding="utf-8",
     )
 
@@ -55,11 +64,23 @@ def command_row(*, active: bool, time_s: float, advanced: int = 0, distance: flo
     }
 
 
-def write_run(root: Path, *, commands: list[dict[str, object]], origins: list[list[float]]) -> None:
+def write_run(
+    root: Path,
+    *,
+    commands: list[dict[str, object]],
+    origins: list[list[float]],
+    start_radius: float = 192,
+    point_radius: float = 96,
+) -> None:
     run_dir = root / "run1"
     run_dir.mkdir()
     (run_dir / "run.env").write_text(
-        "MAP=dm3\nMOVEPROBE_MODE=9\nMOVEPROBE_QWD_START_RADIUS=192\nMOVEPROBE_QWD_POINT_RADIUS=96\n",
+        (
+            "MAP=dm3\n"
+            "MOVEPROBE_MODE=9\n"
+            f"MOVEPROBE_QWD_START_RADIUS={start_radius}\n"
+            f"MOVEPROBE_QWD_POINT_RADIUS={point_radius}\n"
+        ),
         encoding="utf-8",
     )
     (run_dir / "analysis.json").write_text(json.dumps({"match": {"duration": 5000}}), encoding="utf-8")
@@ -127,6 +148,63 @@ class DiagnoseQwdSngProbeTests(unittest.TestCase):
         self.assertEqual(report["players"][0]["classification"], "spawn_or_route_context_missed_start_radius")
         self.assertEqual(report["players"][0]["mvd_sequential_control_points_reached"], 0)
 
+    def test_run_env_start_radius_overrides_design_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            design_path = root / "design.json"
+            result_path = root / "result.json"
+            write_design(design_path)
+            write_result(result_path)
+            write_run(
+                root,
+                commands=[command_row(active=False, time_s=11.0, advanced=0, distance=250.0)],
+                origins=[[0, 0, 0], [50, 0, 0], [100, 0, 0]],
+                start_radius=320,
+            )
+
+            report = diagnosis.build_diagnosis(
+                design_path=design_path,
+                result_path=result_path,
+                run_id="run1",
+                artifacts_root=root,
+                stage="test",
+            )
+
+        self.assertEqual(report["control_point_radii"]["start_radius_qu"], 320.0)
+        self.assertEqual(report["players"][0]["classification"], "not_enough_qwd_activation_evidence")
+
+    def test_rejected_guardrail_decision_after_timing_repair(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            design_path = root / "design.json"
+            result_path = root / "result.json"
+            write_design(design_path)
+            write_result(
+                result_path,
+                verdict="qwd_sng_hybrid_probe_rejected_by_guardrails",
+                failed_stop_conditions=["waypoint_only_slow_success"],
+            )
+            write_run(
+                root,
+                commands=[command_row(active=True, time_s=11.0, advanced=4, distance=80.0)],
+                origins=[[1000, 0, 0], [1100, 0, 0], [1200, 0, 0], [1300, 0, 0]],
+                start_radius=320,
+            )
+
+            report = diagnosis.build_diagnosis(
+                design_path=design_path,
+                result_path=result_path,
+                run_id="run1",
+                artifacts_root=root,
+                stage="test",
+            )
+
+        self.assertEqual(
+            report["decision"]["verdict"],
+            "qwd_sng_setup_repaired_but_rejected_by_guardrails",
+        )
+        self.assertIn("waypoint_only_slow_success", report["decision"]["reason"])
+
     def test_malformed_position_rows_do_not_crash(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             run_dir = Path(tmp) / "run1"
@@ -149,6 +227,18 @@ class DiagnoseQwdSngProbeTests(unittest.TestCase):
         self.assertEqual(samples, {})
         self.assertEqual(diagnosis.closest_approaches([{"time_ms": 0, "origin": [1, 2]}], [[0, 0, 0]])[0]["min_distance_qu"], None)
         self.assertEqual(diagnosis.sequential_reach_count([{"time_ms": 0, "origin": [1, 2]}], [[0, 0, 0]], radius=96), 0)
+
+    def test_safe_time_ms_tolerates_key_error(self) -> None:
+        original = diagnosis.coerce_time_ms
+
+        def raising_key_error(event: dict[str, object], data: dict[str, object]) -> int:
+            raise KeyError("TimeMs")
+
+        try:
+            diagnosis.coerce_time_ms = raising_key_error
+            self.assertIsNone(diagnosis.safe_time_ms({}, {}))
+        finally:
+            diagnosis.coerce_time_ms = original
 
 
 if __name__ == "__main__":

@@ -131,6 +131,24 @@ Diagnosis result:
 
 Interpretation: this is useful server-loop command evidence, but not proof that Frogbots learned the SNG shortcut. The QWD path can be injected, logged, and scored inside the engine-native shell; the first activation and advancement evidence is not cleanly aligned with MVD movement evidence. The scorer requires control-point advancement inside the parsed MVD window before any positive movement claim. The next step should repair timing/start-context setup before changing controller projection or expanding to other DM3 QWD moves.
 
+QWD SNG setup repair:
+
+- Result artifact: `experiments/qwd_route_probe/evidence/qwd-sng-setup-repair-result-dm3.*`
+- Diagnosis artifact: `experiments/qwd_route_probe/evidence/qwd-sng-setup-repair-diagnosis-dm3.*`
+- Bot run: `20260606T231007Z`
+- Setup change: same mode `9`, same QWD control points, same `96` qu control-point radius, same `forwardmove=320` / `sidemove=508` command profile, widened start radius from `192` to `320` qu.
+
+Measured repair result:
+
+- The lab produced a non-empty MVD and full parser/movement/command artifacts.
+- QWD active samples: `627`.
+- Max active seconds: `16.591`.
+- Max advanced control points inside the parsed MVD window: `4`.
+- `qwd_activation_mvd_overlap`, `control_point_advancement`, diagnostic preservation, command profile, and route-dirty guardrails all pass.
+- The result is still rejected by `waypoint_only_slow_success`: `/ bro` advances `4` points but has low-speed ratio `0.429` and stationary ratio `0.253`, above the configured `0.40` / `0.25` guardrails.
+
+Interpretation: the evidence-window/setup blocker is repaired, but the movement is still not accepted as learned SNG. The next step should diagnose why `/ bro` can reach the first four points only with slow/stationary behavior before widening control, changing projection, or applying the method to other DM3 QWD moves.
+
 ## Available or expected signals
 
 From `mvd_analyzer`, `qw-sim`, and related parsers, Komodobots expects to work with:

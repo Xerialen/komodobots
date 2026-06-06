@@ -1875,3 +1875,55 @@ The next stage should be a setup repair, not a broader controller attempt. It ma
 ### Revisit Conditions
 
 Revisit controller projection or expansion to other QWD moves only after a follow-up SNG run activates inside the MVD movement window and advances at least `4` control points while preserving route, water, cadence, and slow/dirty guardrails.
+
+---
+
+## Decision
+
+Treat QWD SNG setup as repaired, but reject learned-SNG claims until slow-success is diagnosed.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+Continue the QWD-to-Frogbot path for one narrower diagnosis step, but do not expand to the remaining DM3 QWD moves yet. Run `20260606T231007Z` proves the mode-9 SNG setup can activate and advance `4` control points inside the parsed MVD window, but the run is rejected because the advancing bot crossed the slow/stationary guardrails.
+
+The next stage should diagnose slow-success attribution before another controller change. Specifically, inspect whether `/ bro`'s control-point advancement is limited by controller projection, route/map context, or the widened `320` qu start radius.
+
+### Alternatives Considered
+
+- Declare success because the run reached `4` control points inside the MVD window.
+- Expand immediately to all other DM3 QWD moves.
+- Revert to timing/start-context repair despite the fixed overlap.
+- Change controller projection or command strength before explaining the slow/stationary guardrail failure.
+- Abandon KTX/Frogbots despite the setup repair milestone.
+
+### Evidence
+
+Setup-repair run `20260606T231007Z`:
+
+- QWD active samples: `627`.
+- Max active seconds: `16.591`.
+- Max advanced control points: `4`.
+- Max advanced control points inside MVD: `4`.
+- `qwd_activation_mvd_overlap`: pass.
+- Diagnostic preservation: pass.
+- QWD command profile: pass.
+- Route-dirty success guardrail: pass.
+- `waypoint_only_slow_success`: reject.
+- `/ bro` low-speed ratio: `0.429`; stationary ratio: `0.253`.
+
+Artifacts:
+
+- `experiments/qwd_route_probe/evidence/qwd-sng-setup-repair-result-dm3.*`
+- `experiments/qwd_route_probe/evidence/qwd-sng-setup-repair-diagnosis-dm3.*`
+
+### Expected Consequences
+
+The next PR should not claim movement realism or route learning. It should produce attribution evidence for the slow-success rejection, ideally from existing artifacts first. If that diagnosis shows the widened start radius or route context is responsible, tighten setup before controller changes. If it shows command projection is the issue under clean context, design the smallest projection repair.
+
+### Revisit Conditions
+
+Revisit expansion to the remaining DM3 QWD moves only after SNG advancement passes both in-window control-point advancement and slow/stationary guardrails. Revisit abandoning Frogbots if repeated QWD-derived probes can only reach points through slow/stuck behavior or require invasive route/map rewrites that undermine the KTX/Frogbots substrate hypothesis.

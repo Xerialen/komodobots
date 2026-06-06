@@ -56,7 +56,7 @@ def round_value(value: object, digits: int = 3) -> float | None:
 def safe_time_ms(event: dict[str, object], data: dict[str, object]) -> int | None:
     try:
         return coerce_time_ms(event, data)
-    except (TypeError, ValueError):
+    except (KeyError, TypeError, ValueError):
         return None
 
 
@@ -284,6 +284,90 @@ def classify_player(
     return "not_enough_qwd_activation_evidence"
 
 
+def configured_radius(
+    *,
+    run_env: dict[str, str],
+    suggested_cvars: dict[str, object],
+    env_key: str,
+    cvar_key: str,
+    fallback: float,
+) -> float:
+    return (
+        optional_float(run_env.get(env_key))
+        or optional_float(suggested_cvars.get(cvar_key))
+        or fallback
+    )
+
+
+def failed_stop_condition_ids(result: dict[str, object]) -> list[str]:
+    decision = dict_or_empty(result.get("decision"))
+    failed = decision.get("failed_stop_conditions")
+    if isinstance(failed, list):
+        return [str(item) for item in failed if item]
+
+    ids: list[str] = []
+    for row in result.get("stop_condition_results", []) if isinstance(result.get("stop_condition_results"), list) else []:
+        if isinstance(row, dict) and row.get("status") == "reject" and row.get("id"):
+            ids.append(str(row["id"]))
+    return ids
+
+
+def build_decision(
+    *,
+    result: dict[str, object],
+    active_outside_players: list[object],
+    missed_start_players: list[object],
+) -> dict[str, str]:
+    result_decision = dict_or_empty(result.get("decision"))
+    result_verdict = str(result_decision.get("verdict") or "")
+    failed = failed_stop_condition_ids(result)
+
+    if active_outside_players or missed_start_players:
+        return {
+            "verdict": "qwd_sng_repair_needs_timing_and_start_context",
+            "reason": (
+                "The SNG run is still useful, but activation/advancement evidence is not yet cleanly aligned "
+                "with the parsed MVD movement window or the configured start context."
+            ),
+            "next_goal": (
+                "Repair mode-9 setup so QWD activation overlaps recorded MVD movement evidence; then decide "
+                "whether the control-point radius, start context, or projection policy needs the smallest change."
+            ),
+        }
+
+    if result_verdict == "qwd_sng_hybrid_probe_rejected_by_guardrails":
+        return {
+            "verdict": "qwd_sng_setup_repaired_but_rejected_by_guardrails",
+            "reason": (
+                "QWD activation and control-point advancement now overlap the parsed MVD movement window, "
+                f"but guardrails rejected the run: {', '.join(failed) if failed else 'unspecified guardrail'}."
+            ),
+            "next_goal": (
+                "Diagnose whether the remaining failure is controller command policy, route/map context, "
+                "or a too-loose setup radius before widening QWD control or trying other DM3 QWD moves."
+            ),
+        }
+
+    if result_verdict == "qwd_sng_hybrid_probe_inconclusive":
+        return {
+            "verdict": "qwd_sng_needs_control_point_advancement_repair",
+            "reason": (
+                "Timing/start context no longer appears to be the primary blocker, but the run still did not "
+                "produce enough guarded SNG advancement for a positive claim."
+            ),
+            "next_goal": (
+                "Diagnose command projection and control-point progression before changing controller policy "
+                "or expanding to additional DM3 QWD moves."
+            ),
+        }
+
+    return {
+        "verdict": "qwd_sng_probe_ready_for_review",
+        "reason": "The scorer did not report timing/start-context blockers or rejected guardrails.",
+        "next_goal": "Ask Claude/Code Sentinel to review whether the evidence justifies the next QWD-derived movement step.",
+    }
+
+
 def build_diagnosis(
     *,
     design_path: Path,
@@ -311,10 +395,22 @@ def build_diagnosis(
 
     contract = dict_or_empty(design.get("probe_contract"))
     suggested_cvars = dict_or_empty(contract.get("suggested_cvars"))
-    start_radius = optional_float(suggested_cvars.get("k_fb_moveprobe_qwd_start_radius")) or 192.0
-    point_radius = optional_float(suggested_cvars.get("k_fb_moveprobe_qwd_point_radius")) or 96.0
     timing = load_run_timing(run_dir)
     run_env = load_run_env(run_dir)
+    start_radius = configured_radius(
+        run_env=run_env,
+        suggested_cvars=suggested_cvars,
+        env_key="MOVEPROBE_QWD_START_RADIUS",
+        cvar_key="k_fb_moveprobe_qwd_start_radius",
+        fallback=192.0,
+    )
+    point_radius = configured_radius(
+        run_env=run_env,
+        suggested_cvars=suggested_cvars,
+        env_key="MOVEPROBE_QWD_POINT_RADIUS",
+        cvar_key="k_fb_moveprobe_qwd_point_radius",
+        fallback=96.0,
+    )
     players, samples_by_slot = load_position_samples(run_dir)
     by_ed, by_name = group_commands(commands)
 
@@ -370,18 +466,21 @@ def build_diagnosis(
         interpretation.append(
             "At least one bot never reached the configured start radius during the MVD window, pointing at spawn/context setup before controller-policy expansion."
         )
+    if not active_outside_players and not missed_start_players:
+        interpretation.append(
+            "QWD activation now overlaps the parsed MVD movement window, so the remaining blocker is no longer the timing/start-context evidence gate."
+        )
+    failed = failed_stop_condition_ids(result)
+    if failed:
+        interpretation.append(
+            "The scorer still rejects the run on guardrails: " + ", ".join(failed) + "."
+        )
 
-    decision = {
-        "verdict": "qwd_sng_repair_needs_timing_and_start_context",
-        "reason": (
-            "The first SNG run is still useful, but its activation/advancement evidence is not aligned with the parsed "
-            "MVD movement window and one bot missed the start radius entirely."
-        ),
-        "next_goal": (
-            "Before rerunning live KTX, repair mode-9 setup so QWD activation overlaps recorded MVD movement evidence; "
-            "then decide whether the control-point radius, start context, or projection policy needs the smallest change."
-        ),
-    }
+    decision = build_decision(
+        result=result,
+        active_outside_players=active_outside_players,
+        missed_start_players=missed_start_players,
+    )
 
     return {
         "schema": SCHEMA,

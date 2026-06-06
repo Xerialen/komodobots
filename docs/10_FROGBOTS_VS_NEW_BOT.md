@@ -123,3 +123,18 @@ Run `20260606T221429Z` on `dm3`:
 - slow/stuck and route-dirty success guardrails did not reject the run
 
 Decision status: keep Frogbots alive for one narrower SNG repair step, but do not expand to all DM3 QWD moves yet. The current blocker is not that KTX/Frogbots cannot accept QWD-derived control; it is that the first activation/control-point advancement setup did not execute enough of the shortcut under guardrails.
+
+Setup repair result:
+
+Run `20260606T231007Z` widened only the mode-9 QWD start radius from `192` to `320` qu while preserving the same control points, point radius, and `forwardmove=320` / `sidemove=508` command profile.
+
+- QWD active samples: `627`
+- max active seconds: `16.591`
+- max advanced control points inside MVD: `4`
+- diagnostics preserved
+- route-dirty success guardrail passed
+- rejected by `waypoint_only_slow_success`
+- `/ bro` low-speed ratio: `0.429`
+- `/ bro` stationary ratio: `0.253`
+
+Decision status: the setup/timing blocker is repaired, which strengthens the case that KTX/Frogbots can act as a server-native shell for QWD-derived control. It is still not proof that Frogbots learned SNG. The current blocker is slow/stationary traversal while hitting the first four control points. Do not expand to all DM3 QWD moves until that slow-success rejection is diagnosed and a follow-up SNG run passes the guardrails.
