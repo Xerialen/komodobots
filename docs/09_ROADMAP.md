@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S7c - Make repeated axes bot-comparable`
+`S7d - Decide bot-comparable cadence path`
 
 ## Stage Status Table
 
@@ -49,7 +49,7 @@ Current active stage:
 | S4 Human Comparison | First same-map anchor complete | S4c parsed one human `dm3` 4on4 demo and compared it against S3g `dm3`; S3g is not yet human-like on the observed movement ranges |
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
 | S6 Route Primitives | Closed for now | S6f found `276->59` is explicit and reciprocal, but marker `276` lacks static geometry, so no tiny route-data fix is justified from `dm3.bot` alone |
-| S7 Player Specific | Active | S7b broadened exact-player `dm3` references to two demos each for Milton/carapace/yeti; S7c should make cadence/tempo bot-comparable before controller work |
+| S7 Player Specific | Active | S7c made cadence bot-comparable from existing S3g artifacts; S7d should decide whether cadence remains diagnostic, needs broader sampling, or warrants a tiny controller probe |
 
 ## Roadmap Rule
 
@@ -84,4 +84,6 @@ S6f inspected `.bot` edge geometry around `276->59` and marker `59` without anot
 
 S7a seeded exact-player movement signatures from the existing `dm3` reference players. It keeps avg and p95 as generic S3g-vs-human land-speed gaps, marks low-speed and cadence as possible but thin style axes, and triggers the stop condition because the current set is one demo per player.
 
-S7b broadened exact-player `dm3` references for the same targets where available. It selected and parsed one additional manifest-backed demo each for `Milton`, `carapace`, and `yeti`, making a six-row repeated aggregate. Avg and p95 remain stable but generic land-speed gaps. Low-speed and airborne proxy are mixed/overlapping under repeated samples. Jump cadence is the only repeated candidate axis, but it remains reference-only because the committed S3g summaries do not carry cadence. The next branch is S7c: make cadence/tempo bot-comparable before any player-specific movement controller work.
+S7b broadened exact-player `dm3` references for the same targets where available. It selected and parsed one additional manifest-backed demo each for `Milton`, `carapace`, and `yeti`, making a six-row repeated aggregate. Avg and p95 remain stable but generic land-speed gaps. Low-speed and airborne proxy are mixed/overlapping under repeated samples. Jump cadence was the only repeated candidate axis, but it remained reference-only because the committed S3g summaries did not carry cadence.
+
+S7c regenerated the committed S3g summary from existing artifacts so cadence is bot-comparable. The repeated exact-player cadence range is `40.4` to `51.0`/min; S3g `/ bro` is above that range at `91.7`/min, while `/ goldenboy` is within it at `43.3`/min. Cadence is now a bot-comparable repeated candidate axis with mixed bot relation, but avg/p95 remain generic land-speed gaps. The next branch is S7d: decide whether cadence should stay diagnostic, whether S7 needs broader exact-player/bot samples, or whether a tiny controller probe is justified without hiding the high-speed movement deficit.

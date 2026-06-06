@@ -67,7 +67,7 @@ STYLE_FIELDS = (
         "family": "jump_cadence",
         "min_abs_spread": 2.0,
         "min_relative_spread": 0.05,
-        "bot_comparable": False,
+        "bot_comparable": True,
     },
 )
 
@@ -524,6 +524,12 @@ def build_signature_report(
                 "S7c should make the surviving repeated axes bot-comparable and controller-relevant: add bot-side "
                 "cadence/tempo metrics to the S3g summaries, then decide whether low-speed/cadence warrant "
                 "player-style targets or whether more exact-player references are needed."
+            )
+            if repeated_reference_only_axes
+            else (
+                "S7d should decide what to do with the bot-comparable repeated axes: keep cadence as a diagnostic "
+                "target, broaden exact-player/bot samples, or design a tiny controller probe, while keeping the "
+                "generic land-speed gap visible."
             )
         ),
     }

@@ -307,6 +307,21 @@ Result:
 
 Interpretation: S7b removes the single-demo stop condition but still does not justify player-specific movement control. The next useful step is to make cadence/tempo bot-comparable and controller-relevant, while keeping the generic land-speed/bunnyhop deficit visible.
 
+## S7c Bot-Comparable Cadence
+
+S7c did not rerun the lab. It used the cadence values already present in the committed S3g raw movement artifacts, carried `jump_cadence_per_min` through the S3g plausibility summary, compared bot rows against the repeated exact-player aggregate, and regenerated `player-signatures-s7c-dm3.*`.
+
+Result:
+
+- The repeated exact-player `dm3` cadence range is `40.4` to `51.0`/min, with mean `45.2`/min.
+- S3g `/ bro` has cadence `91.7`/min on `dm3`, above the repeated human range.
+- S3g `/ goldenboy` has cadence `43.3`/min on `dm3`, inside the repeated human range.
+- Cadence is now a bot-comparable repeated candidate style axis with mixed bot relation, not a reference-only axis.
+- Avg and p95 remain generic land-speed gaps: reference avg `282.8` to `314.2` versus S3g `190.1` to `248.2`, and reference p95 `505.8` to `535.0` versus S3g `361.0` to `375.3`.
+- Low-speed and airborne proxy are still mixed/overlapping under repeated samples.
+
+Interpretation: S7c completes the narrow handoff from "cadence might matter" to "cadence can be compared against bots." It does not justify a broad player-specific movement controller yet. The next useful step is S7d: decide whether cadence should remain a diagnostic target, whether S7 needs broader exact-player/bot samples, or whether a tiny controller probe is justified while the land-speed gap stays visible.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

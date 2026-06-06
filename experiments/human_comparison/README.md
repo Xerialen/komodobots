@@ -152,5 +152,27 @@ The repeated aggregate still shows the generic land-speed gap:
 
 Repeated-player stability does not promote low-speed or airborne proxy to stable
 style targets yet. Jump cadence is the only repeated candidate axis, but it is
-reference-only until S3g bot summaries carry the same cadence/tempo metrics. The
-next S7 step should make those axes bot-comparable before controller work.
+reference-only at the S7b snapshot. S7c below carries the same cadence/tempo
+metric into the committed S3g bot summary before controller work.
+
+## Current S7c Result
+
+S7c carries existing S3g bot cadence from the raw movement artifacts into the
+committed moveprobe summary and compares it against the repeated exact-player
+aggregate:
+
+```text
+experiments/human_comparison/evidence/human-reference-s7c-bot-comparable-cadence-dm3-aggregate.json
+experiments/human_comparison/evidence/human-reference-s7c-bot-comparable-cadence-dm3-aggregate.md
+experiments/human_comparison/evidence/player-signatures-s7c-dm3.json
+experiments/human_comparison/evidence/player-signatures-s7c-dm3.md
+```
+
+The repeated exact-player cadence range is `40.4-51.0`/min. S3g `/ bro` is above
+that range at `91.7`/min, while `/ goldenboy` is within it at `43.3`/min.
+Cadence is now a bot-comparable repeated candidate axis with mixed bot relation.
+
+This still does not authorize a player-specific movement controller. Avg and p95
+remain generic S3g-vs-human land-speed gaps, so S7d should decide whether
+cadence remains diagnostic, needs broader sampling, or warrants a tiny controller
+probe.

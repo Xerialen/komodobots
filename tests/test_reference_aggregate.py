@@ -69,6 +69,7 @@ class ReferenceAggregateTests(unittest.TestCase):
                                         "stationary_time_ratio": 0.004,
                                         "low_speed_time_ratio": 0.261,
                                         "airborne_proxy_time_ratio": 0.442,
+                                        "jump_cadence_per_min": 91.7,
                                     }
                                 ],
                             }
@@ -93,6 +94,8 @@ class ReferenceAggregateTests(unittest.TestCase):
         bro = aggregate["bot_comparison"][0]
         self.assertEqual(bro["against_reference_range"]["avg_horizontal_speed_qu_per_s"], "below_human_min")
         self.assertEqual(bro["against_reference_range"]["airborne_proxy_time_ratio"], "above_human_max")
+        self.assertEqual(bro["against_reference_range"]["jump_cadence_per_min"], "above_human_max")
+        self.assertEqual(aggregate["bot_rows"][0]["jump_cadence_per_min"], 91.7)
 
     def test_build_aggregate_excludes_missing_reference_metric_from_range(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

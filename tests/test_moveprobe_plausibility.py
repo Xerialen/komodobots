@@ -28,6 +28,7 @@ def write_run(run_dir: Path, stationary_ratio: float) -> None:
                         "stationary_time_ratio": stationary_ratio,
                         "low_speed_time_ratio": 0.1,
                         "airborne_proxy_time_ratio": 0.2,
+                        "jump_cadence_per_min": 42.0,
                     }
                 ]
             }
@@ -71,6 +72,7 @@ def write_duplicate_name_run(run_dir: Path) -> None:
                         "stationary_time_ratio": 0.05,
                         "low_speed_time_ratio": 0.1,
                         "airborne_proxy_time_ratio": 0.2,
+                        "jump_cadence_per_min": 41.0,
                     },
                     {
                         "slot": 2,
@@ -81,6 +83,7 @@ def write_duplicate_name_run(run_dir: Path) -> None:
                         "stationary_time_ratio": 0.04,
                         "low_speed_time_ratio": 0.1,
                         "airborne_proxy_time_ratio": 0.2,
+                        "jump_cadence_per_min": 43.0,
                     },
                 ]
             }
@@ -142,6 +145,7 @@ class MoveprobePlausibilityTests(unittest.TestCase):
         self.assertTrue(summary["players"][0]["passes_gate"])
         self.assertEqual(summary["players"][0]["yaw_unique_count"], 12)
         self.assertEqual(summary["players"][0]["side_nonzero_ratio"], 1.0)
+        self.assertEqual(summary["players"][0]["jump_cadence_per_min"], 42.0)
 
     def test_summarize_run_fails_gate_for_stationary_player(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -272,6 +276,7 @@ class MoveprobePlausibilityTests(unittest.TestCase):
         self.assertEqual(player["max_horizontal_command"], 447.2)
         self.assertIn("Abs delta avg", markdown)
         self.assertIn("MaxMove", markdown)
+        self.assertIn("Cadence/min", markdown)
 
 
 if __name__ == "__main__":

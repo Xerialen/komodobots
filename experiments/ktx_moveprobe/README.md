@@ -209,7 +209,7 @@ The S3g bounded no-backpedal correction uses mode `7` and the same gate:
 python scripts/summarize_moveprobe_plausibility.py 20260606T003718Z 20260606T003808Z --min-forward-ratio 0 --min-horizontal-ratio 0.8 --min-side-ratio 0.8 --output-md artifacts/lab-runs/moveprobe-s3g-summary.md
 ```
 
-S3g interpretation: mode `7` passes both routed maps while keeping sampled horizontal command magnitude near the intended `824.6` cap. This is a better S3 candidate than mode `6`, but the next step should anchor the gate against human-demo movement before more command tuning.
+S3g interpretation: mode `7` passes both routed maps while keeping sampled horizontal command magnitude near the intended `824.6` cap. This is a better S3 candidate than mode `6`, but the next step should anchor the gate against human-demo movement before more command tuning. S7c regenerated the committed S3g summary from these existing artifacts so `jump_cadence_per_min` is available for bot-vs-human cadence comparison.
 
 Committed derived summaries live under `experiments/ktx_moveprobe/evidence/` for S3e, S3f, and S3g. Raw MVDs and full run directories stay ignored under `artifacts/`.
 
@@ -257,7 +257,7 @@ S6f inspects the static `.bot` route-edge geometry and S6 attribution samples wi
 python scripts/inspect_route_edge_geometry.py --stage s6f-route-edge-geometry --edge 276:59 --marker 59 --output-json experiments/ktx_moveprobe/evidence/route-edge-s6f-geometry.json --output-md experiments/ktx_moveprobe/evidence/route-edge-s6f-geometry.md
 ```
 
-S6f result: `276->59` and `59->276` are explicit path-index-0 edges, marker `59` has static origin `[1329.0, -378.0, -24.0]`, but marker `276` has no static `CreateMarker` origin. The committed S6d/S6e attribution evidence contains `30` unique focus-edge samples with `WATER_PATH`, `blocked=0`, and `86.7%` low native `dir_speed`, but no precise static route-coordinate fix is justified from `dm3.bot` alone. S7a/S7b have since moved this branch into exact-player movement signatures and repeated references; the next step is bot-comparable cadence/tempo evidence rather than another water-edge command tweak.
+S6f result: `276->59` and `59->276` are explicit path-index-0 edges, marker `59` has static origin `[1329.0, -378.0, -24.0]`, but marker `276` has no static `CreateMarker` origin. The committed S6d/S6e attribution evidence contains `30` unique focus-edge samples with `WATER_PATH`, `blocked=0`, and `86.7%` low native `dir_speed`, but no precise static route-coordinate fix is justified from `dm3.bot` alone. S7a/S7b moved this branch into exact-player movement signatures and repeated references, and S7c made cadence bot-comparable from existing S3g artifacts. The next step is an S7d cadence/controller-path decision rather than another water-edge command tweak.
 
 ## Rollback
 

@@ -1,0 +1,923 @@
+{
+  "bot_count": 2,
+  "evidence_summary": {
+    "axis_interpretations": [
+      "generic_human_vs_bot_land_speed_gap",
+      "generic_human_vs_bot_land_speed_gap",
+      "generic_human_bot_mismatch",
+      "candidate_player_style_axis_but_thin",
+      "candidate_player_style_axis_but_thin",
+      "candidate_player_style_axis_but_thin"
+    ],
+    "candidate_player_style_axes": [
+      "low_speed_time_ratio",
+      "airborne_proxy_time_ratio",
+      "jump_cadence_per_min"
+    ],
+    "generic_human_bot_axes": [
+      "avg_horizontal_speed_qu_per_s",
+      "p95_horizontal_speed_qu_per_s",
+      "stationary_time_ratio"
+    ],
+    "reference_only_candidate_axes": [],
+    "repeated_candidate_style_axes": [
+      "jump_cadence_per_min"
+    ],
+    "repeated_reference_only_candidate_axes": []
+  },
+  "feature_axes": [
+    {
+      "bot": {
+        "count": 2,
+        "max": 248.179,
+        "mean": 219.164,
+        "min": 190.149,
+        "relative_spread": 0.265,
+        "spread": 58.03
+      },
+      "bot_relation": {
+        "classifications": [
+          "below_reference_min",
+          "below_reference_min"
+        ],
+        "counts": {
+          "below_reference_min": 2
+        },
+        "relation": "all_bots_below_reference_range"
+      },
+      "bot_rows": [
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ bro",
+          "run_id": "20260606T003718Z",
+          "value": 190.149
+        },
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ goldenboy",
+          "run_id": "20260606T003718Z",
+          "value": 248.179
+        }
+      ],
+      "family": "land_speed",
+      "field": "avg_horizontal_speed_qu_per_s",
+      "interpretation": "generic_human_vs_bot_land_speed_gap",
+      "label": "Avg",
+      "player_order": [
+        {
+          "player": "carapace",
+          "range_position": 0.0,
+          "value": 282.769
+        },
+        {
+          "player": "yeti",
+          "range_position": 0.276,
+          "value": 291.468
+        },
+        {
+          "player": "carapace",
+          "range_position": 0.399,
+          "value": 295.323
+        },
+        {
+          "player": "yeti",
+          "range_position": 0.59,
+          "value": 301.323
+        },
+        {
+          "player": "Milton",
+          "range_position": 0.751,
+          "value": 306.388
+        },
+        {
+          "player": "Milton",
+          "range_position": 1.0,
+          "value": 314.236
+        }
+      ],
+      "reason": "Every S3g bot row is below the exact-player reference range, so this is a broad movement deficit first.",
+      "reference": {
+        "count": 6,
+        "max": 314.236,
+        "mean": 298.584,
+        "min": 282.769,
+        "relative_spread": 0.105,
+        "spread": 31.467
+      },
+      "reference_spread_is_meaningful": true
+    },
+    {
+      "bot": {
+        "count": 2,
+        "max": 375.273,
+        "mean": 368.144,
+        "min": 361.014,
+        "relative_spread": 0.039,
+        "spread": 14.259
+      },
+      "bot_relation": {
+        "classifications": [
+          "below_reference_min",
+          "below_reference_min"
+        ],
+        "counts": {
+          "below_reference_min": 2
+        },
+        "relation": "all_bots_below_reference_range"
+      },
+      "bot_rows": [
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ bro",
+          "run_id": "20260606T003718Z",
+          "value": 361.014
+        },
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ goldenboy",
+          "run_id": "20260606T003718Z",
+          "value": 375.273
+        }
+      ],
+      "family": "land_speed",
+      "field": "p95_horizontal_speed_qu_per_s",
+      "interpretation": "generic_human_vs_bot_land_speed_gap",
+      "label": "P95",
+      "player_order": [
+        {
+          "player": "yeti",
+          "range_position": 0.0,
+          "value": 505.786
+        },
+        {
+          "player": "carapace",
+          "range_position": 0.106,
+          "value": 508.889
+        },
+        {
+          "player": "yeti",
+          "range_position": 0.282,
+          "value": 514.041
+        },
+        {
+          "player": "Milton",
+          "range_position": 0.654,
+          "value": 524.898
+        },
+        {
+          "player": "carapace",
+          "range_position": 0.654,
+          "value": 524.898
+        },
+        {
+          "player": "Milton",
+          "range_position": 1.0,
+          "value": 535.023
+        }
+      ],
+      "reason": "Every S3g bot row is below the exact-player reference range, so this is a broad movement deficit first.",
+      "reference": {
+        "count": 6,
+        "max": 535.023,
+        "mean": 518.923,
+        "min": 505.786,
+        "relative_spread": 0.056,
+        "spread": 29.237
+      },
+      "reference_spread_is_meaningful": true
+    },
+    {
+      "bot": {
+        "count": 2,
+        "max": 0.025,
+        "mean": 0.015,
+        "min": 0.004,
+        "relative_spread": 1.448,
+        "spread": 0.021
+      },
+      "bot_relation": {
+        "classifications": [
+          "below_reference_min",
+          "below_reference_min"
+        ],
+        "counts": {
+          "below_reference_min": 2
+        },
+        "relation": "all_bots_below_reference_range"
+      },
+      "bot_rows": [
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ bro",
+          "run_id": "20260606T003718Z",
+          "value": 0.004
+        },
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ goldenboy",
+          "run_id": "20260606T003718Z",
+          "value": 0.025
+        }
+      ],
+      "family": "tempo_control",
+      "field": "stationary_time_ratio",
+      "interpretation": "generic_human_bot_mismatch",
+      "label": "Stationary",
+      "player_order": [
+        {
+          "player": "Milton",
+          "range_position": 0.0,
+          "value": 0.059
+        },
+        {
+          "player": "yeti",
+          "range_position": 0.286,
+          "value": 0.075
+        },
+        {
+          "player": "yeti",
+          "range_position": 0.429,
+          "value": 0.083
+        },
+        {
+          "player": "Milton",
+          "range_position": 0.464,
+          "value": 0.085
+        },
+        {
+          "player": "carapace",
+          "range_position": 0.5,
+          "value": 0.087
+        },
+        {
+          "player": "carapace",
+          "range_position": 1.0,
+          "value": 0.115
+        }
+      ],
+      "reason": "Every S3g bot row is outside the exact-player range in the same direction.",
+      "reference": {
+        "count": 6,
+        "max": 0.115,
+        "mean": 0.084,
+        "min": 0.059,
+        "relative_spread": 0.667,
+        "spread": 0.056
+      },
+      "reference_spread_is_meaningful": true
+    },
+    {
+      "bot": {
+        "count": 2,
+        "max": 0.261,
+        "mean": 0.225,
+        "min": 0.189,
+        "relative_spread": 0.32,
+        "spread": 0.072
+      },
+      "bot_relation": {
+        "classifications": [
+          "above_reference_max",
+          "within_reference_range"
+        ],
+        "counts": {
+          "above_reference_max": 1,
+          "within_reference_range": 1
+        },
+        "relation": "mixed_bot_relation"
+      },
+      "bot_rows": [
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T003718Z",
+          "value": 0.261
+        },
+        {
+          "against_reference": "within_reference_range",
+          "player": "/ goldenboy",
+          "run_id": "20260606T003718Z",
+          "value": 0.189
+        }
+      ],
+      "family": "tempo_control",
+      "field": "low_speed_time_ratio",
+      "interpretation": "candidate_player_style_axis_but_thin",
+      "label": "Low",
+      "player_order": [
+        {
+          "player": "Milton",
+          "range_position": 0.0,
+          "value": 0.124
+        },
+        {
+          "player": "yeti",
+          "range_position": 0.417,
+          "value": 0.154
+        },
+        {
+          "player": "Milton",
+          "range_position": 0.444,
+          "value": 0.156
+        },
+        {
+          "player": "yeti",
+          "range_position": 0.611,
+          "value": 0.168
+        },
+        {
+          "player": "carapace",
+          "range_position": 0.653,
+          "value": 0.171
+        },
+        {
+          "player": "carapace",
+          "range_position": 1.0,
+          "value": 0.196
+        }
+      ],
+      "reason": "The exact-player rows differ and the bots are not uniformly outside the range, but one demo per player is too thin for a style claim.",
+      "reference": {
+        "count": 6,
+        "max": 0.196,
+        "mean": 0.162,
+        "min": 0.124,
+        "relative_spread": 0.446,
+        "spread": 0.072
+      },
+      "reference_spread_is_meaningful": true
+    },
+    {
+      "bot": {
+        "count": 2,
+        "max": 0.442,
+        "mean": 0.345,
+        "min": 0.248,
+        "relative_spread": 0.562,
+        "spread": 0.194
+      },
+      "bot_relation": {
+        "classifications": [
+          "above_reference_max",
+          "below_reference_min"
+        ],
+        "counts": {
+          "above_reference_max": 1,
+          "below_reference_min": 1
+        },
+        "relation": "mixed_bot_relation"
+      },
+      "bot_rows": [
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T003718Z",
+          "value": 0.442
+        },
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ goldenboy",
+          "run_id": "20260606T003718Z",
+          "value": 0.248
+        }
+      ],
+      "family": "air_proxy",
+      "field": "airborne_proxy_time_ratio",
+      "interpretation": "candidate_player_style_axis_but_thin",
+      "label": "Air",
+      "player_order": [
+        {
+          "player": "carapace",
+          "range_position": 0.0,
+          "value": 0.282
+        },
+        {
+          "player": "Milton",
+          "range_position": 0.333,
+          "value": 0.308
+        },
+        {
+          "player": "carapace",
+          "range_position": 0.769,
+          "value": 0.342
+        },
+        {
+          "player": "Milton",
+          "range_position": 0.885,
+          "value": 0.351
+        },
+        {
+          "player": "yeti",
+          "range_position": 0.987,
+          "value": 0.359
+        },
+        {
+          "player": "yeti",
+          "range_position": 1.0,
+          "value": 0.36
+        }
+      ],
+      "reason": "The exact-player rows differ and the bots are not uniformly outside the range, but one demo per player is too thin for a style claim.",
+      "reference": {
+        "count": 6,
+        "max": 0.36,
+        "mean": 0.334,
+        "min": 0.282,
+        "relative_spread": 0.234,
+        "spread": 0.078
+      },
+      "reference_spread_is_meaningful": true
+    },
+    {
+      "bot": {
+        "count": 2,
+        "max": 91.74,
+        "mean": 67.501,
+        "min": 43.261,
+        "relative_spread": 0.718,
+        "spread": 48.479
+      },
+      "bot_relation": {
+        "classifications": [
+          "above_reference_max",
+          "within_reference_range"
+        ],
+        "counts": {
+          "above_reference_max": 1,
+          "within_reference_range": 1
+        },
+        "relation": "mixed_bot_relation"
+      },
+      "bot_rows": [
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T003718Z",
+          "value": 91.74
+        },
+        {
+          "against_reference": "within_reference_range",
+          "player": "/ goldenboy",
+          "run_id": "20260606T003718Z",
+          "value": 43.261
+        }
+      ],
+      "family": "jump_cadence",
+      "field": "jump_cadence_per_min",
+      "interpretation": "candidate_player_style_axis_but_thin",
+      "label": "Cadence/min",
+      "player_order": [
+        {
+          "player": "carapace",
+          "range_position": 0.0,
+          "value": 40.368
+        },
+        {
+          "player": "Milton",
+          "range_position": 0.156,
+          "value": 42.026
+        },
+        {
+          "player": "carapace",
+          "range_position": 0.347,
+          "value": 44.048
+        },
+        {
+          "player": "Milton",
+          "range_position": 0.429,
+          "value": 44.922
+        },
+        {
+          "player": "yeti",
+          "range_position": 0.774,
+          "value": 48.576
+        },
+        {
+          "player": "yeti",
+          "range_position": 1.0,
+          "value": 50.975
+        }
+      ],
+      "reason": "The exact-player rows differ and the bots are not uniformly outside the range, but one demo per player is too thin for a style claim.",
+      "reference": {
+        "count": 6,
+        "max": 50.975,
+        "mean": 45.153,
+        "min": 40.368,
+        "relative_spread": 0.235,
+        "spread": 10.607
+      },
+      "reference_spread_is_meaningful": true
+    }
+  ],
+  "headline_gaps": [
+    {
+      "bot_max": 248.179,
+      "bot_min": 190.149,
+      "field": "avg_horizontal_speed_qu_per_s",
+      "gap_from_best_bot_to_reference_min": 34.59,
+      "label": "Avg",
+      "reference_max": 314.236,
+      "reference_min": 282.769
+    },
+    {
+      "bot_max": 375.273,
+      "bot_min": 361.014,
+      "field": "p95_horizontal_speed_qu_per_s",
+      "gap_from_best_bot_to_reference_min": 130.513,
+      "label": "P95",
+      "reference_max": 535.023,
+      "reference_min": 505.786
+    }
+  ],
+  "map": "dm3",
+  "next_goal": "S7d should decide what to do with the bot-comparable repeated axes: keep cadence as a diagnostic target, broaden exact-player/bot samples, or design a tiny controller probe, while keeping the generic land-speed gap visible.",
+  "notes": [
+    "S7a is a measurement scaffold, not a player-specific movement controller.",
+    "Features marked as candidate axes are descriptive single-demo signals, not stable style claims.",
+    "Land-speed gaps stay visible so player-specific work does not hide the unresolved bunnyhop/high-speed deficit."
+  ],
+  "player_signatures": [
+    {
+      "demo": "4on4_blue_vs_anza[dm3]20260602-2022.mvd",
+      "player": "Milton",
+      "run_id": "s5a-milton-dm3-blue-vs-anza-20260602-2022",
+      "target_player": "Milton",
+      "values": {
+        "airborne_proxy_time_ratio": 0.351,
+        "avg_horizontal_speed_qu_per_s": 314.236,
+        "jump_cadence_per_min": 44.922,
+        "low_speed_time_ratio": 0.124,
+        "p95_horizontal_speed_qu_per_s": 535.023,
+        "stationary_time_ratio": 0.059
+      },
+      "within_reference_range_position": {
+        "airborne_proxy_time_ratio": 0.885,
+        "avg_horizontal_speed_qu_per_s": 1.0,
+        "jump_cadence_per_min": 0.429,
+        "low_speed_time_ratio": 0.0,
+        "p95_horizontal_speed_qu_per_s": 1.0,
+        "stationary_time_ratio": 0.0
+      }
+    },
+    {
+      "demo": "4on4_blue_vs_red[dm3]20260601-1914.mvd",
+      "player": "Milton",
+      "run_id": "s7b-milton-dm3-blue-vs-red-20260601-1914",
+      "target_player": "Milton",
+      "values": {
+        "airborne_proxy_time_ratio": 0.308,
+        "avg_horizontal_speed_qu_per_s": 306.388,
+        "jump_cadence_per_min": 42.026,
+        "low_speed_time_ratio": 0.156,
+        "p95_horizontal_speed_qu_per_s": 524.898,
+        "stationary_time_ratio": 0.085
+      },
+      "within_reference_range_position": {
+        "airborne_proxy_time_ratio": 0.333,
+        "avg_horizontal_speed_qu_per_s": 0.751,
+        "jump_cadence_per_min": 0.156,
+        "low_speed_time_ratio": 0.444,
+        "p95_horizontal_speed_qu_per_s": 0.654,
+        "stationary_time_ratio": 0.464
+      }
+    },
+    {
+      "demo": "4on4_book_vs_-s-[dm3]20260526-2011.mvd",
+      "player": "carapace",
+      "run_id": "s5b-carapace-dm3-book-vs-s-20260526-2011",
+      "target_player": "carapace",
+      "values": {
+        "airborne_proxy_time_ratio": 0.342,
+        "avg_horizontal_speed_qu_per_s": 282.769,
+        "jump_cadence_per_min": 44.048,
+        "low_speed_time_ratio": 0.196,
+        "p95_horizontal_speed_qu_per_s": 524.898,
+        "stationary_time_ratio": 0.115
+      },
+      "within_reference_range_position": {
+        "airborne_proxy_time_ratio": 0.769,
+        "avg_horizontal_speed_qu_per_s": 0.0,
+        "jump_cadence_per_min": 0.347,
+        "low_speed_time_ratio": 1.0,
+        "p95_horizontal_speed_qu_per_s": 0.654,
+        "stationary_time_ratio": 1.0
+      }
+    },
+    {
+      "demo": "4on4_-s-_vs_]sr[[dm3]20260520-2032.mvd",
+      "player": "carapace",
+      "run_id": "s7b-carapace-dm3-s-vs-sr-20260520-2032",
+      "target_player": "carapace",
+      "values": {
+        "airborne_proxy_time_ratio": 0.282,
+        "avg_horizontal_speed_qu_per_s": 295.323,
+        "jump_cadence_per_min": 40.368,
+        "low_speed_time_ratio": 0.171,
+        "p95_horizontal_speed_qu_per_s": 508.889,
+        "stationary_time_ratio": 0.087
+      },
+      "within_reference_range_position": {
+        "airborne_proxy_time_ratio": 0.0,
+        "avg_horizontal_speed_qu_per_s": 0.399,
+        "jump_cadence_per_min": 0.0,
+        "low_speed_time_ratio": 0.653,
+        "p95_horizontal_speed_qu_per_s": 0.106,
+        "stationary_time_ratio": 0.5
+      }
+    },
+    {
+      "demo": "4on4_red_vs_blue[dm3]20260530-0322.mvd",
+      "player": "yeti",
+      "run_id": "s5b-yeti-dm3-red-vs-blue-20260530-0322",
+      "target_player": "yeti",
+      "values": {
+        "airborne_proxy_time_ratio": 0.359,
+        "avg_horizontal_speed_qu_per_s": 291.468,
+        "jump_cadence_per_min": 48.576,
+        "low_speed_time_ratio": 0.154,
+        "p95_horizontal_speed_qu_per_s": 505.786,
+        "stationary_time_ratio": 0.075
+      },
+      "within_reference_range_position": {
+        "airborne_proxy_time_ratio": 0.987,
+        "avg_horizontal_speed_qu_per_s": 0.276,
+        "jump_cadence_per_min": 0.774,
+        "low_speed_time_ratio": 0.417,
+        "p95_horizontal_speed_qu_per_s": 0.0,
+        "stationary_time_ratio": 0.286
+      }
+    },
+    {
+      "demo": "4on4_red_vs_blue[dm3]20260528-2109.mvd",
+      "player": "yeti",
+      "run_id": "s7b-yeti-dm3-red-vs-blue-20260528-2109",
+      "target_player": "yeti",
+      "values": {
+        "airborne_proxy_time_ratio": 0.36,
+        "avg_horizontal_speed_qu_per_s": 301.323,
+        "jump_cadence_per_min": 50.975,
+        "low_speed_time_ratio": 0.168,
+        "p95_horizontal_speed_qu_per_s": 514.041,
+        "stationary_time_ratio": 0.083
+      },
+      "within_reference_range_position": {
+        "airborne_proxy_time_ratio": 1.0,
+        "avg_horizontal_speed_qu_per_s": 0.59,
+        "jump_cadence_per_min": 1.0,
+        "low_speed_time_ratio": 0.611,
+        "p95_horizontal_speed_qu_per_s": 0.282,
+        "stationary_time_ratio": 0.429
+      }
+    }
+  ],
+  "reference_count": 6,
+  "schema": "komodobots.player_movement_signatures.v1",
+  "source_aggregate_path": "experiments/human_comparison/evidence/human-reference-s7c-bot-comparable-cadence-dm3-aggregate.json",
+  "source_aggregate_stage": "s7c-bot-comparable-cadence-dm3",
+  "stability_axes": [
+    {
+      "between_player_mean_spread": 21.266,
+      "bot_comparable": true,
+      "family": "land_speed",
+      "feature_axis_interpretation": "generic_human_vs_bot_land_speed_gap",
+      "field": "avg_horizontal_speed_qu_per_s",
+      "label": "Avg",
+      "max_within_player_spread": 12.554,
+      "mean_within_player_spread": 10.086,
+      "min_player_row_count": 2,
+      "per_player": [
+        {
+          "count": 2,
+          "max": 314.236,
+          "mean": 310.312,
+          "min": 306.388,
+          "player": "Milton",
+          "within_player_spread": 7.848
+        },
+        {
+          "count": 2,
+          "max": 295.323,
+          "mean": 289.046,
+          "min": 282.769,
+          "player": "carapace",
+          "within_player_spread": 12.554
+        },
+        {
+          "count": 2,
+          "max": 301.323,
+          "mean": 296.395,
+          "min": 291.468,
+          "player": "yeti",
+          "within_player_spread": 9.855
+        }
+      ],
+      "repeated_player_count": 3,
+      "separation_ratio": 1.694,
+      "stability_interpretation": "stable_but_generic_land_speed_gap"
+    },
+    {
+      "between_player_mean_spread": 20.048,
+      "bot_comparable": true,
+      "family": "land_speed",
+      "feature_axis_interpretation": "generic_human_vs_bot_land_speed_gap",
+      "field": "p95_horizontal_speed_qu_per_s",
+      "label": "P95",
+      "max_within_player_spread": 16.009,
+      "mean_within_player_spread": 11.463,
+      "min_player_row_count": 2,
+      "per_player": [
+        {
+          "count": 2,
+          "max": 535.023,
+          "mean": 529.961,
+          "min": 524.898,
+          "player": "Milton",
+          "within_player_spread": 10.125
+        },
+        {
+          "count": 2,
+          "max": 524.898,
+          "mean": 516.894,
+          "min": 508.889,
+          "player": "carapace",
+          "within_player_spread": 16.009
+        },
+        {
+          "count": 2,
+          "max": 514.041,
+          "mean": 509.913,
+          "min": 505.786,
+          "player": "yeti",
+          "within_player_spread": 8.255
+        }
+      ],
+      "repeated_player_count": 3,
+      "separation_ratio": 1.252,
+      "stability_interpretation": "stable_but_generic_land_speed_gap"
+    },
+    {
+      "between_player_mean_spread": 0.029,
+      "bot_comparable": true,
+      "family": "tempo_control",
+      "feature_axis_interpretation": "generic_human_bot_mismatch",
+      "field": "stationary_time_ratio",
+      "label": "Stationary",
+      "max_within_player_spread": 0.028,
+      "mean_within_player_spread": 0.021,
+      "min_player_row_count": 2,
+      "per_player": [
+        {
+          "count": 2,
+          "max": 0.085,
+          "mean": 0.072,
+          "min": 0.059,
+          "player": "Milton",
+          "within_player_spread": 0.026
+        },
+        {
+          "count": 2,
+          "max": 0.115,
+          "mean": 0.101,
+          "min": 0.087,
+          "player": "carapace",
+          "within_player_spread": 0.028
+        },
+        {
+          "count": 2,
+          "max": 0.083,
+          "mean": 0.079,
+          "min": 0.075,
+          "player": "yeti",
+          "within_player_spread": 0.008
+        }
+      ],
+      "repeated_player_count": 3,
+      "separation_ratio": 1.036,
+      "stability_interpretation": "mixed_or_overlap_repeated_axis"
+    },
+    {
+      "between_player_mean_spread": 0.043,
+      "bot_comparable": true,
+      "family": "tempo_control",
+      "feature_axis_interpretation": "candidate_player_style_axis_but_thin",
+      "field": "low_speed_time_ratio",
+      "label": "Low",
+      "max_within_player_spread": 0.032,
+      "mean_within_player_spread": 0.024,
+      "min_player_row_count": 2,
+      "per_player": [
+        {
+          "count": 2,
+          "max": 0.156,
+          "mean": 0.14,
+          "min": 0.124,
+          "player": "Milton",
+          "within_player_spread": 0.032
+        },
+        {
+          "count": 2,
+          "max": 0.196,
+          "mean": 0.183,
+          "min": 0.171,
+          "player": "carapace",
+          "within_player_spread": 0.025
+        },
+        {
+          "count": 2,
+          "max": 0.168,
+          "mean": 0.161,
+          "min": 0.154,
+          "player": "yeti",
+          "within_player_spread": 0.014
+        }
+      ],
+      "repeated_player_count": 3,
+      "separation_ratio": 1.344,
+      "stability_interpretation": "mixed_or_overlap_repeated_axis"
+    },
+    {
+      "between_player_mean_spread": 0.047,
+      "bot_comparable": true,
+      "family": "air_proxy",
+      "feature_axis_interpretation": "candidate_player_style_axis_but_thin",
+      "field": "airborne_proxy_time_ratio",
+      "label": "Air",
+      "max_within_player_spread": 0.06,
+      "mean_within_player_spread": 0.035,
+      "min_player_row_count": 2,
+      "per_player": [
+        {
+          "count": 2,
+          "max": 0.351,
+          "mean": 0.33,
+          "min": 0.308,
+          "player": "Milton",
+          "within_player_spread": 0.043
+        },
+        {
+          "count": 2,
+          "max": 0.342,
+          "mean": 0.312,
+          "min": 0.282,
+          "player": "carapace",
+          "within_player_spread": 0.06
+        },
+        {
+          "count": 2,
+          "max": 0.36,
+          "mean": 0.359,
+          "min": 0.359,
+          "player": "yeti",
+          "within_player_spread": 0.001
+        }
+      ],
+      "repeated_player_count": 3,
+      "separation_ratio": 0.783,
+      "stability_interpretation": "mixed_or_overlap_repeated_axis"
+    },
+    {
+      "between_player_mean_spread": 7.568,
+      "bot_comparable": true,
+      "family": "jump_cadence",
+      "feature_axis_interpretation": "candidate_player_style_axis_but_thin",
+      "field": "jump_cadence_per_min",
+      "label": "Cadence/min",
+      "max_within_player_spread": 3.68,
+      "mean_within_player_spread": 2.992,
+      "min_player_row_count": 2,
+      "per_player": [
+        {
+          "count": 2,
+          "max": 44.922,
+          "mean": 43.474,
+          "min": 42.026,
+          "player": "Milton",
+          "within_player_spread": 2.896
+        },
+        {
+          "count": 2,
+          "max": 44.048,
+          "mean": 42.208,
+          "min": 40.368,
+          "player": "carapace",
+          "within_player_spread": 3.68
+        },
+        {
+          "count": 2,
+          "max": 50.975,
+          "mean": 49.776,
+          "min": 48.576,
+          "player": "yeti",
+          "within_player_spread": 2.399
+        }
+      ],
+      "repeated_player_count": 3,
+      "separation_ratio": 2.057,
+      "stability_interpretation": "repeated_candidate_style_axis"
+    }
+  ],
+  "stage": "s7c-player-signatures-dm3",
+  "stop_condition_reason": "Reference set has enough repeated rows to start checking player-style stability.",
+  "stop_condition_triggered": false
+}

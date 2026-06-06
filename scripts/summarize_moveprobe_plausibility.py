@@ -224,6 +224,7 @@ def summarize_player(
         "stationary_time_ratio": movement_row.get("stationary_time_ratio", 0.0),
         "low_speed_time_ratio": movement_row.get("low_speed_time_ratio", 0.0),
         "airborne_proxy_time_ratio": movement_row.get("airborne_proxy_time_ratio", 0.0),
+        "jump_cadence_per_min": movement_row.get("jump_cadence_per_min", 0.0),
         "passes_gate": not reasons,
         "failure_reasons": reasons,
     }
@@ -311,8 +312,8 @@ def build_markdown(summary: dict[str, object]) -> str:
         "Expected forward defaults to each run's `MOVEPROBE_FORWARDMOVE`, falling back to `800`.",
         "For aim-independent probes with variable local forward values, set `--min-forward-ratio 0` and use `--min-horizontal-ratio` instead.",
         "",
-        "| Run | Map | Mode | Player | Gate | Cmds | Forward | Move | Side | Back | Jump | Yaws | MaxF | MaxS | MaxMove | Abs delta avg | Abs delta p90 | >90 | Avg | P95 | Stationary | Low | Air | Reasons |",
-        "|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
+        "| Run | Map | Mode | Player | Gate | Cmds | Forward | Move | Side | Back | Jump | Yaws | MaxF | MaxS | MaxMove | Abs delta avg | Abs delta p90 | >90 | Avg | P95 | Stationary | Low | Air | Cadence/min | Reasons |",
+        "|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
     ]
     for run in summary.get("runs", []):
         for warning in run.get("warnings", []):
@@ -339,7 +340,8 @@ def build_markdown(summary: dict[str, object]) -> str:
                 f"`{fmt_number(player.get('p95_horizontal_speed_qu_per_s'))}` | "
                 f"{fmt_percent(player.get('stationary_time_ratio'))} | "
                 f"{fmt_percent(player.get('low_speed_time_ratio'))} | "
-                f"{fmt_percent(player.get('airborne_proxy_time_ratio'))} | {reasons} |"
+                f"{fmt_percent(player.get('airborne_proxy_time_ratio'))} | "
+                f"`{fmt_number(player.get('jump_cadence_per_min'))}` | {reasons} |"
             )
     lines.append("")
     return "\n".join(lines)

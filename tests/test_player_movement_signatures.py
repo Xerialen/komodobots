@@ -62,6 +62,7 @@ def sample_aggregate() -> dict[str, object]:
                 "stationary_time_ratio": 0.004,
                 "low_speed_time_ratio": 0.26,
                 "airborne_proxy_time_ratio": 0.44,
+                "jump_cadence_per_min": 92.0,
             },
             {
                 "run_id": "bot",
@@ -71,6 +72,7 @@ def sample_aggregate() -> dict[str, object]:
                 "stationary_time_ratio": 0.025,
                 "low_speed_time_ratio": 0.19,
                 "airborne_proxy_time_ratio": 0.25,
+                "jump_cadence_per_min": 43.0,
             },
         ],
     }
@@ -195,13 +197,13 @@ class PlayerMovementSignatureTests(unittest.TestCase):
         player = next(row for row in report["player_signatures"] if row["player"] == "yeti")
         self.assertIsNone(player["values"]["p95_horizontal_speed_qu_per_s"])
 
-    def test_reference_only_cadence_axis_is_not_compared_to_bots(self) -> None:
+    def test_cadence_axis_is_compared_to_bots(self) -> None:
         report = signatures.build_signature_report(sample_aggregate(), stage="s7a-test")
         cadence_axis = next(axis for axis in report["feature_axes"] if axis["field"] == "jump_cadence_per_min")
 
-        self.assertEqual(cadence_axis["interpretation"], "reference_only_candidate_style_axis")
-        self.assertIsNone(cadence_axis["bot"])
-        self.assertNotIn("bot_rows", cadence_axis)
+        self.assertEqual(cadence_axis["interpretation"], "candidate_player_style_axis_but_thin")
+        self.assertEqual(cadence_axis["bot_relation"]["relation"], "mixed_bot_relation")
+        self.assertIn("bot_rows", cadence_axis)
 
     def test_repeated_rows_add_stability_axes(self) -> None:
         report = signatures.build_signature_report(sample_repeated_aggregate(), stage="s7b-test")
@@ -215,9 +217,10 @@ class PlayerMovementSignatureTests(unittest.TestCase):
         self.assertIn("low_speed_time_ratio", report["evidence_summary"]["repeated_candidate_style_axes"])
         self.assertEqual(
             stability["jump_cadence_per_min"]["stability_interpretation"],
-            "repeated_reference_only_candidate_axis",
+            "repeated_candidate_style_axis",
         )
-        self.assertIn("S7c", report["next_goal"])
+        self.assertIn("jump_cadence_per_min", report["evidence_summary"]["repeated_candidate_style_axes"])
+        self.assertIn("S7d", report["next_goal"])
 
     def test_repeated_land_speed_stays_generic_gap(self) -> None:
         report = signatures.build_signature_report(sample_repeated_aggregate(), stage="s7b-test")
