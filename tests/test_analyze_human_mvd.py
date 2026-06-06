@@ -62,6 +62,22 @@ class HumanMvdAnalysisTests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 analyze_human_mvd.parse_args(["--run-id", "../../escape"])
 
+    def test_load_json_if_present_hardens_bad_json(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            missing = root / "missing.json"
+            malformed = root / "bad.json"
+            non_object = root / "array.json"
+
+            malformed.write_text("{bad", encoding="utf-8")
+            non_object.write_text("[]", encoding="utf-8")
+
+            self.assertEqual(analyze_human_mvd.load_json_if_present(missing), {})
+            with self.assertRaisesRegex(ValueError, "could not be parsed as JSON"):
+                analyze_human_mvd.load_json_if_present(malformed)
+            with self.assertRaisesRegex(ValueError, "did not contain a JSON object"):
+                analyze_human_mvd.load_json_if_present(non_object)
+
     def test_comparison_note_distinguishes_dm2_anchor_from_parser_proof(self) -> None:
         verdict = analyze_human_mvd.comparison_verdict("dm2", ["dm3", "frobodm2"], True)
 

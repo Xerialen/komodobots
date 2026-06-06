@@ -2160,3 +2160,24 @@ Medium that low-speed and cadence will remain player-style axes after broader sa
 ### Follow-up
 
 Ask Claude to review S7a. Proposed S7b: broaden exact-player movement references before controller work. Add repeated `dm3` samples for Milton/carapace/yeti where available, then rerun the signature scaffold to separate stable player style from one-match noise and the generic S3g land-speed gap.
+
+## 2026-06-06 - S7a Review-Fix Follow-Up
+
+### Experiment
+
+Addressed Claude's S7a review finding before starting S7b reference broadening.
+
+### Result
+
+- Hardened the shared `load_json_if_present` helper so malformed JSON raises a clear `ValueError` instead of a raw `JSONDecodeError`.
+- Hardened the same helper so valid-but-non-object JSON raises a clear `ValueError` instead of flowing into later `.get(...)` calls.
+- Added regression coverage for missing, malformed, and non-object JSON.
+- Tightened the S7a single-demo stop-condition flag so an empty reference set is not mislabeled as "one demo per player".
+
+### Evidence
+
+This is a review-hardening change only. It does not alter the committed S7a movement-signature evidence for the existing three exact-player rows.
+
+### Follow-up
+
+Update the PR for Claude/reviewer context, then continue with S7b if there is no further blocking feedback.

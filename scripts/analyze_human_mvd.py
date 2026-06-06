@@ -201,8 +201,14 @@ def write_inventory_markdown(inventory: dict[str, object], output_path: Path) ->
 def load_json_if_present(path: Path) -> dict[str, object]:
     if not path.exists():
         return {}
-    with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            loaded = json.load(handle)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"{path} could not be parsed as JSON: {error}") from error
+    if not isinstance(loaded, dict):
+        raise ValueError(f"{path} did not contain a JSON object")
+    return loaded
 
 
 def resolve_demo_path(demo: str, root: Path) -> Path:

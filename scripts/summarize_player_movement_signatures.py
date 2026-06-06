@@ -360,9 +360,9 @@ def build_signature_report(
         for axis in axes
         if str(axis.get("interpretation", "")).startswith("generic_human")
     ]
-    one_demo_per_player = len({str(row.get("target_player") or row.get("matched_player")) for row in reference_rows}) == len(
-        reference_rows
-    )
+    one_demo_per_player = bool(reference_rows) and len(
+        {str(row.get("target_player") or row.get("matched_player")) for row in reference_rows}
+    ) == len(reference_rows)
     stop_condition_triggered = len(reference_rows) < 6 or one_demo_per_player
     stop_reason = (
         "Only three single-demo exact-player rows are available; this can seed axes but cannot support stable player-style claims."
