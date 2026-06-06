@@ -139,6 +139,63 @@ class AirborneProxySegmentInspectionTests(unittest.TestCase):
             "pivot_from_cadence_to_air_rhythm_and_land_speed_gap",
         )
 
+    def test_main_fails_before_writing_when_inputs_do_not_resolve(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            reference_path = root / "reference.json"
+            bot_path = root / "bot.json"
+            output_json = root / "out" / "airborne.json"
+            output_md = root / "out" / "airborne.md"
+            reference_path.write_text(
+                json.dumps(
+                    {
+                        "stage": "s7c-test",
+                        "map": "dm3",
+                        "reference_rows": [
+                            {
+                                "matched_player": "Milton",
+                                "target_player": "Milton",
+                                "run_id": "missing-ref-run",
+                                "summary_path": str(root / "missing-ref-summary.json"),
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            bot_path.write_text(
+                json.dumps(
+                    {
+                        "stage": "s7e-test",
+                        "bot_rows": [
+                            {
+                                "player": "/ bro",
+                                "run_id": "missing-bot-run",
+                                "source_metrics_path": str(root / "missing-bot-run" / "movement-metrics.json"),
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(inspector.ReportInputError, "Could not resolve every requested S7f input row"):
+                inspector.main(
+                    [
+                        "--reference-aggregate",
+                        str(reference_path),
+                        "--bot-evidence",
+                        str(bot_path),
+                        "--output-json",
+                        str(output_json),
+                        "--output-md",
+                        str(output_md),
+                    ]
+                )
+
+            self.assertFalse(output_json.exists())
+            self.assertFalse(output_md.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

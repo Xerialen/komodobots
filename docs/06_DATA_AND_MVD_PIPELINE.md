@@ -591,6 +591,7 @@ s7e-cadence-evidence-dm3, broadened mode-7 cadence evidence:
 
 s7f-airborne-segments-dm3, raw airborne-proxy segment inspection:
   S7f replays the movement-metrics airborne proxy over raw events.txt kind 5 samples for the S7c exact-player references and S7e unchanged mode-7 bot rows. Bot player-median air duration is 217.2 ms vs reference 325.0 ms, Z range is 11.5 qu vs 43.8 qu, and air speed is 114.4 qu/s vs 431.8 qu/s. Cadence stays diagnostic; next work should characterize land-speed and air-rhythm gaps.
+  The S7f evidence writer now fails before writing outputs if any requested reference or bot row cannot be resolved from the ignored raw artifacts, preventing clean-checkout regeneration from silently overwriting committed evidence with an empty report.
 ```
 
 ## Open questions

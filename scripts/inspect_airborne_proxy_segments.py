@@ -50,6 +50,10 @@ DEFAULT_BOT_EVIDENCE = (
 )
 
 
+class ReportInputError(RuntimeError):
+    """Raised when the requested evidence inputs cannot produce a full report."""
+
+
 def optional_float(value: object) -> float | None:
     try:
         number = float(value)
@@ -605,6 +609,19 @@ def build_report(
     }
 
 
+def validate_report_inputs(report: dict[str, object]) -> None:
+    reference_players = report.get("reference_players", [])
+    bot_players = report.get("bot_players", [])
+    warnings = report.get("warnings", [])
+    warning_text = "; ".join(str(warning) for warning in warnings if warning)
+    if warnings:
+        raise ReportInputError(f"Could not resolve every requested S7f input row: {warning_text}")
+    if not isinstance(reference_players, list) or not reference_players:
+        raise ReportInputError("No reference player rows resolved; refusing to write empty S7f evidence.")
+    if not isinstance(bot_players, list) or not bot_players:
+        raise ReportInputError("No bot rows resolved; refusing to write empty S7f evidence.")
+
+
 def format_summary(summary: dict[str, object], field: str) -> str:
     values = summary.get(field, {}) if isinstance(summary.get(field), dict) else {}
     if not values.get("count"):
@@ -744,6 +761,7 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         reference_aggregate_path=args.reference_aggregate,
         bot_evidence_path=args.bot_evidence,
     )
+    validate_report_inputs(report)
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     write_markdown(report, args.output_md)
