@@ -1045,3 +1045,45 @@ S6f should determine whether marker positions, edge direction, or explicit path 
 ### Revisit Conditions
 
 Revisit if Claude finds an implementation bug in the S6e native-upmove preservation, if a repeat run contradicts the negative result, or if route-edge geometry shows that upmove preservation should have been applied at a different point in the stock command pipeline.
+
+---
+
+## Decision
+
+Close the S6 water-edge branch and move to S7 measurement scaffolding.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S6f inspected `dm3.bot` edge `276->59` and marker `59` with static route-file geometry plus S6d/S6e attribution samples. The edge exists, the reciprocal edge exists, and there is no explicit route-file flag to remove. Marker `59` has a static origin, but marker `276` does not, so the route file cannot provide a precise edge vector or coordinate-level correction.
+
+The next goal is S7a: seed player-specific movement signatures from the existing exact-player `dm3` references (`Milton`, `carapace`, `yeti`) before any player-specific movement controller work. This advances toward S7 without pretending that the headline land-speed/bunnyhop gap is solved.
+
+### Alternatives Considered
+
+- Edit `dm3.bot` around `276->59` despite missing static source geometry.
+- Add another mode `7` water-upmove or command-magnitude tweak.
+- Continue S6 route-neighborhood archaeology around marker `59`.
+- Jump directly to a player-specific controller.
+
+### Evidence
+
+S6f route-edge geometry evidence:
+
+- `276->59` is defined as path index `0` at line `1837`.
+- `59->276` is defined as path index `0` at line `549`.
+- Marker `59` has static origin `[1329.0, -378.0, -24.0]`, zone `17`, goal `5`.
+- Marker `276` has zone `17` but no `CreateMarker` origin.
+- The focus edge has no explicit `SetMarkerPathFlags`; `WATER_PATH` is runtime route-state classification.
+- S6d/S6e attribution includes `30` unique focus-edge samples with `WATER_PATH`, `blocked=0`, and `86.7%` low native `dir_speed`.
+
+### Expected Consequences
+
+S7a should produce an auditable, small player-specific movement-signature artifact from existing exact-player data. It should not implement a player-specific movement controller yet. Its job is to determine which movement features are player-specific enough to be useful and which are still dominated by the generic bot-vs-human land-speed gap.
+
+### Revisit Conditions
+
+Revisit if Claude identifies a route-file parsing error, if KTX source shows a reliable way to recover runtime marker `276` geometry from static artifacts, or if S7a reveals that player-specific signatures are too thin without broadening the human reference corpus first.

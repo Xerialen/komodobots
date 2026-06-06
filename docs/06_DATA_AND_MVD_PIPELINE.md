@@ -124,6 +124,7 @@ Route-state attribution:
 - S6c result: `32768` decodes to `WATER_PATH`, not `STUCK_PATH`; repeated `/ bro` `water.LG` windows use linked/goal marker `59`, often the `276->59` `.bot` edge, with `blocked=0` and low native `dir_speed`
 - S6c robustness: the helper documents the marker-index invariant used for `.bot` edge attribution, drops malformed command rows without `time_s`, and constrains JSON-derived default run ids to the lab run-id character set.
 - S6d result: water-state rows add `waterlevel`, `watertype`, player flags, `swim_arrow`, emitted `upmove`, velocity, and raw route `dir_move`; the repeated `/ bro` `water.LG` windows had waterlevel `[1]` or `[1, 2]`, no deep-water samples, no swim-arrow intent, and no emitted upmove.
+- S6f result: route-edge geometry rows add static `.bot` edge/neighborhood context for `276->59`; the edge and reciprocal exist, but marker `276` lacks a static origin, so the S6 water-edge failure cannot be converted into a precise route-coordinate fix from `dm3.bot` alone.
 - Purpose: convert route-state tags into source-grounded attribution before changing mode `7`
 
 S2 moveprobe note:
@@ -526,6 +527,9 @@ Fresh S2 emitted-command evidence:
 
 20260606T044000Z dm3 moveprobe mode 7, sidemove=200, S6e water-edge upmove preservation:
   / bro avg=153.0 p95=377.7 low=46.3%; / goldenboy avg=152.7 p95=346.7 low=39.3%; repeated water.LG/276->59 WATER_PATH windows persisted on / goldenboy despite some nonzero emitted upmove at waterlevel 2
+
+s6f-route-edge-geometry, static dm3.bot edge audit:
+  276->59 and 59->276 are explicit path-index-0 edges; marker 59 has a static origin, but marker 276 has no CreateMarker origin, so no precise static edge vector or coordinate-level route fix is justified. S6d/S6e attribution still shows 30 unique focus-edge samples with WATER_PATH, blocked=0, and 86.7% low native dir_speed.
 ```
 
 ## Open questions

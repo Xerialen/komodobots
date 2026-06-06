@@ -465,4 +465,4 @@ Move the repeatable runner one notch closer to the north star:
 
 1. Keep `dm2` as a `qw-sim` continuity map, not as a Frogbot route-building target.
 2. Use routed maps such as `frobodm2` and `dm3` to generate bot movement demos.
-3. Start S6d water-path/swim-intent diagnosis: inspect why the repeated `water.LG` `WATER_PATH` edge has low native `dir_speed` before adding more command heuristics.
+3. After S6f, stop water-edge command tuning unless new evidence appears. The next smallest useful branch is S7a: exact-player movement-signature scaffolding from existing `dm3` references.

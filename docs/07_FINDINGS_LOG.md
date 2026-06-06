@@ -2057,3 +2057,47 @@ Medium that S6e is conclusively bad, because this is one short stochastic Frogbo
 ### Follow-up
 
 Ask Claude to review S6e. Proposed S6f: inspect `dm3.bot` route-edge geometry around `276->59` and marker `59` without a new controller change. If that audit does not reveal a tiny route-data fix, pivot away from S6 water-edge tuning and back toward the headline land-speed/bunnyhop gap or broader human reference evidence.
+
+## 2026-06-06 - S6f Route-Edge Geometry Audit
+
+### Experiment
+
+Added `scripts/inspect_route_edge_geometry.py` to inspect a focused Frogbot `.bot` edge and its S6 attribution samples. Ran it against `dm3.bot` edge `276->59`, marker `59`, and the committed S6d/S6e attribution artifacts. No KTX code, route file, or remote lab run changed.
+
+### Result
+
+- `276->59` is explicitly present as `SetMarkerPath 276 0 59` at `dm3.bot` line `1837`.
+- The reciprocal `59->276` is also explicitly present as `SetMarkerPath 59 0 276` at line `549`.
+- The focus edge has no explicit `SetMarkerPathFlags`; the observed `WATER_PATH` state is runtime route-state classification, not a literal route-file flag on the edge.
+- Marker `59` has a static origin `[1329.0, -378.0, -24.0]`, zone `17`, and goal `5`.
+- Marker `276` is zoned as `17` but has no static `CreateMarker` origin, so the static route file cannot compute a vector, slope, or coordinate-level correction for `276->59`.
+- S6d/S6e attribution contributes `30` unique sampled `276->59` rows; all focus-edge path states are `WATER_PATH`, `blocked=0`, waterlevels include `[0, 1, 2]`, and `86.7%` of the focus-edge samples have native `dir_speed < 0.25`.
+
+### Evidence
+
+Artifacts:
+
+- `experiments/ktx_moveprobe/evidence/route-edge-s6f-geometry.json`
+- `experiments/ktx_moveprobe/evidence/route-edge-s6f-geometry.md`
+
+Validation:
+
+- Focused route-edge geometry tests cover edge parsing, missing static origins, computable vectors, and attribution rollup.
+
+### Interpretation
+
+S6f confirms the repeated `276->59` low-native-dir-speed pattern is not an invented attribution: the edge exists and the S6 samples repeatedly land on it. But it does not justify a tiny static route-data fix. The source marker lacks a static origin, the reciprocal edge already exists, and the water-path state is assigned at runtime rather than being an explicit `.bot` flag to remove or edit.
+
+Stop the S6 water-edge branch here. The next goal should move toward S7 by building player-specific movement signatures from exact-player reference data before any player-specific controller work, while keeping the larger land-speed/bunnyhop gap visible.
+
+### Confidence
+
+High that `dm3.bot` edge `276->59` and reciprocal `59->276` are parsed correctly with line anchors.
+
+High that static edge geometry is incomplete because marker `276` has no `CreateMarker` origin.
+
+Medium that no route-data fix exists at all, because runtime/item marker placement could still be knowable from KTX internals or live state; however, the static route file alone does not provide enough evidence for a safe tiny edit.
+
+### Follow-up
+
+Ask Claude to review S6f. Proposed S7a: seed player-specific movement signatures from the existing exact-player `dm3` references (`Milton`, `carapace`, `yeti`) before any player-specific movement controller work.

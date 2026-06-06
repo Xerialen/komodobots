@@ -265,6 +265,20 @@ Result:
 
 Interpretation: S6e hit the stop condition. Native water-edge upmove preservation is not sufficient as a route-primitive fix, and more upmove tuning would be speculative. The next useful S6 step is a static/diagnostic `.bot` route-edge geometry audit around `276->59` and marker `59`, then a pivot back toward the headline land-speed/bunnyhop gap or broader human-reference evidence.
 
+## S6f Route-Edge Geometry Audit
+
+S6f added `scripts/inspect_route_edge_geometry.py` and inspected `dm3.bot` edge `276->59` plus marker `59` against the committed S6d/S6e route-state attribution evidence. No KTX controller or route file was changed.
+
+Result:
+
+- `276->59` is explicitly defined in `dm3.bot` as path index `0`, and the reciprocal `59->276` edge is also explicitly defined.
+- Marker `59` has a static origin at `[1329.0, -378.0, -24.0]`, zone `17`, goal `5`.
+- Marker `276` is route-referenced and zoned, but has no static `CreateMarker` origin in `dm3.bot`.
+- Therefore the static route file cannot compute a precise horizontal/vertical vector, slope, or coordinate correction for `276->59`.
+- The S6d/S6e evidence contains `30` unique sampled `276->59` rows. They are `WATER_PATH`, `blocked=0`, and `86.7%` of focus-edge samples have native `dir_speed < 0.25`.
+
+Interpretation: the repeated water-edge failure is real, but S6f does not reveal a small static route-data fix. The edge is defined, reciprocal, and unflagged in the route file; the missing source origin means a coordinate-level geometry edit would be guesswork. Stop S6 water-edge tuning here and move the next goal toward S7-style player-specific movement signatures while keeping the headline land-speed/bunnyhop gap visible.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

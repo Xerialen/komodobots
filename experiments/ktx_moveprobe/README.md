@@ -249,6 +249,14 @@ python scripts/attribute_route_state_windows.py --stage s6e-water-edge-upmove --
 
 S6e result: a short `dm3` rerun did not remove the repeated `water.LG` / `276->59` WATER_PATH low-speed pattern; it shifted to `/ goldenboy`, and both bots had worse low-speed ratios. Stop upmove tuning here and inspect `.bot` route-edge geometry around `276->59` / marker `59` before adding another controller change.
 
+S6f inspects the static `.bot` route-edge geometry and S6 attribution samples without changing KTX:
+
+```bash
+python scripts/inspect_route_edge_geometry.py --stage s6f-route-edge-geometry --edge 276:59 --marker 59 --output-json experiments/ktx_moveprobe/evidence/route-edge-s6f-geometry.json --output-md experiments/ktx_moveprobe/evidence/route-edge-s6f-geometry.md
+```
+
+S6f result: `276->59` and `59->276` are explicit path-index-0 edges, marker `59` has static origin `[1329.0, -378.0, -24.0]`, but marker `276` has no static `CreateMarker` origin. The committed S6d/S6e attribution evidence contains `30` unique focus-edge samples with `WATER_PATH`, `blocked=0`, and `86.7%` low native `dir_speed`, but no precise static route-coordinate fix is justified from `dm3.bot` alone. The next step should move toward S7 exact-player movement signatures, not another water-edge command tweak.
+
 ## Rollback
 
 This is an experiment patch. After running it against `servexeri`, restore the deployed `qwprogs.so` from the backup made before copying the patched build, and reset or reverse-apply the source checkout patch.

@@ -1,0 +1,3504 @@
+{
+  "attribution_samples": [
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.344,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 1,
+      "stage": "s6d-water-path",
+      "time_ms": 14807,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 16908,
+        "start_ms": 14818
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.294,
+      "edge": {
+        "source": 278,
+        "target": 59
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 1,
+      "stage": "s6d-water-path",
+      "time_ms": 15063,
+      "touch_marker": 278,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 16908,
+        "start_ms": 14818
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.466,
+      "edge": {
+        "source": 278,
+        "target": 59
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 1,
+      "stage": "s6d-water-path",
+      "time_ms": 15322,
+      "touch_marker": 278,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 16908,
+        "start_ms": 14818
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.556,
+      "edge": {
+        "source": 278,
+        "target": 278
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 278,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [],
+        "names": [],
+        "unknown_mask": 0,
+        "value": 0
+      },
+      "player": "/ bro",
+      "rank": 1,
+      "stage": "s6d-water-path",
+      "time_ms": 15578,
+      "touch_marker": 278,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 16908,
+        "start_ms": 14818
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.645,
+      "edge": {
+        "source": 278,
+        "target": 59
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 1,
+      "stage": "s6d-water-path",
+      "time_ms": 15844,
+      "touch_marker": 278,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 16908,
+        "start_ms": 14818
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.504,
+      "edge": {
+        "source": 278,
+        "target": 59
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 1,
+      "stage": "s6d-water-path",
+      "time_ms": 16104,
+      "touch_marker": 278,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 16908,
+        "start_ms": 14818
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.426,
+      "edge": {
+        "source": 278,
+        "target": 278
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 278,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [],
+        "names": [],
+        "unknown_mask": 0,
+        "value": 0
+      },
+      "player": "/ bro",
+      "rank": 1,
+      "stage": "s6d-water-path",
+      "time_ms": 16360,
+      "touch_marker": 278,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 16908,
+        "start_ms": 14818
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.258,
+      "edge": {
+        "source": 278,
+        "target": 59
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 1,
+      "stage": "s6d-water-path",
+      "time_ms": 16626,
+      "touch_marker": 278,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 16908,
+        "start_ms": 14818
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.066,
+      "edge": {
+        "source": 59,
+        "target": 59
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 1,
+      "stage": "s6d-water-path",
+      "time_ms": 16876,
+      "touch_marker": 59,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 16908,
+        "start_ms": 14818
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.066,
+      "edge": {
+        "source": 59,
+        "target": 59
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 2,
+      "stage": "s6d-water-path",
+      "time_ms": 16876,
+      "touch_marker": 59,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 18042,
+        "start_ms": 16989
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 1.0,
+      "edge": {
+        "source": 276,
+        "target": 276
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 276,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [],
+        "names": [],
+        "unknown_mask": 0,
+        "value": 0
+      },
+      "player": "/ bro",
+      "rank": 2,
+      "stage": "s6d-water-path",
+      "time_ms": 17132,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 18042,
+        "start_ms": 16989
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.018,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 2,
+      "stage": "s6d-water-path",
+      "time_ms": 17388,
+      "touch_marker": 276,
+      "waterlevel": 2,
+      "window_ms": {
+        "end_ms": 18042,
+        "start_ms": 16989
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.039,
+      "edge": {
+        "source": 59,
+        "target": 59
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 2,
+      "stage": "s6d-water-path",
+      "time_ms": 17647,
+      "touch_marker": 59,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 18042,
+        "start_ms": 16989
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.019,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 2,
+      "stage": "s6d-water-path",
+      "time_ms": 17903,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 18042,
+        "start_ms": 16989
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.04,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 2,
+      "stage": "s6d-water-path",
+      "time_ms": 18169,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 18042,
+        "start_ms": 16989
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.04,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 3,
+      "stage": "s6d-water-path",
+      "time_ms": 18169,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 19100,
+        "start_ms": 18246
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.048,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 3,
+      "stage": "s6d-water-path",
+      "time_ms": 18429,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 19100,
+        "start_ms": 18246
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.118,
+      "edge": {
+        "source": 276,
+        "target": 276
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 276,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [],
+        "names": [],
+        "unknown_mask": 0,
+        "value": 0
+      },
+      "player": "/ bro",
+      "rank": 3,
+      "stage": "s6d-water-path",
+      "time_ms": 18685,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 19100,
+        "start_ms": 18246
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.016,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 3,
+      "stage": "s6d-water-path",
+      "time_ms": 18941,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 19100,
+        "start_ms": 18246
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.028,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 3,
+      "stage": "s6d-water-path",
+      "time_ms": 19201,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 19100,
+        "start_ms": 18246
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.035,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 4,
+      "stage": "s6d-water-path",
+      "time_ms": 19713,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 20643,
+        "start_ms": 19830
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.093,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 4,
+      "stage": "s6d-water-path",
+      "time_ms": 19972,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 20643,
+        "start_ms": 19830
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.024,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 4,
+      "stage": "s6d-water-path",
+      "time_ms": 20228,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 20643,
+        "start_ms": 19830
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.077,
+      "edge": {
+        "source": 59,
+        "target": 59
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [],
+        "names": [],
+        "unknown_mask": 0,
+        "value": 0
+      },
+      "player": "/ bro",
+      "rank": 4,
+      "stage": "s6d-water-path",
+      "time_ms": 20494,
+      "touch_marker": 59,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 20643,
+        "start_ms": 19830
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.024,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 4,
+      "stage": "s6d-water-path",
+      "time_ms": 20754,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 20643,
+        "start_ms": 19830
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.078,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 5,
+      "stage": "s6d-water-path",
+      "time_ms": 24868,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 25782,
+        "start_ms": 25006
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.021,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 5,
+      "stage": "s6d-water-path",
+      "time_ms": 25118,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 25782,
+        "start_ms": 25006
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.083,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 5,
+      "stage": "s6d-water-path",
+      "time_ms": 25373,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 25782,
+        "start_ms": 25006
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.121,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 5,
+      "stage": "s6d-water-path",
+      "time_ms": 25629,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 25782,
+        "start_ms": 25006
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.016,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ bro",
+      "rank": 5,
+      "stage": "s6d-water-path",
+      "time_ms": 25879,
+      "touch_marker": 276,
+      "waterlevel": 2,
+      "window_ms": {
+        "end_ms": 25782,
+        "start_ms": 25006
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 1.0,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 1,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 22686,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 25352,
+        "start_ms": 22814
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 1.0,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 1,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 22936,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 25352,
+        "start_ms": 22814
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.014,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": -26.8,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 1,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 23192,
+      "touch_marker": 276,
+      "waterlevel": 2,
+      "window_ms": {
+        "end_ms": 25352,
+        "start_ms": 22814
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.026,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 1,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 23447,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 25352,
+        "start_ms": 22814
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.009,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 1,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 23697,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 25352,
+        "start_ms": 22814
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.073,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 1,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 23963,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 25352,
+        "start_ms": 22814
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.097,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 1,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 24219,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 25352,
+        "start_ms": 22814
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.038,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 1,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 24469,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 25352,
+        "start_ms": 22814
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.127,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 1,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 24725,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 25352,
+        "start_ms": 22814
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.044,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 1,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 24980,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 25352,
+        "start_ms": 22814
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.011,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 214.7,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 1,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 25241,
+      "touch_marker": 276,
+      "waterlevel": 2,
+      "window_ms": {
+        "end_ms": 25352,
+        "start_ms": 22814
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 1.0,
+      "edge": {
+        "source": 287,
+        "target": 293
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 293,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [],
+        "names": [],
+        "unknown_mask": 0,
+        "value": 0
+      },
+      "player": "/ goldenboy",
+      "rank": 3,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 16738,
+      "touch_marker": 287,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 17679,
+        "start_ms": 16702
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.967,
+      "edge": {
+        "source": 287,
+        "target": 37
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 37,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [],
+        "names": [],
+        "unknown_mask": 0,
+        "value": 0
+      },
+      "player": "/ goldenboy",
+      "rank": 3,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 16998,
+      "touch_marker": 287,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 17679,
+        "start_ms": 16702
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.952,
+      "edge": {
+        "source": 287,
+        "target": 37
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 37,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [],
+        "names": [],
+        "unknown_mask": 0,
+        "value": 0
+      },
+      "player": "/ goldenboy",
+      "rank": 3,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 17254,
+      "touch_marker": 287,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 17679,
+        "start_ms": 16702
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.952,
+      "edge": {
+        "source": 287,
+        "target": 37
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 37,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [],
+        "names": [],
+        "unknown_mask": 0,
+        "value": 0
+      },
+      "player": "/ goldenboy",
+      "rank": 3,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 17520,
+      "touch_marker": 287,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 17679,
+        "start_ms": 16702
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.938,
+      "edge": {
+        "source": 287,
+        "target": 37
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 37,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [],
+        "names": [],
+        "unknown_mask": 0,
+        "value": 0
+      },
+      "player": "/ goldenboy",
+      "rank": 3,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 17781,
+      "touch_marker": 287,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 17679,
+        "start_ms": 16702
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 1.0,
+      "edge": {
+        "source": 59,
+        "target": 59
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 4,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 21658,
+      "touch_marker": 59,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 22308,
+        "start_ms": 21619
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.106,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 4,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 21924,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 22308,
+        "start_ms": 21619
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.022,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 4,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 22174,
+      "touch_marker": 276,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 22308,
+        "start_ms": 21619
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.033,
+      "edge": {
+        "source": 59,
+        "target": 59
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 4,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 22430,
+      "touch_marker": 59,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 22308,
+        "start_ms": 21619
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.697,
+      "edge": {
+        "source": 37,
+        "target": 59
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [],
+        "names": [],
+        "unknown_mask": 0,
+        "value": 0
+      },
+      "player": "/ goldenboy",
+      "rank": 5,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 18818,
+      "touch_marker": 37,
+      "waterlevel": 0,
+      "window_ms": {
+        "end_ms": 19523,
+        "start_ms": 18813
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.493,
+      "edge": {
+        "source": 37,
+        "target": 59
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [],
+        "names": [],
+        "unknown_mask": 0,
+        "value": 0
+      },
+      "player": "/ goldenboy",
+      "rank": 5,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 19078,
+      "touch_marker": 37,
+      "waterlevel": 0,
+      "window_ms": {
+        "end_ms": 19523,
+        "start_ms": 18813
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 0.377,
+      "edge": {
+        "source": 276,
+        "target": 59
+      },
+      "edge_is_focus": true,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 59,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [
+          {
+            "bit": 32768,
+            "name": "WATER_PATH"
+          }
+        ],
+        "names": [
+          "WATER_PATH"
+        ],
+        "unknown_mask": 0,
+        "value": 32768
+      },
+      "player": "/ goldenboy",
+      "rank": 5,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 19334,
+      "touch_marker": 276,
+      "waterlevel": 0,
+      "window_ms": {
+        "end_ms": 19523,
+        "start_ms": 18813
+      }
+    },
+    {
+      "attribution_json": "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json",
+      "blocked": false,
+      "dir_speed": 1.0,
+      "edge": {
+        "source": 278,
+        "target": 278
+      },
+      "edge_is_focus": false,
+      "emitted_upmove": 0.0,
+      "goal_marker": 59,
+      "linked_marker": 278,
+      "location": "water.LG",
+      "path_state": {
+        "bits": [],
+        "names": [],
+        "unknown_mask": 0,
+        "value": 0
+      },
+      "player": "/ goldenboy",
+      "rank": 5,
+      "stage": "s6e-water-edge-upmove",
+      "time_ms": 19600,
+      "touch_marker": 278,
+      "waterlevel": 1,
+      "window_ms": {
+        "end_ms": 19523,
+        "start_ms": 18813
+      }
+    }
+  ],
+  "attribution_summary": {
+    "blocked_ratio": 0.0,
+    "dir_speed_avg": 0.132,
+    "dir_speed_max": 1.0,
+    "dir_speed_min": 0.009,
+    "edge_counts": {
+      "276->276": 2,
+      "276->59": 30,
+      "278->278": 3,
+      "278->59": 5,
+      "287->293": 1,
+      "287->37": 4,
+      "37->59": 2,
+      "59->59": 5
+    },
+    "emitted_upmove_nonzero_ratio": 0.067,
+    "focus_edge": {
+      "source": 276,
+      "target": 59
+    },
+    "focus_edge_sample_count": 30,
+    "low_dir_speed_ratio": 0.867,
+    "path_state_names": [
+      "WATER_PATH"
+    ],
+    "player_counts": {
+      "/ bro": 28,
+      "/ goldenboy": 24
+    },
+    "stage_counts": {
+      "s6d-water-path": 28,
+      "s6e-water-edge-upmove": 24
+    },
+    "unique_sample_count": 52,
+    "waterlevel_values": [
+      0,
+      1,
+      2
+    ],
+    "window_sample_row_count": 54
+  },
+  "bot_map_summary": {
+    "markers_without_static_origin_count": 65,
+    "referenced_marker_count": 298,
+    "static_create_marker_count": 234
+  },
+  "decision": "No tiny static route-data fix is justified by S6f: marker 276 lacks a static origin, the reciprocal edge exists, and the water-path state is runtime classification rather than an explicit edge flag.",
+  "edge": {
+    "defined_in_bot_map": true,
+    "explicit_flags": [],
+    "flag_line_numbers": [],
+    "line_numbers": [
+      1837
+    ],
+    "path_indexes": [
+      0
+    ],
+    "source": 276,
+    "source_marker": {
+      "create_marker_line": "",
+      "goal": "",
+      "has_static_origin": false,
+      "id": 276,
+      "origin": [],
+      "set_goal_line": "",
+      "set_zone_line": 1836,
+      "zone": 17
+    },
+    "static_geometry": {
+      "missing_static_origin_markers": [
+        "276"
+      ],
+      "status": "incomplete_missing_static_origin"
+    },
+    "target": 59,
+    "target_marker": {
+      "create_marker_line": 59,
+      "goal": 5,
+      "has_static_origin": true,
+      "id": 59,
+      "origin": [
+        1329.0,
+        -378.0,
+        -24.0
+      ],
+      "set_goal_line": 547,
+      "set_zone_line": 548,
+      "zone": 17
+    }
+  },
+  "focus": {
+    "edge": {
+      "source": 276,
+      "target": 59
+    },
+    "marker": 59
+  },
+  "interpretation": [
+    "`276->59` is explicitly defined in `dm3.bot` with path indexes [0].",
+    "The reciprocal `59->276` edge is also defined with path indexes [0].",
+    "The focus edge has no explicit `SetMarkerPathFlags`; the observed `WATER_PATH` flag is runtime route-state classification, not a literal route-file flag on this edge.",
+    "Static vector geometry is incomplete because marker(s) ['276'] have no `CreateMarker` origin in `dm3.bot`.",
+    "S6d/S6e evidence contains 30 sampled `276->59` rows; low native `dir_speed < 0.25` appears in 86.7% of the focus-edge samples.",
+    "S6f does not justify another water-upmove or command-magnitude tweak from static route data alone."
+  ],
+  "marker": {
+    "create_marker_line": 59,
+    "goal": 5,
+    "has_static_origin": true,
+    "id": 59,
+    "origin": [
+      1329.0,
+      -378.0,
+      -24.0
+    ],
+    "set_goal_line": 547,
+    "set_zone_line": 548,
+    "zone": 17
+  },
+  "neighborhood": {
+    "source_marker": {
+      "incoming": [
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            549
+          ],
+          "path_indexes": [
+            0
+          ],
+          "source": 59,
+          "source_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "276"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 276,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1828
+          ],
+          "path_indexes": [
+            5
+          ],
+          "source": 273,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 273,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1822,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "273",
+              "276"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 276,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1854
+          ],
+          "path_indexes": [
+            3
+          ],
+          "source": 278,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 278,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1850,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "278",
+              "276"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 276,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1861
+          ],
+          "path_indexes": [
+            0
+          ],
+          "source": 280,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 280,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1860,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "280",
+              "276"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 276,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1884
+          ],
+          "path_indexes": [
+            0
+          ],
+          "source": 284,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 284,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1883,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "284",
+              "276"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 276,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1937
+          ],
+          "path_indexes": [
+            1
+          ],
+          "source": 294,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 294,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1935,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "294",
+              "276"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 276,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          }
+        }
+      ],
+      "marker": {
+        "create_marker_line": "",
+        "goal": "",
+        "has_static_origin": false,
+        "id": 276,
+        "origin": [],
+        "set_goal_line": "",
+        "set_zone_line": 1836,
+        "zone": 17
+      },
+      "outgoing": [
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1837
+          ],
+          "path_indexes": [
+            0
+          ],
+          "source": 276,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "276"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 59,
+          "target_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1838
+          ],
+          "path_indexes": [
+            1
+          ],
+          "source": 276,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "276"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 37,
+          "target_marker": {
+            "create_marker_line": 37,
+            "goal": 23,
+            "has_static_origin": true,
+            "id": 37,
+            "origin": [
+              -217.0,
+              263.0,
+              -8.0
+            ],
+            "set_goal_line": 439,
+            "set_zone_line": 440,
+            "zone": 2
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1839
+          ],
+          "path_indexes": [
+            2
+          ],
+          "source": 276,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "276",
+              "280"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 280,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 280,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1860,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1840
+          ],
+          "path_indexes": [
+            3
+          ],
+          "source": 276,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "276"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 80,
+          "target_marker": {
+            "create_marker_line": 80,
+            "goal": "",
+            "has_static_origin": true,
+            "id": 80,
+            "origin": [
+              654.0,
+              439.0,
+              56.0
+            ],
+            "set_goal_line": "",
+            "set_zone_line": 662,
+            "zone": 2
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1841
+          ],
+          "path_indexes": [
+            4
+          ],
+          "source": 276,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "276",
+              "278"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 278,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 278,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1850,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1842
+          ],
+          "path_indexes": [
+            5
+          ],
+          "source": 276,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "276",
+              "294"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 294,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 294,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1935,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1843
+          ],
+          "path_indexes": [
+            6
+          ],
+          "source": 276,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "276",
+              "284"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 284,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 284,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1883,
+            "zone": 17
+          }
+        }
+      ]
+    },
+    "target_marker": {
+      "incoming": [
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            443
+          ],
+          "path_indexes": [
+            2
+          ],
+          "source": 37,
+          "source_marker": {
+            "create_marker_line": 37,
+            "goal": 23,
+            "has_static_origin": true,
+            "id": 37,
+            "origin": [
+              -217.0,
+              263.0,
+              -8.0
+            ],
+            "set_goal_line": 439,
+            "set_zone_line": 440,
+            "zone": 2
+          },
+          "static_geometry": {
+            "delta": {
+              "x": 1546.0,
+              "y": -641.0,
+              "z": -16.0
+            },
+            "distance_3d": 1673.7,
+            "grade": -0.01,
+            "horizontal_distance": 1673.6,
+            "status": "computed",
+            "vertical_delta": -16.0,
+            "yaw_degrees": 337.5
+          },
+          "target": 59,
+          "target_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            453
+          ],
+          "path_indexes": [
+            6
+          ],
+          "source": 38,
+          "source_marker": {
+            "create_marker_line": 38,
+            "goal": 24,
+            "has_static_origin": true,
+            "id": 38,
+            "origin": [
+              -310.0,
+              -702.0,
+              -16.0
+            ],
+            "set_goal_line": 445,
+            "set_zone_line": 446,
+            "zone": 3
+          },
+          "static_geometry": {
+            "delta": {
+              "x": 1639.0,
+              "y": 324.0,
+              "z": -8.0
+            },
+            "distance_3d": 1670.7,
+            "grade": -0.005,
+            "horizontal_distance": 1670.7,
+            "status": "computed",
+            "vertical_delta": -8.0,
+            "yaw_degrees": 11.2
+          },
+          "target": 59,
+          "target_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            624
+          ],
+          "path_indexes": [
+            4
+          ],
+          "source": 72,
+          "source_marker": {
+            "create_marker_line": 72,
+            "goal": "",
+            "has_static_origin": true,
+            "id": 72,
+            "origin": [
+              1447.0,
+              -896.0,
+              88.0
+            ],
+            "set_goal_line": "",
+            "set_zone_line": 619,
+            "zone": 3
+          },
+          "static_geometry": {
+            "delta": {
+              "x": -118.0,
+              "y": 518.0,
+              "z": -112.0
+            },
+            "distance_3d": 542.9,
+            "grade": -0.211,
+            "horizontal_distance": 531.3,
+            "status": "computed",
+            "vertical_delta": -112.0,
+            "yaw_degrees": 102.8
+          },
+          "target": 59,
+          "target_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            644
+          ],
+          "path_indexes": [
+            4
+          ],
+          "source": 77,
+          "source_marker": {
+            "create_marker_line": 77,
+            "goal": "",
+            "has_static_origin": true,
+            "id": 77,
+            "origin": [
+              1112.0,
+              624.0,
+              56.0
+            ],
+            "set_goal_line": "",
+            "set_zone_line": 639,
+            "zone": 3
+          },
+          "static_geometry": {
+            "delta": {
+              "x": 217.0,
+              "y": -1002.0,
+              "z": -80.0
+            },
+            "distance_3d": 1028.3,
+            "grade": -0.078,
+            "horizontal_distance": 1025.2,
+            "status": "computed",
+            "vertical_delta": -80.0,
+            "yaw_degrees": 282.2
+          },
+          "target": 59,
+          "target_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            674
+          ],
+          "path_indexes": [
+            5
+          ],
+          "source": 81,
+          "source_marker": {
+            "create_marker_line": 81,
+            "goal": "",
+            "has_static_origin": true,
+            "id": 81,
+            "origin": [
+              655.0,
+              280.0,
+              56.0
+            ],
+            "set_goal_line": "",
+            "set_zone_line": 668,
+            "zone": 3
+          },
+          "static_geometry": {
+            "delta": {
+              "x": 674.0,
+              "y": -658.0,
+              "z": -80.0
+            },
+            "distance_3d": 945.3,
+            "grade": -0.085,
+            "horizontal_distance": 941.9,
+            "status": "computed",
+            "vertical_delta": -80.0,
+            "yaw_degrees": 315.7
+          },
+          "target": 59,
+          "target_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            686
+          ],
+          "path_indexes": [
+            6
+          ],
+          "source": 83,
+          "source_marker": {
+            "create_marker_line": 83,
+            "goal": "",
+            "has_static_origin": true,
+            "id": 83,
+            "origin": [
+              1354.0,
+              218.0,
+              24.0
+            ],
+            "set_goal_line": "",
+            "set_zone_line": 679,
+            "zone": 3
+          },
+          "static_geometry": {
+            "delta": {
+              "x": -25.0,
+              "y": -596.0,
+              "z": -48.0
+            },
+            "distance_3d": 598.5,
+            "grade": -0.08,
+            "horizontal_distance": 596.5,
+            "status": "computed",
+            "vertical_delta": -48.0,
+            "yaw_degrees": 267.6
+          },
+          "target": 59,
+          "target_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            694
+          ],
+          "path_indexes": [
+            6
+          ],
+          "source": 84,
+          "source_marker": {
+            "create_marker_line": 84,
+            "goal": "",
+            "has_static_origin": true,
+            "id": 84,
+            "origin": [
+              1204.0,
+              488.0,
+              56.0
+            ],
+            "set_goal_line": "",
+            "set_zone_line": 687,
+            "zone": 3
+          },
+          "static_geometry": {
+            "delta": {
+              "x": 125.0,
+              "y": -866.0,
+              "z": -80.0
+            },
+            "distance_3d": 878.6,
+            "grade": -0.091,
+            "horizontal_distance": 875.0,
+            "status": "computed",
+            "vertical_delta": -80.0,
+            "yaw_degrees": 278.2
+          },
+          "target": 59,
+          "target_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1827
+          ],
+          "path_indexes": [
+            4
+          ],
+          "source": 273,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 273,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1822,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "273"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 59,
+          "target_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1837
+          ],
+          "path_indexes": [
+            0
+          ],
+          "source": 276,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "276"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 59,
+          "target_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1851
+          ],
+          "path_indexes": [
+            0
+          ],
+          "source": 278,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 278,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1850,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "278"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 59,
+          "target_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1864
+          ],
+          "path_indexes": [
+            3
+          ],
+          "source": 280,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 280,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1860,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "280"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 59,
+          "target_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            1887
+          ],
+          "path_indexes": [
+            3
+          ],
+          "source": 284,
+          "source_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 284,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1883,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "284"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 59,
+          "target_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          }
+        }
+      ],
+      "marker": {
+        "create_marker_line": 59,
+        "goal": 5,
+        "has_static_origin": true,
+        "id": 59,
+        "origin": [
+          1329.0,
+          -378.0,
+          -24.0
+        ],
+        "set_goal_line": 547,
+        "set_zone_line": 548,
+        "zone": 17
+      },
+      "outgoing": [
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            549
+          ],
+          "path_indexes": [
+            0
+          ],
+          "source": 59,
+          "source_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "276"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 276,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1836,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            550
+          ],
+          "path_indexes": [
+            1
+          ],
+          "source": 59,
+          "source_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "278"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 278,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 278,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1850,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            551
+          ],
+          "path_indexes": [
+            2
+          ],
+          "source": 59,
+          "source_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "284"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 284,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 284,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1883,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            552
+          ],
+          "path_indexes": [
+            3
+          ],
+          "source": 59,
+          "source_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "286"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 286,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 286,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1896,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            553
+          ],
+          "path_indexes": [
+            4
+          ],
+          "source": 59,
+          "source_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "273"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 273,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 273,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1822,
+            "zone": 17
+          }
+        },
+        {
+          "defined_in_bot_map": true,
+          "explicit_flags": [],
+          "flag_line_numbers": [],
+          "line_numbers": [
+            554
+          ],
+          "path_indexes": [
+            5
+          ],
+          "source": 59,
+          "source_marker": {
+            "create_marker_line": 59,
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "set_goal_line": 547,
+            "set_zone_line": 548,
+            "zone": 17
+          },
+          "static_geometry": {
+            "missing_static_origin_markers": [
+              "280"
+            ],
+            "status": "incomplete_missing_static_origin"
+          },
+          "target": 280,
+          "target_marker": {
+            "create_marker_line": "",
+            "goal": "",
+            "has_static_origin": false,
+            "id": 280,
+            "origin": [],
+            "set_goal_line": "",
+            "set_zone_line": 1860,
+            "zone": 17
+          }
+        }
+      ]
+    }
+  },
+  "next_goal": "S7a should seed player-specific movement signatures from the existing exact-player dm3 references (Milton, carapace, yeti) before any player-specific controller work; keep the headline land-speed/bunnyhop gap visible.",
+  "reciprocal_edge": {
+    "defined_in_bot_map": true,
+    "explicit_flags": [],
+    "flag_line_numbers": [],
+    "line_numbers": [
+      549
+    ],
+    "path_indexes": [
+      0
+    ],
+    "source": 59,
+    "source_marker": {
+      "create_marker_line": 59,
+      "goal": 5,
+      "has_static_origin": true,
+      "id": 59,
+      "origin": [
+        1329.0,
+        -378.0,
+        -24.0
+      ],
+      "set_goal_line": 547,
+      "set_zone_line": 548,
+      "zone": 17
+    },
+    "static_geometry": {
+      "missing_static_origin_markers": [
+        "276"
+      ],
+      "status": "incomplete_missing_static_origin"
+    },
+    "target": 276,
+    "target_marker": {
+      "create_marker_line": "",
+      "goal": "",
+      "has_static_origin": false,
+      "id": 276,
+      "origin": [],
+      "set_goal_line": "",
+      "set_zone_line": 1836,
+      "zone": 17
+    }
+  },
+  "schema": "komodobots.route_edge_geometry.v1",
+  "sources": {
+    "attribution_json": [
+      "experiments/ktx_moveprobe/evidence/route-state-s6d-water-attribution.json",
+      "experiments/ktx_moveprobe/evidence/route-state-s6e-water-upmove-attribution.json"
+    ],
+    "bot_map": "../engine/ktx/resources/example-configs/ktx/bots/maps/dm3.bot"
+  },
+  "stage": "s6f-route-edge-geometry"
+}

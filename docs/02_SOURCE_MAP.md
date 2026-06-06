@@ -78,6 +78,8 @@ Route-state diagnosis helper: `C:\Users\benya\projects\quakeworld\komodobots\scr
 
 Route-state attribution helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\attribute_route_state_windows.py`
 
+Route-edge geometry helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\inspect_route_edge_geometry.py`
+
 Human MVD analysis scaffold: `C:\Users\benya\projects\quakeworld\komodobots\scripts\analyze_human_mvd.py`
 
 KTX movement probe patch: `C:\Users\benya\projects\quakeworld\komodobots\experiments\ktx_moveprobe\frogbot-moveprobe.patch`
@@ -91,6 +93,7 @@ Why it matters:
 - `scripts/summarize_moveprobe_plausibility.py` combines per-run `movement-metrics.json` and `moveprobe-commands.json` artifacts into an explicit command-coverage plus stationary/low-speed gate.
 - `scripts/diagnose_route_state.py` joins position segments, sampled moveprobe commands, and map-entity locations to identify low-speed windows and whether current artifacts contain route node/goal/obstruction state.
 - `scripts/attribute_route_state_windows.py` decodes route-state low-speed windows against KTX/Frogbot flag definitions and `.bot` route-map edges, producing compact S6 attribution evidence without changing controller behavior.
+- `scripts/inspect_route_edge_geometry.py` inspects one Frogbot `.bot` edge, its reciprocal/direct neighborhood, static marker-origin availability, and matching S6 attribution samples to decide whether a route-data geometry fix is justified.
 - `scripts/analyze_human_mvd.py` inventories local human `.mvd` candidates, copies one selected demo into `artifacts/human-demos/<run-id>/`, parses it through the same `qw-analyze-v20` and movement-metrics path, and writes compact human comparison summaries.
 - `scripts/summarize_reference_aggregate.py` combines a tiny exact-player reference set into committed JSON/Markdown ranges and compares them against same-map S3g bot rows.
 - `experiments/ktx_moveprobe/frogbot-moveprobe.patch` is the first S2 KTX source probe. It applies to KTX commit `08807da`, hooks `src/bot_movement.c::BotSetCommand()` after the prewar-freeze guard, and adds cvar-controlled command perturbation immediately before button assembly and `trap_SetBotCMD(...)`.
@@ -137,6 +140,7 @@ Verification:
 - `s6a-route-state` diagnoses S3g `dm3` run `20260606T003718Z`. The existing artifacts expose position traces, sampled final commands, route yaw, view yaw, yaw delta, backward command state, and map-entity locations, but no Frogbot route node, next waypoint, target entity, obstruction, or route primitive state. Eight of nine analyzed top low-speed windows still had average sampled horizontal command at or above `400`.
 - `s6b-route-state` diagnoses S6b `dm3` run `20260606T031102Z` with the new `route=` command suffix. Route-state context is now available; `/ bro` had `17` low-speed windows, repeated `water.LG` windows tagged with linked/goal marker `59`, path state `32768`, and `blocked=0`, while `/ goldenboy` had no S6-threshold low-speed windows.
 - `s6d-water-path` diagnoses S6d `dm3` run `20260606T041805Z` with the new `water=` command suffix. The repeated `/ bro` `water.LG` windows again had strong sampled commands, linked/goal marker `59`, `WATER_PATH`, and `blocked=0`; water-state attribution showed window samples at waterlevel `1` with occasional `2`, no deep-water samples, `swim_arrow=0`, and emitted `upmove=0`.
+- `s6f-route-edge-geometry` inspects the static `dm3.bot` route edge `276->59` and S6d/S6e attribution samples. The edge and its reciprocal are explicit, but marker `276` has no static `CreateMarker` origin, so no precise static edge vector or tiny coordinate fix is justified from the route file alone.
 - Stock `dm2` has `dm2.bsp` and `dm2.loc`, but no `ktx/bots/maps/dm2.bot`; do not treat stock `dm2` as a Frogbot-supported map unless a real route appears.
 
 ### mvd_analyzer
