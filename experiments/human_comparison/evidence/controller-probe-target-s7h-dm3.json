@@ -1,0 +1,69 @@
+{
+  "candidates": [
+    {
+      "evidence": {
+        "airborne_counts": {
+          "bot": 6,
+          "reference": 6
+        },
+        "airborne_p50_ratio": 0.283,
+        "non_airborne_p50_ratio": 0.975,
+        "post_air_counts": {
+          "bot": 6,
+          "reference": 6
+        },
+        "post_air_p50_ratio": 0.505,
+        "pre_air_counts": {
+          "bot": 6,
+          "reference": 6
+        },
+        "pre_air_p50_ratio": 0.495
+      },
+      "human_comparable": true,
+      "label": "Air-transition horizontal speed production",
+      "priority": "preferred_first_probe_target",
+      "reason": "The gap is human-comparable and context-specific: pre-air, airborne, and post-air p50 ratios are all below 0.6 while generic non-airborne p50 speed is near reference.",
+      "risk": "A probe must preserve combat/route context and keep route WATER_PATH as a guardrail, because S7g also found very slow route-specific samples.",
+      "score": 0.572,
+      "target": "air_transition_horizontal_speed"
+    },
+    {
+      "evidence": {
+        "bot_route_state_matched_segments": 3674,
+        "low_dir_bot_p50_speed": 141.017,
+        "low_dir_player_p50_count": 4,
+        "low_dir_speed_rows": 4,
+        "water_path_bot_p50_speed": 95.279,
+        "water_path_player_p50_count": 2,
+        "water_path_rows": 2
+      },
+      "human_comparable": false,
+      "label": "Route WATER_PATH low-dir-speed recovery",
+      "priority": "secondary_guardrail_target",
+      "reason": "WATER_PATH is extremely slow, but the evidence is bot-only route diagnostics with no exact-player reference bucket and only a narrow route context.",
+      "risk": "A route-only probe may overfit a narrow `dm3.bot` primitive before the broader human-comparable air-transition speed gap is addressed.",
+      "score": 0.567,
+      "target": "water_path_low_dir_speed_recovery"
+    }
+  ],
+  "decision": {
+    "deferred_target": "water_path_low_dir_speed_recovery",
+    "next_goal": "S7i should design a tiny air-transition horizontal-speed probe with unchanged cadence reporting, unchanged route diagnostics, and stop conditions that reject all-segment speed gains if air transition buckets or WATER_PATH context get worse.",
+    "reason": "Air-transition speed is the first controller probe target because it is human-comparable across the exact-player and bot row set, affects pre-air/airborne/post-air contexts, and is clearly separated from generic non-airborne speed. WATER_PATH remains a guardrail and later narrow route target rather than the first probe.",
+    "selected_target": "air_transition_horizontal_speed",
+    "verdict": "choose_air_transition_horizontal_speed_probe"
+  },
+  "map": "dm3",
+  "method": "S7h consumes S7g land-speed context and chooses the first controller-probe target. It prefers a human-comparable context gap over a narrow bot-only route diagnostic unless the comparable evidence is missing.",
+  "probe_guardrails": [
+    "Do not treat all-segment speed as success by itself.",
+    "Keep cadence diagnostic and report airborne-proxy cadence after any probe.",
+    "Report pre-air, airborne, post-air, non-airborne, route low-dir-speed, and WATER_PATH buckets after any probe.",
+    "Reject a probe if it improves one bucket while making combat/route context or WATER_PATH behavior worse."
+  ],
+  "schema": "komodobots.controller_probe_target.v1",
+  "source_land_speed_path": "experiments/human_comparison/evidence/land-speed-gap-s7g-dm3.json",
+  "source_land_speed_stage": "s7g-land-speed-gap-dm3",
+  "stage": "s7h-controller-probe-target-dm3",
+  "warnings": []
+}

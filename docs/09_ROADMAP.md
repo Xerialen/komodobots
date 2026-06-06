@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S7h - Choose first controller probe target from S7g context`
+`S7i - Design tiny air-transition horizontal-speed probe`
 
 ## Stage Status Table
 
@@ -49,7 +49,7 @@ Current active stage:
 | S4 Human Comparison | First same-map anchor complete | S4c parsed one human `dm3` 4on4 demo and compared it against S3g `dm3`; S3g is not yet human-like on the observed movement ranges |
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
 | S6 Route Primitives | Closed for now | S6f found `276->59` is explicit and reciprocal, but marker `276` lacks static geometry, so no tiny route-data fix is justified from `dm3.bot` alone |
-| S7 Player Specific | Active | S7g found the speed gap concentrates around air-transition/airborne segments while generic non-airborne p50 speed can be human-scale; S7h should choose between air-transition speed production and a narrow route primitive before another controller probe |
+| S7 Player Specific | Active | S7h selected air-transition horizontal speed production as the first controller-probe target; S7i should design a tiny probe with cadence and WATER_PATH guardrails |
 
 ## Roadmap Rule
 
@@ -95,3 +95,5 @@ S7e broadened bot cadence evidence from existing unchanged `dm3` mode-7 artifact
 S7f inspected raw airborne-proxy segment distributions from the same six exact-player `dm3` references and six unchanged mode-7 bot rows. Bot player-median air duration is `217.2` ms vs reference `325.0` ms, Z range is `11.5` qu vs `43.8` qu, and air speed is `114.4` qu/s vs `431.8` qu/s. This explains the high airborne-proxy cadence as a symptom of broken air/land rhythm and horizontal-speed production, not a controller-ready cadence target. The next branch is S7g: characterize the land-speed gap around route and air segments before another controller probe.
 
 S7g characterized accepted segment speed by context using the S7f row set. Bot all-segment p50 speed remains below reference (`222.0` vs `334.0` qu/s), but generic non-airborne p50 speed is close (`312.1` vs `320.0` qu/s). The gap concentrates around airborne-proxy segments (`122.6` vs `433.8`), pre-air windows (`207.1` vs `418.0`), post-air windows (`184.5` vs `365.7`), and sampled route `WATER_PATH` contexts (`95.3` qu/s). The next branch is S7h: choose whether the first controller probe targets air-transition horizontal speed production or a narrow route primitive such as `WATER_PATH` low-dir-speed recovery.
+
+S7h selected air-transition horizontal speed production as the first controller-probe target from the committed S7g context. Air-transition evidence is human-comparable across six reference and six bot rows (`0.495` pre-air ratio, `0.283` airborne ratio, `0.505` post-air ratio) while generic non-airborne speed is near reference (`0.975`). `WATER_PATH` remains a guardrail and deferred narrow route target because it is very slow (`95.3` qu/s) but bot-only and route-diagnostic. The next branch is S7i: design a tiny air-transition horizontal-speed probe with unchanged cadence reporting, unchanged route diagnostics, and stop conditions that reject all-segment speed gains if air-transition buckets or `WATER_PATH` context get worse.

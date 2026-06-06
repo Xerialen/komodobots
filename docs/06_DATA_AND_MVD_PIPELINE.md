@@ -596,6 +596,9 @@ s7f-airborne-segments-dm3, raw airborne-proxy segment inspection:
 
 s7g-land-speed-gap-dm3, context-bucketed segment speed:
   S7g reuses the S7f row set and buckets accepted movement segments by airborne-proxy overlap, 400 ms pre/post-air windows, sampled moveprobe command strength, and route-state hints where available. Bot non-airborne p50 speed is close to reference (312.1 vs 320.0 qu/s), but bot airborne p50 is 122.6 vs 433.8, pre-air is 207.1 vs 418.0, post-air is 184.5 vs 365.7, and route WATER_PATH samples sit near 95.3 qu/s. The next work should choose between air-transition speed production and a narrow route primitive target before any controller probe.
+
+s7h-controller-probe-target-dm3, first controller target decision:
+  S7h consumes the committed S7g land-speed context and selects air-transition horizontal speed production as the first controller-probe target. The selected target is human-comparable (pre-air ratio 0.495, airborne ratio 0.283, post-air ratio 0.505, non-airborne ratio 0.975), while WATER_PATH is retained as a secondary guardrail because it is very slow but bot-only and route-diagnostic.
 ```
 
 ## Open questions
