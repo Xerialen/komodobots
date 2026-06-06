@@ -13,6 +13,7 @@ the control client shim does not pollute bot movement numbers.
 from __future__ import annotations
 
 import argparse
+from bisect import bisect_right
 import json
 import math
 import sys
@@ -58,6 +59,15 @@ def read_run_env(run_dir: Path) -> dict[str, str]:
     return values
 
 
+def coerce_optional_int(value: object) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError):
+        return None
+
+
 def coerce_time_ms(event: dict, data: dict) -> int:
     time_ms = data.get("TimeMs")
     if time_ms is not None:
@@ -98,7 +108,41 @@ def round_float(value: float, digits: int = 3) -> float:
     return 0.0
 
 
+def build_speed_window_index(segments: list[dict]) -> tuple[list[int], list[int], list[float]]:
+    return (
+        [int(segment["start_ms"]) for segment in segments],
+        [int(segment["end_ms"]) for segment in segments],
+        [float(segment["horizontal_speed_qu_per_s"]) for segment in segments],
+    )
+
+
+def weighted_speed_for_indexed_window(
+    speed_index: tuple[list[int], list[int], list[float]],
+    start_ms: int,
+    end_ms: int,
+) -> float | None:
+    if end_ms <= start_ms:
+        return None
+    starts, ends, speeds = speed_index
+    total_ms = 0
+    weighted_speed = 0.0
+    index = bisect_right(ends, start_ms)
+    while index < len(starts) and starts[index] < end_ms:
+        overlap_ms = max(0, min(ends[index], end_ms) - max(starts[index], start_ms))
+        if overlap_ms > 0:
+            total_ms += overlap_ms
+            weighted_speed += speeds[index] * overlap_ms
+        index += 1
+    if total_ms <= 0:
+        return None
+    return weighted_speed / total_ms
+
+
 def weighted_speed_for_window(segments: list[dict], start_ms: int, end_ms: int) -> float | None:
+    return weighted_speed_for_indexed_window(build_speed_window_index(segments), start_ms, end_ms)
+
+
+def weighted_speed_for_window_slow(segments: list[dict], start_ms: int, end_ms: int) -> float | None:
     total_ms = 0
     weighted_speed = 0.0
     for segment in segments:
@@ -149,10 +193,12 @@ def summarize_airborne_proxy(segments: list[dict], thresholds: dict[str, float])
     post_speeds: list[float] = []
     post_deltas: list[float] = []
     post_losses: list[float] = []
+    post_loss_ratios: list[float] = []
+    speed_index = build_speed_window_index(segments)
     for run in runs:
         landing_ms = run["end_ms"]
-        pre_speed = weighted_speed_for_window(segments, landing_ms - landing_window_ms, landing_ms)
-        post_speed = weighted_speed_for_window(segments, landing_ms, landing_ms + landing_window_ms)
+        pre_speed = weighted_speed_for_indexed_window(speed_index, landing_ms - landing_window_ms, landing_ms)
+        post_speed = weighted_speed_for_indexed_window(speed_index, landing_ms, landing_ms + landing_window_ms)
         if pre_speed is None or post_speed is None:
             continue
         pre_speeds.append(pre_speed)
@@ -161,13 +207,15 @@ def summarize_airborne_proxy(segments: list[dict], thresholds: dict[str, float])
         post_deltas.append(delta)
         loss = pre_speed - post_speed
         post_losses.append(loss)
+        if pre_speed > 0:
+            post_loss_ratios.append(loss / pre_speed)
 
     durations = [run["duration_ms"] for run in runs]
     z_deltas = [run["z_delta_qu"] for run in runs]
     avg_pre_speed = sum(pre_speeds) / len(pre_speeds) if pre_speeds else 0.0
     avg_post_speed = sum(post_speeds) / len(post_speeds) if post_speeds else 0.0
-    avg_loss = avg_pre_speed - avg_post_speed
-    avg_loss_ratio = avg_loss / avg_pre_speed if avg_pre_speed > 0 else 0.0
+    avg_loss = sum(post_losses) / len(post_losses) if post_losses else 0.0
+    avg_loss_ratio = sum(post_loss_ratios) / len(post_loss_ratios) if post_loss_ratios else 0.0
 
     return {
         "airborne_proxy_count": len(runs),
@@ -390,6 +438,7 @@ def compute_movement_metrics(
     run_env = read_run_env(run_dir)
     analysis = read_json_if_present(run_dir / "analysis.json")
     match = analysis.get("match", {}) if isinstance(analysis, dict) else {}
+    match_duration_ms = coerce_optional_int(match.get("duration"))
 
     players: dict[int, dict] = {}
     samples_by_slot: dict[int, list[Sample]] = {}
@@ -483,6 +532,8 @@ def compute_movement_metrics(
             continue
         if first_named_time_ms is not None:
             samples = [sample for sample in samples if sample["time_ms"] >= first_named_time_ms]
+        if match_duration_ms is not None:
+            samples = [sample for sample in samples if sample["time_ms"] <= match_duration_ms]
         if not samples:
             continue
 
@@ -495,6 +546,7 @@ def compute_movement_metrics(
         metric["user_id"] = info.get("user_id")
         metric["spectator"] = bool(info.get("spectator", False))
         metric["first_named_time_ms"] = first_named_time_ms
+        metric["match_duration_clamp_ms"] = match_duration_ms
         player_metrics.append(metric)
 
     return {
@@ -514,6 +566,10 @@ def compute_movement_metrics(
             "position_event_count": position_event_count,
         },
         "thresholds": thresholds,
+        "sample_window": {
+            "match_duration_clamp_ms": match_duration_ms,
+            "notes": "Named player samples are clamped to match.duration when analysis.json provides it.",
+        },
         "players": player_metrics,
     }
 
@@ -534,6 +590,7 @@ def write_markdown(metrics: dict, output_path: Path) -> None:
         f"- Map title: `{run.get('map_title', '')}`",
         f"- Duration: `{run.get('duration_ms', '')}` ms",
         f"- Position events: `{metrics['parser'].get('position_event_count', 0)}`",
+        f"- Match-duration clamp: `{metrics.get('sample_window', {}).get('match_duration_clamp_ms', '')}` ms",
         "",
         "## Method",
         "",

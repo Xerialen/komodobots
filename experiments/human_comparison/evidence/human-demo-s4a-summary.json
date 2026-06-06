@@ -1,0 +1,161 @@
+{
+  "artifact_dir": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\s4a-1on1-reppie-vs-locust-aerowalk",
+  "comparison_context": {
+    "bot_summary": {
+      "available": true,
+      "maps": [
+        "dm3",
+        "frobodm2"
+      ],
+      "path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\experiments\\ktx_moveprobe\\evidence\\moveprobe-s3g-summary.json",
+      "run_count": 2,
+      "schema": "komodobots.moveprobe_plausibility.v1"
+    },
+    "note": "Use this as a parser proof only until a DM2 or map-matched human set is available.",
+    "same_map_comparable_to_s3g": false,
+    "verdict": "parser_proof_only_no_local_dm2"
+  },
+  "demo": {
+    "copied_demo": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\s4a-1on1-reppie-vs-locust-aerowalk\\demo.mvd",
+    "demo_kind": "1on1",
+    "inferred_map_from_name": "aerowalk",
+    "map": "aerowalk",
+    "name": "1on1_reppie_vs_locust_aerowalk.mvd",
+    "sha256": "046858f138fcaba1c80e2f5871f8c1a33000d588264975d5892e3ba386343c63",
+    "size_bytes": 1081672,
+    "source_path": "C:\\Users\\benya\\projects\\quakeworld\\data\\quake-development\\clients\\xerialqw-bench\\qw\\matchinfo\\demos\\1on1_reppie_vs_locust_aerowalk.mvd"
+  },
+  "ignored_named_slots": [
+    {
+      "active_time_s": 0.0,
+      "airborne_proxy_time_ratio": 0.0,
+      "avg_horizontal_speed_qu_per_s": 0.0,
+      "jump_cadence_per_min": 0.0,
+      "low_speed_time_ratio": 0.0,
+      "max_horizontal_speed_qu_per_s": 0.0,
+      "name": "kaka",
+      "p95_horizontal_speed_qu_per_s": 0.0,
+      "sample_count": 2,
+      "slot": 2,
+      "stationary_time_ratio": 0.0
+    },
+    {
+      "active_time_s": 0.0,
+      "airborne_proxy_time_ratio": 0.0,
+      "avg_horizontal_speed_qu_per_s": 0.0,
+      "jump_cadence_per_min": 0.0,
+      "low_speed_time_ratio": 0.0,
+      "max_horizontal_speed_qu_per_s": 0.0,
+      "name": "mrbeats",
+      "p95_horizontal_speed_qu_per_s": 0.0,
+      "sample_count": 2,
+      "slot": 3,
+      "stationary_time_ratio": 0.0
+    },
+    {
+      "active_time_s": 0.0,
+      "airborne_proxy_time_ratio": 0.0,
+      "avg_horizontal_speed_qu_per_s": 0.0,
+      "jump_cadence_per_min": 0.0,
+      "low_speed_time_ratio": 0.0,
+      "max_horizontal_speed_qu_per_s": 0.0,
+      "name": "ruskie",
+      "p95_horizontal_speed_qu_per_s": 0.0,
+      "sample_count": 2,
+      "slot": 4,
+      "stationary_time_ratio": 0.0
+    },
+    {
+      "active_time_s": 0.0,
+      "airborne_proxy_time_ratio": 0.0,
+      "avg_horizontal_speed_qu_per_s": 0.0,
+      "jump_cadence_per_min": 0.0,
+      "low_speed_time_ratio": 0.0,
+      "max_horizontal_speed_qu_per_s": 0.0,
+      "name": "afax",
+      "p95_horizontal_speed_qu_per_s": 0.0,
+      "sample_count": 2,
+      "slot": 5,
+      "stationary_time_ratio": 0.0
+    },
+    {
+      "active_time_s": 0.0,
+      "airborne_proxy_time_ratio": 0.0,
+      "avg_horizontal_speed_qu_per_s": 0.0,
+      "jump_cadence_per_min": 0.0,
+      "low_speed_time_ratio": 0.0,
+      "max_horizontal_speed_qu_per_s": 0.0,
+      "name": "jinxd",
+      "p95_horizontal_speed_qu_per_s": 0.0,
+      "sample_count": 2,
+      "slot": 6,
+      "stationary_time_ratio": 0.0
+    },
+    {
+      "active_time_s": 0.0,
+      "airborne_proxy_time_ratio": 0.0,
+      "avg_horizontal_speed_qu_per_s": 0.0,
+      "jump_cadence_per_min": 0.0,
+      "low_speed_time_ratio": 0.0,
+      "max_horizontal_speed_qu_per_s": 0.0,
+      "name": "brv",
+      "p95_horizontal_speed_qu_per_s": 0.0,
+      "sample_count": 2,
+      "slot": 7,
+      "stationary_time_ratio": 0.0
+    }
+  ],
+  "inventory": {
+    "demo_count": 5,
+    "dm2_candidate_count": 0,
+    "has_dm2_candidate": false,
+    "map_inference_method": "filename_token_heuristic",
+    "root": "C:\\Users\\benya\\projects\\quakeworld\\data\\quake-development\\clients\\xerialqw-bench\\qw\\matchinfo\\demos"
+  },
+  "match": {
+    "duration_ms": 600057,
+    "frag_count": 4,
+    "map": "aerowalk",
+    "map_title": "Aerowalk"
+  },
+  "movement_players": [
+    {
+      "active_time_s": 597.646,
+      "airborne_proxy_time_ratio": 0.448,
+      "avg_horizontal_speed_qu_per_s": 324.002,
+      "jump_cadence_per_min": 40.76,
+      "low_speed_time_ratio": 0.11,
+      "max_horizontal_speed_qu_per_s": 1004.715,
+      "name": "reppie",
+      "p95_horizontal_speed_qu_per_s": 537.423,
+      "sample_count": 17194,
+      "slot": 0,
+      "stationary_time_ratio": 0.046
+    },
+    {
+      "active_time_s": 597.699,
+      "airborne_proxy_time_ratio": 0.396,
+      "avg_horizontal_speed_qu_per_s": 318.524,
+      "jump_cadence_per_min": 34.834,
+      "low_speed_time_ratio": 0.111,
+      "max_horizontal_speed_qu_per_s": 2423.245,
+      "name": "locust",
+      "p95_horizontal_speed_qu_per_s": 519.039,
+      "sample_count": 17201,
+      "slot": 1,
+      "stationary_time_ratio": 0.052
+    }
+  ],
+  "parser": {
+    "event_count": 58517,
+    "exits": {
+      "events": 1,
+      "json": 0,
+      "md": 0
+    },
+    "position_event_count": 35447
+  },
+  "run_id": "s4a-1on1-reppie-vs-locust-aerowalk",
+  "schema": "komodobots.human_mvd_analysis.v1",
+  "stage": "s4a"
+}

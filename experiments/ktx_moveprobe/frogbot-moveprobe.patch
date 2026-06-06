@@ -1,0 +1,301 @@
+diff --git a/src/bot_movement.c b/src/bot_movement.c
+index c0654d1..3f6886d 100644
+--- a/src/bot_movement.c
++++ b/src/bot_movement.c
+@@ -422,6 +422,284 @@ static void BestJumpingDirection(gedict_t *self)
+ 							avg_angle);
+ }
+ 
++static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, vec3_t direction)
++{
++	int mode = (int)cvar("k_fb_moveprobe_mode");
++
++	if ((mode <= 0) || intermission_running || ISDEAD(self)
++		|| ((match_in_progress != 2) && cvar(FB_CVAR_FREEZE_PREWAR)))
++	{
++		return;
++	}
++
++	if (mode == 1)
++	{
++		*jumping = true;
++
++		return;
++	}
++
++	else if (mode == 2)
++	{
++		// Probe-only: string cvar lookups keep this patch small; do not copy
++		// this hot-path pattern into a durable movement controller.
++		float forwardmove = cvar("k_fb_moveprobe_forwardmove");
++
++		self->fb.desired_angle[PITCH] = 0;
++		self->fb.desired_angle[YAW] = cvar("k_fb_moveprobe_yaw");
++		self->fb.desired_angle[ROLL] = 0;
++
++		direction[0] = forwardmove;
++		direction[1] = cvar("k_fb_moveprobe_sidemove");
++		direction[2] = cvar("k_fb_moveprobe_upmove");
++
++		*jumping = true;
++	}
++
++	else if (mode == 3)
++	{
++		vec3_t route_direction;
++		float forwardmove = cvar("k_fb_moveprobe_forwardmove");
++
++		if (forwardmove <= 0)
++		{
++			forwardmove = 800;
++		}
++
++		VectorCopy(self->fb.dir_move_, route_direction);
++		route_direction[2] = 0;
++		if (VectorNormalize(route_direction) <= 0)
++		{
++			return;
++		}
++
++		self->fb.desired_angle[PITCH] = 0;
++		self->fb.desired_angle[YAW] = vectoyaw(route_direction);
++		self->fb.desired_angle[ROLL] = 0;
++
++		direction[0] = forwardmove;
++		direction[1] = cvar("k_fb_moveprobe_sidemove");
++		direction[2] = cvar("k_fb_moveprobe_upmove");
++
++		*jumping = true;
++	}
++
++	else if (mode == 4)
++	{
++		vec3_t route_direction;
++		int slot = NUM_FOR_EDICT(self) - 1;
++		float forwardmove = cvar("k_fb_moveprobe_forwardmove");
++		float sidemove = cvar("k_fb_moveprobe_sidemove");
++		float strafe_sign = (((int)(g_globalvars.time * 5) + slot) & 1) ? 1 : -1;
++
++		if (forwardmove <= 0)
++		{
++			forwardmove = 800;
++		}
++		if (sidemove == 0)
++		{
++			sidemove = 400;
++		}
++		if (sidemove < 0)
++		{
++			sidemove = -sidemove;
++		}
++
++		VectorCopy(self->fb.dir_move_, route_direction);
++		route_direction[2] = 0;
++		if (VectorNormalize(route_direction) <= 0)
++		{
++			return;
++		}
++
++		self->fb.desired_angle[PITCH] = 0;
++		self->fb.desired_angle[YAW] = vectoyaw(route_direction);
++		self->fb.desired_angle[ROLL] = 0;
++
++		direction[0] = forwardmove;
++		direction[1] = sidemove * strafe_sign;
++		direction[2] = cvar("k_fb_moveprobe_upmove");
++
++		*jumping = true;
++	}
++
++	else if ((mode == 5) || (mode == 6) || (mode == 7))
++	{
++		vec3_t route_direction;
++		vec3_t route_right;
++		vec3_t desired_move;
++		vec3_t move_angles;
++		int slot = NUM_FOR_EDICT(self) - 1;
++		float forwardmove = cvar("k_fb_moveprobe_forwardmove");
++		float sidemove = cvar("k_fb_moveprobe_sidemove");
++		float native_upmove = direction[2];
++		float strafe_sign = (((int)(g_globalvars.time * 5) + slot) & 1) ? 1 : -1;
++
++		if (forwardmove <= 0)
++		{
++			forwardmove = 800;
++		}
++		if (sidemove < 0)
++		{
++			sidemove = -sidemove;
++		}
++
++		VectorCopy(self->fb.dir_move_, route_direction);
++		route_direction[2] = 0;
++		if (VectorNormalize(route_direction) <= 0)
++		{
++			return;
++		}
++
++		route_right[0] = route_direction[1];
++		route_right[1] = -route_direction[0];
++		route_right[2] = 0;
++
++		VectorScale(route_direction, forwardmove, desired_move);
++		VectorMA(desired_move, sidemove * strafe_sign, route_right, desired_move);
++
++		VectorCopy(self->fb.desired_angle, move_angles);
++		move_angles[PITCH] = 0;
++		move_angles[ROLL] = 0;
++		// trap_makevectors mutates g_globalvars.v_forward/v_right/v_up; keep
++		// this projection immediately adjacent to the dot products below.
++		trap_makevectors(move_angles);
++
++		direction[0] = DotProduct(g_globalvars.v_forward, desired_move);
++		direction[1] = DotProduct(g_globalvars.v_right, desired_move);
++		direction[2] = ((mode == 7) && (self->s.v.waterlevel > 1))
++			? native_upmove : cvar("k_fb_moveprobe_upmove");
++
++		if (((mode == 6) || (mode == 7)) && (direction[0] < 0))
++		{
++			float side_sign = direction[1] < 0 ? -1 : 1;
++
++			if (direction[1] == 0)
++			{
++				side_sign = strafe_sign;
++			}
++			direction[1] += -direction[0] * side_sign;
++			direction[0] = 0;
++		}
++
++		if (mode == 7)
++		{
++			vec3_t command_horizontal;
++			float max_horizontal = VectorLength(desired_move);
++			float command_horizontal_speed;
++
++			command_horizontal[0] = direction[0];
++			command_horizontal[1] = direction[1];
++			command_horizontal[2] = 0;
++			command_horizontal_speed = VectorLength(command_horizontal);
++			if ((max_horizontal > 0) && (command_horizontal_speed > max_horizontal))
++			{
++				float scale = max_horizontal / command_horizontal_speed;
++				direction[0] *= scale;
++				direction[1] *= scale;
++			}
++		}
++
++		*jumping = true;
++	}
++}
++
++static float BotMoveProbeAngleDelta(float route_yaw, float view_yaw)
++{
++	float delta = anglemod(route_yaw) - anglemod(view_yaw);
++
++	if (delta > 180)
++	{
++		delta -= 360;
++	}
++	else if (delta < -180)
++	{
++		delta += 360;
++	}
++
++	return delta;
++}
++
++static int BotMoveProbeMarkerIndex(gedict_t *marker)
++{
++	return marker ? marker->fb.index + 1 : -1;
++}
++
++static void BotLogMoveProbeCommand(gedict_t *self, int cmd_msec, vec3_t direction,
++								   int buttons, int impulse)
++{
++	// Probe-only: current lab runs start fresh KTX processes, so this throttle
++	// state is zeroed. Reset it before reusing the logger in a long-lived server.
++	static float last_log_time[MAX_CLIENTS];
++	int ednum = NUM_FOR_EDICT(self);
++	int slot = ednum - 1;
++	int mode;
++	float interval;
++	float route_yaw = 0;
++	float view_yaw = anglemod(self->fb.desired_angle[YAW]);
++	float yaw_delta = 0;
++	int backward = direction[0] < 0;
++	vec3_t route_direction;
++	int goalentity = self->s.v.goalentity;
++	int goal_marker = -1;
++	int blocked = 0;
++
++	if (!cvar("k_fb_moveprobe_log_commands") || slot < 0 || slot >= MAX_CLIENTS)
++	{
++		return;
++	}
++
++	interval = cvar("k_fb_moveprobe_log_interval");
++	if (interval < 0)
++	{
++		interval = 0;
++	}
++
++	if ((interval > 0) && last_log_time[slot]
++		&& ((g_globalvars.time - last_log_time[slot]) < interval))
++	{
++		return;
++	}
++
++	last_log_time[slot] = g_globalvars.time;
++	mode = (int)cvar("k_fb_moveprobe_mode");
++
++	VectorCopy(self->fb.dir_move_, route_direction);
++	route_direction[2] = 0;
++	if (VectorNormalize(route_direction) > 0)
++	{
++		route_yaw = anglemod(vectoyaw(route_direction));
++		// yaw_delta is interpretable for aim-independent modes 5/6/7. Route-yaw
++		// modes set view yaw from route yaw, so their deltas are structural noise.
++		yaw_delta = BotMoveProbeAngleDelta(route_yaw, view_yaw);
++	}
++
++	if ((goalentity > 0) && (goalentity < MAX_EDICTS))
++	{
++		goal_marker = BotMoveProbeMarkerIndex(g_edicts[goalentity].fb.touch_marker);
++	}
++
++	blocked = (self->fb.path_state & STUCK_PATH)
++		|| self->fb.obstruction_normal[0]
++		|| self->fb.obstruction_normal[1]
++		|| self->fb.obstruction_normal[2];
++
++	G_cprint("FBMOVEPROBE_CMD time=%.3f ed=%d name=%s mode=%d msec=%d "
++			 "angles=%.1f,%.1f,%.1f move=%d,%d,%d buttons=%d impulse=%d "
++			 "diag=%.1f,%.1f,%.1f,%d "
++			 "route=%d,%d,%d,%d,%d,%d,%d,%.3f "
++			 "water=%d,%d,%d,%d,%.1f,%.1f,%.1f,%.1f,%.3f,%.3f,%.3f\n",
++			 g_globalvars.time, ednum, self->netname, mode, cmd_msec,
++			 PASSVEC3(self->fb.desired_angle), PASSINTVEC3(direction),
++			 buttons, impulse, route_yaw, view_yaw, yaw_delta, backward,
++			 BotMoveProbeMarkerIndex(self->fb.linked_marker),
++			 BotMoveProbeMarkerIndex(self->fb.touch_marker), goalentity, goal_marker,
++			 self->fb.path_state, self->fb.state, blocked, self->fb.dir_speed,
++			 (int)self->s.v.waterlevel, (int)self->s.v.watertype, (int)self->s.v.flags,
++			 (int)self->fb.swim_arrow, direction[2],
++			 PASSVEC3(self->s.v.velocity), PASSVEC3(self->fb.dir_move_));
++}
++
+ void BotSetCommand(gedict_t *self)
+ {
+ 	extern float last_frame_time;
+@@ -556,8 +772,11 @@ void BotSetCommand(gedict_t *self)
+ 		impulse = 0;
+ 	}
+ 
++	BotApplyMoveProbe(self, &jumping, direction);
++
+ 	buttons |= (firing ? 1 : 0);
+ 	buttons |= (jumping ? 2 : 0);
++	BotLogMoveProbeCommand(self, cmd_msec, direction, buttons, impulse);
+ 	trap_SetBotCMD(NUM_FOR_EDICT(self), cmd_msec, PASSVEC3(self->fb.desired_angle),
+ 					PASSVEC3(direction), buttons, impulse);
+ 

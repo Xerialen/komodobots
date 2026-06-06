@@ -1,6 +1,6 @@
 # Headless Test Environment
 
-Status: repeatable bot lab runner verified on `frobodm2` and `dm3` 2026-06-05. Baseline movement v2 metrics are generated automatically.
+Status: repeatable bot lab runner verified on `frobodm2` and `dm3` through 2026-06-06. Baseline movement v2 metrics are generated automatically. KTX final-command movement probes include route-vs-view diagnostics, and S6b route-state logging can tag low-speed windows with Frogbot marker/goal/path-state context.
 
 ## Purpose
 
@@ -30,6 +30,16 @@ Map clarification from the user on 2026-06-05: stock `dm2` matters because `qw-s
 Third lab milestone on 2026-06-05: `scripts/extract_movement_metrics.py` now derives per-bot movement tables from `events.txt` kind `5` player origin samples. The runner writes `movement-metrics.json` and `movement-metrics.md` automatically after parsing the MVD.
 
 Fourth lab milestone on 2026-06-05: movement metrics schema v2 adds vertical-motion and airborne-proxy metrics: air-proxy time ratio, run cadence, average air-proxy duration, and post-landing speed delta/loss over a fixed window.
+
+Fifth lab milestone on 2026-06-05: the first S2 movement override probe patched KTX `BotSetCommand()` after the prewar-freeze guard and immediately before button assembly and `trap_SetBotCMD(...)`. Moveprobe mode `1` forced jump while preserving Frogbot direction/combat and produced a normal `frobodm2` run with three frags and movement metrics. Moveprobe mode `2` replaced the final movement command with a fixed command plus forced jump and produced full lab artifacts, but the bots became nearly stationary. Moveprobe mode `3` used route-derived yaw; after an initial mixed run, fresh `frobodm2` and `dm3` repeats passed explicit command/plausibility gates for all bot rows. S2 movement override feasibility is provisionally satisfied pending review, while aim/combat separation remains open.
+
+Sixth lab milestone on 2026-06-06: S3e added route-vs-view diagnostic logging to mode `5` command rows. The fresh diagnostic run passed on `frobodm2` but failed both `dm3` bot rows on low-speed, with the strongest yaw/backward signal on `/ bro`. This keeps the next step small: test whether avoiding negative local `forwardmove` helps before building a larger controller.
+
+Seventh lab milestone on 2026-06-06: S3f added mode `6`, a no-backpedal variant of mode `5`. It passed the current horizontal/side/jump behavior gate on both `dm3` and `frobodm2`, but generated very large side commands after folding negative forward into strafe. This is a successful corrective probe, not a final controller.
+
+Eighth lab milestone on 2026-06-06: S6a added route-state diagnosis over the existing S3g `dm3` artifacts. It found that `8` of `9` analyzed top low-speed windows had strong sampled movement commands nearby, but the artifacts did not expose route node, next waypoint, target entity, obstruction, or route primitive state.
+
+Ninth lab milestone on 2026-06-06: S6b added minimal KTX route-state logging to sampled command rows and reran `dm3` mode `7` as `20260606T031102Z`. The diagnosis can now tag low-speed windows with marker, goal, path-state, bot-state, blocked, and route `dir_speed` context. `/ bro` repeated low-speed windows at `water.LG` with linked/goal marker `59`, path state `32768`, and `blocked=0`.
 
 ## Environment Diagram
 
@@ -156,7 +166,7 @@ The bundle README says it was built from mvd_analyzer commit `7d83ebe`, while th
 | Record MVD automatically | Proven on `frobodm2` and `dm3` | KTX saved non-empty MVDs after `sv_demostop`. |
 | Parse MVD automatically | Proven for summary/events | `qw-analyze-v20` parsed JSON/Markdown summary exit 0; events mode emitted data then exited 1 with `qw-analyze: end of demo`. |
 | Generate movement report automatically | Proven v2 | `scripts/extract_movement_metrics.py` writes speed plus airborne-proxy movement metrics from MVD event position samples. |
-| Test movement overrides automatically | Missing | Requires either KTX instrumentation or a controlled bot command override path. |
+| Test movement overrides automatically | Provisionally proven | `experiments/ktx_moveprobe/frogbot-moveprobe.patch` hooks KTX `BotSetCommand()` after the prewar-freeze guard and before button assembly/`trap_SetBotCMD(...)`; `20260605T225720Z` and `20260605T225802Z` passed explicit mode `3` command/plausibility gates on two routed maps. S3d/S3e mode `5` proves aim-independent command emission; S3f mode `6` proves a no-backpedal correction can pass the current gate, with command-magnitude caveats. S6b route-state logging proves the same command trace can be tagged with marker/goal/path-state/blocked context. |
 | Visual validation | Available for playback | `ezquake-test` / `~/hud-runner` can render existing demos headlessly; useful after new MVDs exist. |
 
 ## One-command Bot Runner
@@ -172,7 +182,14 @@ Useful verification forms:
 ```bash
 python scripts/run_bot_lab.py --duration 40 --bot-count 2
 python scripts/run_bot_lab.py --map dm3 --duration 40 --bot-count 2
+python scripts/run_bot_lab.py --map frobodm2 --duration 40 --bot-count 2 --moveprobe-mode 1
+python scripts/run_bot_lab.py --map frobodm2 --duration 20 --bot-count 2 --moveprobe-mode 0 --moveprobe-log-commands
+python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 3 --moveprobe-log-commands
 ```
+
+The `--moveprobe-*` options only change behavior when the S2 KTX patch from `experiments/ktx_moveprobe/` is applied to the server-side KTX build. Without that patch, the runner still records the cvars in `lab.cfg` and `run.env`, but stock KTX ignores them.
+
+`--moveprobe-log-commands` enables the patch's sampled `FBMOVEPROBE_CMD` console rows. The runner parses those rows from `screen.log` into `moveprobe-commands.json` and `moveprobe-commands.md`, making it possible to compare the actual command values emitted by stock mode `0`, forced-jump mode `1`, fixed-command mode `2`, route-yaw modes `3`/`4`, aim-independent mode `5`, and no-backpedal mode `6`. S3e/S3f diagnostic rows also include route yaw, view yaw, yaw delta, and backward-command flags.
 
 What it does:
 
@@ -187,7 +204,8 @@ What it does:
 9. Copies the remote run directory to `artifacts/lab-runs/<run-id>/`.
 10. Runs `~/qw-sim/bin/qw-analyze-v20` through WSL in `json`, `md`, and `events` modes.
 11. Derives movement metrics from `events.txt` kind `5` player origin samples.
-12. Writes `run-summary.md`, `movement-metrics.json`, and `movement-metrics.md`.
+12. Derives optional moveprobe command logs from `screen.log` when the patched KTX build emits `FBMOVEPROBE_CMD` rows.
+13. Writes `run-summary.md`, `movement-metrics.json`, `movement-metrics.md`, and optional `moveprobe-commands.*` artifacts.
 
 Local artifact layout:
 
@@ -225,6 +243,26 @@ Verified repeatability runs:
 | `20260605T201313Z` | `28599` | `106867` bytes | `json=0`, `md=0`, `events=1` | `dm3`; two bots, one frag, movement metrics written. |
 | `20260605T205256Z` | `28599` | `105711` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; two bots, v2 baseline metrics written. |
 | `20260605T205353Z` | `28599` | `109061` bytes | `json=0`, `md=0`, `events=1` | `dm3`; two bots, v2 baseline metrics written. |
+| `20260605T213010Z` | `28599` | `73890` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 moveprobe mode `2`, fixed command replacement plus forced jump, two bots, one telefrag, near-stationary metrics. |
+| `20260605T213149Z` | `28599` | `109520` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 moveprobe mode `1`, forced jump perturbation, two bots, three frags, movement metrics written. |
+| `20260605T222006Z` | `28599` | `71105` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2a stock mode `0`, command logging enabled, `196` commands parsed. |
+| `20260605T222047Z` | `28599` | `65648` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2a forced-jump mode `1`, command logging enabled, `196` commands parsed. |
+| `20260605T222129Z` | `28599` | `47234` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2a fixed-command mode `2`, command logging enabled, `197` commands parsed, near-stationary metrics. |
+| `20260605T224811Z` | `28599` | `59812` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2b route-yaw mode `3`, command logging enabled, `197` commands parsed, mixed movement plausibility. |
+| `20260605T225720Z` | `28599` | `67335` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S2 v2c route-yaw mode `3`, command logging enabled, `197` commands parsed, both bots passed plausibility gate. |
+| `20260605T225802Z` | `28599` | `64591` bytes | `json=0`, `md=0`, `events=1` | `dm3`; S2 v2c route-yaw mode `3`, command logging enabled, `196` commands parsed, both bots passed plausibility gate. |
+| `20260605T231033Z` | `28599` | `68834` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S3a mode `4`, alternating side command logged, both bots passed stricter side/plausibility gate, one RL frag. |
+| `20260605T231115Z` | `28599` | `71271` bytes | `json=0`, `md=0`, `events=1` | `dm3`; S3a mode `4`, alternating side command logged, `/ bro` failed low-speed gate. |
+| `20260605T231737Z` | `28599` | `63831` bytes | `json=0`, `md=0`, `events=1` | `dm3`; S3b mode `4` with `sidemove=200`, both bots passed side/plausibility gate. |
+| `20260605T231819Z` | `28599` | `66789` bytes | `json=0`, `md=0`, `events=1` | `dm3`; S3b mode `4` with `sidemove=300`, `/ bro` failed low-speed gate. |
+| `20260605T233120Z` | `28599` | `68715` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S3c mode `4` with `sidemove=200`, both bots passed side/plausibility gate, one RL frag. |
+| `20260605T233202Z` | `28599` | `63803` bytes | `json=0`, `md=0`, `events=1` | `dm3`; S3c mode `4` with `sidemove=200`, both bots passed side/plausibility gate. |
+| `20260605T234620Z` | `28599` | `62771` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S3d mode `5` with `sidemove=200`, command coverage passed, `/ bro` failed behavior gates, `/ goldenboy` passed, one SSG frag. |
+| `20260605T234701Z` | `28599` | `62921` bytes | `json=0`, `md=0`, `events=1` | `dm3`; S3d mode `5` with `sidemove=200`, command coverage passed, `/ bro` failed behavior gates, `/ goldenboy` passed. |
+| `20260606T000331Z` | `28599` | `70414` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S3e mode `5` diagnostics, both bots passed horizontal/side behavior gate, one SSG frag. |
+| `20260606T000414Z` | `28599` | `74149` bytes | `json=0`, `md=0`, `events=1` | `dm3`; S3e mode `5` diagnostics, both bots passed command gates but failed low-speed behavior gate. |
+| `20260606T001705Z` | `28599` | `68881` bytes | `json=0`, `md=0`, `events=1` | `dm3`; S3f mode `6`, both bots passed horizontal/side behavior gate, one SG frag. |
+| `20260606T001825Z` | `28599` | `70030` bytes | `json=0`, `md=0`, `events=1` | `frobodm2`; S3f mode `6`, both bots passed horizontal/side behavior gate, one GL frag. |
 
 In verified runs, `quakestat -qws localhost:28599 -P -nh` reported `DOWN` after cleanup.
 
@@ -398,7 +436,8 @@ The current runner uses session names shaped like `komodobots_lab_<port>_<run-id
 - `go` was not on PATH in WSL during inspection. Rebuilding `mvd_analyzer` from source needs a toolchain fix, even though the prebuilt bundle works.
 - Determinism is unknown. The lab must record seed/config/server version details before comparing movement runs.
 - Stock `dm2` can load, record, and parse, but it is not a Frogbot-supported route target in this environment. User confirmed there is no point building routes for it now.
-- A first-pass movement report schema exists, but it is still position-derived and does not yet infer jump rhythm, airborne time, or usercmd intent.
+- A first-pass movement report schema exists, but it is still position-derived and does not yet infer ground-truth jump commands, grounded state, or usercmd intent.
+- The S2 v2c moveprobe proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`, and that route-derived yaw can pass provisional command/plausibility gates on two routed maps. S3 mode `4` proves nonzero alternating side commands can also be emitted; S3c indicates `sidemove=200` is repeatable across `frobodm2` and `dm3`. S3d/S3e mode `5` proves aim-independent route/strafe commands can be emitted and diagnosed, but behavior remains split. S3f mode `6` removes backpedal commands but emits large folded side commands. S3g mode `7` bounds those commands and passes both routed maps. S4c/S5a/S5b human and elite references show S3g remains below same-map reference avg/p95 movement. S6c attributes the strongest repeated S6b low-speed pattern to `WATER_PATH` route edges with low native `dir_speed`, so the next gap is water-path/swim-intent diagnosis rather than more command tuning.
 
 ## Troubleshooting
 
@@ -419,6 +458,7 @@ Likely failure areas:
 - `qw-analyze-v20 -format events` may emit useful data but exit nonzero with `qw-analyze: end of demo` on short recordings.
 - MVD appears but parser cannot resolve map geometry because `MVDA_BSP_DIR` is not pointed at `~/mvd-mcp-bundle/bsps`.
 - A lab script stops more of `turkishbathhouse` than intended by using `stop_servers.sh` when it only meant to stop one lab process.
+- Long full-match human 4on4 traces can produce `events.txt` files over `100 MB`. S7b optimized landing-window movement extraction with an indexed segment lookup after the old repeated full-list scan timed out on three parallel 20-minute references.
 
 ## Next Smallest Experiment
 
@@ -426,4 +466,4 @@ Move the repeatable runner one notch closer to the north star:
 
 1. Keep `dm2` as a `qw-sim` continuity map, not as a Frogbot route-building target.
 2. Use routed maps such as `frobodm2` and `dm3` to generate bot movement demos.
-3. Compare the first derived bot movement metrics against human/reference movement distributions, starting with horizontal speed and time above 320/400 qu/s.
+3. After S7c, do not start broad player-specific movement control yet. The next smallest useful branch is S7d: decide whether bot-comparable cadence stays diagnostic, needs broader exact-player/bot sampling, or warrants a tiny controller probe while the generic land-speed gap remains visible.

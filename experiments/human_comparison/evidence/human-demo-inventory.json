@@ -1,0 +1,62 @@
+{
+  "demo_count": 5,
+  "demos": [
+    {
+      "demo_kind": "1on1",
+      "inferred_map": "aerowalk",
+      "name": "1on1_reppie_vs_locust_aerowalk.mvd",
+      "path": "C:\\Users\\benya\\projects\\quakeworld\\data\\quake-development\\clients\\xerialqw-bench\\qw\\matchinfo\\demos\\1on1_reppie_vs_locust_aerowalk.mvd",
+      "relative_path": "1on1_reppie_vs_locust_aerowalk.mvd",
+      "sha256": "046858f138fcaba1c80e2f5871f8c1a33000d588264975d5892e3ba386343c63",
+      "size_bytes": 1081672
+    },
+    {
+      "demo_kind": "2on2",
+      "inferred_map": "aerowalk",
+      "name": "2on2_bga_vs_fs_aerowalk.mvd",
+      "path": "C:\\Users\\benya\\projects\\quakeworld\\data\\quake-development\\clients\\xerialqw-bench\\qw\\matchinfo\\demos\\2on2_bga_vs_fs_aerowalk.mvd",
+      "relative_path": "2on2_bga_vs_fs_aerowalk.mvd",
+      "sha256": "d233ae3e9a01815be5686e5cb204bfb7386658942c4d15aefd60fe52f82246f2",
+      "size_bytes": 2053127
+    },
+    {
+      "demo_kind": "4on4",
+      "inferred_map": "e1m2",
+      "name": "4on4_fs_vs_la_e1m2.mvd",
+      "path": "C:\\Users\\benya\\projects\\quakeworld\\data\\quake-development\\clients\\xerialqw-bench\\qw\\matchinfo\\demos\\4on4_fs_vs_la_e1m2.mvd",
+      "relative_path": "4on4_fs_vs_la_e1m2.mvd",
+      "sha256": "d8185def78794d36c8893912f118db39f3a242cbd235ea229b3873a5b31e5dfa",
+      "size_bytes": 5396831
+    },
+    {
+      "demo_kind": "tricks",
+      "inferred_map": "ztricks",
+      "name": "tricks_bent_ztricks.mvd",
+      "path": "C:\\Users\\benya\\projects\\quakeworld\\data\\quake-development\\clients\\xerialqw-bench\\qw\\matchinfo\\demos\\tricks_bent_ztricks.mvd",
+      "relative_path": "tricks_bent_ztricks.mvd",
+      "sha256": "35c155deec29c2265afe1fa8a25fce02807261a6b3137921e682e98c7b82f911",
+      "size_bytes": 30143
+    },
+    {
+      "demo_kind": "tricks",
+      "inferred_map": "ztricks2",
+      "name": "tricks_bent_ztricks2.mvd",
+      "path": "C:\\Users\\benya\\projects\\quakeworld\\data\\quake-development\\clients\\xerialqw-bench\\qw\\matchinfo\\demos\\tricks_bent_ztricks2.mvd",
+      "relative_path": "tricks_bent_ztricks2.mvd",
+      "sha256": "b3d97bfb9e122074ea062973d664916341e5e84c5f9d361338f9dbce52240610",
+      "size_bytes": 30177
+    }
+  ],
+  "dm2_candidate_count": 0,
+  "has_dm2_candidate": false,
+  "map_inference_method": "filename_token_heuristic",
+  "maps": [
+    "aerowalk",
+    "e1m2",
+    "ztricks",
+    "ztricks2"
+  ],
+  "recursive": false,
+  "root": "C:\\Users\\benya\\projects\\quakeworld\\data\\quake-development\\clients\\xerialqw-bench\\qw\\matchinfo\\demos",
+  "schema": "komodobots.human_mvd_inventory.v1"
+}

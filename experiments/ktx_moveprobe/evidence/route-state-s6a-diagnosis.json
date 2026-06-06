@@ -1,0 +1,873 @@
+{
+  "capabilities": {
+    "command_count": 195,
+    "command_diagnostic_keys": [
+      "backward",
+      "route_yaw",
+      "view_yaw",
+      "yaw_delta"
+    ],
+    "command_trace_available": true,
+    "map_entity_locations_available": true,
+    "notes": [
+      "Current S3g artifacts expose position traces, sampled final commands, view yaw, route yaw, and backward-command diagnostics.",
+      "They do not expose Frogbot route node, next waypoint, target entity, obstruction, or route primitive state."
+    ],
+    "position_trace_available": true,
+    "route_direction_available": true,
+    "route_node_or_goal_state_available": false,
+    "route_state_keys": []
+  },
+  "interpretation": [
+    "S6a used existing MVD position samples plus sampled final moveprobe commands; no new controller heuristic was added.",
+    "Current artifacts can show where low-speed spans happen and whether strong commands were sampled nearby.",
+    "Current artifacts cannot attribute those spans to a Frogbot route node, next waypoint, obstruction, or route primitive.",
+    "8 of 9 analyzed low-speed windows show low speed despite average sampled horizontal command >= 400."
+  ],
+  "next_goal": "S6b should add minimal route-state logging around the Frogbot command boundary so low-speed windows can be tagged with route node/goal/obstruction context before changing the movement controller again.",
+  "players": [
+    {
+      "low_windows": {
+        "count": 7,
+        "longest_low_duration_ms": 1198,
+        "top_windows_analyzed": 5,
+        "top_windows_low_speed_despite_strong_commands": 5,
+        "total_low_duration_ms": 4800
+      },
+      "name": "/ bro",
+      "sample_count": 1258,
+      "segment_count": 1255,
+      "slot": 1,
+      "speed": {
+        "active_time_s": 25.507,
+        "avg_horizontal_speed_qu_per_s": 190.1,
+        "horizontal_distance_qu": 4850.1,
+        "low_speed_time_ratio": 0.261,
+        "low_speed_time_s": 6.65,
+        "max_horizontal_speed_qu_per_s": 449.4,
+        "p50_horizontal_speed_qu_per_s": 139.0,
+        "p90_horizontal_speed_qu_per_s": 338.2,
+        "p95_horizontal_speed_qu_per_s": 361.0
+      },
+      "top_windows": [
+        {
+          "avg_low_speed_qu_per_s": 69.2,
+          "bbox": {
+            "max": [
+              1559.5,
+              -171.8,
+              -206.9
+            ],
+            "min": [
+              1534.5,
+              -195.0,
+              -212.8
+            ],
+            "z_range_qu": 5.9
+          },
+          "command_summary": {
+            "avg_horizontal_command": 824.1,
+            "backward_command_ratio": 0.0,
+            "command_count": 7,
+            "exact_command_count": 5,
+            "jump_button_ratio": 1.0,
+            "max_horizontal_command": 824.5,
+            "sample_window_ms": {
+              "end_ms": 23431,
+              "margin_ms": 150,
+              "start_ms": 21669
+            },
+            "strong_command_ratio": 1.0,
+            "yaw_delta_abs_avg": 80.8,
+            "yaw_delta_abs_p90": 123.3,
+            "yaw_delta_over_90_ratio": 0.429,
+            "yaw_delta_sample_count": 7
+          },
+          "duration_ms": 1462,
+          "end_ms": 23281,
+          "end_origin": [
+            1556.8,
+            -190.0,
+            -211.1
+          ],
+          "hint": "low_speed_despite_strong_commands",
+          "horizontal_distance_qu": 82.9,
+          "low_duration_ms": 1198,
+          "low_segment_count": 59,
+          "nearest_end": [
+            {
+              "distance_qu": 13.0,
+              "kind": "lg",
+              "loc": "water.LG",
+              "name": "water.LG",
+              "type": "item"
+            },
+            {
+              "distance_qu": 228.8,
+              "kind": "nails",
+              "loc": "bridge.low",
+              "name": "bridge.low",
+              "type": "item"
+            }
+          ],
+          "nearest_start": [
+            {
+              "distance_qu": 7.0,
+              "kind": "lg",
+              "loc": "water.LG",
+              "name": "water.LG",
+              "type": "item"
+            },
+            {
+              "distance_qu": 214.9,
+              "kind": "nails",
+              "loc": "bridge.low",
+              "name": "bridge.low",
+              "type": "item"
+            }
+          ],
+          "net_displacement_qu": 15.1,
+          "rank": 1,
+          "start_ms": 21819,
+          "start_origin": [
+            1542.4,
+            -185.2,
+            -206.9
+          ]
+        },
+        {
+          "avg_low_speed_qu_per_s": 57.0,
+          "bbox": {
+            "max": [
+              1162.6,
+              60.2,
+              -195.6
+            ],
+            "min": [
+              1105.2,
+              48.0,
+              -215.6
+            ],
+            "z_range_qu": 20.0
+          },
+          "command_summary": {
+            "avg_horizontal_command": 824.0,
+            "backward_command_ratio": 0.0,
+            "command_count": 5,
+            "exact_command_count": 4,
+            "jump_button_ratio": 1.0,
+            "max_horizontal_command": 824.0,
+            "sample_window_ms": {
+              "end_ms": 16063,
+              "margin_ms": 150,
+              "start_ms": 14669
+            },
+            "strong_command_ratio": 1.0,
+            "yaw_delta_abs_avg": 123.8,
+            "yaw_delta_abs_p90": 164.9,
+            "yaw_delta_over_90_ratio": 0.8,
+            "yaw_delta_sample_count": 5
+          },
+          "duration_ms": 1094,
+          "end_ms": 15913,
+          "end_origin": [
+            1162.6,
+            60.2,
+            -213.2
+          ],
+          "hint": "low_speed_despite_strong_commands",
+          "horizontal_distance_qu": 61.2,
+          "low_duration_ms": 1074,
+          "low_segment_count": 53,
+          "nearest_end": [
+            {
+              "distance_qu": 187.6,
+              "kind": "gl",
+              "loc": "water.GL",
+              "name": "water.GL",
+              "type": "item"
+            },
+            {
+              "distance_qu": 243.0,
+              "kind": "nails",
+              "loc": "bridge.low",
+              "name": "bridge.low",
+              "type": "item"
+            }
+          ],
+          "nearest_start": [
+            {
+              "distance_qu": 194.2,
+              "kind": "shells",
+              "loc": "Quad",
+              "name": "Quad",
+              "type": "item"
+            },
+            {
+              "distance_qu": 219.4,
+              "kind": "gl",
+              "loc": "water.GL",
+              "name": "water.GL",
+              "type": "item"
+            }
+          ],
+          "net_displacement_qu": 58.2,
+          "rank": 2,
+          "start_ms": 14819,
+          "start_origin": [
+            1105.2,
+            50.6,
+            -195.6
+          ]
+        },
+        {
+          "avg_low_speed_qu_per_s": 52.9,
+          "bbox": {
+            "max": [
+              1393.5,
+              48.0,
+              -148.9
+            ],
+            "min": [
+              1364.8,
+              27.2,
+              -212.0
+            ],
+            "z_range_qu": 63.1
+          },
+          "command_summary": {
+            "avg_horizontal_command": 824.1,
+            "backward_command_ratio": 0.0,
+            "command_count": 4,
+            "exact_command_count": 3,
+            "jump_button_ratio": 1.0,
+            "max_horizontal_command": 824.5,
+            "sample_window_ms": {
+              "end_ms": 18986,
+              "margin_ms": 150,
+              "start_ms": 17934
+            },
+            "strong_command_ratio": 1.0,
+            "yaw_delta_abs_avg": 102.6,
+            "yaw_delta_abs_p90": 145.8,
+            "yaw_delta_over_90_ratio": 0.5,
+            "yaw_delta_sample_count": 4
+          },
+          "duration_ms": 752,
+          "end_ms": 18836,
+          "end_origin": [
+            1393.5,
+            27.2,
+            -168.0
+          ],
+          "hint": "low_speed_despite_strong_commands",
+          "horizontal_distance_qu": 39.8,
+          "low_duration_ms": 752,
+          "low_segment_count": 37,
+          "nearest_end": [
+            {
+              "distance_qu": 67.9,
+              "kind": "nails",
+              "loc": "bridge.low",
+              "name": "bridge.low",
+              "type": "item"
+            },
+            {
+              "distance_qu": 265.9,
+              "kind": "lg",
+              "loc": "water.LG",
+              "name": "water.LG",
+              "type": "item"
+            }
+          ],
+          "nearest_start": [
+            {
+              "distance_qu": 90.1,
+              "kind": "nails",
+              "loc": "bridge.low",
+              "name": "bridge.low",
+              "type": "item"
+            },
+            {
+              "distance_qu": 242.9,
+              "kind": "gl",
+              "loc": "water.GL",
+              "name": "water.GL",
+              "type": "item"
+            }
+          ],
+          "net_displacement_qu": 35.5,
+          "rank": 3,
+          "start_ms": 18084,
+          "start_origin": [
+            1364.8,
+            48.0,
+            -207.0
+          ]
+        },
+        {
+          "avg_low_speed_qu_per_s": 45.5,
+          "bbox": {
+            "max": [
+              1241.0,
+              48.1,
+              -148.5
+            ],
+            "min": [
+              1220.8,
+              31.6,
+              -211.6
+            ],
+            "z_range_qu": 63.1
+          },
+          "command_summary": {
+            "avg_horizontal_command": 824.0,
+            "backward_command_ratio": 0.0,
+            "command_count": 4,
+            "exact_command_count": 3,
+            "jump_button_ratio": 1.0,
+            "max_horizontal_command": 824.0,
+            "sample_window_ms": {
+              "end_ms": 17407,
+              "margin_ms": 150,
+              "start_ms": 16411
+            },
+            "strong_command_ratio": 1.0,
+            "yaw_delta_abs_avg": 96.0,
+            "yaw_delta_abs_p90": 157.8,
+            "yaw_delta_over_90_ratio": 0.5,
+            "yaw_delta_sample_count": 4
+          },
+          "duration_ms": 696,
+          "end_ms": 17257,
+          "end_origin": [
+            1241.0,
+            31.6,
+            -168.0
+          ],
+          "hint": "low_speed_despite_strong_commands",
+          "horizontal_distance_qu": 31.7,
+          "low_duration_ms": 696,
+          "low_segment_count": 34,
+          "nearest_end": [
+            {
+              "distance_qu": 159.9,
+              "kind": "nails",
+              "loc": "bridge.low",
+              "name": "bridge.low",
+              "type": "item"
+            },
+            {
+              "distance_qu": 209.9,
+              "kind": "gl",
+              "loc": "water.GL",
+              "name": "water.GL",
+              "type": "item"
+            }
+          ],
+          "nearest_start": [
+            {
+              "distance_qu": 184.2,
+              "kind": "nails",
+              "loc": "bridge.low",
+              "name": "bridge.low",
+              "type": "item"
+            },
+            {
+              "distance_qu": 192.1,
+              "kind": "gl",
+              "loc": "water.GL",
+              "name": "water.GL",
+              "type": "item"
+            }
+          ],
+          "net_displacement_qu": 24.9,
+          "rank": 4,
+          "start_ms": 16561,
+          "start_origin": [
+            1222.2,
+            48.0,
+            -207.6
+          ]
+        },
+        {
+          "avg_low_speed_qu_per_s": 84.7,
+          "bbox": {
+            "max": [
+              1555.9,
+              -190.1,
+              -207.1
+            ],
+            "min": [
+              1538.5,
+              -206.5,
+              -213.1
+            ],
+            "z_range_qu": 6.0
+          },
+          "command_summary": {
+            "avg_horizontal_command": 824.0,
+            "backward_command_ratio": 0.0,
+            "command_count": 4,
+            "exact_command_count": 3,
+            "jump_button_ratio": 1.0,
+            "max_horizontal_command": 824.2,
+            "sample_window_ms": {
+              "end_ms": 24795,
+              "margin_ms": 150,
+              "start_ms": 23826
+            },
+            "strong_command_ratio": 1.0,
+            "yaw_delta_abs_avg": 90.1,
+            "yaw_delta_abs_p90": 113.3,
+            "yaw_delta_over_90_ratio": 0.75,
+            "yaw_delta_sample_count": 4
+          },
+          "duration_ms": 669,
+          "end_ms": 24645,
+          "end_origin": [
+            1543.2,
+            -192.1,
+            -211.6
+          ],
+          "hint": "low_speed_despite_strong_commands",
+          "horizontal_distance_qu": 46.3,
+          "low_duration_ms": 547,
+          "low_segment_count": 27,
+          "nearest_end": [
+            {
+              "distance_qu": 0.8,
+              "kind": "lg",
+              "loc": "water.LG",
+              "name": "water.LG",
+              "type": "item"
+            },
+            {
+              "distance_qu": 220.2,
+              "kind": "nails",
+              "loc": "bridge.low",
+              "name": "bridge.low",
+              "type": "item"
+            }
+          ],
+          "nearest_start": [
+            {
+              "distance_qu": 5.7,
+              "kind": "lg",
+              "loc": "water.LG",
+              "name": "water.LG",
+              "type": "item"
+            },
+            {
+              "distance_qu": 215.6,
+              "kind": "nails",
+              "loc": "bridge.low",
+              "name": "bridge.low",
+              "type": "item"
+            }
+          ],
+          "net_displacement_qu": 5.1,
+          "rank": 5,
+          "start_ms": 23976,
+          "start_origin": [
+            1538.5,
+            -190.4,
+            -213.0
+          ]
+        }
+      ],
+      "user_id": 2
+    },
+    {
+      "low_windows": {
+        "count": 4,
+        "longest_low_duration_ms": 1078,
+        "top_windows_analyzed": 4,
+        "top_windows_low_speed_despite_strong_commands": 3,
+        "total_low_duration_ms": 2514
+      },
+      "name": "/ goldenboy",
+      "sample_count": 961,
+      "segment_count": 955,
+      "slot": 2,
+      "speed": {
+        "active_time_s": 19.417,
+        "avg_horizontal_speed_qu_per_s": 248.2,
+        "horizontal_distance_qu": 4818.9,
+        "low_speed_time_ratio": 0.189,
+        "low_speed_time_s": 3.668,
+        "max_horizontal_speed_qu_per_s": 415.0,
+        "p50_horizontal_speed_qu_per_s": 305.0,
+        "p90_horizontal_speed_qu_per_s": 362.9,
+        "p95_horizontal_speed_qu_per_s": 375.3
+      },
+      "top_windows": [
+        {
+          "avg_low_speed_qu_per_s": 49.0,
+          "bbox": {
+            "max": [
+              398.5,
+              -592.0,
+              29.2
+            ],
+            "min": [
+              351.6,
+              -596.2,
+              -16.0
+            ],
+            "z_range_qu": 45.2
+          },
+          "command_summary": {
+            "avg_horizontal_command": 659.1,
+            "backward_command_ratio": 0.0,
+            "command_count": 5,
+            "exact_command_count": 4,
+            "jump_button_ratio": 0.8,
+            "max_horizontal_command": 824.4,
+            "sample_window_ms": {
+              "end_ms": 18643,
+              "margin_ms": 150,
+              "start_ms": 17265
+            },
+            "strong_command_ratio": 0.8,
+            "yaw_delta_abs_avg": 79.2,
+            "yaw_delta_abs_p90": 122.0,
+            "yaw_delta_over_90_ratio": 0.2,
+            "yaw_delta_sample_count": 5
+          },
+          "duration_ms": 1078,
+          "end_ms": 18493,
+          "end_origin": [
+            351.6,
+            -592.5,
+            -16.0
+          ],
+          "hint": "low_speed_despite_strong_commands",
+          "horizontal_distance_qu": 52.8,
+          "low_duration_ms": 1078,
+          "low_segment_count": 53,
+          "nearest_end": [
+            {
+              "distance_qu": 51.2,
+              "kind": "shells",
+              "loc": "RA",
+              "name": "RA",
+              "type": "item"
+            },
+            {
+              "distance_qu": 127.7,
+              "kind": "shells",
+              "loc": "RA.low",
+              "name": "RA.low",
+              "type": "item"
+            }
+          ],
+          "nearest_start": [
+            {
+              "distance_qu": 92.2,
+              "kind": "shells",
+              "loc": "RA",
+              "name": "RA",
+              "type": "item"
+            },
+            {
+              "distance_qu": 139.1,
+              "kind": "shells",
+              "loc": "RA.low",
+              "name": "RA.low",
+              "type": "item"
+            }
+          ],
+          "net_displacement_qu": 46.9,
+          "rank": 1,
+          "start_ms": 17415,
+          "start_origin": [
+            398.5,
+            -592.0,
+            25.2
+          ]
+        },
+        {
+          "avg_low_speed_qu_per_s": 82.8,
+          "bbox": {
+            "max": [
+              577.2,
+              -82.6,
+              -134.2
+            ],
+            "min": [
+              553.8,
+              -119.8,
+              -179.4
+            ],
+            "z_range_qu": 45.1
+          },
+          "command_summary": {
+            "avg_horizontal_command": 0.0,
+            "backward_command_ratio": 0.0,
+            "command_count": 0,
+            "exact_command_count": 0,
+            "jump_button_ratio": 0.0,
+            "max_horizontal_command": 0.0,
+            "sample_window_ms": {
+              "end_ms": 10054,
+              "margin_ms": 150,
+              "start_ms": 9084
+            },
+            "strong_command_ratio": 0.0,
+            "yaw_delta_abs_avg": 0.0,
+            "yaw_delta_abs_p90": 0.0,
+            "yaw_delta_over_90_ratio": 0.0,
+            "yaw_delta_sample_count": 0
+          },
+          "duration_ms": 670,
+          "end_ms": 9904,
+          "end_origin": [
+            577.1,
+            -82.6,
+            -168.9
+          ],
+          "hint": "low_speed_without_sampled_commands",
+          "horizontal_distance_qu": 55.5,
+          "low_duration_ms": 670,
+          "low_segment_count": 33,
+          "nearest_end": [
+            {
+              "distance_qu": 37.0,
+              "kind": "mh",
+              "loc": "hill",
+              "name": "hill",
+              "type": "item"
+            },
+            {
+              "distance_qu": 332.3,
+              "kind": "rockets",
+              "loc": "Quad",
+              "name": "Quad",
+              "type": "item"
+            }
+          ],
+          "nearest_start": [
+            {
+              "distance_qu": 66.4,
+              "kind": "mh",
+              "loc": "hill",
+              "name": "hill",
+              "type": "item"
+            },
+            {
+              "distance_qu": 318.2,
+              "kind": "rockets",
+              "loc": "Quad",
+              "name": "Quad",
+              "type": "item"
+            }
+          ],
+          "net_displacement_qu": 36.8,
+          "rank": 2,
+          "start_ms": 9234,
+          "start_origin": [
+            558.1,
+            -114.1,
+            -179.4
+          ]
+        },
+        {
+          "avg_low_speed_qu_per_s": 21.9,
+          "bbox": {
+            "max": [
+              1021.5,
+              -63.4,
+              -16.0
+            ],
+            "min": [
+              -879.8,
+              -231.8,
+              -168.0
+            ],
+            "z_range_qu": 152.0
+          },
+          "command_summary": {
+            "avg_horizontal_command": 824.0,
+            "backward_command_ratio": 0.0,
+            "command_count": 3,
+            "exact_command_count": 2,
+            "jump_button_ratio": 1.0,
+            "max_horizontal_command": 824.0,
+            "sample_window_ms": {
+              "end_ms": 13830,
+              "margin_ms": 150,
+              "start_ms": 13004
+            },
+            "strong_command_ratio": 1.0,
+            "yaw_delta_abs_avg": 88.4,
+            "yaw_delta_abs_p90": 102.7,
+            "yaw_delta_over_90_ratio": 0.333,
+            "yaw_delta_sample_count": 3
+          },
+          "duration_ms": 526,
+          "end_ms": 13680,
+          "end_origin": [
+            -878.0,
+            -231.1,
+            -16.0
+          ],
+          "hint": "low_speed_despite_strong_commands",
+          "horizontal_distance_qu": 11.1,
+          "low_duration_ms": 506,
+          "low_segment_count": 25,
+          "nearest_end": [
+            {
+              "distance_qu": 2.2,
+              "kind": "info_player_deathmatch",
+              "loc": "SNG.tele",
+              "name": "SNG.tele-1",
+              "type": "spawn"
+            },
+            {
+              "distance_qu": 98.4,
+              "kind": "cells",
+              "loc": "SNG.tele",
+              "name": "SNG.tele",
+              "type": "item"
+            }
+          ],
+          "nearest_start": [
+            {
+              "distance_qu": 107.7,
+              "kind": "shells",
+              "loc": "Quad",
+              "name": "Quad",
+              "type": "item"
+            },
+            {
+              "distance_qu": 184.8,
+              "kind": "cells",
+              "loc": "water",
+              "name": "water",
+              "type": "item"
+            }
+          ],
+          "net_displacement_qu": 1897.8,
+          "rank": 3,
+          "start_ms": 13154,
+          "start_origin": [
+            1012.4,
+            -63.4,
+            -168.0
+          ]
+        },
+        {
+          "avg_low_speed_qu_per_s": 47.2,
+          "bbox": {
+            "max": [
+              340.6,
+              -814.5,
+              2.1
+            ],
+            "min": [
+              324.9,
+              -816.0,
+              -16.0
+            ],
+            "z_range_qu": 18.1
+          },
+          "command_summary": {
+            "avg_horizontal_command": 412.0,
+            "backward_command_ratio": 0.0,
+            "command_count": 2,
+            "exact_command_count": 1,
+            "jump_button_ratio": 0.5,
+            "max_horizontal_command": 824.0,
+            "sample_window_ms": {
+              "end_ms": 21463,
+              "margin_ms": 150,
+              "start_ms": 20842
+            },
+            "strong_command_ratio": 0.5,
+            "yaw_delta_abs_avg": 72.0,
+            "yaw_delta_abs_p90": 129.6,
+            "yaw_delta_over_90_ratio": 0.5,
+            "yaw_delta_sample_count": 2
+          },
+          "duration_ms": 321,
+          "end_ms": 21313,
+          "end_origin": [
+            324.9,
+            -814.5,
+            -16.0
+          ],
+          "hint": "low_speed_despite_strong_commands",
+          "horizontal_distance_qu": 12.3,
+          "low_duration_ms": 260,
+          "low_segment_count": 13,
+          "nearest_end": [
+            {
+              "distance_qu": 96.4,
+              "kind": "shells",
+              "loc": "RA.low",
+              "name": "RA.low",
+              "type": "item"
+            },
+            {
+              "distance_qu": 130.2,
+              "kind": "ra",
+              "loc": "RA",
+              "name": "RA",
+              "type": "item"
+            }
+          ],
+          "nearest_start": [
+            {
+              "distance_qu": 96.3,
+              "kind": "shells",
+              "loc": "RA.low",
+              "name": "RA.low",
+              "type": "item"
+            },
+            {
+              "distance_qu": 137.8,
+              "kind": "ra",
+              "loc": "RA",
+              "name": "RA",
+              "type": "item"
+            }
+          ],
+          "net_displacement_qu": 11.5,
+          "rank": 4,
+          "start_ms": 20992,
+          "start_origin": [
+            336.2,
+            -816.0,
+            2.1
+          ]
+        }
+      ],
+      "user_id": 3
+    }
+  ],
+  "run": {
+    "duration_ms": 25783,
+    "map": "dm3",
+    "map_title": "The Abandoned Base",
+    "moveprobe_mode": "7",
+    "run_dir": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\lab-runs\\20260606T003718Z",
+    "run_id": "20260606T003718Z"
+  },
+  "schema": "komodobots.route_state_diagnosis.v1",
+  "stage": "s6a-route-state",
+  "thresholds": {
+    "command_margin_ms": 150,
+    "low_speed_qu_per_s": 100.0,
+    "merge_gap_ms": 80,
+    "min_low_window_ms": 250,
+    "strong_command": 400.0,
+    "teleport_speed_qu_per_s": 2500.0,
+    "top_windows": 5
+  },
+  "trace": {
+    "event_count": 3884,
+    "match_duration_clamp_ms": 25783,
+    "position_event_count": 3477
+  }
+}

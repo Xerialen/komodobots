@@ -98,10 +98,229 @@ The real target is a movement mode or controller with:
 
 ## What is not yet proven
 
-- Whether movement can be cleanly replaced without rewriting the bot stack.
+- Whether movement can be cleanly replaced with useful movement without rewriting the bot stack.
 - Whether elite movement can be learned from MVD-derived evidence.
 - Whether route logic and movement logic are sufficiently decoupled.
 - Whether KTX/Frogbots should remain the substrate or be replaced by a new bot architecture.
+
+## First movement override evidence
+
+The first S2 probe found a candidate command-emission seam in KTX/Frogbots:
+
+`src/bot_movement.c::BotSetCommand()` computes the final bot command and sends it through `trap_SetBotCMD(...)`.
+
+Experiment patch:
+
+`experiments/ktx_moveprobe/frogbot-moveprobe.patch`
+
+Two patched `frobodm2` runs on 2026-06-05 produced different evidence:
+
+- `20260605T213010Z`, moveprobe mode `2`: replacing the final movement command with fixed `yaw=90 forwardmove=800` and forced jump still spawned bots, recorded an MVD, parsed successfully, and produced metrics, but the bots were nearly stationary. This proves the command can be replaced, and also shows a naive fixed command is not useful movement.
+- `20260605T213149Z`, moveprobe mode `1`: forcing jump while preserving Frogbot movement direction and combat produced a normal lab run with three frags and strong movement metrics. This proves a small final-command override can ride inside the existing KTX/Frogbot shell without breaking spawn, combat, MVD recording, parsing, or metrics.
+
+The v2a comparison then directly logged the final command values:
+
+- `20260605T222006Z`, stock mode `0`: variable yaw/movement commands and normal firing button values.
+- `20260605T222047Z`, forced-jump mode `1`: variable yaw/movement commands preserved, while final buttons included jump (`2` or `3`).
+- `20260605T222129Z`, fixed-command mode `2`: both bots emitted constant `yaw=90`, `forward=800`, `side=0`, `up=0`, `buttons=2`, and movement collapsed to roughly `1.6`-`1.9` qu/s average with `0.0%` air proxy.
+
+The v2b route-yaw probe then added moveprobe mode `3`:
+
+- `20260605T224811Z`, route-yaw mode `3`: command logging showed varied route-derived yaw, mostly `forward=800`, and jump-bearing buttons. `/ goldenboy` moved plausibly with avg `330.8` qu/s, p95 `464.6` qu/s, and `27.6%` air proxy. `/ bro` had p95 `442.4` qu/s, but also `59.7%` stationary time and avg only `137.4` qu/s.
+
+The v2c repeatability check added `scripts/summarize_moveprobe_plausibility.py` and reran mode `3`:
+
+- `20260605T225720Z`, `frobodm2`: both bots passed the v2c gate. `/ bro` stationary `6.5%`, low-speed `22.1%`; `/ goldenboy` stationary `0.2%`, low-speed `5.1%`.
+- `20260605T225802Z`, `dm3`: both bots passed the v2c gate. `/ bro` stationary `1.1%`, low-speed `1.4%`; `/ goldenboy` stationary `0.0%`, low-speed `1.7%`.
+
+This proves the final emitted command can be observed and replaced, and gives repeatable positive movement-feasibility evidence for a route-derived command policy on two routed maps. It is enough to treat S2 as provisionally satisfied pending review. It does not solve aim/movement separation or bunnyjumping: mode `3` still commandeers view yaw, and the fresh short runs recorded no frags.
+
+## First S3a Bunnyjump-Primitive Evidence
+
+Moveprobe mode `4` adds an alternating route-relative sidemove command on top of mode `3`:
+
+- `20260605T231033Z`, `frobodm2`: both bots passed the stricter S3a gate with nonzero side coverage above `94%`, low stationary/low-speed time, and one RL frag. Movement was plausible, but p95 speeds (`358.9` and `364.5` qu/s) were lower than the mode `3` v2c repeat.
+- `20260605T231115Z`, `dm3`: side/jump/forward command coverage was above `93%`, but `/ bro` failed low-speed time at `63.0%`; `/ goldenboy` barely passed low-speed at `39.0%`.
+
+This proves a bounded strafe signal can be emitted and measured, but does not prove better movement. The first S3a primitive is therefore a partial/negative result: alternating `+/-400` sidemove at the current cadence can keep bots moving on `frobodm2`, but appears too disruptive or map-sensitive on `dm3`.
+
+## S3b Sidemove Parameter Diagnosis
+
+S3b reused mode `4` on `dm3` but changed the sidemove magnitude:
+
+- `20260605T231737Z`, `sidemove=200`: both bots passed the side/plausibility gate. `/ bro` low-speed improved from the `400` run's `63.0%` to `26.9%`; `/ goldenboy` low-speed was `28.3%`.
+- `20260605T231819Z`, `sidemove=300`: side command coverage still exceeded `91%`, but `/ bro` failed low-speed at `51.1%`; `/ goldenboy` passed at `5.6%`.
+
+This suggests the first usable S3 strafe parameter is smaller than the default `400`. It still does not beat route-yaw mode `3` on speed or simplicity, so the next proof should verify `sidemove=200` across maps/repeats before adding cadence or state.
+
+## S3c Cross-Map Sidemove Validation
+
+S3c reran mode `4` with `--moveprobe-sidemove 200` on both routed maps:
+
+- `20260605T233120Z`, `frobodm2`: both bots passed the side/plausibility gate. `/ bro` averaged `279.6` qu/s with `7.4%` low-speed time; `/ goldenboy` averaged `306.7` qu/s with `4.6%` low-speed time. The run recorded one RL frag.
+- `20260605T233202Z`, `dm3`: both bots passed the side/plausibility gate. `/ bro` averaged `248.8` qu/s with `16.7%` low-speed time; `/ goldenboy` averaged `293.3` qu/s with `10.9%` low-speed time.
+
+This validates `sidemove=200` as a repeatable route-yaw strafe candidate. It does not prove player realism. Compared with route-yaw mode `3`, mode `4` lowers high-speed spikes and remains aim-commandeering. The next useful step should test aim-independent movement math: keep the real combat view angle and compute `forwardmove`/`sidemove` from route intent relative to that view.
+
+## S3d Aim-Independent Movement-Vector Probe
+
+S3d added mode `5`: preserve `self->fb.desired_angle`, build a route-relative movement vector with optional alternating strafe, then project it into local `forwardmove`/`sidemove` commands using the preserved combat yaw.
+
+- `20260605T234620Z`, `frobodm2`: all command coverage gates passed with horizontal/side/jump coverage above `85%`, but `/ bro` failed behavior gates with `74.7%` stationary and `79.2%` low-speed time. `/ goldenboy` passed with avg `256.0` qu/s and `21.2%` low-speed time. The run recorded one SSG frag by `/ goldenboy`.
+- `20260605T234701Z`, `dm3`: all command coverage gates passed with horizontal/side/jump coverage above `93%`, but `/ bro` failed behavior gates with `40.5%` stationary and `53.8%` low-speed time. `/ goldenboy` passed with avg `219.6` qu/s and `24.7%` low-speed time.
+
+This is an important split result. The final-command seam can emit aim-independent route/strafe commands, but preserving combat yaw makes movement behavior fragile for at least `/ bro`. The next useful step is not a larger controller; it is diagnosing whether the failures correlate with route-vs-view yaw delta, backward command ratios, or specific route states.
+
+## S3e Aim/Move Conflict Diagnostics
+
+S3e kept mode `5`'s aim-independent projection policy, but added command-log diagnostics: route yaw from `self->fb.dir_move_`, preserved view yaw, route-vs-view yaw delta, and whether the emitted local `forwardmove` was negative.
+
+- `20260606T000331Z`, `frobodm2`: both bots passed the horizontal/side/jump behavior gate. `/ bro` had `22.7%` backward commands, absolute yaw-delta avg `53.1`, p90 `110.9`, and low-speed `14.3%`. `/ goldenboy` had `14.0%` backward commands, absolute yaw-delta avg `44.2`, p90 `91.8`, and low-speed `4.0%`. The run recorded one SSG frag by `/ goldenboy`.
+- `20260606T000414Z`, `dm3`: both bots passed command coverage but failed the low-speed gate. `/ bro` had the strongest aim/move conflict signal: `41.3%` backward commands, absolute yaw-delta avg `79.6`, p90 `154.7`, `43.1%` of samples above 90 degrees, and low-speed `43.1%`. `/ goldenboy` failed low-speed at `52.8%` despite only `14.0%` backward commands and yaw-delta avg `44.7`.
+
+The diagnostics support a narrow claim: large route-vs-view disagreement and backward local commands are plausible contributors, especially for `/ bro` on `dm3`. They do not fully explain the split, because `/ goldenboy` can still fail low-speed with a much lower backward-command ratio. The next smallest useful corrective experiment should therefore be tiny and falsifiable: clamp or remap negative local forward commands in mode `5`, run `dm3` first against the same gate, and stop if that does not improve low-speed behavior.
+
+## S3f No-Backpedal Correction Probe
+
+S3f added mode `6`: reuse mode `5`'s aim-independent projection, but when projected local `forwardmove` is negative, fold that removed backpedal magnitude into local `sidemove` and clamp local forward to `0`.
+
+- `20260606T001705Z`, `dm3`: both bots passed the horizontal/side/jump behavior gate. `/ bro` improved from S3e low-speed `43.1%` to `38.3%`, with backward commands dropping from `41.3%` to `0.0%`. `/ goldenboy` improved from S3e low-speed `52.8%` to `24.4%`, also with backward commands `0.0%`. The run recorded one SG frag by `/ bro`.
+- `20260606T001825Z`, `frobodm2`: both bots passed. `/ bro` low-speed was `13.8%`; `/ goldenboy` low-speed was `26.8%`; both had `0.0%` backward commands. The run recorded one GL frag by `/ goldenboy`.
+
+This is useful evidence that sustained backpedal commands were part of the mode `5` failure. It is not final-controller evidence. Mode `6` passes the current gate partly by emitting very large local side commands, often around `1100`, after folding backpedal into strafe. The next useful experiment should bound command magnitudes while preserving the no-backpedal property, then rerun the same gates.
+
+## S3g Bounded No-Backpedal Probe
+
+S3g added mode `7`: reuse mode `6`'s no-backpedal correction, then normalize local horizontal command magnitude back down to the original route/strafe intent magnitude.
+
+- `20260606T003718Z`, `dm3`: both bots passed. `/ bro` had `0.0%` backward commands, max horizontal command `824.5`, and low-speed `26.1%`; `/ goldenboy` had max horizontal command `824.5` and low-speed `18.9%`. The run recorded one SG frag by `/ bro`.
+- `20260606T003808Z`, `frobodm2`: both bots passed. `/ bro` had max horizontal command `824.5` and low-speed `5.5%`; `/ goldenboy` had max horizontal command `824.6` and low-speed `2.7%`.
+
+This is the best S3 movement-literacy candidate so far: it preserves combat yaw, avoids sustained backpedal commands, and no longer relies on very large folded sidemove values. It still is not a realism verdict. The next step should anchor these bot metrics against human-demo movement instead of adding another command heuristic.
+
+## S6a Route-State Diagnosis
+
+S6a added `scripts/diagnose_route_state.py` and inspected the existing S3g `dm3` run `20260606T003718Z` instead of changing movement commands again.
+
+Result:
+
+- Current artifacts expose MVD position samples, sampled final moveprobe commands, route yaw, view yaw, yaw delta, backward-command state, and map-entity locations.
+- Current artifacts do not expose Frogbot route node, next waypoint, target entity, obstruction, or route primitive state.
+- `/ bro` had `7` low-speed windows of at least `250` ms; the longest contributed `1198` ms of low-speed time near `water.LG`.
+- `/ goldenboy` had `4` such low-speed windows; the longest contributed `1078` ms near `RA`.
+- Across the top windows, `8` of `9` showed low speed despite average sampled horizontal command at or above `400`; most were near the expected mode `7` cap around `824`.
+
+Interpretation: S3g's high-speed gap is not explained by missing final movement command emission. The current evidence can identify where the bot loses speed and whether strong commands were sampled nearby, but it cannot say whether the cause is route choice, route-node transitions, obstruction handling, or missing route-level movement intent. The next useful step is minimal route-state logging, not mode `8`.
+
+## S6b Route-State Logging
+
+S6b extended the same moveprobe command log with route-state fields and reran a short S3g-style `dm3` probe (`20260606T031102Z`).
+
+Result:
+
+- Route-state fields are now available in `moveprobe-commands.json`: linked marker, touch marker, goal entity, goal marker, path state, bot state, blocked state, and route `dir_speed`.
+- `/ bro` had avg `136.3`, p95 `359.6`, low-speed `52.1%`, and `17` low-speed windows; all `5` analyzed top windows still had strong sampled command context.
+- `/ goldenboy` had avg `285.5`, p95 `381.3`, low-speed `7.0%`, and no S6-threshold low-speed windows.
+- Repeated `/ bro` windows near `water.LG` shared linked/goal marker `59`, path state `32768`, and `blocked=0`.
+
+Interpretation: S6b closes the route-state observability gap, but it does not yet explain or fix the movement gap. The next useful step is to decode repeated marker/path-state patterns, especially `/ bro` at `water.LG`, before changing mode `7`.
+
+## S6c Route-State Attribution
+
+S6c decoded the S6b route-state windows against KTX/Frogbot source flags and the `dm3.bot` route table without changing KTX or running a new controller experiment.
+
+Result:
+
+- `path_state=32768` decodes to `WATER_PATH`; `STUCK_PATH` is `524288`.
+- KTX sets `WATER_PATH` in route calculation when either endpoint marker is in water and uses `sv_maxwaterspeed` for that path's route time.
+- `dir_speed` is the pre-normalization magnitude captured by `SetDirectionMove()`; the probe then normalizes `dir_move_` and emits its fixed route/strafe command.
+- The repeated `/ bro` `water.LG` pattern groups `3` top low-speed windows with linked/goal marker `59`, `blocked=0`, no `STUCK_PATH`, avg sampled command near `824`, and avg native `dir_speed=0.338`.
+- The worst two repeated windows are on the `.bot` edge `276->59 idx=[0]`; their native `dir_speed` averages are `0.059` and `0.196` while sampled command magnitude stays high.
+
+Interpretation: the current gap is not missing final command magnitude and not obvious obstruction recovery. The strongest repeated S6b pattern is a water-path route primitive where native Frogbot movement intent magnitude collapses before the mode `7` probe normalizes direction. The next useful step is to inspect water-path/swim intent (`waterlevel`, `swim_arrow`, `upmove`, velocity/dir_move context) around `water.LG`, not to add a new command mode.
+
+## S6d Water-Path Swim-Intent Diagnosis
+
+S6d extended command logging with `waterlevel`, `watertype`, player flags, `swim_arrow`, emitted `upmove`, velocity, and raw route `dir_move`, then reran a short `dm3` mode `7` probe (`20260606T041805Z`).
+
+Result:
+
+- `/ bro` again produced repeated top low-speed windows at `water.LG`, all with strong sampled horizontal commands near `824`, `WATER_PATH`, and `blocked=0`.
+- The grouped `/ bro` water-path windows had waterlevel values `[1]` or `[1, 2]`, no deep-water window samples (`waterlevel > 2`), `swim_arrow=0`, and emitted `upmove=0`.
+- The worst repeated windows stayed on or near `.bot` edge `276->59 idx=[0]`, with native `dir_speed` averages as low as `0.050` to `0.064`.
+- Raw `dir_move_z` was not always zero in these windows, but mode `7` currently overwrites emitted `direction[2]` from `k_fb_moveprobe_upmove`, whose default is `0`.
+
+Interpretation: the repeated `water.LG` failure is not active deep-water swimming, because `BotWaterMove()` only sets `swim_arrow` after `waterlevel > 2` and no such window samples were observed. The sharper S6d hypothesis is a shallow water-edge route transition where mode `7` may be suppressing native vertical movement at `waterlevel == 2`. The next useful experiment is a tiny water-edge upmove preservation probe, not generic speed tuning.
+
+## S6e Water-Edge Upmove Probe
+
+S6e changed only mode `7` vertical command handling: when `waterlevel > 1`, it preserves the native pre-probe `direction[2]`; otherwise mode `7` still uses `k_fb_moveprobe_upmove` and keeps the same aim-independent, no-backpedal, bounded horizontal projection. A single short `dm3` run (`20260606T044000Z`) tested that hypothesis.
+
+Result:
+
+- `/ bro` worsened overall: avg `153.0`, p95 `377.7`, low-speed `46.3%`, and `3` low-speed windows, including one very long `YA.box` blocked/STUCK_PATH-style window.
+- `/ goldenboy` also worsened overall: avg `152.7`, p95 `346.7`, low-speed `39.3%`, and `7` low-speed windows.
+- The repeated `water.LG` / `276->59` WATER_PATH pattern did not disappear; it appeared on `/ goldenboy` with `2` grouped windows, linked/goal marker `59`, waterlevels `[1, 2]`, `blocked=0`, and strong sampled command magnitude near `824`.
+- S6e did emit nonzero upmove in some `/ goldenboy` water-edge samples, but that did not remove the repeated low-speed `water.LG` pattern.
+
+Interpretation: S6e hit the stop condition. Native water-edge upmove preservation is not sufficient as a route-primitive fix, and more upmove tuning would be speculative. The next useful S6 step is a static/diagnostic `.bot` route-edge geometry audit around `276->59` and marker `59`, then a pivot back toward the headline land-speed/bunnyhop gap or broader human-reference evidence.
+
+## S6f Route-Edge Geometry Audit
+
+S6f added `scripts/inspect_route_edge_geometry.py` and inspected `dm3.bot` edge `276->59` plus marker `59` against the committed S6d/S6e route-state attribution evidence. No KTX controller or route file was changed.
+
+Result:
+
+- `276->59` is explicitly defined in `dm3.bot` as path index `0`, and the reciprocal `59->276` edge is also explicitly defined.
+- Marker `59` has a static origin at `[1329.0, -378.0, -24.0]`, zone `17`, goal `5`.
+- Marker `276` is route-referenced and zoned, but has no static `CreateMarker` origin in `dm3.bot`.
+- Therefore the static route file cannot compute a precise horizontal/vertical vector, slope, or coordinate correction for `276->59`.
+- The S6d/S6e evidence contains `30` unique sampled `276->59` rows. They are `WATER_PATH`, `blocked=0`, and `86.7%` of focus-edge samples have native `dir_speed < 0.25`.
+
+Interpretation: the repeated water-edge failure is real, but S6f does not reveal a small static route-data fix. The edge is defined, reciprocal, and unflagged in the route file; the missing source origin means a coordinate-level geometry edit would be guesswork. Stop S6 water-edge tuning here and move the next goal toward S7-style player-specific movement signatures while keeping the headline land-speed/bunnyhop gap visible.
+
+## S7a Exact-Player Movement Signature Scaffold
+
+S7a added `scripts/summarize_player_movement_signatures.py` and generated `experiments/human_comparison/evidence/player-signatures-s7a-dm3.*` from the existing S5b exact-player `dm3` aggregate. No controller code, KTX patch, route file, or new demo parse changed.
+
+Result:
+
+- Avg speed and p95 speed remain generic S3g-vs-human land-speed gaps: the best S3g `dm3` bot is still `34.6` qu/s below the reference avg-speed minimum and `130.5` qu/s below the reference p95-speed minimum.
+- Low-speed ratio is a possible player-style axis in the tiny reference set (`Milton` `12.4%`, `carapace` `19.6%`, `yeti` `15.4%`), but the bot comparison is mixed and the reference set is too thin.
+- Jump cadence is also a possible reference-only axis (`44.0` to `48.6`/min), but the committed S3g bot summary does not carry the same metric.
+- Airborne proxy is not useful as a player-style axis here because the exact-player reference spread is too tight while the two S3g bot rows split above and below the range.
+- The stop condition is triggered: three single-demo exact-player rows can seed axes, but cannot support stable player-specific style claims.
+
+Interpretation: S7a successfully creates the measurement scaffold, but it points away from immediate player-specific controller work. The next smallest useful step is to broaden exact-player references, especially repeated `dm3` samples for the same targets where available, then rerun the signature scaffold to separate stable style from one-match noise and the unresolved land-speed/bunnyhop gap.
+
+## S7b Repeated Exact-Player References
+
+S7b selected one additional manifest-backed `dm3` demo for each S7a target, parsed them through the same human MVD pipeline, and regenerated the aggregate/signature evidence with six rows.
+
+Result:
+
+- The repeated set preserves the headline land-speed gap. Exact-player avg range is `282.8` to `314.2`; S3g `dm3` bots remain `190.1` to `248.2`. Exact-player p95 range is `505.8` to `535.0`; S3g remains `361.0` to `375.3`.
+- Repeated-player stability marks avg and p95 as stable but still generic land-speed gaps, not style targets.
+- Low-speed ratio has between-player mean spread `4.3%` and max within-player spread `3.2%`, separation ratio `1.34`; that is still mixed/overlapping, not a stable style target.
+- Airborne proxy has between-player mean spread `4.7%` and max within-player spread `6.0%`, so it is not stable enough for player-specific control.
+- Jump cadence has between-player mean spread `7.6`/min, max within-player spread `3.7`/min, and separation ratio `2.06`; it is the only repeated candidate axis, but it remains reference-only because S3g committed bot summaries do not carry cadence.
+
+Interpretation: S7b removes the single-demo stop condition but still does not justify player-specific movement control. The next useful step is to make cadence/tempo bot-comparable and controller-relevant, while keeping the generic land-speed/bunnyhop deficit visible.
+
+## S7c Bot-Comparable Cadence
+
+S7c did not rerun the lab. It used the cadence values already present in the committed S3g raw movement artifacts, carried `jump_cadence_per_min` through the S3g plausibility summary, compared bot rows against the repeated exact-player aggregate, and regenerated `player-signatures-s7c-dm3.*`.
+
+Result:
+
+- The repeated exact-player `dm3` cadence range is `40.4` to `51.0`/min, with mean `45.2`/min.
+- S3g `/ bro` has cadence `91.7`/min on `dm3`, above the repeated human range.
+- S3g `/ goldenboy` has cadence `43.3`/min on `dm3`, inside the repeated human range.
+- Cadence is now a bot-comparable repeated candidate style axis with mixed bot relation, not a reference-only axis.
+- Avg and p95 remain generic land-speed gaps: reference avg `282.8` to `314.2` versus S3g `190.1` to `248.2`, and reference p95 `505.8` to `535.0` versus S3g `361.0` to `375.3`.
+- Low-speed and airborne proxy are still mixed/overlapping under repeated samples.
+
+Interpretation: S7c completes the narrow handoff from "cadence might matter" to "cadence can be compared against bots." It does not justify a broad player-specific movement controller yet. The next useful step is S7d: decide whether cadence should remain a diagnostic target, whether S7 needs broader exact-player/bot samples, or whether a tiny controller probe is justified while the land-speed gap stays visible.
 
 ## Working hypothesis
 

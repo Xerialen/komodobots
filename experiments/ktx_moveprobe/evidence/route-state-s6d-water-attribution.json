@@ -1,0 +1,5631 @@
+{
+  "bot_map_summary": {
+    "markers_without_static_origin_count": 65,
+    "referenced_marker_count": 298,
+    "static_create_marker_count": 234
+  },
+  "controller_change": "none",
+  "flag_decoding": {
+    "bot_state_128": {
+      "bits": [
+        {
+          "bit": 128,
+          "name": "AWARE_SURROUNDINGS"
+        }
+      ],
+      "names": [
+        "AWARE_SURROUNDINGS"
+      ],
+      "unknown_mask": 0,
+      "value": 128
+    },
+    "path_state_32768": {
+      "bits": [
+        {
+          "bit": 32768,
+          "name": "WATER_PATH"
+        }
+      ],
+      "names": [
+        "WATER_PATH"
+      ],
+      "unknown_mask": 0,
+      "value": 32768
+    },
+    "stuck_path": {
+      "bits": [
+        {
+          "bit": 524288,
+          "name": "STUCK_PATH"
+        }
+      ],
+      "names": [
+        "STUCK_PATH"
+      ],
+      "unknown_mask": 0,
+      "value": 524288
+    }
+  },
+  "interpretation": [
+    "This attribution is diagnostic-only; it decodes sampled route and water/swim state without adding a new movement mode.",
+    "The repeated water.LG low-speed pattern decodes path_state 32768 as WATER_PATH, not STUCK_PATH.",
+    "The repeated water-path windows have blocked=0, so obstruction recovery is not the current explanation.",
+    "When water_state samples are present, waterlevel/swim_arrow/upmove/velocity/dir_move context can distinguish shallow-water edge handling from active swim intent."
+  ],
+  "marker_index_invariant": "Attribution assumes logged marker->fb.index + 1 matches the .bot file's 1-based marker ids. CreateMarker ids are assigned by file order; item/runtime marker ids can be referenced by route commands without static origins.",
+  "next_goal": "S6e should use the S6d water/swim evidence to choose the smallest targeted fix: swim/upmove handling, route-edge geometry diagnosis, or a repeated-run check if the water-path pattern is not reproduced.",
+  "patterns": [
+    {
+      "avg_horizontal_command_avg": 824.0,
+      "blocked_ratio": 0.0,
+      "classification": "water_path_without_obstruction",
+      "contains_stuck_path": false,
+      "contains_water_path": true,
+      "dir_speed_avg": 0.13,
+      "dir_speed_min": 0.016,
+      "goal_marker_values": [
+        59
+      ],
+      "linked_marker_values": [
+        59,
+        276
+      ],
+      "locations": [
+        "water.LG"
+      ],
+      "low_dir_speed_ratio": 0.909,
+      "notes": [
+        "Path state includes WATER_PATH, which KTX route_calc sets when either endpoint marker is in water.",
+        "No sampled blocked/STUCK_PATH signal was present.",
+        "90.9% of grouped command samples had native dir_speed below 0.25 before the probe normalized direction.",
+        "No grouped command sample was deep water (waterlevel > 2).",
+        "No grouped command sample had swim_arrow intent.",
+        "No grouped command sample emitted nonzero upmove."
+      ],
+      "player": "/ bro",
+      "sample_count": 11,
+      "water_state": {
+        "dir_move_z_avg": -0.142,
+        "dir_move_z_values": [
+          -0.627,
+          -0.533,
+          -0.521,
+          -0.449,
+          -0.35,
+          -0.195,
+          0.195,
+          0.253,
+          0.505,
+          0.506
+        ],
+        "emitted_upmove_nonzero_ratio": 0.0,
+        "emitted_upmove_values": [
+          0.0
+        ],
+        "player_flag_names": [
+          "FL_CLIENT",
+          "FL_INWATER"
+        ],
+        "sample_count": 11,
+        "swim_arrow_names": [
+          "none"
+        ],
+        "swim_arrow_nonzero_ratio": 0.0,
+        "swim_arrow_values": [
+          0
+        ],
+        "velocity_z_avg": -17.0,
+        "velocity_z_values": [
+          -88.8,
+          -75.2,
+          -50.4,
+          -39.1,
+          -37.5,
+          -23.1,
+          17.6,
+          24.6,
+          59.2,
+          63.5
+        ],
+        "waterlevel_gt1_ratio": 0.091,
+        "waterlevel_gt2_ratio": 0.0,
+        "waterlevel_values": [
+          1,
+          2
+        ],
+        "watertype_names": [
+          "CONTENT_WATER"
+        ],
+        "watertype_values": [
+          -3
+        ]
+      },
+      "window_count": 2,
+      "window_ranks": [
+        2,
+        3
+      ]
+    },
+    {
+      "avg_horizontal_command_avg": 823.8,
+      "blocked_ratio": 0.0,
+      "classification": "water_path_without_obstruction",
+      "contains_stuck_path": false,
+      "contains_water_path": true,
+      "dir_speed_avg": 0.057,
+      "dir_speed_min": 0.016,
+      "goal_marker_values": [
+        59
+      ],
+      "linked_marker_values": [
+        59
+      ],
+      "locations": [
+        "water.LG"
+      ],
+      "low_dir_speed_ratio": 1.0,
+      "notes": [
+        "Path state includes WATER_PATH, which KTX route_calc sets when either endpoint marker is in water.",
+        "No sampled blocked/STUCK_PATH signal was present.",
+        "100.0% of grouped command samples had native dir_speed below 0.25 before the probe normalized direction.",
+        "No grouped command sample was deep water (waterlevel > 2).",
+        "No grouped command sample had swim_arrow intent.",
+        "No grouped command sample emitted nonzero upmove."
+      ],
+      "player": "/ bro",
+      "sample_count": 10,
+      "water_state": {
+        "dir_move_z_avg": -0.125,
+        "dir_move_z_values": [
+          -0.685,
+          -0.425,
+          -0.35,
+          -0.243,
+          -0.1,
+          -0.08,
+          -0.078,
+          -0.061,
+          0.217,
+          0.555
+        ],
+        "emitted_upmove_nonzero_ratio": 0.0,
+        "emitted_upmove_values": [
+          0.0
+        ],
+        "player_flag_names": [
+          "FL_CLIENT",
+          "FL_INWATER"
+        ],
+        "sample_count": 10,
+        "swim_arrow_names": [
+          "none"
+        ],
+        "swim_arrow_nonzero_ratio": 0.0,
+        "swim_arrow_values": [
+          0
+        ],
+        "velocity_z_avg": 2.8,
+        "velocity_z_values": [
+          -45.1,
+          -31.2,
+          -24.1,
+          -9.6,
+          -9.2,
+          -6.4,
+          19.5,
+          59.2,
+          81.6
+        ],
+        "waterlevel_gt1_ratio": 0.1,
+        "waterlevel_gt2_ratio": 0.0,
+        "waterlevel_values": [
+          1,
+          2
+        ],
+        "watertype_names": [
+          "CONTENT_WATER"
+        ],
+        "watertype_values": [
+          -3
+        ]
+      },
+      "window_count": 2,
+      "window_ranks": [
+        4,
+        5
+      ]
+    },
+    {
+      "avg_horizontal_command_avg": 823.9,
+      "blocked_ratio": 0.0,
+      "classification": "water_path_without_obstruction",
+      "contains_stuck_path": false,
+      "contains_water_path": true,
+      "dir_speed_avg": 0.395,
+      "dir_speed_min": 0.066,
+      "goal_marker_values": [
+        59
+      ],
+      "linked_marker_values": [
+        59,
+        278
+      ],
+      "locations": [
+        "water.LG"
+      ],
+      "low_dir_speed_ratio": 0.111,
+      "notes": [
+        "Path state includes WATER_PATH, which KTX route_calc sets when either endpoint marker is in water.",
+        "No sampled blocked/STUCK_PATH signal was present.",
+        "11.1% of grouped command samples had native dir_speed below 0.25 before the probe normalized direction.",
+        "No grouped command sample was deep water (waterlevel > 2).",
+        "No grouped command sample had swim_arrow intent.",
+        "No grouped command sample emitted nonzero upmove."
+      ],
+      "player": "/ bro",
+      "sample_count": 9,
+      "water_state": {
+        "dir_move_z_avg": 0.033,
+        "dir_move_z_values": [
+          -0.647,
+          -0.306,
+          -0.195,
+          0.084,
+          0.19,
+          0.215,
+          0.291,
+          0.314,
+          0.353
+        ],
+        "emitted_upmove_nonzero_ratio": 0.0,
+        "emitted_upmove_values": [
+          0.0
+        ],
+        "player_flag_names": [
+          "FL_CLIENT",
+          "FL_INWATER"
+        ],
+        "sample_count": 9,
+        "swim_arrow_names": [
+          "none"
+        ],
+        "swim_arrow_nonzero_ratio": 0.0,
+        "swim_arrow_values": [
+          0
+        ],
+        "velocity_z_avg": -8.3,
+        "velocity_z_values": [
+          -240.8,
+          -80.0,
+          -23.1,
+          10.4,
+          26.2,
+          30.7,
+          50.4,
+          67.2,
+          84.0
+        ],
+        "waterlevel_gt1_ratio": 0.0,
+        "waterlevel_gt2_ratio": 0.0,
+        "waterlevel_values": [
+          1
+        ],
+        "watertype_names": [
+          "CONTENT_WATER"
+        ],
+        "watertype_values": [
+          -3
+        ]
+      },
+      "window_count": 1,
+      "window_ranks": [
+        1
+      ]
+    },
+    {
+      "avg_horizontal_command_avg": 824.0,
+      "blocked_ratio": 0.0,
+      "classification": "route_state_unresolved",
+      "contains_stuck_path": false,
+      "contains_water_path": false,
+      "dir_speed_avg": 1.0,
+      "dir_speed_min": 1.0,
+      "goal_marker_values": [
+        10
+      ],
+      "linked_marker_values": [
+        10,
+        44,
+        131
+      ],
+      "locations": [
+        "water"
+      ],
+      "low_dir_speed_ratio": 0.0,
+      "notes": [
+        "No sampled blocked/STUCK_PATH signal was present.",
+        "No grouped command sample was deep water (waterlevel > 2).",
+        "No grouped command sample had swim_arrow intent.",
+        "No grouped command sample emitted nonzero upmove."
+      ],
+      "player": "/ goldenboy",
+      "sample_count": 4,
+      "water_state": {
+        "dir_move_z_avg": 0.0,
+        "dir_move_z_values": [
+          0.0
+        ],
+        "emitted_upmove_nonzero_ratio": 0.0,
+        "emitted_upmove_values": [
+          0.0
+        ],
+        "player_flag_names": [
+          "FL_CLIENT",
+          "FL_ONGROUND"
+        ],
+        "sample_count": 4,
+        "swim_arrow_names": [
+          "none"
+        ],
+        "swim_arrow_nonzero_ratio": 0.0,
+        "swim_arrow_values": [
+          0
+        ],
+        "velocity_z_avg": 0.0,
+        "velocity_z_values": [
+          0.0
+        ],
+        "waterlevel_gt1_ratio": 0.0,
+        "waterlevel_gt2_ratio": 0.0,
+        "waterlevel_values": [
+          0
+        ],
+        "watertype_names": [
+          "CONTENT_EMPTY"
+        ],
+        "watertype_values": [
+          -1
+        ]
+      },
+      "window_count": 1,
+      "window_ranks": [
+        1
+      ]
+    },
+    {
+      "avg_horizontal_command_avg": 824.0,
+      "blocked_ratio": 0.0,
+      "classification": "route_state_unresolved",
+      "contains_stuck_path": false,
+      "contains_water_path": false,
+      "dir_speed_avg": 1.0,
+      "dir_speed_min": 1.0,
+      "goal_marker_values": [
+        10
+      ],
+      "linked_marker_values": [
+        46,
+        69
+      ],
+      "locations": [
+        "water.rox"
+      ],
+      "low_dir_speed_ratio": 0.0,
+      "notes": [
+        "No sampled blocked/STUCK_PATH signal was present.",
+        "No grouped command sample was deep water (waterlevel > 2).",
+        "No grouped command sample had swim_arrow intent.",
+        "No grouped command sample emitted nonzero upmove."
+      ],
+      "player": "/ goldenboy",
+      "sample_count": 3,
+      "water_state": {
+        "dir_move_z_avg": 0.0,
+        "dir_move_z_values": [
+          0.0
+        ],
+        "emitted_upmove_nonzero_ratio": 0.0,
+        "emitted_upmove_values": [
+          0.0
+        ],
+        "player_flag_names": [
+          "FL_CLIENT",
+          "FL_ONGROUND"
+        ],
+        "sample_count": 3,
+        "swim_arrow_names": [
+          "none"
+        ],
+        "swim_arrow_nonzero_ratio": 0.0,
+        "swim_arrow_values": [
+          0
+        ],
+        "velocity_z_avg": 0.0,
+        "velocity_z_values": [
+          0.0
+        ],
+        "waterlevel_gt1_ratio": 0.0,
+        "waterlevel_gt2_ratio": 0.0,
+        "waterlevel_values": [
+          0
+        ],
+        "watertype_names": [
+          "CONTENT_EMPTY"
+        ],
+        "watertype_values": [
+          -1
+        ]
+      },
+      "window_count": 1,
+      "window_ranks": [
+        2
+      ]
+    }
+  ],
+  "run": {
+    "duration_ms": 25782,
+    "map": "dm3",
+    "map_title": "The Abandoned Base",
+    "moveprobe_mode": "7",
+    "run_dir": "artifacts/lab-runs/20260606T041805Z",
+    "run_id": "20260606T041805Z"
+  },
+  "schema": "komodobots.route_state_attribution.v2",
+  "sources": {
+    "bot_map": "../engine/ktx/resources/example-configs/ktx/bots/maps/dm3.bot",
+    "commands_json": "artifacts/lab-runs/20260606T041805Z/moveprobe-commands.json",
+    "diagnosis_json": "artifacts/lab-runs/20260606T041805Z/s6d-water-path-diagnosis.json",
+    "dir_speed_assignment": "../engine/ktx/src/bot_movement.c",
+    "flag_definitions": "../engine/ktx/include/fb_globals.h",
+    "player_flag_definitions": "../engine/ktx/include/g_consts.h",
+    "swim_arrow_assignment": "../engine/ktx/src/bot_botwater.c",
+    "water_path_assignment": "../engine/ktx/src/route_calc.c"
+  },
+  "stage": "s6d-water-path",
+  "windows": [
+    {
+      "attribution": {
+        "blocked_sample_count": 0,
+        "classification": "water_path_without_obstruction",
+        "contains_stuck_path": false,
+        "contains_water_path": true,
+        "low_dir_speed_ratio": 0.111,
+        "notes": [
+          "Path state includes WATER_PATH, which KTX route_calc sets when either endpoint marker is in water.",
+          "No sampled blocked/STUCK_PATH signal was present.",
+          "11.1% of sampled commands had native dir_speed below 0.25 before the probe normalized direction.",
+          "No sampled command was deep water (waterlevel > 2), so BotWaterMove swim_arrow may be inactive.",
+          "No sampled swim_arrow intent was active.",
+          "No sampled emitted upmove was active."
+        ],
+        "water_state": {
+          "dir_move_z_avg": 0.033,
+          "dir_move_z_values": [
+            -0.647,
+            -0.306,
+            -0.195,
+            0.084,
+            0.19,
+            0.215,
+            0.291,
+            0.314,
+            0.353
+          ],
+          "emitted_upmove_nonzero_ratio": 0.0,
+          "emitted_upmove_values": [
+            0.0
+          ],
+          "player_flag_names": [
+            "FL_CLIENT",
+            "FL_INWATER"
+          ],
+          "sample_count": 9,
+          "swim_arrow_names": [
+            "none"
+          ],
+          "swim_arrow_nonzero_ratio": 0.0,
+          "swim_arrow_values": [
+            0
+          ],
+          "velocity_z_avg": -8.3,
+          "velocity_z_values": [
+            -240.8,
+            -80.0,
+            -23.1,
+            10.4,
+            26.2,
+            30.7,
+            50.4,
+            67.2,
+            84.0
+          ],
+          "waterlevel_gt1_ratio": 0.0,
+          "waterlevel_gt2_ratio": 0.0,
+          "waterlevel_values": [
+            1
+          ],
+          "watertype_names": [
+            "CONTENT_WATER"
+          ],
+          "watertype_values": [
+            -3
+          ]
+        }
+      },
+      "avg_horizontal_command": 823.9,
+      "avg_low_speed_qu_per_s": 83.1,
+      "blocked_ratio": 0.0,
+      "bot_state_names": [
+        "AWARE_SURROUNDINGS"
+      ],
+      "dir_speed_avg": 0.395,
+      "dir_speed_max": 0.645,
+      "dir_speed_min": 0.066,
+      "goal_marker_values": [
+        59
+      ],
+      "linked_marker_values": [
+        59,
+        278
+      ],
+      "location": "water.LG",
+      "path_state_values": [
+        {
+          "names": [],
+          "value": 0
+        },
+        {
+          "names": [
+            "WATER_PATH"
+          ],
+          "value": 32768
+        }
+      ],
+      "player": "/ bro",
+      "rank": 1,
+      "route_samples": [
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.344,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 14807,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.047,
+              "y": -0.761,
+              "z": -0.647
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 283.6,
+              "y": 17.2,
+              "z": -240.8
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.294,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 15063,
+          "touch_marker": 278,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 278,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 278,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.208,
+              "y": -0.929,
+              "z": -0.306
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 242.6,
+              "y": -54.6,
+              "z": -80.0
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.466,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 15322,
+          "touch_marker": 278,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 278,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 278,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.445,
+              "y": -0.823,
+              "z": 0.353
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 195.9,
+              "y": -106.5,
+              "z": 84.0
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.556,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 278,
+          "linked_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 278,
+            "origin": [],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [],
+            "names": [],
+            "unknown_mask": 0,
+            "value": 0
+          },
+          "time_ms": 15578,
+          "touch_marker": 278,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 278,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": false,
+            "source": 278,
+            "target": 278
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.577,
+              "y": -0.763,
+              "z": 0.291
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 176.1,
+              "y": -133.8,
+              "z": 67.2
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.645,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 15844,
+          "touch_marker": 278,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 278,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 278,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.425,
+              "y": 0.849,
+              "z": 0.314
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -135.8,
+              "y": 68.8,
+              "z": 50.4
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.504,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 16104,
+          "touch_marker": 278,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 278,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 278,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.264,
+              "y": 0.94,
+              "z": 0.215
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -133.9,
+              "y": 38.4,
+              "z": 30.7
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.426,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 278,
+          "linked_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 278,
+            "origin": [],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [],
+            "names": [],
+            "unknown_mask": 0,
+            "value": 0
+          },
+          "time_ms": 16360,
+          "touch_marker": 278,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 278,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": false,
+            "source": 278,
+            "target": 278
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.342,
+              "y": -0.92,
+              "z": 0.19
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -126.5,
+              "y": -47.9,
+              "z": 26.2
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.258,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 16626,
+          "touch_marker": 278,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 278,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 278,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.464,
+              "y": -0.882,
+              "z": 0.084
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -109.0,
+              "y": 56.3,
+              "z": 10.4
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.066,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 16876,
+          "touch_marker": 59,
+          "touch_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": false,
+            "source": 59,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.546,
+              "y": -0.814,
+              "z": -0.195
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -96.7,
+              "y": 63.7,
+              "z": -23.1
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        }
+      ],
+      "sample_count": 9,
+      "touch_marker_values": [
+        59,
+        276,
+        278
+      ],
+      "water_state": {
+        "dir_move_z_avg": 0.033,
+        "dir_move_z_values": [
+          -0.647,
+          -0.306,
+          -0.195,
+          0.084,
+          0.19,
+          0.215,
+          0.291,
+          0.314,
+          0.353
+        ],
+        "emitted_upmove_nonzero_ratio": 0.0,
+        "emitted_upmove_values": [
+          0.0
+        ],
+        "player_flag_names": [
+          "FL_CLIENT",
+          "FL_INWATER"
+        ],
+        "sample_count": 9,
+        "swim_arrow_names": [
+          "none"
+        ],
+        "swim_arrow_nonzero_ratio": 0.0,
+        "swim_arrow_values": [
+          0
+        ],
+        "velocity_z_avg": -8.3,
+        "velocity_z_values": [
+          -240.8,
+          -80.0,
+          -23.1,
+          10.4,
+          26.2,
+          30.7,
+          50.4,
+          67.2,
+          84.0
+        ],
+        "waterlevel_gt1_ratio": 0.0,
+        "waterlevel_gt2_ratio": 0.0,
+        "waterlevel_values": [
+          1
+        ],
+        "watertype_names": [
+          "CONTENT_WATER"
+        ],
+        "watertype_values": [
+          -3
+        ]
+      },
+      "window_ms": {
+        "end_ms": 16908,
+        "start_ms": 14818
+      }
+    },
+    {
+      "attribution": {
+        "blocked_sample_count": 0,
+        "classification": "water_path_without_obstruction",
+        "contains_stuck_path": false,
+        "contains_water_path": true,
+        "low_dir_speed_ratio": 0.833,
+        "notes": [
+          "Path state includes WATER_PATH, which KTX route_calc sets when either endpoint marker is in water.",
+          "No sampled blocked/STUCK_PATH signal was present.",
+          "83.3% of sampled commands had native dir_speed below 0.25 before the probe normalized direction.",
+          "No sampled command was deep water (waterlevel > 2), so BotWaterMove swim_arrow may be inactive.",
+          "No sampled swim_arrow intent was active.",
+          "No sampled emitted upmove was active."
+        ],
+        "water_state": {
+          "dir_move_z_avg": -0.153,
+          "dir_move_z_values": [
+            -0.627,
+            -0.449,
+            -0.35,
+            -0.195,
+            0.195,
+            0.505
+          ],
+          "emitted_upmove_nonzero_ratio": 0.0,
+          "emitted_upmove_values": [
+            0.0
+          ],
+          "player_flag_names": [
+            "FL_CLIENT",
+            "FL_INWATER"
+          ],
+          "sample_count": 6,
+          "swim_arrow_names": [
+            "none"
+          ],
+          "swim_arrow_nonzero_ratio": 0.0,
+          "swim_arrow_values": [
+            0
+          ],
+          "velocity_z_avg": -19.8,
+          "velocity_z_values": [
+            -88.8,
+            -50.4,
+            -37.5,
+            -23.1,
+            17.6,
+            63.5
+          ],
+          "waterlevel_gt1_ratio": 0.167,
+          "waterlevel_gt2_ratio": 0.0,
+          "waterlevel_values": [
+            1,
+            2
+          ],
+          "watertype_names": [
+            "CONTENT_WATER"
+          ],
+          "watertype_values": [
+            -3
+          ]
+        }
+      },
+      "avg_horizontal_command": 823.9,
+      "avg_low_speed_qu_per_s": 84.9,
+      "blocked_ratio": 0.0,
+      "bot_state_names": [
+        "AWARE_SURROUNDINGS"
+      ],
+      "dir_speed_avg": 0.197,
+      "dir_speed_max": 1.0,
+      "dir_speed_min": 0.018,
+      "goal_marker_values": [
+        59
+      ],
+      "linked_marker_values": [
+        59,
+        276
+      ],
+      "location": "water.LG",
+      "path_state_values": [
+        {
+          "names": [],
+          "value": 0
+        },
+        {
+          "names": [
+            "WATER_PATH"
+          ],
+          "value": 32768
+        }
+      ],
+      "player": "/ bro",
+      "rank": 2,
+      "route_samples": [
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.066,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 16876,
+          "touch_marker": 59,
+          "touch_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": false,
+            "source": 59,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.546,
+              "y": -0.814,
+              "z": -0.195
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -96.7,
+              "y": 63.7,
+              "z": -23.1
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 1.0,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 276,
+          "linked_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [],
+            "names": [],
+            "unknown_mask": 0,
+            "value": 0
+          },
+          "time_ms": 17132,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": false,
+            "source": 276,
+            "target": 276
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.404,
+              "y": 0.797,
+              "z": -0.449
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 89.9,
+              "y": -44.3,
+              "z": -50.4
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.018,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 17388,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.774,
+              "y": 0.087,
+              "z": -0.627
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -0.1,
+              "y": 92.0,
+              "z": -88.8
+            },
+            "waterlevel": 2,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.039,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 17647,
+          "touch_marker": 59,
+          "touch_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": false,
+            "source": 59,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.683,
+              "y": -0.528,
+              "z": 0.505
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 65.5,
+              "y": -86.4,
+              "z": 63.5
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.019,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 17903,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.593,
+              "y": 0.782,
+              "z": 0.195
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -71.6,
+              "y": -52.8,
+              "z": 17.6
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.04,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 18169,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.609,
+              "y": -0.711,
+              "z": -0.35
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 75.6,
+              "y": -66.2,
+              "z": -37.5
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        }
+      ],
+      "sample_count": 6,
+      "touch_marker_values": [
+        59,
+        276
+      ],
+      "water_state": {
+        "dir_move_z_avg": -0.153,
+        "dir_move_z_values": [
+          -0.627,
+          -0.449,
+          -0.35,
+          -0.195,
+          0.195,
+          0.505
+        ],
+        "emitted_upmove_nonzero_ratio": 0.0,
+        "emitted_upmove_values": [
+          0.0
+        ],
+        "player_flag_names": [
+          "FL_CLIENT",
+          "FL_INWATER"
+        ],
+        "sample_count": 6,
+        "swim_arrow_names": [
+          "none"
+        ],
+        "swim_arrow_nonzero_ratio": 0.0,
+        "swim_arrow_values": [
+          0
+        ],
+        "velocity_z_avg": -19.8,
+        "velocity_z_values": [
+          -88.8,
+          -50.4,
+          -37.5,
+          -23.1,
+          17.6,
+          63.5
+        ],
+        "waterlevel_gt1_ratio": 0.167,
+        "waterlevel_gt2_ratio": 0.0,
+        "waterlevel_values": [
+          1,
+          2
+        ],
+        "watertype_names": [
+          "CONTENT_WATER"
+        ],
+        "watertype_values": [
+          -3
+        ]
+      },
+      "window_ms": {
+        "end_ms": 18042,
+        "start_ms": 16989
+      }
+    },
+    {
+      "attribution": {
+        "blocked_sample_count": 0,
+        "classification": "water_path_without_obstruction",
+        "contains_stuck_path": false,
+        "contains_water_path": true,
+        "low_dir_speed_ratio": 1.0,
+        "notes": [
+          "Path state includes WATER_PATH, which KTX route_calc sets when either endpoint marker is in water.",
+          "No sampled blocked/STUCK_PATH signal was present.",
+          "100.0% of sampled commands had native dir_speed below 0.25 before the probe normalized direction.",
+          "No sampled command was deep water (waterlevel > 2), so BotWaterMove swim_arrow may be inactive.",
+          "No sampled swim_arrow intent was active.",
+          "No sampled emitted upmove was active."
+        ],
+        "water_state": {
+          "dir_move_z_avg": -0.129,
+          "dir_move_z_values": [
+            -0.533,
+            -0.521,
+            -0.35,
+            0.253,
+            0.506
+          ],
+          "emitted_upmove_nonzero_ratio": 0.0,
+          "emitted_upmove_values": [
+            0.0
+          ],
+          "player_flag_names": [
+            "FL_CLIENT",
+            "FL_INWATER"
+          ],
+          "sample_count": 5,
+          "swim_arrow_names": [
+            "none"
+          ],
+          "swim_arrow_nonzero_ratio": 0.0,
+          "swim_arrow_values": [
+            0
+          ],
+          "velocity_z_avg": -13.6,
+          "velocity_z_values": [
+            -75.2,
+            -39.1,
+            -37.5,
+            24.6,
+            59.2
+          ],
+          "waterlevel_gt1_ratio": 0.0,
+          "waterlevel_gt2_ratio": 0.0,
+          "waterlevel_values": [
+            1
+          ],
+          "watertype_names": [
+            "CONTENT_WATER"
+          ],
+          "watertype_values": [
+            -3
+          ]
+        }
+      },
+      "avg_horizontal_command": 824.0,
+      "avg_low_speed_qu_per_s": 86.4,
+      "blocked_ratio": 0.0,
+      "bot_state_names": [
+        "AWARE_SURROUNDINGS"
+      ],
+      "dir_speed_avg": 0.05,
+      "dir_speed_max": 0.118,
+      "dir_speed_min": 0.016,
+      "goal_marker_values": [
+        59
+      ],
+      "linked_marker_values": [
+        59,
+        276
+      ],
+      "location": "water.LG",
+      "path_state_values": [
+        {
+          "names": [],
+          "value": 0
+        },
+        {
+          "names": [
+            "WATER_PATH"
+          ],
+          "value": 32768
+        }
+      ],
+      "player": "/ bro",
+      "rank": 3,
+      "route_samples": [
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.04,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 18169,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.609,
+              "y": -0.711,
+              "z": -0.35
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 75.6,
+              "y": -66.2,
+              "z": -37.5
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.048,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 18429,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.769,
+              "y": 0.37,
+              "z": -0.521
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -54.2,
+              "y": -110.6,
+              "z": -75.2
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.118,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 276,
+          "linked_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [],
+            "names": [],
+            "unknown_mask": 0,
+            "value": 0
+          },
+          "time_ms": 18685,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": false,
+            "source": 276,
+            "target": 276
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.821,
+              "y": -0.263,
+              "z": 0.506
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -31.8,
+              "y": 95.8,
+              "z": 59.2
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.016,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 18941,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.594,
+              "y": 0.764,
+              "z": 0.253
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 75.1,
+              "y": -57.0,
+              "z": 24.6
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.028,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 19201,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.816,
+              "y": -0.222,
+              "z": -0.533
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -14.6,
+              "y": -60.3,
+              "z": -39.1
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        }
+      ],
+      "sample_count": 5,
+      "touch_marker_values": [
+        276
+      ],
+      "water_state": {
+        "dir_move_z_avg": -0.129,
+        "dir_move_z_values": [
+          -0.533,
+          -0.521,
+          -0.35,
+          0.253,
+          0.506
+        ],
+        "emitted_upmove_nonzero_ratio": 0.0,
+        "emitted_upmove_values": [
+          0.0
+        ],
+        "player_flag_names": [
+          "FL_CLIENT",
+          "FL_INWATER"
+        ],
+        "sample_count": 5,
+        "swim_arrow_names": [
+          "none"
+        ],
+        "swim_arrow_nonzero_ratio": 0.0,
+        "swim_arrow_values": [
+          0
+        ],
+        "velocity_z_avg": -13.6,
+        "velocity_z_values": [
+          -75.2,
+          -39.1,
+          -37.5,
+          24.6,
+          59.2
+        ],
+        "waterlevel_gt1_ratio": 0.0,
+        "waterlevel_gt2_ratio": 0.0,
+        "waterlevel_values": [
+          1
+        ],
+        "watertype_names": [
+          "CONTENT_WATER"
+        ],
+        "watertype_values": [
+          -3
+        ]
+      },
+      "window_ms": {
+        "end_ms": 19100,
+        "start_ms": 18246
+      }
+    },
+    {
+      "attribution": {
+        "blocked_sample_count": 0,
+        "classification": "water_path_without_obstruction",
+        "contains_stuck_path": false,
+        "contains_water_path": true,
+        "low_dir_speed_ratio": 1.0,
+        "notes": [
+          "Path state includes WATER_PATH, which KTX route_calc sets when either endpoint marker is in water.",
+          "No sampled blocked/STUCK_PATH signal was present.",
+          "100.0% of sampled commands had native dir_speed below 0.25 before the probe normalized direction.",
+          "No sampled command was deep water (waterlevel > 2), so BotWaterMove swim_arrow may be inactive.",
+          "No sampled swim_arrow intent was active.",
+          "No sampled emitted upmove was active."
+        ],
+        "water_state": {
+          "dir_move_z_avg": 0.02,
+          "dir_move_z_values": [
+            -0.35,
+            -0.243,
+            -0.08,
+            0.217,
+            0.555
+          ],
+          "emitted_upmove_nonzero_ratio": 0.0,
+          "emitted_upmove_values": [
+            0.0
+          ],
+          "player_flag_names": [
+            "FL_CLIENT",
+            "FL_INWATER"
+          ],
+          "sample_count": 5,
+          "swim_arrow_names": [
+            "none"
+          ],
+          "swim_arrow_nonzero_ratio": 0.0,
+          "swim_arrow_values": [
+            0
+          ],
+          "velocity_z_avg": 3.4,
+          "velocity_z_values": [
+            -31.2,
+            -24.1,
+            -6.4,
+            19.5,
+            59.2
+          ],
+          "waterlevel_gt1_ratio": 0.0,
+          "waterlevel_gt2_ratio": 0.0,
+          "waterlevel_values": [
+            1
+          ],
+          "watertype_names": [
+            "CONTENT_WATER"
+          ],
+          "watertype_values": [
+            -3
+          ]
+        }
+      },
+      "avg_horizontal_command": 823.8,
+      "avg_low_speed_qu_per_s": 82.0,
+      "blocked_ratio": 0.0,
+      "bot_state_names": [
+        "AWARE_SURROUNDINGS"
+      ],
+      "dir_speed_avg": 0.051,
+      "dir_speed_max": 0.093,
+      "dir_speed_min": 0.024,
+      "goal_marker_values": [
+        59
+      ],
+      "linked_marker_values": [
+        59
+      ],
+      "location": "water.LG",
+      "path_state_values": [
+        {
+          "names": [],
+          "value": 0
+        },
+        {
+          "names": [
+            "WATER_PATH"
+          ],
+          "value": 32768
+        }
+      ],
+      "player": "/ bro",
+      "rank": 4,
+      "route_samples": [
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.035,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 19713,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.265,
+              "y": -0.789,
+              "z": 0.555
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -84.6,
+              "y": 27.1,
+              "z": 59.2
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.093,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 19972,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.29,
+              "y": 0.932,
+              "z": 0.217
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 83.3,
+              "y": 27.2,
+              "z": 19.5
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.024,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 20228,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.462,
+              "y": -0.883,
+              "z": -0.08
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 71.6,
+              "y": 36.0,
+              "z": -6.4
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.077,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [],
+            "names": [],
+            "unknown_mask": 0,
+            "value": 0
+          },
+          "time_ms": 20494,
+          "touch_marker": 59,
+          "touch_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": false,
+            "source": 59,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.106,
+              "y": 0.964,
+              "z": -0.243
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -95.2,
+              "y": 11.6,
+              "z": -24.1
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.024,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 20754,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.113,
+              "y": 0.93,
+              "z": -0.35
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 82.7,
+              "y": 11.3,
+              "z": -31.2
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        }
+      ],
+      "sample_count": 5,
+      "touch_marker_values": [
+        59,
+        276
+      ],
+      "water_state": {
+        "dir_move_z_avg": 0.02,
+        "dir_move_z_values": [
+          -0.35,
+          -0.243,
+          -0.08,
+          0.217,
+          0.555
+        ],
+        "emitted_upmove_nonzero_ratio": 0.0,
+        "emitted_upmove_values": [
+          0.0
+        ],
+        "player_flag_names": [
+          "FL_CLIENT",
+          "FL_INWATER"
+        ],
+        "sample_count": 5,
+        "swim_arrow_names": [
+          "none"
+        ],
+        "swim_arrow_nonzero_ratio": 0.0,
+        "swim_arrow_values": [
+          0
+        ],
+        "velocity_z_avg": 3.4,
+        "velocity_z_values": [
+          -31.2,
+          -24.1,
+          -6.4,
+          19.5,
+          59.2
+        ],
+        "waterlevel_gt1_ratio": 0.0,
+        "waterlevel_gt2_ratio": 0.0,
+        "waterlevel_values": [
+          1
+        ],
+        "watertype_names": [
+          "CONTENT_WATER"
+        ],
+        "watertype_values": [
+          -3
+        ]
+      },
+      "window_ms": {
+        "end_ms": 20643,
+        "start_ms": 19830
+      }
+    },
+    {
+      "attribution": {
+        "blocked_sample_count": 0,
+        "classification": "water_path_without_obstruction",
+        "contains_stuck_path": false,
+        "contains_water_path": true,
+        "low_dir_speed_ratio": 1.0,
+        "notes": [
+          "Path state includes WATER_PATH, which KTX route_calc sets when either endpoint marker is in water.",
+          "No sampled blocked/STUCK_PATH signal was present.",
+          "100.0% of sampled commands had native dir_speed below 0.25 before the probe normalized direction.",
+          "No sampled command was deep water (waterlevel > 2), so BotWaterMove swim_arrow may be inactive.",
+          "No sampled swim_arrow intent was active.",
+          "No sampled emitted upmove was active."
+        ],
+        "water_state": {
+          "dir_move_z_avg": -0.27,
+          "dir_move_z_values": [
+            -0.685,
+            -0.425,
+            -0.1,
+            -0.078,
+            -0.061
+          ],
+          "emitted_upmove_nonzero_ratio": 0.0,
+          "emitted_upmove_values": [
+            0.0
+          ],
+          "player_flag_names": [
+            "FL_CLIENT",
+            "FL_INWATER"
+          ],
+          "sample_count": 5,
+          "swim_arrow_names": [
+            "none"
+          ],
+          "swim_arrow_nonzero_ratio": 0.0,
+          "swim_arrow_values": [
+            0
+          ],
+          "velocity_z_avg": 2.3,
+          "velocity_z_values": [
+            -45.1,
+            -9.6,
+            -9.2,
+            -6.4,
+            81.6
+          ],
+          "waterlevel_gt1_ratio": 0.2,
+          "waterlevel_gt2_ratio": 0.0,
+          "waterlevel_values": [
+            1,
+            2
+          ],
+          "watertype_names": [
+            "CONTENT_WATER"
+          ],
+          "watertype_values": [
+            -3
+          ]
+        }
+      },
+      "avg_horizontal_command": 823.9,
+      "avg_low_speed_qu_per_s": 84.5,
+      "blocked_ratio": 0.0,
+      "bot_state_names": [
+        "AWARE_SURROUNDINGS"
+      ],
+      "dir_speed_avg": 0.064,
+      "dir_speed_max": 0.121,
+      "dir_speed_min": 0.016,
+      "goal_marker_values": [
+        59
+      ],
+      "linked_marker_values": [
+        59
+      ],
+      "location": "water.LG",
+      "path_state_values": [
+        {
+          "names": [
+            "WATER_PATH"
+          ],
+          "value": 32768
+        }
+      ],
+      "player": "/ bro",
+      "rank": 5,
+      "route_samples": [
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.078,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 24868,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.032,
+              "y": -0.998,
+              "z": -0.061
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 105.3,
+              "y": 2.4,
+              "z": -6.4
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.021,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 25118,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.444,
+              "y": 0.891,
+              "z": -0.1
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 85.3,
+              "y": 43.7,
+              "z": -9.6
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.083,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 25373,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.714,
+              "y": -0.696,
+              "z": -0.078
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -81.3,
+              "y": -84.8,
+              "z": -9.2
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.121,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 25629,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.87,
+              "y": 0.251,
+              "z": -0.425
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 25.5,
+              "y": 92.5,
+              "z": -45.1
+            },
+            "waterlevel": 1,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 0.016,
+          "goal_ed": 137,
+          "goal_marker": 59,
+          "goal_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "linked_marker": 59,
+          "linked_marker_info": {
+            "goal": 5,
+            "has_static_origin": true,
+            "id": 59,
+            "origin": [
+              1329.0,
+              -378.0,
+              -24.0
+            ],
+            "zone": 17
+          },
+          "path_state": {
+            "bits": [
+              {
+                "bit": 32768,
+                "name": "WATER_PATH"
+              }
+            ],
+            "names": [
+              "WATER_PATH"
+            ],
+            "unknown_mask": 0,
+            "value": 32768
+          },
+          "time_ms": 25879,
+          "touch_marker": 276,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": false,
+            "id": 276,
+            "origin": [],
+            "zone": 17
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              0
+            ],
+            "source": 276,
+            "target": 59
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.031,
+              "y": 0.728,
+              "z": -0.685
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 16,
+                  "name": "FL_INWATER"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_INWATER"
+              ],
+              "unknown_mask": 0,
+              "value": 24
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -76.0,
+              "y": 31.2,
+              "z": 81.6
+            },
+            "waterlevel": 2,
+            "watertype": {
+              "name": "CONTENT_WATER",
+              "value": -3
+            }
+          }
+        }
+      ],
+      "sample_count": 5,
+      "touch_marker_values": [
+        276
+      ],
+      "water_state": {
+        "dir_move_z_avg": -0.27,
+        "dir_move_z_values": [
+          -0.685,
+          -0.425,
+          -0.1,
+          -0.078,
+          -0.061
+        ],
+        "emitted_upmove_nonzero_ratio": 0.0,
+        "emitted_upmove_values": [
+          0.0
+        ],
+        "player_flag_names": [
+          "FL_CLIENT",
+          "FL_INWATER"
+        ],
+        "sample_count": 5,
+        "swim_arrow_names": [
+          "none"
+        ],
+        "swim_arrow_nonzero_ratio": 0.0,
+        "swim_arrow_values": [
+          0
+        ],
+        "velocity_z_avg": 2.3,
+        "velocity_z_values": [
+          -45.1,
+          -9.6,
+          -9.2,
+          -6.4,
+          81.6
+        ],
+        "waterlevel_gt1_ratio": 0.2,
+        "waterlevel_gt2_ratio": 0.0,
+        "waterlevel_values": [
+          1,
+          2
+        ],
+        "watertype_names": [
+          "CONTENT_WATER"
+        ],
+        "watertype_values": [
+          -3
+        ]
+      },
+      "window_ms": {
+        "end_ms": 25782,
+        "start_ms": 25006
+      }
+    },
+    {
+      "attribution": {
+        "blocked_sample_count": 0,
+        "classification": "route_state_unresolved",
+        "contains_stuck_path": false,
+        "contains_water_path": false,
+        "low_dir_speed_ratio": 0.0,
+        "notes": [
+          "No sampled blocked/STUCK_PATH signal was present.",
+          "No sampled command was deep water (waterlevel > 2), so BotWaterMove swim_arrow may be inactive.",
+          "No sampled swim_arrow intent was active.",
+          "No sampled emitted upmove was active."
+        ],
+        "water_state": {
+          "dir_move_z_avg": 0.0,
+          "dir_move_z_values": [
+            0.0
+          ],
+          "emitted_upmove_nonzero_ratio": 0.0,
+          "emitted_upmove_values": [
+            0.0
+          ],
+          "player_flag_names": [
+            "FL_CLIENT",
+            "FL_ONGROUND"
+          ],
+          "sample_count": 4,
+          "swim_arrow_names": [
+            "none"
+          ],
+          "swim_arrow_nonzero_ratio": 0.0,
+          "swim_arrow_values": [
+            0
+          ],
+          "velocity_z_avg": 0.0,
+          "velocity_z_values": [
+            0.0
+          ],
+          "waterlevel_gt1_ratio": 0.0,
+          "waterlevel_gt2_ratio": 0.0,
+          "waterlevel_values": [
+            0
+          ],
+          "watertype_names": [
+            "CONTENT_EMPTY"
+          ],
+          "watertype_values": [
+            -1
+          ]
+        }
+      },
+      "avg_horizontal_command": 824.0,
+      "avg_low_speed_qu_per_s": 39.1,
+      "blocked_ratio": 0.0,
+      "bot_state_names": [
+        "AWARE_SURROUNDINGS"
+      ],
+      "dir_speed_avg": 1.0,
+      "dir_speed_max": 1.0,
+      "dir_speed_min": 1.0,
+      "goal_marker_values": [
+        10
+      ],
+      "linked_marker_values": [
+        10,
+        44,
+        131
+      ],
+      "location": "water",
+      "path_state_values": [
+        {
+          "names": [],
+          "value": 0
+        }
+      ],
+      "player": "/ goldenboy",
+      "rank": 1,
+      "route_samples": [
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 1.0,
+          "goal_ed": 78,
+          "goal_marker": 10,
+          "goal_marker_info": {
+            "goal": 12,
+            "has_static_origin": true,
+            "id": 10,
+            "origin": [
+              1959.0,
+              -425.0,
+              -24.0
+            ],
+            "zone": 4
+          },
+          "linked_marker": 44,
+          "linked_marker_info": {
+            "goal": "",
+            "has_static_origin": true,
+            "id": 44,
+            "origin": [
+              497.0,
+              613.0,
+              56.0
+            ],
+            "zone": 4
+          },
+          "path_state": {
+            "bits": [],
+            "names": [],
+            "unknown_mask": 0,
+            "value": 0
+          },
+          "time_ms": 22676,
+          "touch_marker": 2,
+          "touch_marker_info": {
+            "goal": 16,
+            "has_static_origin": true,
+            "id": 2,
+            "origin": [
+              666.0,
+              32.0,
+              -182.0
+            ],
+            "zone": 4
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              2
+            ],
+            "source": 2,
+            "target": 44
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.177,
+              "y": -0.984,
+              "z": 0.0
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 512,
+                  "name": "FL_ONGROUND"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_ONGROUND"
+              ],
+              "unknown_mask": 0,
+              "value": 520
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 305.0,
+              "y": -217.4,
+              "z": 0.0
+            },
+            "waterlevel": 0,
+            "watertype": {
+              "name": "CONTENT_EMPTY",
+              "value": -1
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 1.0,
+          "goal_ed": 78,
+          "goal_marker": 10,
+          "goal_marker_info": {
+            "goal": 12,
+            "has_static_origin": true,
+            "id": 10,
+            "origin": [
+              1959.0,
+              -425.0,
+              -24.0
+            ],
+            "zone": 4
+          },
+          "linked_marker": 131,
+          "linked_marker_info": {
+            "goal": "",
+            "has_static_origin": true,
+            "id": 131,
+            "origin": [
+              -929.0,
+              294.0,
+              104.0
+            ],
+            "zone": 4
+          },
+          "path_state": {
+            "bits": [],
+            "names": [],
+            "unknown_mask": 0,
+            "value": 0
+          },
+          "time_ms": 22936,
+          "touch_marker": 44,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": true,
+            "id": 44,
+            "origin": [
+              497.0,
+              613.0,
+              56.0
+            ],
+            "zone": 4
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              2
+            ],
+            "source": 44,
+            "target": 131
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -1.0,
+              "y": -0.006,
+              "z": 0.0
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 512,
+                  "name": "FL_ONGROUND"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_ONGROUND"
+              ],
+              "unknown_mask": 0,
+              "value": 520
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -212.4,
+              "y": 9.9,
+              "z": 0.0
+            },
+            "waterlevel": 0,
+            "watertype": {
+              "name": "CONTENT_EMPTY",
+              "value": -1
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 1.0,
+          "goal_ed": 78,
+          "goal_marker": 10,
+          "goal_marker_info": {
+            "goal": 12,
+            "has_static_origin": true,
+            "id": 10,
+            "origin": [
+              1959.0,
+              -425.0,
+              -24.0
+            ],
+            "zone": 4
+          },
+          "linked_marker": 10,
+          "linked_marker_info": {
+            "goal": 12,
+            "has_static_origin": true,
+            "id": 10,
+            "origin": [
+              1959.0,
+              -425.0,
+              -24.0
+            ],
+            "zone": 4
+          },
+          "path_state": {
+            "bits": [],
+            "names": [],
+            "unknown_mask": 0,
+            "value": 0
+          },
+          "time_ms": 23192,
+          "touch_marker": 131,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": true,
+            "id": 131,
+            "origin": [
+              -929.0,
+              294.0,
+              104.0
+            ],
+            "zone": 4
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              1
+            ],
+            "source": 131,
+            "target": 10
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.999,
+              "y": 0.04,
+              "z": 0.0
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 512,
+                  "name": "FL_ONGROUND"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_ONGROUND"
+              ],
+              "unknown_mask": 0,
+              "value": 520
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 16.9,
+              "y": 238.5,
+              "z": 0.0
+            },
+            "waterlevel": 0,
+            "watertype": {
+              "name": "CONTENT_EMPTY",
+              "value": -1
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 1.0,
+          "goal_ed": 78,
+          "goal_marker": 10,
+          "goal_marker_info": {
+            "goal": 12,
+            "has_static_origin": true,
+            "id": 10,
+            "origin": [
+              1959.0,
+              -425.0,
+              -24.0
+            ],
+            "zone": 4
+          },
+          "linked_marker": 10,
+          "linked_marker_info": {
+            "goal": 12,
+            "has_static_origin": true,
+            "id": 10,
+            "origin": [
+              1959.0,
+              -425.0,
+              -24.0
+            ],
+            "zone": 4
+          },
+          "path_state": {
+            "bits": [],
+            "names": [],
+            "unknown_mask": 0,
+            "value": 0
+          },
+          "time_ms": 23448,
+          "touch_marker": 131,
+          "touch_marker_info": {
+            "goal": "",
+            "has_static_origin": true,
+            "id": 131,
+            "origin": [
+              -929.0,
+              294.0,
+              104.0
+            ],
+            "zone": 4
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              1
+            ],
+            "source": 131,
+            "target": 10
+          },
+          "water_state": {
+            "dir_move": {
+              "x": -0.999,
+              "y": 0.042,
+              "z": 0.0
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 512,
+                  "name": "FL_ONGROUND"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_ONGROUND"
+              ],
+              "unknown_mask": 0,
+              "value": 520
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 35.2,
+              "y": -118.9,
+              "z": 0.0
+            },
+            "waterlevel": 0,
+            "watertype": {
+              "name": "CONTENT_EMPTY",
+              "value": -1
+            }
+          }
+        }
+      ],
+      "sample_count": 4,
+      "touch_marker_values": [
+        2,
+        44,
+        131
+      ],
+      "water_state": {
+        "dir_move_z_avg": 0.0,
+        "dir_move_z_values": [
+          0.0
+        ],
+        "emitted_upmove_nonzero_ratio": 0.0,
+        "emitted_upmove_values": [
+          0.0
+        ],
+        "player_flag_names": [
+          "FL_CLIENT",
+          "FL_ONGROUND"
+        ],
+        "sample_count": 4,
+        "swim_arrow_names": [
+          "none"
+        ],
+        "swim_arrow_nonzero_ratio": 0.0,
+        "swim_arrow_values": [
+          0
+        ],
+        "velocity_z_avg": 0.0,
+        "velocity_z_values": [
+          0.0
+        ],
+        "waterlevel_gt1_ratio": 0.0,
+        "waterlevel_gt2_ratio": 0.0,
+        "waterlevel_values": [
+          0
+        ],
+        "watertype_names": [
+          "CONTENT_EMPTY"
+        ],
+        "watertype_values": [
+          -1
+        ]
+      },
+      "window_ms": {
+        "end_ms": 23320,
+        "start_ms": 22610
+      }
+    },
+    {
+      "attribution": {
+        "blocked_sample_count": 0,
+        "classification": "route_state_unresolved",
+        "contains_stuck_path": false,
+        "contains_water_path": false,
+        "low_dir_speed_ratio": 0.0,
+        "notes": [
+          "No sampled blocked/STUCK_PATH signal was present.",
+          "No sampled command was deep water (waterlevel > 2), so BotWaterMove swim_arrow may be inactive.",
+          "No sampled swim_arrow intent was active.",
+          "No sampled emitted upmove was active."
+        ],
+        "water_state": {
+          "dir_move_z_avg": 0.0,
+          "dir_move_z_values": [
+            0.0
+          ],
+          "emitted_upmove_nonzero_ratio": 0.0,
+          "emitted_upmove_values": [
+            0.0
+          ],
+          "player_flag_names": [
+            "FL_CLIENT",
+            "FL_ONGROUND"
+          ],
+          "sample_count": 3,
+          "swim_arrow_names": [
+            "none"
+          ],
+          "swim_arrow_nonzero_ratio": 0.0,
+          "swim_arrow_values": [
+            0
+          ],
+          "velocity_z_avg": 0.0,
+          "velocity_z_values": [
+            0.0
+          ],
+          "waterlevel_gt1_ratio": 0.0,
+          "waterlevel_gt2_ratio": 0.0,
+          "waterlevel_values": [
+            0
+          ],
+          "watertype_names": [
+            "CONTENT_EMPTY"
+          ],
+          "watertype_values": [
+            -1
+          ]
+        }
+      },
+      "avg_horizontal_command": 824.0,
+      "avg_low_speed_qu_per_s": 55.8,
+      "blocked_ratio": 0.0,
+      "bot_state_names": [
+        "AWARE_SURROUNDINGS"
+      ],
+      "dir_speed_avg": 1.0,
+      "dir_speed_max": 1.0,
+      "dir_speed_min": 1.0,
+      "goal_marker_values": [
+        10
+      ],
+      "linked_marker_values": [
+        46,
+        69
+      ],
+      "location": "water.rox",
+      "path_state_values": [
+        {
+          "names": [],
+          "value": 0
+        }
+      ],
+      "player": "/ goldenboy",
+      "rank": 2,
+      "route_samples": [
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 1.0,
+          "goal_ed": 78,
+          "goal_marker": 10,
+          "goal_marker_info": {
+            "goal": 12,
+            "has_static_origin": true,
+            "id": 10,
+            "origin": [
+              1959.0,
+              -425.0,
+              -24.0
+            ],
+            "zone": 4
+          },
+          "linked_marker": 46,
+          "linked_marker_info": {
+            "goal": 23,
+            "has_static_origin": true,
+            "id": 46,
+            "origin": [
+              1542.0,
+              828.0,
+              -296.0
+            ],
+            "zone": 1
+          },
+          "path_state": {
+            "bits": [],
+            "names": [],
+            "unknown_mask": 0,
+            "value": 0
+          },
+          "time_ms": 10530,
+          "touch_marker": 1,
+          "touch_marker_info": {
+            "goal": 17,
+            "has_static_origin": true,
+            "id": 1,
+            "origin": [
+              1615.0,
+              263.0,
+              -213.0
+            ],
+            "zone": 1
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              2
+            ],
+            "source": 1,
+            "target": 46
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.38,
+              "y": 0.925,
+              "z": 0.0
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 512,
+                  "name": "FL_ONGROUND"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_ONGROUND"
+              ],
+              "unknown_mask": 0,
+              "value": 520
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": -25.0,
+              "y": 334.1,
+              "z": 0.0
+            },
+            "waterlevel": 0,
+            "watertype": {
+              "name": "CONTENT_EMPTY",
+              "value": -1
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 1.0,
+          "goal_ed": 78,
+          "goal_marker": 10,
+          "goal_marker_info": {
+            "goal": 12,
+            "has_static_origin": true,
+            "id": 10,
+            "origin": [
+              1959.0,
+              -425.0,
+              -24.0
+            ],
+            "zone": 4
+          },
+          "linked_marker": 69,
+          "linked_marker_info": {
+            "goal": "",
+            "has_static_origin": true,
+            "id": 69,
+            "origin": [
+              672.0,
+              -624.0,
+              88.0
+            ],
+            "zone": 1
+          },
+          "path_state": {
+            "bits": [],
+            "names": [],
+            "unknown_mask": 0,
+            "value": 0
+          },
+          "time_ms": 10785,
+          "touch_marker": 46,
+          "touch_marker_info": {
+            "goal": 23,
+            "has_static_origin": true,
+            "id": 46,
+            "origin": [
+              1542.0,
+              828.0,
+              -296.0
+            ],
+            "zone": 1
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              1
+            ],
+            "source": 46,
+            "target": 69
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.768,
+              "y": -0.64,
+              "z": 0.0
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 512,
+                  "name": "FL_ONGROUND"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_ONGROUND"
+              ],
+              "unknown_mask": 0,
+              "value": 520
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 328.8,
+              "y": -71.4,
+              "z": 0.0
+            },
+            "waterlevel": 0,
+            "watertype": {
+              "name": "CONTENT_EMPTY",
+              "value": -1
+            }
+          }
+        },
+        {
+          "blocked": false,
+          "bot_state": {
+            "bits": [
+              {
+                "bit": 128,
+                "name": "AWARE_SURROUNDINGS"
+              }
+            ],
+            "names": [
+              "AWARE_SURROUNDINGS"
+            ],
+            "unknown_mask": 0,
+            "value": 128
+          },
+          "dir_speed": 1.0,
+          "goal_ed": 78,
+          "goal_marker": 10,
+          "goal_marker_info": {
+            "goal": 12,
+            "has_static_origin": true,
+            "id": 10,
+            "origin": [
+              1959.0,
+              -425.0,
+              -24.0
+            ],
+            "zone": 4
+          },
+          "linked_marker": 69,
+          "linked_marker_info": {
+            "goal": "",
+            "has_static_origin": true,
+            "id": 69,
+            "origin": [
+              672.0,
+              -624.0,
+              88.0
+            ],
+            "zone": 1
+          },
+          "path_state": {
+            "bits": [],
+            "names": [],
+            "unknown_mask": 0,
+            "value": 0
+          },
+          "time_ms": 11041,
+          "touch_marker": 46,
+          "touch_marker_info": {
+            "goal": 23,
+            "has_static_origin": true,
+            "id": 46,
+            "origin": [
+              1542.0,
+              828.0,
+              -296.0
+            ],
+            "zone": 1
+          },
+          "touch_to_link_path": {
+            "defined_in_bot_map": true,
+            "explicit_flags": [],
+            "path_indexes": [
+              1
+            ],
+            "source": 46,
+            "target": 69
+          },
+          "water_state": {
+            "dir_move": {
+              "x": 0.369,
+              "y": -0.929,
+              "z": 0.0
+            },
+            "emitted_upmove": 0.0,
+            "flags": {
+              "bits": [
+                {
+                  "bit": 8,
+                  "name": "FL_CLIENT"
+                },
+                {
+                  "bit": 512,
+                  "name": "FL_ONGROUND"
+                }
+              ],
+              "names": [
+                "FL_CLIENT",
+                "FL_ONGROUND"
+              ],
+              "unknown_mask": 0,
+              "value": 520
+            },
+            "present": true,
+            "swim_arrow": {
+              "name": "none",
+              "value": 0
+            },
+            "velocity": {
+              "x": 317.8,
+              "y": -172.4,
+              "z": 0.0
+            },
+            "waterlevel": 0,
+            "watertype": {
+              "name": "CONTENT_EMPTY",
+              "value": -1
+            }
+          }
+        }
+      ],
+      "sample_count": 3,
+      "touch_marker_values": [
+        1,
+        46
+      ],
+      "water_state": {
+        "dir_move_z_avg": 0.0,
+        "dir_move_z_values": [
+          0.0
+        ],
+        "emitted_upmove_nonzero_ratio": 0.0,
+        "emitted_upmove_values": [
+          0.0
+        ],
+        "player_flag_names": [
+          "FL_CLIENT",
+          "FL_ONGROUND"
+        ],
+        "sample_count": 3,
+        "swim_arrow_names": [
+          "none"
+        ],
+        "swim_arrow_nonzero_ratio": 0.0,
+        "swim_arrow_values": [
+          0
+        ],
+        "velocity_z_avg": 0.0,
+        "velocity_z_values": [
+          0.0
+        ],
+        "waterlevel_gt1_ratio": 0.0,
+        "waterlevel_gt2_ratio": 0.0,
+        "waterlevel_values": [
+          0
+        ],
+        "watertype_names": [
+          "CONTENT_EMPTY"
+        ],
+        "watertype_values": [
+          -1
+        ]
+      },
+      "window_ms": {
+        "end_ms": 11022,
+        "start_ms": 10434
+      }
+    }
+  ]
+}

@@ -51,6 +51,13 @@ duration="$3"
 bot_count="$4"
 bot_spacing="$5"
 map_name="$6"
+moveprobe_mode="$7"
+moveprobe_yaw="$8"
+moveprobe_forwardmove="$9"
+moveprobe_sidemove="${10}"
+moveprobe_upmove="${11}"
+moveprobe_log_commands="${12}"
+moveprobe_log_interval="${13}"
 
 session="komodobots_lab_${map_name}_${port}_${run_id}"
 rundir="$HOME/komodobots-lab/runs/$run_id"
@@ -128,6 +135,13 @@ set k_defmap $map_name
 set k_fb_enabled 0
 set k_count 0
 set k_matchless_countdown 0
+set k_fb_moveprobe_mode $moveprobe_mode
+set k_fb_moveprobe_yaw $moveprobe_yaw
+set k_fb_moveprobe_forwardmove $moveprobe_forwardmove
+set k_fb_moveprobe_sidemove $moveprobe_sidemove
+set k_fb_moveprobe_upmove $moveprobe_upmove
+set k_fb_moveprobe_log_commands $moveprobe_log_commands
+set k_fb_moveprobe_log_interval $moveprobe_log_interval
 timelimit 1
 fraglimit 0
 samelevel 1
@@ -151,6 +165,13 @@ CFG=$cfg_path
 ROUTE_FILE=$route_file
 ROUTE_FILE_PRESENT_ORIGINAL=$route_file_present_original
 ROUTE_FILE_USED=$route_file_used
+MOVEPROBE_MODE=$moveprobe_mode
+MOVEPROBE_YAW=$moveprobe_yaw
+MOVEPROBE_FORWARDMOVE=$moveprobe_forwardmove
+MOVEPROBE_SIDEMOVE=$moveprobe_sidemove
+MOVEPROBE_UPMOVE=$moveprobe_upmove
+MOVEPROBE_LOG_COMMANDS=$moveprobe_log_commands
+MOVEPROBE_LOG_INTERVAL=$moveprobe_log_interval
 START_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 
@@ -365,6 +386,257 @@ def read_json(path: Path) -> dict:
         return json.load(handle)
 
 
+MOVEPROBE_COMMAND_RE = re.compile(
+    r"FBMOVEPROBE_CMD\s+"
+    r"time=(?P<time>-?\d+(?:\.\d+)?)\s+"
+    r"ed=(?P<ed>\d+)\s+"
+    r"name=(?P<name>.*?)\s+"
+    r"mode=(?P<mode>-?\d+)\s+"
+    r"msec=(?P<msec>-?\d+)\s+"
+    r"angles=(?P<pitch>-?\d+(?:\.\d+)?),(?P<yaw>-?\d+(?:\.\d+)?),(?P<roll>-?\d+(?:\.\d+)?)\s+"
+    r"move=(?P<forward>-?\d+),(?P<side>-?\d+),(?P<up>-?\d+)\s+"
+    r"buttons=(?P<buttons>\d+)\s+"
+    r"impulse=(?P<impulse>-?\d+)"
+    r"(?:\s+diag=(?P<route_yaw>-?\d+(?:\.\d+)?),(?P<view_yaw>-?\d+(?:\.\d+)?),"
+    r"(?P<yaw_delta>-?\d+(?:\.\d+)?),(?P<backward>\d+))?"
+    r"(?:\s+route=(?P<linked_marker>-?\d+),(?P<touch_marker>-?\d+),"
+    r"(?P<goal_ed>-?\d+),(?P<goal_marker>-?\d+),(?P<path_state>-?\d+),"
+    r"(?P<bot_state>-?\d+),(?P<blocked>\d+),(?P<dir_speed>-?\d+(?:\.\d+)?))?"
+    r"(?:\s+water=(?P<waterlevel>-?\d+),(?P<watertype>-?\d+),(?P<player_flags>-?\d+),"
+    r"(?P<swim_arrow>-?\d+),(?P<emitted_upmove>-?\d+(?:\.\d+)?),"
+    r"(?P<velocity_x>-?\d+(?:\.\d+)?),(?P<velocity_y>-?\d+(?:\.\d+)?),(?P<velocity_z>-?\d+(?:\.\d+)?),"
+    r"(?P<dir_move_x>-?\d+(?:\.\d+)?),(?P<dir_move_y>-?\d+(?:\.\d+)?),(?P<dir_move_z>-?\d+(?:\.\d+)?))?"
+)
+
+
+def parse_moveprobe_command_logs(screen_log: str) -> list[dict[str, object]]:
+    commands: list[dict[str, object]] = []
+    for line in screen_log.splitlines():
+        match = MOVEPROBE_COMMAND_RE.search(line)
+        if not match:
+            continue
+        groups = match.groupdict()
+        row: dict[str, object] = {
+            "time_s": float(groups["time"]),
+            "ed": int(groups["ed"]),
+            "name": groups["name"].strip(),
+            "mode": int(groups["mode"]),
+            "msec": int(groups["msec"]),
+            "angles": {
+                "pitch": float(groups["pitch"]),
+                "yaw": float(groups["yaw"]),
+                "roll": float(groups["roll"]),
+            },
+            "move": {
+                "forward": int(groups["forward"]),
+                "side": int(groups["side"]),
+                "up": int(groups["up"]),
+            },
+            "buttons": int(groups["buttons"]),
+            "impulse": int(groups["impulse"]),
+        }
+        if groups.get("route_yaw") is not None:
+            row["diagnostics"] = {
+                "route_yaw": float(groups["route_yaw"]),
+                "view_yaw": float(groups["view_yaw"]),
+                "yaw_delta": float(groups["yaw_delta"]),
+                "backward": bool(int(groups["backward"])),
+            }
+        if groups.get("linked_marker") is not None:
+            row["route_state"] = {
+                "linked_marker": int(groups["linked_marker"]),
+                "touch_marker": int(groups["touch_marker"]),
+                "goal_ed": int(groups["goal_ed"]),
+                "goal_marker": int(groups["goal_marker"]),
+                "path_state": int(groups["path_state"]),
+                "bot_state": int(groups["bot_state"]),
+                "blocked": bool(int(groups["blocked"])),
+                "dir_speed": float(groups["dir_speed"]),
+            }
+        if groups.get("waterlevel") is not None:
+            row["water_state"] = {
+                "waterlevel": int(groups["waterlevel"]),
+                "watertype": int(groups["watertype"]),
+                "flags": int(groups["player_flags"]),
+                "swim_arrow": int(groups["swim_arrow"]),
+                "emitted_upmove": float(groups["emitted_upmove"]),
+                "velocity": {
+                    "x": float(groups["velocity_x"]),
+                    "y": float(groups["velocity_y"]),
+                    "z": float(groups["velocity_z"]),
+                },
+                "dir_move": {
+                    "x": float(groups["dir_move_x"]),
+                    "y": float(groups["dir_move_y"]),
+                    "z": float(groups["dir_move_z"]),
+                },
+            }
+        commands.append(row)
+    return commands
+
+
+def compact_unique(values: Iterable[object], limit: int = 12) -> list[object]:
+    unique = sorted(set(values))
+    if len(unique) <= limit:
+        return list(unique)
+    return list(unique[:limit]) + [f"... {len(unique) - limit} more"]
+
+
+def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str, object]:
+    players: dict[tuple[int, str], list[dict[str, object]]] = {}
+    for command in commands:
+        key = (int(command["ed"]), str(command["name"]))
+        players.setdefault(key, []).append(command)
+
+    player_rows = []
+    for (ed, name), rows in sorted(players.items()):
+        msec_values = [int(row["msec"]) for row in rows]
+        angles = [row["angles"] for row in rows]
+        moves = [row["move"] for row in rows]
+        diagnostics = [row.get("diagnostics", {}) for row in rows]
+        route_states = [
+            row.get("route_state", {})
+            for row in rows
+            if isinstance(row.get("route_state", {}), dict) and row.get("route_state")
+        ]
+        water_states = [
+            row.get("water_state", {})
+            for row in rows
+            if isinstance(row.get("water_state", {}), dict) and row.get("water_state")
+        ]
+        yaw_deltas = [
+            round(float(diagnostic["yaw_delta"]), 1)
+            for diagnostic in diagnostics
+            if "yaw_delta" in diagnostic
+        ]
+        backward_count = sum(
+            1
+            for row in rows
+            if int(row["move"]["forward"]) < 0
+            or bool(row.get("diagnostics", {}).get("backward", False))
+        )
+        player_rows.append(
+            {
+                "ed": ed,
+                "name": name,
+                "count": len(rows),
+                "first_time_s": rows[0]["time_s"],
+                "last_time_s": rows[-1]["time_s"],
+                "msec_min": min(msec_values),
+                "msec_max": max(msec_values),
+                "yaw_values": compact_unique(round(float(angle["yaw"]), 1) for angle in angles),
+                "forward_values": compact_unique(int(move["forward"]) for move in moves),
+                "side_values": compact_unique(int(move["side"]) for move in moves),
+                "up_values": compact_unique(int(move["up"]) for move in moves),
+                "yaw_delta_values": compact_unique(yaw_deltas) if yaw_deltas else [],
+                "backward_ratio": round(backward_count / len(rows), 3),
+                "route_state": summarize_route_states(route_states),
+                "water_state": summarize_water_states(water_states),
+                "button_values": compact_unique(int(row["buttons"]) for row in rows),
+                "impulse_values": compact_unique(int(row["impulse"]) for row in rows),
+            }
+        )
+
+    return {
+        "command_count": len(commands),
+        "players": player_rows,
+        "commands": commands,
+    }
+
+
+def summarize_route_states(route_states: list[dict[str, object]]) -> dict[str, object]:
+    if not route_states:
+        return {"sample_count": 0}
+
+    blocked_count = sum(1 for state in route_states if bool(state.get("blocked", False)))
+    return {
+        "sample_count": len(route_states),
+        "linked_marker_values": compact_unique(int(state.get("linked_marker", -1)) for state in route_states),
+        "touch_marker_values": compact_unique(int(state.get("touch_marker", -1)) for state in route_states),
+        "goal_ed_values": compact_unique(int(state.get("goal_ed", -1)) for state in route_states),
+        "goal_marker_values": compact_unique(int(state.get("goal_marker", -1)) for state in route_states),
+        "path_state_values": compact_unique(int(state.get("path_state", 0)) for state in route_states),
+        "bot_state_values": compact_unique(int(state.get("bot_state", 0)) for state in route_states),
+        "blocked_ratio": round(blocked_count / len(route_states), 3),
+        "dir_speed_values": compact_unique(round(float(state.get("dir_speed", 0.0)), 3) for state in route_states),
+    }
+
+
+def summarize_water_states(water_states: list[dict[str, object]]) -> dict[str, object]:
+    if not water_states:
+        return {"sample_count": 0}
+
+    waterlevel_gt1 = sum(1 for state in water_states if int(state.get("waterlevel", 0)) > 1)
+    waterlevel_gt2 = sum(1 for state in water_states if int(state.get("waterlevel", 0)) > 2)
+    swim_nonzero = sum(1 for state in water_states if int(state.get("swim_arrow", 0)) != 0)
+    upmove_nonzero = sum(1 for state in water_states if abs(float(state.get("emitted_upmove", 0.0))) > 0.01)
+    velocity_z = [
+        round(float(state.get("velocity", {}).get("z", 0.0)), 1)
+        for state in water_states
+        if isinstance(state.get("velocity", {}), dict)
+    ]
+    dir_move_z = [
+        round(float(state.get("dir_move", {}).get("z", 0.0)), 3)
+        for state in water_states
+        if isinstance(state.get("dir_move", {}), dict)
+    ]
+    return {
+        "sample_count": len(water_states),
+        "waterlevel_values": compact_unique(int(state.get("waterlevel", 0)) for state in water_states),
+        "watertype_values": compact_unique(int(state.get("watertype", 0)) for state in water_states),
+        "flags_values": compact_unique(int(state.get("flags", 0)) for state in water_states),
+        "swim_arrow_values": compact_unique(int(state.get("swim_arrow", 0)) for state in water_states),
+        "emitted_upmove_values": compact_unique(round(float(state.get("emitted_upmove", 0.0)), 1) for state in water_states),
+        "waterlevel_gt1_ratio": round(waterlevel_gt1 / len(water_states), 3),
+        "waterlevel_gt2_ratio": round(waterlevel_gt2 / len(water_states), 3),
+        "swim_arrow_nonzero_ratio": round(swim_nonzero / len(water_states), 3),
+        "emitted_upmove_nonzero_ratio": round(upmove_nonzero / len(water_states), 3),
+        "velocity_z_values": compact_unique(velocity_z),
+        "dir_move_z_values": compact_unique(dir_move_z),
+    }
+
+
+def write_moveprobe_command_logs(local_run_dir: Path) -> dict[str, object]:
+    screen_log = (local_run_dir / "screen.log").read_text(encoding="utf-8", errors="replace")
+    commands = parse_moveprobe_command_logs(screen_log)
+    summary = summarize_moveprobe_commands(commands)
+
+    json_path = local_run_dir / "moveprobe-commands.json"
+    md_path = local_run_dir / "moveprobe-commands.md"
+    json_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+
+    lines = [
+        "# Moveprobe Command Log",
+        "",
+        f"- Commands parsed: `{summary['command_count']}`",
+        "",
+    ]
+    players = summary.get("players", [])
+    if players:
+        lines.extend(["## Players", ""])
+        for player in players:
+            lines.append(
+                f"- `{player['name']}` ed `{player['ed']}`: `{player['count']}` commands, "
+                f"time `{fmt_number(player['first_time_s'], 3)}`-`{fmt_number(player['last_time_s'], 3)}`s, "
+                f"msec `{player['msec_min']}`-`{player['msec_max']}`, "
+                f"yaw `{player['yaw_values']}`, "
+                f"forward `{player['forward_values']}`, "
+                f"side `{player['side_values']}`, "
+                f"up `{player['up_values']}`, "
+                f"yawDelta `{player['yaw_delta_values']}`, "
+                f"backward `{fmt_percent(player['backward_ratio'])}`, "
+                f"route `{player['route_state']}`, "
+                f"water `{player['water_state']}`, "
+                f"buttons `{player['button_values']}`, "
+                f"impulses `{player['impulse_values']}`"
+            )
+    else:
+        lines.append("- No `FBMOVEPROBE_CMD` lines found in `screen.log`.")
+
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return summary
+
+
 def find_bot_entries(screen_log: str) -> list[str]:
     entries = []
     for line in screen_log.splitlines():
@@ -379,6 +651,13 @@ def find_bot_entries(screen_log: str) -> list[str]:
 def fmt_number(value: object, digits: int = 1) -> str:
     try:
         return f"{float(value):.{digits}f}"
+    except (TypeError, ValueError):
+        return ""
+
+
+def fmt_percent(value: object) -> str:
+    try:
+        return f"{float(value) * 100.0:.1f}%"
     except (TypeError, ValueError):
         return ""
 
@@ -406,6 +685,15 @@ def write_summary(
     route_present_original = ""
     route_used = ""
     route_file = ""
+    moveprobe = {
+        "mode": "",
+        "yaw": "",
+        "forwardmove": "",
+        "sidemove": "",
+        "upmove": "",
+        "log_commands": "",
+        "log_interval": "",
+    }
     run_env = local_run_dir / "run.env"
     if run_env.exists():
         for line in run_env.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -415,7 +703,24 @@ def write_summary(
                 route_used = line.split("=", 1)[1]
             elif line.startswith("ROUTE_FILE="):
                 route_file = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_MODE="):
+                moveprobe["mode"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_YAW="):
+                moveprobe["yaw"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_FORWARDMOVE="):
+                moveprobe["forwardmove"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_SIDEMOVE="):
+                moveprobe["sidemove"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_UPMOVE="):
+                moveprobe["upmove"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_LOG_COMMANDS="):
+                moveprobe["log_commands"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_LOG_INTERVAL="):
+                moveprobe["log_interval"] = line.split("=", 1)[1]
     events_stderr = (local_run_dir / "events.txt.stderr").read_text(encoding="utf-8", errors="replace").strip()
+    command_log_path = local_run_dir / "moveprobe-commands.json"
+    command_log = read_json(command_log_path) if command_log_path.exists() else {}
+    command_count = command_log.get("command_count", 0) if isinstance(command_log, dict) else 0
 
     lines = [
         f"# {map_name} lab run {run_id}",
@@ -428,6 +733,10 @@ def write_summary(
         f"- Route file originally present: `{route_present_original}`",
         f"- Route file used: `{route_used}`",
         f"- Route file: `{route_file}`",
+        f"- Movement probe mode: `{moveprobe['mode']}`",
+        f"- Movement probe command: `yaw={moveprobe['yaw']} forwardmove={moveprobe['forwardmove']} sidemove={moveprobe['sidemove']} upmove={moveprobe['upmove']}`",
+        f"- Movement probe command logging: `enabled={moveprobe['log_commands']} interval={moveprobe['log_interval']}`",
+        f"- Movement probe commands parsed: `{command_count}`",
         f"- Remote demo: `{remote_demo}`",
         f"- Local demo: `{local_run_dir / 'demo.mvd'}`",
         f"- Demo size: `{demo_size}` bytes",
@@ -469,7 +778,7 @@ def write_summary(
                 f"max `{fmt_number(player.get('max_horizontal_speed_qu_per_s'))}` qu/s, "
                 f"p95 `{fmt_number(player.get('p95_horizontal_speed_qu_per_s'))}` qu/s, "
                 f"over maxspeed `{over_maxspeed}`, "
-                f"air proxy `{float(player.get('airborne_proxy_time_ratio', 0.0)) * 100.0:.1f}%`, "
+                f"air proxy `{fmt_percent(player.get('airborne_proxy_time_ratio'))}`, "
                 f"cadence `{fmt_number(player.get('jump_cadence_per_min'))}`/min"
             )
     else:
@@ -535,6 +844,13 @@ def run_remote_lab(
     bot_count: int,
     bot_spacing: float,
     map_name: str,
+    moveprobe_mode: int,
+    moveprobe_yaw: float,
+    moveprobe_forwardmove: int,
+    moveprobe_sidemove: int,
+    moveprobe_upmove: int,
+    moveprobe_log_commands: bool,
+    moveprobe_log_interval: float,
     local_run_dir: Path,
 ) -> None:
     proc = run(
@@ -550,6 +866,13 @@ def run_remote_lab(
             str(bot_count),
             str(bot_spacing),
             map_name,
+            str(moveprobe_mode),
+            str(moveprobe_yaw),
+            str(moveprobe_forwardmove),
+            str(moveprobe_sidemove),
+            str(moveprobe_upmove),
+            "1" if moveprobe_log_commands else "0",
+            str(moveprobe_log_interval),
         ],
         input_text=REMOTE_SCRIPT,
         check=False,
@@ -582,6 +905,63 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument("--duration", type=float, default=45.0, help="Client run duration in seconds. Defaults to 45.")
     parser.add_argument("--bot-count", type=int, default=2, help="Number of botcmd addbot commands. Defaults to 2.")
     parser.add_argument("--bot-spacing", type=float, default=8.0, help="Seconds between bot adds. Defaults to 8.")
+    parser.add_argument(
+        "--moveprobe-mode",
+        type=int,
+        choices=(0, 1, 2, 3, 4, 5, 6, 7),
+        default=0,
+        help=(
+            "Set k_fb_moveprobe_mode in the generated KTX lab config. "
+            "Requires the S2 KTX patch to affect behavior. "
+            "0=off, 1=force jump, 2=fixed movement command, "
+            "3=route-yaw movement command, 4=route-yaw alternating strafe, "
+            "5=aim-independent route/strafe projection, "
+            "6=mode 5 with negative forward folded into sidemove, "
+            "7=mode 6 with bounded horizontal command magnitude."
+        ),
+    )
+    parser.add_argument(
+        "--moveprobe-yaw",
+        type=float,
+        default=0.0,
+        help=(
+            "Yaw used only by movement-probe mode 2. Modes 3 and 4 derive yaw "
+            "from Frogbot route intent; modes 5, 6, and 7 preserve combat view yaw. "
+            "Defaults to 0."
+        ),
+    )
+    parser.add_argument(
+        "--moveprobe-forwardmove",
+        type=int,
+        default=800,
+        help="forwardmove used by movement-probe modes 2, 3, 4, 5, 6, and 7. Defaults to 800.",
+    )
+    parser.add_argument(
+        "--moveprobe-sidemove",
+        type=int,
+        default=0,
+        help="sidemove used by movement-probe modes 2, 3, 4, 5, 6, and 7. Mode 4 treats 0 as 400. Defaults to 0.",
+    )
+    parser.add_argument(
+        "--moveprobe-upmove",
+        type=int,
+        default=0,
+        help="upmove used by movement-probe modes 2, 3, 4, 5, 6, and 7. Defaults to 0.",
+    )
+    parser.add_argument(
+        "--moveprobe-log-commands",
+        action="store_true",
+        help=(
+            "Enable KTX moveprobe command logging when the S2 patch is applied. "
+            "The runner parses FBMOVEPROBE_CMD lines from screen.log."
+        ),
+    )
+    parser.add_argument(
+        "--moveprobe-log-interval",
+        type=float,
+        default=0.25,
+        help="Minimum seconds between command log samples per bot. Defaults to 0.25.",
+    )
     parser.add_argument("--wsl-distro", default="Ubuntu-24.04", help="WSL distro for parser. Defaults to Ubuntu-24.04.")
     parser.add_argument("--analyzer", default=DEFAULT_ANALYZER, help="Path to qw-analyze-v20 inside WSL.")
     parser.add_argument(
@@ -617,11 +997,19 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             args.bot_count,
             args.bot_spacing,
             args.map_name,
+            args.moveprobe_mode,
+            args.moveprobe_yaw,
+            args.moveprobe_forwardmove,
+            args.moveprobe_sidemove,
+            args.moveprobe_upmove,
+            args.moveprobe_log_commands,
+            args.moveprobe_log_interval,
             local_run_dir,
         )
         scp_from_remote(args.host, run_id, local_run_dir)
         parser_exits = run_analyzer(local_run_dir, args.wsl_distro, args.analyzer)
         movement_metrics = write_movement_metrics(local_run_dir)
+        write_moveprobe_command_logs(local_run_dir)
         write_summary(local_run_dir, args.host, port, run_id, args.map_name, parser_exits)
 
         summary = local_run_dir / "run-summary.md"
