@@ -1,13 +1,19 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..4f12b5e 100644
+index c0654d1..db50bc8 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -6,6 +6,12 @@
+@@ -6,6 +6,18 @@
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
  
 +static int moveprobe_transition_active[MAX_CLIENTS];
 +static int moveprobe_transition_on_ground[MAX_CLIENTS];
++static int moveprobe_transition_has_ground_time[MAX_CLIENTS];
++static int moveprobe_transition_has_air_time[MAX_CLIENTS];
++static int moveprobe_transition_has_seen_time[MAX_CLIENTS];
++static float moveprobe_transition_last_ground_time[MAX_CLIENTS];
++static float moveprobe_transition_last_air_time[MAX_CLIENTS];
++static float moveprobe_transition_last_seen_time[MAX_CLIENTS];
 +static float moveprobe_transition_since_ground[MAX_CLIENTS];
 +static float moveprobe_transition_since_air[MAX_CLIENTS];
 +static float moveprobe_transition_scale_used[MAX_CLIENTS];
@@ -15,39 +21,78 @@ index c0654d1..4f12b5e 100644
  //#define DEBUG_MOVEMENT
  
  void SetLinkedMarker(gedict_t *player, gedict_t *marker, char *explanation)
-@@ -422,6 +428,368 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +434,413 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
++static void BotMoveProbeResetTransitionTiming(int slot)
++{
++	if (slot < 0 || slot >= MAX_CLIENTS)
++	{
++		return;
++	}
++
++	moveprobe_transition_has_ground_time[slot] = 0;
++	moveprobe_transition_has_air_time[slot] = 0;
++	moveprobe_transition_has_seen_time[slot] = 0;
++	moveprobe_transition_last_ground_time[slot] = 0.0f;
++	moveprobe_transition_last_air_time[slot] = 0.0f;
++	moveprobe_transition_last_seen_time[slot] = 0.0f;
++}
++
++static void BotMoveProbePrepareTransitionTiming(int slot)
++{
++	float stale_gap = 1.0f;
++
++	if (slot < 0 || slot >= MAX_CLIENTS)
++	{
++		return;
++	}
++
++	// A clock reset or long command gap means this slot probably changed map,
++	// mode, or bot session; do not inherit transition timing across that gap.
++	if (!moveprobe_transition_has_seen_time[slot]
++		|| (g_globalvars.time < moveprobe_transition_last_seen_time[slot])
++		|| ((g_globalvars.time - moveprobe_transition_last_seen_time[slot]) > stale_gap))
++	{
++		BotMoveProbeResetTransitionTiming(slot);
++	}
++
++	moveprobe_transition_has_seen_time[slot] = 1;
++	moveprobe_transition_last_seen_time[slot] = g_globalvars.time;
++}
++
 +static qbool BotMoveProbeTransitionActive(gedict_t *self, int slot, qbool jumping, float window)
 +{
 +	qbool on_ground = ((int)self->s.v.flags & FL_ONGROUND) != 0;
 +	float since_ground = 999.0f;
 +	float since_air = 999.0f;
-+	static float last_ground_time[MAX_CLIENTS];
-+	static float last_air_time[MAX_CLIENTS];
 +
 +	if (slot < 0 || slot >= MAX_CLIENTS)
 +	{
 +		return false;
 +	}
 +
++	BotMoveProbePrepareTransitionTiming(slot);
++
 +	if (on_ground)
 +	{
-+		last_ground_time[slot] = g_globalvars.time;
++		moveprobe_transition_last_ground_time[slot] = g_globalvars.time;
++		moveprobe_transition_has_ground_time[slot] = 1;
 +	}
 +	else
 +	{
-+		last_air_time[slot] = g_globalvars.time;
++		moveprobe_transition_last_air_time[slot] = g_globalvars.time;
++		moveprobe_transition_has_air_time[slot] = 1;
 +	}
 +
-+	if (last_ground_time[slot] > 0)
++	if (moveprobe_transition_has_ground_time[slot])
 +	{
-+		since_ground = g_globalvars.time - last_ground_time[slot];
++		since_ground = g_globalvars.time - moveprobe_transition_last_ground_time[slot];
 +	}
-+	if (last_air_time[slot] > 0)
++	if (moveprobe_transition_has_air_time[slot])
 +	{
-+		since_air = g_globalvars.time - last_air_time[slot];
++		since_air = g_globalvars.time - moveprobe_transition_last_air_time[slot];
 +	}
 +
 +	moveprobe_transition_on_ground[slot] = on_ground;
@@ -84,7 +129,13 @@ index c0654d1..4f12b5e 100644
 +	if ((mode <= 0) || intermission_running || ISDEAD(self)
 +		|| ((match_in_progress != 2) && cvar(FB_CVAR_FREEZE_PREWAR)))
 +	{
++		BotMoveProbeResetTransitionTiming(slot);
 +		return;
++	}
++
++	if (mode != 8)
++	{
++		BotMoveProbeResetTransitionTiming(slot);
 +	}
 +
 +	if (mode == 1)
@@ -384,7 +435,7 @@ index c0654d1..4f12b5e 100644
  void BotSetCommand(gedict_t *self)
  {
  	extern float last_frame_time;
-@@ -556,8 +924,11 @@ void BotSetCommand(gedict_t *self)
+@@ -556,8 +975,11 @@ void BotSetCommand(gedict_t *self)
  		impulse = 0;
  	}
  

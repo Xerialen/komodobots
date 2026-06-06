@@ -83,6 +83,14 @@ class AirTransitionProbeResultTests(unittest.TestCase):
         self.assertEqual(source["reference_players"], [])
         self.assertEqual(len(axes), len(probe_result.CADENCE_FIELDS))
 
+    def test_cadence_inputs_tolerate_non_list_baselines(self) -> None:
+        axes = probe_result.build_cadence_axes({"cadence_baselines": 1}, [])
+
+        self.assertEqual(len(axes), len(probe_result.CADENCE_FIELDS))
+
+    def test_fmt_speed_tolerates_missing_bucket_values(self) -> None:
+        self.assertEqual(probe_result.fmt_speed(None), "")
+
     def test_probe_activation_skips_non_numeric_active_scales(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             run_dir = Path(tmp) / "run1"
@@ -101,6 +109,16 @@ class AirTransitionProbeResultTests(unittest.TestCase):
 
     def test_compact_unique_sorts_numbers_numerically(self) -> None:
         self.assertEqual(probe_result.compact_unique([10.0, 1.25, 1.0]), [1.0, 1.25, 10.0])
+
+    def test_moveprobe_patch_resets_transition_timing_state(self) -> None:
+        patch_text = (REPO_ROOT / "experiments" / "ktx_moveprobe" / "frogbot-moveprobe.patch").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertNotIn("static float last_ground_time[MAX_CLIENTS];", patch_text)
+        self.assertIn("moveprobe_transition_has_ground_time[slot] = 0;", patch_text)
+        self.assertIn("moveprobe_transition_has_air_time[slot] = 0;", patch_text)
+        self.assertIn("if (moveprobe_transition_has_ground_time[slot])", patch_text)
 
     def test_all_segment_win_without_air_gain_rejects(self) -> None:
         changes = complete_changes(

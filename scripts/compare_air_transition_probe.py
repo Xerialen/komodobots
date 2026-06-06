@@ -326,9 +326,12 @@ def bucket_changes(design: dict[str, object], land_speed: dict[str, object]) -> 
 
 
 def build_cadence_axes(design: dict[str, object], cadence_rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    cadence_baselines = design.get("cadence_baselines")
+    if not isinstance(cadence_baselines, list):
+        cadence_baselines = []
     design_axes = {
         str(axis.get("field")): axis
-        for axis in design.get("cadence_baselines") or []
+        for axis in cadence_baselines
         if isinstance(axis, dict) and axis.get("field")
     }
     axes = []
@@ -606,6 +609,8 @@ def validate_report(report: dict[str, object]) -> None:
 
 
 def fmt_speed(value: object) -> str:
+    if value is None:
+        return ""
     return format_comparison_value("avg_horizontal_speed_qu_per_s", value)
 
 

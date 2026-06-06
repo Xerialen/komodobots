@@ -101,7 +101,7 @@ The S6b diagnostic suffix is shaped as `route=<linked_marker>,<touch_marker>,<go
 
 The S6d diagnostic suffix is shaped as `water=<waterlevel>,<watertype>,<flags>,<swim_arrow>,<emitted_upmove>,<velocity_x>,<velocity_y>,<velocity_z>,<dir_move_x>,<dir_move_y>,<dir_move_z>`. It exists to inspect whether `WATER_PATH` low-speed windows are shallow-water edge handling, active swim intent, missing vertical/upmove emission, route-edge geometry, or still unknown. `swim_arrow` uses the Frogbot `UP=16` / `DOWN=32` constants. `dir_move_*` is the raw Frogbot route movement vector sampled at command time.
 
-The S7j diagnostic suffix is shaped as `probe=<active>,<on_ground>,<since_ground>,<since_air>,<scale>`. It exists to verify that mode `8` only applies the transition scale in the intended takeoff/air-transition windows and to support post-run stop-condition checks.
+The S7j diagnostic suffix is shaped as `probe=<active>,<on_ground>,<since_ground>,<since_air>,<scale>`. It exists to verify that mode `8` only applies the transition scale in the intended takeoff/air-transition windows and to support post-run stop-condition checks. Transition timing uses resettable file-scope per-slot state with explicit "has ground/air time" flags so map/session gaps and time-zero samples do not inherit stale timing, while normal mode-8 frames still preserve recent-ground/recent-air history across command samples.
 
 ## Runner
 
