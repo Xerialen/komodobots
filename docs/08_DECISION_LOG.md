@@ -1340,3 +1340,48 @@ The next PR should not tune jump cadence directly. It should use the existing ev
 ### Revisit Conditions
 
 Revisit if Code Sentinel finds a raw segment extraction bug, if a grounded-state or usercmd-aware metric replaces the current position-derived airborne proxy, or if broader bot rows produce human-scale airborne segments while still showing cadence problems.
+
+---
+
+## Decision
+
+Target air-transition speed production or a narrow route primitive before another cadence/controller probe.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S7g characterized the S7f land-speed gap by segment context. The result says the next controller decision should not treat speed as a generic scalar and should not return to cadence tuning.
+
+The next stage should choose between two concrete movement-realism targets:
+
+- air-transition horizontal speed production, because bot pre-air, airborne, and post-air p50 speeds are far below exact-player reference;
+- a narrow route primitive such as `WATER_PATH` low-dir-speed recovery, because sampled bot route `WATER_PATH` contexts are extremely slow.
+
+### Alternatives Considered
+
+- Start a generic speed controller because all accepted bot segments are slower on aggregate.
+- Tune cadence directly despite S7d/S7e/S7f evidence that cadence is diagnostic.
+- Treat route `WATER_PATH` as the only target and ignore the broader air-transition speed gap.
+- Rerun the lab before extracting context from existing artifacts.
+
+### Evidence
+
+S7g land-speed context:
+
+- All accepted segment p50: exact-player `334.0` qu/s, bot `222.0` qu/s, bot/reference ratio `0.665`.
+- Airborne-proxy segment p50: exact-player `433.8` qu/s, bot `122.6` qu/s, ratio `0.283`.
+- Non-airborne segment p50: exact-player `320.0` qu/s, bot `312.1` qu/s, ratio `0.975`.
+- Pre-air window p50: exact-player `418.0` qu/s, bot `207.1` qu/s, ratio `0.495`.
+- Post-air window p50: exact-player `365.7` qu/s, bot `184.5` qu/s, ratio `0.505`.
+- Route `WATER_PATH` bot p50 speed: `95.3` qu/s.
+
+### Expected Consequences
+
+The next PR should decide the first probe target before changing movement commands. A controller probe that only increases cadence or all-segment speed risks improving the wrong proxy. A better next step is to choose a targetable context: air-transition acceleration/speed preservation or a narrow route primitive recovery.
+
+### Revisit Conditions
+
+Revisit if Code Sentinel finds a segment-bucketing bug, if route-state command sampling is too sparse to trust, or if broader bot rows show non-airborne speed is not actually human-scale.

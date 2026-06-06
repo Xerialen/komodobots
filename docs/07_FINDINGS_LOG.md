@@ -2399,3 +2399,47 @@ Medium that the current airborne proxy fully captures real grounded/airborne sta
 ### Follow-up
 
 Ask Code Sentinel to review S7f. Proposed S7g: characterize the land-speed gap around route and air segments before another controller probe. Cadence should remain diagnostic until bots produce human-scale airborne segments and horizontal speed.
+
+## 2026-06-06 - S7g Land-Speed Gap Characterization
+
+### Experiment
+
+Characterized the land-speed gap without rerunning the lab or changing KTX/Frogbot movement behavior. Added `scripts/characterize_land_speed_gap.py`, consumed `experiments/human_comparison/evidence/airborne-segments-s7f-dm3.json`, and bucketed accepted movement segments by:
+
+- airborne-proxy overlap,
+- `400` ms pre-air and post-air transition windows,
+- sampled strong/weak moveprobe command context,
+- route low-dir-speed and `WATER_PATH` context when command artifacts exposed route state.
+
+### Result
+
+- Generated `experiments/human_comparison/evidence/land-speed-gap-s7g-dm3.*`.
+- All accepted segment p50: exact-player `334.0` qu/s, bot `222.0` qu/s, bot/reference ratio `0.665`.
+- Airborne-proxy segment p50: exact-player `433.8` qu/s, bot `122.6` qu/s, ratio `0.283`.
+- Non-airborne segment p50: exact-player `320.0` qu/s, bot `312.1` qu/s, ratio `0.975`.
+- Pre-air window p50: exact-player `418.0` qu/s, bot `207.1` qu/s, ratio `0.495`.
+- Post-air window p50: exact-player `365.7` qu/s, bot `184.5` qu/s, ratio `0.505`.
+- Sampled bot route `WATER_PATH` p50 speed is `95.3` qu/s.
+
+### Evidence
+
+Committed artifacts:
+
+- `scripts/characterize_land_speed_gap.py`
+- `tests/test_characterize_land_speed_gap.py`
+- `experiments/human_comparison/evidence/land-speed-gap-s7g-dm3.json`
+- `experiments/human_comparison/evidence/land-speed-gap-s7g-dm3.md`
+
+### Interpretation
+
+S7g narrows the land-speed problem. The bots are not simply slow everywhere: generic non-airborne p50 speed is close to the exact-player p50 in this row set. The gap concentrates around air-transition and airborne segments, with an additional route primitive warning from very slow sampled `WATER_PATH`/low-dir-speed contexts.
+
+### Confidence
+
+High that the segment buckets are derived from the same accepted movement segments and S7f row set used for cadence/airborne evidence.
+
+Medium that route-state context fully explains the low-speed samples, because only bot rows have sampled command/route diagnostics and some route-state samples are diagnostic reruns rather than true human-comparable labels.
+
+### Follow-up
+
+Ask Code Sentinel to review S7g. Proposed S7h: decide whether the first controller probe targets air-transition horizontal speed production or a narrow route primitive such as `WATER_PATH` low-dir-speed recovery.

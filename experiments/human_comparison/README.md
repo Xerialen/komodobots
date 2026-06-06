@@ -253,3 +253,34 @@ The bot airborne-proxy runs are not human-like jumps. They are shorter,
 lower-Z, and much slower vertical-motion runs, so cadence remains diagnostic.
 The next useful step is S7g: characterize the land-speed gap around route and
 air segments before another controller probe.
+
+## Current S7g Result
+
+S7g characterizes the land-speed gap by segment context without rerunning the
+lab:
+
+```text
+experiments/human_comparison/evidence/land-speed-gap-s7g-dm3.json
+experiments/human_comparison/evidence/land-speed-gap-s7g-dm3.md
+```
+
+The helper reuses the S7f exact-player and unchanged mode-7 bot rows, then
+buckets accepted movement segments by airborne-proxy overlap, `400` ms pre/post
+air windows, sampled moveprobe command strength, and route-state hints where
+bot artifacts expose them.
+
+| Segment bucket | Reference p50 | Bot p50 | Bot/ref p50 |
+|---|---:|---:|---:|
+| All accepted segments | `334.0` qu/s | `222.0` qu/s | `0.665` |
+| Airborne-proxy segments | `433.8` qu/s | `122.6` qu/s | `0.283` |
+| Non-airborne segments | `320.0` qu/s | `312.1` qu/s | `0.975` |
+| Pre-air window | `418.0` qu/s | `207.1` qu/s | `0.495` |
+| Post-air window | `365.7` qu/s | `184.5` qu/s | `0.505` |
+| Route `WATER_PATH` samples | n/a | `95.3` qu/s | n/a |
+
+The speed gap is not uniform. Generic non-airborne p50 speed is close to the
+exact-player p50 in this row set, but air-transition/airborne contexts remain
+far below reference and route `WATER_PATH` contexts are extremely slow. The next
+useful step is S7h: choose whether the first controller probe targets
+air-transition horizontal speed production or a narrow route primitive such as
+`WATER_PATH` low-dir-speed recovery.

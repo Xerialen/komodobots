@@ -360,6 +360,22 @@ Result:
 
 Interpretation: the bot airborne-proxy runs are not human-like jumps. They are shorter, lower-Z, and much slower vertical-motion blips. The high airborne-proxy-normalized cadence is therefore a symptom of broken air/land rhythm and low horizontal speed, not a controller-ready cadence target. The next useful step is S7g: characterize the land-speed gap around route and air segments before another controller probe.
 
+## S7g Land-Speed Gap Characterization
+
+S7g did not rerun the lab and did not change controller behavior. It added `scripts/characterize_land_speed_gap.py`, consumed the S7f row set, and bucketed accepted movement segments by airborne-proxy overlap, `400` ms pre/post-air windows, sampled moveprobe command strength, and route-state hints where bot artifacts expose them.
+
+Result:
+
+- Generated `experiments/human_comparison/evidence/land-speed-gap-s7g-dm3.*`.
+- All accepted segment p50: exact-player `334.0` qu/s versus bot `222.0` qu/s; bot/reference ratio `0.665`.
+- Airborne-proxy segment p50: exact-player `433.8` qu/s versus bot `122.6` qu/s; ratio `0.283`.
+- Non-airborne segment p50: exact-player `320.0` qu/s versus bot `312.1` qu/s; ratio `0.975`.
+- Pre-air window p50: exact-player `418.0` qu/s versus bot `207.1` qu/s; ratio `0.495`.
+- Post-air window p50: exact-player `365.7` qu/s versus bot `184.5` qu/s; ratio `0.505`.
+- Route `WATER_PATH` bot samples have p50 `95.3` qu/s.
+
+Interpretation: the speed gap is not uniform. Generic non-airborne p50 speed can be human-scale in the current bot row set, but speed production around air transitions collapses, and sampled route `WATER_PATH`/low-dir-speed contexts remain extremely slow. The next useful step is S7h: choose whether the first controller probe targets air-transition horizontal speed production or a narrow route primitive such as `WATER_PATH` low-dir-speed recovery.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.
