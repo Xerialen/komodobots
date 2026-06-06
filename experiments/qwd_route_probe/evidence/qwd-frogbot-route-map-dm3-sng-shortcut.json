@@ -1,0 +1,657 @@
+{
+  "bot_map_summary": {
+    "marker_index_invariant": "Attribution assumes logged marker->fb.index + 1 matches the .bot file's 1-based marker ids. CreateMarker ids are assigned by file order; item/runtime marker ids can be referenced by route commands without static origins.",
+    "markers_without_static_origin_count": 65,
+    "path_count": 1231,
+    "static_marker_count": 234
+  },
+  "mapping_summary": {
+    "bot_graph_alignment": {
+      "direct_edge_count": 0,
+      "direct_edge_ratio": 0.0,
+      "graph_reachable_count": 13,
+      "graph_reachable_ratio": 1.0,
+      "reverse_edge_count": 0,
+      "shortest_path_edges_max": 17.0,
+      "shortest_path_edges_p50": 5.0,
+      "shortest_path_edges_p95": 15.8
+    },
+    "collapsed_marker_count": 14,
+    "nearest_marker_distance_qu": {
+      "max": 142.597,
+      "p50": 70.112,
+      "p95": 120.324,
+      "within_128_ratio": 0.939,
+      "within_192_ratio": 1.0
+    },
+    "transition_count": 13,
+    "waypoint_count": 33
+  },
+  "nearest_marker_sequence": [
+    {
+      "first_frame": 0,
+      "first_time_s": 0.0,
+      "first_waypoint_origin": [
+        307.375,
+        -321.25,
+        56.0
+      ],
+      "goal": "",
+      "last_frame": 0,
+      "last_time_s": 0.0,
+      "marker_id": 157,
+      "marker_origin": [
+        407.0,
+        -328.0,
+        56.0
+      ],
+      "max_nearest_distance_qu": 99.853,
+      "nearest_distance_qu": 99.853,
+      "waypoint_count": 1,
+      "zone": 7
+    },
+    {
+      "first_frame": 16,
+      "first_time_s": 0.195,
+      "first_waypoint_origin": [
+        302.375,
+        -254.125,
+        56.0
+      ],
+      "goal": 23,
+      "last_frame": 30,
+      "last_time_s": 0.377,
+      "marker_id": 28,
+      "marker_origin": [
+        372.0,
+        -203.0,
+        56.0
+      ],
+      "max_nearest_distance_qu": 86.379,
+      "nearest_distance_qu": 86.379,
+      "waypoint_count": 2,
+      "zone": 5
+    },
+    {
+      "first_frame": 41,
+      "first_time_s": 0.52,
+      "first_waypoint_origin": [
+        255.5,
+        -141.75,
+        81.625
+      ],
+      "goal": "",
+      "last_frame": 65,
+      "last_time_s": 0.832,
+      "marker_id": 158,
+      "marker_origin": [
+        220.0,
+        -127.0,
+        56.0
+      ],
+      "max_nearest_distance_qu": 106.943,
+      "nearest_distance_qu": 46.2,
+      "waypoint_count": 3,
+      "zone": 7
+    },
+    {
+      "first_frame": 77,
+      "first_time_s": 0.988,
+      "first_waypoint_origin": [
+        214.0,
+        35.625,
+        74.0
+      ],
+      "goal": "",
+      "last_frame": 100,
+      "last_time_s": 1.288,
+      "marker_id": 159,
+      "marker_origin": [
+        257.0,
+        156.0,
+        56.0
+      ],
+      "max_nearest_distance_qu": 129.086,
+      "nearest_distance_qu": 129.086,
+      "waypoint_count": 3,
+      "zone": 7
+    },
+    {
+      "first_frame": 111,
+      "first_time_s": 1.43,
+      "first_waypoint_origin": [
+        368.0,
+        145.375,
+        99.375
+      ],
+      "goal": 24,
+      "last_frame": 122,
+      "last_time_s": 1.573,
+      "marker_id": 29,
+      "marker_origin": [
+        372.0,
+        143.0,
+        56.0
+      ],
+      "max_nearest_distance_qu": 70.112,
+      "nearest_distance_qu": 43.624,
+      "waypoint_count": 2,
+      "zone": 5
+    },
+    {
+      "first_frame": 132,
+      "first_time_s": 1.704,
+      "first_waypoint_origin": [
+        458.5,
+        228.5,
+        62.125
+      ],
+      "goal": 7,
+      "last_frame": 154,
+      "last_time_s": 1.989,
+      "marker_id": 53,
+      "marker_origin": [
+        490.0,
+        308.0,
+        56.0
+      ],
+      "max_nearest_distance_qu": 85.732,
+      "nearest_distance_qu": 85.732,
+      "waypoint_count": 3,
+      "zone": 17
+    },
+    {
+      "first_frame": 165,
+      "first_time_s": 2.132,
+      "first_waypoint_origin": [
+        520.875,
+        416.875,
+        97.75
+      ],
+      "goal": "",
+      "last_frame": 186,
+      "last_time_s": 2.405,
+      "marker_id": 51,
+      "marker_origin": [
+        504.0,
+        486.0,
+        56.0
+      ],
+      "max_nearest_distance_qu": 82.499,
+      "nearest_distance_qu": 82.499,
+      "waypoint_count": 3,
+      "zone": 14
+    },
+    {
+      "first_frame": 196,
+      "first_time_s": 2.536,
+      "first_waypoint_origin": [
+        384.75,
+        530.625,
+        85.625
+      ],
+      "goal": "",
+      "last_frame": 216,
+      "last_time_s": 2.796,
+      "marker_id": 155,
+      "marker_origin": [
+        327.0,
+        569.0,
+        56.0
+      ],
+      "max_nearest_distance_qu": 75.401,
+      "nearest_distance_qu": 75.401,
+      "waypoint_count": 3,
+      "zone": 5
+    },
+    {
+      "first_frame": 226,
+      "first_time_s": 2.926,
+      "first_waypoint_origin": [
+        214.125,
+        616.5,
+        83.25
+      ],
+      "goal": "",
+      "last_frame": 246,
+      "last_time_s": 3.185,
+      "marker_id": 149,
+      "marker_origin": [
+        138.0,
+        590.0,
+        56.0
+      ],
+      "max_nearest_distance_qu": 85.087,
+      "nearest_distance_qu": 85.087,
+      "waypoint_count": 3,
+      "zone": 6
+    },
+    {
+      "first_frame": 256,
+      "first_time_s": 3.315,
+      "first_waypoint_origin": [
+        27.5,
+        672.125,
+        97.75
+      ],
+      "goal": "",
+      "last_frame": 256,
+      "last_time_s": 3.315,
+      "marker_id": 143,
+      "marker_origin": [
+        8.0,
+        664.0,
+        40.0
+      ],
+      "max_nearest_distance_qu": 61.493,
+      "nearest_distance_qu": 61.493,
+      "waypoint_count": 1,
+      "zone": 6
+    },
+    {
+      "first_frame": 266,
+      "first_time_s": 3.445,
+      "first_waypoint_origin": [
+        -34.125,
+        692.125,
+        98.5
+      ],
+      "goal": "",
+      "last_frame": 276,
+      "last_time_s": 3.575,
+      "marker_id": 145,
+      "marker_origin": [
+        -75.0,
+        750.0,
+        104.0
+      ],
+      "max_nearest_distance_qu": 71.067,
+      "nearest_distance_qu": 71.067,
+      "waypoint_count": 2,
+      "zone": 6
+    },
+    {
+      "first_frame": 285,
+      "first_time_s": 3.692,
+      "first_waypoint_origin": [
+        -150.75,
+        659.625,
+        115.625
+      ],
+      "goal": "",
+      "last_frame": 295,
+      "last_time_s": 3.822,
+      "marker_id": 153,
+      "marker_origin": [
+        -182.0,
+        683.0,
+        8.0
+      ],
+      "max_nearest_distance_qu": 142.597,
+      "nearest_distance_qu": 114.482,
+      "waypoint_count": 2,
+      "zone": 6
+    },
+    {
+      "first_frame": 305,
+      "first_time_s": 3.952,
+      "first_waypoint_origin": [
+        -240.875,
+        557.875,
+        130.375
+      ],
+      "goal": 24,
+      "last_frame": 328,
+      "last_time_s": 4.25,
+      "marker_id": 32,
+      "marker_origin": [
+        -335.0,
+        512.0,
+        120.0
+      ],
+      "max_nearest_distance_qu": 105.222,
+      "nearest_distance_qu": 105.222,
+      "waypoint_count": 3,
+      "zone": 8
+    },
+    {
+      "first_frame": 347,
+      "first_time_s": 4.497,
+      "first_waypoint_origin": [
+        -424.25,
+        492.625,
+        120.0
+      ],
+      "goal": "",
+      "last_frame": 374,
+      "last_time_s": 4.848,
+      "marker_id": 126,
+      "marker_origin": [
+        -473.0,
+        514.0,
+        120.0
+      ],
+      "max_nearest_distance_qu": 53.23,
+      "nearest_distance_qu": 53.23,
+      "waypoint_count": 2,
+      "zone": 3
+    }
+  ],
+  "qwd_demo_summary": {
+    "command_frames": 440,
+    "commands": {
+      "attack_button_ratio": 0.0,
+      "forwardmove_abs_p50": 0.0,
+      "forwardmove_values": [
+        0,
+        508
+      ],
+      "jump_button_ratio": 0.284,
+      "nonzero_forward_ratio": 0.089,
+      "nonzero_side_ratio": 0.718,
+      "sidemove_abs_p50": 508.0,
+      "sidemove_values": [
+        -508,
+        -352,
+        0,
+        348,
+        508
+      ]
+    },
+    "motion": {
+      "accepted_step_count": 438,
+      "displacement_qu": 1139.887,
+      "duration_s": 5.692,
+      "path_distance_qu": 2180.804,
+      "path_efficiency": 0.523,
+      "speed_qu_per_s": {
+        "avg": 383.132,
+        "max": 592.007,
+        "p50": 465.924,
+        "p95": 548.283
+      }
+    },
+    "paired_coverage": 1.0,
+    "state_frames": 440
+  },
+  "recommendation": {
+    "confidence": "medium",
+    "next_probe": "hybrid_waypoint_controller_probe",
+    "north_star_relevance": "This chooses the smallest server-loop test that could turn human QWD evidence into better DM3 Frogbot movement without rebuilding physics, collision, combat, or recording.",
+    "reason": "The human route is spatially close to Frogbot markers, but consecutive human waypoints usually require multi-edge graph paths rather than direct `.bot` edges. The QWD action labels are side-move dominant, so the controller probe should preserve local command imitation rather than reducing the move to a simple forward waypoint chase.",
+    "stop_conditions": [
+      "Do not claim success from reaching waypoints if movement buckets regress against S7/S7k baselines.",
+      "Do not mutate dm3.bot route data until a controller/waypoint probe shows the human route is executable under KTX physics.",
+      "Preserve route, water, probe-activation, command, and cadence diagnostics in any follow-up run."
+    ]
+  },
+  "schema": "komodobots.qwd_frogbot_route_mapping.v1",
+  "source": {
+    "bot_map": "../engine/ktx/resources/example-configs/ktx/bots/maps/dm3.bot",
+    "demo": "dm3_sng_shortcut.qwd",
+    "demo_sha256": "3660cfd7b7e78d3a2484ae1c01c83c9f13ce35cde562c704d908804438eb5349",
+    "waypoint_spacing_qu": 64.0
+  },
+  "stage": "qwd-dm3-sng-route-map",
+  "transition_analysis": [
+    {
+      "defined_direct_edge": false,
+      "defined_reverse_edge": false,
+      "direct_explicit_flags": [],
+      "direct_path_indexes": [],
+      "reverse_shortest_path_edges": 6,
+      "shortest_path": [
+        157,
+        161,
+        159,
+        167,
+        96,
+        28
+      ],
+      "shortest_path_edges": 5,
+      "source": 157,
+      "target": 28
+    },
+    {
+      "defined_direct_edge": false,
+      "defined_reverse_edge": false,
+      "direct_explicit_flags": [],
+      "direct_path_indexes": [],
+      "reverse_shortest_path_edges": 6,
+      "shortest_path": [
+        28,
+        96,
+        67,
+        160,
+        162,
+        158
+      ],
+      "shortest_path_edges": 5,
+      "source": 28,
+      "target": 158
+    },
+    {
+      "defined_direct_edge": false,
+      "defined_reverse_edge": false,
+      "direct_explicit_flags": [],
+      "direct_path_indexes": [],
+      "reverse_shortest_path_edges": 3,
+      "shortest_path": [
+        158,
+        156,
+        161,
+        159
+      ],
+      "shortest_path_edges": 3,
+      "source": 158,
+      "target": 159
+    },
+    {
+      "defined_direct_edge": false,
+      "defined_reverse_edge": false,
+      "direct_explicit_flags": [],
+      "direct_path_indexes": [],
+      "reverse_shortest_path_edges": 4,
+      "shortest_path": [
+        159,
+        167,
+        96,
+        29
+      ],
+      "shortest_path_edges": 3,
+      "source": 159,
+      "target": 29
+    },
+    {
+      "defined_direct_edge": false,
+      "defined_reverse_edge": false,
+      "direct_explicit_flags": [],
+      "direct_path_indexes": [],
+      "reverse_shortest_path_edges": 8,
+      "shortest_path": [
+        29,
+        96,
+        67,
+        160,
+        162,
+        156,
+        79,
+        53
+      ],
+      "shortest_path_edges": 7,
+      "source": 29,
+      "target": 53
+    },
+    {
+      "defined_direct_edge": false,
+      "defined_reverse_edge": false,
+      "direct_explicit_flags": [],
+      "direct_path_indexes": [],
+      "reverse_shortest_path_edges": 10,
+      "shortest_path": [
+        53,
+        293,
+        79,
+        156,
+        162,
+        160,
+        67,
+        93,
+        222,
+        221,
+        177,
+        241,
+        242,
+        56,
+        23,
+        103
+      ],
+      "shortest_path_edges": 17,
+      "source": 53,
+      "target": 51
+    },
+    {
+      "defined_direct_edge": false,
+      "defined_reverse_edge": false,
+      "direct_explicit_flags": [],
+      "direct_path_indexes": [],
+      "reverse_shortest_path_edges": 13,
+      "shortest_path": [
+        51,
+        183,
+        49,
+        50,
+        93,
+        91,
+        95,
+        155
+      ],
+      "shortest_path_edges": 7,
+      "source": 51,
+      "target": 155
+    },
+    {
+      "defined_direct_edge": false,
+      "defined_reverse_edge": false,
+      "direct_explicit_flags": [],
+      "direct_path_indexes": [],
+      "reverse_shortest_path_edges": 8,
+      "shortest_path": [
+        155,
+        29,
+        96,
+        146,
+        144,
+        145,
+        150,
+        151,
+        149
+      ],
+      "shortest_path_edges": 8,
+      "source": 155,
+      "target": 149
+    },
+    {
+      "defined_direct_edge": false,
+      "defined_reverse_edge": false,
+      "direct_explicit_flags": [],
+      "direct_path_indexes": [],
+      "reverse_shortest_path_edges": 2,
+      "shortest_path": [
+        149,
+        142,
+        143
+      ],
+      "shortest_path_edges": 2,
+      "source": 149,
+      "target": 143
+    },
+    {
+      "defined_direct_edge": false,
+      "defined_reverse_edge": false,
+      "direct_explicit_flags": [],
+      "direct_path_indexes": [],
+      "reverse_shortest_path_edges": 4,
+      "shortest_path": [
+        143,
+        151,
+        150,
+        145
+      ],
+      "shortest_path_edges": 3,
+      "source": 143,
+      "target": 145
+    },
+    {
+      "defined_direct_edge": false,
+      "defined_reverse_edge": false,
+      "direct_explicit_flags": [],
+      "direct_path_indexes": [],
+      "reverse_shortest_path_edges": 3,
+      "shortest_path": [
+        145,
+        150,
+        151,
+        153
+      ],
+      "shortest_path_edges": 3,
+      "source": 145,
+      "target": 153
+    },
+    {
+      "defined_direct_edge": false,
+      "defined_reverse_edge": false,
+      "direct_explicit_flags": [],
+      "direct_path_indexes": [],
+      "reverse_shortest_path_edges": 15,
+      "shortest_path": [
+        153,
+        151,
+        150,
+        145,
+        144,
+        146,
+        96,
+        119,
+        170,
+        172,
+        33,
+        173,
+        171,
+        174,
+        32
+      ],
+      "shortest_path_edges": 14,
+      "source": 153,
+      "target": 32
+    },
+    {
+      "defined_direct_edge": false,
+      "defined_reverse_edge": false,
+      "direct_explicit_flags": [],
+      "direct_path_indexes": [],
+      "reverse_shortest_path_edges": 14,
+      "shortest_path": [
+        32,
+        174,
+        171,
+        173,
+        33,
+        172,
+        170,
+        119,
+        91,
+        95,
+        140,
+        141,
+        134,
+        135,
+        34,
+        126
+      ],
+      "shortest_path_edges": 15,
+      "source": 32,
+      "target": 126
+    }
+  ]
+}

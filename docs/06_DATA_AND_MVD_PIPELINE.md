@@ -64,6 +64,26 @@ Probe result on the local `dm3_*.qwd` trick corpus:
 
 This changes the action-label picture: for matching POV QWDs, Komodobots can now get exact human commands and a plausible same-frame self trajectory. It still does not produce a Frogbot `.bot` route, semantic route primitive labels, combat-aware execution policy, or proof that a server-side Frogbot can replay the path under KTX physics.
 
+First Frogbot route-mapping probe:
+
+- Tool: `scripts/map_qwd_route_to_frogbot.py`
+- Demo: `dm3_sng_shortcut.qwd`
+- Bot map: KTX `resources/example-configs/ktx/bots/maps/dm3.bot`
+- Result artifact: `experiments/qwd_route_probe/evidence/qwd-frogbot-route-map-dm3-sng-shortcut.*`
+
+Measured result:
+
+- QWD command/state coverage: `1.000`.
+- QWD waypoints at `64` qu spacing: `33`.
+- Collapsed nearest static Frogbot marker sequence: `14` markers.
+- Nearest-marker p50/p95/max: `70.112` / `120.324` / `142.597` qu.
+- Waypoints within `128` qu of a static marker: `0.939`.
+- Direct `.bot` edge ratio across collapsed marker transitions: `0.0`.
+- Graph reachable ratio: `1.0`, but shortest-path p50/p95/max is `5.0` / `15.8` / `17.0` edges.
+- Human QWD command profile is side-move dominant: nonzero forward `0.089`, nonzero side `0.718`, jump `0.284`.
+
+Interpretation: `dm3.bot` has useful spatial context for the SNG shortcut, but not a direct route topology matching the human move. The first Frogbot-facing QWD probe should therefore be a hybrid waypoint/controller probe that preserves local command imitation, not a pure route-following or `.bot` mutation probe.
+
 ## Available or expected signals
 
 From `mvd_analyzer`, `qw-sim`, and related parsers, Komodobots expects to work with:

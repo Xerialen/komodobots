@@ -82,3 +82,17 @@ Evidence suggests:
 No decision.
 
 The project is currently gathering evidence.
+
+## Latest QWD route evidence
+
+The QWD trajectory/action path is now a meaningful keep-Frogbots signal, but not proof.
+
+`dm3_sng_shortcut.qwd` maps close to existing static `dm3.bot` markers, yet not to direct route edges:
+
+- nearest-marker p50/p95/max: `70.112` / `120.324` / `142.597` qu
+- `0.939` of waypoints within `128` qu of a static marker
+- direct `.bot` edge ratio across collapsed human marker transitions: `0.0`
+- graph reachable ratio: `1.0`, but via multi-edge paths
+- QWD commands are side-move dominant: nonzero side `0.718`, nonzero forward `0.089`
+
+Interpretation: Frogbots still look useful as the server-native shell and spatial context provider, but the first QWD-derived movement test should be a hybrid waypoint/controller probe. Pure route-following or `.bot` mutation would throw away the human command signal and overtrust route topology that does not match the shortcut.
