@@ -1834,3 +1834,44 @@ The next work should repair activation, spawn/context setup, waypoint targeting,
 ### Revisit Conditions
 
 Revisit expansion to the remaining DM3 QWD moves if a follow-up SNG probe advances at least `4` control points while preserving diagnostics and avoiding slow/route-dirty success. Revisit the from-scratch option if repeated bounded QWD probes cannot advance under KTX/Frogbot physics despite valid QWD input/trajectory evidence.
+
+---
+
+## Decision
+
+Tighten QWD SNG evidence around MVD overlap before another controller change.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+Do not treat the first mode-9 SNG run's two advanced control points as movement evidence until QWD activation overlaps the parsed MVD movement window. Continue the QWD/Frogbots path, but the next live repair must first fix timing/start context: the bot needs to activate near the first QWD control point while the MVD parser is still producing movement samples.
+
+### Alternatives Considered
+
+- Rerun the same mode-9 controller immediately with wider radii.
+- Increase QWD command strength or change the projection policy.
+- Expand to other DM3 QWD moves because the command log advanced two points.
+- Reject the QWD-to-Frogbot path because the first run did not advance four points.
+
+### Evidence
+
+`qwd-sng-repair-diagnosis-dm3` aligned command-log server time to MVD-relative event time:
+
+- Demo start `ServerTime`: `4.267595` s.
+- Parsed match duration: `45816` ms.
+- `/ goldenboy` active QWD rows aligned to `47044-48082` ms, outside the parsed movement window.
+- `/ bro` had no active QWD rows and closest MVD approach to control point `0` was `281.954` qu, outside the `192` qu start radius.
+- `/ goldenboy` closest in-window MVD approach to control point `0` was `282.774` qu, also outside the start radius.
+
+The QWD SNG scorer now has an explicit `qwd_activation_mvd_overlap` stop condition and reports it as inconclusive for run `20260606T221429Z`.
+
+### Expected Consequences
+
+The next stage should be a setup repair, not a broader controller attempt. It may adjust recording/activation timing, controlled spawn context, or activation instrumentation, but it should not mutate `dm3.bot` or claim movement success from command-log advancement outside the MVD evidence window.
+
+### Revisit Conditions
+
+Revisit controller projection or expansion to other QWD moves only after a follow-up SNG run activates inside the MVD movement window and advances at least `4` control points while preserving route, water, cadence, and slow/dirty guardrails.
