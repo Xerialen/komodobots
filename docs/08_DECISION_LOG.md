@@ -1698,3 +1698,43 @@ Before abandoning KTX/Frogbots, run one more bounded evidence step: pick a clean
 ### Revisit Conditions
 
 Revisit the from-scratch option if the extracted QWD trajectory cannot be mapped to Frogbot route context, if KTX/Frogbots cannot expose or control the needed route execution state, or if a server-loop replay/controller probe cannot preserve non-target guardrails.
+
+---
+
+## Decision
+
+Use a hybrid waypoint/controller probe for the first QWD-derived SNG shortcut test.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+Do not start by mutating `dm3.bot` or asking Frogbots to follow the nearest-marker sequence as a normal route. The first QWD-derived SNG shortcut test should be a temporary hybrid waypoint/controller probe: use the existing Frogbot/KTX server shell and diagnostics, use the QWD trajectory as a waypoint target, and preserve the QWD local command profile instead of reducing the move to forward-only marker chasing.
+
+### Alternatives Considered
+
+- Pure route-following probe using the nearest Frogbot marker sequence.
+- Add or edit direct `.bot` route edges for the human shortcut.
+- Command-imitation only, ignoring the existing marker graph.
+- Defer all QWD application until a full learned movement controller exists.
+
+### Evidence
+
+`dm3_sng_shortcut.qwd` mapped against current `dm3.bot`:
+
+- `33` QWD waypoints collapsed to `14` nearest static Frogbot markers.
+- Nearest-marker p50/p95/max: `70.112` / `120.324` / `142.597` qu.
+- `0.939` of waypoints are within `128` qu of a static marker.
+- Direct `.bot` edge ratio across collapsed marker transitions: `0.0`.
+- Graph reachable ratio: `1.0`, but p50/p95/max shortest path is `5.0` / `15.8` / `17.0` edges.
+- QWD commands are side-move dominant: nonzero forward `0.089`, nonzero side `0.718`, jump `0.284`.
+
+### Expected Consequences
+
+The next probe should test whether KTX/Frogbots can execute a temporary human-derived waypoint/command target under real server physics. Success requires movement evidence, not only arriving near markers. Preserve route, water, command, cadence, and movement-bucket diagnostics so failures can still be attributed.
+
+### Revisit Conditions
+
+Revisit pure route editing if the hybrid probe can execute the shortcut but only by following waypoint geometry that `dm3.bot` lacks. Revisit command-imitation-only if marker proximity proves irrelevant or harmful inside the server-loop probe.

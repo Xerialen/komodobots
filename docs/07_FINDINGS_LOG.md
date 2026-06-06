@@ -2796,3 +2796,54 @@ Medium-low for direct Frogbot applicability until one route candidate is mapped 
 ### Follow-up
 
 Next smallest useful experiment: choose one clean route candidate such as `dm3_sng_shortcut.qwd`, compare its extracted waypoints against the current `dm3.bot` marker graph, and decide whether the first Frogbot-facing probe should be route-following, command-imitation, or a hybrid waypoint/controller test.
+
+## 2026-06-06 - QWD SNG Shortcut to Frogbot Route Mapping
+
+### Experiment
+
+Mapped one clean QWD route candidate, `dm3_sng_shortcut.qwd`, onto the current KTX Frogbot `dm3.bot` marker graph. Added `scripts/map_qwd_route_to_frogbot.py` to regenerate the QWD waypoints, find nearest static Frogbot markers, collapse the marker sequence, measure direct edge and shortest-path graph alignment, and choose the smallest Frogbot-facing probe type.
+
+### Result
+
+The SNG shortcut is spatially close to existing Frogbot markers, but it is not a direct match to the existing `.bot` route topology:
+
+- QWD command/state coverage: `1.000`.
+- QWD waypoints at `64` qu spacing: `33`.
+- Collapsed nearest-marker sequence: `14` markers.
+- Nearest-marker p50/p95/max: `70.112` / `120.324` / `142.597` qu.
+- Waypoints within `128` qu of a static marker: `0.939`.
+- Direct `.bot` edge ratio across collapsed transitions: `0.0`.
+- Graph reachable ratio: `1.0`, but shortest-path p50/p95/max is `5.0` / `15.8` / `17.0` edges.
+- QWD command profile is side-move dominant: nonzero forward `0.089`, nonzero side `0.718`, jump `0.284`.
+
+### Evidence
+
+Validation commands:
+
+```powershell
+python scripts/map_qwd_route_to_frogbot.py --demo "C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos\tricks\dm3_sng_shortcut.qwd" --bot-map "C:\Users\benya\projects\quakeworld\engine\ktx\resources\example-configs\ktx\bots\maps\dm3.bot" --waypoint-spacing 64 --output-json experiments/qwd_route_probe/evidence/qwd-frogbot-route-map-dm3-sng-shortcut.json --output-md experiments/qwd_route_probe/evidence/qwd-frogbot-route-map-dm3-sng-shortcut.md
+python -m unittest tests.test_map_qwd_route_to_frogbot -v
+```
+
+Focused tests: `3` mapping tests passed.
+
+Committed artifacts:
+
+- `scripts/map_qwd_route_to_frogbot.py`
+- `tests/test_map_qwd_route_to_frogbot.py`
+- `experiments/qwd_route_probe/evidence/qwd-frogbot-route-map-dm3-sng-shortcut.json`
+- `experiments/qwd_route_probe/evidence/qwd-frogbot-route-map-dm3-sng-shortcut.md`
+
+### Interpretation
+
+The first QWD-to-Frogbot server-loop probe should be a `hybrid_waypoint_controller_probe`, not pure route following. Existing `dm3.bot` markers are close enough to provide spatial context, but the direct edges do not encode the human shortcut path. The human command labels are mostly sidemove rather than forwardmove, so reducing the move to a simple forward marker chase would discard the useful QWD signal.
+
+### Confidence
+
+High that pure `.bot` route-following is the wrong first SNG shortcut probe.
+
+Medium that a hybrid waypoint/controller probe is the best next step, because this mapping still has not executed inside KTX.
+
+### Follow-up
+
+Ask Claude/Code Sentinel to review the mapping logic and the recommendation. Next smallest useful experiment: design a tiny server-loop SNG shortcut probe that feeds a temporary waypoint target plus QWD-local command profile into the existing moveprobe path while preserving route, water, command, cadence, and movement-bucket diagnostics.
