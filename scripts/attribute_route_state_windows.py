@@ -266,16 +266,16 @@ def command_rows_for_window(commands: dict, player_name: str, start_ms: int, end
 
 def route_sample(row: dict, bot_map: dict[str, object]) -> dict[str, object]:
     state = row.get("route_state", {}) if isinstance(row.get("route_state"), dict) else {}
-    linked = int(state.get("linked_marker", -1))
-    touch = int(state.get("touch_marker", -1))
-    goal_marker = int(state.get("goal_marker", -1))
-    path_state = int(state.get("path_state", 0))
-    bot_state = int(state.get("bot_state", 0))
+    linked = coerce_int(state.get("linked_marker", -1), -1)
+    touch = coerce_int(state.get("touch_marker", -1), -1)
+    goal_marker = coerce_int(state.get("goal_marker", -1), -1)
+    path_state = coerce_int(state.get("path_state", 0))
+    bot_state = coerce_int(state.get("bot_state", 0))
     return {
         "time_ms": command_time_ms(row),
         "linked_marker": linked,
         "touch_marker": touch,
-        "goal_ed": int(state.get("goal_ed", -1)),
+        "goal_ed": coerce_int(state.get("goal_ed", -1), -1),
         "goal_marker": goal_marker,
         "path_state": decode_flags(path_state, PATH_FLAG_SPECS),
         "bot_state": decode_flags(bot_state, BOT_STATE_SPECS),
@@ -416,12 +416,13 @@ def location_label(window: dict) -> str:
 
 def build_window_attribution(player: dict, window: dict, commands: dict, bot_map: dict[str, object]) -> dict[str, object]:
     command_summary = window.get("command_summary", {}) if isinstance(window.get("command_summary"), dict) else {}
-    margin_ms = int(command_summary.get("sample_window_ms", {}).get("margin_ms", 150))
+    sample_window = command_summary.get("sample_window_ms", {})
+    margin_ms = coerce_int(sample_window.get("margin_ms", 150) if isinstance(sample_window, dict) else 150, 150)
     rows = command_rows_for_window(
         commands,
         str(player.get("name", "")).strip(),
-        int(window.get("start_ms", 0)),
-        int(window.get("end_ms", 0)),
+        coerce_int(window.get("start_ms", 0)),
+        coerce_int(window.get("end_ms", 0)),
         margin_ms,
     )
     samples = [route_sample(row, bot_map) for row in rows if isinstance(row.get("route_state"), dict)]
@@ -468,7 +469,7 @@ def group_patterns(windows: list[dict]) -> list[dict[str, object]]:
     patterns = []
     for key, rows in grouped.items():
         _player, linked, goal, contains_water, contains_stuck = key
-        sample_count = sum(int(row["sample_count"]) for row in rows)
+        sample_count = sum(coerce_int(row.get("sample_count", 0)) for row in rows)
         dir_values = [
             float(sample["dir_speed"])
             for row in rows
@@ -553,7 +554,7 @@ def unique_edge_labels(window: dict[str, object]) -> list[str]:
         edge = sample.get("touch_to_link_path", {})
         if not isinstance(edge, dict):
             continue
-        if int(edge.get("source", -1)) <= 0 or int(edge.get("target", -1)) <= 0:
+        if coerce_int(edge.get("source", -1), -1) <= 0 or coerce_int(edge.get("target", -1), -1) <= 0:
             continue
         label = edge_label(edge)
         if label in seen:

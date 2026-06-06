@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import run_frobodm2_lab
-from extract_movement_metrics import compute_movement_metrics, compute_slot_metrics, percentile
+from extract_movement_metrics import compute_movement_metrics, compute_slot_metrics, percentile, summarize_airborne_proxy
 
 
 THRESHOLDS = {
@@ -99,6 +99,66 @@ class MovementMetricsTests(unittest.TestCase):
         self.assertAlmostEqual(metrics["avg_landing_post_speed_qu_per_s"], 320.0)
         self.assertAlmostEqual(metrics["avg_post_landing_speed_delta_qu_per_s"], -80.0)
         self.assertAlmostEqual(metrics["avg_post_landing_speed_loss_ratio"], 0.2)
+
+    def test_airborne_proxy_landing_speed_loss_ratio_is_mean_of_per_landing_ratios(self) -> None:
+        segments = [
+            {
+                "start_ms": 300,
+                "end_ms": 400,
+                "vertical_motion": True,
+                "start_z": 0.0,
+                "end_z": 10.0,
+                "horizontal_speed_qu_per_s": 100.0,
+            },
+            {
+                "start_ms": 400,
+                "end_ms": 500,
+                "vertical_motion": True,
+                "start_z": 10.0,
+                "end_z": 0.0,
+                "horizontal_speed_qu_per_s": 100.0,
+            },
+            {
+                "start_ms": 500,
+                "end_ms": 750,
+                "vertical_motion": False,
+                "start_z": 0.0,
+                "end_z": 0.0,
+                "horizontal_speed_qu_per_s": 50.0,
+            },
+            {
+                "start_ms": 1250,
+                "end_ms": 1350,
+                "vertical_motion": True,
+                "start_z": 0.0,
+                "end_z": 12.0,
+                "horizontal_speed_qu_per_s": 1000.0,
+            },
+            {
+                "start_ms": 1350,
+                "end_ms": 1500,
+                "vertical_motion": True,
+                "start_z": 12.0,
+                "end_z": 0.0,
+                "horizontal_speed_qu_per_s": 1000.0,
+            },
+            {
+                "start_ms": 1500,
+                "end_ms": 1750,
+                "vertical_motion": False,
+                "start_z": 0.0,
+                "end_z": 0.0,
+                "horizontal_speed_qu_per_s": 900.0,
+            },
+        ]
+
+        summary = summarize_airborne_proxy(segments, THRESHOLDS)
+
+        self.assertEqual(summary["landing_speed_window_count"], 2)
+        self.assertAlmostEqual(summary["avg_landing_pre_speed_qu_per_s"], 550.0)
+        self.assertAlmostEqual(summary["avg_landing_post_speed_qu_per_s"], 475.0)
+        self.assertAlmostEqual(summary["avg_post_landing_speed_loss_qu_per_s"], 75.0)
+        self.assertAlmostEqual(summary["avg_post_landing_speed_loss_ratio"], 0.3)
 
     def test_compute_movement_metrics_excludes_unnamed_slots(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

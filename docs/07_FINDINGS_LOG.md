@@ -1980,3 +1980,31 @@ Medium that preserving native water-edge upmove will help, because S6d did not l
 ### Follow-up
 
 Ask Claude to review S6d. Proposed S6e: add the smallest mode `7` water-edge upmove preservation probe, rerun one short `dm3` sample, and compare only the repeated `water.LG` low-speed windows. If it does not improve those windows, stop upmove tuning and inspect `.bot` edge geometry around `276->59`.
+
+## 2026-06-06 - S6d Review-Hardening Follow-Up
+
+### Experiment
+
+Addressed Claude's S6d review findings in the analysis scripts before continuing to S6e. The changes were evidence-hygiene fixes rather than a new bot run.
+
+### Result
+
+- Moveprobe plausibility summaries now bind by `user_id`/edict strictly when that id is present; if id-matched command rows are missing, the player gets zero command rows instead of falling back to a duplicate netname.
+- Reference aggregates now preserve missing metrics as missing values, so absent human baseline fields are excluded from range calculations instead of silently becoming `0.0`.
+- Reference aggregates now warn when the requested map filter excludes every reference row.
+- Landing speed-loss ratio now reports the mean of per-landing loss ratios, matching the field name.
+- Route-state diagnosis now skips untimestamped command rows during window joins, matching the newer attribution script behavior.
+- `run_frobodm2_lab.py` now uses the guarded percent formatter for the air-proxy line in run summaries.
+- The committed S5b reference aggregate was regenerated with the updated script; numeric values stayed unchanged and the artifact now records `warnings: []`.
+
+### Evidence
+
+Validation added targeted regression tests for duplicate-name/id-miss command attribution, missing reference metrics, all-excluded reference maps, per-landing loss-ratio semantics, and untimestamped command joins.
+
+### Interpretation
+
+These fixes reduce the chance that a future S6 or S7 result looks numerically valid while being joined to the wrong bot, anchored to a fake zero human baseline, or inflated by malformed timestamp rows.
+
+### Follow-up
+
+Continue with S6e only after this review-hardening commit is pushed and Claude has the updated PR context. Keep S6e timeboxed; after the water-edge probe, the next substantive branch should either attack the headline land-speed/bunnyhop gap or broaden the reference corpus, per Claude's north-star caution.

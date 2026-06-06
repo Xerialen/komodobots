@@ -778,7 +778,7 @@ def write_summary(
                 f"max `{fmt_number(player.get('max_horizontal_speed_qu_per_s'))}` qu/s, "
                 f"p95 `{fmt_number(player.get('p95_horizontal_speed_qu_per_s'))}` qu/s, "
                 f"over maxspeed `{over_maxspeed}`, "
-                f"air proxy `{float(player.get('airborne_proxy_time_ratio', 0.0)) * 100.0:.1f}%`, "
+                f"air proxy `{fmt_percent(player.get('airborne_proxy_time_ratio'))}`, "
                 f"cadence `{fmt_number(player.get('jump_cadence_per_min'))}`/min"
             )
     else:

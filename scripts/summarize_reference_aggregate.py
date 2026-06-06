@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Iterable
@@ -15,7 +16,6 @@ from analyze_human_mvd import (
     format_comparison_value,
     load_json_if_present,
     pct,
-    round_float,
     summarize_numeric_field,
 )
 
@@ -33,6 +33,16 @@ def portable_path(path: Path) -> str:
         return resolved.relative_to(REPO_ROOT).as_posix()
     except ValueError:
         return path.as_posix()
+
+
+def optional_round_float(value: object, digits: int = 3) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number):
+        return None
+    return round(number, digits)
 
 
 def parse_target_arg(value: str) -> tuple[str, Path]:
@@ -71,7 +81,7 @@ def compact_reference_row(target: str, summary_path: Path) -> dict[str, object]:
         "duration_ms": match.get("duration_ms", ""),
     }
     for field, _label in REFERENCE_FIELDS:
-        row[field] = round_float(player.get(field))
+        row[field] = optional_round_float(player.get(field))
     return row
 
 
@@ -90,7 +100,7 @@ def bot_rows_for_map(bot_summary_path: Path, map_name: str) -> list[dict[str, ob
                 "player": player.get("player", ""),
             }
             for field, _label in COMPARISON_FIELDS:
-                row[field] = round_float(player.get(field))
+                row[field] = optional_round_float(player.get(field))
             rows.append(row)
     return rows
 
@@ -104,7 +114,15 @@ def build_aggregate(
 ) -> dict[str, object]:
     reference_rows = [compact_reference_row(target, path) for target, path in targets]
     map_matched_rows = [row for row in reference_rows if str(row.get("map", "")) == map_name]
+    excluded_reference_rows = [row for row in reference_rows if str(row.get("map", "")) != map_name]
     bot_rows = bot_rows_for_map(bot_summary_path, map_name)
+    warnings = []
+    if reference_rows and not map_matched_rows:
+        excluded_maps = sorted({str(row.get("map", "") or "unknown") for row in excluded_reference_rows})
+        warnings.append(
+            f"No reference rows matched map {map_name!r}; excluded {len(excluded_reference_rows)} "
+            f"row(s) with map values: {', '.join(excluded_maps)}."
+        )
 
     ranges = []
     ranges_by_field = {}
@@ -142,7 +160,8 @@ def build_aggregate(
         "reference_count": len(map_matched_rows),
         "targets": [target for target, _path in targets],
         "reference_rows": map_matched_rows,
-        "excluded_reference_rows": [row for row in reference_rows if str(row.get("map", "")) != map_name],
+        "excluded_reference_rows": excluded_reference_rows,
+        "warnings": warnings,
         "bot_summary_path": portable_path(bot_summary_path),
         "bot_rows": bot_rows,
         "ranges": ranges,
@@ -168,6 +187,11 @@ def write_markdown(aggregate: dict[str, object], output_path: Path) -> None:
     ]
     for note in aggregate.get("notes", []):
         lines.append(f"- {note}")
+    warnings = aggregate.get("warnings", []) if isinstance(aggregate.get("warnings", []), list) else []
+    if warnings:
+        lines.extend(["", "## Warnings", ""])
+        for warning in warnings:
+            lines.append(f"- {warning}")
 
     lines.extend(
         [

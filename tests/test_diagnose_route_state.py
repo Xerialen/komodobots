@@ -115,6 +115,23 @@ class RouteStateDiagnosisTests(unittest.TestCase):
         self.assertEqual(summary["jump_button_ratio"], 0.0)
         self.assertEqual(summary["yaw_delta_sample_count"], 0)
 
+    def test_command_summary_skips_untimestamped_rows(self) -> None:
+        summary = diagnose_route_state.summarize_commands_for_window(
+            [
+                {"buttons": 2, "move": {"forward": 800, "side": 0}},
+                {"time_s": 0.0, "buttons": 0, "move": {"forward": 400, "side": 0}},
+            ],
+            start_ms=0,
+            end_ms=10,
+            margin_ms=0,
+            strong_command=400,
+        )
+
+        self.assertEqual(summary["command_count"], 1)
+        self.assertEqual(summary["exact_command_count"], 1)
+        self.assertEqual(summary["avg_horizontal_command"], 400.0)
+        self.assertEqual(summary["jump_button_ratio"], 0.0)
+
     def test_load_map_entities_skips_non_dict_entities(self) -> None:
         entities = diagnose_route_state.load_map_entities(
             {

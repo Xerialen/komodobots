@@ -94,6 +94,51 @@ class ReferenceAggregateTests(unittest.TestCase):
         self.assertEqual(bro["against_reference_range"]["avg_horizontal_speed_qu_per_s"], "below_human_min")
         self.assertEqual(bro["against_reference_range"]["airborne_proxy_time_ratio"], "above_human_max")
 
+    def test_build_aggregate_excludes_missing_reference_metric_from_range(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            milton = root / "milton.json"
+            yeti = root / "yeti.json"
+            write_summary(milton, run_id="m", demo="m.mvd", player="Milton", avg=310, p95=530, air=0.35)
+            write_summary(yeti, run_id="y", demo="y.mvd", player="yeti", avg=280, p95=490, air=0.30)
+            yeti_summary = json.loads(yeti.read_text(encoding="utf-8"))
+            del yeti_summary["movement_players"][0]["p95_horizontal_speed_qu_per_s"]
+            yeti.write_text(json.dumps(yeti_summary), encoding="utf-8")
+            bot_summary = root / "bot.json"
+            bot_summary.write_text(json.dumps({"runs": []}), encoding="utf-8")
+
+            aggregate = summarize_reference_aggregate.build_aggregate(
+                targets=[("Milton", milton), ("yeti", yeti)],
+                bot_summary_path=bot_summary,
+                map_name="dm3",
+                stage="s5b-test",
+            )
+
+        p95_range = next(row for row in aggregate["ranges"] if row["field"] == "p95_horizontal_speed_qu_per_s")
+        self.assertEqual(p95_range["reference"]["count"], 1)
+        self.assertEqual(p95_range["reference"]["min"], 530.0)
+        self.assertEqual(p95_range["reference"]["max"], 530.0)
+        self.assertIsNone(aggregate["reference_rows"][1]["p95_horizontal_speed_qu_per_s"])
+
+    def test_build_aggregate_warns_when_all_reference_rows_excluded_by_map(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            milton = root / "milton.json"
+            write_summary(milton, run_id="m", demo="m.mvd", player="Milton", avg=310, p95=530, air=0.35)
+            bot_summary = root / "bot.json"
+            bot_summary.write_text(json.dumps({"runs": []}), encoding="utf-8")
+
+            aggregate = summarize_reference_aggregate.build_aggregate(
+                targets=[("Milton", milton)],
+                bot_summary_path=bot_summary,
+                map_name="dm2",
+                stage="s5b-test",
+            )
+
+        self.assertEqual(aggregate["reference_count"], 0)
+        self.assertEqual(len(aggregate["excluded_reference_rows"]), 1)
+        self.assertIn("No reference rows matched map 'dm2'", aggregate["warnings"][0])
+
 
 if __name__ == "__main__":
     unittest.main()

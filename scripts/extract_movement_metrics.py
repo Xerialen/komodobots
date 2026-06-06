@@ -158,6 +158,7 @@ def summarize_airborne_proxy(segments: list[dict], thresholds: dict[str, float])
     post_speeds: list[float] = []
     post_deltas: list[float] = []
     post_losses: list[float] = []
+    post_loss_ratios: list[float] = []
     for run in runs:
         landing_ms = run["end_ms"]
         pre_speed = weighted_speed_for_window(segments, landing_ms - landing_window_ms, landing_ms)
@@ -170,13 +171,15 @@ def summarize_airborne_proxy(segments: list[dict], thresholds: dict[str, float])
         post_deltas.append(delta)
         loss = pre_speed - post_speed
         post_losses.append(loss)
+        if pre_speed > 0:
+            post_loss_ratios.append(loss / pre_speed)
 
     durations = [run["duration_ms"] for run in runs]
     z_deltas = [run["z_delta_qu"] for run in runs]
     avg_pre_speed = sum(pre_speeds) / len(pre_speeds) if pre_speeds else 0.0
     avg_post_speed = sum(post_speeds) / len(post_speeds) if post_speeds else 0.0
-    avg_loss = avg_pre_speed - avg_post_speed
-    avg_loss_ratio = avg_loss / avg_pre_speed if avg_pre_speed > 0 else 0.0
+    avg_loss = sum(post_losses) / len(post_losses) if post_losses else 0.0
+    avg_loss_ratio = sum(post_loss_ratios) / len(post_loss_ratios) if post_loss_ratios else 0.0
 
     return {
         "airborne_proxy_count": len(runs),

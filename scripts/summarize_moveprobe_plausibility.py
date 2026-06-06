@@ -38,6 +38,29 @@ def ratio(count: int, total: int) -> float:
     return count / total
 
 
+def dict_or_empty(value: object) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def int_value(value: object, default: int = 0) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def float_value(value: object, default: float = 0.0) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return number if math.isfinite(number) else default
+
+
+def move_value(row: dict, key: str) -> int:
+    return int_value(dict_or_empty(row.get("move")).get(key))
+
+
 def percentile(values: Iterable[float], percent: float) -> float:
     sorted_values = sorted(values)
     if not sorted_values:
@@ -54,6 +77,8 @@ def percentile(values: Iterable[float], percent: float) -> float:
 def command_rows_by_player(commands: dict) -> dict[str, list[dict]]:
     rows_by_player: dict[str, list[dict]] = {}
     for row in commands.get("commands", []):
+        if not isinstance(row, dict):
+            continue
         name = str(row.get("name", "")).strip()
         if name:
             rows_by_player.setdefault(name, []).append(row)
@@ -63,9 +88,10 @@ def command_rows_by_player(commands: dict) -> dict[str, list[dict]]:
 def command_rows_by_ed(commands: dict) -> dict[int, list[dict]]:
     rows_by_ed: dict[int, list[dict]] = {}
     for row in commands.get("commands", []):
-        try:
-            ed = int(row.get("ed"))
-        except (TypeError, ValueError):
+        if not isinstance(row, dict):
+            continue
+        ed = int_value(row.get("ed"))
+        if not ed:
             continue
         rows_by_ed.setdefault(ed, []).append(row)
     return rows_by_ed
@@ -76,12 +102,9 @@ def command_rows_for_player(
     rows_by_ed: dict[int, list[dict]],
     rows_by_player: dict[str, list[dict]],
 ) -> list[dict]:
-    try:
-        ed = int(movement_row.get("user_id"))
-    except (TypeError, ValueError):
-        ed = 0
-    if ed and ed in rows_by_ed:
-        return rows_by_ed[ed]
+    ed = int_value(movement_row.get("user_id"))
+    if ed:
+        return rows_by_ed.get(ed, [])
 
     name = str(movement_row.get("name", "")).strip()
     return rows_by_player.get(name, [])
@@ -116,35 +139,35 @@ def summarize_player(
     min_yaw_unique: int,
 ) -> dict[str, object]:
     command_count = len(command_rows)
-    forward_counts = Counter(int(row.get("move", {}).get("forward", 0)) for row in command_rows)
+    forward_counts = Counter(move_value(row, "forward") for row in command_rows)
     horizontal_count = sum(
         1
         for row in command_rows
-        if int(row.get("move", {}).get("forward", 0)) != 0
-        or int(row.get("move", {}).get("side", 0)) != 0
+        if move_value(row, "forward") != 0
+        or move_value(row, "side") != 0
     )
-    side_nonzero_count = sum(1 for row in command_rows if int(row.get("move", {}).get("side", 0)) != 0)
-    backward_count = sum(1 for row in command_rows if int(row.get("move", {}).get("forward", 0)) < 0)
-    jump_count = sum(1 for row in command_rows if int(row.get("buttons", 0)) & 2)
+    side_nonzero_count = sum(1 for row in command_rows if move_value(row, "side") != 0)
+    backward_count = sum(1 for row in command_rows if move_value(row, "forward") < 0)
+    jump_count = sum(1 for row in command_rows if int_value(row.get("buttons")) & 2)
     move_vectors = [
         (
-            int(row.get("move", {}).get("forward", 0)),
-            int(row.get("move", {}).get("side", 0)),
+            move_value(row, "forward"),
+            move_value(row, "side"),
         )
         for row in command_rows
     ]
     yaw_values = {
-        round(float(row.get("angles", {}).get("yaw", 0.0)), 1)
+        round(float_value(dict_or_empty(row.get("angles")).get("yaw")), 1)
         for row in command_rows
     }
     yaw_delta_values = [
-        abs(float(row.get("diagnostics", {}).get("yaw_delta", 0.0)))
+        abs(float_value(dict_or_empty(row.get("diagnostics")).get("yaw_delta")))
         for row in command_rows
-        if "yaw_delta" in row.get("diagnostics", {})
+        if "yaw_delta" in dict_or_empty(row.get("diagnostics"))
     ]
 
-    stationary_ratio = float(movement_row.get("stationary_time_ratio", 0.0))
-    low_speed_ratio = float(movement_row.get("low_speed_time_ratio", 0.0))
+    stationary_ratio = float_value(movement_row.get("stationary_time_ratio"))
+    low_speed_ratio = float_value(movement_row.get("low_speed_time_ratio"))
     forward_expected_ratio = ratio(forward_counts[expected_forward], command_count)
     horizontal_move_ratio = ratio(horizontal_count, command_count)
     side_nonzero_ratio = ratio(side_nonzero_count, command_count)

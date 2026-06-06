@@ -132,13 +132,13 @@ def compact_unique_values(values: Iterable[object], limit: int = 12) -> list[obj
     return list(unique[:limit]) + [f"... {len(unique) - limit} more"]
 
 
-def command_time_ms(row: dict) -> int:
+def command_time_ms(row: dict) -> int | None:
     if not isinstance(row, dict):
-        return 0
+        return None
     try:
-        return int(round(float(row.get("time_s", 0.0)) * 1000.0))
+        return int(round(float(row.get("time_s")) * 1000.0))
     except (TypeError, ValueError):
-        return 0
+        return None
 
 
 def load_position_trace(
@@ -385,13 +385,17 @@ def command_rows_by_player(commands: dict) -> tuple[dict[int, list[dict]], dict[
 
 
 def rows_for_slot(info: SlotInfo, by_ed: dict[int, list[dict]], by_name: dict[str, list[dict]]) -> list[dict]:
+    def sort_key(row: dict) -> int:
+        time_ms = command_time_ms(row)
+        return time_ms if time_ms is not None else -1
+
     try:
         user_id = int(info.get("user_id"))
     except (TypeError, ValueError):
         user_id = 0
     if user_id and user_id in by_ed:
-        return sorted(by_ed[user_id], key=command_time_ms)
-    return sorted(by_name.get(str(info.get("name", "")).strip(), []), key=command_time_ms)
+        return sorted(by_ed[user_id], key=sort_key)
+    return sorted(by_name.get(str(info.get("name", "")).strip(), []), key=sort_key)
 
 
 def time_range_summary(times: list[int]) -> dict[str, object]:
@@ -485,14 +489,21 @@ def summarize_commands_for_window(
     margin_ms: int = DEFAULT_COMMAND_MARGIN_MS,
     strong_command: float = DEFAULT_STRONG_COMMAND,
 ) -> dict:
-    command_rows = [row for row in command_rows if isinstance(row, dict)]
+    timed_rows: list[tuple[int, dict]] = []
+    for row in command_rows:
+        if not isinstance(row, dict):
+            continue
+        time_ms = command_time_ms(row)
+        if time_ms is None:
+            continue
+        timed_rows.append((time_ms, row))
     exact_rows = [
-        row for row in command_rows if start_ms <= command_time_ms(row) <= end_ms
+        row for time_ms, row in timed_rows if start_ms <= time_ms <= end_ms
     ]
     rows = [
         row
-        for row in command_rows
-        if start_ms - margin_ms <= command_time_ms(row) <= end_ms + margin_ms
+        for time_ms, row in timed_rows
+        if start_ms - margin_ms <= time_ms <= end_ms + margin_ms
     ]
     magnitudes = []
     for row in rows:
