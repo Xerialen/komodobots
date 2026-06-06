@@ -230,6 +230,14 @@ S5b result:
 - S3g `/ bro` is below reference avg/p95/stationary ranges and above low-speed/air ranges.
 - S3g `/ goldenboy` is below reference avg/p95/stationary/air ranges while staying inside the low-speed range.
 
+S7a signature result:
+
+- Added `scripts/summarize_player_movement_signatures.py` to turn the S5b aggregate into a player-signature scaffold rather than a controller target.
+- Generated `experiments/human_comparison/evidence/player-signatures-s7a-dm3.*`.
+- Avg and p95 stay classified as generic S3g-vs-human land-speed gaps. The best S3g bot is still `34.6` qu/s below the reference avg-speed minimum and `130.5` qu/s below the reference p95-speed minimum.
+- Low-speed ratio is a thin candidate player-style axis, and jump cadence is a thin reference-only axis, but the current evidence is one demo per player.
+- Stop condition triggered: broaden exact-player references before any player-specific controller work.
+
 S6a result:
 
 - Added `scripts/diagnose_route_state.py`.
@@ -530,6 +538,9 @@ Fresh S2 emitted-command evidence:
 
 s6f-route-edge-geometry, static dm3.bot edge audit:
   276->59 and 59->276 are explicit path-index-0 edges; marker 59 has a static origin, but marker 276 has no CreateMarker origin, so no precise static edge vector or coordinate-level route fix is justified. S6d/S6e attribution still shows 30 unique focus-edge samples with WATER_PATH, blocked=0, and 86.7% low native dir_speed.
+
+s7a-player-signatures-dm3, exact-player signature scaffold:
+  avg and p95 are still generic S3g-vs-human land-speed gaps; low-speed and cadence are possible but single-demo-thin style axes. Stop condition triggered: broaden exact-player references before controller work.
 ```
 
 ## Open questions

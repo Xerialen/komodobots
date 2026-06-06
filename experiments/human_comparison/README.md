@@ -104,3 +104,26 @@ The aggregate range is intentionally tiny but no longer a single-match target:
 This points away from more command-value tuning and toward S6 route/state
 diagnosis: the current bot command projection can emit bounded movement, but the
 result is not sustaining elite-like high-speed movement on `dm3`.
+
+## Current S7a Result
+
+S7a turns the S5b aggregate into a small movement-signature scaffold:
+
+```text
+experiments/human_comparison/evidence/player-signatures-s7a-dm3.json
+experiments/human_comparison/evidence/player-signatures-s7a-dm3.md
+```
+
+The scaffold separates broad bot-vs-human movement deficits from possible
+player-specific axes:
+
+| Axis | S7a interpretation |
+|---|---|
+| Avg speed | generic S3g-vs-human land-speed gap |
+| P95 speed | generic S3g-vs-human land-speed gap |
+| Low-speed ratio | candidate style axis, but too thin |
+| Jump cadence | reference-only candidate axis |
+
+The stop condition is triggered because the current set is only one `dm3` demo
+per target player. S7 should broaden exact-player references before any
+player-specific movement controller work.

@@ -465,4 +465,4 @@ Move the repeatable runner one notch closer to the north star:
 
 1. Keep `dm2` as a `qw-sim` continuity map, not as a Frogbot route-building target.
 2. Use routed maps such as `frobodm2` and `dm3` to generate bot movement demos.
-3. After S6f, stop water-edge command tuning unless new evidence appears. The next smallest useful branch is S7a: exact-player movement-signature scaffolding from existing `dm3` references.
+3. After S6f, stop water-edge command tuning unless new evidence appears. S7a completed exact-player movement-signature scaffolding and triggered the thin-reference stop condition, so the next smallest useful branch is S7b: broaden repeated exact-player `dm3` references before controller work.

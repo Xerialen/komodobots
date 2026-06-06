@@ -2123,3 +2123,40 @@ The existing S6 runs use distinct bot names and matching `user_id`/`ed` values, 
 ### Follow-up
 
 Update the PR for Claude/reviewer context, then continue to S7a if there is no further blocking feedback.
+
+## 2026-06-06 - S7a Exact-Player Movement Signature Scaffold
+
+### Experiment
+
+Added `scripts/summarize_player_movement_signatures.py` to build a compact player-signature scaffold from the existing S5b exact-player `dm3` aggregate. No KTX patch, route file, controller mode, remote lab run, or new human-demo parse changed.
+
+Generated committed evidence:
+
+- `experiments/human_comparison/evidence/player-signatures-s7a-dm3.json`
+- `experiments/human_comparison/evidence/player-signatures-s7a-dm3.md`
+
+### Result
+
+- Avg speed and p95 speed remain generic S3g-vs-human land-speed gaps. The best S3g `dm3` bot is still `34.6` qu/s below the exact-player avg-speed minimum and `130.5` qu/s below the p95-speed minimum.
+- Low-speed ratio is a thin candidate player-style axis: `Milton` `12.4%`, `carapace` `19.6%`, `yeti` `15.4%`; S3g has one bot inside the range and one above it.
+- Jump cadence is a thin reference-only candidate axis: `44.0` to `48.6`/min, but the committed S3g bot summary does not carry the same metric.
+- Airborne proxy is not useful as a player-style axis here because the exact-player reference spread is too small while the two S3g bot rows split above and below the range.
+- The S7a stop condition triggered: three single-demo exact-player rows can seed axes, but cannot support stable player-specific style claims.
+
+### Evidence
+
+The S7a helper records per-player signature rows, feature-axis interpretations, bot relation classifications, and headline land-speed gaps in auditable JSON/Markdown. Tests cover generic land-speed gap classification, thin mixed candidate axes, missing-metric exclusion, and reference-only cadence handling.
+
+### Interpretation
+
+S7a moves the project into player-specific measurement, but not player-specific control. The current exact-player set is useful enough to say "do not hide the land-speed gap behind style," and useful enough to identify low-speed/cadence as candidate axes. It is not enough to build a Milton movement brain.
+
+### Confidence
+
+High that the S7a artifact correctly reflects the existing S5b aggregate and S3g bot rows.
+
+Medium that low-speed and cadence will remain player-style axes after broader sampling, because the current reference set is one match per player.
+
+### Follow-up
+
+Ask Claude to review S7a. Proposed S7b: broaden exact-player movement references before controller work. Add repeated `dm3` samples for Milton/carapace/yeti where available, then rerun the signature scaffold to separate stable player style from one-match noise and the generic S3g land-speed gap.

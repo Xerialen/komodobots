@@ -1087,3 +1087,44 @@ S7a should produce an auditable, small player-specific movement-signature artifa
 ### Revisit Conditions
 
 Revisit if Claude identifies a route-file parsing error, if KTX source shows a reliable way to recover runtime marker `276` geometry from static artifacts, or if S7a reveals that player-specific signatures are too thin without broadening the human reference corpus first.
+
+---
+
+## Decision
+
+Broaden exact-player references before player-specific controller work.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S7a built the first exact-player movement-signature scaffold from the existing S5b `Milton`/`carapace`/`yeti` `dm3` aggregate. The scaffold successfully separates broad human-vs-bot movement gaps from candidate style axes, but it also triggers the stop condition: the current set is one demo per player.
+
+The next goal is S7b: broaden exact-player movement references before any player-specific movement controller work. Start with repeated `dm3` samples for the same targets where available, then rerun the S7a signature scaffold to check which axes are stable player signals and which are one-match noise or generic S3g land-speed deficit.
+
+### Alternatives Considered
+
+- Start tuning mode `7` against Milton's avg/p95 movement row.
+- Build a Milton-specific controller or parameter profile from one Milton match.
+- Treat low-speed ratio or cadence as stable player-style labels now.
+- Drop S7 and return immediately to generic land-speed/bunnyhop controller work.
+
+### Evidence
+
+S7a signature scaffold:
+
+- Avg speed: exact-player range `282.8` to `314.2`; S3g bot range `190.1` to `248.2`; best-bot gap to reference minimum `34.6` qu/s.
+- P95 speed: exact-player range `505.8` to `535.0`; S3g bot range `361.0` to `375.3`; best-bot gap to reference minimum `130.5` qu/s.
+- Low-speed ratio: exact-player range `12.4%` to `19.6%`; mixed S3g relation, so it is only a thin candidate player-style axis.
+- Jump cadence: exact-player range `44.0` to `48.6`/min; no committed S3g comparison metric, so it is reference-only for now.
+- Stop condition: only three single-demo exact-player rows.
+
+### Expected Consequences
+
+S7b should turn the current "candidate axes" into a stability check. If repeated samples preserve per-player differences, S7 can start designing player-style targets. If the axes move around heavily, the project should broaden the human reference corpus or return to generic movement-realism work before attempting player-specific control.
+
+### Revisit Conditions
+
+Revisit if Claude finds that the S7a axis classification hides an important metric, if existing artifacts already contain enough repeated exact-player rows to avoid a new selection step, or if S7b cannot find repeated same-map samples for the target players.

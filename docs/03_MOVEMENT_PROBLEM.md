@@ -279,6 +279,20 @@ Result:
 
 Interpretation: the repeated water-edge failure is real, but S6f does not reveal a small static route-data fix. The edge is defined, reciprocal, and unflagged in the route file; the missing source origin means a coordinate-level geometry edit would be guesswork. Stop S6 water-edge tuning here and move the next goal toward S7-style player-specific movement signatures while keeping the headline land-speed/bunnyhop gap visible.
 
+## S7a Exact-Player Movement Signature Scaffold
+
+S7a added `scripts/summarize_player_movement_signatures.py` and generated `experiments/human_comparison/evidence/player-signatures-s7a-dm3.*` from the existing S5b exact-player `dm3` aggregate. No controller code, KTX patch, route file, or new demo parse changed.
+
+Result:
+
+- Avg speed and p95 speed remain generic S3g-vs-human land-speed gaps: the best S3g `dm3` bot is still `34.6` qu/s below the reference avg-speed minimum and `130.5` qu/s below the reference p95-speed minimum.
+- Low-speed ratio is a possible player-style axis in the tiny reference set (`Milton` `12.4%`, `carapace` `19.6%`, `yeti` `15.4%`), but the bot comparison is mixed and the reference set is too thin.
+- Jump cadence is also a possible reference-only axis (`44.0` to `48.6`/min), but the committed S3g bot summary does not carry the same metric.
+- Airborne proxy is not useful as a player-style axis here because the exact-player reference spread is too tight while the two S3g bot rows split above and below the range.
+- The stop condition is triggered: three single-demo exact-player rows can seed axes, but cannot support stable player-specific style claims.
+
+Interpretation: S7a successfully creates the measurement scaffold, but it points away from immediate player-specific controller work. The next smallest useful step is to broaden exact-player references, especially repeated `dm3` samples for the same targets where available, then rerun the signature scaffold to separate stable style from one-match noise and the unresolved land-speed/bunnyhop gap.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

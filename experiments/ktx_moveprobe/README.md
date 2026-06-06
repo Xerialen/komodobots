@@ -257,7 +257,7 @@ S6f inspects the static `.bot` route-edge geometry and S6 attribution samples wi
 python scripts/inspect_route_edge_geometry.py --stage s6f-route-edge-geometry --edge 276:59 --marker 59 --output-json experiments/ktx_moveprobe/evidence/route-edge-s6f-geometry.json --output-md experiments/ktx_moveprobe/evidence/route-edge-s6f-geometry.md
 ```
 
-S6f result: `276->59` and `59->276` are explicit path-index-0 edges, marker `59` has static origin `[1329.0, -378.0, -24.0]`, but marker `276` has no static `CreateMarker` origin. The committed S6d/S6e attribution evidence contains `30` unique focus-edge samples with `WATER_PATH`, `blocked=0`, and `86.7%` low native `dir_speed`, but no precise static route-coordinate fix is justified from `dm3.bot` alone. The next step should move toward S7 exact-player movement signatures, not another water-edge command tweak.
+S6f result: `276->59` and `59->276` are explicit path-index-0 edges, marker `59` has static origin `[1329.0, -378.0, -24.0]`, but marker `276` has no static `CreateMarker` origin. The committed S6d/S6e attribution evidence contains `30` unique focus-edge samples with `WATER_PATH`, `blocked=0`, and `86.7%` low native `dir_speed`, but no precise static route-coordinate fix is justified from `dm3.bot` alone. S7a has since moved this branch into exact-player movement signatures, and the next step is reference broadening rather than another water-edge command tweak.
 
 ## Rollback
 
