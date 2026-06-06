@@ -1,0 +1,2233 @@
+{
+  "demos": [
+    {
+      "command_frames": 398,
+      "commands": {
+        "attack_button_ratio": 0.0,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          0,
+          320,
+          508
+        ],
+        "jump_button_ratio": 0.161,
+        "nonzero_forward_ratio": 0.276,
+        "nonzero_side_ratio": 0.603,
+        "sidemove_abs_p50": 508.0,
+        "sidemove_values": [
+          -508,
+          -352,
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_bridge_to_rl.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 396,
+        "displacement_qu": 1407.889,
+        "duration_s": 5.148,
+        "path_distance_qu": 1610.033,
+        "path_efficiency": 0.874,
+        "speed_qu_per_s": {
+          "avg": 312.733,
+          "max": 688.625,
+          "p50": 380.866,
+          "p95": 523.531
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 398,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 24,
+        "max_segment_distance_qu": 1610.033,
+        "median_segment_distance_qu": 1610.033,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 25
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 398,
+        "payload_records": 410,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 41
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "5a690a5fabaa95ecaf5062642492d618c270de2f4196257c3e3702e66883968c",
+      "state_frames": 398
+    },
+    {
+      "command_frames": 328,
+      "commands": {
+        "attack_button_ratio": 0.0,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          0,
+          320,
+          508
+        ],
+        "jump_button_ratio": 0.122,
+        "nonzero_forward_ratio": 0.409,
+        "nonzero_side_ratio": 0.616,
+        "sidemove_abs_p50": 508.0,
+        "sidemove_values": [
+          -508,
+          -352,
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [
+          {
+            "distance_qu": 1467.989,
+            "dt_s": 0.013,
+            "frame": 53,
+            "prev_state_time_s": 0.662,
+            "reasons": [
+              "large_position_gap",
+              "implausible_speed"
+            ],
+            "speed_qu_per_s": 112922.115,
+            "state_time_s": 0.675
+          }
+        ],
+        "discontinuity_count": 1
+      },
+      "demo": "dm3_bridgespawn_to_rl.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 325,
+        "displacement_qu": 1411.28,
+        "duration_s": 4.238,
+        "path_distance_qu": 1331.598,
+        "path_efficiency": 1.06,
+        "speed_qu_per_s": {
+          "avg": 315.178,
+          "max": 681.54,
+          "p50": 369.911,
+          "p95": 534.739
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 328,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 19,
+        "max_segment_distance_qu": 1129.686,
+        "median_segment_distance_qu": 665.799,
+        "segment_count": 2,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 21
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 328,
+        "payload_records": 340,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 44
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 1,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "ab56a1daaa397720f4ebe6f8afea341016f35491137b76c70f10462682ddd080",
+      "state_frames": 328
+    },
+    {
+      "command_frames": 724,
+      "commands": {
+        "attack_button_ratio": 0.0,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          -508,
+          -320,
+          0,
+          320,
+          508
+        ],
+        "jump_button_ratio": 0.221,
+        "nonzero_forward_ratio": 0.232,
+        "nonzero_side_ratio": 0.689,
+        "sidemove_abs_p50": 508.0,
+        "sidemove_values": [
+          -508,
+          -352,
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_hilljump.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 722,
+        "displacement_qu": 426.866,
+        "duration_s": 9.398,
+        "path_distance_qu": 3669.98,
+        "path_efficiency": 0.116,
+        "speed_qu_per_s": {
+          "avg": 390.887,
+          "max": 779.795,
+          "p50": 443.344,
+          "p95": 551.135
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 724,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 51,
+        "max_segment_distance_qu": 3671.681,
+        "median_segment_distance_qu": 3671.681,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 52
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 724,
+        "payload_records": 736,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 26
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "afaaea30ea725f0011c3593e92ba2ac3736ae2ece3a1faf0eeaf56e64253f7a5",
+      "state_frames": 724
+    },
+    {
+      "command_frames": 240,
+      "commands": {
+        "attack_button_ratio": 0.025,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          -508,
+          -320,
+          0,
+          508
+        ],
+        "jump_button_ratio": 0.054,
+        "nonzero_forward_ratio": 0.225,
+        "nonzero_side_ratio": 0.592,
+        "sidemove_abs_p50": 508.0,
+        "sidemove_values": [
+          -508,
+          -352,
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_lifts_to_window.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 238,
+        "displacement_qu": 970.747,
+        "duration_s": 3.094,
+        "path_distance_qu": 1108.905,
+        "path_efficiency": 0.875,
+        "speed_qu_per_s": {
+          "avg": 358.437,
+          "max": 822.269,
+          "p50": 370.618,
+          "p95": 767.888
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 240,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 16,
+        "max_segment_distance_qu": 1112.052,
+        "median_segment_distance_qu": 1112.052,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 17
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 240,
+        "payload_records": 252,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 15
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 1,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "b45e436118812e69dc3be895c52af5ef2408b7b449559f96bb7c41fc9f78e7d4",
+      "state_frames": 240
+    },
+    {
+      "command_frames": 234,
+      "commands": {
+        "attack_button_ratio": 0.03,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          0
+        ],
+        "jump_button_ratio": 0.051,
+        "nonzero_forward_ratio": 0.0,
+        "nonzero_side_ratio": 0.53,
+        "sidemove_abs_p50": 508.0,
+        "sidemove_values": [
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_lifts_to_window2.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 232,
+        "displacement_qu": 712.149,
+        "duration_s": 3.014,
+        "path_distance_qu": 894.869,
+        "path_efficiency": 0.796,
+        "speed_qu_per_s": {
+          "avg": 296.996,
+          "max": 818.947,
+          "p50": 280.005,
+          "p95": 744.384
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 234,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 13,
+        "max_segment_distance_qu": 894.869,
+        "median_segment_distance_qu": 894.869,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 14
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 234,
+        "payload_records": 246,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 14
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 1,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "04398005a68805a39188d20a88f9030afb1ecf87d7b072e231156ea0c29a3b49",
+      "state_frames": 234
+    },
+    {
+      "command_frames": 619,
+      "commands": {
+        "attack_button_ratio": 0.023,
+        "forwardmove_abs_p50": 0,
+        "forwardmove_values": [
+          -508,
+          -320,
+          0,
+          320,
+          508
+        ],
+        "jump_button_ratio": 0.216,
+        "nonzero_forward_ratio": 0.173,
+        "nonzero_side_ratio": 0.735,
+        "sidemove_abs_p50": 508,
+        "sidemove_values": [
+          -508,
+          -352,
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_mega_to_rl.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 617,
+        "displacement_qu": 545.757,
+        "duration_s": 8.016,
+        "path_distance_qu": 3786.94,
+        "path_efficiency": 0.144,
+        "speed_qu_per_s": {
+          "avg": 472.513,
+          "max": 899.59,
+          "p50": 526.831,
+          "p95": 748.185
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 619,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 54,
+        "max_segment_distance_qu": 3787.565,
+        "median_segment_distance_qu": 3787.565,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 55
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 619,
+        "payload_records": 631,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 38
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "1bf6b60a9787ae4f4b6ebc7c48e4a682641ce727f45f0fbd45efe6d71e8a23f7",
+      "state_frames": 619
+    },
+    {
+      "command_frames": 292,
+      "commands": {
+        "attack_button_ratio": 0.055,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          -508,
+          -320,
+          0,
+          320,
+          508
+        ],
+        "jump_button_ratio": 0.041,
+        "nonzero_forward_ratio": 0.185,
+        "nonzero_side_ratio": 0.548,
+        "sidemove_abs_p50": 508.0,
+        "sidemove_values": [
+          -508,
+          -352,
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_mega_to_window.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 290,
+        "displacement_qu": 982.776,
+        "duration_s": 3.77,
+        "path_distance_qu": 1369.287,
+        "path_efficiency": 0.718,
+        "speed_qu_per_s": {
+          "avg": 363.147,
+          "max": 845.552,
+          "p50": 361.953,
+          "p95": 747.142
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 292,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 20,
+        "max_segment_distance_qu": 1369.683,
+        "median_segment_distance_qu": 1369.683,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 21
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 292,
+        "payload_records": 304,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 23
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 1,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "753736cf1c7eb6c737cf244ce215fcbcad6431982ba1e703036c62dc916bd680",
+      "state_frames": 292
+    },
+    {
+      "command_frames": 1460,
+      "commands": {
+        "attack_button_ratio": 0.028,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          -400,
+          -200,
+          0,
+          188,
+          380
+        ],
+        "jump_button_ratio": 0.03,
+        "nonzero_forward_ratio": 0.08,
+        "nonzero_side_ratio": 0.321,
+        "sidemove_abs_p50": 0.0,
+        "sidemove_values": [
+          -380,
+          -192,
+          0,
+          188,
+          380
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_mound_rjumps.qwd",
+      "map_marker_dm3": false,
+      "motion": {
+        "accepted_step_count": 1458,
+        "displacement_qu": 562.955,
+        "duration_s": 19.553,
+        "path_distance_qu": 4023.386,
+        "path_efficiency": 0.14,
+        "speed_qu_per_s": {
+          "avg": 208.318,
+          "max": 2138.127,
+          "p50": 56.065,
+          "p95": 681.176
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 1460,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 56,
+        "max_segment_distance_qu": 4023.781,
+        "median_segment_distance_qu": 4023.781,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 57
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 1460,
+        "payload_records": 1471,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 36
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "979b622c05504fd1fa341276e54186399e491bf90ef7f5f3abaabad56097ee1e",
+      "state_frames": 1460
+    },
+    {
+      "command_frames": 599,
+      "commands": {
+        "attack_button_ratio": 0.047,
+        "forwardmove_abs_p50": 0,
+        "forwardmove_values": [
+          0,
+          188,
+          380
+        ],
+        "jump_button_ratio": 0.072,
+        "nonzero_forward_ratio": 0.047,
+        "nonzero_side_ratio": 0.472,
+        "sidemove_abs_p50": 0,
+        "sidemove_values": [
+          -380,
+          -192,
+          0,
+          188,
+          380
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_pent_advanced.qwd",
+      "map_marker_dm3": false,
+      "motion": {
+        "accepted_step_count": 597,
+        "displacement_qu": 641.71,
+        "duration_s": 8.063,
+        "path_distance_qu": 2506.681,
+        "path_efficiency": 0.256,
+        "speed_qu_per_s": {
+          "avg": 315.477,
+          "max": 1628.721,
+          "p50": 317.455,
+          "p95": 776.077
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 599,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 36,
+        "max_segment_distance_qu": 2506.681,
+        "median_segment_distance_qu": 2506.681,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 37
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 599,
+        "payload_records": 610,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 35
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "fe7bbdfed2d91f9f00a3bd895236eeeaf8f484e6b9e4156819d9d7c313ed2af1",
+      "state_frames": 599
+    },
+    {
+      "command_frames": 1401,
+      "commands": {
+        "attack_button_ratio": 0.046,
+        "forwardmove_abs_p50": 0,
+        "forwardmove_values": [
+          -400,
+          -200,
+          0,
+          188,
+          380
+        ],
+        "jump_button_ratio": 0.05,
+        "nonzero_forward_ratio": 0.168,
+        "nonzero_side_ratio": 0.256,
+        "sidemove_abs_p50": 0,
+        "sidemove_values": [
+          -380,
+          -192,
+          0,
+          188,
+          380
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_pent_grenade_rjump.qwd",
+      "map_marker_dm3": false,
+      "motion": {
+        "accepted_step_count": 1399,
+        "displacement_qu": 474.838,
+        "duration_s": 18.851,
+        "path_distance_qu": 4152.47,
+        "path_efficiency": 0.114,
+        "speed_qu_per_s": {
+          "avg": 224.597,
+          "max": 2225.356,
+          "p50": 28.846,
+          "p95": 813.726
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 1401,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 55,
+        "max_segment_distance_qu": 4152.47,
+        "median_segment_distance_qu": 4152.47,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 56
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 1401,
+        "payload_records": 1412,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 40
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "094934200e2883de90d0e9d92a1f41f50d19d0e26f3ff8ea480574c922328fea",
+      "state_frames": 1401
+    },
+    {
+      "command_frames": 368,
+      "commands": {
+        "attack_button_ratio": 0.0,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          0,
+          320,
+          508
+        ],
+        "jump_button_ratio": 0.291,
+        "nonzero_forward_ratio": 0.144,
+        "nonzero_side_ratio": 0.644,
+        "sidemove_abs_p50": 508.0,
+        "sidemove_values": [
+          -508,
+          -352,
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_quad_to_lifts.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 366,
+        "displacement_qu": 774.887,
+        "duration_s": 4.759,
+        "path_distance_qu": 1716.203,
+        "path_efficiency": 0.452,
+        "speed_qu_per_s": {
+          "avg": 360.708,
+          "max": 678.549,
+          "p50": 481.056,
+          "p95": 595.066
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 368,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 25,
+        "max_segment_distance_qu": 1716.203,
+        "median_segment_distance_qu": 1716.203,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 26
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 368,
+        "payload_records": 380,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 19
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 1,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "9596fb35f674336b9724e79f4bf8c0c7b058b6b509cc4e1a3be0871846f13d40",
+      "state_frames": 368
+    },
+    {
+      "command_frames": 1021,
+      "commands": {
+        "attack_button_ratio": 0.0,
+        "forwardmove_abs_p50": 0,
+        "forwardmove_values": [
+          0,
+          188,
+          380
+        ],
+        "jump_button_ratio": 0.029,
+        "nonzero_forward_ratio": 0.355,
+        "nonzero_side_ratio": 0.256,
+        "sidemove_abs_p50": 0,
+        "sidemove_values": [
+          -380,
+          -192,
+          0,
+          188,
+          380
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_ra_jumps.qwd",
+      "map_marker_dm3": false,
+      "motion": {
+        "accepted_step_count": 1019,
+        "displacement_qu": 548.444,
+        "duration_s": 13.807,
+        "path_distance_qu": 2836.125,
+        "path_efficiency": 0.193,
+        "speed_qu_per_s": {
+          "avg": 210.74,
+          "max": 2080.191,
+          "p50": 173.337,
+          "p95": 473.423
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 1021,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 39,
+        "max_segment_distance_qu": 2836.762,
+        "median_segment_distance_qu": 2836.762,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 40
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 1021,
+        "payload_records": 1032,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 23
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "d984553e7f7c4193d61552756daf856ba4a27b765a68e8590e5cf4f365c02b75",
+      "state_frames": 1021
+    },
+    {
+      "command_frames": 997,
+      "commands": {
+        "attack_button_ratio": 0.073,
+        "forwardmove_abs_p50": 0,
+        "forwardmove_values": [
+          -400,
+          -200,
+          0,
+          188,
+          380
+        ],
+        "jump_button_ratio": 0.033,
+        "nonzero_forward_ratio": 0.22,
+        "nonzero_side_ratio": 0.293,
+        "sidemove_abs_p50": 0,
+        "sidemove_values": [
+          -380,
+          -192,
+          0,
+          188,
+          380
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_ra_rjumps.qwd",
+      "map_marker_dm3": false,
+      "motion": {
+        "accepted_step_count": 995,
+        "displacement_qu": 442.233,
+        "duration_s": 13.382,
+        "path_distance_qu": 3102.958,
+        "path_efficiency": 0.143,
+        "speed_qu_per_s": {
+          "avg": 234.945,
+          "max": 1828.043,
+          "p50": 205.553,
+          "p95": 620.844
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 997,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 43,
+        "max_segment_distance_qu": 3102.958,
+        "median_segment_distance_qu": 3102.958,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 44
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 997,
+        "payload_records": 1007,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 29
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "1da899bc8538915bcc2c2b85fca3e0e79e1096da469cbaf5dd31fad882fb5c8f",
+      "state_frames": 997
+    },
+    {
+      "command_frames": 460,
+      "commands": {
+        "attack_button_ratio": 0.063,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          -400,
+          -200,
+          0,
+          188,
+          380
+        ],
+        "jump_button_ratio": 0.013,
+        "nonzero_forward_ratio": 0.046,
+        "nonzero_side_ratio": 0.302,
+        "sidemove_abs_p50": 0.0,
+        "sidemove_values": [
+          -380,
+          -192,
+          0,
+          188,
+          380
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_ra_rjumps_hard.qwd",
+      "map_marker_dm3": false,
+      "motion": {
+        "accepted_step_count": 458,
+        "displacement_qu": 522.811,
+        "duration_s": 6.206,
+        "path_distance_qu": 928.908,
+        "path_efficiency": 0.563,
+        "speed_qu_per_s": {
+          "avg": 153.22,
+          "max": 1698.795,
+          "p50": 0.0,
+          "p95": 624.39
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 460,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 13,
+        "max_segment_distance_qu": 929.085,
+        "median_segment_distance_qu": 929.085,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 14
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 460,
+        "payload_records": 471,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 22
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "7d6c53350c740cfd20b27326f453b90329955ea30e205e9d95320f017a5f1bd5",
+      "state_frames": 460
+    },
+    {
+      "command_frames": 192,
+      "commands": {
+        "attack_button_ratio": 0.078,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          0,
+          468,
+          508
+        ],
+        "jump_button_ratio": 0.339,
+        "nonzero_forward_ratio": 0.375,
+        "nonzero_side_ratio": 0.51,
+        "sidemove_abs_p50": 508.0,
+        "sidemove_values": [
+          -508,
+          0,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_ra_stair_to_ra.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 145,
+        "displacement_qu": 379.291,
+        "duration_s": 2.467,
+        "path_distance_qu": 487.316,
+        "path_efficiency": 0.778,
+        "speed_qu_per_s": {
+          "avg": 221.476,
+          "max": 1281.734,
+          "p50": 170.724,
+          "p95": 497.793
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.013,
+        "p50": 0.013,
+        "p95": 0.013
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 192,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 9,
+        "max_segment_distance_qu": 623.48,
+        "median_segment_distance_qu": 623.48,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 10
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 193,
+        "payload_records": 205,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 213
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "754b30ba88d42d61cc7f1099cbe3f11879010f705d99e8dcf63dd66a458c7ba9",
+      "state_frames": 193
+    },
+    {
+      "command_frames": 459,
+      "commands": {
+        "attack_button_ratio": 0.0,
+        "forwardmove_abs_p50": 0,
+        "forwardmove_values": [
+          -508,
+          -320,
+          0,
+          508
+        ],
+        "jump_button_ratio": 0.322,
+        "nonzero_forward_ratio": 0.1,
+        "nonzero_side_ratio": 0.773,
+        "sidemove_abs_p50": 508,
+        "sidemove_values": [
+          -508,
+          -352,
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_ring_to_mega.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 457,
+        "displacement_qu": 1877.071,
+        "duration_s": 5.965,
+        "path_distance_qu": 2596.452,
+        "path_efficiency": 0.723,
+        "speed_qu_per_s": {
+          "avg": 436.621,
+          "max": 1353.367,
+          "p50": 493.583,
+          "p95": 721.101
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 459,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 38,
+        "max_segment_distance_qu": 2600.552,
+        "median_segment_distance_qu": 2600.552,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 39
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 459,
+        "payload_records": 471,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 23
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 1,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "9d22226bed9a2f75e0176c511c21ebd62f85d3d041054a2a8c70c7f6dcacbe79",
+      "state_frames": 459
+    },
+    {
+      "command_frames": 301,
+      "commands": {
+        "attack_button_ratio": 0.033,
+        "forwardmove_abs_p50": 0,
+        "forwardmove_values": [
+          -508,
+          -320,
+          0,
+          320,
+          508
+        ],
+        "jump_button_ratio": 0.09,
+        "nonzero_forward_ratio": 0.389,
+        "nonzero_side_ratio": 0.425,
+        "sidemove_abs_p50": 0,
+        "sidemove_values": [
+          -508,
+          -352,
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_rjump_to_mega.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 299,
+        "displacement_qu": 471.797,
+        "duration_s": 3.885,
+        "path_distance_qu": 614.908,
+        "path_efficiency": 0.767,
+        "speed_qu_per_s": {
+          "avg": 158.238,
+          "max": 472.036,
+          "p50": 102.213,
+          "p95": 384.916
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 301,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 9,
+        "max_segment_distance_qu": 615.408,
+        "median_segment_distance_qu": 615.408,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 10
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 301,
+        "payload_records": 313,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 19
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 1,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "33ab52833f81749383dd9ce1a662ac4367fa853de259dfc062b37a45136ee76b",
+      "state_frames": 301
+    },
+    {
+      "command_frames": 335,
+      "commands": {
+        "attack_button_ratio": 0.066,
+        "forwardmove_abs_p50": 0,
+        "forwardmove_values": [
+          -508,
+          -320,
+          0,
+          320,
+          508
+        ],
+        "jump_button_ratio": 0.036,
+        "nonzero_forward_ratio": 0.43,
+        "nonzero_side_ratio": 0.349,
+        "sidemove_abs_p50": 0,
+        "sidemove_values": [
+          -508,
+          -352,
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_rjump_to_ra.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 323,
+        "displacement_qu": 628.885,
+        "duration_s": 4.328,
+        "path_distance_qu": 1026.569,
+        "path_efficiency": 0.613,
+        "speed_qu_per_s": {
+          "avg": 239.619,
+          "max": 726.836,
+          "p50": 317.489,
+          "p95": 499.395
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.013,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 335,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 16,
+        "max_segment_distance_qu": 1074.512,
+        "median_segment_distance_qu": 1074.512,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 17
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 335,
+        "payload_records": 347,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 15
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "27731b0f54a291c2c263d405673931732f251608389cd9618344c1fe6caa2fd3",
+      "state_frames": 335
+    },
+    {
+      "command_frames": 981,
+      "commands": {
+        "attack_button_ratio": 0.018,
+        "forwardmove_abs_p50": 0,
+        "forwardmove_values": [
+          -400,
+          -200,
+          0,
+          188,
+          380
+        ],
+        "jump_button_ratio": 0.068,
+        "nonzero_forward_ratio": 0.31,
+        "nonzero_side_ratio": 0.416,
+        "sidemove_abs_p50": 0,
+        "sidemove_values": [
+          -380,
+          -192,
+          0,
+          188,
+          380
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_rl_to_bridge.qwd",
+      "map_marker_dm3": false,
+      "motion": {
+        "accepted_step_count": 979,
+        "displacement_qu": 631.752,
+        "duration_s": 13.194,
+        "path_distance_qu": 3797.319,
+        "path_efficiency": 0.166,
+        "speed_qu_per_s": {
+          "avg": 292.375,
+          "max": 1672.544,
+          "p50": 323.214,
+          "p95": 592.244
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 981,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 53,
+        "max_segment_distance_qu": 3797.319,
+        "median_segment_distance_qu": 3797.319,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 54
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 981,
+        "payload_records": 992,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 180
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "ee77969a23b6dfd1a4c537063977250e62a76ab1cdfe90dcd83ded31a281bdef",
+      "state_frames": 981
+    },
+    {
+      "command_frames": 400,
+      "commands": {
+        "attack_button_ratio": 0.037,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          -508,
+          -320,
+          0,
+          320,
+          508
+        ],
+        "jump_button_ratio": 0.115,
+        "nonzero_forward_ratio": 0.135,
+        "nonzero_side_ratio": 0.52,
+        "sidemove_abs_p50": 508.0,
+        "sidemove_values": [
+          -508,
+          -352,
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_rl_to_ya.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 398,
+        "displacement_qu": 1498.262,
+        "duration_s": 5.173,
+        "path_distance_qu": 2151.168,
+        "path_efficiency": 0.696,
+        "speed_qu_per_s": {
+          "avg": 415.989,
+          "max": 968.197,
+          "p50": 421.379,
+          "p95": 872.46
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 400,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 31,
+        "max_segment_distance_qu": 2151.168,
+        "median_segment_distance_qu": 2151.168,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 32
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 400,
+        "payload_records": 412,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 28
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 1,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "00c05827b75ef420cb9a722b8400da85f42507db4f27fbad050a048ae7877755",
+      "state_frames": 400
+    },
+    {
+      "command_frames": 1644,
+      "commands": {
+        "attack_button_ratio": 0.0,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          -400,
+          -200,
+          0,
+          188,
+          380
+        ],
+        "jump_button_ratio": 0.113,
+        "nonzero_forward_ratio": 0.31,
+        "nonzero_side_ratio": 0.466,
+        "sidemove_abs_p50": 0.0,
+        "sidemove_values": [
+          -380,
+          -192,
+          0,
+          188,
+          380
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_sng_jumps.qwd",
+      "map_marker_dm3": false,
+      "motion": {
+        "accepted_step_count": 1642,
+        "displacement_qu": 1176.403,
+        "duration_s": 22.227,
+        "path_distance_qu": 6517.041,
+        "path_efficiency": 0.181,
+        "speed_qu_per_s": {
+          "avg": 300.579,
+          "max": 2142.28,
+          "p50": 343.216,
+          "p95": 504.947
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 1644,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 91,
+        "max_segment_distance_qu": 6517.492,
+        "median_segment_distance_qu": 6517.492,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 92
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 1644,
+        "payload_records": 1655,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 43
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "92783cdd1a6609bcdc7a064f952cddf959b7bea0126a3815a73e2cf9d83b4962",
+      "state_frames": 1644
+    },
+    {
+      "command_frames": 510,
+      "commands": {
+        "attack_button_ratio": 0.0,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          0,
+          188,
+          380
+        ],
+        "jump_button_ratio": 0.253,
+        "nonzero_forward_ratio": 0.19,
+        "nonzero_side_ratio": 0.68,
+        "sidemove_abs_p50": 380.0,
+        "sidemove_values": [
+          -380,
+          -192,
+          0,
+          188,
+          380
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_sng_mega_combo.qwd",
+      "map_marker_dm3": false,
+      "motion": {
+        "accepted_step_count": 508,
+        "displacement_qu": 1240.029,
+        "duration_s": 6.866,
+        "path_distance_qu": 2331.499,
+        "path_efficiency": 0.532,
+        "speed_qu_per_s": {
+          "avg": 348.051,
+          "max": 1409.924,
+          "p50": 421.984,
+          "p95": 541.94
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 510,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 34,
+        "max_segment_distance_qu": 2331.675,
+        "median_segment_distance_qu": 2331.675,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 35
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 510,
+        "payload_records": 521,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 29
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "3ec041231212f620fcc608272b882f5c84385a103ac6f31a81a257be3d080df7",
+      "state_frames": 510
+    },
+    {
+      "command_frames": 1651,
+      "commands": {
+        "attack_button_ratio": 0.038,
+        "forwardmove_abs_p50": 0,
+        "forwardmove_values": [
+          -400,
+          -200,
+          0,
+          188,
+          380
+        ],
+        "jump_button_ratio": 0.184,
+        "nonzero_forward_ratio": 0.167,
+        "nonzero_side_ratio": 0.593,
+        "sidemove_abs_p50": 380,
+        "sidemove_values": [
+          -380,
+          -192,
+          0,
+          188,
+          380
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_sng_rjumps.qwd",
+      "map_marker_dm3": false,
+      "motion": {
+        "accepted_step_count": 1649,
+        "displacement_qu": 974.632,
+        "duration_s": 22.162,
+        "path_distance_qu": 9438.708,
+        "path_efficiency": 0.103,
+        "speed_qu_per_s": {
+          "avg": 433.891,
+          "max": 2766.872,
+          "p50": 431.928,
+          "p95": 759.899
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 1651,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 131,
+        "max_segment_distance_qu": 9438.958,
+        "median_segment_distance_qu": 9438.958,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 132
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 1651,
+        "payload_records": 1662,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 40
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "680adfb5daa41ba2a096dba5a167d51227103db003931f2315191f75a79dfb6d",
+      "state_frames": 1651
+    },
+    {
+      "command_frames": 440,
+      "commands": {
+        "attack_button_ratio": 0.0,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          0,
+          508
+        ],
+        "jump_button_ratio": 0.284,
+        "nonzero_forward_ratio": 0.089,
+        "nonzero_side_ratio": 0.718,
+        "sidemove_abs_p50": 508.0,
+        "sidemove_values": [
+          -508,
+          -352,
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_sng_shortcut.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 438,
+        "displacement_qu": 1139.887,
+        "duration_s": 5.692,
+        "path_distance_qu": 2180.804,
+        "path_efficiency": 0.523,
+        "speed_qu_per_s": {
+          "avg": 383.132,
+          "max": 592.007,
+          "p50": 465.924,
+          "p95": 548.283
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 440,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 32,
+        "max_segment_distance_qu": 2184.959,
+        "median_segment_distance_qu": 2184.959,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 33
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 440,
+        "payload_records": 452,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 18
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 1,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "3660cfd7b7e78d3a2484ae1c01c83c9f13ce35cde562c704d908804438eb5349",
+      "state_frames": 440
+    },
+    {
+      "command_frames": 281,
+      "commands": {
+        "attack_button_ratio": 0.0,
+        "forwardmove_abs_p50": 0,
+        "forwardmove_values": [
+          0,
+          508
+        ],
+        "jump_button_ratio": 0.085,
+        "nonzero_forward_ratio": 0.495,
+        "nonzero_side_ratio": 0.367,
+        "sidemove_abs_p50": 0,
+        "sidemove_values": [
+          -508,
+          -352,
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_sng_shortcut2.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 279,
+        "displacement_qu": 807.602,
+        "duration_s": 3.624,
+        "path_distance_qu": 1057.621,
+        "path_efficiency": 0.764,
+        "speed_qu_per_s": {
+          "avg": 291.859,
+          "max": 1295.473,
+          "p50": 326.923,
+          "p95": 503.767
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 281,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 15,
+        "max_segment_distance_qu": 1059.621,
+        "median_segment_distance_qu": 1059.621,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 16
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 281,
+        "payload_records": 293,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 16
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 1,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "7fe05f4226759e897d6aa5470c8f04ef8bbd615c199520ecb0cc2a1b771f1774",
+      "state_frames": 281
+    },
+    {
+      "command_frames": 692,
+      "commands": {
+        "attack_button_ratio": 0.0,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          -508,
+          -320,
+          0,
+          320,
+          508
+        ],
+        "jump_button_ratio": 0.204,
+        "nonzero_forward_ratio": 0.275,
+        "nonzero_side_ratio": 0.736,
+        "sidemove_abs_p50": 508.0,
+        "sidemove_values": [
+          -508,
+          -352,
+          0,
+          348,
+          508
+        ]
+      },
+      "continuity": {
+        "discontinuities": [
+          {
+            "distance_qu": 780.17,
+            "dt_s": 0.013,
+            "frame": 128,
+            "prev_state_time_s": 1.637,
+            "reasons": [
+              "large_position_gap",
+              "implausible_speed"
+            ],
+            "speed_qu_per_s": 60012.987,
+            "state_time_s": 1.65
+          }
+        ],
+        "discontinuity_count": 1
+      },
+      "demo": "dm3_sng_to_rl.qwd",
+      "map_marker_dm3": true,
+      "motion": {
+        "accepted_step_count": 689,
+        "displacement_qu": 2572.574,
+        "duration_s": 8.969,
+        "path_distance_qu": 3469.131,
+        "path_efficiency": 0.742,
+        "speed_qu_per_s": {
+          "avg": 387.513,
+          "max": 697.72,
+          "p50": 438.634,
+          "p95": 580.517
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 692,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 51,
+        "max_segment_distance_qu": 2944.631,
+        "median_segment_distance_qu": 1734.566,
+        "segment_count": 2,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 53
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 692,
+        "payload_records": 704,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 47
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 1,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "9f878139d09a7038e5a1a7c1ed5727598f25f2d7a3270f5d03970939b8ce052f",
+      "state_frames": 692
+    },
+    {
+      "command_frames": 1922,
+      "commands": {
+        "attack_button_ratio": 0.026,
+        "forwardmove_abs_p50": 0.0,
+        "forwardmove_values": [
+          -400,
+          -200,
+          0,
+          188,
+          380
+        ],
+        "jump_button_ratio": 0.009,
+        "nonzero_forward_ratio": 0.271,
+        "nonzero_side_ratio": 0.272,
+        "sidemove_abs_p50": 0.0,
+        "sidemove_values": [
+          -380,
+          -192,
+          0,
+          188,
+          380
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_water_escapes.qwd",
+      "map_marker_dm3": false,
+      "motion": {
+        "accepted_step_count": 1920,
+        "displacement_qu": 462.202,
+        "duration_s": 26.03,
+        "path_distance_qu": 4667.442,
+        "path_efficiency": 0.099,
+        "speed_qu_per_s": {
+          "avg": 184.588,
+          "max": 1260.632,
+          "p50": 173.344,
+          "p95": 457.226
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 1922,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 64,
+        "max_segment_distance_qu": 4668.243,
+        "median_segment_distance_qu": 4668.243,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 65
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 1922,
+        "payload_records": 1933,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 1898
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "31d07f1c1787e7f59c5ccbd8699b83ebeea050783f31d34c5cda14f72351de6f",
+      "state_frames": 1922
+    },
+    {
+      "command_frames": 2753,
+      "commands": {
+        "attack_button_ratio": 0.066,
+        "forwardmove_abs_p50": 0,
+        "forwardmove_values": [
+          -400,
+          -212,
+          -200,
+          -20,
+          0,
+          188,
+          380
+        ],
+        "jump_button_ratio": 0.015,
+        "nonzero_forward_ratio": 0.178,
+        "nonzero_side_ratio": 0.136,
+        "sidemove_abs_p50": 0,
+        "sidemove_values": [
+          -380,
+          -192,
+          0,
+          188,
+          380
+        ]
+      },
+      "continuity": {
+        "discontinuities": [],
+        "discontinuity_count": 0
+      },
+      "demo": "dm3_water_rjumps.qwd",
+      "map_marker_dm3": false,
+      "motion": {
+        "accepted_step_count": 2751,
+        "displacement_qu": 37.61,
+        "duration_s": 36.877,
+        "path_distance_qu": 5192.611,
+        "path_efficiency": 0.007,
+        "speed_qu_per_s": {
+          "avg": 143.547,
+          "max": 1967.559,
+          "p50": 38.466,
+          "p95": 541.457
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 2753,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 64,
+        "max_segment_distance_qu": 5192.611,
+        "median_segment_distance_qu": 5192.611,
+        "segment_count": 1,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 65
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 2753,
+        "payload_records": 2764,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 2816
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "0eb9af8d18694384fbd002acea6338b3f6e39f4542fd3c6c99e93679bf63a762",
+      "state_frames": 2753
+    },
+    {
+      "command_frames": 1047,
+      "commands": {
+        "attack_button_ratio": 0.071,
+        "forwardmove_abs_p50": 0,
+        "forwardmove_values": [
+          0,
+          188,
+          380
+        ],
+        "jump_button_ratio": 0.0,
+        "nonzero_forward_ratio": 0.028,
+        "nonzero_side_ratio": 0.034,
+        "sidemove_abs_p50": 0,
+        "sidemove_values": [
+          0,
+          188,
+          380
+        ]
+      },
+      "continuity": {
+        "discontinuities": [
+          {
+            "distance_qu": 148.875,
+            "dt_s": 0.011999,
+            "frame": 645,
+            "prev_state_time_s": 8.784,
+            "reasons": [
+              "implausible_speed"
+            ],
+            "speed_qu_per_s": 12407.149,
+            "state_time_s": 8.796
+          }
+        ],
+        "discontinuity_count": 1
+      },
+      "demo": "dm3_water_shafting.qwd",
+      "map_marker_dm3": false,
+      "motion": {
+        "accepted_step_count": 1044,
+        "displacement_qu": 481.826,
+        "duration_s": 14.217,
+        "path_distance_qu": 1011.712,
+        "path_efficiency": 0.476,
+        "speed_qu_per_s": {
+          "avg": 72.411,
+          "max": 1676.451,
+          "p50": 0.0,
+          "p95": 322.967
+        }
+      },
+      "pair_time_delta_abs_s": {
+        "max": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "paired_coverage": 1.0,
+      "paired_frames": 1047,
+      "route_probe": {
+        "candidate": true,
+        "edge_count": 12,
+        "max_segment_distance_qu": 983.212,
+        "median_segment_distance_qu": 505.856,
+        "segment_count": 2,
+        "spacing_qu": 64.0,
+        "status": "trajectory_route_candidate",
+        "waypoint_count": 14
+      },
+      "scan_counts": {
+        "anchored_playerinfo_records": 1047,
+        "payload_records": 1058,
+        "rejected_playerinfo_playernum_mismatch": 0,
+        "suspicious_later_playerinfo_markers": 1071
+      },
+      "serverdata": {
+        "gamedir": "qw",
+        "level_name": "The Abandoned Base",
+        "playernum": 0,
+        "protocol": 28,
+        "spectator": false
+      },
+      "source_sha256": "5683857d95919f0c017b1a342bdb07c9b989f3cf9330736415491828b49ade9d",
+      "state_frames": 1047
+    }
+  ],
+  "schema": "komodobots.qwd_route_probe.v1",
+  "source": {
+    "demo_root_label": "tricks",
+    "pattern": "dm3_*.qwd",
+    "waypoint_spacing_qu": 64.0
+  },
+  "summary": {
+    "coverage_ge_98_count": 29,
+    "demo_count": 29,
+    "exact_command_state_pair_count": 29,
+    "no_discontinuity_count": 26,
+    "paired_coverage_min": 1.0,
+    "paired_coverage_p50": 1.0,
+    "route_candidate_count": 29,
+    "total_command_frames": 22749,
+    "total_paired_frames": 22749,
+    "verdict": "partial_success",
+    "verdict_detail": "QWD can provide exact actions plus anchored self trajectory for these DM3 POV demos. The output is route/controller-ready evidence, but not yet a Frogbot .bot route or a proven replay controller."
+  }
+}

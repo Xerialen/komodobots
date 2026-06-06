@@ -2689,3 +2689,67 @@ Medium for broad QWD compatibility until more POV demos from different client bu
 ### Follow-up
 
 Ask Claude/Code Sentinel to review the QWD layout and record walking. The next smallest useful experiment is Phase 2 design: parse enough QWD `dem_read` client state to pair each command with observed movement state without assuming MVD `DF_` playerinfo flags apply to QWD.
+
+## 2026-06-06 - QWD Trajectory Route Applicability Probe
+
+### Experiment
+
+Tested whether first-person QWD trick demos can provide not only exact human actions, but also same-frame movement state and route-like trajectory geometry that could eventually inform a Frogbot movement controller.
+
+Added `scripts/probe_qwd_route_applicability.py`. The probe:
+
+- decodes exact outgoing commands through `tools/qwd_usercmd/qwd_usercmd.py`;
+- source-checks QWD `svc_playerinfo` against ezQuake `cl_ents.c`, `sv_ents.c`, and `MSG_ReadCoord()`;
+- accepts self-player state only at QWD network-body offset `8`, avoiding false-positive `svc_playerinfo` bytes later in payloads;
+- pairs command/state rows by frame order;
+- measures pair coverage, time deltas, speed distributions, continuity splits, command ratios, and waypoint-downsampled route candidates.
+
+### Result
+
+All `29` local `dm3_*.qwd` trick demos produced exact command/state frame matches:
+
+- Total command frames: `22,749`.
+- Total paired frames: `22,749`.
+- Paired coverage min/p50: `1.000` / `1.000`.
+- Route candidates after `64` qu waypoint downsampling: `29` of `29`.
+- No real continuity split after duplicate-tick handling: `26` of `29`.
+
+The earlier naive byte-scan prototype produced impossible speed spikes in water-heavy demos because unrelated payload bytes could look like `svc_playerinfo`. Anchoring state recovery to the QWD network-body offset fixed that failure mode and kept water-heavy demos usable as measured trajectories.
+
+### Evidence
+
+Validation commands:
+
+```powershell
+python -m unittest tests.test_qwd_usercmd tests.test_probe_qwd_route_applicability -v
+python scripts/probe_qwd_route_applicability.py --demo-root "C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos\tricks" --pattern "dm3_*.qwd" --output-json experiments/qwd_route_probe/evidence/qwd-trajectory-route-probe-dm3.json --output-md experiments/qwd_route_probe/evidence/qwd-trajectory-route-probe-dm3.md --raw-output-dir artifacts/qwd-route-probe --waypoint-spacing 64
+```
+
+Focused tests: `8` tests passed across the existing QWD usercmd extractor and new route-applicability probe.
+
+Committed artifacts:
+
+- `scripts/probe_qwd_route_applicability.py`
+- `tests/test_probe_qwd_route_applicability.py`
+- `experiments/qwd_route_probe/evidence/qwd-trajectory-route-probe-dm3.json`
+- `experiments/qwd_route_probe/evidence/qwd-trajectory-route-probe-dm3.md`
+
+Raw paired rows and waypoint exports remain ignored under `artifacts/qwd-route-probe/`.
+
+### Interpretation
+
+This is a real bridge from human POV demos to movement-controller evidence. For matching QWDs, Komodobots can now pair exact human commands with plausible self trajectory and reduce that trajectory into route-like waypoints.
+
+It is not yet evidence that a Frogbot can execute those waypoints or replay those commands. Frogbot application still needs semantic route mapping to `.bot` route concepts, a server-loop controller probe, and stop conditions that reject combat, route, water, or air-transition regressions.
+
+### Confidence
+
+High for this local DM3 QWD corpus: frame coverage is exact and the parser is source-grounded with false-positive guards.
+
+Medium for broader QWD/client compatibility until demos from more clients and maps are checked.
+
+Medium-low for direct Frogbot applicability until one route candidate is mapped against `dm3.bot` and tried in a controlled KTX/Frogbot experiment.
+
+### Follow-up
+
+Next smallest useful experiment: choose one clean route candidate such as `dm3_sng_shortcut.qwd`, compare its extracted waypoints against the current `dm3.bot` marker graph, and decide whether the first Frogbot-facing probe should be route-following, command-imitation, or a hybrid waypoint/controller test.

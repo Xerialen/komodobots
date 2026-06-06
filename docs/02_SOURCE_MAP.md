@@ -104,6 +104,8 @@ S7j failed-bucket diagnosis helper: `C:\Users\benya\projects\quakeworld\komodobo
 
 QWD POV usercmd extractor: `C:\Users\benya\projects\quakeworld\komodobots\tools\qwd_usercmd\qwd_usercmd.py`
 
+QWD trajectory route applicability probe: `C:\Users\benya\projects\quakeworld\komodobots\scripts\probe_qwd_route_applicability.py`
+
 KTX movement probe patch: `C:\Users\benya\projects\quakeworld\komodobots\experiments\ktx_moveprobe\frogbot-moveprobe.patch`
 
 Why it matters:
@@ -128,6 +130,7 @@ Why it matters:
 - `scripts/compare_air_transition_probe.py` evaluates a follow-up bot probe against the committed S7i contract. It combines the new bot run with the S7f reference rows, reruns S7g-style context buckets, reports transition-probe activation, preserves cadence as diagnostic, and applies the S7i stop conditions.
 - `scripts/diagnose_s7j_failed_buckets.py` consumes the corrected S7j result plus S7g baseline context and recomputes per-segment command/probe/route context for the failed pre-air, airborne-proxy, and non-airborne buckets before another movement probe.
 - `tools/qwd_usercmd/qwd_usercmd.py` extracts exact first-person `.qwd` POV-demo `usercmd_t` streams into `komodobots.qwd_usercmd.v1` line-delimited JSON. It is the Phase 1 action-label path for human commands, separate from MVD state/evaluation evidence.
+- `scripts/probe_qwd_route_applicability.py` measures the Phase 2 QWD bridge: exact `dem_cmd` rows paired with anchored self-player `svc_playerinfo` origin/velocity rows, plus continuity splits and waypoint downsampling for route/controller applicability. It is evidence for trajectory extraction, not a Frogbot `.bot` route importer or replay controller.
 - `experiments/ktx_moveprobe/frogbot-moveprobe.patch` is the first S2 KTX source probe. It applies to KTX commit `08807da`, hooks `src/bot_movement.c::BotSetCommand()` after the prewar-freeze guard, and adds cvar-controlled command perturbation immediately before button assembly and `trap_SetBotCMD(...)`.
 - The same patch includes v2a command instrumentation. When `k_fb_moveprobe_log_commands=1`, KTX prints sampled `FBMOVEPROBE_CMD` rows containing the final `msec`, angles, movement command values, buttons, and impulse about to be sent to `trap_SetBotCMD(...)`.
 - The patch also includes v2b mode `3`, a route-yaw probe that sets yaw from `self->fb.dir_move_`, emits simple movement command values, and forces jump when a route direction is available.
@@ -147,6 +150,7 @@ Why it matters:
 - `scripts/attribute_route_state_windows.py` uses KTX `include/fb_globals.h`, `include/g_consts.h`, `src/route_calc.c`, `src/bot_botwater.c`, `src/bot_movement.c`, and `resources/example-configs/ktx/bots/maps/dm3.bot` to decode S6b/S6d/S6e repeated marker/path-state/water-state patterns.
 - `experiments/ktx_moveprobe/evidence/` keeps small committed derived summaries for important S3 runs while raw MVDs and per-run directories remain outside Git under `artifacts/`. S7c regenerated the S3g summary from existing artifacts to include bot-side cadence.
 - `experiments/human_comparison/evidence/` keeps small committed derived inventory/summary files for S4 human-demo work while raw human demos and parser event streams remain outside Git under `artifacts/human-demos/`.
+- `experiments/qwd_route_probe/evidence/` keeps compact committed QWD state/action/waypoint applicability summaries, while per-frame paired NDJSON and waypoint exports remain ignored under `artifacts/qwd-route-probe/`.
 
 Verification:
 
