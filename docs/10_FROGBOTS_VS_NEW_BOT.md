@@ -107,3 +107,19 @@ The first design gate for that hybrid probe is now written in `experiments/qwd_r
 - reject or mark inconclusive any run that reaches points only through slow/stuck movement or loses diagnostics
 
 Decision status: continue Frogbots for one bounded QWD SNG runtime probe. If that produces positive server-loop evidence, expand the method to the remaining DM3 QWD moves. If it requires invasive route rewrites or cannot preserve diagnostics, the from-scratch option becomes stronger.
+
+First runtime result:
+
+Temporary mode `9` now provides bounded server-loop evidence, but not a positive learning result yet.
+
+Run `20260606T221429Z` on `dm3`:
+
+- command/QWD samples: `866`
+- QWD active samples: `11`
+- max active seconds: `1.12`
+- max advanced control points: `2` of required `4`
+- diagnostics preserved: route, water, probe-state, cadence, and movement metrics
+- active command profile passed where active: side `1.0`, jump `1.0`
+- slow/stuck and route-dirty success guardrails did not reject the run
+
+Decision status: keep Frogbots alive for one narrower SNG repair step, but do not expand to all DM3 QWD moves yet. The current blocker is not that KTX/Frogbots cannot accept QWD-derived control; it is that the first activation/control-point advancement setup did not execute enough of the shortcut under guardrails.

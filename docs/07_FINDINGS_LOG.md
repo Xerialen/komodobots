@@ -2904,3 +2904,62 @@ Medium that mode `9` will be easy to implement cleanly inside KTX, because the r
 ### Follow-up
 
 Ask Claude/Code Sentinel to review the design gate. Next smallest useful experiment: implement the temporary mode `9` SNG hybrid probe plus a comparison helper, run it on `dm3`, and decide whether positive server-loop evidence justifies applying the same QWD route/controller method to the remaining DM3 QWD moves.
+
+## 2026-06-06 - QWD SNG Hybrid Server-Loop Probe
+
+### Experiment
+
+Implemented the bounded QWD-derived SNG shortcut runtime probe described by the QWD SNG design artifact. The patch adds temporary mode `9` to the KTX moveprobe scaffold, with bounded QWD waypoint parsing, start/control-point radius handling, preserved combat-view projection, and a `qwd=` command-log suffix.
+
+Updated the lab runner to pass QWD waypoint/radius cvars through base64-safe remote shell transport and parse nested QWD command state. Added `scripts/compare_qwd_sng_hybrid_probe.py` to score generated KTX/Frogbot runs against the SNG design guardrails.
+
+### Result
+
+The first real `dm3` mode-9 run is inconclusive, not positive.
+
+Run `20260606T221429Z` produced real server-loop evidence:
+
+- `866` sampled command/QWD rows.
+- QWD active samples: `11`.
+- Max active seconds: `1.12`, passing the minimum activation gate.
+- Max advanced control points: `2`, below the required `4`.
+- Diagnostics were preserved: route, water, probe-state, cadence, and movement metrics were available.
+- The active QWD command profile passed where active: side ratio `1.0`, jump ratio `1.0`.
+- Slow/stuck success and route-dirty success guardrails did not reject the run.
+
+### Evidence
+
+Committed artifacts:
+
+- `scripts/compare_qwd_sng_hybrid_probe.py`
+- `tests/test_compare_qwd_sng_hybrid_probe.py`
+- `experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-result-dm3.json`
+- `experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-result-dm3.md`
+- Updated `experiments/ktx_moveprobe/frogbot-moveprobe.patch`
+- Updated `scripts/run_frobodm2_lab.py`
+
+Validation:
+
+```powershell
+git apply --check experiments/ktx_moveprobe/frogbot-moveprobe.patch
+ssh servexeri "set -e; cd ~/nquakesv/build/ktx; git apply --check ~/komodobots-lab/qwd-sng-mode9.patch; git apply ~/komodobots-lab/qwd-sng-mode9.patch; cmake --build build -- -j2"
+python scripts/run_bot_lab.py --map dm3 --duration 45 --bot-count 2 --bot-spacing 6 --moveprobe-mode 9 --moveprobe-forwardmove 320 --moveprobe-sidemove 508 --moveprobe-qwd-waypoints "<14 QWD control points>" --moveprobe-qwd-point-radius 96 --moveprobe-qwd-start-radius 192 --moveprobe-log-commands --moveprobe-log-interval 0.1
+python scripts/compare_qwd_sng_hybrid_probe.py --bot-run-id 20260606T221429Z --output-json experiments\qwd_route_probe\evidence\qwd-sng-hybrid-probe-result-dm3.json --output-md experiments\qwd_route_probe\evidence\qwd-sng-hybrid-probe-result-dm3.md
+python -m unittest tests.test_compare_qwd_sng_hybrid_probe tests.test_extract_movement_metrics -v
+```
+
+The remote KTX source and deployed `qwprogs.so` were restored to the stock build after the lab run.
+
+### Interpretation
+
+The QWD-to-Frogbot path is now executable inside the engine-native shell, but it has not yet shown that Frogbots can learn or perform the SNG shortcut. This result keeps KTX/Frogbots viable for one narrower repair step because the probe activated and preserved diagnostics, but it blocks expansion to the remaining DM3 QWD moves until activation/control-point advancement improves.
+
+### Confidence
+
+High that mode `9` can be injected, logged, scored, and rolled back safely in the current lab.
+
+Medium that the next repair is only activation/spawn/context setup. The first run advanced two points, so controller policy may also be part of the limitation.
+
+### Follow-up
+
+Repair the mode-9 SNG probe setup before expanding. The next smallest useful experiment is to make QWD activation and control-point advancement robust enough to reach at least `4` control points while preserving the same route/water/cadence/slow-success guardrails.

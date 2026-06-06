@@ -23,6 +23,7 @@ The default map remains frobodm2 because it has a known route file. Use
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -60,6 +61,10 @@ moveprobe_log_commands="${12}"
 moveprobe_log_interval="${13}"
 moveprobe_transition_scale="${14}"
 moveprobe_transition_window="${15}"
+moveprobe_qwd_waypoints_b64="${16}"
+moveprobe_qwd_point_radius="${17}"
+moveprobe_qwd_start_radius="${18}"
+moveprobe_qwd_waypoints="$(printf '%s' "$moveprobe_qwd_waypoints_b64" | base64 -d)"
 
 session="komodobots_lab_${map_name}_${port}_${run_id}"
 rundir="$HOME/komodobots-lab/runs/$run_id"
@@ -146,6 +151,9 @@ set k_fb_moveprobe_log_commands $moveprobe_log_commands
 set k_fb_moveprobe_log_interval $moveprobe_log_interval
 set k_fb_moveprobe_transition_scale $moveprobe_transition_scale
 set k_fb_moveprobe_transition_window $moveprobe_transition_window
+set k_fb_moveprobe_qwd_waypoints "$moveprobe_qwd_waypoints"
+set k_fb_moveprobe_qwd_point_radius $moveprobe_qwd_point_radius
+set k_fb_moveprobe_qwd_start_radius $moveprobe_qwd_start_radius
 timelimit 1
 fraglimit 0
 samelevel 1
@@ -178,6 +186,9 @@ MOVEPROBE_LOG_COMMANDS=$moveprobe_log_commands
 MOVEPROBE_LOG_INTERVAL=$moveprobe_log_interval
 MOVEPROBE_TRANSITION_SCALE=$moveprobe_transition_scale
 MOVEPROBE_TRANSITION_WINDOW=$moveprobe_transition_window
+MOVEPROBE_QWD_WAYPOINTS=$moveprobe_qwd_waypoints
+MOVEPROBE_QWD_POINT_RADIUS=$moveprobe_qwd_point_radius
+MOVEPROBE_QWD_START_RADIUS=$moveprobe_qwd_start_radius
 START_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 
@@ -415,6 +426,9 @@ MOVEPROBE_COMMAND_RE = re.compile(
     r"(?:\s+probe=(?P<probe_active>\d+),(?P<probe_on_ground>\d+),"
     r"(?P<probe_since_ground>-?\d+(?:\.\d+)?),(?P<probe_since_air>-?\d+(?:\.\d+)?),"
     r"(?P<probe_scale>-?\d+(?:\.\d+)?))?"
+    r"(?:\s+qwd=(?P<qwd_active>\d+),(?P<qwd_index>-?\d+),(?P<qwd_count>-?\d+),"
+    r"(?P<qwd_distance>-?\d+(?:\.\d+)?),(?P<qwd_advanced>-?\d+),(?P<qwd_complete>\d+),"
+    r"(?P<qwd_active_seconds>-?\d+(?:\.\d+)?))?"
 )
 
 
@@ -488,6 +502,16 @@ def parse_moveprobe_command_logs(screen_log: str) -> list[dict[str, object]]:
                 "since_air_s": float(groups["probe_since_air"]),
                 "transition_scale": float(groups["probe_scale"]),
             }
+        if groups.get("qwd_active") is not None:
+            row["qwd_state"] = {
+                "active": bool(int(groups["qwd_active"])),
+                "control_point_index": int(groups["qwd_index"]),
+                "control_point_count": int(groups["qwd_count"]),
+                "distance_qu": float(groups["qwd_distance"]),
+                "advanced_control_points": int(groups["qwd_advanced"]),
+                "complete": bool(int(groups["qwd_complete"])),
+                "active_seconds": float(groups["qwd_active_seconds"]),
+            }
         commands.append(row)
     return commands
 
@@ -526,6 +550,11 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
             for row in rows
             if isinstance(row.get("probe_state", {}), dict) and row.get("probe_state")
         ]
+        qwd_states = [
+            row.get("qwd_state", {})
+            for row in rows
+            if isinstance(row.get("qwd_state", {}), dict) and row.get("qwd_state")
+        ]
         yaw_deltas = [
             round(float(diagnostic["yaw_delta"]), 1)
             for diagnostic in diagnostics
@@ -555,6 +584,7 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
                 "route_state": summarize_route_states(route_states),
                 "water_state": summarize_water_states(water_states),
                 "probe_state": summarize_probe_states(probe_states),
+                "qwd_state": summarize_qwd_states(qwd_states),
                 "button_values": compact_unique(int(row["buttons"]) for row in rows),
                 "impulse_values": compact_unique(int(row["impulse"]) for row in rows),
             }
@@ -644,6 +674,36 @@ def summarize_probe_states(probe_states: list[dict[str, object]]) -> dict[str, o
     }
 
 
+def summarize_qwd_states(qwd_states: list[dict[str, object]]) -> dict[str, object]:
+    if not qwd_states:
+        return {"sample_count": 0}
+
+    active_count = sum(1 for state in qwd_states if bool(state.get("active", False)))
+    complete_count = sum(1 for state in qwd_states if bool(state.get("complete", False)))
+    distances = [
+        round(float(state.get("distance_qu", 999999.0)), 3)
+        for state in qwd_states
+        if float(state.get("distance_qu", 999999.0)) < 999999.0
+    ]
+    active_seconds = [
+        round(float(state.get("active_seconds", 0.0)), 3)
+        for state in qwd_states
+        if bool(state.get("active", False)) or bool(state.get("complete", False))
+    ]
+    return {
+        "sample_count": len(qwd_states),
+        "active_ratio": round(active_count / len(qwd_states), 3),
+        "complete_ratio": round(complete_count / len(qwd_states), 3),
+        "control_point_count_values": compact_unique(
+            int(state.get("control_point_count", 0)) for state in qwd_states
+        ),
+        "max_control_point_index": max(int(state.get("control_point_index", 0)) for state in qwd_states),
+        "max_advanced_control_points": max(int(state.get("advanced_control_points", 0)) for state in qwd_states),
+        "min_distance_qu": min(distances) if distances else None,
+        "max_active_seconds": max(active_seconds) if active_seconds else 0.0,
+    }
+
+
 def write_moveprobe_command_logs(local_run_dir: Path) -> dict[str, object]:
     screen_log = (local_run_dir / "screen.log").read_text(encoding="utf-8", errors="replace")
     commands = parse_moveprobe_command_logs(screen_log)
@@ -676,6 +736,7 @@ def write_moveprobe_command_logs(local_run_dir: Path) -> dict[str, object]:
                 f"route `{player['route_state']}`, "
                 f"water `{player['water_state']}`, "
                 f"probe `{player['probe_state']}`, "
+                f"qwd `{player['qwd_state']}`, "
                 f"buttons `{player['button_values']}`, "
                 f"impulses `{player['impulse_values']}`"
             )
@@ -744,6 +805,9 @@ def write_summary(
         "log_interval": "",
         "transition_scale": "",
         "transition_window": "",
+        "qwd_waypoints": "",
+        "qwd_point_radius": "",
+        "qwd_start_radius": "",
     }
     run_env = local_run_dir / "run.env"
     if run_env.exists():
@@ -772,6 +836,12 @@ def write_summary(
                 moveprobe["transition_scale"] = line.split("=", 1)[1]
             elif line.startswith("MOVEPROBE_TRANSITION_WINDOW="):
                 moveprobe["transition_window"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_QWD_WAYPOINTS="):
+                moveprobe["qwd_waypoints"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_QWD_POINT_RADIUS="):
+                moveprobe["qwd_point_radius"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_QWD_START_RADIUS="):
+                moveprobe["qwd_start_radius"] = line.split("=", 1)[1]
     events_stderr = (local_run_dir / "events.txt.stderr").read_text(encoding="utf-8", errors="replace").strip()
     command_log_path = local_run_dir / "moveprobe-commands.json"
     command_log = read_json(command_log_path) if command_log_path.exists() else {}
@@ -791,6 +861,7 @@ def write_summary(
         f"- Movement probe mode: `{moveprobe['mode']}`",
         f"- Movement probe command: `yaw={moveprobe['yaw']} forwardmove={moveprobe['forwardmove']} sidemove={moveprobe['sidemove']} upmove={moveprobe['upmove']}`",
         f"- Movement probe transition: `scale={moveprobe['transition_scale']} window={moveprobe['transition_window']}`",
+        f"- Movement probe QWD: `waypoint_chars={len(moveprobe['qwd_waypoints'])} point_radius={moveprobe['qwd_point_radius']} start_radius={moveprobe['qwd_start_radius']}`",
         f"- Movement probe command logging: `enabled={moveprobe['log_commands']} interval={moveprobe['log_interval']}`",
         f"- Movement probe commands parsed: `{command_count}`",
         f"- Remote demo: `{remote_demo}`",
@@ -879,6 +950,7 @@ def ensure_prereqs(host: str, distro: str, analyzer: str, map_name: str) -> None
         "python3 --version >/dev/null && "
         "command -v screen >/dev/null && "
         "command -v quakestat >/dev/null && "
+        "command -v base64 >/dev/null && "
         "test -x ~/nquakesv/mvdsv && "
         f"test -f ~/nquakesv/qw/maps/{map_name}.bsp"
     )
@@ -909,6 +981,9 @@ def run_remote_lab(
     moveprobe_log_interval: float,
     moveprobe_transition_scale: float,
     moveprobe_transition_window: float,
+    moveprobe_qwd_waypoints: str,
+    moveprobe_qwd_point_radius: float,
+    moveprobe_qwd_start_radius: float,
     local_run_dir: Path,
 ) -> None:
     proc = run(
@@ -933,6 +1008,9 @@ def run_remote_lab(
             str(moveprobe_log_interval),
             str(moveprobe_transition_scale),
             str(moveprobe_transition_window),
+            base64.b64encode(moveprobe_qwd_waypoints.encode("utf-8")).decode("ascii"),
+            str(moveprobe_qwd_point_radius),
+            str(moveprobe_qwd_start_radius),
         ],
         input_text=REMOTE_SCRIPT,
         check=False,
@@ -956,6 +1034,12 @@ def validate_run_id(run_id: str) -> str:
     return run_id
 
 
+def validate_qwd_waypoints(value: str) -> str:
+    if value and not re.fullmatch(r"[0-9,.;+\- ]+", value):
+        raise argparse.ArgumentTypeError("QWD waypoint strings may only contain numbers, commas, semicolons, spaces, plus, minus, and dots.")
+    return value
+
+
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a one-command Komodobots bot lab.")
     parser.add_argument("--host", default="servexeri", help="SSH host. Defaults to servexeri.")
@@ -968,7 +1052,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument(
         "--moveprobe-mode",
         type=int,
-        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8),
+        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
         default=0,
         help=(
             "Set k_fb_moveprobe_mode in the generated KTX lab config. "
@@ -978,7 +1062,8 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
             "5=aim-independent route/strafe projection, "
             "6=mode 5 with negative forward folded into sidemove, "
             "7=mode 6 with bounded horizontal command magnitude, "
-            "8=mode 7 with transition-only horizontal command-budget scaling."
+            "8=mode 7 with transition-only horizontal command-budget scaling, "
+            "9=QWD SNG hybrid waypoint/controller probe."
         ),
     )
     parser.add_argument(
@@ -1007,7 +1092,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         "--moveprobe-upmove",
         type=int,
         default=0,
-        help="upmove used by movement-probe modes 2, 3, 4, 5, 6, 7, and 8. Defaults to 0.",
+        help="upmove used by movement-probe modes 2, 3, 4, 5, 6, 7, 8, and 9. Defaults to 0.",
     )
     parser.add_argument(
         "--moveprobe-transition-scale",
@@ -1020,6 +1105,24 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         type=float,
         default=0.4,
         help="Mode 8 takeoff/air/landing transition window in seconds. Defaults to 0.4.",
+    )
+    parser.add_argument(
+        "--moveprobe-qwd-waypoints",
+        type=validate_qwd_waypoints,
+        default="",
+        help="Mode 9 semicolon-separated QWD control points as x,y,z triples.",
+    )
+    parser.add_argument(
+        "--moveprobe-qwd-point-radius",
+        type=float,
+        default=96.0,
+        help="Mode 9 control-point advance radius in qu. Defaults to 96.",
+    )
+    parser.add_argument(
+        "--moveprobe-qwd-start-radius",
+        type=float,
+        default=192.0,
+        help="Mode 9 activation radius around the first control point in qu. Defaults to 192.",
     )
     parser.add_argument(
         "--moveprobe-log-commands",
@@ -1079,6 +1182,9 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             args.moveprobe_log_interval,
             args.moveprobe_transition_scale,
             args.moveprobe_transition_window,
+            args.moveprobe_qwd_waypoints,
+            args.moveprobe_qwd_point_radius,
+            args.moveprobe_qwd_start_radius,
             local_run_dir,
         )
         scp_from_remote(args.host, run_id, local_run_dir)
