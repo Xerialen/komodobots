@@ -2963,3 +2963,53 @@ Medium that the next repair is only activation/spawn/context setup. The first ru
 ### Follow-up
 
 Repair the mode-9 SNG probe setup before expanding. The next smallest useful experiment is to make QWD activation and control-point advancement robust enough to reach at least `4` control points while preserving the same route/water/cadence/slow-success guardrails.
+
+## 2026-06-06 - QWD SNG Timing and Start-Context Diagnosis
+
+### Experiment
+
+Diagnosed the first mode-9 SNG probe result without another live KTX run. Added `scripts/diagnose_qwd_sng_probe.py` and tightened `scripts/compare_qwd_sng_hybrid_probe.py` so QWD activation/advancement must overlap the parsed MVD movement window before movement guardrails can support a positive claim.
+
+The diagnosis aligns command-log server time to MVD-relative event time by subtracting the demo start `ServerTime` from events kind `0`, then checks closest MVD approaches to the QWD control points.
+
+### Result
+
+The first SNG run remains inconclusive, but the failure is now more precisely attributed:
+
+- `/ bro` never activated and never entered the configured `192` qu start radius during the MVD window; closest MVD approach to control point `0` was `281.954` qu.
+- `/ goldenboy` activated for `11` sampled command rows and advanced `2` control points, but the aligned active window was `47044-48082` ms while the parsed match duration was `45816` ms.
+- The scorer now reports `qwd_activation_mvd_overlap` as inconclusive for `/ goldenboy`, so the result no longer implies that movement guardrails observed the active advancement window.
+- The helper also hardens nullable command fields before integer casts in the QWD SNG scorer.
+
+### Evidence
+
+Committed artifacts:
+
+- `scripts/diagnose_qwd_sng_probe.py`
+- `tests/test_diagnose_qwd_sng_probe.py`
+- `experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-diagnosis-dm3.json`
+- `experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-diagnosis-dm3.md`
+- Updated `experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-result-dm3.*`
+
+Validation:
+
+```powershell
+python -m py_compile scripts\compare_qwd_sng_hybrid_probe.py scripts\diagnose_qwd_sng_probe.py
+python -m unittest tests.test_compare_qwd_sng_hybrid_probe tests.test_diagnose_qwd_sng_probe -v
+python scripts\compare_qwd_sng_hybrid_probe.py --bot-run-id 20260606T221429Z
+python scripts\diagnose_qwd_sng_probe.py --bot-run-id 20260606T221429Z
+```
+
+### Interpretation
+
+This does not prove Frogbots learned SNG, and it does not disprove the QWD-to-Frogbot path. It says the next live experiment must first make QWD activation overlap recorded MVD movement evidence. Changing the controller projection or expanding to other DM3 QWD moves would be premature until the timing/start-context gate is clean.
+
+### Confidence
+
+High for the timing-window diagnosis because it uses the same run's command log, events kind `0` server start time, parser match duration, and MVD position samples.
+
+Medium for the start-context attribution because the first run used ordinary bot spawning/route context; a controlled spawn or earlier recording window could change the closest-approach result.
+
+### Follow-up
+
+Repair mode-9 setup so activation happens inside the recorded MVD window and at least one bot enters the start radius under measured conditions. Only then rerun the SNG probe and re-evaluate control-point advancement.

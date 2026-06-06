@@ -19,10 +19,10 @@
 
 ## Players
 
-| Run | Player | Cmds | Active | Advanced | Active s | Min dist | Low | Stationary | Water path | Low-dir | Active side | Active jump |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `20260606T221429Z` | `/ bro` | 462 | 0 | 0 | 0.0 | 282.748 | 0.16 | 0.053 | 0.16 | 0.102 | None | None |
-| `20260606T221429Z` | `/ goldenboy` | 404 | 11 | 2 | 1.12 | 97.576 | 0.17 | 0.036 | 0.0 | 0.21 | 1.0 | 1.0 |
+| Run | Player | Cmds | Active | Active in MVD | Advanced | Active s | Min dist | Low | Stationary | Water path | Low-dir | Active side | Active jump |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `20260606T221429Z` | `/ bro` | 462 | 0 | 0 | 0 | 0.0 | 282.748 | 0.16 | 0.053 | 0.16 | 0.102 | None | None |
+| `20260606T221429Z` | `/ goldenboy` | 404 | 11 | 0 | 2 | 1.12 | 97.576 | 0.17 | 0.036 | 0.0 | 0.21 | 1.0 | 1.0 |
 
 ## Stop Conditions
 
@@ -30,6 +30,7 @@
 |---|---|---|
 | `qwd_probe_activation` | `pass` | `{"active_samples": 11, "max_active_seconds": 1.12, "required_active_seconds": 1.0}` |
 | `control_point_advancement` | `inconclusive` | `{"max_advanced_control_points": 2, "required_advanced_control_points": 4}` |
+| `qwd_activation_mvd_overlap` | `inconclusive` | `{"players_with_active_qwd_outside_mvd_window": ["/ goldenboy"], "rule": "QWD activation/advancement must overlap the parsed MVD movement window before movement guardrails can support a positive claim."}` |
 | `diagnostic_preservation` | `pass` | `{"players_missing_route_water_or_cadence": []}` |
 | `qwd_command_profile_present` | `pass` | `{"players_with_weak_active_side_or_jump_profile": []}` |
 | `waypoint_only_slow_success` | `pass` | `{"low_speed_threshold": 0.4, "players_reaching_points_while_slow_or_stuck": [], "stationary_threshold": 0.25}` |
@@ -38,5 +39,5 @@
 ## Decision
 
 - Verdict: `qwd_sng_hybrid_probe_inconclusive`
-- Reason: The server-loop probe lacked required evidence for: control_point_advancement.
+- Reason: The server-loop probe lacked required evidence for: control_point_advancement, qwd_activation_mvd_overlap.
 - Next goal: Repair activation, instrumentation, or spawn/context setup before trying other DM3 QWD moves.

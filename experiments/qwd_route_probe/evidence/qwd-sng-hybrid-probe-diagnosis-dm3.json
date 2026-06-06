@@ -1,0 +1,217 @@
+{
+  "control_point_radii": {
+    "point_radius_qu": 96.0,
+    "start_radius_qu": 192.0
+  },
+  "decision": {
+    "next_goal": "Before rerunning live KTX, repair mode-9 setup so QWD activation overlaps recorded MVD movement evidence; then decide whether the control-point radius, start context, or projection policy needs the smallest change.",
+    "reason": "The first SNG run is still useful, but its activation/advancement evidence is not aligned with the parsed MVD movement window and one bot missed the start radius entirely.",
+    "verdict": "qwd_sng_repair_needs_timing_and_start_context"
+  },
+  "interpretation": [
+    "This is an offline diagnosis of the already-generated mode-9 run; it does not rerun KTX or change controller behavior.",
+    "Command rows use server time, while MVD position rows use demo-relative time. The diagnosis aligns command rows by subtracting the demo start ServerTime from events kind 0.",
+    "At least one bot activated the QWD probe only after the parsed MVD movement window, so the current run's control-point advancement is command evidence but not clean movement evidence.",
+    "At least one bot never reached the configured start radius during the MVD window, pointing at spawn/context setup before controller-policy expansion."
+  ],
+  "players": [
+    {
+      "classification": "spawn_or_route_context_missed_start_radius",
+      "mvd_closest_control_points": [
+        {
+          "control_point_index": 0,
+          "min_distance_qu": 281.954,
+          "origin": [
+            192.0,
+            -208.0,
+            -175.0
+          ],
+          "time_ms": 0
+        },
+        {
+          "control_point_index": 1,
+          "min_distance_qu": 260.137,
+          "origin": [
+            192.0,
+            -208.0,
+            -175.0
+          ],
+          "time_ms": 0
+        },
+        {
+          "control_point_index": 2,
+          "min_distance_qu": 262.723,
+          "origin": [
+            210.75,
+            -116.25,
+            -176.0
+          ],
+          "time_ms": 14151
+        },
+        {
+          "control_point_index": 3,
+          "min_distance_qu": 270.816,
+          "origin": [
+            264.375,
+            -55.5,
+            -176.0
+          ],
+          "time_ms": 14338
+        },
+        {
+          "control_point_index": 4,
+          "min_distance_qu": 331.836,
+          "origin": [
+            342.875,
+            -36.75,
+            -176.875
+          ],
+          "time_ms": 14523
+        },
+        {
+          "control_point_index": 5,
+          "min_distance_qu": 352.99,
+          "origin": [
+            665.125,
+            85.875,
+            -186.0
+          ],
+          "time_ms": 15489
+        }
+      ],
+      "mvd_sample_count": 2234,
+      "mvd_sequential_control_points_reached": 0,
+      "mvd_time_range_ms": {
+        "max": 45816,
+        "min": 0
+      },
+      "player": "/ bro",
+      "qwd_command_summary": {
+        "active_aligned_mvd_range_ms": {
+          "max": null,
+          "min": null
+        },
+        "active_inside_mvd_rows": 0,
+        "active_rows": 0,
+        "command_rows": 462,
+        "command_time_s_range": {
+          "max": 52.35,
+          "min": 4.268
+        },
+        "max_advanced_control_points": 0,
+        "min_any_qwd_distance_qu": 282.748,
+        "min_cp0_distance_qu_from_qwd_state": 282.748,
+        "qwd_rows": 462
+      },
+      "slot": 1,
+      "user_id": 2
+    },
+    {
+      "classification": "qwd_activation_after_mvd_window",
+      "mvd_closest_control_points": [
+        {
+          "control_point_index": 0,
+          "min_distance_qu": 282.774,
+          "origin": [
+            192.0,
+            -208.0,
+            -176.0
+          ],
+          "time_ms": 41871
+        },
+        {
+          "control_point_index": 1,
+          "min_distance_qu": 261.025,
+          "origin": [
+            192.0,
+            -208.0,
+            -176.0
+          ],
+          "time_ms": 41871
+        },
+        {
+          "control_point_index": 2,
+          "min_distance_qu": 273.481,
+          "origin": [
+            192.0,
+            -208.0,
+            -176.0
+          ],
+          "time_ms": 41871
+        },
+        {
+          "control_point_index": 3,
+          "min_distance_qu": 349.516,
+          "origin": [
+            182.75,
+            -206.625,
+            -176.0
+          ],
+          "time_ms": 42132
+        },
+        {
+          "control_point_index": 4,
+          "min_distance_qu": 481.333,
+          "origin": [
+            192.0,
+            -208.0,
+            -176.0
+          ],
+          "time_ms": 41871
+        },
+        {
+          "control_point_index": 5,
+          "min_distance_qu": 564.144,
+          "origin": [
+            192.0,
+            -208.0,
+            -176.0
+          ],
+          "time_ms": 41871
+        }
+      ],
+      "mvd_sample_count": 1937,
+      "mvd_sequential_control_points_reached": 0,
+      "mvd_time_range_ms": {
+        "max": 45816,
+        "min": 6264
+      },
+      "player": "/ goldenboy",
+      "qwd_command_summary": {
+        "active_aligned_mvd_range_ms": {
+          "max": 48082,
+          "min": 47044
+        },
+        "active_inside_mvd_rows": 0,
+        "active_rows": 11,
+        "command_rows": 404,
+        "command_time_s_range": {
+          "max": 52.35,
+          "min": 10.265
+        },
+        "max_advanced_control_points": 2,
+        "min_any_qwd_distance_qu": 97.576,
+        "min_cp0_distance_qu_from_qwd_state": 282.748,
+        "qwd_rows": 404
+      },
+      "slot": 2,
+      "user_id": 3
+    }
+  ],
+  "run_config": {
+    "map": "dm3",
+    "moveprobe_mode": "9",
+    "qwd_point_radius": "96.0",
+    "qwd_start_radius": "192.0"
+  },
+  "run_id": "20260606T221429Z",
+  "schema": "komodobots.qwd_sng_probe_diagnosis.v1",
+  "source_design_path": "experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-design-dm3.json",
+  "source_result_path": "experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-result-dm3.json",
+  "source_result_verdict": "qwd_sng_hybrid_probe_inconclusive",
+  "stage": "qwd-sng-repair-diagnosis-dm3",
+  "timing": {
+    "match_duration_ms": 45816,
+    "server_start_time_s": 4.267595
+  }
+}

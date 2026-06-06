@@ -16,10 +16,11 @@
   "decision": {
     "failed_stop_conditions": [],
     "inconclusive_stop_conditions": [
-      "control_point_advancement"
+      "control_point_advancement",
+      "qwd_activation_mvd_overlap"
     ],
     "next_goal": "Repair activation, instrumentation, or spawn/context setup before trying other DM3 QWD moves.",
-    "reason": "The server-loop probe lacked required evidence for: control_point_advancement.",
+    "reason": "The server-loop probe lacked required evidence for: control_point_advancement, qwd_activation_mvd_overlap.",
     "verdict": "qwd_sng_hybrid_probe_inconclusive"
   },
   "map": "dm3",
@@ -40,6 +41,7 @@
       "jump_cadence_per_min": 26.35,
       "low_dir_speed_ratio": 0.102,
       "low_speed_time_ratio": 0.16,
+      "match_duration_ms": 45816,
       "max_advanced_control_points": 0,
       "max_control_point_index": 0,
       "max_qwd_active_seconds": 0.0,
@@ -47,13 +49,20 @@
       "p95_horizontal_speed_qu_per_s": 450.781,
       "player": "/ bro",
       "probe_state_sample_count": 462,
+      "qwd_active_aligned_mvd_time_range_ms": {
+        "max": null,
+        "min": null
+      },
       "qwd_active_count": 0,
+      "qwd_active_inside_mvd_count": 0,
+      "qwd_active_inside_mvd_ratio": null,
       "qwd_active_ratio": 0.0,
       "qwd_complete_count": 0,
       "qwd_complete_ratio": 0.0,
       "qwd_sample_count": 462,
       "route_state_sample_count": 462,
       "run_id": "20260606T221429Z",
+      "server_start_time_s": 4.268,
       "side_nonzero_ratio": 0.874,
       "stationary_time_ratio": 0.053,
       "water_path_ratio": 0.16,
@@ -74,6 +83,7 @@
       "jump_cadence_per_min": 1.519,
       "low_dir_speed_ratio": 0.21,
       "low_speed_time_ratio": 0.17,
+      "match_duration_ms": 45816,
       "max_advanced_control_points": 2,
       "max_control_point_index": 2,
       "max_qwd_active_seconds": 1.12,
@@ -81,13 +91,20 @@
       "p95_horizontal_speed_qu_per_s": 460.511,
       "player": "/ goldenboy",
       "probe_state_sample_count": 404,
+      "qwd_active_aligned_mvd_time_range_ms": {
+        "max": 48082,
+        "min": 47044
+      },
       "qwd_active_count": 11,
+      "qwd_active_inside_mvd_count": 0,
+      "qwd_active_inside_mvd_ratio": 0.0,
       "qwd_active_ratio": 0.027,
       "qwd_complete_count": 0,
       "qwd_complete_ratio": 0.0,
       "qwd_sample_count": 404,
       "route_state_sample_count": 404,
       "run_id": "20260606T221429Z",
+      "server_start_time_s": 4.268,
       "side_nonzero_ratio": 0.738,
       "stationary_time_ratio": 0.036,
       "water_path_ratio": 0.0,
@@ -136,11 +153,13 @@
       "command_logging": "1",
       "forwardmove": "320",
       "map": "dm3",
+      "match_duration_ms": 45816,
       "moveprobe_mode": "9",
       "qwd_point_radius": "96.0",
       "qwd_start_radius": "192.0",
       "qwd_waypoint_chars": 328,
       "run_id": "20260606T221429Z",
+      "server_start_time_s": 4.267595,
       "sidemove": "508"
     }
   ],
@@ -164,6 +183,16 @@
         "required_advanced_control_points": 4
       },
       "id": "control_point_advancement",
+      "status": "inconclusive"
+    },
+    {
+      "details": {
+        "players_with_active_qwd_outside_mvd_window": [
+          "/ goldenboy"
+        ],
+        "rule": "QWD activation/advancement must overlap the parsed MVD movement window before movement guardrails can support a positive claim."
+      },
+      "id": "qwd_activation_mvd_overlap",
       "status": "inconclusive"
     },
     {

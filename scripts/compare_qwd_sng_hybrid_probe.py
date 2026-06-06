@@ -54,6 +54,19 @@ def optional_float(value: object) -> float | None:
     return number
 
 
+def optional_int(value: object) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError):
+        return None
+
+
+def dict_or_empty(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}
+
+
 def rounded(value: object, digits: int = 3) -> float | None:
     number = optional_float(value)
     if number is None:
@@ -81,6 +94,40 @@ def load_run_env(run_dir: Path) -> dict[str, str]:
     return env
 
 
+def load_run_timing(run_dir: Path) -> dict[str, object]:
+    server_start_time_s: float | None = None
+    events_path = run_dir / "events.txt"
+    if events_path.exists():
+        with events_path.open("r", encoding="utf-8", errors="replace") as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                data = dict_or_empty(event.get("data"))
+                server_data = dict_or_empty(data.get("Data"))
+                if event.get("kind") == 0 and server_data:
+                    server_start_time_s = optional_float(server_data.get("ServerTime"))
+                    break
+    analysis = load_json(run_dir / "analysis.json") if (run_dir / "analysis.json").exists() else {}
+    match = dict_or_empty(analysis.get("match"))
+    return {
+        "server_start_time_s": server_start_time_s,
+        "match_duration_ms": optional_int(match.get("duration")),
+    }
+
+
+def qwd_aligned_mvd_time_ms(row: dict[str, object], timing: dict[str, object]) -> int | None:
+    command_time_s = optional_float(row.get("time_s"))
+    server_start_time_s = optional_float(timing.get("server_start_time_s"))
+    if command_time_s is None or server_start_time_s is None:
+        return None
+    return int(round((command_time_s - server_start_time_s) * 1000.0))
+
+
 def load_movement_players(run_dir: Path) -> dict[str, dict[str, object]]:
     path = run_dir / "movement-metrics.json"
     if not path.exists():
@@ -101,6 +148,7 @@ def summarize_player_commands(
     player: str,
     commands: list[dict[str, object]],
     movement: dict[str, object],
+    timing: dict[str, object],
 ) -> dict[str, object]:
     qwd_states = [row.get("qwd_state", {}) for row in commands if isinstance(row.get("qwd_state"), dict)]
     route_states = [row.get("route_state", {}) for row in commands if isinstance(row.get("route_state"), dict)]
@@ -118,25 +166,40 @@ def summarize_player_commands(
         for state in qwd_states
         if (value := optional_float(state.get("active_seconds"))) is not None
     ]
-    path_state_values = [int(state.get("path_state", 0) or 0) for state in route_states]
+    path_state_values = [optional_int(state.get("path_state")) or 0 for state in route_states]
     water_path_count = sum(1 for value in path_state_values if value & WATER_PATH_FLAG)
     low_dir_count = sum(
         1
         for state in route_states
         if (value := optional_float(state.get("dir_speed"))) is not None and value < 0.25
     )
-    side_nonzero = sum(1 for row in commands if abs(int(row.get("move", {}).get("side", 0))) > 0)
-    forward_nonzero = sum(1 for row in commands if abs(int(row.get("move", {}).get("forward", 0))) > 0)
-    jump_button = sum(1 for row in commands if int(row.get("buttons", 0)) & 2)
+    side_nonzero = sum(1 for row in commands if abs(optional_int(dict_or_empty(row.get("move")).get("side")) or 0) > 0)
+    forward_nonzero = sum(
+        1 for row in commands if abs(optional_int(dict_or_empty(row.get("move")).get("forward")) or 0) > 0
+    )
+    jump_button = sum(1 for row in commands if (optional_int(row.get("buttons")) or 0) & 2)
     active_commands = [
         row
         for row in commands
         if isinstance(row.get("qwd_state"), dict) and bool(row["qwd_state"].get("active", False))
     ]
-    active_side_nonzero = sum(1 for row in active_commands if abs(int(row.get("move", {}).get("side", 0))) > 0)
-    active_jump_button = sum(1 for row in active_commands if int(row.get("buttons", 0)) & 2)
+    active_side_nonzero = sum(
+        1 for row in active_commands if abs(optional_int(dict_or_empty(row.get("move")).get("side")) or 0) > 0
+    )
+    active_jump_button = sum(1 for row in active_commands if (optional_int(row.get("buttons")) or 0) & 2)
     sample_count = len(commands)
     qwd_count = len(qwd_states)
+    active_aligned_times = [
+        aligned
+        for row in active_commands
+        if (aligned := qwd_aligned_mvd_time_ms(row, timing)) is not None
+    ]
+    match_duration_ms = optional_int(timing.get("match_duration_ms"))
+    active_inside_mvd = [
+        aligned
+        for aligned in active_aligned_times
+        if match_duration_ms is not None and 0 <= aligned <= match_duration_ms
+    ]
 
     return {
         "run_id": run_id,
@@ -159,6 +222,16 @@ def summarize_player_commands(
         else [],
         "min_qwd_distance_qu": round(min(distances), 3) if distances else None,
         "max_qwd_active_seconds": round(max(active_seconds), 3) if active_seconds else 0.0,
+        "qwd_active_aligned_mvd_time_range_ms": {
+            "min": min(active_aligned_times) if active_aligned_times else None,
+            "max": max(active_aligned_times) if active_aligned_times else None,
+        },
+        "qwd_active_inside_mvd_count": len(active_inside_mvd),
+        "qwd_active_inside_mvd_ratio": round(len(active_inside_mvd) / len(active_commands), 3)
+        if active_commands and match_duration_ms is not None
+        else None,
+        "match_duration_ms": match_duration_ms,
+        "server_start_time_s": rounded(timing.get("server_start_time_s"), 3),
         "side_nonzero_ratio": round(side_nonzero / sample_count, 3) if sample_count else None,
         "forward_nonzero_ratio": round(forward_nonzero / sample_count, 3) if sample_count else None,
         "jump_button_ratio": round(jump_button / sample_count, 3) if sample_count else None,
@@ -189,6 +262,7 @@ def summarize_runs(run_ids: list[str], artifacts_root: Path) -> tuple[list[dict[
             warnings.append(f"Missing moveprobe command log for `{run_id}` at `{portable_path(command_path)}`.")
             continue
         env = load_run_env(run_dir)
+        timing = load_run_timing(run_dir)
         run_configs.append(
             {
                 "run_id": run_id,
@@ -201,6 +275,8 @@ def summarize_runs(run_ids: list[str], artifacts_root: Path) -> tuple[list[dict[
                 "qwd_start_radius": env.get("MOVEPROBE_QWD_START_RADIUS", ""),
                 "command_logging": env.get("MOVEPROBE_LOG_COMMANDS", ""),
                 "command_log_interval": env.get("MOVEPROBE_LOG_INTERVAL", ""),
+                "server_start_time_s": timing.get("server_start_time_s"),
+                "match_duration_ms": timing.get("match_duration_ms"),
             }
         )
         if env.get("MAP", "") != "dm3":
@@ -215,7 +291,7 @@ def summarize_runs(run_ids: list[str], artifacts_root: Path) -> tuple[list[dict[
                 continue
             grouped[str(command.get("name", ""))].append(command)
         for player, commands in sorted(grouped.items()):
-            players.append(summarize_player_commands(run_id, player, commands, movement_players.get(player, {})))
+            players.append(summarize_player_commands(run_id, player, commands, movement_players.get(player, {}), timing))
     return players, run_configs, warnings
 
 
@@ -265,6 +341,12 @@ def evaluate_stop_conditions(players: list[dict[str, object]], aggregate: dict[s
     active_seconds = optional_float(aggregate.get("max_qwd_active_seconds")) or 0.0
     advanced = int(aggregate.get("max_advanced_control_points", 0) or 0)
     activated = int(aggregate.get("qwd_active_count", 0) or 0) > 0
+    active_but_outside_mvd = [
+        player["player"]
+        for player in players
+        if int(player.get("qwd_active_count", 0) or 0) > 0
+        and int(player.get("qwd_active_inside_mvd_count", 0) or 0) == 0
+    ]
     slow_success_players = [
         player["player"]
         for player in players
@@ -308,6 +390,14 @@ def evaluate_stop_conditions(players: list[dict[str, object]], aggregate: dict[s
             "details": {
                 "max_advanced_control_points": advanced,
                 "required_advanced_control_points": 4,
+            },
+        },
+        {
+            "id": "qwd_activation_mvd_overlap",
+            "status": "pass" if not active_but_outside_mvd and activated else "inconclusive",
+            "details": {
+                "players_with_active_qwd_outside_mvd_window": active_but_outside_mvd,
+                "rule": "QWD activation/advancement must overlap the parsed MVD movement window before movement guardrails can support a positive claim.",
             },
         },
         {
@@ -435,8 +525,8 @@ def write_markdown(report: dict[str, object], output_path: Path) -> None:
         "",
         "## Players",
         "",
-        "| Run | Player | Cmds | Active | Advanced | Active s | Min dist | Low | Stationary | Water path | Low-dir | Active side | Active jump |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Run | Player | Cmds | Active | Active in MVD | Advanced | Active s | Min dist | Low | Stationary | Water path | Low-dir | Active side | Active jump |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for player in report.get("players", []) if isinstance(report.get("players"), list) else []:
         if not isinstance(player, dict):
@@ -444,7 +534,8 @@ def write_markdown(report: dict[str, object], output_path: Path) -> None:
         lines.append(
             f"| `{player.get('run_id', '')}` | `{player.get('player', '')}` | "
             f"{player.get('command_samples', 0)} | {player.get('qwd_active_count', 0)} | "
-            f"{player.get('max_advanced_control_points', 0)} | {player.get('max_qwd_active_seconds', 0.0)} | "
+            f"{player.get('qwd_active_inside_mvd_count', '')} | {player.get('max_advanced_control_points', 0)} | "
+            f"{player.get('max_qwd_active_seconds', 0.0)} | "
             f"{player.get('min_qwd_distance_qu', '')} | {player.get('low_speed_time_ratio', '')} | "
             f"{player.get('stationary_time_ratio', '')} | {player.get('water_path_ratio', '')} | "
             f"{player.get('low_dir_speed_ratio', '')} | {player.get('active_side_nonzero_ratio', '')} | "
