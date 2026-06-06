@@ -430,6 +430,19 @@ Result:
 
 Interpretation: Claude's gate fix was required and the comparison now has guardrail-complete evidence. The corrected mode `8` probe is rejected by the S7i stop conditions: a small all-segment gain is not useful when pre-air, airborne, post-air, and non-airborne context get worse. The next useful branch is S7k: inspect the failed bucket and command/probe activation context before trying another controller probe.
 
+## S7k Failed-Bucket Diagnosis
+
+S7k did not rerun the lab and did not change KTX/Frogbot movement behavior. It added `scripts/diagnose_s7j_failed_buckets.py`, consumed the corrected S7j result plus the S7g baseline, and recomputed command/probe/route context for the failed pre-air, airborne-proxy, and non-airborne buckets.
+
+Result:
+
+- Generated `experiments/human_comparison/evidence/failed-bucket-diagnosis-s7k-dm3.*`.
+- Pre-air and airborne-proxy failures are mixed controller/route-context failures: both buckets have high strong-command coverage but also substantial low-dir-speed and `WATER_PATH` context in the second S7j run.
+- The non-airborne guardrail regression is route/map-context contaminated, not a clean all-ground movement failure. `/ goldenboy` in `20260606T164610Z` had non-airborne p50 `100.8` qu/s with low-dir ratio `0.626` and `WATER_PATH` ratio `0.614`.
+- Water is not the whole issue. First-run air-transition rows still had no `WATER_PATH` but remained too slow: `/ bro` airborne p50 `101.8` qu/s and `/ goldenboy` airborne p50 `181.2` qu/s.
+
+Interpretation: S7k does not trigger a from-scratch rebuild. The failure is bounded enough to justify one narrower context-gated Frogbot/KTX probe: keep the engine-native substrate, but gate or separately score low-dir-speed/`WATER_PATH` contexts before another air-transition command-policy change.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

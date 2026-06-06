@@ -1513,3 +1513,48 @@ S7k should not add another movement mode. It should inspect the failed air-trans
 ### Revisit Conditions
 
 Revisit if Code Sentinel finds the S7j comparison flawed, if S7k shows the bucket regressions are caused by a measurement artifact, or if a later probe improves air-transition buckets while preserving non-airborne and route context.
+
+---
+
+## Decision
+
+Keep KTX/Frogbots for one narrower context-gated probe before considering a from-scratch stack.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S7k diagnoses the corrected S7j failed buckets and keeps the Frogbots-vs-from-scratch decision open. The project should continue with KTX/Frogbots for the next bounded stage, but the next probe must be narrower and context-gated.
+
+Decision gates:
+
+- Continue with KTX/Frogbots while the server-native shell still supports spawning, combat participation, command overrides, command diagnostics, and MVD evidence without rebuilding physics/collision/combat.
+- Continue with KTX/Frogbots if a tiny movement primitive can improve a target human-comparable bucket while preserving non-target guardrails and route/cadence diagnostics.
+- Consider abandoning or rebuilding if multiple bounded primitives cannot improve target buckets without unattributable regressions, or if Frogbot route/map state is too opaque or too static to separate controller failures from map-understanding failures.
+
+### Alternatives Considered
+
+- Abandon Frogbots now because S7j rejected mode `8`.
+- Treat S7j as a pure water problem and pivot directly to `WATER_PATH`.
+- Treat S7j as a pure controller problem and immediately increase transition scale/window.
+- Build from scratch before proving whether KTX/Frogbots can expose and gate the needed movement contexts.
+
+### Evidence
+
+S7k diagnosis:
+
+- Pre-air p50: `207.1 -> 149.7` qu/s, classified as `mixed_controller_and_route_context`.
+- Airborne-proxy p50: `122.6 -> 100.4` qu/s, classified as `mixed_controller_and_route_context`.
+- Non-airborne p50: `312.1 -> 286.3` qu/s, classified as `route_or_map_context_guardrail_contamination`.
+- `/ goldenboy` run `20260606T164610Z` was the clearest route-context contaminator: non-airborne p50 `100.8` qu/s, low-dir ratio `0.626`, and `WATER_PATH` ratio `0.614`.
+- First corrected-run rows still show air-transition weakness without `WATER_PATH`, so water does not explain the whole failure.
+
+### Expected Consequences
+
+S7l should design a context-gated air-transition probe before another lab rerun. It should either exclude low-dir-speed/`WATER_PATH` contexts from the treatment window or treat those contexts as hard stop-condition slices, while preserving cadence and route diagnostics.
+
+### Revisit Conditions
+
+Revisit the Frogbots-vs-from-scratch choice if S7l/S7m show that context-gated controller probes still cannot improve air-transition buckets without broad regressions, or if the route/map state needed to gate those probes cannot be observed or controlled inside KTX/Frogbots.

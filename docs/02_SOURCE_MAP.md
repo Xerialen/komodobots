@@ -100,6 +100,8 @@ Air-transition probe design helper: `C:\Users\benya\projects\quakeworld\komodobo
 
 Air-transition probe comparison helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\compare_air_transition_probe.py`
 
+S7j failed-bucket diagnosis helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\diagnose_s7j_failed_buckets.py`
+
 KTX movement probe patch: `C:\Users\benya\projects\quakeworld\komodobots\experiments\ktx_moveprobe\frogbot-moveprobe.patch`
 
 Why it matters:
@@ -122,6 +124,7 @@ Why it matters:
 - `scripts/choose_controller_probe_target.py` consumes S7g land-speed context and chooses the first controller-probe target, preferring human-comparable air-transition evidence over narrow bot-only route diagnostics unless comparable evidence is missing.
 - `scripts/design_air_transition_probe.py` consumes committed S7g/S7h/S7e evidence and writes the S7i air-transition probe contract, required post-probe measurements, and stop conditions before any controller behavior changes.
 - `scripts/compare_air_transition_probe.py` evaluates a follow-up bot probe against the committed S7i contract. It combines the new bot run with the S7f reference rows, reruns S7g-style context buckets, reports transition-probe activation, preserves cadence as diagnostic, and applies the S7i stop conditions.
+- `scripts/diagnose_s7j_failed_buckets.py` consumes the corrected S7j result plus S7g baseline context and recomputes per-segment command/probe/route context for the failed pre-air, airborne-proxy, and non-airborne buckets before another movement probe.
 - `experiments/ktx_moveprobe/frogbot-moveprobe.patch` is the first S2 KTX source probe. It applies to KTX commit `08807da`, hooks `src/bot_movement.c::BotSetCommand()` after the prewar-freeze guard, and adds cvar-controlled command perturbation immediately before button assembly and `trap_SetBotCMD(...)`.
 - The same patch includes v2a command instrumentation. When `k_fb_moveprobe_log_commands=1`, KTX prints sampled `FBMOVEPROBE_CMD` rows containing the final `msec`, angles, movement command values, buttons, and impulse about to be sent to `trap_SetBotCMD(...)`.
 - The patch also includes v2b mode `3`, a route-yaw probe that sets yaw from `self->fb.dir_move_`, emits simple movement command values, and forces jump when a route direction is available.
@@ -175,6 +178,7 @@ Verification:
 - `s7h-controller-probe-target-dm3` chooses air-transition horizontal speed production as the first controller-probe target. `WATER_PATH` remains a secondary guardrail because it is very slow but bot-only and route-diagnostic rather than human-comparable.
 - `s7i-air-transition-probe-design-dm3` turns the S7h target into a constrained design-only probe contract. It keeps mode-7 behavior unchanged in this PR, requires pre-air/airborne/post-air/non-air/route/cadence reporting after any follow-up probe, and rejects all-segment speed gains if air-transition buckets or WATER_PATH context get worse.
 - `s7j-air-transition-probe-dm3` implements and runs the S7i mode-8 air-transition horizontal-command probe across fixed runs `20260606T163907Z` and `20260606T164610Z` after fixing the transition gate to use the pre-probe jump intent. The combined guardrail-complete evidence rejects the probe: all-segment speed improved, but pre-air and airborne-proxy p50s regressed and non-airborne p50 fell below the S7i tolerance.
+- `s7k-failed-bucket-diagnosis-dm3` diagnoses the corrected S7j failed buckets without another lab run. It separates mixed controller/route-context failures in pre-air and airborne-proxy buckets from route/map-context contamination in the non-airborne guardrail, and keeps the Frogbots-vs-from-scratch decision open for one narrower context-gated probe.
 - `s6a-route-state` diagnoses S3g `dm3` run `20260606T003718Z`. The existing artifacts expose position traces, sampled final commands, route yaw, view yaw, yaw delta, backward command state, and map-entity locations, but no Frogbot route node, next waypoint, target entity, obstruction, or route primitive state. Eight of nine analyzed top low-speed windows still had average sampled horizontal command at or above `400`.
 - `s6b-route-state` diagnoses S6b `dm3` run `20260606T031102Z` with the new `route=` command suffix. Route-state context is now available; `/ bro` had `17` low-speed windows, repeated `water.LG` windows tagged with linked/goal marker `59`, path state `32768`, and `blocked=0`, while `/ goldenboy` had no S6-threshold low-speed windows.
 - `s6d-water-path` diagnoses S6d `dm3` run `20260606T041805Z` with the new `water=` command suffix. The repeated `/ bro` `water.LG` windows again had strong sampled commands, linked/goal marker `59`, `WATER_PATH`, and `blocked=0`; water-state attribution showed window samples at waterlevel `1` with occasional `2`, no deep-water samples, `swim_arrow=0`, and emitted `upmove=0`.
