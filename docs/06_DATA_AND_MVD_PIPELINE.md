@@ -255,6 +255,14 @@ S7c bot-comparable cadence result:
 - Cadence is now a bot-comparable repeated candidate axis with mixed bot relation.
 - Avg and p95 still show the generic land-speed gap, so S7d should decide whether cadence is a diagnostic target, a tiny controller-probe target, or needs broader sampling first.
 
+S7d cadence normalization result:
+
+- Added `scripts/decide_cadence_normalization.py` and generated `experiments/human_comparison/evidence/cadence-normalization-s7d-dm3.*` from the committed S7c aggregate.
+- `jump_cadence_per_min` is already based on active movement-metrics rows (`airborne_proxy_count / active_time_s * 60`), not full match wall-clock. S7d re-normalizes that cadence by non-stationary time, non-low-speed time, and airborne-proxy time.
+- Non-low-speed normalization preserves the mixed relation: `/ bro` is above the reference range at `124.1`/min, while `/ goldenboy` remains within range at `53.3`/min.
+- Airborne-proxy normalization moves both S3g bots above the exact-player range: reference `128.0` to `143.1`/min, `/ goldenboy` `174.4`/min, `/ bro` `207.6`/min.
+- S7d therefore keeps cadence as a diagnostic signal rather than a controller target. The next evidence step should broaden bot rows or inspect airborne-proxy segmentation before cadence control.
+
 S6a result:
 
 - Added `scripts/diagnose_route_state.py`.

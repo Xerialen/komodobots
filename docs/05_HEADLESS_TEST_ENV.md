@@ -466,4 +466,4 @@ Move the repeatable runner one notch closer to the north star:
 
 1. Keep `dm2` as a `qw-sim` continuity map, not as a Frogbot route-building target.
 2. Use routed maps such as `frobodm2` and `dm3` to generate bot movement demos.
-3. After S7c, do not start broad player-specific movement control yet. The next smallest useful branch is S7d: decide whether bot-comparable cadence stays diagnostic, needs broader exact-player/bot sampling, or warrants a tiny controller probe while the generic land-speed gap remains visible.
+3. After S7d, do not start broad player-specific movement control yet. Cadence remains diagnostic after movement/air-proxy normalization. The next smallest useful branch is S7e: broaden bot rows or inspect airborne-proxy segmentation before any cadence controller probe.

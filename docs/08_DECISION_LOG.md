@@ -1212,3 +1212,46 @@ S7d should make a product/experiment decision before adding controller code. A c
 ### Revisit Conditions
 
 Revisit if Claude finds a cadence propagation or classification bug, if additional bot rows show the current two-bot relation is misleading, or if richer movement metrics reveal a better repeated player-style axis than cadence.
+
+---
+
+## Decision
+
+Keep cadence diagnostic after S7d normalization; do not start cadence control yet.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S7d re-normalized bot-comparable cadence by non-stationary time, non-low-speed time, and airborne-proxy time using the committed S7c aggregate. The result does not justify a cadence controller yet.
+
+Cadence remains useful as a diagnostic/player-style candidate, but it should not become a controller target until the project broadens bot evidence or separates cadence from airborne-proxy segmentation and the unresolved land-speed gap.
+
+The next goal is S7e: broaden or dissect cadence evidence before controller work. The smallest useful path is to add more bot rows and/or inspect airborne-proxy segmentation from existing artifacts before changing KTX/Frogbot movement behavior.
+
+### Alternatives Considered
+
+- Start a tiny cadence controller because `/ goldenboy` is within the raw S7c cadence range.
+- Treat `/ bro` as a simple over-cadence bug and lower jump frequency directly.
+- Drop cadence and return immediately to generic land-speed optimization.
+- Broaden exact-player references again before understanding the bot-side airborne-proxy relation.
+
+### Evidence
+
+S7d cadence-normalization evidence:
+
+- Existing `jump_cadence_per_min` is already active-row normalized (`airborne_proxy_count / active_time_s * 60`).
+- Non-stationary cadence: exact-player `44.2` to `55.6`/min; S3g `/ bro` `92.1`/min; S3g `/ goldenboy` `44.4`/min.
+- Non-low-speed cadence: exact-player `48.7` to `61.3`/min; S3g `/ bro` `124.1`/min; S3g `/ goldenboy` `53.3`/min.
+- Airborne-proxy cadence: exact-player `128.0` to `143.1`/min; S3g `/ bro` `207.6`/min; S3g `/ goldenboy` `174.4`/min.
+- Airborne-proxy normalization puts both S3g bots above the exact-player range, while avg/p95 remain generic land-speed gaps.
+
+### Expected Consequences
+
+S7 should remain evidence-first. If S7e shows cadence is stable across more bot rows and separable from airborne-proxy segmentation, a tiny cadence probe may become defensible. If not, cadence should remain a diagnostic axis while movement-realism work returns to the broader land-speed/air-rhythm deficit.
+
+### Revisit Conditions
+
+Revisit if Code Sentinel finds a normalization bug, if broader bot samples show the current S3g bot relation is misleading, or if a better grounded jump/airborne metric replaces the current position-derived airborne proxy.

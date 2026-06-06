@@ -176,3 +176,28 @@ This still does not authorize a player-specific movement controller. Avg and p95
 remain generic S3g-vs-human land-speed gaps, so S7d should decide whether
 cadence remains diagnostic, needs broader sampling, or warrants a tiny controller
 probe.
+
+## Current S7d Result
+
+S7d re-normalizes the S7c cadence comparison by movement and airborne-proxy time
+without rerunning the lab:
+
+```text
+experiments/human_comparison/evidence/cadence-normalization-s7d-dm3.json
+experiments/human_comparison/evidence/cadence-normalization-s7d-dm3.md
+```
+
+The existing `jump_cadence_per_min` field is already active-row normalized
+(`airborne_proxy_count / active_time_s * 60`). S7d tests stricter denominators:
+non-stationary time, non-low-speed time, and airborne-proxy time.
+
+| Axis | Reference range | S3g bot range | Relation |
+|---|---:|---:|---|
+| Non-stationary cadence | `44.2-55.6`/min | `44.4-92.1`/min | mixed |
+| Non-low-speed cadence | `48.7-61.3`/min | `53.3-124.1`/min | mixed |
+| Air-proxy cadence | `128.0-143.1`/min | `174.4-207.6`/min | all bots above |
+
+Movement-time normalization keeps `/ goldenboy` inside the exact-player range,
+but airborne-proxy normalization puts both S3g bots above the reference range.
+Cadence should therefore stay diagnostic for now. A cadence controller would
+risk optimizing a proxy before the air-rhythm and land-speed gaps are understood.
