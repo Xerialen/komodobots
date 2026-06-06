@@ -1496,3 +1496,114 @@ Low for any general player-realism claim until the lab has a broader elite or pl
 ### Follow-up
 
 Ask Claude to review S4c. Proposed S5a: build a Milton/elite movement reference-set inventory. Use existing corpus and local metadata first, keep the no-hub-mass-download rule, identify whether the current data can find Milton or other elite reference demos without training or a costly full content scan, and parse one small defensible reference sample if available.
+
+## 2026-06-06 - S5a Milton/Elite Reference Inventory
+
+### Experiment
+
+Used existing metadata instead of parsing the whole corpus:
+
+- Turso `qw-stats-xerialen` `player_games` / `games` rows identify player-to-game membership.
+- `servexeri:/mnt/usb-ssd/4on4-corpus/manifest.tsv` identifies which game SHA-256 values are present in the local 4on4 MVD corpus.
+- thevault `quakeworld/mvds.md` no-hub-mass-download rule still applies.
+
+For each target player, inspected exact `player_name` matches in `player_games` where `mode='4on4'`, then cross-referenced the latest `500` rows against the corpus manifest and map.
+
+Target players:
+
+- `Milton`
+- `carapace`
+- `_ ParadokS`
+- `yeti`
+- `ok98`
+
+Selected one exact `Milton` `dm3` reference sample and parsed it through `scripts/analyze_human_mvd.py`:
+
+```bash
+python scripts/analyze_human_mvd.py --demo-root artifacts/human-demos/source --artifact-root artifacts/human-demos/s5a --stage s5a-milton-dm3 --demo 4on4_blue_vs_anza[dm3]20260602-2022.mvd --run-id s5a-milton-dm3-blue-vs-anza-20260602-2022
+```
+
+### Result
+
+Metadata inventory:
+
+| Player | Total 4on4 rows | Latest-500 manifest hits | DM3 hits | DM2 hits |
+|---|---:|---:|---:|---:|
+| `Milton` | 1240 | 96 | 23 | 19 |
+| `carapace` | 712 | 68 | 14 | 13 |
+| `_ ParadokS` | 1729 | 55 | 11 | 10 |
+| `yeti` | 1518 | 60 | 17 | 17 |
+| `ok98` | 1326 | 59 | 13 | 19 |
+
+This proves exact-player elite/Milton reference selection is feasible from metadata without training, hub downloads, or a bulk content scan.
+
+Selected demo:
+
+- `4on4_blue_vs_anza[dm3]20260602-2022.mvd`
+- SHA-256: `9ca8f72b3afa95ba87830a83478c51bb9b3dd626b733190a4ca2d84b4d66490e`
+- Size: `14359909` bytes
+- Turso row: `Milton`, team `anza`, date `2026-06-02 20:42:16 +0000`, frags/deaths `118/18`, match `blue` vs `anza`, score `133`-`261`, server `Berlin KTX Server antilag #4`
+
+Parsed demo:
+
+- Run id: `s5a-milton-dm3-blue-vs-anza-20260602-2022`.
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Event count: `799790`; position events: `694902`.
+- Match title/map: `The Abandoned Base` / `dm3`.
+- Duration: `1200013` ms.
+- Active movement rows: eight 4on4 players.
+- Milton row: active `1199.415` s, avg `314.2` qu/s, p95 `535.0`, stationary `5.9%`, low-speed `12.4%`, airborne proxy `35.1%`, cadence `44.9`/min.
+
+Milton-containing sample versus S3g `dm3` bot run `20260606T003718Z`:
+
+| Metric | Human min | Human mean | Human max | Bot min | Bot mean | Bot max |
+|---|---:|---:|---:|---:|---:|---:|
+| Avg | 248.5 | 277.0 | 314.2 | 190.1 | 219.2 | 248.2 |
+| P95 | 447.4 | 490.3 | 535.0 | 361.0 | 368.1 | 375.3 |
+| Stationary | 5.9% | 10.6% | 14.5% | 0.4% | 1.5% | 2.5% |
+| Low | 12.4% | 17.8% | 21.6% | 18.9% | 22.5% | 26.1% |
+| Air | 31.0% | 33.5% | 37.2% | 24.8% | 34.5% | 44.2% |
+
+Bot rows versus this sample:
+
+| Bot | Avg range | P95 range | Stationary range | Low range | Air range |
+|---|---|---|---|---|---|
+| `/ bro` | `below_human_min` | `below_human_min` | `below_human_min` | `above_human_max` | `above_human_max` |
+| `/ goldenboy` | `below_human_min` | `below_human_min` | `below_human_min` | `within_human_range` | `below_human_min` |
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/reference-set/4on4-manifest.tsv`
+- `artifacts/human-demos/s5a/human-demo-inventory.md`
+- `artifacts/human-demos/s5a/human-demo-s5a-milton-dm3-summary.md`
+- `artifacts/human-demos/s5a/s5a-milton-dm3-blue-vs-anza-20260602-2022/movement-metrics.md`
+- `experiments/human_comparison/evidence/human-milton-s5a-selection.md`
+- `experiments/human_comparison/evidence/human-milton-s5a-selection.json`
+- `experiments/human_comparison/evidence/human-milton-s5a-inventory.md`
+- `experiments/human_comparison/evidence/human-milton-s5a-inventory.json`
+- `experiments/human_comparison/evidence/human-milton-s5a-summary.md`
+- `experiments/human_comparison/evidence/human-milton-s5a-summary.json`
+
+### Interpretation
+
+S5a removes a major data uncertainty: the project can select player-specific reference demos by metadata, at least for Milton and several elite targets.
+
+The first Milton sample sharpens the S4c result. The current S3g bot movement remains below elite p95 movement and, for `/ bro`, below average speed while also spending too much time in low-speed/airborne-proxy states. This points toward route primitive/state diagnosis before player-style modelling.
+
+This is still one match. Do not tune mode `7` directly to this single Milton row.
+
+### Confidence
+
+High that exact-player metadata selection is feasible for the tested target names.
+
+High for the selected Milton demo provenance and parser result.
+
+Medium for the S3g-vs-Milton movement gap because it is one match and one bot run.
+
+Low for any player-specific movement conclusion until S5 has a tiny aggregate.
+
+### Follow-up
+
+Ask Claude to review S5a. Proposed S5b: build a tiny Milton/elite reference aggregate. Select a small bounded set of exact-player `dm3` demos from the proven metadata path, parse compact summaries, and report multi-demo movement ranges before S6 route primitives or S7 player-specific movement.

@@ -59,3 +59,25 @@ p95 speed for both bots; `/ bro` is also below the human average-speed range and
 above the human airborne-proxy range. The next step should build a Milton/elite
 reference-set inventory before training, player-specific modelling, or more
 movement-command heuristics.
+
+## Current S5a Result
+
+S5a uses Turso `player_games` / `games` metadata cross-referenced against the
+existing `servexeri` 4on4 corpus manifest. This proves exact-player reference
+selection is possible without training, hub mass-downloads, or a full content
+scan.
+
+The first selected Milton reference demo is:
+
+```text
+4on4_blue_vs_anza[dm3]20260602-2022.mvd
+```
+
+It contains an exact `Milton` player row on `dm3`, parses as `The Abandoned Base`,
+and produces a Milton movement row with avg `314.2` qu/s, p95 `535.0`,
+stationary `5.9%`, low-speed `12.4%`, airborne proxy `35.1%`, and cadence
+`44.9`/min.
+
+This is still a single-match reference, not a style model. The next S5 step
+should build a tiny aggregate from a few exact-player elite/Milton samples before
+moving to S6 route primitives or S7 player-specific movement.

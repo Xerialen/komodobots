@@ -174,6 +174,20 @@ Next S5 data step:
 
 Build a Milton/elite reference-set inventory before training or controller changes. Use existing local/corpus metadata first, preserve the no-hub-mass-download rule, and decide whether the current corpus can identify player-specific reference demos without a costly content scan.
 
+S5a result:
+
+- Queried Turso `player_games` / `games` metadata and cross-referenced game SHA-256 values with the existing `servexeri` 4on4 corpus manifest.
+- Exact `Milton` selection is feasible without training, hub download, or a full content scan: `1240` total 4on4 rows; latest-500 metadata window had `96` manifest hits, including `23` `dm3` and `19` `dm2` hits.
+- Other elite targets are also feasible in the latest-500 metadata window: `carapace` `68` manifest hits, `_ ParadokS` `55`, `yeti` `60`, and `ok98` `59`.
+- Selected the latest manifest-matched exact `Milton` `dm3` row: `4on4_blue_vs_anza[dm3]20260602-2022.mvd`, SHA-256 `9ca8f72b3afa95ba87830a83478c51bb9b3dd626b733190a4ca2d84b4d66490e`.
+- Parsed run `s5a-milton-dm3-blue-vs-anza-20260602-2022` as `dm3` / `The Abandoned Base`, duration `1200013` ms, event count `799790`, position events `694902`.
+- Milton movement row: active `1199.415` s, avg `314.2` qu/s, p95 `535.0`, stationary `5.9%`, low-speed `12.4%`, airborne proxy `35.1%`, cadence `44.9`/min.
+- Against this Milton-containing sample, S3g `dm3` bots are below the human p95 range; `/ bro` is also below average speed and above both low-speed and airborne-proxy ranges.
+
+Next S5 comparison step:
+
+Promote S5b as a tiny reference aggregate before S6 route primitives: select a small, bounded set of exact-player `dm3` references from Milton and/or the elite targets already proven selectable, parse compact summaries, and report a multi-demo range so one Milton match does not become the sole target.
+
 ## Bot-generated MVD loop
 
 Target loop:

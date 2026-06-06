@@ -740,3 +740,58 @@ S3 command/controller work should resume only when the human/elite reference set
 ### Revisit Conditions
 
 Revisit if S5a cannot identify any defensible elite or Milton reference candidates, if the current corpus lacks metadata sufficient for player-specific selection, or if Claude recommends expanding S4 with a small multi-demo `dm3` human range before moving to S5.
+
+---
+
+## Decision
+
+Treat exact-player reference selection as feasible, but require a tiny aggregate before S6/S7.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S5a proves the project can select Milton and elite-player reference demos by metadata: Turso `player_games` / `games` rows can be cross-referenced against the existing `servexeri` 4on4 corpus manifest without mass-downloading from hub or parsing the full corpus.
+
+The next goal is S5b: build a tiny Milton/elite reference aggregate on `dm3`. Do not tune S3g or begin S7 player-specific movement from a single Milton match.
+
+### Alternatives Considered
+
+- Start S6 route primitives immediately from the single S5a Milton parse.
+- Start S7 player-specific movement because a Milton row is now available.
+- Tune mode `7` directly against Milton's p95 speed.
+- Use only generic S4c human ranges and skip elite/player-specific references.
+
+### Evidence
+
+S5a metadata inventory, latest 500 rows per target:
+
+- `Milton`: `1240` total 4on4 rows; `96` latest-500 manifest hits; `23` `dm3` hits; `19` `dm2` hits.
+- `carapace`: `712` total 4on4 rows; `68` latest-500 manifest hits; `14` `dm3` hits; `13` `dm2` hits.
+- `_ ParadokS`: `1729` total 4on4 rows; `55` latest-500 manifest hits; `11` `dm3` hits; `10` `dm2` hits.
+- `yeti`: `1518` total 4on4 rows; `60` latest-500 manifest hits; `17` `dm3` hits; `17` `dm2` hits.
+- `ok98`: `1326` total 4on4 rows; `59` latest-500 manifest hits; `13` `dm3` hits; `19` `dm2` hits.
+
+Selected Milton sample:
+
+- `4on4_blue_vs_anza[dm3]20260602-2022.mvd`
+- SHA-256: `9ca8f72b3afa95ba87830a83478c51bb9b3dd626b733190a4ca2d84b4d66490e`
+- Turso row: `Milton`, team `anza`, `118/18`, `dm3`, `2026-06-02 20:42:16 +0000`.
+- Parsed as `dm3` / `The Abandoned Base`, duration `1200013` ms.
+- Milton movement row: avg `314.2`, p95 `535.0`, stationary `5.9%`, low-speed `12.4%`, airborne proxy `35.1%`, cadence `44.9`/min.
+
+S3g comparison against the Milton-containing sample:
+
+- Both S3g `dm3` bot rows are below the sample's human p95 range.
+- `/ bro` is below the sample's average-speed range and above the low-speed and airborne-proxy ranges.
+- `/ goldenboy` is below the sample's average-speed and p95 ranges, but inside low-speed range.
+
+### Expected Consequences
+
+S5b should create a small but less brittle reference range before S6 route primitives. A tiny aggregate can distinguish one-match noise from stable elite movement signals, and it can turn "S3g is too slow/low-p95" into a better-scoped route or movement-state diagnosis.
+
+### Revisit Conditions
+
+Revisit if a multi-demo aggregate cannot be produced quickly from the existing corpus, if exact player aliases make target selection unreliable, or if Claude recommends moving to S6 route-state instrumentation before expanding the reference set.

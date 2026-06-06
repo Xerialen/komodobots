@@ -1,0 +1,286 @@
+{
+  "artifact_dir": "artifacts\\human-demos\\s5a\\s5a-milton-dm3-blue-vs-anza-20260602-2022",
+  "comparison_context": {
+    "bot_summary": {
+      "available": true,
+      "maps": [
+        "dm3",
+        "frobodm2"
+      ],
+      "path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\experiments\\ktx_moveprobe\\evidence\\moveprobe-s3g-summary.json",
+      "run_count": 2,
+      "schema": "komodobots.moveprobe_plausibility.v1"
+    },
+    "note": "This is map-matched to at least one S3g bot run and can seed a small comparison.",
+    "same_map_comparable_to_s3g": true,
+    "verdict": "same_map_human_reference_available"
+  },
+  "demo": {
+    "copied_demo": "artifacts\\human-demos\\s5a\\s5a-milton-dm3-blue-vs-anza-20260602-2022\\demo.mvd",
+    "demo_kind": "4on4",
+    "inferred_map_from_name": "dm3",
+    "map": "dm3",
+    "name": "4on4_blue_vs_anza[dm3]20260602-2022.mvd",
+    "sha256": "9ca8f72b3afa95ba87830a83478c51bb9b3dd626b733190a4ca2d84b4d66490e",
+    "size_bytes": 14359909,
+    "source_path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\source\\4on4_blue_vs_anza[dm3]20260602-2022.mvd"
+  },
+  "ignored_named_slots": [],
+  "inventory": {
+    "demo_count": 3,
+    "dm2_candidate_count": 1,
+    "has_dm2_candidate": true,
+    "map_inference_method": "filename_token_heuristic",
+    "root": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\source"
+  },
+  "match": {
+    "duration_ms": 1200013,
+    "frag_count": 4,
+    "map": "dm3",
+    "map_title": "The Abandoned Base"
+  },
+  "movement_players": [
+    {
+      "active_time_s": 1198.609,
+      "airborne_proxy_time_ratio": 0.345,
+      "avg_horizontal_speed_qu_per_s": 248.464,
+      "jump_cadence_per_min": 43.901,
+      "low_speed_time_ratio": 0.205,
+      "max_horizontal_speed_qu_per_s": 1955.165,
+      "name": "rghst",
+      "p95_horizontal_speed_qu_per_s": 455.996,
+      "sample_count": 85701,
+      "slot": 0,
+      "stationary_time_ratio": 0.14
+    },
+    {
+      "active_time_s": 1198.727,
+      "airborne_proxy_time_ratio": 0.314,
+      "avg_horizontal_speed_qu_per_s": 267.447,
+      "jump_cadence_per_min": 41.194,
+      "low_speed_time_ratio": 0.199,
+      "max_horizontal_speed_qu_per_s": 1312.058,
+      "name": "fateful",
+      "p95_horizontal_speed_qu_per_s": 482.886,
+      "sample_count": 85701,
+      "slot": 1,
+      "stationary_time_ratio": 0.11
+    },
+    {
+      "active_time_s": 1199.415,
+      "airborne_proxy_time_ratio": 0.351,
+      "avg_horizontal_speed_qu_per_s": 314.236,
+      "jump_cadence_per_min": 44.922,
+      "low_speed_time_ratio": 0.124,
+      "max_horizontal_speed_qu_per_s": 1025.741,
+      "name": "Milton",
+      "p95_horizontal_speed_qu_per_s": 535.023,
+      "sample_count": 85701,
+      "slot": 2,
+      "stationary_time_ratio": 0.059
+    },
+    {
+      "active_time_s": 1198.473,
+      "airborne_proxy_time_ratio": 0.327,
+      "avg_horizontal_speed_qu_per_s": 256.885,
+      "jump_cadence_per_min": 40.502,
+      "low_speed_time_ratio": 0.165,
+      "max_horizontal_speed_qu_per_s": 1430.141,
+      "name": "Anza  (FU)",
+      "p95_horizontal_speed_qu_per_s": 447.4,
+      "sample_count": 85701,
+      "slot": 4,
+      "stationary_time_ratio": 0.096
+    },
+    {
+      "active_time_s": 1199.103,
+      "airborne_proxy_time_ratio": 0.31,
+      "avg_horizontal_speed_qu_per_s": 292.926,
+      "jump_cadence_per_min": 43.483,
+      "low_speed_time_ratio": 0.168,
+      "max_horizontal_speed_qu_per_s": 1126.727,
+      "name": "niomic",
+      "p95_horizontal_speed_qu_per_s": 503.776,
+      "sample_count": 85701,
+      "slot": 5,
+      "stationary_time_ratio": 0.098
+    },
+    {
+      "active_time_s": 1198.513,
+      "airborne_proxy_time_ratio": 0.334,
+      "avg_horizontal_speed_qu_per_s": 261.311,
+      "jump_cadence_per_min": 43.254,
+      "low_speed_time_ratio": 0.216,
+      "max_horizontal_speed_qu_per_s": 1949.743,
+      "name": "splif",
+      "p95_horizontal_speed_qu_per_s": 486.73,
+      "sample_count": 85701,
+      "slot": 6,
+      "stationary_time_ratio": 0.145
+    },
+    {
+      "active_time_s": 1198.5,
+      "airborne_proxy_time_ratio": 0.324,
+      "avg_horizontal_speed_qu_per_s": 278.46,
+      "jump_cadence_per_min": 42.603,
+      "low_speed_time_ratio": 0.202,
+      "max_horizontal_speed_qu_per_s": 1468.386,
+      "name": "ToT_Oddjob",
+      "p95_horizontal_speed_qu_per_s": 514.039,
+      "sample_count": 85701,
+      "slot": 7,
+      "stationary_time_ratio": 0.129
+    },
+    {
+      "active_time_s": 1198.528,
+      "airborne_proxy_time_ratio": 0.372,
+      "avg_horizontal_speed_qu_per_s": 296.173,
+      "jump_cadence_per_min": 51.864,
+      "low_speed_time_ratio": 0.142,
+      "max_horizontal_speed_qu_per_s": 1142.857,
+      "name": "gflip",
+      "p95_horizontal_speed_qu_per_s": 496.903,
+      "sample_count": 85701,
+      "slot": 9,
+      "stationary_time_ratio": 0.074
+    }
+  ],
+  "parser": {
+    "event_count": 799790,
+    "exits": {
+      "events": 1,
+      "json": 0,
+      "md": 0
+    },
+    "position_event_count": 694902
+  },
+  "run_id": "s5a-milton-dm3-blue-vs-anza-20260602-2022",
+  "same_map_movement_comparison": {
+    "available": true,
+    "bot_player_count": 2,
+    "bot_players": [
+      {
+        "against_human_range": {
+          "airborne_proxy_time_ratio": "above_human_max",
+          "avg_horizontal_speed_qu_per_s": "below_human_min",
+          "low_speed_time_ratio": "above_human_max",
+          "p95_horizontal_speed_qu_per_s": "below_human_min",
+          "stationary_time_ratio": "below_human_min"
+        },
+        "player": "/ bro",
+        "run_id": "20260606T003718Z",
+        "values": {
+          "airborne_proxy_time_ratio": 0.442,
+          "avg_horizontal_speed_qu_per_s": 190.149,
+          "low_speed_time_ratio": 0.261,
+          "p95_horizontal_speed_qu_per_s": 361.014,
+          "stationary_time_ratio": 0.004
+        }
+      },
+      {
+        "against_human_range": {
+          "airborne_proxy_time_ratio": "below_human_min",
+          "avg_horizontal_speed_qu_per_s": "below_human_min",
+          "low_speed_time_ratio": "within_human_range",
+          "p95_horizontal_speed_qu_per_s": "below_human_min",
+          "stationary_time_ratio": "below_human_min"
+        },
+        "player": "/ goldenboy",
+        "run_id": "20260606T003718Z",
+        "values": {
+          "airborne_proxy_time_ratio": 0.248,
+          "avg_horizontal_speed_qu_per_s": 248.179,
+          "low_speed_time_ratio": 0.189,
+          "p95_horizontal_speed_qu_per_s": 375.273,
+          "stationary_time_ratio": 0.025
+        }
+      }
+    ],
+    "fields": [
+      {
+        "bot": {
+          "count": 2,
+          "max": 248.179,
+          "mean": 219.164,
+          "min": 190.149
+        },
+        "field": "avg_horizontal_speed_qu_per_s",
+        "human": {
+          "count": 8,
+          "max": 314.236,
+          "mean": 276.988,
+          "min": 248.464
+        },
+        "label": "Avg"
+      },
+      {
+        "bot": {
+          "count": 2,
+          "max": 375.273,
+          "mean": 368.144,
+          "min": 361.014
+        },
+        "field": "p95_horizontal_speed_qu_per_s",
+        "human": {
+          "count": 8,
+          "max": 535.023,
+          "mean": 490.344,
+          "min": 447.4
+        },
+        "label": "P95"
+      },
+      {
+        "bot": {
+          "count": 2,
+          "max": 0.025,
+          "mean": 0.015,
+          "min": 0.004
+        },
+        "field": "stationary_time_ratio",
+        "human": {
+          "count": 8,
+          "max": 0.145,
+          "mean": 0.106,
+          "min": 0.059
+        },
+        "label": "Stationary"
+      },
+      {
+        "bot": {
+          "count": 2,
+          "max": 0.261,
+          "mean": 0.225,
+          "min": 0.189
+        },
+        "field": "low_speed_time_ratio",
+        "human": {
+          "count": 8,
+          "max": 0.216,
+          "mean": 0.178,
+          "min": 0.124
+        },
+        "label": "Low"
+      },
+      {
+        "bot": {
+          "count": 2,
+          "max": 0.442,
+          "mean": 0.345,
+          "min": 0.248
+        },
+        "field": "airborne_proxy_time_ratio",
+        "human": {
+          "count": 8,
+          "max": 0.372,
+          "mean": 0.335,
+          "min": 0.31
+        },
+        "label": "Air"
+      }
+    ],
+    "human_player_count": 8,
+    "note": "Single-demo, same-map descriptive comparison only; it anchors S3g metrics against human movement ranges but is not a realism verdict."
+  },
+  "schema": "komodobots.human_mvd_analysis.v1",
+  "stage": "s5a-milton-dm3"
+}
