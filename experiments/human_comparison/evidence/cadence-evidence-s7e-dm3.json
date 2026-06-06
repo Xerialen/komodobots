@@ -1,0 +1,607 @@
+{
+  "bot_count": 6,
+  "bot_player_summary": [
+    {
+      "airborne_proxy_time_ratio": {
+        "count": 3,
+        "max": 0.506,
+        "mean": 0.479,
+        "min": 0.442
+      },
+      "avg_airborne_proxy_duration_ms": {
+        "count": 3,
+        "max": 289.308,
+        "mean": 252.61,
+        "min": 219.102
+      },
+      "avg_horizontal_speed_qu_per_s": {
+        "count": 3,
+        "max": 190.149,
+        "mean": 170.096,
+        "min": 136.285
+      },
+      "count": 3,
+      "jump_cadence_per_airborne_proxy_min": {
+        "count": 3,
+        "max": 274.065,
+        "mean": 240.714,
+        "min": 207.557
+      },
+      "jump_cadence_per_min": {
+        "count": 3,
+        "max": 138.677,
+        "mean": 116.011,
+        "min": 91.74
+      },
+      "p95_horizontal_speed_qu_per_s": {
+        "count": 3,
+        "max": 365.491,
+        "mean": 362.037,
+        "min": 359.605
+      },
+      "player": "/ bro",
+      "run_ids": [
+        "20260606T003718Z",
+        "20260606T031102Z",
+        "20260606T041805Z"
+      ]
+    },
+    {
+      "airborne_proxy_time_ratio": {
+        "count": 3,
+        "max": 0.248,
+        "mean": 0.163,
+        "min": 0.091
+      },
+      "avg_airborne_proxy_duration_ms": {
+        "count": 3,
+        "max": 365.75,
+        "mean": 335.25,
+        "min": 295.5
+      },
+      "avg_horizontal_speed_qu_per_s": {
+        "count": 3,
+        "max": 286.476,
+        "mean": 273.379,
+        "min": 248.179
+      },
+      "count": 3,
+      "jump_cadence_per_airborne_proxy_min": {
+        "count": 3,
+        "max": 203.099,
+        "mean": 180.553,
+        "min": 164.12
+      },
+      "jump_cadence_per_min": {
+        "count": 3,
+        "max": 43.261,
+        "mean": 28.787,
+        "min": 18.482
+      },
+      "p95_horizontal_speed_qu_per_s": {
+        "count": 3,
+        "max": 386.332,
+        "mean": 380.971,
+        "min": 375.273
+      },
+      "player": "/ goldenboy",
+      "run_ids": [
+        "20260606T003718Z",
+        "20260606T031102Z",
+        "20260606T041805Z"
+      ]
+    }
+  ],
+  "bot_rows": [
+    {
+      "airborne_proxy_count": 39.0,
+      "airborne_proxy_time_ratio": 0.442,
+      "avg_airborne_proxy_duration_ms": 289.308,
+      "avg_airborne_proxy_z_delta_qu": 21.881,
+      "avg_horizontal_speed_qu_per_s": 190.149,
+      "avg_landing_post_speed_qu_per_s": 136.652,
+      "avg_landing_pre_speed_qu_per_s": 123.178,
+      "avg_post_landing_speed_delta_qu_per_s": 13.474,
+      "avg_post_landing_speed_loss_ratio": -0.109,
+      "jump_cadence_per_airborne_proxy_min": 207.557,
+      "jump_cadence_per_min": 91.74,
+      "jump_cadence_per_non_low_speed_min": 124.141,
+      "jump_cadence_per_nonstationary_min": 92.108,
+      "low_speed_time_ratio": 0.261,
+      "map": "dm3",
+      "mode_family": "dm3_mode7_unchanged_diagnostic_rerun",
+      "p95_horizontal_speed_qu_per_s": 361.014,
+      "player": "/ bro",
+      "run_id": "20260606T003718Z",
+      "source_metrics_path": "artifacts/lab-runs/20260606T003718Z/movement-metrics.json",
+      "stationary_time_ratio": 0.004
+    },
+    {
+      "airborne_proxy_count": 14.0,
+      "airborne_proxy_time_ratio": 0.248,
+      "avg_airborne_proxy_duration_ms": 344.5,
+      "avg_airborne_proxy_z_delta_qu": 38.08,
+      "avg_horizontal_speed_qu_per_s": 248.179,
+      "avg_landing_post_speed_qu_per_s": 194.76,
+      "avg_landing_pre_speed_qu_per_s": 195.362,
+      "avg_post_landing_speed_delta_qu_per_s": -0.602,
+      "avg_post_landing_speed_loss_ratio": 0.003,
+      "jump_cadence_per_airborne_proxy_min": 174.44,
+      "jump_cadence_per_min": 43.261,
+      "jump_cadence_per_non_low_speed_min": 53.343,
+      "jump_cadence_per_nonstationary_min": 44.37,
+      "low_speed_time_ratio": 0.189,
+      "map": "dm3",
+      "mode_family": "dm3_mode7_unchanged_diagnostic_rerun",
+      "p95_horizontal_speed_qu_per_s": 375.273,
+      "player": "/ goldenboy",
+      "run_id": "20260606T003718Z",
+      "source_metrics_path": "artifacts/lab-runs/20260606T003718Z/movement-metrics.json",
+      "stationary_time_ratio": 0.025
+    },
+    {
+      "airborne_proxy_count": 59.0,
+      "airborne_proxy_time_ratio": 0.506,
+      "avg_airborne_proxy_duration_ms": 219.102,
+      "avg_airborne_proxy_z_delta_qu": 8.981,
+      "avg_horizontal_speed_qu_per_s": 136.285,
+      "avg_landing_post_speed_qu_per_s": 108.087,
+      "avg_landing_pre_speed_qu_per_s": 105.317,
+      "avg_post_landing_speed_delta_qu_per_s": 2.77,
+      "avg_post_landing_speed_loss_ratio": -0.026,
+      "jump_cadence_per_airborne_proxy_min": 274.065,
+      "jump_cadence_per_min": 138.677,
+      "jump_cadence_per_non_low_speed_min": 289.514,
+      "jump_cadence_per_nonstationary_min": 146.593,
+      "low_speed_time_ratio": 0.521,
+      "map": "dm3",
+      "mode_family": "dm3_mode7_unchanged_diagnostic_rerun",
+      "p95_horizontal_speed_qu_per_s": 359.605,
+      "player": "/ bro",
+      "run_id": "20260606T031102Z",
+      "source_metrics_path": "artifacts/lab-runs/20260606T031102Z/movement-metrics.json",
+      "stationary_time_ratio": 0.054
+    },
+    {
+      "airborne_proxy_count": 8.0,
+      "airborne_proxy_time_ratio": 0.15,
+      "avg_airborne_proxy_duration_ms": 365.75,
+      "avg_airborne_proxy_z_delta_qu": 64.0,
+      "avg_horizontal_speed_qu_per_s": 285.483,
+      "avg_landing_post_speed_qu_per_s": 239.596,
+      "avg_landing_pre_speed_qu_per_s": 154.598,
+      "avg_post_landing_speed_delta_qu_per_s": 84.998,
+      "avg_post_landing_speed_loss_ratio": -0.55,
+      "jump_cadence_per_airborne_proxy_min": 164.12,
+      "jump_cadence_per_min": 24.618,
+      "jump_cadence_per_non_low_speed_min": 26.471,
+      "jump_cadence_per_nonstationary_min": 24.618,
+      "low_speed_time_ratio": 0.07,
+      "map": "dm3",
+      "mode_family": "dm3_mode7_unchanged_diagnostic_rerun",
+      "p95_horizontal_speed_qu_per_s": 381.309,
+      "player": "/ goldenboy",
+      "run_id": "20260606T031102Z",
+      "source_metrics_path": "artifacts/lab-runs/20260606T031102Z/movement-metrics.json",
+      "stationary_time_ratio": 0.0
+    },
+    {
+      "airborne_proxy_count": 50.0,
+      "airborne_proxy_time_ratio": 0.489,
+      "avg_airborne_proxy_duration_ms": 249.42,
+      "avg_airborne_proxy_z_delta_qu": 12.475,
+      "avg_horizontal_speed_qu_per_s": 183.855,
+      "avg_landing_post_speed_qu_per_s": 130.812,
+      "avg_landing_pre_speed_qu_per_s": 128.013,
+      "avg_post_landing_speed_delta_qu_per_s": 2.799,
+      "avg_post_landing_speed_loss_ratio": -0.022,
+      "jump_cadence_per_airborne_proxy_min": 240.521,
+      "jump_cadence_per_min": 117.615,
+      "jump_cadence_per_non_low_speed_min": 177.398,
+      "jump_cadence_per_nonstationary_min": 117.851,
+      "low_speed_time_ratio": 0.337,
+      "map": "dm3",
+      "mode_family": "dm3_mode7_unchanged_diagnostic_rerun",
+      "p95_horizontal_speed_qu_per_s": 365.491,
+      "player": "/ bro",
+      "run_id": "20260606T041805Z",
+      "source_metrics_path": "artifacts/lab-runs/20260606T041805Z/movement-metrics.json",
+      "stationary_time_ratio": 0.002
+    },
+    {
+      "airborne_proxy_count": 6.0,
+      "airborne_proxy_time_ratio": 0.091,
+      "avg_airborne_proxy_duration_ms": 295.5,
+      "avg_airborne_proxy_z_delta_qu": 36.75,
+      "avg_horizontal_speed_qu_per_s": 286.476,
+      "avg_landing_post_speed_qu_per_s": 290.674,
+      "avg_landing_pre_speed_qu_per_s": 270.217,
+      "avg_post_landing_speed_delta_qu_per_s": 20.457,
+      "avg_post_landing_speed_loss_ratio": -0.076,
+      "jump_cadence_per_airborne_proxy_min": 203.099,
+      "jump_cadence_per_min": 18.482,
+      "jump_cadence_per_non_low_speed_min": 20.177,
+      "jump_cadence_per_nonstationary_min": 18.575,
+      "low_speed_time_ratio": 0.084,
+      "map": "dm3",
+      "mode_family": "dm3_mode7_unchanged_diagnostic_rerun",
+      "p95_horizontal_speed_qu_per_s": 386.332,
+      "player": "/ goldenboy",
+      "run_id": "20260606T041805Z",
+      "source_metrics_path": "artifacts/lab-runs/20260606T041805Z/movement-metrics.json",
+      "stationary_time_ratio": 0.005
+    }
+  ],
+  "bot_run_ids": [
+    "20260606T003718Z",
+    "20260606T031102Z",
+    "20260606T041805Z"
+  ],
+  "cadence_axes": [
+    {
+      "basis": "active movement-metrics rows",
+      "bot": {
+        "count": 6,
+        "max": 138.677,
+        "mean": 72.399,
+        "min": 18.482
+      },
+      "bot_relation": "mixed_bot_relation",
+      "bot_rows": [
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T003718Z",
+          "value": 91.74
+        },
+        {
+          "against_reference": "within_reference_range",
+          "player": "/ goldenboy",
+          "run_id": "20260606T003718Z",
+          "value": 43.261
+        },
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T031102Z",
+          "value": 138.677
+        },
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ goldenboy",
+          "run_id": "20260606T031102Z",
+          "value": 24.618
+        },
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T041805Z",
+          "value": 117.615
+        },
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ goldenboy",
+          "run_id": "20260606T041805Z",
+          "value": 18.482
+        }
+      ],
+      "field": "jump_cadence_per_min",
+      "label": "Cadence/active min",
+      "reference": {
+        "count": 6,
+        "max": 50.975,
+        "mean": 45.153,
+        "min": 40.368
+      }
+    },
+    {
+      "basis": "active time excluding stationary_time_ratio",
+      "bot": {
+        "count": 6,
+        "max": 146.593,
+        "mean": 74.019,
+        "min": 18.575
+      },
+      "bot_relation": "mixed_bot_relation",
+      "bot_rows": [
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T003718Z",
+          "value": 92.108
+        },
+        {
+          "against_reference": "within_reference_range",
+          "player": "/ goldenboy",
+          "run_id": "20260606T003718Z",
+          "value": 44.37
+        },
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T031102Z",
+          "value": 146.593
+        },
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ goldenboy",
+          "run_id": "20260606T031102Z",
+          "value": 24.618
+        },
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T041805Z",
+          "value": 117.851
+        },
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ goldenboy",
+          "run_id": "20260606T041805Z",
+          "value": 18.575
+        }
+      ],
+      "field": "jump_cadence_per_nonstationary_min",
+      "label": "Cadence/non-stationary min",
+      "reference": {
+        "count": 6,
+        "max": 55.589,
+        "mean": 49.293,
+        "min": 44.215
+      }
+    },
+    {
+      "basis": "active time excluding low_speed_time_ratio",
+      "bot": {
+        "count": 6,
+        "max": 289.514,
+        "mean": 115.174,
+        "min": 20.177
+      },
+      "bot_relation": "mixed_bot_relation",
+      "bot_rows": [
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T003718Z",
+          "value": 124.141
+        },
+        {
+          "against_reference": "within_reference_range",
+          "player": "/ goldenboy",
+          "run_id": "20260606T003718Z",
+          "value": 53.343
+        },
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T031102Z",
+          "value": 289.514
+        },
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ goldenboy",
+          "run_id": "20260606T031102Z",
+          "value": 26.471
+        },
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T041805Z",
+          "value": 177.398
+        },
+        {
+          "against_reference": "below_reference_min",
+          "player": "/ goldenboy",
+          "run_id": "20260606T041805Z",
+          "value": 20.177
+        }
+      ],
+      "field": "jump_cadence_per_non_low_speed_min",
+      "label": "Cadence/non-low-speed min",
+      "reference": {
+        "count": 6,
+        "max": 61.268,
+        "mean": 53.874,
+        "min": 48.695
+      }
+    },
+    {
+      "basis": "airborne_proxy_time_ratio",
+      "bot": {
+        "count": 6,
+        "max": 274.065,
+        "mean": 210.634,
+        "min": 164.12
+      },
+      "bot_relation": "all_bots_above_reference_range",
+      "bot_rows": [
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T003718Z",
+          "value": 207.557
+        },
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ goldenboy",
+          "run_id": "20260606T003718Z",
+          "value": 174.44
+        },
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T031102Z",
+          "value": 274.065
+        },
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ goldenboy",
+          "run_id": "20260606T031102Z",
+          "value": 164.12
+        },
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ bro",
+          "run_id": "20260606T041805Z",
+          "value": 240.521
+        },
+        {
+          "against_reference": "above_reference_max",
+          "player": "/ goldenboy",
+          "run_id": "20260606T041805Z",
+          "value": 203.099
+        }
+      ],
+      "field": "jump_cadence_per_airborne_proxy_min",
+      "label": "Cadence/air-proxy min",
+      "reference": {
+        "count": 6,
+        "max": 143.149,
+        "mean": 135.547,
+        "min": 127.983
+      }
+    }
+  ],
+  "decision": {
+    "airborne_proxy_relation": "all_bots_above_reference_range",
+    "movement_time_relation": "mixed_bot_relation",
+    "next_goal": "S7f should inspect raw airborne-proxy segment distributions, or pivot to the larger land-speed gap, before any cadence controller probe.",
+    "raw_cadence_relation": "mixed_bot_relation",
+    "reason": "The broadened unchanged mode-7 dm3 bot set keeps every bot row above the exact-player airborne-proxy-normalized cadence range, while raw and movement-time cadence remain mixed. This strengthens S7d's warning that cadence is entangled with air-rhythm/proxy segmentation and should not become a controller target yet.",
+    "verdict": "cadence_stays_diagnostic_after_broadened_mode7_rows"
+  },
+  "excluded_run_ids": {
+    "20260606T044000Z": "S6e preserved native water-edge vertical command intent, so it is a mode-7 variant rather than an unchanged diagnostic rerun."
+  },
+  "map": "dm3",
+  "reference_count": 6,
+  "reference_rows": [
+    {
+      "airborne_proxy_time_ratio": 0.351,
+      "avg_horizontal_speed_qu_per_s": 314.236,
+      "demo": "4on4_blue_vs_anza[dm3]20260602-2022.mvd",
+      "duration_ms": 1200013,
+      "jump_cadence_per_airborne_proxy_min": 127.983,
+      "jump_cadence_per_min": 44.922,
+      "jump_cadence_per_non_low_speed_min": 51.281,
+      "jump_cadence_per_nonstationary_min": 47.739,
+      "low_speed_time_ratio": 0.124,
+      "map": "dm3",
+      "map_title": "The Abandoned Base",
+      "matched_player": "Milton",
+      "p95_horizontal_speed_qu_per_s": 535.023,
+      "run_id": "s5a-milton-dm3-blue-vs-anza-20260602-2022",
+      "sha256": "9ca8f72b3afa95ba87830a83478c51bb9b3dd626b733190a4ca2d84b4d66490e",
+      "stationary_time_ratio": 0.059,
+      "summary_path": "experiments/human_comparison/evidence/human-milton-s5a-summary.json",
+      "target_player": "Milton"
+    },
+    {
+      "airborne_proxy_time_ratio": 0.308,
+      "avg_horizontal_speed_qu_per_s": 306.388,
+      "demo": "4on4_blue_vs_red[dm3]20260601-1914.mvd",
+      "duration_ms": 1200013,
+      "jump_cadence_per_airborne_proxy_min": 136.448,
+      "jump_cadence_per_min": 42.026,
+      "jump_cadence_per_non_low_speed_min": 49.794,
+      "jump_cadence_per_nonstationary_min": 45.93,
+      "low_speed_time_ratio": 0.156,
+      "map": "dm3",
+      "map_title": "The Abandoned Base",
+      "matched_player": "Milton",
+      "p95_horizontal_speed_qu_per_s": 524.898,
+      "run_id": "s7b-milton-dm3-blue-vs-red-20260601-1914",
+      "sha256": "9acddc0807f997cbf59b0873907666f1a16af6624f2691389c22583781d85193",
+      "stationary_time_ratio": 0.085,
+      "summary_path": "artifacts/human-demos/s7b/s7b-milton-dm3-blue-vs-red-20260601-1914/human-summary.json",
+      "target_player": "Milton"
+    },
+    {
+      "airborne_proxy_time_ratio": 0.342,
+      "avg_horizontal_speed_qu_per_s": 282.769,
+      "demo": "4on4_book_vs_-s-[dm3]20260526-2011.mvd",
+      "duration_ms": 1199998,
+      "jump_cadence_per_airborne_proxy_min": 128.795,
+      "jump_cadence_per_min": 44.048,
+      "jump_cadence_per_non_low_speed_min": 54.786,
+      "jump_cadence_per_nonstationary_min": 49.772,
+      "low_speed_time_ratio": 0.196,
+      "map": "dm3",
+      "map_title": "The Abandoned Base",
+      "matched_player": "carapace",
+      "p95_horizontal_speed_qu_per_s": 524.898,
+      "run_id": "s5b-carapace-dm3-book-vs-s-20260526-2011",
+      "sha256": "45f653c08fbb5488e2619a24ee0dd71347316e60265b8e4caaff0f3607ce0f30",
+      "stationary_time_ratio": 0.115,
+      "summary_path": "artifacts/human-demos/s5b/s5b-carapace-dm3-book-vs-s-20260526-2011/human-summary.json",
+      "target_player": "carapace"
+    },
+    {
+      "airborne_proxy_time_ratio": 0.282,
+      "avg_horizontal_speed_qu_per_s": 295.323,
+      "demo": "4on4_-s-_vs_]sr[[dm3]20260520-2032.mvd",
+      "duration_ms": 1200027,
+      "jump_cadence_per_airborne_proxy_min": 143.149,
+      "jump_cadence_per_min": 40.368,
+      "jump_cadence_per_non_low_speed_min": 48.695,
+      "jump_cadence_per_nonstationary_min": 44.215,
+      "low_speed_time_ratio": 0.171,
+      "map": "dm3",
+      "map_title": "The Abandoned Base",
+      "matched_player": "carapace",
+      "p95_horizontal_speed_qu_per_s": 508.889,
+      "run_id": "s7b-carapace-dm3-s-vs-sr-20260520-2032",
+      "sha256": "2eed3c5acf9cc0b22f391d08ac5eba7c2198b2ba12afb4c27992676fbf00894d",
+      "stationary_time_ratio": 0.087,
+      "summary_path": "artifacts/human-demos/s7b/s7b-carapace-dm3-s-vs-sr-20260520-2032/human-summary.json",
+      "target_player": "carapace"
+    },
+    {
+      "airborne_proxy_time_ratio": 0.359,
+      "avg_horizontal_speed_qu_per_s": 291.468,
+      "demo": "4on4_red_vs_blue[dm3]20260530-0322.mvd",
+      "duration_ms": 1200062,
+      "jump_cadence_per_airborne_proxy_min": 135.309,
+      "jump_cadence_per_min": 48.576,
+      "jump_cadence_per_non_low_speed_min": 57.418,
+      "jump_cadence_per_nonstationary_min": 52.515,
+      "low_speed_time_ratio": 0.154,
+      "map": "dm3",
+      "map_title": "The Abandoned Base",
+      "matched_player": "yeti",
+      "p95_horizontal_speed_qu_per_s": 505.786,
+      "run_id": "s5b-yeti-dm3-red-vs-blue-20260530-0322",
+      "sha256": "adedb2eccb861ebbc96f551fc21c738dc8740ecd327ea11990ede2802f83aff7",
+      "stationary_time_ratio": 0.075,
+      "summary_path": "artifacts/human-demos/s5b/s5b-yeti-dm3-red-vs-blue-20260530-0322/human-summary.json",
+      "target_player": "yeti"
+    },
+    {
+      "airborne_proxy_time_ratio": 0.36,
+      "avg_horizontal_speed_qu_per_s": 301.323,
+      "demo": "4on4_red_vs_blue[dm3]20260528-2109.mvd",
+      "duration_ms": 1200013,
+      "jump_cadence_per_airborne_proxy_min": 141.597,
+      "jump_cadence_per_min": 50.975,
+      "jump_cadence_per_non_low_speed_min": 61.268,
+      "jump_cadence_per_nonstationary_min": 55.589,
+      "low_speed_time_ratio": 0.168,
+      "map": "dm3",
+      "map_title": "The Abandoned Base",
+      "matched_player": "yeti",
+      "p95_horizontal_speed_qu_per_s": 514.041,
+      "run_id": "s7b-yeti-dm3-red-vs-blue-20260528-2109",
+      "sha256": "fa3792df611f650db9c47627812e63f277c9cb2bbb2f06dda4c291ad04e33246",
+      "stationary_time_ratio": 0.083,
+      "summary_path": "artifacts/human-demos/s7b/s7b-yeti-dm3-red-vs-blue-20260528-2109/human-summary.json",
+      "target_player": "yeti"
+    }
+  ],
+  "schema": "komodobots.cadence_evidence_broadening.v1",
+  "scope_note": "S7e broadens bot cadence evidence from existing dm3 mode-7 artifacts only. The default included runs are S3g plus S6b/S6d diagnostic reruns that did not intentionally change movement commands. S6e is excluded because it changed water-edge vertical command behavior.",
+  "source_reference_aggregate_path": "experiments/human_comparison/evidence/human-reference-s7c-bot-comparable-cadence-dm3-aggregate.json",
+  "source_reference_aggregate_stage": "s7c-bot-comparable-cadence-dm3",
+  "stage": "s7e-cadence-evidence-dm3",
+  "warnings": []
+}

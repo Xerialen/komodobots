@@ -2314,3 +2314,48 @@ Medium that airborne-proxy-normalized cadence reflects true jump rhythm, because
 ### Follow-up
 
 Ask Code Sentinel to review S7d. Proposed S7e: broaden or dissect cadence evidence before controller work. The smallest next action is to add more bot rows and/or inspect airborne-proxy segmentation so cadence can be separated from the unresolved land-speed and air-rhythm gaps.
+
+## 2026-06-06 - S7e Broadened Cadence Evidence
+
+### Experiment
+
+Broadened the bot side of S7 cadence evidence without rerunning the lab or changing KTX/Frogbot movement behavior. Added `scripts/broaden_cadence_evidence.py`, consumed the S7c exact-player aggregate, and read existing `dm3` mode-7 movement metrics from:
+
+- S3g `20260606T003718Z`
+- S6b `20260606T031102Z`
+- S6d `20260606T041805Z`
+
+S6e `20260606T044000Z` is explicitly excluded because it changed water-edge vertical command behavior, so it is a mode-7 variant rather than an unchanged diagnostic rerun.
+
+### Result
+
+- Generated `experiments/human_comparison/evidence/cadence-evidence-s7e-dm3.*`.
+- Bot rows broadened from `2` to `6` while staying on existing `dm3` mode-7 artifacts.
+- Active cadence remains mixed: exact-player `40.4` to `51.0`/min, broadened bots `18.5` to `138.7`/min.
+- Non-stationary cadence remains mixed: exact-player `44.2` to `55.6`/min, broadened bots `18.6` to `146.6`/min.
+- Non-low-speed cadence remains mixed: exact-player `48.7` to `61.3`/min, broadened bots `20.2` to `289.5`/min.
+- Airborne-proxy cadence stays uniformly high: exact-player `128.0` to `143.1`/min, broadened bots `164.1` to `274.1`/min.
+- The broadened rows also keep the generic land-speed issue visible: bot p95 range is `359.6` to `386.3` qu/s, still far below the exact-player p95 range from S7b/S7c.
+
+### Evidence
+
+Committed artifacts:
+
+- `scripts/broaden_cadence_evidence.py`
+- `tests/test_broaden_cadence_evidence.py`
+- `experiments/human_comparison/evidence/cadence-evidence-s7e-dm3.json`
+- `experiments/human_comparison/evidence/cadence-evidence-s7e-dm3.md`
+
+### Interpretation
+
+S7e strengthens S7d rather than overturning it. Cadence remains diagnostic and is still not controller-authorizing. The broadened bot set shows raw and movement-time cadence are unstable/mixed, while all unchanged mode-7 bot rows are above the exact-player airborne-proxy cadence range. That points toward an air-rhythm/proxy-segmentation issue, or toward the larger land-speed gap, rather than a simple cadence knob.
+
+### Confidence
+
+High that the included bot rows come from existing `dm3` mode-7 artifacts and that S6e is properly excluded as a behavior variant.
+
+Medium that airborne-proxy cadence represents true jump rhythm, because the proxy is still position-derived and needs raw segment inspection before controller use.
+
+### Follow-up
+
+Ask Code Sentinel to review S7e. Proposed S7f: inspect raw airborne-proxy segment distributions, or deliberately pivot back to the larger land-speed gap, before any cadence controller probe.

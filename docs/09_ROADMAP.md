@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S7e - Broaden or dissect cadence evidence before controller work`
+`S7f - Inspect raw airborne-proxy segments or pivot to land-speed gap`
 
 ## Stage Status Table
 
@@ -49,7 +49,7 @@ Current active stage:
 | S4 Human Comparison | First same-map anchor complete | S4c parsed one human `dm3` 4on4 demo and compared it against S3g `dm3`; S3g is not yet human-like on the observed movement ranges |
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
 | S6 Route Primitives | Closed for now | S6f found `276->59` is explicit and reciprocal, but marker `276` lacks static geometry, so no tiny route-data fix is justified from `dm3.bot` alone |
-| S7 Player Specific | Active | S7d kept cadence diagnostic after movement/air-proxy normalization; S7e should broaden bot rows or inspect airborne-proxy segmentation before any cadence controller probe |
+| S7 Player Specific | Active | S7e broadened unchanged mode-7 bot cadence rows and still kept cadence diagnostic; S7f should inspect raw airborne-proxy segments or pivot back to the larger land-speed gap before cadence control |
 
 ## Roadmap Rule
 
@@ -88,4 +88,6 @@ S7b broadened exact-player `dm3` references for the same targets where available
 
 S7c regenerated the committed S3g summary from existing artifacts so cadence is bot-comparable. The repeated exact-player cadence range is `40.4` to `51.0`/min; S3g `/ bro` is above that range at `91.7`/min, while `/ goldenboy` is within it at `43.3`/min. Cadence is now a bot-comparable repeated candidate axis with mixed bot relation, but avg/p95 remain generic land-speed gaps.
 
-S7d normalized cadence by non-stationary time, non-low-speed time, and airborne-proxy time from the existing S7c aggregate. Movement-time normalization kept the mixed relation (`/ goldenboy` inside range, `/ bro` above), but airborne-proxy normalization put both S3g bots above the exact-player range (`174.4` to `207.6`/min vs reference `128.0` to `143.1`/min). Cadence stays diagnostic, not controller-authorizing. The next branch is S7e: broaden bot rows or inspect airborne-proxy segmentation before any cadence controller probe.
+S7d normalized cadence by non-stationary time, non-low-speed time, and airborne-proxy time from the existing S7c aggregate. Movement-time normalization kept the mixed relation (`/ goldenboy` inside range, `/ bro` above), but airborne-proxy normalization put both S3g bots above the exact-player range (`174.4` to `207.6`/min vs reference `128.0` to `143.1`/min). Cadence stays diagnostic, not controller-authorizing.
+
+S7e broadened bot cadence evidence from existing unchanged `dm3` mode-7 artifacts: S3g `20260606T003718Z`, S6b `20260606T031102Z`, and S6d `20260606T041805Z`. S6e `20260606T044000Z` is excluded because it changed water-edge vertical command behavior. Across six bot rows, active and movement-time cadence remain mixed, but every bot row stays above the exact-player airborne-proxy cadence range (`164.1` to `274.1`/min vs reference `128.0` to `143.1`/min). The next branch is S7f: inspect raw airborne-proxy segment distributions or pivot back to the larger land-speed gap before any cadence controller probe.
