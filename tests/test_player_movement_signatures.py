@@ -15,6 +15,7 @@ def sample_aggregate() -> dict[str, object]:
     return {
         "stage": "s5b-test",
         "map": "dm3",
+        "bot_source_run_ids": ["bot"],
         "reference_rows": [
             {
                 "target_player": "Milton",
@@ -204,6 +205,7 @@ class PlayerMovementSignatureTests(unittest.TestCase):
         self.assertEqual(cadence_axis["interpretation"], "candidate_player_style_axis_but_thin")
         self.assertEqual(cadence_axis["bot_relation"]["relation"], "mixed_bot_relation")
         self.assertIn("bot_rows", cadence_axis)
+        self.assertEqual(report["bot_source_run_ids"], ["bot"])
 
     def test_repeated_rows_add_stability_axes(self) -> None:
         report = signatures.build_signature_report(sample_repeated_aggregate(), stage="s7b-test")

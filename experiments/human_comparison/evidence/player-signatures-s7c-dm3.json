@@ -1,5 +1,8 @@
 {
   "bot_count": 2,
+  "bot_source_run_ids": [
+    "20260606T003718Z"
+  ],
   "evidence_summary": {
     "axis_interpretations": [
       "generic_human_vs_bot_land_speed_gap",

@@ -2249,6 +2249,7 @@ Made the S7b surviving repeated axis bot-comparable without rerunning the lab. T
 - S3g `/ goldenboy` cadence is `43.3`/min, within the repeated human range.
 - Cadence is now classified as a bot-comparable repeated candidate style axis with mixed bot relation, rather than a reference-only axis.
 - Avg and p95 remain generic land-speed gaps: reference avg `282.8` to `314.2` versus S3g `190.1` to `248.2`; reference p95 `505.8` to `535.0` versus S3g `361.0` to `375.3`.
+- Claude review follow-up added explicit `bot_source_run_ids` to the S7c aggregate/signature evidence so the carried S3g cadence source is auditable from the committed files.
 
 ### Evidence
 

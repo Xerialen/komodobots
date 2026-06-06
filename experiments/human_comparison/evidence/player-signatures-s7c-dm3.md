@@ -6,6 +6,7 @@
 - Source aggregate: `experiments/human_comparison/evidence/human-reference-s7c-bot-comparable-cadence-dm3-aggregate.json`
 - Reference rows: `6`
 - S3g bot rows: `2`
+- Bot source run IDs: `20260606T003718Z`
 - Stop condition: `False`
 - Stop reason: Reference set has enough repeated rows to start checking player-style stability.
 

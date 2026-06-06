@@ -65,6 +65,9 @@
       "stationary_time_ratio": 0.025
     }
   ],
+  "bot_source_run_ids": [
+    "20260606T003718Z"
+  ],
   "bot_summary_path": "experiments/ktx_moveprobe/evidence/moveprobe-s3g-summary.json",
   "excluded_reference_rows": [],
   "map": "dm3",

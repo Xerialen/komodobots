@@ -96,6 +96,7 @@ class ReferenceAggregateTests(unittest.TestCase):
         self.assertEqual(bro["against_reference_range"]["airborne_proxy_time_ratio"], "above_human_max")
         self.assertEqual(bro["against_reference_range"]["jump_cadence_per_min"], "above_human_max")
         self.assertEqual(aggregate["bot_rows"][0]["jump_cadence_per_min"], 91.7)
+        self.assertEqual(aggregate["bot_source_run_ids"], ["bot"])
 
     def test_build_aggregate_excludes_missing_reference_metric_from_range(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

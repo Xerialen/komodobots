@@ -6,6 +6,7 @@
 - Reference rows: `6`
 - Targets: `Milton, Milton, carapace, carapace, yeti, yeti`
 - Bot summary: `experiments/ktx_moveprobe/evidence/moveprobe-s3g-summary.json`
+- Bot source run IDs: `20260606T003718Z`
 
 - Tiny exact-player reference aggregate; useful for movement-range anchoring, not a player-style model.
 - Reference rows are selected by metadata before parsing; raw demos and events remain outside Git.
