@@ -175,7 +175,9 @@ def summarize_bucket_context(
     for index, segment in enumerate(segments):
         if not selected_flags[index]:
             continue
-        speed = float(segment["horizontal_speed_qu_per_s"])
+        speed = optional_float(segment.get("horizontal_speed_qu_per_s"))
+        if speed is None:
+            continue
         speeds.append(speed)
         command = nearest[index]
         if command is None:
@@ -200,14 +202,15 @@ def summarize_bucket_context(
         state = command_route_state(command)
         if state:
             p_state = path_state(state)
-            path_states.append(p_state)
+            if p_state is not None:
+                path_states.append(p_state)
+                if p_state & WATER_PATH:
+                    water_path_count += 1
             dir_speed = route_dir_speed(state)
             if dir_speed is not None:
                 dir_speeds.append(dir_speed)
                 if dir_speed < LOW_ROUTE_DIR_SPEED:
                     low_dir_speed_count += 1
-            if p_state & WATER_PATH:
-                water_path_count += 1
 
     segment_count = len(speeds)
     return {
@@ -306,8 +309,12 @@ def classify_bucket_failure(change: dict[str, object], context: dict[str, object
     strong_ratio = optional_float(context.get("strong_command_ratio")) or 0.0
     sampled_ratio = optional_float(context.get("sampled_command_ratio")) or 0.0
     probe_active_ratio = optional_float(context.get("probe_active_ratio")) or 0.0
-    max_player_water_ratio = optional_float(context.get("max_player_water_path_ratio")) or water_ratio
-    max_player_low_dir_ratio = optional_float(context.get("max_player_low_dir_speed_ratio")) or low_dir_ratio
+    max_player_water_ratio = optional_float(context.get("max_player_water_path_ratio"))
+    if max_player_water_ratio is None:
+        max_player_water_ratio = water_ratio
+    max_player_low_dir_ratio = optional_float(context.get("max_player_low_dir_speed_ratio"))
+    if max_player_low_dir_ratio is None:
+        max_player_low_dir_ratio = low_dir_ratio
     regressed = bool(change.get("regressed_more_than_5pct", False))
 
     if sampled_ratio < 0.5:

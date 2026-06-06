@@ -5,6 +5,7 @@ import tempfile
 import unittest
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -121,6 +122,41 @@ class S7jFailedBucketDiagnosisTests(unittest.TestCase):
 
         self.assertEqual(payload["schema"], "komodobots.s7j_failed_bucket_context_source.v1")
         self.assertEqual(payload["player_bucket_context"][0]["bucket"], "non_airborne_segments")
+
+    def test_bucket_context_ignores_missing_speed_and_nullable_path_state(self) -> None:
+        segments = [
+            {"horizontal_speed_qu_per_s": None},
+            {"horizontal_speed_qu_per_s": 123.0},
+        ]
+        nearest = [
+            {"route_state": {"path_state": None}},
+            {"route_state": {"path_state": None}},
+        ]
+
+        with (
+            patch.object(s7k, "load_player_samples", return_value=({}, [])),
+            patch.object(s7k, "build_segments", return_value=(segments, 0)),
+            patch.object(s7k, "extract_airborne_runs", return_value=[]),
+            patch.object(s7k, "interval_flags", return_value=[False, False]),
+            patch.object(s7k, "midpoint_window_flags", return_value=[False, False]),
+            patch.object(s7k, "segment_midpoint_ms", side_effect=[0.0, 50.0]),
+            patch.object(s7k, "read_commands", return_value=nearest),
+            patch.object(s7k, "nearest_commands", return_value=nearest),
+            patch.object(s7k, "command_magnitude", return_value=500.0),
+            patch.object(s7k, "command_route_state", side_effect=lambda command: command["route_state"]),
+            patch.object(s7k, "path_state", return_value=None),
+            patch.object(s7k, "route_dir_speed", return_value=None),
+        ):
+            result = s7k.summarize_bucket_context(
+                {"events_path": "artifacts/lab-runs/test/events.txt", "identity": "/ bot", "run_id": "test"},
+                "non_airborne_segments",
+                transition_window_ms=400,
+                command_margin_ms=150,
+            )
+
+        self.assertEqual(result["segment_count"], 1)
+        self.assertEqual(result["water_path_count"], 0)
+        self.assertEqual(result["path_state_values"], [])
 
     def test_non_airborne_water_context_is_route_guardrail_contamination(self) -> None:
         classification = s7k.classify_bucket_failure(

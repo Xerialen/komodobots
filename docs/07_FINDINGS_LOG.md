@@ -2616,6 +2616,8 @@ Committed artifacts:
 - `experiments/human_comparison/evidence/failed-bucket-diagnosis-s7k-dm3.json`
 - `experiments/human_comparison/evidence/failed-bucket-diagnosis-s7k-dm3.md`
 
+Review hardening keeps the default evidence regeneration clean-checkout reproducible from the committed compact context source, creates both custom output directories, skips segments with missing/non-numeric speeds, and ignores nullable route `path_state` values instead of treating them as `WATER_PATH`.
+
 ### Interpretation
 
 Water is not the whole problem. `WATER_PATH` and low-dir-speed context explain the non-airborne guardrail contamination and part of the air-bucket mix, but the intended air-transition buckets still fail under strong command/probe coverage even in rows without `WATER_PATH`.
