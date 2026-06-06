@@ -58,6 +58,8 @@ moveprobe_sidemove="${10}"
 moveprobe_upmove="${11}"
 moveprobe_log_commands="${12}"
 moveprobe_log_interval="${13}"
+moveprobe_transition_scale="${14}"
+moveprobe_transition_window="${15}"
 
 session="komodobots_lab_${map_name}_${port}_${run_id}"
 rundir="$HOME/komodobots-lab/runs/$run_id"
@@ -142,6 +144,8 @@ set k_fb_moveprobe_sidemove $moveprobe_sidemove
 set k_fb_moveprobe_upmove $moveprobe_upmove
 set k_fb_moveprobe_log_commands $moveprobe_log_commands
 set k_fb_moveprobe_log_interval $moveprobe_log_interval
+set k_fb_moveprobe_transition_scale $moveprobe_transition_scale
+set k_fb_moveprobe_transition_window $moveprobe_transition_window
 timelimit 1
 fraglimit 0
 samelevel 1
@@ -172,6 +176,8 @@ MOVEPROBE_SIDEMOVE=$moveprobe_sidemove
 MOVEPROBE_UPMOVE=$moveprobe_upmove
 MOVEPROBE_LOG_COMMANDS=$moveprobe_log_commands
 MOVEPROBE_LOG_INTERVAL=$moveprobe_log_interval
+MOVEPROBE_TRANSITION_SCALE=$moveprobe_transition_scale
+MOVEPROBE_TRANSITION_WINDOW=$moveprobe_transition_window
 START_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 
@@ -406,6 +412,9 @@ MOVEPROBE_COMMAND_RE = re.compile(
     r"(?P<swim_arrow>-?\d+),(?P<emitted_upmove>-?\d+(?:\.\d+)?),"
     r"(?P<velocity_x>-?\d+(?:\.\d+)?),(?P<velocity_y>-?\d+(?:\.\d+)?),(?P<velocity_z>-?\d+(?:\.\d+)?),"
     r"(?P<dir_move_x>-?\d+(?:\.\d+)?),(?P<dir_move_y>-?\d+(?:\.\d+)?),(?P<dir_move_z>-?\d+(?:\.\d+)?))?"
+    r"(?:\s+probe=(?P<probe_active>\d+),(?P<probe_on_ground>\d+),"
+    r"(?P<probe_since_ground>-?\d+(?:\.\d+)?),(?P<probe_since_air>-?\d+(?:\.\d+)?),"
+    r"(?P<probe_scale>-?\d+(?:\.\d+)?))?"
 )
 
 
@@ -471,6 +480,14 @@ def parse_moveprobe_command_logs(screen_log: str) -> list[dict[str, object]]:
                     "z": float(groups["dir_move_z"]),
                 },
             }
+        if groups.get("probe_active") is not None:
+            row["probe_state"] = {
+                "transition_active": bool(int(groups["probe_active"])),
+                "on_ground": bool(int(groups["probe_on_ground"])),
+                "since_ground_s": float(groups["probe_since_ground"]),
+                "since_air_s": float(groups["probe_since_air"]),
+                "transition_scale": float(groups["probe_scale"]),
+            }
         commands.append(row)
     return commands
 
@@ -504,6 +521,11 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
             for row in rows
             if isinstance(row.get("water_state", {}), dict) and row.get("water_state")
         ]
+        probe_states = [
+            row.get("probe_state", {})
+            for row in rows
+            if isinstance(row.get("probe_state", {}), dict) and row.get("probe_state")
+        ]
         yaw_deltas = [
             round(float(diagnostic["yaw_delta"]), 1)
             for diagnostic in diagnostics
@@ -532,6 +554,7 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
                 "backward_ratio": round(backward_count / len(rows), 3),
                 "route_state": summarize_route_states(route_states),
                 "water_state": summarize_water_states(water_states),
+                "probe_state": summarize_probe_states(probe_states),
                 "button_values": compact_unique(int(row["buttons"]) for row in rows),
                 "impulse_values": compact_unique(int(row["impulse"]) for row in rows),
             }
@@ -596,6 +619,31 @@ def summarize_water_states(water_states: list[dict[str, object]]) -> dict[str, o
     }
 
 
+def summarize_probe_states(probe_states: list[dict[str, object]]) -> dict[str, object]:
+    if not probe_states:
+        return {"sample_count": 0}
+
+    active_count = sum(1 for state in probe_states if bool(state.get("transition_active", False)))
+    on_ground_count = sum(1 for state in probe_states if bool(state.get("on_ground", False)))
+    active_scales = [
+        round(float(state.get("transition_scale", 1.0)), 3)
+        for state in probe_states
+        if bool(state.get("transition_active", False))
+    ]
+    return {
+        "sample_count": len(probe_states),
+        "transition_active_ratio": round(active_count / len(probe_states), 3),
+        "on_ground_ratio": round(on_ground_count / len(probe_states), 3),
+        "active_scale_values": compact_unique(active_scales),
+        "since_ground_values": compact_unique(
+            round(float(state.get("since_ground_s", 999.0)), 3) for state in probe_states
+        ),
+        "since_air_values": compact_unique(
+            round(float(state.get("since_air_s", 999.0)), 3) for state in probe_states
+        ),
+    }
+
+
 def write_moveprobe_command_logs(local_run_dir: Path) -> dict[str, object]:
     screen_log = (local_run_dir / "screen.log").read_text(encoding="utf-8", errors="replace")
     commands = parse_moveprobe_command_logs(screen_log)
@@ -627,6 +675,7 @@ def write_moveprobe_command_logs(local_run_dir: Path) -> dict[str, object]:
                 f"backward `{fmt_percent(player['backward_ratio'])}`, "
                 f"route `{player['route_state']}`, "
                 f"water `{player['water_state']}`, "
+                f"probe `{player['probe_state']}`, "
                 f"buttons `{player['button_values']}`, "
                 f"impulses `{player['impulse_values']}`"
             )
@@ -693,6 +742,8 @@ def write_summary(
         "upmove": "",
         "log_commands": "",
         "log_interval": "",
+        "transition_scale": "",
+        "transition_window": "",
     }
     run_env = local_run_dir / "run.env"
     if run_env.exists():
@@ -717,6 +768,10 @@ def write_summary(
                 moveprobe["log_commands"] = line.split("=", 1)[1]
             elif line.startswith("MOVEPROBE_LOG_INTERVAL="):
                 moveprobe["log_interval"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_TRANSITION_SCALE="):
+                moveprobe["transition_scale"] = line.split("=", 1)[1]
+            elif line.startswith("MOVEPROBE_TRANSITION_WINDOW="):
+                moveprobe["transition_window"] = line.split("=", 1)[1]
     events_stderr = (local_run_dir / "events.txt.stderr").read_text(encoding="utf-8", errors="replace").strip()
     command_log_path = local_run_dir / "moveprobe-commands.json"
     command_log = read_json(command_log_path) if command_log_path.exists() else {}
@@ -735,6 +790,7 @@ def write_summary(
         f"- Route file: `{route_file}`",
         f"- Movement probe mode: `{moveprobe['mode']}`",
         f"- Movement probe command: `yaw={moveprobe['yaw']} forwardmove={moveprobe['forwardmove']} sidemove={moveprobe['sidemove']} upmove={moveprobe['upmove']}`",
+        f"- Movement probe transition: `scale={moveprobe['transition_scale']} window={moveprobe['transition_window']}`",
         f"- Movement probe command logging: `enabled={moveprobe['log_commands']} interval={moveprobe['log_interval']}`",
         f"- Movement probe commands parsed: `{command_count}`",
         f"- Remote demo: `{remote_demo}`",
@@ -851,6 +907,8 @@ def run_remote_lab(
     moveprobe_upmove: int,
     moveprobe_log_commands: bool,
     moveprobe_log_interval: float,
+    moveprobe_transition_scale: float,
+    moveprobe_transition_window: float,
     local_run_dir: Path,
 ) -> None:
     proc = run(
@@ -873,6 +931,8 @@ def run_remote_lab(
             str(moveprobe_upmove),
             "1" if moveprobe_log_commands else "0",
             str(moveprobe_log_interval),
+            str(moveprobe_transition_scale),
+            str(moveprobe_transition_window),
         ],
         input_text=REMOTE_SCRIPT,
         check=False,
@@ -908,7 +968,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument(
         "--moveprobe-mode",
         type=int,
-        choices=(0, 1, 2, 3, 4, 5, 6, 7),
+        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8),
         default=0,
         help=(
             "Set k_fb_moveprobe_mode in the generated KTX lab config. "
@@ -917,7 +977,8 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
             "3=route-yaw movement command, 4=route-yaw alternating strafe, "
             "5=aim-independent route/strafe projection, "
             "6=mode 5 with negative forward folded into sidemove, "
-            "7=mode 6 with bounded horizontal command magnitude."
+            "7=mode 6 with bounded horizontal command magnitude, "
+            "8=mode 7 with transition-only horizontal command-budget scaling."
         ),
     )
     parser.add_argument(
@@ -946,7 +1007,19 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         "--moveprobe-upmove",
         type=int,
         default=0,
-        help="upmove used by movement-probe modes 2, 3, 4, 5, 6, and 7. Defaults to 0.",
+        help="upmove used by movement-probe modes 2, 3, 4, 5, 6, 7, and 8. Defaults to 0.",
+    )
+    parser.add_argument(
+        "--moveprobe-transition-scale",
+        type=float,
+        default=1.25,
+        help="Mode 8 transition-only horizontal budget scale. Defaults to 1.25.",
+    )
+    parser.add_argument(
+        "--moveprobe-transition-window",
+        type=float,
+        default=0.4,
+        help="Mode 8 takeoff/air/landing transition window in seconds. Defaults to 0.4.",
     )
     parser.add_argument(
         "--moveprobe-log-commands",
@@ -1004,6 +1077,8 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             args.moveprobe_upmove,
             args.moveprobe_log_commands,
             args.moveprobe_log_interval,
+            args.moveprobe_transition_scale,
+            args.moveprobe_transition_window,
             local_run_dir,
         )
         scp_from_remote(args.host, run_id, local_run_dir)

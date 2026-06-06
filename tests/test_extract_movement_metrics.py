@@ -262,7 +262,7 @@ class MovementMetricsTests(unittest.TestCase):
         args = run_frobodm2_lab.parse_args(
             [
                 "--moveprobe-mode",
-                "7",
+                "8",
                 "--moveprobe-yaw",
                 "90",
                 "--moveprobe-forwardmove",
@@ -271,14 +271,20 @@ class MovementMetricsTests(unittest.TestCase):
                 "120",
                 "--moveprobe-upmove",
                 "0",
+                "--moveprobe-transition-scale",
+                "1.4",
+                "--moveprobe-transition-window",
+                "0.35",
             ]
         )
 
-        self.assertEqual(args.moveprobe_mode, 7)
+        self.assertEqual(args.moveprobe_mode, 8)
         self.assertEqual(args.moveprobe_yaw, 90.0)
         self.assertEqual(args.moveprobe_forwardmove, 700)
         self.assertEqual(args.moveprobe_sidemove, 120)
         self.assertEqual(args.moveprobe_upmove, 0)
+        self.assertEqual(args.moveprobe_transition_scale, 1.4)
+        self.assertEqual(args.moveprobe_transition_window, 0.35)
 
     def test_runner_accepts_moveprobe_command_logging_options(self) -> None:
         args = run_frobodm2_lab.parse_args(
@@ -298,7 +304,7 @@ class MovementMetricsTests(unittest.TestCase):
                 [
                     "noise before",
                     'FBMOVEPROBE_CMD time=12.250 ed=3 name=/ goldenboy mode=2 msec=13 angles=0.0,90.0,0.0 move=800,0,0 buttons=3 impulse=0',
-                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=5 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1 route=12,10,42,14,524288,8192,1,1.250 water=3,-3,528,16,120.0,25.5,-4.0,80.0,0.100,0.200,0.300',
+                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=8 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1 route=12,10,42,14,524288,8192,1,1.250 water=3,-3,528,16,120.0,25.5,-4.0,80.0,0.100,0.200,0.300 probe=1,0,0.125,999.000,1.250',
                 ]
             )
         )
@@ -308,7 +314,7 @@ class MovementMetricsTests(unittest.TestCase):
         self.assertEqual(commands[0]["mode"], 2)
         self.assertEqual(commands[0]["msec"], 13)
         self.assertEqual(commands[0]["angles"], {"pitch": 0.0, "yaw": 90.0, "roll": 0.0})
-        self.assertEqual(commands[1]["mode"], 5)
+        self.assertEqual(commands[1]["mode"], 8)
         self.assertEqual(commands[1]["move"], {"forward": -200, "side": 400, "up": 0})
         self.assertEqual(commands[1]["buttons"], 2)
         self.assertEqual(commands[1]["impulse"], 7)
@@ -336,6 +342,16 @@ class MovementMetricsTests(unittest.TestCase):
         self.assertEqual(commands[1]["water_state"]["emitted_upmove"], 120.0)
         self.assertEqual(commands[1]["water_state"]["velocity"], {"x": 25.5, "y": -4.0, "z": 80.0})
         self.assertEqual(commands[1]["water_state"]["dir_move"], {"x": 0.1, "y": 0.2, "z": 0.3})
+        self.assertEqual(
+            commands[1]["probe_state"],
+            {
+                "transition_active": True,
+                "on_ground": False,
+                "since_ground_s": 0.125,
+                "since_air_s": 999.0,
+                "transition_scale": 1.25,
+            },
+        )
 
     def test_remote_port_down_treats_empty_or_down_as_free(self) -> None:
         original_run = run_frobodm2_lab.run

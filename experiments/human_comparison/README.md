@@ -331,3 +331,36 @@ Required post-probe reporting:
 Stop conditions reject all-segment speed gains if air-transition buckets do not
 improve, if non-airborne or `WATER_PATH` context regresses, or if cadence/route
 reporting disappears.
+
+## Current S7j Result
+
+S7j implements and runs the S7i mode-8 air-transition probe:
+
+```text
+experiments/human_comparison/evidence/air-transition-probe-s7j-dm3.json
+experiments/human_comparison/evidence/air-transition-probe-s7j-dm3.md
+```
+
+The probe starts from mode `7` and scales horizontal command budget only during
+takeoff/recent-air/recent-landing windows. The single committed lab run is
+`20260606T161101Z` on `dm3` with transition scale `1.25` and window `0.4`.
+Probe state was reported in `195` sampled command rows and was transition-active
+in `127` of them.
+
+| Bucket | S7g bot p50 | S7j bot p50 | S7j/S7g |
+|---|---:|---:|---:|
+| Pre-air window | `207.1` qu/s | `209.1` qu/s | `1.009` |
+| Airborne-proxy segments | `122.6` qu/s | `182.7` qu/s | `1.490` |
+| Post-air window | `184.5` qu/s | `202.4` qu/s | `1.097` |
+| All accepted segments | `222.0` qu/s | `188.0` qu/s | `0.847` |
+| Non-airborne segments | `312.1` qu/s | `275.0` qu/s | `0.881` |
+| Route low-dir-speed segments | `141.0` qu/s | `71.4` qu/s | `0.507` |
+| Route `WATER_PATH` segments | `95.3` qu/s | `98.2` qu/s | `1.030` |
+
+Verdict: `air_transition_probe_rejected_by_s7i_stop_conditions`.
+
+The air-transition lever is real, but the current mode `8` is not acceptable
+controller behavior because it fails the non-airborne guardrail and worsens
+route low-dir-speed context. The next useful step is S7k: inspect the failed
+bucket and command/probe activation context before trying another controller
+probe.

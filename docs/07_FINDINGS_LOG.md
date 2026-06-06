@@ -2535,3 +2535,53 @@ Medium that a mode-8 implementation can isolate air-transition speed without cha
 ### Follow-up
 
 Ask Code Sentinel to review S7i. Proposed S7j: implement and run the tiny air-transition probe only if it preserves the S7i contract, then compare against the S7g/S7h/S7e baselines.
+
+## 2026-06-06 - S7j Air-Transition Probe Result
+
+### Experiment
+
+Implemented and ran the S7i-constrained tiny controller probe. The KTX moveprobe patch now includes mode `8`, which starts from mode `7` and scales the desired horizontal command budget only while the bot is in a takeoff/recent-air/recent-landing transition window. The runner now accepts:
+
+```bash
+python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 8 --moveprobe-sidemove 200 --moveprobe-transition-scale 1.25 --moveprobe-transition-window 0.4 --moveprobe-log-commands --moveprobe-log-interval 0.25 --run-id 20260606T161101Z
+```
+
+The temporary patched KTX build was deployed to `servexeri`, the lab was run once, the live `qwprogs` module was restored to its original SHA-256 hash, and the remote KTX checkout was returned clean.
+
+### Result
+
+- Generated `experiments/human_comparison/evidence/air-transition-probe-s7j-dm3.*`.
+- Probe activation reporting worked: `195` sampled command rows had `probe_state`, and `127` were transition-active (`65.1%`).
+- Pre-air p50 improved from `207.1` to `209.1` qu/s.
+- Airborne-proxy p50 improved from `122.6` to `182.7` qu/s.
+- Post-air p50 improved from `184.5` to `202.4` qu/s.
+- All accepted segment p50 fell from `222.0` to `188.0` qu/s.
+- Non-airborne p50 fell from `312.1` to `275.0` qu/s, ratio `0.881`, failing the S7i `0.95` guardrail.
+- Route low-dir-speed p50 fell from `141.0` to `71.4` qu/s.
+- Route `WATER_PATH` p50 improved slightly from `95.3` to `98.2` qu/s, but only one S7j bot row contributed.
+
+### Evidence
+
+Committed artifacts:
+
+- `experiments/ktx_moveprobe/frogbot-moveprobe.patch`
+- `scripts/run_frobodm2_lab.py`
+- `scripts/compare_air_transition_probe.py`
+- `tests/test_extract_movement_metrics.py`
+- `tests/test_compare_air_transition_probe.py`
+- `experiments/human_comparison/evidence/air-transition-probe-s7j-dm3.json`
+- `experiments/human_comparison/evidence/air-transition-probe-s7j-dm3.md`
+
+### Interpretation
+
+S7j is useful negative evidence. The transition-only horizontal budget lever affects the intended air-transition buckets, so the target was real. But it is not acceptable controller behavior because the same run loses non-airborne speed and route-low-dir-speed context. Do not promote mode `8` or claim movement realism improved from the air bucket gains alone.
+
+### Confidence
+
+High that the result follows the S7i stop-condition contract and uses local validation plus one real lab run.
+
+Medium that one short two-bot `dm3` run fully characterizes the mode, because the failure is enough to reject the current probe but not enough to identify the root cause.
+
+### Follow-up
+
+Ask Code Sentinel to review S7j. Proposed S7k: inspect S7j per-player non-airborne and route-low-dir-speed regression context, including probe-active versus inactive command samples, before trying another controller probe.

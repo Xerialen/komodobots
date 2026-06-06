@@ -414,6 +414,22 @@ Stop conditions:
 
 Interpretation: S7i turns the S7h decision into a reviewable contract before controller code. The next useful branch is S7j: implement and run the tiny air-transition probe only if the patch preserves this contract.
 
+## S7j Air-Transition Probe Result
+
+S7j implemented the S7i contract as moveprobe mode `8`: start from mode `7`, scale horizontal command budget only during takeoff/air-transition windows, keep cadence diagnostic, and preserve route/water/probe command logging. It temporarily deployed the patched KTX build, ran `dm3` lab run `20260606T161101Z`, restored the original server module, and generated `experiments/human_comparison/evidence/air-transition-probe-s7j-dm3.*`.
+
+Result:
+
+- Probe activation fired and was measured: `195` command rows carried `probe=` state, with `127` transition-active samples (`65.1%`).
+- Air-transition buckets improved versus S7g: pre-air p50 `207.1 -> 209.1` qu/s, airborne p50 `122.6 -> 182.7` qu/s, post-air p50 `184.5 -> 202.4` qu/s.
+- All-segment speed did not hide the result: all accepted segment p50 fell from `222.0` to `188.0` qu/s.
+- `WATER_PATH` stayed above the S7g p50 baseline where present: `95.3 -> 98.2` qu/s, but only `1` S7j bot row contributed.
+- The S7i stop condition failed because non-airborne p50 dropped from `312.1` to `275.0` qu/s (`0.881` of baseline, below the `0.95` guardrail).
+- Route low-dir-speed p50 also fell sharply (`141.0 -> 71.4` qu/s), which is not a formal S7i reject gate but is an important route-context warning.
+- Cadence stayed diagnostic: active and non-low-speed cadence were mixed, and airborne-proxy cadence remained above exact-player range (`153.2` to `215.9`/min versus `128.0` to `143.1`/min).
+
+Interpretation: mode `8` found a real lever: air-transition speed improved. It is not acceptable as a behavior change because it bought that gain by regressing generic non-airborne speed, and it produced an additional route low-dir-speed warning. The next useful branch is S7k: inspect per-player/per-segment context around the non-airborne and route-low-dir-speed regression before trying a stronger or broader controller probe.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

@@ -1469,3 +1469,47 @@ S7j should implement and run only the tiny air-transition probe. It must reject 
 ### Revisit Conditions
 
 Revisit if Code Sentinel finds the S7i contract too broad, if a mode-8 implementation cannot preserve mode-7 behavior outside transition windows, or if post-probe diagnostics cannot report the required buckets.
+
+---
+
+## Decision
+
+Reject the current mode-8 air-transition probe and diagnose the regression before another controller probe.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S7j implements and runs the S7i-constrained mode-8 probe, but the result must not be promoted as improved controller behavior. Keep the air-transition target alive, but move the roadmap to S7k diagnosis before another command-policy change.
+
+The reason is guardrail discipline: mode `8` improved the intended air-transition buckets, but it also regressed non-airborne speed enough to fail the S7i stop condition. Route low-dir-speed also worsened sharply, so the next step should inspect where the scaled transition window leaks into ordinary route movement or changes bot context.
+
+### Alternatives Considered
+
+- Promote mode `8` because airborne-proxy speed improved.
+- Increase transition scale or window and rerun immediately.
+- Switch directly to a `WATER_PATH` route primitive probe.
+- Treat the non-airborne regression as noise because the run was short.
+
+### Evidence
+
+S7j comparison against S7g/S7i baselines:
+
+- Probe activation rows: `195` sampled rows, `127` transition-active, active ratio `0.651`.
+- Pre-air p50: `207.1 -> 209.1` qu/s.
+- Airborne-proxy p50: `122.6 -> 182.7` qu/s.
+- Post-air p50: `184.5 -> 202.4` qu/s.
+- All accepted segment p50: `222.0 -> 188.0` qu/s.
+- Non-airborne p50: `312.1 -> 275.0` qu/s, ratio `0.881`, below the S7i `0.95` tolerance.
+- Route low-dir-speed p50: `141.0 -> 71.4` qu/s.
+- Route `WATER_PATH` p50: `95.3 -> 98.2` qu/s from one S7j bot row.
+
+### Expected Consequences
+
+S7k should not add another movement mode. It should inspect the S7j raw run and comparison evidence to explain whether the non-airborne and route-low-dir-speed regressions come from probe activation timing, per-player route context, the transition scale, or measurement/sample selection.
+
+### Revisit Conditions
+
+Revisit if Code Sentinel finds the S7j comparison flawed, if a rerun shows the non-airborne regression was not reproducible, or if S7k can isolate a narrower transition trigger that preserves non-airborne and route context.
