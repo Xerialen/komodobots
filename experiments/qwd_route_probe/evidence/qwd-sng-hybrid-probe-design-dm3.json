@@ -1,0 +1,352 @@
+{
+  "control_points": [
+    {
+      "first_frame": 0,
+      "first_time_s": 0.0,
+      "index": 0,
+      "last_frame": 0,
+      "last_time_s": 0.0,
+      "max_nearest_distance_qu": 99.853,
+      "nearest_marker_distance_qu": 99.853,
+      "nearest_marker_id": 157,
+      "qwd_origin": [
+        307.375,
+        -321.25,
+        56.0
+      ],
+      "waypoint_count": 1
+    },
+    {
+      "first_frame": 16,
+      "first_time_s": 0.195,
+      "index": 1,
+      "last_frame": 30,
+      "last_time_s": 0.377,
+      "max_nearest_distance_qu": 86.379,
+      "nearest_marker_distance_qu": 86.379,
+      "nearest_marker_id": 28,
+      "qwd_origin": [
+        302.375,
+        -254.125,
+        56.0
+      ],
+      "waypoint_count": 2
+    },
+    {
+      "first_frame": 41,
+      "first_time_s": 0.52,
+      "index": 2,
+      "last_frame": 65,
+      "last_time_s": 0.832,
+      "max_nearest_distance_qu": 106.943,
+      "nearest_marker_distance_qu": 46.2,
+      "nearest_marker_id": 158,
+      "qwd_origin": [
+        255.5,
+        -141.75,
+        81.625
+      ],
+      "waypoint_count": 3
+    },
+    {
+      "first_frame": 77,
+      "first_time_s": 0.988,
+      "index": 3,
+      "last_frame": 100,
+      "last_time_s": 1.288,
+      "max_nearest_distance_qu": 129.086,
+      "nearest_marker_distance_qu": 129.086,
+      "nearest_marker_id": 159,
+      "qwd_origin": [
+        214.0,
+        35.625,
+        74.0
+      ],
+      "waypoint_count": 3
+    },
+    {
+      "first_frame": 111,
+      "first_time_s": 1.43,
+      "index": 4,
+      "last_frame": 122,
+      "last_time_s": 1.573,
+      "max_nearest_distance_qu": 70.112,
+      "nearest_marker_distance_qu": 43.624,
+      "nearest_marker_id": 29,
+      "qwd_origin": [
+        368.0,
+        145.375,
+        99.375
+      ],
+      "waypoint_count": 2
+    },
+    {
+      "first_frame": 132,
+      "first_time_s": 1.704,
+      "index": 5,
+      "last_frame": 154,
+      "last_time_s": 1.989,
+      "max_nearest_distance_qu": 85.732,
+      "nearest_marker_distance_qu": 85.732,
+      "nearest_marker_id": 53,
+      "qwd_origin": [
+        458.5,
+        228.5,
+        62.125
+      ],
+      "waypoint_count": 3
+    },
+    {
+      "first_frame": 165,
+      "first_time_s": 2.132,
+      "index": 6,
+      "last_frame": 186,
+      "last_time_s": 2.405,
+      "max_nearest_distance_qu": 82.499,
+      "nearest_marker_distance_qu": 82.499,
+      "nearest_marker_id": 51,
+      "qwd_origin": [
+        520.875,
+        416.875,
+        97.75
+      ],
+      "waypoint_count": 3
+    },
+    {
+      "first_frame": 196,
+      "first_time_s": 2.536,
+      "index": 7,
+      "last_frame": 216,
+      "last_time_s": 2.796,
+      "max_nearest_distance_qu": 75.401,
+      "nearest_marker_distance_qu": 75.401,
+      "nearest_marker_id": 155,
+      "qwd_origin": [
+        384.75,
+        530.625,
+        85.625
+      ],
+      "waypoint_count": 3
+    },
+    {
+      "first_frame": 226,
+      "first_time_s": 2.926,
+      "index": 8,
+      "last_frame": 246,
+      "last_time_s": 3.185,
+      "max_nearest_distance_qu": 85.087,
+      "nearest_marker_distance_qu": 85.087,
+      "nearest_marker_id": 149,
+      "qwd_origin": [
+        214.125,
+        616.5,
+        83.25
+      ],
+      "waypoint_count": 3
+    },
+    {
+      "first_frame": 256,
+      "first_time_s": 3.315,
+      "index": 9,
+      "last_frame": 256,
+      "last_time_s": 3.315,
+      "max_nearest_distance_qu": 61.493,
+      "nearest_marker_distance_qu": 61.493,
+      "nearest_marker_id": 143,
+      "qwd_origin": [
+        27.5,
+        672.125,
+        97.75
+      ],
+      "waypoint_count": 1
+    },
+    {
+      "first_frame": 266,
+      "first_time_s": 3.445,
+      "index": 10,
+      "last_frame": 276,
+      "last_time_s": 3.575,
+      "max_nearest_distance_qu": 71.067,
+      "nearest_marker_distance_qu": 71.067,
+      "nearest_marker_id": 145,
+      "qwd_origin": [
+        -34.125,
+        692.125,
+        98.5
+      ],
+      "waypoint_count": 2
+    },
+    {
+      "first_frame": 285,
+      "first_time_s": 3.692,
+      "index": 11,
+      "last_frame": 295,
+      "last_time_s": 3.822,
+      "max_nearest_distance_qu": 142.597,
+      "nearest_marker_distance_qu": 114.482,
+      "nearest_marker_id": 153,
+      "qwd_origin": [
+        -150.75,
+        659.625,
+        115.625
+      ],
+      "waypoint_count": 2
+    },
+    {
+      "first_frame": 305,
+      "first_time_s": 3.952,
+      "index": 12,
+      "last_frame": 328,
+      "last_time_s": 4.25,
+      "max_nearest_distance_qu": 105.222,
+      "nearest_marker_distance_qu": 105.222,
+      "nearest_marker_id": 32,
+      "qwd_origin": [
+        -240.875,
+        557.875,
+        130.375
+      ],
+      "waypoint_count": 3
+    },
+    {
+      "first_frame": 347,
+      "first_time_s": 4.497,
+      "index": 13,
+      "last_frame": 374,
+      "last_time_s": 4.848,
+      "max_nearest_distance_qu": 53.23,
+      "nearest_marker_distance_qu": 53.23,
+      "nearest_marker_id": 126,
+      "qwd_origin": [
+        -424.25,
+        492.625,
+        120.0
+      ],
+      "waypoint_count": 2
+    }
+  ],
+  "decision": {
+    "frogbots_vs_from_scratch": "continue_frogbots_for_qwd_sng_runtime_probe",
+    "next_goal": "Implement mode 9 plus a comparison helper, run the SNG shortcut probe on dm3, then ask Claude to review whether server-loop evidence justifies trying the remaining DM3 QWD moves.",
+    "reason": "The SNG QWD trajectory is close enough to Frogbot marker space for context, but direct route topology does not match the shortcut and the human command profile is side-move dominant. The next evidence must therefore execute a temporary hybrid waypoint/controller probe inside KTX.",
+    "verdict": "ready_to_implement_qwd_sng_hybrid_server_loop_probe",
+    "warnings": []
+  },
+  "map": "dm3",
+  "mapping_summary": {
+    "collapsed_marker_count": 14,
+    "direct_edge_ratio": 0.0,
+    "graph_reachable_ratio": 1.0,
+    "nearest_marker_max_qu": 142.597,
+    "nearest_marker_p50_qu": 70.112,
+    "nearest_marker_p95_qu": 120.324,
+    "qwd_waypoint_count": 33,
+    "shortest_path_edges_p50": 5.0,
+    "source_recommendation": "hybrid_waypoint_controller_probe",
+    "source_recommendation_confidence": "medium",
+    "transition_count": 13,
+    "within_128_ratio": 0.939
+  },
+  "method": "Consume the committed SNG QWD-to-Frogbot mapping and write a design-only contract for the first server-loop hybrid waypoint/controller probe. This does not change KTX, Frogbot behavior, route data, lab runners, or parser behavior.",
+  "probe_contract": {
+    "allowed_changes": [
+      "One temporary moveprobe mode for the SNG shortcut.",
+      "One extra `qwd=` command-log suffix with active flag, control-point index, distance, and completion state.",
+      "Runner cvars only if needed to pass the waypoint string and radius values.",
+      "A comparison helper that scores QWD path distance, control-point advancement, speed, route/water state, and cadence."
+    ],
+    "forbidden_changes": [
+      "No `dm3.bot` route mutation.",
+      "No broad Frogbot route rewrite.",
+      "No combat/aim/item/spawn behavior change in the same PR.",
+      "No claim that the bot learned SNG from QWD unless a server-loop MVD proves execution.",
+      "No expansion to all DM3 QWD moves until the SNG probe produces positive server-loop evidence."
+    ],
+    "intended_followup": "Implement one temporary KTX moveprobe mode, likely mode 9.",
+    "probe_id": "qwd-dm3-sng-hybrid-waypoint-controller",
+    "runtime_shape": [
+      "Do not edit dm3.bot.",
+      "Use cvar_string to read a bounded semicolon-separated QWD waypoint string.",
+      "Activate only when the bot is on dm3 and within the start radius of control point 0.",
+      "Advance control points only when the bot enters the control-point radius.",
+      "Project waypoint-attraction plus QWD-style sidemove into the bot's preserved combat view yaw.",
+      "Preserve route, water, command, probe-activation, cadence, and movement-bucket diagnostics."
+    ],
+    "status": "design_only_no_controller_behavior_changed",
+    "suggested_cvars": {
+      "k_fb_moveprobe_forwardmove": 320,
+      "k_fb_moveprobe_log_commands": 1,
+      "k_fb_moveprobe_log_interval": 0.1,
+      "k_fb_moveprobe_mode": 9,
+      "k_fb_moveprobe_qwd_point_radius": 96.0,
+      "k_fb_moveprobe_qwd_start_radius": 192.0,
+      "k_fb_moveprobe_qwd_waypoints": "307.375,-321.250,56.000;302.375,-254.125,56.000;255.500,-141.750,81.625;214.000,35.625,74.000;368.000,145.375,99.375;458.500,228.500,62.125;520.875,416.875,97.750;384.750,530.625,85.625;214.125,616.500,83.250;27.500,672.125,97.750;-34.125,692.125,98.500;-150.750,659.625,115.625;-240.875,557.875,130.375;-424.250,492.625,120.000",
+      "k_fb_moveprobe_sidemove": 508
+    }
+  },
+  "qwd_command_profile": {
+    "jump_button_ratio": 0.284,
+    "nonzero_forward_ratio": 0.089,
+    "nonzero_side_ratio": 0.718,
+    "qwd_sidemove_abs_p50": 508.0,
+    "qwd_speed_p50_qu_per_s": 465.924,
+    "qwd_speed_p95_qu_per_s": 548.283,
+    "recommended_jump_policy": "force_jump_only_while_probe_active_and_report_cadence",
+    "recommended_qwd_strafe_sidemove": 508,
+    "recommended_target_attraction_forwardmove": 320
+  },
+  "schema": "komodobots.qwd_sng_hybrid_probe_design.v1",
+  "source_demo": "dm3_sng_shortcut.qwd",
+  "source_demo_sha256": "3660cfd7b7e78d3a2484ae1c01c83c9f13ce35cde562c704d908804438eb5349",
+  "source_mapping_path": "experiments/qwd_route_probe/evidence/qwd-frogbot-route-map-dm3-sng-shortcut.json",
+  "stage": "qwd-dm3-sng-hybrid-probe-design",
+  "stop_conditions": [
+    {
+      "id": "no_server_loop_execution",
+      "rule": "If the bot never activates or advances fewer than four control points, do not call the move learned.",
+      "verdict": "inconclusive"
+    },
+    {
+      "id": "waypoint_only_success",
+      "rule": "Reject success if the bot reaches points only by slow/stuck movement that fails movement-bucket checks.",
+      "verdict": "reject"
+    },
+    {
+      "id": "diagnostic_loss",
+      "rule": "Missing command, route, water, cadence, or qwd probe diagnostics blocks success claims.",
+      "verdict": "inconclusive"
+    },
+    {
+      "id": "route_or_water_regression",
+      "rule": "If WATER_PATH or low-dir route slices dominate failure, pivot to a route primitive instead of widening QWD control.",
+      "verdict": "reject_or_route_handoff"
+    },
+    {
+      "id": "positive_sng_gate",
+      "rule": "Only after SNG has positive server-loop evidence should the automation attempt the other DM3 QWD moves.",
+      "verdict": "continue_to_more_dm3_qwds"
+    }
+  ],
+  "validation_plan": [
+    {
+      "command": "Build patched KTX with the temporary mode enabled.",
+      "required_result": "Build succeeds and stock mode 0 remains available.",
+      "step": "patch_compile"
+    },
+    {
+      "command": "python scripts/run_bot_lab.py --map dm3 --duration 45 --bot-count 2 --bot-spacing 6 --moveprobe-mode 9 --moveprobe-sidemove 508 --moveprobe-log-commands --moveprobe-log-interval 0.1",
+      "required_result": "Run produces MVD, movement metrics, moveprobe command logs, and qwd probe rows.",
+      "step": "server_loop_run"
+    },
+    {
+      "command": "Compare bot movement against the committed QWD control points and QWD speed profile.",
+      "required_result": "At least 4 control points advanced or result is inconclusive; probe active for at least 1.0s or result is inconclusive.",
+      "step": "trajectory_scoring"
+    },
+    {
+      "command": "Score route, water, cadence, and movement buckets beside the QWD trajectory score.",
+      "required_result": "No success claim if route/water/cadence diagnostics are missing or regress badly.",
+      "step": "guardrails"
+    }
+  ]
+}

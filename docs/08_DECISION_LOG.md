@@ -1738,3 +1738,56 @@ The next probe should test whether KTX/Frogbots can execute a temporary human-de
 ### Revisit Conditions
 
 Revisit pure route editing if the hybrid probe can execute the shortcut but only by following waypoint geometry that `dm3.bot` lacks. Revisit command-imitation-only if marker proximity proves irrelevant or harmful inside the server-loop probe.
+
+---
+
+## Decision
+
+Implement one bounded QWD-derived SNG hybrid server-loop probe before expanding to other DM3 moves.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+Use the committed `dm3_sng_shortcut.qwd` mapping to define one temporary KTX/Frogbot moveprobe mode, likely mode `9`, that consumes a bounded QWD waypoint string and the QWD side-dominant command profile.
+
+Do not mutate `dm3.bot`, do not expand to all QWD moves, and do not claim that the bot learned the SNG move until a generated server-loop MVD proves execution under guardrails.
+
+### Alternatives Considered
+
+- Edit `dm3.bot` to add a direct SNG shortcut route.
+- Try a pure nearest-marker route-following probe.
+- Try command imitation without waypoint context.
+- Skip the runtime probe and continue offline QWD analysis.
+- Abandon Frogbots before testing whether QWD-derived route/controller inputs work in the engine-native shell.
+
+### Evidence
+
+The design artifact `experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-design-dm3.*` preserves:
+
+- `14` QWD control points from the SNG shortcut mapping.
+- Recommended temporary mode `9`.
+- Start/control-point radii of `192` / `96` qu.
+- Recommended forward/side command profile of `320` / `508`.
+- Required route, water, command, probe-activation, cadence, and movement-bucket diagnostics.
+- Stop conditions requiring at least `4` advanced control points or inconclusive status, diagnostic preservation, and rejection of waypoint-only slow/stuck success.
+
+Validation:
+
+```powershell
+python -m py_compile scripts/design_qwd_sng_hybrid_probe.py
+python -m unittest tests.test_design_qwd_sng_hybrid_probe -v
+python scripts/design_qwd_sng_hybrid_probe.py --output-json experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-design-dm3.json --output-md experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-design-dm3.md
+```
+
+### Expected Consequences
+
+The next PR should implement the smallest runtime proof: a temporary mode `9`, runner/config plumbing only as needed, command/probe logging, and a comparison helper that scores control-point advancement beside existing movement/route/water/cadence guardrails.
+
+If the SNG runtime probe is positive, extend the QWD method to the remaining DM3 QWD moves. If the probe cannot activate, cannot advance points, or only succeeds by slow/stuck motion, the result is inconclusive or rejected rather than a reason to optimize speed blindly.
+
+### Revisit Conditions
+
+Revisit the from-scratch option if the bounded mode `9` probe cannot be implemented without invasive Frogbot route rewrites, if diagnostics cannot be preserved, or if QWD-derived waypoint/controller control repeatedly fails under KTX physics despite valid input evidence.

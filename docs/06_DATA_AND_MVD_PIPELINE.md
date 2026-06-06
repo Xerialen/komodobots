@@ -84,6 +84,24 @@ Measured result:
 
 Interpretation: `dm3.bot` has useful spatial context for the SNG shortcut, but not a direct route topology matching the human move. The first Frogbot-facing QWD probe should therefore be a hybrid waypoint/controller probe that preserves local command imitation, not a pure route-following or `.bot` mutation probe.
 
+First QWD SNG hybrid probe design:
+
+- Tool: `scripts/design_qwd_sng_hybrid_probe.py`
+- Source artifact: `experiments/qwd_route_probe/evidence/qwd-frogbot-route-map-dm3-sng-shortcut.json`
+- Result artifact: `experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-design-dm3.*`
+- Status: design only; no KTX/Frogbot behavior, route file, lab runner, parser, or movement metric changed.
+
+Design result:
+
+- The future probe should use a temporary moveprobe mode, likely mode `9`.
+- It should consume a bounded semicolon-separated QWD waypoint string with `14` control points.
+- It should activate only on `dm3` near the first SNG control point, then advance control points by radius.
+- It should combine waypoint attraction with the QWD side-dominant command profile: recommended forward/side commands `320` / `508`.
+- It must preserve route, water, command, probe-activation, cadence, and movement-bucket diagnostics.
+- Success cannot be claimed unless the server-loop run advances at least `4` control points, remains active for at least `1.0` second, and passes movement/route/cadence guardrails.
+
+Interpretation: the QWD path is now specific enough to attempt a Frogbot-facing runtime probe, but still not proof that Frogbots learned the SNG move. Positive evidence must come from a generated KTX/Frogbot MVD plus the same diagnostic guardrails used elsewhere in the lab.
+
 ## Available or expected signals
 
 From `mvd_analyzer`, `qw-sim`, and related parsers, Komodobots expects to work with:

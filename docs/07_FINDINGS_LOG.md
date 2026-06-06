@@ -2847,3 +2847,60 @@ Medium that a hybrid waypoint/controller probe is the best next step, because th
 ### Follow-up
 
 Ask Claude/Code Sentinel to review the mapping logic and the recommendation. Next smallest useful experiment: design a tiny server-loop SNG shortcut probe that feeds a temporary waypoint target plus QWD-local command profile into the existing moveprobe path while preserving route, water, command, cadence, and movement-bucket diagnostics.
+
+## 2026-06-06 - QWD SNG Hybrid Probe Design
+
+### Experiment
+
+Designed the first Frogbot-facing runtime probe from the committed `dm3_sng_shortcut.qwd` mapping without changing KTX, Frogbot behavior, route files, lab runners, parsers, or metrics.
+
+Added `scripts/design_qwd_sng_hybrid_probe.py`. The helper consumes `experiments/qwd_route_probe/evidence/qwd-frogbot-route-map-dm3-sng-shortcut.json` and writes a bounded contract for a temporary hybrid waypoint/controller moveprobe mode.
+
+### Result
+
+Generated `experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-design-dm3.*`.
+
+The design keeps the QWD evidence narrow and executable:
+
+- `14` control points from the collapsed SNG shortcut mapping.
+- Recommended temporary moveprobe mode: `9`.
+- Suggested activation: only on `dm3`, near the first QWD control point.
+- Suggested control-point radius: `96` qu; start radius: `192` qu.
+- Recommended command profile: waypoint attraction `forwardmove=320`, QWD-style `sidemove=508`, forced jump only while the probe is active and reported.
+- No `dm3.bot` mutation.
+- Required diagnostics: route, water, command, probe activation, cadence, and movement buckets.
+
+### Evidence
+
+Validation commands:
+
+```powershell
+python -m py_compile scripts/design_qwd_sng_hybrid_probe.py
+python -m unittest tests.test_design_qwd_sng_hybrid_probe -v
+python scripts/design_qwd_sng_hybrid_probe.py --output-json experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-design-dm3.json --output-md experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-design-dm3.md
+```
+
+Focused tests: `6` design tests passed.
+
+Committed artifacts:
+
+- `scripts/design_qwd_sng_hybrid_probe.py`
+- `tests/test_design_qwd_sng_hybrid_probe.py`
+- `experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-design-dm3.json`
+- `experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-design-dm3.md`
+
+### Interpretation
+
+The SNG QWD trajectory is close enough to Frogbot marker space for context, but direct route topology still does not match the shortcut and the human action profile is side-move dominant. The next evidence must therefore be a temporary server-loop hybrid waypoint/controller probe, not route editing or a pure marker chase.
+
+This still does not prove movement realism improved. It only says the next KTX/Frogbot experiment is sufficiently bounded to try before abandoning the Frogbots substrate.
+
+### Confidence
+
+High that the design faithfully consumes the committed SNG mapping artifact and preserves the QWD side-move signal.
+
+Medium that mode `9` will be easy to implement cleanly inside KTX, because the runtime patch still needs to pass waypoint strings, report QWD probe state, and preserve existing diagnostics.
+
+### Follow-up
+
+Ask Claude/Code Sentinel to review the design gate. Next smallest useful experiment: implement the temporary mode `9` SNG hybrid probe plus a comparison helper, run it on `dm3`, and decide whether positive server-loop evidence justifies applying the same QWD route/controller method to the remaining DM3 QWD moves.

@@ -110,6 +110,8 @@ QWD trajectory route applicability probe: `C:\Users\benya\projects\quakeworld\ko
 
 QWD-to-Frogbot route mapping helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\map_qwd_route_to_frogbot.py`
 
+QWD SNG hybrid probe design helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\design_qwd_sng_hybrid_probe.py`
+
 KTX movement probe patch: `C:\Users\benya\projects\quakeworld\komodobots\experiments\ktx_moveprobe\frogbot-moveprobe.patch`
 
 Why it matters:
@@ -137,6 +139,7 @@ Why it matters:
 - `tools/qwd_usercmd/qwd_usercmd.py` extracts exact first-person `.qwd` POV-demo `usercmd_t` streams into `komodobots.qwd_usercmd.v1` line-delimited JSON. It is the Phase 1 action-label path for human commands, separate from MVD state/evaluation evidence.
 - `scripts/probe_qwd_route_applicability.py` measures the Phase 2 QWD bridge: exact `dem_cmd` rows paired with anchored self-player `svc_playerinfo` origin/velocity rows, plus continuity splits and waypoint downsampling for route/controller applicability. It is evidence for trajectory extraction, not a Frogbot `.bot` route importer or replay controller.
 - `scripts/map_qwd_route_to_frogbot.py` maps one extracted QWD trajectory onto the existing Frogbot `dm3.bot` marker graph. It measures nearest-marker fit, collapsed marker sequence, direct `.bot` edge coverage, shortest graph paths, and recommends route-following, command-imitation, or a hybrid waypoint/controller probe.
+- `scripts/design_qwd_sng_hybrid_probe.py` consumes the committed `dm3_sng_shortcut.qwd` route-mapping artifact and writes the first design-only contract for a temporary KTX hybrid waypoint/controller probe. It preserves the QWD waypoint string, side-dominant command profile, diagnostics requirements, and stop conditions without changing KTX or Frogbot behavior.
 - `experiments/ktx_moveprobe/frogbot-moveprobe.patch` is the first S2 KTX source probe. It applies to KTX commit `08807da`, hooks `src/bot_movement.c::BotSetCommand()` after the prewar-freeze guard, and adds cvar-controlled command perturbation immediately before button assembly and `trap_SetBotCMD(...)`.
 - The same patch includes v2a command instrumentation. When `k_fb_moveprobe_log_commands=1`, KTX prints sampled `FBMOVEPROBE_CMD` rows containing the final `msec`, angles, movement command values, buttons, and impulse about to be sent to `trap_SetBotCMD(...)`.
 - The patch also includes v2b mode `3`, a route-yaw probe that sets yaw from `self->fb.dir_move_`, emits simple movement command values, and forces jump when a route direction is available.
