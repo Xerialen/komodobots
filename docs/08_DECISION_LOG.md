@@ -1656,3 +1656,45 @@ The current Frogbots decision path still uses KTX/Frogbots as the engine-native 
 ### Revisit Conditions
 
 Revisit if additional POV QWDs from older/client-diverse builds fail clean EOF or plausibility checks, if the `usercmd_t` raw-struct layout differs by build, or if QWD `dem_read` state parsing cannot be made reliable enough to align observations with actions.
+
+---
+
+## Decision
+
+Use QWD state/action pairing as a Frogbots-vs-from-scratch decision input, not as proof of Frogbot replay.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+Treat the QWD trajectory route applicability probe as a successful data bridge: for matching POV demos, Komodobots can pair exact human commands with same-frame self-player trajectory and downsample that trajectory into route-like waypoints.
+
+Do not treat this as a completed Frogbot route importer or controller. The next decision gate is whether one clean extracted route can be mapped against `dm3.bot` or executed in a controlled KTX/Frogbot server-loop probe without losing route, water, combat, or air-transition guardrails.
+
+### Alternatives Considered
+
+- Abandon Frogbots despite QWDs now providing human action/state data.
+- Treat waypoint extraction as enough to claim Frogbot applicability.
+- Jump directly to supervised movement training without checking route semantics or server-loop execution.
+- Keep QWDs only as offline analysis and continue controller probes without using exact human actions.
+
+### Evidence
+
+QWD route applicability probe on local `dm3_*.qwd` trick demos:
+
+- `29` of `29` demos produced exact command/state frame matches.
+- Total paired frames: `22,749`.
+- Paired coverage min/p50: `1.000` / `1.000`.
+- `29` route candidates produced at `64` qu waypoint spacing.
+- `26` of `29` demos had no real continuity split after duplicate-tick handling.
+- Water-heavy demos stayed usable once the parser accepted only anchored self-player `svc_playerinfo` instead of naive byte-scan candidates.
+
+### Expected Consequences
+
+Before abandoning KTX/Frogbots, run one more bounded evidence step: pick a clean route candidate such as `dm3_sng_shortcut.qwd`, compare extracted waypoints against the current `dm3.bot` marker graph, and decide whether route-following, command-imitation, or a hybrid waypoint/controller probe is the smallest server-loop test.
+
+### Revisit Conditions
+
+Revisit the from-scratch option if the extracted QWD trajectory cannot be mapped to Frogbot route context, if KTX/Frogbots cannot expose or control the needed route execution state, or if a server-loop replay/controller probe cannot preserve non-target guardrails.

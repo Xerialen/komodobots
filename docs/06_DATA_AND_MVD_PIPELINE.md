@@ -46,7 +46,23 @@ Phase 1 status:
 - `dm2_bunny_to_gl.qwd` parsed cleanly to EOF with `--strict-plausibility`: `162582` bytes read, `1537` command frames, `1389` `dem_read` records, no warnings, command rate `74.122` fps.
 - The longer trick demo showed plausible action ranges: `msec` `12..53`, `forwardmove` `-400..380`, `sidemove` `-380..380`, buttons `[0, 1, 2, 3]`, impulses `[2, 7]`, and `1086` distinct rounded yaw samples.
 
-Phase 2 remains deferred. Pairing actions with observed movement state requires parsing the surrounding QWD `dem_read` service stream, including QWD-specific player/clientdata formats. Do not assume the existing MVD `DF_` playerinfo path can be reused unchanged; QWD playerinfo/clientdata uses different flags and should be source-checked before producing `komodobots.qwd_movement_dataset.v1`.
+Phase 2 probe status:
+
+- Tool: `scripts/probe_qwd_route_applicability.py`
+- Schema: `komodobots.qwd_route_probe.v1`
+- Source basis: ezQuake `svc_playerinfo` read/write paths in `src/cl_ents.c` and `src/sv_ents.c`, plus `MSG_ReadCoord()` as `short / 8`.
+- Scope: first-person QWD `dem_cmd` action rows paired by frame order with self-player `svc_playerinfo` origin/velocity rows anchored after the QWD network-message sequence header.
+- Output: compact JSON/Markdown evidence under `experiments/qwd_route_probe/evidence/`; raw paired rows and waypoints stay ignored under `artifacts/qwd-route-probe/`.
+
+Probe result on the local `dm3_*.qwd` trick corpus:
+
+- `29` of `29` demos produced exact command/state frame matches.
+- Total paired frames: `22,749`.
+- Paired coverage minimum and median: `1.000`.
+- `29` of `29` demos produced waypoint-downsampled trajectory route candidates at `64` qu spacing.
+- `26` of `29` demos had no real continuity split after duplicate-tick handling; the remaining three are split instead of silently smoothed.
+
+This changes the action-label picture: for matching POV QWDs, Komodobots can now get exact human commands and a plausible same-frame self trajectory. It still does not produce a Frogbot `.bot` route, semantic route primitive labels, combat-aware execution policy, or proof that a server-side Frogbot can replay the path under KTX physics.
 
 ## Available or expected signals
 
