@@ -2,7 +2,9 @@
   "aggregate": {
     "command_samples": 866,
     "max_advanced_control_points": 2,
+    "max_advanced_control_points_inside_mvd": 0,
     "max_control_point_index": 2,
+    "max_control_point_index_inside_mvd": 0,
     "max_qwd_active_seconds": 1.12,
     "min_qwd_distance_qu": 97.576,
     "player_count": 2,
@@ -43,7 +45,9 @@
       "low_speed_time_ratio": 0.16,
       "match_duration_ms": 45816,
       "max_advanced_control_points": 0,
+      "max_advanced_control_points_inside_mvd": 0,
       "max_control_point_index": 0,
+      "max_control_point_index_inside_mvd": 0,
       "max_qwd_active_seconds": 0.0,
       "min_qwd_distance_qu": 282.748,
       "p95_horizontal_speed_qu_per_s": 450.781,
@@ -85,7 +89,9 @@
       "low_speed_time_ratio": 0.17,
       "match_duration_ms": 45816,
       "max_advanced_control_points": 2,
+      "max_advanced_control_points_inside_mvd": 0,
       "max_control_point_index": 2,
+      "max_control_point_index_inside_mvd": 0,
       "max_qwd_active_seconds": 1.12,
       "min_qwd_distance_qu": 97.576,
       "p95_horizontal_speed_qu_per_s": 460.511,
@@ -180,7 +186,9 @@
     {
       "details": {
         "max_advanced_control_points": 2,
-        "required_advanced_control_points": 4
+        "max_advanced_control_points_inside_mvd": 0,
+        "required_advanced_control_points": 4,
+        "rule": "Control-point advancement must occur inside the parsed MVD movement window."
       },
       "id": "control_point_advancement",
       "status": "inconclusive"

@@ -122,14 +122,14 @@ Measured result:
 - Active QWD rows aligned to MVD-relative time `47044-48082` ms, outside the parsed match-duration window of `45816` ms.
 - Diagnostics were preserved: route, water, transition-probe, cadence, and movement metrics were available.
 - Active QWD command profile passed on the active bot row: active side ratio `1.0`, active jump ratio `1.0`.
-- Slow/stuck success and route-dirty success guardrails did not reject the run, but movement-window overlap and control-point advancement gates stayed inconclusive.
+- Slow/stuck success and route-dirty success guardrails did not reject the run, but movement-window overlap and in-window control-point advancement gates stayed inconclusive.
 
 Diagnosis result:
 
 - `/ bro` never activated and never reached the configured start radius during the MVD window; closest MVD approach to control point `0` was `281.954` qu against a `192` qu start radius.
 - `/ goldenboy` activated and advanced two points, but only after the parsed MVD movement window; closest in-window MVD approach to control point `0` was `282.774` qu.
 
-Interpretation: this is useful server-loop command evidence, but not proof that Frogbots learned the SNG shortcut. The QWD path can be injected, logged, and scored inside the engine-native shell; the first activation evidence is not cleanly aligned with MVD movement evidence. The next step should repair timing/start-context setup before changing controller projection or expanding to other DM3 QWD moves.
+Interpretation: this is useful server-loop command evidence, but not proof that Frogbots learned the SNG shortcut. The QWD path can be injected, logged, and scored inside the engine-native shell; the first activation and advancement evidence is not cleanly aligned with MVD movement evidence. The scorer requires control-point advancement inside the parsed MVD window before any positive movement claim. The next step should repair timing/start-context setup before changing controller projection or expanding to other DM3 QWD moves.
 
 ## Available or expected signals
 

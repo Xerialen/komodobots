@@ -1866,7 +1866,7 @@ Do not treat the first mode-9 SNG run's two advanced control points as movement 
 - `/ bro` had no active QWD rows and closest MVD approach to control point `0` was `281.954` qu, outside the `192` qu start radius.
 - `/ goldenboy` closest in-window MVD approach to control point `0` was `282.774` qu, also outside the start radius.
 
-The QWD SNG scorer now has an explicit `qwd_activation_mvd_overlap` stop condition and reports it as inconclusive for run `20260606T221429Z`.
+The QWD SNG scorer now has an explicit `qwd_activation_mvd_overlap` stop condition and reports it as inconclusive for run `20260606T221429Z`. The companion `control_point_advancement` gate now requires in-window advancement rather than raw command-log advancement.
 
 ### Expected Consequences
 

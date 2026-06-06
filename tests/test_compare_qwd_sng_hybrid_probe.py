@@ -97,10 +97,7 @@ def write_fake_run(
         ),
         encoding="utf-8",
     )
-    (run_dir / "analysis.json").write_text(
-        json.dumps({"match": {"duration": 5000}}),
-        encoding="utf-8",
-    )
+    (run_dir / "analysis.json").write_text(json.dumps({"match": {"duration": 5000}}), encoding="utf-8")
     (run_dir / "events.txt").write_text(
         "\n".join(
             [
@@ -129,8 +126,6 @@ def write_fake_run(
         + "\n",
         encoding="utf-8",
     )
-
-
 class QwdSngHybridProbeTests(unittest.TestCase):
     def test_parse_args_rejects_bad_run_id(self) -> None:
         with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
@@ -197,6 +192,34 @@ class QwdSngHybridProbeTests(unittest.TestCase):
             by_id["qwd_activation_mvd_overlap"]["details"]["players_with_active_qwd_outside_mvd_window"],
             ["/ goldenboy"],
         )
+
+    def test_advancement_after_mvd_window_is_inconclusive_even_with_early_activation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fake_run(
+                root,
+                "run1",
+                commands=[
+                    command_row(time_s=11.0, advanced=0, index=0),
+                    command_row(time_s=16.25, advanced=4, index=4, active_seconds=1.6),
+                ],
+            )
+
+            report = qwd_probe.build_report(
+                {},
+                stage="test",
+                bot_run_ids=["run1"],
+                artifacts_root=root,
+                design_path=REPO_ROOT / "design.json",
+            )
+
+        self.assertEqual(report["decision"]["verdict"], "qwd_sng_hybrid_probe_inconclusive")
+        player = report["players"][0]
+        self.assertEqual(player["max_advanced_control_points"], 4)
+        self.assertEqual(player["max_advanced_control_points_inside_mvd"], 0)
+        by_id = {condition["id"]: condition for condition in report["stop_condition_results"]}
+        self.assertEqual(by_id["qwd_activation_mvd_overlap"]["status"], "pass")
+        self.assertEqual(by_id["control_point_advancement"]["status"], "inconclusive")
 
     def test_nullable_command_fields_do_not_crash(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

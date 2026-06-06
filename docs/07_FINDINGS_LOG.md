@@ -2978,7 +2978,7 @@ The first SNG run remains inconclusive, but the failure is now more precisely at
 
 - `/ bro` never activated and never entered the configured `192` qu start radius during the MVD window; closest MVD approach to control point `0` was `281.954` qu.
 - `/ goldenboy` activated for `11` sampled command rows and advanced `2` control points, but the aligned active window was `47044-48082` ms while the parsed match duration was `45816` ms.
-- The scorer now reports `qwd_activation_mvd_overlap` as inconclusive for `/ goldenboy`, so the result no longer implies that movement guardrails observed the active advancement window.
+- The scorer now reports `qwd_activation_mvd_overlap` as inconclusive for `/ goldenboy`, and `control_point_advancement` now requires in-window advancement rather than raw command-log advancement, so the result no longer implies that movement guardrails observed the active advancement window.
 - The helper also hardens nullable command fields before integer casts in the QWD SNG scorer.
 
 ### Evidence
