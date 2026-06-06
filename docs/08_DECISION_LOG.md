@@ -1425,3 +1425,47 @@ S7i should design a tiny air-transition horizontal-speed probe. The probe must k
 ### Revisit Conditions
 
 Revisit if Code Sentinel finds the S7h target scoring unsafe, if the S7g route-state caveat becomes blocking, or if an S7i probe cannot be designed without hiding combat/route regressions.
+
+---
+
+## Decision
+
+Design a tiny air-transition horizontal-speed probe before changing controller behavior.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S7i defines `s7i-mode8-air-transition-horizontal-speed` as a design-only probe contract. It does not implement the controller change. The next branch may implement a temporary mode-8 or mode-7-variant probe only if it preserves the contract:
+
+- start from mode `7`,
+- change horizontal command budget only during takeoff/air-transition windows,
+- preserve combat view yaw, route projection, no-backpedal folding, command bounding outside the transition window, jump-button policy, route logging, water logging, and cadence reporting,
+- keep `WATER_PATH` as a guardrail.
+
+### Alternatives Considered
+
+- Implement mode `8` immediately without a machine-readable contract.
+- Chase all-segment speed directly.
+- Add cadence or jump timing logic.
+- Start with a route-only `WATER_PATH` primitive.
+
+### Evidence
+
+S7i consumes committed S7g/S7h/S7e evidence:
+
+- Air-transition target selected by S7h.
+- Pre-air ratio `0.495`, airborne ratio `0.283`, post-air ratio `0.505`.
+- Non-airborne ratio `0.975`, so generic non-airborne speed is already near reference.
+- `WATER_PATH` bot p50 `95.279` qu/s across `2` bot rows.
+- Airborne-proxy cadence still diagnostic: every broadened bot row is above reference range.
+
+### Expected Consequences
+
+S7j should implement and run only the tiny air-transition probe. It must reject all-segment speed gains if air-transition buckets do not improve, if non-airborne or `WATER_PATH` context regresses, or if cadence/route reporting disappears.
+
+### Revisit Conditions
+
+Revisit if Code Sentinel finds the S7i contract too broad, if a mode-8 implementation cannot preserve mode-7 behavior outside transition windows, or if post-probe diagnostics cannot report the required buckets.

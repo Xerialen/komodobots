@@ -1,0 +1,185 @@
+{
+  "air_transition_baselines": {
+    "airborne_proxy_segments": {
+      "bot_p50_speed_qu_per_s": 122.626,
+      "bot_player_count": 6,
+      "bot_to_reference_p50_ratio": 0.283,
+      "bucket": "airborne_proxy_segments",
+      "label": "Airborne-proxy segments",
+      "reference_p50_speed_qu_per_s": 433.812,
+      "reference_player_count": 6
+    },
+    "post_air_window_segments": {
+      "bot_p50_speed_qu_per_s": 184.529,
+      "bot_player_count": 6,
+      "bot_to_reference_p50_ratio": 0.505,
+      "bucket": "post_air_window_segments",
+      "label": "Post-air window",
+      "reference_p50_speed_qu_per_s": 365.709,
+      "reference_player_count": 6
+    },
+    "pre_air_window_segments": {
+      "bot_p50_speed_qu_per_s": 207.089,
+      "bot_player_count": 6,
+      "bot_to_reference_p50_ratio": 0.495,
+      "bucket": "pre_air_window_segments",
+      "label": "Pre-air window",
+      "reference_p50_speed_qu_per_s": 418.044,
+      "reference_player_count": 6
+    }
+  },
+  "cadence_baselines": [
+    {
+      "bot_max": 138.677,
+      "bot_min": 18.482,
+      "bot_relation": "mixed_bot_relation",
+      "field": "jump_cadence_per_min",
+      "label": "Cadence/active min",
+      "reference_max": 50.975,
+      "reference_min": 40.368
+    },
+    {
+      "bot_max": 289.514,
+      "bot_min": 20.177,
+      "bot_relation": "mixed_bot_relation",
+      "field": "jump_cadence_per_non_low_speed_min",
+      "label": "Cadence/non-low-speed min",
+      "reference_max": 61.268,
+      "reference_min": 48.695
+    },
+    {
+      "bot_max": 274.065,
+      "bot_min": 164.12,
+      "bot_relation": "all_bots_above_reference_range",
+      "field": "jump_cadence_per_airborne_proxy_min",
+      "label": "Cadence/air-proxy min",
+      "reference_max": 143.149,
+      "reference_min": 127.983
+    }
+  ],
+  "decision": {
+    "next_goal": "S7j should implement and run the tiny air-transition probe only if it preserves the S7i contract, then compare it against the S7g/S7h/S7e baselines.",
+    "reason": "S7h selected a human-comparable air-transition speed gap; S7i turns that into a constrained probe contract with explicit guardrails before any controller behavior changes.",
+    "selected_probe_target": "air_transition_horizontal_speed",
+    "verdict": "ready_to_design_tiny_air_transition_probe"
+  },
+  "guardrail_baselines": {
+    "all_segments": {
+      "bot_p50_speed_qu_per_s": 221.993,
+      "bot_player_count": 6,
+      "bot_to_reference_p50_ratio": 0.665,
+      "bucket": "all_segments",
+      "label": "All accepted segments",
+      "reference_p50_speed_qu_per_s": 334.035,
+      "reference_player_count": 6
+    },
+    "non_airborne_segments": {
+      "bot_p50_speed_qu_per_s": 312.121,
+      "bot_player_count": 6,
+      "bot_to_reference_p50_ratio": 0.975,
+      "bucket": "non_airborne_segments",
+      "label": "Non-airborne segments",
+      "reference_p50_speed_qu_per_s": 319.971,
+      "reference_player_count": 6
+    },
+    "route_low_dir_speed_segments": {
+      "bot_p50_speed_qu_per_s": 141.017,
+      "bot_player_count": 4,
+      "bot_to_reference_p50_ratio": null,
+      "bucket": "route_low_dir_speed_segments",
+      "label": "Route low-dir-speed segments",
+      "reference_p50_speed_qu_per_s": null,
+      "reference_player_count": 0
+    },
+    "route_water_path_segments": {
+      "bot_p50_speed_qu_per_s": 95.279,
+      "bot_player_count": 2,
+      "bot_to_reference_p50_ratio": null,
+      "bucket": "route_water_path_segments",
+      "label": "Route WATER_PATH segments",
+      "reference_p50_speed_qu_per_s": null,
+      "reference_player_count": 0
+    }
+  },
+  "map": "dm3",
+  "method": "S7i consumes committed S7g/S7h/S7e evidence and writes a constrained probe design. It does not change KTX, Frogbot behavior, lab runners, parser behavior, or cadence policy.",
+  "probe_contract": {
+    "allowed_changes": [
+      "A short-lived air-transition horizontal command-budget probe, preferably behind a new cvar or mode.",
+      "Additional diagnostic fields only if they are needed to prove the transition window fired."
+    ],
+    "forbidden_changes": [
+      "No cadence controller or jump timing change.",
+      "No route file or WATER_PATH route primitive fix.",
+      "No all-segment speed objective.",
+      "No combat aiming, firing, item, spawn, parser, or lab-runner behavior change."
+    ],
+    "implementation_hint": "Start from moveprobe mode 7. Add at most one temporary mode-8 or mode-7-variant branch that changes horizontal command budget only during takeoff/air-transition windows. Keep combat view yaw, route projection, no-backpedal folding, command bounding outside the transition window, jump-button policy, route logging, water logging, and cadence reporting unchanged.",
+    "intended_followup_stage": "S7j",
+    "probe_id": "s7i-mode8-air-transition-horizontal-speed",
+    "status": "design_only_no_controller_behavior_changed"
+  },
+  "required_post_probe_measurements": [
+    "pre_air_window_segments",
+    "airborne_proxy_segments",
+    "post_air_window_segments",
+    "non_airborne_segments",
+    "route_low_dir_speed_segments",
+    "route_water_path_segments",
+    "jump_cadence_per_min",
+    "jump_cadence_per_non_low_speed_min",
+    "jump_cadence_per_airborne_proxy_min"
+  ],
+  "schema": "komodobots.air_transition_probe_design.v1",
+  "source_cadence_path": "experiments/human_comparison/evidence/cadence-evidence-s7e-dm3.json",
+  "source_cadence_stage": "s7e-cadence-evidence-dm3",
+  "source_land_speed_path": "experiments/human_comparison/evidence/land-speed-gap-s7g-dm3.json",
+  "source_land_speed_stage": "s7g-land-speed-gap-dm3",
+  "source_target_decision_path": "experiments/human_comparison/evidence/controller-probe-target-s7h-dm3.json",
+  "source_target_decision_stage": "s7h-controller-probe-target-dm3",
+  "stage": "s7i-air-transition-probe-design-dm3",
+  "stop_conditions": [
+    {
+      "id": "missing_required_reporting",
+      "rule": "Reject success claims if the post-probe comparison omits pre-air, airborne, post-air, non-air, cadence, route low-dir-speed, or WATER_PATH reporting.",
+      "verdict": "reject_or_inconclusive"
+    },
+    {
+      "id": "all_segment_proxy_win",
+      "rule": "Reject any result where all-segment p50 speed improves but none of pre-air, airborne, or post-air p50 speed improves over the S7g baseline.",
+      "verdict": "reject"
+    },
+    {
+      "baseline_buckets": [
+        "pre_air_window_segments",
+        "airborne_proxy_segments",
+        "post_air_window_segments"
+      ],
+      "id": "air_transition_regression",
+      "rule": "Reject if any required air-transition bucket p50 drops by more than 5 percent versus S7g baseline.",
+      "tolerance_ratio": 0.95,
+      "verdict": "reject"
+    },
+    {
+      "baseline_p50_speed_qu_per_s": 312.121,
+      "id": "non_airborne_guardrail",
+      "rule": "Reject if non-airborne p50 falls more than 5 percent below the S7g baseline.",
+      "tolerance_ratio": 0.95,
+      "verdict": "reject"
+    },
+    {
+      "baseline_p50_speed_qu_per_s": 95.279,
+      "baseline_player_count": 2,
+      "id": "water_path_guardrail",
+      "rule": "Reject if WATER_PATH p50 speed falls more than 5 percent below baseline when WATER_PATH evidence is present. Treat a run with missing route/WATER_PATH diagnostics as inconclusive rather than ready.",
+      "tolerance_ratio": 0.95,
+      "verdict": "reject_or_inconclusive"
+    },
+    {
+      "id": "cadence_still_diagnostic",
+      "rule": "Do not claim success from cadence changes. Cadence must remain reported on the same active, movement-time, and airborne-proxy bases so S7d/S7e warnings stay visible.",
+      "verdict": "reject_or_inconclusive"
+    }
+  ],
+  "warnings": []
+}

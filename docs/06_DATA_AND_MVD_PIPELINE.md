@@ -599,6 +599,9 @@ s7g-land-speed-gap-dm3, context-bucketed segment speed:
 
 s7h-controller-probe-target-dm3, first controller target decision:
   S7h consumes the committed S7g land-speed context and selects air-transition horizontal speed production as the first controller-probe target. The selected target is human-comparable (pre-air ratio 0.495, airborne ratio 0.283, post-air ratio 0.505, non-airborne ratio 0.975), while WATER_PATH is retained as a secondary guardrail because it is very slow but bot-only and route-diagnostic.
+
+s7i-air-transition-probe-design-dm3, probe contract before controller code:
+  S7i consumes S7g land-speed, S7h target-decision, and S7e cadence evidence. It writes a design-only JSON/Markdown artifact with baseline bucket values, required post-probe measurements, and stop conditions. The artifact forbids cadence, route-file, all-segment-speed, combat, parser, and lab-runner changes in the next probe; S7j must preserve cadence and route diagnostics and reject all-segment speed gains if air-transition or WATER_PATH context regresses.
 ```
 
 ## Open questions

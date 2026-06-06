@@ -2483,3 +2483,55 @@ Medium that the first air-transition probe will isolate the right controller mec
 ### Follow-up
 
 Ask Code Sentinel to review S7h. Proposed S7i: design a tiny air-transition horizontal-speed probe with unchanged cadence reporting, unchanged route diagnostics, and stop conditions that reject all-segment speed gains if air-transition buckets or `WATER_PATH` context get worse.
+
+## 2026-06-06 - S7i Air-Transition Probe Design
+
+### Experiment
+
+Designed the next tiny controller probe before changing controller behavior. Added `scripts/design_air_transition_probe.py`, consumed:
+
+- `experiments/human_comparison/evidence/land-speed-gap-s7g-dm3.json`,
+- `experiments/human_comparison/evidence/controller-probe-target-s7h-dm3.json`,
+- `experiments/human_comparison/evidence/cadence-evidence-s7e-dm3.json`.
+
+No KTX patch behavior, Frogbot behavior, lab runner behavior, parser behavior, route file, or cadence policy changed in S7i.
+
+### Result
+
+- Generated `experiments/human_comparison/evidence/air-transition-probe-design-s7i-dm3.*`.
+- Probe id: `s7i-mode8-air-transition-horizontal-speed`.
+- Verdict: `ready_to_design_tiny_air_transition_probe`.
+- The follow-up probe must start from mode `7` and change horizontal command budget only during takeoff/air-transition windows.
+- Required post-probe reporting includes pre-air, airborne, post-air, non-airborne, route low-dir-speed, `WATER_PATH`, active cadence, non-low-speed cadence, and airborne-proxy cadence.
+
+### Evidence
+
+Baseline values copied into the design artifact:
+
+- Pre-air bot/reference p50 ratio `0.495`.
+- Airborne-proxy bot/reference p50 ratio `0.283`.
+- Post-air bot/reference p50 ratio `0.505`.
+- Non-airborne bot/reference p50 ratio `0.975`.
+- `WATER_PATH` bot p50 speed `95.279` qu/s from `2` bot rows.
+- Airborne-proxy cadence remains diagnostic: bot range `164.1` to `274.1`/min versus reference `128.0` to `143.1`/min.
+
+Stop conditions:
+
+- Reject all-segment speed gains if no air-transition bucket improves.
+- Reject required air-transition or non-airborne p50 regressions beyond `5%`.
+- Reject or mark inconclusive if `WATER_PATH` gets worse or route/WATER_PATH diagnostics disappear.
+- Do not claim success from cadence changes.
+
+### Interpretation
+
+S7i keeps the project from jumping straight into a controller tweak. The next patch must be small enough to answer one question: can a tightly scoped air-transition horizontal-command probe improve the human-comparable pre-air/airborne/post-air gap without hiding route or cadence regressions?
+
+### Confidence
+
+High that the design is source-grounded in committed S7g/S7h/S7e evidence.
+
+Medium that a mode-8 implementation can isolate air-transition speed without changing unrelated route behavior, because that still needs a real probe.
+
+### Follow-up
+
+Ask Code Sentinel to review S7i. Proposed S7j: implement and run the tiny air-transition probe only if it preserves the S7i contract, then compare against the S7g/S7h/S7e baselines.
