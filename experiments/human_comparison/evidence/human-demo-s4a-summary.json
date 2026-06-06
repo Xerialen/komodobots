@@ -109,6 +109,7 @@
     "demo_count": 5,
     "dm2_candidate_count": 0,
     "has_dm2_candidate": false,
+    "map_inference_method": "filename_token_heuristic",
     "root": "C:\\Users\\benya\\projects\\quakeworld\\data\\quake-development\\clients\\xerialqw-bench\\qw\\matchinfo\\demos"
   },
   "match": {
@@ -119,30 +120,30 @@
   },
   "movement_players": [
     {
-      "active_time_s": 615.733,
-      "airborne_proxy_time_ratio": 0.437,
-      "avg_horizontal_speed_qu_per_s": 319.653,
-      "jump_cadence_per_min": 39.66,
-      "low_speed_time_ratio": 0.119,
+      "active_time_s": 597.646,
+      "airborne_proxy_time_ratio": 0.448,
+      "avg_horizontal_speed_qu_per_s": 324.002,
+      "jump_cadence_per_min": 40.76,
+      "low_speed_time_ratio": 0.11,
       "max_horizontal_speed_qu_per_s": 1004.715,
       "name": "reppie",
-      "p95_horizontal_speed_qu_per_s": 533.33,
-      "sample_count": 17714,
+      "p95_horizontal_speed_qu_per_s": 537.423,
+      "sample_count": 17194,
       "slot": 0,
-      "stationary_time_ratio": 0.056
+      "stationary_time_ratio": 0.046
     },
     {
-      "active_time_s": 615.75,
-      "airborne_proxy_time_ratio": 0.395,
-      "avg_horizontal_speed_qu_per_s": 315.229,
-      "jump_cadence_per_min": 34.787,
-      "low_speed_time_ratio": 0.12,
+      "active_time_s": 597.699,
+      "airborne_proxy_time_ratio": 0.396,
+      "avg_horizontal_speed_qu_per_s": 318.524,
+      "jump_cadence_per_min": 34.834,
+      "low_speed_time_ratio": 0.111,
       "max_horizontal_speed_qu_per_s": 2423.245,
       "name": "locust",
-      "p95_horizontal_speed_qu_per_s": 517.969,
-      "sample_count": 17721,
+      "p95_horizontal_speed_qu_per_s": 519.039,
+      "sample_count": 17201,
       "slot": 1,
-      "stationary_time_ratio": 0.06
+      "stationary_time_ratio": 0.052
     }
   ],
   "parser": {

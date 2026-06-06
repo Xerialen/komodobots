@@ -139,6 +139,40 @@ class MovementMetricsTests(unittest.TestCase):
         self.assertAlmostEqual(player["avg_horizontal_speed_qu_per_s"], 320.0)
         self.assertAlmostEqual(player["over_maxspeed_time_ratio"], 0.0)
 
+    def test_compute_movement_metrics_clamps_samples_to_match_duration(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_dir = Path(temp_dir)
+            (run_dir / "run.env").write_text("MAP=synthetic\n", encoding="utf-8")
+            (run_dir / "analysis.json").write_text(
+                json.dumps({"match": {"map": "Synthetic", "duration": 1000}}),
+                encoding="utf-8",
+            )
+            events_path = run_dir / "events.txt"
+            events = [
+                {"kind": 0, "time": 0, "data": {"Data": {"MaxSpeed": 320, "LevelName": "Synthetic"}, "Time": 0}},
+                {
+                    "kind": 1,
+                    "time": 0,
+                    "data": {
+                        "Player": {"Slot": 1, "UserID": 2, "Name": "/ bot", "Spectator": False},
+                        "Time": 0,
+                    },
+                },
+                {"kind": 5, "time": 0, "data": {"PlayerNum": 1, "Origin": [0, 0, 0], "TimeMs": 0}},
+                {"kind": 5, "time": 1, "data": {"PlayerNum": 1, "Origin": [320, 0, 0], "TimeMs": 1000}},
+                {"kind": 5, "time": 1.5, "data": {"PlayerNum": 1, "Origin": [800, 0, 0], "TimeMs": 1500}},
+            ]
+            events_path.write_text("\n".join(json.dumps(event) for event in events), encoding="utf-8")
+
+            metrics = compute_movement_metrics(events_path, run_dir=run_dir)
+
+        self.assertEqual(metrics["sample_window"]["match_duration_clamp_ms"], 1000)
+        player = metrics["players"][0]
+        self.assertEqual(player["last_time_ms"], 1000)
+        self.assertEqual(player["match_duration_clamp_ms"], 1000)
+        self.assertAlmostEqual(player["active_time_s"], 1.0)
+        self.assertAlmostEqual(player["avg_horizontal_speed_qu_per_s"], 320.0)
+
     def test_run_id_validator_rejects_shell_metacharacters(self) -> None:
         self.assertEqual(run_frobodm2_lab.validate_run_id("20260605T201313Z_ok-1"), "20260605T201313Z_ok-1")
         with self.assertRaises(argparse.ArgumentTypeError):

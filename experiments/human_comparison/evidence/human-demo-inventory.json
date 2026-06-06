@@ -49,6 +49,7 @@
   ],
   "dm2_candidate_count": 0,
   "has_dm2_candidate": false,
+  "map_inference_method": "filename_token_heuristic",
   "maps": [
     "aerowalk",
     "e1m2",

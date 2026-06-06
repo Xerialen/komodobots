@@ -15,15 +15,16 @@
 
 - Inventory root: `C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos`
 - Local demos inventoried: `5`
-- Local DM2 candidates: `0`
+- Local DM2 filename candidates: `0`
+- Inventory map inference: `filename_token_heuristic`
 - Ignored named slots: `6` (active < 1s, samples < 10, or distance < 100qu)
 
 ## Movement Players
 
 | Player | Samples | Active s | Avg | P95 | Max | Stationary | Low | Air | Cadence/min |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `reppie` | 17714 | 615.733 | 319.7 | 533.3 | 1004.7 | 5.6% | 11.9% | 43.7% | 39.7 |
-| `locust` | 17721 | 615.750 | 315.2 | 518.0 | 2423.2 | 6.0% | 12.0% | 39.5% | 34.8 |
+| `reppie` | 17194 | 597.646 | 324.0 | 537.4 | 1004.7 | 4.6% | 11.0% | 44.8% | 40.8 |
+| `locust` | 17201 | 597.699 | 318.5 | 519.0 | 2423.2 | 5.2% | 11.1% | 39.6% | 34.8 |
 
 ## S3g Comparison Context
 

@@ -2,7 +2,8 @@
 
 - Root: `C:\Users\benya\projects\quakeworld\komodobots\artifacts\human-demos\source`
 - Demos: `1`
-- DM2 candidates: `1`
+- DM2 filename candidates: `1`
+- Map inference: `filename_token_heuristic`
 
 | Demo | Kind | Inferred map | Bytes | SHA-256 |
 |---|---|---|---:|---|

@@ -150,6 +150,7 @@ def build_inventory(root: Path, *, recursive: bool = False) -> dict[str, object]
         "schema": INVENTORY_SCHEMA,
         "root": str(root),
         "recursive": recursive,
+        "map_inference_method": "filename_token_heuristic",
         "demo_count": len(demos),
         "maps": maps,
         "dm2_candidate_count": len(dm2_candidates),
@@ -164,7 +165,8 @@ def write_inventory_markdown(inventory: dict[str, object], output_path: Path) ->
         "",
         f"- Root: `{inventory.get('root', '')}`",
         f"- Demos: `{inventory.get('demo_count', 0)}`",
-        f"- DM2 candidates: `{inventory.get('dm2_candidate_count', 0)}`",
+        f"- DM2 filename candidates: `{inventory.get('dm2_candidate_count', 0)}`",
+        f"- Map inference: `{inventory.get('map_inference_method', 'filename_token_heuristic')}`",
         "",
         "| Demo | Kind | Inferred map | Bytes | SHA-256 |",
         "|---|---|---|---:|---|",
@@ -182,7 +184,7 @@ def write_inventory_markdown(inventory: dict[str, object], output_path: Path) ->
         lines.extend(
             [
                 "",
-                "No true local DM2 candidate was inferred from this inventory.",
+                "No local DM2 filename candidate was inferred from this inventory.",
             ]
         )
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -352,6 +354,7 @@ def build_human_summary(
             "demo_count": inventory.get("demo_count", 0),
             "dm2_candidate_count": inventory.get("dm2_candidate_count", 0),
             "has_dm2_candidate": has_dm2_candidate,
+            "map_inference_method": inventory.get("map_inference_method", "filename_token_heuristic"),
         },
         "comparison_context": {
             "bot_summary": bot_context,
@@ -395,7 +398,8 @@ def write_human_summary_markdown(summary: dict[str, object], output_path: Path) 
         "",
         f"- Inventory root: `{inventory.get('root')}`",
         f"- Local demos inventoried: `{inventory.get('demo_count')}`",
-        f"- Local DM2 candidates: `{inventory.get('dm2_candidate_count')}`",
+        f"- Local DM2 filename candidates: `{inventory.get('dm2_candidate_count')}`",
+        f"- Inventory map inference: `{inventory.get('map_inference_method', 'filename_token_heuristic')}`",
         f"- Ignored named slots: `{len(summary.get('ignored_named_slots', []))}` "
         f"(active < {MIN_ACTIVE_TIME_S:g}s, samples < {MIN_ACTIVE_SAMPLE_COUNT}, "
         f"or distance < {MIN_HORIZONTAL_DISTANCE_QU:g}qu)",

@@ -1235,7 +1235,8 @@ Inventory result:
 
 - `5` demos inventoried.
 - Inferred maps: `aerowalk`, `e1m2`, `ztricks`, `ztricks2`.
-- Inferred true `dm2` candidates: `0`.
+- Filename-inferred `dm2` candidates: `0`.
+- Map inference method: filename-token heuristic, not content parsing.
 
 Parsed demo `1on1_reppie_vs_locust_aerowalk.mvd`:
 
@@ -1245,9 +1246,10 @@ Parsed demo `1on1_reppie_vs_locust_aerowalk.mvd`:
 - Match title/map: `Aerowalk` / `aerowalk`.
 - Duration: `600057` ms.
 - Active movement players: `reppie` and `locust`.
-- `reppie`: avg `319.7` qu/s, p95 `533.3`, stationary `5.6%`, low-speed `11.9%`, airborne proxy `43.7%`, cadence `39.7`/min.
-- `locust`: avg `315.2` qu/s, p95 `518.0`, stationary `6.0%`, low-speed `12.0%`, airborne proxy `39.5%`, cadence `34.8`/min.
-- Six named slots with less than `1` second active time or fewer than `10` samples were excluded from the compact active-player summary.
+- Movement samples were clamped to the parsed `600057` ms match duration.
+- `reppie`: active `597.646` s, avg `324.0` qu/s, p95 `537.4`, stationary `4.6%`, low-speed `11.0%`, airborne proxy `44.8%`, cadence `40.8`/min.
+- `locust`: active `597.699` s, avg `318.5` qu/s, p95 `519.0`, stationary `5.2%`, low-speed `11.1%`, airborne proxy `39.6%`, cadence `34.8`/min.
+- Six named slots with less than `1` second active time, fewer than `10` samples, or less than `100` qu horizontal distance were excluded from the compact active-player summary.
 
 ### Evidence
 
@@ -1265,13 +1267,13 @@ Artifacts:
 
 S4a proves the existing parser and movement-metrics pipeline can process a human MVD and produce compact evidence alongside S3 bot summaries.
 
-It does not prove S3g is human-like. The parsed human demo is an `aerowalk` duel, while S3g bot evidence is on `dm3` and `frobodm2`. The local inventory also has no inferred true `dm2` demo. Any direct S3g-vs-human judgement from this run would be map-mismatched and misleading.
+It does not prove S3g is human-like. The parsed human demo is an `aerowalk` duel, while S3g bot evidence is on `dm3` and `frobodm2`. The local inventory also has no filename-inferred `dm2` demo. Any direct S3g-vs-human judgement from this run would be map-mismatched and misleading.
 
 ### Confidence
 
 High for the parser/scaffold proof and local inventory result.
 
-High that no true local DM2 candidate was present in the inspected folder.
+High that no filename-inferred local DM2 candidate was present in the inspected folder.
 
 Low for any movement-realism comparison until S4 has a DM2 or map-matched human set.
 
@@ -1336,21 +1338,22 @@ Parsed demo:
 - Match title/map: `Claustrophobopolis` / `dm2`.
 - Duration: `747424` ms.
 - Active movement rows: eight 4on4 players.
-- One short zero-distance named slot, `blaze`, was excluded from the compact active-player summary.
+- Movement samples were clamped to the parsed `747424` ms match duration.
+- The short post-match zero-distance named slot `blaze` was removed from the compact active-player summary by the match-duration clamp.
 - Comparison verdict: `human_dm2_available_but_s3g_not_dm2`.
 
 Active-player movement summary:
 
 | Player | Avg | P95 | Stationary | Low | Air | Cadence/min |
 |---|---:|---:|---:|---:|---:|---:|
-| `BLooD_DoG(D_P)` | 292.5 | 491.4 | 10.1% | 16.9% | 29.6% | 45.5 |
-| `Nico` | 292.3 | 486.9 | 12.1% | 19.1% | 37.8% | 57.9 |
-| `Zord` | 272.9 | 429.0 | 7.8% | 16.0% | 21.1% | 35.8 |
-| `Schotty` | 257.1 | 392.2 | 11.0% | 19.8% | 19.5% | 35.7 |
-| `grl` | 255.6 | 463.3 | 16.8% | 23.8% | 20.2% | 33.2 |
-| `foobar` | 228.0 | 482.5 | 26.2% | 33.7% | 21.1% | 33.7 |
-| `SEX` | 253.0 | 467.3 | 19.5% | 27.4% | 25.4% | 41.2 |
-| `vegeta` | 264.4 | 481.9 | 11.7% | 21.8% | 25.1% | 40.0 |
+| `BLooD_DoG(D_P)` | 295.1 | 491.9 | 9.3% | 16.1% | 29.8% | 45.7 |
+| `Nico` | 296.8 | 487.9 | 10.9% | 17.9% | 38.3% | 58.8 |
+| `Zord` | 275.3 | 429.5 | 7.0% | 15.3% | 21.2% | 35.9 |
+| `Schotty` | 259.1 | 392.4 | 10.4% | 19.2% | 19.8% | 36.3 |
+| `grl` | 256.9 | 464.1 | 16.3% | 23.4% | 20.4% | 33.6 |
+| `foobar` | 228.1 | 481.6 | 26.0% | 33.6% | 20.9% | 33.4 |
+| `SEX` | 253.0 | 466.4 | 19.6% | 27.4% | 25.5% | 41.3 |
+| `vegeta` | 266.8 | 482.5 | 11.0% | 21.2% | 25.3% | 40.1 |
 
 ### Evidence
 

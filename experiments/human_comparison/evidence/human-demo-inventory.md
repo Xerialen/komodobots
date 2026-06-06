@@ -2,7 +2,8 @@
 
 - Root: `C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos`
 - Demos: `5`
-- DM2 candidates: `0`
+- DM2 filename candidates: `0`
+- Map inference: `filename_token_heuristic`
 
 | Demo | Kind | Inferred map | Bytes | SHA-256 |
 |---|---|---|---:|---|
@@ -12,4 +13,4 @@
 | `tricks_bent_ztricks.mvd` | `tricks` | `ztricks` | 30143 | `35c155deec29` |
 | `tricks_bent_ztricks2.mvd` | `tricks` | `ztricks2` | 30177 | `b3d97bfb9e12` |
 
-No true local DM2 candidate was inferred from this inventory.
+No local DM2 filename candidate was inferred from this inventory.

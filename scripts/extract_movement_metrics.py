@@ -58,6 +58,15 @@ def read_run_env(run_dir: Path) -> dict[str, str]:
     return values
 
 
+def coerce_optional_int(value: object) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError):
+        return None
+
+
 def coerce_time_ms(event: dict, data: dict) -> int:
     time_ms = data.get("TimeMs")
     if time_ms is not None:
@@ -390,6 +399,7 @@ def compute_movement_metrics(
     run_env = read_run_env(run_dir)
     analysis = read_json_if_present(run_dir / "analysis.json")
     match = analysis.get("match", {}) if isinstance(analysis, dict) else {}
+    match_duration_ms = coerce_optional_int(match.get("duration"))
 
     players: dict[int, dict] = {}
     samples_by_slot: dict[int, list[Sample]] = {}
@@ -483,6 +493,8 @@ def compute_movement_metrics(
             continue
         if first_named_time_ms is not None:
             samples = [sample for sample in samples if sample["time_ms"] >= first_named_time_ms]
+        if match_duration_ms is not None:
+            samples = [sample for sample in samples if sample["time_ms"] <= match_duration_ms]
         if not samples:
             continue
 
@@ -495,6 +507,7 @@ def compute_movement_metrics(
         metric["user_id"] = info.get("user_id")
         metric["spectator"] = bool(info.get("spectator", False))
         metric["first_named_time_ms"] = first_named_time_ms
+        metric["match_duration_clamp_ms"] = match_duration_ms
         player_metrics.append(metric)
 
     return {
@@ -514,6 +527,10 @@ def compute_movement_metrics(
             "position_event_count": position_event_count,
         },
         "thresholds": thresholds,
+        "sample_window": {
+            "match_duration_clamp_ms": match_duration_ms,
+            "notes": "Named player samples are clamped to match.duration when analysis.json provides it.",
+        },
         "players": player_metrics,
     }
 
@@ -534,6 +551,7 @@ def write_markdown(metrics: dict, output_path: Path) -> None:
         f"- Map title: `{run.get('map_title', '')}`",
         f"- Duration: `{run.get('duration_ms', '')}` ms",
         f"- Position events: `{metrics['parser'].get('position_event_count', 0)}`",
+        f"- Match-duration clamp: `{metrics.get('sample_window', {}).get('match_duration_clamp_ms', '')}` ms",
         "",
         "## Method",
         "",

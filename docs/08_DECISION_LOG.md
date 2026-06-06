@@ -621,12 +621,12 @@ S4a inventory:
 
 - Five local demos found under `C:\Users\benya\projects\quakeworld\data\quake-development\clients\xerialqw-bench\qw\matchinfo\demos`.
 - Inferred maps: `aerowalk`, `e1m2`, `ztricks`, and `ztricks2`.
-- Inferred true `dm2` candidates: `0`.
+- Filename-inferred `dm2` candidates: `0`; this is a filename-token heuristic, not a content parse of every local demo.
 
 S4a parser proof:
 
 - `1on1_reppie_vs_locust_aerowalk.mvd` parsed with `json=0`, `md=0`, `events=1`.
-- Movement metrics produced active rows for `reppie` and `locust`.
+- Movement metrics produced active rows for `reppie` and `locust`, clamped to the parsed match duration.
 - Compact evidence is committed under `experiments/human_comparison/evidence/`.
 
 thevault data note:
@@ -674,7 +674,7 @@ S4b selected `4on4_blue_vs_red[dm2]20260228-0512.mvd` from the existing `servexe
 - `4on4_` DM2 rows: `1450`.
 - Cleanish 4on4 DM2 rows after excluding `tmp` and missing files: `1171`.
 - Selected file hash/size: `f8269d8139b129426b569eaf6b2be278964d740bd0365647f4410db74da76585`, `8624854` bytes.
-- Parsed as `dm2` / `Claustrophobopolis`, duration `747424` ms, with eight active 4on4 movement rows.
+- Parsed as `dm2` / `Claustrophobopolis`, duration `747424` ms, with eight active 4on4 movement rows clamped to the parsed match duration.
 
 S3g evidence remains:
 

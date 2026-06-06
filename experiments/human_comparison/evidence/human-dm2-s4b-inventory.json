@@ -13,6 +13,7 @@
   ],
   "dm2_candidate_count": 1,
   "has_dm2_candidate": true,
+  "map_inference_method": "filename_token_heuristic",
   "maps": [
     "dm2"
   ],

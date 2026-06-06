@@ -19,9 +19,10 @@ It parses `1on1_reppie_vs_locust_aerowalk.mvd` through the same
 lab runs.
 
 This is a parser proof, not a DM2 realism baseline. The local inventory contains
-`aerowalk`, `e1m2`, and trick demos, but no inferred true `dm2` demo. The next S4
-step should find or select a real DM2 human comparison set before judging S3g as
-human-like.
+`aerowalk`, `e1m2`, and trick demos, but no filename-inferred `dm2` demo. That
+inventory check is a filename-token heuristic, not a content parse of every local
+demo. The next S4 step should find or select a real DM2 human comparison set
+before judging S3g as human-like.
 
 ## Current S4b Result
 

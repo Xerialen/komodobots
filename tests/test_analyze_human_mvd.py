@@ -34,6 +34,7 @@ class HumanMvdAnalysisTests(unittest.TestCase):
         self.assertEqual(inventory["demo_count"], 3)
         self.assertTrue(inventory["has_dm2_candidate"])
         self.assertEqual(inventory["dm2_candidate_count"], 1)
+        self.assertEqual(inventory["map_inference_method"], "filename_token_heuristic")
         maps = {demo["name"]: demo["inferred_map"] for demo in inventory["demos"]}
         self.assertEqual(maps["ffa_frobodm2.mvd"], "frobodm2")
         self.assertTrue(all(demo["sha256"] for demo in inventory["demos"]))

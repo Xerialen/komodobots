@@ -65,6 +65,7 @@ Current implemented first pass:
 - Position source: line-delimited JSON events with `kind:5`, `PlayerNum`, `Origin`, and `TimeMs`
 - Player naming source: `kind:1` player info events
 - Default excluded slots: unnamed players, which filters out the control-client shim
+- Sample window: named player samples are clamped to `analysis.json` `match.duration` when present, so post-match/intermission samples do not inflate active time in comparisons
 - Outputs: `movement-metrics.json` and `movement-metrics.md`
 - Schema: `komodobots.movement_metrics.v2`
 
@@ -132,10 +133,11 @@ Current S4a human-demo scaffold:
 S4a result:
 
 - Inventoried five local human/trick demos: two `aerowalk`, one `e1m2`, and two trick demos.
-- Found zero inferred true `dm2` candidates locally.
+- Found zero filename-inferred `dm2` candidates locally. This inventory check is a filename-token heuristic, not content parsing.
 - Parsed `1on1_reppie_vs_locust_aerowalk.mvd` successfully through `qw-analyze-v20` and `scripts/extract_movement_metrics.py`.
 - Parser exits: `json=0`, `md=0`, `events=1` with `events=1` matching the known end-of-demo behavior.
-- Active movement rows: `reppie` and `locust`; six named slots with less than `1` second or fewer than `10` samples were kept out of the compact summary.
+- Active movement rows: `reppie` and `locust`; six named slots with less than `1` second, fewer than `10` samples, or less than `100` qu horizontal distance were kept out of the compact summary.
+- Active times are clamped to the parsed match duration: `reppie` `597.646` s and `locust` `597.699` s against a `600.057` s match.
 - Comparison verdict: parser proof only. The human demo is `aerowalk`; S3g bot evidence is `dm3` and `frobodm2`, so the current evidence is not map-comparable and not a DM2 realism baseline.
 
 Next S4 data step:
@@ -150,7 +152,7 @@ S4b result:
 - Manifest SHA-256/size matched the local artifact: `f8269d8139b129426b569eaf6b2be278964d740bd0365647f4410db74da76585`, `8624854` bytes.
 - Parsed run `s4b-dm2-blue-vs-red-20260228-0512` as `dm2` / `Claustrophobopolis`.
 - Parser exits: `json=0`, `md=0`, `events=1`; event count: `501300`; position events: `443408`.
-- Active movement rows: eight 4on4 players; one short zero-distance named slot was kept out of the compact summary.
+- Active movement rows: eight 4on4 players. Match-duration clamping removes the short post-match zero-distance `blaze` row from the compact summary.
 - Comparison verdict: `human_dm2_available_but_s3g_not_dm2`. S4 now has a true DM2 human reference file, but S3g is still not map-matched because the current bot evidence is `dm3` and `frobodm2`.
 
 Next S4 comparison step:
