@@ -53,6 +53,7 @@ BOT_STATE_SPECS = (
     (8192, "WAIT"),
 )
 
+# Decode tables mirror KTX include/g_consts.h and bot_botwater.c values.
 PLAYER_FLAG_SPECS = (
     (1, "FL_FLY"),
     (2, "FL_SWIM"),
@@ -251,10 +252,23 @@ def path_between(source: int, target: int, bot_map: dict[str, object]) -> dict[s
     }
 
 
-def command_rows_for_window(commands: dict, player_name: str, start_ms: int, end_ms: int, margin_ms: int) -> list[dict]:
+def command_rows_for_window(
+    commands: dict,
+    player_name: str,
+    start_ms: int,
+    end_ms: int,
+    margin_ms: int,
+    player_user_id: object = 0,
+) -> list[dict]:
+    user_id = coerce_int(player_user_id)
     rows = []
     for row in commands.get("commands", []):
-        if not isinstance(row, dict) or str(row.get("name", "")).strip() != player_name:
+        if not isinstance(row, dict):
+            continue
+        if user_id:
+            if coerce_int(row.get("ed")) != user_id:
+                continue
+        elif str(row.get("name", "")).strip() != player_name:
             continue
         time_ms = command_time_ms(row)
         if time_ms is None:
@@ -424,6 +438,7 @@ def build_window_attribution(player: dict, window: dict, commands: dict, bot_map
         coerce_int(window.get("start_ms", 0)),
         coerce_int(window.get("end_ms", 0)),
         margin_ms,
+        player.get("user_id", 0),
     )
     samples = [route_sample(row, bot_map) for row in rows if isinstance(row.get("route_state"), dict)]
     path_values = compact_values(sample["path_state"]["value"] for sample in samples)
@@ -583,7 +598,10 @@ def build_attribution(args: argparse.Namespace) -> dict[str, object]:
                 windows.append(build_window_attribution(player, window, commands, bot_map))
 
     patterns = group_patterns(windows)
-    is_s6e = str(args.stage).lower().startswith("s6e")
+    stage_label = str(args.stage).lower()
+    is_s6c = stage_label.startswith("s6c")
+    is_s6d = stage_label.startswith("s6d")
+    is_s6e = stage_label.startswith("s6e")
     controller_change = "none"
     if is_s6e:
         controller_change = "mode 7 preserves native pre-probe upmove when waterlevel > 1"
@@ -597,6 +615,21 @@ def build_attribution(args: argparse.Namespace) -> dict[str, object]:
         "S6e should use the S6d water/swim evidence to choose the smallest targeted fix: swim/upmove handling, route-edge "
         "geometry diagnosis, or a repeated-run check if the water-path pattern is not reproduced."
     )
+    if is_s6c:
+        interpretation = [
+            "S6c used the existing S6b run and source route definitions; no KTX patch or controller behavior changed.",
+            "The repeated water.LG low-speed pattern decodes path_state 32768 as WATER_PATH, not STUCK_PATH.",
+            "The repeated water-path windows have blocked=0, so obstruction recovery is not the current explanation.",
+            "In the worst repeated windows, native Frogbot dir_speed is very low before the probe normalizes direction, while sampled command magnitude remains strong.",
+        ]
+        next_goal = (
+            "S6d should inspect water-path movement intent around water.LG by adding or deriving minimal "
+            "waterlevel/swim_arrow/upmove/velocity context before changing mode 7."
+        )
+    elif is_s6d:
+        interpretation[0] = (
+            "This attribution is diagnostic-only; it decodes sampled route and water/swim state without adding a new movement mode."
+        )
     if is_s6e:
         next_goal = (
             "S6f should inspect dm3.bot route-edge geometry around 276->59 / marker 59 and stop water-upmove tuning; "

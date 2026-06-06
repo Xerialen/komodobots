@@ -235,6 +235,8 @@ python scripts/attribute_route_state_windows.py --output-json experiments/ktx_mo
 
 S6c result: `path_state=32768` is `WATER_PATH`, not `STUCK_PATH`. The repeated `/ bro` `water.LG` pattern groups `3` low-speed windows around linked/goal marker `59`, with `.bot` edge `276->59 idx=[0]` in the worst windows, `blocked=0`, sampled command near `824`, and low native `dir_speed`. The next step is water-path/swim-intent diagnosis, not another command mode.
 
+Attribution joins command rows by diagnosis `user_id` to command-row `ed` when those IDs are present. Netname matching is only a fallback for older artifacts without IDs, so duplicate bot names cannot mix another player's route or water samples into the current window.
+
 S6d extends the same command log with the `water=` suffix and updates the attribution helper to summarize waterlevel, watertype, player water flags, swim arrow, emitted upmove, velocity, and raw `dir_move` in the same low-speed windows:
 
 ```bash

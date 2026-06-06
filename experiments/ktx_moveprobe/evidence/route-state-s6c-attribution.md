@@ -15,21 +15,21 @@
 
 ## Repeated Patterns
 
-| Player | Windows | Locations | Linked | Goal | Water | Stuck | Blocked | Low dir | Dir speed avg | Avg cmd | Classification |
-|---|---:|---|---|---|---:|---:|---:|---:|---:|---:|---|
-| `/ bro` | `3` | `['water.LG']` | `[59]` | `[59]` | yes | no | 0.0% | 62.5% | 0.338 | 824.0 | `water_path_without_obstruction` |
-| `/ bro` | `1` | `['Quad']` | `[91, 119, 170]` | `[3]` | no | no | 0.0% | 20.0% | 0.774 | 659.1 | `route_state_unresolved` |
-| `/ bro` | `1` | `['bridge.low']` | `[161]` | `[10]` | no | no | 0.0% | 0.0% | 0.7 | 824.0 | `route_state_unresolved` |
+| Player | Windows | Locations | Linked | Goal | Water path | Water levels | Swim | Upmove | Dir z avg | Blocked | Low dir | Dir speed avg | Avg cmd | Classification |
+|---|---:|---|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|---|
+| `/ bro` | `3` | `['water.LG']` | `[59]` | `[59]` | yes | `` | `` |  |  | 0.0% | 62.5% | 0.338 | 824.0 | `water_path_without_obstruction` |
+| `/ bro` | `1` | `['Quad']` | `[91, 119, 170]` | `[3]` | no | `` | `` |  |  | 0.0% | 20.0% | 0.774 | 659.1 | `route_state_unresolved` |
+| `/ bro` | `1` | `['bridge.low']` | `[161]` | `[10]` | no | `` | `` |  |  | 0.0% | 0.0% | 0.7 | 824.0 | `route_state_unresolved` |
 
 ## Window Attribution
 
-| Player | Rank | Window | Location | Avg cmd | Linked | Touch | Goal | Path state | Blocked | Dir speed avg | Classification |
-|---|---:|---|---|---:|---|---|---|---|---:|---:|---|
-| `/ bro` | `1` | `3181-5292` | `Quad` | 659.1 | `[-1, 91, 119, 170]` | `[43, 119, 168, 170, 172]` | `[-1, 3]` | `['0:none']` | 0.0% | 0.774 | `route_state_unresolved` |
-| `/ bro` | `2` | `13193-14307` | `water.LG` | 824.1 | `[59]` | `[37, 273]` | `[59]` | `['0:none', '32768:WATER_PATH']` | 0.0% | 0.787 | `water_path_without_obstruction` |
-| `/ bro` | `3` | `24441-25517` | `water.LG` | 823.8 | `[59]` | `[276]` | `[59]` | `['32768:WATER_PATH']` | 0.0% | 0.059 | `water_path_without_obstruction` |
-| `/ bro` | `4` | `21860-22918` | `water.LG` | 824.1 | `[59]` | `[276]` | `[59]` | `['32768:WATER_PATH']` | 0.0% | 0.196 | `water_path_without_obstruction` |
-| `/ bro` | `5` | `9008-9882` | `bridge.low` | 824.0 | `[161]` | `[159]` | `[10]` | `['0:none']` | 0.0% | 0.7 | `route_state_unresolved` |
+| Player | Rank | Window | Location | Avg cmd | Linked | Touch | Goal | Path state | Water levels | Swim | Upmove | Dir z avg | Vel z avg | Blocked | Dir speed avg | Classification |
+|---|---:|---|---|---:|---|---|---|---|---|---|---:|---:|---:|---:|---:|---|
+| `/ bro` | `1` | `3181-5292` | `Quad` | 659.1 | `[-1, 91, 119, 170]` | `[43, 119, 168, 170, 172]` | `[-1, 3]` | `['0:none']` | `` | `` |  |  |  | 0.0% | 0.774 | `route_state_unresolved` |
+| `/ bro` | `2` | `13193-14307` | `water.LG` | 824.1 | `[59]` | `[37, 273]` | `[59]` | `['0:none', '32768:WATER_PATH']` | `` | `` |  |  |  | 0.0% | 0.787 | `water_path_without_obstruction` |
+| `/ bro` | `3` | `24441-25517` | `water.LG` | 823.8 | `[59]` | `[276]` | `[59]` | `['32768:WATER_PATH']` | `` | `` |  |  |  | 0.0% | 0.059 | `water_path_without_obstruction` |
+| `/ bro` | `4` | `21860-22918` | `water.LG` | 824.1 | `[59]` | `[276]` | `[59]` | `['32768:WATER_PATH']` | `` | `` |  |  |  | 0.0% | 0.196 | `water_path_without_obstruction` |
+| `/ bro` | `5` | `9008-9882` | `bridge.low` | 824.0 | `[161]` | `[159]` | `[10]` | `['0:none']` | `` | `` |  |  |  | 0.0% | 0.7 | `route_state_unresolved` |
 
 ## Map Edge Evidence
 

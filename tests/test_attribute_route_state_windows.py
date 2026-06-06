@@ -67,6 +67,30 @@ class RouteStateAttributionTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["time_s"], 1.0)
 
+    def test_command_rows_for_window_prefers_user_id_over_duplicate_name(self) -> None:
+        commands = {
+            "commands": [
+                {"time_s": 1.0, "name": "/ bro", "ed": 2, "route_state": {"linked_marker": 2}},
+                {"time_s": 1.0, "name": "/ bro", "ed": 3, "route_state": {"linked_marker": 3}},
+            ]
+        }
+
+        rows = attribute.command_rows_for_window(commands, "/ bro", 950, 1050, 75, player_user_id=2)
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["ed"], 2)
+
+    def test_command_rows_for_window_does_not_name_fallback_when_user_id_has_no_rows(self) -> None:
+        commands = {
+            "commands": [
+                {"time_s": 1.0, "name": "/ bro", "ed": 3, "route_state": {"linked_marker": 3}},
+            ]
+        }
+
+        rows = attribute.command_rows_for_window(commands, "/ bro", 950, 1050, 75, player_user_id=2)
+
+        self.assertEqual(rows, [])
+
     def test_default_commands_path_rejects_unsafe_run_id_from_diagnosis(self) -> None:
         with self.assertRaises(ValueError):
             attribute.default_commands_path("../escape")
@@ -155,10 +179,15 @@ class RouteStateAttributionTests(unittest.TestCase):
             )
 
             attribution = attribute.build_attribution(args)
+            args.stage = "s6c-route-attribution"
+            s6c_attribution = attribute.build_attribution(args)
 
         self.assertEqual(attribution["patterns"][0]["classification"], "water_path_without_obstruction")
         self.assertIn("native pre-probe upmove", attribution["controller_change"])
         self.assertIn("S6f", attribution["next_goal"])
+        self.assertEqual(s6c_attribution["controller_change"], "none")
+        self.assertIn("S6d", s6c_attribution["next_goal"])
+        self.assertTrue(s6c_attribution["interpretation"][0].startswith("S6c used"))
         self.assertEqual(attribution["patterns"][0]["linked_marker_values"], [2])
         self.assertEqual(attribution["patterns"][0]["goal_marker_values"], [2])
         self.assertTrue(attribution["patterns"][0]["contains_water_path"])

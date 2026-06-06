@@ -2101,3 +2101,25 @@ Medium that no route-data fix exists at all, because runtime/item marker placeme
 ### Follow-up
 
 Ask Claude to review S6f. Proposed S7a: seed player-specific movement signatures from the existing exact-player `dm3` references (`Milton`, `carapace`, `yeti`) before any player-specific movement controller work.
+
+## 2026-06-06 - S6f Review-Fix Follow-Up
+
+### Experiment
+
+Addressed the new automated review finding on route-state attribution command joins before starting S7a.
+
+### Result
+
+- `scripts/attribute_route_state_windows.py` now uses diagnosis `user_id` to match sampled command rows by command `ed` when that id is present.
+- Name matching remains only as a fallback for older artifacts without ids.
+- If a player has a `user_id` but no command rows with matching `ed`, attribution now returns no command rows instead of falling back to a duplicate netname.
+- Added regression tests for duplicate-name command rows and the no-id-match/no-name-fallback case.
+- Regenerated S6c and S6d attribution evidence under the current attribution schema; S6e and S6f evidence did not change.
+
+### Evidence
+
+The existing S6 runs use distinct bot names and matching `user_id`/`ed` values, so the substantive S6 water-edge conclusions are unchanged. The fix prevents future or busier sessions with duplicate Frogbot names from silently mixing another player's route or water-state samples into the current window.
+
+### Follow-up
+
+Update the PR for Claude/reviewer context, then continue to S7a if there is no further blocking feedback.
