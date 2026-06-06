@@ -65,7 +65,7 @@ Mode `5` preserves `self->fb.desired_angle` instead of setting route yaw. It bui
 
 Mode `6` uses the same aim-independent projection as mode `5`, then clamps negative local `forwardmove` to `0` and transfers the removed magnitude into local `sidemove`. This keeps the bot from deliberately backpedaling when route intent is behind its preserved view angle.
 
-The S3e diagnostic suffix is shaped as `diag=<route_yaw>,<view_yaw>,<yaw_delta>,<backward>`. `backward=1` means the emitted local `forwardmove` is negative.
+The S3e diagnostic suffix is shaped as `diag=<route_yaw>,<view_yaw>,<yaw_delta>,<backward>`. `backward=1` means the emitted local `forwardmove` is negative. `yaw_delta` and `view_yaw` are interpretable for aim-independent modes `5` and `6`; route-yaw modes `3` and `4` overwrite view yaw from the route, so their deltas are structural noise.
 
 ## Runner
 
@@ -180,6 +180,8 @@ python scripts/summarize_moveprobe_plausibility.py 20260606T001705Z 20260606T001
 ```
 
 S3f interpretation: mode `6` passes both routed maps and removes sampled backward commands, but folded side commands can reach roughly `1100`. The next proposed probe is S3g: bound or normalize local command magnitudes while preserving the no-backpedal property.
+
+Committed derived summaries live under `experiments/ktx_moveprobe/evidence/` for S3e and S3f. Raw MVDs and full run directories stay ignored under `artifacts/`.
 
 ## Rollback
 

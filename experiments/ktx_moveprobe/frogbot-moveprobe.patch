@@ -2,7 +2,7 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
 index c0654d1..3f6886d 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -422,6 +422,234 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +422,238 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -144,6 +144,8 @@ index c0654d1..3f6886d 100644
 +		VectorCopy(self->fb.desired_angle, move_angles);
 +		move_angles[PITCH] = 0;
 +		move_angles[ROLL] = 0;
++		// trap_makevectors mutates g_globalvars.v_forward/v_right/v_up; keep
++		// this projection immediately adjacent to the dot products below.
 +		trap_makevectors(move_angles);
 +
 +		direction[0] = DotProduct(g_globalvars.v_forward, desired_move);
@@ -223,6 +225,8 @@ index c0654d1..3f6886d 100644
 +	if (VectorNormalize(route_direction) > 0)
 +	{
 +		route_yaw = anglemod(vectoyaw(route_direction));
++		// yaw_delta is interpretable for aim-independent modes 5/6. Route-yaw
++		// modes set view yaw from route yaw, so their deltas are structural noise.
 +		yaw_delta = BotMoveProbeAngleDelta(route_yaw, view_yaw);
 +	}
 +

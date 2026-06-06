@@ -821,7 +821,11 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         "--moveprobe-yaw",
         type=float,
         default=0.0,
-        help="Yaw used by movement-probe mode 2. Modes 3 and 4 derive yaw from Frogbot route intent. Defaults to 0.",
+        help=(
+            "Yaw used only by movement-probe mode 2. Modes 3 and 4 derive yaw "
+            "from Frogbot route intent; modes 5 and 6 preserve combat view yaw. "
+            "Defaults to 0."
+        ),
     )
     parser.add_argument(
         "--moveprobe-forwardmove",

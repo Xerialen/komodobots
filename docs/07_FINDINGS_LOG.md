@@ -1042,6 +1042,8 @@ Artifacts:
 - `artifacts/lab-runs/20260606T000414Z/moveprobe-commands.md`
 - `artifacts/lab-runs/20260606T000414Z/movement-metrics.md`
 - `artifacts/lab-runs/moveprobe-s3e-summary.md`
+- `experiments/ktx_moveprobe/evidence/moveprobe-s3e-summary.md`
+- `experiments/ktx_moveprobe/evidence/moveprobe-s3e-summary.json`
 
 ### Interpretation
 
@@ -1114,6 +1116,8 @@ Artifacts:
 - `artifacts/lab-runs/20260606T001825Z/moveprobe-commands.md`
 - `artifacts/lab-runs/20260606T001825Z/movement-metrics.md`
 - `artifacts/lab-runs/moveprobe-s3f-summary.md`
+- `experiments/ktx_moveprobe/evidence/moveprobe-s3f-summary.md`
+- `experiments/ktx_moveprobe/evidence/moveprobe-s3f-summary.json`
 
 ### Interpretation
 
@@ -1131,4 +1135,4 @@ Low for the realism of the current folded side magnitudes.
 
 ### Follow-up
 
-Ask Claude to review S3f. Proposed S3g: keep the no-backpedal correction, but add a bounded-command variant that caps or normalizes local `forwardmove`/`sidemove` magnitudes after projection. Rerun `dm3` and `frobodm2` with the same gates and compare against mode `6`; if bounded commands fail, inspect route state/obstruction before adding controller complexity.
+Ask Claude to review S3f. Proposed S3g: keep the no-backpedal correction, but add a bounded-command variant that caps or normalizes local `forwardmove`/`sidemove` magnitudes after projection. Rerun `dm3` and `frobodm2` with the same gates and compare against mode `6`. Treat S3g as the final command-magnitude probe before branching to route/obstruction inspection or S4 human comparison; do not keep tuning tiny command heuristics only to satisfy the current gates.

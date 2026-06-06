@@ -96,7 +96,7 @@ Moveprobe plausibility gate:
 - Default gate: expected forward command coverage >= `80%`, jump-button command coverage >= `80%`, at least `10` distinct sampled yaw values, stationary time <= `25%`, low-speed time <= `40%`
 - S3a side gate: pass `--min-side-ratio 0.8` to require nonzero sidemove coverage for strafe probes
 - S3d horizontal command gate: pass `--min-forward-ratio 0 --min-horizontal-ratio 0.8 --min-side-ratio 0.8` when exact local forward values vary because movement is projected relative to preserved combat yaw
-- S3e diagnostics: command rows may include `route_yaw`, `view_yaw`, `yaw_delta`, and `backward`; the summary reports backward-command ratio plus absolute yaw-delta average, p90, and ratio above 90 degrees
+- S3e diagnostics: command rows may include `route_yaw`, `view_yaw`, `yaw_delta`, and `backward`; the summary reports backward-command ratio plus absolute yaw-delta average, p90, and ratio above 90 degrees. `yaw_delta` is interpretable for aim-independent modes `5`/`6`; route-yaw modes `3`/`4` make the field structural rather than diagnostic.
 - S3f no-backpedal gate: use the same horizontal/side/jump thresholds as S3e, then inspect command magnitudes because folding negative forward into side can create very large side values
 - Expected-forward handling: by default the summarizer derives the expected forward command from each run's `MOVEPROBE_FORWARDMOVE` in `run.env`, then falls back to `800`; use `--expected-forward` for older/custom artifacts.
 - Command matching: movement rows are matched to command rows by movement `user_id` and command `ed` when possible, then by netname as a fallback. Duplicate bot netnames are unsupported for artifacts that require the fallback.
@@ -192,7 +192,7 @@ The KTX-generated `.txt` sidecar for this run was zero bytes, so the `.mvd` pars
 artifacts/lab-runs/<run-id>/
 ```
 
-The runner intentionally stores raw artifacts outside Git. `.gitignore` excludes `artifacts/`.
+The runner intentionally stores raw artifacts outside Git. `.gitignore` excludes `artifacts/`. Small derived summaries that support PR claims can be promoted into Git under `experiments/ktx_moveprobe/evidence/`.
 
 Current generated files:
 

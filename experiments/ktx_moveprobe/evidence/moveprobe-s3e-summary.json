@@ -1,0 +1,129 @@
+{
+  "passes_gate": false,
+  "runs": [
+    {
+      "expected_forward": 800,
+      "map": "frobodm2",
+      "moveprobe_mode": "5",
+      "passes_gate": true,
+      "players": [
+        {
+          "airborne_proxy_time_ratio": 0.088,
+          "avg_horizontal_speed_qu_per_s": 264.521,
+          "backward_command_ratio": 0.227,
+          "command_count": 110,
+          "failure_reasons": [],
+          "forward_expected_ratio": 0.0,
+          "horizontal_move_ratio": 0.964,
+          "jump_button_ratio": 0.964,
+          "low_speed_time_ratio": 0.143,
+          "p95_horizontal_speed_qu_per_s": 382.426,
+          "passes_gate": true,
+          "player": "/ bro",
+          "side_nonzero_ratio": 0.964,
+          "slot": 1,
+          "stationary_time_ratio": 0.033,
+          "yaw_delta_abs_avg": 53.1,
+          "yaw_delta_abs_p90": 110.9,
+          "yaw_delta_over_90_ratio": 0.191,
+          "yaw_delta_sample_count": 110,
+          "yaw_unique_count": 99
+        },
+        {
+          "airborne_proxy_time_ratio": 0.15,
+          "avg_horizontal_speed_qu_per_s": 316.689,
+          "backward_command_ratio": 0.14,
+          "command_count": 86,
+          "failure_reasons": [],
+          "forward_expected_ratio": 0.012,
+          "horizontal_move_ratio": 0.988,
+          "jump_button_ratio": 0.988,
+          "low_speed_time_ratio": 0.04,
+          "p95_horizontal_speed_qu_per_s": 389.106,
+          "passes_gate": true,
+          "player": "/ goldenboy",
+          "side_nonzero_ratio": 0.988,
+          "slot": 2,
+          "stationary_time_ratio": 0.005,
+          "yaw_delta_abs_avg": 44.2,
+          "yaw_delta_abs_p90": 91.8,
+          "yaw_delta_over_90_ratio": 0.105,
+          "yaw_delta_sample_count": 86,
+          "yaw_unique_count": 83
+        }
+      ],
+      "run_id": "20260606T000331Z",
+      "warnings": []
+    },
+    {
+      "expected_forward": 800,
+      "map": "dm3",
+      "moveprobe_mode": "5",
+      "passes_gate": false,
+      "players": [
+        {
+          "airborne_proxy_time_ratio": 0.625,
+          "avg_horizontal_speed_qu_per_s": 149.776,
+          "backward_command_ratio": 0.413,
+          "command_count": 109,
+          "failure_reasons": [
+            "low-speed 43.1% > 40.0%"
+          ],
+          "forward_expected_ratio": 0.0,
+          "horizontal_move_ratio": 0.991,
+          "jump_button_ratio": 0.991,
+          "low_speed_time_ratio": 0.431,
+          "p95_horizontal_speed_qu_per_s": 370.196,
+          "passes_gate": false,
+          "player": "/ bro",
+          "side_nonzero_ratio": 0.991,
+          "slot": 1,
+          "stationary_time_ratio": 0.001,
+          "yaw_delta_abs_avg": 79.6,
+          "yaw_delta_abs_p90": 154.7,
+          "yaw_delta_over_90_ratio": 0.431,
+          "yaw_delta_sample_count": 109,
+          "yaw_unique_count": 103
+        },
+        {
+          "airborne_proxy_time_ratio": 0.219,
+          "avg_horizontal_speed_qu_per_s": 168.503,
+          "backward_command_ratio": 0.14,
+          "command_count": 86,
+          "failure_reasons": [
+            "low-speed 52.8% > 40.0%"
+          ],
+          "forward_expected_ratio": 0.0,
+          "horizontal_move_ratio": 0.988,
+          "jump_button_ratio": 0.988,
+          "low_speed_time_ratio": 0.528,
+          "p95_horizontal_speed_qu_per_s": 382.069,
+          "passes_gate": false,
+          "player": "/ goldenboy",
+          "side_nonzero_ratio": 0.988,
+          "slot": 2,
+          "stationary_time_ratio": 0.049,
+          "yaw_delta_abs_avg": 44.7,
+          "yaw_delta_abs_p90": 99.4,
+          "yaw_delta_over_90_ratio": 0.163,
+          "yaw_delta_sample_count": 86,
+          "yaw_unique_count": 78
+        }
+      ],
+      "run_id": "20260606T000414Z",
+      "warnings": []
+    }
+  ],
+  "schema": "komodobots.moveprobe_plausibility.v1",
+  "thresholds": {
+    "expected_forward": null,
+    "expected_forward_default": "run_env_MOVEPROBE_FORWARDMOVE_or_800",
+    "max_low_speed_ratio": 0.4,
+    "max_stationary_ratio": 0.25,
+    "min_forward_ratio": 0.0,
+    "min_horizontal_ratio": 0.8,
+    "min_jump_ratio": 0.8,
+    "min_side_ratio": 0.8,
+    "min_yaw_unique": 10
+  }
+}

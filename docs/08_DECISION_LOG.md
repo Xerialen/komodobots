@@ -547,6 +547,8 @@ S3f runs with mode `6 --moveprobe-sidemove 200`:
 
 The next experiment can test whether the no-backpedal idea survives a more realistic command bound. If it does, S3 has a better candidate for aim-independent movement literacy. If it does not, the project should inspect route state, obstruction, or a cleaner movement-intent boundary instead of adding more controller state.
 
+S3g is the last planned command-magnitude probe before a branch point. Continuing to ladder small command heuristics without route/obstruction evidence or an S4 human comparison set would risk optimizing the lab's own gates rather than player believability.
+
 ### Revisit Conditions
 
-Revisit if a bounded no-backpedal variant fails both maps, if side-command caps reintroduce low-speed behavior, or if command values are already being clamped downstream in a way that makes local magnitude tuning misleading.
+Revisit if a bounded no-backpedal variant fails both maps, if side-command caps reintroduce low-speed behavior, if command values are already being clamped downstream in a way that makes local magnitude tuning misleading, or if S3 produces another green gate without a clearer path to human-anchored plausibility.
