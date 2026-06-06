@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`QWD-DM3-SNG - Implement the bounded QWD-derived SNG hybrid server-loop probe`
+`QWD-DM3-SNG - Repair QWD-derived SNG probe activation/control-point advancement before expanding`
 
 ## Stage Status Table
 
@@ -50,7 +50,7 @@ Current active stage:
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
 | S6 Route Primitives | Closed for now | S6f found `276->59` is explicit and reciprocal, but marker `276` lacks static geometry, so no tiny route-data fix is justified from `dm3.bot` alone |
 | S7 Player Specific | Paused behind QWD decision track | S7l found enough clean air-transition evidence for one narrower Frogbots probe, but the QWD action/trajectory bridge is now the faster Frogbots-vs-from-scratch decision path |
-| QWD DM3 Route Transfer | Active | The first SNG mapping and design gates support one temporary hybrid waypoint/controller server-loop probe before expanding to other DM3 QWD moves |
+| QWD DM3 Route Transfer | Active but inconclusive | The first mode-9 SNG runtime probe activated and preserved diagnostics, but advanced only `2` of the required `4` control points; repair activation/control-point advancement before expanding to other DM3 QWD moves |
 
 ## Roadmap Rule
 
@@ -112,3 +112,5 @@ The QWD trajectory route applicability probe is a parallel Frogbots-vs-from-scra
 The first QWD-to-Frogbot mapping used `dm3_sng_shortcut.qwd`. The human trajectory is close to existing static Frogbot markers (nearest-marker p50/p95/max `70.112` / `120.324` / `142.597` qu; `0.939` within `128` qu), but collapsed human marker transitions have `0.0` direct `.bot` edge coverage and require multi-edge graph paths (p50/p95/max `5.0` / `15.8` / `17.0` edges). Because the QWD action labels are side-move dominant (`0.718` nonzero side vs `0.089` nonzero forward), the next QWD branch should be a hybrid waypoint/controller probe, not a pure `dm3.bot` route-following or route-editing probe.
 
 The QWD SNG hybrid probe design turns that mapping into a bounded server-loop contract without changing KTX behavior yet. It preserves `14` QWD control points, proposes temporary mode `9`, recommends waypoint-attraction `forwardmove=320` plus QWD-style `sidemove=508`, forbids `dm3.bot` mutation, and requires route/water/command/probe/cadence/movement diagnostics. The next QWD branch should implement and run that mode, then decide whether positive SNG evidence justifies trying the remaining DM3 QWD moves.
+
+The first QWD SNG hybrid server-loop probe implemented temporary mode `9`, runner QWD-cvar transport, QWD command-state parsing, and a scorer against the design guardrails. Run `20260606T221429Z` activated the QWD probe for `11` sampled rows and `1.12` seconds, preserved route/water/probe/cadence diagnostics, and passed slow/route-dirty success guardrails, but advanced only `2` control points against the required `4`. The result is `qwd_sng_hybrid_probe_inconclusive`. The next QWD branch should repair activation, waypoint targeting, spawn/context setup, or the mode-9 projection before trying other DM3 QWD moves.

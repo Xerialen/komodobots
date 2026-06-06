@@ -1,11 +1,13 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..db50bc8 100644
+index c0654d1..edde33b 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -6,6 +6,18 @@
+@@ -5,6 +5,31 @@
+ #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
- 
++#define MOVEPROBE_QWD_MAX_POINTS 16
++
 +static int moveprobe_transition_active[MAX_CLIENTS];
 +static int moveprobe_transition_on_ground[MAX_CLIENTS];
 +static int moveprobe_transition_has_ground_time[MAX_CLIENTS];
@@ -17,11 +19,22 @@ index c0654d1..db50bc8 100644
 +static float moveprobe_transition_since_ground[MAX_CLIENTS];
 +static float moveprobe_transition_since_air[MAX_CLIENTS];
 +static float moveprobe_transition_scale_used[MAX_CLIENTS];
-+
++static int moveprobe_qwd_active[MAX_CLIENTS];
++static int moveprobe_qwd_complete[MAX_CLIENTS];
++static int moveprobe_qwd_point_index[MAX_CLIENTS];
++static int moveprobe_qwd_point_count[MAX_CLIENTS];
++static int moveprobe_qwd_advanced_points[MAX_CLIENTS];
++static int moveprobe_qwd_advanced_this_frame[MAX_CLIENTS];
++static int moveprobe_qwd_has_seen_time[MAX_CLIENTS];
++static int moveprobe_qwd_has_active_since[MAX_CLIENTS];
++static float moveprobe_qwd_last_seen_time[MAX_CLIENTS];
++static float moveprobe_qwd_active_since[MAX_CLIENTS];
++static float moveprobe_qwd_active_seconds[MAX_CLIENTS];
++static float moveprobe_qwd_distance[MAX_CLIENTS];
+ 
  //#define DEBUG_MOVEMENT
  
- void SetLinkedMarker(gedict_t *player, gedict_t *marker, char *explanation)
-@@ -422,6 +434,413 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +447,629 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -119,17 +132,210 @@ index c0654d1..db50bc8 100644
 +	moveprobe_transition_scale_used[slot] = 1.0f;
 +}
 +
++static void BotMoveProbeResetQwdSession(int slot)
++{
++	if (slot < 0 || slot >= MAX_CLIENTS)
++	{
++		return;
++	}
++
++	moveprobe_qwd_active[slot] = 0;
++	moveprobe_qwd_complete[slot] = 0;
++	moveprobe_qwd_point_index[slot] = 0;
++	moveprobe_qwd_point_count[slot] = 0;
++	moveprobe_qwd_advanced_points[slot] = 0;
++	moveprobe_qwd_advanced_this_frame[slot] = 0;
++	moveprobe_qwd_has_seen_time[slot] = 0;
++	moveprobe_qwd_has_active_since[slot] = 0;
++	moveprobe_qwd_last_seen_time[slot] = 0.0f;
++	moveprobe_qwd_active_since[slot] = 0.0f;
++	moveprobe_qwd_active_seconds[slot] = 0.0f;
++	moveprobe_qwd_distance[slot] = 999999.0f;
++}
++
++static void BotMoveProbePrepareQwdFrame(int slot)
++{
++	float stale_gap = 1.0f;
++
++	if (slot < 0 || slot >= MAX_CLIENTS)
++	{
++		return;
++	}
++
++	if (!moveprobe_qwd_has_seen_time[slot]
++		|| (g_globalvars.time < moveprobe_qwd_last_seen_time[slot])
++		|| ((g_globalvars.time - moveprobe_qwd_last_seen_time[slot]) > stale_gap))
++	{
++		BotMoveProbeResetQwdSession(slot);
++	}
++
++	moveprobe_qwd_has_seen_time[slot] = 1;
++	moveprobe_qwd_last_seen_time[slot] = g_globalvars.time;
++	moveprobe_qwd_advanced_this_frame[slot] = 0;
++	if (moveprobe_qwd_has_active_since[slot])
++	{
++		moveprobe_qwd_active_seconds[slot] = g_globalvars.time - moveprobe_qwd_active_since[slot];
++	}
++}
++
++static int BotMoveProbeReadQwdWaypoints(vec3_t points[MOVEPROBE_QWD_MAX_POINTS])
++{
++	char buffer[2048];
++	char *cursor;
++	int count = 0;
++
++	trap_cvar_string("k_fb_moveprobe_qwd_waypoints", buffer, sizeof(buffer));
++	cursor = buffer;
++	while (*cursor && count < MOVEPROBE_QWD_MAX_POINTS)
++	{
++		char *next;
++
++		points[count][0] = atof(cursor);
++		next = strchr(cursor, ',');
++		if (!next)
++		{
++			break;
++		}
++		cursor = next + 1;
++
++		points[count][1] = atof(cursor);
++		next = strchr(cursor, ',');
++		if (!next)
++		{
++			break;
++		}
++		cursor = next + 1;
++
++		points[count][2] = atof(cursor);
++		count++;
++
++		next = strchr(cursor, ';');
++		if (!next)
++		{
++			break;
++		}
++		cursor = next + 1;
++	}
++
++	return count;
++}
++
++static qbool BotMoveProbeQwdActive(gedict_t *self, int slot, vec3_t route_direction)
++{
++	vec3_t points[MOVEPROBE_QWD_MAX_POINTS];
++	vec3_t delta;
++	float point_radius = cvar("k_fb_moveprobe_qwd_point_radius");
++	float start_radius = cvar("k_fb_moveprobe_qwd_start_radius");
++	float distance = 999999.0f;
++	int count;
++	int index;
++
++	if (slot < 0 || slot >= MAX_CLIENTS)
++	{
++		return false;
++	}
++
++	BotMoveProbePrepareQwdFrame(slot);
++	if (moveprobe_qwd_complete[slot])
++	{
++		moveprobe_qwd_active[slot] = 0;
++		return false;
++	}
++	if (strneq(mapname, "dm3"))
++	{
++		BotMoveProbeResetQwdSession(slot);
++		return false;
++	}
++
++	count = BotMoveProbeReadQwdWaypoints(points);
++	moveprobe_qwd_point_count[slot] = count;
++	if (count < 2)
++	{
++		BotMoveProbeResetQwdSession(slot);
++		return false;
++	}
++
++	if (point_radius <= 0)
++	{
++		point_radius = 96.0f;
++	}
++	if (start_radius <= 0)
++	{
++		start_radius = 192.0f;
++	}
++	point_radius = bound(24.0f, point_radius, 256.0f);
++	start_radius = bound(point_radius, start_radius, 512.0f);
++
++	if (!moveprobe_qwd_active[slot])
++	{
++		VectorSubtract(points[0], self->s.v.origin, delta);
++		distance = VectorLength(delta);
++		moveprobe_qwd_distance[slot] = distance;
++		if (distance > start_radius)
++		{
++			return false;
++		}
++		moveprobe_qwd_active[slot] = 1;
++		moveprobe_qwd_point_index[slot] = 0;
++		moveprobe_qwd_active_since[slot] = g_globalvars.time;
++		moveprobe_qwd_has_active_since[slot] = 1;
++		moveprobe_qwd_active_seconds[slot] = 0.0f;
++	}
++
++	index = moveprobe_qwd_point_index[slot];
++	index = bound(0, index, count - 1);
++
++	while (index < count)
++	{
++		VectorSubtract(points[index], self->s.v.origin, delta);
++		distance = VectorLength(delta);
++		if (distance > point_radius)
++		{
++			break;
++		}
++		if (index >= count - 1)
++		{
++			moveprobe_qwd_complete[slot] = 1;
++			moveprobe_qwd_active[slot] = 0;
++			break;
++		}
++		index++;
++		moveprobe_qwd_advanced_points[slot]++;
++		moveprobe_qwd_advanced_this_frame[slot]++;
++	}
++
++	moveprobe_qwd_point_index[slot] = index;
++	moveprobe_qwd_distance[slot] = distance;
++	if (moveprobe_qwd_has_active_since[slot])
++	{
++		moveprobe_qwd_active_seconds[slot] = g_globalvars.time - moveprobe_qwd_active_since[slot];
++	}
++	if (moveprobe_qwd_complete[slot])
++	{
++		return false;
++	}
++
++	VectorSubtract(points[index], self->s.v.origin, route_direction);
++	route_direction[2] = 0;
++	return VectorNormalize(route_direction) > 0;
++}
++
 +static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, vec3_t direction)
 +{
 +	int mode = (int)cvar("k_fb_moveprobe_mode");
 +	int slot = NUM_FOR_EDICT(self) - 1;
 +
 +	BotMoveProbeResetTransition(slot);
++	if (mode != 9)
++	{
++		BotMoveProbeResetQwdSession(slot);
++	}
 +
 +	if ((mode <= 0) || intermission_running || ISDEAD(self)
 +		|| ((match_in_progress != 2) && cvar(FB_CVAR_FREEZE_PREWAR)))
 +	{
 +		BotMoveProbeResetTransitionTiming(slot);
++		BotMoveProbeResetQwdSession(slot);
 +		return;
 +	}
 +
@@ -229,7 +435,7 @@ index c0654d1..db50bc8 100644
 +		*jumping = true;
 +	}
 +
-+	else if ((mode == 5) || (mode == 6) || (mode == 7) || (mode == 8))
++	else if ((mode == 5) || (mode == 6) || (mode == 7) || (mode == 8) || (mode == 9))
 +	{
 +		vec3_t route_direction;
 +		vec3_t route_right;
@@ -252,11 +458,29 @@ index c0654d1..db50bc8 100644
 +			sidemove = -sidemove;
 +		}
 +
-+		VectorCopy(self->fb.dir_move_, route_direction);
-+		route_direction[2] = 0;
-+		if (VectorNormalize(route_direction) <= 0)
++		if (mode == 9)
 +		{
-+			return;
++			if (forwardmove <= 0)
++			{
++				forwardmove = 320;
++			}
++			if (sidemove == 0)
++			{
++				sidemove = 508;
++			}
++			if (!BotMoveProbeQwdActive(self, slot, route_direction))
++			{
++				return;
++			}
++		}
++		else
++		{
++			VectorCopy(self->fb.dir_move_, route_direction);
++			route_direction[2] = 0;
++			if (VectorNormalize(route_direction) <= 0)
++			{
++				return;
++			}
 +		}
 +
 +		route_right[0] = route_direction[1];
@@ -295,10 +519,10 @@ index c0654d1..db50bc8 100644
 +
 +		direction[0] = DotProduct(g_globalvars.v_forward, desired_move);
 +		direction[1] = DotProduct(g_globalvars.v_right, desired_move);
-+		direction[2] = (((mode == 7) || (mode == 8)) && (self->s.v.waterlevel > 1))
++		direction[2] = (((mode == 7) || (mode == 8) || (mode == 9)) && (self->s.v.waterlevel > 1))
 +			? native_upmove : cvar("k_fb_moveprobe_upmove");
 +
-+		if (((mode == 6) || (mode == 7) || (mode == 8)) && (direction[0] < 0))
++		if (((mode == 6) || (mode == 7) || (mode == 8) || (mode == 9)) && (direction[0] < 0))
 +		{
 +			float side_sign = direction[1] < 0 ? -1 : 1;
 +
@@ -310,7 +534,7 @@ index c0654d1..db50bc8 100644
 +			direction[0] = 0;
 +		}
 +
-+		if ((mode == 7) || (mode == 8))
++		if ((mode == 7) || (mode == 8) || (mode == 9))
 +		{
 +			vec3_t command_horizontal;
 +			float max_horizontal = VectorLength(desired_move);
@@ -417,7 +641,8 @@ index c0654d1..db50bc8 100644
 +			 "diag=%.1f,%.1f,%.1f,%d "
 +			 "route=%d,%d,%d,%d,%d,%d,%d,%.3f "
 +			 "water=%d,%d,%d,%d,%.1f,%.1f,%.1f,%.1f,%.3f,%.3f,%.3f "
-+			 "probe=%d,%d,%.3f,%.3f,%.3f\n",
++			 "probe=%d,%d,%.3f,%.3f,%.3f "
++			 "qwd=%d,%d,%d,%.3f,%d,%d,%.3f\n",
 +			 g_globalvars.time, ednum, self->netname, mode, cmd_msec,
 +			 PASSVEC3(self->fb.desired_angle), PASSINTVEC3(direction),
 +			 buttons, impulse, route_yaw, view_yaw, yaw_delta, backward,
@@ -429,13 +654,17 @@ index c0654d1..db50bc8 100644
 +			 PASSVEC3(self->s.v.velocity), PASSVEC3(self->fb.dir_move_),
 +			 moveprobe_transition_active[slot], moveprobe_transition_on_ground[slot],
 +			 moveprobe_transition_since_ground[slot], moveprobe_transition_since_air[slot],
-+			 moveprobe_transition_scale_used[slot]);
++			 moveprobe_transition_scale_used[slot],
++			 moveprobe_qwd_active[slot], moveprobe_qwd_point_index[slot],
++			 moveprobe_qwd_point_count[slot], moveprobe_qwd_distance[slot],
++			 moveprobe_qwd_advanced_points[slot], moveprobe_qwd_complete[slot],
++			 moveprobe_qwd_active_seconds[slot]);
 +}
 +
  void BotSetCommand(gedict_t *self)
  {
  	extern float last_frame_time;
-@@ -556,8 +975,11 @@ void BotSetCommand(gedict_t *self)
+@@ -556,8 +1204,11 @@ void BotSetCommand(gedict_t *self)
  		impulse = 0;
  	}
  

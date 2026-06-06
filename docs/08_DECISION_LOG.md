@@ -1791,3 +1791,46 @@ If the SNG runtime probe is positive, extend the QWD method to the remaining DM3
 ### Revisit Conditions
 
 Revisit the from-scratch option if the bounded mode `9` probe cannot be implemented without invasive Frogbot route rewrites, if diagnostics cannot be preserved, or if QWD-derived waypoint/controller control repeatedly fails under KTX physics despite valid input evidence.
+
+---
+
+## Decision
+
+Treat the first QWD-derived SNG runtime probe as inconclusive and repair activation before expanding.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+The first temporary mode-9 SNG hybrid server-loop run should not be promoted as proof that Frogbots learned the SNG move. Continue the QWD/Frogbots path for one smaller repair step, but do not apply the method to all DM3 QWD moves until the SNG probe reaches the minimum control-point advancement gate.
+
+### Alternatives Considered
+
+- Declare success because mode `9` activated and preserved diagnostics.
+- Reject the QWD-to-Frogbot path because the first run advanced only `2` control points.
+- Expand immediately to every DM3 QWD route candidate.
+- Edit `dm3.bot` route topology before proving the temporary waypoint/controller path can execute.
+
+### Evidence
+
+Mode-9 run `20260606T221429Z`:
+
+- Command/QWD samples: `866`.
+- QWD active samples: `11`.
+- Max active seconds: `1.12`, passing the activation gate.
+- Max advanced control points: `2`, below the required `4`.
+- Diagnostics preserved: route, water, probe-state, cadence, and movement metrics.
+- Active QWD command profile passed where active: active side ratio `1.0`, active jump ratio `1.0`.
+- Slow/stuck success and route-dirty success guardrails did not reject the run.
+
+The committed scorer verdict is `qwd_sng_hybrid_probe_inconclusive` because `control_point_advancement` remained inconclusive.
+
+### Expected Consequences
+
+The next work should repair activation, spawn/context setup, waypoint targeting, or controller projection for the same SNG probe. It should keep the same stop conditions and avoid route-file mutation or broad QWD expansion.
+
+### Revisit Conditions
+
+Revisit expansion to the remaining DM3 QWD moves if a follow-up SNG probe advances at least `4` control points while preserving diagnostics and avoiding slow/route-dirty success. Revisit the from-scratch option if repeated bounded QWD probes cannot advance under KTX/Frogbot physics despite valid QWD input/trajectory evidence.

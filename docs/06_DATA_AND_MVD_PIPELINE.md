@@ -102,6 +102,27 @@ Design result:
 
 Interpretation: the QWD path is now specific enough to attempt a Frogbot-facing runtime probe, but still not proof that Frogbots learned the SNG move. Positive evidence must come from a generated KTX/Frogbot MVD plus the same diagnostic guardrails used elsewhere in the lab.
 
+First QWD SNG hybrid runtime probe:
+
+- Patch: `experiments/ktx_moveprobe/frogbot-moveprobe.patch`
+- Runner/parser plumbing: `scripts/run_frobodm2_lab.py`
+- Scorer: `scripts/compare_qwd_sng_hybrid_probe.py`
+- Bot run: `20260606T221429Z`
+- Result artifact: `experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-result-dm3.*`
+
+Measured result:
+
+- Temporary mode `9` activated in the real KTX/Frogbot server loop and emitted QWD state rows.
+- Total command/QWD samples: `866`.
+- QWD active samples: `11`.
+- Max active seconds: `1.12`, passing the minimum activation gate.
+- Max advanced control points: `2`, below the required `4`.
+- Diagnostics were preserved: route, water, transition-probe, cadence, and movement metrics were available.
+- Active QWD command profile passed on the active bot row: active side ratio `1.0`, active jump ratio `1.0`.
+- Slow/stuck success and route-dirty success guardrails did not reject the run, but the control-point advancement gate stayed inconclusive.
+
+Interpretation: this is useful server-loop evidence, but not proof that Frogbots learned the SNG shortcut. The QWD path can be injected, logged, and scored inside the engine-native shell; the first activation/spawn/context setup did not advance far enough. The next step should repair activation, waypoint targeting, spawn/context setup, or instrumentation before expanding to other DM3 QWD moves.
+
 ## Available or expected signals
 
 From `mvd_analyzer`, `qw-sim`, and related parsers, Komodobots expects to work with:

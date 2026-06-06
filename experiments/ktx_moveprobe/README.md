@@ -54,6 +54,12 @@ S7j mode `8` rows append transition-probe state:
 FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=8 msec=12 angles=0.0,90.0,0.0 move=0,1031,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,0 route=12,10,42,14,32768,128,0,0.050 water=1,-3,528,0,0.0,25.5,-4.0,80.0,0.100,0.200,0.300 probe=1,0,0.125,999.000,1.250
 ```
 
+QWD mode `9` rows append SNG waypoint/controller state:
+
+```text
+FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=9 msec=12 angles=0.0,90.0,0.0 move=320,508,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,0 route=12,10,42,14,32768,128,0,0.050 water=1,-3,528,0,0.0,25.5,-4.0,80.0,0.100,0.200,0.300 probe=0,0,999.000,999.000,1.000 qwd=1,3,14,72.250,4,0,1.375
+```
+
 Those rows are deliberately console-oriented, temporary probe output. They exist to compare stock, forced-jump, fixed-command, route-yaw, and aim-independent runs before building a real movement controller.
 
 Modes:
@@ -69,19 +75,23 @@ Modes:
 | `6` | S3f probe: start from mode `5`, but when the projected local forward command is negative, fold that backpedal amount into sidemove and clamp forward to `0`. This tests a no-backpedal correction, not a final controller. |
 | `7` | S3g probe: start from mode `6`, then cap horizontal command magnitude to the original route/strafe intent magnitude. This tests whether no-backpedal survives without very large folded sidemove. |
 | `8` | S7j probe: start from mode `7`, then scale horizontal command budget only during takeoff/recent-air/recent-landing transition windows. This is a falsifiable probe against S7i guardrails, not accepted controller behavior. |
+| `9` | QWD SNG probe: activate near the first `dm3_sng_shortcut.qwd` control point, advance through a bounded QWD waypoint string, and project waypoint attraction plus QWD-style sidemove into preserved combat view yaw. This is not accepted controller behavior. |
 
-Mode `2`, `3`, `4`, `5`, `6`, `7`, and `8` cvars:
+Mode `2`, `3`, `4`, `5`, `6`, `7`, `8`, and `9` cvars:
 
 | Cvar | Default in runner | Meaning |
 |---|---:|---|
 | `k_fb_moveprobe_yaw` | `0` | Bot view yaw used for fixed-command mode `2`. |
-| `k_fb_moveprobe_forwardmove` | `800` | Forward command sent to `trap_SetBotCMD` in modes `2`, `3`, and `4`; route-intent scale for modes `5`, `6`, `7`, and `8`. |
-| `k_fb_moveprobe_sidemove` | `0` | Side command sent to `trap_SetBotCMD` in modes `2` and `3`; mode `4` treats `0` as a default alternating `+/-400`; modes `5`, `6`, `7`, and `8` use the value as a route-relative strafe component. |
-| `k_fb_moveprobe_upmove` | `0` | Up command sent to `trap_SetBotCMD` in modes `2`, `3`, `4`, `5`, `6`, `7`, and `8`. |
+| `k_fb_moveprobe_forwardmove` | `800` | Forward command sent to `trap_SetBotCMD` in modes `2`, `3`, and `4`; route-intent scale for modes `5`, `6`, `7`, and `8`; waypoint-attraction component for mode `9` when explicitly set. |
+| `k_fb_moveprobe_sidemove` | `0` | Side command sent to `trap_SetBotCMD` in modes `2` and `3`; mode `4` treats `0` as a default alternating `+/-400`; modes `5`, `6`, `7`, and `8` use the value as a route-relative strafe component; mode `9` uses it as the QWD-style side-dominant component. |
+| `k_fb_moveprobe_upmove` | `0` | Up command sent to `trap_SetBotCMD` in modes `2`, `3`, `4`, `5`, `6`, `7`, `8`, and `9`. |
 | `k_fb_moveprobe_log_commands` | `0` | When `1`, print sampled final command rows before `trap_SetBotCMD`. |
 | `k_fb_moveprobe_log_interval` | `0.25` | Minimum seconds between command log samples per bot. Use `0` for every command. |
 | `k_fb_moveprobe_transition_scale` | `1.25` | Mode `8` multiplier for desired horizontal command budget while the transition probe is active. |
 | `k_fb_moveprobe_transition_window` | `0.4` | Mode `8` takeoff/recent-air/recent-landing window in seconds. |
+| `k_fb_moveprobe_qwd_waypoints` | empty | Mode `9` semicolon-separated QWD control points as `x,y,z` triples. |
+| `k_fb_moveprobe_qwd_point_radius` | `96` | Mode `9` radius for advancing to the next QWD control point. |
+| `k_fb_moveprobe_qwd_start_radius` | `192` | Mode `9` radius around control point `0` required before the QWD probe activates. |
 
 Mode `3` ignores `k_fb_moveprobe_yaw`; it computes yaw from `self->fb.dir_move_` when Frogbot has a non-zero horizontal route direction. If that route vector is empty for a frame, mode `3` leaves the already-computed stock command intact for that frame.
 
@@ -95,6 +105,8 @@ Mode `7` uses the same no-backpedal correction as mode `6`, then normalizes loca
 
 Mode `8` uses the same aim-independent, no-backpedal, bounded behavior as mode `7`, but scales the desired horizontal command magnitude by `k_fb_moveprobe_transition_scale` only when the pre-probe bot logic is jumping from ground, recently left ground, or recently landed inside `k_fb_moveprobe_transition_window`. Outside those windows, mode `8` should match mode `7` horizontal behavior. S7j rejects the corrected probe under the S7i stop conditions because pre-air, airborne-proxy, post-air, and non-airborne buckets regressed in the combined fixed runs, so do not treat it as accepted controller behavior.
 
+Mode `9` is a temporary QWD SNG hybrid probe. It reads up to `16` QWD control points, only activates on `dm3` near the first point, advances points by radius, and combines waypoint attraction with the side-dominant QWD command profile. It preserves combat view yaw and existing route/water/probe diagnostics. The first runtime run `20260606T221429Z` was inconclusive: it activated for `1.12` seconds and advanced `2` points, but the design gate requires at least `4` before expanding to other DM3 QWD moves.
+
 The S3e diagnostic suffix is shaped as `diag=<route_yaw>,<view_yaw>,<yaw_delta>,<backward>`. `backward=1` means the emitted local `forwardmove` is negative. `yaw_delta` and `view_yaw` are interpretable for aim-independent modes `5`, `6`, and `7`; route-yaw modes `3` and `4` overwrite view yaw from the route, so their deltas are structural noise.
 
 The S6b diagnostic suffix is shaped as `route=<linked_marker>,<touch_marker>,<goal_ed>,<goal_marker>,<path_state>,<bot_state>,<blocked>,<dir_speed>`. Marker ids are Frogbot marker indexes plus one, or `-1` when absent. `goal_ed` is the current Quake edict number from `self->s.v.goalentity`; `goal_marker` is that entity's marker when available. `blocked=1` means either the `STUCK_PATH` bit is present in `path_state` or `fb.obstruction_normal` is currently non-zero. This is trace context only, not a new movement mode.
@@ -102,6 +114,8 @@ The S6b diagnostic suffix is shaped as `route=<linked_marker>,<touch_marker>,<go
 The S6d diagnostic suffix is shaped as `water=<waterlevel>,<watertype>,<flags>,<swim_arrow>,<emitted_upmove>,<velocity_x>,<velocity_y>,<velocity_z>,<dir_move_x>,<dir_move_y>,<dir_move_z>`. It exists to inspect whether `WATER_PATH` low-speed windows are shallow-water edge handling, active swim intent, missing vertical/upmove emission, route-edge geometry, or still unknown. `swim_arrow` uses the Frogbot `UP=16` / `DOWN=32` constants. `dir_move_*` is the raw Frogbot route movement vector sampled at command time.
 
 The S7j diagnostic suffix is shaped as `probe=<active>,<on_ground>,<since_ground>,<since_air>,<scale>`. It exists to verify that mode `8` only applies the transition scale in the intended takeoff/air-transition windows and to support post-run stop-condition checks. Transition timing uses resettable file-scope per-slot state with explicit "has ground/air time" flags so map/session gaps and time-zero samples do not inherit stale timing, while normal mode-8 frames still preserve recent-ground/recent-air history across command samples.
+
+The QWD diagnostic suffix is shaped as `qwd=<active>,<control_point_index>,<control_point_count>,<distance_qu>,<advanced_control_points>,<complete>,<active_seconds>`. It exists to prove whether the temporary QWD-derived controller activated, which target it was chasing, how far it got, and whether a future success claim is just waypoint-only slow/stuck motion.
 
 ## Runner
 
@@ -117,6 +131,7 @@ python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-s
 python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 6 --moveprobe-sidemove 200 --moveprobe-log-commands
 python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 7 --moveprobe-sidemove 200 --moveprobe-log-commands
 python scripts/run_bot_lab.py --map dm3 --duration 25 --bot-count 2 --bot-spacing 6 --moveprobe-mode 8 --moveprobe-sidemove 200 --moveprobe-transition-scale 1.25 --moveprobe-transition-window 0.4 --moveprobe-log-commands
+python scripts/run_bot_lab.py --map dm3 --duration 45 --bot-count 2 --bot-spacing 6 --moveprobe-mode 9 --moveprobe-forwardmove 320 --moveprobe-sidemove 508 --moveprobe-qwd-waypoints "<x,y,z;...>" --moveprobe-qwd-point-radius 96 --moveprobe-qwd-start-radius 192 --moveprobe-log-commands --moveprobe-log-interval 0.1
 ```
 
 Each run records the mode and command values in `run.env`, `lab.cfg`, and `run-summary.md`.
@@ -143,6 +158,7 @@ Known v2a comparison runs:
 | `20260605T231033Z` | `4` | S3a alternating strafe on `frobodm2`; side command emitted and both bots passed gate, with one RL frag. |
 | `20260605T231115Z` | `4` | S3a alternating strafe on `dm3`; side command emitted, but `/ bro` failed low-speed gate at `63.0%`. |
 | `20260606T163907Z`, `20260606T164610Z` | `8` | Corrected S7j air-transition probes on `dm3`; combined evidence rejects mode `8` under S7i stop conditions because all-segment and route-context gains were outweighed by pre-air, airborne-proxy, post-air, and non-airborne regressions. |
+| `20260606T221429Z` | `9` | QWD SNG hybrid probe on `dm3`; QWD control activated for `1.12` seconds and advanced `2` points, but the required advancement gate is `4`, so the result is inconclusive. |
 | `20260605T231737Z` | `4` | S3b `dm3` with `sidemove=200`; both bots passed side/plausibility gate. |
 | `20260605T231819Z` | `4` | S3b `dm3` with `sidemove=300`; side command emitted, but `/ bro` failed low-speed gate at `51.1%`. |
 | `20260605T233120Z` | `4` | S3c `frobodm2` with `sidemove=200`; both bots passed side/plausibility gate and one RL frag was recorded. |

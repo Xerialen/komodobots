@@ -275,6 +275,12 @@ class MovementMetricsTests(unittest.TestCase):
                 "1.4",
                 "--moveprobe-transition-window",
                 "0.35",
+                "--moveprobe-qwd-waypoints",
+                "1,2,3;4,5,6",
+                "--moveprobe-qwd-point-radius",
+                "88",
+                "--moveprobe-qwd-start-radius",
+                "176",
             ]
         )
 
@@ -285,6 +291,13 @@ class MovementMetricsTests(unittest.TestCase):
         self.assertEqual(args.moveprobe_upmove, 0)
         self.assertEqual(args.moveprobe_transition_scale, 1.4)
         self.assertEqual(args.moveprobe_transition_window, 0.35)
+        self.assertEqual(args.moveprobe_qwd_waypoints, "1,2,3;4,5,6")
+        self.assertEqual(args.moveprobe_qwd_point_radius, 88.0)
+        self.assertEqual(args.moveprobe_qwd_start_radius, 176.0)
+
+    def test_runner_rejects_unsafe_qwd_waypoints(self) -> None:
+        with self.assertRaises(argparse.ArgumentTypeError):
+            run_frobodm2_lab.validate_qwd_waypoints('1,2,3";exec bad')
 
     def test_runner_accepts_moveprobe_command_logging_options(self) -> None:
         args = run_frobodm2_lab.parse_args(
@@ -304,7 +317,7 @@ class MovementMetricsTests(unittest.TestCase):
                 [
                     "noise before",
                     'FBMOVEPROBE_CMD time=12.250 ed=3 name=/ goldenboy mode=2 msec=13 angles=0.0,90.0,0.0 move=800,0,0 buttons=3 impulse=0',
-                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=8 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1 route=12,10,42,14,524288,8192,1,1.250 water=3,-3,528,16,120.0,25.5,-4.0,80.0,0.100,0.200,0.300 probe=1,0,0.125,999.000,1.250',
+                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=9 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1 route=12,10,42,14,524288,8192,1,1.250 water=3,-3,528,16,120.0,25.5,-4.0,80.0,0.100,0.200,0.300 probe=0,0,999.000,999.000,1.000 qwd=1,3,14,72.250,4,0,1.375',
                 ]
             )
         )
@@ -314,7 +327,7 @@ class MovementMetricsTests(unittest.TestCase):
         self.assertEqual(commands[0]["mode"], 2)
         self.assertEqual(commands[0]["msec"], 13)
         self.assertEqual(commands[0]["angles"], {"pitch": 0.0, "yaw": 90.0, "roll": 0.0})
-        self.assertEqual(commands[1]["mode"], 8)
+        self.assertEqual(commands[1]["mode"], 9)
         self.assertEqual(commands[1]["move"], {"forward": -200, "side": 400, "up": 0})
         self.assertEqual(commands[1]["buttons"], 2)
         self.assertEqual(commands[1]["impulse"], 7)
@@ -345,11 +358,23 @@ class MovementMetricsTests(unittest.TestCase):
         self.assertEqual(
             commands[1]["probe_state"],
             {
-                "transition_active": True,
+                "transition_active": False,
                 "on_ground": False,
-                "since_ground_s": 0.125,
+                "since_ground_s": 999.0,
                 "since_air_s": 999.0,
-                "transition_scale": 1.25,
+                "transition_scale": 1.0,
+            },
+        )
+        self.assertEqual(
+            commands[1]["qwd_state"],
+            {
+                "active": True,
+                "control_point_index": 3,
+                "control_point_count": 14,
+                "distance_qu": 72.25,
+                "advanced_control_points": 4,
+                "complete": False,
+                "active_seconds": 1.375,
             },
         )
 
