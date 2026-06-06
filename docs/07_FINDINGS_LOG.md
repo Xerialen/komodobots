@@ -2181,3 +2181,53 @@ This is a review-hardening change only. It does not alter the committed S7a move
 ### Follow-up
 
 Update the PR for Claude/reviewer context, then continue with S7b if there is no further blocking feedback.
+
+## 2026-06-06 - S7b Repeated Exact-Player Movement References
+
+### Experiment
+
+Broadened the S7 exact-player `dm3` reference set before controller work. Queried Turso `player_games` / `games` metadata, cross-referenced the existing `servexeri` 4on4 corpus manifest, selected one additional `dm3` demo for each S7a target, copied from the existing corpus, verified SHA-256, parsed through the human MVD pipeline, and regenerated the aggregate/signature evidence.
+
+Selected repeats:
+
+- `Milton`: `4on4_blue_vs_red[dm3]20260601-1914.mvd`, SHA `9acddc0807f997cbf59b0873907666f1a16af6624f2691389c22583781d85193`.
+- `carapace`: `4on4_-s-_vs_]sr[[dm3]20260520-2032.mvd`, SHA `2eed3c5acf9cc0b22f391d08ac5eba7c2198b2ba12afb4c27992676fbf00894d`.
+- `yeti`: `4on4_red_vs_blue[dm3]20260528-2109.mvd`, SHA `fa3792df611f650db9c47627812e63f277c9cb2bbb2f06dda4c291ad04e33246`.
+
+### Result
+
+- The selection path found repeated references for all three targets: Milton had `265` metadata rows, `30` manifest-eligible rows, and `28` additional available rows after excluding S5b demos; carapace had `172` / `22` / `21`; yeti had `439` / `17` / `16`.
+- The six-row repeated aggregate keeps the same headline gap: reference avg range `282.8` to `314.2`, S3g `190.1` to `248.2`; reference p95 range `505.8` to `535.0`, S3g `361.0` to `375.3`.
+- The repeated-player stability scaffold marks avg and p95 as stable but generic land-speed gaps.
+- Low-speed ratio remains mixed/overlapping: between-player mean spread `4.3%`, max within-player spread `3.2%`, separation ratio `1.34`.
+- Airborne proxy remains mixed/overlapping: between-player mean spread `4.7%`, max within-player spread `6.0%`, separation ratio `0.78`.
+- Jump cadence is the only repeated candidate axis: between-player mean spread `7.6`/min, max within-player spread `3.7`/min, separation ratio `2.06`. It is still reference-only because committed S3g bot summaries do not carry cadence.
+
+### Evidence
+
+Committed artifacts:
+
+- `experiments/human_comparison/evidence/human-reference-s7b-selection.json`
+- `experiments/human_comparison/evidence/human-reference-s7b-selection.md`
+- `experiments/human_comparison/evidence/human-reference-s7b-repeated-dm3-aggregate.json`
+- `experiments/human_comparison/evidence/human-reference-s7b-repeated-dm3-aggregate.md`
+- `experiments/human_comparison/evidence/player-signatures-s7b-dm3.json`
+- `experiments/human_comparison/evidence/player-signatures-s7b-dm3.md`
+
+S7b also found and fixed a practical parser bottleneck: three parallel full-match human parses produced `events.txt` files around `110 MB` each and timed out while computing movement metrics. `scripts/extract_movement_metrics.py` now uses an indexed landing-window speed lookup instead of scanning every segment for every airborne proxy landing. Focused regression tests confirm the indexed lookup matches the previous slow scan.
+
+### Interpretation
+
+S7b removes the S7a single-demo stop condition, but it does not authorize player-specific movement control. The strongest repeated signal is cadence, and it is not yet bot-comparable in the committed S3g summaries. Low-speed and airborne proxy are still too overlapping to become style targets. The generic avg/p95 gap remains the larger movement-realism problem.
+
+### Confidence
+
+High that repeated `dm3` references exist and were selected from the existing metadata/corpus path without hub download.
+
+High that the six-row aggregate and stability scaffold reflect the parsed summaries.
+
+Medium that cadence is a durable style axis, because S7b has only two demos per player and no bot-side cadence comparison yet.
+
+### Follow-up
+
+Ask Claude to review S7b. Proposed S7c: make the surviving repeated axes bot-comparable and controller-relevant by adding bot-side cadence/tempo metrics to the S3g summaries, then decide whether low-speed/cadence warrant player-style targets or whether more exact-player references are needed.

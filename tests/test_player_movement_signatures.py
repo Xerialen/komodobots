@@ -76,6 +76,85 @@ def sample_aggregate() -> dict[str, object]:
     }
 
 
+def sample_repeated_aggregate() -> dict[str, object]:
+    aggregate = sample_aggregate()
+    aggregate["reference_rows"] = [
+        {
+            "target_player": "Milton",
+            "matched_player": "Milton",
+            "demo": "milton-a.mvd",
+            "run_id": "m1",
+            "avg_horizontal_speed_qu_per_s": 314.0,
+            "p95_horizontal_speed_qu_per_s": 535.0,
+            "stationary_time_ratio": 0.06,
+            "low_speed_time_ratio": 0.10,
+            "airborne_proxy_time_ratio": 0.35,
+            "jump_cadence_per_min": 44.0,
+        },
+        {
+            "target_player": "Milton",
+            "matched_player": "Milton",
+            "demo": "milton-b.mvd",
+            "run_id": "m2",
+            "avg_horizontal_speed_qu_per_s": 306.0,
+            "p95_horizontal_speed_qu_per_s": 525.0,
+            "stationary_time_ratio": 0.08,
+            "low_speed_time_ratio": 0.11,
+            "airborne_proxy_time_ratio": 0.25,
+            "jump_cadence_per_min": 45.0,
+        },
+        {
+            "target_player": "carapace",
+            "matched_player": "carapace",
+            "demo": "carapace-a.mvd",
+            "run_id": "c1",
+            "avg_horizontal_speed_qu_per_s": 284.0,
+            "p95_horizontal_speed_qu_per_s": 525.0,
+            "stationary_time_ratio": 0.12,
+            "low_speed_time_ratio": 0.20,
+            "airborne_proxy_time_ratio": 0.34,
+            "jump_cadence_per_min": 42.0,
+        },
+        {
+            "target_player": "carapace",
+            "matched_player": "carapace",
+            "demo": "carapace-b.mvd",
+            "run_id": "c2",
+            "avg_horizontal_speed_qu_per_s": 295.0,
+            "p95_horizontal_speed_qu_per_s": 509.0,
+            "stationary_time_ratio": 0.09,
+            "low_speed_time_ratio": 0.21,
+            "airborne_proxy_time_ratio": 0.26,
+            "jump_cadence_per_min": 43.0,
+        },
+        {
+            "target_player": "yeti",
+            "matched_player": "yeti",
+            "demo": "yeti-a.mvd",
+            "run_id": "y1",
+            "avg_horizontal_speed_qu_per_s": 292.0,
+            "p95_horizontal_speed_qu_per_s": 506.0,
+            "stationary_time_ratio": 0.08,
+            "low_speed_time_ratio": 0.15,
+            "airborne_proxy_time_ratio": 0.36,
+            "jump_cadence_per_min": 50.0,
+        },
+        {
+            "target_player": "yeti",
+            "matched_player": "yeti",
+            "demo": "yeti-b.mvd",
+            "run_id": "y2",
+            "avg_horizontal_speed_qu_per_s": 301.0,
+            "p95_horizontal_speed_qu_per_s": 514.0,
+            "stationary_time_ratio": 0.08,
+            "low_speed_time_ratio": 0.16,
+            "airborne_proxy_time_ratio": 0.28,
+            "jump_cadence_per_min": 51.0,
+        },
+    ]
+    return aggregate
+
+
 class PlayerMovementSignatureTests(unittest.TestCase):
     def test_build_report_keeps_land_speed_as_generic_gap(self) -> None:
         report = signatures.build_signature_report(sample_aggregate(), stage="s7a-test")
@@ -123,6 +202,31 @@ class PlayerMovementSignatureTests(unittest.TestCase):
         self.assertEqual(cadence_axis["interpretation"], "reference_only_candidate_style_axis")
         self.assertIsNone(cadence_axis["bot"])
         self.assertNotIn("bot_rows", cadence_axis)
+
+    def test_repeated_rows_add_stability_axes(self) -> None:
+        report = signatures.build_signature_report(sample_repeated_aggregate(), stage="s7b-test")
+        stability = {axis["field"]: axis for axis in report["stability_axes"]}
+
+        self.assertFalse(report["stop_condition_triggered"])
+        self.assertEqual(
+            stability["low_speed_time_ratio"]["stability_interpretation"],
+            "repeated_candidate_style_axis",
+        )
+        self.assertIn("low_speed_time_ratio", report["evidence_summary"]["repeated_candidate_style_axes"])
+        self.assertEqual(
+            stability["jump_cadence_per_min"]["stability_interpretation"],
+            "repeated_reference_only_candidate_axis",
+        )
+        self.assertIn("S7c", report["next_goal"])
+
+    def test_repeated_land_speed_stays_generic_gap(self) -> None:
+        report = signatures.build_signature_report(sample_repeated_aggregate(), stage="s7b-test")
+        stability = {axis["field"]: axis for axis in report["stability_axes"]}
+
+        self.assertEqual(
+            stability["p95_horizontal_speed_qu_per_s"]["stability_interpretation"],
+            "stable_but_generic_land_speed_gap",
+        )
 
 
 if __name__ == "__main__":

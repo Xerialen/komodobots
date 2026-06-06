@@ -1128,3 +1128,45 @@ S7b should turn the current "candidate axes" into a stability check. If repeated
 ### Revisit Conditions
 
 Revisit if Claude finds that the S7a axis classification hides an important metric, if existing artifacts already contain enough repeated exact-player rows to avoid a new selection step, or if S7b cannot find repeated same-map samples for the target players.
+
+---
+
+## Decision
+
+Make repeated candidate axes bot-comparable before player-specific control.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S7b broadened the exact-player `dm3` reference set from one demo per target to two demos per target for `Milton`, `carapace`, and `yeti`. This is enough to start checking repeated-player stability, but not enough to build player-specific movement control.
+
+The next goal is S7c: make the surviving repeated axes bot-comparable and controller-relevant. In practice, that means adding bot-side cadence/tempo metrics to the S3g summaries before treating cadence or low-speed behavior as player-style targets.
+
+### Alternatives Considered
+
+- Start a Milton/carapace/yeti-specific controller profile from the six-row aggregate.
+- Treat low-speed or airborne proxy as stable enough because they still show cross-player spread.
+- Ignore cadence because it is not currently in the S3g summary.
+- Abandon S7 and immediately return to generic land-speed/bunnyhop controller work.
+
+### Evidence
+
+S7b repeated reference evidence:
+
+- New selected demos: `Milton` `4on4_blue_vs_red[dm3]20260601-1914.mvd`, `carapace` `4on4_-s-_vs_]sr[[dm3]20260520-2032.mvd`, and `yeti` `4on4_red_vs_blue[dm3]20260528-2109.mvd`.
+- Exact-player avg range: `282.8` to `314.2`; S3g bot avg range: `190.1` to `248.2`.
+- Exact-player p95 range: `505.8` to `535.0`; S3g bot p95 range: `361.0` to `375.3`.
+- Low-speed repeated stability: between-player mean spread `4.3%`, max within-player spread `3.2%`, separation ratio `1.34`, classified as mixed/overlapping.
+- Airborne repeated stability: between-player mean spread `4.7%`, max within-player spread `6.0%`, separation ratio `0.78`, classified as mixed/overlapping.
+- Cadence repeated stability: between-player mean spread `7.6`/min, max within-player spread `3.7`/min, separation ratio `2.06`, classified as a repeated reference-only candidate axis.
+
+### Expected Consequences
+
+S7c should either turn cadence/tempo into a comparable bot-vs-human signal or prove that the current S3g summaries are too incomplete for player-style decisions. Player-specific movement control should remain blocked until at least one repeated style axis is both stable enough and bot-comparable.
+
+### Revisit Conditions
+
+Revisit if Claude finds a bug in S7b stability classification, if bot-side cadence already exists in committed evidence and was missed, or if broader reference rows contradict cadence as the strongest repeated axis.

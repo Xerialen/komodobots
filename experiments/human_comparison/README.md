@@ -125,5 +125,32 @@ player-specific axes:
 | Jump cadence | reference-only candidate axis |
 
 The stop condition is triggered because the current set is only one `dm3` demo
-per target player. S7 should broaden exact-player references before any
+per target player. S7b below broadens exact-player references before any
 player-specific movement controller work.
+
+## Current S7b Result
+
+S7b broadens the same target players to two `dm3` demos each:
+
+```text
+Milton   -> 4on4_blue_vs_red[dm3]20260601-1914.mvd
+carapace -> 4on4_-s-_vs_]sr[[dm3]20260520-2032.mvd
+yeti     -> 4on4_red_vs_blue[dm3]20260528-2109.mvd
+```
+
+These were selected from Turso metadata cross-referenced with the existing
+`servexeri` 4on4 corpus manifest, copied from that corpus, and SHA-256 verified
+before parsing. Raw demos and parser output remain ignored under
+`artifacts/human-demos/`.
+
+The repeated aggregate still shows the generic land-speed gap:
+
+| Metric | Reference range | S3g bot range |
+|---|---:|---:|
+| Avg | `282.8-314.2` | `190.1-248.2` |
+| P95 | `505.8-535.0` | `361.0-375.3` |
+
+Repeated-player stability does not promote low-speed or airborne proxy to stable
+style targets yet. Jump cadence is the only repeated candidate axis, but it is
+reference-only until S3g bot summaries carry the same cadence/tempo metrics. The
+next S7 step should make those axes bot-comparable before controller work.

@@ -293,6 +293,20 @@ Result:
 
 Interpretation: S7a successfully creates the measurement scaffold, but it points away from immediate player-specific controller work. The next smallest useful step is to broaden exact-player references, especially repeated `dm3` samples for the same targets where available, then rerun the signature scaffold to separate stable style from one-match noise and the unresolved land-speed/bunnyhop gap.
 
+## S7b Repeated Exact-Player References
+
+S7b selected one additional manifest-backed `dm3` demo for each S7a target, parsed them through the same human MVD pipeline, and regenerated the aggregate/signature evidence with six rows.
+
+Result:
+
+- The repeated set preserves the headline land-speed gap. Exact-player avg range is `282.8` to `314.2`; S3g `dm3` bots remain `190.1` to `248.2`. Exact-player p95 range is `505.8` to `535.0`; S3g remains `361.0` to `375.3`.
+- Repeated-player stability marks avg and p95 as stable but still generic land-speed gaps, not style targets.
+- Low-speed ratio has between-player mean spread `4.3%` and max within-player spread `3.2%`, separation ratio `1.34`; that is still mixed/overlapping, not a stable style target.
+- Airborne proxy has between-player mean spread `4.7%` and max within-player spread `6.0%`, so it is not stable enough for player-specific control.
+- Jump cadence has between-player mean spread `7.6`/min, max within-player spread `3.7`/min, and separation ratio `2.06`; it is the only repeated candidate axis, but it remains reference-only because S3g committed bot summaries do not carry cadence.
+
+Interpretation: S7b removes the single-demo stop condition but still does not justify player-specific movement control. The next useful step is to make cadence/tempo bot-comparable and controller-relevant, while keeping the generic land-speed/bunnyhop deficit visible.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

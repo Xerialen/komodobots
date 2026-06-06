@@ -458,6 +458,7 @@ Likely failure areas:
 - `qw-analyze-v20 -format events` may emit useful data but exit nonzero with `qw-analyze: end of demo` on short recordings.
 - MVD appears but parser cannot resolve map geometry because `MVDA_BSP_DIR` is not pointed at `~/mvd-mcp-bundle/bsps`.
 - A lab script stops more of `turkishbathhouse` than intended by using `stop_servers.sh` when it only meant to stop one lab process.
+- Long full-match human 4on4 traces can produce `events.txt` files over `100 MB`. S7b optimized landing-window movement extraction with an indexed segment lookup after the old repeated full-list scan timed out on three parallel 20-minute references.
 
 ## Next Smallest Experiment
 
@@ -465,4 +466,4 @@ Move the repeatable runner one notch closer to the north star:
 
 1. Keep `dm2` as a `qw-sim` continuity map, not as a Frogbot route-building target.
 2. Use routed maps such as `frobodm2` and `dm3` to generate bot movement demos.
-3. After S6f, stop water-edge command tuning unless new evidence appears. S7a completed exact-player movement-signature scaffolding and triggered the thin-reference stop condition, so the next smallest useful branch is S7b: broaden repeated exact-player `dm3` references before controller work.
+3. After S7b, do not start player-specific movement control yet. The next smallest useful branch is S7c: make cadence/tempo bot-comparable in the S3g summaries, then decide whether the repeated reference-only cadence signal is controller-relevant or whether S7 needs more exact-player references first.

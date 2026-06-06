@@ -13,6 +13,7 @@ the control client shim does not pollute bot movement numbers.
 from __future__ import annotations
 
 import argparse
+from bisect import bisect_right
 import json
 import math
 import sys
@@ -107,7 +108,41 @@ def round_float(value: float, digits: int = 3) -> float:
     return 0.0
 
 
+def build_speed_window_index(segments: list[dict]) -> tuple[list[int], list[int], list[float]]:
+    return (
+        [int(segment["start_ms"]) for segment in segments],
+        [int(segment["end_ms"]) for segment in segments],
+        [float(segment["horizontal_speed_qu_per_s"]) for segment in segments],
+    )
+
+
+def weighted_speed_for_indexed_window(
+    speed_index: tuple[list[int], list[int], list[float]],
+    start_ms: int,
+    end_ms: int,
+) -> float | None:
+    if end_ms <= start_ms:
+        return None
+    starts, ends, speeds = speed_index
+    total_ms = 0
+    weighted_speed = 0.0
+    index = bisect_right(ends, start_ms)
+    while index < len(starts) and starts[index] < end_ms:
+        overlap_ms = max(0, min(ends[index], end_ms) - max(starts[index], start_ms))
+        if overlap_ms > 0:
+            total_ms += overlap_ms
+            weighted_speed += speeds[index] * overlap_ms
+        index += 1
+    if total_ms <= 0:
+        return None
+    return weighted_speed / total_ms
+
+
 def weighted_speed_for_window(segments: list[dict], start_ms: int, end_ms: int) -> float | None:
+    return weighted_speed_for_indexed_window(build_speed_window_index(segments), start_ms, end_ms)
+
+
+def weighted_speed_for_window_slow(segments: list[dict], start_ms: int, end_ms: int) -> float | None:
     total_ms = 0
     weighted_speed = 0.0
     for segment in segments:
@@ -159,10 +194,11 @@ def summarize_airborne_proxy(segments: list[dict], thresholds: dict[str, float])
     post_deltas: list[float] = []
     post_losses: list[float] = []
     post_loss_ratios: list[float] = []
+    speed_index = build_speed_window_index(segments)
     for run in runs:
         landing_ms = run["end_ms"]
-        pre_speed = weighted_speed_for_window(segments, landing_ms - landing_window_ms, landing_ms)
-        post_speed = weighted_speed_for_window(segments, landing_ms, landing_ms + landing_window_ms)
+        pre_speed = weighted_speed_for_indexed_window(speed_index, landing_ms - landing_window_ms, landing_ms)
+        post_speed = weighted_speed_for_indexed_window(speed_index, landing_ms, landing_ms + landing_window_ms)
         if pre_speed is None or post_speed is None:
             continue
         pre_speeds.append(pre_speed)

@@ -306,6 +306,112 @@ def build_feature_axes(reference_rows: list[dict[str, object]], bot_rows: list[d
     return axes
 
 
+def group_reference_rows_by_player(reference_rows: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
+    grouped: dict[str, list[dict[str, object]]] = {}
+    for row in reference_rows:
+        player = str(row.get("target_player") or row.get("matched_player") or "").strip()
+        if not player:
+            continue
+        grouped.setdefault(player, []).append(row)
+    return grouped
+
+
+def stability_interpretation(
+    *,
+    field_config: dict[str, object],
+    feature_axis: dict[str, object],
+    repeated_player_count: int,
+    min_player_row_count: int,
+    between_mean_spread: float | None,
+    max_within_spread: float | None,
+    separation_ratio: float | None,
+) -> str:
+    if repeated_player_count < 2 or min_player_row_count < 2:
+        return "needs_repeated_reference_rows"
+    if feature_axis.get("interpretation") == "generic_human_vs_bot_land_speed_gap":
+        return "stable_but_generic_land_speed_gap"
+    if between_mean_spread is None or max_within_spread is None:
+        return "not_enough_repeated_metric_data"
+    if between_mean_spread < float(field_config["min_abs_spread"]):
+        return "not_enough_between_player_spread"
+    if separation_ratio is not None and separation_ratio >= 1.5:
+        if field_config.get("bot_comparable", True):
+            return "repeated_candidate_style_axis"
+        return "repeated_reference_only_candidate_axis"
+    return "mixed_or_overlap_repeated_axis"
+
+
+def build_stability_axes(reference_rows: list[dict[str, object]], feature_axes: list[dict[str, object]]) -> list[dict[str, object]]:
+    grouped = group_reference_rows_by_player(reference_rows)
+    feature_by_field = {str(axis.get("field", "")): axis for axis in feature_axes}
+    rows = []
+    for config in STYLE_FIELDS:
+        field = str(config["field"])
+        per_player = []
+        means: list[float] = []
+        within_spreads: list[float] = []
+        for player, player_rows in sorted(grouped.items()):
+            summary = summarize_values(player_rows, field)
+            count = int(summary.get("count") or 0)
+            if count <= 0:
+                continue
+            mean = optional_float(summary.get("mean"))
+            spread = optional_float(summary.get("spread"))
+            if mean is not None:
+                means.append(mean)
+            if spread is not None and count >= 2:
+                within_spreads.append(spread)
+            per_player.append(
+                {
+                    "player": player,
+                    "count": count,
+                    "min": summary.get("min"),
+                    "mean": summary.get("mean"),
+                    "max": summary.get("max"),
+                    "within_player_spread": summary.get("spread"),
+                }
+            )
+        repeated_player_count = sum(1 for row in per_player if int(row.get("count") or 0) >= 2)
+        min_player_row_count = min((int(row.get("count") or 0) for row in per_player), default=0)
+        between_mean_spread = max(means) - min(means) if len(means) >= 2 else None
+        max_within_spread = max(within_spreads) if within_spreads else None
+        mean_within_spread = sum(within_spreads) / len(within_spreads) if within_spreads else None
+        if between_mean_spread is None or max_within_spread in (None, 0.0):
+            separation_ratio = None
+        else:
+            separation_ratio = between_mean_spread / max_within_spread
+        feature_axis = feature_by_field.get(field, {})
+        interpretation = stability_interpretation(
+            field_config=config,
+            feature_axis=feature_axis,
+            repeated_player_count=repeated_player_count,
+            min_player_row_count=min_player_row_count,
+            between_mean_spread=between_mean_spread,
+            max_within_spread=max_within_spread,
+            separation_ratio=separation_ratio,
+        )
+        rows.append(
+            {
+                "field": field,
+                "label": config["label"],
+                "family": config["family"],
+                "bot_comparable": bool(config.get("bot_comparable", True)),
+                "repeated_player_count": repeated_player_count,
+                "min_player_row_count": min_player_row_count,
+                "between_player_mean_spread": round(between_mean_spread, 3)
+                if between_mean_spread is not None
+                else None,
+                "max_within_player_spread": round(max_within_spread, 3) if max_within_spread is not None else None,
+                "mean_within_player_spread": round(mean_within_spread, 3) if mean_within_spread is not None else None,
+                "separation_ratio": round(separation_ratio, 3) if separation_ratio is not None else None,
+                "feature_axis_interpretation": feature_axis.get("interpretation", ""),
+                "stability_interpretation": interpretation,
+                "per_player": per_player,
+            }
+        )
+    return rows
+
+
 def build_headline_gaps(axes: list[dict[str, object]]) -> list[dict[str, object]]:
     gaps = []
     for axis in axes:
@@ -343,6 +449,7 @@ def build_signature_report(
     bot_rows = [row for row in aggregate.get("bot_rows", []) if isinstance(row, dict)]
     reference_summaries = {str(config["field"]): summarize_values(reference_rows, str(config["field"])) for config in STYLE_FIELDS}
     axes = build_feature_axes(reference_rows, bot_rows)
+    stability_axes = build_stability_axes(reference_rows, axes)
     headline_gaps = build_headline_gaps(axes)
     interpretations = [str(axis.get("interpretation")) for axis in axes]
     candidate_axes = [
@@ -359,6 +466,16 @@ def build_signature_report(
         str(axis.get("field"))
         for axis in axes
         if str(axis.get("interpretation", "")).startswith("generic_human")
+    ]
+    repeated_candidate_axes = [
+        str(axis.get("field"))
+        for axis in stability_axes
+        if axis.get("stability_interpretation") == "repeated_candidate_style_axis"
+    ]
+    repeated_reference_only_axes = [
+        str(axis.get("field"))
+        for axis in stability_axes
+        if axis.get("stability_interpretation") == "repeated_reference_only_candidate_axis"
     ]
     one_demo_per_player = bool(reference_rows) and len(
         {str(row.get("target_player") or row.get("matched_player")) for row in reference_rows}
@@ -379,11 +496,14 @@ def build_signature_report(
         "bot_count": len(bot_rows),
         "player_signatures": player_signature_rows(reference_rows, reference_summaries),
         "feature_axes": axes,
+        "stability_axes": stability_axes,
         "headline_gaps": headline_gaps,
         "evidence_summary": {
             "generic_human_bot_axes": generic_gaps,
             "candidate_player_style_axes": candidate_axes,
             "reference_only_candidate_axes": reference_only_axes,
+            "repeated_candidate_style_axes": repeated_candidate_axes,
+            "repeated_reference_only_candidate_axes": repeated_reference_only_axes,
             "axis_interpretations": interpretations,
         },
         "stop_condition_triggered": stop_condition_triggered,
@@ -394,9 +514,17 @@ def build_signature_report(
             "Land-speed gaps stay visible so player-specific work does not hide the unresolved bunnyhop/high-speed deficit.",
         ],
         "next_goal": (
-            "S7b should broaden exact-player movement references before controller work: add repeated dm3 samples "
-            "for Milton/carapace/yeti where available, then rerun this signature scaffold to separate stable player "
-            "style from one-match noise and the generic S3g land-speed gap."
+            (
+                "S7b should broaden exact-player movement references before controller work: add repeated dm3 samples "
+                "for Milton/carapace/yeti where available, then rerun this signature scaffold to separate stable player "
+                "style from one-match noise and the generic S3g land-speed gap."
+            )
+            if stop_condition_triggered
+            else (
+                "S7c should make the surviving repeated axes bot-comparable and controller-relevant: add bot-side "
+                "cadence/tempo metrics to the S3g summaries, then decide whether low-speed/cadence warrant "
+                "player-style targets or whether more exact-player references are needed."
+            )
         ),
     }
 
@@ -470,6 +598,29 @@ def write_markdown(report: dict[str, object], output_path: Path) -> None:
             f"{format_comparison_value(field, reference.get('spread'))} | "
             f"`{relation.get('relation', 'reference_only')}` | "
             f"`{axis.get('interpretation', '')}` |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Repeated-Player Stability",
+            "",
+            "| Metric | Repeated players | Between-player mean spread | Max within-player spread | Separation ratio | Stability interpretation |",
+            "|---|---:|---:|---:|---:|---|",
+        ]
+    )
+    for axis in report.get("stability_axes", []):
+        field = str(axis.get("field", ""))
+        separation_ratio = axis.get("separation_ratio")
+        ratio_text = f"{float(separation_ratio):.2f}" if separation_ratio is not None else ""
+        lines.append(
+            "| "
+            f"{axis.get('label', field)} | "
+            f"{axis.get('repeated_player_count', 0)} | "
+            f"{format_comparison_value(field, axis.get('between_player_mean_spread'))} | "
+            f"{format_comparison_value(field, axis.get('max_within_player_spread'))} | "
+            f"{ratio_text} | "
+            f"`{axis.get('stability_interpretation', '')}` |"
         )
 
     lines.extend(["", "## Headline Land-Speed Gaps", ""])

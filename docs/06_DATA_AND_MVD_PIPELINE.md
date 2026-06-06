@@ -238,6 +238,14 @@ S7a signature result:
 - Low-speed ratio is a thin candidate player-style axis, and jump cadence is a thin reference-only axis, but the current evidence is one demo per player.
 - Stop condition triggered: broaden exact-player references before any player-specific controller work.
 
+S7b repeated-reference result:
+
+- Selected and parsed one additional manifest-backed `dm3` demo each for `Milton`, `carapace`, and `yeti`.
+- Generated `experiments/human_comparison/evidence/human-reference-s7b-selection.*`, `human-reference-s7b-repeated-dm3-aggregate.*`, and `player-signatures-s7b-dm3.*`.
+- The six-row aggregate removes the single-demo stop condition but keeps avg/p95 as generic S3g-vs-human land-speed gaps.
+- Low-speed and airborne proxy are mixed/overlapping under repeated samples.
+- Jump cadence is the only repeated reference-only candidate axis, so S7c should make cadence/tempo bot-comparable before controller work.
+
 S6a result:
 
 - Added `scripts/diagnose_route_state.py`.
@@ -541,12 +549,18 @@ s6f-route-edge-geometry, static dm3.bot edge audit:
 
 s7a-player-signatures-dm3, exact-player signature scaffold:
   avg and p95 are still generic S3g-vs-human land-speed gaps; low-speed and cadence are possible but single-demo-thin style axes. Stop condition triggered: broaden exact-player references before controller work.
+
+s7b-repeated-elite-dm3, repeated exact-player dm3 references:
+  selected one additional manifest-backed dm3 demo each for Milton, carapace, and yeti from Turso player_games/games metadata plus the existing servexeri corpus manifest. The three local copies were SHA-256 verified before parsing. The aggregate now has six reference rows, while raw demos/events remain ignored under artifacts/human-demos/.
+
+s7b-player-signatures-dm3, repeated-player stability scaffold:
+  avg and p95 stay generic S3g-vs-human land-speed gaps. Low-speed and airborne proxy are mixed/overlapping under repeated samples. Jump cadence is the only repeated reference-only candidate axis, but S3g bot summaries do not yet carry that metric.
 ```
 
 ## Open questions
 
 - Can/should the current `events.txt` kind `5` position stream remain canonical for first-pass movement metrics?
-- Can `qw-sim` already compute all required movement metrics?
-- Where will human reference MVDs live?
+- Can `qw-sim` already compute all required movement metrics, especially cadence/tempo metrics that S7b now needs on the bot side?
+- Where will broader human reference MVDs live if S7 needs more than two demos per target?
 - How should generated MVD artifacts be stored without bloating Git?
 - Can bot experiments be made deterministic enough for regression testing?

@@ -13,7 +13,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import run_frobodm2_lab
-from extract_movement_metrics import compute_movement_metrics, compute_slot_metrics, percentile, summarize_airborne_proxy
+from extract_movement_metrics import (
+    compute_movement_metrics,
+    compute_slot_metrics,
+    percentile,
+    summarize_airborne_proxy,
+    weighted_speed_for_window,
+    weighted_speed_for_window_slow,
+)
 
 
 THRESHOLDS = {
@@ -99,6 +106,19 @@ class MovementMetricsTests(unittest.TestCase):
         self.assertAlmostEqual(metrics["avg_landing_post_speed_qu_per_s"], 320.0)
         self.assertAlmostEqual(metrics["avg_post_landing_speed_delta_qu_per_s"], -80.0)
         self.assertAlmostEqual(metrics["avg_post_landing_speed_loss_ratio"], 0.2)
+
+    def test_indexed_weighted_speed_matches_slow_window_scan(self) -> None:
+        segments = [
+            {"start_ms": 0, "end_ms": 100, "horizontal_speed_qu_per_s": 100.0},
+            {"start_ms": 150, "end_ms": 300, "horizontal_speed_qu_per_s": 300.0},
+            {"start_ms": 300, "end_ms": 500, "horizontal_speed_qu_per_s": 500.0},
+        ]
+
+        for start_ms, end_ms in [(0, 100), (50, 250), (100, 150), (225, 425), (600, 700)]:
+            self.assertEqual(
+                weighted_speed_for_window(segments, start_ms, end_ms),
+                weighted_speed_for_window_slow(segments, start_ms, end_ms),
+            )
 
     def test_airborne_proxy_landing_speed_loss_ratio_is_mean_of_per_landing_ratios(self) -> None:
         segments = [
