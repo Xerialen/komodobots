@@ -306,3 +306,28 @@ a guardrail and deferred narrow route target because it is very slow but
 bot-only and route-diagnostic. S7i should design a tiny probe that keeps cadence
 diagnostic, retains route diagnostics, and rejects all-segment speed gains if
 air-transition buckets or `WATER_PATH` context get worse.
+
+## Current S7i Result
+
+S7i turns the S7h target into a design-only probe contract:
+
+```text
+experiments/human_comparison/evidence/air-transition-probe-design-s7i-dm3.json
+experiments/human_comparison/evidence/air-transition-probe-design-s7i-dm3.md
+```
+
+The proposed follow-up probe id is
+`s7i-mode8-air-transition-horizontal-speed`. S7i does not change KTX or
+Frogbot behavior. The next implementation must start from mode `7`, change only
+horizontal command budget during takeoff/air-transition windows, keep cadence
+diagnostic, and preserve route/water logging.
+
+Required post-probe reporting:
+
+- pre-air, airborne, post-air, and non-airborne segment p50s,
+- route low-dir-speed and `WATER_PATH` p50s,
+- active, non-low-speed, and airborne-proxy cadence.
+
+Stop conditions reject all-segment speed gains if air-transition buckets do not
+improve, if non-airborne or `WATER_PATH` context regresses, or if cadence/route
+reporting disappears.

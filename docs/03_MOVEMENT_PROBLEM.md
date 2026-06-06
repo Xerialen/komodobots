@@ -392,6 +392,28 @@ Result:
 
 Interpretation: the first controller probe should target air-transition horizontal speed production, not generic all-segment speed, cadence, or a route-only primitive. The route `WATER_PATH` gap remains important, but it should be monitored as a guardrail and deferred narrow target unless the air-transition probe fails or makes route context worse.
 
+## S7i Air-Transition Probe Design
+
+S7i did not rerun the lab and did not change KTX/Frogbot movement behavior. It added `scripts/design_air_transition_probe.py`, consumed the committed S7g land-speed evidence, S7h target decision, and S7e cadence evidence, then generated `experiments/human_comparison/evidence/air-transition-probe-design-s7i-dm3.*`.
+
+Result:
+
+- Probe id: `s7i-mode8-air-transition-horizontal-speed`.
+- Status: `design_only_no_controller_behavior_changed`.
+- The follow-up implementation must start from moveprobe mode `7` and change horizontal command budget only during takeoff/air-transition windows.
+- It must keep combat view yaw, route projection, no-backpedal folding, command bounding outside the transition window, jump-button policy, route logging, water logging, and cadence reporting unchanged.
+- Required post-probe reporting includes pre-air, airborne, post-air, non-airborne, route low-dir-speed, `WATER_PATH`, and cadence axes.
+
+Stop conditions:
+
+- Reject all-segment speed gains when none of the air-transition buckets improve.
+- Reject any required air-transition bucket p50 drop greater than `5%` versus S7g.
+- Reject non-airborne p50 drops greater than `5%` versus S7g.
+- Reject or mark inconclusive if `WATER_PATH` gets worse or route/WATER_PATH diagnostics disappear.
+- Keep cadence diagnostic; do not claim success from cadence shifts.
+
+Interpretation: S7i turns the S7h decision into a reviewable contract before controller code. The next useful branch is S7j: implement and run the tiny air-transition probe only if the patch preserves this contract.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.
