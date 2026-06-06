@@ -27,6 +27,14 @@ DEFAULT_BOT_SUMMARY = REPO_ROOT / "experiments" / "ktx_moveprobe" / "evidence" /
 REFERENCE_FIELDS = COMPARISON_FIELDS + (("jump_cadence_per_min", "Cadence/min"),)
 
 
+def portable_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
 def parse_target_arg(value: str) -> tuple[str, Path]:
     target, separator, path = value.partition("=")
     if not separator or not target.strip() or not path.strip():
@@ -54,7 +62,7 @@ def compact_reference_row(target: str, summary_path: Path) -> dict[str, object]:
     row = {
         "target_player": target,
         "matched_player": player.get("name", ""),
-        "summary_path": str(summary_path),
+        "summary_path": portable_path(summary_path),
         "run_id": summary.get("run_id", ""),
         "demo": demo.get("name", ""),
         "sha256": demo.get("sha256", ""),
@@ -135,7 +143,7 @@ def build_aggregate(
         "targets": [target for target, _path in targets],
         "reference_rows": map_matched_rows,
         "excluded_reference_rows": [row for row in reference_rows if str(row.get("map", "")) != map_name],
-        "bot_summary_path": str(bot_summary_path),
+        "bot_summary_path": portable_path(bot_summary_path),
         "bot_rows": bot_rows,
         "ranges": ranges,
         "bot_comparison": bot_comparison,

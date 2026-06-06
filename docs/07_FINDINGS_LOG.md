@@ -1672,6 +1672,8 @@ Artifacts:
 - `experiments/human_comparison/evidence/human-reference-s5b-aggregate.md`
 - `experiments/human_comparison/evidence/human-reference-s5b-aggregate.json`
 
+The committed aggregate records repo-local input paths as forward-slash repo-relative paths. This keeps regenerated evidence portable across developer workspaces.
+
 ### Interpretation
 
 S5b is a stronger anchor than S5a because it avoids making one Milton match the whole target. It still remains deliberately tiny.

@@ -5,7 +5,7 @@
 - Map: `dm3`
 - Reference rows: `3`
 - Targets: `Milton, carapace, yeti`
-- Bot summary: `C:\Users\benya\projects\quakeworld\komodobots\experiments\ktx_moveprobe\evidence\moveprobe-s3g-summary.json`
+- Bot summary: `experiments/ktx_moveprobe/evidence/moveprobe-s3g-summary.json`
 
 - Tiny exact-player reference aggregate; useful for movement-range anchoring, not a player-style model.
 - Reference rows are selected by metadata before parsing; raw demos and events remain outside Git.

@@ -202,6 +202,7 @@ Promote S5b as a tiny reference aggregate before S6 route primitives: select a s
 S5b result:
 
 - Added `scripts/summarize_reference_aggregate.py` to combine exact-player human summaries into compact reference ranges and compare same-map S3g bot rows.
+- S5b aggregate evidence records in-repo input paths as repo-relative forward-slash paths, so regenerated JSON/Markdown does not preserve a developer-specific workspace root.
 - Selected three exact-player `dm3` references by metadata, with no hub download and no bulk content scan:
   - `Milton`: `4on4_blue_vs_anza[dm3]20260602-2022.mvd`
   - `carapace`: `4on4_book_vs_-s-[dm3]20260526-2011.mvd`

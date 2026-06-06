@@ -38,6 +38,14 @@ def write_summary(path: Path, *, run_id: str, demo: str, player: str, avg: float
 
 
 class ReferenceAggregateTests(unittest.TestCase):
+    def test_portable_path_serializes_repo_paths_relative(self) -> None:
+        path = REPO_ROOT / "experiments" / "ktx_moveprobe" / "evidence" / "moveprobe-s3g-summary.json"
+
+        self.assertEqual(
+            summarize_reference_aggregate.portable_path(path),
+            "experiments/ktx_moveprobe/evidence/moveprobe-s3g-summary.json",
+        )
+
     def test_build_aggregate_classifies_bot_rows_against_reference_range(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
