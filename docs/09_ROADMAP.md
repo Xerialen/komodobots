@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S7m - Implement and run a context-gated air-transition probe`
+`QWD-DM3-SNG - Implement the bounded QWD-derived SNG hybrid server-loop probe`
 
 ## Stage Status Table
 
@@ -49,7 +49,8 @@ Current active stage:
 | S4 Human Comparison | First same-map anchor complete | S4c parsed one human `dm3` 4on4 demo and compared it against S3g `dm3`; S3g is not yet human-like on the observed movement ranges |
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
 | S6 Route Primitives | Closed for now | S6f found `276->59` is explicit and reciprocal, but marker `276` lacks static geometry, so no tiny route-data fix is justified from `dm3.bot` alone |
-| S7 Player Specific | Active | S7l found enough clean air-transition evidence for one narrower Frogbots probe, but route-dirty slices must stay guardrails; S7m should implement and run the context-gated probe |
+| S7 Player Specific | Paused behind QWD decision track | S7l found enough clean air-transition evidence for one narrower Frogbots probe, but the QWD action/trajectory bridge is now the faster Frogbots-vs-from-scratch decision path |
+| QWD DM3 Route Transfer | Active | The first SNG mapping and design gates support one temporary hybrid waypoint/controller server-loop probe before expanding to other DM3 QWD moves |
 
 ## Roadmap Rule
 
@@ -109,3 +110,5 @@ S7l designed the context-gated probe without another lab rerun or controller cha
 The QWD trajectory route applicability probe is a parallel Frogbots-vs-from-scratch decision signal, not a replacement for S7l. It paired exact human commands with anchored self trajectory for all `29` local `dm3_*.qwd` trick demos (`22,749` paired frames, coverage min/p50 `1.000`, `29` route candidates at `64` qu spacing). This suggests a human-derived route/controller evidence path exists before abandoning KTX/Frogbots, but it still needs semantic mapping against `dm3.bot` and a controlled server-loop execution probe before claiming Frogbot applicability.
 
 The first QWD-to-Frogbot mapping used `dm3_sng_shortcut.qwd`. The human trajectory is close to existing static Frogbot markers (nearest-marker p50/p95/max `70.112` / `120.324` / `142.597` qu; `0.939` within `128` qu), but collapsed human marker transitions have `0.0` direct `.bot` edge coverage and require multi-edge graph paths (p50/p95/max `5.0` / `15.8` / `17.0` edges). Because the QWD action labels are side-move dominant (`0.718` nonzero side vs `0.089` nonzero forward), the next QWD branch should be a hybrid waypoint/controller probe, not a pure `dm3.bot` route-following or route-editing probe.
+
+The QWD SNG hybrid probe design turns that mapping into a bounded server-loop contract without changing KTX behavior yet. It preserves `14` QWD control points, proposes temporary mode `9`, recommends waypoint-attraction `forwardmove=320` plus QWD-style `sidemove=508`, forbids `dm3.bot` mutation, and requires route/water/command/probe/cadence/movement diagnostics. The next QWD branch should implement and run that mode, then decide whether positive SNG evidence justifies trying the remaining DM3 QWD moves.

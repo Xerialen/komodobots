@@ -96,3 +96,14 @@ The QWD trajectory/action path is now a meaningful keep-Frogbots signal, but not
 - QWD commands are side-move dominant: nonzero side `0.718`, nonzero forward `0.089`
 
 Interpretation: Frogbots still look useful as the server-native shell and spatial context provider, but the first QWD-derived movement test should be a hybrid waypoint/controller probe. Pure route-following or `.bot` mutation would throw away the human command signal and overtrust route topology that does not match the shortcut.
+
+The first design gate for that hybrid probe is now written in `experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-design-dm3.*`:
+
+- preserve the `14` QWD SNG control points
+- use a temporary KTX moveprobe mode, likely `9`
+- activate only near the first SNG control point on `dm3`
+- use waypoint attraction plus the QWD side-dominant command profile (`forwardmove=320`, `sidemove=508`)
+- preserve route, water, command, probe-activation, cadence, and movement-bucket diagnostics
+- reject or mark inconclusive any run that reaches points only through slow/stuck movement or loses diagnostics
+
+Decision status: continue Frogbots for one bounded QWD SNG runtime probe. If that produces positive server-loop evidence, expand the method to the remaining DM3 QWD moves. If it requires invasive route rewrites or cannot preserve diagnostics, the from-scratch option becomes stronger.
