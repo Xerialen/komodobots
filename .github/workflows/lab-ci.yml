@@ -5,6 +5,11 @@ name: Lab CI
 # movement metrics back on the PR. This is how Codex gets an autonomous lab
 # feedback loop WITHOUT any SSH/host access — it only ever touches the repo.
 
+# Manual-only for now: this lab runs on the self-hosted `servexeri` runner and
+# is intended for the (not-yet-tried) Codex Cloud feedback loop. The pull_request
+# trigger was disabled on 2026-06-06 so it stops failing on every PR while the
+# native parser work is still open. Re-add the `pull_request:` block below to
+# restore automatic per-PR runs once the lab step passes natively.
 on:
   workflow_dispatch:
     inputs:
@@ -17,11 +22,6 @@ on:
       bot_count:
         description: "Number of bots"
         default: "2"
-  pull_request:
-    paths:
-      - "scripts/**"
-      - "experiments/**"
-      - "engine/**"
 
 concurrency:
   group: lab-ci-${{ github.ref }}
