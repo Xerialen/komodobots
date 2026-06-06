@@ -688,3 +688,55 @@ The lab now has a true DM2 human reference and a reasoned next step. S4c should 
 ### Revisit Conditions
 
 Revisit if a DM2 Frogbot route appears, if a better server-native bot path can generate DM2 bot evidence quickly, or if a human `dm3` corpus sample fails to parse through the current scaffold.
+
+---
+
+## Decision
+
+Treat S4c as the first same-map anchor, not as proof that S3g is human-like.
+
+### Date
+
+2026-06-06
+
+### Decision
+
+S4c resolves the immediate map mismatch by comparing S3g `dm3` against a human `dm3` 4on4 sample from the existing `servexeri` corpus.
+
+The result should move the project forward to S5a Milton/elite reference-set inventory, not back into movement-command tuning. S3g remains the best current S3 movement-literacy candidate, but the human comparison shows it is not yet a believable movement model.
+
+### Alternatives Considered
+
+- Treat S3g as human-like because it passed the project-defined S3 gate.
+- Tune mode `7` immediately against the S4c p95/average-speed gap.
+- Collect more random human `dm3` demos before changing stages.
+- Return to the DM2 path by adding/finding a Frogbot `dm2` route first.
+
+### Evidence
+
+S4c selected `4on4_blue_vs_red[dm3]20260426-0307.mvd` from the existing `servexeri` 4on4 corpus:
+
+- Manifest rows: `6409`.
+- Exact `[dm3]` rows: `1663`.
+- `4on4_` exact `[dm3]` rows: `1629`.
+- Cleanish 4on4 DM3 rows after excluding `tmp` and missing files: `1247`.
+- Moderate-size 2026 cleanish 4on4 DM3 rows: `444`.
+- Selected file hash/size: `6897a00a4c185751ac82c579c091437cc5b82701df14cc2178da4792924ad4fe`, `7632722` bytes.
+- Parsed as `dm3` / `The Abandoned Base`, duration `729226` ms, with eight active 4on4 movement rows.
+
+Same-map S3g comparison:
+
+- Human average speed range: `235.4` to `333.5` qu/s; S3g bot range: `190.1` to `248.2`.
+- Human p95 speed range: `390.5` to `515.2` qu/s; S3g bot range: `361.0` to `375.3`.
+- `/ bro` is below the human average and p95 speed ranges and above the human airborne-proxy range.
+- `/ goldenboy` is inside the human average-speed range but below the human p95 speed range.
+
+### Expected Consequences
+
+The lab now has enough S4 evidence to stop using self-defined movement gates as the only plausibility anchor. S5a should identify an elite or Milton-specific reference set, starting from existing local/corpus metadata and the no-hub-mass-download constraint.
+
+S3 command/controller work should resume only when the human/elite reference set points to a concrete missing behavior, not simply because one bot metric is below a single human sample.
+
+### Revisit Conditions
+
+Revisit if S5a cannot identify any defensible elite or Milton reference candidates, if the current corpus lacks metadata sufficient for player-specific selection, or if Claude recommends expanding S4 with a small multi-demo `dm3` human range before moving to S5.

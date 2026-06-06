@@ -68,8 +68,8 @@ Interpretation: the final command can be perturbed and directly observed. The st
 
 ## Future phases
 
-- Bunnyjump controller experiments: S3g mode `7` is the current best movement-literacy candidate. It preserves combat yaw, removes sampled backward commands, passes both routed maps, and bounds sampled horizontal command magnitude near `824.6`. Do not add more command heuristics until a human-demo comparison anchors the gate.
-- Human-demo comparisons: next as S4a. Inventory candidate MVDs, parse at least one human demo through the movement pipeline, and record whether a real DM2 comparison set is locally present or missing.
+- Bunnyjump controller experiments: S3g mode `7` is the current best movement-literacy candidate. It preserves combat yaw, removes sampled backward commands, passes both routed maps, and bounds sampled horizontal command magnitude near `824.6`. Do not add more command heuristics until human/elite reference evidence points to a specific missing behavior.
+- Human-demo comparisons: S4c now provides a first same-map `dm3` human anchor for S3g and shows S3g is still below the human p95 speed range. The next data step is S5a: inventory or select a Milton/elite movement reference set before training or player-specific modelling.
 - Route primitives.
 - Rocket-jump behaviour.
 - Player-specific movement models.

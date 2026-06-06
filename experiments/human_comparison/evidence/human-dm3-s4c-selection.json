@@ -1,0 +1,33 @@
+{
+  "schema": "komodobots.human_dm3_selection.v1",
+  "stage": "s4c-dm3",
+  "source": {
+    "host": "servexeri",
+    "manifest": "/mnt/usb-ssd/4on4-corpus/manifest.tsv",
+    "demo_root": "/mnt/usb-ssd/4on4-corpus/demos",
+    "vault_note": "thevault/quakeworld/mvds.md says to avoid mass-downloads from hub.quakeworld.nu and prefer this existing corpus."
+  },
+  "remote_inventory_counts": {
+    "manifest_rows": 6409,
+    "dm3_rows": 1663,
+    "four_on_four_dm3_rows": 1629,
+    "cleanish_four_on_four_dm3_rows": 1247,
+    "moderate_2026_cleanish_four_on_four_dm3_rows": 444
+  },
+  "selection_criteria": [
+    "existing corpus file, no hub download",
+    "basename starts with 4on4_",
+    "basename contains exact [dm3] token",
+    "basename does not contain tmp",
+    "file exists under the corpus demo root",
+    "single moderate-size 2026 demo for the first same-map parse"
+  ],
+  "selected_demo": {
+    "sha256": "6897a00a4c185751ac82c579c091437cc5b82701df14cc2178da4792924ad4fe",
+    "size_bytes": 7632722,
+    "basename": "4on4_blue_vs_red[dm3]20260426-0307.mvd",
+    "source": "servexeri",
+    "remote_path": "/mnt/usb-ssd/4on4-corpus/demos/4on4_blue_vs_red[dm3]20260426-0307.mvd",
+    "local_artifact_path": "artifacts/human-demos/source/4on4_blue_vs_red[dm3]20260426-0307.mvd"
+  }
+}

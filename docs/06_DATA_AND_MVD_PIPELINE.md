@@ -159,6 +159,21 @@ Next S4 comparison step:
 
 Before making a S3g-vs-human realism claim, either produce S3g-style bot evidence on DM2 or parse map-matched human `dm3` data from the same corpus. Because stock `dm2` currently lacks a Frogbot route file, the smallest useful comparison is likely one human `dm3` 4on4 demo matched against the existing S3g `dm3` bot run.
 
+S4c result:
+
+- Selected `4on4_blue_vs_red[dm3]20260426-0307.mvd` from the same existing `servexeri` corpus; no hub download.
+- Exact `[dm3]` inventory counts: `6409` manifest rows, `1663` `[dm3]` rows, `1629` `4on4_` `[dm3]` rows, `1247` cleanish existing 4on4 `[dm3]` rows, and `444` moderate-size cleanish 2026 rows.
+- Manifest SHA-256/size matched the local artifact: `6897a00a4c185751ac82c579c091437cc5b82701df14cc2178da4792924ad4fe`, `7632722` bytes.
+- Parsed run `s4c-dm3-blue-vs-red-20260426-0307` as `dm3` / `The Abandoned Base`.
+- Parser exits: `json=0`, `md=0`, `events=1`; event count: `477099`; position events: `432058`.
+- Active movement rows: eight 4on4 players with match-duration clamped active times around `728` s.
+- Comparison verdict: `same_map_human_reference_available`.
+- Against this single human `dm3` sample, S3g `dm3` bots are not yet a human-like movement match: `/ bro` is below the human range for average and p95 speed, `/ goldenboy` is only inside the human average-speed range, both bots are below the human p95 range, and `/ bro` exceeds the human airborne-proxy range.
+
+Next S5 data step:
+
+Build a Milton/elite reference-set inventory before training or controller changes. Use existing local/corpus metadata first, preserve the no-hub-mass-download rule, and decide whether the current corpus can identify player-specific reference demos without a costly content scan.
+
 ## Bot-generated MVD loop
 
 Target loop:

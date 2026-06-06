@@ -39,3 +39,23 @@ The first selected demo is:
 It parses as `dm2` / `Claustrophobopolis` and produces eight active 4on4 player
 movement rows. This gives S4 a true-DM2 human reference file, but it is still not
 map-matched to S3g because S3g evidence is on `dm3` and `frobodm2`.
+
+## Current S4c Result
+
+S4c selects one map-matched human `dm3` 4on4 demo from the same existing
+`servexeri` corpus:
+
+```text
+4on4_blue_vs_red[dm3]20260426-0307.mvd
+```
+
+It parses as `dm3` / `The Abandoned Base` and produces eight active 4on4 player
+movement rows. The summary compares that human range against the existing S3g
+`dm3` bot run `20260606T003718Z`.
+
+This is the first direct same-map S3g-vs-human movement anchor, but it is not a
+realism verdict. In this single sample, S3g is weaker than the human reference on
+p95 speed for both bots; `/ bro` is also below the human average-speed range and
+above the human airborne-proxy range. The next step should build a Milton/elite
+reference-set inventory before training, player-specific modelling, or more
+movement-command heuristics.

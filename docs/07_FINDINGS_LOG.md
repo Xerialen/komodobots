@@ -1386,3 +1386,113 @@ Low for any S3g-vs-human comparison until maps are matched or bot evidence exist
 ### Follow-up
 
 Ask Claude to review S4b. Proposed S4c: resolve the map mismatch before making realism claims. Since stock `dm2` lacks a Frogbot route file, the smallest useful next comparison is likely to select and parse one human `dm3` 4on4 demo from the same corpus, then compare its movement summary against the existing S3g `dm3` bot run. If Claude prefers preserving the S4 DM2 path instead, the alternative is to generate DM2 bot evidence by adding/finding a real DM2 route or another server-native bot path.
+
+## 2026-06-06 - S4c Map-Matched Human DM3 Comparison
+
+### Experiment
+
+Selected one human `dm3` 4on4 MVD from the existing `servexeri` corpus and compared it against the existing S3g `dm3` bot summary.
+
+Remote corpus:
+
+```text
+servexeri:/mnt/usb-ssd/4on4-corpus/manifest.tsv
+servexeri:/mnt/usb-ssd/4on4-corpus/demos/
+```
+
+Selection filters:
+
+- Existing corpus file; no hub download.
+- Basename starts with `4on4_`.
+- Basename contains exact `[dm3]`.
+- Basename does not contain `tmp`.
+- File exists under the corpus demo root.
+- Single moderate-size 2026 demo for the first same-map parse.
+
+Selected:
+
+```text
+4on4_blue_vs_red[dm3]20260426-0307.mvd
+```
+
+Ran:
+
+```bash
+python scripts/analyze_human_mvd.py --demo-root artifacts/human-demos/source --artifact-root artifacts/human-demos/s4c --stage s4c-dm3 --demo 4on4_blue_vs_red[dm3]20260426-0307.mvd --run-id s4c-dm3-blue-vs-red-20260426-0307
+```
+
+### Result
+
+Corpus inventory:
+
+- Manifest rows: `6409`.
+- Exact `[dm3]` rows: `1663`.
+- `4on4_` exact `[dm3]` rows: `1629`.
+- Cleanish 4on4 DM3 rows after excluding `tmp` and missing files: `1247`.
+- Moderate-size 2026 cleanish 4on4 DM3 rows: `444`.
+
+Selected demo verification:
+
+- Manifest SHA-256: `6897a00a4c185751ac82c579c091437cc5b82701df14cc2178da4792924ad4fe`.
+- Manifest size: `7632722` bytes.
+- Local transferred artifact matched the manifest hash and size.
+
+Parsed demo:
+
+- Run id: `s4c-dm3-blue-vs-red-20260426-0307`.
+- Parser exits: `json=0`, `md=0`, `events=1`.
+- Event count: `477099`; position events: `432058`.
+- Match title/map: `The Abandoned Base` / `dm3`.
+- Duration: `729226` ms.
+- Active movement rows: eight 4on4 players.
+- Ignored named slots: `0`.
+- Comparison verdict: `same_map_human_reference_available`.
+
+Human movement range versus S3g `dm3` bot run `20260606T003718Z`:
+
+| Metric | Human min | Human mean | Human max | Bot min | Bot mean | Bot max |
+|---|---:|---:|---:|---:|---:|---:|
+| Avg | 235.4 | 285.5 | 333.5 | 190.1 | 219.2 | 248.2 |
+| P95 | 390.5 | 482.3 | 515.2 | 361.0 | 368.1 | 375.3 |
+| Stationary | 3.5% | 9.8% | 21.1% | 0.4% | 1.5% | 2.5% |
+| Low | 9.1% | 16.7% | 28.6% | 18.9% | 22.5% | 26.1% |
+| Air | 21.9% | 29.4% | 39.6% | 24.8% | 34.5% | 44.2% |
+
+Bot rows versus the human range:
+
+| Bot | Avg range | P95 range | Stationary range | Low range | Air range |
+|---|---|---|---|---|---|
+| `/ bro` | `below_human_min` | `below_human_min` | `below_human_min` | `within_human_range` | `above_human_max` |
+| `/ goldenboy` | `within_human_range` | `below_human_min` | `below_human_min` | `within_human_range` | `within_human_range` |
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/human-demos/s4c/human-demo-inventory.md`
+- `artifacts/human-demos/s4c/human-demo-s4c-dm3-summary.md`
+- `artifacts/human-demos/s4c/s4c-dm3-blue-vs-red-20260426-0307/movement-metrics.md`
+- `experiments/human_comparison/evidence/human-dm3-s4c-selection.md`
+- `experiments/human_comparison/evidence/human-dm3-s4c-selection.json`
+- `experiments/human_comparison/evidence/human-dm3-s4c-inventory.md`
+- `experiments/human_comparison/evidence/human-dm3-s4c-inventory.json`
+- `experiments/human_comparison/evidence/human-dm3-s4c-summary.md`
+- `experiments/human_comparison/evidence/human-dm3-s4c-summary.json`
+
+### Interpretation
+
+S4c resolves the immediate S3g map mismatch: there is now a same-map human `dm3` reference compared against the S3g `dm3` bot run.
+
+It does not prove S3g is human-like. The descriptive comparison says the current gate was too weak: both S3g bots are below the human p95 speed range, `/ bro` is also below the human average-speed range, and `/ bro` is above the human airborne-proxy range. Mode `7` remains useful movement-literacy evidence, but not a believable movement model.
+
+### Confidence
+
+High for the selected file provenance, parser result, and same-map comparison mechanics.
+
+Medium for the specific movement-range interpretation because this is one human 4on4 demo and one S3g bot run.
+
+Low for any general player-realism claim until the lab has a broader elite or player-specific reference set.
+
+### Follow-up
+
+Ask Claude to review S4c. Proposed S5a: build a Milton/elite movement reference-set inventory. Use existing corpus and local metadata first, keep the no-hub-mass-download rule, identify whether the current data can find Milton or other elite reference demos without training or a costly full content scan, and parse one small defensible reference sample if available.

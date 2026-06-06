@@ -1,0 +1,33 @@
+{
+  "demo_count": 2,
+  "demos": [
+    {
+      "demo_kind": "4on4",
+      "inferred_map": "dm2",
+      "name": "4on4_blue_vs_red[dm2]20260228-0512.mvd",
+      "path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\source\\4on4_blue_vs_red[dm2]20260228-0512.mvd",
+      "relative_path": "4on4_blue_vs_red[dm2]20260228-0512.mvd",
+      "sha256": "f8269d8139b129426b569eaf6b2be278964d740bd0365647f4410db74da76585",
+      "size_bytes": 8624854
+    },
+    {
+      "demo_kind": "4on4",
+      "inferred_map": "dm3",
+      "name": "4on4_blue_vs_red[dm3]20260426-0307.mvd",
+      "path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\source\\4on4_blue_vs_red[dm3]20260426-0307.mvd",
+      "relative_path": "4on4_blue_vs_red[dm3]20260426-0307.mvd",
+      "sha256": "6897a00a4c185751ac82c579c091437cc5b82701df14cc2178da4792924ad4fe",
+      "size_bytes": 7632722
+    }
+  ],
+  "dm2_candidate_count": 1,
+  "has_dm2_candidate": true,
+  "map_inference_method": "filename_token_heuristic",
+  "maps": [
+    "dm2",
+    "dm3"
+  ],
+  "recursive": false,
+  "root": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\source",
+  "schema": "komodobots.human_mvd_inventory.v1"
+}

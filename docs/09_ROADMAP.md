@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`S4c - Map-matched human comparison for S3g`
+`S5a - Milton/elite movement reference inventory`
 
 ## Stage Status Table
 
@@ -46,8 +46,8 @@ Current active stage:
 | S1 Baseline | Complete | Measured current Frogbot movement with speed and airborne-proxy metrics |
 | S2 Override | Provisionally satisfied pending review | Route-yaw mode `3` passed explicit v2c command/plausibility gates on `frobodm2` and `dm3` |
 | S3 Bunnyjump Controller | Provisionally satisfied pending human anchor | S3g mode `7` passed `dm3` and `frobodm2` while preserving combat yaw, removing backward commands, and bounding sampled command magnitude near `824.6` |
-| S4 Human Comparison | Active | S4b parsed one true human `dm2` 4on4 demo; S4c must resolve the map mismatch before judging S3g |
-| S5 Milton Reference | Pending | Elite movement reference dataset |
+| S4 Human Comparison | First same-map anchor complete | S4c parsed one human `dm3` 4on4 demo and compared it against S3g `dm3`; S3g is not yet human-like on the observed movement ranges |
+| S5 Milton Reference | Active | Inventory/select an elite or Milton-specific movement reference set without mass-downloading from hub |
 | S6 Route Primitives | Pending | Route-level movement behaviours |
 | S7 Player Specific | Pending | Player-style movement models |
 
@@ -64,4 +64,6 @@ Mode `3` and mode `4` deliberately commandeer view yaw to align movement with Fr
 
 S3c validated `sidemove=200` as a repeatable route-yaw strafe candidate on `frobodm2` and `dm3`, but mode `3` and mode `4` still commandeer aim. S3d mode `5` then emitted aim-independent route/strafe commands, but behavior split. S3e diagnostics showed route-vs-view yaw deltas and backward local commands are plausible contributors, especially for `/ bro` on `dm3`, but not a complete explanation. S3f mode `6` removed backward commands and passed both routed maps, but did so with very large folded side commands. S3g mode `7` bounded those commands and passed both routed maps.
 
-S4a built the human-demo parser scaffold and parsed one local `aerowalk` duel, but found no local true `dm2` candidate. S4b selected and parsed one true human `dm2` 4on4 demo from the existing `servexeri` corpus, but S3g bot evidence is on `dm3` and `frobodm2`. The next branch is S4c map-matched human comparison before any S3g realism claim or larger controller work.
+S4a built the human-demo parser scaffold and parsed one local `aerowalk` duel, but found no local true `dm2` candidate. S4b selected and parsed one true human `dm2` 4on4 demo from the existing `servexeri` corpus, but S3g bot evidence is on `dm3` and `frobodm2`. S4c selected a same-map human `dm3` 4on4 sample and compared it against S3g `dm3`; this solved the map mismatch, but showed S3g is still weak versus the human range on p95 speed and partly on average speed.
+
+The next branch is S5a: inventory or select a Milton/elite movement reference set before any training, player-specific modelling, or more movement-command heuristics.

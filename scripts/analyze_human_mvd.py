@@ -43,6 +43,14 @@ MIN_ACTIVE_TIME_S = 1.0
 MIN_ACTIVE_SAMPLE_COUNT = 10
 MIN_HORIZONTAL_DISTANCE_QU = 100.0
 
+COMPARISON_FIELDS = (
+    ("avg_horizontal_speed_qu_per_s", "Avg"),
+    ("p95_horizontal_speed_qu_per_s", "P95"),
+    ("stationary_time_ratio", "Stationary"),
+    ("low_speed_time_ratio", "Low"),
+    ("airborne_proxy_time_ratio", "Air"),
+)
+
 MAP_TOKENS = (
     "frobodm2",
     "aerowalk",
@@ -274,6 +282,116 @@ def bot_summary_context(bot_summary_path: Path) -> dict[str, object]:
     }
 
 
+def compact_same_map_bot_players(bot_summary_path: Path, human_map: str) -> list[dict[str, object]]:
+    if not human_map:
+        return []
+    summary = load_json_if_present(bot_summary_path)
+    rows: list[dict[str, object]] = []
+    for run in summary.get("runs", []) if isinstance(summary, dict) else []:
+        if not isinstance(run, dict) or str(run.get("map", "")) != human_map:
+            continue
+        for player in run.get("players", []):
+            if not isinstance(player, dict):
+                continue
+            rows.append(
+                {
+                    "run_id": run.get("run_id", ""),
+                    "map": run.get("map", ""),
+                    "player": player.get("player", ""),
+                    "avg_horizontal_speed_qu_per_s": round_float(player.get("avg_horizontal_speed_qu_per_s")),
+                    "p95_horizontal_speed_qu_per_s": round_float(player.get("p95_horizontal_speed_qu_per_s")),
+                    "stationary_time_ratio": round_float(player.get("stationary_time_ratio")),
+                    "low_speed_time_ratio": round_float(player.get("low_speed_time_ratio")),
+                    "airborne_proxy_time_ratio": round_float(player.get("airborne_proxy_time_ratio")),
+                }
+            )
+    return rows
+
+
+def numeric_values(rows: list[dict[str, object]], field: str) -> list[float]:
+    values = []
+    for row in rows:
+        try:
+            values.append(float(row.get(field)))
+        except (TypeError, ValueError):
+            pass
+    return values
+
+
+def summarize_numeric_field(rows: list[dict[str, object]], field: str) -> dict[str, object]:
+    values = numeric_values(rows, field)
+    if not values:
+        return {"count": 0, "min": None, "mean": None, "max": None}
+    return {
+        "count": len(values),
+        "min": round_float(min(values)),
+        "mean": round_float(sum(values) / len(values)),
+        "max": round_float(max(values)),
+    }
+
+
+def classify_against_range(value: object, human_range: dict[str, object]) -> str:
+    if not human_range.get("count"):
+        return "no_human_range"
+    try:
+        number = float(value)
+        human_min = float(human_range.get("min"))
+        human_max = float(human_range.get("max"))
+    except (TypeError, ValueError):
+        return "unavailable"
+    if number < human_min:
+        return "below_human_min"
+    if number > human_max:
+        return "above_human_max"
+    return "within_human_range"
+
+
+def build_same_map_movement_comparison(
+    human_players: list[dict[str, object]],
+    bot_players: list[dict[str, object]],
+) -> dict[str, object]:
+    fields = []
+    human_ranges_by_field: dict[str, dict[str, object]] = {}
+    for field, label in COMPARISON_FIELDS:
+        human_summary = summarize_numeric_field(human_players, field)
+        bot_summary = summarize_numeric_field(bot_players, field)
+        human_ranges_by_field[field] = human_summary
+        fields.append(
+            {
+                "field": field,
+                "label": label,
+                "human": human_summary,
+                "bot": bot_summary,
+            }
+        )
+
+    bot_rows = []
+    for player in bot_players:
+        bot_rows.append(
+            {
+                "run_id": player.get("run_id", ""),
+                "player": player.get("player", ""),
+                "values": {field: player.get(field) for field, _label in COMPARISON_FIELDS},
+                "against_human_range": {
+                    field: classify_against_range(player.get(field), human_ranges_by_field[field])
+                    for field, _label in COMPARISON_FIELDS
+                },
+            }
+        )
+
+    return {
+        "available": bool(human_players and bot_players),
+        "human_player_count": len(human_players),
+        "bot_player_count": len(bot_players),
+        "fields": fields,
+        "bot_players": bot_rows,
+        "note": (
+            "Single-demo, same-map descriptive comparison only; it anchors S3g metrics "
+            "against human movement ranges but is not a realism verdict."
+        ),
+    }
+
+
 def comparison_verdict(human_map: str, bot_maps: list[str], has_dm2_candidate: bool) -> str:
     if not human_map:
         return "parser_proof_only_unknown_map"
@@ -316,6 +434,8 @@ def build_human_summary(
     bot_context = bot_summary_context(bot_summary_path)
     bot_maps = [str(value) for value in bot_context.get("maps", [])]
     same_map = bool(human_map and human_map in bot_maps)
+    movement_players = compact_player_metrics(metrics if isinstance(metrics, dict) else {})
+    same_map_bot_players = compact_same_map_bot_players(bot_summary_path, human_map) if same_map else []
     has_dm2_candidate = bool(inventory.get("has_dm2_candidate"))
     verdict = comparison_verdict(human_map, bot_maps, has_dm2_candidate)
 
@@ -347,7 +467,7 @@ def build_human_summary(
             "duration_ms": match.get("duration", "") if isinstance(match, dict) else "",
             "frag_count": len(analysis.get("frags", [])) if isinstance(analysis, dict) else 0,
         },
-        "movement_players": compact_player_metrics(metrics if isinstance(metrics, dict) else {}),
+        "movement_players": movement_players,
         "ignored_named_slots": compact_inactive_named_slots(metrics if isinstance(metrics, dict) else {}),
         "inventory": {
             "root": inventory.get("root", ""),
@@ -362,12 +482,27 @@ def build_human_summary(
             "verdict": verdict,
             "note": comparison_note(verdict),
         },
+        "same_map_movement_comparison": build_same_map_movement_comparison(
+            movement_players,
+            same_map_bot_players,
+        ),
     }
 
 
 def pct(value: object) -> str:
     try:
         return f"{float(value) * 100.0:.1f}%"
+    except (TypeError, ValueError):
+        return ""
+
+
+def format_comparison_value(field: str, value: object) -> str:
+    if value is None:
+        return ""
+    if field.endswith("_ratio"):
+        return pct(value)
+    try:
+        return f"{float(value):.1f}"
     except (TypeError, ValueError):
         return ""
 
@@ -440,6 +575,67 @@ def write_human_summary_markdown(summary: dict[str, object], output_path: Path) 
             "",
         ]
     )
+
+    movement_comparison = summary.get("same_map_movement_comparison", {})
+    if isinstance(movement_comparison, dict) and movement_comparison.get("available"):
+        lines.extend(
+            [
+                "## Same-Map Movement Comparison",
+                "",
+                str(movement_comparison.get("note", "")),
+                "",
+                "| Metric | Human min | Human mean | Human max | Bot min | Bot mean | Bot max |",
+                "|---|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for field_summary in movement_comparison.get("fields", []):
+            if not isinstance(field_summary, dict):
+                continue
+            field = str(field_summary.get("field", ""))
+            human = field_summary.get("human", {}) if isinstance(field_summary.get("human"), dict) else {}
+            bot = field_summary.get("bot", {}) if isinstance(field_summary.get("bot"), dict) else {}
+            lines.append(
+                "| "
+                f"{field_summary.get('label', field)} | "
+                f"{format_comparison_value(field, human.get('min'))} | "
+                f"{format_comparison_value(field, human.get('mean'))} | "
+                f"{format_comparison_value(field, human.get('max'))} | "
+                f"{format_comparison_value(field, bot.get('min'))} | "
+                f"{format_comparison_value(field, bot.get('mean'))} | "
+                f"{format_comparison_value(field, bot.get('max'))} |"
+            )
+
+        lines.extend(
+            [
+                "",
+                "| Bot | Avg | Avg range | P95 | P95 range | Stationary | Stationary range | Low | Low range | Air | Air range |",
+                "|---|---:|---|---:|---|---:|---|---:|---|---:|---|",
+            ]
+        )
+        for player in movement_comparison.get("bot_players", []):
+            if not isinstance(player, dict):
+                continue
+            values = player.get("values", {}) if isinstance(player.get("values"), dict) else {}
+            ranges = (
+                player.get("against_human_range", {})
+                if isinstance(player.get("against_human_range"), dict)
+                else {}
+            )
+            lines.append(
+                "| "
+                f"`{player.get('player', '')}` | "
+                f"{format_comparison_value('avg_horizontal_speed_qu_per_s', values.get('avg_horizontal_speed_qu_per_s'))} | "
+                f"`{ranges.get('avg_horizontal_speed_qu_per_s', '')}` | "
+                f"{format_comparison_value('p95_horizontal_speed_qu_per_s', values.get('p95_horizontal_speed_qu_per_s'))} | "
+                f"`{ranges.get('p95_horizontal_speed_qu_per_s', '')}` | "
+                f"{format_comparison_value('stationary_time_ratio', values.get('stationary_time_ratio'))} | "
+                f"`{ranges.get('stationary_time_ratio', '')}` | "
+                f"{format_comparison_value('low_speed_time_ratio', values.get('low_speed_time_ratio'))} | "
+                f"`{ranges.get('low_speed_time_ratio', '')}` | "
+                f"{format_comparison_value('airborne_proxy_time_ratio', values.get('airborne_proxy_time_ratio'))} | "
+                f"`{ranges.get('airborne_proxy_time_ratio', '')}` |"
+            )
+
     output_path.write_text("\n".join(lines), encoding="utf-8")
 
 

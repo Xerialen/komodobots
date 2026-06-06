@@ -433,7 +433,7 @@ The current runner uses session names shaped like `komodobots_lab_<port>_<run-id
 - Determinism is unknown. The lab must record seed/config/server version details before comparing movement runs.
 - Stock `dm2` can load, record, and parse, but it is not a Frogbot-supported route target in this environment. User confirmed there is no point building routes for it now.
 - A first-pass movement report schema exists, but it is still position-derived and does not yet infer ground-truth jump commands, grounded state, or usercmd intent.
-- The S2 v2c moveprobe proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`, and that route-derived yaw can pass provisional command/plausibility gates on two routed maps. S3 mode `4` proves nonzero alternating side commands can also be emitted; S3c indicates `sidemove=200` is repeatable across `frobodm2` and `dm3`. S3d/S3e mode `5` proves aim-independent route/strafe commands can be emitted and diagnosed, but behavior remains split. S3f mode `6` removes backpedal commands but emits large folded side commands. S3g mode `7` bounds those commands and passes both routed maps, so the next gap is human-demo comparison rather than more command tuning.
+- The S2 v2c moveprobe proves the final command can be perturbed and directly logged before `trap_SetBotCMD(...)`, and that route-derived yaw can pass provisional command/plausibility gates on two routed maps. S3 mode `4` proves nonzero alternating side commands can also be emitted; S3c indicates `sidemove=200` is repeatable across `frobodm2` and `dm3`. S3d/S3e mode `5` proves aim-independent route/strafe commands can be emitted and diagnosed, but behavior remains split. S3f mode `6` removes backpedal commands but emits large folded side commands. S3g mode `7` bounds those commands and passes both routed maps. S4c now adds a same-map human `dm3` comparison and shows S3g is still below the human p95 speed range, so the next gap is an elite/Milton reference set rather than more command tuning.
 
 ## Troubleshooting
 
@@ -461,4 +461,4 @@ Move the repeatable runner one notch closer to the north star:
 
 1. Keep `dm2` as a `qw-sim` continuity map, not as a Frogbot route-building target.
 2. Use routed maps such as `frobodm2` and `dm3` to generate bot movement demos.
-3. Start S4a human-demo comparison scaffolding: inventory candidate human MVDs, parse at least one through the movement pipeline, and record whether a real DM2 comparison set is present or missing.
+3. Start S5a Milton/elite reference-set inventory: identify whether existing corpus/local metadata can select defensible elite or Milton movement demos without mass-downloading from hub, then parse one small reference sample if available.
