@@ -1,0 +1,69 @@
+{
+  "schema": "komodobots.closed_loop_movement.v1",
+  "date": "2026-06-07",
+  "trick": "dm3_sng_to_rl",
+  "map": "dm3",
+  "bots": 1,
+  "demo": "dm3_sng_to_rl.cmds (692 frames, coverage 1.0)",
+  "metric": "cursor at which horizontal divergence (bot vs human at same replay time index) first exceeds 32 qu; plus max divergence and full-stream replay",
+  "params": {
+    "m11": {
+      "lookahead_frames": 4
+    },
+    "m12": {
+      "corr_deadband_qu": 16,
+      "corr_yaw_max_deg": 3
+    }
+  },
+  "arms": [
+    {
+      "arm": "open_loop_m10",
+      "run_id": "20260607T151125Z",
+      "mode": 10,
+      "divh_cross_32_cursor": 255,
+      "max_divergence_h_qu": 1065.859,
+      "max_divergence_v_qu": 203.469,
+      "max_divergence_3d_qu": 1071.737,
+      "final_divergence_3d_qu": 429.391,
+      "max_cursor": 691,
+      "frame_count": 692,
+      "complete_event": true,
+      "verdict": "FAIL",
+      "corr_accum_deg": null,
+      "corr_max_deg": null
+    },
+    {
+      "arm": "steering_m11",
+      "run_id": "20260607T164852Z",
+      "mode": 11,
+      "divh_cross_32_cursor": 24,
+      "max_divergence_h_qu": 1348.515,
+      "max_divergence_v_qu": 143.885,
+      "max_divergence_3d_qu": 1355.781,
+      "final_divergence_3d_qu": 594.535,
+      "max_cursor": 600,
+      "frame_count": 692,
+      "complete_event": false,
+      "verdict": "FAIL",
+      "corr_accum_deg": null,
+      "corr_max_deg": null
+    },
+    {
+      "arm": "corrective_m12",
+      "run_id": "20260607T170056Z",
+      "mode": 12,
+      "divh_cross_32_cursor": 381,
+      "max_divergence_h_qu": 196.101,
+      "max_divergence_v_qu": 208.829,
+      "max_divergence_3d_qu": 286.47,
+      "final_divergence_3d_qu": 172.59,
+      "max_cursor": 691,
+      "frame_count": 692,
+      "complete_event": true,
+      "verdict": "FAIL",
+      "corr_accum_deg": 1154.19,
+      "corr_max_deg": 3.0
+    }
+  ],
+  "conclusion": "Corrective replay (m12) extends the believable corridor through the strafe-jump (divH-cross 255->381, +50%) and bounds worst-case divergence 5.4x (1066->196 qu) while replaying the full stream, at a believable correction budget (yaw clamped to 3 deg/frame). Pure steering (m11) collapses the corridor (255->24), proving the human exact usercmd is load-bearing. Closed-loop CORRECTION is the validated direction; from-scratch brain stays shelved."
+}

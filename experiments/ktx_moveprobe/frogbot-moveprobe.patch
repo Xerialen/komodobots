@@ -1,8 +1,8 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..8db100a 100644
+index c0654d1..8c5bc7a 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -5,6 +5,64 @@
+@@ -5,6 +5,68 @@
  #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
@@ -64,10 +64,14 @@ index c0654d1..8db100a 100644
 +static float moveprobe_replay_last_seen_time[MAX_CLIENTS];
 +static vec3_t moveprobe_replay_expected[MAX_CLIENTS];
 +static float moveprobe_replay_divergence[MAX_CLIENTS];
++static float moveprobe_replay_divergence_h[MAX_CLIENTS];
++static float moveprobe_replay_divergence_v[MAX_CLIENTS];
++static float moveprobe_replay_corr_accum[MAX_CLIENTS]; // mode 12: cumulative yaw correction (deg)
++static float moveprobe_replay_corr_max[MAX_CLIENTS];   // mode 12: max per-frame yaw correction (deg)
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,6 +480,930 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +484,1106 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -406,6 +410,10 @@ index c0654d1..8db100a 100644
 +	moveprobe_replay_last_seen_time[slot] = 0.0f;
 +	VectorClear(moveprobe_replay_expected[slot]);
 +	moveprobe_replay_divergence[slot] = 0.0f;
++	moveprobe_replay_divergence_h[slot] = 0.0f;
++	moveprobe_replay_divergence_v[slot] = 0.0f;
++	moveprobe_replay_corr_accum[slot] = 0.0f;
++	moveprobe_replay_corr_max[slot] = 0.0f;
 +}
 +
 +static int BotMoveProbeParseReplayLine(char *line, moveprobe_replay_frame_t *f)
@@ -532,11 +540,12 @@ index c0654d1..8db100a 100644
 +	}
 +
 +	G_cprint("FBMOVEPROBE_REPLAY_EVENT time=%.3f ed=%d name=%s event=%s "
-+			 "cursor=%d count=%d divergence=%.3f origin=%.3f,%.3f,%.3f "
-+			 "expected=%.3f,%.3f,%.3f\n",
++			 "cursor=%d count=%d divergence=%.3f divergence_h=%.3f divergence_v=%.3f "
++			 "origin=%.3f,%.3f,%.3f expected=%.3f,%.3f,%.3f\n",
 +			 g_globalvars.time, ednum, self->netname, event,
 +			 moveprobe_replay_cursor[slot], moveprobe_replay_count,
-+			 moveprobe_replay_divergence[slot], PASSVEC3(self->s.v.origin),
++			 moveprobe_replay_divergence[slot], moveprobe_replay_divergence_h[slot],
++			 moveprobe_replay_divergence_v[slot], PASSVEC3(self->s.v.origin),
 +			 PASSVEC3(moveprobe_replay_expected[slot]));
 +}
 +
@@ -545,7 +554,10 @@ index c0654d1..8db100a 100644
 +// sidemove / upmove are already view-relative in a usercmd, so they pass straight
 +// through with the human view angles -- no projection. Divergence (bot origin vs
 +// human origin at the same time index) is recorded for the finding.
-+static qbool BotApplyMoveProbeReplay(gedict_t *self, int slot, qbool *jumping, vec3_t direction)
++// replay_variant: 0 = open-loop replay (mode 10), 1 = closed-loop steering
++// (mode 11), 2 = corrective replay (mode 12). The snap, replay timeline,
++// divergence and completion are shared so every variant is scored identically.
++static qbool BotApplyMoveProbeReplay(gedict_t *self, int slot, qbool *jumping, vec3_t direction, int replay_variant)
 +{
 +	float stale_gap = 1.0f;
 +	int count;
@@ -619,9 +631,17 @@ index c0654d1..8db100a 100644
 +		VectorCopy(f->origin, moveprobe_replay_expected[slot]);
 +		VectorSubtract(self->s.v.origin, f->origin, delta);
 +		moveprobe_replay_divergence[slot] = VectorLength(delta);
++		moveprobe_replay_divergence_h[slot] = sqrt(delta[0] * delta[0] + delta[1] * delta[1]);
++		moveprobe_replay_divergence_v[slot] = fabs(delta[2]);
 +		moveprobe_replay_complete[slot] = 1;
 +		moveprobe_replay_active[slot] = 0;
 +		BotLogMoveProbeReplayEvent(self, slot, "complete");
++		if (cvar("k_fb_moveprobe_log_commands"))
++		{
++			G_cprint("FBMOVEPROBE_REPLAY_CORR ed=%d corr_accum=%.2f corr_max=%.2f\n",
++					 NUM_FOR_EDICT(self), moveprobe_replay_corr_accum[slot],
++					 moveprobe_replay_corr_max[slot]);
++		}
 +		return false;
 +	}
 +
@@ -629,15 +649,157 @@ index c0654d1..8db100a 100644
 +	VectorCopy(f->origin, moveprobe_replay_expected[slot]);
 +	VectorSubtract(self->s.v.origin, f->origin, delta);
 +	moveprobe_replay_divergence[slot] = VectorLength(delta);
++	moveprobe_replay_divergence_h[slot] = sqrt(delta[0] * delta[0] + delta[1] * delta[1]);
++	moveprobe_replay_divergence_v[slot] = fabs(delta[2]);
 +
-+	VectorCopy(f->angles, self->fb.desired_angle);
-+	self->fb.desired_angle[ROLL] = 0;
-+	direction[0] = f->forwardmove;
-+	direction[1] = f->sidemove;
-+	direction[2] = f->upmove;
-+	*jumping = (f->buttons & 2) ? true : false;
++	if (replay_variant == 0)
++	{
++		// Mode 10: open-loop replay -- emit the exact human usercmd. The view
++		// angles and view-relative forward/side/up pass straight through.
++		VectorCopy(f->angles, self->fb.desired_angle);
++		self->fb.desired_angle[ROLL] = 0;
++		direction[0] = f->forwardmove;
++		direction[1] = f->sidemove;
++		direction[2] = f->upmove;
++		*jumping = (f->buttons & 2) ? true : false;
 +
-+	return true;
++		return true;
++	}
++
++	// Mode 11: closed-loop steering. Same replay timeline, snap, divergence and
++	// completion as mode 10 (all computed above) so the divH-vs-baseline A/B is
++	// exact -- the ONLY difference is the per-frame command. Instead of replaying
++	// the human's stale usercmd we re-derive the heading from the bot's ACTUAL
++	// current origin toward the human origin `lookahead` frames ahead, then move
++	// forward + strafe (sign taken from the human's recorded sidemove) and jump.
++	// Drift is corrected by recomputing the aim every frame rather than
++	// integrating a usercmd against a body that has already diverged.
++	if (replay_variant == 1)
++	{
++		int lookahead = (int)cvar("k_fb_moveprobe_lookahead_frames");
++		float forwardmove = cvar("k_fb_moveprobe_forwardmove");
++		float sidemove = cvar("k_fb_moveprobe_sidemove");
++		float strafe_sign;
++		int target_index;
++		moveprobe_replay_frame_t *target;
++		vec3_t route_direction;
++
++		if (lookahead <= 0)
++		{
++			lookahead = 4;
++		}
++		lookahead = bound(1, lookahead, 64);
++		if (forwardmove <= 0)
++		{
++			forwardmove = 800;
++		}
++		if (sidemove < 0)
++		{
++			sidemove = -sidemove;
++		}
++		if (sidemove == 0)
++		{
++			sidemove = 508;
++		}
++
++		target_index = cursor + lookahead;
++		if (target_index > count - 1)
++		{
++			target_index = count - 1;
++		}
++		target = &moveprobe_replay_frames[target_index];
++
++		VectorSubtract(target->origin, self->s.v.origin, route_direction);
++		route_direction[2] = 0;
++		if (VectorNormalize(route_direction) <= 0)
++		{
++			// Bot sits on the lookahead target this frame; fall back to the
++			// exact human usercmd rather than steer from a degenerate heading.
++			VectorCopy(f->angles, self->fb.desired_angle);
++			self->fb.desired_angle[ROLL] = 0;
++			direction[0] = f->forwardmove;
++			direction[1] = f->sidemove;
++			direction[2] = f->upmove;
++			*jumping = (f->buttons & 2) ? true : false;
++			return true;
++		}
++
++		// Aim along travel, so view-relative forward/side equal route forward/side
++		// (the trap_makevectors projection used by modes 5-9 is identity here).
++		strafe_sign = (f->sidemove < 0) ? -1.0f : 1.0f;
++		self->fb.desired_angle[PITCH] = 0;
++		self->fb.desired_angle[YAW] = vectoyaw(route_direction);
++		self->fb.desired_angle[ROLL] = 0;
++		direction[0] = forwardmove;
++		direction[1] = sidemove * strafe_sign;
++		direction[2] = cvar("k_fb_moveprobe_upmove");
++		*jumping = true;
++
++		return true;
++	}
++
++	// Mode 12: corrective replay. Emit the EXACT human usercmd (preserving the
++	// proven open-loop lockstep prefix), but once horizontal divergence exceeds a
++	// deadband, rotate the view yaw toward the human origin by a small clamped
++	// budget. Same input magnitudes as the human -- only the heading is corrected.
++	// A yaw nudge never writes origin/velocity, so the divergence trace stays a
++	// valid (non-self-zeroing) signal, unlike a position or velocity pull.
++	{
++		float deadband = cvar("k_fb_moveprobe_corr_deadband");
++		float yaw_max = cvar("k_fb_moveprobe_corr_yaw_max");
++		float applied = 0.0f;
++
++		if (deadband <= 0)
++		{
++			deadband = 16.0f;
++		}
++		if (yaw_max <= 0)
++		{
++			yaw_max = 3.0f;
++		}
++		yaw_max = bound(0.1f, yaw_max, 20.0f);
++
++		VectorCopy(f->angles, self->fb.desired_angle);
++		self->fb.desired_angle[ROLL] = 0;
++		direction[0] = f->forwardmove;
++		direction[1] = f->sidemove;
++		direction[2] = f->upmove;
++		*jumping = (f->buttons & 2) ? true : false;
++
++		if (moveprobe_replay_divergence_h[slot] > deadband)
++		{
++			vec3_t to_human;
++
++			VectorSubtract(f->origin, self->s.v.origin, to_human);
++			to_human[2] = 0;
++			if (VectorLength(to_human) > 1.0f)
++			{
++				float target_yaw = vectoyaw(to_human);
++				float cur_yaw = self->fb.desired_angle[YAW];
++				float dyaw = anglemod(target_yaw) - anglemod(cur_yaw);
++
++				while (dyaw > 180.0f)
++				{
++					dyaw -= 360.0f;
++				}
++				while (dyaw < -180.0f)
++				{
++					dyaw += 360.0f;
++				}
++				dyaw = bound(-yaw_max, dyaw, yaw_max);
++				self->fb.desired_angle[YAW] = anglemod(cur_yaw + dyaw);
++				applied = (dyaw < 0.0f) ? -dyaw : dyaw;
++			}
++		}
++
++		moveprobe_replay_corr_accum[slot] += applied;
++		if (applied > moveprobe_replay_corr_max[slot])
++		{
++			moveprobe_replay_corr_max[slot] = applied;
++		}
++
++		return true;
++	}
 +}
 +
 +static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, vec3_t direction)
@@ -650,7 +812,7 @@ index c0654d1..8db100a 100644
 +	{
 +		BotMoveProbeResetQwdSession(slot);
 +	}
-+	if (mode != 10)
++	if (mode != 10 && mode != 11 && mode != 12)
 +	{
 +		BotMoveProbeResetReplaySession(slot);
 +	}
@@ -882,7 +1044,24 @@ index c0654d1..8db100a 100644
 +
 +	else if (mode == 10)
 +	{
-+		BotApplyMoveProbeReplay(self, slot, jumping, direction);
++		BotApplyMoveProbeReplay(self, slot, jumping, direction, 0);
++	}
++
++	else if (mode == 11)
++	{
++		// Closed-loop steering: shares the mode-10 replay timeline + divergence,
++		// but re-derives the heading toward the human path from the bot's actual
++		// origin each frame instead of replaying the exact usercmd. See the
++		// k_fb_moveprobe_lookahead_frames cvar and docs/08_DECISION_LOG.md.
++		BotApplyMoveProbeReplay(self, slot, jumping, direction, 1);
++	}
++
++	else if (mode == 12)
++	{
++		// Corrective replay: emits the exact human usercmd (preserving the
++		// open-loop lockstep prefix) plus a clamped yaw nudge once divergence
++		// exceeds k_fb_moveprobe_corr_deadband. See docs/08_DECISION_LOG.md.
++		BotApplyMoveProbeReplay(self, slot, jumping, direction, 2);
 +	}
 +}
 +
@@ -973,7 +1152,7 @@ index c0654d1..8db100a 100644
 +			 "water=%d,%d,%d,%d,%.1f,%.1f,%.1f,%.1f,%.3f,%.3f,%.3f "
 +			 "probe=%d,%d,%.3f,%.3f,%.3f "
 +			 "qwd=%d,%d,%d,%.3f,%d,%d,%.3f "
-+			 "replay=%d,%d,%d,%d,%.3f,%.3f,%.3f,%.3f\n",
++			 "replay=%d,%d,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n",
 +			 g_globalvars.time, ednum, self->netname, mode, cmd_msec,
 +			 PASSVEC3(self->fb.desired_angle), PASSINTVEC3(direction),
 +			 buttons, impulse, route_yaw, view_yaw, yaw_delta, backward,
@@ -992,13 +1171,14 @@ index c0654d1..8db100a 100644
 +			 moveprobe_qwd_active_seconds[slot],
 +			 moveprobe_replay_active[slot], moveprobe_replay_complete[slot],
 +			 moveprobe_replay_cursor[slot], moveprobe_replay_count,
-+			 moveprobe_replay_divergence[slot], PASSVEC3(moveprobe_replay_expected[slot]));
++			 moveprobe_replay_divergence[slot], PASSVEC3(moveprobe_replay_expected[slot]),
++			 moveprobe_replay_divergence_h[slot], moveprobe_replay_divergence_v[slot]);
 +}
 +
  void BotSetCommand(gedict_t *self)
  {
  	extern float last_frame_time;
-@@ -556,8 +1538,11 @@ void BotSetCommand(gedict_t *self)
+@@ -556,8 +1718,11 @@ void BotSetCommand(gedict_t *self)
  		impulse = 0;
  	}
  

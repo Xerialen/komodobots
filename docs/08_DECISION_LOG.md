@@ -2440,3 +2440,46 @@ Revisit if a replay experiment ever needs client-side behavior (it should not), 
 ## Status
 
 Decision recorded 2026-06-07; KTX mode 10 implemented and pending Codex review (PR #50) before the first live `dm3_sng_to_rl` replay run.
+
+---
+
+## Decision
+
+First movement-frontier controller = closed-loop CORRECTION (KTX moveprobe mode 12, corrective replay). Pure steering (mode 11) rejected; from-scratch movement brain scoped later.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+After open-loop replay (mode 10) was shown to reproduce only a lockstep prefix on `dm3_sng_to_rl` (divH crosses 32 qu at cursor ~255, then runs away to maxH 1066 at the strafe-jump), a `movement-approach-panel` judge panel (6 candidate movement brains, 2 judges each, all source-verified) ranked the field: hybrid/corrective controllers top (~21/20.5), from-scratch brain mid (~19.5, heaviest build), pure-physics and imitation lower. We built and live-tested the two cheapest top candidates as new KTX moveprobe modes, both sharing mode 10's snap/timeline/divergence so all three arms are scored identically:
+
+- **Mode 11 (closed-loop steering):** discard the human usercmd, re-aim from the bot's actual origin toward the human path each frame. REJECTED — it collapsed the corridor to cursor 24 (worse than open-loop), proving the human's exact per-frame input is load-bearing in the prefix.
+- **Mode 12 (corrective replay):** keep the exact human usercmd, add a yaw nudge clamped to 3 deg/frame once divH exceeds a 16 qu deadband. CHOSEN — extended the corridor through the strafe-jump (255->381, +50%) and bounded divergence 5.4x (1066->196 qu) while replaying the full stream, at a believable correction budget. Because it nudges yaw only (never writes origin/velocity), the divergence trace is not self-zeroed and stays a valid metric.
+
+All three KTX modes live in `src/bot_movement.c` (`BotApplyMoveProbeReplay`, `replay_variant` 0/1/2); ezQuake stays unmodified, KTX changes remain patch-tracked and restored after each lab run (per the mode-10 decision above).
+
+### Alternatives Considered
+
+- **Pure closed-loop steering (mode 11).** Rejected by live evidence (corridor collapse to cursor 24).
+- **From-scratch movement brain.** SCOPED LATER, not shelved: maximal measurability/fit but heaviest build, and it produces the same headline metric as the cheaper corrective approach. Becomes evidence-justified only if corrective replay (and its parameter sweep) fails to push the corridor materially past the strafe-jump.
+- **Pure-physics no-trace controller / imitation k-NN.** Lower-ranked; imitation is a good future OFFLINE pre-study (leave-one-demo-out) but thin corpus coverage at the strafe-jump.
+
+### Evidence
+
+- KTX builds clean with modes 11 and 12 (`qwprogs.so`, zero warnings); patch regenerated.
+- Three live dm3 runs, 1 bot, same `.cmds`: open-loop `20260607T151125Z`, steering `20260607T164852Z`, corrective `20260607T170056Z`. See `docs/07_FINDINGS_LOG.md` 2026-06-07 and the run artifacts. 152 komodobots tests pass.
+- Stock `qwprogs.so` restored after every run (verified 0 FBMOVEPROBE strings in the active binary).
+
+### Expected Consequences
+
+Closed-loop correction is the working direction for believable bunnyjump movement. The next experiments are a mode-12 parameter sweep (deadband x yaw_max) and replication on a second dm3 trick to test generalization, all on the same confound-proof divergence metric.
+
+### Revisit Conditions
+
+Revisit if the mode-12 sweep / second-trick replication fails to extend the corridor robustly (then promote the from-scratch brain from "scope later" to "build next"), or if a believability review of the recorded demos shows the yaw correction looks non-human despite the 3 deg/frame clamp.
+
+## Status
+
+Decision recorded 2026-06-07; modes 11/12 implemented, live-tested, stock restored; packaged as the combined "closed-loop movement" PR pending mandatory Codex review.
