@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`QWD-DM3-SNG - MVD crossing progress; next diagnostic is event-level activation/advance proof plus active-window movement scoring`
+`QWD-DM3-SNG - event-level activation/advance instrumentation is ready for review; next diagnostic is an unchanged-projection live rerun plus active-window movement scoring`
 
 ## Stage Status Table
 
@@ -50,7 +50,7 @@ Current active stage:
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
 | S6 Route Primitives | Closed for now | S6f found `276->59` is explicit and reciprocal, but marker `276` lacks static geometry, so no tiny route-data fix is justified from `dm3.bot` alone |
 | S7 Player Specific | Paused behind QWD decision track | S7l found enough clean air-transition evidence for one narrower Frogbots probe, but the QWD action/trajectory bridge is now the faster Frogbots-vs-from-scratch decision path |
-| QWD DM3 Route Transfer | Active but blocked from expansion | MVD crossing diagnosis proves tight CP0 entry and `11`/`12` sequential SNG point-radius entries, but sampled QWD command rows still begin after internal advancement; next evidence must add event-level activation/advance logging and active-window movement-quality scoring before projection changes or other DM3 QWD moves |
+| QWD DM3 Route Transfer | Active but blocked from expansion | Event-level mode-9 QWD logging/parser support is ready for review; next evidence must come from an unchanged-projection live SNG rerun with `moveprobe-qwd-events.*`, then active-window movement-quality scoring before projection changes or other DM3 QWD moves |
 
 ## Roadmap Rule
 
@@ -124,3 +124,5 @@ The QWD SNG phase-gate tightening adds those gates to the scorer without changin
 The QWD SNG tight-start rerun restored the original `192` qu activation radius and kept the same mode `9` projection. Run `20260607T003837Z` is the strongest QWD-to-Frogbot substrate signal so far: both bots activated inside the MVD window, `/ bro` advanced `11` control points, and `/ goldenboy` advanced `12`. It is still rejected as learned movement because `phase_target_progression` and `waypoint_only_slow_success` fail, while `tight_start_activation` is only inconclusive because the first active sampled rows were already at CP2. The diagnosis now preserves that as `qwd_sng_start_evidence_inconclusive`, so the next QWD branch should stay diagnostic: capture denser or event-level QWD start/advancement evidence and score active-window movement quality before changing projection policy or trying the rest of the DM3 QWD corpus.
 
 The QWD SNG MVD crossing diagnosis inspected the same tight-start run from MVD positions only. It shows `/ bro` physically enters CP0's `192` qu start radius at `1761` ms and reaches `11` sequential `96` qu point-radius control points; `/ goldenboy` enters CP0 at `7432` ms and reaches `12`. This proves physical traversal of most of the human-derived SNG geometry under KTX physics, but it does not prove internal mode-9 activation timing because both first sampled QWD rows are already at CP2 and nearest MVD samples at those timestamps are far from CP0/CP2. The next QWD branch should add event-level activation/advance logging or unsampled advancement rows, then rescore active-window movement quality before projection changes or broader DM3 QWD transfer.
+
+The QWD SNG event-logging instrumentation branch adds that event-level proof path without changing movement policy. Mode `9` now emits unsampled `FBMOVEPROBE_QWD_EVENT` rows for activation, advancement, and completion edges; the lab runner writes `moveprobe-qwd-events.json` and `.md` beside sampled command artifacts. The next QWD branch should be a reviewed live rerun of the same SNG probe with unchanged QWD waypoints, `192` qu start radius, `96` qu point radius, and unchanged projection/command profile, then active-window movement scoring. Do not expand to the rest of the DM3 QWD corpus until SNG has clean event proof and movement-quality guardrails.

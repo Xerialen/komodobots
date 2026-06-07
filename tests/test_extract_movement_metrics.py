@@ -378,6 +378,43 @@ class MovementMetricsTests(unittest.TestCase):
             },
         )
 
+    def test_parse_moveprobe_qwd_event_logs(self) -> None:
+        events = run_frobodm2_lab.parse_moveprobe_qwd_event_logs(
+            "\n".join(
+                [
+                    "noise before",
+                    "FBMOVEPROBE_QWD_EVENT time=12.125 ed=2 name=/ bro event=activate "
+                    "target=0 next=0 count=14 distance=83.482 advanced=0 active=1 "
+                    "complete=0 active_seconds=0.000 origin=-24.500,120.000,32.000",
+                    "FBMOVEPROBE_QWD_EVENT time=12.250 ed=2 name=/ bro event=advance "
+                    "target=0 next=1 count=14 distance=72.250 advanced=1 active=1 "
+                    "complete=0 active_seconds=0.125 origin=-20.000,128.000,32.000",
+                ]
+            )
+        )
+
+        self.assertEqual(len(events), 2)
+        self.assertEqual(events[0]["name"], "/ bro")
+        self.assertEqual(events[0]["event"], "activate")
+        self.assertEqual(events[0]["target_index"], 0)
+        self.assertEqual(events[0]["next_index"], 0)
+        self.assertEqual(events[0]["control_point_count"], 14)
+        self.assertEqual(events[0]["distance_qu"], 83.482)
+        self.assertEqual(events[0]["advanced_control_points"], 0)
+        self.assertTrue(events[0]["active"])
+        self.assertFalse(events[0]["complete"])
+        self.assertEqual(events[0]["origin"], {"x": -24.5, "y": 120.0, "z": 32.0})
+        self.assertEqual(events[1]["event"], "advance")
+        self.assertEqual(events[1]["target_index"], 0)
+        self.assertEqual(events[1]["next_index"], 1)
+        self.assertEqual(events[1]["advanced_control_points"], 1)
+
+        summary = run_frobodm2_lab.summarize_moveprobe_qwd_events(events)
+        self.assertEqual(summary["schema"], "komodobots.moveprobe_qwd_events.v1")
+        self.assertEqual(summary["event_count"], 2)
+        self.assertEqual(summary["players"][0]["event_counts"], {"activate": 1, "advance": 1})
+        self.assertEqual(summary["players"][0]["max_advanced_control_points"], 1)
+
     def test_remote_port_down_treats_empty_or_down_as_free(self) -> None:
         original_run = run_frobodm2_lab.run
 

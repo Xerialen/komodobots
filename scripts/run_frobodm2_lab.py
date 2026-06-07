@@ -432,6 +432,24 @@ MOVEPROBE_COMMAND_RE = re.compile(
 )
 
 
+MOVEPROBE_QWD_EVENT_RE = re.compile(
+    r"FBMOVEPROBE_QWD_EVENT\s+"
+    r"time=(?P<time>-?\d+(?:\.\d+)?)\s+"
+    r"ed=(?P<ed>\d+)\s+"
+    r"name=(?P<name>.*?)\s+"
+    r"event=(?P<event>[A-Za-z_]+)\s+"
+    r"target=(?P<target>-?\d+)\s+"
+    r"next=(?P<next>-?\d+)\s+"
+    r"count=(?P<count>-?\d+)\s+"
+    r"distance=(?P<distance>-?\d+(?:\.\d+)?)\s+"
+    r"advanced=(?P<advanced>-?\d+)\s+"
+    r"active=(?P<active>\d+)\s+"
+    r"complete=(?P<complete>\d+)\s+"
+    r"active_seconds=(?P<active_seconds>-?\d+(?:\.\d+)?)\s+"
+    r"origin=(?P<origin_x>-?\d+(?:\.\d+)?),(?P<origin_y>-?\d+(?:\.\d+)?),(?P<origin_z>-?\d+(?:\.\d+)?)"
+)
+
+
 def parse_moveprobe_command_logs(screen_log: str) -> list[dict[str, object]]:
     commands: list[dict[str, object]] = []
     for line in screen_log.splitlines():
@@ -516,6 +534,37 @@ def parse_moveprobe_command_logs(screen_log: str) -> list[dict[str, object]]:
     return commands
 
 
+def parse_moveprobe_qwd_event_logs(screen_log: str) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    for line in screen_log.splitlines():
+        match = MOVEPROBE_QWD_EVENT_RE.search(line)
+        if not match:
+            continue
+        groups = match.groupdict()
+        events.append(
+            {
+                "time_s": float(groups["time"]),
+                "ed": int(groups["ed"]),
+                "name": groups["name"].strip(),
+                "event": groups["event"],
+                "target_index": int(groups["target"]),
+                "next_index": int(groups["next"]),
+                "control_point_count": int(groups["count"]),
+                "distance_qu": float(groups["distance"]),
+                "advanced_control_points": int(groups["advanced"]),
+                "active": bool(int(groups["active"])),
+                "complete": bool(int(groups["complete"])),
+                "active_seconds": float(groups["active_seconds"]),
+                "origin": {
+                    "x": float(groups["origin_x"]),
+                    "y": float(groups["origin_y"]),
+                    "z": float(groups["origin_z"]),
+                },
+            }
+        )
+    return events
+
+
 def compact_unique(values: Iterable[object], limit: int = 12) -> list[object]:
     unique = sorted(set(values))
     if len(unique) <= limit:
@@ -594,6 +643,50 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
         "command_count": len(commands),
         "players": player_rows,
         "commands": commands,
+    }
+
+
+def summarize_moveprobe_qwd_events(events: list[dict[str, object]]) -> dict[str, object]:
+    players: dict[tuple[int, str], list[dict[str, object]]] = {}
+    for event in events:
+        key = (int(event["ed"]), str(event["name"]))
+        players.setdefault(key, []).append(event)
+
+    player_rows = []
+    for (ed, name), rows in sorted(players.items()):
+        event_counts: dict[str, int] = {}
+        distances = [round(float(row["distance_qu"]), 3) for row in rows]
+        active_seconds = [
+            round(float(row["active_seconds"]), 3)
+            for row in rows
+            if bool(row.get("active", False)) or bool(row.get("complete", False))
+        ]
+        for row in rows:
+            event_name = str(row["event"])
+            event_counts[event_name] = event_counts.get(event_name, 0) + 1
+        player_rows.append(
+            {
+                "ed": ed,
+                "name": name,
+                "count": len(rows),
+                "first_time_s": rows[0]["time_s"],
+                "last_time_s": rows[-1]["time_s"],
+                "event_counts": dict(sorted(event_counts.items())),
+                "target_index_values": compact_unique(int(row["target_index"]) for row in rows),
+                "next_index_values": compact_unique(int(row["next_index"]) for row in rows),
+                "control_point_count_values": compact_unique(int(row["control_point_count"]) for row in rows),
+                "max_advanced_control_points": max(int(row["advanced_control_points"]) for row in rows),
+                "min_distance_qu": min(distances) if distances else None,
+                "max_active_seconds": max(active_seconds) if active_seconds else 0.0,
+                "complete_events": sum(1 for row in rows if bool(row.get("complete", False))),
+            }
+        )
+
+    return {
+        "schema": "komodobots.moveprobe_qwd_events.v1",
+        "event_count": len(events),
+        "players": player_rows,
+        "events": events,
     }
 
 
@@ -747,6 +840,44 @@ def write_moveprobe_command_logs(local_run_dir: Path) -> dict[str, object]:
     return summary
 
 
+def write_moveprobe_qwd_event_logs(local_run_dir: Path) -> dict[str, object]:
+    screen_log = (local_run_dir / "screen.log").read_text(encoding="utf-8", errors="replace")
+    events = parse_moveprobe_qwd_event_logs(screen_log)
+    summary = summarize_moveprobe_qwd_events(events)
+
+    json_path = local_run_dir / "moveprobe-qwd-events.json"
+    md_path = local_run_dir / "moveprobe-qwd-events.md"
+    json_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+
+    lines = [
+        "# Moveprobe QWD Event Log",
+        "",
+        f"- Events parsed: `{summary['event_count']}`",
+        "",
+    ]
+    players = summary.get("players", [])
+    if players:
+        lines.extend(["## Players", ""])
+        for player in players:
+            lines.append(
+                f"- `{player['name']}` ed `{player['ed']}`: `{player['count']}` events, "
+                f"time `{fmt_number(player['first_time_s'], 3)}`-`{fmt_number(player['last_time_s'], 3)}`s, "
+                f"events `{player['event_counts']}`, "
+                f"targets `{player['target_index_values']}`, "
+                f"next `{player['next_index_values']}`, "
+                f"controlPointCounts `{player['control_point_count_values']}`, "
+                f"maxAdvanced `{player['max_advanced_control_points']}`, "
+                f"minDistance `{player['min_distance_qu']}`, "
+                f"maxActiveSeconds `{player['max_active_seconds']}`, "
+                f"completeEvents `{player['complete_events']}`"
+            )
+    else:
+        lines.append("- No `FBMOVEPROBE_QWD_EVENT` lines found in `screen.log`.")
+
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return summary
+
+
 def find_bot_entries(screen_log: str) -> list[str]:
     entries = []
     for line in screen_log.splitlines():
@@ -846,6 +977,9 @@ def write_summary(
     command_log_path = local_run_dir / "moveprobe-commands.json"
     command_log = read_json(command_log_path) if command_log_path.exists() else {}
     command_count = command_log.get("command_count", 0) if isinstance(command_log, dict) else 0
+    qwd_event_log_path = local_run_dir / "moveprobe-qwd-events.json"
+    qwd_event_log = read_json(qwd_event_log_path) if qwd_event_log_path.exists() else {}
+    qwd_event_count = qwd_event_log.get("event_count", 0) if isinstance(qwd_event_log, dict) else 0
 
     lines = [
         f"# {map_name} lab run {run_id}",
@@ -864,6 +998,7 @@ def write_summary(
         f"- Movement probe QWD: `waypoint_chars={len(moveprobe['qwd_waypoints'])} point_radius={moveprobe['qwd_point_radius']} start_radius={moveprobe['qwd_start_radius']}`",
         f"- Movement probe command logging: `enabled={moveprobe['log_commands']} interval={moveprobe['log_interval']}`",
         f"- Movement probe commands parsed: `{command_count}`",
+        f"- Movement probe QWD events parsed: `{qwd_event_count}`",
         f"- Remote demo: `{remote_demo}`",
         f"- Local demo: `{local_run_dir / 'demo.mvd'}`",
         f"- Demo size: `{demo_size}` bytes",
@@ -1191,6 +1326,7 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         parser_exits = run_analyzer(local_run_dir, args.wsl_distro, args.analyzer)
         movement_metrics = write_movement_metrics(local_run_dir)
         write_moveprobe_command_logs(local_run_dir)
+        write_moveprobe_qwd_event_logs(local_run_dir)
         write_summary(local_run_dir, args.host, port, run_id, args.map_name, parser_exits)
 
         summary = local_run_dir / "run-summary.md"

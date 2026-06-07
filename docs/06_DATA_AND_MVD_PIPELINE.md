@@ -210,6 +210,23 @@ Measured result:
 
 Interpretation: MVD now proves physical tight-start route traversal through most of the SNG path, but internal mode-9 activation/advance timing remains unproven. The next diagnostic should add event-level QWD activation/advance logging or unsampled advancement rows before any projection-policy change or expansion to other DM3 QWD moves.
 
+QWD SNG event logging instrumentation:
+
+- Patch: `experiments/ktx_moveprobe/frogbot-moveprobe.patch`
+- Runner/parser plumbing: `scripts/run_frobodm2_lab.py`
+- Unit coverage: `tests/test_extract_movement_metrics.py`
+- Scope: instrumentation only; no live KTX rerun, projection-policy change, route mutation, or new movement claim.
+
+Implementation result:
+
+- Mode `9` now emits unsampled `FBMOVEPROBE_QWD_EVENT` rows when command logging is enabled.
+- Events are emitted on QWD `activate`, `advance`, and `complete` edges rather than through the sampled `FBMOVEPROBE_CMD` throttle.
+- Each event records server time, ed/name, event kind, reached target index, next target index, control-point count, distance, advanced count, active/complete flags, active seconds, and current origin.
+- The lab runner parses those rows into `moveprobe-qwd-events.json` / `moveprobe-qwd-events.md`, and run summaries include a QWD event row count beside sampled command rows.
+- The KTX patch applies cleanly to the local `08807da` KTX checkout after the instrumentation change.
+
+Interpretation: this separates the current proof-quality gap from movement-policy tuning. The next live SNG rerun can preserve the same QWD projection and ask whether internal CP0 activation plus control-point advancement really occurred at the times implied by the MVD crossing evidence.
+
 ## Available or expected signals
 
 From `mvd_analyzer`, `qw-sim`, and related parsers, Komodobots expects to work with:
