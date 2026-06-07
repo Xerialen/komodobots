@@ -241,6 +241,18 @@ Implementation result:
 
 Interpretation: this prepares the measurement path for the next reviewed live SNG rerun. Event rows remain proof of internal mode-9 state transitions, not proof of human-like movement quality.
 
+## DM3 trick open-loop replay (KTX moveprobe mode 10)
+
+Per Benjamin's 2026-06-07 direction, the active DM3 trick target is `dm3_sng_to_rl.qwd`, and the first experiment is **open-loop replay**: drive a Frogbot with the exact human POV command stream and measure how far the route is reproduced before divergence (plus air/overall speed). This is the most literal use of the action labels and cleanly separates "is the trick input-reproducible under KTX physics" from "is the bot's movement brain wrong." ezQuake (client) is not modified; only KTX (see `docs/08_DECISION_LOG.md`).
+
+Apparatus:
+
+- Builder: `scripts/build_replay_command_file.py` -> `komodobots.replay.v1` file. One line per frame: `msec ox oy oz vx vy vz pitch yaw roll fwd side up buttons`. Commands from `tools/qwd_usercmd`; per-frame origin/velocity from `probe_qwd_route_applicability` anchored `svc_playerinfo`, paired by frame order. Frame 0 is the snap state; every frame is the divergence reference. `dm3_sng_to_rl.qwd` builds to 692 frames at coverage 1.0.
+- KTX mode 10 (`experiments/ktx_moveprobe/frogbot-moveprobe.patch`): reads the file via `trap_FS_*` (too large for a cvar; the filename rides `k_fb_moveprobe_replay_file`), snaps the bot to the human frame-0 origin/velocity/angles once, then emits the exact human `forwardmove`/`sidemove`/`upmove` + view angles each frame with no projection (usercmd move is already view-relative), resampling the human msec timeline onto the server tick. It logs bot-vs-human divergence per frame on the `FBMOVEPROBE_CMD` line (`replay=` suffix) and emits `FBMOVEPROBE_REPLAY_EVENT` activate/complete rows.
+- Runner: `scripts/run_frobodm2_lab.py --moveprobe-mode 10 --replay-cmds <file> --record-trick-name <name>` uploads the file, runs the lab, and dual-writes the demo to `tricks/dm3/` (committed) plus the local nQuake demo mirror.
+
+Open caveat: open-loop replay is initial-condition sensitive; QW air physics amplifies any frame-0 mismatch, so the bot is expected to diverge partway. "Reproduces to frame N, diverges at marker X" is the intended finding, not a failure. No live run has been done yet; this PR is apparatus + the KTX decision, submitted for review ahead of the first run.
+
 ## Available or expected signals
 
 From `mvd_analyzer`, `qw-sim`, and related parsers, Komodobots expects to work with:
