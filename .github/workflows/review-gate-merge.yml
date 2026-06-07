@@ -1,0 +1,93 @@
+name: Review Gate Merge
+
+# Deterministic merge executor for the staged agent loop.
+#
+# NO LLM and NO API tokens. It only runs `gh` + bash, and consumes neutral PR
+# labels rather than agent names or parsed prose. It merges a PR ONLY when the
+# review gate is `gate: ready`, no blocking/escalation label is present, and
+# every deterministic gate passes.
+#
+# The Reviewer (Codex) cannot apply labels itself, so the label is applied by
+# the no-LLM `review-gate-labeler.yml` (which reads Codex's native review
+# result) or by a human override. This workflow only executes the label.
+
+on:
+  pull_request:
+    types: [labeled, ready_for_review, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: review-gate-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: ${{ github.event.pull_request }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate review gate and merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          data=$(gh pr view "$PR" -R "$REPO" \
+            --json state,isDraft,baseRefName,mergeable,headRefOid,statusCheckRollup,labels)
+
+          state=$(jq -r '.state' <<<"$data")
+          draft=$(jq -r '.isDraft' <<<"$data")
+          base=$(jq -r '.baseRefName' <<<"$data")
+          mergeable=$(jq -r '.mergeable' <<<"$data")
+          head=$(jq -r '.headRefOid' <<<"$data")
+          short=${head:0:7}
+
+          has_ready=$(jq -r '[.labels[].name] | index("gate: ready") != null' <<<"$data")
+          has_blocked=$(jq -r '[.labels[].name] | index("gate: blocked") != null' <<<"$data")
+          needs_human=$(jq -r '[.labels[].name] | index("cycle: needs-human") != null' <<<"$data")
+
+          refuse() {
+            gh pr comment "$PR" -R "$REPO" \
+              --body "🚫 **Review-gate merge refused** — $1 (head \`$short\`). No merge performed."
+            echo "refused: $1"
+            exit 0
+          }
+
+          [ "$state" = "OPEN" ] || refuse "PR is not open (state=$state)"
+          [ "$draft" = "false" ] || refuse "PR is a draft"
+          [ "$base" = "main" ] || refuse "base is '$base', expected 'main'"
+          [ "$mergeable" = "MERGEABLE" ] || refuse "PR not mergeable (mergeable=$mergeable)"
+
+          [ "$has_ready" = "true" ] || refuse "missing label 'gate: ready'"
+          [ "$has_blocked" = "false" ] || refuse "label 'gate: blocked' is still present"
+          [ "$needs_human" = "false" ] || refuse "label 'cycle: needs-human' is present"
+
+          # P1 fix: exclude this gate's own workflow runs from the rollup, or the
+          # merge job's own in-progress check would count itself as "not passing"
+          # and the gate would deadlock. Only real CI (e.g. "Lab CI") is counted.
+          gate_filter='["Review Gate Merge","Review Gate Labeler","Reset Review Gate"]'
+          n_checks=$(jq -r --argjson gate "$gate_filter" \
+            '[(.statusCheckRollup // [])[]
+              | select((.workflowName // "") as $w | ($gate | index($w)) == null)]
+             | length' <<<"$data")
+          n_bad=$(jq -r --argjson gate "$gate_filter" \
+            '[(.statusCheckRollup // [])[]
+              | select((.workflowName // "") as $w | ($gate | index($w)) == null)
+              | ((.conclusion // .state // "") | ascii_upcase)
+              | select(. != "SUCCESS" and . != "NEUTRAL" and . != "SKIPPED")]
+             | length' <<<"$data")
+
+          [ "$n_bad" -eq 0 ] || refuse "$n_bad check(s) not passing"
+
+          checknote="no checks configured"
+          [ "$n_checks" -gt 0 ] && checknote="$n_checks check(s) passing"
+
+          gh pr merge "$PR" -R "$REPO" --squash --delete-branch
+          gh pr comment "$PR" -R "$REPO" \
+            --body "✅ **Merged** by review-gate executor. Gate: open · non-draft · base \`main\` · mergeable · ${checknote} · label \`gate: ready\` @ \`$short\`."

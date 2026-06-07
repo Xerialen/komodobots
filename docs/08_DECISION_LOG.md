@@ -2229,3 +2229,41 @@ Reviews cost no extra tokens and run in the cloud; merges are deterministic and 
 ### Revisit Conditions
 
 Revisit if Codex does not reliably emit the `MERGER: READY <head-sha>` line, if the `chatgpt-codex-connector` identity changes, or if a future need requires a smarter (LLM-based) merge decision than the deterministic gate provides.
+
+---
+
+## Decision
+
+Replace the `MERGER:` verdict-token merge gate with a neutral PR-label gate (`gate: ready`) applied by a no-LLM labeler from Codex's native review.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+The verdict-token mechanism is retired. The merge gate is now a neutral PR label, and `.github/workflows/codex-merge.yml` is deleted. Three deterministic, no-LLM, no-API-token Actions replace it:
+
+- `review-gate-labeler.yml` — reads Codex's native review result (it cannot apply labels or emit custom tokens itself) and stamps `gate: ready` on a clean review ("no major issues") or `gate: blocked` on any posted finding. Fails closed; a repo OWNER can override with `/gate ready` or `/gate blocked`.
+- `review-gate-merge.yml` — merges only when `gate: ready` is present, `gate: blocked` / `cycle: needs-human` are absent, the PR is open/non-draft/mergeable on `main`, and all non-gate checks pass.
+- `review-gate-reset.yml` — on every `synchronize`, clears `gate: ready`/`gate: blocked` and sets `gate: reviewing`, so a stale review can never merge newer code.
+
+### Alternatives Considered
+
+- Keep the `MERGER: READY <head-sha>` token. Rejected: the prior decision's revisit condition fired — Codex's code-review feature posts its own fixed format and does not reliably emit custom tokens, so the token gate never triggered.
+- Have Codex apply the `gate: ready` label itself. Rejected: verified against OpenAI's docs that the code-review feature cannot apply labels; only a manually-mentioned `@codex` cloud task could, which is non-deterministic and permission-dependent — the fuzziness the label gate is meant to remove.
+- Owner applies the label by hand every PR. Kept as the override path, but not the default: it is a manual step per PR.
+
+### Evidence
+
+- Live tests on PR #37 and #38: Codex posted "Codex Review: Didn't find any major issues." as `chatgpt-codex-connector` with no `MERGER:` token — the token gate could never fire.
+- OpenAI Codex GitHub docs: the code-review feature "posts a standard GitHub code review" (comments only); cloud `@codex` tasks act under least-privilege GitHub App tokens, read-only by default.
+- The labeler's clean/blocked classification and the merger's self-check-exclusion jq filter were unit-checked locally (n_checks/n_bad over a simulated `statusCheckRollup` correctly excludes the gate workflows' own in-progress runs — the P1 self-deadlock Codex flagged on the first label-gate attempt).
+
+### Expected Consequences
+
+The merge is now fully deterministic on a label; the only non-deterministic atom is recognizing Codex's standard clean phrasing, isolated in the labeler and failing closed. From the operator's seat the loop is hands-off: Codex reviews → label appears → PR auto-merges. New commits reset the gate automatically.
+
+### Revisit Conditions
+
+Revisit if Codex's clean-review phrasing changes (the labeler's match strings would need updating), if the `chatgpt-codex-connector` identity changes, or if false-positive `gate: ready` stamps occur — in which case tighten the labeler to require an explicit clean signal or fall back to the OWNER `/gate` override.

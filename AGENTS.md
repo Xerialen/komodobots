@@ -34,24 +34,27 @@ The first project objective is to build a repeatable lab that can prove or dispr
 
 ## Autonomous three-agent loop
 
-This repository is worked by **Coder = Claude** and **adversarial Reviewer = Codex** (both run as external/cloud agents). Codex's review holds merge authority: a deterministic GitHub Action (`.github/workflows/codex-merge.yml`, no LLM and no API tokens) merges a PR when Codex posts a current-head-SHA `MERGER: READY` verdict and every gate passes. **Gemini** is an **on-demand second opinion only** (`/gemini review` via the Gemini Code Assist app) — it does not auto-review and never merges.
+This repository is worked by **Coder = Claude** and **adversarial Reviewer = Codex** (both run as external/cloud agents). The merge gate is a **neutral PR label**, not parsed prose: a deterministic GitHub Action (`.github/workflows/review-gate-merge.yml`, no LLM and no API tokens) merges a PR when the `gate: ready` label is present, no blocking/escalation label is present, and every gate passes. Codex cannot apply labels itself, so a second no-LLM Action (`.github/workflows/review-gate-labeler.yml`) reads Codex's native review result and stamps `gate: ready` (clean) or `gate: blocked` (findings). **Gemini** is an **on-demand second opinion only** (`/gemini review` via the Gemini Code Assist app) — it does not auto-review and never merges.
 
 ```text
-Coder (Claude) implements -> Reviewer (Codex) adversarially reviews and posts a MERGER verdict -> deterministic Action merges on a READY verdict if gates pass -> Coder starts the next stage from updated main
+Coder (Claude) implements -> Reviewer (Codex) adversarially reviews -> labeler translates Codex's verdict into a gate label -> deterministic Action merges on `gate: ready` if gates pass -> Coder starts the next stage from updated main
 ```
 
 Role boundaries are mandatory:
 
 - Coder implements the current stage, updates docs/evidence, opens or updates the stage PR, and responds to review feedback that stays inside the same stage.
-- Reviewer (Codex) adversarially reviews and hardens PRs for code slop, validation gaps, documentation gaps, and north-star drift, and posts the merge verdict.
-- The merge executor (a deterministic, no-LLM GitHub Action) performs the final gate check and merges only on a current-head-SHA Reviewer `READY` verdict with all gates passing.
+- Reviewer (Codex) adversarially reviews and hardens PRs for code slop, validation gaps, documentation gaps, and north-star drift. It reviews normally — it does not need to emit any special token.
+- The labeler (a deterministic, no-LLM Action) translates Codex's native review result into a `gate: ready` / `gate: blocked` label, fail-closed.
+- The merge executor (a deterministic, no-LLM Action) performs the final gate check and merges only when `gate: ready` is set and all gates pass.
 - Gemini is an on-demand second opinion (`/gemini review`) — not part of the autonomous loop, and never merges.
 
 Hard separation:
 
-- Coder must not merge.
-- Reviewer must not implement feature work or start the next stage. The Reviewer authorizes merges via its verdict but does not execute them.
-- The merge executor must not implement, review, or start the next stage; it only executes a passing Reviewer verdict.
+- Coder must not merge and must not self-apply `gate: ready`.
+- Reviewer must not implement feature work or start the next stage.
+- The labeler must not implement or review; it only classifies Codex's result into a label.
+- The merge executor must not implement, review, or start the next stage; it only executes a passing label gate.
+- A new commit resets the gate (`.github/workflows/review-gate-reset.yml`), so a stale review can never merge newer code.
 
 ## Stage and PR rules
 
@@ -80,17 +83,19 @@ On every loop, first inspect repo/PR state and then choose exactly one of these 
 
 Do not post repeated comments with the same conclusion. Do not create new branches or PRs when an appropriate one already exists. Do not fight another agent over the same branch.
 
-## Reviewer verdict rule
+## Review gate rule
 
-Every Reviewer PR review must end with exactly one of these lines:
+The merge gate is a neutral PR label, applied by the no-LLM labeler from Codex's native review result (the Reviewer does not emit a custom token):
 
 ```text
-MERGER: READY
-MERGER: READY_WITH_NON_BLOCKING_CAVEATS
-MERGER: BLOCKED
+gate: ready      -> Codex's review was clean; eligible to merge if all other gates pass
+gate: blocked    -> Codex posted findings; must not merge until addressed and re-reviewed
+gate: reviewing  -> transient; set when new commits land, cleared by the next review
 ```
 
-The verdict must name the current PR head SHA. The merge executor may only consume a Reviewer verdict if it references the current head SHA. If new commits have been pushed after the verdict, the merge executor must refuse to merge and request a fresh Reviewer review.
+A pushed commit invalidates any previous decision: `review-gate-reset.yml` clears `gate: ready`/`gate: blocked` and sets `gate: reviewing` on every `synchronize`, so the gate always reflects the current head. Escalation uses `cycle: needs-human`, which blocks merge regardless of the gate label.
+
+Human override: a repo OWNER may comment `/gate ready` or `/gate blocked` to set the gate directly.
 
 ## Review guidelines
 
@@ -104,15 +109,7 @@ Review focus, in priority order:
 - Documentation gaps: code/config/experiment changes that did not update the routed doc. (P1)
 - Code slop: dead code, needless complexity, duplicated logic. (P2)
 
-End every review with EXACTLY ONE verdict line, on its own line, naming the current PR head SHA, so the merge executor can consume it:
-
-```text
-MERGER: READY <head-sha>
-MERGER: READY_WITH_NON_BLOCKING_CAVEATS <head-sha>
-MERGER: BLOCKED <head-sha>
-```
-
-Use `READY` only when the PR meets the "Merge gate rule" below. Use `BLOCKED` for any P0. The Merger ignores a verdict whose SHA is not the current head SHA.
+Review normally and post your findings in the standard way — you do not need to emit any special verdict token. The no-LLM labeler translates your result into the gate label: a clean review ("no major issues") becomes `gate: ready`; any posted finding becomes `gate: blocked`. Block (post findings) for any P0. Because the labeler fails closed, an ambiguous or comment-only response leaves the PR un-readied until you give a clear clean verdict or a human overrides.
 
 ## Merge gate rule
 
@@ -126,7 +123,7 @@ The merge executor may merge only when all are true:
 - PR is mergeable.
 - Required checks pass.
 - If no checks exist, that absence is explicitly noted.
-- Reviewer has emitted `MERGER: READY` or `MERGER: READY_WITH_NON_BLOCKING_CAVEATS` for the current head SHA.
+- The `gate: ready` label is present and neither `gate: blocked` nor `cycle: needs-human` is set.
 - No unresolved actionable review feedback remains.
 - The PR body or latest agent comment records what changed, evidence produced, docs updated, validation run, stage status, and next step.
 

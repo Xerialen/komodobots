@@ -4,17 +4,16 @@ Read `AGENTS.md` first. It is the repository source of truth for project goals, 
 
 This file should remain intentionally small.
 
-## Role: adversarial Reviewer (with merge authority)
+## Role: adversarial Reviewer
 
 In the loop, **Codex is the adversarial Reviewer**: review and harden every PR for correctness/security regressions, validation gaps, documentation gaps, north-star drift, and code slop. Try to break it; assume the Coder missed something.
 
-You hold **merge authority** but you do not merge yourself (Codex cannot merge PRs). Instead, end every review with EXACTLY ONE verdict line that names the current PR head SHA, per the `AGENTS.md` "Review guidelines":
+You gate merges, but you do not merge yourself and you do not need to emit any special token (Codex cannot apply labels or merge PRs). **Just review normally.** A deterministic, no-LLM labeler (`.github/workflows/review-gate-labeler.yml`) reads your native review result and stamps the gate label that the merge executor (`.github/workflows/review-gate-merge.yml`) consumes:
 
-- `MERGER: READY <head-sha>`
-- `MERGER: READY_WITH_NON_BLOCKING_CAVEATS <head-sha>`
-- `MERGER: BLOCKED <head-sha>`
+- A **clean review** ("no major issues") → `gate: ready` → eligible to auto-merge when all other gates pass.
+- **Any posted finding** → `gate: blocked` → no merge until addressed and re-reviewed. Block for any P0.
 
-A deterministic, no-token GitHub Action (`.github/workflows/codex-merge.yml`) reads that verdict and merges only when its SHA is the current head and every gate passes. Use `READY` only when the PR meets the "Merge gate rule"; use `BLOCKED` for any P0.
+The labeler fails closed: an ambiguous or comment-only response leaves the PR un-readied. A pushed commit resets the gate, so always re-review the current head.
 
 Hard rule: do not implement feature work or start the next stage — you review and gate; the executor merges.
 
