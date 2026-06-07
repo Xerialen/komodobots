@@ -34,23 +34,23 @@ The first project objective is to build a repeatable lab that can prove or dispr
 
 ## Autonomous three-agent loop
 
-This repository may be worked by three unattended agents:
+This repository is worked by three unattended agents, one per role — **Coder = Claude**, **Reviewer = Codex**, **Merger = Gemini**. The Coder and Reviewer run as external agent loops; the Merger runs as a GitHub Action in `.github/workflows/gemini-merger.yml`, so it is bound by this contract plus that workflow.
 
 ```text
-Phasekeeper implements stage work -> Code Sentinel reviews/hardens -> Merge Warden merges if gates pass -> Phasekeeper starts the next stage from updated main
+Coder implements stage work -> Reviewer reviews/hardens -> Merger merges if gates pass -> Coder starts the next stage from updated main
 ```
 
 Role boundaries are mandatory:
 
-- Phasekeeper implements the current stage, updates docs/evidence, opens or updates the stage PR, and responds to review feedback that stays inside the same stage.
-- Code Sentinel reviews and hardens PRs for code slop, validation gaps, documentation gaps, and north-star drift.
-- Merge Warden performs the final merge gate and merges only when all gates pass.
+- Coder implements the current stage, updates docs/evidence, opens or updates the stage PR, and responds to review feedback that stays inside the same stage.
+- Reviewer reviews and hardens PRs for code slop, validation gaps, documentation gaps, and north-star drift.
+- Merger performs the final merge gate and merges only when all gates pass.
 
 Hard separation:
 
-- Phasekeeper must not merge.
-- Code Sentinel must not merge.
-- Merge Warden must not implement feature work, fix tests, or start the next stage.
+- Coder must not merge.
+- Reviewer must not merge.
+- Merger must not implement feature work, fix tests, or start the next stage.
 
 ## Stage and PR rules
 
@@ -79,21 +79,21 @@ On every loop, first inspect repo/PR state and then choose exactly one of these 
 
 Do not post repeated comments with the same conclusion. Do not create new branches or PRs when an appropriate one already exists. Do not fight another agent over the same branch.
 
-## Code Sentinel verdict rule
+## Reviewer verdict rule
 
-Every Code Sentinel PR review must end with exactly one of these lines:
+Every Reviewer PR review must end with exactly one of these lines:
 
 ```text
-MERGE_WARDEN: READY
-MERGE_WARDEN: READY_WITH_NON_BLOCKING_CAVEATS
-MERGE_WARDEN: BLOCKED
+MERGER: READY
+MERGER: READY_WITH_NON_BLOCKING_CAVEATS
+MERGER: BLOCKED
 ```
 
-The verdict must name the current PR head SHA. Merge Warden may only consume a Code Sentinel verdict if it references the current head SHA. If new commits have been pushed after the verdict, Merge Warden must refuse to merge and request a fresh Code Sentinel review.
+The verdict must name the current PR head SHA. Merger may only consume a Reviewer verdict if it references the current head SHA. If new commits have been pushed after the verdict, Merger must refuse to merge and request a fresh Reviewer review.
 
 ## Merge gate rule
 
-Merge Warden may merge only when all are true:
+Merger may merge only when all are true:
 
 - Target repository and PR are unambiguous.
 - PR is open and non-draft.
@@ -103,11 +103,11 @@ Merge Warden may merge only when all are true:
 - PR is mergeable.
 - Required checks pass.
 - If no checks exist, that absence is explicitly noted.
-- Code Sentinel has emitted `MERGE_WARDEN: READY` or `MERGE_WARDEN: READY_WITH_NON_BLOCKING_CAVEATS` for the current head SHA.
+- Reviewer has emitted `MERGER: READY` or `MERGER: READY_WITH_NON_BLOCKING_CAVEATS` for the current head SHA.
 - No unresolved actionable review feedback remains.
 - The PR body or latest agent comment records what changed, evidence produced, docs updated, validation run, stage status, and next step.
 
-Merge Warden must refuse clearly if any gate fails.
+Merger must refuse clearly if any gate fails.
 
 ## Documentation rules
 
