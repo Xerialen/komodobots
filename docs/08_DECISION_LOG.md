@@ -2368,7 +2368,7 @@ The deterministic GitHub Action remains the only merge authority. The lifecycle 
 push/open PR -> reset to gate: reviewing -> Codex reviews and applies gate: ready or gate: blocked -> review-gate-merge merges only on gate: ready plus green PR Tests and no failing non-gate checks, either from the event path or the 10-minute reconciler
 ```
 
-`review-gate-labeler.yml` is removed because it parsed Codex output, could conflict with direct labels, and previously needed an inline merge path to work around GitHub's `GITHUB_TOKEN` event-recursion rules. `review-gate-reset.yml` is re-enabled as a quiet SHA-hygiene reset. `review-gate-merge.yml` is re-enabled as the only deterministic auto-merger, with a 10-minute schedule backstop for already-ready PRs.
+`review-gate-labeler.yml` is removed because it parsed Codex output, could conflict with direct labels, and previously needed an inline merge path to work around GitHub's `GITHUB_TOKEN` event-recursion rules. `review-gate-reset.yml` is re-enabled as a quiet SHA-hygiene reset. `review-gate-merge.yml` is re-enabled as the only deterministic auto-merger, reacts directly to `gate: ready` labels from both `pull_request:labeled` and `issues:labeled`, and keeps a 10-minute schedule backstop for already-ready PRs.
 
 Reviewer scope is technical merge safety only: correctness, regressions, security, reliability, CI/CD, GitHub Actions logic, workflow triggers, label/merge-gate logic, permissions, secrets, branch-protection assumptions, operational/deployment risk, data-loss/destructive behavior, and tests for changed behavior. Plan, roadmap, scope, architecture-plan deviation, north-star drift, and documentation drift are not review-gate blockers.
 

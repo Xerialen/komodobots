@@ -9,18 +9,21 @@ name: Review Gate Merge
 #   - every non-gate status check passing (this is where `pr-tests` — the
 #     deterministic CI floor — is enforced)
 #
-# It re-evaluates on BOTH the label event AND completion of the `PR Tests`
-# workflow, so a PR merges as soon as the LAST of {tests green, gate: ready}
-# arrives. NOTE: `check_suite`/`check_run` are NOT used — GitHub does not emit
-# those events for check suites created by GitHub Actions, so they'd never fire
-# for `PR Tests`; `workflow_run` is the mechanism that does. A low-frequency
-# schedule reconciles eligible `gate: ready` PRs in case connector-applied label
-# events do not start a pull_request:labeled run. "Not ready yet" is silent (log
-# only); it comments only on an actual merge or a hard error.
+# It re-evaluates on label events and completion of the `PR Tests` workflow, so
+# a PR merges as soon as the LAST of {tests green, gate: ready} arrives. NOTE:
+# `check_suite`/`check_run` are NOT used — GitHub does not emit those events for
+# check suites created by GitHub Actions, so they'd never fire for `PR Tests`;
+# `workflow_run` is the mechanism that does. Both `pull_request:labeled` and
+# `issues:labeled` are handled because PR labels can arrive through either
+# webhook surface depending on which API applies the label. A low-frequency
+# schedule reconciles eligible `gate: ready` PRs if a label event is missed.
+# "Not ready yet" is silent (log only); it comments only on an actual merge.
 
 on:
   pull_request:
     types: [labeled, ready_for_review, reopened]
+  issues:
+    types: [labeled]
   workflow_run:
     workflows: ["PR Tests"]
     types: [completed]
@@ -36,7 +39,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: review-gate-merge-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha || github.run_id }}
+  group: review-gate-merge-${{ github.event.pull_request.number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -50,6 +53,7 @@ jobs:
           REPO: ${{ github.repository }}
           EVENT: ${{ github.event_name }}
           PR_FROM_LABEL: ${{ github.event.pull_request.number }}
+          ISSUE_FROM_LABEL: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
 
@@ -57,7 +61,15 @@ jobs:
           # completed `PR Tests` workflow_run references the PR(s) on its head
           # (fall back to matching open PRs by head SHA if the array is empty).
           # Schedule runs reconcile open PRs already labeled `gate: ready`.
-          if [ "$EVENT" = "workflow_run" ]; then
+          if [ "$EVENT" = "issues" ]; then
+            is_pr=$(jq -r 'has("issue") and (.issue.pull_request != null)' "$GITHUB_EVENT_PATH")
+            label=$(jq -r '.label.name // ""' "$GITHUB_EVENT_PATH")
+            if [ "$is_pr" != "true" ] || [ "$label" != "gate: ready" ]; then
+              echo "issues:labeled event is not a PR gate-ready label; nothing to do"
+              exit 0
+            fi
+            PRS="$ISSUE_FROM_LABEL"
+          elif [ "$EVENT" = "workflow_run" ]; then
             PRS=$(jq -r '.workflow_run.pull_requests[]?.number' "$GITHUB_EVENT_PATH" | sort -u)
             if [ -z "${PRS:-}" ]; then
               sha=$(jq -r '.workflow_run.head_sha' "$GITHUB_EVENT_PATH")
@@ -67,6 +79,11 @@ jobs:
           elif [ "$EVENT" = "schedule" ]; then
             PRS=$(gh pr list -R "$REPO" --state open --label "gate: ready" --json number --jq '.[].number')
           else
+            label=$(jq -r '.label.name // ""' "$GITHUB_EVENT_PATH")
+            if [ -n "$label" ] && [ "$label" != "gate: ready" ]; then
+              echo "pull_request label is not gate: ready; nothing to do"
+              exit 0
+            fi
             PRS="$PR_FROM_LABEL"
           fi
           [ -n "${PRS:-}" ] || { echo "no PR in event; nothing to do"; exit 0; }
