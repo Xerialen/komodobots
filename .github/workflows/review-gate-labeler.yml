@@ -3,21 +3,32 @@ name: Review Gate Labeler
 # Bridges the Reviewer (Codex) to the neutral merge gate WITHOUT an LLM.
 #
 # Codex's code-review feature cannot apply labels itself and won't emit custom
-# tokens — it posts its own native review. This deterministic workflow reads
-# that native result and stamps the gate label the merge executor consumes:
+# tokens. This deterministic workflow reads Codex's NATIVE output and stamps the
+# gate label the merge executor consumes. The mapping below is grounded in the
+# actual corpus of Codex reviews in this repo (28 PRs), not guesswork:
 #
-#   - Codex clean verdict ("no major issues")        -> `gate: ready`
-#   - Codex posted review suggestions / findings     -> `gate: blocked`
+#   * Clean verdict lives in an ISSUE comment:
+#       "Codex Review: Didn't find any major issues. <flavor>"   -> gate: ready
+#   * Severity lives in INLINE review comments, each carrying a P0/P1/P2 badge.
+#     Codex's review-body text ("automated review suggestions") is identical on
+#     every PR and is severity-blind, so it is NOT used.
+#       any non-outdated inline P0 or P1 badge                    -> gate: blocked
+#       (P2 = nitpick, non-blocking)
+#   * Codex can fail to review (usage limits, errors)             -> cycle: needs-human
+#   * Anything else (a Summary/Outcome with no clean line and no
+#     P0/P1) is ambiguous and fails closed                        -> cycle: needs-human
 #
-# It fails CLOSED: anything it cannot positively classify as clean leaves the
-# gate un-readied. A repo OWNER can override by commenting `/gate ready` or
-# `/gate blocked` (human safety valve).
+# On every run it re-evaluates the PR's FULL current state (latest Codex issue
+# comment + current inline comments), so out-of-order events don't make labels
+# flap. A repo OWNER can override with `/gate ready` or `/gate blocked`.
 
 on:
   issue_comment:
     types: [created]
   pull_request_review:
     types: [submitted]
+  pull_request_review_comment:
+    types: [created]
 
 permissions:
   issues: write
@@ -29,59 +40,89 @@ concurrency:
 
 jobs:
   label:
-    # Only act on PRs, and only for Codex's review output or an owner override.
+    # Only act on PR events authored by Codex or by a repo OWNER (override).
     if: >-
       ${{
-        (github.event.issue.pull_request && (
+        ((github.event.issue && github.event.issue.pull_request) || github.event.pull_request)
+        && (
           startsWith(github.event.comment.user.login, 'chatgpt-codex-connector')
+          || startsWith(github.event.review.user.login, 'chatgpt-codex-connector')
           || github.event.comment.author_association == 'OWNER'
-        ))
-        || (github.event.review && (
-          startsWith(github.event.review.user.login, 'chatgpt-codex-connector')
           || github.event.review.author_association == 'OWNER'
-        ))
+        )
       }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Translate review result into gate label
+      - name: Compute gate from Codex's native review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.issue.number || github.event.pull_request.number }}
-          BODY: ${{ github.event.comment.body || github.event.review.body }}
-          ACTOR: ${{ github.event.comment.user.login || github.event.review.user.login }}
-          ASSOC: ${{ github.event.comment.author_association || github.event.review.author_association }}
+          EVENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
+          EVENT_ASSOC: ${{ github.event.comment.author_association || github.event.review.author_association }}
         run: |
           set -euo pipefail
 
-          ready()   { gh pr edit "$PR" -R "$REPO" --remove-label "gate: blocked"   --remove-label "gate: reviewing" --add-label "gate: ready";    echo "set gate: ready"; }
-          blocked() { gh pr edit "$PR" -R "$REPO" --remove-label "gate: ready"      --remove-label "gate: reviewing" --add-label "gate: blocked";  echo "set gate: blocked"; }
+          ready()   { gh pr edit "$PR" -R "$REPO" --remove-label "gate: blocked"   --remove-label "gate: reviewing" --remove-label "cycle: needs-human" --add-label "gate: ready";        echo "=> gate: ready"; }
+          blocked() { gh pr edit "$PR" -R "$REPO" --remove-label "gate: ready"      --remove-label "gate: reviewing" --remove-label "cycle: needs-human" --add-label "gate: blocked";      echo "=> gate: blocked"; }
+          human()   { gh pr edit "$PR" -R "$REPO" --remove-label "gate: ready"      --remove-label "gate: reviewing"                                     --add-label "cycle: needs-human"; echo "=> cycle: needs-human"; }
 
-          body_lc=$(printf '%s' "$BODY" | tr '[:upper:]' '[:lower:]')
-
-          # --- Human owner override (explicit, highest priority) ---
-          if [ "$ASSOC" = "OWNER" ]; then
-            case "$body_lc" in
+          # --- Human OWNER override (explicit, highest priority) ---
+          if [ "${EVENT_ASSOC:-}" = "OWNER" ]; then
+            ev_lc=$(printf '%s' "${EVENT_BODY:-}" | tr '[:upper:]' '[:lower:]')
+            case "$ev_lc" in
               *"/gate ready"*)   ready;   exit 0 ;;
               *"/gate blocked"*) blocked; exit 0 ;;
             esac
           fi
 
-          # --- Codex native review result ---
-          case "$ACTOR" in
-            chatgpt-codex-connector*)
-              # Clean verdict -> ready. Codex's standard clean phrasing.
-              case "$body_lc" in
-                *"didn't find any major issues"*|*"didnt find any major issues"*|*"no major issues"*|*"no issues found"*)
-                  ready; exit 0 ;;
-              esac
-              # Suggestions/findings posted -> block until addressed and re-reviewed.
-              case "$body_lc" in
-                *"automated review suggestions"*|*"p0 badge"*|*"p1 badge"*|*"p2 badge"*|*"![p0"*|*"![p1"*|*"![p2"*)
-                  blocked; exit 0 ;;
-              esac
-              ;;
+          # --- Re-evaluate full current state, scoped to the CURRENT head ---
+          # A Codex comment only counts if posted at/after the head commit, so a
+          # stale verdict from a previous pass (or an unrelated @codex reply) can
+          # never gate newer code.
+          head_sha=$(gh pr view "$PR" -R "$REPO" --json headRefOid --jq '.headRefOid')
+          head_date=$(gh api "repos/$REPO/commits/$head_sha" --jq '.commit.committer.date')
+          echo "head $head_sha @ $head_date"
+
+          codex='select(.user.login | startswith("chatgpt-codex-connector"))'
+
+          # Codex conversation comments posted for the current head, newest first.
+          fresh=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            | jq -r --arg since "$head_date" \
+                "[.[] | $codex | select(.created_at >= \$since)] | sort_by(.created_at) | reverse | .[].body" \
+            | tr '[:upper:]' '[:lower:]')
+
+          # Live (non-outdated) inline review comments carrying a P0/P1 badge.
+          p01=$(gh api "repos/$REPO/pulls/$PR/comments" --paginate \
+            | jq -r "[.[] | $codex | select(.position != null) | .body] | join(\"\n\")" \
+            | grep -iEc 'p[01] badge|badge/p[01]-' || true)
+
+          echo "live P0/P1 inline badges: $p01"
+          echo "fresh codex comment chars: ${#fresh}"
+
+          # --- Decide, fail-closed ---
+          # 1. Codex couldn't review (usage/rate limit, error) -> escalate.
+          case "$fresh" in
+            *"usage limit"*|*"reached your codex usage"*|*"rate limit"*)
+              human; exit 0 ;;
           esac
 
-          echo "No deterministic gate signal in this event; leaving gate unchanged (fail-closed)."
+          # 2. A live P0/P1 finding blocks, regardless of any clean line.
+          if [ "${p01:-0}" -gt 0 ]; then
+            blocked; exit 0
+          fi
+
+          # 3. A clean verdict for the current head, with no blocking finding -> ready.
+          case "$fresh" in
+            *"didn't find any major issues"*|*"didnt find any major issues"*)
+              ready; exit 0 ;;
+          esac
+
+          # 4. Codex spoke for this head but gave no clean line and no P0/P1
+          #    (Summary/Outcome, P2-only) -> ambiguous, hand to a human.
+          if [ -n "$fresh" ]; then
+            human; exit 0
+          fi
+
+          echo "No Codex verdict for the current head yet; leaving gate unchanged."

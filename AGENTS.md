@@ -109,7 +109,13 @@ Review focus, in priority order:
 - Documentation gaps: code/config/experiment changes that did not update the routed doc. (P1)
 - Code slop: dead code, needless complexity, duplicated logic. (P2)
 
-Review normally and post your findings in the standard way — you do not need to emit any special verdict token. The no-LLM labeler translates your result into the gate label: a clean review ("no major issues") becomes `gate: ready`; any posted finding becomes `gate: blocked`. Block (post findings) for any P0. Because the labeler fails closed, an ambiguous or comment-only response leaves the PR un-readied until you give a clear clean verdict or a human overrides.
+Review normally and post your findings in the standard way — you do not need to emit any special verdict token. The no-LLM labeler translates your native output into the gate label, grounded in how Codex actually posts:
+
+- a clean conversation comment for the current head ("didn't find any major issues") with no live P0/P1 → `gate: ready`;
+- any live inline **P0/P1** badge → `gate: blocked` (a lone P2 is a non-blocking nitpick);
+- a usage/rate-limit error, or commentary that is neither clean nor P0/P1 → `cycle: needs-human`.
+
+The labeler fails closed and is scoped to the current head SHA, so a stale or unrelated comment can never ready a PR. To block a merge, post the concern as an inline P0/P1 comment.
 
 ## Merge gate rule
 
