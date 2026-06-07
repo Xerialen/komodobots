@@ -140,8 +140,13 @@ jobs:
           fi
 
           # 3. A clean verdict for the current head -> ready.
+          # Match the apostrophe-FREE distinctive substring: Codex auto-reviews
+          # render "I didn't find any major issues" with a curly apostrophe
+          # (U+2019) while manual reviews use a straight one, so keying on the
+          # apostrophe is fragile. "find any major issues" / "no major issues"
+          # appear only in clean verdicts (findings come as inline P-badges).
           case "$fresh" in
-            *"didn't find any major issues"*|*"didnt find any major issues"*)
+            *"find any major issues"*|*"no major issues"*|*"no issues found"*)
               ready_if_current; exit 0 ;;
           esac
 

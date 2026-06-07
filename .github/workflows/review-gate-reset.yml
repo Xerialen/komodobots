@@ -32,5 +32,9 @@ jobs:
           gh pr edit "$PR" -R "$REPO" --remove-label "gate: ready" || true
           gh pr edit "$PR" -R "$REPO" --remove-label "gate: blocked" || true
           gh pr edit "$PR" -R "$REPO" --add-label "gate: reviewing" || true
+          # IMPORTANT: do NOT put "@codex review" (or any @codex mention) in this
+          # comment. It posts as github-actions[bot], which is not a Codex-linked
+          # identity, so the connector replies "create a Codex account…" on every
+          # reset — pure noise. Re-review happens via auto-review / a human ping.
           gh pr comment "$PR" -R "$REPO" \
-            --body "🔄 Review gate reset — new commits were pushed, so the previous decision no longer applies. Re-review required (\`@codex review\`)."
+            --body "🔄 Review gate reset — new commits were pushed, so the previous gate decision no longer applies. A fresh review is required before this PR can merge."
