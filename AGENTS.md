@@ -116,9 +116,9 @@ Review focus, in priority order:
 
 Review normally and post your findings in the standard way — you do not need to emit any special verdict token. The no-LLM labeler translates your native output into the gate label, grounded in how Codex actually posts:
 
-- a clean conversation comment for the current head ("didn't find any major issues") with no live P0/P1 → `gate: ready`;
-- any live inline **P0/P1** badge → `gate: blocked` (a lone P2 is a non-blocking nitpick);
-- a usage/rate-limit error, or commentary that is neither clean nor P0/P1 → `cycle: needs-human`.
+- a clean conversation comment for the current head ("didn't find any major issues"), or a review whose only findings are non-blocking **P2**, with no live P0/P1 → `gate: ready`;
+- any live inline **P0/P1** badge → `gate: blocked`;
+- a usage/rate-limit error, or a bare Summary/Outcome with no clean line and no badge → `cycle: needs-human`.
 
 The labeler fails closed and is scoped to the current head SHA, so a stale or unrelated comment can never ready a PR. To block a merge, post the concern as an inline P0/P1 comment.
 
