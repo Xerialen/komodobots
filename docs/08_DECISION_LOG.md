@@ -2189,3 +2189,43 @@ The next live rerun can answer whether mode-9 internal activation/advance timing
 ### Revisit Conditions
 
 Revisit if event-bearing live runs still disagree with MVD physical crossings, or if event rows appear without corresponding MVD movement evidence. In that case the scorer should treat identity/timing instrumentation as suspect before any projection-policy change or DM3-wide expansion.
+
+---
+
+## Decision
+
+Restructure the autonomous loop to Coder (Claude) / adversarial Reviewer + merge authority (Codex) / on-demand second opinion (Gemini), executed by a deterministic no-token merge Action.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+The themed roles (Phasekeeper / Code Sentinel / Merge Warden) are renamed to plain Coder and Reviewer plus a deterministic merge executor, pinned to agents:
+
+- Coder = Claude (external/cloud agent): implements stage work and opens PRs.
+- Reviewer = Codex, via Codex Cloud code review on a ChatGPT subscription (no extra API tokens, runs in OpenAI's cloud). Codex adversarially reviews and ends each review with `MERGER: READY | READY_WITH_NON_BLOCKING_CAVEATS | BLOCKED <head-sha>`, but does not merge (Codex cannot merge PRs).
+- Merge executor = `.github/workflows/codex-merge.yml`: a deterministic `gh` + bash Action with no LLM and no API tokens. It merges only on a current-head-SHA Reviewer `READY` verdict with every `AGENTS.md` merge-gate condition satisfied, and fails closed otherwise.
+- Gemini = on-demand second opinion via the Gemini Code Assist app (`/gemini review`); `.gemini/config.yaml` disables auto-review on PR open. Gemini never merges.
+
+### Alternatives Considered
+
+- Keep Gemini as the merger via the `run-gemini-cli` GitHub Action. Rejected: it needs a Gemini API key, and the consumer Gemini AI Pro subscription grants no API/CI access, against the no-extra-tokens goal.
+- Let Codex merge directly. Rejected: Codex cannot merge PRs; it only reviews, fixes, and opens.
+- GitHub native auto-merge gated on an approving review. Rejected: Codex posts a comment/review, not an `APPROVE`, so native auto-merge cannot key on it.
+- Scheduled polling for the merge. Rejected: private-repo GitHub Actions minutes are metered, so polling is not free; event-driven triggers are.
+
+### Evidence
+
+- OpenAI docs: Codex code review is included in ChatGPT Plus/Pro/Business/Edu/Enterprise plans, runs in the cloud, and cannot merge PRs; it posts as the `chatgpt-codex-connector` bot.
+- Live test on PR #37: Codex reviewed the PR in the cloud on the subscription.
+- The executor enforces the gate with `gh pr view ... --json state,isDraft,baseRefName,mergeable,headRefOid,statusCheckRollup` and refuses unless the verdict cites the current head SHA.
+
+### Expected Consequences
+
+Reviews cost no extra tokens and run in the cloud; merges are deterministic and free except minimal Actions minutes, gated on Codex's verdict. The open question is whether Codex reliably emits the `MERGER:` verdict token; if not, the executor fails closed and the OWNER fallback can supply the verdict.
+
+### Revisit Conditions
+
+Revisit if Codex does not reliably emit the `MERGER: READY <head-sha>` line, if the `chatgpt-codex-connector` identity changes, or if a future need requires a smarter (LLM-based) merge decision than the deterministic gate provides.
