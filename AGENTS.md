@@ -45,11 +45,13 @@ Role boundaries are mandatory:
 - Phasekeeper implements the current stage, updates docs/evidence, opens or updates the stage PR, and responds to review feedback that stays inside the same stage.
 - Code Sentinel reviews and hardens PRs for code slop, validation gaps, documentation gaps, and north-star drift, and sets the review-gate label.
 - Merge Warden performs the final deterministic merge gate and merges only when all gates pass.
+- Gemini is an on-demand second opinion only. It does not implement, set review-gate labels, or merge.
 
 Hard separation:
 
 - Phasekeeper must not merge.
 - Code Sentinel must not merge or implement feature work.
+- Gemini must not set review-gate labels or act as merge authority.
 - Merge Warden must not implement feature work, fix tests, review, or start the next stage.
 
 ## Stage and PR rules
@@ -78,6 +80,29 @@ On every loop, first inspect repo/PR state and then choose exactly one of these 
 4. Stop and ask Benjamin because the next action requires human judgment.
 
 Do not post repeated comments with the same conclusion. Do not create new branches or PRs when an appropriate one already exists. Do not fight another agent over the same branch.
+
+## Second-opinion rule
+
+Gemini may be used only as an on-demand second opinion. Invoke it manually on a PR with:
+
+```text
+/gemini review
+/gemini summary
+```
+
+A second opinion may also be requested by applying this neutral label:
+
+```text
+opinion: requested
+```
+
+The `Request Second Opinion` workflow may translate that label into a single `/gemini review` PR comment. Do not repeatedly request the same second opinion.
+
+Use a second opinion when a PR is high-risk, changes review/merge automation, changes agent instructions or role boundaries, changes validation/scoring/experiment methodology, touches security-sensitive or execution-sensitive code, performs a large rewrite, or when Code Sentinel is uncertain.
+
+Before setting `gate: ready`, Code Sentinel must decide whether the PR requires a second opinion. If required and no Gemini response is present, Code Sentinel must set `gate: blocked`, apply or request `opinion: requested`, and explain that final approval is blocked pending second opinion.
+
+After Gemini responds, Code Sentinel must reconcile the second opinion and still make the final review-gate decision. Gemini never sets `gate: ready`, never sets `gate: blocked`, and never merges.
 
 ## Review gate label rule
 
@@ -123,6 +148,8 @@ or:
 ```text
 REVIEW_GATE: gate: blocked
 ```
+
+If a second opinion was required, also summarize how Gemini's feedback was handled before setting the final review gate.
 
 ## Merge gate rule
 
