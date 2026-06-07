@@ -40,10 +40,13 @@ def write_result(
     *,
     verdict: str = "qwd_sng_hybrid_probe_inconclusive",
     failed_stop_conditions: list[str] | None = None,
+    inconclusive_stop_conditions: list[str] | None = None,
 ) -> None:
     decision: dict[str, object] = {"verdict": verdict}
     if failed_stop_conditions is not None:
         decision["failed_stop_conditions"] = failed_stop_conditions
+    if inconclusive_stop_conditions is not None:
+        decision["inconclusive_stop_conditions"] = inconclusive_stop_conditions
     path.write_text(
         json.dumps({"decision": decision}),
         encoding="utf-8",
@@ -204,6 +207,50 @@ class DiagnoseQwdSngProbeTests(unittest.TestCase):
             "qwd_sng_setup_repaired_but_rejected_by_guardrails",
         )
         self.assertIn("waypoint_only_slow_success", report["decision"]["reason"])
+
+    def test_inconclusive_tight_start_preserves_start_evidence_gap(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            design_path = root / "design.json"
+            result_path = root / "result.json"
+            write_design(design_path)
+            write_result(
+                result_path,
+                verdict="qwd_sng_hybrid_probe_rejected_by_guardrails",
+                failed_stop_conditions=[
+                    "phase_target_progression",
+                    "waypoint_only_slow_success",
+                ],
+                inconclusive_stop_conditions=["tight_start_activation"],
+            )
+            write_run(
+                root,
+                commands=[command_row(active=True, time_s=11.0, advanced=4, distance=80.0)],
+                origins=[[1000, 0, 0], [1100, 0, 0], [1200, 0, 0], [1300, 0, 0]],
+                start_radius=192,
+            )
+
+            report = diagnosis.build_diagnosis(
+                design_path=design_path,
+                result_path=result_path,
+                run_id="run1",
+                artifacts_root=root,
+                stage="test",
+            )
+
+        self.assertEqual(
+            report["source_result_inconclusive_stop_conditions"],
+            ["tight_start_activation"],
+        )
+        self.assertEqual(
+            report["decision"]["verdict"],
+            "qwd_sng_start_evidence_inconclusive",
+        )
+        self.assertIn("pre-advance CP0", report["decision"]["reason"])
+        self.assertIn("denser or event-level", report["decision"]["next_goal"])
+        self.assertTrue(
+            any("pre-advance CP0" in line for line in report["interpretation"])
+        )
 
     def test_malformed_position_rows_do_not_crash(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -189,6 +189,7 @@ Measured result:
 - `phase_target_progression` rejects because long sampled active phases after the required advancement did not show entry into the `96` qu point radius.
 - `waypoint_only_slow_success` rejects because `/ bro` still crosses the low-speed guardrail.
 - `tight_start_activation` is inconclusive because both bots' first active in-MVD sampled QWD rows had already advanced to CP2; the current sampled command rows cannot verify the pre-advance CP0 start state.
+- The companion diagnosis preserves that uncertainty as `qwd_sng_start_evidence_inconclusive`, not as a fully repaired setup verdict.
 
 Interpretation: tight-radius mode `9` can drive bots much farther along the QWD SNG path inside the real server loop, which strengthens the engine-native substrate hypothesis. It still does not prove learned SNG movement because phase entry and active-window movement quality remain insufficiently proven. The next step should improve advancement/start evidence density or scoring before changing projection policy or trying the rest of the DM3 QWD corpus.
 

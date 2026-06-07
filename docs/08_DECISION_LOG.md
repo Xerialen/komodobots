@@ -2050,6 +2050,7 @@ Tight-start run `20260607T003837Z`:
 - `phase_target_progression` rejected on unresolved sampled target phases.
 - `waypoint_only_slow_success` rejected because `/ bro` stayed above the low-speed guardrail.
 - `tight_start_activation` was inconclusive because the first active in-MVD sampled rows were already at CP2, so the current sampled log cannot prove pre-advance CP0 state.
+- The companion diagnosis now preserves that scorer uncertainty as `qwd_sng_start_evidence_inconclusive`, so setup is not considered fully repaired for start-proof purposes.
 
 Artifacts:
 
@@ -2061,7 +2062,7 @@ Artifacts:
 
 The Frogbots substrate hypothesis remains alive and stronger: KTX/Frogbots can accept QWD-derived route/control evidence and execute deep SNG progress under server physics. The immediate blocker is now proof quality and movement quality, not basic control injection.
 
-The next PR should add denser or event-level QWD advancement/start evidence, or adjust scoring to active-window movement quality using already-preserved diagnostics. It should not mutate `dm3.bot`, broaden to every QWD, or claim movement realism from control-point count alone.
+The next PR should add denser or event-level QWD advancement/start evidence, then adjust active-window movement quality scoring using already-preserved diagnostics if the start proof is clean. It should not mutate `dm3.bot`, broaden to every QWD, or claim movement realism from control-point count alone.
 
 ### Revisit Conditions
 

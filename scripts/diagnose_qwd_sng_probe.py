@@ -312,6 +312,19 @@ def failed_stop_condition_ids(result: dict[str, object]) -> list[str]:
     return ids
 
 
+def inconclusive_stop_condition_ids(result: dict[str, object]) -> list[str]:
+    decision = dict_or_empty(result.get("decision"))
+    inconclusive = decision.get("inconclusive_stop_conditions")
+    if isinstance(inconclusive, list):
+        return [str(item) for item in inconclusive if item]
+
+    ids: list[str] = []
+    for row in result.get("stop_condition_results", []) if isinstance(result.get("stop_condition_results"), list) else []:
+        if isinstance(row, dict) and row.get("status") == "inconclusive" and row.get("id"):
+            ids.append(str(row["id"]))
+    return ids
+
+
 def build_decision(
     *,
     result: dict[str, object],
@@ -321,6 +334,7 @@ def build_decision(
     result_decision = dict_or_empty(result.get("decision"))
     result_verdict = str(result_decision.get("verdict") or "")
     failed = failed_stop_condition_ids(result)
+    inconclusive = inconclusive_stop_condition_ids(result)
 
     if active_outside_players or missed_start_players:
         return {
@@ -332,6 +346,23 @@ def build_decision(
             "next_goal": (
                 "Repair mode-9 setup so QWD activation overlaps recorded MVD movement evidence; then decide "
                 "whether the control-point radius, start context, or projection policy needs the smallest change."
+            ),
+        }
+
+    if (
+        result_verdict == "qwd_sng_hybrid_probe_rejected_by_guardrails"
+        and "tight_start_activation" in inconclusive
+    ):
+        return {
+            "verdict": "qwd_sng_start_evidence_inconclusive",
+            "reason": (
+                "QWD activation and control-point advancement overlap the parsed MVD movement window, "
+                "but the scorer could not verify pre-advance CP0 tight-start evidence from sampled command rows. "
+                f"Rejected guardrails: {', '.join(failed) if failed else 'none'}."
+            ),
+            "next_goal": (
+                "Add denser or event-level QWD start/advancement evidence and active-window diagnostics before "
+                "changing projection policy or trying other DM3 QWD moves."
             ),
         }
 
@@ -466,14 +497,27 @@ def build_diagnosis(
         interpretation.append(
             "At least one bot never reached the configured start radius during the MVD window, pointing at spawn/context setup before controller-policy expansion."
         )
-    if not active_outside_players and not missed_start_players:
+    failed = failed_stop_condition_ids(result)
+    inconclusive = inconclusive_stop_condition_ids(result)
+    if (
+        not active_outside_players
+        and not missed_start_players
+        and "tight_start_activation" in inconclusive
+    ):
+        interpretation.append(
+            "QWD activation and advancement overlap the parsed MVD movement window, but pre-advance CP0 tight-start evidence remains unresolved in the sampled command log."
+        )
+    elif not active_outside_players and not missed_start_players:
         interpretation.append(
             "QWD activation now overlaps the parsed MVD movement window, so the remaining blocker is no longer the timing/start-context evidence gate."
         )
-    failed = failed_stop_condition_ids(result)
     if failed:
         interpretation.append(
             "The scorer still rejects the run on guardrails: " + ", ".join(failed) + "."
+        )
+    if inconclusive:
+        interpretation.append(
+            "The scorer also marks these gates inconclusive: " + ", ".join(inconclusive) + "."
         )
 
     decision = build_decision(
@@ -495,6 +539,8 @@ def build_diagnosis(
         "source_design_path": portable_path(design_path),
         "source_result_path": portable_path(result_path),
         "source_result_verdict": dict_or_empty(result.get("decision")).get("verdict", ""),
+        "source_result_failed_stop_conditions": failed,
+        "source_result_inconclusive_stop_conditions": inconclusive,
         "timing": timing,
         "control_point_radii": {
             "start_radius_qu": start_radius,

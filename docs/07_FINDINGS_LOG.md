@@ -3188,6 +3188,7 @@ This is major substrate progress, but it is still rejected movement evidence.
 - Passing gates: QWD activation, in-window control-point advancement, MVD-overlap, diagnostic preservation, active side/jump command profile, and route-dirty success guardrail.
 - Rejected gates: `phase_target_progression` and `waypoint_only_slow_success`.
 - Inconclusive gate: `tight_start_activation`, because both bots' first active in-MVD sampled rows were already at CP2. The scorer correctly refuses to infer pre-advance CP0 start evidence from that sampled state.
+- The regenerated diagnosis verdict is `qwd_sng_start_evidence_inconclusive`, preserving the unresolved pre-advance CP0 start-proof gate while still recording the rejected movement guardrails.
 - `/ bro` remains the slow-success candidate with whole-run low-speed ratio `0.55`; the active-phase diagnosis shows many early phases with strong side/jump commands and no water/low-dir-speed route contamination, but later CP8/CP9 phases slow down.
 
 ### Evidence
@@ -3212,6 +3213,14 @@ python scripts\diagnose_qwd_sng_probe.py --bot-run-id 20260607T003837Z --stage q
 python scripts\diagnose_qwd_sng_slow_success.py --bot-run-id 20260607T003837Z --stage qwd-sng-tight-start-rerun-dm3 --result-json experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-dm3.json --output-json experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-slow-success-diagnosis-dm3.json --output-md experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-slow-success-diagnosis-dm3.md
 ```
 
+Follow-up diagnosis-hygiene validation:
+
+```powershell
+python -m py_compile scripts\diagnose_qwd_sng_probe.py
+python -m unittest tests.test_diagnose_qwd_sng_probe -v
+python scripts\diagnose_qwd_sng_probe.py --bot-run-id 20260607T003837Z --stage qwd-sng-tight-start-rerun-dm3 --result-json experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-dm3.json --output-json experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-diagnosis-dm3.json --output-md experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-diagnosis-dm3.md
+```
+
 Remote rollback checks:
 
 ```text
@@ -3223,7 +3232,7 @@ localhost:28599 DOWN
 
 ### Interpretation
 
-The KTX/Frogbots shell is still viable enough to keep probing: exact QWD-derived SNG control can now push bots through most of the SNG path under tight activation in the real server loop. But the result is not accepted learned movement. Sparse sampled command rows cannot prove pre-advance CP0 activation, phase target entries are still not proven, and `/ bro` remains too slow over the run.
+The KTX/Frogbots shell is still viable enough to keep probing: exact QWD-derived SNG control can now push bots through most of the SNG path under tight activation in the real server loop. But the result is not accepted learned movement. Sparse sampled command rows cannot prove pre-advance CP0 activation, phase target entries are still not proven, and `/ bro` remains too slow over the run. The corrected diagnosis keeps the next step focused on denser or event-level QWD start/advancement evidence before projection changes.
 
 ### Confidence
 

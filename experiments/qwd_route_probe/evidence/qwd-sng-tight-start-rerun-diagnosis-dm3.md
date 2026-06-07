@@ -43,11 +43,12 @@
 
 - This is an offline diagnosis of the already-generated mode-9 run; it does not rerun KTX or change controller behavior.
 - Command rows use server time, while MVD position rows use demo-relative time. The diagnosis aligns command rows by subtracting the demo start ServerTime from events kind 0.
-- QWD activation now overlaps the parsed MVD movement window, so the remaining blocker is no longer the timing/start-context evidence gate.
+- QWD activation and advancement overlap the parsed MVD movement window, but pre-advance CP0 tight-start evidence remains unresolved in the sampled command log.
 - The scorer still rejects the run on guardrails: phase_target_progression, waypoint_only_slow_success.
+- The scorer also marks these gates inconclusive: tight_start_activation.
 
 ## Decision
 
-- Verdict: `qwd_sng_setup_repaired_but_rejected_by_guardrails`
-- Reason: QWD activation and control-point advancement now overlap the parsed MVD movement window, but guardrails rejected the run: phase_target_progression, waypoint_only_slow_success.
-- Next goal: Diagnose whether the remaining failure is controller command policy, route/map context, or a too-loose setup radius before widening QWD control or trying other DM3 QWD moves.
+- Verdict: `qwd_sng_start_evidence_inconclusive`
+- Reason: QWD activation and control-point advancement overlap the parsed MVD movement window, but the scorer could not verify pre-advance CP0 tight-start evidence from sampled command rows. Rejected guardrails: phase_target_progression, waypoint_only_slow_success.
+- Next goal: Add denser or event-level QWD start/advancement evidence and active-window diagnostics before changing projection policy or trying other DM3 QWD moves.
