@@ -1,10 +1,10 @@
 name: Review Gate Merge
 
 # Deterministic merge executor for the staged agent loop (free private plan; no
-# branch protection required). NO LLM and NO API tokens — only `gh` + bash.
+# branch protection required). NO LLM and NO API tokens; only GITHUB_TOKEN.
 #
 # It merges a PR ONLY when ALL hold:
-#   - `gate: ready` label present; `gate: blocked` / `cycle: needs-human` absent
+#   - `gate: ready` label present; `gate: blocked` absent
 #   - PR open, non-draft, on `main`, mergeable
 #   - every non-gate status check passing (this is where `pr-tests` — the
 #     deterministic CI floor — is enforced)
@@ -32,7 +32,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: review-gate-merge-${{ github.event.pull_request.number || github.event.workflow_run.id }}
+  group: review-gate-merge-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha }}
   cancel-in-progress: false
 
 jobs:
@@ -81,17 +81,15 @@ jobs:
             head=$(jq -r '.headRefOid' <<<"$data")
             short=${head:0:7}
 
-            local has_ready has_blocked needs_human
+            local has_ready has_blocked
             has_ready=$(jq -r '[.labels[].name] | index("gate: ready") != null' <<<"$data")
             has_blocked=$(jq -r '[.labels[].name] | index("gate: blocked") != null' <<<"$data")
-            needs_human=$(jq -r '[.labels[].name] | index("cycle: needs-human") != null' <<<"$data")
 
             [ "$state" = "OPEN" ]          || { echo "skip #$PR: not open (state=$state)"; return 0; }
             [ "$draft" = "false" ]         || { echo "skip #$PR: draft"; return 0; }
             [ "$base" = "main" ]           || { echo "skip #$PR: base is '$base'"; return 0; }
             [ "$has_ready" = "true" ]      || { echo "skip #$PR: no 'gate: ready'"; return 0; }
             [ "$has_blocked" = "false" ]   || { echo "skip #$PR: 'gate: blocked' present"; return 0; }
-            [ "$needs_human" = "false" ]   || { echo "skip #$PR: 'cycle: needs-human' present"; return 0; }
             [ "$mergeable" = "MERGEABLE" ] || { echo "skip #$PR: not mergeable ($mergeable)"; return 0; }
 
             # Exclude this gate's own workflow runs from the rollup count so the
@@ -122,7 +120,7 @@ jobs:
             echo "merging #$PR @ $short ($n_checks check(s) passing, incl. PR Tests $pt_ok/$pt_total)"
             gh pr merge "$PR" -R "$REPO" --squash --delete-branch
             gh pr comment "$PR" -R "$REPO" \
-              --body "✅ **Merged** by review-gate executor. Gate: open · non-draft · base \`main\` · mergeable · $n_checks check(s) passing (incl. \`PR Tests\`) · label \`gate: ready\` @ \`$short\`."
+              --body "**Merged** by review-gate executor. Gate: open, non-draft, base \`main\`, mergeable, $n_checks check(s) passing (incl. \`PR Tests\`), label \`gate: ready\` @ \`$short\`."
           }
 
           for PR in $PRS; do

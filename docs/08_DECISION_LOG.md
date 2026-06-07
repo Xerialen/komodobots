@@ -2347,3 +2347,49 @@ Revisit if the P2-only webhook race is ever observed merging an unreviewed chang
 The autonomous review-gate loop (Coder = Claude, Reviewer = Codex, deterministic label-gated auto-merge with a `pr-tests` CI floor) is **live** as of 2026-06-07.
 
 <!-- gate smoke 47 -->
+
+---
+
+## Decision
+
+Move the review gate label decision from a parser workflow to Codex Desktop automation.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+Codex now performs the PR technical merge-safety review directly from Codex Desktop automation, posts one structured decision comment for the reviewed head SHA, and applies exactly one terminal label: `gate: ready` for PASS or `gate: blocked` for BLOCK.
+
+The deterministic GitHub Action remains the only merge authority. The lifecycle is:
+
+```text
+push/open PR -> reset to gate: reviewing -> Codex reviews and applies gate: ready or gate: blocked -> review-gate-merge merges only on gate: ready plus green PR Tests and no failing non-gate checks
+```
+
+`review-gate-labeler.yml` is removed because it parsed Codex output, could conflict with direct labels, and previously needed an inline merge path to work around GitHub's `GITHUB_TOKEN` event-recursion rules. `review-gate-reset.yml` is re-enabled as a quiet SHA-hygiene reset. `review-gate-merge.yml` is re-enabled as the only deterministic auto-merger.
+
+Reviewer scope is technical merge safety only: correctness, regressions, security, reliability, CI/CD, GitHub Actions logic, workflow triggers, label/merge-gate logic, permissions, secrets, branch-protection assumptions, operational/deployment risk, data-loss/destructive behavior, and tests for changed behavior. Plan, roadmap, scope, architecture-plan deviation, north-star drift, and documentation drift are not review-gate blockers.
+
+### Alternatives Considered
+
+- Keep the no-LLM labeler. Rejected: direct Codex Desktop automation now applies the terminal label, so parsing native Codex prose is redundant and can conflict with the explicit label decision.
+- Signal status through reactions, approvals, or casual comments. Rejected: the merge gate must be label-based, with a structured comment as evidence.
+- Use branch protection or rulesets. Rejected for this private free-plan repo because both APIs return 403 without GitHub Pro or a public repository.
+
+### Evidence
+
+- Live repo check on 2026-06-07: `Xerialen/komodobots` is private, default branch `main`, viewer permission `ADMIN`.
+- Existing gate labels verified: `gate: reviewing`, `gate: blocked`, and `gate: ready`.
+- Existing workflow state verified: `review-gate-labeler.yml`, `review-gate-merge.yml`, and `review-gate-reset.yml` were `disabled_manually`; `PR Tests` was active; `lab-ci.yml` was active but `workflow_dispatch` only.
+- Branch-protection and ruleset APIs both returned 403 with the GitHub free-private-plan upgrade message.
+- A stale remote workflow entry for `.github/workflows/request-second-opinion.yml` exists even though the file is absent from `main`; it is disabled rather than treated as part of the gate.
+
+### Expected Consequences
+
+The gate no longer depends on fragile parsing of Codex phrasing. A new commit resets stale PASS/BLOCK labels to `gate: reviewing`; Codex Desktop automation reviews the new head and applies the terminal label; the deterministic Action merges only when the label and CI floor agree.
+
+### Revisit Conditions
+
+Revisit if labels applied by Codex Desktop automation do not deliver `pull_request: labeled` events, if the automation cannot reliably post the structured comment and label the same head SHA, or if GitHub-native branch protection becomes available for this repository.
