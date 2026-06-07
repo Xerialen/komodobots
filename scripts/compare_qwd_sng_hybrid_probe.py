@@ -193,6 +193,7 @@ def summarize_player_commands(
     active_aligned_times: list[int] = []
     active_inside_mvd: list[int] = []
     active_inside_mvd_commands: list[dict[str, object]] = []
+    active_inside_mvd_rows: list[tuple[int, dict[str, object]]] = []
     for row in active_commands:
         aligned = qwd_aligned_mvd_time_ms(row, timing)
         if aligned is None:
@@ -201,6 +202,7 @@ def summarize_player_commands(
         if match_duration_ms is not None and 0 <= aligned <= match_duration_ms:
             active_inside_mvd.append(aligned)
             active_inside_mvd_commands.append(row)
+            active_inside_mvd_rows.append((aligned, row))
     advanced_values = [optional_int(state.get("advanced_control_points")) or 0 for state in qwd_states]
     control_point_indexes = [optional_int(state.get("control_point_index")) or 0 for state in qwd_states]
     inside_advanced_values = [
@@ -211,6 +213,39 @@ def summarize_player_commands(
         optional_int(dict_or_empty(row.get("qwd_state")).get("control_point_index")) or 0
         for row in active_inside_mvd_commands
     ]
+    first_active_inside_mvd = min(active_inside_mvd_rows, key=lambda item: item[0]) if active_inside_mvd_rows else None
+    first_active_state = dict_or_empty(first_active_inside_mvd[1].get("qwd_state")) if first_active_inside_mvd else {}
+    rows_by_control_point: dict[int, list[tuple[int, dict[str, object]]]] = defaultdict(list)
+    for aligned, row in active_inside_mvd_rows:
+        qwd_state = dict_or_empty(row.get("qwd_state"))
+        index = optional_int(qwd_state.get("control_point_index"))
+        if index is None:
+            continue
+        rows_by_control_point[index].append((aligned, row))
+    active_phase_summaries: list[dict[str, object]] = []
+    for index in sorted(rows_by_control_point):
+        rows_with_time = sorted(rows_by_control_point[index], key=lambda item: item[0])
+        times = [aligned for aligned, _row in rows_with_time]
+        phase_distances = [
+            distance
+            for _aligned, row in rows_with_time
+            if (distance := optional_float(dict_or_empty(row.get("qwd_state")).get("distance_qu"))) is not None
+            and distance < 999999.0
+        ]
+        phase_advanced_values = [
+            optional_int(dict_or_empty(row.get("qwd_state")).get("advanced_control_points")) or 0
+            for _aligned, row in rows_with_time
+        ]
+        active_phase_summaries.append(
+            {
+                "control_point_index": index,
+                "active_mvd_range_ms": {"min": min(times), "max": max(times)},
+                "active_duration_s": round((max(times) - min(times)) / 1000.0, 3),
+                "min_distance_qu": round(min(phase_distances), 3) if phase_distances else None,
+                "max_advanced_control_points": max(phase_advanced_values, default=0),
+                "command_rows": len(rows_with_time),
+            }
+        )
 
     return {
         "run_id": run_id,
@@ -240,6 +275,9 @@ def summarize_player_commands(
         "qwd_active_inside_mvd_ratio": round(len(active_inside_mvd) / len(active_commands), 3)
         if active_commands and match_duration_ms is not None
         else None,
+        "first_active_inside_mvd_time_ms": first_active_inside_mvd[0] if first_active_inside_mvd else None,
+        "first_active_inside_mvd_distance_qu": rounded(first_active_state.get("distance_qu")),
+        "active_control_point_phases": active_phase_summaries,
         "match_duration_ms": match_duration_ms,
         "server_start_time_s": rounded(timing.get("server_start_time_s"), 3),
         "side_nonzero_ratio": round(side_nonzero / sample_count, 3) if sample_count else None,
@@ -348,7 +386,14 @@ def aggregate_players(players: list[dict[str, object]]) -> dict[str, object]:
     }
 
 
-def evaluate_stop_conditions(players: list[dict[str, object]], aggregate: dict[str, object]) -> list[dict[str, object]]:
+def design_cvar_float(design: dict[str, object], key: str, fallback: float) -> float:
+    suggested_cvars = dict_or_empty(dict_or_empty(design.get("probe_contract")).get("suggested_cvars"))
+    return optional_float(suggested_cvars.get(key)) or fallback
+
+
+def evaluate_stop_conditions(
+    players: list[dict[str, object]], aggregate: dict[str, object], design: dict[str, object]
+) -> list[dict[str, object]]:
     diagnostics_missing = [
         player["player"]
         for player in players
@@ -360,12 +405,53 @@ def evaluate_stop_conditions(players: list[dict[str, object]], aggregate: dict[s
     advanced = int(aggregate.get("max_advanced_control_points", 0) or 0)
     advanced_inside_mvd = int(aggregate.get("max_advanced_control_points_inside_mvd", 0) or 0)
     activated = int(aggregate.get("qwd_active_count", 0) or 0) > 0
+    required_advanced_control_points = 4
+    design_start_radius = design_cvar_float(design, "k_fb_moveprobe_qwd_start_radius", 192.0)
+    point_radius = design_cvar_float(design, "k_fb_moveprobe_qwd_point_radius", 96.0)
     active_but_outside_mvd = [
         player["player"]
         for player in players
         if int(player.get("qwd_active_count", 0) or 0) > 0
         and int(player.get("qwd_active_inside_mvd_count", 0) or 0) == 0
     ]
+    loose_start_rows = [
+        {
+            "player": player["player"],
+            "first_active_inside_mvd_time_ms": player.get("first_active_inside_mvd_time_ms"),
+            "first_active_inside_mvd_distance_qu": player.get("first_active_inside_mvd_distance_qu"),
+        }
+        for player in players
+        if int(player.get("max_advanced_control_points_inside_mvd", 0) or 0) >= required_advanced_control_points
+        and (optional_float(player.get("first_active_inside_mvd_distance_qu")) or 0.0) > design_start_radius
+    ]
+    unresolved_phase_rows: list[dict[str, object]] = []
+    for player in players:
+        if int(player.get("max_advanced_control_points_inside_mvd", 0) or 0) < required_advanced_control_points:
+            continue
+        phases = player.get("active_control_point_phases", [])
+        if not isinstance(phases, list):
+            continue
+        for phase in phases:
+            if not isinstance(phase, dict):
+                continue
+            index = optional_int(phase.get("control_point_index"))
+            min_distance = optional_float(phase.get("min_distance_qu"))
+            duration = optional_float(phase.get("active_duration_s")) or 0.0
+            if (
+                index is not None
+                and index >= required_advanced_control_points
+                and min_distance is not None
+                and min_distance > point_radius
+                and duration >= 1.0
+            ):
+                unresolved_phase_rows.append(
+                    {
+                        "player": player["player"],
+                        "control_point_index": index,
+                        "active_duration_s": phase.get("active_duration_s"),
+                        "min_distance_qu": phase.get("min_distance_qu"),
+                    }
+                )
     slow_success_players = [
         player["player"]
         for player in players
@@ -409,8 +495,27 @@ def evaluate_stop_conditions(players: list[dict[str, object]], aggregate: dict[s
             "details": {
                 "max_advanced_control_points": advanced,
                 "max_advanced_control_points_inside_mvd": advanced_inside_mvd,
-                "required_advanced_control_points": 4,
+                "required_advanced_control_points": required_advanced_control_points,
                 "rule": "Control-point advancement must occur inside the parsed MVD movement window.",
+            },
+        },
+        {
+            "id": "tight_start_activation",
+            "status": "reject" if loose_start_rows else "pass",
+            "details": {
+                "players_advancing_after_loose_start": loose_start_rows,
+                "design_start_radius_qu": design_start_radius,
+                "rule": "A run that reaches the advancement gate must first activate inside the design start radius, not from the widened setup-repair radius.",
+            },
+        },
+        {
+            "id": "phase_target_progression",
+            "status": "reject" if unresolved_phase_rows else "pass",
+            "details": {
+                "players_with_unresolved_post_advance_targets": unresolved_phase_rows,
+                "point_radius_qu": point_radius,
+                "minimum_phase_duration_s": 1.0,
+                "rule": "After the required SNG advancement, a long active phase on the next target must enter that target radius before the run can count as bounded positive evidence.",
             },
         },
         {
@@ -457,10 +562,20 @@ def make_decision(stop_conditions: list[dict[str, object]]) -> dict[str, object]
         condition["id"] for condition in stop_conditions if condition.get("status") == "inconclusive"
     ]
     if reject_ids:
+        if "tight_start_activation" in reject_ids or "phase_target_progression" in reject_ids:
+            next_goal = (
+                "Rerun the SNG probe with tight design-radius activation and unchanged projection, then only "
+                "consider projection changes if the tight-start active phases still stall before the next target."
+            )
+        else:
+            next_goal = (
+                "Diagnose whether the failure is route/context contamination or controller command policy before "
+                "widening QWD control."
+            )
         return {
             "verdict": "qwd_sng_hybrid_probe_rejected_by_guardrails",
             "reason": f"The server-loop probe produced evidence, but guardrails failed: {', '.join(reject_ids)}.",
-            "next_goal": "Diagnose whether the failure is route/context contamination or controller command policy before widening QWD control.",
+            "next_goal": next_goal,
             "failed_stop_conditions": reject_ids,
             "inconclusive_stop_conditions": inconclusive_ids,
         }
@@ -491,7 +606,7 @@ def build_report(
 ) -> dict[str, object]:
     players, run_configs, warnings = summarize_runs(bot_run_ids, artifacts_root)
     aggregate = aggregate_players(players)
-    stop_conditions = evaluate_stop_conditions(players, aggregate)
+    stop_conditions = evaluate_stop_conditions(players, aggregate, design)
     return {
         "schema": SCHEMA,
         "stage": stage,

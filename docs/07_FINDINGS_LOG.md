@@ -3125,3 +3125,47 @@ Medium for the next repair shape because a tighter setup gate may need a live re
 ### Follow-up
 
 Tighten SNG activation around the real CP0 approach and add phase-level success gates before changing projection policy or trying other DM3 QWD moves.
+
+## 2026-06-07 - QWD SNG Phase-Gate Tightening
+
+### Experiment
+
+Tightened `scripts/compare_qwd_sng_hybrid_probe.py` without rerunning KTX or changing movement behavior. The scorer now reports first active in-MVD QWD target distance plus active control-point phase summaries, then applies two stricter stop conditions before positive bounded evidence is possible:
+
+- `tight_start_activation`
+- `phase_target_progression`
+
+### Result
+
+Rescoring setup-repair run `20260606T231007Z` as `qwd-sng-phase-gate-tightening-dm3` rejects the run on the known setup/phase failures:
+
+- `/ bro` first activated inside the MVD at `281.954` qu from CP0, outside the `192` qu design start radius.
+- `/ bro` spent `9.908` seconds in the CP4 phase and never got closer than `183.876` qu to CP4 against the `96` qu point radius.
+- The existing `waypoint_only_slow_success` rejection still applies.
+
+### Evidence
+
+Committed artifacts:
+
+- `experiments/qwd_route_probe/evidence/qwd-sng-phase-gate-tightening-dm3.json`
+- `experiments/qwd_route_probe/evidence/qwd-sng-phase-gate-tightening-dm3.md`
+
+Validation:
+
+```powershell
+python -m py_compile scripts\compare_qwd_sng_hybrid_probe.py
+python -m unittest tests.test_compare_qwd_sng_hybrid_probe -v
+python scripts\compare_qwd_sng_hybrid_probe.py --bot-run-id 20260606T231007Z --stage qwd-sng-phase-gate-tightening-dm3 --output-json experiments\qwd_route_probe\evidence\qwd-sng-phase-gate-tightening-dm3.json --output-md experiments\qwd_route_probe\evidence\qwd-sng-phase-gate-tightening-dm3.md
+```
+
+### Interpretation
+
+The stricter scorer closes the loophole where loose-radius geometry could look like progress. This keeps the Frogbots substrate hypothesis alive but blocks expansion to other DM3 QWD moves until a tight-start SNG rerun passes movement-quality and phase-level gates.
+
+### Confidence
+
+High for the new rejection evidence because it reuses the existing sampled QWD state and MVD-aligned command rows from the accepted setup-repair run.
+
+### Follow-up
+
+Rerun mode `9` with the original `192` qu start radius, unchanged projection, unchanged diagnostics, and the new phase-level gates. Only consider projection changes if the tight-start active phases still stall before the next target.

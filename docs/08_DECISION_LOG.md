@@ -1973,3 +1973,42 @@ The next PR should be a tight setup/phase gate or design for such a gate, not a 
 ### Revisit Conditions
 
 Revisit expanding to remaining DM3 QWD moves only after a follow-up SNG run passes in-window advancement, slow/stationary guardrails, and phase-level target-radius gates under tightened activation. Revisit from-scratch if SNG remains achievable only through loose, slow, or route-stalled behavior.
+
+---
+
+## Decision
+
+Require tight-start and phase-target gates for QWD SNG positives.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+Continue the QWD-to-Frogbot SNG track, but make positive bounded evidence stricter. A future SNG run cannot pass merely by advancing four control points. It must also activate inside the design start radius and avoid long unresolved post-advance target phases.
+
+The next live stage should rerun mode `9` with the original `192` qu start radius and unchanged projection before any command-policy or route-topology change.
+
+### Alternatives Considered
+
+- Treat the setup-repair run as positive enough because it advanced four points inside the MVD window.
+- Change projection policy immediately to chase CP4.
+- Keep using the widened `320` qu activation radius because it produced more QWD active samples.
+- Expand to the remaining DM3 QWD moves before SNG has a clean phase-level pass.
+
+### Evidence
+
+The rescored artifact `experiments/qwd_route_probe/evidence/qwd-sng-phase-gate-tightening-dm3.*` consumes run `20260606T231007Z` with the strengthened scorer:
+
+- `tight_start_activation`: reject. `/ bro` first activated inside the MVD at `281.954` qu from CP0, outside the design `192` qu start radius.
+- `phase_target_progression`: reject. After reaching the advancement gate, `/ bro` stayed active on CP4 for `9.908` seconds and never got closer than `183.876` qu to the target against a `96` qu point radius.
+- `waypoint_only_slow_success`: still reject.
+
+### Expected Consequences
+
+The next PR should be a tight-start live rerun, not a projection-policy change. If tight activation produces too little active evidence, the setup/spawn route context is still the blocker. If tight activation produces active evidence but still stalls at CP4, projection or route/map context becomes the next likely issue.
+
+### Revisit Conditions
+
+Revisit projection changes only after a tight-start rerun proves where the bot stalls under the stricter gates. Revisit expansion to other DM3 QWD moves only after SNG passes tight-start, phase-target, movement-quality, route, and diagnostic-preservation guardrails.

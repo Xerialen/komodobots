@@ -150,3 +150,13 @@ Slow-success diagnosis:
 - active side/jump commands were strong, and water/low-dir-speed were not primary
 
 Decision status: continue Frogbots for one tighter SNG setup/phase-gate step, but still do not expand to all DM3 QWD moves. The live substrate can accept QWD-derived control, but the current SNG evidence is route geometry plus slow/stuck traversal, not believable human-like movement.
+
+Phase-gate tightening:
+
+The SNG scorer now records first active in-MVD QWD target distance and active control-point phase summaries. Rescoring `20260606T231007Z` as `qwd-sng-phase-gate-tightening-dm3` rejects the same run on the newly explicit gates:
+
+- `tight_start_activation`: `/ bro` first activated at `281.954` qu from CP0, outside the `192` qu design start radius
+- `phase_target_progression`: after reaching the advancement gate, `/ bro` stayed active on CP4 for `9.908` seconds and never got closer than `183.876` qu to the `96` qu target radius
+- `waypoint_only_slow_success`: still rejected
+
+Decision status: keep Frogbots alive for one tight-start SNG rerun with unchanged projection. If tight activation still cannot produce phase-level movement quality, the evidence will point more strongly at projection or route/map limitations. Do not expand to all DM3 QWD moves yet.

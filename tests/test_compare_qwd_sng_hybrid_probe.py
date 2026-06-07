@@ -27,6 +27,7 @@ def command_row(
     buttons: int = 2,
     path_state: int = 0,
     dir_speed: float = 1.0,
+    distance: float = 72.0,
 ) -> dict[str, object]:
     return {
         "name": name,
@@ -37,7 +38,7 @@ def command_row(
             "active": active,
             "control_point_index": index,
             "control_point_count": 14,
-            "distance_qu": 72.0,
+            "distance_qu": distance,
             "advanced_control_points": advanced,
             "complete": False,
             "active_seconds": active_seconds,
@@ -255,6 +256,57 @@ class QwdSngHybridProbeTests(unittest.TestCase):
         self.assertEqual(report["decision"]["verdict"], "qwd_sng_hybrid_probe_rejected_by_guardrails")
         by_id = {condition["id"]: condition for condition in report["stop_condition_results"]}
         self.assertEqual(by_id["waypoint_only_slow_success"]["status"], "reject")
+
+    def test_loose_start_activation_is_rejected_after_advancement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fake_run(root, "run1", commands=[command_row(distance=250.0)])
+
+            report = qwd_probe.build_report(
+                {},
+                stage="test",
+                bot_run_ids=["run1"],
+                artifacts_root=root,
+                design_path=REPO_ROOT / "design.json",
+            )
+
+        self.assertEqual(report["decision"]["verdict"], "qwd_sng_hybrid_probe_rejected_by_guardrails")
+        by_id = {condition["id"]: condition for condition in report["stop_condition_results"]}
+        self.assertEqual(by_id["tight_start_activation"]["status"], "reject")
+        self.assertEqual(
+            by_id["tight_start_activation"]["details"]["players_advancing_after_loose_start"][0]["player"],
+            "/ goldenboy",
+        )
+
+    def test_unresolved_post_advance_phase_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fake_run(
+                root,
+                "run1",
+                commands=[
+                    command_row(time_s=11.0, distance=180.0),
+                    command_row(time_s=13.0, distance=170.0),
+                ],
+            )
+
+            report = qwd_probe.build_report(
+                {},
+                stage="test",
+                bot_run_ids=["run1"],
+                artifacts_root=root,
+                design_path=REPO_ROOT / "design.json",
+            )
+
+        self.assertEqual(report["decision"]["verdict"], "qwd_sng_hybrid_probe_rejected_by_guardrails")
+        by_id = {condition["id"]: condition for condition in report["stop_condition_results"]}
+        self.assertEqual(by_id["phase_target_progression"]["status"], "reject")
+        self.assertEqual(
+            by_id["phase_target_progression"]["details"]["players_with_unresolved_post_advance_targets"][0][
+                "control_point_index"
+            ],
+            4,
+        )
 
 
 if __name__ == "__main__":

@@ -475,6 +475,21 @@ Result:
 
 Interpretation: the current SNG evidence is route-geometry transfer plus slow/stuck traversal, not human-like movement. This keeps Frogbots viable as the server-native substrate, but blocks expansion to other DM3 QWD moves until the SNG activation and phase-level success gates are tightened.
 
+## QWD SNG Phase-Gate Tightening
+
+The SNG scorer now rejects the two failure modes exposed by the slow-success attribution before it can emit positive bounded evidence:
+
+- `tight_start_activation`: if a bot reaches the advancement gate, its first active in-MVD QWD sample must be inside the `192` qu design start radius.
+- `phase_target_progression`: after the required four-point advancement, a long active phase on the next target must enter the `96` qu point radius.
+
+Rescoring run `20260606T231007Z` as `qwd-sng-phase-gate-tightening-dm3` keeps the verdict rejected:
+
+- `/ bro` first activated inside the MVD at `281.954` qu from CP0, outside the `192` qu design start radius.
+- `/ bro` then spent `9.908` seconds in the CP4 phase and never got closer than `183.876` qu to CP4 against the `96` qu point radius.
+- The previous `waypoint_only_slow_success` rejection still stands.
+
+Interpretation: this makes the SNG evidence gate stricter without changing movement behavior. The next live experiment should rerun mode `9` with tight design-radius activation and unchanged projection before changing command policy or trying other DM3 QWD moves.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.
