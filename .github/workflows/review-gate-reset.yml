@@ -1,0 +1,35 @@
+name: Reset Review Gate On New Commit
+
+# A pushed commit invalidates any previous review-gate decision.
+# This keeps label-based review gates from becoming stale after new commits.
+
+on:
+  pull_request:
+    types: [synchronize]
+
+permissions:
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: review-gate-reset-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Remove stale review gate labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          gh pr edit "$PR" -R "$REPO" --remove-label "gate: ready" || true
+          gh pr edit "$PR" -R "$REPO" --remove-label "gate: blocked" || true
+          gh pr edit "$PR" -R "$REPO" --add-label "gate: reviewing" || true
+          gh pr comment "$PR" -R "$REPO" \
+            --body "🔄 Review gate reset because new commits were pushed. Re-review required."
