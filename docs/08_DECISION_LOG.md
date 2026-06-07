@@ -2341,3 +2341,7 @@ Hands-off merging on the free private plan: a PR merges only when `gate: ready` 
 ### Revisit Conditions
 
 Revisit if the P2-only webhook race is ever observed merging an unreviewed change, if Codex's review identity/format changes, or when multi-committer collaboration justifies GitHub-native branch protection.
+
+## Status
+
+The autonomous review-gate loop (Coder = Claude, Reviewer = Codex, deterministic label-gated auto-merge with a `pr-tests` CI floor) is **live** as of 2026-06-07.
