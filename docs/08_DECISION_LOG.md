@@ -2267,3 +2267,41 @@ The merge is now fully deterministic on a label; the only non-deterministic atom
 ### Revisit Conditions
 
 Revisit if Codex's clean-review phrasing changes (the labeler's match strings would need updating), if the `chatgpt-codex-connector` identity changes, or if false-positive `gate: ready` stamps occur — in which case tighten the labeler to require an explicit clean signal or fall back to the OWNER `/gate` override.
+
+---
+
+## Decision
+
+Add a deterministic CI floor (`pr-tests`) as the real merge gate; keep the custom executor on the free private plan instead of going public.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+Per best practice (AI review is a filter, not the merge authority), the merge gate is layered: a deterministic machine check is the real authority, Codex's label is an advisory filter on top.
+
+- Added `.github/workflows/pr-tests.yml`: runs the repo's 149 stdlib-only unit tests on a hosted `ubuntu-latest` runner for every PR (≈0.8s locally, no third-party deps). This is the hard gate.
+- `review-gate-merge.yml` already counts the PR status rollup, so `pr-tests` is enforced automatically — it now also triggers on `check_suite: completed`, so a PR merges as soon as the last of {tests green, `gate: ready`} arrives, and "not ready yet" is silent (no comment spam).
+- `lab-ci.yml` stays `workflow_dispatch`-only (self-hosted servexeri lab, currently fails per-PR); it is NOT the gate. `pr-tests` is the hosted floor.
+
+### Alternatives Considered
+
+- Make the repo public / upgrade to GitHub Pro to get branch protection + native auto-merge. Rejected: required-status-check enforcement (classic branch protection AND rulesets) returns 403 on a free private repo. But `pr-tests` runs on PRs on the free private plan anyway, and the custom executor enforces it — so the full best-practice gate (deterministic CI + AI filter + label-gated auto-merge) is achievable free and private. Going public only swaps the custom executor for GitHub-native enforcement (bypass-resistance — negligible for a solo repo) at the cost of permanently publishing 149 commits. Bad trade.
+- Re-enable `lab-ci` on PRs as the floor. Rejected: it runs on the self-hosted runner and currently fails on every PR while the native parser work is open.
+
+### Evidence
+
+- `python -m unittest discover -s tests`: 149 tests pass in ~0.8s; sampled tests import only stdlib + repo modules; no `requirements.txt`/`pyproject`.
+- Branch-protection and ruleset APIs both 403 with "Upgrade to GitHub Pro or make this repository public."
+- Secret scan across all 149 commits before considering public: clean (only `${{ secrets.GEMINI_API_KEY }}` references, no secret values; no key/credential files in tree or history).
+- Merge workflow bash passes `bash -n`; all workflow YAML parses.
+
+### Expected Consequences
+
+Fully automated merging on the free private plan with no human clicks (given Codex Automatic reviews is on): tests green + Codex clean → `gate: ready` → auto-squash-merge. A deterministic test floor sits under the AI filter, so a false-positive `gate: ready` still cannot merge failing code.
+
+### Revisit Conditions
+
+Revisit if the test suite grows to need third-party deps (add a cached install step), if `pr-tests` becomes flaky (quarantine, don't disable the floor), or if multi-committer collaboration starts (then GitHub-native branch protection becomes worth the public/Pro cost).

@@ -34,7 +34,12 @@ The first project objective is to build a repeatable lab that can prove or dispr
 
 ## Autonomous three-agent loop
 
-This repository is worked by **Coder = Claude** and **adversarial Reviewer = Codex** (both run as external/cloud agents). The merge gate is a **neutral PR label**, not parsed prose: a deterministic GitHub Action (`.github/workflows/review-gate-merge.yml`, no LLM and no API tokens) merges a PR when the `gate: ready` label is present, no blocking/escalation label is present, and every gate passes. Codex cannot apply labels itself, so a second no-LLM Action (`.github/workflows/review-gate-labeler.yml`) reads Codex's native review result and stamps `gate: ready` (clean) or `gate: blocked` (findings). **Gemini** is an **on-demand second opinion only** (`/gemini review` via the Gemini Code Assist app) — it does not auto-review and never merges.
+This repository is worked by **Coder = Claude** and **adversarial Reviewer = Codex** (both run as external/cloud agents). Two gates must both pass to merge, and they are deliberately layered per best practice — a deterministic machine check is the real authority, the AI review is an advisory filter on top:
+
+1. **Deterministic CI floor** — `.github/workflows/pr-tests.yml` runs the stdlib unit suite on a hosted runner for every PR. This is the hard, machine-checked gate.
+2. **Reviewer filter** — a **neutral PR label** (not parsed prose). A no-LLM Action (`.github/workflows/review-gate-labeler.yml`) reads Codex's native review and stamps `gate: ready` (clean) / `gate: blocked` (P0/P1) / `cycle: needs-human`. Codex cannot apply labels itself.
+
+The deterministic merge executor (`.github/workflows/review-gate-merge.yml`, no LLM, no API tokens) merges only when `gate: ready` is present, no blocking/escalation label is present, the PR is mergeable, and **every non-gate check (including `pr-tests`) is passing**. It re-evaluates on both label and check-completion events, so the PR merges as soon as the last of {tests green, `gate: ready`} arrives. (Branch protection would normally enforce this natively, but it requires GitHub Pro/public; the executor provides the same gate on the free private plan.) **Gemini** is an **on-demand second opinion only** (`/gemini review`) — it does not auto-review and never merges.
 
 ```text
 Coder (Claude) implements -> Reviewer (Codex) adversarially reviews -> labeler translates Codex's verdict into a gate label -> deterministic Action merges on `gate: ready` if gates pass -> Coder starts the next stage from updated main

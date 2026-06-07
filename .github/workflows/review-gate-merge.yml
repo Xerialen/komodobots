@@ -1,19 +1,23 @@
 name: Review Gate Merge
 
-# Deterministic merge executor for the staged agent loop.
+# Deterministic merge executor for the staged agent loop (free private plan; no
+# branch protection required). NO LLM and NO API tokens — only `gh` + bash.
 #
-# NO LLM and NO API tokens. It only runs `gh` + bash, and consumes neutral PR
-# labels rather than agent names or parsed prose. It merges a PR ONLY when the
-# review gate is `gate: ready`, no blocking/escalation label is present, and
-# every deterministic gate passes.
+# It merges a PR ONLY when ALL hold:
+#   - `gate: ready` label present; `gate: blocked` / `cycle: needs-human` absent
+#   - PR open, non-draft, on `main`, mergeable
+#   - every non-gate status check passing (this is where `pr-tests` — the
+#     deterministic CI floor — is enforced)
 #
-# The Reviewer (Codex) cannot apply labels itself, so the label is applied by
-# the no-LLM `review-gate-labeler.yml` (which reads Codex's native review
-# result) or by a human override. This workflow only executes the label.
+# It re-evaluates on BOTH the label event AND check-suite completion, so a PR
+# merges as soon as the LAST of {tests green, gate: ready} arrives. "Not ready
+# yet" is silent (log only); it comments only on an actual merge or a hard error.
 
 on:
   pull_request:
     types: [labeled, ready_for_review, reopened]
+  check_suite:
+    types: [completed]
 
 permissions:
   contents: write
@@ -21,12 +25,11 @@ permissions:
   issues: write
 
 concurrency:
-  group: review-gate-merge-${{ github.event.pull_request.number }}
+  group: review-gate-merge-${{ github.event.pull_request.number || github.event.check_suite.id }}
   cancel-in-progress: false
 
 jobs:
   merge:
-    if: ${{ github.event.pull_request }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -34,60 +37,77 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-          PR: ${{ github.event.pull_request.number }}
+          EVENT: ${{ github.event_name }}
+          PR_FROM_LABEL: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
 
-          data=$(gh pr view "$PR" -R "$REPO" \
-            --json state,isDraft,baseRefName,mergeable,headRefOid,statusCheckRollup,labels)
+          # Which PR(s) to evaluate. Label/ready/reopen events carry one PR;
+          # a completed check_suite may reference several.
+          if [ "$EVENT" = "check_suite" ]; then
+            PRS=$(jq -r '.check_suite.pull_requests[].number' "$GITHUB_EVENT_PATH" | sort -u)
+          else
+            PRS="$PR_FROM_LABEL"
+          fi
+          [ -n "${PRS:-}" ] || { echo "no PR in event; nothing to do"; exit 0; }
 
-          state=$(jq -r '.state' <<<"$data")
-          draft=$(jq -r '.isDraft' <<<"$data")
-          base=$(jq -r '.baseRefName' <<<"$data")
-          mergeable=$(jq -r '.mergeable' <<<"$data")
-          head=$(jq -r '.headRefOid' <<<"$data")
-          short=${head:0:7}
+          gate_filter='["Review Gate Merge","Review Gate Labeler","Reset Review Gate"]'
 
-          has_ready=$(jq -r '[.labels[].name] | index("gate: ready") != null' <<<"$data")
-          has_blocked=$(jq -r '[.labels[].name] | index("gate: blocked") != null' <<<"$data")
-          needs_human=$(jq -r '[.labels[].name] | index("cycle: needs-human") != null' <<<"$data")
+          # Evaluate one PR; `return 0` = soft skip (log only, no comment).
+          eval_and_merge() {
+            local PR="$1"
 
-          refuse() {
+            local data state draft base mergeable head short
+            data=$(gh pr view "$PR" -R "$REPO" \
+              --json state,isDraft,baseRefName,mergeable,headRefOid,statusCheckRollup,labels)
+
+            state=$(jq -r '.state' <<<"$data")
+            draft=$(jq -r '.isDraft' <<<"$data")
+            base=$(jq -r '.baseRefName' <<<"$data")
+            mergeable=$(jq -r '.mergeable' <<<"$data")
+            head=$(jq -r '.headRefOid' <<<"$data")
+            short=${head:0:7}
+
+            local has_ready has_blocked needs_human
+            has_ready=$(jq -r '[.labels[].name] | index("gate: ready") != null' <<<"$data")
+            has_blocked=$(jq -r '[.labels[].name] | index("gate: blocked") != null' <<<"$data")
+            needs_human=$(jq -r '[.labels[].name] | index("cycle: needs-human") != null' <<<"$data")
+
+            [ "$state" = "OPEN" ]          || { echo "skip #$PR: not open (state=$state)"; return 0; }
+            [ "$draft" = "false" ]         || { echo "skip #$PR: draft"; return 0; }
+            [ "$base" = "main" ]           || { echo "skip #$PR: base is '$base'"; return 0; }
+            [ "$has_ready" = "true" ]      || { echo "skip #$PR: no 'gate: ready'"; return 0; }
+            [ "$has_blocked" = "false" ]   || { echo "skip #$PR: 'gate: blocked' present"; return 0; }
+            [ "$needs_human" = "false" ]   || { echo "skip #$PR: 'cycle: needs-human' present"; return 0; }
+            [ "$mergeable" = "MERGEABLE" ] || { echo "skip #$PR: not mergeable ($mergeable)"; return 0; }
+
+            # Exclude this gate's own workflow runs from the rollup count so the
+            # merge job can't deadlock on itself; pr-tests and any real CI count.
+            local n_checks n_bad
+            n_checks=$(jq -r --argjson gate "$gate_filter" \
+              '[(.statusCheckRollup // [])[]
+                | select((.workflowName // "") as $w | ($gate | index($w)) == null)]
+               | length' <<<"$data")
+            n_bad=$(jq -r --argjson gate "$gate_filter" \
+              '[(.statusCheckRollup // [])[]
+                | select((.workflowName // "") as $w | ($gate | index($w)) == null)
+                | ((.conclusion // .state // "") | ascii_upcase)
+                | select(. != "SUCCESS" and . != "NEUTRAL" and . != "SKIPPED")]
+               | length' <<<"$data")
+
+            [ "${n_bad:-1}" -eq 0 ] || { echo "skip #$PR: $n_bad check(s) not passing yet"; return 0; }
+
+            local checknote="no checks configured"
+            [ "$n_checks" -gt 0 ] && checknote="$n_checks check(s) passing"
+
+            echo "merging #$PR @ $short ($checknote)"
+            gh pr merge "$PR" -R "$REPO" --squash --delete-branch
             gh pr comment "$PR" -R "$REPO" \
-              --body "🚫 **Review-gate merge refused** — $1 (head \`$short\`). No merge performed."
-            echo "refused: $1"
-            exit 0
+              --body "✅ **Merged** by review-gate executor. Gate: open · non-draft · base \`main\` · mergeable · ${checknote} · label \`gate: ready\` @ \`$short\`."
           }
 
-          [ "$state" = "OPEN" ] || refuse "PR is not open (state=$state)"
-          [ "$draft" = "false" ] || refuse "PR is a draft"
-          [ "$base" = "main" ] || refuse "base is '$base', expected 'main'"
-          [ "$mergeable" = "MERGEABLE" ] || refuse "PR not mergeable (mergeable=$mergeable)"
-
-          [ "$has_ready" = "true" ] || refuse "missing label 'gate: ready'"
-          [ "$has_blocked" = "false" ] || refuse "label 'gate: blocked' is still present"
-          [ "$needs_human" = "false" ] || refuse "label 'cycle: needs-human' is present"
-
-          # P1 fix: exclude this gate's own workflow runs from the rollup, or the
-          # merge job's own in-progress check would count itself as "not passing"
-          # and the gate would deadlock. Only real CI (e.g. "Lab CI") is counted.
-          gate_filter='["Review Gate Merge","Review Gate Labeler","Reset Review Gate"]'
-          n_checks=$(jq -r --argjson gate "$gate_filter" \
-            '[(.statusCheckRollup // [])[]
-              | select((.workflowName // "") as $w | ($gate | index($w)) == null)]
-             | length' <<<"$data")
-          n_bad=$(jq -r --argjson gate "$gate_filter" \
-            '[(.statusCheckRollup // [])[]
-              | select((.workflowName // "") as $w | ($gate | index($w)) == null)
-              | ((.conclusion // .state // "") | ascii_upcase)
-              | select(. != "SUCCESS" and . != "NEUTRAL" and . != "SKIPPED")]
-             | length' <<<"$data")
-
-          [ "$n_bad" -eq 0 ] || refuse "$n_bad check(s) not passing"
-
-          checknote="no checks configured"
-          [ "$n_checks" -gt 0 ] && checknote="$n_checks check(s) passing"
-
-          gh pr merge "$PR" -R "$REPO" --squash --delete-branch
-          gh pr comment "$PR" -R "$REPO" \
-            --body "✅ **Merged** by review-gate executor. Gate: open · non-draft · base \`main\` · mergeable · ${checknote} · label \`gate: ready\` @ \`$short\`."
+          for PR in $PRS; do
+            echo "::group::Evaluate PR #$PR"
+            eval_and_merge "$PR" || echo "eval error on #$PR (non-fatal)"
+            echo "::endgroup::"
+          done
