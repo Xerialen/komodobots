@@ -213,7 +213,7 @@ def summarize_player_commands(
         optional_int(dict_or_empty(row.get("qwd_state")).get("control_point_index")) or 0
         for row in active_inside_mvd_commands
     ]
-    first_active_inside_mvd = min(active_inside_mvd_rows, key=lambda item: item[0]) if active_inside_mvd_rows else None
+    first_active_inside_mvd = active_inside_mvd_rows[0] if active_inside_mvd_rows else None
     first_active_state = dict_or_empty(first_active_inside_mvd[1].get("qwd_state")) if first_active_inside_mvd else {}
     rows_by_control_point: dict[int, list[tuple[int, dict[str, object]]]] = defaultdict(list)
     for aligned, row in active_inside_mvd_rows:
@@ -224,7 +224,7 @@ def summarize_player_commands(
         rows_by_control_point[index].append((aligned, row))
     active_phase_summaries: list[dict[str, object]] = []
     for index in sorted(rows_by_control_point):
-        rows_with_time = sorted(rows_by_control_point[index], key=lambda item: item[0])
+        rows_with_time = rows_by_control_point[index]
         times = [aligned for aligned, _row in rows_with_time]
         phase_distances = [
             distance
@@ -277,6 +277,10 @@ def summarize_player_commands(
         else None,
         "first_active_inside_mvd_time_ms": first_active_inside_mvd[0] if first_active_inside_mvd else None,
         "first_active_inside_mvd_distance_qu": rounded(first_active_state.get("distance_qu")),
+        "first_active_inside_mvd_control_point_index": optional_int(first_active_state.get("control_point_index")),
+        "first_active_inside_mvd_advanced_control_points": optional_int(
+            first_active_state.get("advanced_control_points")
+        ),
         "active_control_point_phases": active_phase_summaries,
         "match_duration_ms": match_duration_ms,
         "server_start_time_s": rounded(timing.get("server_start_time_s"), 3),
@@ -388,7 +392,8 @@ def aggregate_players(players: list[dict[str, object]]) -> dict[str, object]:
 
 def design_cvar_float(design: dict[str, object], key: str, fallback: float) -> float:
     suggested_cvars = dict_or_empty(dict_or_empty(design.get("probe_contract")).get("suggested_cvars"))
-    return optional_float(suggested_cvars.get(key)) or fallback
+    value = optional_float(suggested_cvars.get(key))
+    return value if value is not None else fallback
 
 
 def evaluate_stop_conditions(
@@ -414,16 +419,26 @@ def evaluate_stop_conditions(
         if int(player.get("qwd_active_count", 0) or 0) > 0
         and int(player.get("qwd_active_inside_mvd_count", 0) or 0) == 0
     ]
-    loose_start_rows = [
-        {
+    loose_start_rows: list[dict[str, object]] = []
+    unverifiable_start_rows: list[dict[str, object]] = []
+    for player in players:
+        if int(player.get("max_advanced_control_points_inside_mvd", 0) or 0) < required_advanced_control_points:
+            continue
+        first_index = optional_int(player.get("first_active_inside_mvd_control_point_index"))
+        first_advanced = optional_int(player.get("first_active_inside_mvd_advanced_control_points")) or 0
+        first_distance = optional_float(player.get("first_active_inside_mvd_distance_qu"))
+        row = {
             "player": player["player"],
             "first_active_inside_mvd_time_ms": player.get("first_active_inside_mvd_time_ms"),
+            "first_active_inside_mvd_control_point_index": first_index,
+            "first_active_inside_mvd_advanced_control_points": first_advanced,
             "first_active_inside_mvd_distance_qu": player.get("first_active_inside_mvd_distance_qu"),
         }
-        for player in players
-        if int(player.get("max_advanced_control_points_inside_mvd", 0) or 0) >= required_advanced_control_points
-        and (optional_float(player.get("first_active_inside_mvd_distance_qu")) or 0.0) > design_start_radius
-    ]
+        if first_index == 0 and first_advanced == 0 and first_distance is not None:
+            if first_distance > design_start_radius:
+                loose_start_rows.append(row)
+        elif first_distance is None or first_index is None or first_advanced > 0 or first_index > 0:
+            unverifiable_start_rows.append(row)
     unresolved_phase_rows: list[dict[str, object]] = []
     for player in players:
         if int(player.get("max_advanced_control_points_inside_mvd", 0) or 0) < required_advanced_control_points:
@@ -501,11 +516,12 @@ def evaluate_stop_conditions(
         },
         {
             "id": "tight_start_activation",
-            "status": "reject" if loose_start_rows else "pass",
+            "status": "reject" if loose_start_rows else ("inconclusive" if unverifiable_start_rows else "pass"),
             "details": {
                 "players_advancing_after_loose_start": loose_start_rows,
+                "players_with_unverifiable_start_distance": unverifiable_start_rows,
                 "design_start_radius_qu": design_start_radius,
-                "rule": "A run that reaches the advancement gate must first activate inside the design start radius, not from the widened setup-repair radius.",
+                "rule": "A run that reaches the advancement gate must show first active in-MVD evidence at CP0 before same-frame advancement and inside the design start radius.",
             },
         },
         {

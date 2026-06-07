@@ -135,7 +135,14 @@ class QwdSngHybridProbeTests(unittest.TestCase):
     def test_positive_bounded_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            write_fake_run(root, "run1", commands=[command_row(), command_row(active_seconds=1.6)])
+            write_fake_run(
+                root,
+                "run1",
+                commands=[
+                    command_row(time_s=11.0, advanced=0, index=0, distance=72.0),
+                    command_row(time_s=12.0, advanced=4, index=4, active_seconds=1.6, distance=72.0),
+                ],
+            )
 
             report = qwd_probe.build_report(
                 {},
@@ -257,10 +264,24 @@ class QwdSngHybridProbeTests(unittest.TestCase):
         by_id = {condition["id"]: condition for condition in report["stop_condition_results"]}
         self.assertEqual(by_id["waypoint_only_slow_success"]["status"], "reject")
 
+    def test_design_cvar_float_preserves_zero(self) -> None:
+        design = {"probe_contract": {"suggested_cvars": {"radius": 0.0}}}
+
+        value = qwd_probe.design_cvar_float(design, "radius", 192.0)
+
+        self.assertEqual(value, 0.0)
+
     def test_loose_start_activation_is_rejected_after_advancement(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            write_fake_run(root, "run1", commands=[command_row(distance=250.0)])
+            write_fake_run(
+                root,
+                "run1",
+                commands=[
+                    command_row(time_s=11.0, advanced=0, index=0, distance=250.0),
+                    command_row(time_s=12.0, advanced=4, index=4, distance=72.0),
+                ],
+            )
 
             report = qwd_probe.build_report(
                 {},
@@ -275,6 +296,27 @@ class QwdSngHybridProbeTests(unittest.TestCase):
         self.assertEqual(by_id["tight_start_activation"]["status"], "reject")
         self.assertEqual(
             by_id["tight_start_activation"]["details"]["players_advancing_after_loose_start"][0]["player"],
+            "/ goldenboy",
+        )
+
+    def test_same_frame_advance_makes_tight_start_inconclusive_not_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fake_run(root, "run1", commands=[command_row(advanced=4, index=4, distance=250.0)])
+
+            report = qwd_probe.build_report(
+                {},
+                stage="test",
+                bot_run_ids=["run1"],
+                artifacts_root=root,
+                design_path=REPO_ROOT / "design.json",
+            )
+
+        self.assertEqual(report["decision"]["verdict"], "qwd_sng_hybrid_probe_inconclusive")
+        by_id = {condition["id"]: condition for condition in report["stop_condition_results"]}
+        self.assertEqual(by_id["tight_start_activation"]["status"], "inconclusive")
+        self.assertEqual(
+            by_id["tight_start_activation"]["details"]["players_with_unverifiable_start_distance"][0]["player"],
             "/ goldenboy",
         )
 

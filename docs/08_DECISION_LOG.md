@@ -1986,7 +1986,7 @@ Require tight-start and phase-target gates for QWD SNG positives.
 
 ### Decision
 
-Continue the QWD-to-Frogbot SNG track, but make positive bounded evidence stricter. A future SNG run cannot pass merely by advancing four control points. It must also activate inside the design start radius and avoid long unresolved post-advance target phases.
+Continue the QWD-to-Frogbot SNG track, but make positive bounded evidence stricter. A future SNG run cannot pass merely by advancing four control points. It must also show pre-advance CP0 activation evidence inside the design start radius and avoid long unresolved post-advance target phases. If the first active row has already advanced to a later target, the start gate remains inconclusive instead of rejected.
 
 The next live stage should rerun mode `9` with the original `192` qu start radius and unchanged projection before any command-policy or route-topology change.
 

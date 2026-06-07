@@ -479,7 +479,7 @@ Interpretation: the current SNG evidence is route-geometry transfer plus slow/st
 
 The SNG scorer now rejects the two failure modes exposed by the slow-success attribution before it can emit positive bounded evidence:
 
-- `tight_start_activation`: if a bot reaches the advancement gate, its first active in-MVD QWD sample must be inside the `192` qu design start radius.
+- `tight_start_activation`: if a bot reaches the advancement gate, its first active in-MVD QWD sample must show pre-advance CP0 evidence inside the `192` qu design start radius. If the first active row has already advanced to a later target, the start evidence is inconclusive rather than rejected.
 - `phase_target_progression`: after the required four-point advancement, a long active phase on the next target must enter the `96` qu point radius.
 
 Rescoring run `20260606T231007Z` as `qwd-sng-phase-gate-tightening-dm3` keeps the verdict rejected:

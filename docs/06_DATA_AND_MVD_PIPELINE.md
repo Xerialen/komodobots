@@ -165,7 +165,7 @@ QWD SNG phase-gate tightening:
 - Artifact: `experiments/qwd_route_probe/evidence/qwd-sng-phase-gate-tightening-dm3.*`
 - Scorer: `scripts/compare_qwd_sng_hybrid_probe.py`
 - The scorer now records first active in-MVD target distance and active control-point phase summaries.
-- `tight_start_activation` rejects any advancement-gated run whose first active in-MVD sample starts outside the design start radius.
+- `tight_start_activation` rejects any advancement-gated run whose first active in-MVD pre-advance CP0 sample starts outside the design start radius, and marks the gate inconclusive if the first active row has already advanced to a later target.
 - `phase_target_progression` rejects any run that reaches the required advancement gate and then spends at least `1.0` second on the next target without entering the point radius.
 - Rescoring `20260606T231007Z` now fails `tight_start_activation`, `phase_target_progression`, and the existing `waypoint_only_slow_success` guardrail.
 
