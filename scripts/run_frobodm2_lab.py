@@ -436,6 +436,23 @@ MOVEPROBE_COMMAND_RE = re.compile(
     r"(?:\s+qwd=(?P<qwd_active>\d+),(?P<qwd_index>-?\d+),(?P<qwd_count>-?\d+),"
     r"(?P<qwd_distance>-?\d+(?:\.\d+)?),(?P<qwd_advanced>-?\d+),(?P<qwd_complete>\d+),"
     r"(?P<qwd_active_seconds>-?\d+(?:\.\d+)?))?"
+    r"(?:\s+replay=(?P<replay_active>\d+),(?P<replay_complete>\d+),(?P<replay_cursor>-?\d+),"
+    r"(?P<replay_count>-?\d+),(?P<replay_divergence>-?\d+(?:\.\d+)?),"
+    r"(?P<replay_exp_x>-?\d+(?:\.\d+)?),(?P<replay_exp_y>-?\d+(?:\.\d+)?),(?P<replay_exp_z>-?\d+(?:\.\d+)?))?"
+)
+
+
+MOVEPROBE_REPLAY_EVENT_RE = re.compile(
+    r"FBMOVEPROBE_REPLAY_EVENT\s+"
+    r"time=(?P<time>-?\d+(?:\.\d+)?)\s+"
+    r"ed=(?P<ed>\d+)\s+"
+    r"name=(?P<name>.*?)\s+"
+    r"event=(?P<event>[A-Za-z_]+)\s+"
+    r"cursor=(?P<cursor>-?\d+)\s+"
+    r"count=(?P<count>-?\d+)\s+"
+    r"divergence=(?P<divergence>-?\d+(?:\.\d+)?)\s+"
+    r"origin=(?P<origin_x>-?\d+(?:\.\d+)?),(?P<origin_y>-?\d+(?:\.\d+)?),(?P<origin_z>-?\d+(?:\.\d+)?)\s+"
+    r"expected=(?P<expected_x>-?\d+(?:\.\d+)?),(?P<expected_y>-?\d+(?:\.\d+)?),(?P<expected_z>-?\d+(?:\.\d+)?)"
 )
 
 
@@ -537,8 +554,52 @@ def parse_moveprobe_command_logs(screen_log: str) -> list[dict[str, object]]:
                 "complete": bool(int(groups["qwd_complete"])),
                 "active_seconds": float(groups["qwd_active_seconds"]),
             }
+        if groups.get("replay_active") is not None:
+            row["replay_state"] = {
+                "active": bool(int(groups["replay_active"])),
+                "complete": bool(int(groups["replay_complete"])),
+                "cursor": int(groups["replay_cursor"]),
+                "frame_count": int(groups["replay_count"]),
+                "divergence_qu": float(groups["replay_divergence"]),
+                "expected_origin": {
+                    "x": float(groups["replay_exp_x"]),
+                    "y": float(groups["replay_exp_y"]),
+                    "z": float(groups["replay_exp_z"]),
+                },
+            }
         commands.append(row)
     return commands
+
+
+def parse_moveprobe_replay_event_logs(screen_log: str) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    for line in screen_log.splitlines():
+        match = MOVEPROBE_REPLAY_EVENT_RE.search(line)
+        if not match:
+            continue
+        groups = match.groupdict()
+        events.append(
+            {
+                "time_s": float(groups["time"]),
+                "ed": int(groups["ed"]),
+                "name": groups["name"].strip(),
+                "event": groups["event"],
+                "cursor": int(groups["cursor"]),
+                "frame_count": int(groups["count"]),
+                "divergence_qu": float(groups["divergence"]),
+                "origin": {
+                    "x": float(groups["origin_x"]),
+                    "y": float(groups["origin_y"]),
+                    "z": float(groups["origin_z"]),
+                },
+                "expected_origin": {
+                    "x": float(groups["expected_x"]),
+                    "y": float(groups["expected_y"]),
+                    "z": float(groups["expected_z"]),
+                },
+            }
+        )
+    return events
 
 
 def parse_moveprobe_qwd_event_logs(screen_log: str) -> list[dict[str, object]]:
@@ -611,6 +672,11 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
             for row in rows
             if isinstance(row.get("qwd_state", {}), dict) and row.get("qwd_state")
         ]
+        replay_states = [
+            row.get("replay_state", {})
+            for row in rows
+            if isinstance(row.get("replay_state", {}), dict) and row.get("replay_state")
+        ]
         yaw_deltas = [
             round(float(diagnostic["yaw_delta"]), 1)
             for diagnostic in diagnostics
@@ -641,6 +707,7 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
                 "water_state": summarize_water_states(water_states),
                 "probe_state": summarize_probe_states(probe_states),
                 "qwd_state": summarize_qwd_states(qwd_states),
+                "replay_state": summarize_replay_states(replay_states),
                 "button_values": compact_unique(int(row["buttons"]) for row in rows),
                 "impulse_values": compact_unique(int(row["impulse"]) for row in rows),
             }
@@ -804,6 +871,27 @@ def summarize_qwd_states(qwd_states: list[dict[str, object]]) -> dict[str, objec
     }
 
 
+def summarize_replay_states(replay_states: list[dict[str, object]]) -> dict[str, object]:
+    if not replay_states:
+        return {"sample_count": 0}
+
+    active = [s for s in replay_states if bool(s.get("active", False))]
+    divergences = [round(float(s.get("divergence_qu", 0.0)), 3) for s in active]
+    cursors = [int(s.get("cursor", 0)) for s in replay_states]
+    frame_counts = [int(s.get("frame_count", 0)) for s in replay_states]
+    return {
+        "sample_count": len(replay_states),
+        "active_ratio": round(len(active) / len(replay_states), 3),
+        "complete_ratio": round(
+            sum(1 for s in replay_states if bool(s.get("complete", False))) / len(replay_states), 3
+        ),
+        "frame_count": max(frame_counts) if frame_counts else 0,
+        "max_cursor": max(cursors) if cursors else 0,
+        "max_divergence_qu": max(divergences) if divergences else None,
+        "final_divergence_qu": divergences[-1] if divergences else None,
+    }
+
+
 def write_moveprobe_command_logs(local_run_dir: Path) -> dict[str, object]:
     screen_log = (local_run_dir / "screen.log").read_text(encoding="utf-8", errors="replace")
     commands = parse_moveprobe_command_logs(screen_log)
@@ -837,6 +925,7 @@ def write_moveprobe_command_logs(local_run_dir: Path) -> dict[str, object]:
                 f"water `{player['water_state']}`, "
                 f"probe `{player['probe_state']}`, "
                 f"qwd `{player['qwd_state']}`, "
+                f"replay `{player['replay_state']}`, "
                 f"buttons `{player['button_values']}`, "
                 f"impulses `{player['impulse_values']}`"
             )
@@ -881,6 +970,50 @@ def write_moveprobe_qwd_event_logs(local_run_dir: Path) -> dict[str, object]:
     else:
         lines.append("- No `FBMOVEPROBE_QWD_EVENT` lines found in `screen.log`.")
 
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return summary
+
+
+def write_moveprobe_replay_event_logs(local_run_dir: Path) -> dict[str, object]:
+    screen_log = (local_run_dir / "screen.log").read_text(encoding="utf-8", errors="replace")
+    events = parse_moveprobe_replay_event_logs(screen_log)
+
+    players: dict[tuple[int, str], list[dict[str, object]]] = {}
+    for event in events:
+        players.setdefault((int(event["ed"]), str(event["name"])), []).append(event)
+
+    player_rows = []
+    for (ed, name), rows in sorted(players.items()):
+        complete = [r for r in rows if r["event"] == "complete"]
+        player_rows.append(
+            {
+                "ed": ed,
+                "name": name,
+                "event_counts": compact_unique(r["event"] for r in rows),
+                "frame_count": max(int(r["frame_count"]) for r in rows),
+                "max_cursor": max(int(r["cursor"]) for r in rows),
+                "final_divergence_qu": round(float(complete[-1]["divergence_qu"]), 3) if complete else None,
+                "final_cursor": int(complete[-1]["cursor"]) if complete else None,
+            }
+        )
+
+    summary = {"event_count": len(events), "players": player_rows, "events": events}
+    json_path = local_run_dir / "moveprobe-replay-events.json"
+    md_path = local_run_dir / "moveprobe-replay-events.md"
+    json_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+
+    lines = ["# Moveprobe Replay Event Log", "", f"- Events parsed: `{len(events)}`", ""]
+    if player_rows:
+        lines.extend(["## Players", ""])
+        for player in player_rows:
+            lines.append(
+                f"- `{player['name']}` ed `{player['ed']}`: events `{player['event_counts']}`, "
+                f"frameCount `{player['frame_count']}`, maxCursor `{player['max_cursor']}`, "
+                f"finalCursor `{player['final_cursor']}`, "
+                f"finalDivergence `{player['final_divergence_qu']}` qu"
+            )
+    else:
+        lines.append("- No `FBMOVEPROBE_REPLAY_EVENT` lines found in `screen.log`.")
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return summary
 
@@ -1359,6 +1492,12 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
 
         port = choose_port(args.host, args.port, explicit=args.strict_port)
         upload_shim(args.host, run_id)
+        if args.moveprobe_mode == 10 and args.replay_cmds is None:
+            raise RuntimeError(
+                "--moveprobe-mode 10 (open-loop replay) requires --replay-cmds; "
+                "without it KTX loads no frames and silently falls back to normal "
+                "Frogbot movement while artifacts would still report mode 10."
+            )
         replay_remote = ""
         if args.replay_cmds is not None:
             replay_remote = upload_replay_cmds(args.host, args.replay_cmds)
@@ -1390,6 +1529,7 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         movement_metrics = write_movement_metrics(local_run_dir)
         write_moveprobe_command_logs(local_run_dir)
         write_moveprobe_qwd_event_logs(local_run_dir)
+        write_moveprobe_replay_event_logs(local_run_dir)
         write_summary(local_run_dir, args.host, port, run_id, args.map_name, parser_exits)
 
         if args.record_trick_name:
