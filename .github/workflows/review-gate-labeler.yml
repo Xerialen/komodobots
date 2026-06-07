@@ -36,6 +36,8 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
+  checks: read
+  statuses: read
 
 concurrency:
   group: review-gate-labeler-${{ github.event.issue.number || github.event.pull_request.number }}
@@ -76,7 +78,8 @@ jobs:
           # where `gate: ready` is set before PR Tests finishes (workflow_run).
           try_merge() {
             local d
-            d=$(gh pr view "$PR" -R "$REPO" --json state,isDraft,baseRefName,mergeable,statusCheckRollup,labels)
+            d=$(gh pr view "$PR" -R "$REPO" --json state,isDraft,baseRefName,mergeable,statusCheckRollup,labels) \
+              || { echo "merge skip: could not read PR state"; return 0; }
             [ "$(jq -r '.state' <<<"$d")" = "OPEN" ]             || { echo "merge skip: not open";        return 0; }
             [ "$(jq -r '.isDraft' <<<"$d")" = "false" ]          || { echo "merge skip: draft";           return 0; }
             [ "$(jq -r '.baseRefName' <<<"$d")" = "main" ]       || { echo "merge skip: base";            return 0; }
