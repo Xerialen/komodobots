@@ -4,8 +4,8 @@ name: Review Gate Merge
 #
 # NO LLM and NO API tokens. It only runs `gh` + bash. The workflow is
 # intentionally agent-agnostic: it consumes neutral PR labels, not agent names.
-# It merges a PR ONLY when the review gate is `gate: ready` and every
-# deterministic gate passes.
+# It merges a PR ONLY when the review gate is `gate: ready`, no escalation label
+# is present, and every deterministic gate passes.
 
 on:
   pull_request:
@@ -46,6 +46,7 @@ jobs:
 
           has_ready=$(jq -r '[.labels[].name] | index("gate: ready") != null' <<<"$data")
           has_blocked=$(jq -r '[.labels[].name] | index("gate: blocked") != null' <<<"$data")
+          needs_human=$(jq -r '[.labels[].name] | index("cycle: needs-human") != null' <<<"$data")
 
           refuse() {
             gh pr comment "$PR" -R "$REPO" \
@@ -61,6 +62,7 @@ jobs:
 
           [ "$has_ready" = "true" ] || refuse "missing label 'gate: ready'"
           [ "$has_blocked" = "false" ] || refuse "label 'gate: blocked' is still present"
+          [ "$needs_human" = "false" ] || refuse "label 'cycle: needs-human' is present"
 
           n_checks=$(jq -r '(.statusCheckRollup // []) | length' <<<"$data")
           n_bad=$(jq -r '[(.statusCheckRollup // [])[]
