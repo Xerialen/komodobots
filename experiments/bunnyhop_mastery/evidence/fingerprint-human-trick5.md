@@ -18,11 +18,17 @@
 - Jump cadence: **84.7/min** (52 jumps)
 - View-yaw vs velocity offset: p50 **45.3°**, p90 119.0° (strafe signature)
 
-## Turn technique — speed sustained vs turn rate (the crux)
+## Path shape — the REAL trajectory geometry
 
-- Median turn rate while moving: **145.0°/s**
+- Net rotation over the run: **-192.5°** (0.53 rotations)
+- Net displacement **475.4 qu** over path length **30033.6 qu** → straightness **0.016**
+- Bounding box: **1748.9 × 1788.4 qu**
+- (Strafe-oscillation 'radius' 353.8 qu is an artifact of instantaneous turn rate, NOT the path radius — see caveat.)
+
+## Turn technique — speed sustained vs (instantaneous) turn rate
+
+- Median instantaneous turn rate while moving: **145.0°/s** (strafe oscillation)
 - Median moving speed: **895.1 qu/s**
-- Implied carve radius: **353.8 qu** (must fit the map's open area)
 
 | turn_rate≥(°/s) | frames | frac | mean_hspeed | max_hspeed |
 |---:|---:|---:|---:|---:|

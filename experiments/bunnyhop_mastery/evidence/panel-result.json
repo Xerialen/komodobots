@@ -1,0 +1,98 @@
+{
+  "schema": "komodobots.bunnyhop_panel.v1",
+  "date": "2026-06-07",
+  "proposals": [
+    {
+      "name": "radius-bound",
+      "one_line": "Replace mode-13's speed-blind acos(K/|v|) air wish-angle with a radius-servo: derive the wish-angle from a target carve radius (~354 qu) so the velocity turn-rate scales with speed, pinning a BOUNDED circle that fits trick.bsp while air-accel keeps climbing toward the human ~880 band.",
+      "effort": "S",
+      "plausibility": "high"
+    },
+    {
+      "name": "turn-rate-target",
+      "one_line": "Command a constant velocity-heading turn rate omega (~145 deg/s, the human value) every airborne frame and let QW air-accel settle speed at the equilibrium that rate implies, giving a bounded radius r=v/omega that fits trick.bsp.",
+      "effort": "M",
+      "plausibility": "high"
+    },
+    {
+      "name": "waypoint-route",
+      "one_line": "Fit a closed bounded-radius loop inside trick.bsp's open area and have the bot air-strafe along its tangent at a held yaw-offset, so the path (not the speed) pins the radius while mode-13 accel drives speed up to the human band.",
+      "effort": "M",
+      "plausibility": "medium"
+    },
+    {
+      "name": "imitation",
+      "one_line": "Bake a tiny state->action table learned from the 22,749 paired human air-frames into KTX mode 14; each airborne frame it looks up a CONSTANT-ish yaw-rate (and strafe sign) keyed on (horizontal speed, signed view-yaw-minus-velocity-yaw), which is exactly the human's bounded-radius carve, so radius = speed / yaw_rate stays ~354 instead of growing as v^2.",
+      "effort": "L",
+      "plausibility": "medium"
+    },
+    {
+      "name": "replay-seed",
+      "one_line": "Extend the existing closed-loop replay (mode 11/12) into a heading-tracking variant that replays the human trick5 yaw stream as the speed-generating air-strafe reference and applies only a bounded per-frame yaw correction toward the recorded path, so the human's 354 qu bounded carve is reproduced directly instead of re-derived.",
+      "effort": "S",
+      "plausibility": "high"
+    }
+  ],
+  "verdicts": [
+    {
+      "judge_top": "radius-bound",
+      "ranking": [
+        "radius-bound",
+        "turn-rate-target",
+        "replay-seed",
+        "waypoint-route",
+        "imitation"
+      ]
+    },
+    {
+      "judge_top": "replay-seed",
+      "ranking": [
+        "replay-seed",
+        "turn-rate-target",
+        "radius-bound",
+        "waypoint-route",
+        "imitation"
+      ]
+    },
+    {
+      "judge_top": "radius-bound",
+      "ranking": [
+        "radius-bound",
+        "replay-seed",
+        "turn-rate-target",
+        "waypoint-route",
+        "imitation"
+      ]
+    }
+  ],
+  "synthesis": {
+    "recommended_first_controller": "turn-rate-target \u00e2\u20ac\u201d command a constant velocity-heading turn rate omega (~145 deg/s, the human value) every airborne frame and re-solve the air wish-angle from the LIVE horizontal speed each frame, so the carve radius r = |v|/omega is bounded BY CONSTRUCTION (~354 qu) while QW air-accel keeps climbing speed toward the human band.",
+    "why": "All three judges agree the decisive axis is RADIUS CONTROL, not acceleration, and that the winning controller must bound radius by construction at the lowest code risk. radius-bound and turn-rate-target are the two that do this; they are duals occupying the same ~15-line airborne else-block (bot_movement.c 1657-1689, the exact failing acos line at 1676). I pick turn-rate-target as the FIRST build for one tie-breaking reason the panel surfaced: it is robust to the one real objection against radius-bound. Verified in-source \u00e2\u20ac\u201d the airborne branch reads cvars and rotates cur_dir (the live velocity heading) by `rotation` via RotatePointAroundVector; hor_speed_sq and the velocity vector are already computed at line 1634; the only missing input is the physics frametime (add `float frametime = g_globalvars.frametime;`). radius-bound's open-loop core line sin(phi)=|v|^2*dt/(gamma*R_t) uses gamma=sv_accel*dt*sv_maxspeed (~41.6) as the per-frame velocity gain a_eff, which is a large overestimate at the 895 qu/s operating point (real QW air-accel adds only min(addspeed, accel*dt*wishspeed) with addspeed = ~30-cap minus v.wishdir, near-zero at a 45deg offset). A miscalibrated gamma makes radius-bound's speed-preserving clamp (which IS the old acos rule) dominate exactly in the cruising band it must fix \u00e2\u20ac\u201d degrading it back toward mode-13 where it matters. turn-rate-target sidesteps this entirely: because omega is held by construction and the wish-angle is re-solved from live |v| every frame, a wrong accelspeed only changes convergence aggressiveness, not the steady-state radius. It is a true closed-loop fixed point. It reproduces the SAME decisive human invariant (constant ~145 deg/s -> bounded ~354 qu), is equally surgical, reuses the existing FBMOVEPROBE log + extract_bunnyhop_fingerprint.py unchanged, and its single swept knob (omega) directly traces the rate->terminal-speed curve that resolves H1 vs H2. Grafted from runner-ups: (a) from replay-seed, the carve reference is the live velocity heading (vectoyaw(velocity)) not a static angle, and a mandatory map-identity precheck before sweeping; (b) from radius-bound, reuse acos(K/|v|) as the speed-preserving clamp/bootstrap below minspeed so spin-up from rest is unchanged and v.wishdir keeps headroom under the air cap.",
+    "fallback": "radius-bound, run as a fast A/B control in the SAME batch (it is a one-cvar variant of the same airborne block, sharing the sv_accelerate override). If turn-rate-target's commanded-omega servo holds a bounded radius but plateaus speed below the human band (the honest H2 outcome \u00e2\u20ac\u201d the perpendicular/forward accel split at 145 deg/s caps |v|), radius-bound's R_t formulation is the cross-check: it pins radius and lets turn-rate float, so comparing the two isolates whether the speed shortfall is a turn-rate-budget limit (H2) or a calibration artifact. If BOTH bound the radius yet neither reaches ~800 p50, escalate to replay-seed (mode 12 already exists at bot_movement.c ~1257-1318) to PROVE a bounded 880 carve is physically reproducible on this map by borrowing the validated human trace wholesale \u00e2\u20ac\u201d but only after confirming the trick5 .cmds geometry matches live trick.bsp (the map-identity precondition both skeptic judges flagged).",
+    "build_spec": {
+      "ktx_edit_summary": "Confined to the mode-13 airborne else-block in BotApplyMoveProbe (bot_movement.c 1657-1689); ground/jump-toggle/alternate/command-emit/logging byte-identical so extract_bunnyhop_fingerprint.py and the FBMOVEPROBE velocity log score it unchanged. (1) Add `float frametime = g_globalvars.frametime;` to the local decls near line 1602 (max_incr/hor_speed_sq are already there). (2) Read three new cvars alongside numerator at ~1595: turnrate, turnrate_minspeed, sv_accel_override. (3) Insert a THIRD wish-angle strategy as the FIRST branch of the airborne if-chain, ahead of fixed_angle: `if (turnrate > 0 && hor_speed_sq > turnrate_minspeed*turnrate_minspeed) { float hs = sqrt(hor_speed_sq); float sv_accel = sv_accel_override > 0 ? sv_accel_override : cvar(\"sv_accelerate\"); if (sv_accel <= 0) sv_accel = 10.0f; float accelspeed = sv_accel * frametime * sv_maxspeed; float dv_perp = hs * (turnrate * M_PI/180.0f) * frametime; float ratio = dv_perp / (accelspeed > 1e-3f ? accelspeed : 1e-3f); if (ratio > 1.0f) ratio = 1.0f; rotation = asin(ratio) * 180.0f / M_PI; /* speed-preserving clamp grafted from radius-bound: never turn harder than acos(K/|v|) so v.wishdir keeps headroom under the air cap */ if (hs > max_incr) { float acos_cap = acos(max_incr / hs) * 180.0f/M_PI; if (rotation > acos_cap) rotation = acos_cap; } }` then `else if (fixed_angle > 0) { rotation = fixed_angle; }` then the existing acos branch, then bootstrap_deg. The existing `RotatePointAroundVector(proposed_dir, up_vector, cur_dir, rotation * moveprobe_accel_strafe_sign[slot]);` at 1682-1683 is reused VERBATIM \u00e2\u20ac\u201d cur_dir is already the normalized live velocity heading, so the servo rotates off velocity exactly as the human does. Below-minspeed and turnrate<=0 fall through to the unchanged acos/bootstrap path so spin-up from rest is identical. ~18 lines, fully reversible, deploys by repointing the qwprogs.so symlink on servexeri.",
+      "new_cvars": [
+        {
+          "name": "k_fb_moveprobe_accel_turnrate",
+          "default": "145",
+          "purpose": "Target velocity-heading turn rate (deg/s) for the airborne carve. >0 selects the turn-rate servo; the wish-angle is solved each frame as asin(|v|*omega*dt/accelspeed) so radius r=|v|/omega stays pinned regardless of speed. 0 falls through to fixed_angle/acos. THE single knob swept to map rate->terminal-speed and resolve H1 vs H2."
+        },
+        {
+          "name": "k_fb_moveprobe_accel_turnrate_minspeed",
+          "default": "300",
+          "purpose": "Horizontal speed (qu/s) below which the servo is skipped and the bot runs the existing acos/bootstrap_deg spin-up, matching the human's low-turn-rate early frames. Keeps the servo governing only the sustained-carve regime."
+        },
+        {
+          "name": "k_fb_moveprobe_accel_sv_accelerate",
+          "default": "0 (0 = read live cvar sv_accelerate, fallback 10)",
+          "purpose": "Override for sv_accelerate in the accelspeed = sv_accel*frametime*sv_maxspeed budget. Lets the servo's convergence aggressiveness track a non-stock server accel without a rebuild. NOTE: unlike radius-bound, a wrong value here only changes convergence speed, not the steady-state bounded radius \u00e2\u20ac\u201d the servo holds omega by construction."
+        }
+      ],
+      "parameter_grid": "trick.bsp, single bot, paired 60s + 180s runs per cell (the 180s exposes the mode-13 collapse signature). PRIMARY: k_fb_moveprobe_accel_turnrate in {90,110,130,145,160,180,210} deg/s (brackets the human 145 and the 120-180 band holding 45% of human frames). SECONDARY (after the omega sweep localizes the band): k_fb_moveprobe_accel_turnrate_minspeed in {200,300,400}; k_fb_moveprobe_accel_alternate in {0,1} (constant circle-strafe first, to match the human's continuous one-way arc); k_fb_moveprobe_accel_numerator (K, speed-preserving clamp) in {24,26,28}. Hold sv_accel_override=0 (live read) first; only try {8,12} if terminal speed is far off. CONTROLS in the same batch: one run at k_fb_moveprobe_accel_angle=45 (static 45deg, must under-perform the speed-adaptive servo) and one radius-bound A/B (R_t=354) to cross-check that a pinned-radius vs pinned-rate formulation agree. ~25-30 runs. After each run feed the FBMOVEPROBE velocity log + recorded .cmds through extract_bunnyhop_fingerprint.py; cross-check that median_turn_rate_deg_s clamps near the commanded omega (proves the servo holds rate) and that implied_carve_radius_qu does NOT trend up with run length.",
+      "first_live_run": "THE decisive bounded-carve test (resolves H1 vs H2): a single 180s trick.bsp run at k_fb_moveprobe_accel_turnrate=145, turnrate_minspeed=300, alternate=0, numerator=26, sv_accel_override=0 \u00e2\u20ac\u201d the cell that commands exactly the human invariant. PRECONDITION (grafted from replay-seed/skeptic judges): confirm the bot's spawn region on trick.bsp actually contains a clean ~354 qu open circle before trusting a wall-hit as a controller failure. PASS/FAIL read from extract_bunnyhop_fingerprint.py on the velocity log: H1 CONFIRMED (radius-control alone reaches mastery) if 180s p50 horizontal speed lands in the human band (>=~800, target 880) AND implied_carve_radius_qu stays bounded ~320-380 (does NOT grow with time) AND single-frame -324 qu/s wall-hit resets drop to <=1 per 60s AND the 180s p50 does NOT collapse below the 60s p50 (the decisive anti-collapse signal that overturns mode-13's 292/598). H2 CONFIRMED (carve bounds but air-accel budget caps speed) if radius is bounded and resets vanish but p50 plateaus below ~800 \u00e2\u20ac\u201d at which point sweep omega DOWN (wider radius -> higher terminal speed) and, if the residual gap is a speed-VARYING yaw-rate schedule the single constant misses, trigger imitation. Either outcome is a real, extractor-scored finding on the first run and already overturns the bot's collapse."
+    },
+    "mastery_metric": "In a live trick.bsp run of >=120s (180s preferred to expose collapse), the controller SUSTAINS a bounded-radius carve such that: (1) p50 horizontal speed reaches the human band, headline target >=800 trending to 880 (vs the current mode-13 60s p50 535 / 180s p50 292); (2) the 180s p50 does NOT fall below the 60s p50 \u00e2\u20ac\u201d speed is sustained, not periodically reset; (3) <=1 single-frame -324 qu/s wall-hit reset per 60s (target ~0); (4) implied_carve_radius_qu stays bounded ~320-380 qu and does NOT trend upward with time/speed (the v^2 blowup is gone); (5) median_turn_rate_deg_s in 120-160 deg/s, jump cadence ~80-90/min, and view-yaw-vs-velocity offset p50 ~40-50 deg \u00e2\u20ac\u201d i.e. the human fingerprint reproduced jointly, all extracted by scripts/extract_bunnyhop_fingerprint.py. Mastery = (1)+(2)+(3)+(4) held simultaneously for >=60s.",
+    "imitation_learning_trigger": "Build the baked state->action imitation table (mode 14) ONLY after the hand-crafted constant-rate servo (turn-rate-target, plus the radius-bound A/B control) has been run live and shown to (a) SUSTAIN a bounded radius with wall-hit resets ~0 \u00e2\u20ac\u201d i.e. the radius-control hypothesis is already validated \u00e2\u20ac\u201d YET (b) either plateau p50 speed below the human band across the full omega sweep {90..210}, OR fail to match cadence+yaw-offset jointly while a single constant omega is held. That residual is the signature that the human's edge is a SPEED-VARYING yaw-rate/offset SCHEDULE (the shape of omega(|v|)) that no single constant reproduces \u00e2\u20ac\u201d exactly what the 24x24x5 (speed,offset)->yaw-rate table from the 22,749 paired human air-frames encodes. If a single constant omega already reaches ~880 with the fingerprint matched, the table is unnecessary and must NOT be built (it adds a baked C array, tick-rate-per-msec normalization desync trap, sign-handedness validation, and open-loop spatial-drift risk on a real map for no marginal gain). Imitation earns its complexity solely to capture a proven speed-varying schedule the constant misses."
+  },
+  "note": "Synthesis recommends turn-rate-target air servo. SUPERSEDED 2026-06-08 by path-shape analysis (human path is multi-loop confined, not constant-curvature) \u2014 see bot-vs-human-contrast.md. replay-seed (physics-skeptic top pick) and area/alternation control are the live candidates."
+}

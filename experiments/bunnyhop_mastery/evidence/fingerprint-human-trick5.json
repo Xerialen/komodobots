@@ -25,7 +25,8 @@
   "turn_technique": {
     "median_turn_rate_deg_s": 145.0,
     "median_moving_speed_qu_s": 895.1,
-    "implied_carve_radius_qu": 353.8,
+    "oscillation_radius_qu": 353.8,
+    "oscillation_radius_caveat": "median-instantaneous turn rate is strafe OSCILLATION, not net path curvature; see path_shape for real geometry",
     "speed_vs_turn_rate": [
       {
         "turn_rate_lo_deg_s": 0,
@@ -76,6 +77,17 @@
         "mean_hspeed": 674.7,
         "max_hspeed": 1014.6
       }
+    ]
+  },
+  "path_shape": {
+    "net_rotation_deg": -192.5,
+    "net_rotations": 0.53,
+    "net_displacement_qu": 475.4,
+    "path_length_qu": 30033.6,
+    "straightness": 0.016,
+    "bbox_qu": [
+      1748.9,
+      1788.4
     ]
   },
   "speed_vs_distance": [

@@ -192,9 +192,24 @@ def compute(frames: list[dict]) -> dict:
     ]
     median_turn_rate = statistics.median(turn_rates_moving) if turn_rates_moving else 0.0
     median_moving_speed = statistics.median(speeds_moving) if speeds_moving else 0.0
-    # carve radius (qu) implied by the sustained turn-rate/speed equilibrium
+    # NOTE: this "radius" divides the MEDIAN INSTANTANEOUS turn rate (dominated by
+    # high-frequency strafe OSCILLATION) into speed -- it is NOT the path's radius.
+    # Use path_shape (net rotation, straightness, bbox) for the real trajectory shape.
     omega_rad = math.radians(median_turn_rate)
-    implied_radius_qu = (median_moving_speed / omega_rad) if omega_rad > 1e-6 else None
+    oscillation_radius_qu = (median_moving_speed / omega_rad) if omega_rad > 1e-6 else None
+
+    # --- path shape: the REAL trajectory geometry (net rotation, straightness, box) ---
+    net_rotation_deg = 0.0
+    for a, b in zip(samples, samples[1:]):
+        if a["heading"] is None or b["heading"] is None or b["hspeed"] < MOVING_SPEED_QU:
+            continue
+        net_rotation_deg += _wrap180(b["heading"] - a["heading"])
+    oxs = [f["origin"][0] for f in frames]
+    oys = [f["origin"][1] for f in frames]
+    net_disp = math.hypot(oxs[-1] - oxs[0], oys[-1] - oys[0])
+    straightness = (net_disp / total_dist) if total_dist > 0 else 0.0
+    bbox_x = max(oxs) - min(oxs)
+    bbox_y = max(oys) - min(oys)
 
     # --- speed-vs-distance curve, binned (compact) ---
     n_bins = 40
@@ -236,10 +251,20 @@ def compute(frames: list[dict]) -> dict:
         "turn_technique": {
             "median_turn_rate_deg_s": round(median_turn_rate, 1),
             "median_moving_speed_qu_s": round(median_moving_speed, 1),
-            "implied_carve_radius_qu": round(implied_radius_qu, 1)
-            if implied_radius_qu is not None
+            "oscillation_radius_qu": round(oscillation_radius_qu, 1)
+            if oscillation_radius_qu is not None
             else None,
+            "oscillation_radius_caveat": "median-instantaneous turn rate is strafe "
+            "OSCILLATION, not net path curvature; see path_shape for real geometry",
             "speed_vs_turn_rate": speed_vs_turn_rate,
+        },
+        "path_shape": {
+            "net_rotation_deg": round(net_rotation_deg, 1),
+            "net_rotations": round(abs(net_rotation_deg) / 360.0, 2),
+            "net_displacement_qu": round(net_disp, 1),
+            "path_length_qu": round(total_dist, 1),
+            "straightness": round(straightness, 3),
+            "bbox_qu": [round(bbox_x, 1), round(bbox_y, 1)],
         },
         "speed_vs_distance": speed_vs_distance,
     }
@@ -249,6 +274,7 @@ def render_md(fp: dict, label: str, src: str) -> str:
     h = fp["hspeed"]
     a = fp["accel_rate_qu_per_s2"]
     tt = fp["turn_technique"]
+    ps = fp["path_shape"]
     lines = [
         f"# Bunnyhop fingerprint: `{label}`",
         "",
@@ -273,12 +299,21 @@ def render_md(fp: dict, label: str, src: str) -> str:
         f"- View-yaw vs velocity offset: p50 **{fp['view_yaw_offset_deg']['p50']}°**, "
         f"p90 {fp['view_yaw_offset_deg']['p90']}° (strafe signature)",
         "",
-        "## Turn technique — speed sustained vs turn rate (the crux)",
+        "## Path shape — the REAL trajectory geometry",
         "",
-        f"- Median turn rate while moving: **{tt['median_turn_rate_deg_s']}°/s**",
+        f"- Net rotation over the run: **{ps['net_rotation_deg']}°** "
+        f"({ps['net_rotations']} rotations)",
+        f"- Net displacement **{ps['net_displacement_qu']} qu** over path length "
+        f"**{ps['path_length_qu']} qu** → straightness **{ps['straightness']}**",
+        f"- Bounding box: **{ps['bbox_qu'][0]} × {ps['bbox_qu'][1]} qu**",
+        f"- (Strafe-oscillation 'radius' {tt['oscillation_radius_qu']} qu is an "
+        f"artifact of instantaneous turn rate, NOT the path radius — see caveat.)",
+        "",
+        "## Turn technique — speed sustained vs (instantaneous) turn rate",
+        "",
+        f"- Median instantaneous turn rate while moving: **{tt['median_turn_rate_deg_s']}°/s** "
+        f"(strafe oscillation)",
         f"- Median moving speed: **{tt['median_moving_speed_qu_s']} qu/s**",
-        f"- Implied carve radius: **{tt['implied_carve_radius_qu']} qu** "
-        f"(must fit the map's open area)",
         "",
         "| turn_rate≥(°/s) | frames | frac | mean_hspeed | max_hspeed |",
         "|---:|---:|---:|---:|---:|",
@@ -332,14 +367,13 @@ def main() -> int:
         args.out_md.write_text(render_md(fp, args.label, str(args.cmds)), encoding="utf-8")
 
     h = fp["hspeed"]
-    tt = fp["turn_technique"]
+    ps = fp["path_shape"]
     print(
         f"[{args.label}] frames={fp['frames']} dur={fp['total_time_s']}s "
-        f"dist={fp['total_distance_qu']}qu  peak={h['peak']} p95={h['p95']} "
-        f"p50={h['p50']}  accel_p50={fp['accel_rate_qu_per_s2']['p50']} "
-        f"cadence={fp['jump']['cadence_per_min']}/min "
-        f"turn_rate_med={tt['median_turn_rate_deg_s']}deg/s "
-        f"carve_r={tt['implied_carve_radius_qu']}qu"
+        f"path={fp['total_distance_qu']}qu  peak={h['peak']} p95={h['p95']} "
+        f"p50={h['p50']}  cadence={fp['jump']['cadence_per_min']}/min  "
+        f"net_rot={ps['net_rotation_deg']}deg ({ps['net_rotations']}turns) "
+        f"straightness={ps['straightness']} bbox={ps['bbox_qu'][0]}x{ps['bbox_qu'][1]}"
     )
 
     if args.expect_peak is not None:
