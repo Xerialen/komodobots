@@ -2394,3 +2394,49 @@ The gate no longer depends on fragile parsing of Codex phrasing. A new commit re
 ### Revisit Conditions
 
 Revisit if the 10-minute reconciler is too slow, if connector-applied labels later prove to trigger reliably and the schedule becomes unnecessary, if the automation cannot reliably post the structured comment and label the same head SHA, or if GitHub-native branch protection becomes available for this repository.
+
+---
+
+## Decision
+
+Modify KTX (server-side `qwprogs.so`) to add moveprobe mode 10 (open-loop human command replay); keep ezQuake (the client engine) unmodified.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+The `dm3_sng_to_rl` replay experiment needs a Frogbot to execute an exact human POV command stream under real server physics. We add a new KTX moveprobe mode (10) in `src/bot_movement.c` that, at the `BotSetCommand` -> `trap_SetBotCMD` seam, snaps the bot to the human frame-0 origin/velocity/angles and then emits the exact per-frame human usercmd (resampled to the server tick), logging bot-vs-human divergence. The command stream is read from a file (`bots/replay/<name>.cmds`) via KTX's existing `trap_FS_*` file I/O because it is far too large for a cvar.
+
+**ezQuake source is explicitly NOT modified** and must stay stock. It was only read as the ground-truth reference for the `.qwd` `usercmd_t` byte layout. The recorded attempt demos are watched in a stock ezQuake/nQuake client.
+
+### Why KTX and not ezQuake
+
+- Frogbots are computed entirely inside KTX/MVDSV; the bot has **no client**, so there is no ezQuake-side place to inject its movement. The only seam that drives bot movement is KTX `BotSetCommand`.
+- ezQuake is the watch-side (and the human-demo recorder). Keeping it stock means recorded attempts and human references stay comparable in an unmodified client, and we incur no client-engine maintenance/divergence risk.
+- KTX changes are confined to the moveprobe experiment patch (`experiments/ktx_moveprobe/frogbot-moveprobe.patch`), deployed temporarily to the lab server and restored after each run — they never become permanent live-server behavior.
+
+### Alternatives Considered
+
+- **Modify ezQuake** to replay/inject commands. Rejected: a bot has no client process; this would not reach the bot, and it violates the keep-the-client-stock rule.
+- **Pass the command stream via cvar.** Rejected: ~700 frames (~10 KB) far exceeds the ~1 KB cvar limit; KTX already has `trap_FS_*` file I/O used for `.bot` files.
+- **Convert MVD->qwd / synthesize a qwd encoder** for recording. Dropped per Benjamin: any recorded demo (the lab's MVD) is sufficient; no client/format work needed.
+
+### Evidence
+
+- KTX builds clean with mode 10 (`qwprogs.so`, zero warnings on `bot_movement.c`); patch regenerated and re-applies to a fresh `08807da`.
+- ezQuake checkout verified unmodified (`git status` clean at `b443a89b`).
+- Offline builder produces a 692-frame, coverage-1.0 replay file from `dm3_sng_to_rl.qwd`; 151 komodobots tests pass.
+
+### Expected Consequences
+
+We can drive a Frogbot with exact human inputs and measure how far the route is reproduced before divergence, plus air/overall speed — without touching the client engine. KTX experiment changes remain temporary, patch-tracked, and restored after each lab run.
+
+### Revisit Conditions
+
+Revisit if a replay experiment ever needs client-side behavior (it should not), if the KTX moveprobe patch is proposed for permanent live-server inclusion (it must not be, while experimental), or if a future approach can drive bots without a KTX change.
+
+## Status
+
+Decision recorded 2026-06-07; KTX mode 10 implemented and pending Codex review (PR #50) before the first live `dm3_sng_to_rl` replay run.

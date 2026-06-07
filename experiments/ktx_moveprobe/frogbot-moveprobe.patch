@@ -1,8 +1,8 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..edde33b 100644
+index c0654d1..8db100a 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -5,6 +5,31 @@
+@@ -5,6 +5,64 @@
  #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
@@ -31,10 +31,43 @@ index c0654d1..edde33b 100644
 +static float moveprobe_qwd_active_since[MAX_CLIENTS];
 +static float moveprobe_qwd_active_seconds[MAX_CLIENTS];
 +static float moveprobe_qwd_distance[MAX_CLIENTS];
++
++// Mode 10: open-loop replay of an exact human POV command stream. The stream is
++// too large for a cvar, so it is read from a file (bots/replay/<name>.cmds); the
++// filename rides the small cvar k_fb_moveprobe_replay_file. See komodobots
++// scripts/build_replay_command_file.py for the file format (komodobots.replay.v1).
++#define MOVEPROBE_REPLAY_MAX_FRAMES 3000
++
++typedef struct
++{
++	int    msec;
++	vec3_t origin;        // human position at this frame; frame 0 is the snap state
++	vec3_t velocity;      // human velocity (qu/s); frame 0 is the snap velocity
++	vec3_t angles;        // human view angles pitch,yaw,roll
++	int    forwardmove;
++	int    sidemove;
++	int    upmove;
++	int    buttons;
++	float  cumulative_ms; // sum of msec through this frame (replay timeline)
++} moveprobe_replay_frame_t;
++
++static moveprobe_replay_frame_t moveprobe_replay_frames[MOVEPROBE_REPLAY_MAX_FRAMES];
++static int   moveprobe_replay_count = 0;            // frames currently loaded
++static int   moveprobe_replay_load_state = 0;       // 0 unattempted, 1 loaded, -1 failed
++static char  moveprobe_replay_loaded_file[128] = { 0 };
++static int   moveprobe_replay_active[MAX_CLIENTS];
++static int   moveprobe_replay_complete[MAX_CLIENTS];
++static int   moveprobe_replay_cursor[MAX_CLIENTS];
++static int   moveprobe_replay_has_start[MAX_CLIENTS];
++static float moveprobe_replay_start_time[MAX_CLIENTS];
++static int   moveprobe_replay_has_seen_time[MAX_CLIENTS];
++static float moveprobe_replay_last_seen_time[MAX_CLIENTS];
++static vec3_t moveprobe_replay_expected[MAX_CLIENTS];
++static float moveprobe_replay_divergence[MAX_CLIENTS];
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,6 +447,666 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +480,930 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -357,6 +390,256 @@ index c0654d1..edde33b 100644
 +	return VectorNormalize(route_direction) > 0;
 +}
 +
++static void BotMoveProbeResetReplaySession(int slot)
++{
++	if (slot < 0 || slot >= MAX_CLIENTS)
++	{
++		return;
++	}
++
++	moveprobe_replay_active[slot] = 0;
++	moveprobe_replay_complete[slot] = 0;
++	moveprobe_replay_cursor[slot] = 0;
++	moveprobe_replay_has_start[slot] = 0;
++	moveprobe_replay_start_time[slot] = 0.0f;
++	moveprobe_replay_has_seen_time[slot] = 0;
++	moveprobe_replay_last_seen_time[slot] = 0.0f;
++	VectorClear(moveprobe_replay_expected[slot]);
++	moveprobe_replay_divergence[slot] = 0.0f;
++}
++
++static int BotMoveProbeParseReplayLine(char *line, moveprobe_replay_frame_t *f)
++{
++	float vals[14];
++	char *cursor = line;
++	int i;
++
++	for (i = 0; i < 14; i++)
++	{
++		while ((*cursor == ' ') || (*cursor == '\t'))
++		{
++			cursor++;
++		}
++		if ((*cursor == '\0') || (*cursor == '\n') || (*cursor == '\r'))
++		{
++			return 0;
++		}
++		vals[i] = atof(cursor);
++		while (*cursor && (*cursor != ' ') && (*cursor != '\t')
++			&& (*cursor != '\n') && (*cursor != '\r'))
++		{
++			cursor++;
++		}
++	}
++
++	f->msec = (int)vals[0];
++	f->origin[0] = vals[1];
++	f->origin[1] = vals[2];
++	f->origin[2] = vals[3];
++	f->velocity[0] = vals[4];
++	f->velocity[1] = vals[5];
++	f->velocity[2] = vals[6];
++	f->angles[0] = vals[7];
++	f->angles[1] = vals[8];
++	f->angles[2] = vals[9];
++	f->forwardmove = (int)vals[10];
++	f->sidemove = (int)vals[11];
++	f->upmove = (int)vals[12];
++	f->buttons = (int)vals[13];
++	return 1;
++}
++
++static int BotMoveProbeLoadReplayFile(const char *fname)
++{
++	fileHandle_t handle;
++	char line[256];
++	int count = 0;
++	float cumulative = 0.0f;
++
++	handle = std_fropen("%s", fname);
++	if (handle < 0)
++	{
++		return -1;
++	}
++
++	while ((count < MOVEPROBE_REPLAY_MAX_FRAMES) && std_fgets(handle, line, sizeof(line)))
++	{
++		moveprobe_replay_frame_t *f;
++
++		if ((line[0] == '#') || (line[0] == '\0') || (line[0] == '\n') || (line[0] == '\r'))
++		{
++			continue;
++		}
++
++		f = &moveprobe_replay_frames[count];
++		if (!BotMoveProbeParseReplayLine(line, f))
++		{
++			continue;
++		}
++		if (f->msec < 1)
++		{
++			f->msec = 1;
++		}
++		cumulative += (float)f->msec;
++		f->cumulative_ms = cumulative;
++		count++;
++	}
++
++	std_fclose(handle);
++	return count;
++}
++
++static int BotMoveProbeEnsureReplayLoaded(void)
++{
++	char fname[128];
++
++	trap_cvar_string("k_fb_moveprobe_replay_file", fname, sizeof(fname));
++	if (fname[0] == '\0')
++	{
++		moveprobe_replay_load_state = 0;
++		moveprobe_replay_count = 0;
++		moveprobe_replay_loaded_file[0] = '\0';
++		return 0;
++	}
++
++	if ((moveprobe_replay_load_state != 0) && streq(fname, moveprobe_replay_loaded_file))
++	{
++		return (moveprobe_replay_load_state == 1) ? moveprobe_replay_count : 0;
++	}
++
++	strlcpy(moveprobe_replay_loaded_file, fname, sizeof(moveprobe_replay_loaded_file));
++	moveprobe_replay_count = BotMoveProbeLoadReplayFile(fname);
++	if (moveprobe_replay_count < 2)
++	{
++		moveprobe_replay_load_state = -1;
++		moveprobe_replay_count = 0;
++		G_cprint("FBMOVEPROBE_REPLAY load_failed file=%s\n", fname);
++		return 0;
++	}
++
++	moveprobe_replay_load_state = 1;
++	G_cprint("FBMOVEPROBE_REPLAY loaded file=%s frames=%d\n", fname, moveprobe_replay_count);
++	return moveprobe_replay_count;
++}
++
++static void BotLogMoveProbeReplayEvent(gedict_t *self, int slot, const char *event)
++{
++	int ednum = NUM_FOR_EDICT(self);
++
++	if (!cvar("k_fb_moveprobe_log_commands") || slot < 0 || slot >= MAX_CLIENTS)
++	{
++		return;
++	}
++
++	G_cprint("FBMOVEPROBE_REPLAY_EVENT time=%.3f ed=%d name=%s event=%s "
++			 "cursor=%d count=%d divergence=%.3f origin=%.3f,%.3f,%.3f "
++			 "expected=%.3f,%.3f,%.3f\n",
++			 g_globalvars.time, ednum, self->netname, event,
++			 moveprobe_replay_cursor[slot], moveprobe_replay_count,
++			 moveprobe_replay_divergence[slot], PASSVEC3(self->s.v.origin),
++			 PASSVEC3(moveprobe_replay_expected[slot]));
++}
++
++// Mode 10: open-loop replay. Snap to the human frame-0 state once, then emit the
++// exact human usercmd for the resampled time index each frame. forwardmove /
++// sidemove / upmove are already view-relative in a usercmd, so they pass straight
++// through with the human view angles -- no projection. Divergence (bot origin vs
++// human origin at the same time index) is recorded for the finding.
++static qbool BotApplyMoveProbeReplay(gedict_t *self, int slot, qbool *jumping, vec3_t direction)
++{
++	float stale_gap = 1.0f;
++	int count;
++	int cursor;
++	float elapsed_ms;
++	moveprobe_replay_frame_t *f;
++	vec3_t delta;
++
++	if (slot < 0 || slot >= MAX_CLIENTS)
++	{
++		return false;
++	}
++
++	count = BotMoveProbeEnsureReplayLoaded();
++	if (count < 2)
++	{
++		BotMoveProbeResetReplaySession(slot);
++		return false;
++	}
++	if (strneq(mapname, "dm3"))
++	{
++		BotMoveProbeResetReplaySession(slot);
++		return false;
++	}
++
++	if (!moveprobe_replay_has_seen_time[slot]
++		|| (g_globalvars.time < moveprobe_replay_last_seen_time[slot])
++		|| ((g_globalvars.time - moveprobe_replay_last_seen_time[slot]) > stale_gap))
++	{
++		BotMoveProbeResetReplaySession(slot);
++	}
++	moveprobe_replay_has_seen_time[slot] = 1;
++	moveprobe_replay_last_seen_time[slot] = g_globalvars.time;
++
++	if (moveprobe_replay_complete[slot])
++	{
++		moveprobe_replay_active[slot] = 0;
++		return false;
++	}
++
++	if (!moveprobe_replay_active[slot])
++	{
++		f = &moveprobe_replay_frames[0];
++		setorigin(self, PASSVEC3(f->origin));
++		VectorCopy(f->velocity, self->s.v.velocity);
++		VectorCopy(f->angles, self->s.v.angles);
++		VectorCopy(f->angles, self->fb.desired_angle);
++		self->fb.desired_angle[ROLL] = 0;
++		self->s.v.fixangle = 1;
++
++		moveprobe_replay_active[slot] = 1;
++		moveprobe_replay_cursor[slot] = 0;
++		moveprobe_replay_start_time[slot] = g_globalvars.time;
++		moveprobe_replay_has_start[slot] = 1;
++		VectorCopy(f->origin, moveprobe_replay_expected[slot]);
++		moveprobe_replay_divergence[slot] = 0.0f;
++		BotLogMoveProbeReplayEvent(self, slot, "activate");
++	}
++
++	elapsed_ms = (g_globalvars.time - moveprobe_replay_start_time[slot]) * 1000.0f;
++	cursor = moveprobe_replay_cursor[slot];
++	while ((cursor < count - 1) && (moveprobe_replay_frames[cursor].cumulative_ms <= elapsed_ms))
++	{
++		cursor++;
++	}
++	moveprobe_replay_cursor[slot] = cursor;
++
++	if (cursor >= count - 1)
++	{
++		f = &moveprobe_replay_frames[count - 1];
++		VectorCopy(f->origin, moveprobe_replay_expected[slot]);
++		VectorSubtract(self->s.v.origin, f->origin, delta);
++		moveprobe_replay_divergence[slot] = VectorLength(delta);
++		moveprobe_replay_complete[slot] = 1;
++		moveprobe_replay_active[slot] = 0;
++		BotLogMoveProbeReplayEvent(self, slot, "complete");
++		return false;
++	}
++
++	f = &moveprobe_replay_frames[cursor];
++	VectorCopy(f->origin, moveprobe_replay_expected[slot]);
++	VectorSubtract(self->s.v.origin, f->origin, delta);
++	moveprobe_replay_divergence[slot] = VectorLength(delta);
++
++	VectorCopy(f->angles, self->fb.desired_angle);
++	self->fb.desired_angle[ROLL] = 0;
++	direction[0] = f->forwardmove;
++	direction[1] = f->sidemove;
++	direction[2] = f->upmove;
++	*jumping = (f->buttons & 2) ? true : false;
++
++	return true;
++}
++
 +static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, vec3_t direction)
 +{
 +	int mode = (int)cvar("k_fb_moveprobe_mode");
@@ -367,12 +650,17 @@ index c0654d1..edde33b 100644
 +	{
 +		BotMoveProbeResetQwdSession(slot);
 +	}
++	if (mode != 10)
++	{
++		BotMoveProbeResetReplaySession(slot);
++	}
 +
 +	if ((mode <= 0) || intermission_running || ISDEAD(self)
 +		|| ((match_in_progress != 2) && cvar(FB_CVAR_FREEZE_PREWAR)))
 +	{
 +		BotMoveProbeResetTransitionTiming(slot);
 +		BotMoveProbeResetQwdSession(slot);
++		BotMoveProbeResetReplaySession(slot);
 +		return;
 +	}
 +
@@ -591,6 +879,11 @@ index c0654d1..edde33b 100644
 +
 +		*jumping = true;
 +	}
++
++	else if (mode == 10)
++	{
++		BotApplyMoveProbeReplay(self, slot, jumping, direction);
++	}
 +}
 +
 +static float BotMoveProbeAngleDelta(float route_yaw, float view_yaw)
@@ -679,7 +972,8 @@ index c0654d1..edde33b 100644
 +			 "route=%d,%d,%d,%d,%d,%d,%d,%.3f "
 +			 "water=%d,%d,%d,%d,%.1f,%.1f,%.1f,%.1f,%.3f,%.3f,%.3f "
 +			 "probe=%d,%d,%.3f,%.3f,%.3f "
-+			 "qwd=%d,%d,%d,%.3f,%d,%d,%.3f\n",
++			 "qwd=%d,%d,%d,%.3f,%d,%d,%.3f "
++			 "replay=%d,%d,%d,%d,%.3f,%.3f,%.3f,%.3f\n",
 +			 g_globalvars.time, ednum, self->netname, mode, cmd_msec,
 +			 PASSVEC3(self->fb.desired_angle), PASSINTVEC3(direction),
 +			 buttons, impulse, route_yaw, view_yaw, yaw_delta, backward,
@@ -695,13 +989,16 @@ index c0654d1..edde33b 100644
 +			 moveprobe_qwd_active[slot], moveprobe_qwd_point_index[slot],
 +			 moveprobe_qwd_point_count[slot], moveprobe_qwd_distance[slot],
 +			 moveprobe_qwd_advanced_points[slot], moveprobe_qwd_complete[slot],
-+			 moveprobe_qwd_active_seconds[slot]);
++			 moveprobe_qwd_active_seconds[slot],
++			 moveprobe_replay_active[slot], moveprobe_replay_complete[slot],
++			 moveprobe_replay_cursor[slot], moveprobe_replay_count,
++			 moveprobe_replay_divergence[slot], PASSVEC3(moveprobe_replay_expected[slot]));
 +}
 +
  void BotSetCommand(gedict_t *self)
  {
  	extern float last_frame_time;
-@@ -556,8 +1241,11 @@ void BotSetCommand(gedict_t *self)
+@@ -556,8 +1538,11 @@ void BotSetCommand(gedict_t *self)
  		impulse = 0;
  	}
  
