@@ -2,7 +2,7 @@ name: Review Gate Labeler
 
 # Applies neutral review-gate labels from comment-only review decisions.
 # Agents do not need label or contents write access; this workflow owns PR label
-# mutations and second-opinion label requests.
+# mutations, escalation labels, and second-opinion label requests.
 
 on:
   issue_comment:
@@ -25,12 +25,14 @@ jobs:
         (github.event.issue.pull_request &&
           (contains(github.event.comment.body, 'REVIEW_GATE: gate: ready') ||
            contains(github.event.comment.body, 'REVIEW_GATE: gate: blocked') ||
-           contains(github.event.comment.body, 'SECOND_OPINION: requested')))
+           contains(github.event.comment.body, 'SECOND_OPINION: requested') ||
+           contains(github.event.comment.body, 'ESCALATION: human-required')))
         ||
         (github.event.review &&
           (contains(github.event.review.body, 'REVIEW_GATE: gate: ready') ||
            contains(github.event.review.body, 'REVIEW_GATE: gate: blocked') ||
-           contains(github.event.review.body, 'SECOND_OPINION: requested')))
+           contains(github.event.review.body, 'SECOND_OPINION: requested') ||
+           contains(github.event.review.body, 'ESCALATION: human-required')))
       }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -46,6 +48,10 @@ jobs:
 
           if grep -q 'SECOND_OPINION: requested' <<<"$BODY"; then
             gh pr edit "$PR" -R "$REPO" --add-label "opinion: requested" || true
+          fi
+
+          if grep -q 'ESCALATION: human-required' <<<"$BODY"; then
+            gh pr edit "$PR" -R "$REPO" --add-label "cycle: needs-human" || true
           fi
 
           if grep -q 'REVIEW_GATE: gate: ready' <<<"$BODY"; then
