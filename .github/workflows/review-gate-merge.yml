@@ -29,6 +29,7 @@ permissions:
   issues: write
   checks: read
   statuses: read
+  actions: read
 
 concurrency:
   group: review-gate-merge-${{ github.event.pull_request.number || github.event.workflow_run.id }}
