@@ -1,0 +1,40 @@
+name: Request Second Opinion
+
+# Converts the neutral `opinion: requested` label into a single `/gemini review`
+# comment. Gemini remains a second opinion only; Code Sentinel still owns the
+# final review-gate decision.
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: request-second-opinion-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  request:
+    if: ${{ github.event.label.name == 'opinion: requested' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Request second opinion once
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          comments=$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq '.[].body')
+
+          if grep -q '/gemini review' <<<"$comments"; then
+            echo "Second opinion already requested."
+            exit 0
+          fi
+
+          gh pr comment "$PR" -R "$REPO" --body "/gemini review"
