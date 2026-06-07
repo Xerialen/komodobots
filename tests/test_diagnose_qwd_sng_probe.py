@@ -252,6 +252,45 @@ class DiagnoseQwdSngProbeTests(unittest.TestCase):
             any("pre-advance CP0" in line for line in report["interpretation"])
         )
 
+    def test_tight_start_only_inconclusive_uses_start_evidence_verdict(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            design_path = root / "design.json"
+            result_path = root / "result.json"
+            write_design(design_path)
+            write_result(
+                result_path,
+                verdict="qwd_sng_hybrid_probe_inconclusive",
+                failed_stop_conditions=[],
+                inconclusive_stop_conditions=["tight_start_activation"],
+            )
+            write_run(
+                root,
+                commands=[command_row(active=True, time_s=11.0, advanced=4, distance=80.0)],
+                origins=[[1000, 0, 0], [1100, 0, 0], [1200, 0, 0], [1300, 0, 0]],
+                start_radius=192,
+            )
+
+            report = diagnosis.build_diagnosis(
+                design_path=design_path,
+                result_path=result_path,
+                run_id="run1",
+                artifacts_root=root,
+                stage="test",
+            )
+
+        self.assertEqual(report["source_result_failed_stop_conditions"], [])
+        self.assertEqual(
+            report["source_result_inconclusive_stop_conditions"],
+            ["tight_start_activation"],
+        )
+        self.assertEqual(
+            report["decision"]["verdict"],
+            "qwd_sng_start_evidence_inconclusive",
+        )
+        self.assertIn("pre-advance CP0", report["decision"]["reason"])
+        self.assertIn("denser or event-level", report["decision"]["next_goal"])
+
     def test_malformed_position_rows_do_not_crash(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             run_dir = Path(tmp) / "run1"

@@ -1,0 +1,630 @@
+{
+  "control_point_radii": {
+    "point_radius_qu": 96.0,
+    "start_radius_qu": 192.0
+  },
+  "decision": {
+    "next_goal": "Add event-level QWD activation/advance logging or unsampled advancement rows, then rescore active-window movement quality before changing projection policy or trying other DM3 QWD moves.",
+    "physical_minimum_advancement_players": [
+      "/ bro",
+      "/ goldenboy"
+    ],
+    "reason": "MVD position samples independently show tight CP0 approach and sequential point-radius traversal, but the first sampled QWD command rows are already after internal advancement. This preserves the start-proof uncertainty while narrowing it to instrumentation/timing correlation rather than route geometry.",
+    "sampled_command_start_unresolved_players": [
+      "/ bro",
+      "/ goldenboy"
+    ],
+    "source_failed_stop_conditions": [
+      "phase_target_progression",
+      "waypoint_only_slow_success"
+    ],
+    "verdict": "qwd_sng_mvd_crossing_progress_but_start_instrumentation_needed"
+  },
+  "interpretation": [
+    "MVD-derived crossings can prove physical traversal of QWD control-point geometry, but they do not by themselves prove internal mode-9 activation timing.",
+    "If the first sampled QWD row is already after internal advancement, the remaining gap is event-level QWD activation/advance instrumentation, not another projection change.",
+    "Movement-quality conclusions must still respect the source scorer guardrails; control-point count alone is not movement realism."
+  ],
+  "method": "Use MVD position samples to derive first CP0 start-radius entry and sequential point-radius control-point entries, then compare those physical crossings with the first sampled QWD command row.",
+  "players": [
+    {
+      "assessment": {
+        "physical_minimum_advancement_reached": true,
+        "physical_start_radius_reached": true,
+        "sampled_command_start_proven": false,
+        "sampled_command_start_unresolved": true
+      },
+      "first_active_qwd_sample": {
+        "advanced_control_points": 2,
+        "aligned_mvd_time_ms": 1587,
+        "command_time_s": 5.854,
+        "control_point_index": 2,
+        "distance_qu": 160.417
+      },
+      "first_active_qwd_sample_status": "sampled_after_internal_advancement",
+      "first_mvd_cp0_start_radius_entry": {
+        "distance_qu": 83.482,
+        "origin": [
+          226.125,
+          -317.875,
+          74.875
+        ],
+        "radius_qu": 192.0,
+        "time_ms": 1761
+      },
+      "mvd_sample_count": 2227,
+      "mvd_sequential_point_radius_entries": [
+        {
+          "control_point_index": 0,
+          "distance_qu": 83.482,
+          "origin": [
+            226.125,
+            -317.875,
+            74.875
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 1761,
+          "transition_from_previous": null
+        },
+        {
+          "control_point_index": 1,
+          "distance_qu": 95.218,
+          "origin": [
+            230.375,
+            -313.625,
+            74.5
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 1781,
+          "transition_from_previous": {
+            "duration_s": 0.02,
+            "from_control_point_index": 0,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 300.52,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 300.52,
+              "sample_count": 1
+            },
+            "straight_horizontal_speed_qu_per_s": 300.52
+          }
+        },
+        {
+          "control_point_index": 2,
+          "distance_qu": 95.133,
+          "origin": [
+            284.625,
+            -231.5,
+            93.75
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 2108,
+          "transition_from_previous": {
+            "duration_s": 0.327,
+            "from_control_point_index": 1,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 301.096,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 300.463,
+              "sample_count": 16
+            },
+            "straight_horizontal_speed_qu_per_s": 300.995
+          }
+        },
+        {
+          "control_point_index": 3,
+          "distance_qu": 92.225,
+          "origin": [
+            264.375,
+            -39.5,
+            56.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 2998,
+          "transition_from_previous": {
+            "duration_s": 0.89,
+            "from_control_point_index": 2,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 270.125,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 282.981,
+              "sample_count": 44
+            },
+            "straight_horizontal_speed_qu_per_s": 216.927
+          }
+        },
+        {
+          "control_point_index": 4,
+          "distance_qu": 93.865,
+          "origin": [
+            322.375,
+            75.75,
+            56.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 3489,
+          "transition_from_previous": {
+            "duration_s": 0.491,
+            "from_control_point_index": 3,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 312.188,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 324.306,
+              "sample_count": 24
+            },
+            "straight_horizontal_speed_qu_per_s": 262.773
+          }
+        },
+        {
+          "control_point_index": 5,
+          "distance_qu": 94.569,
+          "origin": [
+            399.0,
+            155.25,
+            56.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 3871,
+          "transition_from_previous": {
+            "duration_s": 0.382,
+            "from_control_point_index": 4,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 324.328,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 329.323,
+              "sample_count": 19
+            },
+            "straight_horizontal_speed_qu_per_s": 289.046
+          }
+        },
+        {
+          "control_point_index": 6,
+          "distance_qu": 92.49,
+          "origin": [
+            492.5,
+            339.375,
+            56.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 4581,
+          "transition_from_previous": {
+            "duration_s": 0.71,
+            "from_control_point_index": 5,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 326.437,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 330.246,
+              "sample_count": 35
+            },
+            "straight_horizontal_speed_qu_per_s": 290.852
+          }
+        },
+        {
+          "control_point_index": 7,
+          "distance_qu": 95.421,
+          "origin": [
+            464.0,
+            486.5,
+            56.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 5175,
+          "transition_from_previous": {
+            "duration_s": 0.594,
+            "from_control_point_index": 6,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 286.025,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 301.623,
+              "sample_count": 29
+            },
+            "straight_horizontal_speed_qu_per_s": 252.29
+          }
+        },
+        {
+          "control_point_index": 8,
+          "distance_qu": 93.887,
+          "origin": [
+            303.625,
+            608.625,
+            56.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 10879,
+          "transition_from_previous": {
+            "duration_s": 5.704,
+            "from_control_point_index": 7,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 191.821,
+              "low_speed_ratio": 0.186,
+              "p50_horizontal_speed_qu_per_s": 186.455,
+              "sample_count": 279
+            },
+            "straight_horizontal_speed_qu_per_s": 35.34
+          }
+        },
+        {
+          "control_point_index": 9,
+          "distance_qu": 95.617,
+          "origin": [
+            105.625,
+            636.125,
+            56.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 17834,
+          "transition_from_previous": {
+            "duration_s": 6.955,
+            "from_control_point_index": 8,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 181.268,
+              "low_speed_ratio": 0.221,
+              "p50_horizontal_speed_qu_per_s": 183.231,
+              "sample_count": 340
+            },
+            "straight_horizontal_speed_qu_per_s": 28.742
+          }
+        },
+        {
+          "control_point_index": 10,
+          "distance_qu": 92.487,
+          "origin": [
+            32.625,
+            666.125,
+            40.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 18123,
+          "transition_from_previous": {
+            "duration_s": 0.289,
+            "from_control_point_index": 9,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 290.138,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 333.288,
+              "sample_count": 14
+            },
+            "straight_horizontal_speed_qu_per_s": 273.093
+          }
+        }
+      ],
+      "mvd_sequential_point_radius_reached": 11,
+      "mvd_time_range_ms": {
+        "max": 45821,
+        "min": 0
+      },
+      "nearest_mvd_sample_at_first_active_qwd": {
+        "delta_from_command_ms": -10,
+        "distance_to_cp0_qu": 921.333,
+        "distance_to_sampled_target_qu": 912.735,
+        "origin": [
+          -604.5,
+          -431.5,
+          -16.0
+        ],
+        "time_ms": 1577
+      },
+      "player": "/ bro",
+      "slot": 1,
+      "user_id": 2
+    },
+    {
+      "assessment": {
+        "physical_minimum_advancement_reached": true,
+        "physical_start_radius_reached": true,
+        "sampled_command_start_proven": false,
+        "sampled_command_start_unresolved": true
+      },
+      "first_active_qwd_sample": {
+        "advanced_control_points": 2,
+        "aligned_mvd_time_ms": 7248,
+        "command_time_s": 11.515,
+        "control_point_index": 2,
+        "distance_qu": 167.498
+      },
+      "first_active_qwd_sample_status": "sampled_after_internal_advancement",
+      "first_mvd_cp0_start_radius_entry": {
+        "distance_qu": 85.522,
+        "origin": [
+          224.0,
+          -320.0,
+          75.0
+        ],
+        "radius_qu": 192.0,
+        "time_ms": 7432
+      },
+      "mvd_sample_count": 1930,
+      "mvd_sequential_point_radius_entries": [
+        {
+          "control_point_index": 0,
+          "distance_qu": 85.522,
+          "origin": [
+            224.0,
+            -320.0,
+            75.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 7432,
+          "transition_from_previous": null
+        },
+        {
+          "control_point_index": 1,
+          "distance_qu": 91.731,
+          "origin": [
+            233.625,
+            -312.125,
+            74.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 7473,
+          "transition_from_previous": {
+            "duration_s": 0.041,
+            "from_control_point_index": 0,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 303.605,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 303.605,
+              "sample_count": 2
+            },
+            "straight_horizontal_speed_qu_per_s": 303.319
+          }
+        },
+        {
+          "control_point_index": 2,
+          "distance_qu": 91.593,
+          "origin": [
+            282.75,
+            -227.625,
+            98.125
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 7823,
+          "transition_from_previous": {
+            "duration_s": 0.35,
+            "from_control_point_index": 1,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 290.678,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 288.736,
+              "sample_count": 17
+            },
+            "straight_horizontal_speed_qu_per_s": 279.263
+          }
+        },
+        {
+          "control_point_index": 3,
+          "distance_qu": 92.57,
+          "origin": [
+            256.25,
+            -44.75,
+            56.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 8770,
+          "transition_from_previous": {
+            "duration_s": 0.947,
+            "from_control_point_index": 2,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 255.957,
+              "low_speed_ratio": 0.087,
+              "p50_horizontal_speed_qu_per_s": 283.601,
+              "sample_count": 46
+            },
+            "straight_horizontal_speed_qu_per_s": 195.127
+          }
+        },
+        {
+          "control_point_index": 4,
+          "distance_qu": 91.997,
+          "origin": [
+            325.125,
+            76.5,
+            56.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 9264,
+          "transition_from_previous": {
+            "duration_s": 0.494,
+            "from_control_point_index": 3,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 328.944,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 335.396,
+              "sample_count": 24
+            },
+            "straight_horizontal_speed_qu_per_s": 282.28
+          }
+        },
+        {
+          "control_point_index": 5,
+          "distance_qu": 89.78,
+          "origin": [
+            420.0,
+            147.625,
+            56.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 9612,
+          "transition_from_previous": {
+            "duration_s": 0.348,
+            "from_control_point_index": 4,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 354.291,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 350.13,
+              "sample_count": 17
+            },
+            "straight_horizontal_speed_qu_per_s": 340.733
+          }
+        },
+        {
+          "control_point_index": 6,
+          "distance_qu": 91.976,
+          "origin": [
+            483.625,
+            343.875,
+            56.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 15539,
+          "transition_from_previous": {
+            "duration_s": 5.927,
+            "from_control_point_index": 5,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 175.337,
+              "low_speed_ratio": 0.252,
+              "p50_horizontal_speed_qu_per_s": 180.602,
+              "sample_count": 290
+            },
+            "straight_horizontal_speed_qu_per_s": 34.808
+          }
+        },
+        {
+          "control_point_index": 7,
+          "distance_qu": 93.878,
+          "origin": [
+            450.25,
+            470.25,
+            56.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 16209,
+          "transition_from_previous": {
+            "duration_s": 0.67,
+            "from_control_point_index": 6,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 250.322,
+              "low_speed_ratio": 0.061,
+              "p50_horizontal_speed_qu_per_s": 247.882,
+              "sample_count": 33
+            },
+            "straight_horizontal_speed_qu_per_s": 195.086
+          }
+        },
+        {
+          "control_point_index": 8,
+          "distance_qu": 94.958,
+          "origin": [
+            297.0,
+            579.0,
+            56.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 16908,
+          "transition_from_previous": {
+            "duration_s": 0.699,
+            "from_control_point_index": 7,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 305.125,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 317.111,
+              "sample_count": 34
+            },
+            "straight_horizontal_speed_qu_per_s": 268.834
+          }
+        },
+        {
+          "control_point_index": 9,
+          "distance_qu": 93.468,
+          "origin": [
+            58.25,
+            605.375,
+            40.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 18041,
+          "transition_from_previous": {
+            "duration_s": 1.133,
+            "from_control_point_index": 8,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 251.844,
+              "low_speed_ratio": 0.018,
+              "p50_horizontal_speed_qu_per_s": 263.465,
+              "sample_count": 55
+            },
+            "straight_horizontal_speed_qu_per_s": 212.006
+          }
+        },
+        {
+          "control_point_index": 10,
+          "distance_qu": 95.658,
+          "origin": [
+            -2.75,
+            623.25,
+            40.0
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 18267,
+          "transition_from_previous": {
+            "duration_s": 0.226,
+            "from_control_point_index": 9,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 292.486,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 317.522,
+              "sample_count": 11
+            },
+            "straight_horizontal_speed_qu_per_s": 281.261
+          }
+        },
+        {
+          "control_point_index": 11,
+          "distance_qu": 93.983,
+          "origin": [
+            -74.25,
+            653.5,
+            61.375
+          ],
+          "radius_qu": 96.0,
+          "time_ms": 18720,
+          "transition_from_previous": {
+            "duration_s": 0.453,
+            "from_control_point_index": 10,
+            "movement_window": {
+              "avg_horizontal_speed_qu_per_s": 207.145,
+              "low_speed_ratio": 0.0,
+              "p50_horizontal_speed_qu_per_s": 196.036,
+              "sample_count": 22
+            },
+            "straight_horizontal_speed_qu_per_s": 171.381
+          }
+        }
+      ],
+      "mvd_sequential_point_radius_reached": 12,
+      "mvd_time_range_ms": {
+        "max": 45821,
+        "min": 6264
+      },
+      "nearest_mvd_sample_at_first_active_qwd": {
+        "delta_from_command_ms": -1,
+        "distance_to_cp0_qu": 924.485,
+        "distance_to_sampled_target_qu": 910.064,
+        "origin": [
+          -610.625,
+          -403.5,
+          -16.0
+        ],
+        "time_ms": 7247
+      },
+      "player": "/ goldenboy",
+      "slot": 2,
+      "user_id": 3
+    }
+  ],
+  "run_config": {
+    "command_log_interval": "0.1",
+    "map": "dm3",
+    "moveprobe_mode": "9",
+    "qwd_point_radius": "96.0",
+    "qwd_start_radius": "192.0"
+  },
+  "run_id": "20260607T003837Z",
+  "schema": "komodobots.qwd_sng_mvd_crossings.v1",
+  "source_design_path": "experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-design-dm3.json",
+  "source_result_path": "experiments/qwd_route_probe/evidence/qwd-sng-tight-start-rerun-dm3.json",
+  "source_result_verdict": "qwd_sng_hybrid_probe_rejected_by_guardrails",
+  "stage": "qwd-sng-tight-start-mvd-crossings-dm3",
+  "timing": {
+    "match_duration_ms": 45821,
+    "server_start_time_s": 4.2668004
+  }
+}

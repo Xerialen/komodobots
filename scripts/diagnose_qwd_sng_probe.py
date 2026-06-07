@@ -319,9 +319,11 @@ def inconclusive_stop_condition_ids(result: dict[str, object]) -> list[str]:
         return [str(item) for item in inconclusive if item]
 
     ids: list[str] = []
-    for row in result.get("stop_condition_results", []) if isinstance(result.get("stop_condition_results"), list) else []:
-        if isinstance(row, dict) and row.get("status") == "inconclusive" and row.get("id"):
-            ids.append(str(row["id"]))
+    stop_results = result.get("stop_condition_results")
+    if isinstance(stop_results, list):
+        for row in stop_results:
+            if isinstance(row, dict) and row.get("status") == "inconclusive" and row.get("id"):
+                ids.append(str(row["id"]))
     return ids
 
 
@@ -349,10 +351,7 @@ def build_decision(
             ),
         }
 
-    if (
-        result_verdict == "qwd_sng_hybrid_probe_rejected_by_guardrails"
-        and "tight_start_activation" in inconclusive
-    ):
+    if "tight_start_activation" in inconclusive:
         return {
             "verdict": "qwd_sng_start_evidence_inconclusive",
             "reason": (

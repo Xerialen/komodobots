@@ -2067,3 +2067,44 @@ The next PR should add denser or event-level QWD advancement/start evidence, the
 ### Revisit Conditions
 
 Revisit expanding to the other DM3 QWD moves only after SNG passes phase-entry proof plus active-window slow/stationary guardrails. Revisit from-scratch if the QWD path repeatedly advances geometry only through sparse unverifiable events, slow traversal, or route/map intervention that no longer looks like a small movement-controller enhancement.
+
+---
+
+## Decision
+
+Add event-level QWD activation/advance instrumentation before projection changes or DM3 expansion.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+Continue the QWD-to-Frogbot path, but keep the next step diagnostic. The tight-start MVD crossing diagnosis proves physical SNG route traversal through most of the human-derived control-point sequence, but the first sampled QWD command rows are already after internal advancement and cannot prove the pre-advance CP0 activation event.
+
+The next PR should add event-level mode-9 activation/advance logging or unsampled advancement rows, then rescore active-window movement quality. It should not change projection policy, mutate `dm3.bot`, or expand to the remaining DM3 QWD moves yet.
+
+### Alternatives Considered
+
+- Treat MVD control-point traversal as enough and expand to all DM3 QWD moves.
+- Change projection strength or phase targeting immediately.
+- Rerun with the same sampled `0.1` second command log.
+- Abandon Frogbots despite physical SNG traversal under KTX physics.
+
+### Evidence
+
+The MVD crossing artifact `experiments/qwd_route_probe/evidence/qwd-sng-tight-start-mvd-crossings-dm3.*` consumes run `20260607T003837Z`:
+
+- `/ bro` first enters CP0's `192` qu start radius at `1761` ms (`83.482` qu) and reaches `11` sequential `96` qu point-radius control points.
+- `/ goldenboy` first enters CP0's `192` qu start radius at `7432` ms (`85.522` qu) and reaches `12` sequential `96` qu point-radius control points.
+- Both bots' first sampled QWD command rows are already at CP2 with `advanced_control_points=2`.
+- The nearest MVD samples at those first sampled QWD rows are far from CP0 and CP2, so sampled command rows still cannot prove the internal start event.
+- Movement quality still has slow transitions, especially `/ bro` CP7->CP8 and CP8->CP9, and `/ goldenboy` CP5->CP6.
+
+### Expected Consequences
+
+This should separate proof-quality failure from controller failure. If event-level logs show clean CP0 activation and true phase entries, the next decision can focus on active-window movement quality. If event-level logs still disagree with MVD crossing evidence, the mode-9 timing/identity instrumentation itself is suspect and should be fixed before further movement work.
+
+### Revisit Conditions
+
+Revisit projection changes or expansion to other DM3 QWD moves only after event-level activation/advance evidence resolves the start-proof gap and active-window movement-quality scoring can be evaluated without relying on sparse sampled command rows.

@@ -193,6 +193,23 @@ Measured result:
 
 Interpretation: tight-radius mode `9` can drive bots much farther along the QWD SNG path inside the real server loop, which strengthens the engine-native substrate hypothesis. It still does not prove learned SNG movement because phase entry and active-window movement quality remain insufficiently proven. The next step should improve advancement/start evidence density or scoring before changing projection policy or trying the rest of the DM3 QWD corpus.
 
+QWD SNG MVD crossing diagnosis:
+
+- Tool: `scripts/inspect_qwd_sng_mvd_crossings.py`
+- Artifact: `experiments/qwd_route_probe/evidence/qwd-sng-tight-start-mvd-crossings-dm3.*`
+- Source run: `20260607T003837Z`
+- Scope: existing MVD position samples only; no KTX rerun and no controller change.
+
+Measured result:
+
+- `/ bro` first entered CP0's `192` qu start radius at `1761` ms (`83.482` qu), then reached `11` sequential `96` qu point-radius control points in MVD.
+- `/ goldenboy` first entered CP0's `192` qu start radius at `7432` ms (`85.522` qu), then reached `12` sequential `96` qu point-radius control points in MVD.
+- Both bots' first sampled QWD command rows were already at CP2 with `advanced_control_points=2`.
+- The nearest MVD samples at those first sampled QWD rows were far from CP0 and the sampled CP2 target, so sampled command rows still do not prove the pre-advance internal start state.
+- Movement quality remains mixed: early sequential transitions are mostly `~250-350` qu/s p50, but `/ bro` slows heavily across CP7->CP8 and CP8->CP9, while `/ goldenboy` slows heavily across CP5->CP6.
+
+Interpretation: MVD now proves physical tight-start route traversal through most of the SNG path, but internal mode-9 activation/advance timing remains unproven. The next diagnostic should add event-level QWD activation/advance logging or unsampled advancement rows before any projection-policy change or expansion to other DM3 QWD moves.
+
 ## Available or expected signals
 
 From `mvd_analyzer`, `qw-sim`, and related parsers, Komodobots expects to work with:
