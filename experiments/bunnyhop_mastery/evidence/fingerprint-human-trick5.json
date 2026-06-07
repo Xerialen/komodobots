@@ -1,0 +1,285 @@
+{
+  "schema": "komodobots.bunnyhop_fingerprint.v1",
+  "frames": 2837,
+  "total_time_s": 36.831,
+  "total_distance_qu": 30033.6,
+  "hspeed": {
+    "peak": 1087.6,
+    "p95": 1058.5,
+    "p90": 1024.1,
+    "p50": 880.2
+  },
+  "accel_rate_qu_per_s2": {
+    "p50": 44.4,
+    "p90": 90.5,
+    "max": 2847.2
+  },
+  "jump": {
+    "count": 52,
+    "cadence_per_min": 84.7
+  },
+  "view_yaw_offset_deg": {
+    "p50": 45.3,
+    "p90": 119.0
+  },
+  "turn_technique": {
+    "median_turn_rate_deg_s": 145.0,
+    "median_moving_speed_qu_s": 895.1,
+    "implied_carve_radius_qu": 353.8,
+    "speed_vs_turn_rate": [
+      {
+        "turn_rate_lo_deg_s": 0,
+        "frames": 555,
+        "frame_frac": 0.206,
+        "mean_hspeed": 792.2,
+        "max_hspeed": 1079.5
+      },
+      {
+        "turn_rate_lo_deg_s": 60,
+        "frames": 366,
+        "frame_frac": 0.136,
+        "mean_hspeed": 861.6,
+        "max_hspeed": 1078.8
+      },
+      {
+        "turn_rate_lo_deg_s": 120,
+        "frames": 1225,
+        "frame_frac": 0.455,
+        "mean_hspeed": 855.4,
+        "max_hspeed": 1087.6
+      },
+      {
+        "turn_rate_lo_deg_s": 180,
+        "frames": 473,
+        "frame_frac": 0.176,
+        "mean_hspeed": 814.9,
+        "max_hspeed": 1040.7
+      },
+      {
+        "turn_rate_lo_deg_s": 240,
+        "frames": 30,
+        "frame_frac": 0.011,
+        "mean_hspeed": 717.5,
+        "max_hspeed": 1062.9
+      },
+      {
+        "turn_rate_lo_deg_s": 300,
+        "frames": 25,
+        "frame_frac": 0.009,
+        "mean_hspeed": 813.7,
+        "max_hspeed": 1086.8
+      },
+      {
+        "turn_rate_lo_deg_s": 360,
+        "frames": 20,
+        "frame_frac": 0.007,
+        "mean_hspeed": 674.7,
+        "max_hspeed": 1014.6
+      }
+    ]
+  },
+  "speed_vs_distance": [
+    {
+      "dist_qu": 0.0,
+      "mean_hspeed": 261.3,
+      "max_hspeed": 475.0
+    },
+    {
+      "dist_qu": 750.8,
+      "mean_hspeed": 507.4,
+      "max_hspeed": 534.7
+    },
+    {
+      "dist_qu": 1501.7,
+      "mean_hspeed": 556.7,
+      "max_hspeed": 585.8
+    },
+    {
+      "dist_qu": 2252.5,
+      "mean_hspeed": 607.0,
+      "max_hspeed": 621.1
+    },
+    {
+      "dist_qu": 3003.4,
+      "mean_hspeed": 643.5,
+      "max_hspeed": 668.1
+    },
+    {
+      "dist_qu": 3754.2,
+      "mean_hspeed": 677.0,
+      "max_hspeed": 696.7
+    },
+    {
+      "dist_qu": 4505.0,
+      "mean_hspeed": 719.0,
+      "max_hspeed": 737.8
+    },
+    {
+      "dist_qu": 5255.9,
+      "mean_hspeed": 755.8,
+      "max_hspeed": 766.0
+    },
+    {
+      "dist_qu": 6006.7,
+      "mean_hspeed": 785.4,
+      "max_hspeed": 805.2
+    },
+    {
+      "dist_qu": 6757.6,
+      "mean_hspeed": 819.8,
+      "max_hspeed": 838.3
+    },
+    {
+      "dist_qu": 7508.4,
+      "mean_hspeed": 855.9,
+      "max_hspeed": 873.2
+    },
+    {
+      "dist_qu": 8259.2,
+      "mean_hspeed": 885.3,
+      "max_hspeed": 897.7
+    },
+    {
+      "dist_qu": 9010.1,
+      "mean_hspeed": 911.4,
+      "max_hspeed": 918.8
+    },
+    {
+      "dist_qu": 9760.9,
+      "mean_hspeed": 932.4,
+      "max_hspeed": 945.6
+    },
+    {
+      "dist_qu": 10511.8,
+      "mean_hspeed": 955.8,
+      "max_hspeed": 964.9
+    },
+    {
+      "dist_qu": 11262.6,
+      "mean_hspeed": 973.9,
+      "max_hspeed": 978.6
+    },
+    {
+      "dist_qu": 12013.4,
+      "mean_hspeed": 988.6,
+      "max_hspeed": 994.2
+    },
+    {
+      "dist_qu": 12764.3,
+      "mean_hspeed": 996.7,
+      "max_hspeed": 1001.2
+    },
+    {
+      "dist_qu": 13515.1,
+      "mean_hspeed": 1008.0,
+      "max_hspeed": 1010.5
+    },
+    {
+      "dist_qu": 14266.0,
+      "mean_hspeed": 1020.0,
+      "max_hspeed": 1026.2
+    },
+    {
+      "dist_qu": 15016.8,
+      "mean_hspeed": 1031.9,
+      "max_hspeed": 1038.4
+    },
+    {
+      "dist_qu": 15767.6,
+      "mean_hspeed": 1046.7,
+      "max_hspeed": 1054.1
+    },
+    {
+      "dist_qu": 16518.5,
+      "mean_hspeed": 1065.5,
+      "max_hspeed": 1076.2
+    },
+    {
+      "dist_qu": 17269.3,
+      "mean_hspeed": 1077.8,
+      "max_hspeed": 1084.4
+    },
+    {
+      "dist_qu": 18020.1,
+      "mean_hspeed": 1077.7,
+      "max_hspeed": 1087.6
+    },
+    {
+      "dist_qu": 18771.0,
+      "mean_hspeed": 856.6,
+      "max_hspeed": 1039.4
+    },
+    {
+      "dist_qu": 19521.8,
+      "mean_hspeed": 824.0,
+      "max_hspeed": 837.2
+    },
+    {
+      "dist_qu": 20272.7,
+      "mean_hspeed": 850.3,
+      "max_hspeed": 866.2
+    },
+    {
+      "dist_qu": 21023.5,
+      "mean_hspeed": 868.9,
+      "max_hspeed": 881.9
+    },
+    {
+      "dist_qu": 21774.3,
+      "mean_hspeed": 894.2,
+      "max_hspeed": 905.9
+    },
+    {
+      "dist_qu": 22525.2,
+      "mean_hspeed": 917.2,
+      "max_hspeed": 927.7
+    },
+    {
+      "dist_qu": 23276.0,
+      "mean_hspeed": 919.3,
+      "max_hspeed": 927.7
+    },
+    {
+      "dist_qu": 24026.9,
+      "mean_hspeed": 925.1,
+      "max_hspeed": 931.8
+    },
+    {
+      "dist_qu": 24777.7,
+      "mean_hspeed": 935.5,
+      "max_hspeed": 946.9
+    },
+    {
+      "dist_qu": 25528.5,
+      "mean_hspeed": 959.9,
+      "max_hspeed": 967.9
+    },
+    {
+      "dist_qu": 26279.4,
+      "mean_hspeed": 973.3,
+      "max_hspeed": 978.9
+    },
+    {
+      "dist_qu": 27030.2,
+      "mean_hspeed": 991.7,
+      "max_hspeed": 1004.6
+    },
+    {
+      "dist_qu": 27781.1,
+      "mean_hspeed": 1013.1,
+      "max_hspeed": 1021.7
+    },
+    {
+      "dist_qu": 28531.9,
+      "mean_hspeed": 1015.4,
+      "max_hspeed": 1023.1
+    },
+    {
+      "dist_qu": 29282.7,
+      "mean_hspeed": 377.0,
+      "max_hspeed": 1017.1
+    }
+  ],
+  "label": "human_trick5",
+  "source": "artifacts\\replay\\trick5.cmds"
+}
