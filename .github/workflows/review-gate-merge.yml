@@ -107,13 +107,19 @@ jobs:
 
             [ "${n_bad:-1}" -eq 0 ] || { echo "skip #$PR: $n_bad check(s) not passing yet"; return 0; }
 
-            local checknote="no checks configured"
-            [ "$n_checks" -gt 0 ] && checknote="$n_checks check(s) passing"
+            # Deterministic CI floor MUST be present and green — never treat an
+            # empty/absent rollup as passable, or untested code could merge if
+            # `PR Tests` is disabled, renamed, or fails to trigger (fail-closed).
+            local pt_total pt_ok
+            pt_total=$(jq -r '[(.statusCheckRollup // [])[] | select((.workflowName // "") == "PR Tests")] | length' <<<"$data")
+            pt_ok=$(jq -r '[(.statusCheckRollup // [])[] | select((.workflowName // "") == "PR Tests") | select(((.conclusion // .state // "") | ascii_upcase) == "SUCCESS")] | length' <<<"$data")
+            [ "${pt_total:-0}" -ge 1 ]        || { echo "skip #$PR: required 'PR Tests' check absent (CI floor missing)"; return 0; }
+            [ "${pt_total}" -eq "${pt_ok}" ]  || { echo "skip #$PR: 'PR Tests' not all passing ($pt_ok/$pt_total)"; return 0; }
 
-            echo "merging #$PR @ $short ($checknote)"
+            echo "merging #$PR @ $short ($n_checks check(s) passing, incl. PR Tests $pt_ok/$pt_total)"
             gh pr merge "$PR" -R "$REPO" --squash --delete-branch
             gh pr comment "$PR" -R "$REPO" \
-              --body "✅ **Merged** by review-gate executor. Gate: open · non-draft · base \`main\` · mergeable · ${checknote} · label \`gate: ready\` @ \`$short\`."
+              --body "✅ **Merged** by review-gate executor. Gate: open · non-draft · base \`main\` · mergeable · $n_checks check(s) passing (incl. \`PR Tests\`) · label \`gate: ready\` @ \`$short\`."
           }
 
           for PR in $PRS; do

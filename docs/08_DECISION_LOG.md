@@ -2305,3 +2305,39 @@ Fully automated merging on the free private plan with no human clicks (given Cod
 ### Revisit Conditions
 
 Revisit if the test suite grows to need third-party deps (add a cached install step), if `pr-tests` becomes flaky (quarantine, don't disable the floor), or if multi-committer collaboration starts (then GitHub-native branch protection becomes worth the public/Pro cost).
+
+---
+
+## Decision
+
+Ship the review-gate flow: require the `PR Tests` CI floor at merge, accept one narrow webhook race as documented, and stop iterating with Codex.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+After three Codex review rounds on the gate workflows (findings 4 → 2 → 2, narrowing in scope), fix the one safety-critical issue and go live rather than chase zero findings on a solo experimental repo.
+
+- Fixed (Codex P1): the merge executor now requires a `PR Tests` status to be **present and all-SUCCESS** in the rollup; an empty/absent rollup is no longer treated as passable. This stops untested code merging if `PR Tests` is ever disabled/renamed/fails to trigger. Fail-closed.
+- Accepted as documented (Codex P1, narrow): the labeler's P2-only ready path can, in a webhook-ordering race (a P2 inline comment ingested before a sibling P1), briefly ready a PR before the P1 flips it to blocked. Mitigations already in place: `review-gate-reset.yml` clears the gate on every new commit, the `PR Tests` floor must still pass, and a fresh review re-evaluates. For a solo repo the residual exposure is acceptable; revisit if it ever bites.
+- Verified false positive (Codex P1): "statusCheckRollup has no workflowName" — live `gh pr view --json statusCheckRollup` exposes `workflowName`; filter unchanged.
+
+### Alternatives Considered
+
+- Keep iterating until Codex returns zero findings. Rejected: diminishing returns — Actions concurrency always admits another theoretical race, and the reset-on-commit + CI floor backstop the narrow ones.
+
+### Evidence
+
+- Live `statusCheckRollup` on PR #40 shows `{"workflowName":"PR Tests","conclusion":"SUCCESS"}` etc.
+- Labeler verdict on #40 live data computed correctly (BLOCKED on fresh P1s; connect-notices filtered).
+- All workflow YAML parses; merge/labeler bash pass `bash -n`.
+
+### Expected Consequences
+
+Hands-off merging on the free private plan: a PR merges only when `gate: ready` is set (from Codex's review via the no-LLM labeler) AND `PR Tests` is present and green. The CI floor can no longer be silently bypassed.
+
+### Revisit Conditions
+
+Revisit if the P2-only webhook race is ever observed merging an unreviewed change, if Codex's review identity/format changes, or when multi-committer collaboration justifies GitHub-native branch protection.
