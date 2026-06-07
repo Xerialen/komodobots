@@ -227,6 +227,20 @@ Implementation result:
 
 Interpretation: this separates the current proof-quality gap from movement-policy tuning. The next live SNG rerun can preserve the same QWD projection and ask whether internal CP0 activation plus control-point advancement really occurred at the times implied by the MVD crossing evidence.
 
+QWD SNG event-aware scoring prep:
+
+- Scorer: `scripts/compare_qwd_sng_hybrid_probe.py`
+- Unit coverage: `tests/test_compare_qwd_sng_hybrid_probe.py`
+- Scope: offline scorer support only; no live KTX rerun, projection-policy change, route mutation, or movement claim.
+
+Implementation result:
+
+- The SNG scorer now optionally reads `moveprobe-qwd-events.json` beside sampled `moveprobe-commands.json`.
+- Event rows can resolve first active CP0 start proof and inside-MVD advancement when sparse sampled command rows begin after the internal advance edge.
+- Older runs without event artifacts keep the existing sampled-command behavior, including the inconclusive tight-start result when the first active sampled row is already advanced.
+
+Interpretation: this prepares the measurement path for the next reviewed live SNG rerun. Event rows remain proof of internal mode-9 state transitions, not proof of human-like movement quality.
+
 ## Available or expected signals
 
 From `mvd_analyzer`, `qw-sim`, and related parsers, Komodobots expects to work with:

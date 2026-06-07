@@ -3347,3 +3347,50 @@ Medium-high for instrumentation correctness: the local KTX patch applies cleanly
 ### Follow-up
 
 After review, rerun the same `dm3_sng_shortcut.qwd` mode-9 probe with unchanged QWD waypoints, `192` qu start radius, `96` qu point radius, and unchanged projection/command profile. Then rescore start proof and active-window movement quality before changing projection policy or expanding to other DM3 QWD moves.
+
+## 2026-06-07 - QWD SNG Event-Aware Scoring Prep
+
+### Experiment
+
+Updated `scripts/compare_qwd_sng_hybrid_probe.py` to consume optional `moveprobe-qwd-events.json` artifacts produced by the mode-9 event instrumentation. This was an offline scoring change only: no live KTX rerun, route mutation, projection-policy change, or learned-movement claim was made.
+
+### Result
+
+The scorer can now use event rows as the preferred proof source for first CP0 activation and inside-MVD advancement when sparse sampled command rows begin after internal advancement.
+
+- Event rows contribute to `qwd_event_count`, `qwd_event_inside_mvd_count`, max advancement, active seconds, and first active start proof.
+- A CP0 `activate` event inside the parsed MVD window can make `tight_start_activation` pass even if the first sampled active command row is already at CP2 or later.
+- Runs without `moveprobe-qwd-events.json` retain the previous sampled-command behavior and still stay inconclusive if the start proof is unverifiable.
+- The markdown report now displays event counts and the start-proof source per player.
+
+### Evidence
+
+Changed files:
+
+- `scripts/compare_qwd_sng_hybrid_probe.py`
+- `tests/test_compare_qwd_sng_hybrid_probe.py`
+- `docs/02_SOURCE_MAP.md`
+- `docs/06_DATA_AND_MVD_PIPELINE.md`
+- `docs/07_FINDINGS_LOG.md`
+- `docs/08_DECISION_LOG.md`
+- `docs/09_ROADMAP.md`
+
+Validation:
+
+```powershell
+python -m py_compile scripts\compare_qwd_sng_hybrid_probe.py
+python -m unittest tests.test_compare_qwd_sng_hybrid_probe -v
+python -m unittest discover -s tests -v
+```
+
+### Interpretation
+
+This turns the event instrumentation into usable evidence for the next reviewed live rerun, but it does not itself improve Frogbot movement. Event rows prove internal mode-9 state transitions; movement quality still needs active-window speed/slow/stationary guardrails before expanding to other DM3 QWD moves.
+
+### Confidence
+
+Medium-high for the offline scorer behavior because the targeted regression test covers the exact sparse-sampling failure mode from the tight-start run.
+
+### Follow-up
+
+After review and human confirmation for the live server step, rerun the unchanged `dm3_sng_shortcut.qwd` mode-9 probe with event logging enabled and score it with the event-aware scorer before changing projection policy or trying other DM3 QWD moves.
