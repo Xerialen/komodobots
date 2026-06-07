@@ -4,19 +4,19 @@ Read `AGENTS.md` first. It is the repository source of truth for project goals, 
 
 This file should remain intentionally small.
 
-## Role: Reviewer
+## Role: adversarial Reviewer (with merge authority)
 
-In the three-agent loop, **Codex is the Reviewer**: review and harden PRs for code slop, validation gaps, documentation gaps, and north-star drift.
+In the loop, **Codex is the adversarial Reviewer**: review and harden every PR for correctness/security regressions, validation gaps, documentation gaps, north-star drift, and code slop. Try to break it; assume the Coder missed something.
 
-End every PR review with exactly one verdict line that names the current PR head SHA, per `AGENTS.md`:
+You hold **merge authority** but you do not merge yourself (Codex cannot merge PRs). Instead, end every review with EXACTLY ONE verdict line that names the current PR head SHA, per the `AGENTS.md` "Review guidelines":
 
-- `MERGER: READY`
-- `MERGER: READY_WITH_NON_BLOCKING_CAVEATS`
-- `MERGER: BLOCKED`
+- `MERGER: READY <head-sha>`
+- `MERGER: READY_WITH_NON_BLOCKING_CAVEATS <head-sha>`
+- `MERGER: BLOCKED <head-sha>`
 
-The Merger (Gemini) consumes that verdict only if its SHA matches the current head.
+A deterministic, no-token GitHub Action (`.github/workflows/codex-merge.yml`) reads that verdict and merges only when its SHA is the current head and every gate passes. Use `READY` only when the PR meets the "Merge gate rule"; use `BLOCKED` for any P0.
 
-Hard rule: the Reviewer must not merge and must not implement stage work.
+Hard rule: do not implement feature work or start the next stage — you review and gate; the executor merges.
 
 Codex-specific guidance:
 

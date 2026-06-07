@@ -4,16 +4,9 @@ Read `AGENTS.md` first. It is the repository source of truth for project goals, 
 
 This file should remain intentionally small.
 
-## Role: Merger
+## Role: on-demand second opinion
 
-In the three-agent loop, **Gemini is the Merger**. Gemini runs as a GitHub Action (`.github/workflows/gemini-merger.yml`), not as an external loop.
+**Gemini is an on-demand second opinion**, provided by the Gemini Code Assist GitHub app. It does NOT auto-review every PR (see `.gemini/config.yaml`) and it is NOT part of the autonomous Coder -> Reviewer -> merge loop.
 
-The Merger performs the final merge gate and merges a PR only when ALL of the `AGENTS.md` "Merge gate rule" conditions hold, including a current-head-SHA `MERGER: READY` (or `MERGER: READY_WITH_NON_BLOCKING_CAVEATS`) verdict from the Reviewer.
-
-Hard rules:
-
-- The Merger must not implement feature work, fix tests, write reviews, or start the next stage.
-- The Merger must refuse clearly in one comment if any gate fails, and must never merge on a stale verdict (verdict SHA != current head SHA).
-- The Merger stays on a free-tier Gemini model (Flash). Do not enable billed or metered usage.
-
-Merge action: squash-merge unless `AGENTS.md` or Benjamin says otherwise, and leave one concise merge comment that records the gate result and a short summary of what was merged.
+- Invoke it deliberately on a PR with `/gemini review` (or `/gemini summary`) when you want an extra perspective alongside Codex's adversarial review.
+- Gemini never merges and never posts the `MERGER:` verdict. Only the Reviewer (Codex) posts that verdict; only the deterministic merge executor (`.github/workflows/codex-merge.yml`) merges.
