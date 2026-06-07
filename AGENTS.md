@@ -44,7 +44,7 @@ Role boundaries are mandatory:
 
 - Phasekeeper implements the current stage, updates docs/evidence, opens or updates the stage PR, and responds to review feedback that stays inside the same stage.
 - Code Sentinel reviews and hardens PRs for code slop, validation gaps, documentation gaps, and north-star drift, then comments a review-gate decision. It must not directly change code, apply labels, or merge.
-- GitHub Actions own review-gate label mutations and second-opinion request comments.
+- GitHub Actions own review-gate label mutations, escalation labels, and second-opinion request comments.
 - Merge Warden performs the final deterministic merge gate and merges only when all gates pass.
 - Gemini is an on-demand second opinion only. It does not implement, set review-gate labels, or merge.
 
@@ -82,6 +82,21 @@ On every loop, first inspect repo/PR state and then choose exactly one of these 
 
 Do not post repeated comments with the same conclusion. Do not create new branches or PRs when an appropriate one already exists. Do not fight another agent over the same branch.
 
+## Blocker criteria
+
+A blocker is a merge-stopping issue. Code Sentinel may block only for these criteria:
+
+- P0 correctness or security regression: the PR likely breaks intended behavior, weakens safety/security, corrupts data/evidence, or creates a credible execution risk.
+- Validation failure or missing required evidence: required checks fail, relevant tests fail, claimed behavior is not demonstrated, validation was skipped without justification, or no real output supports an important claim.
+- Stage/scope violation: the PR implements later-stage work, mixes unrelated stages, or expands scope beyond the approved stage in a way that prevents safe review.
+- Documentation/evidence gap for a meaningful change: code, config, workflow, experiment, architecture, environment, or assumption changes lack the required routed documentation or evidence record.
+- Review/merge automation risk: workflow, permission, label, merge, or agent-role changes could allow stale approvals, accidental merges, privilege confusion, or unbounded automation.
+- Unresolved actionable review feedback that would change merge safety.
+
+Non-blocking issues must not keep the PR from merging. Examples: wording preferences, minor style issues, optional refactors, speculative improvements, follow-up experiments, or documentation polish that does not affect the ability to understand, validate, or safely merge the PR.
+
+When blocking, Code Sentinel must provide a numbered `BLOCKERS:` list. Phasekeeper should address only that list inside the same PR unless Benjamin explicitly approves scope expansion.
+
 ## Second-opinion rule
 
 Gemini may be used only as an on-demand second opinion. Invoke it manually on a PR with:
@@ -104,6 +119,37 @@ Use a second opinion when a PR is high-risk, changes review/merge automation, ch
 Before approving a PR, Code Sentinel must decide whether the PR requires a second opinion. If required and no Gemini response is present, Code Sentinel must comment `SECOND_OPINION: requested`, comment `REVIEW_GATE: gate: blocked`, and explain that final approval is blocked pending second opinion.
 
 After Gemini responds, Code Sentinel must reconcile the second opinion and still make the final review-gate decision. Gemini never sets `gate: ready`, never sets `gate: blocked`, and never merges.
+
+## Anti-ping-pong escalation rule
+
+The loop should run autonomously unless escalation is mandatory.
+
+Maximum Code Sentinel blocked review cycles per PR: 2.
+Maximum Gemini second-opinion reviews per PR: 2.
+
+Escalation ladder:
+
+1. First Code Sentinel block: Phasekeeper may fix the numbered `BLOCKERS:` list.
+2. Second Code Sentinel block: Code Sentinel must request Gemini as the first escalation point if Gemini has not already reviewed the current dispute.
+3. After Gemini responds: Phasekeeper may make one Gemini-informed correction attempt.
+4. If the PR is still blocked after the Gemini-informed correction attempt, or if Code Sentinel and Gemini cannot converge after two Gemini reviews, Code Sentinel must stop the loop and require human decision.
+
+Human escalation is mandatory when any of these are true:
+
+- Code Sentinel has blocked twice and Gemini has already reviewed the disputed blocker set.
+- Gemini has reviewed twice and the agents still disagree about merge safety.
+- The same blocker class remains after two correction attempts.
+- The next action requires a product/stage/scope decision rather than an engineering correction.
+- The safe fix requires splitting, restarting, or materially changing the PR scope.
+
+When human escalation is required, Code Sentinel must comment:
+
+```text
+ESCALATION: human-required
+REVIEW_GATE: gate: blocked
+```
+
+The `Review Gate Labeler` workflow applies `cycle: needs-human`. At that point Phasekeeper must not continue automatic fix attempts. Benjamin decides whether to continue, split the PR, close/restart it, accept risk, or request another review.
 
 ## Review gate decision rule
 
@@ -132,9 +178,15 @@ Optional transient label:
 gate: reviewing
 ```
 
+Escalation label:
+
+```text
+cycle: needs-human
+```
+
 The final labels are mutually exclusive. The workflow removes `gate: blocked` and `gate: reviewing` before applying `gate: ready`; it removes `gate: ready` and `gate: reviewing` before applying `gate: blocked`. A PR must never intentionally keep both `gate: ready` and `gate: blocked`.
 
-Use `REVIEW_GATE: gate: ready` only when the PR meets the "Merge gate rule" below. Use `REVIEW_GATE: gate: blocked` for any P0 or any unresolved actionable feedback. The merge executor consumes only the neutral label state; it does not depend on a specific agent name.
+Use `REVIEW_GATE: gate: ready` only when the PR meets the "Merge gate rule" below. Use `REVIEW_GATE: gate: blocked` only for a blocker under the blocker criteria above, missing required second opinion, or required human escalation. The merge executor consumes only the neutral label state; it does not depend on a specific agent name.
 
 A pushed commit invalidates the prior review gate. `.github/workflows/review-gate-reset.yml` clears `gate: ready` and `gate: blocked` and sets `gate: reviewing` whenever new commits are pushed to a PR branch.
 
@@ -168,6 +220,7 @@ Merge Warden may merge only when all are true:
 - If no checks exist, that absence is explicitly noted.
 - The workflow-applied label `gate: ready` is present.
 - `gate: blocked` is absent.
+- `cycle: needs-human` is absent.
 - No unresolved actionable review feedback remains.
 - The PR body or latest agent comment records what changed, evidence produced, docs updated, validation run, stage status, and next step.
 
