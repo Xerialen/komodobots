@@ -98,20 +98,26 @@ jobs:
           fi
 
           codex='select(.user.login | startswith("chatgpt-codex-connector"))'
+          # Drop Codex's "connect your account" service notices — they are not reviews.
+          notnoise='select((.body | ascii_downcase | contains("to use codex here")) | not)'
 
           # Codex conversation comments posted for the current head, newest first.
           fresh=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
             | jq -r --arg since "$head_date" \
-                "[.[] | $codex | select(.created_at >= \$since)] | sort_by(.created_at) | reverse | .[].body" \
+                "[.[] | $codex | $notnoise | select(.created_at >= \$since)] | sort_by(.created_at) | reverse | .[].body" \
             | tr '[:upper:]' '[:lower:]')
 
-          # Live (non-outdated) inline review comments by severity badge.
+          # Inline review comments by severity badge — counted only when BOTH
+          # live (non-outdated, position != null) AND fresh for the current head
+          # (created_at >= head commit date), so a stale review for an older
+          # commit can neither block nor ready the current head.
           inline=$(gh api "repos/$REPO/pulls/$PR/comments" --paginate \
-            | jq -r "[.[] | $codex | select(.position != null) | .body] | join(\"\n\")")
+            | jq -r --arg since "$head_date" \
+                "[.[] | $codex | select(.position != null and .created_at >= \$since) | .body] | join(\"\n\")")
           p01=$(printf '%s' "$inline" | grep -iEc 'p[01] badge|badge/p[01]-' || true)
           p2=$(printf '%s'  "$inline" | grep -iEc 'p2 badge|badge/p2-' || true)
 
-          echo "live inline badges: P0/P1=$p01 P2=$p2 ; fresh comment chars: ${#fresh}"
+          echo "fresh inline badges: P0/P1=$p01 P2=$p2 ; fresh comment chars: ${#fresh}"
 
           # ready, but only if the head hasn't moved while we evaluated (a commit
           # landing mid-run is handled by the reset workflow + a fresh review).

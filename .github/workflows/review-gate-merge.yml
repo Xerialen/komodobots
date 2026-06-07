@@ -9,14 +9,18 @@ name: Review Gate Merge
 #   - every non-gate status check passing (this is where `pr-tests` — the
 #     deterministic CI floor — is enforced)
 #
-# It re-evaluates on BOTH the label event AND check-suite completion, so a PR
-# merges as soon as the LAST of {tests green, gate: ready} arrives. "Not ready
-# yet" is silent (log only); it comments only on an actual merge or a hard error.
+# It re-evaluates on BOTH the label event AND completion of the `PR Tests`
+# workflow, so a PR merges as soon as the LAST of {tests green, gate: ready}
+# arrives. NOTE: `check_suite`/`check_run` are NOT used — GitHub does not emit
+# those events for check suites created by GitHub Actions, so they'd never fire
+# for `PR Tests`; `workflow_run` is the mechanism that does. "Not ready yet" is
+# silent (log only); it comments only on an actual merge or a hard error.
 
 on:
   pull_request:
     types: [labeled, ready_for_review, reopened]
-  check_suite:
+  workflow_run:
+    workflows: ["PR Tests"]
     types: [completed]
 
 permissions:
@@ -25,7 +29,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: review-gate-merge-${{ github.event.pull_request.number || github.event.check_suite.id }}
+  group: review-gate-merge-${{ github.event.pull_request.number || github.event.workflow_run.id }}
   cancel-in-progress: false
 
 jobs:
@@ -42,10 +46,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Which PR(s) to evaluate. Label/ready/reopen events carry one PR;
-          # a completed check_suite may reference several.
-          if [ "$EVENT" = "check_suite" ]; then
-            PRS=$(jq -r '.check_suite.pull_requests[].number' "$GITHUB_EVENT_PATH" | sort -u)
+          # Which PR(s) to evaluate. Label/ready/reopen events carry one PR; a
+          # completed `PR Tests` workflow_run references the PR(s) on its head
+          # (fall back to matching open PRs by head SHA if the array is empty).
+          if [ "$EVENT" = "workflow_run" ]; then
+            PRS=$(jq -r '.workflow_run.pull_requests[]?.number' "$GITHUB_EVENT_PATH" | sort -u)
+            if [ -z "${PRS:-}" ]; then
+              sha=$(jq -r '.workflow_run.head_sha' "$GITHUB_EVENT_PATH")
+              PRS=$(gh pr list -R "$REPO" --state open --json number,headRefOid \
+                    --jq ".[] | select(.headRefOid == \"$sha\") | .number")
+            fi
           else
             PRS="$PR_FROM_LABEL"
           fi
