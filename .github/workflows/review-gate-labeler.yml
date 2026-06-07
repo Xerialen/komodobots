@@ -1,0 +1,63 @@
+name: Review Gate Labeler
+
+# Applies neutral review-gate labels from comment-only review decisions.
+# Agents do not need label or contents write access; this workflow owns PR label
+# mutations and second-opinion label requests.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: review-gate-labeler-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  label:
+    if: >-
+      ${{
+        (github.event.issue.pull_request &&
+          (contains(github.event.comment.body, 'REVIEW_GATE: gate: ready') ||
+           contains(github.event.comment.body, 'REVIEW_GATE: gate: blocked') ||
+           contains(github.event.comment.body, 'SECOND_OPINION: requested')))
+        ||
+        (github.event.review &&
+          (contains(github.event.review.body, 'REVIEW_GATE: gate: ready') ||
+           contains(github.event.review.body, 'REVIEW_GATE: gate: blocked') ||
+           contains(github.event.review.body, 'SECOND_OPINION: requested')))
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Apply labels from review decision
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.issue.number || github.event.pull_request.number }}
+          BODY: ${{ github.event.comment.body || github.event.review.body }}
+        run: |
+          set -euo pipefail
+
+          if grep -q 'SECOND_OPINION: requested' <<<"$BODY"; then
+            gh pr edit "$PR" -R "$REPO" --add-label "opinion: requested" || true
+          fi
+
+          if grep -q 'REVIEW_GATE: gate: ready' <<<"$BODY"; then
+            gh pr edit "$PR" -R "$REPO" --remove-label "gate: blocked" || true
+            gh pr edit "$PR" -R "$REPO" --remove-label "gate: reviewing" || true
+            gh pr edit "$PR" -R "$REPO" --add-label "gate: ready"
+            exit 0
+          fi
+
+          if grep -q 'REVIEW_GATE: gate: blocked' <<<"$BODY"; then
+            gh pr edit "$PR" -R "$REPO" --remove-label "gate: ready" || true
+            gh pr edit "$PR" -R "$REPO" --remove-label "gate: reviewing" || true
+            gh pr edit "$PR" -R "$REPO" --add-label "gate: blocked"
+            exit 0
+          fi
