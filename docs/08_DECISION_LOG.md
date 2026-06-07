@@ -2506,6 +2506,64 @@ SSH reach to the box, so the SSH/screen orchestration must be confirmed from a
 host that can reach `servexeri` (see the first-verification checklist in
 `docs/05_HEADLESS_TEST_ENV.md`).
 
+## QTV spectate launcher — live verification + corrections (2026-06-07)
+
+The launcher was verified live on `servexeri` from a host with SSH reach. The
+**first live run FAILED**; root-causing it (including building an instrumented
+mvdsv to trace the login state machine) corrected four wrong assumptions baked in
+during offline authoring. All fixed; re-verified working (ezQuake watching the dm3
+FFA over the LAN).
+
+### What was wrong vs. what shipped
+
+1. **Keep-the-match-populated (the deep one).** The match drained at exactly 60s.
+   It is **not** the matchless idle-kick, **not** a netchan timeout, and **not**
+   `sv_login` (already `0`): it is mvdsv's **login timeout** —
+   `SV_LoginCheckTimeOut` (`sv_login.c:831`) drops any client with `cl->logged==0`
+   after `> 60s`. `SV_Login` sets `logged=-1` (exempt) for our client, but the
+   minimal keepalive's non-compliant all-at-once signon triggers a second
+   `SV_Logout` that resets `logged` to `0`. Three earlier fix attempts (KTX
+   `k_fb_autoadd_limit` with no human; disabling `k_matchless_max_idle_time`;
+   `sv_login 0`) each failed because the real guard was elsewhere — confirmed by
+   `[DBG]`-instrumented mvdsv. **Fix:** a reconnect-loop keepalive on a cycle
+   (`KEEPALIVE_CYCLE_S=45`) shorter than the 60s timeout, so connections overlap
+   and the server never empties; KTX auto-add (`k_fb_autoadd_limit = bot_count+1`)
+   maintains the bots while the keepalive supplies the human presence. The owner
+   chose this pragmatic path over building a fully protocol-compliant client.
+
+2. **QTV port model.** First draft used `qtv_streamport = game_port + 100`; that
+   port is never firewall-allowed on servexeri and was unreachable. **Fix:**
+   `qtv_streamport == game_port` (the proven `ktx/port_2850x.cfg` model), one port
+   to open. Default game port moved to **`28610`** — clear of the moveprobe lab's
+   `28599` (which was running a live batch during verification) and the live
+   servers.
+
+3. **`sv_mvdhost` does not exist** on this mvdsv build (binary `strings` + runtime
+   `Unknown command`). Removed. `--public-host auto` now resolves the LAN IP via
+   `hostname -I` (ipify returned the Cloudflare WARP egress — a non-inbound
+   address).
+
+4. **Reachability was a false green.** The old `ss | grep :port` check matches a
+   localhost-only bind and cannot see a firewall. **Fix:** a real off-host TCP
+   probe from the launcher; honest REACHABLE / NOT-reachable + exit 8 + the exact
+   `ufw` remediation. servexeri `ufw` only allows `28501-28503`; a LAN-only rule
+   `ufw allow from 192.168.86.0/24 to any port 28610 proto tcp` was added for the
+   lab.
+
+5. **ezQuake `qtvplay` address format (client-side).** The launcher printed
+   `/qtvplay tcp:<host>:<port>`; ezQuake does **not** parse a `tcp:` scheme
+   (`CL_QTVPlay_f` → `NET_StringToSockaddr` mis-splits it → "Couldn't connect to
+   proxy"). It prints the bare `host:port` form now. mvdsv's built-in `QTVSV 1`
+   stream **is** directly watchable — no qtv.bin proxy required (verified in
+   `Xerialen/ezquake-source src/cl_demo.c`).
+
+### Status
+
+**Verified working 2026-06-07.** `up` reports REACHABLE (rc 0) with the firewall
+open; 4 bots held stable past the old 60s drain point; ezQuake watches the FFA via
+`/qtvplay 192.168.86.33:28610`. 179 unit tests green. The non-disruption design was
+validated in practice (a live moveprobe batch on `28599` was untouched).
+
 ---
 
 ## Decision
