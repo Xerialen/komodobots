@@ -241,6 +241,30 @@ Implementation result:
 
 Interpretation: this prepares the measurement path for the next reviewed live SNG rerun. Event rows remain proof of internal mode-9 state transitions, not proof of human-like movement quality.
 
+## DM3 trick track: `dm3_sng_to_rl`
+
+Per Benjamin's direction on 2026-06-07, the active DM3 trick target moved off `dm3_sng_shortcut.qwd` to `dm3_sng_to_rl.qwd`. The goal for this track is outcome-driven: can a Frogbot pull off the SNG-to-RL move, reaching the RL endpoint via the human route under KTX physics, with each attempt's demo recorded into `tricks/dm3/`.
+
+`dm3_sng_to_rl` route mapping (Stage A):
+
+- Tool: `scripts/map_qwd_route_to_frogbot.py`
+- Demo: `dm3_sng_to_rl.qwd` (source `tricks/` corpus)
+- Bot map: KTX `resources/example-configs/ktx/bots/maps/dm3.bot`
+- Result artifact: `experiments/qwd_route_probe/evidence/qwd-frogbot-route-map-dm3-sng-to-rl.*`
+
+Measured result:
+
+- QWD command/state coverage: `1.0`.
+- QWD waypoints at `64` qu spacing: `53`.
+- Collapsed nearest static Frogbot marker sequence: `22` markers (`121 -> ... -> 4`, ending at the RL endpoint).
+- Nearest-marker p50/p95/max: `68.25` / `184.518` / `218.489` qu.
+- Waypoints within `128` qu of a static marker: `0.792`.
+- Direct `.bot` edge ratio across collapsed marker transitions: `0.143`.
+- Graph reachable ratio: `1.0`, but shortest-path p50/p95/max is `6.0` / `19.0` / `20.0` edges.
+- Human QWD command profile is side-move dominant: nonzero forward `0.275`, nonzero side `0.736`, jump `0.204`.
+
+Interpretation: `dm3_sng_to_rl` is a longer, less route-supported move than `dm3_sng_shortcut` (22 vs 14 collapsed markers, `0.792` vs `0.939` within-128-qu coverage, `0.143` vs `0.0` direct-edge ratio across a much longer chain). The recommended first probe is still the hybrid waypoint/controller mode `9`, not pure `.bot` route following or route mutation. The next step is Stage B: derive the mode-9 `sng_to_rl` control points, wire per-attempt demo recording into `tricks/dm3/`, and define a reach-RL-endpoint success scorer before live runs.
+
 ## Available or expected signals
 
 From `mvd_analyzer`, `qw-sim`, and related parsers, Komodobots expects to work with:

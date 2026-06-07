@@ -3394,3 +3394,57 @@ Medium-high for the offline scorer behavior because the targeted regression test
 ### Follow-up
 
 After review and human confirmation for the live server step, rerun the unchanged `dm3_sng_shortcut.qwd` mode-9 probe with event logging enabled and score it with the event-aware scorer before changing projection policy or trying other DM3 QWD moves.
+
+## 2026-06-07 - DM3 Trick Track Re-target + `dm3_sng_to_rl` Route Mapping
+
+### Experiment
+
+Per Benjamin's direction, the active DM3 trick target moved from `dm3_sng_shortcut.qwd` to `dm3_sng_to_rl.qwd`, with an outcome-driven goal: make a Frogbot pull off the SNG-to-RL move (reach the RL endpoint via the human route under KTX physics) and record every attempt's demo into `tricks/dm3/`. Stage A ran the existing offline mapper `scripts/map_qwd_route_to_frogbot.py` on `dm3_sng_to_rl.qwd` against the `dm3.bot` route graph. No KTX, runner, route file, or controller behavior changed.
+
+### Result
+
+- QWD command/state coverage: `1.0`.
+- QWD waypoints at `64` qu spacing: `53`.
+- Collapsed nearest static Frogbot marker sequence: `22` markers (`121 -> ... -> 4`, ending at the RL endpoint).
+- Nearest-marker p50/p95/max: `68.25` / `184.518` / `218.489` qu.
+- Waypoints within `128` qu of a static marker: `0.792`.
+- Direct `.bot` edge ratio across collapsed transitions: `0.143`.
+- Graph reachable ratio: `1.0`; shortest-path edge p50/p95/max: `6.0` / `19.0` / `20.0`.
+- Human QWD command profile: nonzero forward `0.275`, nonzero side `0.736`, jump `0.204`.
+- Mapper verdict: `hybrid_waypoint_controller_probe`, confidence `medium_low`.
+
+### Evidence
+
+New artifacts:
+
+- `experiments/qwd_route_probe/evidence/qwd-frogbot-route-map-dm3-sng-to-rl.json`
+- `experiments/qwd_route_probe/evidence/qwd-frogbot-route-map-dm3-sng-to-rl.md`
+
+Changed files:
+
+- `docs/06_DATA_AND_MVD_PIPELINE.md`
+- `docs/07_FINDINGS_LOG.md`
+- `docs/09_ROADMAP.md`
+
+Validation:
+
+```powershell
+python scripts\map_qwd_route_to_frogbot.py --stage qwd-dm3-sng-to-rl-route-map `
+  --demo "<tricks>\dm3_sng_to_rl.qwd" `
+  --bot-map "<ktx>\resources\example-configs\ktx\bots\maps\dm3.bot" `
+  --output-json experiments\qwd_route_probe\evidence\qwd-frogbot-route-map-dm3-sng-to-rl.json `
+  --output-md experiments\qwd_route_probe\evidence\qwd-frogbot-route-map-dm3-sng-to-rl.md
+python -m unittest discover -s tests -v
+```
+
+### Interpretation
+
+`dm3_sng_to_rl` is longer and less route-supported than `dm3_sng_shortcut` (22 vs 14 collapsed markers, `0.792` vs `0.939` within-128-qu coverage, `0.143` vs `0.0` direct-edge ratio over a much longer chain). It is therefore a harder substrate target, but the mapper recommendation is unchanged: a hybrid waypoint/controller mode-9 probe rather than `.bot` route following or route mutation. This is route characterization only; it does not prove a Frogbot can execute the move.
+
+### Confidence
+
+High for the mapping measurement (deterministic offline analysis with `1.0` coverage); low for executability, which Stage C live runs must establish.
+
+### Follow-up
+
+Stage B (offline): derive the mode-9 `sng_to_rl` control points from this mapping, wire `run_frobodm2_lab.py` to copy each attempt's demo into `tricks/dm3/`, and add a reach-RL-endpoint success scorer. Stage C (live): run attempts on servexeri, record each to `tricks/dm3/`, and iterate until the bot reaches RL via the route.
