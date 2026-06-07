@@ -3295,3 +3295,55 @@ Medium for internal mode-9 timing interpretation because sampled command rows an
 ### Follow-up
 
 Add event-level QWD activation/advance instrumentation to mode `9`, rerun the same SNG probe without changing projection policy, and rescore start proof plus active-window movement quality before trying other DM3 QWD moves.
+
+## 2026-06-07 - QWD SNG Event Logging Instrumentation
+
+### Experiment
+
+Added event-level mode-9 QWD instrumentation before another live SNG rerun. The KTX moveprobe patch now emits unsampled `FBMOVEPROBE_QWD_EVENT` rows on QWD activation, control-point advancement, and completion edges when command logging is enabled. The lab runner parses those rows into separate `moveprobe-qwd-events.json` and `moveprobe-qwd-events.md` artifacts.
+
+No live KTX server rerun, route mutation, projection-policy change, or learned-movement claim was made in this step.
+
+### Result
+
+The instrumentation is locally valid and ready for review:
+
+- `activate` events record the first internal mode-9 CP0 activation edge with current distance/origin.
+- `advance` events record the reached target index and the next target index without waiting for sampled `FBMOVEPROBE_CMD` rows.
+- `complete` events record final target completion.
+- Run summaries now expose both sampled command count and QWD event count.
+- Parser tests cover the new event row format and summary schema.
+
+### Evidence
+
+Changed files:
+
+- `experiments/ktx_moveprobe/frogbot-moveprobe.patch`
+- `scripts/run_frobodm2_lab.py`
+- `tests/test_extract_movement_metrics.py`
+- `docs/02_SOURCE_MAP.md`
+- `docs/06_DATA_AND_MVD_PIPELINE.md`
+- `docs/07_FINDINGS_LOG.md`
+- `docs/08_DECISION_LOG.md`
+- `docs/09_ROADMAP.md`
+
+Validation:
+
+```powershell
+git -C C:\Users\benya\projects\quakeworld\engine\ktx apply --check C:\Users\benya\projects\quakeworld\komodobots\experiments\ktx_moveprobe\frogbot-moveprobe.patch
+python -m py_compile scripts\run_frobodm2_lab.py
+python -m unittest tests.test_extract_movement_metrics -v
+git diff --check
+```
+
+### Interpretation
+
+This closes a measurement blind spot rather than a movement gap. The prior MVD crossing evidence proves physical tight-start SNG traversal, but sparse sampled command rows could not prove internal activation timing. Event rows should let the next live rerun distinguish "mode 9 internally activated/advanced cleanly" from "the MVD geometry and sampled command rows are still misaligned."
+
+### Confidence
+
+Medium-high for instrumentation correctness: the local KTX patch applies cleanly and parser/unit tests pass. Confidence remains medium for the live evidence outcome until the patched server is rebuilt and a reviewed rerun produces real `moveprobe-qwd-events.*` artifacts.
+
+### Follow-up
+
+After review, rerun the same `dm3_sng_shortcut.qwd` mode-9 probe with unchanged QWD waypoints, `192` qu start radius, `96` qu point radius, and unchanged projection/command profile. Then rescore start proof and active-window movement quality before changing projection policy or expanding to other DM3 QWD moves.

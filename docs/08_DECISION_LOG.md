@@ -2108,3 +2108,44 @@ This should separate proof-quality failure from controller failure. If event-lev
 ### Revisit Conditions
 
 Revisit projection changes or expansion to other DM3 QWD moves only after event-level activation/advance evidence resolves the start-proof gap and active-window movement-quality scoring can be evaluated without relying on sparse sampled command rows.
+
+---
+
+## Decision
+
+Keep QWD event instrumentation separate from the next live SNG rerun.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+Add unsampled mode-9 QWD activation/advance/complete event logging and parser support as its own bounded PR before another live KTX rerun. Do not change projection policy, mutate `dm3.bot`, broaden to other DM3 QWD routes, or claim learned SNG movement in the instrumentation step.
+
+### Alternatives Considered
+
+- Rerun the same sparse sampled-command setup and hope a sampled row catches CP0.
+- Change QWD projection or command strength before fixing event visibility.
+- Treat MVD control-point crossings as sufficient proof of internal mode-9 activation.
+- Expand immediately to all DM3 QWD moves because the tight-start run physically traversed most SNG control points.
+
+### Evidence
+
+The MVD crossing artifact proves physical traversal but not internal timing: `/ bro` and `/ goldenboy` entered CP0's `192` qu radius and reached `11`/`12` sequential point-radius control points, while both first sampled QWD command rows were already at CP2. The new instrumentation adds `FBMOVEPROBE_QWD_EVENT` rows for QWD `activate`, `advance`, and `complete` edges and runner artifacts `moveprobe-qwd-events.json` / `moveprobe-qwd-events.md`.
+
+Validation for the instrumentation step:
+
+```powershell
+git -C C:\Users\benya\projects\quakeworld\engine\ktx apply --check C:\Users\benya\projects\quakeworld\komodobots\experiments\ktx_moveprobe\frogbot-moveprobe.patch
+python -m py_compile scripts\run_frobodm2_lab.py
+python -m unittest tests.test_extract_movement_metrics -v
+```
+
+### Expected Consequences
+
+The next live SNG rerun can answer a narrower question: do internal mode-9 activation and advancement events align with the MVD crossing evidence under the same projection policy? If yes, future work can focus on active-window movement quality. If no, instrumentation/timing identity is still suspect and must be repaired before movement-controller changes.
+
+### Revisit Conditions
+
+Revisit projection changes or broader DM3 QWD transfer only after a reviewed live rerun produces QWD event artifacts that resolve start/advance timing and allow active-window movement-quality scoring without relying on sampled command rows.
