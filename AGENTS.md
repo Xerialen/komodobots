@@ -34,23 +34,24 @@ The first project objective is to build a repeatable lab that can prove or dispr
 
 ## Autonomous three-agent loop
 
-This repository is worked by three unattended agents, one per role — **Coder = Claude**, **Reviewer = Codex**, **Merger = Gemini**. The Coder and Reviewer run as external agent loops; the Merger runs as a GitHub Action in `.github/workflows/gemini-merger.yml`, so it is bound by this contract plus that workflow.
+This repository is worked by **Coder = Claude** and **adversarial Reviewer = Codex** (both run as external/cloud agents). Codex's review holds merge authority: a deterministic GitHub Action (`.github/workflows/codex-merge.yml`, no LLM and no API tokens) merges a PR when Codex posts a current-head-SHA `MERGER: READY` verdict and every gate passes. **Gemini** is an **on-demand second opinion only** (`/gemini review` via the Gemini Code Assist app) — it does not auto-review and never merges.
 
 ```text
-Coder implements stage work -> Reviewer reviews/hardens -> Merger merges if gates pass -> Coder starts the next stage from updated main
+Coder (Claude) implements -> Reviewer (Codex) adversarially reviews and posts a MERGER verdict -> deterministic Action merges on a READY verdict if gates pass -> Coder starts the next stage from updated main
 ```
 
 Role boundaries are mandatory:
 
 - Coder implements the current stage, updates docs/evidence, opens or updates the stage PR, and responds to review feedback that stays inside the same stage.
-- Reviewer reviews and hardens PRs for code slop, validation gaps, documentation gaps, and north-star drift.
-- Merger performs the final merge gate and merges only when all gates pass.
+- Reviewer (Codex) adversarially reviews and hardens PRs for code slop, validation gaps, documentation gaps, and north-star drift, and posts the merge verdict.
+- The merge executor (a deterministic, no-LLM GitHub Action) performs the final gate check and merges only on a current-head-SHA Reviewer `READY` verdict with all gates passing.
+- Gemini is an on-demand second opinion (`/gemini review`) — not part of the autonomous loop, and never merges.
 
 Hard separation:
 
 - Coder must not merge.
-- Reviewer must not merge.
-- Merger must not implement feature work, fix tests, or start the next stage.
+- Reviewer must not implement feature work or start the next stage. The Reviewer authorizes merges via its verdict but does not execute them.
+- The merge executor must not implement, review, or start the next stage; it only executes a passing Reviewer verdict.
 
 ## Stage and PR rules
 
@@ -89,11 +90,33 @@ MERGER: READY_WITH_NON_BLOCKING_CAVEATS
 MERGER: BLOCKED
 ```
 
-The verdict must name the current PR head SHA. Merger may only consume a Reviewer verdict if it references the current head SHA. If new commits have been pushed after the verdict, Merger must refuse to merge and request a fresh Reviewer review.
+The verdict must name the current PR head SHA. The merge executor may only consume a Reviewer verdict if it references the current head SHA. If new commits have been pushed after the verdict, the merge executor must refuse to merge and request a fresh Reviewer review.
+
+## Review guidelines
+
+These guide the Reviewer (Codex) on every PR review.
+
+Review focus, in priority order:
+
+- Correctness and security regressions. (P0)
+- Validation gaps: claims without evidence, missing or auto-skipped tests, no real run output. (P0)
+- North-star drift: work that does not produce evidence toward the believable-bots question. (P1)
+- Documentation gaps: code/config/experiment changes that did not update the routed doc. (P1)
+- Code slop: dead code, needless complexity, duplicated logic. (P2)
+
+End every review with EXACTLY ONE verdict line, on its own line, naming the current PR head SHA, so the merge executor can consume it:
+
+```text
+MERGER: READY <head-sha>
+MERGER: READY_WITH_NON_BLOCKING_CAVEATS <head-sha>
+MERGER: BLOCKED <head-sha>
+```
+
+Use `READY` only when the PR meets the "Merge gate rule" below. Use `BLOCKED` for any P0. The Merger ignores a verdict whose SHA is not the current head SHA.
 
 ## Merge gate rule
 
-Merger may merge only when all are true:
+The merge executor may merge only when all are true:
 
 - Target repository and PR are unambiguous.
 - PR is open and non-draft.
@@ -107,7 +130,7 @@ Merger may merge only when all are true:
 - No unresolved actionable review feedback remains.
 - The PR body or latest agent comment records what changed, evidence produced, docs updated, validation run, stage status, and next step.
 
-Merger must refuse clearly if any gate fails.
+The merge executor must refuse clearly if any gate fails.
 
 ## Documentation rules
 

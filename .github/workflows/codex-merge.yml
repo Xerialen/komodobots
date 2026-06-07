@@ -1,0 +1,95 @@
+name: Codex-Verdict Merge
+
+# Deterministic merge executor for the Coder -> Reviewer -> merge loop.
+#
+# NO LLM and NO API tokens. It only runs `gh` + bash. Codex cannot merge PRs
+# itself, so this Action executes Codex's verdict: it merges a PR ONLY when the
+# Reviewer (Codex, as chatgpt-codex-connector) — or Benjamin as OWNER — posts a
+# "MERGER: READY" verdict that cites the current head SHA, AND the AGENTS.md
+# merge gate passes (open, non-draft, base main, mergeable, checks pass/none).
+#
+# Event-driven only (never a schedule) so it stays within free Actions minutes.
+# Fails closed: if anything is off, it comments and does not merge.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: codex-merge-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    # Act only on PR comments/reviews from the Codex reviewer bot or the repo
+    # owner, whose body carries a READY verdict. (OWNER path is a manual fallback
+    # so Benjamin can paste a verdict if Codex's auto-token is ever missing.)
+    if: >-
+      ${{
+        (github.event.issue.pull_request &&
+         (github.event.comment.user.login == 'chatgpt-codex-connector' ||
+          github.event.comment.author_association == 'OWNER') &&
+         contains(github.event.comment.body, 'MERGER: READY'))
+        ||
+        ((github.event.review.user.login == 'chatgpt-codex-connector' ||
+          github.event.review.author_association == 'OWNER') &&
+         contains(github.event.review.body, 'MERGER: READY'))
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate gate and merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.issue.number || github.event.pull_request.number }}
+          VERDICT_BODY: ${{ github.event.comment.body || github.event.review.body }}
+        run: |
+          set -euo pipefail
+
+          data=$(gh pr view "$PR" -R "$REPO" \
+            --json state,isDraft,baseRefName,mergeable,headRefOid,statusCheckRollup)
+          state=$(jq -r '.state' <<<"$data")
+          draft=$(jq -r '.isDraft' <<<"$data")
+          base=$(jq -r '.baseRefName' <<<"$data")
+          mergeable=$(jq -r '.mergeable' <<<"$data")
+          head=$(jq -r '.headRefOid' <<<"$data")
+          short=${head:0:7}
+
+          refuse() {
+            gh pr comment "$PR" -R "$REPO" \
+              --body "🚫 **Codex-verdict merge refused** — $1 (head \`$short\`). No merge performed."
+            echo "refused: $1"; exit 0
+          }
+
+          # --- AGENTS.md merge gate (deterministic) ---
+          [ "$state" = "OPEN" ]        || refuse "PR is not open (state=$state)"
+          [ "$draft" = "false" ]       || refuse "PR is a draft"
+          [ "$base" = "main" ]         || refuse "base is '$base', expected 'main'"
+          [ "$mergeable" = "MERGEABLE" ] || refuse "PR not mergeable (mergeable=$mergeable)"
+
+          # Verdict must cite the current head SHA (full or 7-char short).
+          if ! grep -qiE "MERGER: READY(_WITH_NON_BLOCKING_CAVEATS)?[^a-z0-9]*($head|$short)" <<<"$VERDICT_BODY"; then
+            refuse "verdict does not cite the current head SHA — stale or unscoped verdict; re-review needed"
+          fi
+
+          # Checks must all pass; pending/failing blocks. Absent checks is allowed but noted.
+          n_checks=$(jq -r '(.statusCheckRollup // []) | length' <<<"$data")
+          n_bad=$(jq -r '[(.statusCheckRollup // [])[]
+                          | ((.conclusion // .state // "") | ascii_upcase)
+                          | select(. != "SUCCESS" and . != "NEUTRAL" and . != "SKIPPED")]
+                         | length' <<<"$data")
+          [ "$n_bad" -eq 0 ] || refuse "$n_bad check(s) not passing"
+          checknote="no checks configured"
+          [ "$n_checks" -gt 0 ] && checknote="$n_checks check(s) passing"
+
+          # --- merge ---
+          gh pr merge "$PR" -R "$REPO" --squash --delete-branch
+          gh pr comment "$PR" -R "$REPO" --body "✅ **Merged** by the deterministic Codex-verdict executor. Gate: open · non-draft · base \`main\` · mergeable · ${checknote} · Reviewer READY verdict @ \`$short\`."

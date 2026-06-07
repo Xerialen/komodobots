@@ -2,7 +2,3 @@ __pycache__/
 *.py[cod]
 .venv/
 artifacts/
-
-# Gemini CLI (Merger) — local settings + GitHub App credentials, never commit
-.gemini/
-gha-creds-*.json

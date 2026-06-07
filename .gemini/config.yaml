@@ -1,0 +1,11 @@
+# Gemini Code Assist (GitHub app) — on-demand SECOND OPINION only.
+# Gemini is not part of the autonomous loop and never merges. Do NOT auto-review
+# every PR; respond only when explicitly called with `/gemini review` (or
+# `/gemini summary`) on a pull request.
+have_fun: false
+code_review:
+  disable: false
+  comment_severity_threshold: MEDIUM
+  pull_request_opened:
+    summary: false
+    code_review: false
