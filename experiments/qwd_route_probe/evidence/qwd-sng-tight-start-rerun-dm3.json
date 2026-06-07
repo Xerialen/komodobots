@@ -1,0 +1,543 @@
+{
+  "aggregate": {
+    "command_samples": 865,
+    "max_advanced_control_points": 12,
+    "max_advanced_control_points_inside_mvd": 12,
+    "max_control_point_index": 12,
+    "max_control_point_index_inside_mvd": 12,
+    "max_qwd_active_seconds": 16.383,
+    "min_qwd_distance_qu": 96.066,
+    "player_count": 2,
+    "qwd_active_count": 274,
+    "qwd_active_ratio": 0.317,
+    "qwd_sample_count": 865
+  },
+  "bot_run_ids": [
+    "20260607T003837Z"
+  ],
+  "decision": {
+    "failed_stop_conditions": [
+      "phase_target_progression",
+      "waypoint_only_slow_success"
+    ],
+    "inconclusive_stop_conditions": [
+      "tight_start_activation"
+    ],
+    "next_goal": "Use tight design-radius evidence if it has not been collected yet; if tight-start phases still stall or start evidence is unverifiable, add denser/event-level advancement and active-window diagnostics before changing projection policy.",
+    "reason": "The server-loop probe produced evidence, but guardrails failed: phase_target_progression, waypoint_only_slow_success.",
+    "verdict": "qwd_sng_hybrid_probe_rejected_by_guardrails"
+  },
+  "map": "dm3",
+  "method": "Score temporary mode-9 SNG hybrid waypoint/controller runs by QWD activation, control-point advancement, command profile, and route/water/cadence guardrails. Speed alone cannot pass.",
+  "players": [
+    {
+      "active_control_point_phases": [
+        {
+          "active_duration_s": 0.204,
+          "active_mvd_range_ms": {
+            "max": 1791,
+            "min": 1587
+          },
+          "command_rows": 3,
+          "control_point_index": 2,
+          "max_advanced_control_points": 2,
+          "min_distance_qu": 109.27
+        },
+        {
+          "active_duration_s": 0.839,
+          "active_mvd_range_ms": {
+            "max": 2742,
+            "min": 1903
+          },
+          "command_rows": 9,
+          "control_point_index": 3,
+          "max_advanced_control_points": 3,
+          "min_distance_qu": 96.251
+        },
+        {
+          "active_duration_s": 0.317,
+          "active_mvd_range_ms": {
+            "max": 3161,
+            "min": 2844
+          },
+          "command_rows": 4,
+          "control_point_index": 4,
+          "max_advanced_control_points": 4,
+          "min_distance_qu": 115.257
+        },
+        {
+          "active_duration_s": 0.311,
+          "active_mvd_range_ms": {
+            "max": 3575,
+            "min": 3264
+          },
+          "command_rows": 4,
+          "control_point_index": 5,
+          "max_advanced_control_points": 5,
+          "min_distance_qu": 109.897
+        },
+        {
+          "active_duration_s": 0.628,
+          "active_mvd_range_ms": {
+            "max": 4305,
+            "min": 3677
+          },
+          "command_rows": 7,
+          "control_point_index": 6,
+          "max_advanced_control_points": 6,
+          "min_distance_qu": 102.145
+        },
+        {
+          "active_duration_s": 0.521,
+          "active_mvd_range_ms": {
+            "max": 4929,
+            "min": 4408
+          },
+          "command_rows": 6,
+          "control_point_index": 7,
+          "max_advanced_control_points": 7,
+          "min_distance_qu": 96.066
+        },
+        {
+          "active_duration_s": 5.557,
+          "active_mvd_range_ms": {
+            "max": 10603,
+            "min": 5046
+          },
+          "command_rows": 54,
+          "control_point_index": 8,
+          "max_advanced_control_points": 8,
+          "min_distance_qu": 100.211
+        },
+        {
+          "active_duration_s": 6.873,
+          "active_mvd_range_ms": {
+            "max": 17579,
+            "min": 10706
+          },
+          "command_rows": 67,
+          "control_point_index": 9,
+          "max_advanced_control_points": 9,
+          "min_distance_qu": 100.806
+        },
+        {
+          "active_duration_s": 0.104,
+          "active_mvd_range_ms": {
+            "max": 17785,
+            "min": 17681
+          },
+          "command_rows": 2,
+          "control_point_index": 10,
+          "max_advanced_control_points": 10,
+          "min_distance_qu": 105.833
+        },
+        {
+          "active_duration_s": 0.0,
+          "active_mvd_range_ms": {
+            "max": 17888,
+            "min": 17888
+          },
+          "command_rows": 1,
+          "control_point_index": 11,
+          "max_advanced_control_points": 11,
+          "min_distance_qu": 196.64
+        }
+      ],
+      "active_jump_button_ratio": 1.0,
+      "active_side_nonzero_ratio": 1.0,
+      "airborne_proxy_time_ratio": 0.267,
+      "avg_horizontal_speed_qu_per_s": 128.999,
+      "command_samples": 461,
+      "control_point_count_values": [
+        0,
+        14
+      ],
+      "first_active_inside_mvd_advanced_control_points": 2,
+      "first_active_inside_mvd_control_point_index": 2,
+      "first_active_inside_mvd_distance_qu": 160.417,
+      "first_active_inside_mvd_time_ms": 1587,
+      "forward_nonzero_ratio": 0.794,
+      "jump_button_ratio": 0.341,
+      "jump_cadence_per_min": 13.18,
+      "low_dir_speed_ratio": 0.007,
+      "low_speed_time_ratio": 0.55,
+      "match_duration_ms": 45821,
+      "max_advanced_control_points": 11,
+      "max_advanced_control_points_inside_mvd": 11,
+      "max_control_point_index": 11,
+      "max_control_point_index_inside_mvd": 11,
+      "max_qwd_active_seconds": 16.383,
+      "min_qwd_distance_qu": 96.066,
+      "p95_horizontal_speed_qu_per_s": 345.73,
+      "player": "/ bro",
+      "probe_state_sample_count": 461,
+      "qwd_active_aligned_mvd_time_range_ms": {
+        "max": 17888,
+        "min": 1587
+      },
+      "qwd_active_count": 157,
+      "qwd_active_inside_mvd_count": 157,
+      "qwd_active_inside_mvd_ratio": 1.0,
+      "qwd_active_ratio": 0.341,
+      "qwd_complete_count": 0,
+      "qwd_complete_ratio": 0.0,
+      "qwd_sample_count": 461,
+      "route_state_sample_count": 461,
+      "run_id": "20260607T003837Z",
+      "server_start_time_s": 4.267,
+      "side_nonzero_ratio": 0.618,
+      "stationary_time_ratio": 0.063,
+      "water_path_ratio": 0.0,
+      "water_state_sample_count": 461
+    },
+    {
+      "active_control_point_phases": [
+        {
+          "active_duration_s": 0.31,
+          "active_mvd_range_ms": {
+            "max": 7558,
+            "min": 7248
+          },
+          "command_rows": 4,
+          "control_point_index": 2,
+          "max_advanced_control_points": 2,
+          "min_distance_qu": 96.257
+        },
+        {
+          "active_duration_s": 0.824,
+          "active_mvd_range_ms": {
+            "max": 8494,
+            "min": 7670
+          },
+          "command_rows": 9,
+          "control_point_index": 3,
+          "max_advanced_control_points": 3,
+          "min_distance_qu": 100.657
+        },
+        {
+          "active_duration_s": 0.331,
+          "active_mvd_range_ms": {
+            "max": 8927,
+            "min": 8596
+          },
+          "command_rows": 4,
+          "control_point_index": 4,
+          "max_advanced_control_points": 4,
+          "min_distance_qu": 117.935
+        },
+        {
+          "active_duration_s": 0.307,
+          "active_mvd_range_ms": {
+            "max": 9336,
+            "min": 9029
+          },
+          "command_rows": 4,
+          "control_point_index": 5,
+          "max_advanced_control_points": 5,
+          "min_distance_qu": 98.603
+        },
+        {
+          "active_duration_s": 5.824,
+          "active_mvd_range_ms": {
+            "max": 15273,
+            "min": 9449
+          },
+          "command_rows": 57,
+          "control_point_index": 6,
+          "max_advanced_control_points": 6,
+          "min_distance_qu": 97.146
+        },
+        {
+          "active_duration_s": 0.536,
+          "active_mvd_range_ms": {
+            "max": 15912,
+            "min": 15376
+          },
+          "command_rows": 6,
+          "control_point_index": 7,
+          "max_advanced_control_points": 7,
+          "min_distance_qu": 102.143
+        },
+        {
+          "active_duration_s": 0.629,
+          "active_mvd_range_ms": {
+            "max": 16643,
+            "min": 16014
+          },
+          "command_rows": 7,
+          "control_point_index": 8,
+          "max_advanced_control_points": 8,
+          "min_distance_qu": 99.795
+        },
+        {
+          "active_duration_s": 1.04,
+          "active_mvd_range_ms": {
+            "max": 17785,
+            "min": 16745
+          },
+          "command_rows": 11,
+          "control_point_index": 9,
+          "max_advanced_control_points": 9,
+          "min_distance_qu": 96.518
+        },
+        {
+          "active_duration_s": 0.103,
+          "active_mvd_range_ms": {
+            "max": 17991,
+            "min": 17888
+          },
+          "command_rows": 2,
+          "control_point_index": 10,
+          "max_advanced_control_points": 10,
+          "min_distance_qu": 101.402
+        },
+        {
+          "active_duration_s": 0.309,
+          "active_mvd_range_ms": {
+            "max": 18403,
+            "min": 18094
+          },
+          "command_rows": 4,
+          "control_point_index": 11,
+          "max_advanced_control_points": 11,
+          "min_distance_qu": 119.691
+        },
+        {
+          "active_duration_s": 0.831,
+          "active_mvd_range_ms": {
+            "max": 19336,
+            "min": 18505
+          },
+          "command_rows": 9,
+          "control_point_index": 12,
+          "max_advanced_control_points": 12,
+          "min_distance_qu": 188.263
+        }
+      ],
+      "active_jump_button_ratio": 1.0,
+      "active_side_nonzero_ratio": 1.0,
+      "airborne_proxy_time_ratio": 0.306,
+      "avg_horizontal_speed_qu_per_s": 281.629,
+      "command_samples": 404,
+      "control_point_count_values": [
+        14
+      ],
+      "first_active_inside_mvd_advanced_control_points": 2,
+      "first_active_inside_mvd_control_point_index": 2,
+      "first_active_inside_mvd_distance_qu": 167.498,
+      "first_active_inside_mvd_time_ms": 7248,
+      "forward_nonzero_ratio": 0.817,
+      "jump_button_ratio": 0.29,
+      "jump_cadence_per_min": 44.033,
+      "low_dir_speed_ratio": 0.047,
+      "low_speed_time_ratio": 0.146,
+      "match_duration_ms": 45821,
+      "max_advanced_control_points": 12,
+      "max_advanced_control_points_inside_mvd": 12,
+      "max_control_point_index": 12,
+      "max_control_point_index_inside_mvd": 12,
+      "max_qwd_active_seconds": 12.149,
+      "min_qwd_distance_qu": 96.257,
+      "p95_horizontal_speed_qu_per_s": 456.271,
+      "player": "/ goldenboy",
+      "probe_state_sample_count": 404,
+      "qwd_active_aligned_mvd_time_range_ms": {
+        "max": 19336,
+        "min": 7248
+      },
+      "qwd_active_count": 117,
+      "qwd_active_inside_mvd_count": 117,
+      "qwd_active_inside_mvd_ratio": 1.0,
+      "qwd_active_ratio": 0.29,
+      "qwd_complete_count": 0,
+      "qwd_complete_ratio": 0.0,
+      "qwd_sample_count": 404,
+      "route_state_sample_count": 404,
+      "run_id": "20260607T003837Z",
+      "server_start_time_s": 4.267,
+      "side_nonzero_ratio": 0.931,
+      "stationary_time_ratio": 0.004,
+      "water_path_ratio": 0.092,
+      "water_state_sample_count": 404
+    }
+  ],
+  "probe_contract": {
+    "allowed_changes": [
+      "One temporary moveprobe mode for the SNG shortcut.",
+      "One extra `qwd=` command-log suffix with active flag, control-point index, distance, and completion state.",
+      "Runner cvars only if needed to pass the waypoint string and radius values.",
+      "A comparison helper that scores QWD path distance, control-point advancement, speed, route/water state, and cadence."
+    ],
+    "forbidden_changes": [
+      "No `dm3.bot` route mutation.",
+      "No broad Frogbot route rewrite.",
+      "No combat/aim/item/spawn behavior change in the same PR.",
+      "No claim that the bot learned SNG from QWD unless a server-loop MVD proves execution.",
+      "No expansion to all DM3 QWD moves until the SNG probe produces positive server-loop evidence."
+    ],
+    "intended_followup": "Implement one temporary KTX moveprobe mode, likely mode 9.",
+    "probe_id": "qwd-dm3-sng-hybrid-waypoint-controller",
+    "runtime_shape": [
+      "Do not edit dm3.bot.",
+      "Use cvar_string to read a bounded semicolon-separated QWD waypoint string.",
+      "Activate only when the bot is on dm3 and within the start radius of control point 0.",
+      "Advance control points only when the bot enters the control-point radius.",
+      "Project waypoint-attraction plus QWD-style sidemove into the bot's preserved combat view yaw.",
+      "Preserve route, water, command, probe-activation, cadence, and movement-bucket diagnostics."
+    ],
+    "status": "design_only_no_controller_behavior_changed",
+    "suggested_cvars": {
+      "k_fb_moveprobe_forwardmove": 320,
+      "k_fb_moveprobe_log_commands": 1,
+      "k_fb_moveprobe_log_interval": 0.1,
+      "k_fb_moveprobe_mode": 9,
+      "k_fb_moveprobe_qwd_point_radius": 96.0,
+      "k_fb_moveprobe_qwd_start_radius": 192.0,
+      "k_fb_moveprobe_qwd_waypoints": "307.375,-321.250,56.000;302.375,-254.125,56.000;255.500,-141.750,81.625;214.000,35.625,74.000;368.000,145.375,99.375;458.500,228.500,62.125;520.875,416.875,97.750;384.750,530.625,85.625;214.125,616.500,83.250;27.500,672.125,97.750;-34.125,692.125,98.500;-150.750,659.625,115.625;-240.875,557.875,130.375;-424.250,492.625,120.000",
+      "k_fb_moveprobe_sidemove": 508
+    }
+  },
+  "run_configs": [
+    {
+      "command_log_interval": "0.1",
+      "command_logging": "1",
+      "forwardmove": "320",
+      "map": "dm3",
+      "match_duration_ms": 45821,
+      "moveprobe_mode": "9",
+      "qwd_point_radius": "96.0",
+      "qwd_start_radius": "192.0",
+      "qwd_waypoint_chars": 328,
+      "run_id": "20260607T003837Z",
+      "server_start_time_s": 4.2668004,
+      "sidemove": "508"
+    }
+  ],
+  "schema": "komodobots.qwd_sng_hybrid_probe_result.v1",
+  "source_design_path": "experiments/qwd_route_probe/evidence/qwd-sng-hybrid-probe-design-dm3.json",
+  "source_design_stage": "qwd-dm3-sng-hybrid-probe-design",
+  "stage": "qwd-sng-tight-start-rerun-dm3",
+  "stop_condition_results": [
+    {
+      "details": {
+        "active_samples": 274,
+        "max_active_seconds": 16.383,
+        "required_active_seconds": 1.0
+      },
+      "id": "qwd_probe_activation",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "max_advanced_control_points": 12,
+        "max_advanced_control_points_inside_mvd": 12,
+        "required_advanced_control_points": 4,
+        "rule": "Control-point advancement must occur inside the parsed MVD movement window."
+      },
+      "id": "control_point_advancement",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "design_start_radius_qu": 192.0,
+        "players_advancing_after_loose_start": [],
+        "players_with_unverifiable_start_distance": [
+          {
+            "first_active_inside_mvd_advanced_control_points": 2,
+            "first_active_inside_mvd_control_point_index": 2,
+            "first_active_inside_mvd_distance_qu": 160.417,
+            "first_active_inside_mvd_time_ms": 1587,
+            "player": "/ bro"
+          },
+          {
+            "first_active_inside_mvd_advanced_control_points": 2,
+            "first_active_inside_mvd_control_point_index": 2,
+            "first_active_inside_mvd_distance_qu": 167.498,
+            "first_active_inside_mvd_time_ms": 7248,
+            "player": "/ goldenboy"
+          }
+        ],
+        "rule": "A run that reaches the advancement gate must show first active in-MVD evidence at CP0 before same-frame advancement and inside the design start radius."
+      },
+      "id": "tight_start_activation",
+      "status": "inconclusive"
+    },
+    {
+      "details": {
+        "minimum_phase_duration_s": 1.0,
+        "players_with_unresolved_post_advance_targets": [
+          {
+            "active_duration_s": 5.557,
+            "control_point_index": 8,
+            "min_distance_qu": 100.211,
+            "player": "/ bro"
+          },
+          {
+            "active_duration_s": 6.873,
+            "control_point_index": 9,
+            "min_distance_qu": 100.806,
+            "player": "/ bro"
+          },
+          {
+            "active_duration_s": 5.824,
+            "control_point_index": 6,
+            "min_distance_qu": 97.146,
+            "player": "/ goldenboy"
+          },
+          {
+            "active_duration_s": 1.04,
+            "control_point_index": 9,
+            "min_distance_qu": 96.518,
+            "player": "/ goldenboy"
+          }
+        ],
+        "point_radius_qu": 96.0,
+        "rule": "After the required SNG advancement, a long active phase on the next target must enter that target radius before the run can count as bounded positive evidence."
+      },
+      "id": "phase_target_progression",
+      "status": "reject"
+    },
+    {
+      "details": {
+        "players_with_active_qwd_outside_mvd_window": [],
+        "rule": "QWD activation/advancement must overlap the parsed MVD movement window before movement guardrails can support a positive claim."
+      },
+      "id": "qwd_activation_mvd_overlap",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "players_missing_route_water_or_cadence": []
+      },
+      "id": "diagnostic_preservation",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "players_with_weak_active_side_or_jump_profile": []
+      },
+      "id": "qwd_command_profile_present",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "low_speed_threshold": 0.4,
+        "players_reaching_points_while_slow_or_stuck": [
+          "/ bro"
+        ],
+        "stationary_threshold": 0.25
+      },
+      "id": "waypoint_only_slow_success",
+      "status": "reject"
+    },
+    {
+      "details": {
+        "players_reaching_points_with_dirty_route_context": [],
+        "water_path_or_low_dir_threshold": 0.5
+      },
+      "id": "route_dirty_success_guardrail",
+      "status": "pass"
+    }
+  ],
+  "warnings": []
+}

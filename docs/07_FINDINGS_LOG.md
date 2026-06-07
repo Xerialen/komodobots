@@ -3169,3 +3169,68 @@ High for the new rejection evidence because it reuses the existing sampled QWD s
 ### Follow-up
 
 Rerun mode `9` with the original `192` qu start radius, unchanged projection, unchanged diagnostics, and the new phase-level gates. Only consider projection changes if the tight-start active phases still stall before the next target.
+
+## 2026-06-07 - QWD SNG Tight-Start Rerun
+
+### Experiment
+
+Temporarily redeployed the existing mode-9 KTX moveprobe patch, ran one `dm3` SNG probe as `20260607T003837Z`, and restored the live KTX module afterward. The run restored the original `192` qu start radius while keeping the same `dm3_sng_shortcut.qwd` control points, `96` qu point radius, `forwardmove=320`, `sidemove=508`, command logging, route/water diagnostics, and cadence reporting.
+
+### Result
+
+This is major substrate progress, but it is still rejected movement evidence.
+
+- The run produced a non-empty MVD, parser output, movement metrics, and `865` sampled command rows.
+- QWD active samples: `274`.
+- Max active seconds: `16.383`.
+- Max advanced control points inside the parsed MVD window: `12`.
+- `/ bro` advanced `11` control points inside MVD; `/ goldenboy` advanced `12`.
+- Passing gates: QWD activation, in-window control-point advancement, MVD-overlap, diagnostic preservation, active side/jump command profile, and route-dirty success guardrail.
+- Rejected gates: `phase_target_progression` and `waypoint_only_slow_success`.
+- Inconclusive gate: `tight_start_activation`, because both bots' first active in-MVD sampled rows were already at CP2. The scorer correctly refuses to infer pre-advance CP0 start evidence from that sampled state.
+- `/ bro` remains the slow-success candidate with whole-run low-speed ratio `0.55`; the active-phase diagnosis shows many early phases with strong side/jump commands and no water/low-dir-speed route contamination, but later CP8/CP9 phases slow down.
+
+### Evidence
+
+Committed artifacts:
+
+- `experiments/qwd_route_probe/evidence/qwd-sng-tight-start-rerun-dm3.json`
+- `experiments/qwd_route_probe/evidence/qwd-sng-tight-start-rerun-dm3.md`
+- `experiments/qwd_route_probe/evidence/qwd-sng-tight-start-rerun-diagnosis-dm3.json`
+- `experiments/qwd_route_probe/evidence/qwd-sng-tight-start-rerun-diagnosis-dm3.md`
+- `experiments/qwd_route_probe/evidence/qwd-sng-tight-start-rerun-slow-success-diagnosis-dm3.json`
+- `experiments/qwd_route_probe/evidence/qwd-sng-tight-start-rerun-slow-success-diagnosis-dm3.md`
+
+Validation:
+
+```powershell
+git apply --check C:\Users\benya\projects\quakeworld\komodobots\experiments\ktx_moveprobe\frogbot-moveprobe.patch
+ssh servexeri 'set -euo pipefail; cd ~/nquakesv/build/ktx; git apply --check ~/komodobots-lab/qwd-sng-tight-start-rerun.patch; git apply ~/komodobots-lab/qwd-sng-tight-start-rerun.patch; cmake --build build -- -j2'
+python scripts\run_bot_lab.py --map dm3 --duration 45 --bot-count 2 --bot-spacing 6 --moveprobe-mode 9 --moveprobe-forwardmove 320 --moveprobe-sidemove 508 --moveprobe-qwd-waypoints "<14 QWD control points>" --moveprobe-qwd-point-radius 96 --moveprobe-qwd-start-radius 192 --moveprobe-log-commands --moveprobe-log-interval 0.1
+python scripts\compare_qwd_sng_hybrid_probe.py --bot-run-id 20260607T003837Z --stage qwd-sng-tight-start-rerun-dm3 --output-json experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-dm3.json --output-md experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-dm3.md
+python scripts\diagnose_qwd_sng_probe.py --bot-run-id 20260607T003837Z --stage qwd-sng-tight-start-rerun-dm3 --result-json experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-dm3.json --output-json experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-diagnosis-dm3.json --output-md experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-diagnosis-dm3.md
+python scripts\diagnose_qwd_sng_slow_success.py --bot-run-id 20260607T003837Z --stage qwd-sng-tight-start-rerun-dm3 --result-json experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-dm3.json --output-json experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-slow-success-diagnosis-dm3.json --output-md experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-slow-success-diagnosis-dm3.md
+```
+
+Remote rollback checks:
+
+```text
+live symlink -> qwprogs-1.48-dev-08807d.so
+live qwprogs hash -> 23d45401251ee802549c924f3179cf0cd76e0132dd7727778994c0464b8143e0
+~/nquakesv/build/ktx: clean master...origin/master
+localhost:28599 DOWN
+```
+
+### Interpretation
+
+The KTX/Frogbots shell is still viable enough to keep probing: exact QWD-derived SNG control can now push bots through most of the SNG path under tight activation in the real server loop. But the result is not accepted learned movement. Sparse sampled command rows cannot prove pre-advance CP0 activation, phase target entries are still not proven, and `/ bro` remains too slow over the run.
+
+### Confidence
+
+High that the live run, MVD parsing, command logging, and remote rollback succeeded.
+
+Medium that the remaining failure is controller policy rather than instrumentation/scoring, because phase entry may be missed by `0.1` second command sampling and the current slow-success guardrail is still whole-run rather than active-window only.
+
+### Follow-up
+
+Keep the next step diagnostic. Capture denser or event-level QWD advancement/start evidence and score active-window movement quality before changing projection policy or expanding the method to other DM3 QWD moves.

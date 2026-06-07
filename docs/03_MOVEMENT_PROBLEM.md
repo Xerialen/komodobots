@@ -490,6 +490,23 @@ Rescoring run `20260606T231007Z` as `qwd-sng-phase-gate-tightening-dm3` keeps th
 
 Interpretation: this makes the SNG evidence gate stricter without changing movement behavior. The next live experiment should rerun mode `9` with tight design-radius activation and unchanged projection before changing command policy or trying other DM3 QWD moves.
 
+## QWD SNG Tight-Start Rerun
+
+The tight-start rerun restored the original `192` qu start radius and kept the same mode `9` QWD control points, `96` qu point radius, and `forwardmove=320` / `sidemove=508` projection. It temporarily deployed the existing KTX moveprobe patch, ran `dm3` lab run `20260607T003837Z`, and restored the stock live KTX module afterward.
+
+Result:
+
+- QWD activation overlapped the parsed MVD movement window for both bots.
+- The run produced `865` sampled command rows, `274` active QWD samples, and `16.383` max active seconds.
+- Both bots advanced far beyond the previous four-point setup repair: `/ bro` reached `11` control points inside the MVD window, and `/ goldenboy` reached `12`.
+- The scorer still rejects the run on `phase_target_progression` and `waypoint_only_slow_success`.
+- `tight_start_activation` is inconclusive rather than rejected because the first active in-MVD sampled row was already at CP2 for both bots, so the sampled command log cannot prove the pre-advance CP0 start state.
+- `/ bro` remains the slow-success candidate with whole-run low-speed ratio `0.55`, even though many active phases show strong side/jump commands and no water/low-dir-speed route contamination.
+
+Interpretation: this is the strongest evidence so far that the KTX/Frogbots substrate can ingest QWD-derived DM3 SNG control inside real server physics. It is still not learned or believable SNG movement. The current blocker has shifted from "can we activate and advance under tight setup?" to "can we prove exact phase entries and active-window movement quality without relying on sparse command samples or whole-match slow ratios?"
+
+The next useful step should remain diagnostic: capture denser or event-level QWD advancement/start evidence and score active-window movement quality before changing projection policy or expanding to the other DM3 QWD moves.
+
 ## Working hypothesis
 
 The largest visible realism gap is movement.

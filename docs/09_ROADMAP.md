@@ -36,7 +36,7 @@ flowchart TD
 
 Current active stage:
 
-`QWD-DM3-SNG - Tight-start SNG rerun under phase gates`
+`QWD-DM3-SNG - Tight-start rerun evidence; next diagnostic is dense/event-level advancement proof`
 
 ## Stage Status Table
 
@@ -50,7 +50,7 @@ Current active stage:
 | S5 Milton Reference | Tiny aggregate complete | S5b aggregates exact-player `dm3` references for Milton, carapace, and yeti; S3g remains below reference avg/p95 movement ranges |
 | S6 Route Primitives | Closed for now | S6f found `276->59` is explicit and reciprocal, but marker `276` lacks static geometry, so no tiny route-data fix is justified from `dm3.bot` alone |
 | S7 Player Specific | Paused behind QWD decision track | S7l found enough clean air-transition evidence for one narrower Frogbots probe, but the QWD action/trajectory bridge is now the faster Frogbots-vs-from-scratch decision path |
-| QWD DM3 Route Transfer | Active but blocked from expansion | Phase-gate tightening rejects the setup-repair run on loose start activation, unresolved CP4 target progression, and slow-success guardrails; next evidence must rerun SNG with tight `192` qu activation before projection changes or other DM3 QWD moves |
+| QWD DM3 Route Transfer | Active but blocked from expansion | Tight-start run `20260607T003837Z` advances up to `12` SNG control points inside MVD, but still fails phase-target and slow-success guardrails; next evidence must prove exact advancement/start events and active-window movement quality before projection changes or other DM3 QWD moves |
 
 ## Roadmap Rule
 
@@ -120,3 +120,5 @@ The QWD SNG setup repair reran the same mode `9`, QWD control points, `96` qu po
 The QWD SNG slow-success diagnosis split that accepted run by active control-point phase. `/ bro` was activated by the loose `320` qu start radius at `t=0` from `281.954` qu away, while the original `192` qu design radius would first have activated at `31652` ms when the bot was `83.332` qu from CP0. The CP0 phase had p50 speed `84.385` qu/s, low-speed ratio `0.526`, stationary ratio `0.383`, and blocked ratio `0.371`; after advancing through four points, the bot still remained `181.154` qu from CP4 against a `96` qu radius. Strong side/jump commands were present, and water/low-dir-speed were not primary. The next QWD branch should tighten activation and phase-level success gates before projection changes or trying other DM3 QWD moves.
 
 The QWD SNG phase-gate tightening adds those gates to the scorer without changing movement behavior. Rescoring `20260606T231007Z` now rejects `tight_start_activation` because `/ bro` first activated inside the MVD at `281.954` qu from CP0 against the design `192` qu start radius, rejects `phase_target_progression` because `/ bro` spent `9.908` seconds on CP4 without getting closer than `183.876` qu against the `96` qu point radius, and keeps the existing `waypoint_only_slow_success` rejection. The next QWD branch should rerun mode `9` with the original `192` qu start radius and unchanged projection before any command-policy change or expansion to other DM3 QWD moves.
+
+The QWD SNG tight-start rerun restored the original `192` qu activation radius and kept the same mode `9` projection. Run `20260607T003837Z` is the strongest QWD-to-Frogbot substrate signal so far: both bots activated inside the MVD window, `/ bro` advanced `11` control points, and `/ goldenboy` advanced `12`. It is still rejected as learned movement because `phase_target_progression` and `waypoint_only_slow_success` fail, while `tight_start_activation` is only inconclusive because the first active sampled rows were already at CP2. The next QWD branch should stay diagnostic: capture denser or event-level QWD start/advancement evidence and score active-window movement quality before changing projection policy or trying the rest of the DM3 QWD corpus.
