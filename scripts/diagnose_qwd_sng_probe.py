@@ -394,7 +394,7 @@ def build_decision(
     return {
         "verdict": "qwd_sng_probe_ready_for_review",
         "reason": "The scorer did not report timing/start-context blockers or rejected guardrails.",
-        "next_goal": "Ask Claude/Code Sentinel to review whether the evidence justifies the next QWD-derived movement step.",
+        "next_goal": "Ask the Reviewer to assess whether the evidence justifies the next QWD-derived movement step.",
     }
 
 
