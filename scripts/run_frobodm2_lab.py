@@ -68,8 +68,18 @@ moveprobe_transition_window="${15}"
 moveprobe_qwd_waypoints_b64="${16}"
 moveprobe_qwd_point_radius="${17}"
 moveprobe_qwd_start_radius="${18}"
-moveprobe_qwd_waypoints="$(printf '%s' "$moveprobe_qwd_waypoints_b64" | base64 -d)"
+if [ "$moveprobe_qwd_waypoints_b64" = "-" ]; then
+  moveprobe_qwd_waypoints=""
+else
+  moveprobe_qwd_waypoints="$(printf '%s' "$moveprobe_qwd_waypoints_b64" | base64 -d)"
+fi
 moveprobe_replay_file="${19:-}"
+if [ "$moveprobe_replay_file" = "-" ]; then
+  moveprobe_replay_file=""
+fi
+moveprobe_lookahead_frames="${20:-4}"
+moveprobe_corr_deadband="${21:-16}"
+moveprobe_corr_yaw_max="${22:-3}"
 
 session="komodobots_lab_${map_name}_${port}_${run_id}"
 rundir="$HOME/komodobots-lab/runs/$run_id"
@@ -160,6 +170,9 @@ set k_fb_moveprobe_qwd_waypoints "$moveprobe_qwd_waypoints"
 set k_fb_moveprobe_qwd_point_radius $moveprobe_qwd_point_radius
 set k_fb_moveprobe_qwd_start_radius $moveprobe_qwd_start_radius
 set k_fb_moveprobe_replay_file "$moveprobe_replay_file"
+set k_fb_moveprobe_lookahead_frames $moveprobe_lookahead_frames
+set k_fb_moveprobe_corr_deadband $moveprobe_corr_deadband
+set k_fb_moveprobe_corr_yaw_max $moveprobe_corr_yaw_max
 timelimit 1
 fraglimit 0
 samelevel 1
@@ -438,7 +451,8 @@ MOVEPROBE_COMMAND_RE = re.compile(
     r"(?P<qwd_active_seconds>-?\d+(?:\.\d+)?))?"
     r"(?:\s+replay=(?P<replay_active>\d+),(?P<replay_complete>\d+),(?P<replay_cursor>-?\d+),"
     r"(?P<replay_count>-?\d+),(?P<replay_divergence>-?\d+(?:\.\d+)?),"
-    r"(?P<replay_exp_x>-?\d+(?:\.\d+)?),(?P<replay_exp_y>-?\d+(?:\.\d+)?),(?P<replay_exp_z>-?\d+(?:\.\d+)?))?"
+    r"(?P<replay_exp_x>-?\d+(?:\.\d+)?),(?P<replay_exp_y>-?\d+(?:\.\d+)?),(?P<replay_exp_z>-?\d+(?:\.\d+)?),"
+    r"(?P<replay_div_h>-?\d+(?:\.\d+)?),(?P<replay_div_v>-?\d+(?:\.\d+)?))?"
 )
 
 
@@ -451,6 +465,8 @@ MOVEPROBE_REPLAY_EVENT_RE = re.compile(
     r"cursor=(?P<cursor>-?\d+)\s+"
     r"count=(?P<count>-?\d+)\s+"
     r"divergence=(?P<divergence>-?\d+(?:\.\d+)?)\s+"
+    r"divergence_h=(?P<divergence_h>-?\d+(?:\.\d+)?)\s+"
+    r"divergence_v=(?P<divergence_v>-?\d+(?:\.\d+)?)\s+"
     r"origin=(?P<origin_x>-?\d+(?:\.\d+)?),(?P<origin_y>-?\d+(?:\.\d+)?),(?P<origin_z>-?\d+(?:\.\d+)?)\s+"
     r"expected=(?P<expected_x>-?\d+(?:\.\d+)?),(?P<expected_y>-?\d+(?:\.\d+)?),(?P<expected_z>-?\d+(?:\.\d+)?)"
 )
@@ -561,6 +577,8 @@ def parse_moveprobe_command_logs(screen_log: str) -> list[dict[str, object]]:
                 "cursor": int(groups["replay_cursor"]),
                 "frame_count": int(groups["replay_count"]),
                 "divergence_qu": float(groups["replay_divergence"]),
+                "divergence_h_qu": float(groups["replay_div_h"]),
+                "divergence_v_qu": float(groups["replay_div_v"]),
                 "expected_origin": {
                     "x": float(groups["replay_exp_x"]),
                     "y": float(groups["replay_exp_y"]),
@@ -587,6 +605,8 @@ def parse_moveprobe_replay_event_logs(screen_log: str) -> list[dict[str, object]
                 "cursor": int(groups["cursor"]),
                 "frame_count": int(groups["count"]),
                 "divergence_qu": float(groups["divergence"]),
+                "divergence_h_qu": float(groups["divergence_h"]),
+                "divergence_v_qu": float(groups["divergence_v"]),
                 "origin": {
                     "x": float(groups["origin_x"]),
                     "y": float(groups["origin_y"]),
@@ -877,6 +897,8 @@ def summarize_replay_states(replay_states: list[dict[str, object]]) -> dict[str,
 
     active = [s for s in replay_states if bool(s.get("active", False))]
     divergences = [round(float(s.get("divergence_qu", 0.0)), 3) for s in active]
+    div_h = [round(float(s.get("divergence_h_qu", 0.0)), 3) for s in active]
+    div_v = [round(float(s.get("divergence_v_qu", 0.0)), 3) for s in active]
     cursors = [int(s.get("cursor", 0)) for s in replay_states]
     frame_counts = [int(s.get("frame_count", 0)) for s in replay_states]
     return {
@@ -888,7 +910,11 @@ def summarize_replay_states(replay_states: list[dict[str, object]]) -> dict[str,
         "frame_count": max(frame_counts) if frame_counts else 0,
         "max_cursor": max(cursors) if cursors else 0,
         "max_divergence_qu": max(divergences) if divergences else None,
+        "max_divergence_h_qu": max(div_h) if div_h else None,
+        "max_divergence_v_qu": max(div_v) if div_v else None,
         "final_divergence_qu": divergences[-1] if divergences else None,
+        "final_divergence_h_qu": div_h[-1] if div_h else None,
+        "final_divergence_v_qu": div_v[-1] if div_v else None,
     }
 
 
@@ -993,6 +1019,8 @@ def write_moveprobe_replay_event_logs(local_run_dir: Path) -> dict[str, object]:
                 "frame_count": max(int(r["frame_count"]) for r in rows),
                 "max_cursor": max(int(r["cursor"]) for r in rows),
                 "final_divergence_qu": round(float(complete[-1]["divergence_qu"]), 3) if complete else None,
+                "final_divergence_h_qu": round(float(complete[-1]["divergence_h_qu"]), 3) if complete else None,
+                "final_divergence_v_qu": round(float(complete[-1]["divergence_v_qu"]), 3) if complete else None,
                 "final_cursor": int(complete[-1]["cursor"]) if complete else None,
             }
         )
@@ -1291,6 +1319,9 @@ def run_remote_lab(
     moveprobe_qwd_point_radius: float,
     moveprobe_qwd_start_radius: float,
     moveprobe_replay_file: str,
+    moveprobe_lookahead_frames: int,
+    moveprobe_corr_deadband: float,
+    moveprobe_corr_yaw_max: float,
     local_run_dir: Path,
 ) -> None:
     proc = run(
@@ -1315,10 +1346,13 @@ def run_remote_lab(
             str(moveprobe_log_interval),
             str(moveprobe_transition_scale),
             str(moveprobe_transition_window),
-            base64.b64encode(moveprobe_qwd_waypoints.encode("utf-8")).decode("ascii"),
+            base64.b64encode(moveprobe_qwd_waypoints.encode("utf-8")).decode("ascii") or "-",
             str(moveprobe_qwd_point_radius),
             str(moveprobe_qwd_start_radius),
-            moveprobe_replay_file,
+            moveprobe_replay_file or "-",
+            str(moveprobe_lookahead_frames),
+            str(moveprobe_corr_deadband),
+            str(moveprobe_corr_yaw_max),
         ],
         input_text=REMOTE_SCRIPT,
         check=False,
@@ -1360,7 +1394,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument(
         "--moveprobe-mode",
         type=int,
-        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
+        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
         default=0,
         help=(
             "Set k_fb_moveprobe_mode in the generated KTX lab config. "
@@ -1452,6 +1486,33 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         help="Mode 9 activation radius around the first control point in qu. Defaults to 192.",
     )
     parser.add_argument(
+        "--moveprobe-lookahead-frames",
+        type=int,
+        default=4,
+        help=(
+            "Mode 11 (closed-loop steering) lookahead: aim at the human origin this "
+            "many replay frames ahead of the current time cursor. Defaults to 4."
+        ),
+    )
+    parser.add_argument(
+        "--moveprobe-corr-deadband",
+        type=float,
+        default=16.0,
+        help=(
+            "Mode 12 (corrective replay) deadband in qu: only apply the yaw nudge "
+            "once horizontal divergence exceeds this. Defaults to 16."
+        ),
+    )
+    parser.add_argument(
+        "--moveprobe-corr-yaw-max",
+        type=float,
+        default=3.0,
+        help=(
+            "Mode 12 (corrective replay) per-frame yaw correction clamp in degrees. "
+            "Defaults to 3."
+        ),
+    )
+    parser.add_argument(
         "--moveprobe-log-commands",
         action="store_true",
         help=(
@@ -1492,11 +1553,12 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
 
         port = choose_port(args.host, args.port, explicit=args.strict_port)
         upload_shim(args.host, run_id)
-        if args.moveprobe_mode == 10 and args.replay_cmds is None:
+        if args.moveprobe_mode in (10, 11, 12) and args.replay_cmds is None:
             raise RuntimeError(
-                "--moveprobe-mode 10 (open-loop replay) requires --replay-cmds; "
-                "without it KTX loads no frames and silently falls back to normal "
-                "Frogbot movement while artifacts would still report mode 10."
+                f"--moveprobe-mode {args.moveprobe_mode} (replay-backed) requires "
+                "--replay-cmds; without it KTX loads no frames and silently falls "
+                "back to normal Frogbot movement while artifacts would still report "
+                "the mode."
             )
         replay_remote = ""
         if args.replay_cmds is not None:
@@ -1522,6 +1584,9 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             args.moveprobe_qwd_point_radius,
             args.moveprobe_qwd_start_radius,
             replay_remote,
+            args.moveprobe_lookahead_frames,
+            args.moveprobe_corr_deadband,
+            args.moveprobe_corr_yaw_max,
             local_run_dir,
         )
         scp_from_remote(args.host, run_id, local_run_dir)

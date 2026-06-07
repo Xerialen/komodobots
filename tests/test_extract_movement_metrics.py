@@ -424,7 +424,7 @@ class MovementMetricsTests(unittest.TestCase):
             "water=1,-3,528,0,0.000,25.5,-4.0,80.0,0.100,0.200,0.300 "
             "probe=0,0,999.000,999.000,1.000 "
             "qwd=0,0,0,999999.000,0,0,0.000 "
-            "replay=1,0,42,692,18.375,-800.000,-120.000,-15.000"
+            "replay=1,0,42,692,18.375,-800.000,-120.000,-15.000,17.625,5.250"
         )
         self.assertEqual(len(commands), 1)
         self.assertEqual(commands[0]["mode"], 10)
@@ -436,28 +436,34 @@ class MovementMetricsTests(unittest.TestCase):
                 "cursor": 42,
                 "frame_count": 692,
                 "divergence_qu": 18.375,
+                "divergence_h_qu": 17.625,
+                "divergence_v_qu": 5.25,
                 "expected_origin": {"x": -800.0, "y": -120.0, "z": -15.0},
             },
         )
         summary = run_frobodm2_lab.summarize_moveprobe_commands(commands)
         replay_summary = summary["players"][0]["replay_state"]
         self.assertEqual(replay_summary["max_divergence_qu"], 18.375)
+        self.assertEqual(replay_summary["max_divergence_h_qu"], 17.625)
+        self.assertEqual(replay_summary["max_divergence_v_qu"], 5.25)
         self.assertEqual(replay_summary["frame_count"], 692)
 
         events = run_frobodm2_lab.parse_moveprobe_replay_event_logs(
             "\n".join(
                 [
                     "FBMOVEPROBE_REPLAY_EVENT time=13.000 ed=2 name=/ bro event=activate "
-                    "cursor=0 count=692 divergence=0.000 origin=-895.375,-129.125,-15.875 "
-                    "expected=-895.375,-129.125,-15.875",
+                    "cursor=0 count=692 divergence=0.000 divergence_h=0.000 divergence_v=0.000 "
+                    "origin=-895.375,-129.125,-15.875 expected=-895.375,-129.125,-15.875",
                     "FBMOVEPROBE_REPLAY_EVENT time=22.000 ed=2 name=/ bro event=complete "
-                    "cursor=691 count=692 divergence=512.250 origin=100.000,200.000,40.000 "
-                    "expected=-50.000,300.000,24.000",
+                    "cursor=691 count=692 divergence=512.250 divergence_h=500.000 divergence_v=110.000 "
+                    "origin=100.000,200.000,40.000 expected=-50.000,300.000,24.000",
                 ]
             )
         )
         self.assertEqual([e["event"] for e in events], ["activate", "complete"])
         self.assertEqual(events[1]["divergence_qu"], 512.25)
+        self.assertEqual(events[1]["divergence_h_qu"], 500.0)
+        self.assertEqual(events[1]["divergence_v_qu"], 110.0)
         self.assertEqual(events[1]["cursor"], 691)
 
     def test_remote_port_down_treats_empty_or_down_as_free(self) -> None:

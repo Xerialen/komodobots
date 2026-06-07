@@ -3394,3 +3394,46 @@ Medium-high for the offline scorer behavior because the targeted regression test
 ### Follow-up
 
 After review and human confirmation for the live server step, rerun the unchanged `dm3_sng_shortcut.qwd` mode-9 probe with event logging enabled and score it with the event-aware scorer before changing projection policy or trying other DM3 QWD moves.
+
+---
+
+## 2026-06-07
+
+### Experiment
+
+Closed-loop movement on `dm3_sng_to_rl`: can a Frogbot reproduce more of the human trick than open-loop replay, and does feedback help? Three KTX moveprobe variants, each snapped to the human frame-0 state and scored on the identical divergence trace (bot origin vs human origin at the same replay time index):
+
+- **Mode 10 (open-loop replay):** emit the exact human usercmd each frame (no feedback). Baseline / control arm.
+- **Mode 11 (closed-loop steering):** discard the usercmd; each frame re-aim from the bot's ACTUAL origin toward the human origin `lookahead` frames ahead, move forward + strafe (sign from the human's recorded sidemove), jump. `lookahead=4`.
+- **Mode 12 (corrective replay):** emit the exact human usercmd, but once horizontal divergence exceeds a deadband, rotate view yaw toward the human origin by a clamped per-frame budget. `deadband=16 qu`, `yaw_max=3 deg/frame`.
+
+Headline metric: the cursor at which horizontal divergence (divH) first exceeds 32 qu (the believable-corridor length), plus max divergence and whether the full 691-frame stream replayed. 1 bot, dm3, same `dm3_sng_to_rl.cmds` for all three.
+
+### Result
+
+| Arm | run_id | divH crosses 32 at | maxH (qu) | full stream |
+|---|---|---|---|---|
+| open-loop (m10) | 20260607T151125Z | cursor 255 | 1065.9 | 691/691 |
+| steering (m11) | 20260607T164852Z | cursor 24 | 1348.5 | 600/691 (bot left route) |
+| corrective (m12) | 20260607T170056Z | cursor 381 | 196.1 | 691/691 |
+
+Mode 12 correction budget: per-frame yaw nudge held at the 3.0 deg clamp (`corr_max=3.00`), cumulative `corr_accum=1154` deg over the run (logged via `FBMOVEPROBE_REPLAY_CORR`).
+
+### Evidence
+
+- Artifacts: `artifacts/lab-runs/{20260607T151125Z,20260607T164852Z,20260607T170056Z}/` (moveprobe-commands.json, moveprobe-replay-events.json, replay-score.json, screen.log).
+- Recorded demos (git + nQuake mirror): `tricks/dm3/dm3_sng_to_rl__{20260607T151125Z,164852Z,170056Z}.mvd`.
+- KTX modes 10/11/12 in `src/bot_movement.c` (`BotApplyMoveProbeReplay` `replay_variant` 0/1/2), captured in `experiments/ktx_moveprobe/frogbot-moveprobe.patch`.
+- Approach chosen by the `movement-approach-panel` judge panel (6 candidates, 2 judges each); hybrid/corrective ranked top, from-scratch scoped later.
+
+### Interpretation
+
+Open-loop reproduces a real lockstep prefix (a ring->YA trick jump, Frogbot brain off) to cursor 255, then diverges catastrophically at the strafe-jump because it has no feedback. Pure steering (m11) is dramatically WORSE — it collapses the corridor to cursor 24 — which proves the human's exact per-frame input is load-bearing in the prefix; a steering heuristic with generic strafe magnitudes cannot replace it. Corrective replay (m12) keeps that exact input AND adds a small clamped yaw correction: it extends the corridor through the strafe-jump (255->381, +50%) and bounds worst-case divergence 5.4x (1066->196 qu) while replaying the full stream. Because the correction is a yaw nudge (it never writes origin/velocity), the 196 qu is a genuine trajectory improvement, not metric masking. Net: closed-loop CORRECTION (not steering, not from-scratch) is the validated path to more-believable bunnyjump; the from-scratch movement brain stays shelved.
+
+### Confidence
+
+Medium-high. The three-arm A/B shares one snapped start, one demo, one scorer; the divH-cross ordering (24 << 255 < 381) and the 5.4x maxH reduction are large, consistent signals with a clean monotonic divergence ramp from a verified frame-0 snap. Single parameter setting per arm (not yet swept), single trick demo — robustness across (deadband, yaw_max) and a second dm3 trick is the open question.
+
+### Follow-up
+
+Sweep mode 12 (deadband {8,16,32} x yaw_max {2,3,5}) and replicate on a second dm3 trick to confirm the corridor extension generalizes; consider whether a higher yaw_max tracks further at acceptable believability (corr_max was saturated at the 3 deg clamp). Ocular-review the m12 demo for visible twitch.
