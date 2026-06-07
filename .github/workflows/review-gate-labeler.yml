@@ -38,6 +38,7 @@ permissions:
   pull-requests: write
   checks: read
   statuses: read
+  actions: read
 
 concurrency:
   group: review-gate-labeler-${{ github.event.issue.number || github.event.pull_request.number }}
