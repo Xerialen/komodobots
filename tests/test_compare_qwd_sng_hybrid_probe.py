@@ -49,11 +49,39 @@ def command_row(
     }
 
 
+def qwd_event_row(
+    *,
+    name: str = "/ goldenboy",
+    time_s: float = 11.0,
+    event: str = "activate",
+    target_index: int = 0,
+    next_index: int = 0,
+    advanced: int = 0,
+    active_seconds: float = 0.0,
+    distance: float = 72.0,
+) -> dict[str, object]:
+    return {
+        "name": name,
+        "time_s": time_s,
+        "event": event,
+        "target_index": target_index,
+        "next_index": next_index,
+        "control_point_count": 14,
+        "distance_qu": distance,
+        "advanced_control_points": advanced,
+        "active": True,
+        "complete": False,
+        "active_seconds": active_seconds,
+        "origin": {"x": 0.0, "y": 0.0, "z": 0.0},
+    }
+
+
 def write_fake_run(
     root: Path,
     run_id: str,
     *,
     commands: list[dict[str, object]],
+    qwd_events: list[dict[str, object]] | None = None,
     low_speed: float = 0.10,
     stationary: float = 0.02,
 ) -> None:
@@ -80,6 +108,11 @@ def write_fake_run(
         json.dumps({"commands": commands}),
         encoding="utf-8",
     )
+    if qwd_events is not None:
+        (run_dir / "moveprobe-qwd-events.json").write_text(
+            json.dumps({"schema": "komodobots.moveprobe_qwd_events.v1", "events": qwd_events}),
+            encoding="utf-8",
+        )
     (run_dir / "movement-metrics.json").write_text(
         json.dumps(
             {
@@ -319,6 +352,46 @@ class QwdSngHybridProbeTests(unittest.TestCase):
             by_id["tight_start_activation"]["details"]["players_with_unverifiable_start_distance"][0]["player"],
             "/ goldenboy",
         )
+
+    def test_qwd_events_resolve_tight_start_when_sampled_commands_start_after_advancement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fake_run(
+                root,
+                "run1",
+                commands=[command_row(time_s=12.0, advanced=4, index=4, active_seconds=1.6, distance=72.0)],
+                qwd_events=[
+                    qwd_event_row(time_s=11.0, event="activate", target_index=0, next_index=0, advanced=0),
+                    qwd_event_row(time_s=11.2, event="advance", target_index=0, next_index=1, advanced=1),
+                    qwd_event_row(time_s=11.4, event="advance", target_index=1, next_index=2, advanced=2),
+                    qwd_event_row(time_s=11.6, event="advance", target_index=2, next_index=3, advanced=3),
+                    qwd_event_row(
+                        time_s=11.8,
+                        event="advance",
+                        target_index=3,
+                        next_index=4,
+                        advanced=4,
+                        active_seconds=1.2,
+                    ),
+                ],
+            )
+
+            report = qwd_probe.build_report(
+                {},
+                stage="test",
+                bot_run_ids=["run1"],
+                artifacts_root=root,
+                design_path=REPO_ROOT / "design.json",
+            )
+
+        player = report["players"][0]
+        self.assertEqual(player["first_active_inside_mvd_source"], "qwd_event")
+        self.assertEqual(player["first_active_inside_mvd_control_point_index"], 0)
+        self.assertEqual(player["max_advanced_control_points_inside_mvd"], 4)
+        by_id = {condition["id"]: condition for condition in report["stop_condition_results"]}
+        self.assertEqual(by_id["tight_start_activation"]["status"], "pass")
+        self.assertEqual(by_id["control_point_advancement"]["status"], "pass")
+        self.assertEqual(by_id["qwd_activation_mvd_overlap"]["status"], "pass")
 
     def test_unresolved_post_advance_phase_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

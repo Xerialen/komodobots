@@ -2149,3 +2149,43 @@ The next live SNG rerun can answer a narrower question: do internal mode-9 activ
 ### Revisit Conditions
 
 Revisit projection changes or broader DM3 QWD transfer only after a reviewed live rerun produces QWD event artifacts that resolve start/advance timing and allow active-window movement-quality scoring without relying on sampled command rows.
+
+---
+
+## Decision
+
+Use QWD event rows as scoring evidence, but not as movement-quality proof.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+Teach the SNG scorer to consume optional `moveprobe-qwd-events.json` rows as the preferred proof source for internal mode-9 activation and advancement timing. Keep event rows separate from movement-quality claims: they can resolve start/advance proof, but they cannot by themselves prove human-like SNG movement.
+
+### Alternatives Considered
+
+- Wait for the live rerun before making the scorer event-aware.
+- Keep relying only on sampled `FBMOVEPROBE_CMD` rows.
+- Treat physical MVD crossings as sufficient start proof without internal event rows.
+- Treat event rows as a success condition by themselves.
+
+### Evidence
+
+The tight-start run's sampled command rows were too sparse to prove CP0 activation, while PR #34 added unsampled event rows for the exact transition edges. The new scorer test proves that an inside-MVD CP0 `activate` event can resolve the `tight_start_activation` gate when sampled commands start after advancement.
+
+Validation for the scoring prep:
+
+```powershell
+python -m py_compile scripts\compare_qwd_sng_hybrid_probe.py
+python -m unittest tests.test_compare_qwd_sng_hybrid_probe -v
+```
+
+### Expected Consequences
+
+The next live rerun can answer whether mode-9 internal activation/advance timing matches the physical MVD crossing evidence. If it does, the next decision can focus on active-window movement quality rather than proof density.
+
+### Revisit Conditions
+
+Revisit if event-bearing live runs still disagree with MVD physical crossings, or if event rows appear without corresponding MVD movement evidence. In that case the scorer should treat identity/timing instrumentation as suspect before any projection-policy change or DM3-wide expansion.
