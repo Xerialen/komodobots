@@ -2347,3 +2347,5 @@ Revisit if the P2-only webhook race is ever observed merging an unreviewed chang
 The autonomous review-gate loop (Coder = Claude, Reviewer = Codex, deterministic label-gated auto-merge with a `pr-tests` CI floor) is **live** as of 2026-06-07.
 
 <!-- gate smoke 47 -->
+
+<!-- hands-off loop test: open -> auto-review -> gate: ready -> auto-merge, no manual steps -->
