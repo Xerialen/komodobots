@@ -8,7 +8,7 @@ This file should remain intentionally small.
 
 In the three-agent loop, **Claude is the Coder**: implement the current stage, update docs/evidence, open or update the stage PR, and respond to in-stage review feedback.
 
-Hard rule: the Coder must not merge, must not write the Reviewer verdict, and must not act as the Merger.
+Hard rule: the Coder must not merge, must not stand in for the Reviewer, and must not self-apply the `gate: ready` label.
 
 Claude-specific guidance:
 

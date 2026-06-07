@@ -1,0 +1,30 @@
+name: PR Tests
+
+# Deterministic CI floor for the merge gate: runs the repo's stdlib-only unit
+# suite on a GitHub-hosted runner for every PR. This is the hard, machine-checked
+# gate the merge executor requires (Codex's review is an advisory filter on top,
+# not the authority). Runs on the free private plan — no branch protection needed;
+# the merge executor counts this check in the PR's status rollup.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-tests-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v

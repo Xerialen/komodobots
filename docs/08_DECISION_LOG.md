@@ -2229,3 +2229,115 @@ Reviews cost no extra tokens and run in the cloud; merges are deterministic and 
 ### Revisit Conditions
 
 Revisit if Codex does not reliably emit the `MERGER: READY <head-sha>` line, if the `chatgpt-codex-connector` identity changes, or if a future need requires a smarter (LLM-based) merge decision than the deterministic gate provides.
+
+---
+
+## Decision
+
+Replace the `MERGER:` verdict-token merge gate with a neutral PR-label gate (`gate: ready`) applied by a no-LLM labeler from Codex's native review.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+The verdict-token mechanism is retired. The merge gate is now a neutral PR label, and `.github/workflows/codex-merge.yml` is deleted. Three deterministic, no-LLM, no-API-token Actions replace it:
+
+- `review-gate-labeler.yml` — reads Codex's native review result (it cannot apply labels or emit custom tokens itself) and stamps `gate: ready` on a clean review ("no major issues") or `gate: blocked` on any posted finding. Fails closed; a repo OWNER can override with `/gate ready` or `/gate blocked`.
+- `review-gate-merge.yml` — merges only when `gate: ready` is present, `gate: blocked` / `cycle: needs-human` are absent, the PR is open/non-draft/mergeable on `main`, and all non-gate checks pass.
+- `review-gate-reset.yml` — on every `synchronize`, clears `gate: ready`/`gate: blocked` and sets `gate: reviewing`, so a stale review can never merge newer code.
+
+### Alternatives Considered
+
+- Keep the `MERGER: READY <head-sha>` token. Rejected: the prior decision's revisit condition fired — Codex's code-review feature posts its own fixed format and does not reliably emit custom tokens, so the token gate never triggered.
+- Have Codex apply the `gate: ready` label itself. Rejected: verified against OpenAI's docs that the code-review feature cannot apply labels; only a manually-mentioned `@codex` cloud task could, which is non-deterministic and permission-dependent — the fuzziness the label gate is meant to remove.
+- Owner applies the label by hand every PR. Kept as the override path, but not the default: it is a manual step per PR.
+
+### Evidence
+
+- Live tests on PR #37 and #38: Codex posted "Codex Review: Didn't find any major issues." as `chatgpt-codex-connector` with no `MERGER:` token — the token gate could never fire.
+- OpenAI Codex GitHub docs: the code-review feature "posts a standard GitHub code review" (comments only); cloud `@codex` tasks act under least-privilege GitHub App tokens, read-only by default.
+- The labeler's clean/blocked classification and the merger's self-check-exclusion jq filter were unit-checked locally (n_checks/n_bad over a simulated `statusCheckRollup` correctly excludes the gate workflows' own in-progress runs — the P1 self-deadlock Codex flagged on the first label-gate attempt).
+
+### Expected Consequences
+
+The merge is now fully deterministic on a label; the only non-deterministic atom is recognizing Codex's standard clean phrasing, isolated in the labeler and failing closed. From the operator's seat the loop is hands-off: Codex reviews → label appears → PR auto-merges. New commits reset the gate automatically.
+
+### Revisit Conditions
+
+Revisit if Codex's clean-review phrasing changes (the labeler's match strings would need updating), if the `chatgpt-codex-connector` identity changes, or if false-positive `gate: ready` stamps occur — in which case tighten the labeler to require an explicit clean signal or fall back to the OWNER `/gate` override.
+
+---
+
+## Decision
+
+Add a deterministic CI floor (`pr-tests`) as the real merge gate; keep the custom executor on the free private plan instead of going public.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+Per best practice (AI review is a filter, not the merge authority), the merge gate is layered: a deterministic machine check is the real authority, Codex's label is an advisory filter on top.
+
+- Added `.github/workflows/pr-tests.yml`: runs the repo's 149 stdlib-only unit tests on a hosted `ubuntu-latest` runner for every PR (≈0.8s locally, no third-party deps). This is the hard gate.
+- `review-gate-merge.yml` already counts the PR status rollup, so `pr-tests` is enforced automatically — it now also triggers on `check_suite: completed`, so a PR merges as soon as the last of {tests green, `gate: ready`} arrives, and "not ready yet" is silent (no comment spam).
+- `lab-ci.yml` stays `workflow_dispatch`-only (self-hosted servexeri lab, currently fails per-PR); it is NOT the gate. `pr-tests` is the hosted floor.
+
+### Alternatives Considered
+
+- Make the repo public / upgrade to GitHub Pro to get branch protection + native auto-merge. Rejected: required-status-check enforcement (classic branch protection AND rulesets) returns 403 on a free private repo. But `pr-tests` runs on PRs on the free private plan anyway, and the custom executor enforces it — so the full best-practice gate (deterministic CI + AI filter + label-gated auto-merge) is achievable free and private. Going public only swaps the custom executor for GitHub-native enforcement (bypass-resistance — negligible for a solo repo) at the cost of permanently publishing 149 commits. Bad trade.
+- Re-enable `lab-ci` on PRs as the floor. Rejected: it runs on the self-hosted runner and currently fails on every PR while the native parser work is open.
+
+### Evidence
+
+- `python -m unittest discover -s tests`: 149 tests pass in ~0.8s; sampled tests import only stdlib + repo modules; no `requirements.txt`/`pyproject`.
+- Branch-protection and ruleset APIs both 403 with "Upgrade to GitHub Pro or make this repository public."
+- Secret scan across all 149 commits before considering public: clean (only `${{ secrets.GEMINI_API_KEY }}` references, no secret values; no key/credential files in tree or history).
+- Merge workflow bash passes `bash -n`; all workflow YAML parses.
+
+### Expected Consequences
+
+Fully automated merging on the free private plan with no human clicks (given Codex Automatic reviews is on): tests green + Codex clean → `gate: ready` → auto-squash-merge. A deterministic test floor sits under the AI filter, so a false-positive `gate: ready` still cannot merge failing code.
+
+### Revisit Conditions
+
+Revisit if the test suite grows to need third-party deps (add a cached install step), if `pr-tests` becomes flaky (quarantine, don't disable the floor), or if multi-committer collaboration starts (then GitHub-native branch protection becomes worth the public/Pro cost).
+
+---
+
+## Decision
+
+Ship the review-gate flow: require the `PR Tests` CI floor at merge, accept one narrow webhook race as documented, and stop iterating with Codex.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+After three Codex review rounds on the gate workflows (findings 4 → 2 → 2, narrowing in scope), fix the one safety-critical issue and go live rather than chase zero findings on a solo experimental repo.
+
+- Fixed (Codex P1): the merge executor now requires a `PR Tests` status to be **present and all-SUCCESS** in the rollup; an empty/absent rollup is no longer treated as passable. This stops untested code merging if `PR Tests` is ever disabled/renamed/fails to trigger. Fail-closed.
+- Accepted as documented (Codex P1, narrow): the labeler's P2-only ready path can, in a webhook-ordering race (a P2 inline comment ingested before a sibling P1), briefly ready a PR before the P1 flips it to blocked. Mitigations already in place: `review-gate-reset.yml` clears the gate on every new commit, the `PR Tests` floor must still pass, and a fresh review re-evaluates. For a solo repo the residual exposure is acceptable; revisit if it ever bites.
+- Verified false positive (Codex P1): "statusCheckRollup has no workflowName" — live `gh pr view --json statusCheckRollup` exposes `workflowName`; filter unchanged.
+
+### Alternatives Considered
+
+- Keep iterating until Codex returns zero findings. Rejected: diminishing returns — Actions concurrency always admits another theoretical race, and the reset-on-commit + CI floor backstop the narrow ones.
+
+### Evidence
+
+- Live `statusCheckRollup` on PR #40 shows `{"workflowName":"PR Tests","conclusion":"SUCCESS"}` etc.
+- Labeler verdict on #40 live data computed correctly (BLOCKED on fresh P1s; connect-notices filtered).
+- All workflow YAML parses; merge/labeler bash pass `bash -n`.
+
+### Expected Consequences
+
+Hands-off merging on the free private plan: a PR merges only when `gate: ready` is set (from Codex's review via the no-LLM labeler) AND `PR Tests` is present and green. The CI floor can no longer be silently bypassed.
+
+### Revisit Conditions
+
+Revisit if the P2-only webhook race is ever observed merging an unreviewed change, if Codex's review identity/format changes, or when multi-committer collaboration justifies GitHub-native branch protection.

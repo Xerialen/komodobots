@@ -1,0 +1,160 @@
+name: Review Gate Labeler
+
+# Bridges the Reviewer (Codex) to the neutral merge gate WITHOUT an LLM.
+#
+# Codex's code-review feature cannot apply labels itself and won't emit custom
+# tokens. This deterministic workflow reads Codex's NATIVE output and stamps the
+# gate label the merge executor consumes. The mapping below is grounded in the
+# actual corpus of Codex reviews in this repo (28 PRs), not guesswork:
+#
+#   * Clean verdict lives in an ISSUE comment:
+#       "Codex Review: Didn't find any major issues. <flavor>"   -> gate: ready
+#   * Severity lives in INLINE review comments, each carrying a P0/P1/P2 badge.
+#     Codex's review-body text ("automated review suggestions") is identical on
+#     every PR and is severity-blind, so it is NOT used.
+#       any non-outdated inline P0 or P1 badge                    -> gate: blocked
+#       a fresh review whose only findings are P2 (non-blocking)  -> gate: ready
+#   * Codex can fail to review (usage limits, errors)             -> cycle: needs-human
+#   * A bare Summary/Outcome with no clean line and no badge      -> cycle: needs-human
+#
+# On every run it re-evaluates the PR's FULL current state (Codex issue comments
+# + current inline comments) scoped to the head commit, so out-of-order events
+# don't flap labels and a stale/old-commit review can't ready newer code:
+#   - a `pull_request_review` whose commit_id != head is ignored;
+#   - `gate: ready` is applied only if the head hasn't moved during evaluation.
+# A repo OWNER can override with `/gate ready` or `/gate blocked`.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: review-gate-labeler-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  label:
+    # Only act on PR events authored by Codex or by a repo OWNER (override).
+    if: >-
+      ${{
+        ((github.event.issue && github.event.issue.pull_request) || github.event.pull_request)
+        && (
+          startsWith(github.event.comment.user.login, 'chatgpt-codex-connector')
+          || startsWith(github.event.review.user.login, 'chatgpt-codex-connector')
+          || github.event.comment.author_association == 'OWNER'
+          || github.event.review.author_association == 'OWNER'
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Compute gate from Codex's native review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.issue.number || github.event.pull_request.number }}
+          EVENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
+          EVENT_ASSOC: ${{ github.event.comment.author_association || github.event.review.author_association }}
+          REVIEW_COMMIT: ${{ github.event.review.commit_id }}
+        run: |
+          set -euo pipefail
+
+          ready()   { gh pr edit "$PR" -R "$REPO" --remove-label "gate: blocked"   --remove-label "gate: reviewing" --remove-label "cycle: needs-human" --add-label "gate: ready";        echo "=> gate: ready"; }
+          blocked() { gh pr edit "$PR" -R "$REPO" --remove-label "gate: ready"      --remove-label "gate: reviewing" --remove-label "cycle: needs-human" --add-label "gate: blocked";      echo "=> gate: blocked"; }
+          human()   { gh pr edit "$PR" -R "$REPO" --remove-label "gate: ready"      --remove-label "gate: reviewing"                                     --add-label "cycle: needs-human"; echo "=> cycle: needs-human"; }
+
+          # --- Human OWNER override (explicit, highest priority) ---
+          if [ "${EVENT_ASSOC:-}" = "OWNER" ]; then
+            ev_lc=$(printf '%s' "${EVENT_BODY:-}" | tr '[:upper:]' '[:lower:]')
+            case "$ev_lc" in
+              *"/gate ready"*)   ready;   exit 0 ;;
+              *"/gate blocked"*) blocked; exit 0 ;;
+            esac
+          fi
+
+          # --- Re-evaluate full current state, scoped to the CURRENT head ---
+          # A Codex comment only counts if posted at/after the head commit, so a
+          # stale verdict from a previous pass (or an unrelated @codex reply) can
+          # never gate newer code.
+          head_sha=$(gh pr view "$PR" -R "$REPO" --json headRefOid --jq '.headRefOid')
+          head_date=$(gh api "repos/$REPO/commits/$head_sha" --jq '.commit.committer.date')
+          echo "head $head_sha @ $head_date"
+
+          # Stale-review guard: a `pull_request_review` event carries the exact
+          # commit it reviewed. If that is not the current head (a newer commit
+          # was pushed before the review landed), ignore it — the reset workflow
+          # already cleared the gate and a fresh review is required.
+          if [ -n "${REVIEW_COMMIT:-}" ] && [ "$REVIEW_COMMIT" != "$head_sha" ]; then
+            echo "ignoring review for $REVIEW_COMMIT (head is $head_sha)"; exit 0
+          fi
+
+          codex='select(.user.login | startswith("chatgpt-codex-connector"))'
+          # Drop Codex's "connect your account" service notices — they are not reviews.
+          notnoise='select((.body | ascii_downcase | contains("to use codex here")) | not)'
+
+          # Codex conversation comments posted for the current head, newest first.
+          fresh=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            | jq -r --arg since "$head_date" \
+                "[.[] | $codex | $notnoise | select(.created_at >= \$since)] | sort_by(.created_at) | reverse | .[].body" \
+            | tr '[:upper:]' '[:lower:]')
+
+          # Inline review comments by severity badge — counted only when BOTH
+          # live (non-outdated, position != null) AND fresh for the current head
+          # (created_at >= head commit date), so a stale review for an older
+          # commit can neither block nor ready the current head.
+          inline=$(gh api "repos/$REPO/pulls/$PR/comments" --paginate \
+            | jq -r --arg since "$head_date" \
+                "[.[] | $codex | select(.position != null and .created_at >= \$since) | .body] | join(\"\n\")")
+          p01=$(printf '%s' "$inline" | grep -iEc 'p[01] badge|badge/p[01]-' || true)
+          p2=$(printf '%s'  "$inline" | grep -iEc 'p2 badge|badge/p2-' || true)
+
+          echo "fresh inline badges: P0/P1=$p01 P2=$p2 ; fresh comment chars: ${#fresh}"
+
+          # ready, but only if the head hasn't moved while we evaluated (a commit
+          # landing mid-run is handled by the reset workflow + a fresh review).
+          ready_if_current() {
+            local now; now=$(gh pr view "$PR" -R "$REPO" --json headRefOid --jq '.headRefOid')
+            [ "$now" = "$head_sha" ] || { echo "head moved $head_sha -> $now; skipping ready"; exit 0; }
+            ready
+          }
+
+          # --- Decide, fail-closed ---
+          # 1. Codex couldn't review (usage/rate limit, error) -> escalate.
+          case "$fresh" in
+            *"usage limit"*|*"reached your codex usage"*|*"rate limit"*)
+              human; exit 0 ;;
+          esac
+
+          # 2. A live P0/P1 finding blocks, regardless of any clean line.
+          if [ "${p01:-0}" -gt 0 ]; then
+            blocked; exit 0
+          fi
+
+          # 3. A clean verdict for the current head -> ready.
+          case "$fresh" in
+            *"didn't find any major issues"*|*"didnt find any major issues"*)
+              ready_if_current; exit 0 ;;
+          esac
+
+          # 4. P2-only review (no P0/P1): P2 is non-blocking per the contract, so
+          #    a fresh review whose only findings are P2 readies the gate.
+          if [ "${p2:-0}" -gt 0 ]; then
+            ready_if_current; exit 0
+          fi
+
+          # 5. Codex spoke for this head but gave no clean line and no badges
+          #    (a bare Summary/Outcome) -> ambiguous, hand to a human.
+          if [ -n "$fresh" ]; then
+            human; exit 0
+          fi
+
+          echo "No Codex verdict for the current head yet; leaving gate unchanged."
