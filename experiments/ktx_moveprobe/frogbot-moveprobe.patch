@@ -1,8 +1,8 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..a51b430 100644
+index c0654d1..f5749bc 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -5,6 +5,74 @@
+@@ -5,6 +5,75 @@
  #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
@@ -74,10 +74,11 @@ index c0654d1..a51b430 100644
 +static float moveprobe_replay_attempt_finalh[MAX_CLIENTS]; // loop: max divH in final segment (qu)
 +static float moveprobe_replay_loop_cooldown[MAX_CLIENTS];  // loop: do not re-arm before this time
 +static int   moveprobe_accel_jump_press[MAX_CLIENTS];      // mode 13: last-frame jump press (toggle)
++static int   moveprobe_accel_strafe_sign[MAX_CLIENTS];     // mode 13: current strafe rotation sign (+1/-1)
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,6 +490,1302 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +491,1336 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -1184,6 +1185,8 @@ index c0654d1..a51b430 100644
 +		// metric is horizontal speed. See docs/08_DECISION_LOG.md.
 +		float numerator = cvar("k_fb_moveprobe_accel_numerator");
 +		float bootstrap_deg = cvar("k_fb_moveprobe_accel_bootstrap_deg");
++		float fixed_angle = cvar("k_fb_moveprobe_accel_angle");      // >0: override strafe angle (deg)
++		float alternate = cvar("k_fb_moveprobe_accel_alternate");    // >0: flip strafe side each hop (S-strafe)
 +		float sv_maxspeed = cvar("sv_maxspeed");
 +		float max_incr;
 +		float hor_speed_sq;
@@ -1194,9 +1197,13 @@ index c0654d1..a51b430 100644
 +		vec3_t proposed_dir;
 +		vec3_t up_vector = { 0, 0, 1 };
 +
-+		if (numerator == 0)
++		if (numerator <= 0)
 +		{
-+			numerator = 8.4f;
++			// numerator = target currentspeed K (v.wishdir, qu/s). QW air accel
++			// adds speed only while currentspeed < the ~30 air cap, and the speed
++			// gain scales with currentspeed, so the optimal is to hold currentspeed
++			// just under the cap: K ~= 30 - sv_accelerate*30*frametime ~= 26.
++			numerator = 26.0f;
 +		}
 +		if (bootstrap_deg <= 0)
 +		{
@@ -1206,7 +1213,11 @@ index c0654d1..a51b430 100644
 +		{
 +			sv_maxspeed = 320.0f;
 +		}
-+		max_incr = numerator * numerator;
++		if (moveprobe_accel_strafe_sign[slot] == 0)
++		{
++			moveprobe_accel_strafe_sign[slot] = 1;
++		}
++		max_incr = numerator;
 +
 +		cur_dir[0] = self->s.v.velocity[0];
 +		cur_dir[1] = self->s.v.velocity[1];
@@ -1236,15 +1247,31 @@ index c0654d1..a51b430 100644
 +		}
 +		else
 +		{
-+			if (hor_speed_sq > max_incr)
++			if (fixed_angle > 0)
 +			{
-+				rotation = acos(max_incr / hor_speed_sq) * 180.0f / M_PI;
++				// Fixed-angle override: hold a constant wish-angle off velocity
++				// regardless of speed. The acos rule below widens toward 90 as
++				// speed grows (a tight circle that bleeds speed); a smaller fixed
++				// angle keeps each frame near the speed-optimal turn. Sweepable
++				// purely by cvar -- no rebuild needed to retune.
++				rotation = fixed_angle;
++			}
++			else if (hor_speed_sq > max_incr * max_incr)
++			{
++				// Speed-optimal wish-angle: hold v.wishdir at the target K just
++				// under the air cap. angle = acos(K / |hor velocity|). Rises toward
++				// 90 as speed grows, which is correct -- the higher the speed, the
++				// less the velocity may turn while still leaving headroom under the
++				// cap. (Earlier acos((K/speed)^2) sat at ~90 with v.wishdir~0, which
++				// adds speed perpendicular-only and barely grows |v|.)
++				rotation = acos(max_incr / sqrt(hor_speed_sq)) * 180.0f / M_PI;
 +			}
 +			else
 +			{
 +				rotation = bootstrap_deg;
 +			}
-+			RotatePointAroundVector(proposed_dir, up_vector, cur_dir, rotation);
++			RotatePointAroundVector(proposed_dir, up_vector, cur_dir,
++									rotation * moveprobe_accel_strafe_sign[slot]);
 +			proposed_dir[2] = 0;
 +			if (VectorNormalize(proposed_dir) <= 0)
 +			{
@@ -1256,6 +1283,14 @@ index c0654d1..a51b430 100644
 +		// the button releases in the air and re-fires on each landing.
 +		press_jump = onground && !moveprobe_accel_jump_press[slot];
 +		moveprobe_accel_jump_press[slot] = press_jump;
++
++		// Alternating S-strafe: flip the strafe side on each takeoff so the path
++		// stays roughly straight (left-then-right) instead of a one-way circle.
++		// Off (default) keeps a constant-direction circle-strafe.
++		if (alternate > 0 && press_jump)
++		{
++			moveprobe_accel_strafe_sign[slot] = -moveprobe_accel_strafe_sign[slot];
++		}
 +
 +		self->fb.desired_angle[PITCH] = 0;
 +		self->fb.desired_angle[YAW] = vectoyaw(proposed_dir);
@@ -1380,7 +1415,7 @@ index c0654d1..a51b430 100644
  void BotSetCommand(gedict_t *self)
  {
  	extern float last_frame_time;
-@@ -556,8 +1920,11 @@ void BotSetCommand(gedict_t *self)
+@@ -556,8 +1955,11 @@ void BotSetCommand(gedict_t *self)
  		impulse = 0;
  	}
  

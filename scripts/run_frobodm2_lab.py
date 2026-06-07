@@ -81,6 +81,9 @@ moveprobe_lookahead_frames="${20:-4}"
 moveprobe_corr_deadband="${21:-16}"
 moveprobe_corr_yaw_max="${22:-3}"
 moveprobe_extra_cvars_b64="${23:-}"
+timelimit_min="${24:-1}"
+matchless_val="${25:-1}"
+mvdsv_bin="${26:-mvdsv}"
 
 session="komodobots_lab_${map_name}_${port}_${run_id}"
 rundir="$HOME/komodobots-lab/runs/$run_id"
@@ -123,8 +126,8 @@ if session_exists; then
   exit 2
 fi
 
-if [ ! -x "$nq/mvdsv" ]; then
-  echo "Missing executable: $nq/mvdsv" >&2
+if [ ! -x "$nq/$mvdsv_bin" ]; then
+  echo "Missing executable: $nq/$mvdsv_bin" >&2
   exit 3
 fi
 if [ ! -f "$nq/qw/maps/${map_name}.bsp" ]; then
@@ -150,7 +153,7 @@ cat > "$cfg_path" <<EOF
 // Auto-generated Komodobots $map_name lab config $run_id
 hostname "komodobots-lab:$port"
 set k_motd1 "Komodobots lab $run_id"
-set k_matchless 1
+set k_matchless $matchless_val
 set k_use_matchless_dir 1
 set k_defmode ffa
 set k_mode 3
@@ -174,7 +177,7 @@ set k_fb_moveprobe_replay_file "$moveprobe_replay_file"
 set k_fb_moveprobe_lookahead_frames $moveprobe_lookahead_frames
 set k_fb_moveprobe_corr_deadband $moveprobe_corr_deadband
 set k_fb_moveprobe_corr_yaw_max $moveprobe_corr_yaw_max
-timelimit 1
+timelimit $timelimit_min
 fraglimit 0
 samelevel 1
 set demo_tmp_record 1
@@ -218,7 +221,7 @@ EOF
 
 log "starting $session on port $port"
 cd "$nq"
-screen -L -Logfile "$rundir/screen.log" -dmS "$session" ./mvdsv -port "$port" -mem 64 -game ktx +exec "$cfg_name"
+screen -L -Logfile "$rundir/screen.log" -dmS "$session" "./$mvdsv_bin" -port "$port" -mem 64 -game ktx +exec "$cfg_name"
 
 server_up=0
 for _ in $(seq 1 40); do
@@ -241,6 +244,26 @@ send_cmd "set k_fb_autoadd_limit 0"
 send_cmd "set k_fb_auto_delay 1"
 send_cmd "set k_fb_skill 10"
 send_cmd "map $map_name" 1.0
+# Re-assert after map load: the map's mode config re-execs and resets these, so
+# the pre-map values are lost. With autoadd_limit/autoremove_at at 0 the Frogbot
+# auto-fill stays off, keeping exactly the bots the client shim adds (no extra
+# bots crowding a single-bot acceleration measurement).
+send_cmd "set k_fb_autoadd_limit 0"
+send_cmd "set k_fb_autoremove_at 0"
+# Keep the idle client shim connected for the whole run. The shim never moves,
+# so KTX/mvdsv drop it around 60s, which stops the server demo (recording is
+# tied to the connected client). Raise the network timeout (needs the `set`
+# prefix -- a bare `sv_timeout` is an unknown command) and disable the idle
+# kicks so long single-bot acceleration runs record past 60s.
+# sv_getrealip 0 is the load-bearing one: with it at the default 1, mvdsv waits
+# on a real-IP handshake the minimal client shim never completes, so the shim
+# never reaches SV_Login, keeps cl->logged==0, and is dropped at the hardcoded
+# 60s login timeout (which also stops the server demo and bot simulation). With
+# it off the connect flow logs the shim in immediately and it stays for the run.
+send_cmd "set sv_getrealip 0"
+send_cmd "set sv_timeout 3600"
+send_cmd "set k_idletime 0"
+send_cmd "set k_matchless_max_idle_time 0"
 send_cmd "sv_democancel"
 send_cmd "sv_demoeasyrecord komodobots_${map_name}_${run_id}" 1.0
 send_cmd "status"
@@ -1327,6 +1350,9 @@ def run_remote_lab(
     moveprobe_corr_deadband: float,
     moveprobe_corr_yaw_max: float,
     moveprobe_extra_cvars: str,
+    timelimit_min: int,
+    matchless_val: int,
+    mvdsv_bin: str,
     local_run_dir: Path,
 ) -> None:
     proc = run(
@@ -1359,6 +1385,9 @@ def run_remote_lab(
             str(moveprobe_corr_deadband),
             str(moveprobe_corr_yaw_max),
             base64.b64encode(moveprobe_extra_cvars.encode("utf-8")).decode("ascii") or "-",
+            str(timelimit_min),
+            str(matchless_val),
+            mvdsv_bin,
         ],
         input_text=REMOTE_SCRIPT,
         check=False,
@@ -1395,6 +1424,37 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument("--map", dest="map_name", type=validate_map_name, default="frobodm2", help="Map to load. Defaults to frobodm2.")
     parser.add_argument("--run-id", type=validate_run_id, default=None, help="Run ID. Defaults to current UTC timestamp.")
     parser.add_argument("--duration", type=float, default=45.0, help="Client run duration in seconds. Defaults to 45.")
+    parser.add_argument(
+        "--lab-mvdsv",
+        dest="lab_mvdsv",
+        default="mvdsv",
+        help=(
+            "Name of the MVDSV binary under ~/nquakesv to launch. Defaults to the "
+            "production 'mvdsv'. Use 'mvdsv-lab' for the lab-only build whose 60s "
+            "login-timeout is gated on sv_login, so the headless client shim survives "
+            "long acceleration runs. Production servers keep using 'mvdsv'."
+        ),
+    )
+    parser.add_argument(
+        "--prewar",
+        action="store_true",
+        help=(
+            "Run in prewar instead of matchless (sets k_matchless 0). No match starts, "
+            "so there is no match timer and no insufficient-players abort: a single bot "
+            "keeps moving and the server keeps recording even after the idle client shim "
+            "is dropped. Use for long single-bot acceleration runs (>60s)."
+        ),
+    )
+    parser.add_argument(
+        "--timelimit",
+        type=int,
+        default=1,
+        help=(
+            "KTX match timelimit in minutes written into the lab cfg. Defaults to 1. "
+            "Raise it for long acceleration runs (a >60s --duration needs --timelimit >=2, "
+            "or the match hits intermission, stops the demo, and removes the bot)."
+        ),
+    )
     parser.add_argument("--bot-count", type=int, default=2, help="Number of botcmd addbot commands. Defaults to 2.")
     parser.add_argument("--bot-spacing", type=float, default=8.0, help="Seconds between bot adds. Defaults to 8.")
     parser.add_argument(
@@ -1608,6 +1668,9 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             args.moveprobe_corr_deadband,
             args.moveprobe_corr_yaw_max,
             extra_cvars_blob,
+            args.timelimit,
+            0 if args.prewar else 1,
+            args.lab_mvdsv,
             local_run_dir,
         )
         scp_from_remote(args.host, run_id, local_run_dir)
