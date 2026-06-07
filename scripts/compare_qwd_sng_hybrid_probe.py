@@ -580,8 +580,9 @@ def make_decision(stop_conditions: list[dict[str, object]]) -> dict[str, object]
     if reject_ids:
         if "tight_start_activation" in reject_ids or "phase_target_progression" in reject_ids:
             next_goal = (
-                "Rerun the SNG probe with tight design-radius activation and unchanged projection, then only "
-                "consider projection changes if the tight-start active phases still stall before the next target."
+                "Use tight design-radius evidence if it has not been collected yet; if tight-start phases still "
+                "stall or start evidence is unverifiable, add denser/event-level advancement and active-window "
+                "diagnostics before changing projection policy."
             )
         else:
             next_goal = (

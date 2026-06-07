@@ -2012,3 +2012,57 @@ The next PR should be a tight-start live rerun, not a projection-policy change. 
 ### Revisit Conditions
 
 Revisit projection changes only after a tight-start rerun proves where the bot stalls under the stricter gates. Revisit expansion to other DM3 QWD moves only after SNG passes tight-start, phase-target, movement-quality, route, and diagnostic-preservation guardrails.
+
+---
+
+## Decision
+
+Treat the tight-start SNG rerun as strong substrate evidence, not learned movement.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+Continue the QWD-to-Frogbot path, but keep it diagnostic. The tight-start mode `9` rerun with the original `192` qu activation radius proves that QWD-derived control can advance much farther inside the real KTX/Frogbots server loop than the widened setup repair did. It does not prove human-like SNG movement, and it does not authorize expansion to the remaining DM3 QWD moves yet.
+
+The next stage should improve evidence quality around QWD advancement/start events and active-window movement scoring before changing projection policy.
+
+### Alternatives Considered
+
+- Declare SNG learned because both bots advanced deep into the QWD path.
+- Expand immediately to all other DM3 QWD moves.
+- Change command projection to chase the unresolved target phases.
+- Abandon Frogbots despite the tight-radius control-point advancement.
+- Keep rerunning with the same sparse `0.1` second sampled command log and hope the phase gates pass.
+
+### Evidence
+
+Tight-start run `20260607T003837Z`:
+
+- Start radius restored to the design `192` qu.
+- QWD active samples: `274`.
+- Max active seconds: `16.383`.
+- Max advanced control points inside MVD: `12`.
+- `/ bro` advanced `11` points inside MVD; `/ goldenboy` advanced `12`.
+- `qwd_probe_activation`, `control_point_advancement`, `qwd_activation_mvd_overlap`, diagnostic preservation, QWD command profile, and route-dirty guardrails passed.
+- `phase_target_progression` rejected on unresolved sampled target phases.
+- `waypoint_only_slow_success` rejected because `/ bro` stayed above the low-speed guardrail.
+- `tight_start_activation` was inconclusive because the first active in-MVD sampled rows were already at CP2, so the current sampled log cannot prove pre-advance CP0 state.
+
+Artifacts:
+
+- `experiments/qwd_route_probe/evidence/qwd-sng-tight-start-rerun-dm3.*`
+- `experiments/qwd_route_probe/evidence/qwd-sng-tight-start-rerun-diagnosis-dm3.*`
+- `experiments/qwd_route_probe/evidence/qwd-sng-tight-start-rerun-slow-success-diagnosis-dm3.*`
+
+### Expected Consequences
+
+The Frogbots substrate hypothesis remains alive and stronger: KTX/Frogbots can accept QWD-derived route/control evidence and execute deep SNG progress under server physics. The immediate blocker is now proof quality and movement quality, not basic control injection.
+
+The next PR should add denser or event-level QWD advancement/start evidence, or adjust scoring to active-window movement quality using already-preserved diagnostics. It should not mutate `dm3.bot`, broaden to every QWD, or claim movement realism from control-point count alone.
+
+### Revisit Conditions
+
+Revisit expanding to the other DM3 QWD moves only after SNG passes phase-entry proof plus active-window slow/stationary guardrails. Revisit from-scratch if the QWD path repeatedly advances geometry only through sparse unverifiable events, slow traversal, or route/map intervention that no longer looks like a small movement-controller enhancement.
