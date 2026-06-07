@@ -34,23 +34,23 @@ The first project objective is to build a repeatable lab that can prove or dispr
 
 ## Autonomous three-agent loop
 
-This repository may be worked by three unattended agents:
+This repository may be worked by three unattended roles:
 
 ```text
-Phasekeeper implements stage work -> Code Sentinel reviews/hardens -> Merge Warden merges if gates pass -> Phasekeeper starts the next stage from updated main
+Phasekeeper implements stage work -> Code Sentinel reviews/hardens and sets the review gate -> Merge Warden merges if gates pass -> Phasekeeper starts the next stage from updated main
 ```
 
 Role boundaries are mandatory:
 
 - Phasekeeper implements the current stage, updates docs/evidence, opens or updates the stage PR, and responds to review feedback that stays inside the same stage.
-- Code Sentinel reviews and hardens PRs for code slop, validation gaps, documentation gaps, and north-star drift.
-- Merge Warden performs the final merge gate and merges only when all gates pass.
+- Code Sentinel reviews and hardens PRs for code slop, validation gaps, documentation gaps, and north-star drift, and sets the review-gate label.
+- Merge Warden performs the final deterministic merge gate and merges only when all gates pass.
 
 Hard separation:
 
 - Phasekeeper must not merge.
-- Code Sentinel must not merge.
-- Merge Warden must not implement feature work, fix tests, or start the next stage.
+- Code Sentinel must not merge or implement feature work.
+- Merge Warden must not implement feature work, fix tests, review, or start the next stage.
 
 ## Stage and PR rules
 
@@ -79,17 +79,50 @@ On every loop, first inspect repo/PR state and then choose exactly one of these 
 
 Do not post repeated comments with the same conclusion. Do not create new branches or PRs when an appropriate one already exists. Do not fight another agent over the same branch.
 
-## Code Sentinel verdict rule
+## Review gate label rule
 
-Every Code Sentinel PR review must end with exactly one of these lines:
+Every Code Sentinel PR review must leave a clear review comment and apply exactly one final review-gate label:
 
 ```text
-MERGE_WARDEN: READY
-MERGE_WARDEN: READY_WITH_NON_BLOCKING_CAVEATS
-MERGE_WARDEN: BLOCKED
+gate: ready
+gate: blocked
 ```
 
-The verdict must name the current PR head SHA. Merge Warden may only consume a Code Sentinel verdict if it references the current head SHA. If new commits have been pushed after the verdict, Merge Warden must refuse to merge and request a fresh Code Sentinel review.
+Optional transient label:
+
+```text
+gate: reviewing
+```
+
+The final labels are mutually exclusive. Before applying `gate: ready`, remove `gate: blocked` and `gate: reviewing`. Before applying `gate: blocked`, remove `gate: ready` and `gate: reviewing`. A PR must never intentionally keep both `gate: ready` and `gate: blocked`.
+
+Use `gate: ready` only when the PR meets the "Merge gate rule" below. Use `gate: blocked` for any P0 or any unresolved actionable feedback. The merge executor consumes only the neutral label state; it does not depend on a specific agent name.
+
+A pushed commit invalidates the prior review gate. `.github/workflows/review-gate-reset.yml` clears `gate: ready` and `gate: blocked` and sets `gate: reviewing` whenever new commits are pushed to a PR branch.
+
+## Review guidelines
+
+These guide Code Sentinel on every PR review.
+
+Review focus, in priority order:
+
+- Correctness and security regressions. (P0)
+- Validation gaps: claims without evidence, missing or auto-skipped tests, no real run output. (P0)
+- North-star drift: work that does not produce evidence toward the believable-bots question. (P1)
+- Documentation gaps: code/config/experiment changes that did not update the routed doc. (P1)
+- Code slop: dead code, needless complexity, duplicated logic. (P2)
+
+End every review with a concise decision section that names the final label applied:
+
+```text
+REVIEW_GATE: gate: ready
+```
+
+or:
+
+```text
+REVIEW_GATE: gate: blocked
+```
 
 ## Merge gate rule
 
@@ -103,7 +136,8 @@ Merge Warden may merge only when all are true:
 - PR is mergeable.
 - Required checks pass.
 - If no checks exist, that absence is explicitly noted.
-- Code Sentinel has emitted `MERGE_WARDEN: READY` or `MERGE_WARDEN: READY_WITH_NON_BLOCKING_CAVEATS` for the current head SHA.
+- Code Sentinel has set `gate: ready`.
+- `gate: blocked` is absent.
 - No unresolved actionable review feedback remains.
 - The PR body or latest agent comment records what changed, evidence produced, docs updated, validation run, stage status, and next step.
 
