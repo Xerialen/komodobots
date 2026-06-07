@@ -53,6 +53,10 @@ def decimate(origins: list[tuple[float, float, float]], spacing: float,
     """
     if not origins:
         return []
+    if spacing <= 0:
+        raise ValueError(f"spacing must be positive, got {spacing}")
+    if max_markers < 1:
+        raise ValueError(f"max_markers must be >= 1, got {max_markers}")
     while True:
         kept = [origins[0]]
         for o in origins[1:]:
@@ -96,7 +100,11 @@ def main(argv: Iterable[str] | None = None) -> int:
     if len(origins) < 2:
         print(f"Too few origins in {args.cmds}", file=sys.stderr)
         return 2
-    markers = decimate(origins, args.spacing, args.max_markers)
+    try:
+        markers = decimate(origins, args.spacing, args.max_markers)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(render_bot_file(markers, args.cmds.name), encoding="utf-8")
     xs = [m[0] for m in markers]
