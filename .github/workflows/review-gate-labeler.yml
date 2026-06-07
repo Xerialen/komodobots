@@ -33,7 +33,7 @@ on:
     types: [created]
 
 permissions:
-  contents: read
+  contents: write
   issues: write
   pull-requests: write
 
@@ -68,7 +68,36 @@ jobs:
         run: |
           set -euo pipefail
 
-          ready()   { gh pr edit "$PR" -R "$REPO" --remove-label "gate: blocked"   --remove-label "gate: reviewing" --remove-label "cycle: needs-human" --add-label "gate: ready";        echo "=> gate: ready"; }
+          # Inline merge: a label set here is applied with GITHUB_TOKEN, and a
+          # token-applied `labeled` event does NOT trigger the separate merge
+          # workflow (GitHub recursion-prevention). So after readying, attempt the
+          # merge directly from here — a plain API call, immune to event-cascade
+          # rules. The standalone review-gate-merge.yml still covers the case
+          # where `gate: ready` is set before PR Tests finishes (workflow_run).
+          try_merge() {
+            local d
+            d=$(gh pr view "$PR" -R "$REPO" --json state,isDraft,baseRefName,mergeable,statusCheckRollup,labels)
+            [ "$(jq -r '.state' <<<"$d")" = "OPEN" ]             || { echo "merge skip: not open";        return 0; }
+            [ "$(jq -r '.isDraft' <<<"$d")" = "false" ]          || { echo "merge skip: draft";           return 0; }
+            [ "$(jq -r '.baseRefName' <<<"$d")" = "main" ]       || { echo "merge skip: base";            return 0; }
+            [ "$(jq -r '.mergeable' <<<"$d")" = "MERGEABLE" ]    || { echo "merge skip: not mergeable";   return 0; }
+            jq -e '[.labels[].name]|index("gate: ready")'     <<<"$d" >/dev/null || { echo "merge skip: no ready";   return 0; }
+            jq -e '[.labels[].name]|index("gate: blocked")'   <<<"$d" >/dev/null && { echo "merge skip: blocked";     return 0; }
+            jq -e '[.labels[].name]|index("cycle: needs-human")' <<<"$d" >/dev/null && { echo "merge skip: needs-human"; return 0; }
+            local ptt pto
+            ptt=$(jq -r '[(.statusCheckRollup//[])[]|select((.workflowName//"")=="PR Tests")]|length' <<<"$d")
+            pto=$(jq -r '[(.statusCheckRollup//[])[]|select((.workflowName//"")=="PR Tests")|select(((.conclusion//.state//"")|ascii_upcase)=="SUCCESS")]|length' <<<"$d")
+            { [ "${ptt:-0}" -ge 1 ] && [ "$ptt" -eq "$pto" ]; } || { echo "merge skip: PR Tests not green ($pto/$ptt)"; return 0; }
+            local nbad
+            nbad=$(jq -r '[(.statusCheckRollup//[])[]|select((.workflowName//"") as $w|(["Review Gate Merge","Review Gate Labeler","Reset Review Gate"]|index($w))==null)|((.conclusion//.state//"")|ascii_upcase)|select(.!="SUCCESS" and .!="NEUTRAL" and .!="SKIPPED")]|length' <<<"$d")
+            [ "${nbad:-1}" -eq 0 ] || { echo "merge skip: $nbad check(s) not passing"; return 0; }
+            echo "inline-merging #$PR"
+            gh pr merge "$PR" -R "$REPO" --squash --delete-branch \
+              && gh pr comment "$PR" -R "$REPO" --body "✅ **Merged** by review-gate (labeler inline): \`gate: ready\` + \`PR Tests\` green + mergeable." \
+              || echo "merge attempt failed (already merged?)"
+          }
+
+          ready()   { gh pr edit "$PR" -R "$REPO" --remove-label "gate: blocked"   --remove-label "gate: reviewing" --remove-label "cycle: needs-human" --add-label "gate: ready";        echo "=> gate: ready"; try_merge; }
           blocked() { gh pr edit "$PR" -R "$REPO" --remove-label "gate: ready"      --remove-label "gate: reviewing" --remove-label "cycle: needs-human" --add-label "gate: blocked";      echo "=> gate: blocked"; }
           human()   { gh pr edit "$PR" -R "$REPO" --remove-label "gate: ready"      --remove-label "gate: reviewing"                                     --add-label "cycle: needs-human"; echo "=> cycle: needs-human"; }
 
