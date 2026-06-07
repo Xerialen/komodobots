@@ -85,6 +85,8 @@
         0,
         14
       ],
+      "first_active_inside_mvd_advanced_control_points": 0,
+      "first_active_inside_mvd_control_point_index": 0,
       "first_active_inside_mvd_distance_qu": 281.954,
       "first_active_inside_mvd_time_ms": 0,
       "forward_nonzero_ratio": 0.444,
@@ -143,6 +145,8 @@
       "control_point_count_values": [
         14
       ],
+      "first_active_inside_mvd_advanced_control_points": 0,
+      "first_active_inside_mvd_control_point_index": 0,
       "first_active_inside_mvd_distance_qu": 291.331,
       "first_active_inside_mvd_time_ms": 29288,
       "forward_nonzero_ratio": 0.76,
@@ -261,12 +265,15 @@
         "design_start_radius_qu": 192.0,
         "players_advancing_after_loose_start": [
           {
+            "first_active_inside_mvd_advanced_control_points": 0,
+            "first_active_inside_mvd_control_point_index": 0,
             "first_active_inside_mvd_distance_qu": 281.954,
             "first_active_inside_mvd_time_ms": 0,
             "player": "/ bro"
           }
         ],
-        "rule": "A run that reaches the advancement gate must first activate inside the design start radius, not from the widened setup-repair radius."
+        "players_with_unverifiable_start_distance": [],
+        "rule": "A run that reaches the advancement gate must show first active in-MVD evidence at CP0 before same-frame advancement and inside the design start radius."
       },
       "id": "tight_start_activation",
       "status": "reject"
