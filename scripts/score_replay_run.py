@@ -58,7 +58,14 @@ def score_player(replay_state: dict, event_player: dict | None,
         final_cursor = event_player.get("final_cursor")
         complete_event = "complete" in (event_player.get("event_counts") or [])
 
-    reached_last = (frame_count > 0) and (max_cursor >= frame_count - 1)
+    # The sampled max_cursor (from throttled command logging) can lag
+    # frame_count - 1 even on a true full replay when the final command sample is
+    # skipped. The completion event carries the exact final_cursor, so prefer it
+    # when present and fall back to the sampled cursor only when no event exists.
+    coverage_cursor = max_cursor
+    if complete_event and final_cursor is not None:
+        coverage_cursor = max(max_cursor, int(final_cursor))
+    reached_last = (frame_count > 0) and (coverage_cursor >= frame_count - 1)
     replayed_full = reached_last and complete_event
 
     max_h_val = replay_state.get("max_divergence_h_qu")
