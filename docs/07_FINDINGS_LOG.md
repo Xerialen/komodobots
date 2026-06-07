@@ -3471,3 +3471,45 @@ High for the mechanic (before/after is stark: 0% -> 96% airborne from the jump-t
 ### Follow-up
 
 Numerator sweep via the retry/auto-tune harness + air-strafe refinement (the ~90 deg/frame circle bleeds speed; the true optimal angle is smaller, and alternating strafe likely sustains better). Re-test the unconditional-jump modes with the toggle.
+
+---
+
+## 2026-06-07 -- Optimal strafe angle: acceleration solved, ceiling is map geometry (trick.bsp)
+
+### Finding
+
+The mode-13 air-strafe used `acos((K/speed)^2)` -- a ~89.96 deg wish-angle where
+`velocity . wishdir ~= 0`, so air accel added speed almost purely perpendicular and
+barely grew |v| (crawled to max 476). Corrected to the **speed-optimal angle**
+`acos(K/speed)`, K~=26 (hold `velocity . wishdir` just under the ~30 air cap). Result
+(single bot, trick.bsp): p50 75->285 at 30s, **535 at 60s (96% airborne, 1% landing
+loss), still climbing.**
+
+**Verified the bot mouses correctly:** emitted view-yaw sweeps ~6 deg/frame, held ~85
+deg ahead of velocity (textbook strafe); ground frames run straight. So it is real
+air-strafe, not a static aim.
+
+With the lab's 60s cap removed (patched `mvdsv-lab`, see decision log), a 200s run shows
+the bot accelerating at the **exact optimal rate** (+3 qu/s per 0.1s frame) up to
+~360-600, then a **single-frame -324 qu/s drop (wall hit)**, then re-accelerating --
+every ~8s, no fly-off (vz > -290). So the ~600 ceiling is **trick.bsp geometry**: a
+map-blind circle's radius grows as v^2 and slams into walls. Alternating S-strafe is
+worse (max 412).
+
+### Interpretation
+
+Acceleration is **solved and physics-optimal**; the human 880/1088 is **navigation-bound**,
+not acceleration-bound. A map-blind strafe caps at ~600 on trick.bsp regardless of tuning.
+Reaching human speed needs map-aware navigation (use the open runway, turn at the ends) --
+the routes/objectives pillar.
+
+### Confidence
+
+High. Acceleration rate matches theory frame-for-frame; the ceiling is unambiguously
+single-frame wall hits, not strafe inefficiency or fly-off.
+
+### Follow-up
+
+Map-aware navigation on trick.bsp (runway back-and-forth) to convert optimal acceleration
+into human-level absolute speed. Re-test legacy unconditional-jump modes with the toggle.
+See `experiments/ktx_moveprobe/evidence/accel-optimal-angle-trick-20260607.md`.

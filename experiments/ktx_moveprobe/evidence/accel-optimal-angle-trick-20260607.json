@@ -1,0 +1,34 @@
+{
+  "schema": "komodobots.accel_optimal_angle.v1",
+  "date": "2026-06-07",
+  "map": "trick",
+  "bots": 1,
+  "human_benchmark_trick5": { "median_hspeed_qu_per_s": 880, "peak_hspeed_qu_per_s": 1088 },
+  "controller": {
+    "mode": 13,
+    "fix": "air-strafe angle changed from acos((K/speed)^2) (~90deg, near-zero |v| gain) to acos(K/speed) (speed-optimal, holds velocity.wishdir just under the ~30 air cap)",
+    "K_numerator_target_dot": 26,
+    "new_cvars": ["k_fb_moveprobe_accel_angle", "k_fb_moveprobe_accel_alternate"]
+  },
+  "mousing_verified": {
+    "method": "emitted view-yaw vs velocity direction over time",
+    "result": "view-yaw sweeps ~6deg/frame, held ~85deg ahead of velocity (textbook air-strafe); ground frames offset 0"
+  },
+  "arms": [
+    {"arm": "old_squared_formula", "active_s": 30, "p50": 75, "max": 476},
+    {"arm": "linear_optimal_K26", "active_s": 30, "p50": 285, "p95": 488, "max": 539},
+    {"arm": "linear_optimal_K26", "active_s": 60, "p50": 535, "p95": 574, "max": 656, "airborne": 0.96, "landing_loss_ratio": 0.01},
+    {"arm": "linear_optimal_K26_long", "active_s": 203, "p50": 268, "p95": 516, "max": 604, "note": "circle oscillates 54-604"},
+    {"arm": "alternate_s_strafe", "active_s": 153, "p50": 263, "p95": 362, "max": 412}
+  ],
+  "ceiling_diagnosis": {
+    "acceleration": "optimal: smooth +3 qu/s per 0.1s frame at the theoretical max rate",
+    "ceiling_cause": "map geometry: single-frame -324 qu/s drops (wall hits) every ~8s; circle radius grows as v^2 and exceeds trick.bsp open area; no fly-off (vz > -290)",
+    "to_reach_human": "map-aware navigation of the open runway (routes pillar), not more acceleration tuning"
+  },
+  "lab_apparatus": {
+    "60s_cap_root_cause": "mvdsv SV_LoginCheckTimeOut hardcoded 60s drop of the headless shim (logged==0); server stops simulating bot when shim leaves",
+    "fix": "lab-only mvdsv-lab binary gating login timeout on sv_login; production mvdsv untouched; selected via --lab-mvdsv",
+    "other": ["--prewar (k_matchless 0, no match abort)", "post-map k_fb_autoadd_limit 0", "--timelimit clamp override"]
+  }
+}

@@ -2521,3 +2521,37 @@ If hand-tuning the controller plateaus well below human sustained speed, escalat
 ## Status
 
 Decision recorded 2026-06-07; mode 13 + harness + .bot generator implemented and live-validated on trick.bsp; packaged as the acceleration PR pending mandatory Codex review.
+
+---
+
+## 2026-06-07 -- Lab-only patched mvdsv to unblock long single-bot runs
+
+### Decision
+
+Build a **lab-only** `mvdsv-lab` binary that gates `SV_LoginCheckTimeOut` on `sv_login`
+(so the hardcoded 60s login-timeout does not fire when login is disabled), deployed
+beside the stock production `mvdsv` and selected by the harness via `--lab-mvdsv`.
+Production servers keep using the unmodified `mvdsv`.
+
+### Why
+
+Single-bot acceleration runs were hard-capped at 60s: mvdsv drops the headless client
+shim at the hardcoded login timeout (the minimal shim never completes the web-auth flow
+real ezQuake clients use), and the server stops simulating the bot when the only client
+leaves. No cvar disables it (`sv_timeout`, `k_idletime`, `sv_getrealip` all tried and
+ruled out by the logs). The cap hid the controller's true behaviour past 60s. The
+ezQuake-unmodified constraint is about the client; this is the dedicated server engine,
+the change is one line gating an existing timeout on its own enable cvar, and it is
+isolated to a separate lab binary.
+
+### Revisit Conditions
+
+If a fuller headless client (completing login) becomes available, the stock binary can be
+used and `mvdsv-lab` retired.
+
+## Status
+
+mode 13 strafe angle corrected (acos(K/speed)); cvar-parametric strafe (angle/alternate);
+harness gains --prewar, --timelimit, --lab-mvdsv, post-map autoadd/realip/idle cvars;
+mvdsv-lab built on servexeri. Acceleration validated optimal; absolute speed geometry-capped
+at ~600 on trick.bsp (navigation-bound). Packaged as a finding PR pending Codex review.
