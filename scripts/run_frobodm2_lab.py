@@ -80,6 +80,7 @@ fi
 moveprobe_lookahead_frames="${20:-4}"
 moveprobe_corr_deadband="${21:-16}"
 moveprobe_corr_yaw_max="${22:-3}"
+moveprobe_extra_cvars_b64="${23:-}"
 
 session="komodobots_lab_${map_name}_${port}_${run_id}"
 rundir="$HOME/komodobots-lab/runs/$run_id"
@@ -184,6 +185,9 @@ sv_demofps 77
 sv_demodir demos
 serverinfo hostname "komodobots-lab:$port"
 EOF
+if [ -n "${moveprobe_extra_cvars_b64:-}" ] && [ "${moveprobe_extra_cvars_b64:-}" != "-" ]; then
+  printf '%s' "$moveprobe_extra_cvars_b64" | base64 -d >> "$cfg_path"
+fi
 cp "$cfg_path" "$rundir/lab.cfg"
 
 cat > "$rundir/run.env" <<EOF
@@ -1322,6 +1326,7 @@ def run_remote_lab(
     moveprobe_lookahead_frames: int,
     moveprobe_corr_deadband: float,
     moveprobe_corr_yaw_max: float,
+    moveprobe_extra_cvars: str,
     local_run_dir: Path,
 ) -> None:
     proc = run(
@@ -1353,6 +1358,7 @@ def run_remote_lab(
             str(moveprobe_lookahead_frames),
             str(moveprobe_corr_deadband),
             str(moveprobe_corr_yaw_max),
+            base64.b64encode(moveprobe_extra_cvars.encode("utf-8")).decode("ascii") or "-",
         ],
         input_text=REMOTE_SCRIPT,
         check=False,
@@ -1394,7 +1400,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument(
         "--moveprobe-mode",
         type=int,
-        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
+        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13),
         default=0,
         help=(
             "Set k_fb_moveprobe_mode in the generated KTX lab config. "
@@ -1513,6 +1519,16 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--ktx-extra-cvars",
+        default="",
+        help=(
+            "Semicolon-separated 'name value' pairs appended to the KTX lab config as "
+            "`set name value` lines. Used for the live retry harness, e.g. "
+            "'k_fb_moveprobe_replay_loop 1;k_fb_moveprobe_replay_map trick;"
+            "k_fb_moveprobe_corridor 64;k_fb_moveprobe_kill_div 400'."
+        ),
+    )
+    parser.add_argument(
         "--moveprobe-log-commands",
         action="store_true",
         help=(
@@ -1563,6 +1579,10 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         replay_remote = ""
         if args.replay_cmds is not None:
             replay_remote = upload_replay_cmds(args.host, args.replay_cmds)
+        extra_cvars_blob = ""
+        if args.ktx_extra_cvars:
+            _lines = ["set " + p.strip() for p in args.ktx_extra_cvars.split(";") if p.strip()]
+            extra_cvars_blob = ("\n".join(_lines) + "\n") if _lines else ""
         run_remote_lab(
             args.host,
             run_id,
@@ -1587,6 +1607,7 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             args.moveprobe_lookahead_frames,
             args.moveprobe_corr_deadband,
             args.moveprobe_corr_yaw_max,
+            extra_cvars_blob,
             local_run_dir,
         )
         scp_from_remote(args.host, run_id, local_run_dir)
