@@ -3243,3 +3243,55 @@ Medium that the remaining failure is controller policy rather than instrumentati
 ### Follow-up
 
 Keep the next step diagnostic. Capture denser or event-level QWD advancement/start evidence and score active-window movement quality before changing projection policy or expanding the method to other DM3 QWD moves.
+
+## 2026-06-07 - QWD SNG MVD Crossing Diagnosis
+
+### Experiment
+
+Added `scripts/inspect_qwd_sng_mvd_crossings.py` and inspected the tight-start SNG run `20260607T003837Z` from MVD position samples only. The helper derives first CP0 start-radius entry, sequential point-radius control-point entries, and movement-window speed summaries between entries, then compares those physical crossings against the first sampled QWD command row.
+
+No KTX rerun, route mutation, or controller-policy change was made.
+
+### Result
+
+The MVD proves physical route traversal through most of the SNG path, but it does not yet prove internal mode-9 activation timing.
+
+- `/ bro` first entered CP0's `192` qu start radius at `1761` ms (`83.482` qu), then reached `11` sequential `96` qu point-radius control points.
+- `/ goldenboy` first entered CP0's `192` qu start radius at `7432` ms (`85.522` qu), then reached `12` sequential `96` qu point-radius control points.
+- Both bots' first sampled QWD command rows were already at CP2 with `advanced_control_points=2`.
+- The nearest MVD samples at those first sampled QWD rows were far from CP0 and CP2, so the sampled command log still cannot prove pre-advance internal CP0 activation.
+- Movement quality remains mixed: `/ bro` has slow transitions across CP7->CP8 and CP8->CP9; `/ goldenboy` has a slow transition across CP5->CP6.
+
+### Evidence
+
+Committed artifacts:
+
+- `scripts/inspect_qwd_sng_mvd_crossings.py`
+- `tests/test_inspect_qwd_sng_mvd_crossings.py`
+- `experiments/qwd_route_probe/evidence/qwd-sng-tight-start-mvd-crossings-dm3.json`
+- `experiments/qwd_route_probe/evidence/qwd-sng-tight-start-mvd-crossings-dm3.md`
+
+Validation:
+
+```powershell
+python -m py_compile scripts\diagnose_qwd_sng_probe.py scripts\inspect_qwd_sng_mvd_crossings.py
+python -m unittest tests.test_diagnose_qwd_sng_probe tests.test_inspect_qwd_sng_mvd_crossings -v
+python scripts\diagnose_qwd_sng_probe.py --bot-run-id 20260607T003837Z --stage qwd-sng-tight-start-rerun-dm3 --result-json experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-dm3.json --output-json experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-diagnosis-dm3.json --output-md experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-diagnosis-dm3.md
+python scripts\inspect_qwd_sng_mvd_crossings.py --bot-run-id 20260607T003837Z --stage qwd-sng-tight-start-mvd-crossings-dm3 --result-json experiments\qwd_route_probe\evidence\qwd-sng-tight-start-rerun-dm3.json --output-json experiments\qwd_route_probe\evidence\qwd-sng-tight-start-mvd-crossings-dm3.json --output-md experiments\qwd_route_probe\evidence\qwd-sng-tight-start-mvd-crossings-dm3.md
+```
+
+### Interpretation
+
+This strengthens the Frogbots substrate hypothesis: under real KTX physics, the bots physically traversed the human-derived SNG control-point geometry with tight CP0 starts. It still blocks learned-SNG claims because internal activation/advance timing is not proven at event level and movement quality still fails the scorer guardrails.
+
+The next smallest useful experiment is not a projection change. It is event-level QWD activation/advance logging or unsampled advancement rows, followed by active-window movement-quality scoring.
+
+### Confidence
+
+High for physical MVD control-point traversal because it uses dense `events.txt` position samples and the committed QWD control-point geometry.
+
+Medium for internal mode-9 timing interpretation because sampled command rows and MVD positions currently disagree at the first active sampled row; that disagreement is exactly why event-level logging is the next target.
+
+### Follow-up
+
+Add event-level QWD activation/advance instrumentation to mode `9`, rerun the same SNG probe without changing projection policy, and rescore start proof plus active-window movement quality before trying other DM3 QWD moves.
