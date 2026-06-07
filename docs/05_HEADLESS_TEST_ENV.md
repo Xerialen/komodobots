@@ -329,6 +329,74 @@ Verified repeatability runs:
 
 In verified runs, `quakestat -qws localhost:28599 -P -nh` reported `DOWN` after cleanup.
 
+## Spectating the Lab (QTV in Browser)
+
+Status: `scripts/run_lab_qtv.py` added 2026-06-07. Pure helpers (port selection,
+config generation, watch-URL building, validation) are covered by
+`tests/test_run_lab_qtv.py` and pass in CI. **Live-server behavior is not yet
+verified**: the authoring sandbox has no `ssh` and cannot reach `servexeri`, so
+the SSH/screen orchestration must be confirmed from a host that can reach the
+box. This is the first thing to run when verifying.
+
+Purpose: watch the bot lab live from a browser without disturbing the
+measurement pipeline or the ongoing movement experiments. It is a **standalone**
+launcher, separate from `run_bot_lab.py`, so the proven runner is untouched.
+
+How it stays non-disruptive:
+
+- Dedicated MVDSV/KTX process on its own UDP game port (default `28599` family)
+  and its own TCP QTV stream port (default game-port + `100`).
+- Its own screen session, always prefixed `komodobots_qtv_...`. `down`/`status`
+  only ever match that prefix, and `down` only deletes the `kqtv_*.cfg` files the
+  launcher itself wrote. It never calls `start_servers.sh`/`stop_servers.sh`,
+  never edits `~/.nquakesv/ports/*`, and never touches the existing live
+  QTV/QWFWD.
+- Bots run **stock**: the generated config carries no `k_fb_moveprobe_*` cvars,
+  so a spectate session cannot perturb a movement experiment.
+
+QTV mechanism (source-grounded): MVDSV has a built-in QTV server, so no separate
+`qtv` proxy is needed for a single lab server. Confirmed cvars in
+`QW-Group/mvdsv` `src/sv_demo_qtv.c`: `qtv_streamport` (TCP stream listen port),
+`qtv_password`, `qtv_maxstreams`, `qtv_pendingtimeout`, `qtv_streamtimeout`,
+`qtv_sayenabled`. `sv_mvdhost` advertises the public `host:port` of the stream.
+We do not override `sv_master`, so the lab server heartbeats to the QW masters
+exactly like the box's other public servers and appears on the Hub.
+
+Watch paths the launcher prints:
+
+- Browser: open `https://hub.quakeworld.nu/`, find `komodobots-lab-qtv:<port>`,
+  click its watch/eye action (the Hub's web player bridges the QTV stream).
+- ezQuake (desktop): `/qtvplay tcp:<public-host>:<qtv-port>`.
+
+Usage:
+
+```bash
+python scripts/run_lab_qtv.py up --map dm3 --bot-count 4
+python scripts/run_lab_qtv.py status
+python scripts/run_lab_qtv.py down            # stops all lab QTV sessions
+python scripts/run_lab_qtv.py down --session komodobots_qtv_dm3_28599_<run-id>
+```
+
+`up` starts the server, enables Frogbots, spawns `--bot-count` bots, and keeps a
+thin connected client (`experiments/qw_min_client.py`) alive for `--duration`
+seconds (default `3600`). The keepalive client matters because QTV spectators do
+**not** count as server players, so without one human present the Frogbots would
+drain. `--public-host auto` (default) resolves the box's public address remotely;
+pass an explicit IP/DNS if auto-detection is wrong.
+
+First-verification checklist on a host that can reach `servexeri`:
+
+```bash
+python scripts/run_lab_qtv.py up --map dm3 --bot-count 4 --duration 600
+python scripts/run_lab_qtv.py status     # expect the QTV port listening, server UP
+# open the printed Hub URL / qtvplay link and confirm you can watch the bots
+python scripts/run_lab_qtv.py down
+```
+
+If the QTV port never reports listening, the deployed MVDSV build may lack QTV
+support or the TCP port is firewalled; both are recorded as experiment results,
+not silent failures.
+
 ## 2026-06-05 Smoke Run
 
 Run identity:

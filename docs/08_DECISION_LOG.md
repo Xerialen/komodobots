@@ -2443,6 +2443,71 @@ Decision recorded 2026-06-07; KTX mode 10 implemented and pending Codex review (
 
 ---
 
+## Stand up a dedicated lab QTV stream for browser spectating.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+Add `scripts/run_lab_qtv.py`, a standalone `up`/`down`/`status` launcher that
+exposes the bot lab as a live QTV stream watchable from a browser via the
+QuakeWorld Hub. It runs a dedicated MVDSV/KTX process on its own UDP game port
+and its own TCP QTV stream port, in a `komodobots_qtv_*` screen session, using a
+uniquely named `kqtv_*.cfg` it owns and removes. It uses MVDSV's built-in QTV
+(`qtv_streamport` family) plus `sv_mvdhost`, relies on the default master
+heartbeats for Hub discovery, and keeps the measurement runner
+(`run_bot_lab.py`) untouched.
+
+### Alternatives Considered
+
+- Reuse the existing nQuake QTV/QWFWD already configured on `servexeri`.
+- Self-host a browser QTV web client (ezquake-wasm) on `servexeri`.
+- Run a standalone `qtv` proxy instead of MVDSV's built-in stream.
+- Add a `--qtv` flag to the proven `run_bot_lab.py` instead of a separate tool.
+
+### Evidence
+
+- User chose: QW Hub web QTV as the browser path, a dedicated lab QTV instance,
+  and a standalone launcher (not integrated into `run_bot_lab.py`).
+- MVDSV built-in QTV cvars confirmed in `QW-Group/mvdsv` `src/sv_demo_qtv.c`:
+  `qtv_streamport`, `qtv_password`, `qtv_maxstreams`, `qtv_pendingtimeout`,
+  `qtv_streamtimeout`, `qtv_sayenabled`. `sv_mvdhost` advertises the public
+  stream address (referenced in `src/sv_user.c` command table).
+- `docs/05_HEADLESS_TEST_ENV.md` already records that `stop_servers.sh` stops a
+  live QTV/QWFWD, confirming an nQuake-managed QTV proxy exists on the box; the
+  dedicated instance avoids coupling lab spectating to live service config.
+- `tests/test_run_lab_qtv.py` (16 tests) proves the pure logic: port selection,
+  config generation (required QTV cvars present, no `k_fb_moveprobe_*` cvars,
+  non-disruption banner), watch-URL building, lab-owned session/port validation.
+  Full suite is green (168 tests).
+
+### Expected Consequences
+
+Benjamin can watch the lab live in a browser. Spectating cannot perturb movement
+experiments (stock bots, separate ports/process/config/session, no moveprobe
+cvars), and cleanup only ever touches lab-owned `komodobots_qtv_*` sessions and
+`kqtv_*.cfg` files.
+
+### Revisit Conditions
+
+Revisit if the deployed MVDSV build lacks compiled QTV support, if the lab QTV
+TCP port is not internet-reachable so the Hub cannot bridge it, if a private
+high-port server does not appear on the Hub (then self-host a web client or use a
+direct `qtvplay` link), or if reusing the existing nQuake QTV proves simpler in
+practice.
+
+### Status
+
+Decision recorded 2026-06-07; launcher implemented with unit coverage. Live
+`servexeri` behavior is **pending verification** — the authoring sandbox has no
+SSH reach to the box, so the SSH/screen orchestration must be confirmed from a
+host that can reach `servexeri` (see the first-verification checklist in
+`docs/05_HEADLESS_TEST_ENV.md`).
+
+---
+
 ## Decision
 
 First movement-frontier controller = closed-loop CORRECTION (KTX moveprobe mode 12, corrective replay). Pure steering (mode 11) rejected; from-scratch movement brain scoped later.

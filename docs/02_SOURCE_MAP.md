@@ -45,10 +45,18 @@ Why it matters:
 - Provides server-side MVD recording and demo sidecar handling.
 - Candidate executable for Komodobots lab ports.
 
+Built-in QTV (for browser spectating):
+
+- MVDSV has a built-in QTV stream, so a single lab server needs no standalone `qtv` proxy. Confirmed cvars in `QW-Group/mvdsv` `src/sv_demo_qtv.c`: `qtv_streamport` (TCP stream listen port), `qtv_password`, `qtv_maxstreams`, `qtv_pendingtimeout` (default 5s), `qtv_streamtimeout` (default 45s), `qtv_sayenabled`.
+- The current servexeri MVDSV build rejects `sv_mvdhost` as an unknown command, so the lab launcher prints the watch target instead of depending on that cvar.
+- A viewer connects with ezQuake `/qtvplay <host>:<qtv_streamport>`; ezQuake does not parse a `tcp:` scheme in `qtvplay`.
+- Used by `scripts/run_lab_qtv.py`. Pin the deployed MVDSV commit and confirm QTV support is compiled in before relying on the stream.
+
 Deployment note:
 
 - `servexeri:~/nquakesv/` has `mvdsv` and `build/mvdsv/mvdsv` present; the build checkout reported commit `90aa017` during the 2026-06-05 inspection.
 - Existing ports are `28501`, `28502`, and `28503`. User clarified on 2026-06-05 that no one plays on this server, so lab automation may use any port; a separate temporary port/process is still useful for cleanup and repeatability.
+- `~/nquakesv/stop_servers.sh` stops a live QTV/QWFWD, so an nQuake-managed QTV proxy already exists on the box. The lab QTV launcher deliberately stands up a *separate* dedicated stream instead of reusing it, to avoid coupling lab spectating to live service config.
 
 ### DrLex Frogbots
 
@@ -144,6 +152,8 @@ QWD seam validator: `C:\Users\benya\projects\quakeworld\komodobots\scripts\qwd_s
 
 Replay timing audit helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\audit_replay_timing.py`
 
+Lab QTV spectate launcher: `C:\Users\benya\projects\quakeworld\komodobots\scripts\run_lab_qtv.py`
+
 KTX movement probe patch: `C:\Users\benya\projects\quakeworld\komodobots\experiments\ktx_moveprobe\frogbot-moveprobe.patch`
 
 A5 live-port overlay/spec: `C:\Users\benya\projects\quakeworld\komodobots\experiments\a5_distance_standstill\a5-live-port-spec.md` and `C:\Users\benya\projects\quakeworld\komodobots\experiments\a5_distance_standstill\a5-live-port-servexeri-overlay.md`
@@ -217,6 +227,7 @@ Why it matters:
 - `experiments/ktx_moveprobe/evidence/` keeps small committed derived summaries for important S3 runs while raw MVDs and per-run directories remain outside Git under `artifacts/`. S7c regenerated the S3g summary from existing artifacts to include bot-side cadence.
 - `experiments/human_comparison/evidence/` keeps small committed derived inventory/summary files for S4 human-demo work while raw human demos and parser event streams remain outside Git under `artifacts/human-demos/`.
 - `experiments/qwd_route_probe/evidence/` keeps compact committed QWD state/action/waypoint applicability summaries, while per-frame paired NDJSON and waypoint exports remain ignored under `artifacts/qwd-route-probe/`.
+- `scripts/run_lab_qtv.py` is a standalone `up`/`down`/`status` launcher that brings up a browser-spectatable QTV stream for the lab on a dedicated UDP game port plus TCP QTV stream port, using a `komodobots_qtv_*` screen session and a `kqtv_*.cfg` config it owns and cleans up. It never touches nQuake-managed configs or the existing live QTV/QWFWD, and the generated config carries no `k_fb_moveprobe_*` cvars so it cannot perturb movement experiments. It relies on MVDSV's built-in QTV (`qtv_streamport` family), prints the direct `qtvplay <host>:<port>` target, and treats Hub visibility as dependent on normal reachability/listing behavior rather than `sv_mvdhost`. Pure logic is covered by `tests/test_run_lab_qtv.py`; live `servexeri` behavior is pending verification (the authoring sandbox has no SSH reach).
 
 Verification:
 
@@ -861,6 +872,16 @@ Important files/anchors:
 - `src/qwprot/src/protocol.h` - `usercmd_t` layout: `byte msec`, `vec3_t angles`, `short forwardmove/sidemove/upmove`, `byte buttons`, `byte impulse`; current layout validates as `24` bytes with compiler padding after `msec`.
 - `src/com_msg.c` - `MSG_WriteDeltaUsercmd()` / read side cross-check the canonical command field set and sizes.
 - `src/sv_ents.c` - server broadcast/MVD path zeroes normal movement intent, so MVDs remain state/evaluation evidence rather than exact human input labels.
+
+### QuakeWorld Hub (browser spectating)
+
+URL: https://hub.quakeworld.nu/
+
+Why it matters:
+
+- Discovers QuakeWorld servers from the QW master servers and provides an in-browser player for live QTV streams.
+- Chosen browser front-end for lab spectating (`scripts/run_lab_qtv.py`) when the lab server is visible/reachable, avoiding a self-hosted web client.
+- Caveat: a private high-port lab server only appears if its game port and QTV TCP port are reachable from the internet; `servexeri` already hosts public servers, so this is expected to work but is pending live verification.
 
 ## External conceptual sources
 
