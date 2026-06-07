@@ -2365,10 +2365,10 @@ Codex now performs the PR technical merge-safety review directly from Codex Desk
 The deterministic GitHub Action remains the only merge authority. The lifecycle is:
 
 ```text
-push/open PR -> reset to gate: reviewing -> Codex reviews and applies gate: ready or gate: blocked -> review-gate-merge merges only on gate: ready plus green PR Tests and no failing non-gate checks
+push/open PR -> reset to gate: reviewing -> Codex reviews and applies gate: ready or gate: blocked -> review-gate-merge merges only on gate: ready plus green PR Tests and no failing non-gate checks, either from the event path or the 10-minute reconciler
 ```
 
-`review-gate-labeler.yml` is removed because it parsed Codex output, could conflict with direct labels, and previously needed an inline merge path to work around GitHub's `GITHUB_TOKEN` event-recursion rules. `review-gate-reset.yml` is re-enabled as a quiet SHA-hygiene reset. `review-gate-merge.yml` is re-enabled as the only deterministic auto-merger.
+`review-gate-labeler.yml` is removed because it parsed Codex output, could conflict with direct labels, and previously needed an inline merge path to work around GitHub's `GITHUB_TOKEN` event-recursion rules. `review-gate-reset.yml` is re-enabled as a quiet SHA-hygiene reset. `review-gate-merge.yml` is re-enabled as the only deterministic auto-merger, with a 10-minute schedule backstop for already-ready PRs.
 
 Reviewer scope is technical merge safety only: correctness, regressions, security, reliability, CI/CD, GitHub Actions logic, workflow triggers, label/merge-gate logic, permissions, secrets, branch-protection assumptions, operational/deployment risk, data-loss/destructive behavior, and tests for changed behavior. Plan, roadmap, scope, architecture-plan deviation, north-star drift, and documentation drift are not review-gate blockers.
 
@@ -2385,11 +2385,12 @@ Reviewer scope is technical merge safety only: correctness, regressions, securit
 - Existing workflow state verified: `review-gate-labeler.yml`, `review-gate-merge.yml`, and `review-gate-reset.yml` were `disabled_manually`; `PR Tests` was active; `lab-ci.yml` was active but `workflow_dispatch` only.
 - Branch-protection and ruleset APIs both returned 403 with the GitHub free-private-plan upgrade message.
 - A stale remote workflow entry for `.github/workflows/request-second-opinion.yml` exists even though the file is absent from `main`; it is disabled rather than treated as part of the gate.
+- Live connector-label test on PR #49 created a GitHub `labeled` timeline event for `gate: blocked`, but no `Review Gate Merge` `pull_request:labeled` run appeared after waiting and checking Actions. The schedule reconciler was added because the event-driven path did not prove reliable.
 
 ### Expected Consequences
 
-The gate no longer depends on fragile parsing of Codex phrasing. A new commit resets stale PASS/BLOCK labels to `gate: reviewing`; Codex Desktop automation reviews the new head and applies the terminal label; the deterministic Action merges only when the label and CI floor agree.
+The gate no longer depends on fragile parsing of Codex phrasing. A new commit resets stale PASS/BLOCK labels to `gate: reviewing`; Codex Desktop automation reviews the new head and applies the terminal label; the deterministic Action merges only when the label and CI floor agree. If a connector-applied label does not trigger the event path, the 10-minute schedule picks up open `gate: ready` PRs and runs the same checks.
 
 ### Revisit Conditions
 
-Revisit if labels applied by Codex Desktop automation do not deliver `pull_request: labeled` events, if the automation cannot reliably post the structured comment and label the same head SHA, or if GitHub-native branch protection becomes available for this repository.
+Revisit if the 10-minute reconciler is too slow, if connector-applied labels later prove to trigger reliably and the schedule becomes unnecessary, if the automation cannot reliably post the structured comment and label the same head SHA, or if GitHub-native branch protection becomes available for this repository.
