@@ -37,21 +37,22 @@ The first project objective is to build a repeatable lab that can prove or dispr
 This repository may be worked by three unattended roles:
 
 ```text
-Phasekeeper implements stage work -> Code Sentinel reviews/hardens and sets the review gate -> Merge Warden merges if gates pass -> Phasekeeper starts the next stage from updated main
+Phasekeeper implements stage work -> Code Sentinel reviews/hardens and comments a review-gate decision -> GitHub Actions apply labels and Merge Warden merges if gates pass -> Phasekeeper starts the next stage from updated main
 ```
 
 Role boundaries are mandatory:
 
 - Phasekeeper implements the current stage, updates docs/evidence, opens or updates the stage PR, and responds to review feedback that stays inside the same stage.
-- Code Sentinel reviews and hardens PRs for code slop, validation gaps, documentation gaps, and north-star drift, and sets the review-gate label.
+- Code Sentinel reviews and hardens PRs for code slop, validation gaps, documentation gaps, and north-star drift, then comments a review-gate decision. It must not directly change code, apply labels, or merge.
+- GitHub Actions own review-gate label mutations and second-opinion request comments.
 - Merge Warden performs the final deterministic merge gate and merges only when all gates pass.
 - Gemini is an on-demand second opinion only. It does not implement, set review-gate labels, or merge.
 
 Hard separation:
 
 - Phasekeeper must not merge.
-- Code Sentinel must not merge or implement feature work.
-- Gemini must not set review-gate labels or act as merge authority.
+- Code Sentinel must not merge, implement feature work, push commits, or apply labels.
+- Gemini must not set review-gate labels, push commits, or act as merge authority.
 - Merge Warden must not implement feature work, fix tests, review, or start the next stage.
 
 ## Stage and PR rules
@@ -90,23 +91,35 @@ Gemini may be used only as an on-demand second opinion. Invoke it manually on a 
 /gemini summary
 ```
 
-A second opinion may also be requested by applying this neutral label:
+A second opinion may also be requested when Code Sentinel comments this exact line on a PR:
 
 ```text
-opinion: requested
+SECOND_OPINION: requested
 ```
 
-The `Request Second Opinion` workflow may translate that label into a single `/gemini review` PR comment. Do not repeatedly request the same second opinion.
+The `Review Gate Labeler` workflow translates that comment into the neutral label `opinion: requested`, and the `Request Second Opinion` workflow translates that label into a single `/gemini review` PR comment. Do not repeatedly request the same second opinion.
 
 Use a second opinion when a PR is high-risk, changes review/merge automation, changes agent instructions or role boundaries, changes validation/scoring/experiment methodology, touches security-sensitive or execution-sensitive code, performs a large rewrite, or when Code Sentinel is uncertain.
 
-Before setting `gate: ready`, Code Sentinel must decide whether the PR requires a second opinion. If required and no Gemini response is present, Code Sentinel must set `gate: blocked`, apply or request `opinion: requested`, and explain that final approval is blocked pending second opinion.
+Before approving a PR, Code Sentinel must decide whether the PR requires a second opinion. If required and no Gemini response is present, Code Sentinel must comment `SECOND_OPINION: requested`, comment `REVIEW_GATE: gate: blocked`, and explain that final approval is blocked pending second opinion.
 
 After Gemini responds, Code Sentinel must reconcile the second opinion and still make the final review-gate decision. Gemini never sets `gate: ready`, never sets `gate: blocked`, and never merges.
 
-## Review gate label rule
+## Review gate decision rule
 
-Every Code Sentinel PR review must leave a clear review comment and apply exactly one final review-gate label:
+Every Code Sentinel PR review must leave a clear review comment that ends with exactly one final review-gate decision line:
+
+```text
+REVIEW_GATE: gate: ready
+```
+
+or:
+
+```text
+REVIEW_GATE: gate: blocked
+```
+
+Code Sentinel must not apply the labels directly. The `Review Gate Labeler` workflow consumes the decision comment and applies exactly one final review-gate label:
 
 ```text
 gate: ready
@@ -119,9 +132,9 @@ Optional transient label:
 gate: reviewing
 ```
 
-The final labels are mutually exclusive. Before applying `gate: ready`, remove `gate: blocked` and `gate: reviewing`. Before applying `gate: blocked`, remove `gate: ready` and `gate: reviewing`. A PR must never intentionally keep both `gate: ready` and `gate: blocked`.
+The final labels are mutually exclusive. The workflow removes `gate: blocked` and `gate: reviewing` before applying `gate: ready`; it removes `gate: ready` and `gate: reviewing` before applying `gate: blocked`. A PR must never intentionally keep both `gate: ready` and `gate: blocked`.
 
-Use `gate: ready` only when the PR meets the "Merge gate rule" below. Use `gate: blocked` for any P0 or any unresolved actionable feedback. The merge executor consumes only the neutral label state; it does not depend on a specific agent name.
+Use `REVIEW_GATE: gate: ready` only when the PR meets the "Merge gate rule" below. Use `REVIEW_GATE: gate: blocked` for any P0 or any unresolved actionable feedback. The merge executor consumes only the neutral label state; it does not depend on a specific agent name.
 
 A pushed commit invalidates the prior review gate. `.github/workflows/review-gate-reset.yml` clears `gate: ready` and `gate: blocked` and sets `gate: reviewing` whenever new commits are pushed to a PR branch.
 
@@ -137,17 +150,7 @@ Review focus, in priority order:
 - Documentation gaps: code/config/experiment changes that did not update the routed doc. (P1)
 - Code slop: dead code, needless complexity, duplicated logic. (P2)
 
-End every review with a concise decision section that names the final label applied:
-
-```text
-REVIEW_GATE: gate: ready
-```
-
-or:
-
-```text
-REVIEW_GATE: gate: blocked
-```
+End every review with the final decision line described above.
 
 If a second opinion was required, also summarize how Gemini's feedback was handled before setting the final review gate.
 
@@ -163,7 +166,7 @@ Merge Warden may merge only when all are true:
 - PR is mergeable.
 - Required checks pass.
 - If no checks exist, that absence is explicitly noted.
-- Code Sentinel has set `gate: ready`.
+- The workflow-applied label `gate: ready` is present.
 - `gate: blocked` is absent.
 - No unresolved actionable review feedback remains.
 - The PR body or latest agent comment records what changed, evidence produced, docs updated, validation run, stage status, and next step.
