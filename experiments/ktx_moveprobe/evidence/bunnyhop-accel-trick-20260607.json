@@ -1,0 +1,50 @@
+{
+  "schema": "komodobots.bunnyhop_accel.v1",
+  "date": "2026-06-07",
+  "map": "trick",
+  "bots": 1,
+  "human_benchmark_trick5": {
+    "median_hspeed_qu_per_s": 880,
+    "peak_hspeed_qu_per_s": 1088
+  },
+  "arms": [
+    {
+      "arm": "normal_frogbot_mode0",
+      "run_id": "20260607T184752Z",
+      "note": "walks markers, barely hops",
+      "avg_horizontal_speed_qu_per_s": 112.343,
+      "max_horizontal_speed_qu_per_s": 456.763,
+      "p50_horizontal_speed_qu_per_s": 59.524,
+      "p95_horizontal_speed_qu_per_s": 420.265,
+      "jump_cadence_per_min": 15.226,
+      "airborne_proxy_time_ratio": 0.082,
+      "over_maxspeed_time_ratio": 0.124
+    },
+    {
+      "arm": "mode13_held_jump",
+      "run_id": "20260607T185607Z",
+      "note": "*jumping=true every frame -> held -> 0 jumps, spins on ground",
+      "avg_horizontal_speed_qu_per_s": 137.825,
+      "max_horizontal_speed_qu_per_s": 158.114,
+      "p50_horizontal_speed_qu_per_s": 138.773,
+      "p95_horizontal_speed_qu_per_s": 150.842,
+      "jump_cadence_per_min": 0.0,
+      "airborne_proxy_time_ratio": 0.0,
+      "over_maxspeed_time_ratio": 0.0
+    },
+    {
+      "arm": "mode13_toggle_air_strafe",
+      "run_id": "20260607T190104Z",
+      "note": "jump toggled on ground contact + air-strafe gated to airborne",
+      "avg_horizontal_speed_qu_per_s": 99.966,
+      "max_horizontal_speed_qu_per_s": 475.986,
+      "p50_horizontal_speed_qu_per_s": 75.0,
+      "p95_horizontal_speed_qu_per_s": 317.385,
+      "jump_cadence_per_min": 79.912,
+      "airborne_proxy_time_ratio": 0.958,
+      "over_maxspeed_time_ratio": 0.049
+    }
+  ],
+  "finding": "Holding +jump every frame jumps once then holds, so the bot never bunnyhops (0 jumps/min, 0% airborne, spins on the ground at ~138 qu/s). Toggling the jump on ground contact (press on landing, release in air) plus gating the velocity-aware air-strafe to airborne takes a from-scratch accelerator to 80 jumps/min, 96% airborne, max 476 qu/s on trick.bsp. Acceleration is real but not yet sustained (median 75) and still far from the human benchmark (880/1088): tuning (numerator sweep) and strafe refinement are the next step. The held-jump bug likely also crippled the unconditional-jump moveprobe modes (5-9, 11), a candidate explanation for the chronic weak bot air-speed (S7: 122 vs 433).",
+  "spawn": "Frogbots only spawn on map_supported maps (a bots/maps/<map>.bot must load). trick.bsp ships none. scripts/generate_bot_route.py builds one programmatically from a demo trajectory (trick5.cmds -> 180 walkable markers); no in-game waypoint editor needed. The bot is driven by moveprobe, so the route graph need not be navigable."
+}

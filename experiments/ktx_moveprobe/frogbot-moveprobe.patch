@@ -1,8 +1,8 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..8c5bc7a 100644
+index c0654d1..a51b430 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -5,6 +5,68 @@
+@@ -5,6 +5,74 @@
  #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
@@ -68,10 +68,16 @@ index c0654d1..8c5bc7a 100644
 +static float moveprobe_replay_divergence_v[MAX_CLIENTS];
 +static float moveprobe_replay_corr_accum[MAX_CLIENTS]; // mode 12: cumulative yaw correction (deg)
 +static float moveprobe_replay_corr_max[MAX_CLIENTS];   // mode 12: max per-frame yaw correction (deg)
++static int   moveprobe_replay_attempt_num[MAX_CLIENTS];    // loop: attempt counter (1-based)
++static float moveprobe_replay_attempt_maxh[MAX_CLIENTS];   // loop: max divH this attempt (qu)
++static int   moveprobe_replay_attempt_break[MAX_CLIENTS];  // loop: first cursor divH>corridor (-1 none)
++static float moveprobe_replay_attempt_finalh[MAX_CLIENTS]; // loop: max divH in final segment (qu)
++static float moveprobe_replay_loop_cooldown[MAX_CLIENTS];  // loop: do not re-arm before this time
++static int   moveprobe_accel_jump_press[MAX_CLIENTS];      // mode 13: last-frame jump press (toggle)
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,6 +484,1106 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,6 +490,1302 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -414,6 +420,11 @@ index c0654d1..8c5bc7a 100644
 +	moveprobe_replay_divergence_v[slot] = 0.0f;
 +	moveprobe_replay_corr_accum[slot] = 0.0f;
 +	moveprobe_replay_corr_max[slot] = 0.0f;
++	moveprobe_replay_attempt_num[slot] = 0;
++	moveprobe_replay_attempt_maxh[slot] = 0.0f;
++	moveprobe_replay_attempt_break[slot] = -1;
++	moveprobe_replay_attempt_finalh[slot] = 0.0f;
++	moveprobe_replay_loop_cooldown[slot] = 0.0f;
 +}
 +
 +static int BotMoveProbeParseReplayLine(char *line, moveprobe_replay_frame_t *f)
@@ -549,6 +560,45 @@ index c0654d1..8c5bc7a 100644
 +			 PASSVEC3(moveprobe_replay_expected[slot]));
 +}
 +
++// Ends one replay attempt: logs a per-attempt summary line, then either re-arms
++// for the next attempt (loop mode -- the Python harness tails FBMOVEPROBE_ATTEMPT
++// to score success rate and auto-tune cvars live) or marks the session complete.
++static void BotMoveProbeEndAttempt(gedict_t *self, int slot, int count, const char *reason)
++{
++	if (cvar("k_fb_moveprobe_log_commands"))
++	{
++		G_cprint("FBMOVEPROBE_ATTEMPT ed=%d n=%d end=%s break_cursor=%d furthest_cursor=%d "
++				 "frame_count=%d maxH=%.1f final_maxH=%.1f corr_accum=%.1f corr_max=%.1f\n",
++				 NUM_FOR_EDICT(self), moveprobe_replay_attempt_num[slot], reason,
++				 moveprobe_replay_attempt_break[slot], moveprobe_replay_cursor[slot], count,
++				 moveprobe_replay_attempt_maxh[slot], moveprobe_replay_attempt_finalh[slot],
++				 moveprobe_replay_corr_accum[slot], moveprobe_replay_corr_max[slot]);
++	}
++
++	if ((int)cvar("k_fb_moveprobe_replay_loop"))
++	{
++		// Re-arm: clear active/complete so the next frame re-snaps to frame 0 and
++		// starts a fresh attempt. Keep the cooldown under stale_gap (1s) so the
++		// per-frame stale-session reset does not fire during the pause.
++		float cd = cvar("k_fb_moveprobe_loop_cooldown");
++		if (cd <= 0)
++		{
++			cd = 0.5f;
++		}
++		cd = bound(0.0f, cd, 0.9f);
++		moveprobe_replay_active[slot] = 0;
++		moveprobe_replay_complete[slot] = 0;
++		moveprobe_replay_cursor[slot] = 0;
++		moveprobe_replay_has_start[slot] = 0;
++		moveprobe_replay_loop_cooldown[slot] = g_globalvars.time + cd;
++	}
++	else
++	{
++		moveprobe_replay_complete[slot] = 1;
++		moveprobe_replay_active[slot] = 0;
++	}
++}
++
 +// Mode 10: open-loop replay. Snap to the human frame-0 state once, then emit the
 +// exact human usercmd for the resampled time index each frame. forwardmove /
 +// sidemove / upmove are already view-relative in a usercmd, so they pass straight
@@ -577,10 +627,17 @@ index c0654d1..8c5bc7a 100644
 +		BotMoveProbeResetReplaySession(slot);
 +		return false;
 +	}
-+	if (strneq(mapname, "dm3"))
 +	{
-+		BotMoveProbeResetReplaySession(slot);
-+		return false;
++		// Gate the replay to the map its .cmds was recorded on. The map is named
++		// by k_fb_moveprobe_replay_map; empty means no restriction (operator
++		// guarantees the right .cmds for the loaded map).
++		char want_map[64];
++		trap_cvar_string("k_fb_moveprobe_replay_map", want_map, sizeof(want_map));
++		if (want_map[0] && strneq(mapname, want_map))
++		{
++			BotMoveProbeResetReplaySession(slot);
++			return false;
++		}
 +	}
 +
 +	if (!moveprobe_replay_has_seen_time[slot]
@@ -595,6 +652,12 @@ index c0654d1..8c5bc7a 100644
 +	if (moveprobe_replay_complete[slot])
 +	{
 +		moveprobe_replay_active[slot] = 0;
++		return false;
++	}
++
++	// Loop mode: after an attempt ends we pause briefly before re-arming.
++	if (!moveprobe_replay_active[slot] && (g_globalvars.time < moveprobe_replay_loop_cooldown[slot]))
++	{
 +		return false;
 +	}
 +
@@ -614,6 +677,15 @@ index c0654d1..8c5bc7a 100644
 +		moveprobe_replay_has_start[slot] = 1;
 +		VectorCopy(f->origin, moveprobe_replay_expected[slot]);
 +		moveprobe_replay_divergence[slot] = 0.0f;
++		moveprobe_replay_divergence_h[slot] = 0.0f;
++		moveprobe_replay_divergence_v[slot] = 0.0f;
++		// Fresh attempt: bump the counter and clear per-attempt accumulators.
++		moveprobe_replay_attempt_num[slot]++;
++		moveprobe_replay_attempt_maxh[slot] = 0.0f;
++		moveprobe_replay_attempt_break[slot] = -1;
++		moveprobe_replay_attempt_finalh[slot] = 0.0f;
++		moveprobe_replay_corr_accum[slot] = 0.0f;
++		moveprobe_replay_corr_max[slot] = 0.0f;
 +		BotLogMoveProbeReplayEvent(self, slot, "activate");
 +	}
 +
@@ -633,15 +705,16 @@ index c0654d1..8c5bc7a 100644
 +		moveprobe_replay_divergence[slot] = VectorLength(delta);
 +		moveprobe_replay_divergence_h[slot] = sqrt(delta[0] * delta[0] + delta[1] * delta[1]);
 +		moveprobe_replay_divergence_v[slot] = fabs(delta[2]);
-+		moveprobe_replay_complete[slot] = 1;
-+		moveprobe_replay_active[slot] = 0;
-+		BotLogMoveProbeReplayEvent(self, slot, "complete");
-+		if (cvar("k_fb_moveprobe_log_commands"))
++		if (moveprobe_replay_divergence_h[slot] > moveprobe_replay_attempt_maxh[slot])
 +		{
-+			G_cprint("FBMOVEPROBE_REPLAY_CORR ed=%d corr_accum=%.2f corr_max=%.2f\n",
-+					 NUM_FOR_EDICT(self), moveprobe_replay_corr_accum[slot],
-+					 moveprobe_replay_corr_max[slot]);
++			moveprobe_replay_attempt_maxh[slot] = moveprobe_replay_divergence_h[slot];
 +		}
++		if (moveprobe_replay_divergence_h[slot] > moveprobe_replay_attempt_finalh[slot])
++		{
++			moveprobe_replay_attempt_finalh[slot] = moveprobe_replay_divergence_h[slot];
++		}
++		BotLogMoveProbeReplayEvent(self, slot, "complete");
++		BotMoveProbeEndAttempt(self, slot, count, "complete");
 +		return false;
 +	}
 +
@@ -651,6 +724,39 @@ index c0654d1..8c5bc7a 100644
 +	moveprobe_replay_divergence[slot] = VectorLength(delta);
 +	moveprobe_replay_divergence_h[slot] = sqrt(delta[0] * delta[0] + delta[1] * delta[1]);
 +	moveprobe_replay_divergence_v[slot] = fabs(delta[2]);
++
++	{
++		// Per-attempt tracking + blowup early-abort. corridor = the lock-on
++		// threshold (break_cursor = where divH first leaves the corridor);
++		// final segment (>= final_start) feeds the "landed the last jump" check;
++		// kill_div ends a hopeless attempt early so the loop retries sooner.
++		float dh = moveprobe_replay_divergence_h[slot];
++		float corridor = cvar("k_fb_moveprobe_corridor");
++		float kill = cvar("k_fb_moveprobe_kill_div");
++		int final_start = (int)cvar("k_fb_moveprobe_final_start");
++
++		if (corridor <= 0)
++		{
++			corridor = 64.0f;
++		}
++		if (dh > moveprobe_replay_attempt_maxh[slot])
++		{
++			moveprobe_replay_attempt_maxh[slot] = dh;
++		}
++		if ((moveprobe_replay_attempt_break[slot] < 0) && (dh > corridor))
++		{
++			moveprobe_replay_attempt_break[slot] = cursor;
++		}
++		if ((cursor >= final_start) && (dh > moveprobe_replay_attempt_finalh[slot]))
++		{
++			moveprobe_replay_attempt_finalh[slot] = dh;
++		}
++		if ((kill > 0) && (dh > kill))
++		{
++			BotMoveProbeEndAttempt(self, slot, count, "blowup");
++			return false;
++		}
++	}
 +
 +	if (replay_variant == 0)
 +	{
@@ -1063,6 +1169,102 @@ index c0654d1..8c5bc7a 100644
 +		// exceeds k_fb_moveprobe_corr_deadband. See docs/08_DECISION_LOG.md.
 +		BotApplyMoveProbeReplay(self, slot, jumping, direction, 2);
 +	}
++
++	else if (mode == 13)
++	{
++		// Velocity-aware bunnyhop accelerator (no replay). On the GROUND: run
++		// straight along current velocity to build speed and press jump (toggled,
++		// so it releases in the air -- holding +jump only jumps once). AIRBORNE:
++		// aim the wish-direction at the speed-optimal angle off current velocity
++		// (the acos rule ApplyPhysics uses); the engine's capped air-accel turns
++		// velocity only slightly per frame, so a large wish-angle is correct and
++		// grows the speed -> a bunnyhop that accelerates toward the QW ceiling.
++		// Rotating on the ground would just spin the bot (ground accel redirects
++		// fully), so the strafe is gated to the air. numerator is a tunable cvar;
++		// metric is horizontal speed. See docs/08_DECISION_LOG.md.
++		float numerator = cvar("k_fb_moveprobe_accel_numerator");
++		float bootstrap_deg = cvar("k_fb_moveprobe_accel_bootstrap_deg");
++		float sv_maxspeed = cvar("sv_maxspeed");
++		float max_incr;
++		float hor_speed_sq;
++		float rotation;
++		qbool onground = ((int)self->s.v.flags & FL_ONGROUND) ? true : false;
++		qbool press_jump;
++		vec3_t cur_dir;
++		vec3_t proposed_dir;
++		vec3_t up_vector = { 0, 0, 1 };
++
++		if (numerator == 0)
++		{
++			numerator = 8.4f;
++		}
++		if (bootstrap_deg <= 0)
++		{
++			bootstrap_deg = 25.0f;
++		}
++		if (sv_maxspeed <= 0)
++		{
++			sv_maxspeed = 320.0f;
++		}
++		max_incr = numerator * numerator;
++
++		cur_dir[0] = self->s.v.velocity[0];
++		cur_dir[1] = self->s.v.velocity[1];
++		cur_dir[2] = 0;
++		hor_speed_sq = cur_dir[0] * cur_dir[0] + cur_dir[1] * cur_dir[1];
++
++		if (VectorNormalize(cur_dir) <= 0)
++		{
++			// At rest: seed the heading from the current view.
++			vec3_t view_angles = { 0, self->fb.desired_angle[YAW], 0 };
++
++			trap_makevectors(view_angles);
++			VectorCopy(g_globalvars.v_forward, cur_dir);
++			cur_dir[2] = 0;
++			if (VectorNormalize(cur_dir) <= 0)
++			{
++				cur_dir[0] = 1;
++				cur_dir[1] = 0;
++				cur_dir[2] = 0;
++			}
++		}
++
++		if (onground)
++		{
++			// Build/keep speed running straight; no strafe rotation on the ground.
++			VectorCopy(cur_dir, proposed_dir);
++		}
++		else
++		{
++			if (hor_speed_sq > max_incr)
++			{
++				rotation = acos(max_incr / hor_speed_sq) * 180.0f / M_PI;
++			}
++			else
++			{
++				rotation = bootstrap_deg;
++			}
++			RotatePointAroundVector(proposed_dir, up_vector, cur_dir, rotation);
++			proposed_dir[2] = 0;
++			if (VectorNormalize(proposed_dir) <= 0)
++			{
++				VectorCopy(cur_dir, proposed_dir);
++			}
++		}
++
++		// Toggle jump: press on the ground only if it was released last frame, so
++		// the button releases in the air and re-fires on each landing.
++		press_jump = onground && !moveprobe_accel_jump_press[slot];
++		moveprobe_accel_jump_press[slot] = press_jump;
++
++		self->fb.desired_angle[PITCH] = 0;
++		self->fb.desired_angle[YAW] = vectoyaw(proposed_dir);
++		self->fb.desired_angle[ROLL] = 0;
++		direction[0] = sv_maxspeed;
++		direction[1] = 0;
++		direction[2] = 0;
++		*jumping = press_jump;
++	}
 +}
 +
 +static float BotMoveProbeAngleDelta(float route_yaw, float view_yaw)
@@ -1178,7 +1380,7 @@ index c0654d1..8c5bc7a 100644
  void BotSetCommand(gedict_t *self)
  {
  	extern float last_frame_time;
-@@ -556,8 +1718,11 @@ void BotSetCommand(gedict_t *self)
+@@ -556,8 +1920,11 @@ void BotSetCommand(gedict_t *self)
  		impulse = 0;
  	}
  

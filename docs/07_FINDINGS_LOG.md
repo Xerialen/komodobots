@@ -3437,3 +3437,37 @@ Medium-high. The three-arm A/B shares one snapped start, one demo, one scorer; t
 ### Follow-up
 
 Sweep mode 12 (deadband {8,16,32} x yaw_max {2,3,5}) and replicate on a second dm3 trick to confirm the corridor extension generalizes; consider whether a higher yaw_max tracks further at acceptable believability (corr_max was saturated at the 3 deg clamp). Ocular-review the m12 demo for visible twitch.
+
+---
+
+## 2026-06-07 (bunnyhop acceleration on trick.bsp)
+
+### Experiment
+
+Attack acceleration directly (the foundational bunnyhop skill, and the bottleneck in the dm3 corrective run) on trick.bsp, a pure-acceleration map (open, no walls/water). New KTX moveprobe **mode 13**: a velocity-aware air-strafe accelerator (no replay) that rotates the wish-direction to the speed-optimal angle vs current velocity and jumps continuously. Metric: horizontal speed vs the human `trick5` benchmark (median 880, peak 1088 qu/s). 1 bot, dm3->trick.
+
+### Result
+
+| Arm | run_id | jumps/min | airborne | max hspeed |
+|---|---|---|---|---|
+| normal frogbot (mode 0) | 20260607T184752Z | 15 | 8% | 457 |
+| mode 13, held jump | 20260607T185607Z | 0 | 0% | 158 (spins on ground) |
+| mode 13, toggle + air-strafe | 20260607T190104Z | 80 | 96% | 476 |
+
+Plus: a bot now spawns on trick.bsp at all, via a programmatically generated `trick.bot` (180 markers from trick5's trajectory) -- no in-game waypoint editor.
+
+### Evidence
+
+`experiments/ktx_moveprobe/evidence/bunnyhop-accel-trick-20260607.{json,md}`, `trick.bot`; demos `tricks/dm3/trick_accel__*.mvd`; KTX in `frogbot-moveprobe.patch`; `scripts/generate_bot_route.py`.
+
+### Interpretation
+
+Two findings. (1) Spawn: frogbots need `map_supported` (a loadable `bots/maps/<map>.bot`); it can be generated offline from a demo trajectory since moveprobe drives the bot, not the route graph. (2) The load-bearing mechanic: holding +jump every frame jumps once then holds, so the bot never bunnyhops (0 jumps/min, spins at 138). Toggling jump on ground contact + gating the air-strafe to airborne -> 80 jumps/min, 96% airborne, max 476. This held-jump defect is shared by the unconditional-jump modes 5-9/11 and likely explains the chronic weak bot air-speed (S7: 122 vs 433).
+
+### Confidence
+
+High for the mechanic (before/after is stark: 0% -> 96% airborne from the jump-toggle alone). The acceleration itself is partial -- max 476 but median 75 (not sustained), still far from human 880/1088.
+
+### Follow-up
+
+Numerator sweep via the retry/auto-tune harness + air-strafe refinement (the ~90 deg/frame circle bleeds speed; the true optimal angle is smaller, and alternating strafe likely sustains better). Re-test the unconditional-jump modes with the toggle.

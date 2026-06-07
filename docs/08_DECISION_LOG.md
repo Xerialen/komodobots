@@ -2483,3 +2483,41 @@ Revisit if the mode-12 sweep / second-trick replication fails to extend the corr
 ## Status
 
 Decision recorded 2026-06-07; modes 11/12 implemented, live-tested, stock restored; packaged as the combined "closed-loop movement" PR pending mandatory Codex review.
+
+---
+
+## Decision
+
+Attack acceleration directly on trick.bsp with a from-scratch velocity-aware air-strafe controller (KTX moveprobe mode 13), and spawn frogbots on unsupported maps via a programmatically generated .bot.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+Per the reframe that acceleration is the foundational bunnyhop skill (learned before trick jumps) and was the dm3 bottleneck, and that the replay-correction harness is ceilinged at human performance, we shift acceleration work to a **from-scratch controller** (mode 13) measured by **horizontal speed** on the open trick.bsp acceleration map -- a goal where the bot can match/exceed a human and the metric is confound-proof. To run any bot on trick.bsp (which ships no waypoints), we generate `bots/maps/trick.bot` offline from a demo trajectory (`scripts/generate_bot_route.py`) -- the bot is moveprobe-driven, so the route graph need not be navigable, only loadable (flips `map_supported`).
+
+A live retry/auto-tune harness was also added to the replay modes (KTX auto-loop, `FBMOVEPROBE_ATTEMPT` per-attempt summary, configurable `k_fb_moveprobe_replay_map` gate, blowup early-abort; runner `--ktx-extra-cvars` passthrough) to measure success rate and tune controller cvars live.
+
+### Alternatives Considered
+
+- **Keep tuning replay-correction (modes 10-12).** Rejected for acceleration: ceiling = human; cannot discover/exceed optimal technique.
+- **Hand-waypoint trick.bsp in-game.** Rejected: the .bot is plain text and generatable from a trajectory; no server-jumping needed.
+- **Sim/RL for optimal inputs.** Deferred (step 3): big lift, needs a fast batched QW sim; justified only if the hand-built controller + tuning plateau below believable.
+
+### Evidence
+
+Mode 13 with the corrected jump-toggle reaches 96% airborne / 80 jumps-per-min / max 476 qu/s on trick.bsp (was 0% / 0 / 158 with held jump). See `docs/07_FINDINGS_LOG.md` 2026-06-07 (bunnyhop) and `experiments/ktx_moveprobe/evidence/bunnyhop-accel-trick-20260607.*`. ezQuake unmodified; KTX patch-tracked; stock restored after runs.
+
+### Expected Consequences
+
+A tunable acceleration controller on a clean benchmark. Next: numerator sweep + strafe refinement to push sustained speed toward the human 880/1088; and re-test whether the jump-toggle fix lifts the older unconditional-jump modes.
+
+### Revisit Conditions
+
+If hand-tuning the controller plateaus well below human sustained speed, escalate to the sim/RL path. If the jump-toggle fix does not improve the legacy modes, the weak-air-speed cause is elsewhere.
+
+## Status
+
+Decision recorded 2026-06-07; mode 13 + harness + .bot generator implemented and live-validated on trick.bsp; packaged as the acceleration PR pending mandatory Codex review.
