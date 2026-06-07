@@ -2,7 +2,7 @@
 
 Read `AGENTS.md` first.
 
-`AGENTS.md` is the repository source of truth for project goals, role boundaries, documentation rules, review-gate decisions, second-opinion rules, and workflow expectations.
+`AGENTS.md` is the repository source of truth for project goals, role boundaries, blocker criteria, documentation rules, review-gate decisions, second-opinion rules, escalation limits, and workflow expectations.
 
 This file should remain intentionally small.
 
@@ -24,7 +24,13 @@ REVIEW_GATE: gate: blocked
 
 GitHub Actions consume that comment and apply labels. Codex must not apply the labels directly.
 
-## Second-opinion responsibility
+## Blocker responsibility
+
+Only block for the blocker criteria in `AGENTS.md`. Non-blocking issues must be caveats or follow-up suggestions, not reasons to keep the PR from merging.
+
+When blocking, provide a numbered `BLOCKERS:` list. On the next review, focus on whether those blockers were fixed and whether the fix introduced new P0/P1 blockers.
+
+## Second-opinion and escalation responsibility
 
 Before approving a PR, decide whether the PR requires a second opinion.
 
@@ -38,6 +44,15 @@ REVIEW_GATE: gate: blocked
 ```
 
 and explain that final approval is pending Gemini second opinion.
+
+Maximum Code Sentinel blocked review cycles per PR: 2. Maximum Gemini second-opinion reviews per PR: 2.
+
+If escalation is mandatory under `AGENTS.md`, stop the loop and comment:
+
+```text
+ESCALATION: human-required
+REVIEW_GATE: gate: blocked
+```
 
 Do not treat Gemini as merge authority. Use Gemini as input, then make the final Code Sentinel decision.
 
