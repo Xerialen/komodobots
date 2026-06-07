@@ -91,6 +91,28 @@ MERGER: BLOCKED
 
 The verdict must name the current PR head SHA. Merger may only consume a Reviewer verdict if it references the current head SHA. If new commits have been pushed after the verdict, Merger must refuse to merge and request a fresh Reviewer review.
 
+## Review guidelines
+
+These guide the Reviewer (Codex) on every PR review.
+
+Review focus, in priority order:
+
+- Correctness and security regressions. (P0)
+- Validation gaps: claims without evidence, missing or auto-skipped tests, no real run output. (P0)
+- North-star drift: work that does not produce evidence toward the believable-bots question. (P1)
+- Documentation gaps: code/config/experiment changes that did not update the routed doc. (P1)
+- Code slop: dead code, needless complexity, duplicated logic. (P2)
+
+End every review with EXACTLY ONE verdict line, on its own line, naming the current PR head SHA, so the Merger (Gemini) can consume it:
+
+```text
+MERGER: READY <head-sha>
+MERGER: READY_WITH_NON_BLOCKING_CAVEATS <head-sha>
+MERGER: BLOCKED <head-sha>
+```
+
+Use `READY` only when the PR meets the "Merge gate rule" below. Use `BLOCKED` for any P0. The Merger ignores a verdict whose SHA is not the current head SHA.
+
 ## Merge gate rule
 
 Merger may merge only when all are true:
