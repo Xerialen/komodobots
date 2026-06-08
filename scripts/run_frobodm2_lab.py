@@ -186,6 +186,13 @@ set k_demotxt_format json
 sv_demotxt 2
 sv_demofps 77
 sv_demodir demos
+// QTV: serve mvdsv's built-in spectator stream on the game port. This is a passive
+// re-broadcast of the MVD the run already records (sv_demoeasyrecord); a QTV viewer
+// is not a player and sends no input, so bots, physics, and the measurement are
+// unchanged (only marginal broadcast CPU). Game-port == stream-port matches the live
+// servexeri model (ktx/port_2850x.cfg) and is the one port ufw opens (28599/tcp, LAN).
+// Watch in ezQuake: /qtvplay <host>:$port  -- bare host:port, NO "tcp:" prefix.
+set qtv_streamport $port
 serverinfo hostname "komodobots-lab:$port"
 EOF
 if [ -n "${moveprobe_extra_cvars_b64:-}" ] && [ "${moveprobe_extra_cvars_b64:-}" != "-" ]; then
