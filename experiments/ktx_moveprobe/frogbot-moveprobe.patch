@@ -1,5 +1,5 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..2f60745 100644
+index c0654d1..ac4fe20 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
 @@ -5,6 +5,79 @@
@@ -82,7 +82,7 @@ index c0654d1..2f60745 100644
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,142 +495,1662 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,142 +495,1684 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -1386,14 +1386,16 @@ index c0654d1..2f60745 100644
 +	}
 +	else if (mode == 14)
 +	{
-+		// Orbit + carve (v3). v1/v2 showed the carve (around velocity) is correct but
-+		// a reactive wall-follow gives too JERKY a direction in trick.bsp's small
-+		// square room -> velocity wanders -> ~440. v3 replaces the direction with a
-+		// SMOOTH-BY-CONSTRUCTION center orbit: the base heading is the tangent to a
-+		// circle of radius R about a center C (seeded from the human trick5 centroid),
-+		// gently biased to hold R. Its tangent rotates slowly as the bot orbits, no
-+		// per-frame ray jerk. The CARVE (around the actual VELOCITY, sign steering
-+		// toward the base) is unchanged from v2. See experiments/bunnyhop_mastery.
++		// Orbit + carve (v4). The DIRECTION is a smooth tangent to a circle of radius
++		// R about a center C (the human trick5 centroid), gently biased to hold R --
++		// a big wall-hugging loop (R=850), not a tight infield circle. The CARVE is
++		// the mode-13 air-strafe around the actual VELOCITY. v4's fix (from the user's
++		// tricks-direction.jpg + the demo showing the bot "watching the center"):
++		// DECOUPLE look from push. v3 pointed the VIEW at the carve wishdir (~85 deg
++		// off velocity) -> on a tight orbit the bot stared at the center. v4 points
++		// the view along the loop tangent (look AHEAD around the round wall, the
++		// travel direction) and emits the carve as forward/side strafe -- the dance:
++		// face your partner, footwork underneath. See experiments/bunnyhop_mastery.
 +		float numerator = cvar("k_fb_moveprobe_accel_numerator");
 +		float orbit_dir = cvar("k_fb_moveprobe_orbit_dir");          // <0 = CW, else CCW
 +		float cx = cvar("k_fb_moveprobe_orbit_cx");                  // orbit center X
@@ -1433,11 +1435,16 @@ index c0654d1..2f60745 100644
 +		}
 +		if (radius <= 0)
 +		{
-+			radius = 624.0f;
++			// v4: hug the round wall (the user's drawing = a big loop near the
++			// boundary, center empty), not a tight circle about the centroid. The
++			// human trick5 loop spans bbox ~1750 -> half-extent ~875. v3's 624
++			// orbited too tight, which (with the old view = wishdir) read as
++			// "circling/watching the center". 850 fills the room to the wall.
++			radius = 850.0f;
 +		}
 +		if (radius_gain <= 0)
 +		{
-+			radius_gain = 0.5f;
++			radius_gain = 0.6f;
 +		}
 +		if (cx == 0.0f && cy == 0.0f)
 +		{
@@ -1563,12 +1570,27 @@ index c0654d1..2f60745 100644
 +			}
 +		}
 +
-+		self->fb.desired_angle[PITCH] = 0;
-+		self->fb.desired_angle[YAW] = vectoyaw(proposed_dir);
-+		self->fb.desired_angle[ROLL] = 0;
-+		direction[0] = sv_maxspeed;
-+		direction[1] = 0;
-+		direction[2] = 0;
++		// EMIT -- decouple LOOK from PUSH (the dance: face where you travel, carve
++		// underneath). v3 set the view = wishdir (~85 deg off velocity) and pushed
++		// pure forwardmove, so on a tight orbit the bot LITERALLY LOOKED AT THE
++		// CENTER (the "watching the center" the demo showed). v4: the view is
++		// base_yaw (the loop tangent -> look AHEAD along the round wall, in the
++		// travel direction), and the carve wishdir (proposed_dir, unchanged from v3)
++		// is emitted as forward/side by projecting it onto the view's own basis (the
++		// established idiom, ~lines 2109). wishvel == proposed_dir * maxspeed exactly
++		// (identical accel to v3), but the bot now faces the direction it travels --
++		// mostly strafe + look-ahead, like a human, not a forward-stare at the infield.
++		{
++			vec3_t view_ang = { 0, base_yaw, 0 };
++
++			trap_makevectors(view_ang);
++			self->fb.desired_angle[PITCH] = 0;
++			self->fb.desired_angle[YAW] = base_yaw;
++			self->fb.desired_angle[ROLL] = 0;
++			direction[0] = DotProduct(g_globalvars.v_forward, proposed_dir) * sv_maxspeed;
++			direction[1] = DotProduct(g_globalvars.v_right, proposed_dir) * sv_maxspeed;
++			direction[2] = 0;
++		}
 +		*jumping = press_jump;
 +	}
 +}
