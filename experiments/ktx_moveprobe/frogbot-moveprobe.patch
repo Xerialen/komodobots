@@ -1,8 +1,8 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..862d7e2 100644
+index c0654d1..9413887 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -5,6 +5,88 @@
+@@ -5,6 +5,93 @@
  #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
@@ -88,10 +88,15 @@ index c0654d1..862d7e2 100644
 +static int   moveprobe_curl_init[MAX_CLIENTS];             // mode 16: seeded?
 +static int   moveprobe_curl_jump[MAX_CLIENTS];             // mode 16: last-frame jump press (toggle)
 +static int   moveprobe_curl_dirset[MAX_CLIENTS];           // mode 16: curl direction chosen from geometry?
++static int   moveprobe_fig8_target[MAX_CLIENTS];           // mode 17: target curl sign (+1/-1)
++static float moveprobe_fig8_ramp[MAX_CLIENTS];             // mode 17: effective curl, ramps -1..+1 (smooth flip)
++static int   moveprobe_fig8_init[MAX_CLIENTS];             // mode 17: seeded?
++static int   moveprobe_fig8_jump[MAX_CLIENTS];             // mode 17: last-frame jump press (toggle)
++static float moveprobe_fig8_flip_t[MAX_CLIENTS];           // mode 17: server time of last lobe-switch
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,142 +504,1987 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,142 +509,2185 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -1734,6 +1739,7 @@ index c0654d1..862d7e2 100644
 +		float radius_max = cvar("k_fb_moveprobe_curl_radius_max");   // qu clamp (keep inside room)
 +		float radius_gain = cvar("k_fb_moveprobe_curl_radius_gain"); // deg of carve per qu of radius error
 +		float angle_span = cvar("k_fb_moveprobe_curl_angle_span");   // max deg the centering may shift the carve
++		float radius_damp = cvar("k_fb_moveprobe_curl_radius_damp"); // deg per (qu/s) of radial velocity (D term)
 +		float engage_speed = cvar("k_fb_moveprobe_curl_engage_speed"); // pure accel below this, center above
 +		float cx = cvar("k_fb_moveprobe_curl_cx");
 +		float cy = cvar("k_fb_moveprobe_curl_cy");
@@ -1775,6 +1781,10 @@ index c0654d1..862d7e2 100644
 +		if (angle_span <= 0)
 +		{
 +			angle_span = 25.0f;
++		}
++		if (radius_damp <= 0)
++		{
++			radius_damp = 0.03f; // D term: damps the radius oscillation (PD, not just P)
 +		}
 +		if (engage_speed <= 0)
 +		{
@@ -1868,7 +1878,15 @@ index c0654d1..862d7e2 100644
 +			}
 +			else
 +			{
-+				angle = rotation + radius_gain * (r - r_target);
++				// PD centering: P on radius error + D on radial velocity (the rate the
++				// bot is drifting in/out) -> damps the proportional-only oscillation that
++				// produced the ~6 s crash-cycle.
++				float radial_vel = (r > 1.0f)
++					? (self->s.v.velocity[0] * (self->s.v.origin[0] - cx)
++					   + self->s.v.velocity[1] * (self->s.v.origin[1] - cy)) / r
++					: 0.0f;  // qu/s, positive = moving outward
++
++				angle = rotation + radius_gain * (r - r_target) + radius_damp * radial_vel;
 +				if (angle < rotation - angle_span)
 +				{
 +					angle = rotation - angle_span;
@@ -1896,6 +1914,191 @@ index c0654d1..862d7e2 100644
 +
 +		press_jump = onground && !moveprobe_curl_jump[slot];
 +		moveprobe_curl_jump[slot] = press_jump;
++
++		self->fb.desired_angle[PITCH] = 0;
++		self->fb.desired_angle[YAW] = vectoyaw(proposed_dir);
++		self->fb.desired_angle[ROLL] = 0;
++		direction[0] = sv_maxspeed;
++		direction[1] = 0;
++		direction[2] = 0;
++		*jumping = press_jump;
++	}
++	else if (mode == 17)
++	{
++		// Smooth figure-8 lobe-switch. One-way carve (mode-13 accel) builds speed; when
++		// a wall is ahead or the bot drifts past max_radius, the curl direction reverses
++		// SMOOTHLY -- the effective curl ramps target -> -target over ramp_time, passing
++		// through 0 (a brief straight) -- so the lobe-switch costs ~the human's ~20%
++		// rather than the violent hard-flip crash. The two smooth lobes are the figure-8.
++		float numerator = cvar("k_fb_moveprobe_accel_numerator");
++		float bootstrap_deg = cvar("k_fb_moveprobe_accel_bootstrap_deg");
++		float ramp_time = cvar("k_fb_moveprobe_fig8_ramp_time");      // s for a full curl reversal
++		float max_radius = cvar("k_fb_moveprobe_fig8_max_radius");    // qu: switch lobe past this
++		float wall_thresh = cvar("k_fb_moveprobe_fig8_wall_thresh");  // qu base trace reach
++		float flip_cooldown = cvar("k_fb_moveprobe_fig8_flip_cooldown"); // s min between switches
++		float cx = cvar("k_fb_moveprobe_fig8_cx");
++		float cy = cvar("k_fb_moveprobe_fig8_cy");
++		float sv_maxspeed = cvar("sv_maxspeed");
++		float spd;
++		float rotation;
++		float r;
++		float since;
++		float ramp;
++		float step;
++		int target;
++		qbool onground = ((int)self->s.v.flags & FL_ONGROUND) ? true : false;
++		qbool press_jump;
++		qbool switch_lobe = false;
++		vec3_t cur_dir;
++		vec3_t proposed_dir;
++		vec3_t flat_vel;
++		vec3_t up_vector = { 0, 0, 1 };
++
++		if (numerator <= 0)
++		{
++			numerator = 18.0f;
++		}
++		if (bootstrap_deg <= 0)
++		{
++			bootstrap_deg = 25.0f;
++		}
++		if (ramp_time <= 0)
++		{
++			ramp_time = 0.5f;
++		}
++		if (max_radius <= 0)
++		{
++			max_radius = 620.0f;
++		}
++		if (wall_thresh <= 0)
++		{
++			wall_thresh = 300.0f;
++		}
++		if (flip_cooldown <= 0)
++		{
++			flip_cooldown = 1.5f;
++		}
++		if (cx == 0.0f && cy == 0.0f)
++		{
++			cx = 2523.0f;
++			cy = -2554.0f;
++		}
++		if (sv_maxspeed <= 0)
++		{
++			sv_maxspeed = 320.0f;
++		}
++		if (!moveprobe_fig8_init[slot])
++		{
++			moveprobe_fig8_target[slot] = 1;
++			moveprobe_fig8_ramp[slot] = 1.0f;
++			moveprobe_fig8_flip_t[slot] = g_globalvars.time;
++			moveprobe_fig8_init[slot] = 1;
++		}
++
++		spd = sqrt(self->s.v.velocity[0] * self->s.v.velocity[0]
++				   + self->s.v.velocity[1] * self->s.v.velocity[1]);
++		cur_dir[0] = self->s.v.velocity[0];
++		cur_dir[1] = self->s.v.velocity[1];
++		cur_dir[2] = 0;
++		if (VectorNormalize(cur_dir) <= 0)
++		{
++			vec3_t va = { 0, self->fb.desired_angle[YAW], 0 };
++
++			trap_makevectors(va);
++			VectorCopy(g_globalvars.v_forward, cur_dir);
++			cur_dir[2] = 0;
++			if (VectorNormalize(cur_dir) <= 0)
++			{
++				cur_dir[0] = 1; cur_dir[1] = 0; cur_dir[2] = 0;
++			}
++		}
++
++		r = sqrt((self->s.v.origin[0] - cx) * (self->s.v.origin[0] - cx)
++				 + (self->s.v.origin[1] - cy) * (self->s.v.origin[1] - cy));
++		since = g_globalvars.time - moveprobe_fig8_flip_t[slot];
++
++		// Lobe-switch trigger: wall ahead OR drifted past max_radius, cooldown-gated.
++		if (since >= flip_cooldown)
++		{
++			if (r > max_radius)
++			{
++				switch_lobe = true;
++			}
++			else
++			{
++				flat_vel[0] = self->s.v.velocity[0];
++				flat_vel[1] = self->s.v.velocity[1];
++				flat_vel[2] = 0;
++				if (VectorNormalize(flat_vel) > 0)
++				{
++					vec3_t te;
++					float reach = wall_thresh + 0.3f * spd;
++
++					VectorMA(self->s.v.origin, reach, flat_vel, te);
++					traceline(PASSVEC3(self->s.v.origin), PASSVEC3(te), false, self);
++					if (g_globalvars.trace_fraction < 1.0f)
++					{
++						switch_lobe = true;
++					}
++				}
++			}
++		}
++		if (switch_lobe)
++		{
++			float tx = cx - self->s.v.origin[0];
++			float ty = cy - self->s.v.origin[1];
++			float cross = self->s.v.velocity[0] * ty - self->s.v.velocity[1] * tx;
++
++			moveprobe_fig8_target[slot] = (cross >= 0) ? 1 : -1;
++			moveprobe_fig8_flip_t[slot] = g_globalvars.time;
++		}
++		target = moveprobe_fig8_target[slot];
++
++		// Ramp the effective curl toward the target (smooth reversal through 0).
++		ramp = moveprobe_fig8_ramp[slot];
++		step = 2.0f * g_globalvars.frametime / ramp_time;
++		if (ramp < target)
++		{
++			ramp += step;
++			if (ramp > target)
++			{
++				ramp = target;
++			}
++		}
++		else if (ramp > target)
++		{
++			ramp -= step;
++			if (ramp < target)
++			{
++				ramp = target;
++			}
++		}
++		moveprobe_fig8_ramp[slot] = ramp;
++
++		if (onground)
++		{
++			VectorCopy(cur_dir, proposed_dir);
++		}
++		else
++		{
++			if (spd > numerator)
++			{
++				rotation = acos(numerator / spd) * 180.0f / M_PI;
++			}
++			else
++			{
++				rotation = bootstrap_deg;
++			}
++			RotatePointAroundVector(proposed_dir, up_vector, cur_dir, rotation * ramp);
++			proposed_dir[2] = 0;
++			if (VectorNormalize(proposed_dir) <= 0)
++			{
++				VectorCopy(cur_dir, proposed_dir);
++			}
++		}
++
++		press_jump = onground && !moveprobe_fig8_jump[slot];
++		moveprobe_fig8_jump[slot] = press_jump;
 +
 +		self->fb.desired_angle[PITCH] = 0;
 +		self->fb.desired_angle[YAW] = vectoyaw(proposed_dir);

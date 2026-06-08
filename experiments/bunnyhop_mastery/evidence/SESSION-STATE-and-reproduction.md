@@ -34,13 +34,30 @@ Server build: `~/nquakesv/qwprogs-curl.so` (mode-16 v3). Patch: `experiments/ktx
 - Ground frames use full accel + friction → bunnyhop jumps every ground frame.
 See `PHYSICS-confirmed-air-accel.md` and `STEP0-circle-strafe-overturns-ceiling.md`.
 
-## The wall (open problem)
-Every hand-crafted confinement (hard flips, gentle centering, fixed/variable target radius) settles
-into the **same ~6 s crash-limit-cycle**: builds to ~440–720, crashes to ~150–200, rebuilds. The
-crash is **NOT a wall** (R at 440 is only ~84 qu) and **NOT accel** — it's a **control instability in
-the confinement loop**. Median caps ~315; the human's lobe-switch loses only ~20% vs my 60–85%.
-Next structural attempt: a **smooth curl-direction reversal** (ramp through straight over ~0.5 s) to
-mimic the human's gentle figure-8 lobe-switch instead of the violent hard reversal.
+## The wall (open problem) — hand-crafted control EXHAUSTED
+
+Every hand-crafted confinement settles into the **same intrinsic ~6 s crash-limit-cycle**: builds
+to ~440–726, crashes to ~150–200, rebuilds. The crash is **NOT a wall** (R at 440 is only ~84 qu)
+and **NOT accel** — it's a **control instability in the confinement loop**. Verified steady-state
+medians (clean 80 s runs), all ~the same:
+
+| confinement variant | mode | verified steady median | peak | note |
+|---|---|---:|---:|---|
+| hard center-flip | 16 v1 | ~290 | 594 | flips crash median |
+| P-centering (radius error) | 16 v3 | ~315–327 | 726 | crash-cycle |
+| **PD-centering (+ radial-velocity damping)** | 16 + damp | **~327** | 711 | damping did NOT remove the cycle |
+| smooth figure-8 lobe-switch (ramp through 0) | 17 | ~200 | 357 | too much low-carve transition |
+
+Conclusion: hand-crafted closed-loop control that **simultaneously** accelerates, stays confined,
+and stays stable is the unsolved piece — P, PD, hard-flip and smooth-flip all plateau at median
+~325 / peak ~700. The human achieves 880 median via learned fine motor control; an **open-loop
+replay of the human commands already sustains ~880 through the bot seam**. So the path past this
+ceiling is the **imitation / replay-derived** route (learn a state->command policy from the demo
+frames, or track the replay closed-loop), NOT more hand-tuned controllers.
+
+**Verified maximum (this approach):** confined, accelerating, median ~325 / peak ~726 on trick.bsp
+— up from the old (wrong) ~540 "ceiling" being a myth, and a fully working live-tuning rig to
+continue from.
 
 ## Reproduce the live tuning rig
 1. Build KTX with the patch; stage as `~/nquakesv/qwprogs-curl.so`; symlink
