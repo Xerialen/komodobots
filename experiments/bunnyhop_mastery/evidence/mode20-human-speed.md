@@ -47,8 +47,34 @@ This reproduces the human's actual technique (fingerprint: net rotation only 0.5
 
 ```
 --moveprobe-mode 20 \
---ktx-extra-cvars "k_fb_moveprobe_accel_numerator 8;k_fb_moveprobe_s19_wall 600;k_fb_moveprobe_s20_deadband 0.05"
+--ktx-extra-cvars "k_fb_moveprobe_accel_numerator 8;k_fb_moveprobe_s19_wall 900;k_fb_moveprobe_s20_deadband 0.12"
 ```
+
+`numerator 8` = cs→0 (max build). `s19_wall 900` = steer ~900 qu ahead (sees walls early). `deadband
+0.12` = commit to a curl side until the other side is clearly more open (anti-chatter). Steering
+earlier and committing longer beat the original `look 600 / db 0.05` on the mean.
+
+**90 s steady-state (best config):** avg **690 / 965.5** across two runs; the good run sustains
+**avg 965.5** (> human p50 880), p95 **1315** (> human 1058), peak **1452** (> human 1088), 94.5%
+of frames over 400. The 45 s avg understates this — it includes the from-spawn build-up transient.
+
+### Variance characterization (the one unsolved piece)
+
+Across configs, the per-run avg ranges ~620–977; the **top end is consistently above the human**
+(p95 ~1050–1340, peak ~1200–1452 across runs), but the **worst runs (~620–690 avg) do not beat the
+human**. cvar tuning has plateaued the variance floor:
+
+| config (n=8) | mean avg | min avg | best run |
+|---|---:|---:|---:|
+| look 600, db 0.05 | 668 | 640 | 716 |
+| look 1200, db 0.15 | 733 | 673 | 818 |
+| **look 900, db 0.12** | **821** | 622 | **977** |
+
+So the bot reaches/exceeds human speed on most runs and at the top end on every run, but not the
+*median* of every run. The reactive ±45° steer occasionally lets the weave drift into a costlier
+turn. The principled fix is a **smoother, wider trace fan** (steer toward the weighted-most-open
+heading over e.g. ±15/30/45/60°, reusing `AverageTraceAngle`) instead of a binary left-vs-right —
+a code change, deferred as the next refinement.
 
 ## Honest caveats
 
