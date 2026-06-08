@@ -1,8 +1,8 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..f5749bc 100644
+index c0654d1..dafa0fc 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -5,6 +5,75 @@
+@@ -5,6 +5,79 @@
  #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
@@ -75,20 +75,34 @@ index c0654d1..f5749bc 100644
 +static float moveprobe_replay_loop_cooldown[MAX_CLIENTS];  // loop: do not re-arm before this time
 +static int   moveprobe_accel_jump_press[MAX_CLIENTS];      // mode 13: last-frame jump press (toggle)
 +static int   moveprobe_accel_strafe_sign[MAX_CLIENTS];     // mode 13: current strafe rotation sign (+1/-1)
++static float moveprobe_orbit_yaw[MAX_CLIENTS];             // mode 14: base heading yaw (the "direction"/orbit)
++static int   moveprobe_orbit_init[MAX_CLIENTS];            // mode 14: base heading seeded?
++static int   moveprobe_orbit_jump[MAX_CLIENTS];            // mode 14: last-frame jump press (toggle)
++static int   moveprobe_orbit_sign[MAX_CLIENTS];            // mode 14: current carve sign (+1/-1)
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,6 +491,1336 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,142 +495,1627 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
+-void BotSetCommand(gedict_t *self)
 +static void BotMoveProbeResetTransitionTiming(int slot)
-+{
+ {
+-	extern float last_frame_time;
+-	float msec_since_last = (last_frame_time - self->fb.last_cmd_sent) * 1000;
+-	int cmd_msec = (int)msec_since_last;
+-	int weapon_script_impulse = 0;
+-	int impulse = 0, buttons = 0;
+-	qbool jumping;
+-	qbool firing;
+-	vec3_t direction;
 +	if (slot < 0 || slot >= MAX_CLIENTS)
 +	{
 +		return;
 +	}
-+
+ 
+-	BotPerformRocketJump(self);
 +	moveprobe_transition_has_ground_time[slot] = 0;
 +	moveprobe_transition_has_air_time[slot] = 0;
 +	moveprobe_transition_has_seen_time[slot] = 0;
@@ -96,22 +110,32 @@ index c0654d1..f5749bc 100644
 +	moveprobe_transition_last_air_time[slot] = 0.0f;
 +	moveprobe_transition_last_seen_time[slot] = 0.0f;
 +}
-+
+ 
+-	if (cmd_msec)
 +static void BotMoveProbePrepareTransitionTiming(int slot)
 +{
 +	float stale_gap = 1.0f;
 +
 +	if (slot < 0 || slot >= MAX_CLIENTS)
-+	{
+ 	{
+-		self->fb.cmd_msec_lost += (msec_since_last - cmd_msec);
+-		if (self->fb.cmd_msec_lost >= 1)
+-		{
+-			self->fb.cmd_msec_lost -= 1;
+-			cmd_msec += 1;
+-		}
 +		return;
-+	}
+ 	}
+-	else if (self->fb.cmd_msec_last)
 +
 +	// A clock reset or long command gap means this slot probably changed map,
 +	// mode, or bot session; do not inherit transition timing across that gap.
 +	if (!moveprobe_transition_has_seen_time[slot]
 +		|| (g_globalvars.time < moveprobe_transition_last_seen_time[slot])
 +		|| ((g_globalvars.time - moveprobe_transition_last_seen_time[slot]) > stale_gap))
-+	{
+ 	{
+-		// Probably re-sending after blocked(), re-use old number
+-		cmd_msec = self->fb.cmd_msec_last;
 +		BotMoveProbeResetTransitionTiming(slot);
 +	}
 +
@@ -136,13 +160,15 @@ index c0654d1..f5749bc 100644
 +	{
 +		moveprobe_transition_last_ground_time[slot] = g_globalvars.time;
 +		moveprobe_transition_has_ground_time[slot] = 1;
-+	}
-+	else
-+	{
+ 	}
+ 	else
+ 	{
+-		cmd_msec = 12;
 +		moveprobe_transition_last_air_time[slot] = g_globalvars.time;
 +		moveprobe_transition_has_air_time[slot] = 1;
-+	}
-+
+ 	}
+ 
+-	//G_sprint(self, PRINT_HIGH, "Movement length @ %f: %d\n", last_frame_time, cmd_msec);
 +	if (moveprobe_transition_has_ground_time[slot])
 +	{
 +		since_ground = g_globalvars.time - moveprobe_transition_last_ground_time[slot];
@@ -151,23 +177,32 @@ index c0654d1..f5749bc 100644
 +	{
 +		since_air = g_globalvars.time - moveprobe_transition_last_air_time[slot];
 +	}
-+
+ 
+-	// dir_move_ is the direction we want to move in, but need to take inertia into effect
+-	// ... as rough guide (and save doubling physics calculations), scale command > 
+-	VectorNormalize(self->fb.dir_move_);
+-	VectorScale(self->fb.dir_move_, sv_maxspeed, self->fb.last_cmd_direction);
 +	moveprobe_transition_on_ground[slot] = on_ground;
 +	moveprobe_transition_since_ground[slot] = since_ground;
 +	moveprobe_transition_since_air[slot] = since_air;
 +	moveprobe_transition_active[slot] = (on_ground && jumping)
 +		|| (!on_ground && (since_ground <= window))
 +		|| (on_ground && (since_air <= window));
-+
+ 
+-	trap_makevectors(self->fb.desired_angle);
 +	return moveprobe_transition_active[slot];
 +}
-+
+ 
+-	// During intermission, always do nothing and leave humans to change level
+-	if (intermission_running)
 +static void BotMoveProbeResetTransition(int slot)
 +{
 +	if (slot < 0 || slot >= MAX_CLIENTS)
-+	{
+ 	{
+-		self->fb.firing = self->fb.jumping = false;
 +		return;
-+	}
+ 	}
+-	else if (teamplay && (deathmatch == 1) && !self->fb.firing)
 +
 +	moveprobe_transition_active[slot] = 0;
 +	moveprobe_transition_on_ground[slot] = 0;
@@ -179,7 +214,9 @@ index c0654d1..f5749bc 100644
 +static void BotMoveProbeResetQwdSession(int slot)
 +{
 +	if (slot < 0 || slot >= MAX_CLIENTS)
-+	{
+ 	{
+-		// Weaponscripts
+-		if ((self->s.v.weapon != IT_SHOTGUN) && (self->s.v.weapon != IT_AXE))
 +		return;
 +	}
 +
@@ -237,7 +274,8 @@ index c0654d1..f5749bc 100644
 +		points[count][0] = atof(cursor);
 +		next = strchr(cursor, ',');
 +		if (!next)
-+		{
+ 		{
+-			weapon_script_impulse = (self->s.v.ammo_shells ? 2 : 1);
 +			break;
 +		}
 +		cursor = next + 1;
@@ -257,13 +295,16 @@ index c0654d1..f5749bc 100644
 +		if (!next)
 +		{
 +			break;
-+		}
+ 		}
 +		cursor = next + 1;
-+	}
-+
+ 	}
+ 
+-	impulse = self->fb.botchose ? self->fb.next_impulse :
+-				self->fb.firing ? self->fb.desired_weapon_impulse : weapon_script_impulse;
 +	return count;
 +}
-+
+ 
+-	if (self->fb.firing && BotUsingCorrectWeapon(self))
 +static void BotLogMoveProbeQwdEvent(gedict_t *self, int slot, const char *event,
 +									int target_index, int next_index, float distance)
 +{
@@ -271,16 +312,20 @@ index c0654d1..f5749bc 100644
 +	float active_seconds = 0.0f;
 +
 +	if (!cvar("k_fb_moveprobe_log_commands") || slot < 0 || slot >= MAX_CLIENTS)
-+	{
+ 	{
+-		impulse = 0; // we already have the requested weapon
 +		return;
-+	}
-+
+ 	}
+ 
+-	jumping = self->fb.jumping || self->fb.waterjumping;
+-	firing = self->fb.firing;
 +	active_seconds = moveprobe_qwd_active_seconds[slot];
 +	if (moveprobe_qwd_has_active_since[slot])
 +	{
 +		active_seconds = g_globalvars.time - moveprobe_qwd_active_since[slot];
 +	}
-+
+ 
+-	self->fb.waterjumping = false;
 +	G_cprint("FBMOVEPROBE_QWD_EVENT time=%.3f ed=%d name=%s event=%s "
 +			 "target=%d next=%d count=%d distance=%.3f advanced=%d active=%d "
 +			 "complete=%d active_seconds=%.3f origin=%.3f,%.3f,%.3f\n",
@@ -289,7 +334,8 @@ index c0654d1..f5749bc 100644
 +			 moveprobe_qwd_advanced_points[slot], moveprobe_qwd_active[slot],
 +			 moveprobe_qwd_complete[slot], active_seconds, PASSVEC3(self->s.v.origin));
 +}
-+
+ 
+-	if (self->fb.dbg_countdown > 0)
 +static qbool BotMoveProbeQwdActive(gedict_t *self, int slot, vec3_t route_direction)
 +{
 +	vec3_t points[MOVEPROBE_QWD_MAX_POINTS];
@@ -301,13 +347,18 @@ index c0654d1..f5749bc 100644
 +	int index;
 +
 +	if (slot < 0 || slot >= MAX_CLIENTS)
-+	{
+ 	{
+-		jumping = firing = false;
+-		VectorClear(direction);
+-		--self->fb.dbg_countdown;
 +		return false;
-+	}
+ 	}
+-	else
 +
 +	BotMoveProbePrepareQwdFrame(slot);
 +	if (moveprobe_qwd_complete[slot])
-+	{
+ 	{
+-		if (jumping && ((int)self->s.v.flags & FL_ONGROUND))
 +		moveprobe_qwd_active[slot] = 0;
 +		return false;
 +	}
@@ -342,9 +393,11 @@ index c0654d1..f5749bc 100644
 +		distance = VectorLength(delta);
 +		moveprobe_qwd_distance[slot] = distance;
 +		if (distance > start_radius)
-+		{
+ 		{
+-			BestJumpingDirection(self);
 +			return false;
-+		}
+ 		}
+-		else
 +		moveprobe_qwd_active[slot] = 1;
 +		moveprobe_qwd_point_index[slot] = 0;
 +		moveprobe_qwd_active_since[slot] = g_globalvars.time;
@@ -361,9 +414,10 @@ index c0654d1..f5749bc 100644
 +		VectorSubtract(points[index], self->s.v.origin, delta);
 +		distance = VectorLength(delta);
 +		if (distance > point_radius)
-+		{
+ 		{
+-			ApplyPhysics(self);
 +			break;
-+		}
+ 		}
 +		if (index >= count - 1)
 +		{
 +			moveprobe_qwd_complete[slot] = 1;
@@ -384,7 +438,8 @@ index c0654d1..f5749bc 100644
 +			BotLogMoveProbeQwdEvent(self, slot, "advance", reached_index, index, distance);
 +		}
 +	}
-+
+ 
+-		if (self->s.v.waterlevel <= 1)
 +	moveprobe_qwd_point_index[slot] = index;
 +	moveprobe_qwd_distance[slot] = distance;
 +	if (moveprobe_qwd_has_active_since[slot])
@@ -437,7 +492,8 @@ index c0654d1..f5749bc 100644
 +	for (i = 0; i < 14; i++)
 +	{
 +		while ((*cursor == ' ') || (*cursor == '\t'))
-+		{
+ 		{
+-			vec3_t hor;
 +			cursor++;
 +		}
 +		if ((*cursor == '\0') || (*cursor == '\n') || (*cursor == '\r'))
@@ -451,7 +507,11 @@ index c0654d1..f5749bc 100644
 +			cursor++;
 +		}
 +	}
-+
+ 
+-			VectorCopy(self->fb.dir_move_, hor);
+-			hor[2] = 0;
+-			VectorNormalize(hor);
+-			VectorScale(hor, 800, hor);
 +	f->msec = (int)vals[0];
 +	f->origin[0] = vals[1];
 +	f->origin[1] = vals[2];
@@ -468,7 +528,10 @@ index c0654d1..f5749bc 100644
 +	f->buttons = (int)vals[13];
 +	return 1;
 +}
-+
+ 
+-			direction[0] = DotProduct(g_globalvars.v_forward, hor);
+-			direction[1] = DotProduct(g_globalvars.v_right, hor);
+-			direction[2] = 0;
 +static int BotMoveProbeLoadReplayFile(const char *fname)
 +{
 +	fileHandle_t handle;
@@ -489,13 +552,17 @@ index c0654d1..f5749bc 100644
 +		if ((line[0] == '#') || (line[0] == '\0') || (line[0] == '\n') || (line[0] == '\r'))
 +		{
 +			continue;
-+		}
+ 		}
+-		else
 +
 +		f = &moveprobe_replay_frames[count];
 +		if (!BotMoveProbeParseReplayLine(line, f))
-+		{
+ 		{
+-			direction[0] = DotProduct (g_globalvars.v_forward, self->fb.dir_move_) * 800;
+-			direction[1] = DotProduct (g_globalvars.v_right, self->fb.dir_move_) * 800;
+-			direction[2] = DotProduct (g_globalvars.v_up, self->fb.dir_move_) * 800;
 +			continue;
-+		}
+ 		}
 +		if (f->msec < 1)
 +		{
 +			f->msec = 1;
@@ -504,7 +571,10 @@ index c0654d1..f5749bc 100644
 +		f->cumulative_ms = cumulative;
 +		count++;
 +	}
-+
+ 
+-#ifdef DEBUG_MOVEMENT
+-		if (self->fb.debug_path) {
+-			G_bprint (PRINT_HIGH, "     : final direction sent [%4.1f %4.1f %4.1f]\n", PASSVEC3 (self->fb.dir_move_));
 +	std_fclose(handle);
 +	return count;
 +}
@@ -585,7 +655,8 @@ index c0654d1..f5749bc 100644
 +		if (cd <= 0)
 +		{
 +			cd = 0.5f;
-+		}
+ 		}
+-#endif
 +		cd = bound(0.0f, cd, 0.9f);
 +		moveprobe_replay_active[slot] = 0;
 +		moveprobe_replay_complete[slot] = 0;
@@ -597,9 +668,10 @@ index c0654d1..f5749bc 100644
 +	{
 +		moveprobe_replay_complete[slot] = 1;
 +		moveprobe_replay_active[slot] = 0;
-+	}
+ 	}
 +}
-+
+ 
+-	self->fb.desired_angle[2] = 0;
 +// Mode 10: open-loop replay. Snap to the human frame-0 state once, then emit the
 +// exact human usercmd for the resampled time index each frame. forwardmove /
 +// sidemove / upmove are already view-relative in a usercmd, so they pass straight
@@ -621,14 +693,21 @@ index c0654d1..f5749bc 100644
 +	{
 +		return false;
 +	}
-+
+ 
+-	if (ISDEAD(self))
 +	count = BotMoveProbeEnsureReplayLoaded();
 +	if (count < 2)
-+	{
+ 	{
+-		firing = false;
+-		jumping = BotRequestRespawn(self);
+-		VectorClear(direction);
+-		impulse = 0;
 +		BotMoveProbeResetReplaySession(slot);
 +		return false;
-+	}
-+	{
+ 	}
+-	else if (self->fb.min_move_time > g_globalvars.time)
+ 	{
+-		VectorClear(direction);
 +		// Gate the replay to the map its .cmds was recorded on. The map is named
 +		// by k_fb_moveprobe_replay_map; empty means no restriction (operator
 +		// guarantees the right .cmds for the loaded map).
@@ -639,14 +718,19 @@ index c0654d1..f5749bc 100644
 +			BotMoveProbeResetReplaySession(slot);
 +			return false;
 +		}
-+	}
-+
+ 	}
+ 
+-	// Keep bots on spawns before match start
+-	if (match_in_progress != 2 && cvar(FB_CVAR_FREEZE_PREWAR))
 +	if (!moveprobe_replay_has_seen_time[slot]
 +		|| (g_globalvars.time < moveprobe_replay_last_seen_time[slot])
 +		|| ((g_globalvars.time - moveprobe_replay_last_seen_time[slot]) > stale_gap))
-+	{
+ 	{
+-		jumping = firing = false;
+-		VectorClear(direction);
+-		impulse = 0;
 +		BotMoveProbeResetReplaySession(slot);
-+	}
+ 	}
 +	moveprobe_replay_has_seen_time[slot] = 1;
 +	moveprobe_replay_last_seen_time[slot] = g_globalvars.time;
 +
@@ -1300,6 +1384,158 @@ index c0654d1..f5749bc 100644
 +		direction[2] = 0;
 +		*jumping = press_jump;
 +	}
++	else if (mode == 14)
++	{
++		// Orbit-the-wall + carve. Two layers at two frequencies, from the human
++		// trick5 fingerprint: a slow BASE HEADING that follows the round wall (the
++		// "direction" -- steer consistently away from a wall sensed ahead so the
++		// bot orbits the room interior instead of spiralling out), with the mode-13
++		// air-strafe CARVE superimposed around that base heading (the fast
++		// "footwork" that builds speed). The base heading is the partner the carve
++		// faces; net velocity tracks it, so the bot stays confined while it
++		// accelerates. See experiments/bunnyhop_mastery + docs/08_DECISION_LOG.md.
++		float numerator = cvar("k_fb_moveprobe_accel_numerator");
++		float orbit_dir = cvar("k_fb_moveprobe_orbit_dir");        // <0 = CW, else CCW
++		float lookahead = cvar("k_fb_moveprobe_orbit_lookahead");  // qu, base wall reach
++		float turnrate = cvar("k_fb_moveprobe_orbit_turnrate");    // deg/s, steer-away rate
++		float bootstrap_deg = cvar("k_fb_moveprobe_accel_bootstrap_deg");
++		float sv_maxspeed = cvar("sv_maxspeed");
++		float frametime = g_globalvars.frametime;
++		int orbit_sign;
++		float spd;
++		float reach;
++		float rotation;
++		float base_yaw;
++		vec3_t base_dir;
++		vec3_t from_pt;
++		vec3_t to_pt;
++		vec3_t proposed_dir;
++		vec3_t up_vector = { 0, 0, 1 };
++		qbool onground = ((int)self->s.v.flags & FL_ONGROUND) ? true : false;
++		qbool press_jump;
++
++		if (numerator <= 0)
++		{
++			numerator = 26.0f;
++		}
++		if (bootstrap_deg <= 0)
++		{
++			bootstrap_deg = 25.0f;
++		}
++		if (lookahead <= 0)
++		{
++			lookahead = 200.0f;
++		}
++		if (turnrate <= 0)
++		{
++			turnrate = 120.0f;
++		}
++		if (sv_maxspeed <= 0)
++		{
++			sv_maxspeed = 320.0f;
++		}
++		orbit_sign = (orbit_dir < 0) ? -1 : 1;
++
++		spd = sqrt(self->s.v.velocity[0] * self->s.v.velocity[0]
++				   + self->s.v.velocity[1] * self->s.v.velocity[1]);
++
++		// Seed the base heading once, from current velocity (or view at rest).
++		if (!moveprobe_orbit_init[slot])
++		{
++			if (spd > 1.0f)
++			{
++				base_dir[0] = self->s.v.velocity[0];
++				base_dir[1] = self->s.v.velocity[1];
++				base_dir[2] = 0;
++				moveprobe_orbit_yaw[slot] = vectoyaw(base_dir);
++			}
++			else
++			{
++				moveprobe_orbit_yaw[slot] = self->fb.desired_angle[YAW];
++			}
++			moveprobe_orbit_init[slot] = 1;
++			moveprobe_orbit_sign[slot] = 1;
++		}
++		base_yaw = moveprobe_orbit_yaw[slot];
++
++		// Base heading unit vector from the stored yaw.
++		{
++			vec3_t base_angles = { 0, base_yaw, 0 };
++
++			trap_makevectors(base_angles);
++			VectorCopy(g_globalvars.v_forward, base_dir);
++			base_dir[2] = 0;
++			VectorNormalize(base_dir);
++		}
++
++		// DIRECTION layer: sense a wall ahead along the base heading and steer the
++		// base heading away, consistently in the orbit direction and harder the
++		// closer the wall -> the heading curves along the round wall (an orbit).
++		reach = lookahead + spd * 0.3f;
++		VectorCopy(self->s.v.origin, from_pt);
++		from_pt[2] += 16;
++		VectorMA(from_pt, reach, base_dir, to_pt);
++		traceline(PASSVEC3(from_pt), PASSVEC3(to_pt), false, self);
++		if (g_globalvars.trace_fraction < 1.0f)
++		{
++			vec3_t base_angles2;
++
++			base_yaw += orbit_sign * turnrate * frametime * (1.0f - g_globalvars.trace_fraction);
++			moveprobe_orbit_yaw[slot] = anglemod(base_yaw);
++			base_angles2[0] = 0;
++			base_angles2[1] = moveprobe_orbit_yaw[slot];
++			base_angles2[2] = 0;
++			trap_makevectors(base_angles2);
++			VectorCopy(g_globalvars.v_forward, base_dir);
++			base_dir[2] = 0;
++			VectorNormalize(base_dir);
++		}
++
++		// Toggle jump (press on ground, release in air) and flip the carve side on
++		// each takeoff -- S-strafe around the base heading keeps net travel on it.
++		press_jump = onground && !moveprobe_orbit_jump[slot];
++		moveprobe_orbit_jump[slot] = press_jump;
++		if (press_jump)
++		{
++			moveprobe_orbit_sign[slot] = -moveprobe_orbit_sign[slot];
++		}
++
++		// CARVE layer: on the ground run straight along the base heading; in the air
++		// rotate the wish-dir to the speed-optimal angle off the base heading (= off
++		// velocity, since velocity tracks the base), so the capped air-accel builds
++		// speed -- mode-13's carve, but referenced to the orbit heading not raw
++		// velocity, so the bot orbits instead of spiralling.
++		if (onground)
++		{
++			VectorCopy(base_dir, proposed_dir);
++		}
++		else
++		{
++			if (spd > numerator)
++			{
++				rotation = acos(numerator / spd) * 180.0f / M_PI;
++			}
++			else
++			{
++				rotation = bootstrap_deg;
++			}
++			RotatePointAroundVector(proposed_dir, up_vector, base_dir,
++									rotation * moveprobe_orbit_sign[slot]);
++			proposed_dir[2] = 0;
++			if (VectorNormalize(proposed_dir) <= 0)
++			{
++				VectorCopy(base_dir, proposed_dir);
++			}
++		}
++
++		self->fb.desired_angle[PITCH] = 0;
++		self->fb.desired_angle[YAW] = vectoyaw(proposed_dir);
++		self->fb.desired_angle[ROLL] = 0;
++		direction[0] = sv_maxspeed;
++		direction[1] = 0;
++		direction[2] = 0;
++		*jumping = press_jump;
++	}
 +}
 +
 +static float BotMoveProbeAngleDelta(float route_yaw, float view_yaw)
@@ -1412,15 +1648,142 @@ index c0654d1..f5749bc 100644
 +			 moveprobe_replay_divergence_h[slot], moveprobe_replay_divergence_v[slot]);
 +}
 +
- void BotSetCommand(gedict_t *self)
- {
- 	extern float last_frame_time;
-@@ -556,8 +1955,11 @@ void BotSetCommand(gedict_t *self)
- 		impulse = 0;
- 	}
- 
-+	BotApplyMoveProbe(self, &jumping, direction);
++void BotSetCommand(gedict_t *self)
++{
++	extern float last_frame_time;
++	float msec_since_last = (last_frame_time - self->fb.last_cmd_sent) * 1000;
++	int cmd_msec = (int)msec_since_last;
++	int weapon_script_impulse = 0;
++	int impulse = 0, buttons = 0;
++	qbool jumping;
++	qbool firing;
++	vec3_t direction;
 +
++	BotPerformRocketJump(self);
++
++	if (cmd_msec)
++	{
++		self->fb.cmd_msec_lost += (msec_since_last - cmd_msec);
++		if (self->fb.cmd_msec_lost >= 1)
++		{
++			self->fb.cmd_msec_lost -= 1;
++			cmd_msec += 1;
++		}
++	}
++	else if (self->fb.cmd_msec_last)
++	{
++		// Probably re-sending after blocked(), re-use old number
++		cmd_msec = self->fb.cmd_msec_last;
++	}
++	else
++	{
++		cmd_msec = 12;
++	}
++
++	//G_sprint(self, PRINT_HIGH, "Movement length @ %f: %d\n", last_frame_time, cmd_msec);
++
++	// dir_move_ is the direction we want to move in, but need to take inertia into effect
++	// ... as rough guide (and save doubling physics calculations), scale command > 
++	VectorNormalize(self->fb.dir_move_);
++	VectorScale(self->fb.dir_move_, sv_maxspeed, self->fb.last_cmd_direction);
++
++	trap_makevectors(self->fb.desired_angle);
++
++	// During intermission, always do nothing and leave humans to change level
++	if (intermission_running)
++	{
++		self->fb.firing = self->fb.jumping = false;
++	}
++	else if (teamplay && (deathmatch == 1) && !self->fb.firing)
++	{
++		// Weaponscripts
++		if ((self->s.v.weapon != IT_SHOTGUN) && (self->s.v.weapon != IT_AXE))
++		{
++			weapon_script_impulse = (self->s.v.ammo_shells ? 2 : 1);
++		}
++	}
++
++	impulse = self->fb.botchose ? self->fb.next_impulse :
++				self->fb.firing ? self->fb.desired_weapon_impulse : weapon_script_impulse;
++
++	if (self->fb.firing && BotUsingCorrectWeapon(self))
++	{
++		impulse = 0; // we already have the requested weapon
++	}
++
++	jumping = self->fb.jumping || self->fb.waterjumping;
++	firing = self->fb.firing;
++
++	self->fb.waterjumping = false;
++
++	if (self->fb.dbg_countdown > 0)
++	{
++		jumping = firing = false;
++		VectorClear(direction);
++		--self->fb.dbg_countdown;
++	}
++	else
++	{
++		if (jumping && ((int)self->s.v.flags & FL_ONGROUND))
++		{
++			BestJumpingDirection(self);
++		}
++		else
++		{
++			ApplyPhysics(self);
++		}
++
++		if (self->s.v.waterlevel <= 1)
++		{
++			vec3_t hor;
++
++			VectorCopy(self->fb.dir_move_, hor);
++			hor[2] = 0;
++			VectorNormalize(hor);
++			VectorScale(hor, 800, hor);
++
++			direction[0] = DotProduct(g_globalvars.v_forward, hor);
++			direction[1] = DotProduct(g_globalvars.v_right, hor);
++			direction[2] = 0;
++		}
++		else
++		{
++			direction[0] = DotProduct (g_globalvars.v_forward, self->fb.dir_move_) * 800;
++			direction[1] = DotProduct (g_globalvars.v_right, self->fb.dir_move_) * 800;
++			direction[2] = DotProduct (g_globalvars.v_up, self->fb.dir_move_) * 800;
++		}
++
++#ifdef DEBUG_MOVEMENT
++		if (self->fb.debug_path) {
++			G_bprint (PRINT_HIGH, "     : final direction sent [%4.1f %4.1f %4.1f]\n", PASSVEC3 (self->fb.dir_move_));
++		}
++#endif
++	}
++
++	self->fb.desired_angle[2] = 0;
++
++	if (ISDEAD(self))
++	{
++		firing = false;
++		jumping = BotRequestRespawn(self);
++		VectorClear(direction);
++		impulse = 0;
++	}
++	else if (self->fb.min_move_time > g_globalvars.time)
++	{
++		VectorClear(direction);
++	}
++
++	// Keep bots on spawns before match start
++	if (match_in_progress != 2 && cvar(FB_CVAR_FREEZE_PREWAR))
++	{
++		jumping = firing = false;
++		VectorClear(direction);
++		impulse = 0;
++	}
++
++	BotApplyMoveProbe(self, &jumping, direction);
+ 
  	buttons |= (firing ? 1 : 0);
  	buttons |= (jumping ? 2 : 0);
 +	BotLogMoveProbeCommand(self, cmd_msec, direction, buttons, impulse);
