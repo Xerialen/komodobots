@@ -1,5 +1,5 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..dafa0fc 100644
+index c0654d1..4745e8d 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
 @@ -5,6 +5,79 @@
@@ -82,7 +82,7 @@ index c0654d1..dafa0fc 100644
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,142 +495,1627 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,142 +495,1683 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -1386,27 +1386,38 @@ index c0654d1..dafa0fc 100644
 +	}
 +	else if (mode == 14)
 +	{
-+		// Orbit-the-wall + carve. Two layers at two frequencies, from the human
-+		// trick5 fingerprint: a slow BASE HEADING that follows the round wall (the
-+		// "direction" -- steer consistently away from a wall sensed ahead so the
-+		// bot orbits the room interior instead of spiralling out), with the mode-13
-+		// air-strafe CARVE superimposed around that base heading (the fast
-+		// "footwork" that builds speed). The base heading is the partner the carve
-+		// faces; net velocity tracks it, so the bot stays confined while it
-+		// accelerates. See experiments/bunnyhop_mastery + docs/08_DECISION_LOG.md.
++		// Orbit + carve (v2). Two layers from the human trick5 fingerprint, decoupled:
++		// DIRECTION -- a slow base heading that follows trick.bsp's wall at a STANDOFF
++		// distance (a side traceline holds a target gap to the outward wall, a forward
++		// traceline rounds corners), so it orbits the INTERIOR and does not hug the
++		// square room's perimeter. CARVE -- mode-13's air-strafe around the actual
++		// VELOCITY (full accel), whose SIDE is chosen to steer velocity toward the
++		// base heading: S-strafe (alternate per hop) when on the orbit, lock toward
++		// the base when the heading error exceeds a deadband. (v1 carved around the
++		// base heading and hugged walls -> ~350; this carves around velocity and
++		// stands off.) See experiments/bunnyhop_mastery + docs/08_DECISION_LOG.md.
 +		float numerator = cvar("k_fb_moveprobe_accel_numerator");
 +		float orbit_dir = cvar("k_fb_moveprobe_orbit_dir");        // <0 = CW, else CCW
-+		float lookahead = cvar("k_fb_moveprobe_orbit_lookahead");  // qu, base wall reach
-+		float turnrate = cvar("k_fb_moveprobe_orbit_turnrate");    // deg/s, steer-away rate
++		float standoff = cvar("k_fb_moveprobe_orbit_standoff");    // qu, target wall gap
++		float lookahead = cvar("k_fb_moveprobe_orbit_lookahead");  // qu, forward corner reach
++		float turnrate = cvar("k_fb_moveprobe_orbit_turnrate");    // deg/s steer gain
 +		float bootstrap_deg = cvar("k_fb_moveprobe_accel_bootstrap_deg");
 +		float sv_maxspeed = cvar("sv_maxspeed");
 +		float frametime = g_globalvars.frametime;
++		float carve_deadband = 20.0f;  // deg: |heading error| below which we S-strafe
 +		int orbit_sign;
++		int carve_sign;
 +		float spd;
 +		float reach;
++		float side_reach;
++		float side_d;
 +		float rotation;
 +		float base_yaw;
++		float vel_yaw;
++		float error;
 +		vec3_t base_dir;
++		vec3_t base_right;
++		vec3_t cur_dir;
 +		vec3_t from_pt;
 +		vec3_t to_pt;
 +		vec3_t proposed_dir;
@@ -1422,9 +1433,13 @@ index c0654d1..dafa0fc 100644
 +		{
 +			bootstrap_deg = 25.0f;
 +		}
++		if (standoff <= 0)
++		{
++			standoff = 300.0f;
++		}
 +		if (lookahead <= 0)
 +		{
-+			lookahead = 200.0f;
++			lookahead = 300.0f;
 +		}
 +		if (turnrate <= 0)
 +		{
@@ -1439,75 +1454,117 @@ index c0654d1..dafa0fc 100644
 +		spd = sqrt(self->s.v.velocity[0] * self->s.v.velocity[0]
 +				   + self->s.v.velocity[1] * self->s.v.velocity[1]);
 +
++		// Velocity heading (the carve reference); seed from view at rest.
++		cur_dir[0] = self->s.v.velocity[0];
++		cur_dir[1] = self->s.v.velocity[1];
++		cur_dir[2] = 0;
++		if (VectorNormalize(cur_dir) <= 0)
++		{
++			vec3_t view_angles = { 0, self->fb.desired_angle[YAW], 0 };
++
++			trap_makevectors(view_angles);
++			VectorCopy(g_globalvars.v_forward, cur_dir);
++			cur_dir[2] = 0;
++			if (VectorNormalize(cur_dir) <= 0)
++			{
++				cur_dir[0] = 1;
++				cur_dir[1] = 0;
++				cur_dir[2] = 0;
++			}
++		}
++
 +		// Seed the base heading once, from current velocity (or view at rest).
 +		if (!moveprobe_orbit_init[slot])
 +		{
-+			if (spd > 1.0f)
-+			{
-+				base_dir[0] = self->s.v.velocity[0];
-+				base_dir[1] = self->s.v.velocity[1];
-+				base_dir[2] = 0;
-+				moveprobe_orbit_yaw[slot] = vectoyaw(base_dir);
-+			}
-+			else
-+			{
-+				moveprobe_orbit_yaw[slot] = self->fb.desired_angle[YAW];
-+			}
++			moveprobe_orbit_yaw[slot] = (spd > 1.0f) ? vectoyaw(self->s.v.velocity)
++													 : self->fb.desired_angle[YAW];
 +			moveprobe_orbit_init[slot] = 1;
 +			moveprobe_orbit_sign[slot] = 1;
 +		}
 +		base_yaw = moveprobe_orbit_yaw[slot];
 +
-+		// Base heading unit vector from the stored yaw.
++		// Base heading + its right vector (for the standoff side-ray).
 +		{
 +			vec3_t base_angles = { 0, base_yaw, 0 };
 +
 +			trap_makevectors(base_angles);
 +			VectorCopy(g_globalvars.v_forward, base_dir);
++			VectorCopy(g_globalvars.v_right, base_right);
 +			base_dir[2] = 0;
++			base_right[2] = 0;
 +			VectorNormalize(base_dir);
++			VectorNormalize(base_right);
 +		}
 +
-+		// DIRECTION layer: sense a wall ahead along the base heading and steer the
-+		// base heading away, consistently in the orbit direction and harder the
-+		// closer the wall -> the heading curves along the round wall (an orbit).
-+		reach = lookahead + spd * 0.3f;
++		// DIRECTION layer -- standoff wall-follow.
 +		VectorCopy(self->s.v.origin, from_pt);
 +		from_pt[2] += 16;
++		// (a) forward ray rounds corners: steer inward when a wall is ahead.
++		reach = lookahead + spd * 0.3f;
 +		VectorMA(from_pt, reach, base_dir, to_pt);
 +		traceline(PASSVEC3(from_pt), PASSVEC3(to_pt), false, self);
 +		if (g_globalvars.trace_fraction < 1.0f)
 +		{
-+			vec3_t base_angles2;
-+
 +			base_yaw += orbit_sign * turnrate * frametime * (1.0f - g_globalvars.trace_fraction);
-+			moveprobe_orbit_yaw[slot] = anglemod(base_yaw);
-+			base_angles2[0] = 0;
-+			base_angles2[1] = moveprobe_orbit_yaw[slot];
-+			base_angles2[2] = 0;
-+			trap_makevectors(base_angles2);
-+			VectorCopy(g_globalvars.v_forward, base_dir);
-+			base_dir[2] = 0;
-+			VectorNormalize(base_dir);
 +		}
++		// (b) side ray holds a standoff from the outward wall -> interior orbit.
++		side_reach = standoff * 2.0f;
++		VectorMA(from_pt, orbit_sign * side_reach, base_right, to_pt);
++		traceline(PASSVEC3(from_pt), PASSVEC3(to_pt), false, self);
++		side_d = (g_globalvars.trace_fraction < 1.0f)
++					 ? g_globalvars.trace_fraction * side_reach
++					 : side_reach;
++		if (side_d < standoff)
++		{
++			// too close to the wall -> steer inward (away from it)
++			base_yaw += orbit_sign * turnrate * frametime * (standoff - side_d) / standoff;
++		}
++		else
++		{
++			// too far / open -> drift outward to find the orbit standoff
++			float out = (side_d - standoff) / standoff;
 +
-+		// Toggle jump (press on ground, release in air) and flip the carve side on
-+		// each takeoff -- S-strafe around the base heading keeps net travel on it.
++			if (out > 1.0f)
++			{
++				out = 1.0f;
++			}
++			base_yaw -= orbit_sign * turnrate * frametime * out;
++		}
++		moveprobe_orbit_yaw[slot] = anglemod(base_yaw);
++		base_yaw = moveprobe_orbit_yaw[slot];
++
++		// CARVE layer -- around VELOCITY (full mode-13 accel). Toggle jump and flip
++		// the carve side per hop (S-strafe); when the heading error to the base
++		// exceeds the deadband, lock the side toward the base to steer onto the orbit.
 +		press_jump = onground && !moveprobe_orbit_jump[slot];
 +		moveprobe_orbit_jump[slot] = press_jump;
 +		if (press_jump)
 +		{
 +			moveprobe_orbit_sign[slot] = -moveprobe_orbit_sign[slot];
 +		}
++		vel_yaw = vectoyaw(cur_dir);
++		error = base_yaw - vel_yaw;
++		while (error > 180)
++		{
++			error -= 360;
++		}
++		while (error < -180)
++		{
++			error += 360;
++		}
++		if (error > carve_deadband)
++		{
++			moveprobe_orbit_sign[slot] = 1;   // base is left of velocity -> carve left
++		}
++		else if (error < -carve_deadband)
++		{
++			moveprobe_orbit_sign[slot] = -1;  // base is right -> carve right
++		}
++		carve_sign = moveprobe_orbit_sign[slot];
 +
-+		// CARVE layer: on the ground run straight along the base heading; in the air
-+		// rotate the wish-dir to the speed-optimal angle off the base heading (= off
-+		// velocity, since velocity tracks the base), so the capped air-accel builds
-+		// speed -- mode-13's carve, but referenced to the orbit heading not raw
-+		// velocity, so the bot orbits instead of spiralling.
 +		if (onground)
 +		{
-+			VectorCopy(base_dir, proposed_dir);
++			VectorCopy(cur_dir, proposed_dir);
 +		}
 +		else
 +		{
@@ -1519,12 +1576,11 @@ index c0654d1..dafa0fc 100644
 +			{
 +				rotation = bootstrap_deg;
 +			}
-+			RotatePointAroundVector(proposed_dir, up_vector, base_dir,
-+									rotation * moveprobe_orbit_sign[slot]);
++			RotatePointAroundVector(proposed_dir, up_vector, cur_dir, rotation * carve_sign);
 +			proposed_dir[2] = 0;
 +			if (VectorNormalize(proposed_dir) <= 0)
 +			{
-+				VectorCopy(base_dir, proposed_dir);
++				VectorCopy(cur_dir, proposed_dir);
 +			}
 +		}
 +
