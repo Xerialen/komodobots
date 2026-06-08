@@ -1,8 +1,8 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..ac4fe20 100644
+index c0654d1..862d7e2 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -5,6 +5,79 @@
+@@ -5,6 +5,88 @@
  #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
@@ -79,10 +79,19 @@ index c0654d1..ac4fe20 100644
 +static int   moveprobe_orbit_init[MAX_CLIENTS];            // mode 14: base heading seeded?
 +static int   moveprobe_orbit_jump[MAX_CLIENTS];            // mode 14: last-frame jump press (toggle)
 +static int   moveprobe_orbit_sign[MAX_CLIENTS];            // mode 14: current carve sign (+1/-1)
++static int   moveprobe_cstrafe_init[MAX_CLIENTS];          // mode 15: coupled circle-strafe seeded?
++static int   moveprobe_cstrafe_side[MAX_CLIENTS];          // mode 15: current strafe sign (+1=right/-1=left)
++static float moveprobe_cstrafe_view[MAX_CLIENTS];          // mode 15: integrated view yaw (deg)
++static int   moveprobe_cstrafe_jump[MAX_CLIENTS];          // mode 15: last-frame jump press (toggle)
++static float moveprobe_cstrafe_flip_t[MAX_CLIENTS];        // mode 15: server time of last (side,turn) flip
++static int   moveprobe_curl_sign[MAX_CLIENTS];             // mode 16: curl direction (+1 CCW / -1 CW)
++static int   moveprobe_curl_init[MAX_CLIENTS];             // mode 16: seeded?
++static int   moveprobe_curl_jump[MAX_CLIENTS];             // mode 16: last-frame jump press (toggle)
++static int   moveprobe_curl_dirset[MAX_CLIENTS];           // mode 16: curl direction chosen from geometry?
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,142 +495,1684 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,142 +504,1987 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -1591,6 +1600,309 @@ index c0654d1..ac4fe20 100644
 +			direction[1] = DotProduct(g_globalvars.v_right, proposed_dir) * sv_maxspeed;
 +			direction[2] = 0;
 +		}
++		*jumping = press_jump;
++	}
++	else if (mode == 15)
++	{
++		// Coupled circle-strafe (the human technique, from trick5.cmds Step-0 analysis).
++		// The human at speed uses forwardmove=0, sidemove=+/-400 held for SECONDS, and a
++		// view that rotates CONTINUOUSLY in the direction COUPLED to the strafe sign
++		// (side+ -> turn CW / yaw decreasing; side- -> turn CCW) at ~150 deg/s. Velocity
++		// chases the steadily-rotating view in the air-accel pocket, so speed BUILDS (929
++		// -> 1072 over 7 s in the demo) -- there is NO 540 ceiling; that was mode-14's
++		// slow heading + per-hop S-strafe killing the accel. Confinement: orbit a FIXED
++		// center, flipping both strafe sign + coupled turn on a timer / radius drift (NOT
++		// reactive wall-traceline, which chattered and collapsed the pocket -> crash to ~50).
++		// See experiments/bunnyhop_mastery/evidence/STEP0-circle-strafe-overturns-ceiling.md.
++		float side_move = cvar("k_fb_moveprobe_cstrafe_side");        // sidemove magnitude
++		float turn_rate = cvar("k_fb_moveprobe_cstrafe_turnrate");   // deg/s, continuous view turn
++		float flip_period = cvar("k_fb_moveprobe_cstrafe_flip_period"); // s between forced flips
++		float max_radius = cvar("k_fb_moveprobe_cstrafe_max_radius"); // qu: flip if drifting past this
++		float cx = cvar("k_fb_moveprobe_cstrafe_cx");                // orbit center X
++		float cy = cvar("k_fb_moveprobe_cstrafe_cy");                // orbit center Y
++		float sv_maxspeed = cvar("sv_maxspeed");
++		float view_yaw;
++		float r;
++		float since;
++		int side;
++		qbool onground = ((int)self->s.v.flags & FL_ONGROUND) ? true : false;
++		qbool press_jump;
++		vec3_t flat_vel;
++		vec3_t view_ang;
++
++		if (side_move <= 0)
++		{
++			side_move = 400.0f;
++		}
++		if (turn_rate <= 0)
++		{
++			turn_rate = 150.0f;  // human median ~154 deg/s (2 deg/frame @ 77 fps)
++		}
++		if (flip_period <= 0)
++		{
++			flip_period = 2.5f;  // shorter arc -> tighter confinement (figure-8 lobe)
++		}
++		if (max_radius <= 0)
++		{
++			max_radius = 520.0f; // flip if the orbit drifts past this from center
++		}
++		if (cx == 0.0f && cy == 0.0f)
++		{
++			cx = 2523.0f;  // human trick5 centroid (~ room center)
++			cy = -2554.0f;
++		}
++		if (sv_maxspeed <= 0)
++		{
++			sv_maxspeed = 320.0f;
++		}
++
++		// Seed the integrated view from the current velocity heading (or rest view).
++		if (!moveprobe_cstrafe_init[slot])
++		{
++			flat_vel[0] = self->s.v.velocity[0];
++			flat_vel[1] = self->s.v.velocity[1];
++			flat_vel[2] = 0;
++			if (VectorNormalize(flat_vel) > 0)
++			{
++				moveprobe_cstrafe_view[slot] = vectoyaw(flat_vel);
++			}
++			else
++			{
++				moveprobe_cstrafe_view[slot] = self->fb.desired_angle[YAW];
++			}
++			moveprobe_cstrafe_side[slot] = 1;
++			moveprobe_cstrafe_flip_t[slot] = g_globalvars.time;
++			moveprobe_cstrafe_init[slot] = 1;
++		}
++		side = moveprobe_cstrafe_side[slot];
++
++		// Confinement: orbit a FIXED center. Flip both strafe sign and the coupled turn
++		// direction together on the timer OR when the orbit drifts past max_radius from the
++		// center. A >=1 s minimum between flips prevents the reactive wall-chatter that
++		// decelerated the first cut (rapid reversals collapse the air-strafe pocket). The
++		// figure-8 emerges from the periodic flips while the bot stays near the center.
++		r = sqrt((self->s.v.origin[0] - cx) * (self->s.v.origin[0] - cx)
++				 + (self->s.v.origin[1] - cy) * (self->s.v.origin[1] - cy));
++		since = g_globalvars.time - moveprobe_cstrafe_flip_t[slot];
++		if (since >= 1.0f && (since >= flip_period || r > max_radius))
++		{
++			side = -side;
++			moveprobe_cstrafe_side[slot] = side;
++			moveprobe_cstrafe_flip_t[slot] = g_globalvars.time;
++		}
++
++		// Integrate the view continuously in the coupled direction. side+ (strafe right)
++		// turns the view CW (yaw decreasing); side- turns CCW (yaw increasing).
++		moveprobe_cstrafe_view[slot] -= side * turn_rate * g_globalvars.frametime;
++		view_yaw = moveprobe_cstrafe_view[slot];
++
++		// Jump every ground frame (continuous bunnyhop).
++		press_jump = onground && !moveprobe_cstrafe_jump[slot];
++		moveprobe_cstrafe_jump[slot] = press_jump;
++
++		// Emit: look along the integrated view; pure sidemove in the strafe direction.
++		view_ang[0] = 0;
++		view_ang[1] = view_yaw;
++		view_ang[2] = 0;
++		trap_makevectors(view_ang);
++		self->fb.desired_angle[PITCH] = 0;
++		self->fb.desired_angle[YAW] = view_yaw;
++		self->fb.desired_angle[ROLL] = 0;
++		direction[0] = 0;                      // forwardmove (human used 0 at speed)
++		direction[1] = side * side_move;       // sidemove (+ = right)
++		direction[2] = 0;
++		*jumping = press_jump;
++	}
++	else if (mode == 16)
++	{
++		// Curling air-strafe with center-hold confinement (the synthesis of the
++		// CONFIRMED physics + the user's model). ACCEL = mode 13's proven one-way
++		// carve: wishdir at acos(K/|v|) off the current velocity (K~26, near the real
++		// optimum acos(15/|v|)), held ONE direction -> velocity curls into a circle of
++		// radius ~|v|^2/2310 while air-accel (the real 30-cap) builds speed. That alone
++		// reaches 656 but SPIRALS into a wall (mode 13's failure). CONFINEMENT (the
++		// missing layer): when the bot drifts past max_radius from the room center OR a
++		// forward traceline sees a wall, FLIP the curl direction to whichever side
++		// steers velocity back toward the center -- with a long cooldown so it does
++		// LONG arcs (not the per-hop pump / wall-chatter that killed mode 15). The
++		// alternating long arcs are the figure-8; the carve never stops, so speed keeps
++		// climbing past 656 toward the human band. See evidence/PHYSICS-confirmed-air-accel.md.
++		float numerator = cvar("k_fb_moveprobe_accel_numerator");
++		float bootstrap_deg = cvar("k_fb_moveprobe_accel_bootstrap_deg");
++		float radius_div = cvar("k_fb_moveprobe_curl_radius_div");   // R_natural = v^2/div (~2310)
++		float radius_min = cvar("k_fb_moveprobe_curl_radius_min");   // qu clamp on target radius
++		float radius_max = cvar("k_fb_moveprobe_curl_radius_max");   // qu clamp (keep inside room)
++		float radius_gain = cvar("k_fb_moveprobe_curl_radius_gain"); // deg of carve per qu of radius error
++		float angle_span = cvar("k_fb_moveprobe_curl_angle_span");   // max deg the centering may shift the carve
++		float engage_speed = cvar("k_fb_moveprobe_curl_engage_speed"); // pure accel below this, center above
++		float cx = cvar("k_fb_moveprobe_curl_cx");
++		float cy = cvar("k_fb_moveprobe_curl_cy");
++		float sv_maxspeed = cvar("sv_maxspeed");
++		float spd;
++		float rotation;
++		float r;
++		int curl_sign;
++		qbool onground = ((int)self->s.v.flags & FL_ONGROUND) ? true : false;
++		qbool press_jump;
++		vec3_t cur_dir;
++		vec3_t proposed_dir;
++		vec3_t up_vector = { 0, 0, 1 };
++
++		if (numerator <= 0)
++		{
++			numerator = 26.0f;
++		}
++		if (bootstrap_deg <= 0)
++		{
++			bootstrap_deg = 25.0f;
++		}
++		if (radius_div <= 0)
++		{
++			radius_div = 2310.0f; // v^2/2310: the 30-cap natural curl radius (R=335 at 880)
++		}
++		if (radius_min <= 0)
++		{
++			radius_min = 120.0f;
++		}
++		if (radius_max <= 0)
++		{
++			radius_max = 560.0f; // keep the orbit inside the ~1008 room half-width
++		}
++		if (radius_gain <= 0)
++		{
++			radius_gain = 0.045f;
++		}
++		if (angle_span <= 0)
++		{
++			angle_span = 25.0f;
++		}
++		if (engage_speed <= 0)
++		{
++			engage_speed = 420.0f; // bootstrap with PURE accel below this; center above
++		}
++		if (cx == 0.0f && cy == 0.0f)
++		{
++			cx = 2523.0f;  // human trick5 centroid (~ room center)
++			cy = -2554.0f;
++		}
++		if (sv_maxspeed <= 0)
++		{
++			sv_maxspeed = 320.0f;
++		}
++		if (!moveprobe_curl_init[slot])
++		{
++			moveprobe_curl_sign[slot] = 1;
++			moveprobe_curl_dirset[slot] = 0;
++			moveprobe_curl_init[slot] = 1;
++		}
++
++		spd = sqrt(self->s.v.velocity[0] * self->s.v.velocity[0]
++				   + self->s.v.velocity[1] * self->s.v.velocity[1]);
++		cur_dir[0] = self->s.v.velocity[0];
++		cur_dir[1] = self->s.v.velocity[1];
++		cur_dir[2] = 0;
++		if (VectorNormalize(cur_dir) <= 0)
++		{
++			vec3_t view_angles = { 0, self->fb.desired_angle[YAW], 0 };
++
++			trap_makevectors(view_angles);
++			VectorCopy(g_globalvars.v_forward, cur_dir);
++			cur_dir[2] = 0;
++			if (VectorNormalize(cur_dir) <= 0)
++			{
++				cur_dir[0] = 1; cur_dir[1] = 0; cur_dir[2] = 0;
++			}
++		}
++
++		// Curl direction: choose ONCE from geometry so the curl orbits the center
++		// (center on the curl side of velocity); fixed thereafter -> no flips.
++		r = sqrt((self->s.v.origin[0] - cx) * (self->s.v.origin[0] - cx)
++				 + (self->s.v.origin[1] - cy) * (self->s.v.origin[1] - cy));
++		if (!moveprobe_curl_dirset[slot] && spd > 100.0f)
++		{
++			float tx = cx - self->s.v.origin[0];
++			float ty = cy - self->s.v.origin[1];
++			float cross = self->s.v.velocity[0] * ty - self->s.v.velocity[1] * tx;
++
++			moveprobe_curl_sign[slot] = (cross >= 0) ? 1 : -1;
++			moveprobe_curl_dirset[slot] = 1;
++		}
++		curl_sign = moveprobe_curl_sign[slot];
++
++		// ACCEL + CENTERED CONFINEMENT. The carve is mode-13's accel-optimal angle off
++		// velocity (acos(K/v)); the centering GENTLY shifts that angle by the radius
++		// error so the bot holds its distance-from-center near the natural curl radius
++		// R = v^2/div -> a centered orbit that grows with speed and stays in the room,
++		// with no speed-killing flips. Too far out -> tighter carve (pull in); too close
++		// -> wider carve (drift out).
++		if (onground)
++		{
++			VectorCopy(cur_dir, proposed_dir);
++		}
++		else
++		{
++			float r_target = spd * spd / radius_div;
++			float angle;
++
++			if (r_target < radius_min)
++			{
++				r_target = radius_min;
++			}
++			if (r_target > radius_max)
++			{
++				r_target = radius_max;
++			}
++			if (spd > numerator)
++			{
++				rotation = acos(numerator / spd) * 180.0f / M_PI;
++			}
++			else
++			{
++				rotation = bootstrap_deg;
++			}
++			// Bootstrap: below engage_speed run PURE accel (one-sided carve) so the bot
++			// can always build up; only engage the centering once it is moving fast.
++			if (spd < engage_speed)
++			{
++				angle = rotation;
++			}
++			else
++			{
++				angle = rotation + radius_gain * (r - r_target);
++				if (angle < rotation - angle_span)
++				{
++					angle = rotation - angle_span;
++				}
++				if (angle > rotation + angle_span)
++				{
++					angle = rotation + angle_span;
++				}
++			}
++			if (angle > 89.0f)
++			{
++				angle = 89.0f;
++			}
++			if (angle < 5.0f)
++			{
++				angle = 5.0f;
++			}
++			RotatePointAroundVector(proposed_dir, up_vector, cur_dir, angle * curl_sign);
++			proposed_dir[2] = 0;
++			if (VectorNormalize(proposed_dir) <= 0)
++			{
++				VectorCopy(cur_dir, proposed_dir);
++			}
++		}
++
++		press_jump = onground && !moveprobe_curl_jump[slot];
++		moveprobe_curl_jump[slot] = press_jump;
++
++		self->fb.desired_angle[PITCH] = 0;
++		self->fb.desired_angle[YAW] = vectoyaw(proposed_dir);
++		self->fb.desired_angle[ROLL] = 0;
++		direction[0] = sv_maxspeed;
++		direction[1] = 0;
++		direction[2] = 0;
 +		*jumping = press_jump;
 +	}
 +}
