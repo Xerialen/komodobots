@@ -186,6 +186,13 @@ set k_demotxt_format json
 sv_demotxt 2
 sv_demofps 77
 sv_demodir demos
+// QTV: serve mvdsv's built-in spectator stream on the game port. This is a passive
+// re-broadcast of the MVD the run already records (sv_demoeasyrecord); a QTV viewer
+// is not a player and sends no input, so bots, physics, and the measurement are
+// unchanged (only marginal broadcast CPU). Game-port == stream-port matches the live
+// servexeri model (ktx/port_2850x.cfg) and is the one port ufw opens (28599/tcp, LAN).
+// Watch in ezQuake: /qtvplay <host>:$port  -- bare host:port, NO "tcp:" prefix.
+set qtv_streamport $port
 serverinfo hostname "komodobots-lab:$port"
 EOF
 if [ -n "${moveprobe_extra_cvars_b64:-}" ] && [ "${moveprobe_extra_cvars_b64:-}" != "-" ]; then
@@ -1460,7 +1467,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument(
         "--moveprobe-mode",
         type=int,
-        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13),
+        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14),
         default=0,
         help=(
             "Set k_fb_moveprobe_mode in the generated KTX lab config. "
