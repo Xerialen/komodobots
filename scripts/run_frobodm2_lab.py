@@ -1473,7 +1473,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument(
         "--moveprobe-mode",
         type=int,
-        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17),
+        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18),
         default=0,
         help=(
             "Set k_fb_moveprobe_mode in the generated KTX lab config. "

@@ -1,8 +1,8 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..9413887 100644
+index c0654d1..02a4ee3 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -5,6 +5,93 @@
+@@ -5,6 +5,95 @@
  #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
@@ -93,10 +93,12 @@ index c0654d1..9413887 100644
 +static int   moveprobe_fig8_init[MAX_CLIENTS];             // mode 17: seeded?
 +static int   moveprobe_fig8_jump[MAX_CLIENTS];             // mode 17: last-frame jump press (toggle)
 +static float moveprobe_fig8_flip_t[MAX_CLIENTS];           // mode 17: server time of last lobe-switch
++static float moveprobe_orbit18_yaw[MAX_CLIENTS];           // mode 18: orbit view yaw (rotates at OMEGA deg/s)
++static int   moveprobe_orbit18_jump[MAX_CLIENTS];          // mode 18: last-frame jump press (bhop toggle)
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,142 +509,2185 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,142 +511,2271 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -2106,6 +2108,92 @@ index c0654d1..9413887 100644
 +		direction[0] = sv_maxspeed;
 +		direction[1] = 0;
 +		direction[2] = 0;
++		*jumping = press_jump;
++	}
++	else if (mode == 18)
++	{
++		// Continuous-rotation ORBIT bunnyhop. Validated offline in qwsim (faithful to the
++		// human trick5 air-accel to 0.1%): rotate the view -- and thus the perpendicular
++		// side-strafe wish-direction -- open-loop at a fixed OMEGA deg/s and let velocity
++		// CHASE it. QW air-accel then builds speed to the OMEGA-set steady state while
++		// R = v/omega keeps the orbit inside the room: median ~895 CONFINED (maxdist ~1005 <
++		// trick.bsp half-width ~1008) at OMEGA ~205. The "540 single-orbit ceiling" was a
++		// controller artifact; the old curl carve sat at ~130 because it computed a
++		// velocity-RELATIVE carve (sign-fragile). Open-loop rotation is self-stabilizing.
++		// Ground: build speed straight + jump. Air: orbit. A circle (no reversal) -- the
++		// figure-8 is a later mode. cvars: orbit_omega, orbit_flip.
++		float omega = cvar("k_fb_moveprobe_orbit_omega");       // wish-dir rotation rate, deg/s
++		float flip = cvar("k_fb_moveprobe_orbit_flip");         // 1: mirror strafe sign (live convention check)
++		float sv_maxspeed = cvar("sv_maxspeed");
++		float strafe_sign;
++		float heading;
++		qbool onground = ((int)self->s.v.flags & FL_ONGROUND) ? true : false;
++		qbool press_jump;
++		vec3_t cur_dir;
++
++		if (omega <= 0)
++		{
++			omega = 205.0f;
++		}
++		if (sv_maxspeed <= 0)
++		{
++			sv_maxspeed = 320.0f;
++		}
++
++		// Current horizontal heading (fall back to the view at a standstill).
++		cur_dir[0] = self->s.v.velocity[0];
++		cur_dir[1] = self->s.v.velocity[1];
++		cur_dir[2] = 0;
++		if (VectorNormalize(cur_dir) <= 0)
++		{
++			vec3_t view_angles = { 0, self->fb.desired_angle[YAW], 0 };
++
++			trap_makevectors(view_angles);
++			VectorCopy(g_globalvars.v_forward, cur_dir);
++			cur_dir[2] = 0;
++			if (VectorNormalize(cur_dir) <= 0)
++			{
++				cur_dir[0] = 1;
++				cur_dir[1] = 0;
++				cur_dir[2] = 0;
++			}
++		}
++		heading = vectoyaw(cur_dir);
++
++		// Bunnyhop: toggle jump so it releases in the air and re-fires on landing (KTX only
++		// jumps on a press edge -- a held +jump jumps once).
++		press_jump = onground && !moveprobe_orbit18_jump[slot];
++		moveprobe_orbit18_jump[slot] = press_jump;
++
++		self->fb.desired_angle[PITCH] = 0;
++		self->fb.desired_angle[ROLL] = 0;
++		if (onground)
++		{
++			// GROUND (1 frame/hop): run straight along velocity -- a side-strafe here would
++			// spin the bot, since ground accel fully redirects velocity to the wish-dir.
++			// Resync the orbit view to the real heading so each hop's air-orbit rotates from
++			// where the bot actually is (keeps the open-loop rotation from drifting away).
++			moveprobe_orbit18_yaw[slot] = heading;
++			self->fb.desired_angle[YAW] = heading;
++			direction[0] = sv_maxspeed;
++			direction[1] = 0;
++			direction[2] = 0;
++		}
++		else
++		{
++			// AIR: rotate the orbit view at OMEGA from the landing heading and pure-side-strafe
++			// perpendicular to it -> air-accel builds speed AND curls the path (so it never
++			// runs straight into a wall). Default strafe sign accelerates for a +omega (CCW)
++			// rotation (matches the validated sim); set k_fb_moveprobe_orbit_flip 1 if the
++			// live build mirrors sidemove -- speed must BUILD, not collapse.
++			moveprobe_orbit18_yaw[slot] = anglemod(moveprobe_orbit18_yaw[slot]
++												   + omega * g_globalvars.frametime);
++			strafe_sign = (flip > 0) ? 1.0f : -1.0f;
++			self->fb.desired_angle[YAW] = moveprobe_orbit18_yaw[slot];
++			direction[0] = 0;
++			direction[1] = strafe_sign * sv_maxspeed;
++			direction[2] = 0;
++		}
 +		*jumping = press_jump;
 +	}
 +}
