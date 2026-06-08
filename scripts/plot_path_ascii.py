@@ -14,7 +14,7 @@ import argparse
 from pathlib import Path
 
 
-def plot(path: Path, w: int = 56, h: int = 26) -> str:
+def _load_cmds(path: Path):
     pts = []
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -24,6 +24,30 @@ def plot(path: Path, w: int = 56, h: int = 26) -> str:
         if len(p) < 3:
             continue
         pts.append((float(p[1]), float(p[2])))
+    return pts
+
+
+def _load_events(path: Path, player: int):
+    """kind-5 player-origin events from a lab run's events.txt (one JSON per line)."""
+    import json
+
+    pts = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            e = json.loads(line)
+        except ValueError:
+            continue
+        if e.get("kind") == 5 and e["data"].get("PlayerNum") == player:
+            o = e["data"]["Origin"]
+            pts.append((o[0], o[1]))
+    return pts
+
+
+def plot(path: Path, w: int = 56, h: int = 26, events_player: int | None = None) -> str:
+    pts = _load_events(path, events_player) if events_player is not None else _load_cmds(path)
     if len(pts) < 2:
         return "(insufficient points)"
     xs = [p[0] for p in pts]
@@ -58,11 +82,18 @@ def plot(path: Path, w: int = 56, h: int = 26) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--cmds", required=True, type=Path)
+    ap.add_argument("--cmds", type=Path, help="A replay .cmds file (human input trace).")
+    ap.add_argument("--events", type=Path, help="A lab run's events.txt (bot run).")
+    ap.add_argument("--player", type=int, default=1, help="PlayerNum for --events (bot=1).")
     ap.add_argument("--width", type=int, default=56)
     ap.add_argument("--height", type=int, default=26)
     args = ap.parse_args()
-    print(plot(args.cmds, args.width, args.height))
+    if args.events:
+        print(plot(args.events, args.width, args.height, events_player=args.player))
+    elif args.cmds:
+        print(plot(args.cmds, args.width, args.height))
+    else:
+        ap.error("provide --cmds or --events")
     return 0
 
 
