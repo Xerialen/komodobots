@@ -1,0 +1,9 @@
+{
+  "run_id": "20260609T162916Z",
+  "records": 4042,
+  "duration_s": 49.1,
+  "max_vh": 496.8,
+  "pct_onground": 29.9,
+  "closest_dist_to_rl": 307.9,
+  "frames_over_void": 33
+}

@@ -1,0 +1,16 @@
+# The one KTX change behind this PR: log the bot's actual origin in the
+# per-frame FBMOVEPROBE_CMD line, so position + velocity + onground + commands
+# share one stream on one clock (no fragile cross-clock join with events.txt).
+# Applies to the deployed qwprogs-mode21.so source on servexeri (src/bot_movement.c,
+# the FBMOVEPROBE_CMD statement, ~L3591). KTX-only; ezQuake is unmodified.
+
+@@ FBMOVEPROBE_CMD G_cprint format string @@
+ 			 "qwd=%d,%d,%d,%.3f,%d,%d,%.3f "
+-			 "replay=%d,%d,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n",
++			 "replay=%d,%d,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f "
++			 "origin=%.3f,%.3f,%.3f\n",
+
+@@ FBMOVEPROBE_CMD G_cprint argument list (tail) @@
+-			 moveprobe_replay_divergence_h[slot], moveprobe_replay_divergence_v[slot]);
++			 moveprobe_replay_divergence_h[slot], moveprobe_replay_divergence_v[slot],
++			 PASSVEC3(self->s.v.origin));
