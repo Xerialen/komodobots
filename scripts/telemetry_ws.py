@@ -88,7 +88,9 @@ class Hub:
             return
         frame = encode_ws_text(json.dumps(message, separators=(",", ":")))
         dead = []
-        for writer in self.clients:
+        # snapshot: handle_client() can discard from self.clients while we
+        # await drain(), and mutating a set mid-iteration raises RuntimeError
+        for writer in list(self.clients):
             try:
                 writer.write(frame)
                 await asyncio.wait_for(writer.drain(), timeout=1.0)
