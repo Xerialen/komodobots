@@ -81,6 +81,12 @@ def build_replay_frames(demo: Path) -> tuple[list[dict[str, object]], dict[str, 
                 "angles": [float(pitch), float(yaw), float(roll)],
                 "move": [int(command.forwardmove), int(command.sidemove), int(command.upmove)],
                 "buttons": int(command.buttons),
+                # Ground-state carried for the imitation training set (separate from the
+                # fixed 14-col replay .cmds, which render_replay_file leaves unchanged).
+                # onground/pm_code separate the air-accel regime from the landing regime
+                # the retention work hinges on.
+                "onground": bool(state.onground),
+                "pm_code": int(state.pm_code),
             }
         )
 

@@ -2,3 +2,6 @@ __pycache__/
 *.py[cod]
 .venv/
 artifacts/
+# lab demo recordings (large binaries; the metrics live in artifacts/ which is also ignored)
+tricks/**/*.mvd
+tricks/**/*.qwd
