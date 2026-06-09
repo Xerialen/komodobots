@@ -2,22 +2,30 @@
 
 ## Finding
 
-The dm3 SNG→RL bot does not fail at navigation. It fails at **one ballistic jump**, and
-the reason is **speed**, now measured rather than guessed:
+The dm3 SNG→RL route ends with a **ballistic jump**, and the bot doesn't make it:
 
 - The route ends with a **launch off a ledge at ~(1477, 53, z≈+5), over a −392 void, across a
   ~340 qu gap** to a landing ledge at ~(1615, 363, −60), then a step down to the RL pit (−88).
 - Clearing that gap before falling to the landing requires **≥ 526 qu/s horizontal at the launch
   edge** (`g = 800`, flight ≈ 0.65 s). The human carried **528** — clears by ~2 qu/s. This
   validates the geometry math against ground truth.
-- The bot **reaches the ledge and even attempts the leap** (goes airborne over the void) but
-  carries only **442–448 qu/s into the launch edge**, and its **peak speed anywhere on the route
-  is only ~478–497** — itself below 526. So it falls into the void.
+- Measured on a **stray-teleport-clean** trajectory, the bot does **not even reach the launch edge
+  at speed**: its peak anywhere on the route is ~478–497, but on the legit approach it carries only
+  **~327 qu/s** and gets no closer than **~581 qu** from RL (≈86 qu short of the launch edge) before
+  wandering off. So the gap is **~199 qu/s of edge speed _plus_ unreliable navigation to the edge** —
+  not the ~80 a first pass suggested.
 
-The leap is therefore **speed-limited two ways**: the bot loses ~50 qu/s in the final approach/turn,
-*and* its ceiling is ~30 below the requirement even at peak. The next lever is raising edge speed
-above 526 (audit where ~50 qu/s is lost; determine whether peak can exceed 526 under KTX's accel
-model). If 526 is unreachable under the model, that is a finding to surface, not tune around.
+> **Correction (caught by the instrument).** An earlier reading reported "~442 qu/s, ~79 short, the
+> bot attempts the leap." That was **contaminated by stray-teleport frames**: dm3 has secondary
+> teleporters that dump the bot near RL's xy at the wrong height, inflating closest-approach and
+> faking a leap. The first cut of `verify_route.py` had dropped the old scorer's stray-teleport
+> guard; it is restored here (`legit_segment()` truncates each attempt at the first non-legit
+> teleport). The numbers above are post-fix. This is exactly the masking the goal-true metric
+> exists to prevent — and the instrument caught its own contamination.
+
+Next lever: get the bot to the launch edge reliably **and** at ≥526 qu/s (peak is ~497, the legit
+approach only ~327 — so both navigation reliability and edge speed must improve). If ≥526 at the
+edge is unreachable under KTX's accel model, that is a finding to surface, not tune around.
 
 ## Why a rebuild was needed
 
@@ -46,9 +54,10 @@ token (plus mode-22 harness support). Requires `--moveprobe-log-commands --movep
 ## Evidence (`evidence/`)
 
 - `dm3_jump_geom.json` — the validated leap geometry (req 526 vs human 528, `human_clears: true`).
-- `verify_20260609T162916Z.txt`, `verify_20260609T163516Z.txt` — two logged runs scored by the new
-  metric: best attempts classify `REACHED_LEDGE_NO_JUMP` / `ATTEMPTED_JUMP_FELL_SHORT`, route ~87%,
-  **edge speed 442–448 vs 526 needed, zero false PASS**.
+- `verify_20260609T162916Z.txt`, `verify_20260609T163516Z.txt` — two logged runs scored by the
+  stray-teleport-clean metric: best legit attempts are `REACHED_LEDGE_NO_JUMP` (route 85%, closest
+  581 qu, **edge speed 327 vs 526 needed**) and `LEFT_ROUTE` (took a stray teleporter). **Zero false
+  PASS, zero false leap-attempt.**
 - `trace_summary_*.json` — per-run stats (max_vh ~479–497, ~30% onground, frames over void).
 - `ktx_origin_log.diff` — the FBMOVEPROBE_CMD origin-field addition.
 

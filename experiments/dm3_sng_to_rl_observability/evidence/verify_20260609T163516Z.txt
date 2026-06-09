@@ -5,8 +5,8 @@ attempts: 7
 
   # 0 LEFT_ROUTE                route= 46.6% speed=  59% closestRL=  1018qu  no ledge approach  
   # 2 LEFT_ROUTE                route= 46.6% speed=  44% closestRL=  1028qu  no ledge approach  
-  # 4 ATTEMPTED_JUMP_FELL_SHORT route= 86.6% speed=  73% closestRL=   308qu  edge_speed=442/526qu/s  
+  # 4 LEFT_ROUTE                route= 78.3% speed=  73% closestRL=   814qu  no ledge approach  
   # 6 LEFT_ROUTE                route= 51.6% speed=  60% closestRL=  1124qu  no ledge approach  
 
-BEST attempt #4: ATTEMPTED_JUMP_FELL_SHORT  route=86.6%  speed=73%  closestRL=308qu
-  NOT a completion. Binding constraint: edge speed 442 qu/s is 84 short of the 526 needed to clear the void.
+BEST attempt #4: LEFT_ROUTE  route=78.3%  speed=73%  closestRL=814qu
+  NOT a completion. Binding constraint: classification LEFT_ROUTE -- see per-attempt leap diagnostics.

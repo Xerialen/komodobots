@@ -55,9 +55,11 @@ GEOM = _resolve(REPO / "artifacts" / "bsp" / "dm3" / "dm3_jump_geom.json",
 
 SNG = (-895.0, -129.0)
 RL = (1591.0, 526.0, -88.0)
+TELE_ENT = (-539.0, -454.0)   # the ONE legit SNG->exit teleporter entrance
 SNG_R = 90.0          # within this xy of SNG = at the start pad
 REACH_RL = 60.0       # within this 3D of RL = arrived
 LEDGE_R = 110.0       # within this xy of the launch edge = reached the ledge
+TELEPORT_JUMP = 250.0  # single-frame origin jump beyond this = a teleport
 
 
 def load_human():
@@ -121,6 +123,30 @@ def load_trace(run_id):
             "over_void": int(r["over_void"]), "dist_to_rl": float(r["dist_to_rl"]),
         })
     return rows
+
+
+def legit_segment(seg):
+    """Truncate an attempt at the first STRAY teleport. dm3 has one legit
+    SNG->exit teleporter (entrance ~TELE_ENT); any OTHER large single-frame
+    origin jump means the bot took a wrong teleporter and left the intended
+    route, so we stop counting there. Without this, a stray teleporter that
+    dumps the bot near RL's xy (but at the wrong height) is a false positive
+    -- the exact trap the old scorer guarded against."""
+    if not seg:
+        return seg
+    out = [seg[0]]
+    seen_legit = False
+    for a, b in zip(seg, seg[1:]):
+        jump = math.hypot(b["x"] - a["x"], b["y"] - a["y"]) + abs(b["z"] - a["z"])
+        if jump > TELEPORT_JUMP:
+            near_ent = math.hypot(a["x"] - TELE_ENT[0], a["y"] - TELE_ENT[1]) < TELEPORT_JUMP
+            if near_ent and not seen_legit:
+                seen_legit = True
+                out.append(b)        # accept the one legit teleport landing
+                continue
+            break                    # stray teleport -> truncate the attempt
+        out.append(b)
+    return out
 
 
 def segment_attempts(rows):
@@ -199,7 +225,7 @@ def main():
 
     best = None
     for k, (s, e) in enumerate(segs):
-        seg = rows[s:e]
+        seg = legit_segment(rows[s:e])
         if len(seg) < 3:
             continue
         route = route_progress(H, cum, seg)
