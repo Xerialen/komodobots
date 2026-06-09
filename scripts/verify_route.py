@@ -175,8 +175,13 @@ def classify(seg, geom):
     reached_ledge = any(
         math.hypot(r["x"] - ex, r["y"] - ey) < LEDGE_R and r["z"] > -30 for r in seg
     )
-    # airborne over the void past the edge = a launch attempt
-    attempted_jump = any(r["over_void"] and r["x"] > ex - 20 for r in seg)
+    # A launch attempt = went over the void FROM at/near the actual launch edge,
+    # not merely "over some void at high x". A bot that wanders ~300 qu south of
+    # the edge and falls into a different void is NOT a leap attempt (it never
+    # reached the ledge), so gate attempted_jump on reached_ledge + edge xy.
+    attempted_jump = reached_ledge and any(
+        r["over_void"] and r["x"] > ex - 20 and abs(r["y"] - ey) < 160 for r in seg
+    )
     # speed carried into the edge: best vh while grounded within ~150 qu of the edge
     near_edge = [r["vh"] for r in seg
                  if math.hypot(r["x"] - ex, r["y"] - ey) < 150 and r["onground"]]
@@ -184,7 +189,7 @@ def classify(seg, geom):
 
     if closest_rl < REACH_RL:
         cls = "REACHED_RL"
-    elif attempted_jump:
+    elif reached_ledge and attempted_jump:
         cls = "ATTEMPTED_JUMP_FELL_SHORT"
     elif reached_ledge:
         cls = "REACHED_LEDGE_NO_JUMP"
