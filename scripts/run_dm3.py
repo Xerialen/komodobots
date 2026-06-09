@@ -27,7 +27,14 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 LAB = REPO / "scripts" / "run_frobodm2_lab.py"
 TRICKS = Path(r"C:\nQuake\qw\tricks\dm3")
-DEFAULT_REPLAY = "artifacts/replay/dm3_sng_to_rl.cmds"
+# Prefer a live (regenerated) replay under artifacts/ (gitignored); fall back to
+# the committed copy in the experiment evidence dir so the one-command default
+# works on a clean checkout (Codex PR #58). run_frobodm2_lab raises if the path
+# is not a file, so this must resolve to something that exists.
+_LIVE_REPLAY = REPO / "artifacts" / "replay" / "dm3_sng_to_rl.cmds"
+_COMMITTED_REPLAY = (REPO / "experiments" / "dm3_sng_to_rl_observability"
+                     / "evidence" / "dm3_sng_to_rl.cmds")
+DEFAULT_REPLAY = str(_LIVE_REPLAY if _LIVE_REPLAY.exists() else _COMMITTED_REPLAY)
 
 
 def main():
