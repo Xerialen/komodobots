@@ -59,12 +59,8 @@ def main():
     run_id = m.group(1)
     run_dir = REPO / "artifacts" / "lab-runs" / run_id
 
-    print(f"\n=== build_trace {run_id} ===", flush=True)
-    subprocess.run([sys.executable, str(REPO / "scripts" / "build_trace.py"), run_id], cwd=REPO)
-
-    print(f"\n=== verify_route {run_id} ===", flush=True)
-    subprocess.run([sys.executable, str(REPO / "scripts" / "verify_route.py"), run_id], cwd=REPO)
-
+    # Mirror the raw demo first so it is preserved even if a measurement step
+    # below fails (the demo is the irreplaceable artifact).
     demo = run_dir / "demo.mvd"
     if demo.exists():
         TRICKS.mkdir(parents=True, exist_ok=True)
@@ -73,6 +69,21 @@ def main():
         print(f"\nmirrored demo -> {dst}  (playdemo tricks/dm3/{run_id}; track 2 for bot POV)")
     else:
         print(f"\nWARNING: {demo} not found -- demo not mirrored", file=sys.stderr)
+
+    # "Never run blind": a failed trace/score must NOT exit 0 (Codex PR #58 P2),
+    # or automation could treat a failed measurement as a completed lab run.
+    print(f"\n=== build_trace {run_id} ===", flush=True)
+    rc = subprocess.run([sys.executable, str(REPO / "scripts" / "build_trace.py"), run_id], cwd=REPO).returncode
+    if rc != 0:
+        print(f"\nERROR: build_trace failed (rc={rc}) -- no valid trace produced; "
+              f"check the BSP path and that command logging was on", file=sys.stderr)
+        sys.exit(rc)
+
+    print(f"\n=== verify_route {run_id} ===", flush=True)
+    rc = subprocess.run([sys.executable, str(REPO / "scripts" / "verify_route.py"), run_id], cwd=REPO).returncode
+    if rc != 0:
+        print(f"\nERROR: verify_route failed (rc={rc}) -- run not scored", file=sys.stderr)
+        sys.exit(rc)
 
 
 if __name__ == "__main__":

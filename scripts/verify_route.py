@@ -38,8 +38,20 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 RUNS = REPO / "artifacts" / "lab-runs"
-HUMAN = REPO / "artifacts" / "replay" / "dm3_sng_to_rl.cmds"
-GEOM = REPO / "artifacts" / "bsp" / "dm3" / "dm3_jump_geom.json"
+EVID = REPO / "experiments" / "dm3_sng_to_rl_observability" / "evidence"
+
+
+def _resolve(live: Path, committed: Path) -> Path:
+    """Prefer a freshly-regenerated input under artifacts/ (gitignored); fall
+    back to the committed copy in the experiment evidence dir so the scorer is
+    reproducible from a clean checkout (Codex PR #58 P1)."""
+    return live if live.exists() else committed
+
+
+HUMAN = _resolve(REPO / "artifacts" / "replay" / "dm3_sng_to_rl.cmds",
+                 EVID / "dm3_sng_to_rl.cmds")
+GEOM = _resolve(REPO / "artifacts" / "bsp" / "dm3" / "dm3_jump_geom.json",
+                EVID / "dm3_jump_geom.json")
 
 SNG = (-895.0, -129.0)
 RL = (1591.0, 526.0, -88.0)
