@@ -179,8 +179,15 @@ def newest_run_dir(runs_dir: Path) -> Path | None:
     candidates = [p for p in runs_dir.iterdir() if p.is_dir()] if runs_dir.is_dir() else []
     if not candidates:
         return None
-    # run ids are UTC timestamps (20260609T172810Z) so name order == time order
-    return max(candidates, key=lambda p: p.name)
+    # newest by mtime, NOT by name: the runs dir also holds older hand-named
+    # dirs (e.g. solo_realip_d180) that sort after the timestamp run ids
+    def mtime(path: Path) -> float:
+        try:
+            return path.stat().st_mtime
+        except OSError:
+            return 0.0
+
+    return max(candidates, key=mtime)
 
 
 def command_row_to_frame(row: dict[str, object], hub: Hub) -> dict[str, object] | None:
