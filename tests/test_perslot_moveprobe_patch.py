@@ -139,6 +139,18 @@ class PerSlotPatchTests(unittest.TestCase):
         self.assertIn("#define MOVEPROBE_REPLAY_MAX_FILES 4", self.added_blob)
         self.assertIn("moveprobe_replay_store_for_slot", self.added_blob)
 
+    def test_spawn_snap_latch_rearms_on_per_slot_change(self) -> None:
+        # Review fix (#95 P2): a per-slot spawn_origin edited mid-session must
+        # re-arm the one-shot snap latch so the new value is re-parsed and a
+        # malformed triplet loud-fails instead of being silently ignored.
+        self.assertIn("moveprobe_spawn_last[MAX_CLIENTS][64]", self.added_blob)
+        self.assertIn("moveprobe_spawn_last_from_slot[MAX_CLIENTS]", self.added_blob)
+        self.assertIn(
+            "if ((snap_from_slot || moveprobe_spawn_last_from_slot[slot])",
+            self.added_blob,
+        )
+        self.assertIn("moveprobe_spawn_snapped[slot] = 0;", self.added_blob)
+
 
 if __name__ == "__main__":
     unittest.main()

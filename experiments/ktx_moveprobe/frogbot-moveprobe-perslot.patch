@@ -740,19 +740,35 @@ index fb62970..b2a64f0 100644
  		return;
  	}
  
-@@ -2063,8 +2412,10 @@ static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, vec3_t direction)
+@@ -2063,8 +2412,26 @@ static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, vec3_t direction)
  	{
  		static int moveprobe_spawn_snapped[MAX_CLIENTS];
++		static char moveprobe_spawn_last[MAX_CLIENTS][64];
++		static int moveprobe_spawn_last_from_slot[MAX_CLIENTS];
  		char snap_buf[64];
 +		int snap_from_slot;
  
 -		trap_cvar_string("k_fb_moveprobe_spawn_origin", snap_buf, sizeof(snap_buf));
 +		snap_from_slot = BotMoveProbeCvarStringForBot(self, "spawn_origin", snap_buf,
 +													  sizeof(snap_buf));
++		// A changed spawn assignment must re-arm the one-shot snap latch:
++		// otherwise a per-slot value edited mid-session (e.g. reassigning a
++		// slot without a server restart) is never re-parsed, so a malformed
++		// triplet would be neither reported nor held (#95 review). Pure-global
++		// configs never take this branch (additive guarantee).
++		if ((snap_from_slot || moveprobe_spawn_last_from_slot[slot])
++			&& (!streq(snap_buf, moveprobe_spawn_last[slot])
++				|| (snap_from_slot != moveprobe_spawn_last_from_slot[slot])))
++		{
++			moveprobe_spawn_snapped[slot] = 0;
++		}
++		strlcpy(moveprobe_spawn_last[slot], snap_buf,
++				sizeof(moveprobe_spawn_last[slot]));
++		moveprobe_spawn_last_from_slot[slot] = snap_from_slot;
  		if (snap_buf[0])
  		{
  			if (!moveprobe_spawn_snapped[slot])
-@@ -2079,6 +2430,17 @@ static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, vec3_t direction)
+@@ -2079,6 +2446,17 @@ static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, vec3_t direction)
  					setorigin(self, PASSVEC3(snap_org));
  					VectorClear(self->s.v.velocity);
  				}
@@ -770,7 +786,7 @@ index fb62970..b2a64f0 100644
  				moveprobe_spawn_snapped[slot] = 1;
  				// New attempt: re-arm the one-shot circle-jump launch latch
  				// (A3 #75) together with the snap itself.
-@@ -2094,6 +2456,8 @@ static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, vec3_t direction)
+@@ -2094,6 +2472,8 @@ static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, vec3_t direction)
  		}
  	}
  
@@ -779,7 +795,7 @@ index fb62970..b2a64f0 100644
  	if (mode == 1)
  	{
  		*jumping = true;
-@@ -4040,7 +4404,14 @@ static void BotLogMoveProbeCommand(gedict_t *self, int cmd_msec, vec3_t directio
+@@ -4040,7 +4420,14 @@ static void BotLogMoveProbeCommand(gedict_t *self, int cmd_msec, vec3_t directio
  	}
  
  	last_log_time[slot] = g_globalvars.time;
@@ -795,7 +811,7 @@ index fb62970..b2a64f0 100644
  
  	VectorCopy(self->fb.dir_move_, route_direction);
  	route_direction[2] = 0;
-@@ -4088,7 +4459,7 @@ static void BotLogMoveProbeCommand(gedict_t *self, int cmd_msec, vec3_t directio
+@@ -4088,7 +4475,7 @@ static void BotLogMoveProbeCommand(gedict_t *self, int cmd_msec, vec3_t directio
  			 moveprobe_qwd_advanced_points[slot], moveprobe_qwd_complete[slot],
  			 moveprobe_qwd_active_seconds[slot],
  			 moveprobe_replay_active[slot], moveprobe_replay_complete[slot],

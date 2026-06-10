@@ -70,6 +70,12 @@ What it adds:
 
   and the bot is **held at spawn** (zeroed movement command) while the condition
   persists. Global-fallback values keep their legacy silent behavior exactly.
+  The one-shot spawn-snap latch re-arms whenever the resolved `spawn_origin`
+  assignment changes with a per-slot cvar involved on either side of the change
+  (#95 review P2), so a per-slot value edited mid-session — including a newly
+  malformed one — is re-parsed and re-validated instead of silently keeping the
+  previous snapped state. Pure-global configs never take that branch, so their
+  legacy latch behavior is unchanged.
 - **Assignment instrumentation** (consumed by LD-F3): when command logging is on, each
   bot prints one `FBMOVEPROBE_ASSIGN` row whenever its resolved assignment changes:
 
