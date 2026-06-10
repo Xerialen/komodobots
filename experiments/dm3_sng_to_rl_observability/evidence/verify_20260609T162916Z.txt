@@ -1,0 +1,14 @@
+RUN 20260609T162916Z
+human baseline: active-mean speed 425 qu/s | route arc-length 4085 qu
+leap: launch edge (1477,53) requires >= 526 qu/s (human had 528); void floor -392
+attempts: 10
+
+  # 0 NEVER_REACHED_LEDGE       route=  7.3% speed=  22% closestRL=  2429qu  no ledge approach  
+  # 2 LEFT_ROUTE                route= 46.6% speed=  44% closestRL=  1018qu  no ledge approach  
+  # 4 REACHED_LEDGE_NO_JUMP     route= 85.0% speed=  76% closestRL=   581qu  edge_speed=327/526qu/s  
+  # 6 LEFT_ROUTE                route= 46.9% speed=  54% closestRL=  1116qu  no ledge approach  
+  # 8 LEFT_ROUTE                route= 44.6% speed=  58% closestRL=  1140qu  no ledge approach  
+  # 9 LEFT_ROUTE                route= 68.2% speed=  58% closestRL=  1125qu  no ledge approach  
+
+BEST attempt #4: REACHED_LEDGE_NO_JUMP  route=85.0%  speed=76%  closestRL=581qu
+  NOT a completion. Binding constraint: edge speed 327 qu/s is 199 short of the 526 needed to clear the void.
