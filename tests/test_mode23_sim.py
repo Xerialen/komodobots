@@ -309,6 +309,175 @@ class TestCarrotGuards(unittest.TestCase):
         self.assertEqual(nav.old_linked_marker, before)
 
 
+class TestCircleJumpLaunch(unittest.TestCase):
+    """A2b #111: the one-shot grounded circle-strafe launch."""
+
+    P = None  # set per test
+
+    def setup(self, vh, onground=True, launch_vh=400.0, angle=42.0,
+              velocity=None):
+        if velocity is None:
+            velocity = (vh, 0.0, 0.0)
+        law, nav, brain, st = law_setup(velocity=velocity, onground=onground)
+        p = M.LawParams(launch_vh=launch_vh, launch_angle=angle)
+        return law, nav, brain, st, p
+
+    def test_default_off_is_dead_code(self):
+        # LawParams() must leave every path identical: grounded slow frame
+        # still toggles the hop (the deployed behavior)
+        law, nav, brain, st = law_setup(onground=True, velocity=(50.0, 0, 0))
+        out = M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN,
+                            params=M.LawParams())
+        self.assertTrue(out[2])
+        self.assertFalse(law.launch_done)
+        self.assertIsNone(law.launch_since)
+
+    def test_engaged_circles_at_angle_and_holds_jump(self):
+        law, nav, brain, st, p = self.setup(vh=200.0)
+        out = M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=p)
+        yaw, move, jump = out
+        # wishdir = velocity dir rotated by launch_angle * sign (+1 here:
+        # marker dead ahead -> signed_to_goal 0 -> sign +1)
+        self.assertAlmostEqual(yaw, 42.0, places=4)
+        self.assertFalse(jump)
+        self.assertFalse(law.launch_done)
+        self.assertEqual(law.launch_since, 0.0)
+        self.assertFalse(law.jump_press)
+
+    def test_release_needs_speed_AND_alignment(self):
+        # fast but pointing 90 deg off the marker: keep circling
+        law, nav, brain, st, p = self.setup(vh=450.0,
+                                            velocity=(0.0, 450.0, 0.0))
+        out = M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=p)
+        self.assertFalse(law.launch_done)
+        self.assertFalse(out[2])
+        # fast AND aligned (within swing): release + the hop fires this frame
+        law, nav, brain, st, p = self.setup(vh=450.0)
+        out = M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=p)
+        self.assertTrue(law.launch_done)
+        self.assertTrue(out[2])
+
+    def test_timeout_releases(self):
+        law, nav, brain, st, p = self.setup(vh=100.0)
+        M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=p)
+        self.assertFalse(law.launch_done)
+        out = M.mode23_step(law, nav, brain, st, M.LAUNCH_TIMEOUT + 0.01,
+                            trace_fn=OPEN, params=p)
+        self.assertTrue(law.launch_done)
+        self.assertIsNotNone(out)
+
+    def test_one_shot_never_reengages(self):
+        law, nav, brain, st, p = self.setup(vh=450.0)
+        M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=p)
+        self.assertTrue(law.launch_done)
+        # grounded and slow again mid-route: normal law (ground redirect at
+        # the marker, yaw 0), NOT a circle hold (which would be yaw 42)
+        st.velocity = [50.0, 0.0, 0.0]
+        out = M.mode23_step(law, nav, brain, st, 1.0, trace_fn=OPEN, params=p)
+        self.assertAlmostEqual(out[0], 0.0, places=4)
+        # the hop toggle re-arms one frame later
+        out2 = M.mode23_step(law, nav, brain, st, 1.01, trace_fn=OPEN, params=p)
+        self.assertTrue(out2[2])
+
+    def test_airborne_frames_fall_through_to_weave(self):
+        law, nav, brain, st, p = self.setup(vh=200.0, onground=False)
+        law.strafe_sign = 1
+        out = M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=p)
+        self.assertFalse(law.launch_done)
+        # params here are LawParams() defaults except launch -> numerator 9
+        expect = math.degrees(math.acos(M.NUMERATOR / 200.0))
+        self.assertAlmostEqual(out[0] % 360.0, expect % 360.0, places=4)
+
+    def test_runway_gate_blocks_tight_rooms(self):
+        # look trace toward the goal mostly blocked: never engage — the
+        # very first frame behaves as the unmodified law (hop toggle fires)
+        law, nav, brain, st, p = self.setup(vh=50.0)
+        walled = lambda a, b: 0.4   # noqa: E731
+        out = M.mode23_step(law, nav, brain, st, 0.0, trace_fn=walled,
+                            params=p)
+        self.assertTrue(law.launch_done)    # disengaged for the attempt
+        self.assertTrue(out[2])             # normal grounded hop
+        # and it never re-checks later
+        out2 = M.mode23_step(law, nav, brain, st, 0.5, trace_fn=OPEN,
+                             params=p)
+        self.assertAlmostEqual(out2[0], 0.0, places=4)
+
+    def test_runway_gate_open_engages(self):
+        law, nav, brain, st, p = self.setup(vh=50.0)
+        out = M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=p)
+        self.assertFalse(law.launch_done)
+        self.assertAlmostEqual(out[0], 42.0, places=4)
+
+
+class TestDelegVhMax(unittest.TestCase):
+    """A2b #111: the delegation speed gate (default inf = deployed law)."""
+
+    def test_default_inf_delegates(self):
+        law, nav, brain, st = law_setup(linked_nav=(100.0, 0.0, 30.0),
+                                        onground=True,
+                                        velocity=(400.0, 0.0, 0.0))
+        self.assertIsNone(M.mode23_step(law, nav, brain, st, 0.0,
+                                        trace_fn=OPEN,
+                                        params=M.LawParams()))
+
+    def test_gate_blocks_fast_delegation(self):
+        p = M.LawParams(deleg_vh_max=320.0)
+        law, nav, brain, st = law_setup(linked_nav=(100.0, 0.0, 30.0),
+                                        onground=True,
+                                        velocity=(400.0, 0.0, 0.0))
+        self.assertIsNotNone(M.mode23_step(law, nav, brain, st, 0.0,
+                                           trace_fn=OPEN, params=p))
+        # slow bot still delegates (the P1 stairs doctrine is untouched)
+        law, nav, brain, st = law_setup(linked_nav=(100.0, 0.0, 30.0),
+                                        onground=True,
+                                        velocity=(300.0, 0.0, 0.0))
+        self.assertIsNone(M.mode23_step(law, nav, brain, st, 0.0,
+                                        trace_fn=OPEN, params=p))
+
+    def test_c5_carrot_guard_mirrors_the_gate(self):
+        # guard is delegation-EXACT: above the gate the carrot fires again
+        p = M.LawParams(deleg_vh_max=320.0)
+        law, nav, brain, st = law_setup(linked_nav=(100.0, 0.0, 30.0),
+                                        onground=True,
+                                        velocity=(400.0, 0.0, 0.0))
+        M.mode23_step(law, nav, brain, st, 0.0, config="c5", trace_fn=OPEN,
+                      params=p)
+        self.assertIsNotNone(law.carrot_done)
+        law, nav, brain, st = law_setup(linked_nav=(100.0, 0.0, 30.0),
+                                        onground=True,
+                                        velocity=(300.0, 0.0, 0.0))
+        M.mode23_step(law, nav, brain, st, 0.0, config="c5", trace_fn=OPEN,
+                      params=p)
+        self.assertIsNone(law.carrot_done)
+
+
+class TestSpinupHelpers(unittest.TestCase):
+    """A2b #111: spin-up loop engage/release (pure decision functions)."""
+
+    def test_disabled_and_degenerate(self):
+        g = straight_graph()
+        self.assertIsNone(M.spinup_engage(g, (0, 0, 0), 3, M.LawParams()))
+        p = M.LawParams(spinup_goal=3)
+        self.assertIsNone(M.spinup_engage(g, (0, 0, 0), 3, p))  # == goal
+        p = M.LawParams(spinup_goal=99)
+        self.assertIsNone(M.spinup_engage(g, (0, 0, 0), 3, p))  # missing
+
+    def test_engage_radius(self):
+        g = straight_graph()
+        p = M.LawParams(spinup_goal=2)      # marker 2 at (320, 0, 0)
+        self.assertEqual(M.spinup_engage(g, (0, 0, 0), 3, p), 2)
+        far = (320.0 - M.SPINUP_ENGAGE_R - 1.0, 0.0, 0.0)
+        self.assertIsNone(M.spinup_engage(g, far, 3, p))
+
+    def test_release_priority(self):
+        p = M.LawParams(spinup_goal=2, spinup_vh=300.0, spinup_timeout=4.0)
+        self.assertEqual(M.spinup_release_reason(p, 2, 300.0, None, 0.0), "vh")
+        self.assertEqual(M.spinup_release_reason(p, 2, 100.0, 2, 0.0), "touch")
+        self.assertEqual(M.spinup_release_reason(p, 2, 100.0, 1, 4.0),
+                         "timeout")
+        self.assertIsNone(M.spinup_release_reason(p, 2, 100.0, 1, 3.9))
+
+
 class TestTeleporterBoxes(unittest.TestCase):
     """load_teleporters must store the TRIGGER abs box only (resize +-32 xy +
     engine +-1); the player abs box is applied at the intersection test, not

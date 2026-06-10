@@ -121,6 +121,79 @@ class LawParams:
     prec_thresh: float = 60.0       # engage when |leg turn| exceeds this (deg)
     prec_timeout: float = 2.0       # escape window, seconds (mirror line 3855)
     carrot_lead: float = 0.0        # extra handover trigger: dist < vh*lead (s)
+    # SPIN-UP LOOP (A2b #111, tail-autopsy patternization). The lucky >=526
+    # tries all enter the final ~1000 qu runway already carrying ~320-420
+    # qu/s because nav noise first sent them on a backward leg (markers
+    # 75/76) — a flying start. These knobs induce that deliberately: at
+    # attempt start, if the spinup marker is within SPINUP_ENGAGE_R of the
+    # spawn, the nav GOAL is temporarily the spinup marker (out-leg); it
+    # reverts to the real goal when speed reaches spinup_vh, the marker is
+    # touched, or spinup_timeout elapses — whichever is first. Would-be KTX
+    # cvars (additive at the UpdateGoal/fixed_goal seam, mode-23 block):
+    # k_fb_moveprobe_s23_spinup_goal / _spinup_vh / _spinup_timeout.
+    # Defaults OFF: spinup_goal 0 leaves every code path byte-identical.
+    spinup_goal: int = 0            # live marker number; 0 = disabled
+    spinup_vh: float = 350.0        # release when horizontal speed >= this
+    spinup_timeout: float = 4.0     # hard release deadline, seconds
+    # Delegation speed gate (same autopsy): the grounded-climb delegation
+    # (vanilla walk, ~320 cap) exists for SLOW stair legs; on a flying
+    # return it hijacks the run and scrubs the spin-up gain. Gate it on
+    # horizontal speed: delegation (and the c5 carrot guard, which is
+    # delegation-EXACT by definition) only engages at vh <= deleg_vh_max.
+    # Default inf = byte-identical to the deployed law. Would-be KTX cvar:
+    # k_fb_moveprobe_s23_deleg_vh_max.
+    deleg_vh_max: float = math.inf
+    # Launch assist (same autopsy): below ~250 vh the low-numerator weave
+    # rotates the wishdir nearly perpendicular to the velocity, so an
+    # airborne slow bot ORBITS instead of accelerating (the 0-2.5 s spawn
+    # chaos in every trace). Humans bunnyhop from a RUN-UP: suppress the
+    # jump below this speed so ground acceleration drives the bot straight
+    # to ~sv_maxspeed first, then the hop chain starts from 320, not 80.
+    # NOT a grounding governor: at route speed it never engages. Default 0
+    # = jump always allowed (deployed law). Would-be KTX cvar:
+    # k_fb_moveprobe_s23_jump_min_vh.
+    jump_min_vh: float = 0.0
+    # CIRCLE-JUMP LAUNCH (the tail-autopsy ROOT mechanism). Tick-level
+    # replay of the natural >=526 tries shows their flying start is a
+    # grounded circle-strafe: with the wishdir held ~35-60 deg off the
+    # velocity, GROUND accelerate adds up to accel*wishspeed*dt (~32
+    # qu/tick, ~10x air accel) as long as the velocity projection stays
+    # under maxspeed — speed builds past 320 toward a ~460-480 equilibrium
+    # while the jump stays suppressed (seed 20: 325 -> 384 in 0.1 s
+    # grounded, then jump). This knob does it deliberately, ONCE, at
+    # attempt start: while grounded and below launch_vh, circle-strafe at
+    # launch_angle and hold the jump; release into the hop chain when fast
+    # AND aimed (|heading err| <= swing), or at the 3 s safeguard. The
+    # launch only ENGAGES when the look trace toward the current nav
+    # direction is >= LAUNCH_RUNWAY_MIN open — a human does not circle-jump
+    # into a wall; this is what keeps tight-room spawns (rung A) on the
+    # unmodified law. One-shot latch: never re-engages mid-route (NOT a
+    # governor). Default 0 = off (deployed law). Would-be KTX cvars:
+    # k_fb_moveprobe_s23_launch_vh / _launch_angle.
+    launch_vh: float = 0.0
+    launch_angle: float = 45.0
+
+
+LAUNCH_TIMEOUT = 3.0      # circle-jump safeguard: release after this long
+LAUNCH_RUNWAY_MIN = 0.9   # engage only if the look trace toward the goal
+                          # direction is at least this open. LIMITATION
+                          # (measured, A2b): this filters direct-wall starts
+                          # only — it does NOT size the circle's ARC room.
+                          # rung A's spawn passes the ray via a transient
+                          # first link yet wall-locks the circle (reach
+                          # 21->10/30 with the cvar forced on there), so the
+                          # launch cvars are PER-PROTOCOL instruments like
+                          # spawn_origin/fixed_goal: default 0 in general
+                          # play (= byte-identical law), set only for the
+                          # runway-shaped surrogate measurement.
+
+
+SPINUP_ENGAGE_R = 800.0   # spinup engages only when the marker is this close
+                          # to the spawn (a far marker would re-route the
+                          # whole attempt instead of adding a local loop —
+                          # e.g. rung A spawns ~1400-2000 qu from markers
+                          # 126/76, so a rung-B spinup config leaves rung A
+                          # untouched; verified by test + the fresh-seed run)
 
 
 LIVE_PARAMS = LawParams()
@@ -667,6 +740,8 @@ class LawState:
         self.carrot_done = None         # moveprobe_s23_carrot_done
         self.prec_marker = None         # moveprobe_s23_prec_marker (governor)
         self.prec_since = 0.0           # moveprobe_s23_prec_since
+        self.launch_done = False        # moveprobe_s23_launch_done (A2b)
+        self.launch_since = None        # moveprobe_s23_launch_since (A2b)
 
 
 CONFIGS = ("c1", "c4", "c5")
@@ -712,7 +787,9 @@ def mode23_step(law: LawState, nav: NavState, brain: FrogbotBrain,
         elif config == "c5":    # delegation-exact guard
             guard = (onground and marker_dz > DELEG_DZ
                      and marker_dist_sq < DELEG_DIST * DELEG_DIST
-                     and not (path_flags & JUMP_FLAGS))
+                     and not (path_flags & JUMP_FLAGS)
+                     and math.hypot(st.velocity[0], st.velocity[1])
+                     <= p.deleg_vh_max)
         trigger_r = p.pass_r
         if p.carrot_lead > 0.0:
             trigger_r = max(trigger_r,
@@ -773,10 +850,12 @@ def mode23_step(law: LawState, nav: NavState, brain: FrogbotBrain,
 
     pass_through = marker_dist_sq < p.pass_r * p.pass_r
 
-    # DELEGATION: grounded climb legs go to vanilla actuation (all configs)
+    # DELEGATION: grounded climb legs go to vanilla actuation (all configs);
+    # speed-gated by deleg_vh_max (default inf = always, the deployed law)
     if (onground and marker_dz > DELEG_DZ
             and marker_dist_sq < DELEG_DIST * DELEG_DIST
-            and not (path_flags & JUMP_FLAGS)):
+            and not (path_flags & JUMP_FLAGS)
+            and math.hypot(st.velocity[0], st.velocity[1]) <= p.deleg_vh_max):
         if law.deleg_marker != nav.linked_marker:
             law.deleg_marker = nav.linked_marker
             law.deleg_since = now
@@ -798,6 +877,34 @@ def mode23_step(law: LawState, nav: NavState, brain: FrogbotBrain,
     while signed_to_goal < -180.0:
         signed_to_goal += 360.0
     herr = abs(signed_to_goal)
+
+    # CIRCLE-JUMP LAUNCH (one-shot; see LawParams.launch_vh). Grounded and
+    # below launch speed: hold the jump and circle-strafe (wishdir held
+    # launch_angle off the velocity) — ground accelerate keeps adding past
+    # maxspeed while the velocity projection stays under it. Release into
+    # the hop chain when fast AND aimed, or at the safeguard timeout.
+    if p.launch_vh > 0.0 and not law.launch_done:
+        if law.launch_since is None:
+            # engage check, once: only launch when a runway exists in the
+            # goal direction (tight-room spawns stay on the unmodified law)
+            fp = [st.origin[0] + p.look * nav_dir[0],
+                  st.origin[1] + p.look * nav_dir[1], st.origin[2]]
+            if trace_fn(st.origin, fp) < LAUNCH_RUNWAY_MIN:
+                law.launch_done = True
+            law.launch_since = now
+        if law.launch_done:
+            pass
+        elif now - law.launch_since >= LAUNCH_TIMEOUT:
+            law.launch_done = True
+        elif onground:
+            if hs >= p.launch_vh and herr <= p.swing:
+                law.launch_done = True      # release: the jump fires below
+            else:
+                if law.strafe_sign == 0:
+                    law.strafe_sign = 1 if signed_to_goal >= 0 else -1
+                circ = rotate2d(cur_dir, p.launch_angle * law.strafe_sign)
+                law.jump_press = False
+                return vectoyaw(circ), (SV_MAXSPEED, 0, 0), False
 
     if onground:
         # ground frame: full redirect at the marker (climb/wall-hug is dead
@@ -861,7 +968,8 @@ def mode23_step(law: LawState, nav: NavState, brain: FrogbotBrain,
         law.prec_marker = None
 
     if (law.prec_marker is not None
-            or (herr > p.turn_thresh and not pass_through)):
+            or (herr > p.turn_thresh and not pass_through)
+            or hs < p.jump_min_vh):
         press_jump = False
     else:
         press_jump = onground and not law.jump_press
@@ -878,11 +986,45 @@ class AttemptResult:
         self.events = events
 
 
+def spinup_engage(graph, spawn, goal_marker, p: LawParams):
+    """Marker number the spin-up loop targets, or None when disabled /
+    out of engage range / degenerate (spinup == the real goal)."""
+    if not p.spinup_goal:
+        return None
+    sg = int(p.spinup_goal)
+    mk = graph.markers.get(sg)
+    if mk is None or sg == goal_marker:
+        return None
+    if math.dist(spawn, mk.nav) > SPINUP_ENGAGE_R:
+        return None
+    return sg
+
+
+def spinup_release_reason(p: LawParams, spinup, vh, touch_marker, now):
+    """First release condition met, in priority order: speed, marker touch,
+    timeout. None while the spin-up should stay engaged."""
+    if vh >= p.spinup_vh:
+        return "vh"
+    if touch_marker == spinup:
+        return "touch"
+    if now >= p.spinup_timeout:
+        return "timeout"
+    return None
+
+
 def run_attempt(world, graph, seed, config="c5", budget_s=RUN_BUDGET_S,
                 spawn=SPAWN, goal_marker=GOAL_MARKER, goal_pos=None,
-                teleporters=None, floor_fn=None, params: LawParams | None = None):
+                teleporters=None, floor_fn=None, params: LawParams | None = None,
+                rich_trace=False):
     """Simulate one directed attempt; returns trace rows in the verify_route
-    row shape (t, x, y, z, vh, onground, over_void, dist_goal)."""
+    row shape (t, x, y, z, vh, onground, over_void, dist_goal).
+
+    rich_trace=True (A2b #111, tail autopsy) ADDITIVELY records per row the
+    command actually issued (yaw, jump, msec), the law's weave sign and
+    branch taken, and the velocity vector; carrot handovers are appended to
+    events. Pure observation: the trajectory and every RNG draw are
+    byte-identical to rich_trace=False (the metric consumers only read the
+    base keys, so extra keys are inert)."""
     rng = random.Random(seed)
     brain = FrogbotBrain(graph, goal_marker, rng)
     nav = NavState()
@@ -892,6 +1034,15 @@ def run_attempt(world, graph, seed, config="c5", budget_s=RUN_BUDGET_S,
     teleporters = teleporters if teleporters is not None else []
     if goal_pos is None:
         goal_pos = graph.markers[goal_marker].nav
+
+    # SPIN-UP LOOP (LawParams.spinup_goal; see the dataclass docstring).
+    # FrogbotBrain construction draws nothing from rng, and a disabled
+    # spinup (the default) leaves brain untouched — byte-identical runs.
+    main_brain = brain
+    p_eff = params if params is not None else LIVE_PARAMS
+    spinup = spinup_engage(graph, spawn, goal_marker, p_eff)
+    if spinup is not None:
+        brain = FrogbotBrain(graph, spinup, rng)
 
     t = 0.0
     next_marker_time = 0.0
@@ -907,8 +1058,27 @@ def run_attempt(world, graph, seed, config="c5", budget_s=RUN_BUDGET_S,
             if next_marker_time <= t:
                 next_marker_time = t + MARKER_FRAME_INTERVAL
 
+        # SPIN-UP release: revert the goal to the real pin on speed / touch /
+        # timeout (live analog: the cvar seam flips fixed_goal back and the
+        # expired linked_marker_time forces re-selection at the next think).
+        if spinup is not None:
+            vh_now = math.hypot(st.velocity[0], st.velocity[1])
+            reason = spinup_release_reason(p_eff, spinup, vh_now,
+                                           nav.touch_marker, t)
+            if reason is not None:
+                spinup = None
+                brain = main_brain
+                nav.old_linked_marker = None    # prompt re-selection
+                events.append({"t": round(t, 3), "event": "spinup_release",
+                               "reason": reason, "vh": round(vh_now, 1)})
+
         # BotSetCommand: mode-23 law (may carrot -> SetMarker+PNLM)
+        prev_carrot = law.carrot_done
         out = mode23_step(law, nav, brain, st, t, config=config, params=params)
+        if rich_trace and law.carrot_done != prev_carrot:
+            events.append({"t": round(t, 3), "event": "carrot",
+                           "passed": law.carrot_done,
+                           "new_linked": nav.linked_marker})
         if out is not None:
             yaw, move, jump = out
         else:
@@ -927,13 +1097,19 @@ def run_attempt(world, graph, seed, config="c5", budget_s=RUN_BUDGET_S,
         # record the row at cmd time (matches the live moveprobe log)
         vh = math.hypot(st.velocity[0], st.velocity[1])
         fz = floor_fn(st.origin[0], st.origin[1], st.origin[2] + 8.0) if floor_fn else 0.0
-        rows.append({
+        row = {
             "t": round(t, 3), "x": st.origin[0], "y": st.origin[1], "z": st.origin[2],
             "vh": vh, "onground": int(st.onground),
             "over_void": int(fz is None or (fz is not None and fz < -200.0)) if floor_fn else 0,
             "dist_goal": math.dist(st.origin, goal_pos),
             "touch": nav.touch_marker, "linked": nav.linked_marker,
-        })
+        }
+        if rich_trace:
+            row.update(yaw=yaw, jump=int(jump), msec=msec,
+                       sign=law.strafe_sign,
+                       law=int(out is not None),
+                       vx=st.velocity[0], vy=st.velocity[1], vz=st.velocity[2])
+        rows.append(row)
 
         cmd = Cmd(msec, (0.0, yaw, 0.0), move, 2 if jump else 0)
         pm.run_frame(st, cmd)
