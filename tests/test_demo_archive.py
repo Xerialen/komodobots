@@ -2,12 +2,15 @@
 
 Locks the path mapping (map/run_id -> SSD path, hostile names rejected), the
 manifest/result parsing (sha256, run.env MAP, inventory TSV, KB_ARCHIVE lines),
-and the reconcile classification (already archived / to copy / unverifiable /
-ssd-only) -- including that an SSD hash mismatch is NEVER scheduled for an
-overwrite.
+the repo tricks/<map> collector (full `<label>__<run_id>` stem kept as the
+archive name, never normalized), and the reconcile classification (already
+archived / to copy / unverifiable / ssd-only) -- including that an SSD hash
+mismatch is NEVER scheduled for an overwrite.
 """
 
+import hashlib
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -109,6 +112,81 @@ class TestParsers(unittest.TestCase):
         self.assertEqual(results[("trick", "r1")]["status"], "identical")
 
 
+class TestRepoTricksCollector(unittest.TestCase):
+    """The repo `tricks/<map>/*.mvd` evidence demos (Codex P2: for some runs
+    these are the only remaining copy, so backfill must see them)."""
+
+    def collect(self, build):
+        with tempfile.TemporaryDirectory(prefix="kb-tricks-") as tmp:
+            root = Path(tmp)
+            build(root)
+            return da.collect_repo_tricks_sources(root)
+
+    def test_full_label_stem_is_the_archive_name(self):
+        body = b"MVD bytes"
+
+        def build(root):
+            d = root / "dm3"
+            d.mkdir()
+            (d / "dm3_sng_to_rl__20260607T151125Z.mvd").write_bytes(body)
+
+        rows, skipped = self.collect(build)
+        self.assertEqual(skipped, [])
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(row["run_id"], "dm3_sng_to_rl__20260607T151125Z")
+        self.assertEqual(row["map"], "dm3")
+        self.assertEqual(row["where"], "repo-tricks")
+        self.assertEqual(row["sha256"], hashlib.sha256(body).hexdigest())
+        self.assertEqual(row["size"], str(len(body)))
+        # Name mapping: the SSD file keeps the FULL original filename (label
+        # prefix included), never normalized to bare <run_id>.mvd.
+        self.assertEqual(
+            da.ssd_archive_path(row["map"], row["run_id"]),
+            "/mnt/usb-ssd/non-games/lab/Komodobots/dm3/dm3_sng_to_rl__20260607T151125Z.mvd",
+        )
+
+    def test_label_only_stems_allowed(self):
+        def build(root):
+            d = root / "dm3"
+            d.mkdir()
+            (d / "trick_accel_full__solo_lab_d200.mvd").write_bytes(b"x")
+
+        rows, skipped = self.collect(build)
+        self.assertEqual(skipped, [])
+        self.assertEqual(rows[0]["run_id"], "trick_accel_full__solo_lab_d200")
+
+    def test_hostile_and_empty_names_skipped(self):
+        def build(root):
+            d = root / "dm3"
+            d.mkdir()
+            (d / "bad name.mvd").write_bytes(b"x")  # whitespace in stem
+            (d / "dots..in.stem.mvd").write_bytes(b"x")  # dot segments
+            (d / "empty__20260607T000000Z.mvd").write_bytes(b"")  # zero bytes
+            (d / "good__20260607T000001Z.mvd").write_bytes(b"x")
+
+        rows, skipped = self.collect(build)
+        self.assertEqual([r["run_id"] for r in rows], ["good__20260607T000001Z"])
+        self.assertEqual(len(skipped), 3)
+
+    def test_bad_map_dir_skipped_and_loose_files_ignored(self):
+        def build(root):
+            bad = root / "dm 3"
+            bad.mkdir()
+            (bad / "a__20260607T000000Z.mvd").write_bytes(b"x")
+            (root / "loose__20260607T000000Z.mvd").write_bytes(b"x")  # not in a map dir
+
+        rows, skipped = self.collect(build)
+        self.assertEqual(rows, [])
+        self.assertEqual(len(skipped), 1)
+        self.assertIn("bad map dir", skipped[0])
+
+    def test_missing_root_is_empty(self):
+        with tempfile.TemporaryDirectory(prefix="kb-tricks-") as tmp:
+            rows, skipped = da.collect_repo_tricks_sources(Path(tmp) / "no-such-dir")
+        self.assertEqual((rows, skipped), ([], []))
+
+
 class TestReconcile(unittest.TestCase):
     def ssd(self, run_id, map_name, sha):
         return {"run_id": run_id, "map": map_name, "sha256": sha, "size": "1"}
@@ -133,6 +211,17 @@ class TestReconcile(unittest.TestCase):
         sources = [src("r1", "dm3", SHA_A, "nquake"), src("r1", "dm3", SHA_A, "artifacts")]
         state = da.reconcile(sources, [])
         self.assertEqual(state["to_copy"][0]["where"], "artifacts")
+
+    def test_repo_tricks_is_last_resort_source(self):
+        sources = [src("r1", "dm3", SHA_A, "repo-tricks"), src("r1", "dm3", SHA_A, "nquake")]
+        state = da.reconcile(sources, [])
+        self.assertEqual(state["to_copy"][0]["where"], "nquake")
+
+    def test_repo_tricks_only_source_is_copied(self):
+        # Codex P2 scenario: the committed evidence file is the only copy left.
+        state = da.reconcile([src("dm3_sng_to_rl__20260607T151125Z", "dm3", SHA_A, "repo-tricks")], [])
+        self.assertEqual(len(state["to_copy"]), 1)
+        self.assertEqual(state["to_copy"][0]["where"], "repo-tricks")
 
     def test_source_conflict_is_unverifiable_not_copied(self):
         sources = [src("r1", "dm3", SHA_A, "server"), src("r1", "dm3", SHA_B, "artifacts")]

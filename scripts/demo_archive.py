@@ -17,10 +17,23 @@ Two entry points:
    known MVD source against the SSD tree and copies what is missing:
      * local `artifacts/lab-runs/<run_id>/demo.mvd` (map from `run.env`),
      * server-side `~/komodobots-lab/runs/<run_id>/demo.mvd` (map from `run.env`),
-     * the local ezQuake review mirror `C:\\nQuake\\qw\\tricks\\dm3\\<run_id>.mvd`.
+     * the local ezQuake review mirror `C:\\nQuake\\qw\\tricks\\dm3\\<run_id>.mvd`,
+     * the repo's `tricks/<map>/*.mvd` evidence demos (the 16 committed ones
+       plus any local-only copies in the same tree -- for some historical runs
+       these are the ONLY remaining bytes).
    Everything is sha256-verified (sources hashed, SSD hashed, the SSD is
    re-read after installs) and a per-map count table is printed:
    sources found / already archived / newly copied / unverifiable.
+
+Naming decision for repo `tricks/` demos: they are named `<label>__<run_id>.mvd`
+(some older ones are label-only, e.g. `trick_accel_full__solo_lab_d200.mvd`).
+They are archived under their FULL original filename --
+`<SSD>/<map>/<label>__<run_id>.mvd` -- NOT normalized to `<run_id>.mvd`. The
+repo copy is a separately-produced artifact and may differ byte-wise from the
+run dir's `demo.mvd` for the same run id; normalizing would collide two
+different byte streams under one archive name (and the mismatch guard would
+then rightly refuse the second forever). Keeping the full stem is collision-free
+and preserves the label context the evidence was committed with.
 
 All SSD writes are atomic on the destination filesystem: copy to
 `<dst>.part.$$` first, verify the temp's sha256, then `mv` into place. An
@@ -43,6 +56,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
 NQUAKE_TRICKS_DM3_DIR = Path(r"C:\nQuake\qw\tricks\dm3")
+REPO_TRICKS_DIR = REPO_ROOT / "tricks"
 
 DEFAULT_HOST = "servexeri"
 SSD_ROOT = "/mnt/usb-ssd/non-games/lab/Komodobots"
@@ -428,6 +442,47 @@ def collect_nquake_dm3_sources() -> tuple[list[dict[str, str]], list[str]]:
     return rows, skipped
 
 
+def collect_repo_tricks_sources(
+    tricks_root: Path = REPO_TRICKS_DIR,
+) -> tuple[list[dict[str, str]], list[str]]:
+    """Hash the repo's `tricks/<map>/*.mvd` evidence demos.
+
+    Named `<label>__<run_id>.mvd` (older ones label-only). The FULL stem is
+    the archive run id, so the SSD keeps the original filename -- see the
+    module docstring for why it is never normalized to `<run_id>.mvd`.
+    """
+    rows: list[dict[str, str]] = []
+    skipped: list[str] = []
+    if not tricks_root.is_dir():
+        return rows, skipped
+    for map_dir in sorted(tricks_root.iterdir()):
+        if not map_dir.is_dir():
+            continue
+        map_name = map_dir.name
+        if not _MAP_NAME_RE.fullmatch(map_name):
+            skipped.append(f"repo-tricks: bad map dir name {map_name!r}")
+            continue
+        for path in sorted(map_dir.glob("*.mvd")):
+            stem = path.stem
+            if not _RUN_ID_RE.fullmatch(stem):
+                skipped.append(f"repo-tricks: hostile mvd name {path.name!r}")
+                continue
+            if path.stat().st_size == 0:
+                skipped.append(f"repo-tricks: empty mvd {path.name!r}")
+                continue
+            rows.append(
+                {
+                    "run_id": stem,
+                    "map": map_name,
+                    "sha256": sha256_file(path),
+                    "size": str(path.stat().st_size),
+                    "where": "repo-tricks",
+                    "path": str(path),
+                }
+            )
+    return rows, skipped
+
+
 def collect_remote_run_sources(host: str) -> list[dict[str, str]]:
     proc = _ssh_script(host, REMOTE_RUNS_INVENTORY_SCRIPT, timeout=900.0)
     if proc.returncode != 0:
@@ -497,8 +552,8 @@ def reconcile(
                 )
             continue
         # Missing on the SSD: prefer a server-side source (no upload needed),
-        # then artifacts, then the nQuake mirror.
-        order = {"server": 0, "artifacts": 1, "nquake": 2}
+        # then artifacts, then the nQuake mirror, then the repo tricks tree.
+        order = {"server": 0, "artifacts": 1, "nquake": 2, "repo-tricks": 3}
         best = sorted(rows, key=lambda r: order.get(r["where"], 9))[0]
         to_copy.append(best)
 
@@ -605,6 +660,9 @@ def backfill(host: str, *, apply: bool) -> int:
     print("[backfill] hashing local nQuake dm3 mirror ...")
     nquake_rows, skipped_n = collect_nquake_dm3_sources()
     print(f"[backfill]   {len(nquake_rows)} demos")
+    print("[backfill] hashing repo tricks/<map> evidence demos ...")
+    repo_rows, skipped_r = collect_repo_tricks_sources()
+    print(f"[backfill]   {len(repo_rows)} demos")
     print("[backfill] hashing server-side run dirs (ssh) ...")
     server_rows = collect_remote_run_sources(host)
     print(f"[backfill]   {len(server_rows)} demos")
@@ -612,15 +670,15 @@ def backfill(host: str, *, apply: bool) -> int:
     ssd_rows = collect_ssd_inventory(host)
     print(f"[backfill]   {len(ssd_rows)} archived files")
 
-    sources = server_rows + artifact_rows + nquake_rows
+    sources = server_rows + artifact_rows + nquake_rows + repo_rows
     state = reconcile(sources, ssd_rows)
     to_copy: list[dict[str, str]] = state["to_copy"]
     unverifiable: list[dict[str, str]] = list(state["unverifiable"])
 
-    for note in skipped_a + skipped_n:
+    for note in skipped_a + skipped_n + skipped_r:
         unverifiable.append({"map": "?", "run_id": "?", "reason": "skipped-source", "detail": note})
 
-    uploads = [r for r in to_copy if r["where"] in ("artifacts", "nquake")]
+    uploads = [r for r in to_copy if r["where"] in ("artifacts", "nquake", "repo-tricks")]
     server_copies = [r for r in to_copy if r["where"] == "server"]
     print(
         f"[backfill] plan: {len(server_copies)} server-side copies, "
@@ -683,7 +741,8 @@ def backfill(host: str, *, apply: bool) -> int:
         f"# Demo archive backfill {stamp}",
         "",
         f"- Host: `{host}`  Apply: `{apply}`",
-        f"- Sources: server={len(server_rows)} artifacts={len(artifact_rows)} nquake_dm3={len(nquake_rows)}",
+        f"- Sources: server={len(server_rows)} artifacts={len(artifact_rows)} "
+        f"nquake_dm3={len(nquake_rows)} repo_tricks={len(repo_rows)}",
         f"- SSD files before: {len(ssd_rows)}",
         "",
         table,
