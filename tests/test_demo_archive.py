@@ -3,7 +3,9 @@
 Locks the path mapping (map/run_id -> SSD path, hostile names rejected), the
 manifest/result parsing (sha256, run.env MAP, inventory TSV, KB_ARCHIVE lines),
 the repo tricks/<map> collector (full `<label>__<run_id>` stem kept as the
-archive name, never normalized), and the reconcile classification (already
+archive name, never normalized), the nQuake mirror collector (the runner's
+watch mirror dir is part of the backfill source set), and the reconcile
+classification (already
 archived / to copy / unverifiable / ssd-only) -- including that an SSD hash
 mismatch is NEVER scheduled for an overwrite.
 """
@@ -185,6 +187,49 @@ class TestRepoTricksCollector(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="kb-tricks-") as tmp:
             rows, skipped = da.collect_repo_tricks_sources(Path(tmp) / "no-such-dir")
         self.assertEqual((rows, skipped), ([], []))
+
+
+class TestNquakeMirrorCollector(unittest.TestCase):
+    """The local ezQuake review mirrors (Codex P2: the runner dual-writes to
+    `C:\\nQuake\\qw\\matchinfo\\demos\\tricks\\dm3`, so backfill must scan that
+    dir -- not just the older `C:\\nQuake\\qw\\tricks\\dm3` location)."""
+
+    def test_runner_watch_mirror_is_in_default_source_set(self):
+        import run_frobodm2_lab
+
+        # Regression for the path mismatch: the dir the lab runner actually
+        # writes --record-trick-name copies to must be scanned by backfill.
+        self.assertIn(run_frobodm2_lab.NQUAKE_TRICKS_DM3_DIR, da.NQUAKE_TRICKS_DM3_DIRS)
+        # The older mirror location stays in the set for historical copies.
+        self.assertIn(Path(r"C:\nQuake\qw\tricks\dm3"), da.NQUAKE_TRICKS_DM3_DIRS)
+
+    def test_scans_every_mirror_dir_and_skips_missing(self):
+        body_a = b"runner mirror bytes"
+        body_b = b"old mirror bytes"
+        with tempfile.TemporaryDirectory(prefix="kb-nquake-") as tmp:
+            root = Path(tmp)
+            runner_mirror = root / "matchinfo" / "demos" / "tricks" / "dm3"
+            old_mirror = root / "tricks" / "dm3"
+            runner_mirror.mkdir(parents=True)
+            old_mirror.mkdir(parents=True)
+            # Runner-style full <label>__<run_id> stem (same as tricks/dm3/).
+            (runner_mirror / "trick5_replay_ol__20260608T101500Z.mvd").write_bytes(body_a)
+            (runner_mirror / "empty__20260608T000000Z.mvd").write_bytes(b"")  # skipped
+            # Old-style bare <run_id> stem.
+            (old_mirror / "20260601T090000Z.mvd").write_bytes(body_b)
+            rows, skipped = da.collect_nquake_dm3_sources(
+                (runner_mirror, old_mirror, root / "no-such-dir")
+            )
+        self.assertEqual(
+            [(r["run_id"], r["sha256"]) for r in rows],
+            [
+                ("trick5_replay_ol__20260608T101500Z", hashlib.sha256(body_a).hexdigest()),
+                ("20260601T090000Z", hashlib.sha256(body_b).hexdigest()),
+            ],
+        )
+        self.assertTrue(all(r["map"] == "dm3" and r["where"] == "nquake" for r in rows))
+        self.assertEqual(len(skipped), 1)
+        self.assertIn("empty mvd", skipped[0])
 
 
 class TestReconcile(unittest.TestCase):

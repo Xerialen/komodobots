@@ -17,7 +17,10 @@ Two entry points:
    known MVD source against the SSD tree and copies what is missing:
      * local `artifacts/lab-runs/<run_id>/demo.mvd` (map from `run.env`),
      * server-side `~/komodobots-lab/runs/<run_id>/demo.mvd` (map from `run.env`),
-     * the local ezQuake review mirror `C:\\nQuake\\qw\\tricks\\dm3\\<run_id>.mvd`,
+     * the local ezQuake review mirrors: the lab runner's watch mirror
+       `C:\\nQuake\\qw\\matchinfo\\demos\\tricks\\dm3\\<label>__<run_id>.mvd`
+       (where `run_frobodm2_lab.py --record-trick-name` dual-writes) plus the
+       older `C:\\nQuake\\qw\\tricks\\dm3\\<run_id>.mvd` location,
      * the repo's `tricks/<map>/*.mvd` evidence demos (the 16 committed ones
        plus any local-only copies in the same tree -- for some historical runs
        these are the ONLY remaining bytes).
@@ -55,7 +58,14 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
-NQUAKE_TRICKS_DM3_DIR = Path(r"C:\nQuake\qw\tricks\dm3")
+# Both local ezQuake review-mirror locations are scanned. The first is where
+# `run_frobodm2_lab.py --record-trick-name` actually dual-writes (it must stay
+# in sync with NQUAKE_TRICKS_DM3_DIR in scripts/run_frobodm2_lab.py); the
+# second is the older mirror location kept for any historical copies.
+NQUAKE_TRICKS_DM3_DIRS = (
+    Path(r"C:\nQuake\qw\matchinfo\demos\tricks\dm3"),
+    Path(r"C:\nQuake\qw\tricks\dm3"),
+)
 REPO_TRICKS_DIR = REPO_ROOT / "tricks"
 
 DEFAULT_HOST = "servexeri"
@@ -415,30 +425,42 @@ def collect_local_artifact_sources() -> tuple[list[dict[str, str]], list[str]]:
     return rows, skipped
 
 
-def collect_nquake_dm3_sources() -> tuple[list[dict[str, str]], list[str]]:
-    """Hash the local ezQuake review mirror (dm3 by construction)."""
+def collect_nquake_dm3_sources(
+    mirror_dirs: tuple[Path, ...] = NQUAKE_TRICKS_DM3_DIRS,
+) -> tuple[list[dict[str, str]], list[str]]:
+    """Hash the local ezQuake review mirrors (dm3 by construction).
+
+    Scans every configured mirror dir: the runner's watch mirror holds
+    `<label>__<run_id>.mvd` names (same stems as `tricks/dm3/`, so the full
+    stem is the archive run id, consistent with the repo-tricks naming
+    decision), the older location holds bare `<run_id>.mvd` names. Missing
+    dirs are skipped. If the same stem appears in more than one mirror,
+    reconcile() groups the rows by (map, stem) and flags a source-conflict
+    when the hashes disagree.
+    """
     rows: list[dict[str, str]] = []
     skipped: list[str] = []
-    if not NQUAKE_TRICKS_DM3_DIR.is_dir():
-        return rows, skipped
-    for path in sorted(NQUAKE_TRICKS_DM3_DIR.glob("*.mvd")):
-        run_id = path.stem
-        if not _RUN_ID_RE.fullmatch(run_id):
-            skipped.append(f"nquake: non-run-id mvd name {path.name!r}")
+    for mirror_dir in mirror_dirs:
+        if not mirror_dir.is_dir():
             continue
-        if path.stat().st_size == 0:
-            skipped.append(f"nquake: empty mvd {path.name!r}")
-            continue
-        rows.append(
-            {
-                "run_id": run_id,
-                "map": "dm3",
-                "sha256": sha256_file(path),
-                "size": str(path.stat().st_size),
-                "where": "nquake",
-                "path": str(path),
-            }
-        )
+        for path in sorted(mirror_dir.glob("*.mvd")):
+            run_id = path.stem
+            if not _RUN_ID_RE.fullmatch(run_id):
+                skipped.append(f"nquake: non-run-id mvd name {path.name!r}")
+                continue
+            if path.stat().st_size == 0:
+                skipped.append(f"nquake: empty mvd {path.name!r}")
+                continue
+            rows.append(
+                {
+                    "run_id": run_id,
+                    "map": "dm3",
+                    "sha256": sha256_file(path),
+                    "size": str(path.stat().st_size),
+                    "where": "nquake",
+                    "path": str(path),
+                }
+            )
     return rows, skipped
 
 
