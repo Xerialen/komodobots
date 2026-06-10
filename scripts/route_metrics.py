@@ -155,32 +155,34 @@ def edge_speed(rows, gap, tele_entrances=(), teleport_jump=TELEPORT_JUMP,
     just the human replay the census indexed by frame:
 
       * The launch plane is the vertical plane through the censused edge
-        point, perpendicular (in xy) to the edge->land direction. The crossing
-        is the FIRST row pair a->b with a behind the plane and b at/past it
-        (within EDGE_CROSS_EPS; see the constant).
+        point, perpendicular (in xy) to the edge->land direction. A crossing
+        is a row pair a->b with a behind the plane and b at/past it (within
+        EDGE_CROSS_EPS; see the constant).
       * b must be within `corridor` qu cross-track of the edge point and
         within `z_window` qu of the edge height -- a bot that already fell
         > 100 qu below the lip is in the pit, not launching (the census's own
         DEEP_DROP criterion), and a plane crossing far from the edge point is
         a different part of the map.
-      * Returns b's vh: exactly the census's human_speed_at_edge convention
-        (horizontal speed at the first frame over the deep void). Reproduces
-        the census anchors from the committed human replays: sng_to_rl 528.6
-        qu/s at frame 510 (required 525.3), sng_shortcut2 458.8.
+      * The LAST qualifying crossing of the segment is the measurement: the
+        launch that decides the attempt's outcome. Routes can traverse the
+        same lip more than once (hilljump crosses its final gap's plane 3
+        times, rl_to_bridge twice); taking an earlier crossing would let a
+        bot that crossed fast early but arrived at the goal-gating launch
+        slow report a passing edge speed (Codex PR #82 P2). With the last
+        crossing, that bot reports the slow final launch -- an early fast
+        crossing can never fake a pass.
+      * Returns that b's vh: exactly the census's human_speed_at_edge
+        convention (horizontal speed at the first frame over the deep void).
+        Reproduces the census final-hard-gap anchor on ALL 11 censused
+        routes from the committed human replays, e.g. sng_to_rl 528.6 qu/s
+        at frame 510 (required 525.3), sng_shortcut2 458.8, and on the
+        multi-crossing routes hilljump 528.9 and rl_to_bridge 467.3.
       * Same domain as time_weighted_speed: legit_segment() is applied
         internally (stray teleport truncates the attempt), and a
         teleport-sized step is not player movement, so it can never register
         as a crossing (the sanctioned-teleport exclusion convention).
       * None -- not 0.0 -- when no crossing exists: "never reached the edge"
         is absence of a measurement, and must not average/gate as a dead stop.
-
-    Caveat (locked by test_first_crossing_wins): on routes that traverse the
-    same lip more than once (hilljump, rl_to_bridge), the first traversal of
-    that plane geometry is measured, which for the human replays reproduces
-    the census number of the FIRST gap on that lip, not the final one. For a
-    ">= required" gate this under-reports rather than over-reports, so it is
-    conservative; attempt segmentation in verify_route keeps bot attempts to
-    a single approach anyway.
     """
     if gap is None:
         return None
@@ -195,6 +197,7 @@ def edge_speed(rows, gap, tele_entrances=(), teleport_jump=TELEPORT_JUMP,
     def along(r):
         return (r["x"] - ex) * ux + (r["y"] - ey) * uy
 
+    found = None
     for a, b in zip(rows, rows[1:]):
         if along(a) >= -EDGE_CROSS_EPS or along(b) < -EDGE_CROSS_EPS:
             continue
@@ -204,8 +207,8 @@ def edge_speed(rows, gap, tele_entrances=(), teleport_jump=TELEPORT_JUMP,
         cross = abs((b["y"] - ey) * ux - (b["x"] - ex) * uy)
         if cross > corridor or abs(b["z"] - ez) > z_window:
             continue            # crossed the plane, but not at this edge
-        return float(b["vh"])
-    return None
+        found = float(b["vh"])  # keep scanning: the LAST crossing decides
+    return found
 
 
 def active_mean_speed(rows, threshold=1.0, reach=60.0, dist_key="dist_goal"):

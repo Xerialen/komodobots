@@ -4,12 +4,15 @@ Locks the sprint's headline-metric foundations against the committed evidence:
 
   * census anchor: the human dm3 sng_to_rl replay crosses its final hard gap
     at exactly the census numbers -- edge speed 528.6 qu/s, required 525.3;
-  * route parameterization: sng_shortcut2 reproduces its census anchor
-    (458.8 qu/s) from the same code path;
+  * route parameterization: sng_shortcut2 (458.8), and the multi-crossing
+    loop routes hilljump (528.9, lip traversed 3x) and rl_to_bridge (467.3,
+    2x) all reproduce their census final-hard-gap anchors the same way;
   * geometric crossing semantics: bot-shaped trajectories that never cross
     return None (not 0), teleport-sized steps can never register a crossing,
     crossings outside the corridor / off the lip height are rejected, and the
-    FIRST crossing wins (the loop-route caveat in the docstring);
+    LAST crossing wins -- the launch that decides the attempt, so an early
+    fast crossing of a multi-crossed lip can never fake a pass for a slow
+    goal-gating launch (Codex PR #82 P2);
   * verify_route reports the metric (DoD: "verify_route --route sng_to_rl
     reports the edge metric") without touching the existing output lines.
 
@@ -92,6 +95,17 @@ class TestCensusAnchors(unittest.TestCase):
         self.assertIsNotNone(v)
         self.assertEqual(round(v, 1), 458.8)
 
+    def test_multi_crossing_routes_measure_the_final_gap(self):
+        # hilljump crosses its final gap's plane 3 times (the route bounces
+        # over one trench lip), rl_to_bridge twice. The census's final hard
+        # gap is the LAST traversal; an earlier traversal must not be the
+        # measurement (Codex PR #82 P2: it could fake a pass).
+        for name in ("hilljump", "rl_to_bridge"):
+            with self.subTest(route=name):
+                gap, v = self._route_edge_speed(name)
+                self.assertIsNotNone(v)
+                self.assertEqual(round(v, 1), gap["human_speed_at_edge"])
+
     def test_sng_to_rl_without_sanctioned_teleporter_never_crosses(self):
         # The human route teleports once (sanctioned). Without sanctioning it,
         # legit_segment truncates there and the edge is never reached: None.
@@ -145,12 +159,14 @@ class TestCrossingSemantics(unittest.TestCase):
         self.assertIsNone(edge_speed(run(thrown), GAP,
                                      tele_entrances=((-64.0, 0.0),)))
 
-    def test_first_crossing_wins(self):
-        # cross slow, walk back behind the plane, cross again fast: the FIRST
-        # crossing is the measurement (the loop-route caveat -- conservative,
-        # an early slow crossing under-reports a >= gate, never fakes a pass).
-        rows = (run([(-9.0, 0.0, 0.0), (2.0, 0.0, 0.0)], vh=300.0)
-                + run([(-9.0, 0.0, 0.0), (2.0, 0.0, 0.0)], vh=600.0))
+    def test_last_crossing_wins(self):
+        # cross fast early, come back behind the plane, cross again slow: the
+        # LAST crossing is the measurement -- the launch that decides the
+        # attempt. An early fast crossing of a multi-crossed lip must never
+        # report a passing edge speed for a slow goal-gating launch
+        # (Codex PR #82 P2).
+        rows = (run([(-9.0, 0.0, 0.0), (2.0, 0.0, 0.0)], vh=600.0)
+                + run([(-9.0, 0.0, 0.0), (2.0, 0.0, 0.0)], vh=300.0))
         self.assertEqual(edge_speed(rows, GAP), 300.0)
 
     def test_no_gap_returns_none(self):
