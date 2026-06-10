@@ -73,11 +73,13 @@ def main():
             lip = att.get("lip")
             if lip:
                 lips.append(lip)
-                # jumped at the crossing? The launch release fires the jump
-                # immediately, so "released at-or-before the crossing" is
-                # the recorded jump signal. Un-released = walk-off: a fall
-                # from z=-488 can never reach the same-height far floor.
-                jumped = rel is not None and rel["t"] <= lip["t"] + 0.05
+                # jumped at the crossing? The recorded cmd bit at the last
+                # grounded row is the ground truth (harness lip_state
+                # "jump"; Codex round 2 — release timestamps are recorded
+                # one tick late and cannot separate an on-lip release from
+                # a post-lip mid-air timeout). Walk-offs fall from z=-488
+                # and can never reach the same-height far floor.
+                jumped = lip.get("jump") == 1
                 if not jumped:
                     cls = "NO-JUMP"
                 else:

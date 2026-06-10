@@ -188,10 +188,14 @@ def run_launch_attempt(world, teles, seed, params: m23.LawParams,
     lip_state = None
     if lip is not None and lip + 1 < len(rows):
         r, nx = rows[lip], rows[lip + 1]
-        dt = max(nx["t"] - r["t"], 1e-6)
         heading = math.degrees(math.atan2(nx["y"] - r["y"], nx["x"] - r["x"]))
+        # "jump" = the cmd bit actually issued at the last grounded row —
+        # the ground-truth jumped/walk-off signal for the arc classifier
+        # (Codex PR #120 round 2: release timestamps are one tick late and
+        # cannot separate an on-lip release from a post-lip mid-air timeout)
         lip_state = {"t": r["t"], "x": round(r["x"], 1), "y": round(r["y"], 1),
-                     "vh": round(r["vh"], 1), "heading": round(heading, 1)}
+                     "vh": round(r["vh"], 1), "heading": round(heading, 1),
+                     "jump": int(r["jump"])}
 
     return {
         "seed": seed, "outcome": outcome, "t_end": round(t, 2),

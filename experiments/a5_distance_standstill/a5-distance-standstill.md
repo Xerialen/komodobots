@@ -116,7 +116,7 @@ all 0/30 → decomposition + escalate.
 |---|---|---|
 | BUILD (standstill → speed) | **works** | 48% of attempts reach their launch_vh mid-maneuver; max-vh p50 454.5, p90 469.6 — human-grade speed from a dead stop in ~1.4 s |
 | RELEASE (fire at the right moment) | **fails structurally** | **4499/4860 (93%) never release** — the orbit/skate carries the bot off the platform at ~1.8 s before speed+aim ever coincide; 361 release (85 by timeout), and the only repeatable near-lip family is a north-wall slide releasing at y=3824.0, heading 0.0, vh 430–435 (125 cases) |
-| ARC (fly and land) | never reached | **4522 NO-JUMP walk-offs** (un-released crossings falling at vh p50 395 — a fall from platform height can never reach the same-height far floor; no fake arc applied, Codex P2 fix) + 338 actual jumps: 335 SHORT, 3 Y-OUT — the wall-slide family at 430–435 is *simultaneously* ~3–8 qu short on x-reach and ~20 qu north of the band; **0 WOULD-LAND states in 4860 attempts** |
+| ARC (fly and land) | never reached | **4528 NO-JUMP walk-offs** (lip crossings whose last grounded cmd carried no jump bit — falling from platform height can never reach the same-height far floor; no fake arc applied. Classified by the recorded cmd bit at the lip row, Codex P2 rounds 1+2: release timestamps land one tick late and cannot separate an on-lip release from a post-lip mid-air timeout) + 332 actual jumps: 329 SHORT, 3 Y-OUT — the wall-slide family at 430–435 is *simultaneously* ~3–8 qu short on x-reach and ~20 qu north of the band; **0 WOULD-LAND states in 4860 attempts** |
 
 **Plain words:** the bot gets the SPEED skill right and never gets the
 RELEASE GEOMETRY right. The deployed launch is a point-condition
