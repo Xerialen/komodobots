@@ -1,0 +1,7200 @@
+{
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20,
+  21,
+  22,
+  23,
+  24,
+  25,
+  26,
+  27,
+  28,
+  29,
+  30
+ ],
+ "anchor_ok": true,
+ "summaries": [
+  {
+   "config": "c5-live",
+   "n_seeds": 30,
+   "reach": 12,
+   "arrival_tws_median": 279.4,
+   "attempts": 40,
+   "reached_lip_attempts": 38,
+   "seeds_reaching_lip": 29,
+   "seeds_grounded_near_ge437": 0,
+   "edge_n": 37,
+   "edge_median": 375.8,
+   "edge_max": 412.0,
+   "edge_ge_437": 0,
+   "edge_lowcross_n": 11,
+   "lip_vh_median": 356.3,
+   "lip_vh_ge_437": 0,
+   "grounded_near_median": 379.8,
+   "grounded_near_max": 409.3,
+   "grounded_near_ge_437": 0
+  },
+  {
+   "config": "a2-c1",
+   "n_seeds": 30,
+   "reach": 16,
+   "arrival_tws_median": 278.0,
+   "attempts": 30,
+   "reached_lip_attempts": 30,
+   "seeds_reaching_lip": 30,
+   "seeds_grounded_near_ge437": 0,
+   "edge_n": 27,
+   "edge_median": 387.1,
+   "edge_max": 426.1,
+   "edge_ge_437": 0,
+   "edge_lowcross_n": 0,
+   "lip_vh_median": 357.0,
+   "lip_vh_ge_437": 0,
+   "grounded_near_median": 386.0,
+   "grounded_near_max": 423.0,
+   "grounded_near_ge_437": 0
+  },
+  {
+   "config": "a2-c2",
+   "n_seeds": 30,
+   "reach": 14,
+   "arrival_tws_median": 286.2,
+   "attempts": 34,
+   "reached_lip_attempts": 32,
+   "seeds_reaching_lip": 30,
+   "seeds_grounded_near_ge437": 0,
+   "edge_n": 32,
+   "edge_median": 383.2,
+   "edge_max": 419.2,
+   "edge_ge_437": 0,
+   "edge_lowcross_n": 10,
+   "lip_vh_median": 353.2,
+   "lip_vh_ge_437": 0,
+   "grounded_near_median": 381.1,
+   "grounded_near_max": 406.3,
+   "grounded_near_ge_437": 0
+  },
+  {
+   "config": "a2-c3",
+   "n_seeds": 30,
+   "reach": 17,
+   "arrival_tws_median": 273.3,
+   "attempts": 30,
+   "reached_lip_attempts": 30,
+   "seeds_reaching_lip": 30,
+   "seeds_grounded_near_ge437": 0,
+   "edge_n": 28,
+   "edge_median": 387.0,
+   "edge_max": 426.1,
+   "edge_ge_437": 0,
+   "edge_lowcross_n": 1,
+   "lip_vh_median": 357.1,
+   "lip_vh_ge_437": 0,
+   "grounded_near_median": 384.8,
+   "grounded_near_max": 423.0,
+   "grounded_near_ge_437": 0
+  },
+  {
+   "config": "a2-c4",
+   "n_seeds": 30,
+   "reach": 23,
+   "arrival_tws_median": 269.1,
+   "attempts": 31,
+   "reached_lip_attempts": 31,
+   "seeds_reaching_lip": 30,
+   "seeds_grounded_near_ge437": 0,
+   "edge_n": 23,
+   "edge_median": 383.4,
+   "edge_max": 413.4,
+   "edge_ge_437": 0,
+   "edge_lowcross_n": 0,
+   "lip_vh_median": 352.2,
+   "lip_vh_ge_437": 0,
+   "grounded_near_median": 379.4,
+   "grounded_near_max": 394.7,
+   "grounded_near_ge_437": 0
+  },
+  {
+   "config": "cj-launch",
+   "n_seeds": 30,
+   "reach": 10,
+   "arrival_tws_median": 273.2,
+   "attempts": 30,
+   "reached_lip_attempts": 6,
+   "seeds_reaching_lip": 6,
+   "seeds_grounded_near_ge437": 0,
+   "edge_n": 0,
+   "edge_median": null,
+   "edge_max": null,
+   "edge_ge_437": 0,
+   "edge_lowcross_n": 0,
+   "lip_vh_median": 356.9,
+   "lip_vh_ge_437": 0,
+   "grounded_near_median": 378.9,
+   "grounded_near_max": 385.9,
+   "grounded_near_ge_437": 0
+  }
+ ],
+ "per_config": {
+  "c5-live": [
+   {
+    "seed": 1,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 158.2,
+      "crossing": {
+       "vh": 158.2,
+       "t": 2.492,
+       "x": -112.7,
+       "y": 695.2,
+       "z": 126.8,
+       "cross_track": 58.8,
+       "edge_hdist": 58.8
+      },
+      "lip_approach": {
+       "hdist": 43.1,
+       "vh": 160.8,
+       "t": 2.67,
+       "x": -140.6,
+       "y": 690.9,
+       "z": 98.5,
+       "onground": 0,
+       "heading": -176.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 302.6,
+      "t0": 0.0,
+      "dur": 5.7
+     },
+     {
+      "edge": 375.8,
+      "crossing": {
+       "vh": 375.8,
+       "t": 27.015,
+       "x": -274.0,
+       "y": 802.6,
+       "z": 127.9,
+       "cross_track": 134.9,
+       "edge_hdist": 134.9
+      },
+      "lip_approach": {
+       "hdist": 5.8,
+       "vh": 362.5,
+       "t": 19.114,
+       "x": -165.4,
+       "y": 732.6,
+       "z": 142.9,
+       "onground": 0,
+       "heading": -104.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 379.7,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 379.7,
+      "grounded_near_n": 5,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 62.2,
+      "t0": 5.735,
+      "dur": 42.4
+     }
+    ]
+   },
+   {
+    "seed": 2,
+    "reached": true,
+    "arrival_tws": 283.2,
+    "arrival_t": 21.6,
+    "attempts": [
+     {
+      "edge": 389.1,
+      "crossing": {
+       "vh": 389.1,
+       "t": 2.629,
+       "x": -245.8,
+       "y": 784.4,
+       "z": 137.7,
+       "cross_track": 101.4,
+       "edge_hdist": 101.4
+      },
+      "lip_approach": {
+       "hdist": 25.6,
+       "vh": 368.6,
+       "t": 2.381,
+       "x": -157.4,
+       "y": 754.2,
+       "z": 144.5,
+       "onground": 0,
+       "heading": 164.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 395.4,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 395.4,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.7,
+      "t0": 0.0,
+      "dur": 21.6
+     }
+    ]
+   },
+   {
+    "seed": 3,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 203.4,
+       "vh": 325.2,
+       "t": 1.766,
+       "x": 27.5,
+       "y": 652.3,
+       "z": 96.4,
+       "onground": 0,
+       "heading": -157.5
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 236.9,
+      "t0": 0.0,
+      "dur": 9.2
+     },
+     {
+      "edge": 382.0,
+      "crossing": {
+       "vh": 382.0,
+       "t": 14.686,
+       "x": -286.2,
+       "y": 810.5,
+       "z": 162.1,
+       "cross_track": 149.5,
+       "edge_hdist": 149.5
+      },
+      "lip_approach": {
+       "hdist": 50.9,
+       "vh": 341.7,
+       "t": 43.67,
+       "x": -146.2,
+       "y": 777.5,
+       "z": 145.7,
+       "onground": 0,
+       "heading": 162.6
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 372.7,
+      "takeoff_near_n": 3,
+      "grounded_near_vh_max": 372.7,
+      "grounded_near_n": 3,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 60.7,
+      "t0": 9.25,
+      "dur": 38.8
+     }
+    ]
+   },
+   {
+    "seed": 4,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 361.7,
+      "crossing": {
+       "vh": 361.7,
+       "t": 22.03,
+       "x": -152.0,
+       "y": 720.4,
+       "z": 145.2,
+       "cross_track": 12.1,
+       "edge_hdist": 12.3
+      },
+      "lip_approach": {
+       "hdist": 11.1,
+       "vh": 360.6,
+       "t": 22.019,
+       "x": -150.9,
+       "y": 724.2,
+       "z": 145.8,
+       "onground": 0,
+       "heading": -106.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 388.1,
+      "takeoff_near_n": 3,
+      "grounded_near_vh_max": 388.1,
+      "grounded_near_n": 3,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 121.4,
+      "t0": 0.0,
+      "dur": 29.5
+     },
+     {
+      "edge": 131.3,
+      "crossing": {
+       "vh": 131.3,
+       "t": 39.062,
+       "x": -71.3,
+       "y": 669.7,
+       "z": 84.6,
+       "cross_track": 107.4,
+       "edge_hdist": 107.4
+      },
+      "lip_approach": {
+       "hdist": 46.3,
+       "vh": 343.8,
+       "t": 31.377,
+       "x": -129.2,
+       "y": 762.5,
+       "z": 140.4,
+       "onground": 0,
+       "heading": 137.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 377.9,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 377.9,
+      "grounded_near_n": 4,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 65.7,
+      "t0": 29.51,
+      "dur": 18.6
+     }
+    ]
+   },
+   {
+    "seed": 5,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 92.8,
+      "crossing": {
+       "vh": 92.8,
+       "t": 43.979,
+       "x": -83.2,
+       "y": 678.3,
+       "z": 86.6,
+       "cross_track": 92.7,
+       "edge_hdist": 92.7
+      },
+      "lip_approach": {
+       "hdist": 5.6,
+       "vh": 359.5,
+       "t": 17.873,
+       "x": -155.4,
+       "y": 728.3,
+       "z": 144.9,
+       "onground": 0,
+       "heading": -109.6
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 399.2,
+      "takeoff_near_n": 7,
+      "grounded_near_vh_max": 399.2,
+      "grounded_near_n": 7,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 121.0,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 6,
+    "reached": true,
+    "arrival_tws": 243.5,
+    "arrival_t": 7.9,
+    "attempts": [
+     {
+      "edge": 360.4,
+      "crossing": {
+       "vh": 360.4,
+       "t": 12.021,
+       "x": -159.4,
+       "y": 724.9,
+       "z": 144.2,
+       "cross_track": 3.5,
+       "edge_hdist": 4.3
+      },
+      "lip_approach": {
+       "hdist": 2.8,
+       "vh": 359.3,
+       "t": 12.011,
+       "x": -158.2,
+       "y": 728.3,
+       "z": 144.9,
+       "onground": 0,
+       "heading": -109.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 322.0,
+      "takeoff_near_n": 1,
+      "grounded_near_vh_max": 322.0,
+      "grounded_near_n": 1,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 192.8,
+      "t0": 0.0,
+      "dur": 17.4
+     },
+     {
+      "edge": 412.0,
+      "crossing": {
+       "vh": 412.0,
+       "t": 21.605,
+       "x": -293.6,
+       "y": 813.4,
+       "z": 157.4,
+       "cross_track": 157.2,
+       "edge_hdist": 157.3
+      },
+      "lip_approach": {
+       "hdist": 56.7,
+       "vh": 384.2,
+       "t": 21.206,
+       "x": -139.2,
+       "y": 781.1,
+       "z": 131.4,
+       "onground": 0,
+       "heading": 160.6
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 398.8,
+      "takeoff_near_n": 1,
+      "grounded_near_vh_max": 398.8,
+      "grounded_near_n": 1,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.6,
+      "t0": 17.406,
+      "dur": 7.9
+     },
+     {
+      "edge": 382.0,
+      "crossing": {
+       "vh": 382.0,
+       "t": 31.84,
+       "x": -292.9,
+       "y": 813.6,
+       "z": 143.3,
+       "cross_track": 156.8,
+       "edge_hdist": 156.8
+      },
+      "lip_approach": {
+       "hdist": 54.8,
+       "vh": 347.2,
+       "t": 31.415,
+       "x": -142.1,
+       "y": 780.2,
+       "z": 147.0,
+       "onground": 0,
+       "heading": 156.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 375.5,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 375.5,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 57.6,
+      "t0": 28.82,
+      "dur": 6.4
+     }
+    ]
+   },
+   {
+    "seed": 7,
+    "reached": true,
+    "arrival_tws": 334.5,
+    "arrival_t": 7.7,
+    "attempts": [
+     {
+      "edge": 380.3,
+      "crossing": {
+       "vh": 380.3,
+       "t": 2.598,
+       "x": -250.9,
+       "y": 787.9,
+       "z": 134.6,
+       "cross_track": 107.6,
+       "edge_hdist": 107.6
+      },
+      "lip_approach": {
+       "hdist": 29.8,
+       "vh": 360.4,
+       "t": 2.329,
+       "x": -157.0,
+       "y": 758.3,
+       "z": 144.4,
+       "onground": 0,
+       "heading": 174.3
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 388.8,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 388.8,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.1,
+      "t0": 0.0,
+      "dur": 7.7
+     }
+    ]
+   },
+   {
+    "seed": 8,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 269.6,
+      "crossing": {
+       "vh": 269.6,
+       "t": 40.112,
+       "x": -85.6,
+       "y": 680.0,
+       "z": 83.7,
+       "cross_track": 89.9,
+       "edge_hdist": 89.9
+      },
+      "lip_approach": {
+       "hdist": 38.6,
+       "vh": 343.5,
+       "t": 2.521,
+       "x": -156.8,
+       "y": 767.2,
+       "z": 146.4,
+       "onground": 0,
+       "heading": 170.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 371.0,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 371.0,
+      "grounded_near_n": 4,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 66.6,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 9,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 376.9,
+      "crossing": {
+       "vh": 376.9,
+       "t": 40.785,
+       "x": -291.4,
+       "y": 811.6,
+       "z": 139.2,
+       "cross_track": 154.5,
+       "edge_hdist": 154.5
+      },
+      "lip_approach": {
+       "hdist": 1.7,
+       "vh": 358.2,
+       "t": 33.839,
+       "x": -162.6,
+       "y": 728.2,
+       "z": 143.9,
+       "onground": 0,
+       "heading": -112.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 372.0,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 372.0,
+      "grounded_near_n": 6,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 62.5,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 10,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 375.1,
+      "crossing": {
+       "vh": 375.1,
+       "t": 2.894,
+       "x": -268.0,
+       "y": 798.2,
+       "z": 120.0,
+       "cross_track": 127.5,
+       "edge_hdist": 127.5
+      },
+      "lip_approach": {
+       "hdist": 44.9,
+       "vh": 349.1,
+       "t": 2.594,
+       "x": -163.0,
+       "y": 773.7,
+       "z": 147.4,
+       "onground": 0,
+       "heading": 176.6
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 375.1,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 375.1,
+      "grounded_near_n": 2,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 190.1,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 11,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 379.1,
+      "crossing": {
+       "vh": 379.1,
+       "t": 39.788,
+       "x": -263.6,
+       "y": 795.3,
+       "z": 127.3,
+       "cross_track": 122.2,
+       "edge_hdist": 122.2
+      },
+      "lip_approach": {
+       "hdist": 37.5,
+       "vh": 353.4,
+       "t": 39.46,
+       "x": -148.4,
+       "y": 764.1,
+       "z": 142.9,
+       "onground": 0,
+       "heading": 159.3
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 381.3,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 381.3,
+      "grounded_near_n": 4,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 99.5,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 12,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 363.5,
+      "crossing": {
+       "vh": 363.5,
+       "t": 40.31,
+       "x": -162.3,
+       "y": 729.5,
+       "z": 142.1,
+       "cross_track": 1.4,
+       "edge_hdist": 1.4
+      },
+      "lip_approach": {
+       "hdist": 1.4,
+       "vh": 363.5,
+       "t": 40.31,
+       "x": -162.3,
+       "y": 729.5,
+       "z": 142.1,
+       "onground": 0,
+       "heading": -100.3
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 380.1,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 380.1,
+      "grounded_near_n": 6,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 73.6,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 13,
+    "reached": true,
+    "arrival_tws": 318.4,
+    "arrival_t": 11.3,
+    "attempts": [
+     {
+      "edge": 357.4,
+      "crossing": {
+       "vh": 357.4,
+       "t": 27.89,
+       "x": -174.5,
+       "y": 736.1,
+       "z": 144.9,
+       "cross_track": 15.3,
+       "edge_hdist": 15.4
+      },
+      "lip_approach": {
+       "hdist": 15.4,
+       "vh": 356.3,
+       "t": 27.88,
+       "x": -172.4,
+       "y": 739.1,
+       "z": 145.5,
+       "onground": 0,
+       "heading": -125.3
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 381.7,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 381.7,
+      "grounded_near_n": 4,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 75.5,
+      "t0": 0.0,
+      "dur": 31.7
+     },
+     {
+      "edge": 376.0,
+      "crossing": {
+       "vh": 376.0,
+       "t": 34.388,
+       "x": -263.2,
+       "y": 795.8,
+       "z": 120.0,
+       "cross_track": 122.2,
+       "edge_hdist": 122.2
+      },
+      "lip_approach": {
+       "hdist": 40.7,
+       "vh": 351.2,
+       "t": 34.091,
+       "x": -159.2,
+       "y": 769.4,
+       "z": 147.4,
+       "onground": 0,
+       "heading": 175.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 381.1,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 381.1,
+      "grounded_near_n": 4,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.3,
+      "t0": 31.747,
+      "dur": 11.3
+     }
+    ]
+   },
+   {
+    "seed": 14,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 357.5,
+      "crossing": {
+       "vh": 357.5,
+       "t": 38.849,
+       "x": -170.4,
+       "y": 731.8,
+       "z": 144.7,
+       "cross_track": 9.5,
+       "edge_hdist": 9.8
+      },
+      "lip_approach": {
+       "hdist": 9.8,
+       "vh": 360.8,
+       "t": 36.134,
+       "x": -170.2,
+       "y": 732.0,
+       "z": 146.4,
+       "onground": 0,
+       "heading": -113.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 385.4,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 385.4,
+      "grounded_near_n": 4,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 106.3,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 15,
+    "reached": true,
+    "arrival_tws": 298.3,
+    "arrival_t": 8.3,
+    "attempts": [
+     {
+      "edge": 373.6,
+      "crossing": {
+       "vh": 373.6,
+       "t": 6.722,
+       "x": -267.3,
+       "y": 798.8,
+       "z": 120.0,
+       "cross_track": 127.2,
+       "edge_hdist": 127.2
+      },
+      "lip_approach": {
+       "hdist": 43.9,
+       "vh": 342.7,
+       "t": 6.373,
+       "x": -146.5,
+       "y": 770.3,
+       "z": 144.6,
+       "onground": 0,
+       "heading": 161.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 373.6,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 373.6,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.1,
+      "t0": 0.0,
+      "dur": 8.3
+     },
+     {
+      "edge": 356.8,
+      "crossing": {
+       "vh": 356.8,
+       "t": 45.553,
+       "x": -184.1,
+       "y": 740.4,
+       "z": 147.2,
+       "cross_track": 25.7,
+       "edge_hdist": 25.9
+      },
+      "lip_approach": {
+       "hdist": 24.0,
+       "vh": 354.5,
+       "t": 45.522,
+       "x": -175.9,
+       "y": 747.7,
+       "z": 147.9,
+       "onground": 0,
+       "heading": -139.7
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 382.3,
+      "takeoff_near_n": 9,
+      "grounded_near_vh_max": 382.3,
+      "grounded_near_n": 9,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 124.7,
+      "t0": 14.071,
+      "dur": 34.0
+     }
+    ]
+   },
+   {
+    "seed": 16,
+    "reached": true,
+    "arrival_tws": 275.7,
+    "arrival_t": 8.0,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 53.9,
+       "vh": 357.7,
+       "t": 2.598,
+       "x": -157.1,
+       "y": 782.6,
+       "z": 129.9,
+       "onground": 0,
+       "heading": 173.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 367.9,
+      "takeoff_near_n": 1,
+      "grounded_near_vh_max": 367.9,
+      "grounded_near_n": 1,
+      "cls": "REACHED_RL",
+      "closest_goal": 57.7,
+      "t0": 0.0,
+      "dur": 8.0
+     }
+    ]
+   },
+   {
+    "seed": 17,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 359.7,
+      "crossing": {
+       "vh": 359.7,
+       "t": 47.274,
+       "x": -156.5,
+       "y": 725.7,
+       "z": 144.3,
+       "cross_track": 5.4,
+       "edge_hdist": 5.4
+      },
+      "lip_approach": {
+       "hdist": 5.4,
+       "vh": 359.7,
+       "t": 47.274,
+       "x": -156.5,
+       "y": 725.7,
+       "z": 144.3,
+       "onground": 0,
+       "heading": -109.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 387.6,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 387.6,
+      "grounded_near_n": 6,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 102.5,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 18,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 376.1,
+      "crossing": {
+       "vh": 376.1,
+       "t": 46.665,
+       "x": -265.9,
+       "y": 797.4,
+       "z": 120.0,
+       "cross_track": 125.3,
+       "edge_hdist": 125.3
+      },
+      "lip_approach": {
+       "hdist": 41.4,
+       "vh": 352.5,
+       "t": 46.362,
+       "x": -159.8,
+       "y": 770.1,
+       "z": 147.2,
+       "onground": 0,
+       "heading": 172.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 376.1,
+      "takeoff_near_n": 3,
+      "grounded_near_vh_max": 376.1,
+      "grounded_near_n": 3,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 103.1,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 19,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 385.2,
+      "crossing": {
+       "vh": 385.2,
+       "t": 7.89,
+       "x": -291.8,
+       "y": 812.5,
+       "z": 137.0,
+       "cross_track": 155.3,
+       "edge_hdist": 155.3
+      },
+      "lip_approach": {
+       "hdist": 49.7,
+       "vh": 349.5,
+       "t": 7.501,
+       "x": -153.9,
+       "y": 778.0,
+       "z": 147.1,
+       "onground": 0,
+       "heading": 169.6
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 379.8,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 379.8,
+      "grounded_near_n": 2,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 232.6,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 20,
+    "reached": true,
+    "arrival_tws": 302.8,
+    "arrival_t": 6.8,
+    "attempts": [
+     {
+      "edge": 384.5,
+      "crossing": {
+       "vh": 384.5,
+       "t": 5.374,
+       "x": -292.1,
+       "y": 812.4,
+       "z": 141.2,
+       "cross_track": 155.4,
+       "edge_hdist": 155.4
+      },
+      "lip_approach": {
+       "hdist": 45.1,
+       "vh": 349.9,
+       "t": 4.991,
+       "x": -157.9,
+       "y": 773.8,
+       "z": 147.1,
+       "onground": 0,
+       "heading": 173.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 376.9,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 376.9,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.2,
+      "t0": 0.0,
+      "dur": 6.8
+     }
+    ]
+   },
+   {
+    "seed": 21,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 384.0,
+      "crossing": {
+       "vh": 384.0,
+       "t": 41.695,
+       "x": -250.9,
+       "y": 788.0,
+       "z": 134.2,
+       "cross_track": 107.7,
+       "edge_hdist": 107.7
+      },
+      "lip_approach": {
+       "hdist": 31.2,
+       "vh": 363.2,
+       "t": 41.429,
+       "x": -156.3,
+       "y": 759.6,
+       "z": 145.0,
+       "onground": 0,
+       "heading": 169.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 391.4,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 391.4,
+      "grounded_near_n": 6,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 67.9,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 22,
+    "reached": true,
+    "arrival_tws": 248.8,
+    "arrival_t": 38.1,
+    "attempts": [
+     {
+      "edge": 367.3,
+      "crossing": {
+       "vh": 367.3,
+       "t": 34.378,
+       "x": -262.0,
+       "y": 794.9,
+       "z": 121.7,
+       "cross_track": 120.7,
+       "edge_hdist": 120.7
+      },
+      "lip_approach": {
+       "hdist": 4.0,
+       "vh": 362.2,
+       "t": 4.911,
+       "x": -157.1,
+       "y": 728.4,
+       "z": 144.5,
+       "onground": 0,
+       "heading": -103.3
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 385.8,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 385.8,
+      "grounded_near_n": 5,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.9,
+      "t0": 0.0,
+      "dur": 38.1
+     }
+    ]
+   },
+   {
+    "seed": 23,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 366.4,
+      "crossing": {
+       "vh": 366.4,
+       "t": 7.466,
+       "x": -163.2,
+       "y": 730.3,
+       "z": 144.3,
+       "cross_track": 2.6,
+       "edge_hdist": 2.6
+      },
+      "lip_approach": {
+       "hdist": 2.6,
+       "vh": 366.4,
+       "t": 7.466,
+       "x": -163.2,
+       "y": 730.3,
+       "z": 144.3,
+       "onground": 0,
+       "heading": -110.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 377.8,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 377.8,
+      "grounded_near_n": 5,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 102.4,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 24,
+    "reached": true,
+    "arrival_tws": 253.0,
+    "arrival_t": 47.7,
+    "attempts": [
+     {
+      "edge": 352.9,
+      "crossing": {
+       "vh": 352.9,
+       "t": 35.731,
+       "x": -186.6,
+       "y": 745.7,
+       "z": 146.5,
+       "cross_track": 30.7,
+       "edge_hdist": 30.7
+      },
+      "lip_approach": {
+       "hdist": 29.2,
+       "vh": 350.5,
+       "t": 35.701,
+       "x": -178.4,
+       "y": 752.3,
+       "z": 147.4,
+       "onground": 0,
+       "heading": -143.6
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 377.9,
+      "takeoff_near_n": 7,
+      "grounded_near_vh_max": 377.9,
+      "grounded_near_n": 7,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.2,
+      "t0": 0.0,
+      "dur": 47.7
+     }
+    ]
+   },
+   {
+    "seed": 25,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 80.8,
+       "vh": 389.8,
+       "t": 2.743,
+       "x": -158.5,
+       "y": 809.5,
+       "z": 147.3,
+       "onground": 0,
+       "heading": 176.5
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": 409.3,
+      "takeoff_near_n": 3,
+      "grounded_near_vh_max": 409.3,
+      "grounded_near_n": 3,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 121.3,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 26,
+    "reached": true,
+    "arrival_tws": 284.6,
+    "arrival_t": 18.9,
+    "attempts": [
+     {
+      "edge": 381.7,
+      "crossing": {
+       "vh": 381.7,
+       "t": 16.013,
+       "x": -292.5,
+       "y": 815.1,
+       "z": 151.2,
+       "cross_track": 157.3,
+       "edge_hdist": 157.3
+      },
+      "lip_approach": {
+       "hdist": 10.1,
+       "vh": 358.9,
+       "t": 5.181,
+       "x": -170.4,
+       "y": 732.7,
+       "z": 145.1,
+       "onground": 0,
+       "heading": -120.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 370.9,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 370.9,
+      "grounded_near_n": 4,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.6,
+      "t0": 0.0,
+      "dur": 18.9
+     }
+    ]
+   },
+   {
+    "seed": 27,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 389.9,
+      "crossing": {
+       "vh": 389.9,
+       "t": 2.79,
+       "x": -286.9,
+       "y": 811.5,
+       "z": 161.1,
+       "cross_track": 150.7,
+       "edge_hdist": 150.7
+      },
+      "lip_approach": {
+       "hdist": 49.0,
+       "vh": 357.0,
+       "t": 2.406,
+       "x": -149.2,
+       "y": 776.3,
+       "z": 131.1,
+       "onground": 0,
+       "heading": 165.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 368.3,
+      "takeoff_near_n": 1,
+      "grounded_near_vh_max": 368.3,
+      "grounded_near_n": 1,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 114.3,
+      "t0": 0.0,
+      "dur": 27.7
+     },
+     {
+      "edge": 382.4,
+      "crossing": {
+       "vh": 382.4,
+       "t": 30.159,
+       "x": -274.5,
+       "y": 801.4,
+       "z": 120.0,
+       "cross_track": 134.7,
+       "edge_hdist": 134.7
+      },
+      "lip_approach": {
+       "hdist": 42.7,
+       "vh": 353.5,
+       "t": 29.785,
+       "x": -142.2,
+       "y": 767.1,
+       "z": 143.3,
+       "onground": 0,
+       "heading": 157.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 382.4,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 382.4,
+      "grounded_near_n": 2,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 103.4,
+      "t0": 27.676,
+      "dur": 20.4
+     }
+    ]
+   },
+   {
+    "seed": 28,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 267.0,
+      "crossing": {
+       "vh": 267.0,
+       "t": 2.755,
+       "x": -146.5,
+       "y": 719.0,
+       "z": 151.2,
+       "cross_track": 17.5,
+       "edge_hdist": 17.5
+      },
+      "lip_approach": {
+       "hdist": 15.8,
+       "vh": 265.5,
+       "t": 2.734,
+       "x": -145.8,
+       "y": 724.5,
+       "z": 148.2,
+       "onground": 0,
+       "heading": -97.7
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 254.8,
+      "takeoff_near_n": 1,
+      "grounded_near_vh_max": 254.8,
+      "grounded_near_n": 1,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 250.3,
+      "t0": 0.0,
+      "dur": 5.1
+     },
+     {
+      "edge": 374.3,
+      "crossing": {
+       "vh": 374.3,
+       "t": 29.206,
+       "x": -266.6,
+       "y": 797.8,
+       "z": 120.0,
+       "cross_track": 126.1,
+       "edge_hdist": 126.1
+      },
+      "lip_approach": {
+       "hdist": 42.6,
+       "vh": 344.7,
+       "t": 7.553,
+       "x": -144.4,
+       "y": 768.1,
+       "z": 144.0,
+       "onground": 0,
+       "heading": 157.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 375.4,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 375.4,
+      "grounded_near_n": 4,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 122.0,
+      "t0": 5.133,
+      "dur": 43.0
+     }
+    ]
+   },
+   {
+    "seed": 29,
+    "reached": true,
+    "arrival_tws": 259.9,
+    "arrival_t": 27.1,
+    "attempts": [
+     {
+      "edge": 382.8,
+      "crossing": {
+       "vh": 382.8,
+       "t": 19.76,
+       "x": -277.0,
+       "y": 805.0,
+       "z": 160.0,
+       "cross_track": 138.8,
+       "edge_hdist": 138.8
+      },
+      "lip_approach": {
+       "hdist": 43.8,
+       "vh": 348.5,
+       "t": 2.456,
+       "x": -130.4,
+       "y": 760.2,
+       "z": 140.3,
+       "onground": 0,
+       "heading": 138.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 382.1,
+      "takeoff_near_n": 3,
+      "grounded_near_vh_max": 382.1,
+      "grounded_near_n": 3,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.7,
+      "t0": 0.0,
+      "dur": 27.1
+     },
+     {
+      "edge": 382.9,
+      "crossing": {
+       "vh": 382.9,
+       "t": 37.754,
+       "x": -270.2,
+       "y": 799.3,
+       "z": 122.2,
+       "cross_track": 130.0,
+       "edge_hdist": 130.0
+      },
+      "lip_approach": {
+       "hdist": 39.9,
+       "vh": 356.3,
+       "t": 37.43,
+       "x": -155.9,
+       "y": 768.3,
+       "z": 145.4,
+       "onground": 0,
+       "heading": 171.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 383.9,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 383.9,
+      "grounded_near_n": 2,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 187.7,
+      "t0": 34.614,
+      "dur": 13.5
+     }
+    ]
+   },
+   {
+    "seed": 30,
+    "reached": true,
+    "arrival_tws": 241.6,
+    "arrival_t": 31.2,
+    "attempts": [
+     {
+      "edge": 386.9,
+      "crossing": {
+       "vh": 386.9,
+       "t": 23.352,
+       "x": -294.3,
+       "y": 816.0,
+       "z": 163.1,
+       "cross_track": 159.2,
+       "edge_hdist": 159.2
+      },
+      "lip_approach": {
+       "hdist": 52.7,
+       "vh": 357.2,
+       "t": 22.971,
+       "x": -157.9,
+       "y": 781.4,
+       "z": 129.0,
+       "onground": 0,
+       "heading": 179.7
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 373.5,
+      "takeoff_near_n": 3,
+      "grounded_near_vh_max": 373.5,
+      "grounded_near_n": 3,
+      "cls": "REACHED_RL",
+      "closest_goal": 60.0,
+      "t0": 0.0,
+      "dur": 31.2
+     }
+    ]
+   }
+  ],
+  "a2-c1": [
+   {
+    "seed": 1,
+    "reached": true,
+    "arrival_tws": 316.5,
+    "arrival_t": 4.4,
+    "attempts": [
+     {
+      "edge": 390.2,
+      "crossing": {
+       "vh": 390.2,
+       "t": 2.757,
+       "x": -285.6,
+       "y": 810.0,
+       "z": 130.7,
+       "cross_track": 148.7,
+       "edge_hdist": 148.7
+      },
+      "lip_approach": {
+       "hdist": 46.6,
+       "vh": 353.8,
+       "t": 2.333,
+       "x": -136.6,
+       "y": 768.4,
+       "z": 142.3,
+       "onground": 0,
+       "heading": 149.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 386.8,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 386.8,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.9,
+      "t0": 0.0,
+      "dur": 4.4
+     }
+    ]
+   },
+   {
+    "seed": 2,
+    "reached": true,
+    "arrival_tws": 307.4,
+    "arrival_t": 9.9,
+    "attempts": [
+     {
+      "edge": 382.4,
+      "crossing": {
+       "vh": 382.4,
+       "t": 7.275,
+       "x": -284.4,
+       "y": 807.3,
+       "z": 134.7,
+       "cross_track": 146.3,
+       "edge_hdist": 146.3
+      },
+      "lip_approach": {
+       "hdist": 54.6,
+       "vh": 347.6,
+       "t": 6.884,
+       "x": -148.0,
+       "y": 781.8,
+       "z": 146.6,
+       "onground": 0,
+       "heading": 168.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 377.8,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 377.8,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.4,
+      "t0": 0.0,
+      "dur": 9.9
+     }
+    ]
+   },
+   {
+    "seed": 3,
+    "reached": true,
+    "arrival_tws": 271.2,
+    "arrival_t": 5.3,
+    "attempts": [
+     {
+      "edge": 372.5,
+      "crossing": {
+       "vh": 372.5,
+       "t": 2.7,
+       "x": -237.2,
+       "y": 778.1,
+       "z": 145.5,
+       "cross_track": 90.8,
+       "edge_hdist": 90.8
+      },
+      "lip_approach": {
+       "hdist": 16.0,
+       "vh": 340.6,
+       "t": 2.394,
+       "x": -146.3,
+       "y": 735.1,
+       "z": 126.6,
+       "onground": 0,
+       "heading": 110.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 331.5,
+      "takeoff_near_n": 1,
+      "grounded_near_vh_max": 331.5,
+      "grounded_near_n": 1,
+      "cls": "REACHED_RL",
+      "closest_goal": 57.9,
+      "t0": 0.0,
+      "dur": 5.3
+     }
+    ]
+   },
+   {
+    "seed": 4,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 378.6,
+      "crossing": {
+       "vh": 378.6,
+       "t": 37.063,
+       "x": -285.2,
+       "y": 808.3,
+       "z": 136.7,
+       "cross_track": 147.5,
+       "edge_hdist": 147.5
+      },
+      "lip_approach": {
+       "hdist": 43.0,
+       "vh": 351.0,
+       "t": 36.71,
+       "x": -164.8,
+       "y": 771.7,
+       "z": 147.6,
+       "onground": 0,
+       "heading": -176.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 394.1,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 394.1,
+      "grounded_near_n": 5,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 61.2,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 5,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 411.5,
+      "crossing": {
+       "vh": 411.5,
+       "t": 43.794,
+       "x": -288.1,
+       "y": 811.9,
+       "z": 159.1,
+       "cross_track": 151.8,
+       "edge_hdist": 151.8
+      },
+      "lip_approach": {
+       "hdist": 37.8,
+       "vh": 400.1,
+       "t": 40.313,
+       "x": -188.8,
+       "y": 754.4,
+       "z": 144.1,
+       "onground": 0,
+       "heading": -130.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 394.1,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 394.1,
+      "grounded_near_n": 4,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 63.7,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 6,
+    "reached": true,
+    "arrival_tws": 284.7,
+    "arrival_t": 5.1,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 50.5,
+       "vh": 379.9,
+       "t": 2.296,
+       "x": -134.1,
+       "y": 771.5,
+       "z": 140.7,
+       "onground": 0,
+       "heading": 148.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 414.1,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 414.1,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.4,
+      "t0": 0.0,
+      "dur": 5.1
+     }
+    ]
+   },
+   {
+    "seed": 7,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 379.3,
+      "crossing": {
+       "vh": 379.3,
+       "t": 45.758,
+       "x": -286.0,
+       "y": 810.9,
+       "z": 139.4,
+       "cross_track": 149.5,
+       "edge_hdist": 149.5
+      },
+      "lip_approach": {
+       "hdist": 42.3,
+       "vh": 351.8,
+       "t": 45.389,
+       "x": -160.0,
+       "y": 771.1,
+       "z": 147.6,
+       "onground": 0,
+       "heading": 179.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 379.1,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 379.1,
+      "grounded_near_n": 4,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 99.4,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 8,
+    "reached": true,
+    "arrival_tws": 266.2,
+    "arrival_t": 18.0,
+    "attempts": [
+     {
+      "edge": 207.6,
+      "crossing": {
+       "vh": 207.6,
+       "t": 2.129,
+       "x": -86.7,
+       "y": 680.0,
+       "z": 98.6,
+       "cross_track": 88.9,
+       "edge_hdist": 88.9
+      },
+      "lip_approach": {
+       "hdist": 41.3,
+       "vh": 213.8,
+       "t": 2.547,
+       "x": -172.7,
+       "y": 689.2,
+       "z": 97.6,
+       "onground": 0,
+       "heading": 159.7
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 375.8,
+      "takeoff_near_n": 1,
+      "grounded_near_vh_max": 375.8,
+      "grounded_near_n": 1,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.2,
+      "t0": 0.0,
+      "dur": 18.0
+     }
+    ]
+   },
+   {
+    "seed": 9,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 400.5,
+      "crossing": {
+       "vh": 400.5,
+       "t": 3.332,
+       "x": -281.4,
+       "y": 805.2,
+       "z": 139.2,
+       "cross_track": 142.6,
+       "edge_hdist": 142.6
+      },
+      "lip_approach": {
+       "hdist": 46.6,
+       "vh": 351.8,
+       "t": 47.796,
+       "x": -166.7,
+       "y": 775.0,
+       "z": 147.4,
+       "onground": 0,
+       "heading": -179.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 395.0,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 395.0,
+      "grounded_near_n": 6,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 99.9,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 10,
+    "reached": true,
+    "arrival_tws": 282.3,
+    "arrival_t": 6.9,
+    "attempts": [
+     {
+      "edge": 399.5,
+      "crossing": {
+       "vh": 399.5,
+       "t": 2.705,
+       "x": -289.0,
+       "y": 811.0,
+       "z": 127.7,
+       "cross_track": 152.1,
+       "edge_hdist": 152.1
+      },
+      "lip_approach": {
+       "hdist": 48.3,
+       "vh": 355.4,
+       "t": 2.224,
+       "x": -121.5,
+       "y": 756.6,
+       "z": 133.8,
+       "onground": 0,
+       "heading": 126.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 397.3,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 397.3,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.4,
+      "t0": 0.0,
+      "dur": 6.9
+     }
+    ]
+   },
+   {
+    "seed": 11,
+    "reached": true,
+    "arrival_tws": 270.1,
+    "arrival_t": 5.1,
+    "attempts": [
+     {
+      "edge": 426.1,
+      "crossing": {
+       "vh": 426.1,
+       "t": 2.54,
+       "x": -247.7,
+       "y": 784.1,
+       "z": 134.8,
+       "cross_track": 102.8,
+       "edge_hdist": 102.8
+      },
+      "lip_approach": {
+       "hdist": 45.1,
+       "vh": 405.0,
+       "t": 2.239,
+       "x": -129.5,
+       "y": 761.0,
+       "z": 129.6,
+       "onground": 0,
+       "heading": 137.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 423.0,
+      "takeoff_near_n": 1,
+      "grounded_near_vh_max": 423.0,
+      "grounded_near_n": 1,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.0,
+      "t0": 0.0,
+      "dur": 5.1
+     }
+    ]
+   },
+   {
+    "seed": 12,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 391.0,
+      "crossing": {
+       "vh": 391.0,
+       "t": 27.717,
+       "x": -292.4,
+       "y": 814.9,
+       "z": 151.5,
+       "cross_track": 157.1,
+       "edge_hdist": 157.1
+      },
+      "lip_approach": {
+       "hdist": 43.5,
+       "vh": 385.2,
+       "t": 2.262,
+       "x": -163.8,
+       "y": 685.4,
+       "z": 128.5,
+       "onground": 0,
+       "heading": 175.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 377.4,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 377.4,
+      "grounded_near_n": 4,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 64.1,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 13,
+    "reached": true,
+    "arrival_tws": 313.5,
+    "arrival_t": 4.5,
+    "attempts": [
+     {
+      "edge": 409.5,
+      "crossing": {
+       "vh": 409.5,
+       "t": 2.713,
+       "x": -290.3,
+       "y": 812.1,
+       "z": 127.8,
+       "cross_track": 153.8,
+       "edge_hdist": 153.8
+      },
+      "lip_approach": {
+       "hdist": 48.3,
+       "vh": 375.0,
+       "t": 2.293,
+       "x": -135.1,
+       "y": 769.6,
+       "z": 141.0,
+       "onground": 0,
+       "heading": 147.7
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 408.5,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 408.5,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.6,
+      "t0": 0.0,
+      "dur": 4.5
+     }
+    ]
+   },
+   {
+    "seed": 14,
+    "reached": true,
+    "arrival_tws": 272.6,
+    "arrival_t": 35.0,
+    "attempts": [
+     {
+      "edge": 387.1,
+      "crossing": {
+       "vh": 387.1,
+       "t": 32.365,
+       "x": -275.5,
+       "y": 802.5,
+       "z": 132.5,
+       "cross_track": 136.2,
+       "edge_hdist": 136.2
+      },
+      "lip_approach": {
+       "hdist": 50.1,
+       "vh": 358.9,
+       "t": 32.048,
+       "x": -162.8,
+       "y": 778.8,
+       "z": 147.8,
+       "onground": 0,
+       "heading": -177.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 383.6,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 383.6,
+      "grounded_near_n": 4,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.7,
+      "t0": 0.0,
+      "dur": 35.0
+     }
+    ]
+   },
+   {
+    "seed": 15,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 382.3,
+      "crossing": {
+       "vh": 382.3,
+       "t": 24.404,
+       "x": -292.3,
+       "y": 814.0,
+       "z": 144.4,
+       "cross_track": 156.5,
+       "edge_hdist": 156.5
+      },
+      "lip_approach": {
+       "hdist": 54.7,
+       "vh": 344.1,
+       "t": 6.037,
+       "x": -125.4,
+       "y": 770.4,
+       "z": 141.1,
+       "onground": 0,
+       "heading": 140.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 395.3,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 395.3,
+      "grounded_near_n": 6,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 120.1,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 16,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 377.7,
+      "crossing": {
+       "vh": 377.7,
+       "t": 20.697,
+       "x": -282.2,
+       "y": 807.8,
+       "z": 137.1,
+       "cross_track": 144.6,
+       "edge_hdist": 144.6
+      },
+      "lip_approach": {
+       "hdist": 24.9,
+       "vh": 236.3,
+       "t": 3.012,
+       "x": -178.0,
+       "y": 747.0,
+       "z": 134.3,
+       "onground": 0,
+       "heading": -135.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 385.1,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 385.1,
+      "grounded_near_n": 5,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 100.8,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 17,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 390.7,
+      "crossing": {
+       "vh": 390.7,
+       "t": 37.516,
+       "x": -286.5,
+       "y": 809.5,
+       "z": 132.4,
+       "cross_track": 149.2,
+       "edge_hdist": 149.2
+      },
+      "lip_approach": {
+       "hdist": 43.2,
+       "vh": 359.2,
+       "t": 37.146,
+       "x": -156.7,
+       "y": 771.7,
+       "z": 146.3,
+       "onground": 0,
+       "heading": 176.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 390.8,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 390.8,
+      "grounded_near_n": 5,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 63.7,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 18,
+    "reached": true,
+    "arrival_tws": 321.0,
+    "arrival_t": 4.3,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 54.5,
+       "vh": 361.2,
+       "t": 2.275,
+       "x": -124.8,
+       "y": 769.5,
+       "z": 137.9,
+       "onground": 0,
+       "heading": 141.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 397.0,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 397.0,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.1,
+      "t0": 0.0,
+      "dur": 4.3
+     }
+    ]
+   },
+   {
+    "seed": 19,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 385.1,
+      "crossing": {
+       "vh": 385.1,
+       "t": 40.529,
+       "x": -287.5,
+       "y": 810.9,
+       "z": 134.9,
+       "cross_track": 150.8,
+       "edge_hdist": 150.8
+      },
+      "lip_approach": {
+       "hdist": 36.1,
+       "vh": 359.2,
+       "t": 28.654,
+       "x": -182.7,
+       "y": 757.7,
+       "z": 146.4,
+       "onground": 0,
+       "heading": -140.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 380.5,
+      "takeoff_near_n": 7,
+      "grounded_near_vh_max": 380.5,
+      "grounded_near_n": 7,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 98.9,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 20,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 388.3,
+      "crossing": {
+       "vh": 388.3,
+       "t": 36.791,
+       "x": -288.0,
+       "y": 810.3,
+       "z": 137.1,
+       "cross_track": 150.9,
+       "edge_hdist": 150.9
+      },
+      "lip_approach": {
+       "hdist": 47.2,
+       "vh": 351.4,
+       "t": 5.837,
+       "x": -165.5,
+       "y": 775.7,
+       "z": 147.5,
+       "onground": 0,
+       "heading": -179.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 382.0,
+      "takeoff_near_n": 8,
+      "grounded_near_vh_max": 382.0,
+      "grounded_near_n": 8,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 62.6,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 21,
+    "reached": true,
+    "arrival_tws": 230.9,
+    "arrival_t": 28.6,
+    "attempts": [
+     {
+      "edge": 387.9,
+      "crossing": {
+       "vh": 387.9,
+       "t": 6.22,
+       "x": -285.0,
+       "y": 808.6,
+       "z": 134.6,
+       "cross_track": 147.4,
+       "edge_hdist": 147.4
+      },
+      "lip_approach": {
+       "hdist": 52.3,
+       "vh": 349.9,
+       "t": 5.811,
+       "x": -140.2,
+       "y": 776.8,
+       "z": 144.9,
+       "onground": 0,
+       "heading": 158.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 384.5,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 384.5,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.6,
+      "t0": 0.0,
+      "dur": 28.6
+     }
+    ]
+   },
+   {
+    "seed": 22,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 412.5,
+      "crossing": {
+       "vh": 412.5,
+       "t": 2.755,
+       "x": -290.1,
+       "y": 812.2,
+       "z": 159.6,
+       "cross_track": 153.7,
+       "edge_hdist": 153.7
+      },
+      "lip_approach": {
+       "hdist": 55.4,
+       "vh": 382.8,
+       "t": 2.416,
+       "x": -161.6,
+       "y": 784.2,
+       "z": 129.9,
+       "onground": 0,
+       "heading": -176.7
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 393.0,
+      "takeoff_near_n": 3,
+      "grounded_near_vh_max": 393.0,
+      "grounded_near_n": 3,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 98.7,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 23,
+    "reached": true,
+    "arrival_tws": 282.0,
+    "arrival_t": 7.7,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 67.8,
+       "vh": 345.0,
+       "t": 2.527,
+       "x": -117.3,
+       "y": 780.7,
+       "z": 141.3,
+       "onground": 0,
+       "heading": 138.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 378.8,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 378.8,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.1,
+      "t0": 0.0,
+      "dur": 7.7
+     }
+    ]
+   },
+   {
+    "seed": 24,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 386.7,
+      "crossing": {
+       "vh": 386.7,
+       "t": 31.106,
+       "x": -292.8,
+       "y": 813.2,
+       "z": 141.2,
+       "cross_track": 156.5,
+       "edge_hdist": 156.5
+      },
+      "lip_approach": {
+       "hdist": 55.9,
+       "vh": 358.4,
+       "t": 4.963,
+       "x": -174.0,
+       "y": 783.2,
+       "z": 147.3,
+       "onground": 0,
+       "heading": -173.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 380.9,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 380.9,
+      "grounded_near_n": 4,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 102.4,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 25,
+    "reached": true,
+    "arrival_tws": 214.2,
+    "arrival_t": 41.2,
+    "attempts": [
+     {
+      "edge": 381.8,
+      "crossing": {
+       "vh": 381.8,
+       "t": 38.353,
+       "x": -279.6,
+       "y": 806.6,
+       "z": 132.4,
+       "cross_track": 141.8,
+       "edge_hdist": 141.8
+      },
+      "lip_approach": {
+       "hdist": 43.4,
+       "vh": 355.7,
+       "t": 38.015,
+       "x": -162.6,
+       "y": 772.1,
+       "z": 147.6,
+       "onground": 0,
+       "heading": 177.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 379.5,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 379.5,
+      "grounded_near_n": 4,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.6,
+      "t0": 0.0,
+      "dur": 41.2
+     }
+    ]
+   },
+   {
+    "seed": 26,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 385.9,
+      "crossing": {
+       "vh": 385.9,
+       "t": 43.953,
+       "x": -288.7,
+       "y": 811.5,
+       "z": 138.8,
+       "cross_track": 152.1,
+       "edge_hdist": 152.1
+      },
+      "lip_approach": {
+       "hdist": 40.0,
+       "vh": 361.1,
+       "t": 2.267,
+       "x": -125.1,
+       "y": 746.5,
+       "z": 131.0,
+       "onground": 0,
+       "heading": 119.3
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 403.4,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 403.4,
+      "grounded_near_n": 6,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 98.6,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 27,
+    "reached": true,
+    "arrival_tws": 280.2,
+    "arrival_t": 17.7,
+    "attempts": [
+     {
+      "edge": 391.7,
+      "crossing": {
+       "vh": 391.7,
+       "t": 2.748,
+       "x": -287.6,
+       "y": 811.4,
+       "z": 130.3,
+       "cross_track": 151.2,
+       "edge_hdist": 151.2
+      },
+      "lip_approach": {
+       "hdist": 50.8,
+       "vh": 361.5,
+       "t": 2.378,
+       "x": -155.2,
+       "y": 779.3,
+       "z": 146.0,
+       "onground": 0,
+       "heading": 173.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 388.3,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 388.3,
+      "grounded_near_n": 4,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.9,
+      "t0": 0.0,
+      "dur": 17.7
+     }
+    ]
+   },
+   {
+    "seed": 28,
+    "reached": true,
+    "arrival_tws": 275.8,
+    "arrival_t": 22.2,
+    "attempts": [
+     {
+      "edge": 388.7,
+      "crossing": {
+       "vh": 388.7,
+       "t": 5.478,
+       "x": -288.5,
+       "y": 811.7,
+       "z": 148.1,
+       "cross_track": 152.1,
+       "edge_hdist": 152.1
+      },
+      "lip_approach": {
+       "hdist": 20.4,
+       "vh": 389.5,
+       "t": 2.26,
+       "x": -167.2,
+       "y": 709.4,
+       "z": 130.9,
+       "onground": 0,
+       "heading": 167.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 378.4,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 378.4,
+      "grounded_near_n": 4,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.7,
+      "t0": 0.0,
+      "dur": 22.2
+     }
+    ]
+   },
+   {
+    "seed": 29,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 381.5,
+      "crossing": {
+       "vh": 381.5,
+       "t": 37.915,
+       "x": -276.7,
+       "y": 802.7,
+       "z": 132.3,
+       "cross_track": 137.3,
+       "edge_hdist": 137.3
+      },
+      "lip_approach": {
+       "hdist": 47.4,
+       "vh": 365.7,
+       "t": 2.241,
+       "x": -128.2,
+       "y": 763.0,
+       "z": 138.1,
+       "onground": 0,
+       "heading": 137.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 406.5,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 406.5,
+      "grounded_near_n": 6,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 102.3,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 30,
+    "reached": true,
+    "arrival_tws": 236.7,
+    "arrival_t": 39.6,
+    "attempts": [
+     {
+      "edge": 381.7,
+      "crossing": {
+       "vh": 381.7,
+       "t": 8.893,
+       "x": -286.1,
+       "y": 806.1,
+       "z": 137.0,
+       "cross_track": 147.0,
+       "edge_hdist": 147.1
+      },
+      "lip_approach": {
+       "hdist": 42.2,
+       "vh": 351.9,
+       "t": 8.544,
+       "x": -166.4,
+       "y": 770.7,
+       "z": 147.6,
+       "onground": 0,
+       "heading": -177.6
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 381.7,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 381.7,
+      "grounded_near_n": 6,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.2,
+      "t0": 0.0,
+      "dur": 39.6
+     }
+    ]
+   }
+  ],
+  "a2-c2": [
+   {
+    "seed": 1,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 382.3,
+      "crossing": {
+       "vh": 382.3,
+       "t": 2.998,
+       "x": -282.7,
+       "y": 808.3,
+       "z": 139.0,
+       "cross_track": 145.4,
+       "edge_hdist": 145.4
+      },
+      "lip_approach": {
+       "hdist": 44.4,
+       "vh": 352.5,
+       "t": 2.64,
+       "x": -159.8,
+       "y": 773.2,
+       "z": 147.6,
+       "onground": 0,
+       "heading": 174.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 376.5,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 376.5,
+      "grounded_near_n": 2,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 77.8,
+      "t0": 0.0,
+      "dur": 18.0
+     },
+     {
+      "edge": 386.8,
+      "crossing": {
+       "vh": 386.8,
+       "t": 47.849,
+       "x": -185.8,
+       "y": 744.1,
+       "z": 120.0,
+       "cross_track": 29.1,
+       "edge_hdist": 29.1
+      },
+      "lip_approach": {
+       "hdist": 5.0,
+       "vh": 363.5,
+       "t": 35.51,
+       "x": -166.0,
+       "y": 728.6,
+       "z": 145.2,
+       "onground": 0,
+       "heading": -101.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 381.5,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 381.5,
+      "grounded_near_n": 4,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 68.4,
+      "t0": 18.053,
+      "dur": 30.0
+     }
+    ]
+   },
+   {
+    "seed": 2,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 384.2,
+      "crossing": {
+       "vh": 384.2,
+       "t": 24.816,
+       "x": -266.2,
+       "y": 794.1,
+       "z": 120.0,
+       "cross_track": 123.8,
+       "edge_hdist": 123.8
+      },
+      "lip_approach": {
+       "hdist": 19.1,
+       "vh": 392.2,
+       "t": 2.317,
+       "x": -153.5,
+       "y": 746.4,
+       "z": 139.3,
+       "onground": 0,
+       "heading": 157.3
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 384.2,
+      "takeoff_near_n": 3,
+      "grounded_near_vh_max": 384.2,
+      "grounded_near_n": 3,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 61.0,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 3,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 401.5,
+      "crossing": {
+       "vh": 401.5,
+       "t": 44.68,
+       "x": -286.6,
+       "y": 810.9,
+       "z": 144.5,
+       "cross_track": 150.0,
+       "edge_hdist": 150.0
+      },
+      "lip_approach": {
+       "hdist": 17.1,
+       "vh": 358.5,
+       "t": 39.543,
+       "x": -144.0,
+       "y": 727.2,
+       "z": 146.5,
+       "onground": 0,
+       "heading": -100.7
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 392.7,
+      "takeoff_near_n": 17,
+      "grounded_near_vh_max": 392.7,
+      "grounded_near_n": 17,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 70.3,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 4,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 393.6,
+      "crossing": {
+       "vh": 393.6,
+       "t": 25.368,
+       "x": -287.5,
+       "y": 811.9,
+       "z": 148.2,
+       "cross_track": 151.4,
+       "edge_hdist": 151.4
+      },
+      "lip_approach": {
+       "hdist": 34.2,
+       "vh": 361.2,
+       "t": 16.146,
+       "x": -186.2,
+       "y": 752.0,
+       "z": 145.8,
+       "onground": 0,
+       "heading": -131.6
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 385.7,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 385.7,
+      "grounded_near_n": 5,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 79.5,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 5,
+    "reached": true,
+    "arrival_tws": 232.8,
+    "arrival_t": 41.6,
+    "attempts": [
+     {
+      "edge": 385.5,
+      "crossing": {
+       "vh": 385.5,
+       "t": 38.714,
+       "x": -284.1,
+       "y": 807.1,
+       "z": 137.1,
+       "cross_track": 145.9,
+       "edge_hdist": 145.9
+      },
+      "lip_approach": {
+       "hdist": 5.9,
+       "vh": 347.9,
+       "t": 2.531,
+       "x": -164.0,
+       "y": 733.8,
+       "z": 146.7,
+       "onground": 0,
+       "heading": -135.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 391.1,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 391.1,
+      "grounded_near_n": 5,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.0,
+      "t0": 0.0,
+      "dur": 41.6
+     }
+    ]
+   },
+   {
+    "seed": 6,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 354.1,
+      "crossing": {
+       "vh": 354.1,
+       "t": 45.632,
+       "x": -183.7,
+       "y": 742.0,
+       "z": 147.7,
+       "cross_track": 26.2,
+       "edge_hdist": 26.2
+      },
+      "lip_approach": {
+       "hdist": 20.9,
+       "vh": 350.4,
+       "t": 45.582,
+       "x": -167.4,
+       "y": 748.7,
+       "z": 146.2,
+       "onground": 0,
+       "heading": -159.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 374.2,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 374.2,
+      "grounded_near_n": 4,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 122.9,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 7,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 361.0,
+      "crossing": {
+       "vh": 361.0,
+       "t": 41.762,
+       "x": -150.1,
+       "y": 718.4,
+       "z": 145.7,
+       "cross_track": 14.9,
+       "edge_hdist": 15.1
+      },
+      "lip_approach": {
+       "hdist": 7.8,
+       "vh": 261.3,
+       "t": 2.656,
+       "x": -153.9,
+       "y": 725.6,
+       "z": 154.9,
+       "onground": 0,
+       "heading": -97.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 396.3,
+      "takeoff_near_n": 15,
+      "grounded_near_vh_max": 396.3,
+      "grounded_near_n": 15,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 70.7,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 8,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 369.7,
+      "crossing": {
+       "vh": 369.7,
+       "t": 23.871,
+       "x": -212.4,
+       "y": 756.4,
+       "z": 116.5,
+       "cross_track": 58.1,
+       "edge_hdist": 58.4
+      },
+      "lip_approach": {
+       "hdist": 18.5,
+       "vh": 249.7,
+       "t": 4.407,
+       "x": -173.6,
+       "y": 742.4,
+       "z": 129.3,
+       "onground": 0,
+       "heading": -141.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 381.8,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 381.8,
+      "grounded_near_n": 4,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 121.4,
+      "t0": 0.0,
+      "dur": 33.5
+     },
+     {
+      "edge": 357.0,
+      "crossing": {
+       "vh": 357.0,
+       "t": 35.991,
+       "x": -179.9,
+       "y": 738.8,
+       "z": 147.8,
+       "cross_track": 21.3,
+       "edge_hdist": 21.4
+      },
+      "lip_approach": {
+       "hdist": 19.1,
+       "vh": 353.3,
+       "t": 35.95,
+       "x": -167.7,
+       "y": 746.7,
+       "z": 147.2,
+       "onground": 0,
+       "heading": -150.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 374.2,
+      "takeoff_near_n": 3,
+      "grounded_near_vh_max": 374.2,
+      "grounded_near_n": 3,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 98.3,
+      "t0": 33.538,
+      "dur": 14.6
+     }
+    ]
+   },
+   {
+    "seed": 9,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 382.7,
+      "crossing": {
+       "vh": 382.7,
+       "t": 31.129,
+       "x": -280.8,
+       "y": 807.5,
+       "z": 144.7,
+       "cross_track": 143.3,
+       "edge_hdist": 143.3
+      },
+      "lip_approach": {
+       "hdist": 17.0,
+       "vh": 360.6,
+       "t": 28.44,
+       "x": -144.8,
+       "y": 723.5,
+       "z": 145.2,
+       "onground": 0,
+       "heading": -92.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 384.4,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 384.4,
+      "grounded_near_n": 5,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 98.6,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 10,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 382.9,
+      "crossing": {
+       "vh": 382.9,
+       "t": 33.65,
+       "x": -273.0,
+       "y": 801.5,
+       "z": 140.7,
+       "cross_track": 133.6,
+       "edge_hdist": 133.6
+      },
+      "lip_approach": {
+       "hdist": 2.5,
+       "vh": 348.8,
+       "t": 8.814,
+       "x": -161.3,
+       "y": 731.3,
+       "z": 146.3,
+       "onground": 0,
+       "heading": -136.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 377.1,
+      "takeoff_near_n": 13,
+      "grounded_near_vh_max": 377.1,
+      "grounded_near_n": 13,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 69.0,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 11,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 370.7,
+      "crossing": {
+       "vh": 370.7,
+       "t": 2.504,
+       "x": -211.7,
+       "y": 762.2,
+       "z": 147.7,
+       "cross_track": 60.7,
+       "edge_hdist": 60.7
+      },
+      "lip_approach": {
+       "hdist": 23.8,
+       "vh": 353.8,
+       "t": 2.328,
+       "x": -149.8,
+       "y": 749.7,
+       "z": 136.9,
+       "onground": 0,
+       "heading": 151.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 338.6,
+      "takeoff_near_n": 1,
+      "grounded_near_vh_max": 338.6,
+      "grounded_near_n": 1,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 185.2,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 12,
+    "reached": true,
+    "arrival_tws": 308.3,
+    "arrival_t": 4.4,
+    "attempts": [
+     {
+      "edge": 379.4,
+      "crossing": {
+       "vh": 379.4,
+       "t": 2.763,
+       "x": -267.3,
+       "y": 796.7,
+       "z": 124.6,
+       "cross_track": 126.2,
+       "edge_hdist": 126.2
+      },
+      "lip_approach": {
+       "hdist": 29.4,
+       "vh": 353.1,
+       "t": 2.453,
+       "x": -163.0,
+       "y": 758.2,
+       "z": 145.5,
+       "onground": 0,
+       "heading": -178.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 380.6,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 380.6,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.7,
+      "t0": 0.0,
+      "dur": 4.4
+     }
+    ]
+   },
+   {
+    "seed": 13,
+    "reached": true,
+    "arrival_tws": 281.8,
+    "arrival_t": 8.4,
+    "attempts": [
+     {
+      "edge": 381.2,
+      "crossing": {
+       "vh": 381.2,
+       "t": 5.163,
+       "x": -277.5,
+       "y": 803.3,
+       "z": 130.2,
+       "cross_track": 138.3,
+       "edge_hdist": 138.3
+      },
+      "lip_approach": {
+       "hdist": 35.5,
+       "vh": 351.4,
+       "t": 4.825,
+       "x": -162.9,
+       "y": 764.2,
+       "z": 147.1,
+       "onground": 0,
+       "heading": 179.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 378.9,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 378.9,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.8,
+      "t0": 0.0,
+      "dur": 8.4
+     }
+    ]
+   },
+   {
+    "seed": 14,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 402.7,
+      "crossing": {
+       "vh": 402.7,
+       "t": 34.202,
+       "x": -284.7,
+       "y": 810.0,
+       "z": 163.1,
+       "cross_track": 148.0,
+       "edge_hdist": 148.0
+      },
+      "lip_approach": {
+       "hdist": 12.2,
+       "vh": 368.6,
+       "t": 14.648,
+       "x": -148.9,
+       "y": 727.6,
+       "z": 144.1,
+       "onground": 0,
+       "heading": -86.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 376.9,
+      "takeoff_near_n": 18,
+      "grounded_near_vh_max": 376.9,
+      "grounded_near_n": 18,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 61.0,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 15,
+    "reached": true,
+    "arrival_tws": 311.8,
+    "arrival_t": 4.9,
+    "attempts": [
+     {
+      "edge": 403.7,
+      "crossing": {
+       "vh": 403.7,
+       "t": 3.295,
+       "x": -290.8,
+       "y": 812.0,
+       "z": 143.0,
+       "cross_track": 154.2,
+       "edge_hdist": 154.2
+      },
+      "lip_approach": {
+       "hdist": 57.2,
+       "vh": 374.5,
+       "t": 2.934,
+       "x": -156.7,
+       "y": 785.8,
+       "z": 147.4,
+       "onground": 0,
+       "heading": 176.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 396.1,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 396.1,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 56.1,
+      "t0": 0.0,
+      "dur": 4.9
+     }
+    ]
+   },
+   {
+    "seed": 16,
+    "reached": true,
+    "arrival_tws": 260.2,
+    "arrival_t": 43.2,
+    "attempts": [
+     {
+      "edge": 358.3,
+      "crossing": {
+       "vh": 358.3,
+       "t": 35.232,
+       "x": -169.8,
+       "y": 733.0,
+       "z": 147.6,
+       "cross_track": 9.7,
+       "edge_hdist": 9.8
+      },
+      "lip_approach": {
+       "hdist": 8.0,
+       "vh": 365.6,
+       "t": 21.619,
+       "x": -153.1,
+       "y": 727.6,
+       "z": 143.1,
+       "onground": 0,
+       "heading": -94.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 391.1,
+      "takeoff_near_n": 7,
+      "grounded_near_vh_max": 391.1,
+      "grounded_near_n": 7,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.9,
+      "t0": 0.0,
+      "dur": 43.2
+     }
+    ]
+   },
+   {
+    "seed": 17,
+    "reached": true,
+    "arrival_tws": 261.8,
+    "arrival_t": 12.0,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 208.4,
+       "vh": 257.9,
+       "t": 1.779,
+       "x": 37.1,
+       "y": 664.1,
+       "z": 96.2,
+       "onground": 0,
+       "heading": -140.5
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 273.0,
+      "t0": 0.0,
+      "dur": 4.4
+     },
+     {
+      "edge": 363.6,
+      "crossing": {
+       "vh": 363.6,
+       "t": 8.413,
+       "x": -200.4,
+       "y": 752.4,
+       "z": 144.2,
+       "cross_track": 45.9,
+       "edge_hdist": 45.9
+      },
+      "lip_approach": {
+       "hdist": 42.2,
+       "vh": 357.5,
+       "t": 8.342,
+       "x": -179.4,
+       "y": 766.8,
+       "z": 147.5,
+       "onground": 0,
+       "heading": -151.7
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 379.3,
+      "takeoff_near_n": 3,
+      "grounded_near_vh_max": 379.3,
+      "grounded_near_n": 3,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.3,
+      "t0": 4.447,
+      "dur": 12.0
+     }
+    ]
+   },
+   {
+    "seed": 18,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 353.6,
+      "crossing": {
+       "vh": 353.6,
+       "t": 45.166,
+       "x": -178.5,
+       "y": 740.8,
+       "z": 147.7,
+       "cross_track": 21.2,
+       "edge_hdist": 21.2
+      },
+      "lip_approach": {
+       "hdist": 17.4,
+       "vh": 346.8,
+       "t": 42.123,
+       "x": -170.1,
+       "y": 743.7,
+       "z": 147.2,
+       "onground": 0,
+       "heading": -148.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 378.8,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 378.8,
+      "grounded_near_n": 6,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 71.5,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 19,
+    "reached": true,
+    "arrival_tws": 290.6,
+    "arrival_t": 5.0,
+    "attempts": [
+     {
+      "edge": 309.9,
+      "crossing": {
+       "vh": 309.9,
+       "t": 2.924,
+       "x": -259.7,
+       "y": 793.1,
+       "z": 159.5,
+       "cross_track": 117.8,
+       "edge_hdist": 117.8
+      },
+      "lip_approach": {
+       "hdist": 23.2,
+       "vh": 260.9,
+       "t": 2.512,
+       "x": -153.6,
+       "y": 750.8,
+       "z": 125.4,
+       "onground": 0,
+       "heading": 163.6
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 259.2,
+      "takeoff_near_n": 1,
+      "grounded_near_vh_max": 259.2,
+      "grounded_near_n": 1,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.1,
+      "t0": 0.0,
+      "dur": 5.0
+     }
+    ]
+   },
+   {
+    "seed": 20,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 419.2,
+      "crossing": {
+       "vh": 419.2,
+       "t": 43.477,
+       "x": -235.7,
+       "y": 776.7,
+       "z": 116.5,
+       "cross_track": 88.7,
+       "edge_hdist": 88.7
+      },
+      "lip_approach": {
+       "hdist": 10.5,
+       "vh": 346.5,
+       "t": 24.078,
+       "x": -165.6,
+       "y": 738.2,
+       "z": 146.9,
+       "onground": 0,
+       "heading": -145.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 391.2,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 391.2,
+      "grounded_near_n": 5,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 98.8,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 21,
+    "reached": true,
+    "arrival_tws": 223.5,
+    "arrival_t": 24.4,
+    "attempts": [
+     {
+      "edge": 376.6,
+      "crossing": {
+       "vh": 376.6,
+       "t": 22.762,
+       "x": -265.2,
+       "y": 796.5,
+       "z": 125.9,
+       "cross_track": 124.3,
+       "edge_hdist": 124.3
+      },
+      "lip_approach": {
+       "hdist": 27.0,
+       "vh": 342.6,
+       "t": 22.423,
+       "x": -155.6,
+       "y": 755.3,
+       "z": 143.1,
+       "onground": 0,
+       "heading": 171.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 381.8,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 381.8,
+      "grounded_near_n": 4,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.3,
+      "t0": 0.0,
+      "dur": 24.4
+     }
+    ]
+   },
+   {
+    "seed": 22,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 390.9,
+      "crossing": {
+       "vh": 390.9,
+       "t": 14.063,
+       "x": -294.2,
+       "y": 815.7,
+       "z": 151.5,
+       "cross_track": 159.0,
+       "edge_hdist": 159.0
+      },
+      "lip_approach": {
+       "hdist": 22.5,
+       "vh": 358.9,
+       "t": 11.145,
+       "x": -138.6,
+       "y": 726.4,
+       "z": 147.2,
+       "onground": 0,
+       "heading": -95.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 379.5,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 379.5,
+      "grounded_near_n": 5,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 67.7,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 23,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 403.6,
+      "crossing": {
+       "vh": 403.6,
+       "t": 5.698,
+       "x": -294.3,
+       "y": 814.2,
+       "z": 161.5,
+       "cross_track": 158.3,
+       "edge_hdist": 158.3
+      },
+      "lip_approach": {
+       "hdist": 21.6,
+       "vh": 366.1,
+       "t": 2.457,
+       "x": -175.6,
+       "y": 744.7,
+       "z": 147.8,
+       "onground": 0,
+       "heading": -138.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 384.7,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 384.7,
+      "grounded_near_n": 2,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 120.9,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 24,
+    "reached": true,
+    "arrival_tws": 298.2,
+    "arrival_t": 11.1,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 253.8,
+       "vh": 325.4,
+       "t": 1.658,
+       "x": 60.3,
+       "y": 604.5,
+       "z": 99.5,
+       "onground": 0,
+       "heading": -119.0
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 235.6,
+      "t0": 0.0,
+      "dur": 10.7
+     },
+     {
+      "edge": 391.1,
+      "crossing": {
+       "vh": 391.1,
+       "t": 14.306,
+       "x": -197.5,
+       "y": 744.0,
+       "z": 139.3,
+       "cross_track": 38.9,
+       "edge_hdist": 39.6
+      },
+      "lip_approach": {
+       "hdist": 36.8,
+       "vh": 387.7,
+       "t": 14.254,
+       "x": -183.1,
+       "y": 758.2,
+       "z": 144.3,
+       "onground": 0,
+       "heading": -139.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 374.2,
+      "takeoff_near_n": 3,
+      "grounded_near_vh_max": 374.2,
+      "grounded_near_n": 3,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.0,
+      "t0": 10.736,
+      "dur": 11.1
+     }
+    ]
+   },
+   {
+    "seed": 25,
+    "reached": true,
+    "arrival_tws": 296.2,
+    "arrival_t": 28.7,
+    "attempts": [
+     {
+      "edge": 382.5,
+      "crossing": {
+       "vh": 382.5,
+       "t": 25.404,
+       "x": -271.8,
+       "y": 799.5,
+       "z": 130.2,
+       "cross_track": 131.4,
+       "edge_hdist": 131.4
+      },
+      "lip_approach": {
+       "hdist": 14.9,
+       "vh": 350.0,
+       "t": 9.762,
+       "x": -171.3,
+       "y": 739.5,
+       "z": 146.7,
+       "onground": 0,
+       "heading": -131.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 380.2,
+      "takeoff_near_n": 20,
+      "grounded_near_vh_max": 380.2,
+      "grounded_near_n": 20,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.6,
+      "t0": 0.0,
+      "dur": 28.7
+     }
+    ]
+   },
+   {
+    "seed": 26,
+    "reached": true,
+    "arrival_tws": 318.2,
+    "arrival_t": 4.6,
+    "attempts": [
+     {
+      "edge": 410.5,
+      "crossing": {
+       "vh": 410.5,
+       "t": 3.09,
+       "x": -282.3,
+       "y": 808.2,
+       "z": 135.1,
+       "cross_track": 145.0,
+       "edge_hdist": 145.0
+      },
+      "lip_approach": {
+       "hdist": 59.3,
+       "vh": 381.8,
+       "t": 2.77,
+       "x": -160.9,
+       "y": 788.1,
+       "z": 147.8,
+       "onground": 0,
+       "heading": 178.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 406.3,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 406.3,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.5,
+      "t0": 0.0,
+      "dur": 4.6
+     }
+    ]
+   },
+   {
+    "seed": 27,
+    "reached": true,
+    "arrival_tws": 295.8,
+    "arrival_t": 22.9,
+    "attempts": [
+     {
+      "edge": 400.3,
+      "crossing": {
+       "vh": 400.3,
+       "t": 5.318,
+       "x": -291.7,
+       "y": 813.5,
+       "z": 163.3,
+       "cross_track": 155.7,
+       "edge_hdist": 155.7
+      },
+      "lip_approach": {
+       "hdist": 11.2,
+       "vh": 148.6,
+       "t": 2.98,
+       "x": -150.0,
+       "y": 726.4,
+       "z": 147.6,
+       "onground": 0,
+       "heading": -91.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 376.7,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 376.7,
+      "grounded_near_n": 4,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.8,
+      "t0": 0.0,
+      "dur": 22.9
+     }
+    ]
+   },
+   {
+    "seed": 28,
+    "reached": true,
+    "arrival_tws": 250.6,
+    "arrival_t": 9.1,
+    "attempts": [
+     {
+      "edge": 385.0,
+      "crossing": {
+       "vh": 385.0,
+       "t": 7.561,
+       "x": -282.7,
+       "y": 808.4,
+       "z": 134.5,
+       "cross_track": 145.5,
+       "edge_hdist": 145.5
+      },
+      "lip_approach": {
+       "hdist": 9.4,
+       "vh": 184.6,
+       "t": 3.007,
+       "x": -151.7,
+       "y": 729.2,
+       "z": 163.8,
+       "onground": 0,
+       "heading": -76.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 380.4,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 380.4,
+      "grounded_near_n": 5,
+      "cls": "REACHED_RL",
+      "closest_goal": 57.0,
+      "t0": 0.0,
+      "dur": 9.1
+     }
+    ]
+   },
+   {
+    "seed": 29,
+    "reached": true,
+    "arrival_tws": 231.4,
+    "arrival_t": 26.2,
+    "attempts": [
+     {
+      "edge": 383.5,
+      "crossing": {
+       "vh": 383.5,
+       "t": 24.586,
+       "x": -278.7,
+       "y": 804.0,
+       "z": 132.5,
+       "cross_track": 139.7,
+       "edge_hdist": 139.7
+      },
+      "lip_approach": {
+       "hdist": 27.5,
+       "vh": 355.9,
+       "t": 8.299,
+       "x": -160.5,
+       "y": 756.3,
+       "z": 145.6,
+       "onground": 0,
+       "heading": -178.7
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 389.9,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 389.9,
+      "grounded_near_n": 5,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.7,
+      "t0": 0.0,
+      "dur": 26.2
+     }
+    ]
+   },
+   {
+    "seed": 30,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 393.5,
+      "crossing": {
+       "vh": 393.5,
+       "t": 31.234,
+       "x": -275.0,
+       "y": 803.6,
+       "z": 134.8,
+       "cross_track": 136.3,
+       "edge_hdist": 136.3
+      },
+      "lip_approach": {
+       "hdist": 3.7,
+       "vh": 350.3,
+       "t": 5.389,
+       "x": -162.5,
+       "y": 732.2,
+       "z": 147.3,
+       "onground": 0,
+       "heading": -130.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 390.1,
+      "takeoff_near_n": 18,
+      "grounded_near_vh_max": 390.1,
+      "grounded_near_n": 18,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 65.1,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   }
+  ],
+  "a2-c3": [
+   {
+    "seed": 1,
+    "reached": true,
+    "arrival_tws": 316.5,
+    "arrival_t": 4.4,
+    "attempts": [
+     {
+      "edge": 390.2,
+      "crossing": {
+       "vh": 390.2,
+       "t": 2.757,
+       "x": -285.6,
+       "y": 810.0,
+       "z": 130.7,
+       "cross_track": 148.7,
+       "edge_hdist": 148.7
+      },
+      "lip_approach": {
+       "hdist": 46.6,
+       "vh": 353.8,
+       "t": 2.333,
+       "x": -136.6,
+       "y": 768.4,
+       "z": 142.3,
+       "onground": 0,
+       "heading": 149.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 386.8,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 386.8,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.9,
+      "t0": 0.0,
+      "dur": 4.4
+     }
+    ]
+   },
+   {
+    "seed": 2,
+    "reached": true,
+    "arrival_tws": 307.4,
+    "arrival_t": 9.9,
+    "attempts": [
+     {
+      "edge": 382.4,
+      "crossing": {
+       "vh": 382.4,
+       "t": 7.275,
+       "x": -284.4,
+       "y": 807.3,
+       "z": 134.7,
+       "cross_track": 146.3,
+       "edge_hdist": 146.3
+      },
+      "lip_approach": {
+       "hdist": 54.6,
+       "vh": 347.6,
+       "t": 6.884,
+       "x": -148.0,
+       "y": 781.8,
+       "z": 146.6,
+       "onground": 0,
+       "heading": 168.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 377.8,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 377.8,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.4,
+      "t0": 0.0,
+      "dur": 9.9
+     }
+    ]
+   },
+   {
+    "seed": 3,
+    "reached": true,
+    "arrival_tws": 271.2,
+    "arrival_t": 5.3,
+    "attempts": [
+     {
+      "edge": 372.5,
+      "crossing": {
+       "vh": 372.5,
+       "t": 2.7,
+       "x": -237.2,
+       "y": 778.1,
+       "z": 145.5,
+       "cross_track": 90.8,
+       "edge_hdist": 90.8
+      },
+      "lip_approach": {
+       "hdist": 16.0,
+       "vh": 340.6,
+       "t": 2.394,
+       "x": -146.3,
+       "y": 735.1,
+       "z": 126.6,
+       "onground": 0,
+       "heading": 110.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 331.5,
+      "takeoff_near_n": 1,
+      "grounded_near_vh_max": 331.5,
+      "grounded_near_n": 1,
+      "cls": "REACHED_RL",
+      "closest_goal": 57.9,
+      "t0": 0.0,
+      "dur": 5.3
+     }
+    ]
+   },
+   {
+    "seed": 4,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 360.5,
+      "crossing": {
+       "vh": 360.5,
+       "t": 42.15,
+       "x": -191.2,
+       "y": 748.2,
+       "z": 143.8,
+       "cross_track": 35.9,
+       "edge_hdist": 35.9
+      },
+      "lip_approach": {
+       "hdist": 35.4,
+       "vh": 358.1,
+       "t": 42.13,
+       "x": -186.3,
+       "y": 753.5,
+       "z": 145.2,
+       "onground": 0,
+       "heading": -134.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 394.1,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 394.1,
+      "grounded_near_n": 4,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 61.2,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 5,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 384.8,
+      "crossing": {
+       "vh": 384.8,
+       "t": 46.4,
+       "x": -293.6,
+       "y": 814.1,
+       "z": 143.2,
+       "cross_track": 157.7,
+       "edge_hdist": 157.7
+      },
+      "lip_approach": {
+       "hdist": 55.6,
+       "vh": 334.9,
+       "t": 45.868,
+       "x": -116.3,
+       "y": 761.8,
+       "z": 136.7,
+       "onground": 0,
+       "heading": 126.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 380.0,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 380.0,
+      "grounded_near_n": 6,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 63.7,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 6,
+    "reached": true,
+    "arrival_tws": 284.7,
+    "arrival_t": 5.1,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 50.5,
+       "vh": 379.9,
+       "t": 2.296,
+       "x": -134.1,
+       "y": 771.5,
+       "z": 140.7,
+       "onground": 0,
+       "heading": 148.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 414.1,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 414.1,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.4,
+      "t0": 0.0,
+      "dur": 5.1
+     }
+    ]
+   },
+   {
+    "seed": 7,
+    "reached": true,
+    "arrival_tws": 269.2,
+    "arrival_t": 17.3,
+    "attempts": [
+     {
+      "edge": 287.7,
+      "crossing": {
+       "vh": 287.7,
+       "t": 15.387,
+       "x": -284.9,
+       "y": 808.5,
+       "z": 154.3,
+       "cross_track": 147.3,
+       "edge_hdist": 147.3
+      },
+      "lip_approach": {
+       "hdist": 46.1,
+       "vh": 208.4,
+       "t": 14.77,
+       "x": -141.5,
+       "y": 770.6,
+       "z": 141.4,
+       "onground": 0,
+       "heading": 146.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 226.5,
+      "takeoff_near_n": 7,
+      "grounded_near_vh_max": 226.5,
+      "grounded_near_n": 7,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.8,
+      "t0": 0.0,
+      "dur": 17.3
+     }
+    ]
+   },
+   {
+    "seed": 8,
+    "reached": true,
+    "arrival_tws": 266.2,
+    "arrival_t": 18.0,
+    "attempts": [
+     {
+      "edge": 207.6,
+      "crossing": {
+       "vh": 207.6,
+       "t": 2.129,
+       "x": -86.7,
+       "y": 680.0,
+       "z": 98.6,
+       "cross_track": 88.9,
+       "edge_hdist": 88.9
+      },
+      "lip_approach": {
+       "hdist": 41.3,
+       "vh": 213.8,
+       "t": 2.547,
+       "x": -172.7,
+       "y": 689.2,
+       "z": 97.6,
+       "onground": 0,
+       "heading": 159.7
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 375.8,
+      "takeoff_near_n": 1,
+      "grounded_near_vh_max": 375.8,
+      "grounded_near_n": 1,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.2,
+      "t0": 0.0,
+      "dur": 18.0
+     }
+    ]
+   },
+   {
+    "seed": 9,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 400.5,
+      "crossing": {
+       "vh": 400.5,
+       "t": 3.332,
+       "x": -281.4,
+       "y": 805.2,
+       "z": 139.2,
+       "cross_track": 142.6,
+       "edge_hdist": 142.6
+      },
+      "lip_approach": {
+       "hdist": 46.6,
+       "vh": 351.8,
+       "t": 47.796,
+       "x": -166.7,
+       "y": 775.0,
+       "z": 147.4,
+       "onground": 0,
+       "heading": -179.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 395.0,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 395.0,
+      "grounded_near_n": 6,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 99.9,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 10,
+    "reached": true,
+    "arrival_tws": 273.3,
+    "arrival_t": 7.0,
+    "attempts": [
+     {
+      "edge": 399.5,
+      "crossing": {
+       "vh": 399.5,
+       "t": 2.705,
+       "x": -289.0,
+       "y": 811.0,
+       "z": 127.7,
+       "cross_track": 152.1,
+       "edge_hdist": 152.1
+      },
+      "lip_approach": {
+       "hdist": 48.3,
+       "vh": 355.4,
+       "t": 2.224,
+       "x": -121.5,
+       "y": 756.6,
+       "z": 133.8,
+       "onground": 0,
+       "heading": 126.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 397.3,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 397.3,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.7,
+      "t0": 0.0,
+      "dur": 7.0
+     }
+    ]
+   },
+   {
+    "seed": 11,
+    "reached": true,
+    "arrival_tws": 270.1,
+    "arrival_t": 5.1,
+    "attempts": [
+     {
+      "edge": 426.1,
+      "crossing": {
+       "vh": 426.1,
+       "t": 2.54,
+       "x": -247.7,
+       "y": 784.1,
+       "z": 134.8,
+       "cross_track": 102.8,
+       "edge_hdist": 102.8
+      },
+      "lip_approach": {
+       "hdist": 45.1,
+       "vh": 405.0,
+       "t": 2.239,
+       "x": -129.5,
+       "y": 761.0,
+       "z": 129.6,
+       "onground": 0,
+       "heading": 137.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 423.0,
+      "takeoff_near_n": 1,
+      "grounded_near_vh_max": 423.0,
+      "grounded_near_n": 1,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.0,
+      "t0": 0.0,
+      "dur": 5.1
+     }
+    ]
+   },
+   {
+    "seed": 12,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 391.0,
+      "crossing": {
+       "vh": 391.0,
+       "t": 27.717,
+       "x": -292.4,
+       "y": 814.9,
+       "z": 151.5,
+       "cross_track": 157.1,
+       "edge_hdist": 157.1
+      },
+      "lip_approach": {
+       "hdist": 43.5,
+       "vh": 385.2,
+       "t": 2.262,
+       "x": -163.8,
+       "y": 685.4,
+       "z": 128.5,
+       "onground": 0,
+       "heading": 175.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 377.4,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 377.4,
+      "grounded_near_n": 4,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 64.1,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 13,
+    "reached": true,
+    "arrival_tws": 313.5,
+    "arrival_t": 4.5,
+    "attempts": [
+     {
+      "edge": 409.5,
+      "crossing": {
+       "vh": 409.5,
+       "t": 2.713,
+       "x": -290.3,
+       "y": 812.1,
+       "z": 127.8,
+       "cross_track": 153.8,
+       "edge_hdist": 153.8
+      },
+      "lip_approach": {
+       "hdist": 48.3,
+       "vh": 375.0,
+       "t": 2.293,
+       "x": -135.1,
+       "y": 769.6,
+       "z": 141.0,
+       "onground": 0,
+       "heading": 147.7
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 408.5,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 408.5,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.6,
+      "t0": 0.0,
+      "dur": 4.5
+     }
+    ]
+   },
+   {
+    "seed": 14,
+    "reached": true,
+    "arrival_tws": 288.0,
+    "arrival_t": 14.5,
+    "attempts": [
+     {
+      "edge": 388.4,
+      "crossing": {
+       "vh": 388.4,
+       "t": 11.196,
+       "x": -286.3,
+       "y": 808.7,
+       "z": 143.0,
+       "cross_track": 148.6,
+       "edge_hdist": 148.6
+      },
+      "lip_approach": {
+       "hdist": 59.2,
+       "vh": 357.9,
+       "t": 10.869,
+       "x": -169.7,
+       "y": 787.4,
+       "z": 146.9,
+       "onground": 0,
+       "heading": -176.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 380.4,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 380.4,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 55.2,
+      "t0": 0.0,
+      "dur": 14.5
+     }
+    ]
+   },
+   {
+    "seed": 15,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 387.4,
+      "crossing": {
+       "vh": 387.4,
+       "t": 33.606,
+       "x": -281.4,
+       "y": 805.0,
+       "z": 130.3,
+       "cross_track": 142.4,
+       "edge_hdist": 142.4
+      },
+      "lip_approach": {
+       "hdist": 40.6,
+       "vh": 358.7,
+       "t": 30.298,
+       "x": -192.2,
+       "y": 754.8,
+       "z": 144.5,
+       "onground": 0,
+       "heading": -127.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 384.0,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 384.0,
+      "grounded_near_n": 5,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 85.8,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 16,
+    "reached": true,
+    "arrival_tws": 262.1,
+    "arrival_t": 22.9,
+    "attempts": [
+     {
+      "edge": 383.6,
+      "crossing": {
+       "vh": 383.6,
+       "t": 20.116,
+       "x": -279.1,
+       "y": 804.1,
+       "z": 137.1,
+       "cross_track": 140.0,
+       "edge_hdist": 140.0
+      },
+      "lip_approach": {
+       "hdist": 24.9,
+       "vh": 236.3,
+       "t": 3.012,
+       "x": -178.0,
+       "y": 747.0,
+       "z": 134.3,
+       "onground": 0,
+       "heading": -135.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 385.1,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 385.1,
+      "grounded_near_n": 5,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.8,
+      "t0": 0.0,
+      "dur": 22.9
+     }
+    ]
+   },
+   {
+    "seed": 17,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 390.7,
+      "crossing": {
+       "vh": 390.7,
+       "t": 37.516,
+       "x": -286.5,
+       "y": 809.5,
+       "z": 132.4,
+       "cross_track": 149.2,
+       "edge_hdist": 149.2
+      },
+      "lip_approach": {
+       "hdist": 43.2,
+       "vh": 359.2,
+       "t": 37.146,
+       "x": -156.7,
+       "y": 771.7,
+       "z": 146.3,
+       "onground": 0,
+       "heading": 176.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 390.8,
+      "takeoff_near_n": 7,
+      "grounded_near_vh_max": 390.8,
+      "grounded_near_n": 7,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 63.7,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 18,
+    "reached": true,
+    "arrival_tws": 321.0,
+    "arrival_t": 4.3,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 54.5,
+       "vh": 361.2,
+       "t": 2.275,
+       "x": -124.8,
+       "y": 769.5,
+       "z": 137.9,
+       "onground": 0,
+       "heading": 141.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 397.0,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 397.0,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.1,
+      "t0": 0.0,
+      "dur": 4.3
+     }
+    ]
+   },
+   {
+    "seed": 19,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 384.6,
+      "crossing": {
+       "vh": 384.6,
+       "t": 24.932,
+       "x": -283.8,
+       "y": 807.9,
+       "z": 136.9,
+       "cross_track": 146.1,
+       "edge_hdist": 146.1
+      },
+      "lip_approach": {
+       "hdist": 48.8,
+       "vh": 356.3,
+       "t": 24.594,
+       "x": -165.4,
+       "y": 777.4,
+       "z": 147.9,
+       "onground": 0,
+       "heading": -171.6
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 380.0,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 380.0,
+      "grounded_near_n": 4,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 122.8,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 20,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 384.8,
+      "crossing": {
+       "vh": 384.8,
+       "t": 45.666,
+       "x": -278.3,
+       "y": 804.7,
+       "z": 134.8,
+       "cross_track": 139.7,
+       "edge_hdist": 139.7
+      },
+      "lip_approach": {
+       "hdist": 48.2,
+       "vh": 332.1,
+       "t": 5.662,
+       "x": -121.7,
+       "y": 756.7,
+       "z": 134.7,
+       "onground": 0,
+       "heading": 126.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 396.2,
+      "takeoff_near_n": 8,
+      "grounded_near_vh_max": 396.2,
+      "grounded_near_n": 8,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 100.0,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 21,
+    "reached": true,
+    "arrival_tws": 230.9,
+    "arrival_t": 28.6,
+    "attempts": [
+     {
+      "edge": 387.9,
+      "crossing": {
+       "vh": 387.9,
+       "t": 6.22,
+       "x": -285.0,
+       "y": 808.6,
+       "z": 134.6,
+       "cross_track": 147.4,
+       "edge_hdist": 147.4
+      },
+      "lip_approach": {
+       "hdist": 52.3,
+       "vh": 349.9,
+       "t": 5.811,
+       "x": -140.2,
+       "y": 776.8,
+       "z": 144.9,
+       "onground": 0,
+       "heading": 158.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 384.5,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 384.5,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.6,
+      "t0": 0.0,
+      "dur": 28.6
+     }
+    ]
+   },
+   {
+    "seed": 22,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 387.4,
+      "crossing": {
+       "vh": 387.4,
+       "t": 33.495,
+       "x": -281.8,
+       "y": 804.0,
+       "z": 125.3,
+       "cross_track": 142.2,
+       "edge_hdist": 142.2
+      },
+      "lip_approach": {
+       "hdist": 32.7,
+       "vh": 359.9,
+       "t": 29.894,
+       "x": -187.4,
+       "y": 748.1,
+       "z": 144.7,
+       "onground": 0,
+       "heading": -129.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 393.0,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 393.0,
+      "grounded_near_n": 5,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 98.7,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 23,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 381.1,
+      "crossing": {
+       "vh": 381.1,
+       "t": 28.744,
+       "x": -274.8,
+       "y": 803.1,
+       "z": 134.9,
+       "cross_track": 135.9,
+       "edge_hdist": 135.9
+      },
+      "lip_approach": {
+       "hdist": 41.9,
+       "vh": 353.7,
+       "t": 28.418,
+       "x": -163.2,
+       "y": 770.7,
+       "z": 147.7,
+       "onground": 0,
+       "heading": 177.3
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 382.6,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 382.6,
+      "grounded_near_n": 4,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 120.4,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 24,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 386.7,
+      "crossing": {
+       "vh": 386.7,
+       "t": 31.106,
+       "x": -292.8,
+       "y": 813.2,
+       "z": 141.2,
+       "cross_track": 156.5,
+       "edge_hdist": 156.5
+      },
+      "lip_approach": {
+       "hdist": 55.9,
+       "vh": 358.4,
+       "t": 4.963,
+       "x": -174.0,
+       "y": 783.2,
+       "z": 147.3,
+       "onground": 0,
+       "heading": -173.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 380.9,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 380.9,
+      "grounded_near_n": 4,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 102.4,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 25,
+    "reached": true,
+    "arrival_tws": 214.2,
+    "arrival_t": 41.2,
+    "attempts": [
+     {
+      "edge": 381.8,
+      "crossing": {
+       "vh": 381.8,
+       "t": 38.353,
+       "x": -279.6,
+       "y": 806.6,
+       "z": 132.4,
+       "cross_track": 141.8,
+       "edge_hdist": 141.8
+      },
+      "lip_approach": {
+       "hdist": 43.4,
+       "vh": 355.7,
+       "t": 38.015,
+       "x": -162.6,
+       "y": 772.1,
+       "z": 147.6,
+       "onground": 0,
+       "heading": 177.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 379.5,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 379.5,
+      "grounded_near_n": 4,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.6,
+      "t0": 0.0,
+      "dur": 41.2
+     }
+    ]
+   },
+   {
+    "seed": 26,
+    "reached": true,
+    "arrival_tws": 227.9,
+    "arrival_t": 43.2,
+    "attempts": [
+     {
+      "edge": 391.0,
+      "crossing": {
+       "vh": 391.0,
+       "t": 40.566,
+       "x": -288.9,
+       "y": 812.7,
+       "z": 139.3,
+       "cross_track": 153.0,
+       "edge_hdist": 153.0
+      },
+      "lip_approach": {
+       "hdist": 40.0,
+       "vh": 361.1,
+       "t": 2.267,
+       "x": -125.1,
+       "y": 746.5,
+       "z": 131.0,
+       "onground": 0,
+       "heading": 119.3
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 403.4,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 403.4,
+      "grounded_near_n": 6,
+      "cls": "REACHED_RL",
+      "closest_goal": 56.8,
+      "t0": 0.0,
+      "dur": 43.2
+     }
+    ]
+   },
+   {
+    "seed": 27,
+    "reached": true,
+    "arrival_tws": 280.2,
+    "arrival_t": 17.7,
+    "attempts": [
+     {
+      "edge": 391.7,
+      "crossing": {
+       "vh": 391.7,
+       "t": 2.748,
+       "x": -287.6,
+       "y": 811.4,
+       "z": 130.3,
+       "cross_track": 151.2,
+       "edge_hdist": 151.2
+      },
+      "lip_approach": {
+       "hdist": 50.8,
+       "vh": 361.5,
+       "t": 2.378,
+       "x": -155.2,
+       "y": 779.3,
+       "z": 146.0,
+       "onground": 0,
+       "heading": 173.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 388.3,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 388.3,
+      "grounded_near_n": 4,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.9,
+      "t0": 0.0,
+      "dur": 17.7
+     }
+    ]
+   },
+   {
+    "seed": 28,
+    "reached": true,
+    "arrival_tws": 275.8,
+    "arrival_t": 22.2,
+    "attempts": [
+     {
+      "edge": 388.7,
+      "crossing": {
+       "vh": 388.7,
+       "t": 5.478,
+       "x": -288.5,
+       "y": 811.7,
+       "z": 148.1,
+       "cross_track": 152.1,
+       "edge_hdist": 152.1
+      },
+      "lip_approach": {
+       "hdist": 20.4,
+       "vh": 389.5,
+       "t": 2.26,
+       "x": -167.2,
+       "y": 709.4,
+       "z": 130.9,
+       "onground": 0,
+       "heading": 167.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 378.4,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 378.4,
+      "grounded_near_n": 4,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.7,
+      "t0": 0.0,
+      "dur": 22.2
+     }
+    ]
+   },
+   {
+    "seed": 29,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 381.5,
+      "crossing": {
+       "vh": 381.5,
+       "t": 37.915,
+       "x": -276.7,
+       "y": 802.7,
+       "z": 132.3,
+       "cross_track": 137.3,
+       "edge_hdist": 137.3
+      },
+      "lip_approach": {
+       "hdist": 47.4,
+       "vh": 365.7,
+       "t": 2.241,
+       "x": -128.2,
+       "y": 763.0,
+       "z": 138.1,
+       "onground": 0,
+       "heading": 137.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 406.5,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 406.5,
+      "grounded_near_n": 6,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 102.3,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 30,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 381.7,
+      "crossing": {
+       "vh": 381.7,
+       "t": 8.893,
+       "x": -286.1,
+       "y": 806.1,
+       "z": 137.0,
+       "cross_track": 147.0,
+       "edge_hdist": 147.1
+      },
+      "lip_approach": {
+       "hdist": 42.2,
+       "vh": 351.9,
+       "t": 8.544,
+       "x": -166.4,
+       "y": 770.7,
+       "z": 147.6,
+       "onground": 0,
+       "heading": -177.6
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 378.2,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 378.2,
+      "grounded_near_n": 4,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 99.8,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   }
+  ],
+  "a2-c4": [
+   {
+    "seed": 1,
+    "reached": true,
+    "arrival_tws": 252.4,
+    "arrival_t": 42.8,
+    "attempts": [
+     {
+      "edge": 372.1,
+      "crossing": {
+       "vh": 372.1,
+       "t": 39.866,
+       "x": -286.9,
+       "y": 811.6,
+       "z": 138.8,
+       "cross_track": 150.7,
+       "edge_hdist": 150.7
+      },
+      "lip_approach": {
+       "hdist": 53.6,
+       "vh": 354.0,
+       "t": 5.891,
+       "x": -161.8,
+       "y": 782.4,
+       "z": 147.6,
+       "onground": 0,
+       "heading": -176.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 378.6,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 378.6,
+      "grounded_near_n": 6,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.9,
+      "t0": 0.0,
+      "dur": 42.8
+     }
+    ]
+   },
+   {
+    "seed": 2,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 381.0,
+      "crossing": {
+       "vh": 381.0,
+       "t": 31.591,
+       "x": -292.6,
+       "y": 814.1,
+       "z": 142.8,
+       "cross_track": 156.8,
+       "edge_hdist": 156.8
+      },
+      "lip_approach": {
+       "hdist": 53.5,
+       "vh": 340.1,
+       "t": 31.108,
+       "x": -128.8,
+       "y": 771.5,
+       "z": 142.3,
+       "onground": 0,
+       "heading": 144.6
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 382.7,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 382.7,
+      "grounded_near_n": 6,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 74.6,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 3,
+    "reached": true,
+    "arrival_tws": 236.6,
+    "arrival_t": 45.1,
+    "attempts": [
+     {
+      "edge": 379.4,
+      "crossing": {
+       "vh": 379.4,
+       "t": 43.484,
+       "x": -294.5,
+       "y": 815.4,
+       "z": 142.8,
+       "cross_track": 159.1,
+       "edge_hdist": 159.1
+      },
+      "lip_approach": {
+       "hdist": 47.5,
+       "vh": 338.7,
+       "t": 5.893,
+       "x": -125.6,
+       "y": 760.5,
+       "z": 138.0,
+       "onground": 0,
+       "heading": 133.7
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 377.8,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 377.8,
+      "grounded_near_n": 6,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.0,
+      "t0": 0.0,
+      "dur": 45.1
+     }
+    ]
+   },
+   {
+    "seed": 4,
+    "reached": true,
+    "arrival_tws": 239.0,
+    "arrival_t": 46.1,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 54.4,
+       "vh": 355.2,
+       "t": 43.086,
+       "x": -157.9,
+       "y": 783.1,
+       "z": 147.0,
+       "onground": 0,
+       "heading": 176.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 380.9,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 380.9,
+      "grounded_near_n": 6,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.0,
+      "t0": 0.0,
+      "dur": 46.1
+     }
+    ]
+   },
+   {
+    "seed": 5,
+    "reached": true,
+    "arrival_tws": 290.5,
+    "arrival_t": 5.9,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 70.1,
+       "vh": 360.4,
+       "t": 3.863,
+       "x": -174.8,
+       "y": 797.5,
+       "z": 144.6,
+       "onground": 0,
+       "heading": -169.7
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 377.1,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 377.1,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.7,
+      "t0": 0.0,
+      "dur": 5.9
+     }
+    ]
+   },
+   {
+    "seed": 6,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 386.8,
+      "crossing": {
+       "vh": 386.8,
+       "t": 4.971,
+       "x": -283.9,
+       "y": 807.6,
+       "z": 146.7,
+       "cross_track": 145.9,
+       "edge_hdist": 145.9
+      },
+      "lip_approach": {
+       "hdist": 50.4,
+       "vh": 343.5,
+       "t": 14.894,
+       "x": -152.5,
+       "y": 778.4,
+       "z": 146.7,
+       "onground": 0,
+       "heading": 171.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 375.9,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 375.9,
+      "grounded_near_n": 6,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 64.0,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 7,
+    "reached": true,
+    "arrival_tws": 318.2,
+    "arrival_t": 4.4,
+    "attempts": [
+     {
+      "edge": 390.5,
+      "crossing": {
+       "vh": 390.5,
+       "t": 2.778,
+       "x": -295.1,
+       "y": 815.8,
+       "z": 136.9,
+       "cross_track": 159.9,
+       "edge_hdist": 159.9
+      },
+      "lip_approach": {
+       "hdist": 52.4,
+       "vh": 358.8,
+       "t": 2.344,
+       "x": -141.1,
+       "y": 777.3,
+       "z": 144.2,
+       "onground": 0,
+       "heading": 160.3
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 386.3,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 386.3,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.7,
+      "t0": 0.0,
+      "dur": 4.4
+     }
+    ]
+   },
+   {
+    "seed": 8,
+    "reached": true,
+    "arrival_tws": 269.7,
+    "arrival_t": 14.3,
+    "attempts": [
+     {
+      "edge": 384.4,
+      "crossing": {
+       "vh": 384.4,
+       "t": 11.648,
+       "x": -294.4,
+       "y": 815.2,
+       "z": 145.6,
+       "cross_track": 158.9,
+       "edge_hdist": 158.9
+      },
+      "lip_approach": {
+       "hdist": 56.4,
+       "vh": 351.0,
+       "t": 11.264,
+       "x": -160.2,
+       "y": 785.2,
+       "z": 147.5,
+       "onground": 0,
+       "heading": -179.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 374.7,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 374.7,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.5,
+      "t0": 0.0,
+      "dur": 14.3
+     }
+    ]
+   },
+   {
+    "seed": 9,
+    "reached": true,
+    "arrival_tws": 265.1,
+    "arrival_t": 37.0,
+    "attempts": [
+     {
+      "edge": 383.4,
+      "crossing": {
+       "vh": 383.4,
+       "t": 34.184,
+       "x": -283.8,
+       "y": 807.4,
+       "z": 139.1,
+       "cross_track": 145.8,
+       "edge_hdist": 145.8
+      },
+      "lip_approach": {
+       "hdist": 47.0,
+       "vh": 352.2,
+       "t": 33.854,
+       "x": -169.4,
+       "y": 775.1,
+       "z": 147.6,
+       "onground": 0,
+       "heading": -175.6
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 376.9,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 376.9,
+      "grounded_near_n": 6,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.2,
+      "t0": 0.0,
+      "dur": 37.0
+     }
+    ]
+   },
+   {
+    "seed": 10,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 385.3,
+      "crossing": {
+       "vh": 385.3,
+       "t": 21.657,
+       "x": -291.8,
+       "y": 813.7,
+       "z": 139.1,
+       "cross_track": 156.0,
+       "edge_hdist": 156.0
+      },
+      "lip_approach": {
+       "hdist": 54.9,
+       "vh": 344.6,
+       "t": 29.443,
+       "x": -122.1,
+       "y": 767.5,
+       "z": 139.6,
+       "onground": 0,
+       "heading": 137.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 380.7,
+      "takeoff_near_n": 8,
+      "grounded_near_vh_max": 380.7,
+      "grounded_near_n": 8,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 72.2,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 11,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 374.2,
+      "crossing": {
+       "vh": 374.2,
+       "t": 2.81,
+       "x": -247.1,
+       "y": 783.9,
+       "z": 146.4,
+       "cross_track": 102.2,
+       "edge_hdist": 102.2
+      },
+      "lip_approach": {
+       "hdist": 48.4,
+       "vh": 351.6,
+       "t": 2.479,
+       "x": -131.1,
+       "y": 766.9,
+       "z": 131.5,
+       "onground": 0,
+       "heading": 145.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 377.1,
+      "takeoff_near_n": 5,
+      "grounded_near_vh_max": 377.1,
+      "grounded_near_n": 5,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 98.3,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 12,
+    "reached": true,
+    "arrival_tws": 269.1,
+    "arrival_t": 33.1,
+    "attempts": [
+     {
+      "edge": 370.1,
+      "crossing": {
+       "vh": 370.1,
+       "t": 30.26,
+       "x": -252.1,
+       "y": 788.7,
+       "z": 131.9,
+       "cross_track": 109.0,
+       "edge_hdist": 109.0
+      },
+      "lip_approach": {
+       "hdist": 26.1,
+       "vh": 332.8,
+       "t": 29.892,
+       "x": -140.0,
+       "y": 744.3,
+       "z": 136.2,
+       "onground": 0,
+       "heading": 121.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 377.9,
+      "takeoff_near_n": 6,
+      "grounded_near_vh_max": 377.9,
+      "grounded_near_n": 6,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.2,
+      "t0": 0.0,
+      "dur": 33.1
+     }
+    ]
+   },
+   {
+    "seed": 13,
+    "reached": true,
+    "arrival_tws": 288.3,
+    "arrival_t": 17.4,
+    "attempts": [
+     {
+      "edge": 405.0,
+      "crossing": {
+       "vh": 405.0,
+       "t": 2.631,
+       "x": -247.1,
+       "y": 784.0,
+       "z": 103.1,
+       "cross_track": 102.3,
+       "edge_hdist": 102.3
+      },
+      "lip_approach": {
+       "hdist": 53.9,
+       "vh": 352.4,
+       "t": 12.432,
+       "x": -139.1,
+       "y": 778.1,
+       "z": 145.0,
+       "onground": 0,
+       "heading": 158.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 381.4,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 381.4,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.2,
+      "t0": 0.0,
+      "dur": 17.4
+     },
+     {
+      "edge": 383.1,
+      "crossing": {
+       "vh": 383.1,
+       "t": 37.135,
+       "x": -290.2,
+       "y": 811.4,
+       "z": 141.2,
+       "cross_track": 153.3,
+       "edge_hdist": 153.3
+      },
+      "lip_approach": {
+       "hdist": 47.2,
+       "vh": 351.9,
+       "t": 36.776,
+       "x": -166.4,
+       "y": 775.7,
+       "z": 147.8,
+       "onground": 0,
+       "heading": -175.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 375.5,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 375.5,
+      "grounded_near_n": 2,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 69.2,
+      "t0": 32.319,
+      "dur": 15.8
+     }
+    ]
+   },
+   {
+    "seed": 14,
+    "reached": true,
+    "arrival_tws": 285.8,
+    "arrival_t": 8.1,
+    "attempts": [
+     {
+      "edge": 381.0,
+      "crossing": {
+       "vh": 381.0,
+       "t": 5.273,
+       "x": -265.8,
+       "y": 797.3,
+       "z": 120.0,
+       "cross_track": 125.2,
+       "edge_hdist": 125.2
+      },
+      "lip_approach": {
+       "hdist": 47.9,
+       "vh": 347.3,
+       "t": 4.845,
+       "x": -123.2,
+       "y": 758.2,
+       "z": 136.5,
+       "onground": 0,
+       "heading": 125.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 381.0,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 381.0,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.5,
+      "t0": 0.0,
+      "dur": 8.1
+     }
+    ]
+   },
+   {
+    "seed": 15,
+    "reached": true,
+    "arrival_tws": 239.8,
+    "arrival_t": 29.3,
+    "attempts": [
+     {
+      "edge": 413.4,
+      "crossing": {
+       "vh": 413.4,
+       "t": 5.765,
+       "x": -275.6,
+       "y": 802.6,
+       "z": 129.4,
+       "cross_track": 136.3,
+       "edge_hdist": 136.3
+      },
+      "lip_approach": {
+       "hdist": 19.6,
+       "vh": 385.8,
+       "t": 5.364,
+       "x": -143.5,
+       "y": 737.7,
+       "z": 133.3,
+       "onground": 0,
+       "heading": 122.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 380.2,
+      "takeoff_near_n": 3,
+      "grounded_near_vh_max": 380.2,
+      "grounded_near_n": 3,
+      "cls": "REACHED_RL",
+      "closest_goal": 57.1,
+      "t0": 0.0,
+      "dur": 29.3
+     }
+    ]
+   },
+   {
+    "seed": 16,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 387.1,
+      "crossing": {
+       "vh": 387.1,
+       "t": 13.533,
+       "x": -289.2,
+       "y": 812.7,
+       "z": 136.7,
+       "cross_track": 153.2,
+       "edge_hdist": 153.2
+      },
+      "lip_approach": {
+       "hdist": 52.0,
+       "vh": 355.9,
+       "t": 2.29,
+       "x": -121.5,
+       "y": 762.6,
+       "z": 136.7,
+       "onground": 0,
+       "heading": 132.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 387.9,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 387.9,
+      "grounded_near_n": 4,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 72.0,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 17,
+    "reached": true,
+    "arrival_tws": 263.0,
+    "arrival_t": 14.5,
+    "attempts": [
+     {
+      "edge": 218.5,
+      "crossing": {
+       "vh": 218.5,
+       "t": 7.909,
+       "x": -238.5,
+       "y": 779.5,
+       "z": 142.2,
+       "cross_track": 92.6,
+       "edge_hdist": 92.6
+      },
+      "lip_approach": {
+       "hdist": 10.5,
+       "vh": 78.6,
+       "t": 7.326,
+       "x": -155.4,
+       "y": 737.6,
+       "z": 120.0,
+       "onground": 1,
+       "heading": 127.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 375.7,
+      "takeoff_near_n": 16,
+      "grounded_near_vh_max": 375.7,
+      "grounded_near_n": 16,
+      "cls": "REACHED_RL",
+      "closest_goal": 56.8,
+      "t0": 0.0,
+      "dur": 14.5
+     }
+    ]
+   },
+   {
+    "seed": 18,
+    "reached": true,
+    "arrival_tws": 304.9,
+    "arrival_t": 7.9,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 53.6,
+       "vh": 368.2,
+       "t": 4.811,
+       "x": -157.7,
+       "y": 782.3,
+       "z": 147.5,
+       "onground": 0,
+       "heading": 177.3
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 386.6,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 386.6,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.4,
+      "t0": 0.0,
+      "dur": 7.9
+     }
+    ]
+   },
+   {
+    "seed": 19,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 381.6,
+      "crossing": {
+       "vh": 381.6,
+       "t": 47.376,
+       "x": -292.7,
+       "y": 813.8,
+       "z": 144.6,
+       "cross_track": 156.7,
+       "edge_hdist": 156.7
+      },
+      "lip_approach": {
+       "hdist": 52.9,
+       "vh": 349.1,
+       "t": 46.996,
+       "x": -162.2,
+       "y": 781.7,
+       "z": 147.6,
+       "onground": 0,
+       "heading": -175.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 379.4,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 379.4,
+      "grounded_near_n": 4,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 119.1,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 20,
+    "reached": true,
+    "arrival_tws": 293.3,
+    "arrival_t": 7.6,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 61.4,
+       "vh": 357.5,
+       "t": 4.511,
+       "x": -176.2,
+       "y": 788.3,
+       "z": 146.6,
+       "onground": 0,
+       "heading": -170.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 374.3,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 374.3,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.7,
+      "t0": 0.0,
+      "dur": 7.6
+     }
+    ]
+   },
+   {
+    "seed": 21,
+    "reached": true,
+    "arrival_tws": 259.4,
+    "arrival_t": 28.0,
+    "attempts": [
+     {
+      "edge": 397.5,
+      "crossing": {
+       "vh": 397.5,
+       "t": 25.442,
+       "x": -295.5,
+       "y": 814.9,
+       "z": 149.9,
+       "cross_track": 159.6,
+       "edge_hdist": 159.7
+      },
+      "lip_approach": {
+       "hdist": 46.7,
+       "vh": 354.4,
+       "t": 6.478,
+       "x": -169.3,
+       "y": 774.7,
+       "z": 147.8,
+       "onground": 0,
+       "heading": -176.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 384.9,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 384.9,
+      "grounded_near_n": 4,
+      "cls": "REACHED_RL",
+      "closest_goal": 56.5,
+      "t0": 0.0,
+      "dur": 28.0
+     }
+    ]
+   },
+   {
+    "seed": 22,
+    "reached": true,
+    "arrival_tws": 266.9,
+    "arrival_t": 32.3,
+    "attempts": [
+     {
+      "edge": 395.1,
+      "crossing": {
+       "vh": 395.1,
+       "t": 2.88,
+       "x": -279.5,
+       "y": 806.7,
+       "z": 160.9,
+       "cross_track": 141.8,
+       "edge_hdist": 141.8
+      },
+      "lip_approach": {
+       "hdist": 56.9,
+       "vh": 360.4,
+       "t": 2.477,
+       "x": -134.3,
+       "y": 779.0,
+       "z": 131.5,
+       "onground": 0,
+       "heading": 153.5
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 380.5,
+      "takeoff_near_n": 7,
+      "grounded_near_vh_max": 380.5,
+      "grounded_near_n": 7,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.8,
+      "t0": 0.0,
+      "dur": 32.3
+     }
+    ]
+   },
+   {
+    "seed": 23,
+    "reached": true,
+    "arrival_tws": 294.8,
+    "arrival_t": 17.8,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 50.3,
+       "vh": 355.2,
+       "t": 14.72,
+       "x": -168.7,
+       "y": 778.5,
+       "z": 147.7,
+       "onground": 0,
+       "heading": -173.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 394.7,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 394.7,
+      "grounded_near_n": 4,
+      "cls": "REACHED_RL",
+      "closest_goal": 57.2,
+      "t0": 0.0,
+      "dur": 17.8
+     }
+    ]
+   },
+   {
+    "seed": 24,
+    "reached": true,
+    "arrival_tws": 272.8,
+    "arrival_t": 18.0,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 53.5,
+       "vh": 337.5,
+       "t": 13.499,
+       "x": -118.3,
+       "y": 761.0,
+       "z": 136.4,
+       "onground": 0,
+       "heading": 126.4
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 375.4,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 375.4,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.9,
+      "t0": 0.0,
+      "dur": 18.0
+     }
+    ]
+   },
+   {
+    "seed": 25,
+    "reached": true,
+    "arrival_tws": 208.2,
+    "arrival_t": 41.8,
+    "attempts": [
+     {
+      "edge": 390.2,
+      "crossing": {
+       "vh": 390.2,
+       "t": 5.52,
+       "x": -285.8,
+       "y": 808.8,
+       "z": 141.0,
+       "cross_track": 148.2,
+       "edge_hdist": 148.2
+      },
+      "lip_approach": {
+       "hdist": 47.6,
+       "vh": 361.9,
+       "t": 5.17,
+       "x": -160.5,
+       "y": 776.4,
+       "z": 147.6,
+       "onground": 0,
+       "heading": -178.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 384.9,
+      "takeoff_near_n": 4,
+      "grounded_near_vh_max": 384.9,
+      "grounded_near_n": 4,
+      "cls": "REACHED_RL",
+      "closest_goal": 57.4,
+      "t0": 0.0,
+      "dur": 41.8
+     }
+    ]
+   },
+   {
+    "seed": 26,
+    "reached": true,
+    "arrival_tws": 294.3,
+    "arrival_t": 5.7,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 50.3,
+       "vh": 341.3,
+       "t": 2.409,
+       "x": -120.0,
+       "y": 757.9,
+       "z": 135.4,
+       "onground": 0,
+       "heading": 125.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 383.1,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 383.1,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 57.6,
+      "t0": 0.0,
+      "dur": 5.7
+     }
+    ]
+   },
+   {
+    "seed": 27,
+    "reached": true,
+    "arrival_tws": 328.5,
+    "arrival_t": 5.4,
+    "attempts": [
+     {
+      "edge": 387.7,
+      "crossing": {
+       "vh": 387.7,
+       "t": 2.694,
+       "x": -258.5,
+       "y": 792.1,
+       "z": 127.3,
+       "cross_track": 116.2,
+       "edge_hdist": 116.2
+      },
+      "lip_approach": {
+       "hdist": 50.5,
+       "vh": 359.2,
+       "t": 2.332,
+       "x": -129.3,
+       "y": 768.2,
+       "z": 140.1,
+       "onground": 0,
+       "heading": 142.2
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 390.9,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 390.9,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.2,
+      "t0": 0.0,
+      "dur": 5.4
+     }
+    ]
+   },
+   {
+    "seed": 28,
+    "reached": true,
+    "arrival_tws": 255.4,
+    "arrival_t": 18.4,
+    "attempts": [
+     {
+      "edge": 374.8,
+      "crossing": {
+       "vh": 374.8,
+       "t": 13.479,
+       "x": -267.0,
+       "y": 796.3,
+       "z": 120.0,
+       "cross_track": 125.6,
+       "edge_hdist": 125.6
+      },
+      "lip_approach": {
+       "hdist": 53.6,
+       "vh": 342.8,
+       "t": 13.037,
+       "x": -118.3,
+       "y": 761.2,
+       "z": 136.8,
+       "onground": 0,
+       "heading": 130.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 374.8,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 374.8,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.4,
+      "t0": 0.0,
+      "dur": 18.4
+     }
+    ]
+   },
+   {
+    "seed": 29,
+    "reached": true,
+    "arrival_tws": 267.9,
+    "arrival_t": 9.9,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 65.9,
+       "vh": 355.3,
+       "t": 3.786,
+       "x": -171.8,
+       "y": 793.8,
+       "z": 145.6,
+       "onground": 0,
+       "heading": -173.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 372.1,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 372.1,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.8,
+      "t0": 0.0,
+      "dur": 9.9
+     }
+    ]
+   },
+   {
+    "seed": 30,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": 94.1,
+      "crossing": {
+       "vh": 94.1,
+       "t": 2.407,
+       "x": -80.5,
+       "y": 675.6,
+       "z": 111.6,
+       "cross_track": 96.5,
+       "edge_hdist": 96.5
+      },
+      "lip_approach": {
+       "hdist": 76.0,
+       "vh": 98.4,
+       "t": 2.714,
+       "x": -109.9,
+       "y": 672.5,
+       "z": 98.5,
+       "onground": 0,
+       "heading": -178.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 371.8,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 371.8,
+      "grounded_near_n": 2,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 180.3,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   }
+  ],
+  "cj-launch": [
+   {
+    "seed": 1,
+    "reached": true,
+    "arrival_tws": 279.6,
+    "arrival_t": 28.5,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 234.0,
+       "vh": 70.0,
+       "t": 24.742,
+       "x": -359.9,
+       "y": 852.1,
+       "z": 120.0,
+       "onground": 1,
+       "heading": 115.3
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.4,
+      "t0": 0.0,
+      "dur": 28.5
+     }
+    ]
+   },
+   {
+    "seed": 2,
+    "reached": true,
+    "arrival_tws": 292.9,
+    "arrival_t": 35.7,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 57.2,
+       "vh": 358.9,
+       "t": 32.522,
+       "x": -161.1,
+       "y": 786.0,
+       "z": 147.8,
+       "onground": 0,
+       "heading": 175.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 385.9,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 385.9,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.6,
+      "t0": 0.0,
+      "dur": 35.7
+     }
+    ]
+   },
+   {
+    "seed": 3,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": null,
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 801.0,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 4,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 367.0,
+       "vh": 300.1,
+       "t": 46.799,
+       "x": -528.0,
+       "y": 728.9,
+       "z": 160.1,
+       "onground": 0,
+       "heading": -90.0
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 118.0,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 5,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": null,
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 804.7,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 6,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 367.0,
+       "vh": 310.7,
+       "t": 43.473,
+       "x": -528.0,
+       "y": 728.4,
+       "z": 106.8,
+       "onground": 0,
+       "heading": -90.0
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 226.6,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 7,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 367.0,
+       "vh": 291.9,
+       "t": 26.618,
+       "x": -528.0,
+       "y": 728.9,
+       "z": 159.9,
+       "onground": 0,
+       "heading": -90.0
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 100.1,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 8,
+    "reached": true,
+    "arrival_tws": 246.8,
+    "arrival_t": 38.9,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 334.9,
+       "vh": 278.9,
+       "t": 38.878,
+       "x": -433.9,
+       "y": 534.6,
+       "z": 160.5,
+       "onground": 0,
+       "heading": -3.4
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.2,
+      "t0": 0.0,
+      "dur": 38.9
+     }
+    ]
+   },
+   {
+    "seed": 9,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": null,
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 806.8,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 10,
+    "reached": true,
+    "arrival_tws": 260.8,
+    "arrival_t": 43.5,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 73.9,
+       "vh": 358.8,
+       "t": 41.588,
+       "x": -148.7,
+       "y": 801.7,
+       "z": 147.6,
+       "onground": 0,
+       "heading": 167.3
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 382.4,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 382.4,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.2,
+      "t0": 0.0,
+      "dur": 43.5
+     }
+    ]
+   },
+   {
+    "seed": 11,
+    "reached": true,
+    "arrival_tws": 278.7,
+    "arrival_t": 25.6,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 361.4,
+       "vh": 389.9,
+       "t": 25.55,
+       "x": -452.5,
+       "y": 515.3,
+       "z": 155.1,
+       "onground": 0,
+       "heading": -32.0
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "REACHED_RL",
+      "closest_goal": 57.0,
+      "t0": 0.0,
+      "dur": 25.6
+     }
+    ]
+   },
+   {
+    "seed": 12,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 367.0,
+       "vh": 366.7,
+       "t": 37.686,
+       "x": -505.4,
+       "y": 602.2,
+       "z": 143.4,
+       "onground": 0,
+       "heading": -69.6
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 98.5,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 13,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 463.1,
+       "vh": 449.3,
+       "t": 48.091,
+       "x": -609.2,
+       "y": 845.3,
+       "z": 120.0,
+       "onground": 1,
+       "heading": 1.4
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 399.8,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 14,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 437.2,
+       "vh": 458.3,
+       "t": 48.09,
+       "x": -589.2,
+       "y": 817.0,
+       "z": 120.0,
+       "onground": 1,
+       "heading": -20.5
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 365.4,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 15,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 366.9,
+       "vh": 376.8,
+       "t": 47.974,
+       "x": -503.8,
+       "y": 597.9,
+       "z": 141.3,
+       "onground": 0,
+       "heading": -70.0
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 96.8,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 16,
+    "reached": true,
+    "arrival_tws": 277.4,
+    "arrival_t": 29.2,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 367.0,
+       "vh": 348.9,
+       "t": 27.316,
+       "x": -528.0,
+       "y": 726.8,
+       "z": 153.7,
+       "onground": 0,
+       "heading": -90.0
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.5,
+      "t0": 0.0,
+      "dur": 29.2
+     }
+    ]
+   },
+   {
+    "seed": 17,
+    "reached": true,
+    "arrival_tws": 256.2,
+    "arrival_t": 44.2,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 63.8,
+       "vh": 356.4,
+       "t": 42.385,
+       "x": -165.0,
+       "y": 792.5,
+       "z": 147.6,
+       "onground": 0,
+       "heading": 179.0
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 377.9,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 377.9,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.7,
+      "t0": 0.0,
+      "dur": 44.2
+     }
+    ]
+   },
+   {
+    "seed": 18,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": null,
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 806.9,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 19,
+    "reached": true,
+    "arrival_tws": 285.7,
+    "arrival_t": 33.5,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 61.9,
+       "vh": 357.4,
+       "t": 31.658,
+       "x": -155.3,
+       "y": 790.4,
+       "z": 147.5,
+       "onground": 0,
+       "heading": 177.1
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 379.9,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 379.9,
+      "grounded_near_n": 2,
+      "cls": "REACHED_RL",
+      "closest_goal": 57.9,
+      "t0": 0.0,
+      "dur": 33.5
+     }
+    ]
+   },
+   {
+    "seed": 20,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 367.0,
+       "vh": 297.4,
+       "t": 39.961,
+       "x": -528.0,
+       "y": 727.8,
+       "z": 159.0,
+       "onground": 0,
+       "heading": -90.0
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 66.7,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 21,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 367.0,
+       "vh": 304.7,
+       "t": 26.918,
+       "x": -528.0,
+       "y": 728.1,
+       "z": 160.6,
+       "onground": 0,
+       "heading": -90.0
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 115.5,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 22,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 72.2,
+       "vh": 350.1,
+       "t": 46.95,
+       "x": -150.2,
+       "y": 800.2,
+       "z": 147.3,
+       "onground": 0,
+       "heading": 168.9
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 371.9,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 371.9,
+      "grounded_near_n": 2,
+      "cls": "REACHED_LEDGE_NO_JUMP",
+      "closest_goal": 120.3,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 23,
+    "reached": true,
+    "arrival_tws": 258.9,
+    "arrival_t": 37.2,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 355.4,
+       "vh": 355.9,
+       "t": 37.22,
+       "x": -447.6,
+       "y": 518.7,
+       "z": 161.9,
+       "onground": 0,
+       "heading": -42.2
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "REACHED_RL",
+      "closest_goal": 59.3,
+      "t0": 0.0,
+      "dur": 37.2
+     }
+    ]
+   },
+   {
+    "seed": 24,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": null,
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 770.5,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 25,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": null,
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 806.9,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 26,
+    "reached": true,
+    "arrival_tws": 269.1,
+    "arrival_t": 38.0,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 367.0,
+       "vh": 350.3,
+       "t": 36.113,
+       "x": -528.0,
+       "y": 727.8,
+       "z": 153.9,
+       "onground": 0,
+       "heading": -90.0
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "REACHED_RL",
+      "closest_goal": 58.5,
+      "t0": 0.0,
+      "dur": 38.0
+     }
+    ]
+   },
+   {
+    "seed": 27,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": null,
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 449.0,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 28,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 367.0,
+       "vh": 292.3,
+       "t": 30.394,
+       "x": -528.0,
+       "y": 727.4,
+       "z": 104.9,
+       "onground": 0,
+       "heading": -90.0
+      },
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 225.9,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 29,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": null,
+      "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
+      "grounded_near_vh_max": null,
+      "grounded_near_n": 0,
+      "cls": "LEFT_ROUTE",
+      "closest_goal": 780.0,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   },
+   {
+    "seed": 30,
+    "reached": false,
+    "arrival_tws": null,
+    "arrival_t": null,
+    "attempts": [
+     {
+      "edge": null,
+      "crossing": null,
+      "lip_approach": {
+       "hdist": 58.5,
+       "vh": 353.1,
+       "t": 39.396,
+       "x": -159.2,
+       "y": 787.3,
+       "z": 147.4,
+       "onground": 0,
+       "heading": 176.8
+      },
+      "reached_lip": true,
+      "takeoff_near_vh_max": 374.8,
+      "takeoff_near_n": 2,
+      "grounded_near_vh_max": 374.8,
+      "grounded_near_n": 2,
+      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+      "closest_goal": 98.9,
+      "t0": 0.0,
+      "dur": 48.1
+     }
+    ]
+   }
+  ]
+ }
+}
