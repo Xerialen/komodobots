@@ -52,7 +52,7 @@ from route_metrics import legit_segment, time_weighted_speed, active_mean_speed
 REPO = Path(__file__).resolve().parent.parent
 RUNS = REPO / "artifacts" / "lab-runs"
 EVID = REPO / "experiments" / "dm3_sng_to_rl_observability" / "evidence"
-CENSUS = REPO / "artifacts" / "trick-census" / "census.json"
+NAV_EVID = REPO / "experiments" / "nav_doctrine" / "evidence"
 
 
 def _resolve(live: Path, committed: Path) -> Path:
@@ -88,12 +88,20 @@ def load_route(name):
             "geom": json.loads(geom_path.read_text()),
             "native_dist": True,   # trace.csv dist_to_rl column IS this goal
         }
-    census = json.loads(CENSUS.read_text())
+    # Census + per-route human replays resolve like the default route's inputs:
+    # live regenerated artifacts/ first, committed evidence fallback, so every
+    # censused route scores from a clean checkout (Codex PR #60 P2).
+    census_path = _resolve(REPO / "artifacts" / "trick-census" / "census.json",
+                           NAV_EVID / "trick-census" / "census.json")
+    census = json.loads(census_path.read_text())
     if name not in census:
         raise SystemExit(f"unknown route {name!r}; censused routes: {', '.join(sorted(census))}")
-    human = REPO / "artifacts" / "replay" / f"dm3_{name}.cmds"
+    human = _resolve(REPO / "artifacts" / "replay" / f"dm3_{name}.cmds",
+                     NAV_EVID / "replay" / f"dm3_{name}.cmds")
     if not human.exists():
-        raise SystemExit(f"{human} missing")
+        raise SystemExit(f"human replay for route {name!r} missing: regenerate it "
+                         f"under artifacts/replay/dm3_{name}.cmds or restore the "
+                         f"committed copy {NAV_EVID / 'replay' / f'dm3_{name}.cmds'}")
     ent = census[name]
     # leap geometry := the route's FINAL hard gap (the goal-gating leap).
     hard = [g for g in ent["gaps"] if g.get("hard")]
