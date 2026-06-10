@@ -368,6 +368,12 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   (`scripts/telemetry_ws.py`) and the deployed `/qtv/` page in an iframe (temporary,
   replaced by the standalone postMessage QTV pane in LD-B2, #88).
 - Dev loop: `cd lab/dashboard && npm ci && npm run dev` (see `lab/README.md`).
+- View shell (LD-B1, #87): top-bar toggles render any subset of the four main views in
+  the fixed left→right order Demo → Mockup → Live 3D → Live Game (SPEC §4.1). Demo and
+  Mockup are labeled placeholders until LD-D3 (#94/#98) / LD-C3 (#97); the KPI dock and
+  control drawer are placeholders until LD-E1 (#100) / LD-F3 (#105). Layout state
+  (open set, dock collapsed, drawer open) persists in localStorage and the open set is
+  mirrored in the URL (`?views=…`, URL wins on load) — `lab/dashboard/src/layoutState.ts`.
 - The dashboard is read-only with respect to the lab in this stage: it watches whatever
   attempt happens to run; it cannot start or steer anything until LD-F1/F2/F3.
 - Multi-bot attempts: the telemetry stream interleaves one frame per probed bot
