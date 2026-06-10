@@ -4,9 +4,11 @@
 ONE definition of each speed metric, used by every scorer/gate:
 
   * time_weighted_speed(rows, ...)  -- THE HEADLINE / PRIMARY GATE METRIC.
-    Total xy distance / total wall time over the legit segment. A bot that
-    dead-stops accumulates time but no distance, so this cannot be gamed by
-    standing still (unlike an "active mean" that drops vh<=threshold ticks).
+    Total xy distance / total wall time over the legit segment, excluding
+    the instantaneous displacement of a sanctioned teleport (the throw is
+    not player movement). A bot that dead-stops accumulates time but no
+    distance, so this cannot be gamed by standing still (unlike an "active
+    mean" that drops vh<=threshold ticks).
 
   * active_mean_speed(rows, ...)    -- the legacy diagnostic metric: mean vh
     over ticks with vh > threshold (default 1), truncated at goal arrival.
@@ -79,11 +81,17 @@ def _truncate_at_arrival(rows, reach, dist_key="dist_goal"):
     return rows[:end]
 
 
-def time_weighted_speed(rows, tele_entrances=(), reach=None, dist_key="dist_goal"):
+def time_weighted_speed(rows, tele_entrances=(), reach=None, dist_key="dist_goal",
+                        teleport_jump=TELEPORT_JUMP):
     """HEADLINE speed metric: total xy distance / total time (qu/s).
 
     * Applies legit_segment() internally (idempotent if the caller already
       truncated) so a stray teleport can never inflate the distance sum.
+    * A SANCTIONED teleport's landing row is kept in the segment (so play
+      continues to count), but its instantaneous entrance->exit displacement
+      is NOT player movement, so teleport-sized per-tick deltas are excluded
+      from the distance sum (Codex PR #60 P2). Real movement never trips
+      this: even 1400 qu/s at 77 fps is ~18 qu/tick, far below the threshold.
     * If `reach` is given, the segment is further truncated at the first tick
       within `reach` qu of the goal, so an idle tail after arrival does not
       dilute the metric -- but dead-stops DURING the run do (by design; that
@@ -92,13 +100,13 @@ def time_weighted_speed(rows, tele_entrances=(), reach=None, dist_key="dist_goal
 
     This is the PRIMARY metric for pass/fail gates.
     """
-    rows = legit_segment(rows, tele_entrances)
+    rows = legit_segment(rows, tele_entrances, teleport_jump)
     if reach is not None:
         rows = _truncate_at_arrival(rows, reach, dist_key)
     if len(rows) < 2:
         return 0.0
-    dist = sum(math.hypot(b["x"] - a["x"], b["y"] - a["y"])
-               for a, b in zip(rows, rows[1:]))
+    dist = sum(step for a, b in zip(rows, rows[1:])
+               if (step := math.hypot(b["x"] - a["x"], b["y"] - a["y"])) <= teleport_jump)
     dt = rows[-1]["t"] - rows[0]["t"]
     return dist / dt if dt > 0 else 0.0
 
