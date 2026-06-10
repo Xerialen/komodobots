@@ -14,8 +14,9 @@ ids = [r["run_id"] for r in d["runs"]]
 
 
 def mins(rid):
-    return int(rid[9:11]) * 1440 + int(rid[11:13]) * 60 + int(rid[13:15]) \
-        + (1440 * 9 if rid[6:8] == "09" else 1440 * 10)
+    """Run-id timestamp in minutes (YYYYMMDDTHHMMSSZ)."""
+    return (int(rid[6:8]) * 1440 + int(rid[9:11]) * 60 + int(rid[11:13])
+            + int(rid[13:15]) / 60.0)
 
 
 clusters, cur = [], [ids[0]]
