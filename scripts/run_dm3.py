@@ -27,6 +27,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 LAB = REPO / "scripts" / "run_frobodm2_lab.py"
+RECORDS_BUILD = REPO / "lab" / "server" / "records_build.py"
 TRICKS = Path(r"C:\nQuake\qw\tricks\dm3")
 # Prefer a live (regenerated) replay under artifacts/ (gitignored); fall back to
 # the committed copy in the experiment evidence dir so the one-command default
@@ -61,6 +62,15 @@ def build_cmd(passthrough):
     if not have("--moveprobe-log-interval"):
         cmd += ["--moveprobe-log-interval", "0"]
     return cmd + list(passthrough)
+
+
+def records_update_cmd(run_id):
+    """Post-run records-store update (LD-D1, issue #93): rescore this run,
+    rebuild records.json against the live SSD archive listing, and publish.
+    Additive observability -- the caller treats failure as a loud warning,
+    never a lab-run failure."""
+    return [sys.executable, str(RECORDS_BUILD), "--append", run_id,
+            "--archive-ssh", "servexeri", "--publish"]
 
 
 def main():
@@ -101,6 +111,18 @@ def main():
     if rc != 0:
         print(f"\nERROR: verify_route failed (rc={rc}) -- run not scored", file=sys.stderr)
         sys.exit(rc)
+
+    # Records store (LD-D1, issue #93): append this attempt, update records if
+    # improved, publish to the SSD. A publish/build failure must NOT fail the
+    # lab run -- the run artifacts are the source of truth and records.json is
+    # rebuildable (`python lab/server/records_build.py --rebuild --publish`).
+    print(f"\n=== records update {run_id} ===", flush=True)
+    rc = subprocess.run(records_update_cmd(run_id), cwd=REPO).returncode
+    if rc != 0:
+        print(f"\nWARNING: records update/publish failed (rc={rc}) -- the lab "
+              f"run itself is complete and scored; rebuild records later with: "
+              f"python lab/server/records_build.py --rebuild --publish",
+              file=sys.stderr)
 
 
 if __name__ == "__main__":

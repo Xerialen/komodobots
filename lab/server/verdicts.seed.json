@@ -1,0 +1,12 @@
+{
+  "schema": "komodobots.verdicts.v1",
+  "_doc": "Eye-test verdict store: route -> {verdict: pass|close|fail, note, run_id, date}. Human-entered; latest verdict wins per route. records_build.py --publish copies this seed NEXT TO records.json only when verdicts.json does not exist remotely, and never overwrites it. The dashboard write path lands in LD-F5 (#106).",
+  "routes": {
+    "sng_to_rl": {
+      "verdict": "fail",
+      "note": "Seed verdict from lab/SPEC.md section 7.4 (2026-06 honest state: fail across the board, 'obviously a bot'). Entered manually with the LD-D1 records store; superseded by the first dashboard-entered verdict.",
+      "run_id": null,
+      "date": "2026-06-10"
+    }
+  }
+}

@@ -642,6 +642,7 @@ Current generated files:
 | `remote.stdout` / `remote.stderr` | Remote orchestration logs. |
 | `lab.cfg` | Generated KTX config used for the run. |
 | `run.env` | Run identity, port, remote paths, and timing. |
+| `records-scoring.json` | Per-run scoring cache written by `lab/server/records_build.py` (schema `komodobots.run-scoring.v1`); safe to delete, rebuilt on demand. |
 
 Verified one-command parser behavior:
 
@@ -835,6 +836,49 @@ s7i-air-transition-probe-design-dm3, probe contract before controller code:
 s7j-air-transition-probe-dm3, mode-8 probe result against S7i stop conditions:
   S7j temporarily deploys corrected mode-8 KTX moveprobe builds, runs `20260606T163907Z` and `20260606T164610Z` on `dm3`, records transition probe state in sampled commands, and restores the live KTX module afterward. The combined comparison artifact rejects mode `8` under S7i stop conditions: all accepted p50 improved only `222.0 -> 230.0` and `WATER_PATH` stayed barely above baseline where present, but pre-air fell `207.1 -> 149.7`, airborne-proxy fell `122.6 -> 100.4`, post-air fell `184.5 -> 179.6`, and non-airborne fell below tolerance `312.1 -> 286.3`.
 ```
+
+## Records store (LD-D1, issue #93)
+
+The lab dashboard's records source of truth is `records.json` (schema
+`komodobots.records.v1`), built by `lab/server/records_build.py` from the run
+artifacts above — the artifacts remain the source of truth and the registry is
+always rebuildable:
+
+```text
+python lab/server/records_build.py --rebuild [--archive-ssh servexeri] [--publish]
+```
+
+- **What it holds**: per `(map, route, kind)` record — `fastest_time`,
+  `first_completion`, `peak_speed`, `edge_speed` — each with value, run id,
+  the canonical demo URL under `/demos/files/non-games/lab/Komodobots/`, the
+  demo-relative `event_t_s` of the recorded event, and the census human
+  reference beside every bot value; plus per-route aggregates
+  (`attempts`, `finishes`, `median_time_s`, `human_time_s`).
+- **Eligibility**: dm3 runs whose `run.env` `MOVEPROBE_REPLAY_FILE` names a
+  censused route and that have `trace.csv`. Attempt semantics are
+  `verify_route.py`'s (start-pad-anchored segments), so probe runs that spawn
+  mid-route (for example the A3 launch screens with `spawn_origin` near the
+  edge) contribute **no** attempts — by design: a record is a full-route try.
+- **Finish vs completion**: finish = `REACHED_RL` (any path); completion
+  additionally requires route progress >= 80% **and** the route's hard-gap
+  launch-edge crossing (`route_metrics.edge_crossing`). Route progress alone
+  saturates near 100 on any arrival, so the leap is the discriminating bit.
+- **Timestamp alignment**: trace rows carry the server clock; `event_t_s` is
+  `t - ServerTime(kind-0 event)` — demo-relative seconds, validated against
+  the MVD's own kind-5 position samples to within 0.26 s on the current
+  `fastest_time` record (spec bound: ±1 s).
+- **Publish**: `--publish` atomically replaces
+  `servexeri:/mnt/usb-ssd/non-games/lab/Komodobots/records/records.json` and
+  seeds `verdicts.json` (schema `komodobots.verdicts.v1`, eye-test store,
+  human-entered) **only when it does not exist remotely** — it never
+  overwrites verdicts. Both are HTTP-fetchable under
+  `http://192.168.86.33:8095/demos/files/non-games/lab/Komodobots/records/`.
+- **Post-run hook**: `scripts/run_dm3.py` appends each scored attempt and
+  republishes after `verify_route` (additive; a records/publish failure warns
+  loudly but never fails the lab run).
+- **Human references**: the 11 censused human trick `.qwd` demos are archived
+  under `/mnt/usb-ssd/non-games/lab/Komodobots/human/` and referenced from
+  every record's `human_ref.demo_url`.
 
 ## Open questions
 
