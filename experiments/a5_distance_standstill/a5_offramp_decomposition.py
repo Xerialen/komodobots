@@ -21,9 +21,19 @@ per-attempt release + lip states (sweep-results.json):
            SHORT (x reach), Y-OUT (off the band), WOULD-LAND.
 
 Writes offramp-decomposition.json and prints the plain-words verdict.
+
+Round 2 (carve sweep): same decomposition over carve results via
+  python a5_offramp_decomposition.py --src carve-sweep-results.json \
+      --out carve-offramp-decomposition.json
+Attempts carrying the additive "carve" key additionally get the CARVE
+funnel: armed share, release-rule histogram, armed/release geometry vs the
+round-1 wall-slide family (y=3824, heading 0, vh 430-435) — did the carve
+bend the release -8..-12 deg and lift vh toward ~470? Zero-arg behavior is
+unchanged (round-1 source, round-1 output, no funnel block).
 """
 from __future__ import annotations
 
+import argparse
 import gzip
 import json
 import math
@@ -40,11 +50,22 @@ AIRTIME = 2 * 270.0 / 800.0          # flat +270 jump, z=-488 -> z=-488
 AIR_GAIN = 15.0                      # qu of extra carry from air-accel (sim-measured ~10-20)
 
 
+def _pct(sorted_vals, p):
+    return sorted_vals[min(len(sorted_vals) - 1, int(p * len(sorted_vals)))]
+
+
 def main():
-    if SRC.exists():
-        doc = json.loads(SRC.read_text())
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--src", default=str(SRC),
+                    help="sweep results json (falls back to <src>.gz)")
+    ap.add_argument("--out", default=str(OUT))
+    args = ap.parse_args()
+    src, out_path = Path(args.src), Path(args.out)
+
+    if src.exists():
+        doc = json.loads(src.read_text())
     else:
-        with gzip.open(SRC.with_suffix(".json.gz"), "rt", encoding="utf-8") as f:
+        with gzip.open(src.with_suffix(".json.gz"), "rt", encoding="utf-8") as f:
             doc = json.load(f)
     results = doc["results"]
 
@@ -56,6 +77,9 @@ def main():
     lips = []            # lip dicts
     arc_classes = Counter()
     per_config = []
+    carve_enabled = 0    # attempts carrying the additive "carve" key
+    carve_armed = []     # the non-None carve records
+    carve_releases = []  # release dicts of carve-armed attempts
 
     for cfg in results:
         vh_target = cfg["config"]["launch_vh"]
@@ -70,6 +94,12 @@ def main():
                     timeouts += 1
             else:
                 never_released += 1
+            if "carve" in att:                 # round-2 records only
+                carve_enabled += 1
+                if att["carve"] is not None:
+                    carve_armed.append(att["carve"])
+                    if rel:
+                        carve_releases.append(rel)
             lip = att.get("lip")
             if lip:
                 lips.append(lip)
@@ -117,6 +147,37 @@ def main():
 
     would_land_cfgs = [c for c in per_config if c.get("WOULD-LAND")]
 
+    # round-2 carve funnel (only when the records carry the "carve" key)
+    carve_funnel = None
+    if carve_enabled:
+        rules = Counter((c["rule"] or "none") for c in carve_armed)
+        a_vh = sorted(c["armed_vh"] for c in carve_armed)
+        a_herr = sorted(c["armed_herr"] for c in carve_armed)
+        a_dlip = sorted(c["armed_d_lip"] for c in carve_armed)
+        ticks = sorted(c["ticks"] for c in carve_armed)
+        r_vh = sorted(r["vh"] for r in carve_releases)
+        r_head = sorted(r["heading"] for r in carve_releases)
+        r_dlip = sorted(r["d_lip"] for r in carve_releases)
+        r_y = sorted(r["pos"][1] for r in carve_releases)
+        carve_funnel = {
+            "enabled_attempts": carve_enabled,
+            "armed": len(carve_armed),
+            "armed_share": round(len(carve_armed) / carve_enabled, 3),
+            "rules": dict(rules),
+            "armed_vh_p50": _pct(a_vh, 0.5) if a_vh else None,
+            "armed_herr_p50": _pct(a_herr, 0.5) if a_herr else None,
+            "armed_d_lip_p50": _pct(a_dlip, 0.5) if a_dlip else None,
+            "carve_ticks_p50": _pct(ticks, 0.5) if ticks else None,
+            # vs the round-1 wall-slide family (y=3824, heading 0, vh 430-435):
+            # the pre-registered question is whether the carve bent the
+            # release -8..-12 deg and lifted vh toward ~470
+            "release_vh_p50": _pct(r_vh, 0.5) if r_vh else None,
+            "release_vh_p90": _pct(r_vh, 0.9) if r_vh else None,
+            "release_heading_p50": _pct(r_head, 0.5) if r_head else None,
+            "release_d_lip_p50": _pct(r_dlip, 0.5) if r_dlip else None,
+            "release_y_p50": _pct(r_y, 0.5) if r_y else None,
+        }
+
     out = {
         "n_attempts": n_att,
         "build": {
@@ -142,7 +203,9 @@ def main():
         "arc_classes": dict(arc_classes),
         "configs_with_would_land_lips": would_land_cfgs,
     }
-    OUT.write_text(json.dumps(out, indent=1))
+    if carve_funnel is not None:
+        out["carve_funnel"] = carve_funnel
+    out_path.write_text(json.dumps(out, indent=1))
 
     print(f"attempts: {n_att}")
     print(f"BUILD: reached launch_vh in {reached}/{n_att} "
@@ -158,7 +221,18 @@ def main():
     print(f"configs with any WOULD-LAND lip state: {len(would_land_cfgs)}")
     for c in would_land_cfgs[:10]:
         print("  ", c)
-    print(f"wrote {OUT}")
+    if carve_funnel is not None:
+        cf = carve_funnel
+        print(f"CARVE funnel: armed {cf['armed']}/{cf['enabled_attempts']} "
+              f"({cf['armed_share']:.0%}); rules {cf['rules']}")
+        print(f"  armed: vh p50 {cf['armed_vh_p50']}, herr p50 "
+              f"{cf['armed_herr_p50']}, d_lip p50 {cf['armed_d_lip_p50']}, "
+              f"ticks p50 {cf['carve_ticks_p50']}")
+        print(f"  release vs wall-slide (y=3824, heading 0, vh 430-435): "
+              f"vh p50 {cf['release_vh_p50']} p90 {cf['release_vh_p90']}, "
+              f"heading p50 {cf['release_heading_p50']}, d_lip p50 "
+              f"{cf['release_d_lip_p50']}, y p50 {cf['release_y_p50']}")
+    print(f"wrote {out_path}")
 
 
 if __name__ == "__main__":
