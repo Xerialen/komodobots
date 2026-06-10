@@ -187,9 +187,12 @@ class Teleporter:
 def load_teleporters(bsp_path):
     """trigger_teleport volumes + info_teleport_destination targets.
 
-    Touch box = brush bounds resized by fb_spawn_trigger_teleport (mins-32 /
-    maxs+32 on xy), then engine non-FL_ITEM abs expansion (+-1), intersected
-    against the player abs box (+-1)."""
+    Stored bounds = the trigger's ABS box only: brush bounds resized by
+    fb_spawn_trigger_teleport (mins-32 / maxs+32 on xy) plus the engine
+    non-FL_ITEM abs expansion (+-1 all axes; BecomeMarker sets no FL_ITEM).
+    The player's own abs box is applied at the intersection test in
+    run_attempt — NOT here (Codex PR #83 P2: double expansion made the
+    trigger ~17 qu too large per side)."""
     ents, bounds = parse_bsp_entities(bsp_path)
     dests = {}
     for e in ents:
@@ -208,11 +211,9 @@ def load_teleporters(bsp_path):
         dest, yaw = dests.get(e.get("target", ""), (None, 0.0))
         if dest is None:
             continue
-        grow = 32.0 + NONITEM_EXPAND + (-PLAYER_MINS[0]) + NONITEM_EXPAND
-        absmin = (mins[0] - grow, mins[1] - grow,
-                  mins[2] - NONITEM_EXPAND - PLAYER_MAXS[2] - NONITEM_EXPAND)
-        absmax = (maxs[0] + grow, maxs[1] + grow,
-                  maxs[2] + NONITEM_EXPAND - PLAYER_MINS[2] + NONITEM_EXPAND)
+        grow = 32.0 + NONITEM_EXPAND
+        absmin = (mins[0] - grow, mins[1] - grow, mins[2] - NONITEM_EXPAND)
+        absmax = (maxs[0] + grow, maxs[1] + grow, maxs[2] + NONITEM_EXPAND)
         teles.append(Teleporter(absmin, absmax, dest, yaw))
     return teles
 

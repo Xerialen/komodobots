@@ -309,6 +309,48 @@ class TestCarrotGuards(unittest.TestCase):
         self.assertEqual(nav.old_linked_marker, before)
 
 
+class TestTeleporterBoxes(unittest.TestCase):
+    """load_teleporters must store the TRIGGER abs box only (resize +-32 xy +
+    engine +-1); the player abs box is applied at the intersection test, not
+    baked in (Codex PR #83 P2: double expansion)."""
+
+    @staticmethod
+    def _mini_bsp(tmpdir):
+        import struct
+        ents = (b'{\n"classname" "info_teleport_destination"\n'
+                b'"targetname" "t1"\n"origin" "100 200 50"\n"angle" "90"\n}\n'
+                b'{\n"classname" "trigger_teleport"\n"target" "t1"\n'
+                b'"model" "*1"\n}\n\x00')
+        # models lump: world (model 0) + the trigger brush (model 1)
+        def model(mins, maxs):
+            return struct.pack("<9f7i", *mins, *maxs, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        models = model((0, 0, 0), (0, 0, 0)) + model((-64, -32, 0), (64, 32, 96))
+        header_size = 4 + 15 * 8
+        lumps = [(header_size, 0)] * 15
+        lumps[0] = (header_size, len(ents))                      # entities
+        lumps[14] = (header_size + len(ents), len(models))       # models
+        blob = struct.pack("<i", 29)
+        for off, ln in lumps:
+            blob += struct.pack("<ii", off, ln)
+        blob += ents + models
+        p = Path(tmpdir) / "mini.bsp"
+        p.write_bytes(blob)
+        return p
+
+    def test_trigger_abs_box_and_destination(self):
+        import tempfile
+        bsp = self._mini_bsp(tempfile.mkdtemp())
+        teles = M.load_teleporters(bsp)
+        self.assertEqual(len(teles), 1)
+        tp = teles[0]
+        # resize +-32 xy (fb_spawn_trigger_teleport) + engine +-1 all axes
+        self.assertEqual(tp.absmin, (-64 - 33, -32 - 33, 0 - 1))
+        self.assertEqual(tp.absmax, (64 + 33, 32 + 33, 96 + 1))
+        # SP_info_teleport_destination raises the spot 27 units
+        self.assertEqual(tp.dest, [100.0, 200.0, 50.0 + 27.0])
+        self.assertEqual(tp.mangle_yaw, 90.0)
+
+
 class TestVectorHelpers(unittest.TestCase):
     def test_vectoyaw_quadrants(self):
         self.assertEqual(M.vectoyaw((1, 0, 0)), 0.0)
