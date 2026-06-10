@@ -8,6 +8,7 @@ deprecated for development — change the dashboard here, never via the patch.
 
 - `SPEC.md` — functional specification for Lab Dashboard v1 (tickets #84–#108).
 - `dashboard/` — the frontend app (Vite + React + TypeScript + three.js).
+- `deploy_dashboard.py` — additive deploy/staging/cutover script (LD-A2, #85; see below).
 - `evidence/` — validation screenshots referenced by the stage PRs.
 
 ## dashboard/
@@ -15,8 +16,10 @@ deprecated for development — change the dashboard here, never via the patch.
 Self-contained single-page app, built with base `/botlab/` so the production build is
 fully self-contained under that path (no hashed chunks leak into a shared `assets/`
 dir, which the old local-hub deploy did). Deployed target: served by `web/serve.py` on
-servexeri at `http://192.168.86.33:8095/botlab/` (deploy script + cutover is LD-A2, #85;
-until that merges, the deployed copy still comes from the old local-hub artifacts).
+servexeri at `http://192.168.86.33:8095/botlab/`. Deploys go through
+`lab/deploy_dashboard.py` (LD-A2, #85); until the owner-approved cutover runs, the live
+URL still serves the old local-hub artifacts while the komodobots build sits staged
+next to it.
 
 ### Dev loop
 
@@ -40,6 +43,38 @@ Build and preview:
 npm run build      # tsc typecheck + vite build -> dist/ (all paths under /botlab/)
 npm run preview    # serves the production build at http://localhost:4173/botlab/
 ```
+
+### Deploy (LD-A2, #85)
+
+`lab/deploy_dashboard.py` (stdlib-only; needs `ssh servexeri` and `npm` on PATH;
+rsync runs remotely on servexeri, none needed locally). Three modes:
+
+```bash
+python lab/deploy_dashboard.py --stage          # default: build + stage (ADDITIVE)
+python lab/deploy_dashboard.py --audit-assets   # read-only legacy shared-chunk report
+python lab/deploy_dashboard.py --cutover --confirm-live   # OWNER APPROVAL ONLY
+```
+
+- `--stage` builds `dashboard/` and ships `dist/` to
+  `servexeri:~/local-hub/web/botlab-staged/` (a new dir; nothing currently served
+  is modified). Idempotent: re-running after an unchanged rebuild reports
+  `rsync itemized changes: NONE` (checksum quick-check, so fresh build mtimes
+  don't force re-transfers). Because the app is built with base `/botlab/`, the
+  staged copy's JS/CSS won't resolve until cutover — deliberate, so the staged
+  artifact stays byte-identical to what cutover promotes.
+- `--cutover` backs up the live `botlab/` to `~/local-hub/web-backups/` (additive),
+  then promotes `botlab-staged/` → `botlab/` so the same URL serves the new app.
+- **Do-not-overwrite-siblings rule:** the web root also serves `/qtv/`, `/demos/`,
+  `/games/` etc. The script can only rsync into a closed allowlist
+  (`botlab-staged/`, `botlab/` — enforced in `validate_remote_target`), and every
+  remote sync captures sha256 hashes of all sibling entry HTML before/after and
+  exits non-zero on any drift. Never deploy by hand-rsyncing into `web/`.
+- `--audit-assets` only reports which legacy `web/assets/` chunks are referenced
+  by pages outside `botlab*/`; unreferenced ones may be removed manually AFTER
+  cutover. The script never deletes outside the allowlist.
+
+Unit tests for the command builders, allowlist guard, and evidence parsers:
+`tests/test_deploy_dashboard.py`.
 
 ### Layout (v1, LD-A1)
 
