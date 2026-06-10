@@ -5526,3 +5526,27 @@ state if available, and the exact frame where vertical velocity flips positive
 in pass runs. Then add a route-local contact-aware jump/contact assist only if
 the diagnostics prove that the bot reaches the correct surface late rather than
 missing the surface entirely.
+---
+
+## 2026-06-10 -- QWD mouse/command replay seam audit
+
+### Finding
+
+Claude's A5 handoff was mostly honest and mostly right on the live/sim gap: the generic replay seam really did need the A5 time-aligned command/state repair, and ztricks live retries need per-attempt re-arm/re-snap because the catcher teleport injects a 300 qu/s throw. The important tightening is that frame-order `zip(cmds, states)` is not generally safe once `svc_playerinfo` rows drop.
+
+QWD "mouse movement" is the per-frame absolute view-angle result plus movement commands/buttons, not raw device mouse deltas. That is still the right KTX replay label because `trap_SetBotCMD` consumes absolute command angles. Real-demo validation kept `cmd_angles` vs trailing `view_angles` differences at thousandths of a degree on the sampled demos.
+
+### Evidence
+
+- `scripts/build_replay_command_file.py` now time-matches commands and anchored player states by QWD time by default, writes a JSON sidecar with alignment/msec/angle-channel metadata, interpolates missing reference rows, and refuses unsafe legacy zip builds unless `--allow-unsafe-zip` is explicit.
+- `scripts/qwd_seam_validator.py` audited the two locally present requested demos:
+  - `DM3_trick5.qwd`: 479 commands, 473 state rows, zip unsafe, six interpolated time-aligned reference rows, yaw p95 channel delta `0.002411` deg.
+  - `dm3_sng_to_rl.qwd`: 692 commands, 692 state rows, zip safe by count/drift, one generic-builder unmatched/interpolated row, yaw p95 channel delta `0.0` deg.
+- `getspeed.qwd` was not present locally at `C:\n\Quake\qw\matchinfo\demos\getspeed.qwd`, so the raw QWD seam validator could not be rerun on that source file. The committed A5 physics validation still reproduced the expected PASS from `getspeed-aligned.cmds`: anchored p95 `0.147` qu, 11 attempts, winning attempt landed in sim.
+- `scripts/audit_replay_timing.py` now compares source `.cmds` cadence/cursor time against live `moveprobe-commands.json(.gz)` or `screen.log`, including first-active-frame angle deltas. No local active mode-10 live command artifact was available to run a meaningful timing audit today.
+- A5 live port artifacts were added as `experiments/a5_distance_standstill/a5-live-port-spec.md` and `a5-live-port-servexeri-overlay.md`. They are not deployed; they document the `servexeri:~/nquakesv/build/ktx` seam for replay `fixangle`, replay timing diagnostics, S23 transition logs, catcher re-arm/re-snap, fixed target navigation, and terminal carve release. The overlay is a draft, not an apply-ready KTX patch.
+- The lab runner now parses `FBMOVEPROBE_S23` rows into `moveprobe-s23-events.json` and `.md`.
+
+### Follow-up
+
+Restore or locate `getspeed.qwd` if raw-QWD seam validation needs to be repeated. Before scored A5 live runs, apply/review the servexeri overlay, run an inertness gate, run a short ztricks S23 smoke proving snap/re-arm/arm/release/timeout events, and run the replay timing audit on the next active replay artifact before changing live replay to source-row `msec`.

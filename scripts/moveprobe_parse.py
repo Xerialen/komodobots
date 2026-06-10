@@ -1,6 +1,6 @@
 """Shared FBMOVEPROBE log parsing.
 
-Single source of truth for the FBMOVEPROBE_CMD / _REPLAY_EVENT / _QWD_EVENT
+Single source of truth for the FBMOVEPROBE_CMD / _REPLAY_EVENT / _QWD_EVENT / _S23
 screen.log line formats. Factored out of run_frobodm2_lab.py so the live
 telemetry sidecar (telemetry_ws.py) and the post-run pipeline parse with the
 SAME regex + field mapping and cannot drift (the readings must stay
@@ -126,6 +126,23 @@ MOVEPROBE_QWD_EVENT_RE = re.compile(
     r"complete=(?P<complete>\d+)\s+"
     r"active_seconds=(?P<active_seconds>-?\d+(?:\.\d+)?)\s+"
     r"origin=(?P<origin_x>-?\d+(?:\.\d+)?),(?P<origin_y>-?\d+(?:\.\d+)?),(?P<origin_z>-?\d+(?:\.\d+)?)"
+)
+
+
+MOVEPROBE_S23_EVENT_RE = re.compile(
+    r"FBMOVEPROBE_S23\s+"
+    r"time=(?P<time>-?\d+(?:\.\d+)?)\s+"
+    r"ed=(?P<ed>\d+)\s+"
+    r"name=(?P<name>.*?)\s+"
+    r"event=(?P<event>[A-Za-z_]+)\s+"
+    r"attempt=(?P<attempt>-?\d+)\s+"
+    r"armed=(?P<armed>\d+)\s+"
+    r"done=(?P<done>\d+)\s+"
+    r"vh=(?P<vh>-?\d+(?:\.\d+)?)\s+"
+    r"herr=(?P<herr>-?\d+(?:\.\d+)?)\s+"
+    r"d_lip=(?P<d_lip>-?\d+(?:\.\d+)?)\s+"
+    r"origin=(?P<origin_x>-?\d+(?:\.\d+)?),(?P<origin_y>-?\d+(?:\.\d+)?),(?P<origin_z>-?\d+(?:\.\d+)?)\s+"
+    r"velocity=(?P<velocity_x>-?\d+(?:\.\d+)?),(?P<velocity_y>-?\d+(?:\.\d+)?),(?P<velocity_z>-?\d+(?:\.\d+)?)"
 )
 
 
@@ -378,6 +395,40 @@ def parse_moveprobe_qwd_event_logs(screen_log: str) -> list[dict[str, object]]:
                     "x": float(groups["origin_x"]),
                     "y": float(groups["origin_y"]),
                     "z": float(groups["origin_z"]),
+                },
+            }
+        )
+    return events
+
+
+def parse_moveprobe_s23_event_logs(screen_log: str) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    for line in screen_log.splitlines():
+        match = MOVEPROBE_S23_EVENT_RE.search(line)
+        if not match:
+            continue
+        groups = match.groupdict()
+        events.append(
+            {
+                "time_s": float(groups["time"]),
+                "ed": int(groups["ed"]),
+                "name": groups["name"].strip(),
+                "event": groups["event"],
+                "attempt": int(groups["attempt"]),
+                "armed": bool(int(groups["armed"])),
+                "done": bool(int(groups["done"])),
+                "vh_qu_per_s": float(groups["vh"]),
+                "heading_error_deg": float(groups["herr"]),
+                "distance_to_lip_qu": float(groups["d_lip"]),
+                "origin": {
+                    "x": float(groups["origin_x"]),
+                    "y": float(groups["origin_y"]),
+                    "z": float(groups["origin_z"]),
+                },
+                "velocity": {
+                    "x": float(groups["velocity_x"]),
+                    "y": float(groups["velocity_y"]),
+                    "z": float(groups["velocity_z"]),
                 },
             }
         )

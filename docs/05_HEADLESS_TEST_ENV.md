@@ -189,7 +189,7 @@ python scripts/run_bot_lab.py --map frobodm2 --duration 25 --bot-count 2 --bot-s
 
 The `--moveprobe-*` options only change behavior when the S2 KTX patch from `experiments/ktx_moveprobe/` is applied to the server-side KTX build. Without that patch, the runner still records the cvars in `lab.cfg` and `run.env`, but stock KTX ignores them.
 
-`--moveprobe-log-commands` enables the patch's sampled `FBMOVEPROBE_CMD` console rows. The runner parses those rows from `screen.log` into `moveprobe-commands.json` and `moveprobe-commands.md`, making it possible to compare the actual command values emitted by stock mode `0`, forced-jump mode `1`, fixed-command mode `2`, route-yaw modes `3`/`4`, aim-independent mode `5`, and no-backpedal mode `6`. S3e/S3f diagnostic rows also include route yaw, view yaw, yaw delta, and backward-command flags.
+`--moveprobe-log-commands` enables the patch's sampled `FBMOVEPROBE_CMD` console rows. The runner parses those rows from `screen.log` into `moveprobe-commands.json` and `moveprobe-commands.md`, making it possible to compare the actual command values emitted by stock mode `0`, forced-jump mode `1`, fixed-command mode `2`, route-yaw modes `3`/`4`, aim-independent mode `5`, and no-backpedal mode `6`. S3e/S3f diagnostic rows also include route yaw, view yaw, yaw delta, and backward-command flags. Event rows are parsed beside the sampled command log: `FBMOVEPROBE_QWD_EVENT` -> `moveprobe-qwd-events.*`, `FBMOVEPROBE_REPLAY_EVENT` -> `moveprobe-replay-events.*`, and A5 `FBMOVEPROBE_S23` transition rows -> `moveprobe-s23-events.*`.
 
 ### ztricks batch attempts
 
@@ -267,7 +267,8 @@ What it does:
 10. Runs `~/qw-sim/bin/qw-analyze-v20` through WSL in `json`, `md`, and `events` modes.
 11. Derives movement metrics from `events.txt` kind `5` player origin samples.
 12. Derives optional moveprobe command logs from `screen.log` when the patched KTX build emits `FBMOVEPROBE_CMD` rows.
-13. Writes `run-summary.md`, `movement-metrics.json`, `movement-metrics.md`, and optional `moveprobe-commands.*` artifacts.
+13. Derives optional moveprobe event logs for QWD, replay, and A5 S23 transition events when the patched KTX build emits those rows.
+14. Writes `run-summary.md`, `movement-metrics.json`, `movement-metrics.md`, and optional `moveprobe-commands.*` / `moveprobe-*-events.*` artifacts.
 
 Local artifact layout:
 
