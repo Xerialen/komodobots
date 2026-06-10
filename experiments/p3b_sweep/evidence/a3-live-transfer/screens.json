@@ -1,0 +1,75 @@
+{
+  "ticket": "A3 #75 - live transfer gate, >=526 at the launch edge",
+  "date": "2026-06-10",
+  "module_md5": "ae815cc7871a8cc241d9b4e6145b3403",
+  "protocol": "matchless, mode 23, duration 22 s, mvdsv-lab, spawn_origin '1959 -425 -24', fixed_goal 148; metric = scripts/a3_surrogate.py edge (edge_speed at census sng_to_rl final hard gap over legit_segment truncated at first 60-qu arrival vs marker-148 nav, scored over exactly 20.0 s of trace)",
+  "screen_pass_rule": ">=2/5 attempts >= 526.0 (pre-registered amendment, issue #75 comment 2026-06-10)",
+  "session_runs": 27,
+  "discarded_cold_start": {"run": "20260610T131048Z", "tws": 232.6},
+  "inertness": {
+    "free_roam": [
+      {"run": "20260610T131218Z", "tws": 212.8},
+      {"run": "20260610T131323Z", "tws": 201.7},
+      {"run": "20260610T131429Z", "tws": 246.6}
+    ],
+    "free_roam_rule": "all in [150,280] AND mean >= 173 (C1 floor); mean = 220.4 -> PASS",
+    "stairs": [
+      {"run": "20260610T131605Z", "arrived_s": 1.0, "pre_crest_presses": 0},
+      {"run": "20260610T131640Z", "arrived_s": 0.9, "pre_crest_presses": 0},
+      {"run": "20260610T131715Z", "arrived_s": 1.1, "pre_crest_presses": 0}
+    ],
+    "stairs_rule": "3/3 arrive + zero pre-crest presses (launch cvars unset) -> PASS"
+  },
+  "screens": {
+    "S1_launch": {
+      "cvars": "s23_pass 100, accel_numerator 5, s21_swing 12, s21_turn 35, s21_corner_thresh 45, s21_corner_aim 85, s23_launch_vh 400, s23_launch_angle 42",
+      "attempts": [
+        {"run": "20260610T131930Z", "edge": 460.2},
+        {"run": "20260610T132007Z", "edge": 460.7},
+        {"run": "20260610T132044Z", "edge": 213.6},
+        {"run": "20260610T132120Z", "edge": null},
+        {"run": "20260610T132157Z", "edge": 432.1}
+      ],
+      "n_526": 0, "best": 460.7, "median_present": 446.2,
+      "sim_expectation": "fresh seeds: n526 7/30, median 496.7 (tail-autopsy)"
+    },
+    "S2_deleg320": {
+      "cvars": "s23_pass 130, accel_numerator 5, s21_swing 12, s21_turn 35, s21_corner_thresh 45, s21_corner_aim 85, s23_deleg_vh_max 320",
+      "attempts": [
+        {"run": "20260610T132412Z", "edge": 428.4},
+        {"run": "20260610T132449Z", "edge": 469.8},
+        {"run": "20260610T132525Z", "edge": 483.1},
+        {"run": "20260610T132602Z", "edge": null},
+        {"run": "20260610T132639Z", "edge": 398.4}
+      ],
+      "n_526": 0, "best": 483.1, "median_present": 449.1,
+      "sim_expectation": "deleg-only pre-flight probe: train med 468.5 max 511.4 n526 0/30; fresh med 446.8 max 478.2 n526 0/30 (the amendment's '512-median' attribution was a misread: every 512-median sim config also needed the spin-up loop, whose goal-seam cvars are not in this build - disclosed in the ledger budget row BEFORE run 1)"
+    },
+    "S3_C4": {
+      "cvars": "s23_pass 100, accel_numerator 9, s21_swing 24, s21_turn 50, s21_corner_thresh 45, s21_corner_aim 85",
+      "attempts": [
+        {"run": "20260610T132742Z", "edge": 570.7},
+        {"run": "20260610T132819Z", "edge": null},
+        {"run": "20260610T132856Z", "edge": 446.9},
+        {"run": "20260610T132932Z", "edge": 448.6},
+        {"run": "20260610T133009Z", "edge": 445.5}
+      ],
+      "n_526": 1, "best": 570.7, "median_present": 447.8,
+      "sim_expectation": "A2 candidate C4: sim med 440.8, max 478.1, n526 0/30 - the live 570.7 EXCEEDS the config's own sim max by 92"
+    },
+    "S4_control": {
+      "cvars": "(none - in-code c5 defaults, the A1/A2 live anchor)",
+      "attempts": [
+        {"run": "20260610T133119Z", "edge": 458.9},
+        {"run": "20260610T133156Z", "edge": 420.5},
+        {"run": "20260610T133233Z", "edge": 474.3},
+        {"run": "20260610T133309Z", "edge": 487.0},
+        {"run": "20260610T133346Z", "edge": null}
+      ],
+      "n_526": 0, "best": 487.0, "median_present": 466.6,
+      "sim_expectation": "sim base fresh: med 459.8, max 483.1, n526 0/30 - control matches sim closely (the base law is calibrated)"
+    }
+  },
+  "verdict": "ALL SCREENS FAIL the pre-registered >=2/5 bar (0/5, 0/5, 1/5, 0/5). No confirmation block run. The 570.7 (S3 attempt 1) is the first live >=526 ever recorded on this gap (human census 528.6, required 525.3).",
+  "archive": "27/27 session MVDs -> servexeri /mnt/usb-ssd/non-games/lab/Komodobots/dm3/<runid>.mvd, sha256-verified"
+}
