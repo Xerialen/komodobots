@@ -15,7 +15,6 @@ import { type TelemetryAttempt, TelemetryClient } from "./telemetryClient.ts";
 const DEFAULT_LAB_PORT = 28599;
 const DEFAULT_TELEMETRY_WS = "ws://192.168.86.33:8770";
 const DEFAULT_GAME_VIEW_URL = "http://192.168.86.33:8095/qtv/";
-const ldA3TypecheckProbe: number = "deliberate negative-control failure";
 
 function getParam(name: string): string | null {
   return new URLSearchParams(window.location.search).get(name);
