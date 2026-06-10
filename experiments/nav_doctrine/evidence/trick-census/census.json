@@ -1,0 +1,1876 @@
+{
+  "hilljump": {
+    "route": "hilljump",
+    "frames": 724,
+    "fps": 76.931,
+    "duration_s": 9.43,
+    "arc_xy_total_qu": 3525.0,
+    "arc_xy_moved_qu": 3525.0,
+    "active_mean_speed": 403.7,
+    "mean_speed_all": 373.7,
+    "peak_speed": 528.9,
+    "arrive_frame": 670,
+    "teleports": [],
+    "water_segments": [],
+    "ledge_climbs": [],
+    "boosts": [],
+    "bmodel_rides": [],
+    "n_airborne_segments": 9,
+    "gaps": [
+      {
+        "edge_frame": 56,
+        "land_frame": 95,
+        "edge": [
+          708.4,
+          116.0,
+          71.5
+        ],
+        "land": [
+          473.8,
+          135.1,
+          76.5
+        ],
+        "span_qu": 235.4,
+        "dz_qu": 5.0,
+        "void_floor_z": -200.0,
+        "pit_depth_qu": 256.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 218.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.507,
+        "flight_time_ballistic_s": 0.521,
+        "required_speed": 451.8,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 464.1,
+        "margin": 12.3,
+        "over_water": false,
+        "landing_floor_z": 56.0,
+        "landing_area_qu2": 10944.0,
+        "landing_extent_xy": [
+          104.0,
+          152.0
+        ]
+      },
+      {
+        "edge_frame": 162,
+        "land_frame": 201,
+        "edge": [
+          465.9,
+          128.2,
+          76.8
+        ],
+        "land": [
+          673.5,
+          138.9,
+          71.2
+        ],
+        "span_qu": 207.9,
+        "dz_qu": -5.5,
+        "void_floor_z": -200.0,
+        "pit_depth_qu": 256.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 197.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.507,
+        "flight_time_ballistic_s": 0.519,
+        "required_speed": 400.6,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 417.1,
+        "margin": 16.5,
+        "over_water": false,
+        "landing_floor_z": 56.0,
+        "landing_area_qu2": 10816.0,
+        "landing_extent_xy": [
+          104.0,
+          144.0
+        ]
+      },
+      {
+        "edge_frame": 272,
+        "land_frame": 313,
+        "edge": [
+          681.0,
+          127.5,
+          71.5
+        ],
+        "land": [
+          478.4,
+          137.6,
+          71.5
+        ],
+        "span_qu": 202.9,
+        "dz_qu": 0.0,
+        "void_floor_z": -200.0,
+        "pit_depth_qu": 256.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 218.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.533,
+        "flight_time_ballistic_s": 0.545,
+        "required_speed": 372.3,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 398.9,
+        "margin": 26.7,
+        "over_water": false,
+        "landing_floor_z": 56.0,
+        "landing_area_qu2": 10816.0,
+        "landing_extent_xy": [
+          104.0,
+          144.0
+        ]
+      },
+      {
+        "edge_frame": 428,
+        "land_frame": 464,
+        "edge": [
+          457.1,
+          -187.8,
+          81.5
+        ],
+        "land": [
+          673.9,
+          -199.8,
+          74.0
+        ],
+        "span_qu": 217.1,
+        "dz_qu": -7.5,
+        "void_floor_z": -200.0,
+        "pit_depth_qu": 256.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 176.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.468,
+        "flight_time_ballistic_s": 0.479,
+        "required_speed": 453.1,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 463.7,
+        "margin": 10.6,
+        "over_water": false,
+        "landing_floor_z": 56.0,
+        "landing_area_qu2": 10816.0,
+        "landing_extent_xy": [
+          104.0,
+          144.0
+        ]
+      },
+      {
+        "edge_frame": 581,
+        "land_frame": 618,
+        "edge": [
+          713.2,
+          114.8,
+          81.5
+        ],
+        "land": [
+          462.5,
+          130.6,
+          71.2
+        ],
+        "span_qu": 251.3,
+        "dz_qu": -10.2,
+        "void_floor_z": -200.0,
+        "pit_depth_qu": 256.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 176.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.481,
+        "flight_time_ballistic_s": 0.492,
+        "required_speed": 510.6,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 528.9,
+        "margin": 18.3,
+        "over_water": false,
+        "landing_floor_z": 56.0,
+        "landing_area_qu2": 12544.0,
+        "landing_extent_xy": [
+          120.0,
+          168.0
+        ]
+      }
+    ],
+    "turns_gt45": 6,
+    "sharpest_turn_deg": 381.3,
+    "score": {
+      "composite": 4.0,
+      "components": {
+        "speed": 0.661,
+        "margin_term": 0.697,
+        "speed_demand_term": 0.578,
+        "precision": 0.099,
+        "technique": 0.0,
+        "turn": 0.8,
+        "volume": 0.625
+      },
+      "tightest_ballistic_margin": 10.6,
+      "max_required_speed": 510.6,
+      "min_hard_landing_area_qu2": 10816.0,
+      "technique_count": 0,
+      "n_hard_gaps": 5,
+      "n_boosted_gaps": 0
+    }
+  },
+  "mega_to_rl": {
+    "route": "mega_to_rl",
+    "frames": 619,
+    "fps": 77.096,
+    "duration_s": 8.05,
+    "arc_xy_total_qu": 3466.0,
+    "arc_xy_moved_qu": 3466.0,
+    "active_mean_speed": 485.2,
+    "mean_speed_all": 430.1,
+    "peak_speed": 658.5,
+    "arrive_frame": 539,
+    "teleports": [],
+    "water_segments": [],
+    "ledge_climbs": [
+      {
+        "frames": [
+          250,
+          346
+        ],
+        "z_gain": 365.0
+      }
+    ],
+    "boosts": [
+      {
+        "frame": 251,
+        "dvz": 381.0,
+        "vz_after": 790.0
+      }
+    ],
+    "bmodel_rides": [],
+    "n_airborne_segments": 8,
+    "gaps": [
+      {
+        "edge_frame": 133,
+        "land_frame": 183,
+        "edge": [
+          1772.2,
+          708.2,
+          -135.4
+        ],
+        "land": [
+          1423.5,
+          928.1,
+          -199.8
+        ],
+        "span_qu": 412.3,
+        "dz_qu": -64.4,
+        "void_floor_z": -296.0,
+        "pit_depth_qu": 0.0,
+        "hard": false,
+        "type": "leap",
+        "vz_at_edge": 166.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.649,
+        "flight_time_ballistic_s": 0.659,
+        "required_speed": 625.5,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 635.4,
+        "margin": 10.0,
+        "over_water": false,
+        "landing_floor_z": -296.0,
+        "landing_area_qu2": 28224.0,
+        "landing_extent_xy": [
+          168.0,
+          168.0
+        ]
+      },
+      {
+        "edge_frame": 263,
+        "land_frame": 334,
+        "edge": [
+          797.0,
+          836.2,
+          -165.2
+        ],
+        "land": [
+          1122.9,
+          662.5,
+          103.4
+        ],
+        "span_qu": 369.3,
+        "dz_qu": 268.6,
+        "void_floor_z": -296.0,
+        "pit_depth_qu": 376.1,
+        "hard": true,
+        "type": "boosted_leap",
+        "vz_at_edge": 665.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.921,
+        "flight_time_ballistic_s": 0.971,
+        "required_speed": 401.0,
+        "required_speed_source": "t_obs",
+        "human_speed_at_edge": 458.4,
+        "margin": 57.4,
+        "over_water": false,
+        "landing_floor_z": 80.1,
+        "landing_area_qu2": 7680.0,
+        "landing_extent_xy": [
+          160.0,
+          48.0
+        ]
+      },
+      {
+        "edge_frame": 411,
+        "land_frame": 425,
+        "edge": [
+          1386.5,
+          276.0,
+          74.0
+        ],
+        "land": [
+          1375.1,
+          184.0,
+          71.0
+        ],
+        "span_qu": 92.7,
+        "dz_qu": -3.0,
+        "void_floor_z": null,
+        "pit_depth_qu": 455.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 208.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.182,
+        "flight_time_ballistic_s": 0.534,
+        "required_speed": 510.5,
+        "required_speed_source": "t_obs",
+        "human_speed_at_edge": 507.8,
+        "margin": -2.6,
+        "over_water": false,
+        "landing_floor_z": 8.0,
+        "landing_area_qu2": 12288.0,
+        "landing_extent_xy": [
+          128.0,
+          96.0
+        ]
+      },
+      {
+        "edge_frame": 455,
+        "land_frame": 513,
+        "edge": [
+          1475.4,
+          32.4,
+          -17.2
+        ],
+        "land": [
+          1647.4,
+          355.5,
+          -60.4
+        ],
+        "span_qu": 366.1,
+        "dz_qu": -43.1,
+        "void_floor_z": -392.0,
+        "pit_depth_qu": 328.1,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 249.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.752,
+        "flight_time_ballistic_s": 0.764,
+        "required_speed": 479.3,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 531.4,
+        "margin": 52.0,
+        "over_water": false,
+        "landing_floor_z": -63.9,
+        "landing_area_qu2": 6912.0,
+        "landing_extent_xy": [
+          144.0,
+          48.0
+        ]
+      }
+    ],
+    "turns_gt45": 5,
+    "sharpest_turn_deg": 205.7,
+    "score": {
+      "composite": 5.58,
+      "components": {
+        "speed": 0.778,
+        "margin_term": 0.714,
+        "speed_demand_term": 0.926,
+        "precision": 0.424,
+        "technique": 0.4,
+        "turn": 0.509,
+        "volume": 0.375
+      },
+      "tightest_ballistic_margin": 10.0,
+      "max_required_speed": 625.5,
+      "min_hard_landing_area_qu2": 6912.0,
+      "technique_count": 2,
+      "n_hard_gaps": 3,
+      "n_boosted_gaps": 1
+    }
+  },
+  "mega_to_window": {
+    "route": "mega_to_window",
+    "frames": 292,
+    "fps": 77.187,
+    "duration_s": 3.8,
+    "arc_xy_total_qu": 1264.0,
+    "arc_xy_moved_qu": 1264.0,
+    "active_mean_speed": 460.0,
+    "mean_speed_all": 333.4,
+    "peak_speed": 714.4,
+    "arrive_frame": 201,
+    "teleports": [],
+    "water_segments": [],
+    "ledge_climbs": [
+      {
+        "frames": [
+          78,
+          196
+        ],
+        "z_gain": 250.5
+      }
+    ],
+    "boosts": [
+      {
+        "frame": 79,
+        "dvz": 336.0,
+        "vz_after": 646.0
+      },
+      {
+        "frame": 144,
+        "dvz": 281.0,
+        "vz_after": 260.0
+      }
+    ],
+    "bmodel_rides": [],
+    "n_airborne_segments": 1,
+    "gaps": [
+      {
+        "edge_frame": 82,
+        "land_frame": 176,
+        "edge": [
+          1773.2,
+          775.1,
+          -166.2
+        ],
+        "land": [
+          1048.6,
+          671.5,
+          102.6
+        ],
+        "span_qu": 732.0,
+        "dz_qu": 268.9,
+        "void_floor_z": -360.0,
+        "pit_depth_qu": 440.1,
+        "hard": true,
+        "type": "boosted_leap",
+        "vz_at_edge": 615.0,
+        "boost_frames": [
+          144
+        ],
+        "flight_time_obs_s": 1.218,
+        "flight_time_ballistic_s": 0.769,
+        "required_speed": 601.1,
+        "required_speed_source": "t_obs",
+        "human_speed_at_edge": 548.4,
+        "margin": -52.7,
+        "over_water": false,
+        "landing_floor_z": 80.1,
+        "landing_area_qu2": 4608.0,
+        "landing_extent_xy": [
+          96.0,
+          48.0
+        ]
+      }
+    ],
+    "turns_gt45": 2,
+    "sharpest_turn_deg": 146.5,
+    "score": {
+      "composite": 6.12,
+      "components": {
+        "speed": 0.79,
+        "margin_term": 0.764,
+        "speed_demand_term": 0.852,
+        "precision": 0.616,
+        "technique": 0.6,
+        "turn": 0.311,
+        "volume": 0.125
+      },
+      "tightest_ballistic_margin": null,
+      "max_required_speed": 601.1,
+      "min_hard_landing_area_qu2": 4608.0,
+      "technique_count": 3,
+      "n_hard_gaps": 1,
+      "n_boosted_gaps": 1
+    }
+  },
+  "ra_jumps": {
+    "route": "ra_jumps",
+    "frames": 1021,
+    "fps": 73.878,
+    "duration_s": 13.83,
+    "arc_xy_total_qu": 2592.0,
+    "arc_xy_moved_qu": 2592.0,
+    "active_mean_speed": 233.3,
+    "mean_speed_all": 185.9,
+    "peak_speed": 440.3,
+    "arrive_frame": 790,
+    "teleports": [],
+    "water_segments": [],
+    "ledge_climbs": [
+      {
+        "frames": [
+          679,
+          738
+        ],
+        "z_gain": 32.0
+      },
+      {
+        "frames": [
+          753,
+          784
+        ],
+        "z_gain": 21.2
+      }
+    ],
+    "boosts": [],
+    "bmodel_rides": [
+      {
+        "frames": [
+          255,
+          377
+        ],
+        "dur_s": 1.65,
+        "z": [
+          56.0,
+          152.0
+        ]
+      }
+    ],
+    "n_airborne_segments": 6,
+    "gaps": [
+      {
+        "edge_frame": 395,
+        "land_frame": 430,
+        "edge": [
+          111.4,
+          -596.0,
+          164.6
+        ],
+        "land": [
+          58.4,
+          -818.8,
+          169.9
+        ],
+        "span_qu": 229.0,
+        "dz_qu": 5.2,
+        "void_floor_z": -16.0,
+        "pit_depth_qu": 184.1,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 228.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.474,
+        "flight_time_ballistic_s": 0.546,
+        "required_speed": 419.4,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 430.5,
+        "margin": 11.1,
+        "over_water": false,
+        "landing_floor_z": 168.1,
+        "landing_area_qu2": 8704.0,
+        "landing_extent_xy": [
+          136.0,
+          64.0
+        ]
+      },
+      {
+        "edge_frame": 679,
+        "land_frame": 738,
+        "edge": [
+          198.0,
+          -528.0,
+          264.0
+        ],
+        "land": [
+          101.6,
+          -528.2,
+          296.0
+        ],
+        "span_qu": 96.4,
+        "dz_qu": 32.0,
+        "void_floor_z": null,
+        "pit_depth_qu": 743.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 0.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.799,
+        "flight_time_ballistic_s": 0.0,
+        "required_speed": 120.7,
+        "required_speed_source": "t_obs",
+        "human_speed_at_edge": 349.6,
+        "margin": 228.9,
+        "over_water": false,
+        "landing_floor_z": 296.0,
+        "landing_area_qu2": 6144.0,
+        "landing_extent_xy": [
+          96.0,
+          64.0
+        ]
+      },
+      {
+        "edge_frame": 754,
+        "land_frame": 771,
+        "edge": [
+          116.5,
+          -592.1,
+          311.6
+        ],
+        "land": [
+          178.8,
+          -644.8,
+          338.8
+        ],
+        "span_qu": 81.5,
+        "dz_qu": 27.1,
+        "void_floor_z": -16.0,
+        "pit_depth_qu": 344.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 216.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.23,
+        "flight_time_ballistic_s": 0.341,
+        "required_speed": 354.2,
+        "required_speed_source": "t_obs",
+        "human_speed_at_edge": 366.7,
+        "margin": 12.5,
+        "over_water": false,
+        "landing_floor_z": 328.0,
+        "landing_area_qu2": 14912.0,
+        "landing_extent_xy": [
+          168.0,
+          104.0
+        ]
+      }
+    ],
+    "turns_gt45": 6,
+    "sharpest_turn_deg": 496.3,
+    "score": {
+      "composite": 5.58,
+      "components": {
+        "speed": 0.568,
+        "margin_term": 0.683,
+        "speed_demand_term": 0.301,
+        "precision": 0.488,
+        "technique": 0.6,
+        "turn": 0.8,
+        "volume": 0.375
+      },
+      "tightest_ballistic_margin": 11.1,
+      "max_required_speed": 419.4,
+      "min_hard_landing_area_qu2": 6144.0,
+      "technique_count": 3,
+      "n_hard_gaps": 3,
+      "n_boosted_gaps": 0
+    }
+  },
+  "ring_to_mega": {
+    "route": "ring_to_mega",
+    "frames": 459,
+    "fps": 76.782,
+    "duration_s": 5.99,
+    "arc_xy_total_qu": 2414.0,
+    "arc_xy_moved_qu": 2414.0,
+    "active_mean_speed": 482.9,
+    "mean_speed_all": 402.9,
+    "peak_speed": 551.4,
+    "arrive_frame": 372,
+    "teleports": [],
+    "water_segments": [],
+    "ledge_climbs": [
+      {
+        "frames": [
+          227,
+          268
+        ],
+        "z_gain": 22.1
+      }
+    ],
+    "boosts": [],
+    "bmodel_rides": [],
+    "n_airborne_segments": 6,
+    "gaps": [
+      {
+        "edge_frame": 82,
+        "land_frame": 122,
+        "edge": [
+          449.0,
+          117.6,
+          76.8
+        ],
+        "land": [
+          669.1,
+          139.8,
+          68.0
+        ],
+        "span_qu": 221.2,
+        "dz_qu": -8.8,
+        "void_floor_z": -200.0,
+        "pit_depth_qu": 256.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 197.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.521,
+        "flight_time_ballistic_s": 0.534,
+        "required_speed": 414.7,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 436.8,
+        "margin": 22.1,
+        "over_water": false,
+        "landing_floor_z": 56.0,
+        "landing_area_qu2": 10048.0,
+        "landing_extent_xy": [
+          96.0,
+          136.0
+        ]
+      },
+      {
+        "edge_frame": 270,
+        "land_frame": 355,
+        "edge": [
+          1180.1,
+          673.6,
+          83.4
+        ],
+        "land": [
+          1776.0,
+          703.0,
+          -123.2
+        ],
+        "span_qu": 596.6,
+        "dz_qu": -206.6,
+        "void_floor_z": -360.0,
+        "pit_depth_qu": 180.8,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 259.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 1.107,
+        "flight_time_ballistic_s": 1.112,
+        "required_speed": 536.5,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 536.8,
+        "margin": 0.3,
+        "over_water": false,
+        "landing_floor_z": -179.2,
+        "landing_area_qu2": 14784.0,
+        "landing_extent_xy": [
+          88.0,
+          168.0
+        ]
+      }
+    ],
+    "turns_gt45": 5,
+    "sharpest_turn_deg": 161.9,
+    "score": {
+      "composite": 4.78,
+      "components": {
+        "speed": 0.891,
+        "margin_term": 0.991,
+        "speed_demand_term": 0.656,
+        "precision": 0.163,
+        "technique": 0.2,
+        "turn": 0.436,
+        "volume": 0.25
+      },
+      "tightest_ballistic_margin": 0.3,
+      "max_required_speed": 536.5,
+      "min_hard_landing_area_qu2": 10048.0,
+      "technique_count": 1,
+      "n_hard_gaps": 2,
+      "n_boosted_gaps": 0
+    }
+  },
+  "rl_to_bridge": {
+    "route": "rl_to_bridge",
+    "frames": 981,
+    "fps": 74.279,
+    "duration_s": 13.22,
+    "arc_xy_total_qu": 3589.0,
+    "arc_xy_moved_qu": 3589.0,
+    "active_mean_speed": 300.1,
+    "mean_speed_all": 270.8,
+    "peak_speed": 546.5,
+    "arrive_frame": 871,
+    "teleports": [],
+    "water_segments": [],
+    "ledge_climbs": [
+      {
+        "frames": [
+          224,
+          264
+        ],
+        "z_gain": 23.1
+      },
+      {
+        "frames": [
+          271,
+          340
+        ],
+        "z_gain": 37.8
+      },
+      {
+        "frames": [
+          752,
+          792
+        ],
+        "z_gain": 20.6
+      },
+      {
+        "frames": [
+          793,
+          860
+        ],
+        "z_gain": 36.6
+      }
+    ],
+    "boosts": [
+      {
+        "frame": 277,
+        "dvz": 171.0,
+        "vz_after": 353.0
+      },
+      {
+        "frame": 827,
+        "dvz": 276.0,
+        "vz_after": 191.0
+      }
+    ],
+    "bmodel_rides": [],
+    "n_airborne_segments": 5,
+    "gaps": [
+      {
+        "edge_frame": 273,
+        "land_frame": 333,
+        "edge": [
+          1623.6,
+          356.2,
+          -54.1
+        ],
+        "land": [
+          1469.1,
+          -26.5,
+          2.6
+        ],
+        "span_qu": 412.8,
+        "dz_qu": 56.8,
+        "void_floor_z": -392.0,
+        "pit_depth_qu": 368.1,
+        "hard": true,
+        "type": "boosted_leap",
+        "vz_at_edge": 238.0,
+        "boost_frames": [
+          277
+        ],
+        "flight_time_obs_s": 0.808,
+        "flight_time_ballistic_s": 0.297,
+        "required_speed": 511.0,
+        "required_speed_source": "t_obs",
+        "human_speed_at_edge": 348.5,
+        "margin": -162.5,
+        "over_water": false,
+        "landing_floor_z": -23.9,
+        "landing_area_qu2": 14784.0,
+        "landing_extent_xy": [
+          88.0,
+          168.0
+        ]
+      },
+      {
+        "edge_frame": 475,
+        "land_frame": 533,
+        "edge": [
+          1474.9,
+          -66.2,
+          -17.2
+        ],
+        "land": [
+          1793.9,
+          -40.2,
+          -72.4
+        ],
+        "span_qu": 320.1,
+        "dz_qu": -55.1,
+        "void_floor_z": -168.0,
+        "pit_depth_qu": 0.1,
+        "hard": false,
+        "type": "leap",
+        "vz_at_edge": 249.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.781,
+        "flight_time_ballistic_s": 0.796,
+        "required_speed": 402.2,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 406.4,
+        "margin": 4.2,
+        "over_water": false,
+        "landing_floor_z": -167.9,
+        "landing_area_qu2": 26240.0,
+        "landing_extent_xy": [
+          168.0,
+          168.0
+        ]
+      },
+      {
+        "edge_frame": 795,
+        "land_frame": 853,
+        "edge": [
+          1617.0,
+          355.8,
+          -54.1
+        ],
+        "land": [
+          1467.2,
+          23.6,
+          -9.9
+        ],
+        "span_qu": 364.3,
+        "dz_qu": 44.2,
+        "void_floor_z": -392.0,
+        "pit_depth_qu": 368.1,
+        "hard": true,
+        "type": "boosted_leap",
+        "vz_at_edge": 238.0,
+        "boost_frames": [
+          827
+        ],
+        "flight_time_obs_s": 0.781,
+        "flight_time_ballistic_s": 0.297,
+        "required_speed": 466.6,
+        "required_speed_source": "t_obs",
+        "human_speed_at_edge": 467.3,
+        "margin": 0.8,
+        "over_water": false,
+        "landing_floor_z": -23.9,
+        "landing_area_qu2": 14400.0,
+        "landing_extent_xy": [
+          88.0,
+          168.0
+        ]
+      }
+    ],
+    "turns_gt45": 8,
+    "sharpest_turn_deg": 258.7,
+    "score": {
+      "composite": 5.63,
+      "components": {
+        "speed": 0.79,
+        "margin_term": 0.88,
+        "speed_demand_term": 0.579,
+        "precision": 0.0,
+        "technique": 1.0,
+        "turn": 0.698,
+        "volume": 0.25
+      },
+      "tightest_ballistic_margin": 4.2,
+      "max_required_speed": 511.0,
+      "min_hard_landing_area_qu2": 14400.0,
+      "technique_count": 6,
+      "n_hard_gaps": 2,
+      "n_boosted_gaps": 2
+    }
+  },
+  "rl_to_ya": {
+    "route": "rl_to_ya",
+    "frames": 400,
+    "fps": 77.131,
+    "duration_s": 5.2,
+    "arc_xy_total_qu": 2071.0,
+    "arc_xy_moved_qu": 2071.0,
+    "active_mean_speed": 473.5,
+    "mean_speed_all": 399.0,
+    "peak_speed": 811.6,
+    "arrive_frame": 327,
+    "teleports": [],
+    "water_segments": [],
+    "ledge_climbs": [
+      {
+        "frames": [
+          163,
+          241
+        ],
+        "z_gain": 140.6
+      }
+    ],
+    "boosts": [
+      {
+        "frame": 164,
+        "dvz": 283.0,
+        "vz_after": 542.0
+      }
+    ],
+    "bmodel_rides": [],
+    "n_airborne_segments": 3,
+    "gaps": [
+      {
+        "edge_frame": 123,
+        "land_frame": 157,
+        "edge": [
+          1765.1,
+          344.4,
+          -59.4
+        ],
+        "land": [
+          1797.1,
+          42.2,
+          -150.0
+        ],
+        "span_qu": 303.8,
+        "dz_qu": -90.6,
+        "void_floor_z": -392.0,
+        "pit_depth_qu": 224.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": -23.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.441,
+        "flight_time_ballistic_s": 0.448,
+        "required_speed": 678.0,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 687.8,
+        "margin": 9.8,
+        "over_water": false,
+        "landing_floor_z": -168.0,
+        "landing_area_qu2": 15936.0,
+        "landing_extent_xy": [
+          168.0,
+          128.0
+        ]
+      },
+      {
+        "edge_frame": 174,
+        "land_frame": 205,
+        "edge": [
+          1784.9,
+          -122.4,
+          -98.2
+        ],
+        "land": [
+          1607.0,
+          -354.8,
+          11.4
+        ],
+        "span_qu": 292.6,
+        "dz_qu": 109.6,
+        "void_floor_z": -392.0,
+        "pit_depth_qu": 368.1,
+        "hard": true,
+        "type": "boosted_leap",
+        "vz_at_edge": 438.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.402,
+        "flight_time_ballistic_s": 0.708,
+        "required_speed": 728.1,
+        "required_speed_source": "t_obs",
+        "human_speed_at_edge": 810.9,
+        "margin": 82.8,
+        "over_water": false,
+        "landing_floor_z": -23.9,
+        "landing_area_qu2": 14784.0,
+        "landing_extent_xy": [
+          168.0,
+          88.0
+        ]
+      }
+    ],
+    "turns_gt45": 4,
+    "sharpest_turn_deg": 188.3,
+    "score": {
+      "composite": 4.38,
+      "components": {
+        "speed": 0.804,
+        "margin_term": 0.72,
+        "speed_demand_term": 1.0,
+        "precision": 0.0,
+        "technique": 0.4,
+        "turn": 0.447,
+        "volume": 0.25
+      },
+      "tightest_ballistic_margin": 9.8,
+      "max_required_speed": 728.1,
+      "min_hard_landing_area_qu2": 14784.0,
+      "technique_count": 2,
+      "n_hard_gaps": 2,
+      "n_boosted_gaps": 1
+    }
+  },
+  "sng_jumps": {
+    "route": "sng_jumps",
+    "frames": 1644,
+    "fps": 73.831,
+    "duration_s": 22.25,
+    "arc_xy_total_qu": 6222.0,
+    "arc_xy_moved_qu": 6222.0,
+    "active_mean_speed": 297.9,
+    "mean_speed_all": 279.1,
+    "peak_speed": 476.5,
+    "arrive_frame": 1507,
+    "teleports": [],
+    "water_segments": [],
+    "ledge_climbs": [
+      {
+        "frames": [
+          139,
+          175
+        ],
+        "z_gain": 30.8
+      },
+      {
+        "frames": [
+          177,
+          211
+        ],
+        "z_gain": 30.5
+      },
+      {
+        "frames": [
+          485,
+          525
+        ],
+        "z_gain": 20.6
+      },
+      {
+        "frames": [
+          526,
+          551
+        ],
+        "z_gain": 39.1
+      },
+      {
+        "frames": [
+          1195,
+          1234
+        ],
+        "z_gain": 22.2
+      },
+      {
+        "frames": [
+          1236,
+          1273
+        ],
+        "z_gain": 29.8
+      }
+    ],
+    "boosts": [],
+    "bmodel_rides": [],
+    "n_airborne_segments": 15,
+    "gaps": [
+      {
+        "edge_frame": 184,
+        "land_frame": 207,
+        "edge": [
+          -141.2,
+          695.0,
+          115.2
+        ],
+        "land": [
+          -239.0,
+          784.8,
+          127.2
+        ],
+        "span_qu": 132.7,
+        "dz_qu": 12.0,
+        "void_floor_z": -8.0,
+        "pit_depth_qu": 128.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 166.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.312,
+        "flight_time_ballistic_s": 0.322,
+        "required_speed": 412.4,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 436.7,
+        "margin": 24.3,
+        "over_water": false,
+        "landing_floor_z": 120.0,
+        "landing_area_qu2": 16128.0,
+        "landing_extent_xy": [
+          168.0,
+          136.0
+        ]
+      },
+      {
+        "edge_frame": 333,
+        "land_frame": 375,
+        "edge": [
+          -260.5,
+          779.9,
+          135.5
+        ],
+        "land": [
+          -288.9,
+          556.4,
+          132.0
+        ],
+        "span_qu": 225.3,
+        "dz_qu": -3.5,
+        "void_floor_z": -16.0,
+        "pit_depth_qu": 136.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 218.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.569,
+        "flight_time_ballistic_s": 0.561,
+        "required_speed": 401.9,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 413.1,
+        "margin": 11.3,
+        "over_water": false,
+        "landing_floor_z": 120.0,
+        "landing_area_qu2": 3712.0,
+        "landing_extent_xy": [
+          88.0,
+          88.0
+        ]
+      },
+      {
+        "edge_frame": 502,
+        "land_frame": 515,
+        "edge": [
+          -527.2,
+          397.8,
+          160.1
+        ],
+        "land": [
+          -510.2,
+          327.0,
+          160.6
+        ],
+        "span_qu": 72.8,
+        "dz_qu": 0.5,
+        "void_floor_z": -16.0,
+        "pit_depth_qu": 136.1,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 81.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.176,
+        "flight_time_ballistic_s": 0.196,
+        "required_speed": 371.0,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 400.6,
+        "margin": 29.5,
+        "over_water": false,
+        "landing_floor_z": 120.1,
+        "landing_area_qu2": 5632.0,
+        "landing_extent_xy": [
+          88.0,
+          64.0
+        ]
+      },
+      {
+        "edge_frame": 661,
+        "land_frame": 697,
+        "edge": [
+          -287.2,
+          600.4,
+          227.5
+        ],
+        "land": [
+          -79.0,
+          583.9,
+          129.8
+        ],
+        "span_qu": 208.9,
+        "dz_qu": -97.8,
+        "void_floor_z": -16.0,
+        "pit_depth_qu": 56.0,
+        "hard": false,
+        "type": "leap",
+        "vz_at_edge": -16.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.488,
+        "flight_time_ballistic_s": 0.475,
+        "required_speed": 440.0,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 438.6,
+        "margin": -1.4,
+        "over_water": false,
+        "landing_floor_z": 40.0,
+        "landing_area_qu2": 23808.0,
+        "landing_extent_xy": [
+          144.0,
+          168.0
+        ]
+      },
+      {
+        "edge_frame": 876,
+        "land_frame": 912,
+        "edge": [
+          -143.2,
+          714.0,
+          119.5
+        ],
+        "land": [
+          -294.8,
+          526.2,
+          120.0
+        ],
+        "span_qu": 241.3,
+        "dz_qu": 0.5,
+        "void_floor_z": -16.0,
+        "pit_depth_qu": 136.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 218.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.488,
+        "flight_time_ballistic_s": 0.543,
+        "required_speed": 444.5,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 463.2,
+        "margin": 18.6,
+        "over_water": false,
+        "landing_floor_z": 120.0,
+        "landing_area_qu2": 3840.0,
+        "landing_extent_xy": [
+          88.0,
+          96.0
+        ]
+      },
+      {
+        "edge_frame": 1014,
+        "land_frame": 1043,
+        "edge": [
+          -544.9,
+          635.4,
+          156.4
+        ],
+        "land": [
+          -563.8,
+          789.1,
+          140.8
+        ],
+        "span_qu": 154.9,
+        "dz_qu": -15.6,
+        "void_floor_z": -16.0,
+        "pit_depth_qu": 136.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 114.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.393,
+        "flight_time_ballistic_s": 0.386,
+        "required_speed": 401.1,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 407.7,
+        "margin": 6.5,
+        "over_water": false,
+        "landing_floor_z": 120.0,
+        "landing_area_qu2": 11456.0,
+        "landing_extent_xy": [
+          168.0,
+          88.0
+        ]
+      },
+      {
+        "edge_frame": 1145,
+        "land_frame": 1172,
+        "edge": [
+          -555.1,
+          782.4,
+          126.6
+        ],
+        "land": [
+          -542.6,
+          624.8,
+          162.8
+        ],
+        "span_qu": 158.1,
+        "dz_qu": 36.1,
+        "void_floor_z": -16.0,
+        "pit_depth_qu": 136.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 249.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.366,
+        "flight_time_ballistic_s": 0.392,
+        "required_speed": 403.1,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 446.4,
+        "margin": 43.3,
+        "over_water": false,
+        "landing_floor_z": 120.0,
+        "landing_area_qu2": 10368.0,
+        "landing_extent_xy": [
+          88.0,
+          144.0
+        ]
+      },
+      {
+        "edge_frame": 1208,
+        "land_frame": 1219,
+        "edge": [
+          -446.4,
+          423.2,
+          157.1
+        ],
+        "land": [
+          -416.4,
+          365.0,
+          163.4
+        ],
+        "span_qu": 65.5,
+        "dz_qu": 6.2,
+        "void_floor_z": -16.0,
+        "pit_depth_qu": 136.1,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 106.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.149,
+        "flight_time_ballistic_s": 0.176,
+        "required_speed": 371.3,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 460.3,
+        "margin": 89.0,
+        "over_water": false,
+        "landing_floor_z": 120.1,
+        "landing_area_qu2": 10624.0,
+        "landing_extent_xy": [
+          168.0,
+          88.0
+        ]
+      },
+      {
+        "edge_frame": 1317,
+        "land_frame": 1344,
+        "edge": [
+          -820.5,
+          239.1,
+          217.6
+        ],
+        "land": [
+          -830.2,
+          113.5,
+          212.0
+        ],
+        "span_qu": 126.0,
+        "dz_qu": -5.6,
+        "void_floor_z": -16.0,
+        "pit_depth_qu": 200.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 132.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.366,
+        "flight_time_ballistic_s": 0.368,
+        "required_speed": 342.2,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 398.7,
+        "margin": 56.5,
+        "over_water": false,
+        "landing_floor_z": 184.0,
+        "landing_area_qu2": 4992.0,
+        "landing_extent_xy": [
+          88.0,
+          96.0
+        ]
+      },
+      {
+        "edge_frame": 1424,
+        "land_frame": 1448,
+        "edge": [
+          -835.2,
+          112.4,
+          202.2
+        ],
+        "land": [
+          -882.1,
+          240.4,
+          223.2
+        ],
+        "span_qu": 136.3,
+        "dz_qu": 21.0,
+        "void_floor_z": -16.0,
+        "pit_depth_qu": 200.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 207.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.325,
+        "flight_time_ballistic_s": 0.379,
+        "required_speed": 359.7,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 396.1,
+        "margin": 36.4,
+        "over_water": false,
+        "landing_floor_z": 184.0,
+        "landing_area_qu2": 9152.0,
+        "landing_extent_xy": [
+          104.0,
+          88.0
+        ]
+      }
+    ],
+    "turns_gt45": 20,
+    "sharpest_turn_deg": 456.2,
+    "score": {
+      "composite": 8.45,
+      "components": {
+        "speed": 0.813,
+        "margin_term": 1.0,
+        "speed_demand_term": 0.377,
+        "precision": 0.691,
+        "technique": 1.0,
+        "turn": 1.0,
+        "volume": 1.0
+      },
+      "tightest_ballistic_margin": -1.4,
+      "max_required_speed": 444.5,
+      "min_hard_landing_area_qu2": 3712.0,
+      "technique_count": 6,
+      "n_hard_gaps": 9,
+      "n_boosted_gaps": 0
+    }
+  },
+  "sng_shortcut": {
+    "route": "sng_shortcut",
+    "frames": 440,
+    "fps": 77.125,
+    "duration_s": 5.72,
+    "arc_xy_total_qu": 2104.0,
+    "arc_xy_moved_qu": 2104.0,
+    "active_mean_speed": 448.4,
+    "mean_speed_all": 368.2,
+    "peak_speed": 530.0,
+    "arrive_frame": 351,
+    "teleports": [],
+    "water_segments": [],
+    "ledge_climbs": [
+      {
+        "frames": [
+          237,
+          274
+        ],
+        "z_gain": 29.9
+      },
+      {
+        "frames": [
+          276,
+          314
+        ],
+        "z_gain": 28.6
+      }
+    ],
+    "boosts": [],
+    "bmodel_rides": [],
+    "n_airborne_segments": 6,
+    "gaps": [
+      {
+        "edge_frame": 283,
+        "land_frame": 314,
+        "edge": [
+          -140.2,
+          668.1,
+          111.1
+        ],
+        "land": [
+          -292.6,
+          524.8,
+          120.0
+        ],
+        "span_qu": 209.2,
+        "dz_qu": 8.9,
+        "void_floor_z": -16.0,
+        "pit_depth_qu": 136.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 186.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.402,
+        "flight_time_ballistic_s": 0.411,
+        "required_speed": 509.0,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 517.8,
+        "margin": 8.8,
+        "over_water": false,
+        "landing_floor_z": 120.0,
+        "landing_area_qu2": 3840.0,
+        "landing_extent_xy": [
+          88.0,
+          96.0
+        ]
+      }
+    ],
+    "turns_gt45": 6,
+    "sharpest_turn_deg": 152.0,
+    "score": {
+      "composite": 5.71,
+      "components": {
+        "speed": 0.696,
+        "margin_term": 0.749,
+        "speed_demand_term": 0.573,
+        "precision": 0.68,
+        "technique": 0.4,
+        "turn": 0.453,
+        "volume": 0.125
+      },
+      "tightest_ballistic_margin": 8.8,
+      "max_required_speed": 509.0,
+      "min_hard_landing_area_qu2": 3840.0,
+      "technique_count": 2,
+      "n_hard_gaps": 1,
+      "n_boosted_gaps": 0
+    }
+  },
+  "sng_shortcut2": {
+    "route": "sng_shortcut2",
+    "frames": 281,
+    "fps": 77.261,
+    "duration_s": 3.65,
+    "arc_xy_total_qu": 981.0,
+    "arc_xy_moved_qu": 981.0,
+    "active_mean_speed": 374.1,
+    "mean_speed_all": 268.8,
+    "peak_speed": 458.8,
+    "arrive_frame": 189,
+    "teleports": [],
+    "water_segments": [],
+    "ledge_climbs": [],
+    "boosts": [],
+    "bmodel_rides": [],
+    "n_airborne_segments": 3,
+    "gaps": [
+      {
+        "edge_frame": 135,
+        "land_frame": 176,
+        "edge": [
+          -161.0,
+          728.8,
+          135.5
+        ],
+        "land": [
+          -291.2,
+          529.4,
+          135.5
+        ],
+        "span_qu": 238.2,
+        "dz_qu": 0.0,
+        "void_floor_z": -16.0,
+        "pit_depth_qu": 136.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 218.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.531,
+        "flight_time_ballistic_s": 0.545,
+        "required_speed": 437.0,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 458.8,
+        "margin": 21.9,
+        "over_water": false,
+        "landing_floor_z": 120.0,
+        "landing_area_qu2": 3840.0,
+        "landing_extent_xy": [
+          88.0,
+          96.0
+        ]
+      }
+    ],
+    "turns_gt45": 3,
+    "sharpest_turn_deg": 121.7,
+    "score": {
+      "composite": 3.61,
+      "components": {
+        "speed": 0.368,
+        "margin_term": 0.374,
+        "speed_demand_term": 0.355,
+        "precision": 0.68,
+        "technique": 0.0,
+        "turn": 0.303,
+        "volume": 0.125
+      },
+      "tightest_ballistic_margin": 21.9,
+      "max_required_speed": 437.0,
+      "min_hard_landing_area_qu2": 3840.0,
+      "technique_count": 0,
+      "n_hard_gaps": 1,
+      "n_boosted_gaps": 0
+    }
+  },
+  "sng_to_rl": {
+    "route": "sng_to_rl",
+    "frames": 692,
+    "fps": 77.043,
+    "duration_s": 8.99,
+    "arc_xy_total_qu": 4085.0,
+    "arc_xy_moved_qu": 3310.0,
+    "active_mean_speed": 424.9,
+    "mean_speed_all": 367.9,
+    "peak_speed": 534.7,
+    "arrive_frame": 588,
+    "teleports": [
+      {
+        "frame": 128,
+        "jump_qu": 780.2,
+        "from": [
+          -539.25,
+          -453.625,
+          -15.875
+        ],
+        "to": [
+          224.0,
+          -320.0,
+          75.0
+        ]
+      }
+    ],
+    "water_segments": [],
+    "ledge_climbs": [
+      {
+        "frames": [
+          235,
+          271
+        ],
+        "z_gain": 31.2
+      }
+    ],
+    "boosts": [],
+    "bmodel_rides": [],
+    "n_airborne_segments": 11,
+    "gaps": [
+      {
+        "edge_frame": 190,
+        "land_frame": 227,
+        "edge": [
+          464.2,
+          -191.2,
+          76.8
+        ],
+        "land": [
+          662.2,
+          -205.5,
+          76.5
+        ],
+        "span_qu": 198.5,
+        "dz_qu": -0.2,
+        "void_floor_z": -200.0,
+        "pit_depth_qu": 256.0,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 197.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.48,
+        "flight_time_ballistic_s": 0.494,
+        "required_speed": 402.0,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 413.3,
+        "margin": 11.3,
+        "over_water": false,
+        "landing_floor_z": 56.0,
+        "landing_area_qu2": 9344.0,
+        "landing_extent_xy": [
+          88.0,
+          128.0
+        ]
+      },
+      {
+        "edge_frame": 371,
+        "land_frame": 379,
+        "edge": [
+          1048.9,
+          -710.6,
+          100.6
+        ],
+        "land": [
+          1095.9,
+          -694.5,
+          73.1
+        ],
+        "span_qu": 49.7,
+        "dz_qu": -27.5,
+        "void_floor_z": -24.0,
+        "pit_depth_qu": 0.1,
+        "hard": false,
+        "type": "leap",
+        "vz_at_edge": -217.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.104,
+        "flight_time_ballistic_s": 0.106,
+        "required_speed": 468.7,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 475.4,
+        "margin": 6.7,
+        "over_water": false,
+        "landing_floor_z": -23.9,
+        "landing_area_qu2": 21440.0,
+        "landing_extent_xy": [
+          168.0,
+          168.0
+        ]
+      },
+      {
+        "edge_frame": 510,
+        "land_frame": 560,
+        "edge": [
+          1473.1,
+          47.5,
+          3.6
+        ],
+        "land": [
+          1614.8,
+          362.9,
+          -60.4
+        ],
+        "span_qu": 345.7,
+        "dz_qu": -64.0,
+        "void_floor_z": -392.0,
+        "pit_depth_qu": 328.1,
+        "hard": true,
+        "type": "leap",
+        "vz_at_edge": 166.0,
+        "boost_frames": [],
+        "flight_time_obs_s": 0.649,
+        "flight_time_ballistic_s": 0.658,
+        "required_speed": 525.3,
+        "required_speed_source": "ballistic",
+        "human_speed_at_edge": 528.6,
+        "margin": 3.3,
+        "over_water": false,
+        "landing_floor_z": -63.9,
+        "landing_area_qu2": 5376.0,
+        "landing_extent_xy": [
+          112.0,
+          48.0
+        ]
+      }
+    ],
+    "turns_gt45": 7,
+    "sharpest_turn_deg": 154.2,
+    "score": {
+      "composite": 5.97,
+      "components": {
+        "speed": 0.821,
+        "margin_term": 0.906,
+        "speed_demand_term": 0.622,
+        "precision": 0.552,
+        "technique": 0.4,
+        "turn": 0.49,
+        "volume": 0.25
+      },
+      "tightest_ballistic_margin": 3.3,
+      "max_required_speed": 525.3,
+      "min_hard_landing_area_qu2": 5376.0,
+      "technique_count": 2,
+      "n_hard_gaps": 2,
+      "n_boosted_gaps": 0
+    }
+  }
+}

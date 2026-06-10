@@ -36,6 +36,50 @@ What should be tested next?
 
 ---
 
+## 2026-06-10
+
+### Experiment
+
+Nav-base mode 23 (frogbot navigation + bunnyhop weave actuation): movement doctrine
+(never hop up stairs), goal pinning, look-through carrot, corner governor A/B, offline
+pmove simulator. Approved phased plan executed overnight; full ledger in
+experiments/nav_doctrine/evidence/run-ledger.md.
+
+### Result
+
+Stairs walked grounded (0 jump inputs pre-crest, 0.9-1.1s, 3/3 deterministic test);
+directed reach on sng_shortcut2 4/10 -> 6-8/10 with the carrot (pooled 19/30 vs 4/10);
+corner-precision governor REGRESSED reach to 4/10 in both trigger variants (removed);
+pmove sim validated (human replay 692/692 frames <=0.20qu, edge 529.1 vs 528.2);
+11-route difficulty ladder built (sng_shortcut2 easiest, sng_to_rl 9/11); prewar found
+to corrupt the dm3 marker graph (different item set) and rejected for directed labs.
+No trick jump attempted yet (Phase 4: graph trick links).
+
+### Evidence
+
+experiments/nav_doctrine/ (README + evidence/). Run IDs per claim in the ledger.
+Key runs: stairs 20260610T010034-010144Z, carrot block 20260610T0048-0057Z,
+baseline 20260609T2254-2303Z, sim validation artifacts/pmove-validation/.
+
+### Interpretation
+
+Navigation reliability (not speed) is the binding gap, and it is physics at precision
+gates, not frogbot path stochasticity. Speed-preserving corner conversion belongs in
+the offline sweep, not live heuristics.
+
+### Confidence
+
+High for stairs doctrine, sim validity, prewar rejection (each directly measured).
+Medium for the carrot's exact effect size (n=10 blocks; 6-8/10 band).
+
+### Follow-up
+
+P3b offline sweep over mode-23 constants for corner conversion + edge speed;
+walkable-route human reference demo for the 80% speed gate; Phase 4 trick link
+(routing-layer speed prerequisite) once >=437 edge speed demonstrated on rung 1.
+
+---
+
 ## Initial Entry
 
 Project created.

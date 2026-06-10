@@ -154,6 +154,15 @@ else
   log "warning: missing route file $route_file; attempting map anyway"
 fi
 
+# Prewar (k_matchless 0): k_fb_enabled MUST be 1 at world spawn. Flipping it at
+# runtime with no players triggers a changelevel in client.c that segfaults this
+# KTX build in non-matchless mode (fault at gedict+0x2ac8, hoonymode spawn-assign
+# region; 100% reproducible 2026-06-09). Matchless keeps the proven flip flow.
+fb_enabled_at_spawn=0
+if [ "$matchless_val" = "0" ]; then
+  fb_enabled_at_spawn=1
+fi
+
 cat > "$cfg_path" <<EOF
 // Auto-generated Komodobots $map_name lab config $run_id
 hostname "komodobots-lab:$port"
@@ -163,7 +172,7 @@ set k_use_matchless_dir 1
 set k_defmode ffa
 set k_mode 3
 set k_defmap $map_name
-set k_fb_enabled 0
+set k_fb_enabled $fb_enabled_at_spawn
 set k_count 0
 set k_matchless_countdown 0
 set k_fb_moveprobe_mode $moveprobe_mode
@@ -1248,7 +1257,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument(
         "--moveprobe-mode",
         type=int,
-        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22),
+        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23),
         default=0,
         help=(
             "Set k_fb_moveprobe_mode in the generated KTX lab config. "
@@ -1429,7 +1438,18 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             replay_remote = upload_replay_cmds(args.host, args.replay_cmds)
         extra_cvars_blob = ""
         if args.ktx_extra_cvars:
-            _lines = ["set " + p.strip() for p in args.ktx_extra_cvars.split(";") if p.strip()]
+            _lines = []
+            for p in args.ktx_extra_cvars.split(";"):
+                p = p.strip()
+                if not p:
+                    continue
+                name, _, value = p.partition(" ")
+                # Quote multi-word values ("name x y z") or the cfg parser truncates
+                # the cvar at the first space.
+                if " " in value.strip():
+                    _lines.append(f'set {name} "{value.strip()}"')
+                else:
+                    _lines.append(f"set {p}")
             extra_cvars_blob = ("\n".join(_lines) + "\n") if _lines else ""
         run_remote_lab(
             args.host,
