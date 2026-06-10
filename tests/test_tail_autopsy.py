@@ -128,5 +128,29 @@ class TestSignedErr(unittest.TestCase):
         self.assertAlmostEqual(TA.signed_err(10.0, 350.0), 20.0)
 
 
+class TestAnalyzeGuard(unittest.TestCase):
+    """analyze must refuse to write an empty band summary (Codex P2 on
+    PR #112): a missing/empty features.jsonl — analyze before trace, an
+    interrupted trace, or a mistyped --out pointing at the committed
+    evidence dir — must fail fast, never clobber band-summary.json."""
+
+    def test_missing_features_fails_fast_and_writes_nothing(self):
+        import tempfile
+        d = Path(tempfile.mkdtemp())
+        sentinel = d / "band-summary.json"
+        sentinel.write_text('{"keep": "me"}')
+        with self.assertRaises(SystemExit):
+            TA.analyze(d)
+        self.assertEqual(sentinel.read_text(), '{"keep": "me"}')
+
+    def test_empty_features_file_also_fails(self):
+        import tempfile
+        d = Path(tempfile.mkdtemp())
+        (d / "features.jsonl").write_text("")
+        with self.assertRaises(SystemExit):
+            TA.analyze(d)
+        self.assertFalse((d / "band-summary.json").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

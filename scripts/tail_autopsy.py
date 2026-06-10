@@ -381,6 +381,17 @@ def band_table(tries, key_fn):
 
 def analyze(outdir):
     tries = load_jsonl(Path(outdir) / "features.jsonl")
+    if not tries:
+        # Fail LOUDLY before writing anything: an empty/missing features
+        # file (analyze before trace, interrupted trace, mistyped --out —
+        # e.g. pointed at the committed evidence dir, which holds only the
+        # summary copies) would otherwise overwrite band-summary.json with
+        # all-zero tables. Same guard pattern as mode23_sweep report
+        # (Codex P2 on PR #110, repeated on PR #112).
+        raise SystemExit(
+            f"no traced tries found in {Path(outdir) / 'features.jsonl'} "
+            f"(run `tail_autopsy.py trace` first); refusing to write an "
+            f"empty band summary")
     crossed = [t for t in tries if t["features"] is not None]
     print(f"{len(tries)} tries, {len(crossed)} crossed", flush=True)
 
