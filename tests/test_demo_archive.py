@@ -277,6 +277,11 @@ class TestRemoteScripts(unittest.TestCase):
         self.assertIn("<&3", da.BACKFILL_INSTALL_SCRIPT)
         self.assertIn("staging", da.BACKFILL_INSTALL_SCRIPT)
 
+    def test_staging_names_are_map_prefixed(self):
+        # Two maps may share a run_id (reconcile keeps them separate); the
+        # staged filename must carry the map or the uploads clobber each other.
+        self.assertIn('${map}__${rid}.mvd', da.BACKFILL_INSTALL_SCRIPT)
+
     def test_inventory_scripts_cover_expected_roots(self):
         self.assertIn(da.REMOTE_RUNS_DIR, da.REMOTE_RUNS_INVENTORY_SCRIPT)
         self.assertIn(da.SSD_ROOT, da.SSD_INVENTORY_SCRIPT)

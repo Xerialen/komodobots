@@ -264,7 +264,7 @@ while IFS="$(printf '\t')" read -r kind rid map sha <&3; do
   [ -n "$rid" ] || continue
   case "$kind" in
     run)     src="$HOME/{REMOTE_RUNS_DIR}/$rid/demo.mvd" ;;
-    staging) src="$HOME/{REMOTE_STAGING_DIR}/$rid.mvd" ;;
+    staging) src="$HOME/{REMOTE_STAGING_DIR}/${{map}}__${{rid}}.mvd" ;;
     *)       emit "$rid" "$map" bad-plan-kind ""; continue ;;
   esac
   install_one "$src" "$rid" "$map" "$sha"
@@ -569,7 +569,11 @@ def reconcile(
 
 
 def _stage_uploads(host: str, uploads: list[dict[str, str]], batch_size: int = 40) -> None:
-    """Copy local demos to a temp dir as <run_id>.mvd, then batch-scp them up."""
+    """Copy local demos to a temp dir as <map>__<run_id>.mvd, then batch-scp them up.
+
+    The map prefix keeps two same-run_id demos from DIFFERENT maps (a case
+    reconcile() deliberately keeps separate) from clobbering each other in the
+    shared staging dir; the installer's staging branch reads the same name."""
     proc = _ssh_script(host, f'mkdir -p "$HOME/{REMOTE_STAGING_DIR}"\n', timeout=60.0)
     if proc.returncode != 0:
         raise RuntimeError(f"could not create staging dir: {proc.stderr.strip()}")
@@ -577,7 +581,7 @@ def _stage_uploads(host: str, uploads: list[dict[str, str]], batch_size: int = 4
         tmp_dir = Path(tmp)
         staged: list[str] = []
         for row in uploads:
-            dst = tmp_dir / f"{row['run_id']}.mvd"
+            dst = tmp_dir / f"{row['map']}__{row['run_id']}.mvd"
             shutil.copy2(row["path"], dst)
             staged.append(str(dst))
         for index in range(0, len(staged), batch_size):
