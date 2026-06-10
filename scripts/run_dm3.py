@@ -12,8 +12,9 @@ Any extra args are passed through to run_frobodm2_lab.py, e.g.:
   python run_dm3.py --moveprobe-mode 21 --duration 46 \
       --ktx-extra-cvars "k_fb_moveprobe_s21_corner_thresh 58;..."
 
-Defaults: --map dm3 --bot-count 1 --replay-cmds artifacts/replay/dm3_sng_to_rl.cmds
-(override by passing them explicitly).
+Defaults: --map dm3 --bot-count 1 --moveprobe-mode 21
+--replay-cmds artifacts/replay/dm3_sng_to_rl.cmds (committed evidence copy on a
+clean checkout). Override any of them by passing them explicitly.
 """
 
 from __future__ import annotations
@@ -37,8 +38,8 @@ _COMMITTED_REPLAY = (REPO / "experiments" / "dm3_sng_to_rl_observability"
 DEFAULT_REPLAY = str(_LIVE_REPLAY if _LIVE_REPLAY.exists() else _COMMITTED_REPLAY)
 
 
-def main():
-    passthrough = sys.argv[1:]
+def build_cmd(passthrough):
+    """Lab command line with the SNG->RL observability defaults injected."""
     have = lambda flag: any(a == flag or a.startswith(flag + "=") for a in passthrough)
 
     cmd = [sys.executable, str(LAB)]
@@ -48,13 +49,22 @@ def main():
         cmd += ["--bot-count", "1"]
     if not have("--replay-cmds"):
         cmd += ["--replay-cmds", DEFAULT_REPLAY]
+    # The lab's own default is k_fb_moveprobe_mode=0 (off), which silently
+    # IGNORES the uploaded replay and measures plain Frogbot (Codex PR #58 P2).
+    # Default to mode 21 -- the replay-backed SNG->RL controller the evidence
+    # runs used (run.env MOVEPROBE_MODE=21; deployed as qwprogs-mode21.so).
+    if not have("--moveprobe-mode"):
+        cmd += ["--moveprobe-mode", "21"]
     # forced observability defaults
     if not have("--moveprobe-log-commands"):
         cmd += ["--moveprobe-log-commands"]
     if not have("--moveprobe-log-interval"):
         cmd += ["--moveprobe-log-interval", "0"]
-    cmd += passthrough
+    return cmd + list(passthrough)
 
+
+def main():
+    cmd = build_cmd(sys.argv[1:])
     print(">>", " ".join(cmd), flush=True)
     out = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
     sys.stdout.write(out.stdout)
