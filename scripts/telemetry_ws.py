@@ -9,8 +9,9 @@ to this one), and pushes one JSON frame per command tick to every connected
 websocket client. The local-hub /botlab page is the consumer.
 
 Stdlib only (hand-rolled RFC6455 server frames) so it runs on a bare python3 —
-no pip install on the lab host. Server->client push only; client frames are
-consumed just enough to answer ping and close.
+no pip install on the lab host. The telemetry direction is push-only; client
+text frames carry control-bridge commands (LD-F2, #96) and ping/close are
+answered as before.
 
 Protocol (JSON text frames):
   {"type": "hello",       "run_id", "port", "map", "live"}   on connect
@@ -21,8 +22,17 @@ Protocol (JSON text frames):
    "move": {"fwd","side","up"}, "buttons", "onground",
    "dir_speed", "dist_to_rl"}                                 per FBMOVEPROBE_CMD tick
 
+Control channel (client -> server text frames, see lab/server/control_bridge.py):
+  {"op", "req_id", ...}        command request
+  {"re", "ok", "detail", ...}  response to the requesting client only
+  {"type": "control_event", "event", ...}  broadcast to every client on success
+
+Deploy control_bridge.py (and qw_min_client.py for bot ops) flat next to this
+file on the lab host; without it the sidecar degrades to telemetry-only.
+
 Usage (manual v1, e.g. inside screen/tmux on servexeri):
   python3 telemetry_ws.py [--runs-dir ~/komodobots-lab/runs] [--host 0.0.0.0] [--port 8770]
+                          [--lab-home ~/komodobots-lab] [--no-control]
 """
 
 from __future__ import annotations
@@ -37,7 +47,15 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+# repo layout: the control bridge lives in lab/server/; deployed flat it sits
+# next to this file (first sys.path entry above already covers that).
+sys.path.insert(1, str(Path(__file__).resolve().parents[1] / "lab" / "server"))
 from moveprobe_parse import parse_moveprobe_command_line  # noqa: E402
+
+try:
+    from control_bridge import ControlBridge  # noqa: E402
+except ImportError:  # not deployed beside the sidecar -> telemetry-only mode
+    ControlBridge = None
 
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
@@ -124,8 +142,16 @@ async def ws_handshake(reader: asyncio.StreamReader, writer: asyncio.StreamWrite
     return True
 
 
-async def consume_client_frames(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-    """Read client frames just enough to answer ping/close; returns on close/EOF."""
+async def consume_client_frames(
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    on_text=None,
+) -> None:
+    """Read client frames: answer ping/close; deliver text frames to on_text.
+
+    Returns on close/EOF. Fragmented client messages (opcode 0x0 continuations)
+    are not supported; control commands are small single-frame JSON.
+    """
     while True:
         head = await reader.readexactly(2)
         opcode = head[0] & 0x0F
@@ -146,10 +172,43 @@ async def consume_client_frames(reader: asyncio.StreamReader, writer: asyncio.St
         if opcode == 0x9:  # ping -> pong
             writer.write(bytes((0x8A, len(payload))) + payload)
             await writer.drain()
+        if opcode == 0x1 and on_text is not None:  # text -> control channel
+            await on_text(payload.decode("utf-8", errors="replace"))
 
 
-async def handle_client(hub: Hub, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+async def handle_client(
+    hub: Hub,
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    bridge=None,
+) -> None:
     peer = writer.get_extra_info("peername")
+
+    async def on_text(payload: str) -> None:
+        # Control channel (LD-F2 #96). bridge.handle blocks (screen/subprocess,
+        # session_start waits for the server) -> run it in a worker thread so
+        # telemetry frames keep flowing to every client meanwhile.
+        if bridge is None:
+            response, broadcast = (
+                {"re": None, "ok": False, "detail": "control bridge not deployed"},
+                None,
+            )
+        else:
+            try:
+                request = json.loads(payload)
+            except json.JSONDecodeError:
+                request = None
+            if request is None:
+                response, broadcast = {"re": None, "ok": False, "detail": "invalid JSON"}, None
+            else:
+                response, broadcast = await asyncio.get_event_loop().run_in_executor(
+                    None, bridge.handle, request, str(peer)
+                )
+        writer.write(encode_ws_text(json.dumps(response, separators=(",", ":"))))
+        await writer.drain()
+        if broadcast is not None:
+            await hub.broadcast(broadcast)
+
     try:
         if not await ws_handshake(reader, writer):
             return
@@ -157,7 +216,7 @@ async def handle_client(hub: Hub, reader: asyncio.StreamReader, writer: asyncio.
         hub.clients.add(writer)
         writer.write(encode_ws_text(json.dumps(hub.hello_payload(), separators=(",", ":"))))
         await writer.drain()
-        await consume_client_frames(reader, writer)
+        await consume_client_frames(reader, writer, on_text=on_text)
     except (asyncio.IncompleteReadError, ConnectionError, TimeoutError, OSError):
         pass
     finally:
@@ -309,11 +368,30 @@ async def main() -> None:
     )
     parser.add_argument("--host", default="0.0.0.0", help="Bind address. Defaults to 0.0.0.0.")
     parser.add_argument("--port", type=int, default=8770, help="Websocket port. Defaults to 8770.")
+    parser.add_argument(
+        "--lab-home",
+        default=str(Path.home() / "komodobots-lab"),
+        help="Lab home for the control bridge lock/audit. Defaults to ~/komodobots-lab.",
+    )
+    parser.add_argument(
+        "--no-control",
+        action="store_true",
+        help="Disable the control bridge command channel (telemetry-only).",
+    )
     args = parser.parse_args()
+
+    bridge = None
+    if args.no_control:
+        print("[bridge] control channel disabled (--no-control)", flush=True)
+    elif ControlBridge is None:
+        print("[bridge] control_bridge.py not found beside the sidecar; telemetry-only", flush=True)
+    else:
+        bridge = ControlBridge(lab_home=Path(args.lab_home))
+        print(f"[bridge] control channel up (lab home {args.lab_home})", flush=True)
 
     hub = Hub()
     server = await asyncio.start_server(
-        lambda r, w: handle_client(hub, r, w), args.host, args.port
+        lambda r, w: handle_client(hub, r, w, bridge=bridge), args.host, args.port
     )
     print(f"[ws] listening on {args.host}:{args.port}, watching {args.runs_dir}", flush=True)
     async with server:

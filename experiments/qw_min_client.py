@@ -25,6 +25,20 @@ SVC_SERVERDATA = 11
 S2C_CONNECTION = ord("j")
 
 
+def signon_botcmds(bot_count: int, botcmds: list[str]) -> list[str]:
+    """botcmd lines sent once right after sign-on.
+
+    The first auto `botcmd addbot` (when --bot-count > 0, remaining ones are
+    paced by --bot-spacing as before) plus one `botcmd <arg>` per --botcmd,
+    e.g. --botcmd removebot / --botcmd removeall (control bridge, LD-F2 #96).
+    """
+    lines: list[str] = []
+    if bot_count > 0:
+        lines.append("botcmd addbot")
+    lines.extend(f"botcmd {cmd}" for cmd in botcmds)
+    return lines
+
+
 class QWMinClient:
     def __init__(
         self,
@@ -36,6 +50,7 @@ class QWMinClient:
         bot_spacing: float,
         name: str,
         verbose: bool,
+        botcmds: list[str] | None = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -44,6 +59,7 @@ class QWMinClient:
         self.bot_spacing = bot_spacing
         self.name = name
         self.verbose = verbose
+        self.botcmds = list(botcmds or [])
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("0.0.0.0", local_port))
@@ -206,9 +222,9 @@ class QWMinClient:
                     f"begin {self.spawncount}",
                 ]
                 if self.bot_count > 0:
-                    commands.append("botcmd addbot")
                     bots_sent = 1
                     next_bot_time = now + self.bot_spacing
+                commands.extend(signon_botcmds(self.bot_count, self.botcmds))
                 self.send_reliable(commands)
                 signed_on = True
                 next_nop = now + 0.5
@@ -235,6 +251,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bot-spacing", type=float, default=8.0, help="Seconds between addbot commands. Defaults to 8.")
     parser.add_argument("--name", default="KomodoPy", help="Client name. Defaults to KomodoPy.")
     parser.add_argument("--quiet", action="store_true", help="Only print the final completion line.")
+    parser.add_argument(
+        "--botcmd",
+        action="append",
+        default=[],
+        help="Extra 'botcmd <arg>' sent once after sign-on (repeatable), e.g. --botcmd removebot.",
+    )
     return parser.parse_args()
 
 
@@ -249,6 +271,7 @@ def main() -> None:
         bot_spacing=args.bot_spacing,
         name=args.name,
         verbose=not args.quiet,
+        botcmds=args.botcmd,
     )
     client.run()
 

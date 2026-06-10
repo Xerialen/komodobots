@@ -368,8 +368,20 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   (`scripts/telemetry_ws.py`) and the deployed `/qtv/` page in an iframe (temporary,
   replaced by the standalone postMessage QTV pane in LD-B2, #88).
 - Dev loop: `cd lab/dashboard && npm ci && npm run dev` (see `lab/README.md`).
-- The dashboard is read-only with respect to the lab in this stage: it watches whatever
-  attempt happens to run; it cannot start or steer anything until LD-F1/F2/F3.
+- Control bridge (LD-F2, #96): the telemetry sidecar also carries a JSON command
+  channel (`lab/server/control_bridge.py`, deployed flat next to `telemetry_ws.py`
+  together with `qw_min_client.py`). Hard server-side gates: lab port allowlist
+  28599–28609 only; production 28501/28502/28503 and `qw_*` screens flat-denied;
+  cvar/console allowlists; audit log at `~/komodobots-lab/control-audit.log`.
+  The lab lock `~/komodobots-lab/lab.lock` gives the experiment harness absolute
+  priority: `run_frobodm2_lab.py` writes `owner=harness` for the duration of each
+  attempt and the bridge refuses every mutating op while that lock is fresh
+  (pid alive, ≤ 2 h); stale locks need an explicit `force=true`. Dashboard sessions
+  run as `komodobots_lab_<port>` screens with the `mvdsv-lab` binary, and the harness
+  refuses a port such a session occupies. Protocol, ops, and the `kbot-telemetry`
+  restart procedure: `lab/README.md`. The UI for all of this lands in LD-F3 (#105).
+- Until LD-F3, the dashboard page itself remains watch-only: it consumes telemetry and
+  cannot start or steer anything from the UI.
 - Multi-bot attempts: the telemetry stream interleaves one frame per probed bot
   (`frame.ed`/`frame.name`). The 3D view keeps a separate marker/trail/velocity-arrow
   per `ed` (distinct colors, in order of first appearance); the camera follow and the
