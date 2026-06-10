@@ -19,7 +19,7 @@ sys.path.insert(0, str(SCRIPTS))
 
 from a3_surrogate import load_rows, graph_nav          # noqa: E402
 from mode23_sim import load_route_cfg                  # noqa: E402
-from mode23_sweep import RUNG_B                        # noqa: E402
+from mode23_sweep import RUNG_B, edge_objective        # noqa: E402
 from route_metrics import (EDGE_CROSS_EPS, EDGE_CORRIDOR, EDGE_Z_WINDOW,
                            TELEPORT_JUMP, _truncate_at_arrival,
                            legit_segment)              # noqa: E402
@@ -101,6 +101,13 @@ def main():
             rows = [r for r in rows if r["t"] - t0 <= RUNG_B["budget_s"]]
             seg = _truncate_at_arrival(legit_segment(rows, ()), 60.0)
             ci = crossing_index(seg, gap)
+            # the local index finder must agree with the IMPORTED metric
+            # exactly (the tail_autopsy convention: index finders exist only
+            # because edge_speed returns a speed, never a row)
+            v = edge_objective(rows, gap)
+            assert (v is None) == (ci is None) and (
+                v is None or abs(seg[ci]["vh"] - v) < 0.05), \
+                f"{rid}: finder {None if ci is None else seg[ci]['vh']} vs metric {v}"
             rec = {"run": rid}
             if ci is not None:
                 rec["edge"] = round(seg[ci]["vh"], 1)
