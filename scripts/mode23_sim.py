@@ -44,6 +44,7 @@ import json
 import math
 import random
 import re
+import statistics
 import struct
 import sys
 from pathlib import Path
@@ -508,7 +509,9 @@ class FrogbotBrain:
             if f1 is not None:
                 f2 = self.exists_path(nav.touch_marker, nav.linked_marker)
                 if f2 is not None:
-                    nav.path_state = f1 | f2
+                    # ExistsPath writes through the SAME pointer twice: the
+                    # second call's flags win (bot_botpath.c:299-305)
+                    nav.path_state = f2
                     return
         if nav.touch_marker is None:
             return
@@ -535,19 +538,25 @@ class FrogbotBrain:
             dist = math.dist(mk.nav, origin)
             if dist >= nav.touch_distance:
                 continue
-            if not (mk.absmin[2] - 20 < origin[2] + PLAYER_MINS[2]):
+            # player absmin[2] = origin + mins - 1 (non-FL_ITEM abs expansion)
+            if not (mk.absmin[2] - 20 < origin[2] + PLAYER_MINS[2] - 1):
                 continue
-            if not self._can_damage(mk.nav, origin):
+            if not self._can_damage(origin, mk):
                 continue
             nav.touch_distance = dist
             nav.touch_marker = mk.num
             nav.touch_marker_time = now + 5.0
 
-    def _can_damage(self, frm, to):
-        """CanDamage LOS: center ray, then xy-jittered corners."""
+    def _can_damage(self, frm, mk):
+        """KTX CanDamage(targ=marker, inflictor=player) (combat.c:78): rays
+        from the player origin to the marker ORIGIN, then to the four
+        half-size bbox corners (origin + mins/maxs * 0.5 on xy)."""
+        to = mk.org
         if line_fraction(self.g.world, frm, to) == 1.0:
             return True
-        for dx, dy in ((15, 15), (-15, -15), (-15, 15), (15, -15)):
+        mins, maxs = CLASS_BBOX.get(mk.cls, CLASS_BBOX["marker"])
+        for dx, dy in ((maxs[0] * 0.5, maxs[1] * 0.5), (mins[0] * 0.5, maxs[1] * 0.5),
+                       (mins[0] * 0.5, mins[1] * 0.5), (maxs[0] * 0.5, mins[1] * 0.5)):
             if line_fraction(self.g.world, frm, (to[0] + dx, to[1] + dy, to[2])) == 1.0:
                 return True
         return False
@@ -603,8 +612,11 @@ class FrogbotBrain:
         mk = self.g.markers[nav.linked_marker]
         d, _ = norm3d([mk.nav[0] - st.origin[0], mk.nav[1] - st.origin[1],
                        mk.nav[2] - st.origin[2]])
-        if nav.linked_marker == nav.touch_marker:
-            d = [0.0, 0.0, 0.0]     # at goal/arrival hold (goalentity != touch -> clear)
+        if nav.linked_marker == nav.touch_marker and nav.touch_marker != self.goal:
+            # linked==touch and the goal entity is elsewhere: stand
+            # (bot_botthink.c:258-271; at the goal itself dir_move is KEPT,
+            # the live bot mills around the pinned marker)
+            d = [0.0, 0.0, 0.0]
         if st.waterlevel <= 1:
             d[2] = 0.0
         nav.dir_move = d
@@ -826,7 +838,8 @@ def run_attempt(world, graph, seed, config="c5", budget_s=RUN_BUDGET_S,
                 yaw, move, jump = last_yaw, (0, 0, 0), False
             else:
                 yaw, move, jump = vectoyaw(dm), (800, 0, 0), False
-            law.jump_press = False      # toggle state follows the actual button
+            # NOTE: the C early-returns leave moveprobe_accel_jump_press
+            # untouched, so the toggle static is NOT reset here either
         last_yaw = yaw
 
         # record the row at cmd time (matches the live moveprobe log)
@@ -1051,11 +1064,13 @@ def main():
               f"arrival_t={a['arrival_t']} attempts={[x['cls'][:12] for x in a['attempts']]}")
     reach = sum(1 for r in results if r["reached"])
     tws = sorted(r["arrival_tws"] for r in results if r["arrival_tws"] is not None)
-    med = tws[len(tws) // 2] if len(tws) % 2 else (tws[len(tws) // 2 - 1] + tws[len(tws) // 2]) / 2
+    # zero-arrival blocks (e.g. a hopeless sweep candidate) must still record
+    # their evidence: median is None, never an IndexError (Codex PR #83 P2)
+    med = statistics.median(tws) if tws else None
     summary = {"config": args.config, "n": args.seeds, "reach": reach,
                "reach_rate": round(reach / args.seeds, 3),
                "arrival_tws_values": tws,
-               "arrival_tws_median": round(med, 1) if tws else None}
+               "arrival_tws_median": round(med, 1) if med is not None else None}
     print(json.dumps(summary, indent=2))
     (outdir / f"calibration-{args.config}.json").write_text(
         json.dumps({"summary": summary, "results": results}, indent=1))

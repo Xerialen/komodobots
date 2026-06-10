@@ -2,82 +2,80 @@
  "summary": {
   "config": "c1",
   "n": 30,
-  "reach": 21,
-  "reach_rate": 0.7,
+  "reach": 14,
+  "reach_rate": 0.467,
   "arrival_tws_values": [
-   201.8,
-   216.3,
-   219.7,
-   225.1,
-   226.1,
-   237.5,
-   243.3,
-   243.9,
-   250.1,
-   252.2,
-   252.3,
-   256.1,
-   270.6,
-   275.2,
-   282.7,
-   289.0,
-   294.8,
-   300.6,
-   305.4,
-   308.7,
-   312.0
+   219.1,
+   237.8,
+   240.2,
+   246.6,
+   255.5,
+   267.6,
+   273.6,
+   275.4,
+   275.7,
+   279.3,
+   282.8,
+   289.9,
+   298.0,
+   334.5
   ],
-  "arrival_tws_median": 252.3
+  "arrival_tws_median": 274.5
  },
  "results": [
   {
    "attempts": [
     {
-     "cls": "REACHED_RL",
-     "closest": 13.2,
-     "tws": 308.7,
+     "cls": "REACHED_LEDGE_NO_JUMP",
+     "closest": 302.6,
+     "tws": 267.0,
      "t0": 0.0,
-     "t1": 48.089,
-     "arrival_t": 4.4
+     "t1": 5.725
+    },
+    {
+     "cls": "REACHED_RL",
+     "closest": 37.4,
+     "tws": 273.6,
+     "t0": 5.735,
+     "t1": 48.097,
+     "arrival_t": 30.0
     }
    ],
    "reached": true,
-   "arrival_tws": 308.7,
-   "arrival_t": 4.4,
+   "arrival_tws": 273.6,
+   "arrival_t": 30.0,
    "seed": 1,
    "events": []
   },
   {
    "attempts": [
     {
-     "cls": "REACHED_RL",
-     "closest": 54.1,
-     "tws": 250.1,
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 65.6,
+     "tws": 208.8,
      "t0": 0.0,
-     "t1": 48.081,
-     "arrival_t": 35.8
+     "t1": 48.099
     }
    ],
-   "reached": true,
-   "arrival_tws": 250.1,
-   "arrival_t": 35.8,
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
    "seed": 2,
    "events": []
   },
   {
    "attempts": [
     {
-     "cls": "REACHED_RL",
-     "closest": 46.2,
-     "tws": 252.2,
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 148.8,
+     "tws": 211.2,
      "t0": 0.0,
-     "t1": 48.097,
-     "arrival_t": 45.2
+     "t1": 48.094
     }
    ],
-   "reached": true,
-   "arrival_tws": 252.2,
-   "arrival_t": 45.2,
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
    "seed": 3,
    "events": []
   },
@@ -85,16 +83,23 @@
    "attempts": [
     {
      "cls": "REACHED_RL",
-     "closest": 28.9,
-     "tws": 216.3,
+     "closest": 24.7,
+     "tws": 219.1,
      "t0": 0.0,
-     "t1": 48.098,
-     "arrival_t": 31.0
+     "t1": 33.799,
+     "arrival_t": 30.9
+    },
+    {
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 202.7,
+     "tws": 171.0,
+     "t0": 33.809,
+     "t1": 48.097
     }
    ],
    "reached": true,
-   "arrival_tws": 216.3,
-   "arrival_t": 31.0,
+   "arrival_tws": 219.1,
+   "arrival_t": 30.9,
    "seed": 4,
    "events": []
   },
@@ -102,15 +107,15 @@
    "attempts": [
     {
      "cls": "REACHED_RL",
-     "closest": 32.1,
-     "tws": 237.5,
+     "closest": 49.5,
+     "tws": 237.8,
      "t0": 0.0,
-     "t1": 48.087,
+     "t1": 48.084,
      "arrival_t": 19.1
     }
    ],
    "reached": true,
-   "arrival_tws": 237.5,
+   "arrival_tws": 237.8,
    "arrival_t": 19.1,
    "seed": 5,
    "events": []
@@ -119,49 +124,56 @@
    "attempts": [
     {
      "cls": "REACHED_RL",
-     "closest": 50.2,
-     "tws": 270.6,
+     "closest": 11.1,
+     "tws": 275.4,
      "t0": 0.0,
-     "t1": 48.096,
-     "arrival_t": 17.9
+     "t1": 44.882,
+     "arrival_t": 19.0
+    },
+    {
+     "cls": "REACHED_LEDGE_NO_JUMP",
+     "closest": 241.4,
+     "tws": 227.2,
+     "t0": 44.902,
+     "t1": 48.099
     }
    ],
    "reached": true,
-   "arrival_tws": 270.6,
-   "arrival_t": 17.9,
+   "arrival_tws": 275.4,
+   "arrival_t": 19.0,
    "seed": 6,
    "events": []
   },
   {
    "attempts": [
     {
-     "cls": "REACHED_LEDGE_NO_JUMP",
-     "closest": 65.6,
-     "tws": 218.9,
+     "cls": "REACHED_RL",
+     "closest": 56.3,
+     "tws": 334.5,
      "t0": 0.0,
-     "t1": 48.083
+     "t1": 48.082,
+     "arrival_t": 7.7
     }
    ],
-   "reached": false,
-   "arrival_tws": null,
-   "arrival_t": null,
+   "reached": true,
+   "arrival_tws": 334.5,
+   "arrival_t": 7.7,
    "seed": 7,
    "events": []
   },
   {
    "attempts": [
     {
-     "cls": "REACHED_RL",
-     "closest": 11.9,
-     "tws": 289.0,
+     "cls": "REACHED_LEDGE_NO_JUMP",
+     "closest": 70.5,
+     "tws": 255.2,
      "t0": 0.0,
-     "t1": 48.08,
-     "arrival_t": 5.8
+     "t1": 48.095
     }
    ],
-   "reached": true,
-   "arrival_tws": 289.0,
-   "arrival_t": 5.8,
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
    "seed": 8,
    "events": []
   },
@@ -169,16 +181,16 @@
    "attempts": [
     {
      "cls": "REACHED_RL",
-     "closest": 31.2,
-     "tws": 305.4,
+     "closest": 37.0,
+     "tws": 298.0,
      "t0": 0.0,
-     "t1": 48.099,
-     "arrival_t": 19.3
+     "t1": 48.091,
+     "arrival_t": 21.3
     }
    ],
    "reached": true,
-   "arrival_tws": 305.4,
-   "arrival_t": 19.3,
+   "arrival_tws": 298.0,
+   "arrival_t": 21.3,
    "seed": 9,
    "events": []
   },
@@ -202,15 +214,15 @@
    "attempts": [
     {
      "cls": "REACHED_RL",
-     "closest": 42.6,
-     "tws": 282.7,
+     "closest": 43.4,
+     "tws": 282.8,
      "t0": 0.0,
-     "t1": 48.095,
+     "t1": 48.094,
      "arrival_t": 11.1
     }
    ],
    "reached": true,
-   "arrival_tws": 282.7,
+   "arrival_tws": 282.8,
    "arrival_t": 11.1,
    "seed": 11,
    "events": []
@@ -220,7 +232,7 @@
     {
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
      "closest": 108.0,
-     "tws": 218.9,
+     "tws": 218.8,
      "t0": 0.0,
      "t1": 48.097
     }
@@ -234,11 +246,11 @@
   {
    "attempts": [
     {
-     "cls": "REACHED_LEDGE_NO_JUMP",
-     "closest": 64.4,
-     "tws": 232.6,
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 75.5,
+     "tws": 234.0,
      "t0": 0.0,
-     "t1": 48.08
+     "t1": 48.095
     }
    ],
    "reached": false,
@@ -250,42 +262,66 @@
   {
    "attempts": [
     {
-     "cls": "REACHED_RL",
-     "closest": 41.5,
-     "tws": 243.3,
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 105.5,
+     "tws": 202.7,
      "t0": 0.0,
-     "t1": 48.098,
-     "arrival_t": 10.1
+     "t1": 48.092
     }
    ],
-   "reached": true,
-   "arrival_tws": 243.3,
-   "arrival_t": 10.1,
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
    "seed": 14,
    "events": []
   },
   {
    "attempts": [
     {
-     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
-     "closest": 72.5,
-     "tws": 235.6,
+     "cls": "REACHED_RL",
+     "closest": 44.2,
+     "tws": 240.2,
      "t0": 0.0,
-     "t1": 48.086
+     "t1": 48.094,
+     "arrival_t": 36.1
     }
    ],
-   "reached": false,
-   "arrival_tws": null,
-   "arrival_t": null,
+   "reached": true,
+   "arrival_tws": 240.2,
+   "arrival_t": 36.1,
    "seed": 15,
    "events": []
   },
   {
    "attempts": [
     {
-     "cls": "REACHED_LEDGE_NO_JUMP",
-     "closest": 62.8,
-     "tws": 216.6,
+     "cls": "REACHED_RL",
+     "closest": 10.4,
+     "tws": 275.7,
+     "t0": 0.0,
+     "t1": 37.48,
+     "arrival_t": 8.0
+    },
+    {
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 207.6,
+     "tws": 256.0,
+     "t0": 37.5,
+     "t1": 48.098
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 275.7,
+   "arrival_t": 8.0,
+   "seed": 16,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 63.1,
+     "tws": 245.5,
      "t0": 0.0,
      "t1": 48.095
     }
@@ -293,23 +329,6 @@
    "reached": false,
    "arrival_tws": null,
    "arrival_t": null,
-   "seed": 16,
-   "events": []
-  },
-  {
-   "attempts": [
-    {
-     "cls": "REACHED_RL",
-     "closest": 41.5,
-     "tws": 201.8,
-     "t0": 0.0,
-     "t1": 48.094,
-     "arrival_t": 37.3
-    }
-   ],
-   "reached": true,
-   "arrival_tws": 201.8,
-   "arrival_t": 37.3,
    "seed": 17,
    "events": []
   },
@@ -318,9 +337,9 @@
     {
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
      "closest": 103.1,
-     "tws": 192.6,
+     "tws": 197.5,
      "t0": 0.0,
-     "t1": 48.096
+     "t1": 48.092
     }
    ],
    "reached": false,
@@ -332,34 +351,32 @@
   {
    "attempts": [
     {
-     "cls": "REACHED_RL",
-     "closest": 42.3,
-     "tws": 275.2,
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 66.7,
+     "tws": 276.5,
      "t0": 0.0,
-     "t1": 48.091,
-     "arrival_t": 18.3
+     "t1": 48.089
     }
    ],
-   "reached": true,
-   "arrival_tws": 275.2,
-   "arrival_t": 18.3,
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
    "seed": 19,
    "events": []
   },
   {
    "attempts": [
     {
-     "cls": "REACHED_RL",
-     "closest": 42.7,
-     "tws": 256.1,
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 63.2,
+     "tws": 225.4,
      "t0": 0.0,
-     "t1": 48.09,
-     "arrival_t": 20.6
+     "t1": 48.098
     }
    ],
-   "reached": true,
-   "arrival_tws": 256.1,
-   "arrival_t": 20.6,
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
    "seed": 20,
    "events": []
   },
@@ -367,16 +384,16 @@
    "attempts": [
     {
      "cls": "REACHED_RL",
-     "closest": 48.2,
-     "tws": 300.6,
+     "closest": 1.8,
+     "tws": 255.5,
      "t0": 0.0,
-     "t1": 48.094,
-     "arrival_t": 6.6
+     "t1": 48.091,
+     "arrival_t": 42.7
     }
    ],
    "reached": true,
-   "arrival_tws": 300.6,
-   "arrival_t": 6.6,
+   "arrival_tws": 255.5,
+   "arrival_t": 42.7,
    "seed": 21,
    "events": []
   },
@@ -384,40 +401,32 @@
    "attempts": [
     {
      "cls": "REACHED_RL",
-     "closest": 42.5,
-     "tws": 252.3,
+     "closest": 25.1,
+     "tws": 267.6,
      "t0": 0.0,
-     "t1": 48.099,
-     "arrival_t": 38.2
+     "t1": 48.097,
+     "arrival_t": 16.2
     }
    ],
    "reached": true,
-   "arrival_tws": 252.3,
-   "arrival_t": 38.2,
+   "arrival_tws": 267.6,
+   "arrival_t": 16.2,
    "seed": 22,
    "events": []
   },
   {
    "attempts": [
     {
-     "cls": "REACHED_LEDGE_NO_JUMP",
-     "closest": 99.3,
-     "tws": 220.4,
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 102.0,
+     "tws": 264.4,
      "t0": 0.0,
-     "t1": 21.16
-    },
-    {
-     "cls": "REACHED_RL",
-     "closest": 36.0,
-     "tws": 225.1,
-     "t0": 21.18,
-     "t1": 48.082,
-     "arrival_t": 10.1
+     "t1": 48.095
     }
    ],
-   "reached": true,
-   "arrival_tws": 225.1,
-   "arrival_t": 10.1,
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
    "seed": 23,
    "events": []
   },
@@ -425,10 +434,10 @@
    "attempts": [
     {
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
-     "closest": 63.9,
-     "tws": 211.9,
+     "closest": 76.1,
+     "tws": 212.4,
      "t0": 0.0,
-     "t1": 48.092
+     "t1": 48.093
     }
    ],
    "reached": false,
@@ -478,16 +487,16 @@
     },
     {
      "cls": "REACHED_RL",
-     "closest": 37.4,
-     "tws": 294.8,
+     "closest": 41.1,
+     "tws": 289.9,
      "t0": 10.686,
-     "t1": 48.088,
-     "arrival_t": 9.8
+     "t1": 48.079,
+     "arrival_t": 10.5
     }
    ],
    "reached": true,
-   "arrival_tws": 294.8,
-   "arrival_t": 9.8,
+   "arrival_tws": 289.9,
+   "arrival_t": 10.5,
    "seed": 26,
    "events": []
   },
@@ -495,33 +504,32 @@
    "attempts": [
     {
      "cls": "REACHED_RL",
-     "closest": 45.2,
-     "tws": 219.7,
+     "closest": 12.6,
+     "tws": 246.6,
      "t0": 0.0,
-     "t1": 48.095,
-     "arrival_t": 29.1
+     "t1": 48.093,
+     "arrival_t": 47.1
     }
    ],
    "reached": true,
-   "arrival_tws": 219.7,
-   "arrival_t": 29.1,
+   "arrival_tws": 246.6,
+   "arrival_t": 47.1,
    "seed": 27,
    "events": []
   },
   {
    "attempts": [
     {
-     "cls": "REACHED_RL",
-     "closest": 35.9,
-     "tws": 243.9,
+     "cls": "REACHED_LEDGE_NO_JUMP",
+     "closest": 139.9,
+     "tws": 183.1,
      "t0": 0.0,
-     "t1": 48.082,
-     "arrival_t": 5.5
+     "t1": 48.09
     }
    ],
-   "reached": true,
-   "arrival_tws": 243.9,
-   "arrival_t": 5.5,
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
    "seed": 28,
    "events": []
   },
@@ -529,33 +537,32 @@
    "attempts": [
     {
      "cls": "REACHED_RL",
-     "closest": 26.4,
-     "tws": 312.0,
+     "closest": 44.1,
+     "tws": 279.3,
      "t0": 0.0,
-     "t1": 48.092,
-     "arrival_t": 4.5
+     "t1": 48.091,
+     "arrival_t": 21.6
     }
    ],
    "reached": true,
-   "arrival_tws": 312.0,
-   "arrival_t": 4.5,
+   "arrival_tws": 279.3,
+   "arrival_t": 21.6,
    "seed": 29,
    "events": []
   },
   {
    "attempts": [
     {
-     "cls": "REACHED_RL",
-     "closest": 48.0,
-     "tws": 226.1,
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 62.3,
+     "tws": 282.8,
      "t0": 0.0,
-     "t1": 48.087,
-     "arrival_t": 46.3
+     "t1": 48.094
     }
    ],
-   "reached": true,
-   "arrival_tws": 226.1,
-   "arrival_t": 46.3,
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
    "seed": 30,
    "events": []
   }

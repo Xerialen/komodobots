@@ -49,28 +49,39 @@ from the raw local c5 block `20260610T013959Z..014904Z` with current main:
 
 | config | reach | reach rate | arrival-tws median | live reference |
 |---|---|---|---|---|
-| **c5** (deployed: carrot + delegation-exact guard) | **15/30** | **0.50** | **279.9** | 6/10 = 0.60; 264.0 |
-| c1 (carrot, no guard) | 21/30 | 0.70 | 252.3 | 8/10 = 0.80 |
-| c4 (carrot, broad guard) | 15/30 | 0.50 | 279.9 | 5/10 = 0.50 |
+| **c5** (deployed: carrot + delegation-exact guard) | **12/30** | **0.40** | **279.4** | 6/10 = 0.60; 264.0 |
+| c1 (carrot, no guard) | 14/30 | 0.467 | 274.5 | 8/10 = 0.80 |
+| c4 (carrot, broad guard) | 12/30 | 0.40 | 279.4 | 5/10 = 0.50 |
 
 **c5 gate: PASS on both pre-registered criteria.**
-- Reach 15/30 = 0.50 ∈ [0.2624, 0.8784] (count 15 ∈ 8..26). ✓
-- Arrival-tws median 279.9 ∈ [237.6, 290.4] (+6.0% vs live 264.0). ✓
-- No tolerance was widened; the block ran once.
+- Reach 12/30 = 0.40 ∈ [0.2624, 0.8784] (count 12 ∈ 8..26). ✓
+- Arrival-tws median 279.4 ∈ [237.6, 290.4] (+5.8% vs live 264.0). ✓
+- No tolerance was widened.
 
-Sim-c5 arrival times: 3.9–45.5 s (live attempt-level: 5.0–28.4 s). Sim-c5 arrival-tws
-values: [217.6, 223.1, 243.1, 243.9, 257.8, 273.9, 273.9, 279.9, 284.6, 289.0, 297.7,
-302.5, 308.7, 312.0, 383.0].
+*Re-run disclosure:* the block ran twice. The first pass (c5 15/30 / 279.9, c1
+21/30, c4 15/30 — also a PASS on both criteria) preceded five port-fidelity fixes
+found in self-review against the C source (ExistsPath path_state overwrite-not-OR;
+CanDamage ray direction/endpoints/corner-jitter per combat.c:78; player absmin −1;
+goal-hover dir_move keep; jump-toggle static not reset on early-return frames) plus
+the Codex P2 zero-arrival fix. The post-fix numbers above are the reported result —
+the code was corrected to match the C source, not the outcome; both runs passed and
+no tolerance moved.
+
+Sim-c5 arrival times: 6.8–47.7 s (live attempt-level: 5.0–28.4 s). Sim-c5 arrival-tws
+values: [241.6, 243.5, 248.8, 253.0, 259.9, 275.7, 283.2, 284.6, 298.3, 302.8, 318.4,
+334.5].
 
 **Error structure across configs (the transfer doctrine check):**
-- Ordering preserved: sim c1 (0.70) > c4 = c5 (0.50); live c1 (0.80) > c5 (0.60) ≈ c4
-  (0.50). The guard's reach cost (live −2..3/10, sim −6/30 = −2/10) reproduces.
+- Ordering preserved: sim c1 (0.467) > c4 = c5 (0.40); live c1 (0.80) > c5 (0.60) ≈
+  c4 (0.50). The c1 gap is compressed vs live — but neither side resolves it:
+  live 8/10 vs 6/10 and sim 14/30 vs 12/30 are both statistically indistinguishable
+  at their n. Directionally consistent; magnitude not calibrated.
 - c4 ≡ c5 per-seed identical (30/30 same trajectories): inside the 130 qu carrot zone
   the `dist<280` clause is vacuous, so c4/c5 differ only on jump-flagged paths while
   grounded near a climb marker — which never occurred in 30 seeds. Mechanistically
   explains why the live c4-vs-c5 A/B was indistinguishable at n=10.
-- Failure-mode mix matches live: sim-c5 failures = 11 ATTEMPTED_JUMP_FELL_SHORT +
-  4 REACHED_LEDGE_NO_JUMP; live c5 failures were the same two classes (3 AJFS-ending
+- Failure-mode mix matches live: sim-c5 failures = 12 ATTEMPTED_JUMP_FELL_SHORT +
+  6 REACHED_LEDGE_NO_JUMP; live c5 failures were the same two classes (3 AJFS-ending
   runs + 3 LEDGE_NO_JUMP attempts) — the Gate-1/Gate-2 physics-precision story from
   the P2 decomposition, not nav wandering.
 
@@ -165,7 +176,8 @@ sets `prec_marker`; lines 3849–3861 only clear it).
    (10/11/20/21 ms at 0.512/0.218/0.136/0.134). Think cadence: grounded → every
    frame, airborne → 0.15+0.015·r s (`SetNextThinkTime`); marker-touch processing
    on 0.03 s `TimeTrigger` frames; touch rules = `check_marker` (closest-of-frame
-   by 3D dist to nav pos, z-condition, CanDamage LOS via hull-0).
+   by 3D dist to nav pos, z-condition with the player's −1 abs expansion,
+   CanDamage rays player-origin → marker-origin + half-bbox corners, hull-0).
 7. **Teleporters**: volumes/destinations from the BSP entities lump;
    `teleport_player` semantics (dest origin +27 z, velocity = 300·forward(mangle))
    + `BotsPostTeleport` marker handover. sng_shortcut2 sanctions no teleporter, so
@@ -176,17 +188,18 @@ sets `prec_marker`; lines 3849–3861 only clear it).
 ### Binding constraint (named)
 
 The calibration's binding constraint is **physics at the two precision gates, not
-navigation** — the same constraint P2 found live: sim failures are 11/15
-ATTEMPTED_JUMP_FELL_SHORT + 4/15 REACHED_LEDGE_NO_JUMP at the final 238 qu gap
+navigation** — the same constraint P2 found live: sim failures are 12/18
+ATTEMPTED_JUMP_FELL_SHORT + 6/18 REACHED_LEDGE_NO_JUMP at the final 238 qu gap
 (required 437 qu/s), mirroring the live failure classes. The nav stub is NOT binding:
 98.9% of live selections are inside its noise band.
 
 ### What bounds sweep trust (for A2 #74)
 
-- Sim-c5 is +6.0% fast on arrival-tws median and −0.10 on reach rate vs live point
-  estimates (both inside tolerance). Treat sweep results as RANKINGS, not absolute
-  reach predictions; confirm the sweep winner live before adoption (the plan's
-  transfer protocol already requires this).
+- Sim-c5 is +5.8% fast on arrival-tws median and −0.20 on reach rate vs live point
+  estimates (both inside the pre-registered tolerances; the reach CI at live n=10 is
+  wide). Treat sweep results as RANKINGS, not absolute reach predictions; confirm
+  the sweep winner live before adoption (the plan's transfer protocol already
+  requires this).
 - The 4.6% selection mismatches concentrate on near-tie corners (e.g. 217/216/215 →
   208 vs 217); a sweep config that lives or dies on one specific near-tie marker
   choice is not resolvable offline.
