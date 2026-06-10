@@ -1,0 +1,7109 @@
+{
+ "extension": "pre-registered top-3 x seeds 1..100",
+ "results": [
+  {
+   "config": {
+    "launch_vh": 430.0,
+    "launch_angle": 50.0,
+    "swing": 8.0,
+    "sign": 1,
+    "lip_gate_dmax": 0.0,
+    "carve_d": 35.0,
+    "carve_deg": 52.0,
+    "carve_vh": 450.0,
+    "carve_tol": 10.0
+   },
+   "name": "cd35_cg52_cv450_ct10",
+   "landed": 6,
+   "n": 100,
+   "armed": 34,
+   "lip_n": 100,
+   "lip_vh_med": 417.5,
+   "lip_heading_med": 0.0,
+   "attempts": [
+    {
+     "seed": 1,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.468,
+      "x": -3347.3,
+      "y": 3824.0,
+      "vh": 414.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.6,
+     "carve": null
+    },
+    {
+     "seed": 2,
+     "outcome": "LANDED",
+     "t_end": 2.1,
+     "landed": true,
+     "release": {
+      "t": 1.436,
+      "pos": [
+       -3356.5,
+       3822.9,
+       -488.0
+      ],
+      "vh": 457.1,
+      "heading": -6.4,
+      "herr_to_target": -4.9,
+      "d_lip": 8.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.436,
+      "x": -3356.5,
+      "y": 3822.9,
+      "vh": 457.1,
+      "heading": -6.4,
+      "jump": 1
+     },
+     "max_vh": 503.5,
+     "carve": {
+      "armed_t": 1.415,
+      "armed_d_lip": 18.0,
+      "armed_vh": 452.2,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 3,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.469,
+      "x": -3346.6,
+      "y": 3824.0,
+      "vh": 399.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 451.5,
+     "carve": null
+    },
+    {
+     "seed": 4,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.43,
+      "pos": [
+       -3357.5,
+       3823.7,
+       -488.0
+      ],
+      "vh": 455.1,
+      "heading": -3.5,
+      "herr_to_target": -8.0,
+      "d_lip": 9.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.43,
+      "x": -3357.5,
+      "y": 3823.7,
+      "vh": 455.1,
+      "heading": -3.5,
+      "jump": 1
+     },
+     "max_vh": 498.2,
+     "carve": {
+      "armed_t": 1.419,
+      "armed_d_lip": 14.5,
+      "armed_vh": 452.5,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 5,
+     "outcome": "MISS",
+     "t_end": 1.82,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.439,
+      "x": -3345.9,
+      "y": 3824.0,
+      "vh": 405.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 470.3,
+     "carve": null
+    },
+    {
+     "seed": 6,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.456,
+      "x": -3344.7,
+      "y": 3824.0,
+      "vh": 406.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 460.1,
+     "carve": null
+    },
+    {
+     "seed": 7,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.421,
+      "pos": [
+       -3357.1,
+       3823.7,
+       -488.0
+      ],
+      "vh": 454.0,
+      "heading": -3.5,
+      "herr_to_target": -8.0,
+      "d_lip": 9.1,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.421,
+      "x": -3357.1,
+      "y": 3823.7,
+      "vh": 454.0,
+      "heading": -3.5,
+      "jump": 1
+     },
+     "max_vh": 500.7,
+     "carve": {
+      "armed_t": 1.41,
+      "armed_d_lip": 14.0,
+      "armed_vh": 451.3,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 8,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.477,
+      "x": -3344.6,
+      "y": 3824.0,
+      "vh": 399.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 467.7,
+     "carve": null
+    },
+    {
+     "seed": 9,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.448,
+      "x": -3351.8,
+      "y": 3824.0,
+      "vh": 433.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 466.8,
+     "carve": null
+    },
+    {
+     "seed": 10,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.45,
+      "x": -3346.2,
+      "y": 3824.0,
+      "vh": 414.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 462.8,
+     "carve": null
+    },
+    {
+     "seed": 11,
+     "outcome": "MISS",
+     "t_end": 1.89,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.504,
+      "x": -3346.5,
+      "y": 3824.0,
+      "vh": 395.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 454.5,
+     "carve": null
+    },
+    {
+     "seed": 12,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.467,
+      "x": -3347.0,
+      "y": 3824.0,
+      "vh": 402.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 467.8,
+     "carve": null
+    },
+    {
+     "seed": 13,
+     "outcome": "MISS",
+     "t_end": 2.22,
+     "landed": false,
+     "release": {
+      "t": 1.384,
+      "pos": [
+       -3364.5,
+       3823.7,
+       -488.0
+      ],
+      "vh": 454.6,
+      "heading": -3.2,
+      "herr_to_target": -8.1,
+      "d_lip": 16.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.384,
+      "x": -3364.5,
+      "y": 3823.7,
+      "vh": 454.6,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 503.0,
+     "carve": {
+      "armed_t": 1.374,
+      "armed_d_lip": 21.0,
+      "armed_vh": 452.3,
+      "armed_herr": -11.1,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 14,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.472,
+      "x": -3345.9,
+      "y": 3824.0,
+      "vh": 397.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 461.1,
+     "carve": null
+    },
+    {
+     "seed": 15,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.477,
+      "x": -3347.9,
+      "y": 3824.0,
+      "vh": 416.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.6,
+     "carve": null
+    },
+    {
+     "seed": 16,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.46,
+      "x": -3346.1,
+      "y": 3824.0,
+      "vh": 401.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 461.3,
+     "carve": null
+    },
+    {
+     "seed": 17,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.43,
+      "pos": [
+       -3357.9,
+       3823.7,
+       -488.0
+      ],
+      "vh": 453.7,
+      "heading": -3.2,
+      "herr_to_target": -8.3,
+      "d_lip": 9.9,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.43,
+      "x": -3357.9,
+      "y": 3823.7,
+      "vh": 453.7,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 501.3,
+     "carve": {
+      "armed_t": 1.42,
+      "armed_d_lip": 14.4,
+      "armed_vh": 451.3,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 18,
+     "outcome": "MISS",
+     "t_end": 1.82,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.441,
+      "x": -3346.7,
+      "y": 3824.0,
+      "vh": 400.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.8,
+     "carve": null
+    },
+    {
+     "seed": 19,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.448,
+      "x": -3346.5,
+      "y": 3824.0,
+      "vh": 407.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 464.1,
+     "carve": null
+    },
+    {
+     "seed": 20,
+     "outcome": "MISS",
+     "t_end": 1.87,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.484,
+      "x": -3345.1,
+      "y": 3824.0,
+      "vh": 400.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 453.8,
+     "carve": null
+    },
+    {
+     "seed": 21,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.424,
+      "pos": [
+       -3361.5,
+       3823.7,
+       -488.0
+      ],
+      "vh": 452.8,
+      "heading": -3.2,
+      "herr_to_target": -8.2,
+      "d_lip": 13.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.424,
+      "x": -3361.5,
+      "y": 3823.7,
+      "vh": 452.8,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 498.8,
+     "carve": {
+      "armed_t": 1.414,
+      "armed_d_lip": 18.0,
+      "armed_vh": 450.4,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 22,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.43,
+      "pos": [
+       -3357.7,
+       3823.7,
+       -488.0
+      ],
+      "vh": 452.7,
+      "heading": -3.2,
+      "herr_to_target": -8.3,
+      "d_lip": 9.7,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.43,
+      "x": -3357.7,
+      "y": 3823.7,
+      "vh": 452.7,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 499.6,
+     "carve": {
+      "armed_t": 1.42,
+      "armed_d_lip": 14.2,
+      "armed_vh": 450.4,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 23,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.451,
+      "x": -3346.7,
+      "y": 3824.0,
+      "vh": 401.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.7,
+     "carve": null
+    },
+    {
+     "seed": 24,
+     "outcome": "MISS",
+     "t_end": 2.25,
+     "landed": false,
+     "release": {
+      "t": 1.426,
+      "pos": [
+       -3356.0,
+       3823.7,
+       -488.0
+      ],
+      "vh": 453.5,
+      "heading": -3.2,
+      "herr_to_target": -8.4,
+      "d_lip": 8.0,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.426,
+      "x": -3356.0,
+      "y": 3823.7,
+      "vh": 453.5,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 497.7,
+     "carve": {
+      "armed_t": 1.416,
+      "armed_d_lip": 12.5,
+      "armed_vh": 451.2,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 25,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.458,
+      "x": -3347.5,
+      "y": 3824.0,
+      "vh": 413.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 457.6,
+     "carve": null
+    },
+    {
+     "seed": 26,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.469,
+      "x": -3346.9,
+      "y": 3824.0,
+      "vh": 429.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.3,
+     "carve": null
+    },
+    {
+     "seed": 27,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.437,
+      "pos": [
+       -3355.4,
+       3824.0,
+       -488.0
+      ],
+      "vh": 452.2,
+      "heading": 0.0,
+      "herr_to_target": -11.6,
+      "d_lip": 7.4,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.437,
+      "x": -3355.4,
+      "y": 3824.0,
+      "vh": 452.2,
+      "heading": 0.0,
+      "jump": 1
+     },
+     "max_vh": 497.4,
+     "carve": {
+      "armed_t": 1.437,
+      "armed_d_lip": 7.4,
+      "armed_vh": 452.2,
+      "armed_herr": -11.6,
+      "rule": "dlip",
+      "ticks": 0
+     }
+    },
+    {
+     "seed": 28,
+     "outcome": "MISS",
+     "t_end": 2.23,
+     "landed": false,
+     "release": {
+      "t": 1.394,
+      "pos": [
+       -3367.7,
+       3823.7,
+       -488.0
+      ],
+      "vh": 454.1,
+      "heading": -3.5,
+      "herr_to_target": -7.6,
+      "d_lip": 19.7,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.394,
+      "x": -3367.7,
+      "y": 3823.7,
+      "vh": 454.1,
+      "heading": -3.5,
+      "jump": 1
+     },
+     "max_vh": 500.8,
+     "carve": {
+      "armed_t": 1.383,
+      "armed_d_lip": 24.6,
+      "armed_vh": 451.5,
+      "armed_herr": -11.0,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 29,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.457,
+      "x": -3347.7,
+      "y": 3824.0,
+      "vh": 417.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 453.0,
+     "carve": null
+    },
+    {
+     "seed": 30,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.433,
+      "pos": [
+       -3357.1,
+       3823.7,
+       -488.0
+      ],
+      "vh": 453.9,
+      "heading": -3.2,
+      "herr_to_target": -8.3,
+      "d_lip": 9.1,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.433,
+      "x": -3357.1,
+      "y": 3823.7,
+      "vh": 453.9,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 500.6,
+     "carve": {
+      "armed_t": 1.423,
+      "armed_d_lip": 13.7,
+      "armed_vh": 451.5,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 31,
+     "outcome": "MISS",
+     "t_end": 2.22,
+     "landed": false,
+     "release": {
+      "t": 1.386,
+      "pos": [
+       -3371.7,
+       3823.7,
+       -488.0
+      ],
+      "vh": 452.9,
+      "heading": -3.2,
+      "herr_to_target": -7.8,
+      "d_lip": 23.7,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.386,
+      "x": -3371.7,
+      "y": 3823.7,
+      "vh": 452.9,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 501.5,
+     "carve": {
+      "armed_t": 1.376,
+      "armed_d_lip": 28.3,
+      "armed_vh": 450.5,
+      "armed_herr": -10.9,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 32,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.443,
+      "x": -3345.4,
+      "y": 3824.0,
+      "vh": 416.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 466.6,
+     "carve": null
+    },
+    {
+     "seed": 33,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.45,
+      "x": -3345.8,
+      "y": 3824.0,
+      "vh": 402.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 470.7,
+     "carve": null
+    },
+    {
+     "seed": 34,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.465,
+      "x": -3348.6,
+      "y": 3824.0,
+      "vh": 431.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 451.6,
+     "carve": null
+    },
+    {
+     "seed": 35,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.476,
+      "x": -3346.2,
+      "y": 3824.0,
+      "vh": 396.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.8,
+     "carve": null
+    },
+    {
+     "seed": 36,
+     "outcome": "MISS",
+     "t_end": 1.89,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.505,
+      "x": -3345.2,
+      "y": 3824.0,
+      "vh": 398.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.0,
+     "carve": null
+    },
+    {
+     "seed": 37,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.47,
+      "x": -3344.1,
+      "y": 3824.0,
+      "vh": 400.9,
+      "heading": 0.1,
+      "jump": 0
+     },
+     "max_vh": 469.7,
+     "carve": null
+    },
+    {
+     "seed": 38,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.433,
+      "pos": [
+       -3361.0,
+       3823.7,
+       -488.0
+      ],
+      "vh": 454.1,
+      "heading": -3.2,
+      "herr_to_target": -8.2,
+      "d_lip": 13.0,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.433,
+      "x": -3361.0,
+      "y": 3823.7,
+      "vh": 454.1,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 500.8,
+     "carve": {
+      "armed_t": 1.423,
+      "armed_d_lip": 17.5,
+      "armed_vh": 451.8,
+      "armed_herr": -11.3,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 39,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.467,
+      "x": -3346.4,
+      "y": 3824.0,
+      "vh": 415.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 470.9,
+     "carve": null
+    },
+    {
+     "seed": 40,
+     "outcome": "MISS",
+     "t_end": 2.2,
+     "landed": false,
+     "release": {
+      "t": 1.372,
+      "pos": [
+       -3374.9,
+       3823.7,
+       -488.0
+      ],
+      "vh": 455.9,
+      "heading": -3.5,
+      "herr_to_target": -7.4,
+      "d_lip": 26.9,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.372,
+      "x": -3374.9,
+      "y": 3823.7,
+      "vh": 455.9,
+      "heading": -3.5,
+      "jump": 1
+     },
+     "max_vh": 502.4,
+     "carve": {
+      "armed_t": 1.361,
+      "armed_d_lip": 31.9,
+      "armed_vh": 453.3,
+      "armed_herr": -10.8,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 41,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.454,
+      "x": -3347.6,
+      "y": 3824.0,
+      "vh": 417.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.3,
+     "carve": null
+    },
+    {
+     "seed": 42,
+     "outcome": "MISS",
+     "t_end": 1.82,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.433,
+      "x": -3350.8,
+      "y": 3824.0,
+      "vh": 418.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 468.8,
+     "carve": null
+    },
+    {
+     "seed": 43,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.474,
+      "x": -3344.1,
+      "y": 3824.0,
+      "vh": 397.9,
+      "heading": 0.1,
+      "jump": 0
+     },
+     "max_vh": 461.1,
+     "carve": null
+    },
+    {
+     "seed": 44,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.449,
+      "x": -3347.8,
+      "y": 3824.0,
+      "vh": 432.6,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 461.9,
+     "carve": null
+    },
+    {
+     "seed": 45,
+     "outcome": "MISS",
+     "t_end": 2.23,
+     "landed": false,
+     "release": {
+      "t": 1.395,
+      "pos": [
+       -3362.7,
+       3823.7,
+       -488.0
+      ],
+      "vh": 453.7,
+      "heading": -3.2,
+      "herr_to_target": -8.1,
+      "d_lip": 14.7,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.395,
+      "x": -3362.7,
+      "y": 3823.7,
+      "vh": 453.7,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 498.7,
+     "carve": {
+      "armed_t": 1.385,
+      "armed_d_lip": 19.2,
+      "armed_vh": 451.3,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 46,
+     "outcome": "MISS",
+     "t_end": 1.89,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.49,
+      "x": -3344.6,
+      "y": 3824.0,
+      "vh": 411.6,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 466.1,
+     "carve": null
+    },
+    {
+     "seed": 47,
+     "outcome": "MISS",
+     "t_end": 2.2,
+     "landed": false,
+     "release": {
+      "t": 1.367,
+      "pos": [
+       -3375.7,
+       3823.7,
+       -488.0
+      ],
+      "vh": 454.0,
+      "heading": -3.2,
+      "herr_to_target": -7.7,
+      "d_lip": 27.7,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.367,
+      "x": -3375.7,
+      "y": 3823.7,
+      "vh": 454.0,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 499.0,
+     "carve": {
+      "armed_t": 1.357,
+      "armed_d_lip": 32.3,
+      "armed_vh": 451.7,
+      "armed_herr": -10.8,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 48,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.463,
+      "x": -3351.1,
+      "y": 3824.0,
+      "vh": 427.6,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.2,
+     "carve": null
+    },
+    {
+     "seed": 49,
+     "outcome": "LANDED",
+     "t_end": 2.1,
+     "landed": true,
+     "release": {
+      "t": 1.447,
+      "pos": [
+       -3350.7,
+       3822.9,
+       -488.0
+      ],
+      "vh": 456.1,
+      "heading": -6.6,
+      "herr_to_target": -5.0,
+      "d_lip": 2.7,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.447,
+      "x": -3350.7,
+      "y": 3822.9,
+      "vh": 456.1,
+      "heading": -6.6,
+      "jump": 1
+     },
+     "max_vh": 500.0,
+     "carve": {
+      "armed_t": 1.426,
+      "armed_d_lip": 12.2,
+      "armed_vh": 450.3,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 50,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.45,
+      "x": -3347.4,
+      "y": 3824.0,
+      "vh": 417.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 465.4,
+     "carve": null
+    },
+    {
+     "seed": 51,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.453,
+      "x": -3347.2,
+      "y": 3824.0,
+      "vh": 417.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 458.9,
+     "carve": null
+    },
+    {
+     "seed": 52,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.45,
+      "x": -3344.4,
+      "y": 3824.0,
+      "vh": 404.6,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.8,
+     "carve": null
+    },
+    {
+     "seed": 53,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.47,
+      "x": -3344.4,
+      "y": 3824.0,
+      "vh": 404.5,
+      "heading": 0.3,
+      "jump": 0
+     },
+     "max_vh": 453.9,
+     "carve": null
+    },
+    {
+     "seed": 54,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.477,
+      "x": -3347.0,
+      "y": 3824.0,
+      "vh": 403.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.6,
+     "carve": null
+    },
+    {
+     "seed": 55,
+     "outcome": "MISS",
+     "t_end": 2.28,
+     "landed": false,
+     "release": {
+      "t": 1.441,
+      "pos": [
+       -3354.6,
+       3823.7,
+       -488.0
+      ],
+      "vh": 434.5,
+      "heading": -3.3,
+      "herr_to_target": -8.3,
+      "d_lip": 6.6,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.441,
+      "x": -3354.6,
+      "y": 3823.7,
+      "vh": 434.5,
+      "heading": -3.3,
+      "jump": 1
+     },
+     "max_vh": 482.3,
+     "carve": {
+      "armed_t": 1.431,
+      "armed_d_lip": 11.0,
+      "armed_vh": 450.1,
+      "armed_herr": -11.5,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 56,
+     "outcome": "MISS",
+     "t_end": 1.87,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.477,
+      "x": -3349.3,
+      "y": 3824.0,
+      "vh": 415.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.2,
+     "carve": null
+    },
+    {
+     "seed": 57,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.478,
+      "x": -3344.9,
+      "y": 3824.0,
+      "vh": 396.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 462.6,
+     "carve": null
+    },
+    {
+     "seed": 58,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.441,
+      "x": -3350.2,
+      "y": 3824.0,
+      "vh": 412.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 461.4,
+     "carve": null
+    },
+    {
+     "seed": 59,
+     "outcome": "MISS",
+     "t_end": 1.87,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.483,
+      "x": -3347.8,
+      "y": 3824.0,
+      "vh": 412.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 458.0,
+     "carve": null
+    },
+    {
+     "seed": 60,
+     "outcome": "MISS",
+     "t_end": 2.25,
+     "landed": false,
+     "release": {
+      "t": 1.41,
+      "pos": [
+       -3360.0,
+       3823.7,
+       -488.0
+      ],
+      "vh": 454.6,
+      "heading": -3.5,
+      "herr_to_target": -7.9,
+      "d_lip": 12.0,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.41,
+      "x": -3360.0,
+      "y": 3823.7,
+      "vh": 454.6,
+      "heading": -3.5,
+      "jump": 1
+     },
+     "max_vh": 502.2,
+     "carve": {
+      "armed_t": 1.399,
+      "armed_d_lip": 17.0,
+      "armed_vh": 452.0,
+      "armed_herr": -11.3,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 61,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.469,
+      "x": -3344.8,
+      "y": 3824.0,
+      "vh": 399.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 458.4,
+     "carve": null
+    },
+    {
+     "seed": 62,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.412,
+      "pos": [
+       -3359.5,
+       3823.7,
+       -488.0
+      ],
+      "vh": 453.0,
+      "heading": -3.2,
+      "herr_to_target": -8.2,
+      "d_lip": 11.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.412,
+      "x": -3359.5,
+      "y": 3823.7,
+      "vh": 453.0,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 498.1,
+     "carve": {
+      "armed_t": 1.402,
+      "armed_d_lip": 16.0,
+      "armed_vh": 450.6,
+      "armed_herr": -11.3,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 63,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.486,
+      "x": -3344.9,
+      "y": 3824.0,
+      "vh": 399.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 452.0,
+     "carve": null
+    },
+    {
+     "seed": 64,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.447,
+      "x": -3350.2,
+      "y": 3824.0,
+      "vh": 416.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.0,
+     "carve": null
+    },
+    {
+     "seed": 65,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.442,
+      "x": -3349.5,
+      "y": 3824.0,
+      "vh": 416.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 460.9,
+     "carve": null
+    },
+    {
+     "seed": 66,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.441,
+      "x": -3349.0,
+      "y": 3824.0,
+      "vh": 416.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.9,
+     "carve": null
+    },
+    {
+     "seed": 67,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.449,
+      "x": -3347.0,
+      "y": 3824.0,
+      "vh": 403.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 463.5,
+     "carve": null
+    },
+    {
+     "seed": 68,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.455,
+      "x": -3348.4,
+      "y": 3824.0,
+      "vh": 427.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 450.8,
+     "carve": null
+    },
+    {
+     "seed": 69,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.46,
+      "x": -3345.5,
+      "y": 3824.0,
+      "vh": 401.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 463.6,
+     "carve": null
+    },
+    {
+     "seed": 70,
+     "outcome": "MISS",
+     "t_end": 2.2,
+     "landed": false,
+     "release": {
+      "t": 1.366,
+      "pos": [
+       -3376.4,
+       3823.7,
+       -488.0
+      ],
+      "vh": 455.5,
+      "heading": -3.2,
+      "herr_to_target": -7.7,
+      "d_lip": 28.4,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.366,
+      "x": -3376.4,
+      "y": 3823.7,
+      "vh": 455.5,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 503.8,
+     "carve": {
+      "armed_t": 1.356,
+      "armed_d_lip": 32.9,
+      "armed_vh": 453.2,
+      "armed_herr": -10.7,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 71,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.454,
+      "x": -3351.8,
+      "y": 3824.0,
+      "vh": 428.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.2,
+     "carve": null
+    },
+    {
+     "seed": 72,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.467,
+      "x": -3344.4,
+      "y": 3824.0,
+      "vh": 403.2,
+      "heading": 0.3,
+      "jump": 0
+     },
+     "max_vh": 453.8,
+     "carve": null
+    },
+    {
+     "seed": 73,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.422,
+      "pos": [
+       -3353.0,
+       3823.7,
+       -488.0
+      ],
+      "vh": 436.8,
+      "heading": -3.3,
+      "herr_to_target": -8.3,
+      "d_lip": 5.0,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.422,
+      "x": -3353.0,
+      "y": 3823.7,
+      "vh": 436.8,
+      "heading": -3.3,
+      "jump": 1
+     },
+     "max_vh": 486.1,
+     "carve": {
+      "armed_t": 1.412,
+      "armed_d_lip": 9.4,
+      "armed_vh": 452.6,
+      "armed_herr": -11.5,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 74,
+     "outcome": "MISS",
+     "t_end": 1.81,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.426,
+      "x": -3350.6,
+      "y": 3824.0,
+      "vh": 417.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.3,
+     "carve": null
+    },
+    {
+     "seed": 75,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.447,
+      "x": -3350.7,
+      "y": 3824.0,
+      "vh": 428.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.6,
+     "carve": null
+    },
+    {
+     "seed": 76,
+     "outcome": "MISS",
+     "t_end": 2.24,
+     "landed": false,
+     "release": {
+      "t": 1.409,
+      "pos": [
+       -3360.3,
+       3823.7,
+       -488.0
+      ],
+      "vh": 454.2,
+      "heading": -3.5,
+      "herr_to_target": -7.9,
+      "d_lip": 12.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.409,
+      "x": -3360.3,
+      "y": 3823.7,
+      "vh": 454.2,
+      "heading": -3.5,
+      "jump": 1
+     },
+     "max_vh": 500.9,
+     "carve": {
+      "armed_t": 1.398,
+      "armed_d_lip": 17.3,
+      "armed_vh": 451.5,
+      "armed_herr": -11.3,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 77,
+     "outcome": "MISS",
+     "t_end": 2.28,
+     "landed": false,
+     "release": {
+      "t": 1.449,
+      "pos": [
+       -3355.9,
+       3824.0,
+       -488.0
+      ],
+      "vh": 450.8,
+      "heading": 0.0,
+      "herr_to_target": -11.6,
+      "d_lip": 7.9,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.449,
+      "x": -3355.9,
+      "y": 3824.0,
+      "vh": 450.8,
+      "heading": 0.0,
+      "jump": 1
+     },
+     "max_vh": 493.4,
+     "carve": {
+      "armed_t": 1.449,
+      "armed_d_lip": 7.9,
+      "armed_vh": 450.8,
+      "armed_herr": -11.6,
+      "rule": "dlip",
+      "ticks": 0
+     }
+    },
+    {
+     "seed": 78,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.44,
+      "pos": [
+       -3350.3,
+       3823.0,
+       -488.0
+      ],
+      "vh": 422.3,
+      "heading": -6.9,
+      "herr_to_target": -4.8,
+      "d_lip": 2.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.44,
+      "x": -3350.3,
+      "y": 3823.0,
+      "vh": 422.3,
+      "heading": -6.9,
+      "jump": 1
+     },
+     "max_vh": 474.0,
+     "carve": {
+      "armed_t": 1.42,
+      "armed_d_lip": 10.7,
+      "armed_vh": 452.2,
+      "armed_herr": -11.5,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 79,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.468,
+      "x": -3346.6,
+      "y": 3824.0,
+      "vh": 416.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.2,
+     "carve": null
+    },
+    {
+     "seed": 80,
+     "outcome": "MISS",
+     "t_end": 1.88,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.476,
+      "x": -3348.9,
+      "y": 3824.0,
+      "vh": 419.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 457.7,
+     "carve": null
+    },
+    {
+     "seed": 81,
+     "outcome": "MISS",
+     "t_end": 2.19,
+     "landed": false,
+     "release": {
+      "t": 1.366,
+      "pos": [
+       -3374.8,
+       3823.7,
+       -488.0
+      ],
+      "vh": 452.8,
+      "heading": -3.5,
+      "herr_to_target": -7.4,
+      "d_lip": 26.8,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.366,
+      "x": -3374.8,
+      "y": 3823.7,
+      "vh": 452.8,
+      "heading": -3.5,
+      "jump": 1
+     },
+     "max_vh": 499.7,
+     "carve": {
+      "armed_t": 1.355,
+      "armed_d_lip": 31.8,
+      "armed_vh": 450.1,
+      "armed_herr": -10.8,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 82,
+     "outcome": "MISS",
+     "t_end": 2.25,
+     "landed": false,
+     "release": {
+      "t": 1.419,
+      "pos": [
+       -3361.4,
+       3823.7,
+       -488.0
+      ],
+      "vh": 454.0,
+      "heading": -3.5,
+      "herr_to_target": -7.8,
+      "d_lip": 13.4,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.419,
+      "x": -3361.4,
+      "y": 3823.7,
+      "vh": 454.0,
+      "heading": -3.5,
+      "jump": 1
+     },
+     "max_vh": 495.5,
+     "carve": {
+      "armed_t": 1.408,
+      "armed_d_lip": 18.4,
+      "armed_vh": 451.4,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 83,
+     "outcome": "MISS",
+     "t_end": 2.31,
+     "landed": false,
+     "release": {
+      "t": 1.474,
+      "pos": [
+       -3347.7,
+       3823.0,
+       -488.0
+      ],
+      "vh": 421.1,
+      "heading": -6.9,
+      "herr_to_target": -4.8,
+      "d_lip": -0.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.474,
+      "x": -3347.7,
+      "y": 3823.0,
+      "vh": 421.1,
+      "heading": -6.9,
+      "jump": 1
+     },
+     "max_vh": 468.4,
+     "carve": {
+      "armed_t": 1.454,
+      "armed_d_lip": 8.1,
+      "armed_vh": 450.8,
+      "armed_herr": -11.6,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 84,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.46,
+      "x": -3350.2,
+      "y": 3824.0,
+      "vh": 409.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 453.7,
+     "carve": null
+    },
+    {
+     "seed": 85,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.455,
+      "x": -3345.2,
+      "y": 3824.0,
+      "vh": 401.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.9,
+     "carve": null
+    },
+    {
+     "seed": 86,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.452,
+      "x": -3345.5,
+      "y": 3824.0,
+      "vh": 397.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.4,
+     "carve": null
+    },
+    {
+     "seed": 87,
+     "outcome": "LANDED",
+     "t_end": 2.08,
+     "landed": true,
+     "release": {
+      "t": 1.417,
+      "pos": [
+       -3355.1,
+       3823.7,
+       -488.0
+      ],
+      "vh": 453.0,
+      "heading": -3.5,
+      "herr_to_target": -8.1,
+      "d_lip": 7.1,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.417,
+      "x": -3355.1,
+      "y": 3823.7,
+      "vh": 453.0,
+      "heading": -3.5,
+      "jump": 1
+     },
+     "max_vh": 500.7,
+     "carve": {
+      "armed_t": 1.406,
+      "armed_d_lip": 12.1,
+      "armed_vh": 450.2,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 88,
+     "outcome": "MISS",
+     "t_end": 1.82,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.441,
+      "x": -3347.7,
+      "y": 3824.0,
+      "vh": 415.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 467.9,
+     "carve": null
+    },
+    {
+     "seed": 89,
+     "outcome": "MISS",
+     "t_end": 2.25,
+     "landed": false,
+     "release": {
+      "t": 1.414,
+      "pos": [
+       -3352.8,
+       3823.7,
+       -488.0
+      ],
+      "vh": 434.9,
+      "heading": -3.3,
+      "herr_to_target": -8.3,
+      "d_lip": 4.8,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.414,
+      "x": -3352.8,
+      "y": 3823.7,
+      "vh": 434.9,
+      "heading": -3.3,
+      "jump": 1
+     },
+     "max_vh": 484.4,
+     "carve": {
+      "armed_t": 1.404,
+      "armed_d_lip": 9.1,
+      "armed_vh": 450.5,
+      "armed_herr": -11.5,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 90,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.465,
+      "x": -3346.4,
+      "y": 3824.0,
+      "vh": 403.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.1,
+     "carve": null
+    },
+    {
+     "seed": 91,
+     "outcome": "LANDED",
+     "t_end": 2.09,
+     "landed": true,
+     "release": {
+      "t": 1.413,
+      "pos": [
+       -3356.3,
+       3822.9,
+       -488.0
+      ],
+      "vh": 456.2,
+      "heading": -6.5,
+      "herr_to_target": -4.8,
+      "d_lip": 8.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.413,
+      "x": -3356.3,
+      "y": 3822.9,
+      "vh": 456.2,
+      "heading": -6.5,
+      "jump": 1
+     },
+     "max_vh": 502.7,
+     "carve": {
+      "armed_t": 1.392,
+      "armed_d_lip": 17.8,
+      "armed_vh": 450.4,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 92,
+     "outcome": "MISS",
+     "t_end": 2.25,
+     "landed": false,
+     "release": {
+      "t": 1.418,
+      "pos": [
+       -3357.2,
+       3823.7,
+       -488.0
+      ],
+      "vh": 453.4,
+      "heading": -3.2,
+      "herr_to_target": -8.3,
+      "d_lip": 9.2,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.418,
+      "x": -3357.2,
+      "y": 3823.7,
+      "vh": 453.4,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 498.5,
+     "carve": {
+      "armed_t": 1.408,
+      "armed_d_lip": 13.7,
+      "armed_vh": 451.0,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 93,
+     "outcome": "LANDED",
+     "t_end": 2.08,
+     "landed": true,
+     "release": {
+      "t": 1.425,
+      "pos": [
+       -3353.5,
+       3823.0,
+       -488.0
+      ],
+      "vh": 457.1,
+      "heading": -6.3,
+      "herr_to_target": -5.2,
+      "d_lip": 5.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.425,
+      "x": -3353.5,
+      "y": 3823.0,
+      "vh": 457.1,
+      "heading": -6.3,
+      "jump": 1
+     },
+     "max_vh": 504.4,
+     "carve": {
+      "armed_t": 1.405,
+      "armed_d_lip": 14.6,
+      "armed_vh": 451.0,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 94,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.459,
+      "x": -3346.5,
+      "y": 3824.0,
+      "vh": 430.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 457.9,
+     "carve": null
+    },
+    {
+     "seed": 95,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.464,
+      "x": -3346.6,
+      "y": 3824.0,
+      "vh": 403.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.0,
+     "carve": null
+    },
+    {
+     "seed": 96,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.456,
+      "x": -3348.0,
+      "y": 3824.0,
+      "vh": 420.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 457.8,
+     "carve": null
+    },
+    {
+     "seed": 97,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.456,
+      "x": -3352.0,
+      "y": 3824.0,
+      "vh": 427.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 452.4,
+     "carve": null
+    },
+    {
+     "seed": 98,
+     "outcome": "LANDED",
+     "t_end": 2.09,
+     "landed": true,
+     "release": {
+      "t": 1.431,
+      "pos": [
+       -3353.8,
+       3822.9,
+       -488.0
+      ],
+      "vh": 456.4,
+      "heading": -6.5,
+      "herr_to_target": -5.0,
+      "d_lip": 5.8,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.431,
+      "x": -3353.8,
+      "y": 3822.9,
+      "vh": 456.4,
+      "heading": -6.5,
+      "jump": 1
+     },
+     "max_vh": 502.0,
+     "carve": {
+      "armed_t": 1.41,
+      "armed_d_lip": 15.3,
+      "armed_vh": 450.8,
+      "armed_herr": -11.3,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 99,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.464,
+      "x": -3347.3,
+      "y": 3824.0,
+      "vh": 429.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 464.6,
+     "carve": null
+    },
+    {
+     "seed": 100,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.464,
+      "x": -3346.0,
+      "y": 3824.0,
+      "vh": 415.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 463.6,
+     "carve": null
+    }
+   ]
+  },
+  {
+   "config": {
+    "launch_vh": 430.0,
+    "launch_angle": 50.0,
+    "swing": 8.0,
+    "sign": 1,
+    "lip_gate_dmax": 0.0,
+    "carve_d": 35.0,
+    "carve_deg": 52.0,
+    "carve_vh": 450.0,
+    "carve_tol": 3.0
+   },
+   "name": "cd35_cg52_cv450_ct3",
+   "landed": 8,
+   "n": 100,
+   "armed": 34,
+   "lip_n": 100,
+   "lip_vh_med": 417.5,
+   "lip_heading_med": 0.0,
+   "attempts": [
+    {
+     "seed": 1,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.468,
+      "x": -3347.3,
+      "y": 3824.0,
+      "vh": 414.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.6,
+     "carve": null
+    },
+    {
+     "seed": 2,
+     "outcome": "MISS",
+     "t_end": 2.28,
+     "landed": false,
+     "release": {
+      "t": 1.446,
+      "pos": [
+       -3352.1,
+       3822.1,
+       -488.0
+      ],
+      "vh": 440.9,
+      "heading": -9.7,
+      "herr_to_target": -1.7,
+      "d_lip": 4.1,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.446,
+      "x": -3352.1,
+      "y": 3822.1,
+      "vh": 440.9,
+      "heading": -9.7,
+      "jump": 1
+     },
+     "max_vh": 488.9,
+     "carve": {
+      "armed_t": 1.415,
+      "armed_d_lip": 18.0,
+      "armed_vh": 452.2,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 3,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.469,
+      "x": -3346.6,
+      "y": 3824.0,
+      "vh": 399.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 451.5,
+     "carve": null
+    },
+    {
+     "seed": 4,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.44,
+      "pos": [
+       -3353.1,
+       3823.1,
+       -488.0
+      ],
+      "vh": 439.1,
+      "heading": -6.8,
+      "herr_to_target": -4.8,
+      "d_lip": 5.1,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.44,
+      "x": -3353.1,
+      "y": 3823.1,
+      "vh": 439.1,
+      "heading": -6.8,
+      "jump": 1
+     },
+     "max_vh": 484.6,
+     "carve": {
+      "armed_t": 1.419,
+      "armed_d_lip": 14.5,
+      "armed_vh": 452.5,
+      "armed_herr": -11.4,
+      "rule": "dlip",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 5,
+     "outcome": "MISS",
+     "t_end": 1.82,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.439,
+      "x": -3345.9,
+      "y": 3824.0,
+      "vh": 405.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 470.3,
+     "carve": null
+    },
+    {
+     "seed": 6,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.456,
+      "x": -3344.7,
+      "y": 3824.0,
+      "vh": 406.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 460.1,
+     "carve": null
+    },
+    {
+     "seed": 7,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.431,
+      "pos": [
+       -3352.7,
+       3823.1,
+       -488.0
+      ],
+      "vh": 438.1,
+      "heading": -6.8,
+      "herr_to_target": -4.8,
+      "d_lip": 4.7,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.431,
+      "x": -3352.7,
+      "y": 3823.1,
+      "vh": 438.1,
+      "heading": -6.8,
+      "jump": 1
+     },
+     "max_vh": 487.3,
+     "carve": {
+      "armed_t": 1.41,
+      "armed_d_lip": 14.0,
+      "armed_vh": 451.3,
+      "armed_herr": -11.4,
+      "rule": "dlip",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 8,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.477,
+      "x": -3344.6,
+      "y": 3824.0,
+      "vh": 399.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 467.7,
+     "carve": null
+    },
+    {
+     "seed": 9,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.448,
+      "x": -3351.8,
+      "y": 3824.0,
+      "vh": 433.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 466.8,
+     "carve": null
+    },
+    {
+     "seed": 10,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.45,
+      "x": -3346.2,
+      "y": 3824.0,
+      "vh": 414.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 462.8,
+     "carve": null
+    },
+    {
+     "seed": 11,
+     "outcome": "MISS",
+     "t_end": 1.89,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.504,
+      "x": -3346.5,
+      "y": 3824.0,
+      "vh": 395.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 454.5,
+     "carve": null
+    },
+    {
+     "seed": 12,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.467,
+      "x": -3347.0,
+      "y": 3824.0,
+      "vh": 402.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 467.8,
+     "carve": null
+    },
+    {
+     "seed": 13,
+     "outcome": "LANDED",
+     "t_end": 2.06,
+     "landed": true,
+     "release": {
+      "t": 1.404,
+      "pos": [
+       -3355.4,
+       3822.5,
+       -488.0
+      ],
+      "vh": 458.9,
+      "heading": -9.5,
+      "herr_to_target": -1.8,
+      "d_lip": 7.4,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.404,
+      "x": -3355.4,
+      "y": 3822.5,
+      "vh": 458.9,
+      "heading": -9.5,
+      "jump": 1
+     },
+     "max_vh": 505.2,
+     "carve": {
+      "armed_t": 1.374,
+      "armed_d_lip": 21.0,
+      "armed_vh": 452.3,
+      "armed_herr": -11.1,
+      "rule": "herr",
+      "ticks": 3
+     }
+    },
+    {
+     "seed": 14,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.472,
+      "x": -3345.9,
+      "y": 3824.0,
+      "vh": 397.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 461.1,
+     "carve": null
+    },
+    {
+     "seed": 15,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.477,
+      "x": -3347.9,
+      "y": 3824.0,
+      "vh": 416.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.6,
+     "carve": null
+    },
+    {
+     "seed": 16,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.46,
+      "x": -3346.1,
+      "y": 3824.0,
+      "vh": 401.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 461.3,
+     "carve": null
+    },
+    {
+     "seed": 17,
+     "outcome": "MISS",
+     "t_end": 2.28,
+     "landed": false,
+     "release": {
+      "t": 1.44,
+      "pos": [
+       -3353.5,
+       3823.2,
+       -488.0
+      ],
+      "vh": 437.8,
+      "heading": -6.5,
+      "herr_to_target": -5.1,
+      "d_lip": 5.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.44,
+      "x": -3353.5,
+      "y": 3823.2,
+      "vh": 437.8,
+      "heading": -6.5,
+      "jump": 1
+     },
+     "max_vh": 487.9,
+     "carve": {
+      "armed_t": 1.42,
+      "armed_d_lip": 14.4,
+      "armed_vh": 451.3,
+      "armed_herr": -11.4,
+      "rule": "dlip",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 18,
+     "outcome": "MISS",
+     "t_end": 1.82,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.441,
+      "x": -3346.7,
+      "y": 3824.0,
+      "vh": 400.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.8,
+     "carve": null
+    },
+    {
+     "seed": 19,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.448,
+      "x": -3346.5,
+      "y": 3824.0,
+      "vh": 407.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 464.1,
+     "carve": null
+    },
+    {
+     "seed": 20,
+     "outcome": "MISS",
+     "t_end": 1.87,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.484,
+      "x": -3345.1,
+      "y": 3824.0,
+      "vh": 400.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 453.8,
+     "carve": null
+    },
+    {
+     "seed": 21,
+     "outcome": "MISS",
+     "t_end": 2.28,
+     "landed": false,
+     "release": {
+      "t": 1.444,
+      "pos": [
+       -3352.7,
+       3822.5,
+       -488.0
+      ],
+      "vh": 439.1,
+      "heading": -9.7,
+      "herr_to_target": -1.8,
+      "d_lip": 4.7,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.444,
+      "x": -3352.7,
+      "y": 3822.5,
+      "vh": 439.1,
+      "heading": -9.7,
+      "jump": 1
+     },
+     "max_vh": 486.4,
+     "carve": {
+      "armed_t": 1.414,
+      "armed_d_lip": 18.0,
+      "armed_vh": 450.4,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 3
+     }
+    },
+    {
+     "seed": 22,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.44,
+      "pos": [
+       -3353.3,
+       3823.2,
+       -488.0
+      ],
+      "vh": 437.0,
+      "heading": -6.5,
+      "herr_to_target": -5.0,
+      "d_lip": 5.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.44,
+      "x": -3353.3,
+      "y": 3823.2,
+      "vh": 437.0,
+      "heading": -6.5,
+      "jump": 1
+     },
+     "max_vh": 486.2,
+     "carve": {
+      "armed_t": 1.42,
+      "armed_d_lip": 14.2,
+      "armed_vh": 450.4,
+      "armed_herr": -11.4,
+      "rule": "dlip",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 23,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.451,
+      "x": -3346.7,
+      "y": 3824.0,
+      "vh": 401.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.7,
+     "carve": null
+    },
+    {
+     "seed": 24,
+     "outcome": "MISS",
+     "t_end": 2.25,
+     "landed": false,
+     "release": {
+      "t": 1.426,
+      "pos": [
+       -3356.0,
+       3823.7,
+       -488.0
+      ],
+      "vh": 453.5,
+      "heading": -3.2,
+      "herr_to_target": -8.4,
+      "d_lip": 8.0,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.426,
+      "x": -3356.0,
+      "y": 3823.7,
+      "vh": 453.5,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 497.7,
+     "carve": {
+      "armed_t": 1.416,
+      "armed_d_lip": 12.5,
+      "armed_vh": 451.2,
+      "armed_herr": -11.4,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 25,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.458,
+      "x": -3347.5,
+      "y": 3824.0,
+      "vh": 413.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 457.6,
+     "carve": null
+    },
+    {
+     "seed": 26,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.469,
+      "x": -3346.9,
+      "y": 3824.0,
+      "vh": 429.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.3,
+     "carve": null
+    },
+    {
+     "seed": 27,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.437,
+      "pos": [
+       -3355.4,
+       3824.0,
+       -488.0
+      ],
+      "vh": 452.2,
+      "heading": 0.0,
+      "herr_to_target": -11.6,
+      "d_lip": 7.4,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.437,
+      "x": -3355.4,
+      "y": 3824.0,
+      "vh": 452.2,
+      "heading": 0.0,
+      "jump": 1
+     },
+     "max_vh": 497.4,
+     "carve": {
+      "armed_t": 1.437,
+      "armed_d_lip": 7.4,
+      "armed_vh": 452.2,
+      "armed_herr": -11.6,
+      "rule": "dlip",
+      "ticks": 0
+     }
+    },
+    {
+     "seed": 28,
+     "outcome": "MISS",
+     "t_end": 2.25,
+     "landed": false,
+     "release": {
+      "t": 1.414,
+      "pos": [
+       -3358.6,
+       3822.1,
+       -488.0
+      ],
+      "vh": 459.1,
+      "heading": -9.7,
+      "herr_to_target": -1.5,
+      "d_lip": 10.6,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.414,
+      "x": -3358.6,
+      "y": 3822.1,
+      "vh": 459.1,
+      "heading": -9.7,
+      "jump": 1
+     },
+     "max_vh": 503.6,
+     "carve": {
+      "armed_t": 1.383,
+      "armed_d_lip": 24.6,
+      "armed_vh": 451.5,
+      "armed_herr": -11.0,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 29,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.457,
+      "x": -3347.7,
+      "y": 3824.0,
+      "vh": 417.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 453.0,
+     "carve": null
+    },
+    {
+     "seed": 30,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.443,
+      "pos": [
+       -3352.8,
+       3823.2,
+       -488.0
+      ],
+      "vh": 438.0,
+      "heading": -6.5,
+      "herr_to_target": -5.1,
+      "d_lip": 4.8,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.443,
+      "x": -3352.8,
+      "y": 3823.2,
+      "vh": 438.0,
+      "heading": -6.5,
+      "jump": 1
+     },
+     "max_vh": 488.1,
+     "carve": {
+      "armed_t": 1.423,
+      "armed_d_lip": 13.7,
+      "armed_vh": 451.5,
+      "armed_herr": -11.4,
+      "rule": "dlip",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 31,
+     "outcome": "LANDED",
+     "t_end": 2.08,
+     "landed": true,
+     "release": {
+      "t": 1.416,
+      "pos": [
+       -3358.2,
+       3821.2,
+       -488.0
+      ],
+      "vh": 459.7,
+      "heading": -12.5,
+      "herr_to_target": 1.5,
+      "d_lip": 10.2,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.416,
+      "x": -3358.2,
+      "y": 3821.2,
+      "vh": 459.7,
+      "heading": -12.5,
+      "jump": 1
+     },
+     "max_vh": 505.9,
+     "carve": {
+      "armed_t": 1.376,
+      "armed_d_lip": 28.3,
+      "armed_vh": 450.5,
+      "armed_herr": -10.9,
+      "rule": "herr",
+      "ticks": 3
+     }
+    },
+    {
+     "seed": 32,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.443,
+      "x": -3345.4,
+      "y": 3824.0,
+      "vh": 416.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 466.6,
+     "carve": null
+    },
+    {
+     "seed": 33,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.45,
+      "x": -3345.8,
+      "y": 3824.0,
+      "vh": 402.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 470.7,
+     "carve": null
+    },
+    {
+     "seed": 34,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.465,
+      "x": -3348.6,
+      "y": 3824.0,
+      "vh": 431.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 451.6,
+     "carve": null
+    },
+    {
+     "seed": 35,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.476,
+      "x": -3346.2,
+      "y": 3824.0,
+      "vh": 396.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.8,
+     "carve": null
+    },
+    {
+     "seed": 36,
+     "outcome": "MISS",
+     "t_end": 1.89,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.505,
+      "x": -3345.2,
+      "y": 3824.0,
+      "vh": 398.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.0,
+     "carve": null
+    },
+    {
+     "seed": 37,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.47,
+      "x": -3344.1,
+      "y": 3824.0,
+      "vh": 400.9,
+      "heading": 0.1,
+      "jump": 0
+     },
+     "max_vh": 469.7,
+     "carve": null
+    },
+    {
+     "seed": 38,
+     "outcome": "MISS",
+     "t_end": 2.29,
+     "landed": false,
+     "release": {
+      "t": 1.453,
+      "pos": [
+       -3352.1,
+       3822.5,
+       -488.0
+      ],
+      "vh": 440.3,
+      "heading": -9.6,
+      "herr_to_target": -1.8,
+      "d_lip": 4.1,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.453,
+      "x": -3352.1,
+      "y": 3822.5,
+      "vh": 440.3,
+      "heading": -9.6,
+      "jump": 1
+     },
+     "max_vh": 487.4,
+     "carve": {
+      "armed_t": 1.423,
+      "armed_d_lip": 17.5,
+      "armed_vh": 451.8,
+      "armed_herr": -11.3,
+      "rule": "herr",
+      "ticks": 3
+     }
+    },
+    {
+     "seed": 39,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.467,
+      "x": -3346.4,
+      "y": 3824.0,
+      "vh": 415.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 470.9,
+     "carve": null
+    },
+    {
+     "seed": 40,
+     "outcome": "MISS",
+     "t_end": 2.23,
+     "landed": false,
+     "release": {
+      "t": 1.402,
+      "pos": [
+       -3361.3,
+       3821.1,
+       -488.0
+      ],
+      "vh": 461.2,
+      "heading": -12.6,
+      "herr_to_target": 1.7,
+      "d_lip": 13.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.402,
+      "x": -3361.3,
+      "y": 3821.1,
+      "vh": 461.2,
+      "heading": -12.6,
+      "jump": 1
+     },
+     "max_vh": 505.5,
+     "carve": {
+      "armed_t": 1.361,
+      "armed_d_lip": 31.9,
+      "armed_vh": 453.3,
+      "armed_herr": -10.8,
+      "rule": "herr",
+      "ticks": 3
+     }
+    },
+    {
+     "seed": 41,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.454,
+      "x": -3347.6,
+      "y": 3824.0,
+      "vh": 417.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.3,
+     "carve": null
+    },
+    {
+     "seed": 42,
+     "outcome": "MISS",
+     "t_end": 1.82,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.433,
+      "x": -3350.8,
+      "y": 3824.0,
+      "vh": 418.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 468.8,
+     "carve": null
+    },
+    {
+     "seed": 43,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.474,
+      "x": -3344.1,
+      "y": 3824.0,
+      "vh": 397.9,
+      "heading": 0.1,
+      "jump": 0
+     },
+     "max_vh": 461.1,
+     "carve": null
+    },
+    {
+     "seed": 44,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.449,
+      "x": -3347.8,
+      "y": 3824.0,
+      "vh": 432.6,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 461.9,
+     "carve": null
+    },
+    {
+     "seed": 45,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.426,
+      "pos": [
+       -3349.5,
+       3821.1,
+       -488.0
+      ],
+      "vh": 424.0,
+      "heading": -13.5,
+      "herr_to_target": 2.2,
+      "d_lip": 1.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.426,
+      "x": -3349.5,
+      "y": 3821.1,
+      "vh": 424.0,
+      "heading": -13.5,
+      "jump": 1
+     },
+     "max_vh": 472.8,
+     "carve": {
+      "armed_t": 1.385,
+      "armed_d_lip": 19.2,
+      "armed_vh": 451.3,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 3
+     }
+    },
+    {
+     "seed": 46,
+     "outcome": "MISS",
+     "t_end": 1.89,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.49,
+      "x": -3344.6,
+      "y": 3824.0,
+      "vh": 411.6,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 466.1,
+     "carve": null
+    },
+    {
+     "seed": 47,
+     "outcome": "MISS",
+     "t_end": 2.23,
+     "landed": false,
+     "release": {
+      "t": 1.397,
+      "pos": [
+       -3362.2,
+       3821.2,
+       -488.0
+      ],
+      "vh": 460.2,
+      "heading": -12.4,
+      "herr_to_target": 1.5,
+      "d_lip": 14.2,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.397,
+      "x": -3362.2,
+      "y": 3821.2,
+      "vh": 460.2,
+      "heading": -12.4,
+      "jump": 1
+     },
+     "max_vh": 502.9,
+     "carve": {
+      "armed_t": 1.357,
+      "armed_d_lip": 32.3,
+      "armed_vh": 451.7,
+      "armed_herr": -10.8,
+      "rule": "herr",
+      "ticks": 3
+     }
+    },
+    {
+     "seed": 48,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.463,
+      "x": -3351.1,
+      "y": 3824.0,
+      "vh": 427.6,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.2,
+     "carve": null
+    },
+    {
+     "seed": 49,
+     "outcome": "LANDED",
+     "t_end": 2.1,
+     "landed": true,
+     "release": {
+      "t": 1.447,
+      "pos": [
+       -3350.7,
+       3822.9,
+       -488.0
+      ],
+      "vh": 456.1,
+      "heading": -6.6,
+      "herr_to_target": -5.0,
+      "d_lip": 2.7,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.447,
+      "x": -3350.7,
+      "y": 3822.9,
+      "vh": 456.1,
+      "heading": -6.6,
+      "jump": 1
+     },
+     "max_vh": 500.0,
+     "carve": {
+      "armed_t": 1.426,
+      "armed_d_lip": 12.2,
+      "armed_vh": 450.3,
+      "armed_herr": -11.4,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 50,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.45,
+      "x": -3347.4,
+      "y": 3824.0,
+      "vh": 417.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 465.4,
+     "carve": null
+    },
+    {
+     "seed": 51,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.453,
+      "x": -3347.2,
+      "y": 3824.0,
+      "vh": 417.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 458.9,
+     "carve": null
+    },
+    {
+     "seed": 52,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.45,
+      "x": -3344.4,
+      "y": 3824.0,
+      "vh": 404.6,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.8,
+     "carve": null
+    },
+    {
+     "seed": 53,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.47,
+      "x": -3344.4,
+      "y": 3824.0,
+      "vh": 404.5,
+      "heading": 0.3,
+      "jump": 0
+     },
+     "max_vh": 453.9,
+     "carve": null
+    },
+    {
+     "seed": 54,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.477,
+      "x": -3347.0,
+      "y": 3824.0,
+      "vh": 403.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.6,
+     "carve": null
+    },
+    {
+     "seed": 55,
+     "outcome": "MISS",
+     "t_end": 2.28,
+     "landed": false,
+     "release": {
+      "t": 1.441,
+      "pos": [
+       -3354.6,
+       3823.7,
+       -488.0
+      ],
+      "vh": 434.5,
+      "heading": -3.3,
+      "herr_to_target": -8.3,
+      "d_lip": 6.6,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.441,
+      "x": -3354.6,
+      "y": 3823.7,
+      "vh": 434.5,
+      "heading": -3.3,
+      "jump": 1
+     },
+     "max_vh": 482.3,
+     "carve": {
+      "armed_t": 1.431,
+      "armed_d_lip": 11.0,
+      "armed_vh": 450.1,
+      "armed_herr": -11.5,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 56,
+     "outcome": "MISS",
+     "t_end": 1.87,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.477,
+      "x": -3349.3,
+      "y": 3824.0,
+      "vh": 415.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.2,
+     "carve": null
+    },
+    {
+     "seed": 57,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.478,
+      "x": -3344.9,
+      "y": 3824.0,
+      "vh": 396.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 462.6,
+     "carve": null
+    },
+    {
+     "seed": 58,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.441,
+      "x": -3350.2,
+      "y": 3824.0,
+      "vh": 412.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 461.4,
+     "carve": null
+    },
+    {
+     "seed": 59,
+     "outcome": "MISS",
+     "t_end": 1.87,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.483,
+      "x": -3347.8,
+      "y": 3824.0,
+      "vh": 412.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 458.0,
+     "carve": null
+    },
+    {
+     "seed": 60,
+     "outcome": "LANDED",
+     "t_end": 2.08,
+     "landed": true,
+     "release": {
+      "t": 1.42,
+      "pos": [
+       -3355.5,
+       3823.1,
+       -488.0
+      ],
+      "vh": 456.8,
+      "heading": -6.7,
+      "herr_to_target": -4.8,
+      "d_lip": 7.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.42,
+      "x": -3355.5,
+      "y": 3823.1,
+      "vh": 456.8,
+      "heading": -6.7,
+      "jump": 1
+     },
+     "max_vh": 503.3,
+     "carve": {
+      "armed_t": 1.399,
+      "armed_d_lip": 17.0,
+      "armed_vh": 452.0,
+      "armed_herr": -11.3,
+      "rule": "dlip",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 61,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.469,
+      "x": -3344.8,
+      "y": 3824.0,
+      "vh": 399.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 458.4,
+     "carve": null
+    },
+    {
+     "seed": 62,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.432,
+      "pos": [
+       -3351.2,
+       3822.2,
+       -488.0
+      ],
+      "vh": 422.9,
+      "heading": -10.0,
+      "herr_to_target": -1.4,
+      "d_lip": 3.2,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.432,
+      "x": -3351.2,
+      "y": 3822.2,
+      "vh": 422.9,
+      "heading": -10.0,
+      "jump": 1
+     },
+     "max_vh": 473.7,
+     "carve": {
+      "armed_t": 1.402,
+      "armed_d_lip": 16.0,
+      "armed_vh": 450.6,
+      "armed_herr": -11.3,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 63,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.486,
+      "x": -3344.9,
+      "y": 3824.0,
+      "vh": 399.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 452.0,
+     "carve": null
+    },
+    {
+     "seed": 64,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.447,
+      "x": -3350.2,
+      "y": 3824.0,
+      "vh": 416.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.0,
+     "carve": null
+    },
+    {
+     "seed": 65,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.442,
+      "x": -3349.5,
+      "y": 3824.0,
+      "vh": 416.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 460.9,
+     "carve": null
+    },
+    {
+     "seed": 66,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.441,
+      "x": -3349.0,
+      "y": 3824.0,
+      "vh": 416.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.9,
+     "carve": null
+    },
+    {
+     "seed": 67,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.449,
+      "x": -3347.0,
+      "y": 3824.0,
+      "vh": 403.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 463.5,
+     "carve": null
+    },
+    {
+     "seed": 68,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.455,
+      "x": -3348.4,
+      "y": 3824.0,
+      "vh": 427.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 450.8,
+     "carve": null
+    },
+    {
+     "seed": 69,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.46,
+      "x": -3345.5,
+      "y": 3824.0,
+      "vh": 401.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 463.6,
+     "carve": null
+    },
+    {
+     "seed": 70,
+     "outcome": "MISS",
+     "t_end": 2.23,
+     "landed": false,
+     "release": {
+      "t": 1.386,
+      "pos": [
+       -3367.3,
+       3822.2,
+       -488.0
+      ],
+      "vh": 459.8,
+      "heading": -9.3,
+      "herr_to_target": -1.6,
+      "d_lip": 19.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.386,
+      "x": -3367.3,
+      "y": 3822.2,
+      "vh": 459.8,
+      "heading": -9.3,
+      "jump": 1
+     },
+     "max_vh": 506.0,
+     "carve": {
+      "armed_t": 1.356,
+      "armed_d_lip": 32.9,
+      "armed_vh": 453.2,
+      "armed_herr": -10.7,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 71,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.454,
+      "x": -3351.8,
+      "y": 3824.0,
+      "vh": 428.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.2,
+     "carve": null
+    },
+    {
+     "seed": 72,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.467,
+      "x": -3344.4,
+      "y": 3824.0,
+      "vh": 403.2,
+      "heading": 0.3,
+      "jump": 0
+     },
+     "max_vh": 453.8,
+     "carve": null
+    },
+    {
+     "seed": 73,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.422,
+      "pos": [
+       -3353.0,
+       3823.7,
+       -488.0
+      ],
+      "vh": 436.8,
+      "heading": -3.3,
+      "herr_to_target": -8.3,
+      "d_lip": 5.0,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.422,
+      "x": -3353.0,
+      "y": 3823.7,
+      "vh": 436.8,
+      "heading": -3.3,
+      "jump": 1
+     },
+     "max_vh": 486.1,
+     "carve": {
+      "armed_t": 1.412,
+      "armed_d_lip": 9.4,
+      "armed_vh": 452.6,
+      "armed_herr": -11.5,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 74,
+     "outcome": "MISS",
+     "t_end": 1.81,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.426,
+      "x": -3350.6,
+      "y": 3824.0,
+      "vh": 417.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.3,
+     "carve": null
+    },
+    {
+     "seed": 75,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.447,
+      "x": -3350.7,
+      "y": 3824.0,
+      "vh": 428.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.6,
+     "carve": null
+    },
+    {
+     "seed": 76,
+     "outcome": "LANDED",
+     "t_end": 2.1,
+     "landed": true,
+     "release": {
+      "t": 1.42,
+      "pos": [
+       -3355.3,
+       3823.1,
+       -488.0
+      ],
+      "vh": 456.7,
+      "heading": -7.0,
+      "herr_to_target": -4.5,
+      "d_lip": 7.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.42,
+      "x": -3355.3,
+      "y": 3823.1,
+      "vh": 456.7,
+      "heading": -7.0,
+      "jump": 1
+     },
+     "max_vh": 502.3,
+     "carve": {
+      "armed_t": 1.398,
+      "armed_d_lip": 17.3,
+      "armed_vh": 451.5,
+      "armed_herr": -11.3,
+      "rule": "dlip",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 77,
+     "outcome": "MISS",
+     "t_end": 2.28,
+     "landed": false,
+     "release": {
+      "t": 1.449,
+      "pos": [
+       -3355.9,
+       3824.0,
+       -488.0
+      ],
+      "vh": 450.8,
+      "heading": 0.0,
+      "herr_to_target": -11.6,
+      "d_lip": 7.9,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.449,
+      "x": -3355.9,
+      "y": 3824.0,
+      "vh": 450.8,
+      "heading": 0.0,
+      "jump": 1
+     },
+     "max_vh": 493.4,
+     "carve": {
+      "armed_t": 1.449,
+      "armed_d_lip": 7.9,
+      "armed_vh": 450.8,
+      "armed_herr": -11.6,
+      "rule": "dlip",
+      "ticks": 0
+     }
+    },
+    {
+     "seed": 78,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.44,
+      "pos": [
+       -3350.3,
+       3823.0,
+       -488.0
+      ],
+      "vh": 422.3,
+      "heading": -6.9,
+      "herr_to_target": -4.8,
+      "d_lip": 2.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.44,
+      "x": -3350.3,
+      "y": 3823.0,
+      "vh": 422.3,
+      "heading": -6.9,
+      "jump": 1
+     },
+     "max_vh": 474.0,
+     "carve": {
+      "armed_t": 1.42,
+      "armed_d_lip": 10.7,
+      "armed_vh": 452.2,
+      "armed_herr": -11.5,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 79,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.468,
+      "x": -3346.6,
+      "y": 3824.0,
+      "vh": 416.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.2,
+     "carve": null
+    },
+    {
+     "seed": 80,
+     "outcome": "MISS",
+     "t_end": 1.88,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.476,
+      "x": -3348.9,
+      "y": 3824.0,
+      "vh": 419.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 457.7,
+     "carve": null
+    },
+    {
+     "seed": 81,
+     "outcome": "MISS",
+     "t_end": 2.21,
+     "landed": false,
+     "release": {
+      "t": 1.386,
+      "pos": [
+       -3365.8,
+       3822.4,
+       -488.0
+      ],
+      "vh": 457.3,
+      "heading": -9.8,
+      "herr_to_target": -1.1,
+      "d_lip": 17.8,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.386,
+      "x": -3365.8,
+      "y": 3822.4,
+      "vh": 457.3,
+      "heading": -9.8,
+      "jump": 1
+     },
+     "max_vh": 502.0,
+     "carve": {
+      "armed_t": 1.355,
+      "armed_d_lip": 31.8,
+      "armed_vh": 450.1,
+      "armed_herr": -10.8,
+      "rule": "herr",
+      "ticks": 3
+     }
+    },
+    {
+     "seed": 82,
+     "outcome": "MISS",
+     "t_end": 2.28,
+     "landed": false,
+     "release": {
+      "t": 1.45,
+      "pos": [
+       -3348.2,
+       3821.0,
+       -488.0
+      ],
+      "vh": 425.9,
+      "heading": -13.8,
+      "herr_to_target": 2.4,
+      "d_lip": 0.2,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.45,
+      "x": -3348.2,
+      "y": 3821.0,
+      "vh": 425.9,
+      "heading": -13.8,
+      "jump": 1
+     },
+     "max_vh": 469.9,
+     "carve": {
+      "armed_t": 1.408,
+      "armed_d_lip": 18.4,
+      "armed_vh": 451.4,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 3
+     }
+    },
+    {
+     "seed": 83,
+     "outcome": "MISS",
+     "t_end": 2.31,
+     "landed": false,
+     "release": {
+      "t": 1.474,
+      "pos": [
+       -3347.7,
+       3823.0,
+       -488.0
+      ],
+      "vh": 421.1,
+      "heading": -6.9,
+      "herr_to_target": -4.8,
+      "d_lip": -0.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.474,
+      "x": -3347.7,
+      "y": 3823.0,
+      "vh": 421.1,
+      "heading": -6.9,
+      "jump": 1
+     },
+     "max_vh": 468.4,
+     "carve": {
+      "armed_t": 1.454,
+      "armed_d_lip": 8.1,
+      "armed_vh": 450.8,
+      "armed_herr": -11.6,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 84,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.46,
+      "x": -3350.2,
+      "y": 3824.0,
+      "vh": 409.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 453.7,
+     "carve": null
+    },
+    {
+     "seed": 85,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.455,
+      "x": -3345.2,
+      "y": 3824.0,
+      "vh": 401.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.9,
+     "carve": null
+    },
+    {
+     "seed": 86,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.452,
+      "x": -3345.5,
+      "y": 3824.0,
+      "vh": 397.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.4,
+     "carve": null
+    },
+    {
+     "seed": 87,
+     "outcome": "LANDED",
+     "t_end": 2.08,
+     "landed": true,
+     "release": {
+      "t": 1.417,
+      "pos": [
+       -3355.1,
+       3823.7,
+       -488.0
+      ],
+      "vh": 453.0,
+      "heading": -3.5,
+      "herr_to_target": -8.1,
+      "d_lip": 7.1,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.417,
+      "x": -3355.1,
+      "y": 3823.7,
+      "vh": 453.0,
+      "heading": -3.5,
+      "jump": 1
+     },
+     "max_vh": 500.7,
+     "carve": {
+      "armed_t": 1.406,
+      "armed_d_lip": 12.1,
+      "armed_vh": 450.2,
+      "armed_herr": -11.4,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 88,
+     "outcome": "MISS",
+     "t_end": 1.82,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.441,
+      "x": -3347.7,
+      "y": 3824.0,
+      "vh": 415.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 467.9,
+     "carve": null
+    },
+    {
+     "seed": 89,
+     "outcome": "MISS",
+     "t_end": 2.25,
+     "landed": false,
+     "release": {
+      "t": 1.414,
+      "pos": [
+       -3352.8,
+       3823.7,
+       -488.0
+      ],
+      "vh": 434.9,
+      "heading": -3.3,
+      "herr_to_target": -8.3,
+      "d_lip": 4.8,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.414,
+      "x": -3352.8,
+      "y": 3823.7,
+      "vh": 434.9,
+      "heading": -3.3,
+      "jump": 1
+     },
+     "max_vh": 484.4,
+     "carve": {
+      "armed_t": 1.404,
+      "armed_d_lip": 9.1,
+      "armed_vh": 450.5,
+      "armed_herr": -11.5,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 90,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.465,
+      "x": -3346.4,
+      "y": 3824.0,
+      "vh": 403.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.1,
+     "carve": null
+    },
+    {
+     "seed": 91,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.424,
+      "pos": [
+       -3351.6,
+       3822.0,
+       -488.0
+      ],
+      "vh": 438.6,
+      "heading": -10.2,
+      "herr_to_target": -1.2,
+      "d_lip": 3.6,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.424,
+      "x": -3351.6,
+      "y": 3822.0,
+      "vh": 438.6,
+      "heading": -10.2,
+      "jump": 1
+     },
+     "max_vh": 486.8,
+     "carve": {
+      "armed_t": 1.392,
+      "armed_d_lip": 17.8,
+      "armed_vh": 450.4,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 92,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.429,
+      "pos": [
+       -3352.4,
+       3823.1,
+       -488.0
+      ],
+      "vh": 436.1,
+      "heading": -6.8,
+      "herr_to_target": -4.7,
+      "d_lip": 4.4,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.429,
+      "x": -3352.4,
+      "y": 3823.1,
+      "vh": 436.1,
+      "heading": -6.8,
+      "jump": 1
+     },
+     "max_vh": 483.6,
+     "carve": {
+      "armed_t": 1.408,
+      "armed_d_lip": 13.7,
+      "armed_vh": 451.0,
+      "armed_herr": -11.4,
+      "rule": "dlip",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 93,
+     "outcome": "LANDED",
+     "t_end": 2.08,
+     "landed": true,
+     "release": {
+      "t": 1.425,
+      "pos": [
+       -3353.5,
+       3823.0,
+       -488.0
+      ],
+      "vh": 457.1,
+      "heading": -6.3,
+      "herr_to_target": -5.2,
+      "d_lip": 5.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.425,
+      "x": -3353.5,
+      "y": 3823.0,
+      "vh": 457.1,
+      "heading": -6.3,
+      "jump": 1
+     },
+     "max_vh": 504.4,
+     "carve": {
+      "armed_t": 1.405,
+      "armed_d_lip": 14.6,
+      "armed_vh": 451.0,
+      "armed_herr": -11.4,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 94,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.459,
+      "x": -3346.5,
+      "y": 3824.0,
+      "vh": 430.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 457.9,
+     "carve": null
+    },
+    {
+     "seed": 95,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.464,
+      "x": -3346.6,
+      "y": 3824.0,
+      "vh": 403.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.0,
+     "carve": null
+    },
+    {
+     "seed": 96,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.456,
+      "x": -3348.0,
+      "y": 3824.0,
+      "vh": 420.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 457.8,
+     "carve": null
+    },
+    {
+     "seed": 97,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.456,
+      "x": -3352.0,
+      "y": 3824.0,
+      "vh": 427.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 452.4,
+     "carve": null
+    },
+    {
+     "seed": 98,
+     "outcome": "LANDED",
+     "t_end": 2.09,
+     "landed": true,
+     "release": {
+      "t": 1.431,
+      "pos": [
+       -3353.8,
+       3822.9,
+       -488.0
+      ],
+      "vh": 456.4,
+      "heading": -6.5,
+      "herr_to_target": -5.0,
+      "d_lip": 5.8,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.431,
+      "x": -3353.8,
+      "y": 3822.9,
+      "vh": 456.4,
+      "heading": -6.5,
+      "jump": 1
+     },
+     "max_vh": 502.0,
+     "carve": {
+      "armed_t": 1.41,
+      "armed_d_lip": 15.3,
+      "armed_vh": 450.8,
+      "armed_herr": -11.3,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 99,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.464,
+      "x": -3347.3,
+      "y": 3824.0,
+      "vh": 429.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 464.6,
+     "carve": null
+    },
+    {
+     "seed": 100,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.464,
+      "x": -3346.0,
+      "y": 3824.0,
+      "vh": 415.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 463.6,
+     "carve": null
+    }
+   ]
+  },
+  {
+   "config": {
+    "launch_vh": 430.0,
+    "launch_angle": 50.0,
+    "swing": 8.0,
+    "sign": 1,
+    "lip_gate_dmax": 0.0,
+    "carve_d": 35.0,
+    "carve_deg": 52.0,
+    "carve_vh": 450.0,
+    "carve_tol": 6.0
+   },
+   "name": "cd35_cg52_cv450_ct6",
+   "landed": 9,
+   "n": 100,
+   "armed": 34,
+   "lip_n": 100,
+   "lip_vh_med": 417.5,
+   "lip_heading_med": 0.0,
+   "attempts": [
+    {
+     "seed": 1,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.468,
+      "x": -3347.3,
+      "y": 3824.0,
+      "vh": 414.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.6,
+     "carve": null
+    },
+    {
+     "seed": 2,
+     "outcome": "LANDED",
+     "t_end": 2.1,
+     "landed": true,
+     "release": {
+      "t": 1.436,
+      "pos": [
+       -3356.5,
+       3822.9,
+       -488.0
+      ],
+      "vh": 457.1,
+      "heading": -6.4,
+      "herr_to_target": -4.9,
+      "d_lip": 8.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.436,
+      "x": -3356.5,
+      "y": 3822.9,
+      "vh": 457.1,
+      "heading": -6.4,
+      "jump": 1
+     },
+     "max_vh": 503.5,
+     "carve": {
+      "armed_t": 1.415,
+      "armed_d_lip": 18.0,
+      "armed_vh": 452.2,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 3,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.469,
+      "x": -3346.6,
+      "y": 3824.0,
+      "vh": 399.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 451.5,
+     "carve": null
+    },
+    {
+     "seed": 4,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.44,
+      "pos": [
+       -3353.1,
+       3823.1,
+       -488.0
+      ],
+      "vh": 439.1,
+      "heading": -6.8,
+      "herr_to_target": -4.8,
+      "d_lip": 5.1,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.44,
+      "x": -3353.1,
+      "y": 3823.1,
+      "vh": 439.1,
+      "heading": -6.8,
+      "jump": 1
+     },
+     "max_vh": 484.6,
+     "carve": {
+      "armed_t": 1.419,
+      "armed_d_lip": 14.5,
+      "armed_vh": 452.5,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 5,
+     "outcome": "MISS",
+     "t_end": 1.82,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.439,
+      "x": -3345.9,
+      "y": 3824.0,
+      "vh": 405.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 470.3,
+     "carve": null
+    },
+    {
+     "seed": 6,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.456,
+      "x": -3344.7,
+      "y": 3824.0,
+      "vh": 406.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 460.1,
+     "carve": null
+    },
+    {
+     "seed": 7,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.431,
+      "pos": [
+       -3352.7,
+       3823.1,
+       -488.0
+      ],
+      "vh": 438.1,
+      "heading": -6.8,
+      "herr_to_target": -4.8,
+      "d_lip": 4.7,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.431,
+      "x": -3352.7,
+      "y": 3823.1,
+      "vh": 438.1,
+      "heading": -6.8,
+      "jump": 1
+     },
+     "max_vh": 487.3,
+     "carve": {
+      "armed_t": 1.41,
+      "armed_d_lip": 14.0,
+      "armed_vh": 451.3,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 8,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.477,
+      "x": -3344.6,
+      "y": 3824.0,
+      "vh": 399.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 467.7,
+     "carve": null
+    },
+    {
+     "seed": 9,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.448,
+      "x": -3351.8,
+      "y": 3824.0,
+      "vh": 433.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 466.8,
+     "carve": null
+    },
+    {
+     "seed": 10,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.45,
+      "x": -3346.2,
+      "y": 3824.0,
+      "vh": 414.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 462.8,
+     "carve": null
+    },
+    {
+     "seed": 11,
+     "outcome": "MISS",
+     "t_end": 1.89,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.504,
+      "x": -3346.5,
+      "y": 3824.0,
+      "vh": 395.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 454.5,
+     "carve": null
+    },
+    {
+     "seed": 12,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.467,
+      "x": -3347.0,
+      "y": 3824.0,
+      "vh": 402.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 467.8,
+     "carve": null
+    },
+    {
+     "seed": 13,
+     "outcome": "MISS",
+     "t_end": 2.23,
+     "landed": false,
+     "release": {
+      "t": 1.394,
+      "pos": [
+       -3359.9,
+       3823.2,
+       -488.0
+      ],
+      "vh": 456.8,
+      "heading": -6.3,
+      "herr_to_target": -5.0,
+      "d_lip": 11.9,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.394,
+      "x": -3359.9,
+      "y": 3823.2,
+      "vh": 456.8,
+      "heading": -6.3,
+      "jump": 1
+     },
+     "max_vh": 504.2,
+     "carve": {
+      "armed_t": 1.374,
+      "armed_d_lip": 21.0,
+      "armed_vh": 452.3,
+      "armed_herr": -11.1,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 14,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.472,
+      "x": -3345.9,
+      "y": 3824.0,
+      "vh": 397.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 461.1,
+     "carve": null
+    },
+    {
+     "seed": 15,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.477,
+      "x": -3347.9,
+      "y": 3824.0,
+      "vh": 416.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.6,
+     "carve": null
+    },
+    {
+     "seed": 16,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.46,
+      "x": -3346.1,
+      "y": 3824.0,
+      "vh": 401.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 461.3,
+     "carve": null
+    },
+    {
+     "seed": 17,
+     "outcome": "MISS",
+     "t_end": 2.28,
+     "landed": false,
+     "release": {
+      "t": 1.44,
+      "pos": [
+       -3353.5,
+       3823.2,
+       -488.0
+      ],
+      "vh": 437.8,
+      "heading": -6.5,
+      "herr_to_target": -5.1,
+      "d_lip": 5.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.44,
+      "x": -3353.5,
+      "y": 3823.2,
+      "vh": 437.8,
+      "heading": -6.5,
+      "jump": 1
+     },
+     "max_vh": 487.9,
+     "carve": {
+      "armed_t": 1.42,
+      "armed_d_lip": 14.4,
+      "armed_vh": 451.3,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 18,
+     "outcome": "MISS",
+     "t_end": 1.82,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.441,
+      "x": -3346.7,
+      "y": 3824.0,
+      "vh": 400.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.8,
+     "carve": null
+    },
+    {
+     "seed": 19,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.448,
+      "x": -3346.5,
+      "y": 3824.0,
+      "vh": 407.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 464.1,
+     "carve": null
+    },
+    {
+     "seed": 20,
+     "outcome": "MISS",
+     "t_end": 1.87,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.484,
+      "x": -3345.1,
+      "y": 3824.0,
+      "vh": 400.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 453.8,
+     "carve": null
+    },
+    {
+     "seed": 21,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.434,
+      "pos": [
+       -3357.0,
+       3823.2,
+       -488.0
+      ],
+      "vh": 455.1,
+      "heading": -6.4,
+      "herr_to_target": -5.0,
+      "d_lip": 9.0,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.434,
+      "x": -3357.0,
+      "y": 3823.2,
+      "vh": 455.1,
+      "heading": -6.4,
+      "jump": 1
+     },
+     "max_vh": 500.0,
+     "carve": {
+      "armed_t": 1.414,
+      "armed_d_lip": 18.0,
+      "armed_vh": 450.4,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 22,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.44,
+      "pos": [
+       -3353.3,
+       3823.2,
+       -488.0
+      ],
+      "vh": 437.0,
+      "heading": -6.5,
+      "herr_to_target": -5.0,
+      "d_lip": 5.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.44,
+      "x": -3353.3,
+      "y": 3823.2,
+      "vh": 437.0,
+      "heading": -6.5,
+      "jump": 1
+     },
+     "max_vh": 486.2,
+     "carve": {
+      "armed_t": 1.42,
+      "armed_d_lip": 14.2,
+      "armed_vh": 450.4,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 23,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.451,
+      "x": -3346.7,
+      "y": 3824.0,
+      "vh": 401.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.7,
+     "carve": null
+    },
+    {
+     "seed": 24,
+     "outcome": "MISS",
+     "t_end": 2.25,
+     "landed": false,
+     "release": {
+      "t": 1.426,
+      "pos": [
+       -3356.0,
+       3823.7,
+       -488.0
+      ],
+      "vh": 453.5,
+      "heading": -3.2,
+      "herr_to_target": -8.4,
+      "d_lip": 8.0,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.426,
+      "x": -3356.0,
+      "y": 3823.7,
+      "vh": 453.5,
+      "heading": -3.2,
+      "jump": 1
+     },
+     "max_vh": 497.7,
+     "carve": {
+      "armed_t": 1.416,
+      "armed_d_lip": 12.5,
+      "armed_vh": 451.2,
+      "armed_herr": -11.4,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 25,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.458,
+      "x": -3347.5,
+      "y": 3824.0,
+      "vh": 413.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 457.6,
+     "carve": null
+    },
+    {
+     "seed": 26,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.469,
+      "x": -3346.9,
+      "y": 3824.0,
+      "vh": 429.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.3,
+     "carve": null
+    },
+    {
+     "seed": 27,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.437,
+      "pos": [
+       -3355.4,
+       3824.0,
+       -488.0
+      ],
+      "vh": 452.2,
+      "heading": 0.0,
+      "herr_to_target": -11.6,
+      "d_lip": 7.4,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.437,
+      "x": -3355.4,
+      "y": 3824.0,
+      "vh": 452.2,
+      "heading": 0.0,
+      "jump": 1
+     },
+     "max_vh": 497.4,
+     "carve": {
+      "armed_t": 1.437,
+      "armed_d_lip": 7.4,
+      "armed_vh": 452.2,
+      "armed_herr": -11.6,
+      "rule": "dlip",
+      "ticks": 0
+     }
+    },
+    {
+     "seed": 28,
+     "outcome": "MISS",
+     "t_end": 2.25,
+     "landed": false,
+     "release": {
+      "t": 1.414,
+      "pos": [
+       -3358.6,
+       3822.1,
+       -488.0
+      ],
+      "vh": 459.1,
+      "heading": -9.7,
+      "herr_to_target": -1.5,
+      "d_lip": 10.6,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.414,
+      "x": -3358.6,
+      "y": 3822.1,
+      "vh": 459.1,
+      "heading": -9.7,
+      "jump": 1
+     },
+     "max_vh": 503.6,
+     "carve": {
+      "armed_t": 1.383,
+      "armed_d_lip": 24.6,
+      "armed_vh": 451.5,
+      "armed_herr": -11.0,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 29,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.457,
+      "x": -3347.7,
+      "y": 3824.0,
+      "vh": 417.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 453.0,
+     "carve": null
+    },
+    {
+     "seed": 30,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.443,
+      "pos": [
+       -3352.8,
+       3823.2,
+       -488.0
+      ],
+      "vh": 438.0,
+      "heading": -6.5,
+      "herr_to_target": -5.1,
+      "d_lip": 4.8,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.443,
+      "x": -3352.8,
+      "y": 3823.2,
+      "vh": 438.0,
+      "heading": -6.5,
+      "jump": 1
+     },
+     "max_vh": 488.1,
+     "carve": {
+      "armed_t": 1.423,
+      "armed_d_lip": 13.7,
+      "armed_vh": 451.5,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 31,
+     "outcome": "MISS",
+     "t_end": 2.23,
+     "landed": false,
+     "release": {
+      "t": 1.396,
+      "pos": [
+       -3367.2,
+       3823.2,
+       -488.0
+      ],
+      "vh": 455.2,
+      "heading": -6.4,
+      "herr_to_target": -4.7,
+      "d_lip": 19.2,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.396,
+      "x": -3367.2,
+      "y": 3823.2,
+      "vh": 455.2,
+      "heading": -6.4,
+      "jump": 1
+     },
+     "max_vh": 502.7,
+     "carve": {
+      "armed_t": 1.376,
+      "armed_d_lip": 28.3,
+      "armed_vh": 450.5,
+      "armed_herr": -10.9,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 32,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.443,
+      "x": -3345.4,
+      "y": 3824.0,
+      "vh": 416.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 466.6,
+     "carve": null
+    },
+    {
+     "seed": 33,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.45,
+      "x": -3345.8,
+      "y": 3824.0,
+      "vh": 402.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 470.7,
+     "carve": null
+    },
+    {
+     "seed": 34,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.465,
+      "x": -3348.6,
+      "y": 3824.0,
+      "vh": 431.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 451.6,
+     "carve": null
+    },
+    {
+     "seed": 35,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.476,
+      "x": -3346.2,
+      "y": 3824.0,
+      "vh": 396.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.8,
+     "carve": null
+    },
+    {
+     "seed": 36,
+     "outcome": "MISS",
+     "t_end": 1.89,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.505,
+      "x": -3345.2,
+      "y": 3824.0,
+      "vh": 398.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.0,
+     "carve": null
+    },
+    {
+     "seed": 37,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.47,
+      "x": -3344.1,
+      "y": 3824.0,
+      "vh": 400.9,
+      "heading": 0.1,
+      "jump": 0
+     },
+     "max_vh": 469.7,
+     "carve": null
+    },
+    {
+     "seed": 38,
+     "outcome": "LANDED",
+     "t_end": 2.11,
+     "landed": true,
+     "release": {
+      "t": 1.443,
+      "pos": [
+       -3356.5,
+       3823.2,
+       -488.0
+      ],
+      "vh": 456.3,
+      "heading": -6.4,
+      "herr_to_target": -5.1,
+      "d_lip": 8.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.443,
+      "x": -3356.5,
+      "y": 3823.2,
+      "vh": 456.3,
+      "heading": -6.4,
+      "jump": 1
+     },
+     "max_vh": 502.0,
+     "carve": {
+      "armed_t": 1.423,
+      "armed_d_lip": 17.5,
+      "armed_vh": 451.8,
+      "armed_herr": -11.3,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 39,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.467,
+      "x": -3346.4,
+      "y": 3824.0,
+      "vh": 415.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 470.9,
+     "carve": null
+    },
+    {
+     "seed": 40,
+     "outcome": "MISS",
+     "t_end": 2.21,
+     "landed": false,
+     "release": {
+      "t": 1.382,
+      "pos": [
+       -3370.3,
+       3823.1,
+       -488.0
+      ],
+      "vh": 458.0,
+      "heading": -6.6,
+      "herr_to_target": -4.3,
+      "d_lip": 22.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.382,
+      "x": -3370.3,
+      "y": 3823.1,
+      "vh": 458.0,
+      "heading": -6.6,
+      "jump": 1
+     },
+     "max_vh": 503.5,
+     "carve": {
+      "armed_t": 1.361,
+      "armed_d_lip": 31.9,
+      "armed_vh": 453.3,
+      "armed_herr": -10.8,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 41,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.454,
+      "x": -3347.6,
+      "y": 3824.0,
+      "vh": 417.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.3,
+     "carve": null
+    },
+    {
+     "seed": 42,
+     "outcome": "MISS",
+     "t_end": 1.82,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.433,
+      "x": -3350.8,
+      "y": 3824.0,
+      "vh": 418.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 468.8,
+     "carve": null
+    },
+    {
+     "seed": 43,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.474,
+      "x": -3344.1,
+      "y": 3824.0,
+      "vh": 397.9,
+      "heading": 0.1,
+      "jump": 0
+     },
+     "max_vh": 461.1,
+     "carve": null
+    },
+    {
+     "seed": 44,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.449,
+      "x": -3347.8,
+      "y": 3824.0,
+      "vh": 432.6,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 461.9,
+     "carve": null
+    },
+    {
+     "seed": 45,
+     "outcome": "MISS",
+     "t_end": 2.24,
+     "landed": false,
+     "release": {
+      "t": 1.405,
+      "pos": [
+       -3358.2,
+       3823.2,
+       -488.0
+      ],
+      "vh": 455.9,
+      "heading": -6.4,
+      "herr_to_target": -5.0,
+      "d_lip": 10.2,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.405,
+      "x": -3358.2,
+      "y": 3823.2,
+      "vh": 455.9,
+      "heading": -6.4,
+      "jump": 1
+     },
+     "max_vh": 499.9,
+     "carve": {
+      "armed_t": 1.385,
+      "armed_d_lip": 19.2,
+      "armed_vh": 451.3,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 46,
+     "outcome": "MISS",
+     "t_end": 1.89,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.49,
+      "x": -3344.6,
+      "y": 3824.0,
+      "vh": 411.6,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 466.1,
+     "carve": null
+    },
+    {
+     "seed": 47,
+     "outcome": "MISS",
+     "t_end": 2.21,
+     "landed": false,
+     "release": {
+      "t": 1.377,
+      "pos": [
+       -3371.2,
+       3823.2,
+       -488.0
+      ],
+      "vh": 456.2,
+      "heading": -6.4,
+      "herr_to_target": -4.6,
+      "d_lip": 23.2,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.377,
+      "x": -3371.2,
+      "y": 3823.2,
+      "vh": 456.2,
+      "heading": -6.4,
+      "jump": 1
+     },
+     "max_vh": 500.2,
+     "carve": {
+      "armed_t": 1.357,
+      "armed_d_lip": 32.3,
+      "armed_vh": 451.7,
+      "armed_herr": -10.8,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 48,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.463,
+      "x": -3351.1,
+      "y": 3824.0,
+      "vh": 427.6,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.2,
+     "carve": null
+    },
+    {
+     "seed": 49,
+     "outcome": "LANDED",
+     "t_end": 2.1,
+     "landed": true,
+     "release": {
+      "t": 1.447,
+      "pos": [
+       -3350.7,
+       3822.9,
+       -488.0
+      ],
+      "vh": 456.1,
+      "heading": -6.6,
+      "herr_to_target": -5.0,
+      "d_lip": 2.7,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.447,
+      "x": -3350.7,
+      "y": 3822.9,
+      "vh": 456.1,
+      "heading": -6.6,
+      "jump": 1
+     },
+     "max_vh": 500.0,
+     "carve": {
+      "armed_t": 1.426,
+      "armed_d_lip": 12.2,
+      "armed_vh": 450.3,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 50,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.45,
+      "x": -3347.4,
+      "y": 3824.0,
+      "vh": 417.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 465.4,
+     "carve": null
+    },
+    {
+     "seed": 51,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.453,
+      "x": -3347.2,
+      "y": 3824.0,
+      "vh": 417.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 458.9,
+     "carve": null
+    },
+    {
+     "seed": 52,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.45,
+      "x": -3344.4,
+      "y": 3824.0,
+      "vh": 404.6,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.8,
+     "carve": null
+    },
+    {
+     "seed": 53,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.47,
+      "x": -3344.4,
+      "y": 3824.0,
+      "vh": 404.5,
+      "heading": 0.3,
+      "jump": 0
+     },
+     "max_vh": 453.9,
+     "carve": null
+    },
+    {
+     "seed": 54,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.477,
+      "x": -3347.0,
+      "y": 3824.0,
+      "vh": 403.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.6,
+     "carve": null
+    },
+    {
+     "seed": 55,
+     "outcome": "MISS",
+     "t_end": 2.28,
+     "landed": false,
+     "release": {
+      "t": 1.441,
+      "pos": [
+       -3354.6,
+       3823.7,
+       -488.0
+      ],
+      "vh": 434.5,
+      "heading": -3.3,
+      "herr_to_target": -8.3,
+      "d_lip": 6.6,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.441,
+      "x": -3354.6,
+      "y": 3823.7,
+      "vh": 434.5,
+      "heading": -3.3,
+      "jump": 1
+     },
+     "max_vh": 482.3,
+     "carve": {
+      "armed_t": 1.431,
+      "armed_d_lip": 11.0,
+      "armed_vh": 450.1,
+      "armed_herr": -11.5,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 56,
+     "outcome": "MISS",
+     "t_end": 1.87,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.477,
+      "x": -3349.3,
+      "y": 3824.0,
+      "vh": 415.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.2,
+     "carve": null
+    },
+    {
+     "seed": 57,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.478,
+      "x": -3344.9,
+      "y": 3824.0,
+      "vh": 396.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 462.6,
+     "carve": null
+    },
+    {
+     "seed": 58,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.441,
+      "x": -3350.2,
+      "y": 3824.0,
+      "vh": 412.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 461.4,
+     "carve": null
+    },
+    {
+     "seed": 59,
+     "outcome": "MISS",
+     "t_end": 1.87,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.483,
+      "x": -3347.8,
+      "y": 3824.0,
+      "vh": 412.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 458.0,
+     "carve": null
+    },
+    {
+     "seed": 60,
+     "outcome": "LANDED",
+     "t_end": 2.08,
+     "landed": true,
+     "release": {
+      "t": 1.42,
+      "pos": [
+       -3355.5,
+       3823.1,
+       -488.0
+      ],
+      "vh": 456.8,
+      "heading": -6.7,
+      "herr_to_target": -4.8,
+      "d_lip": 7.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.42,
+      "x": -3355.5,
+      "y": 3823.1,
+      "vh": 456.8,
+      "heading": -6.7,
+      "jump": 1
+     },
+     "max_vh": 503.3,
+     "carve": {
+      "armed_t": 1.399,
+      "armed_d_lip": 17.0,
+      "armed_vh": 452.0,
+      "armed_herr": -11.3,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 61,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.469,
+      "x": -3344.8,
+      "y": 3824.0,
+      "vh": 399.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 458.4,
+     "carve": null
+    },
+    {
+     "seed": 62,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.432,
+      "pos": [
+       -3351.2,
+       3822.2,
+       -488.0
+      ],
+      "vh": 422.9,
+      "heading": -10.0,
+      "herr_to_target": -1.4,
+      "d_lip": 3.2,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.432,
+      "x": -3351.2,
+      "y": 3822.2,
+      "vh": 422.9,
+      "heading": -10.0,
+      "jump": 1
+     },
+     "max_vh": 473.7,
+     "carve": {
+      "armed_t": 1.402,
+      "armed_d_lip": 16.0,
+      "armed_vh": 450.6,
+      "armed_herr": -11.3,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 63,
+     "outcome": "MISS",
+     "t_end": 1.86,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.486,
+      "x": -3344.9,
+      "y": 3824.0,
+      "vh": 399.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 452.0,
+     "carve": null
+    },
+    {
+     "seed": 64,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.447,
+      "x": -3350.2,
+      "y": 3824.0,
+      "vh": 416.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.0,
+     "carve": null
+    },
+    {
+     "seed": 65,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.442,
+      "x": -3349.5,
+      "y": 3824.0,
+      "vh": 416.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 460.9,
+     "carve": null
+    },
+    {
+     "seed": 66,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.441,
+      "x": -3349.0,
+      "y": 3824.0,
+      "vh": 416.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.9,
+     "carve": null
+    },
+    {
+     "seed": 67,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.449,
+      "x": -3347.0,
+      "y": 3824.0,
+      "vh": 403.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 463.5,
+     "carve": null
+    },
+    {
+     "seed": 68,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.455,
+      "x": -3348.4,
+      "y": 3824.0,
+      "vh": 427.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 450.8,
+     "carve": null
+    },
+    {
+     "seed": 69,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.46,
+      "x": -3345.5,
+      "y": 3824.0,
+      "vh": 401.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 463.6,
+     "carve": null
+    },
+    {
+     "seed": 70,
+     "outcome": "MISS",
+     "t_end": 2.23,
+     "landed": false,
+     "release": {
+      "t": 1.386,
+      "pos": [
+       -3367.3,
+       3822.2,
+       -488.0
+      ],
+      "vh": 459.8,
+      "heading": -9.3,
+      "herr_to_target": -1.6,
+      "d_lip": 19.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.386,
+      "x": -3367.3,
+      "y": 3822.2,
+      "vh": 459.8,
+      "heading": -9.3,
+      "jump": 1
+     },
+     "max_vh": 506.0,
+     "carve": {
+      "armed_t": 1.356,
+      "armed_d_lip": 32.9,
+      "armed_vh": 453.2,
+      "armed_herr": -10.7,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 71,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.454,
+      "x": -3351.8,
+      "y": 3824.0,
+      "vh": 428.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.2,
+     "carve": null
+    },
+    {
+     "seed": 72,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.467,
+      "x": -3344.4,
+      "y": 3824.0,
+      "vh": 403.2,
+      "heading": 0.3,
+      "jump": 0
+     },
+     "max_vh": 453.8,
+     "carve": null
+    },
+    {
+     "seed": 73,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.422,
+      "pos": [
+       -3353.0,
+       3823.7,
+       -488.0
+      ],
+      "vh": 436.8,
+      "heading": -3.3,
+      "herr_to_target": -8.3,
+      "d_lip": 5.0,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.422,
+      "x": -3353.0,
+      "y": 3823.7,
+      "vh": 436.8,
+      "heading": -3.3,
+      "jump": 1
+     },
+     "max_vh": 486.1,
+     "carve": {
+      "armed_t": 1.412,
+      "armed_d_lip": 9.4,
+      "armed_vh": 452.6,
+      "armed_herr": -11.5,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 74,
+     "outcome": "MISS",
+     "t_end": 1.81,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.426,
+      "x": -3350.6,
+      "y": 3824.0,
+      "vh": 417.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.3,
+     "carve": null
+    },
+    {
+     "seed": 75,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.447,
+      "x": -3350.7,
+      "y": 3824.0,
+      "vh": 428.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.6,
+     "carve": null
+    },
+    {
+     "seed": 76,
+     "outcome": "LANDED",
+     "t_end": 2.1,
+     "landed": true,
+     "release": {
+      "t": 1.42,
+      "pos": [
+       -3355.3,
+       3823.1,
+       -488.0
+      ],
+      "vh": 456.7,
+      "heading": -7.0,
+      "herr_to_target": -4.5,
+      "d_lip": 7.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.42,
+      "x": -3355.3,
+      "y": 3823.1,
+      "vh": 456.7,
+      "heading": -7.0,
+      "jump": 1
+     },
+     "max_vh": 502.3,
+     "carve": {
+      "armed_t": 1.398,
+      "armed_d_lip": 17.3,
+      "armed_vh": 451.5,
+      "armed_herr": -11.3,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 77,
+     "outcome": "MISS",
+     "t_end": 2.28,
+     "landed": false,
+     "release": {
+      "t": 1.449,
+      "pos": [
+       -3355.9,
+       3824.0,
+       -488.0
+      ],
+      "vh": 450.8,
+      "heading": 0.0,
+      "herr_to_target": -11.6,
+      "d_lip": 7.9,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.449,
+      "x": -3355.9,
+      "y": 3824.0,
+      "vh": 450.8,
+      "heading": 0.0,
+      "jump": 1
+     },
+     "max_vh": 493.4,
+     "carve": {
+      "armed_t": 1.449,
+      "armed_d_lip": 7.9,
+      "armed_vh": 450.8,
+      "armed_herr": -11.6,
+      "rule": "dlip",
+      "ticks": 0
+     }
+    },
+    {
+     "seed": 78,
+     "outcome": "MISS",
+     "t_end": 2.27,
+     "landed": false,
+     "release": {
+      "t": 1.44,
+      "pos": [
+       -3350.3,
+       3823.0,
+       -488.0
+      ],
+      "vh": 422.3,
+      "heading": -6.9,
+      "herr_to_target": -4.8,
+      "d_lip": 2.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.44,
+      "x": -3350.3,
+      "y": 3823.0,
+      "vh": 422.3,
+      "heading": -6.9,
+      "jump": 1
+     },
+     "max_vh": 474.0,
+     "carve": {
+      "armed_t": 1.42,
+      "armed_d_lip": 10.7,
+      "armed_vh": 452.2,
+      "armed_herr": -11.5,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 79,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.468,
+      "x": -3346.6,
+      "y": 3824.0,
+      "vh": 416.3,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.2,
+     "carve": null
+    },
+    {
+     "seed": 80,
+     "outcome": "MISS",
+     "t_end": 1.88,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.476,
+      "x": -3348.9,
+      "y": 3824.0,
+      "vh": 419.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 457.7,
+     "carve": null
+    },
+    {
+     "seed": 81,
+     "outcome": "MISS",
+     "t_end": 2.2,
+     "landed": false,
+     "release": {
+      "t": 1.376,
+      "pos": [
+       -3370.3,
+       3823.1,
+       -488.0
+      ],
+      "vh": 455.1,
+      "heading": -6.7,
+      "herr_to_target": -4.3,
+      "d_lip": 22.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.376,
+      "x": -3370.3,
+      "y": 3823.1,
+      "vh": 455.1,
+      "heading": -6.7,
+      "jump": 1
+     },
+     "max_vh": 500.9,
+     "carve": {
+      "armed_t": 1.355,
+      "armed_d_lip": 31.8,
+      "armed_vh": 450.1,
+      "armed_herr": -10.8,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 82,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.43,
+      "pos": [
+       -3356.5,
+       3823.1,
+       -488.0
+      ],
+      "vh": 456.6,
+      "heading": -7.0,
+      "herr_to_target": -4.4,
+      "d_lip": 8.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.43,
+      "x": -3356.5,
+      "y": 3823.1,
+      "vh": 456.6,
+      "heading": -7.0,
+      "jump": 1
+     },
+     "max_vh": 496.1,
+     "carve": {
+      "armed_t": 1.408,
+      "armed_d_lip": 18.4,
+      "armed_vh": 451.4,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 83,
+     "outcome": "MISS",
+     "t_end": 2.31,
+     "landed": false,
+     "release": {
+      "t": 1.474,
+      "pos": [
+       -3347.7,
+       3823.0,
+       -488.0
+      ],
+      "vh": 421.1,
+      "heading": -6.9,
+      "herr_to_target": -4.8,
+      "d_lip": -0.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.474,
+      "x": -3347.7,
+      "y": 3823.0,
+      "vh": 421.1,
+      "heading": -6.9,
+      "jump": 1
+     },
+     "max_vh": 468.4,
+     "carve": {
+      "armed_t": 1.454,
+      "armed_d_lip": 8.1,
+      "armed_vh": 450.8,
+      "armed_herr": -11.6,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 84,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.46,
+      "x": -3350.2,
+      "y": 3824.0,
+      "vh": 409.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 453.7,
+     "carve": null
+    },
+    {
+     "seed": 85,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.455,
+      "x": -3345.2,
+      "y": 3824.0,
+      "vh": 401.1,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 456.9,
+     "carve": null
+    },
+    {
+     "seed": 86,
+     "outcome": "MISS",
+     "t_end": 1.83,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.452,
+      "x": -3345.5,
+      "y": 3824.0,
+      "vh": 397.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.4,
+     "carve": null
+    },
+    {
+     "seed": 87,
+     "outcome": "LANDED",
+     "t_end": 2.08,
+     "landed": true,
+     "release": {
+      "t": 1.417,
+      "pos": [
+       -3355.1,
+       3823.7,
+       -488.0
+      ],
+      "vh": 453.0,
+      "heading": -3.5,
+      "herr_to_target": -8.1,
+      "d_lip": 7.1,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.417,
+      "x": -3355.1,
+      "y": 3823.7,
+      "vh": 453.0,
+      "heading": -3.5,
+      "jump": 1
+     },
+     "max_vh": 500.7,
+     "carve": {
+      "armed_t": 1.406,
+      "armed_d_lip": 12.1,
+      "armed_vh": 450.2,
+      "armed_herr": -11.4,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 88,
+     "outcome": "MISS",
+     "t_end": 1.82,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.441,
+      "x": -3347.7,
+      "y": 3824.0,
+      "vh": 415.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 467.9,
+     "carve": null
+    },
+    {
+     "seed": 89,
+     "outcome": "MISS",
+     "t_end": 2.25,
+     "landed": false,
+     "release": {
+      "t": 1.414,
+      "pos": [
+       -3352.8,
+       3823.7,
+       -488.0
+      ],
+      "vh": 434.9,
+      "heading": -3.3,
+      "herr_to_target": -8.3,
+      "d_lip": 4.8,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.414,
+      "x": -3352.8,
+      "y": 3823.7,
+      "vh": 434.9,
+      "heading": -3.3,
+      "jump": 1
+     },
+     "max_vh": 484.4,
+     "carve": {
+      "armed_t": 1.404,
+      "armed_d_lip": 9.1,
+      "armed_vh": 450.5,
+      "armed_herr": -11.5,
+      "rule": "dlip",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 90,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.465,
+      "x": -3346.4,
+      "y": 3824.0,
+      "vh": 403.9,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 455.1,
+     "carve": null
+    },
+    {
+     "seed": 91,
+     "outcome": "LANDED",
+     "t_end": 2.09,
+     "landed": true,
+     "release": {
+      "t": 1.413,
+      "pos": [
+       -3356.3,
+       3822.9,
+       -488.0
+      ],
+      "vh": 456.2,
+      "heading": -6.5,
+      "herr_to_target": -4.8,
+      "d_lip": 8.3,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.413,
+      "x": -3356.3,
+      "y": 3822.9,
+      "vh": 456.2,
+      "heading": -6.5,
+      "jump": 1
+     },
+     "max_vh": 502.7,
+     "carve": {
+      "armed_t": 1.392,
+      "armed_d_lip": 17.8,
+      "armed_vh": 450.4,
+      "armed_herr": -11.2,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 92,
+     "outcome": "MISS",
+     "t_end": 2.26,
+     "landed": false,
+     "release": {
+      "t": 1.429,
+      "pos": [
+       -3352.4,
+       3823.1,
+       -488.0
+      ],
+      "vh": 436.1,
+      "heading": -6.8,
+      "herr_to_target": -4.7,
+      "d_lip": 4.4,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.429,
+      "x": -3352.4,
+      "y": 3823.1,
+      "vh": 436.1,
+      "heading": -6.8,
+      "jump": 1
+     },
+     "max_vh": 483.6,
+     "carve": {
+      "armed_t": 1.408,
+      "armed_d_lip": 13.7,
+      "armed_vh": 451.0,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 2
+     }
+    },
+    {
+     "seed": 93,
+     "outcome": "LANDED",
+     "t_end": 2.08,
+     "landed": true,
+     "release": {
+      "t": 1.425,
+      "pos": [
+       -3353.5,
+       3823.0,
+       -488.0
+      ],
+      "vh": 457.1,
+      "heading": -6.3,
+      "herr_to_target": -5.2,
+      "d_lip": 5.5,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.425,
+      "x": -3353.5,
+      "y": 3823.0,
+      "vh": 457.1,
+      "heading": -6.3,
+      "jump": 1
+     },
+     "max_vh": 504.4,
+     "carve": {
+      "armed_t": 1.405,
+      "armed_d_lip": 14.6,
+      "armed_vh": 451.0,
+      "armed_herr": -11.4,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 94,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.459,
+      "x": -3346.5,
+      "y": 3824.0,
+      "vh": 430.0,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 457.9,
+     "carve": null
+    },
+    {
+     "seed": 95,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.464,
+      "x": -3346.6,
+      "y": 3824.0,
+      "vh": 403.2,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 459.0,
+     "carve": null
+    },
+    {
+     "seed": 96,
+     "outcome": "MISS",
+     "t_end": 1.85,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.456,
+      "x": -3348.0,
+      "y": 3824.0,
+      "vh": 420.4,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 457.8,
+     "carve": null
+    },
+    {
+     "seed": 97,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.456,
+      "x": -3352.0,
+      "y": 3824.0,
+      "vh": 427.5,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 452.4,
+     "carve": null
+    },
+    {
+     "seed": 98,
+     "outcome": "LANDED",
+     "t_end": 2.09,
+     "landed": true,
+     "release": {
+      "t": 1.431,
+      "pos": [
+       -3353.8,
+       3822.9,
+       -488.0
+      ],
+      "vh": 456.4,
+      "heading": -6.5,
+      "herr_to_target": -5.0,
+      "d_lip": 5.8,
+      "timeout": false
+     },
+     "lip": {
+      "t": 1.431,
+      "x": -3353.8,
+      "y": 3822.9,
+      "vh": 456.4,
+      "heading": -6.5,
+      "jump": 1
+     },
+     "max_vh": 502.0,
+     "carve": {
+      "armed_t": 1.41,
+      "armed_d_lip": 15.3,
+      "armed_vh": 450.8,
+      "armed_herr": -11.3,
+      "rule": "herr",
+      "ticks": 1
+     }
+    },
+    {
+     "seed": 99,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.464,
+      "x": -3347.3,
+      "y": 3824.0,
+      "vh": 429.8,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 464.6,
+     "carve": null
+    },
+    {
+     "seed": 100,
+     "outcome": "MISS",
+     "t_end": 1.84,
+     "landed": false,
+     "release": null,
+     "lip": {
+      "t": 1.464,
+      "x": -3346.0,
+      "y": 3824.0,
+      "vh": 415.7,
+      "heading": 0.0,
+      "jump": 0
+     },
+     "max_vh": 463.6,
+     "carve": null
+    }
+   ]
+  }
+ ]
+}

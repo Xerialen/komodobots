@@ -241,3 +241,55 @@ carves 1–2 ticks, releases rule=herr with the jump bit ON the lip row
 (lip vh 437.6–441.1, heading −6.9..−7.3) — the walk-off failure mode is
 mechanically gone; all three short of the far floor, as the funnel
 predicts for a 440-speed wall release.
+
+## 10. Round 2 result — FIRST LANDINGS EVER; off-ramp fires at 9/100 (bar was 10)
+
+**Scored sweep (81 × 30 = 2430):** 9 configs landed **exactly 1/30** —
+every one of them `carve_deg 52 × carve_vh 450` (all three carve_d, all
+three tol: the arm, not the carve length, decides). **The first landings
+in the project's history** — round 1 was 0/4860.
+
+**Pre-committed ladder:** best 1–4/30 → the registered extension, top-3
+× seeds 1..100: **ct3 8/100, ct6 9/100, ct10 6/100** (armed 34/100 in
+all three). Bar: ≥ 10/100 → live. **Best 9/100 < 10 → the off-ramp
+fires.** No goalpost moves: the wall is recorded, one seed short of the
+bar.
+
+**What the funnel proves** (`carve-offramp-decomposition.json`):
+
+| sub-skill | round 1 | round 2 (carve) |
+|---|---|---|
+| BUILD | works (48% reach target) | works (100% reach 430; max_vh p50 482.9) |
+| RELEASE | fails structurally — 93% never release, 85 by timeout | **fixed**: 1917/2430 release (79%), 0 by timeout, 82% within 45 qu of the lip, heading bent to p50 −7.1° (wall-slide was 0.0°), jump bit ON the lip row |
+| ARM→SPEED | — | **the new bottleneck**: release vh p50 433.5; every one of the 23 landings released at **453.0–459.7** — the trick needs ≥ ~453 at release, and the orbit passes the arm window at ≥ 450 only ~34% of attempts |
+| ARC | never reached | SHORT 1718 / NO-JUMP 513 (the un-armed walk-offs) / Y-OUT 81 / WOULD-LAND 118 (ballistic estimate; 9 estimated vs 1 real landing per cv450 cell — the flat-carry +15 qu estimate is ~8× optimistic at the band edge, real flights clip the y-band sanity check or fall at the far lip) |
+
+**Plain words:** the carve fixed the release — the bot now bends the
+wall-slide by −7..−12° exactly as designed and jumps on the lip. What it
+did NOT do is lift release speed: the herr rule fires after ~2 carve
+ticks (the wall entry is already nearly aimed), long before the carve's
+ground-build raises 433 toward 453+. Landing is now a pure speed-at-arm
+lottery: arm ≥ 450 (34% of attempts) → ~26% land; arm below → SHORT,
+always. The human's answer is visible in the same numbers: their lip
+speed was 475.
+
+**Escalation candidate for round 3 (NOT run, pre-register first):** a
+release speed floor — while armed, keep carving (the carve IS the
+build) until `vh >= release_vh` AND the aim rule; grid release_vh
+{450, 455, 460} × carve_d {55, 80} (cd mattered nothing at arm but sets
+the build runway once the floor holds the carve open), tol fixed 6,
+d_lip backstop verbatim. Risk to measure: held carves bending past the
+target heading and re-orbiting (the per-tick side flip bounds it) and
+running out of platform (the d_lip ≤ 8 backstop converts those to
+low-speed jumps, recorded honestly as SHORT).
+
+| file | what |
+|---|---|
+| `a5_launch_harness.py` (carve-* modes) | the carve variant + selfcheck + baseline-check |
+| `carve-sweep-results.json.gz` | all 2430 per-attempt records |
+| `carve-extension-results.json` | the registered top-3 × 100 extension |
+| `carve-offramp-decomposition.json` | funnel + arc classes above |
+
+Caveats carried: sim-vs-live lip bias (A4, favorable), pinned circle
+direction (+1, the family's), ballistic WOULD-LAND is an estimate (now
+measured ~8× optimistic at the band edge — trust LANDED only).
