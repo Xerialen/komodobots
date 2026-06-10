@@ -24,6 +24,85 @@ pinned KTX checkout even when their textual diff appears unchanged.
 
 The patch adds `k_fb_moveprobe_mode` handling inside `BotSetCommand()` after the prewar-freeze guard and immediately before button assembly and `trap_SetBotCMD(...)`.
 
+## Per-slot cvars patch (LD-F1 #95)
+
+`frogbot-moveprobe-perslot.patch` is a second, additive patch in this lineage. It does
+NOT apply to a pristine `08807da` checkout: it applies to the **live deployed lab tree**
+(servexeri `~/nquakesv/build/ktx`, which carries `08807da` plus all lab modifications up
+to mode 23). Base file checksums when the patch was cut (2026-06-10):
+
+```text
+md5 src/bot_movement.c  105e3beeb86b7b351a0c2b3bb870e109
+md5 src/bot_botgoals.c  bcca093dc21ef7387036d5e50d7b02a2
+```
+
+The deployed copies of those files carry CRLF line endings (Windows-side lab edits);
+the patch itself is LF per the repo `.gitattributes` rule, and `git apply --check`
+was verified read-only against the live servexeri tree on 2026-06-10. Apply with:
+
+```bash
+cd ~/nquakesv/build/ktx
+git apply /path/to/frogbot-moveprobe-perslot.patch
+./build_cmake.sh linux-amd64
+```
+
+What it adds:
+
+- **Per-slot cvar convention** `k_fb_moveprobe_<param>_s<N>` for `mode`, `replay_file`,
+  `fixed_goal`, and `spawn_origin`, where `N` is the bot's edict/client number — the same
+  `ed` printed in `FBMOVEPROBE_CMD` rows, so telemetry joins to assignments directly.
+  One helper pair (`BotMoveProbeCvarStringForBot` / `BotMoveProbeCvarIntForBot`) builds
+  the suffixed name, reads it via `trap_cvar_string`, and falls back to the global cvar
+  when the per-slot cvar is unset or empty. With no per-slot cvars set, behavior is
+  unchanged (additive guarantee).
+- **Per-slot replay stores.** Replay `.cmds` files now load into a bounded cache of
+  `MOVEPROBE_REPLAY_MAX_FILES` (4) stores keyed by filename, so two bots can run two
+  different route files on the same map at the same time. A store is reclaimed only when
+  no client slot currently resolves to it.
+- **Loud failure** (lab precedent #77): a malformed per-slot value — non-integer `mode`
+  or `fixed_goal`, per-slot `fixed_goal` naming a marker absent on the map, missing or
+  unloadable per-slot `replay_file`, bad `spawn_origin` triplet — prints (throttled to
+  one row per slot per ~2 s, not gated on command logging):
+
+  ```text
+  FBMOVEPROBE_PERSLOT_ERROR time=30.125 ed=4 name=/ bro param=replay_file value=nonexistent.cmds reason=replay_load_failed
+  ```
+
+  and the bot is **held at spawn** (zeroed movement command) while the condition
+  persists. Global-fallback values keep their legacy silent behavior exactly.
+- **Assignment instrumentation** (consumed by LD-F3): when command logging is on, each
+  bot prints one `FBMOVEPROBE_ASSIGN` row whenever its resolved assignment changes:
+
+  ```text
+  FBMOVEPROBE_ASSIGN time=12.250 ed=3 name=/ goldenboy mode=21 mode_src=slot replay_file=dm3_sng_to_rl.cmds replay_src=slot fixed_goal=42 goal_src=global spawn_origin=100.0,200.0,-24.0 spawn_src=slot
+  ```
+
+  `*_src` says whether the value came from the per-slot (`slot`) or global (`global`)
+  cvar; unset string values print `-`; whitespace inside values is comma-folded. The
+  runner parses these rows (plus error rows) into `moveprobe-assignments.json/md`, and
+  `scripts/moveprobe_parse.py` is the shared regex home (`parse_moveprobe_assign_logs`,
+  `parse_moveprobe_perslot_error_logs`).
+
+Driving a two-bot/two-route session from the runner:
+
+```bash
+python scripts/run_frobodm2_lab.py --map dm3 --duration 45 --bot-count 2 \
+  --moveprobe-mode 21 --replay-cmds tricks/dm3/dm3_sng_to_rl.cmds \
+  --extra-replay-cmds tricks/dm3/dm3_hilljump.cmds \
+  --ktx-extra-cvars "k_fb_moveprobe_replay_file_s4 bots/replay/dm3_hilljump.cmds;k_fb_moveprobe_spawn_origin_s4 1234 -567 24" \
+  --moveprobe-log-commands
+```
+
+(`--extra-replay-cmds` uploads additional route files without touching the global
+`k_fb_moveprobe_replay_file`; per-slot values use the same `bots/replay/<name>` form.)
+
+Validation so far: compile-verified against an exact local reconstruction of the
+deployed tree (`08807da` + the live `bot_movement.c`/`bot_botgoals.c`, gcc via
+`build_cmake.sh linux-amd64`, zero warnings) and `git apply --check` against the
+pristine live base. The additive smoke run, the two-bots-two-routes live proof, and the
+loud-fail screen.log capture are pending the next declared lab slot (they yield to the
+Sprint-1 serial queue per #95).
+
 It can also emit sampled command rows with the exact values about to be handed to `trap_SetBotCMD(...)`:
 
 ```text
