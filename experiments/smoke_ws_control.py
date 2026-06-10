@@ -1,4 +1,18 @@
-"""Throwaway local smoke: drive the sidecar's control channel over a real websocket."""
+"""Local smoke client for the control bridge (LD-F2, #96).
+
+Boots the real telemetry sidecar (scripts/telemetry_ws.py) against a temp lab
+home seeded with a FRESH harness lock, then drives the control channel over a
+real hand-rolled websocket: handshake, hello, lock_status, and the refusal
+paths (session_start under harness lock, rcon cvar, bad JSON), and finally
+prints the audit log. No lab host involved -- everything runs on 127.0.0.1.
+
+This is the manual evidence tool, not part of the unit suite (the suite covers
+the same logic via tests/test_control_bridge.py and
+tests/test_control_channel_wiring.py). Pointed at servexeri:8770 instead of a
+local sidecar, the send/recv helpers double as the lab-slot end-to-end client.
+
+Usage: python experiments/smoke_ws_control.py
+"""
 import base64
 import json
 import os
@@ -9,7 +23,7 @@ import tempfile
 import time
 from pathlib import Path
 
-repo = Path(__file__).resolve().parent
+repo = Path(__file__).resolve().parents[1]
 tmp = Path(tempfile.mkdtemp())
 runs = tmp / "runs"
 runs.mkdir()

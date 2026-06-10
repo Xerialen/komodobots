@@ -243,6 +243,24 @@ match the local-hub blobs byte-for-byte (verified by git blob SHA:
 
 The local-hub copy is deprecated for development; see `lab/README.md` for the dev loop.
 
+### Lab control bridge (lab/server)
+
+`lab/server/control_bridge.py` (LD-F2, #96) is the browser→lab-server command channel,
+hosted inside the existing telemetry sidecar `scripts/telemetry_ws.py` (decision D4: no
+new service). The sidecar's client text frames carry JSON `{op, req_id, ...}` commands;
+the bridge validates (lab-port allowlist 28599–28609, flat deny of production
+28501/28502/28503 and `qw_*` screens, cvar/console allowlists), enforces the
+harness-priority lab lock (`~/komodobots-lab/lab.lock`), audits every mutating attempt
+to `~/komodobots-lab/control-audit.log`, and dispatches through an injectable
+`LabExecutor` (screen sessions + the `qw_min_client.py` shim — `botcmd` is not a
+server-console command). `experiments/qw_min_client.py` gained a repeatable `--botcmd`
+flag for the bridge's bot ops; `scripts/run_frobodm2_lab.py` writes/releases the
+`owner=harness` lock around each attempt and refuses ports held by dashboard sessions.
+`experiments/smoke_ws_control.py` is the manual local smoke / lab-slot end-to-end
+client. Protocol, security gates, and the `kbot-telemetry` deploy/restart procedure:
+`lab/README.md`. Tests: `tests/test_control_bridge.py`,
+`tests/test_control_channel_wiring.py`.
+
 ### mvd_analyzer
 
 Repository: https://github.com/galfthan/mvd_analyzer

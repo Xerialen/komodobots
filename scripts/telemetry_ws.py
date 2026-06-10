@@ -201,7 +201,7 @@ async def handle_client(
             if request is None:
                 response, broadcast = {"re": None, "ok": False, "detail": "invalid JSON"}, None
             else:
-                response, broadcast = await asyncio.get_event_loop().run_in_executor(
+                response, broadcast = await asyncio.get_running_loop().run_in_executor(
                     None, bridge.handle, request, str(peer)
                 )
         writer.write(encode_ws_text(json.dumps(response, separators=(",", ":"))))
