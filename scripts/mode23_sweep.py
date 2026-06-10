@@ -529,6 +529,16 @@ def main():
 
     if args.mode == "report":
         records, ranked, unranked, cands, summary = build_report(outdir)
+        if not records:
+            # Fail LOUDLY before writing anything: silently producing an
+            # empty report would overwrite ranked.json/ranked.md (e.g. when
+            # pointed at the committed evidence dir, whose inputs are the
+            # stripped stage*-aggregates.jsonl copies — those lack the
+            # per-seed rung-A records that candidate dedup needs, so the
+            # report must run from the raw stage1.jsonl/stage2.jsonl).
+            raise SystemExit(
+                f"no sweep records found in {outdir} (expected stage1.jsonl"
+                f"/stage2.jsonl); refusing to write an empty report")
         print(json.dumps(summary, indent=2))
         (outdir / "ranked.json").write_text(json.dumps(summary, indent=1))
         lines = [TABLE_HEADER]

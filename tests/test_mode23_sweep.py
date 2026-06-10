@@ -269,5 +269,25 @@ class TestStage2Rule(unittest.TestCase):
         self.assertEqual(grid, [])
 
 
+class TestReportRefusesEmptyInputs(unittest.TestCase):
+    """Codex PR #110 P2: `report` pointed at a directory without the raw
+    stage1.jsonl/stage2.jsonl (e.g. the committed evidence dir, which holds
+    only the stripped *-aggregates.jsonl copies) must fail loudly BEFORE
+    writing, never overwrite ranked.json/ranked.md with an empty report."""
+
+    def test_report_mode_exits_without_writing(self):
+        import tempfile
+        from unittest import mock
+        d = Path(tempfile.mkdtemp())
+        (d / "stage1-aggregates.jsonl").write_text('{"id": "x"}\n')
+        with mock.patch.object(sys, "argv",
+                               ["mode23_sweep.py", "report", "--out", str(d)]):
+            with self.assertRaises(SystemExit) as cm:
+                SW.main()
+        self.assertIn("refusing", str(cm.exception))
+        self.assertFalse((d / "ranked.json").exists())
+        self.assertFalse((d / "ranked.md").exists())
+
+
 if __name__ == "__main__":
     unittest.main()
