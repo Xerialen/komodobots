@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
-"""A5 #118 step 2: extract the human's EXACT per-attempt start on trick.bsp.
+"""A5 #118 step 2: extract the human's EXACT per-attempt start on ztricks.bsp.
 
 The "Distance" trick attempt boundary is the map's teleport reset: miss ->
-fall to the gap floor (z=-539) -> trigger_teleport throws the player back.
+fall into the gap -> the catcher trigger_teleport throws the player back.
 The START of every attempt is therefore the teleport DEPOSIT point. Two
 independent sources, cross-checked here:
 
-  1. the demo: getspeed.cmds teleport discontinuities (detect_teleports)
-     -> arrival origin + arrival view angles per attempt;
-  2. the map: trick.bsp trigger_teleport/info_teleport_destination entities
-     (mode23_sim.load_teleporters semantics: deposit z = entity z + 27,
-     facing = destination "angle").
+  1. the demo: the aligned getspeed cmds teleport discontinuities
+     (detect_teleports; consecutive detections are ONE reset — the rebuild
+     interpolates the state dropped at each teleport, producing a midpoint
+     row — so runs are merged and the arrival is the row after the run);
+  2. the map: ztricks.bsp trigger_teleport/info_teleport_destination
+     entities (mode23_sim.load_teleporters semantics: deposit z = entity
+     z + 27, facing = destination "angle").
 
 Writes start-point.json next to this script.
 
-Usage: python a5_start_point.py [--cmds <getspeed.cmds>] [--bsp <trick.bsp>]
+Usage: python a5_start_point.py [--cmds <aligned.cmds>] [--bsp <ztricks.bsp>]
 """
 from __future__ import annotations
 
@@ -52,9 +54,22 @@ def main():
     frames = load_cmds_file(args.cmds)
     tele = detect_teleports(frames)
 
-    # demo side: arrival state right after each teleport jump (k -> k+1)
-    arrivals = []
+    # collapse runs of consecutive detections into ONE reset each: the
+    # aligned rebuild interpolates the state frame dropped at every
+    # teleport, so each reset shows up as (midpoint jump, deposit jump) —
+    # counting both would double the resets and mix midpoint z/yaw into
+    # the start-point evidence (Codex PR #120 round 3)
+    resets = []
     for k in tele:
+        if resets and k == resets[-1][-1] + 1:
+            resets[-1].append(k)
+        else:
+            resets.append([k])
+
+    # demo side: arrival state right after each reset's LAST jump
+    arrivals = []
+    for run in resets:
+        k = run[-1]
         a = frames[k + 1]
         arrivals.append({
             "frame": k + 1,
