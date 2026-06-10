@@ -54,19 +54,31 @@ def _pct(sorted_vals, p):
     return sorted_vals[min(len(sorted_vals) - 1, int(p * len(sorted_vals)))]
 
 
+def _load_json(path: Path):
+    """Load a results document; a ``.gz`` suffix means gzip-compressed JSON.
+
+    The committed sweep artifacts are gzip-compressed (``*.json.gz``), so an
+    explicit ``--src`` pointing at one must decompress rather than read it as
+    plain text (Codex PR #125 blocker: UnicodeDecodeError).
+    """
+    if path.suffix == ".gz":
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            return json.load(f)
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", default=str(SRC),
-                    help="sweep results json (falls back to <src>.gz)")
+                    help="sweep results json or json.gz (a plain-json path "
+                         "falls back to <src>.gz when missing)")
     ap.add_argument("--out", default=str(OUT))
     args = ap.parse_args()
     src, out_path = Path(args.src), Path(args.out)
 
-    if src.exists():
-        doc = json.loads(src.read_text())
-    else:
-        with gzip.open(src.with_suffix(".json.gz"), "rt", encoding="utf-8") as f:
-            doc = json.load(f)
+    if not src.exists() and src.suffix != ".gz":
+        src = src.with_suffix(".json.gz")
+    doc = _load_json(src)
     results = doc["results"]
 
     n_att = 0
