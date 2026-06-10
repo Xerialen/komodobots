@@ -1,0 +1,256 @@
+{
+ "n_attempts": 2430,
+ "build": {
+  "reached_launch_vh": 2430,
+  "share": 1.0,
+  "max_vh_p50": 482.9,
+  "max_vh_p90": 495.3
+ },
+ "release": {
+  "released": 1917,
+  "by_timeout": 0,
+  "never": 513,
+  "d_lip_p50": 25.8,
+  "released_within_45qu_of_lip": 1577
+ },
+ "lip_crossings": {
+  "n": 2430,
+  "y_lines": {
+   "north_wall(y>=3800)": 2430
+  },
+  "mid_band_with_negative_heading": 0,
+  "vh_p50": 430.8,
+  "heading_hist": {
+   "0": 661,
+   "-5": 991,
+   "-10": 755,
+   "-15": 23
+  }
+ },
+ "arc_classes": {
+  "NO-JUMP": 513,
+  "WOULD-LAND": 118,
+  "Y-OUT": 81,
+  "SHORT": 1718
+ },
+ "configs_with_would_land_lips": [
+  {
+   "name": "cd35_cg52_cv450_ct10",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 1,
+   "Y-OUT": 10
+  },
+  {
+   "name": "cd35_cg52_cv450_ct3",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 9,
+   "Y-OUT": 2
+  },
+  {
+   "name": "cd35_cg52_cv450_ct6",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 9,
+   "Y-OUT": 2
+  },
+  {
+   "name": "cd55_cg52_cv450_ct10",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 1,
+   "Y-OUT": 10
+  },
+  {
+   "name": "cd55_cg52_cv450_ct3",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 9,
+   "Y-OUT": 2
+  },
+  {
+   "name": "cd55_cg52_cv450_ct6",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 9,
+   "Y-OUT": 2
+  },
+  {
+   "name": "cd80_cg52_cv450_ct10",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 1,
+   "Y-OUT": 10
+  },
+  {
+   "name": "cd80_cg52_cv450_ct3",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 9,
+   "Y-OUT": 2
+  },
+  {
+   "name": "cd80_cg52_cv450_ct6",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 9,
+   "Y-OUT": 2
+  },
+  {
+   "name": "cd35_cg45_cv450_ct10",
+   "NO-JUMP": 19,
+   "SHORT": 7,
+   "Y-OUT": 2,
+   "WOULD-LAND": 2
+  },
+  {
+   "name": "cd35_cg45_cv450_ct3",
+   "NO-JUMP": 19,
+   "SHORT": 7,
+   "WOULD-LAND": 3,
+   "Y-OUT": 1
+  },
+  {
+   "name": "cd35_cg45_cv450_ct6",
+   "NO-JUMP": 19,
+   "SHORT": 7,
+   "WOULD-LAND": 3,
+   "Y-OUT": 1
+  },
+  {
+   "name": "cd35_cg52_cv410_ct3",
+   "SHORT": 28,
+   "WOULD-LAND": 2
+  },
+  {
+   "name": "cd35_cg52_cv430_ct3",
+   "WOULD-LAND": 4,
+   "SHORT": 26
+  },
+  {
+   "name": "cd35_cg60_cv450_ct10",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 3,
+   "Y-OUT": 7,
+   "SHORT": 1
+  },
+  {
+   "name": "cd35_cg60_cv450_ct3",
+   "NO-JUMP": 19,
+   "SHORT": 8,
+   "WOULD-LAND": 2,
+   "Y-OUT": 1
+  },
+  {
+   "name": "cd35_cg60_cv450_ct6",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 4,
+   "SHORT": 6,
+   "Y-OUT": 1
+  },
+  {
+   "name": "cd55_cg45_cv450_ct10",
+   "NO-JUMP": 19,
+   "SHORT": 7,
+   "Y-OUT": 2,
+   "WOULD-LAND": 2
+  },
+  {
+   "name": "cd55_cg45_cv450_ct3",
+   "NO-JUMP": 19,
+   "SHORT": 7,
+   "WOULD-LAND": 3,
+   "Y-OUT": 1
+  },
+  {
+   "name": "cd55_cg45_cv450_ct6",
+   "NO-JUMP": 19,
+   "SHORT": 7,
+   "WOULD-LAND": 3,
+   "Y-OUT": 1
+  },
+  {
+   "name": "cd55_cg52_cv430_ct3",
+   "WOULD-LAND": 2,
+   "SHORT": 28
+  },
+  {
+   "name": "cd55_cg60_cv450_ct10",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 3,
+   "Y-OUT": 7,
+   "SHORT": 1
+  },
+  {
+   "name": "cd55_cg60_cv450_ct3",
+   "NO-JUMP": 19,
+   "SHORT": 8,
+   "WOULD-LAND": 2,
+   "Y-OUT": 1
+  },
+  {
+   "name": "cd55_cg60_cv450_ct6",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 4,
+   "SHORT": 6,
+   "Y-OUT": 1
+  },
+  {
+   "name": "cd80_cg45_cv450_ct10",
+   "NO-JUMP": 19,
+   "SHORT": 7,
+   "Y-OUT": 2,
+   "WOULD-LAND": 2
+  },
+  {
+   "name": "cd80_cg45_cv450_ct3",
+   "NO-JUMP": 19,
+   "SHORT": 7,
+   "WOULD-LAND": 3,
+   "Y-OUT": 1
+  },
+  {
+   "name": "cd80_cg45_cv450_ct6",
+   "NO-JUMP": 19,
+   "SHORT": 7,
+   "WOULD-LAND": 3,
+   "Y-OUT": 1
+  },
+  {
+   "name": "cd80_cg52_cv430_ct3",
+   "WOULD-LAND": 2,
+   "SHORT": 28
+  },
+  {
+   "name": "cd80_cg60_cv450_ct10",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 3,
+   "Y-OUT": 7,
+   "SHORT": 1
+  },
+  {
+   "name": "cd80_cg60_cv450_ct3",
+   "NO-JUMP": 19,
+   "SHORT": 8,
+   "WOULD-LAND": 2,
+   "Y-OUT": 1
+  },
+  {
+   "name": "cd80_cg60_cv450_ct6",
+   "NO-JUMP": 19,
+   "WOULD-LAND": 4,
+   "SHORT": 6,
+   "Y-OUT": 1
+  }
+ ],
+ "carve_funnel": {
+  "enabled_attempts": 2430,
+  "armed": 1917,
+  "armed_share": 0.789,
+  "rules": {
+   "herr": 1796,
+   "dlip": 121
+  },
+  "armed_vh_p50": 432.5,
+  "armed_herr_p50": -10.7,
+  "armed_d_lip_p50": 34.5,
+  "carve_ticks_p50": 2,
+  "release_vh_p50": 433.5,
+  "release_vh_p90": 448.2,
+  "release_heading_p50": -7.1,
+  "release_d_lip_p50": 25.8,
+  "release_y_p50": 3823.1
+ }
+}

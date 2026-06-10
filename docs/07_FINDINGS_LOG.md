@@ -3557,3 +3557,46 @@ single-frame wall hits, not strafe inefficiency or fly-off.
 Map-aware navigation on trick.bsp (runway back-and-forth) to convert optimal acceleration
 into human-level absolute speed. Re-test legacy unconditional-jump modes with the toggle.
 See `experiments/ktx_moveprobe/evidence/accel-optimal-angle-trick-20260607.md`.
+
+## 2026-06-10 -- Terminal carve: FIRST LANDINGS; release fixed; speed-at-arm is the new wall (A5 round 2)
+
+### Finding
+
+The terminal-carve release (A5 #118 round 2, pre-registered in
+`experiments/a5_distance_standstill/a5-distance-standstill.md` section 9) produced the
+**first far-platform landings in the project's history** on the ztricks Distance gap:
+9/81 configs landed 1/30 in the scored sweep (round 1: 0/4860), and the pre-registered
+top-3 x 100-seed extension reached **9/100 best** -- one seed under the pre-committed
+>=10/100 live bar, so **the off-ramp fires; no live phase this round**.
+
+### Evidence
+
+`carve-sweep-results.json.gz` (2430 attempts), `carve-extension-results.json`,
+`carve-offramp-decomposition.json`. Funnel vs round 1: releases 1917/2430 (was 361/4860),
+0 by timeout (was 85), 82% within 45 qu of the lip (was 125 total), release heading bent
+to p50 -7.1 deg (wall-slide family was 0.0), jump bit ON the lip row (the silent walk-off
+release is mechanically gone). Every landed attempt released at **453.0-459.7 qu/s**;
+release vh p50 overall is 433.5. The 9 landing configs are exactly the
+carve_deg 52 x carve_vh 450 cells; carve_d and tol changed nothing (the arm decides).
+
+### Interpretation
+
+The carve fixed the RELEASE sub-skill (bend + on-lip jump) but not release SPEED: the
+herr rule fires after ~2 carve ticks, long before ground-build lifts 433 toward the
+~453+ the ballistic arc needs. Landing is currently a speed-at-arm lottery: the orbit
+passes the arm window at >=450 in ~34% of attempts, and ~26% of those land. The human's
+475 lip speed sits comfortably above the same threshold.
+
+### Confidence
+
+High on the funnel numbers (full per-attempt records committed); the ballistic
+WOULD-LAND estimator is now measured ~8x optimistic at the band edge -- trust LANDED.
+
+### Follow-up
+
+Round-3 candidate (pre-register before any scored run): a release SPEED FLOOR -- while
+armed keep carving until vh >= release_vh AND the aim rule (grid sketch in ledger
+section 10). Live-phase standing requirement (user directive 2026-06-10): **the moment
+any of this runs on the server, every run must be visible in the bot lab**
+(dashboard at 192.168.86.33:8095/botlab/; B5 #64 already auto-archives every lab MVD to
+the servexeri SSD).

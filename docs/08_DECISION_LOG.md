@@ -2555,3 +2555,33 @@ mode 13 strafe angle corrected (acos(K/speed)); cvar-parametric strafe (angle/al
 harness gains --prewar, --timelimit, --lab-mvdsv, post-map autoadd/realip/idle cvars;
 mvdsv-lab built on servexeri. Acceleration validated optimal; absolute speed geometry-capped
 at ~600 on trick.bsp (navigation-bound). Packaged as a finding PR pending Codex review.
+
+## 2026-06-10 -- A5 round 2 off-ramp honored at 9/100 (bar 10); escalate to a speed-floor variant, not live
+
+## Decision
+
+The carve round's pre-committed ladder said: best 1-4/30 -> one extension (top-3 x 100
+seeds); >=10/100 -> live phase; else off-ramp. The extension peaked at 9/100. We honor
+the bar as written -- **no live phase, no goalpost move**; the round closes as an
+honest wall with the first-ever landings recorded and the bottleneck relocated
+(RELEASE fixed; speed-at-arm is the wall). Round 3 = pre-register the release
+speed-floor variant (ledger section 10 sketch) before any scored block.
+
+## Why
+
+The pre-registration discipline only means something if a 9 does not become "basically
+10". The data also says the next lever precisely: every landing released at 453.0-459.7
+qu/s while bulk releases fire at ~433; holding the carve until a speed floor is the
+smallest change that attacks exactly that gap.
+
+## Revisit Conditions
+
+If the speed-floor round clears its own pre-committed bar, proceed to the live phase
+(KTX additive default-off cvars + ztricks.bot + spawn-snap). Standing live-phase
+requirement (user directive 2026-06-10): server runs must be visible in the bot lab
+from the first run (B5 #64 auto-archival is in place; dashboard wiring per lab/SPEC.md).
+
+## Status
+
+Round 2 closed: carve variant + pre-registration (section 9), sweep 2430, extension
+300, decomposition with carve funnel, all committed on `a5-carve-release-118`.
