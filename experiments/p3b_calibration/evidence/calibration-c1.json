@@ -1,0 +1,563 @@
+{
+ "summary": {
+  "config": "c1",
+  "n": 30,
+  "reach": 21,
+  "reach_rate": 0.7,
+  "arrival_tws_values": [
+   201.8,
+   216.3,
+   219.7,
+   225.1,
+   226.1,
+   237.5,
+   243.3,
+   243.9,
+   250.1,
+   252.2,
+   252.3,
+   256.1,
+   270.6,
+   275.2,
+   282.7,
+   289.0,
+   294.8,
+   300.6,
+   305.4,
+   308.7,
+   312.0
+  ],
+  "arrival_tws_median": 252.3
+ },
+ "results": [
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 13.2,
+     "tws": 308.7,
+     "t0": 0.0,
+     "t1": 48.089,
+     "arrival_t": 4.4
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 308.7,
+   "arrival_t": 4.4,
+   "seed": 1,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 54.1,
+     "tws": 250.1,
+     "t0": 0.0,
+     "t1": 48.081,
+     "arrival_t": 35.8
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 250.1,
+   "arrival_t": 35.8,
+   "seed": 2,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 46.2,
+     "tws": 252.2,
+     "t0": 0.0,
+     "t1": 48.097,
+     "arrival_t": 45.2
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 252.2,
+   "arrival_t": 45.2,
+   "seed": 3,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 28.9,
+     "tws": 216.3,
+     "t0": 0.0,
+     "t1": 48.098,
+     "arrival_t": 31.0
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 216.3,
+   "arrival_t": 31.0,
+   "seed": 4,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 32.1,
+     "tws": 237.5,
+     "t0": 0.0,
+     "t1": 48.087,
+     "arrival_t": 19.1
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 237.5,
+   "arrival_t": 19.1,
+   "seed": 5,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 50.2,
+     "tws": 270.6,
+     "t0": 0.0,
+     "t1": 48.096,
+     "arrival_t": 17.9
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 270.6,
+   "arrival_t": 17.9,
+   "seed": 6,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_LEDGE_NO_JUMP",
+     "closest": 65.6,
+     "tws": 218.9,
+     "t0": 0.0,
+     "t1": 48.083
+    }
+   ],
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
+   "seed": 7,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 11.9,
+     "tws": 289.0,
+     "t0": 0.0,
+     "t1": 48.08,
+     "arrival_t": 5.8
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 289.0,
+   "arrival_t": 5.8,
+   "seed": 8,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 31.2,
+     "tws": 305.4,
+     "t0": 0.0,
+     "t1": 48.099,
+     "arrival_t": 19.3
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 305.4,
+   "arrival_t": 19.3,
+   "seed": 9,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_LEDGE_NO_JUMP",
+     "closest": 190.1,
+     "tws": 140.3,
+     "t0": 0.0,
+     "t1": 48.09
+    }
+   ],
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
+   "seed": 10,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 42.6,
+     "tws": 282.7,
+     "t0": 0.0,
+     "t1": 48.095,
+     "arrival_t": 11.1
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 282.7,
+   "arrival_t": 11.1,
+   "seed": 11,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 108.0,
+     "tws": 218.9,
+     "t0": 0.0,
+     "t1": 48.097
+    }
+   ],
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
+   "seed": 12,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_LEDGE_NO_JUMP",
+     "closest": 64.4,
+     "tws": 232.6,
+     "t0": 0.0,
+     "t1": 48.08
+    }
+   ],
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
+   "seed": 13,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 41.5,
+     "tws": 243.3,
+     "t0": 0.0,
+     "t1": 48.098,
+     "arrival_t": 10.1
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 243.3,
+   "arrival_t": 10.1,
+   "seed": 14,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 72.5,
+     "tws": 235.6,
+     "t0": 0.0,
+     "t1": 48.086
+    }
+   ],
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
+   "seed": 15,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_LEDGE_NO_JUMP",
+     "closest": 62.8,
+     "tws": 216.6,
+     "t0": 0.0,
+     "t1": 48.095
+    }
+   ],
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
+   "seed": 16,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 41.5,
+     "tws": 201.8,
+     "t0": 0.0,
+     "t1": 48.094,
+     "arrival_t": 37.3
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 201.8,
+   "arrival_t": 37.3,
+   "seed": 17,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 103.1,
+     "tws": 192.6,
+     "t0": 0.0,
+     "t1": 48.096
+    }
+   ],
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
+   "seed": 18,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 42.3,
+     "tws": 275.2,
+     "t0": 0.0,
+     "t1": 48.091,
+     "arrival_t": 18.3
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 275.2,
+   "arrival_t": 18.3,
+   "seed": 19,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 42.7,
+     "tws": 256.1,
+     "t0": 0.0,
+     "t1": 48.09,
+     "arrival_t": 20.6
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 256.1,
+   "arrival_t": 20.6,
+   "seed": 20,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 48.2,
+     "tws": 300.6,
+     "t0": 0.0,
+     "t1": 48.094,
+     "arrival_t": 6.6
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 300.6,
+   "arrival_t": 6.6,
+   "seed": 21,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 42.5,
+     "tws": 252.3,
+     "t0": 0.0,
+     "t1": 48.099,
+     "arrival_t": 38.2
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 252.3,
+   "arrival_t": 38.2,
+   "seed": 22,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_LEDGE_NO_JUMP",
+     "closest": 99.3,
+     "tws": 220.4,
+     "t0": 0.0,
+     "t1": 21.16
+    },
+    {
+     "cls": "REACHED_RL",
+     "closest": 36.0,
+     "tws": 225.1,
+     "t0": 21.18,
+     "t1": 48.082,
+     "arrival_t": 10.1
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 225.1,
+   "arrival_t": 10.1,
+   "seed": 23,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "ATTEMPTED_JUMP_FELL_SHORT",
+     "closest": 63.9,
+     "tws": 211.9,
+     "t0": 0.0,
+     "t1": 48.092
+    }
+   ],
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
+   "seed": 24,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_LEDGE_NO_JUMP",
+     "closest": 98.5,
+     "tws": 202.8,
+     "t0": 0.0,
+     "t1": 24.02
+    },
+    {
+     "cls": "REACHED_LEDGE_NO_JUMP",
+     "closest": 124.0,
+     "tws": 200.3,
+     "t0": 24.041,
+     "t1": 48.089
+    }
+   ],
+   "reached": false,
+   "arrival_tws": null,
+   "arrival_t": null,
+   "seed": 25,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_LEDGE_NO_JUMP",
+     "closest": 128.0,
+     "tws": 250.2,
+     "t0": 0.0,
+     "t1": 8.959
+    },
+    {
+     "cls": "LEFT_ROUTE",
+     "closest": 719.8,
+     "tws": 258.7,
+     "t0": 8.98,
+     "t1": 10.665
+    },
+    {
+     "cls": "REACHED_RL",
+     "closest": 37.4,
+     "tws": 294.8,
+     "t0": 10.686,
+     "t1": 48.088,
+     "arrival_t": 9.8
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 294.8,
+   "arrival_t": 9.8,
+   "seed": 26,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 45.2,
+     "tws": 219.7,
+     "t0": 0.0,
+     "t1": 48.095,
+     "arrival_t": 29.1
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 219.7,
+   "arrival_t": 29.1,
+   "seed": 27,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 35.9,
+     "tws": 243.9,
+     "t0": 0.0,
+     "t1": 48.082,
+     "arrival_t": 5.5
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 243.9,
+   "arrival_t": 5.5,
+   "seed": 28,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 26.4,
+     "tws": 312.0,
+     "t0": 0.0,
+     "t1": 48.092,
+     "arrival_t": 4.5
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 312.0,
+   "arrival_t": 4.5,
+   "seed": 29,
+   "events": []
+  },
+  {
+   "attempts": [
+    {
+     "cls": "REACHED_RL",
+     "closest": 48.0,
+     "tws": 226.1,
+     "t0": 0.0,
+     "t1": 48.087,
+     "arrival_t": 46.3
+    }
+   ],
+   "reached": true,
+   "arrival_tws": 226.1,
+   "arrival_t": 46.3,
+   "seed": 30,
+   "events": []
+  }
+ ]
+}
