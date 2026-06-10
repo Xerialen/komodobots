@@ -174,6 +174,17 @@
     950,
     1090
    ],
+   "lip_row": 1061,
+   "lip_origin": [
+    -3343.2,
+    3783.0,
+    -488.0
+   ],
+   "lip_vh": 425.4,
+   "launch_heading_deg": 2.6,
+   "jumped": false,
+   "jump_bit_at_lip": false,
+   "max_err_10rows_before_lip": 0.098,
    "max_err_clean": 0.154,
    "landed_recorded": false,
    "landed_sim": false
@@ -294,7 +305,8 @@
   "n_anomalous_reference_windows": 12,
   "anomaly_recovery_failures": [],
   "n_attempts": 11,
-  "all_lips_tracked_under_2qu": true,
+  "all_11_lips_found_and_tracked_under_2qu": true,
+  "structure_10_jumps_1_walkoff": true,
   "win_attempt_max_err_clean": 2.634,
   "win_attempt_tracked": true,
   "checkpoints": {

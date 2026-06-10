@@ -109,9 +109,13 @@ def main():
     attempts = [(bounds[i], bounds[i + 1]) for i in range(len(bounds) - 1)]
 
     # per-attempt lip: LAST GROUNDED row (z=-488, vz==0, x > -3420) whose
-    # next row leaves the floor (jump OR walk-off; arc rows crossing the
-    # -488 plane mid-flight carry vz != 0 and are rejected). vz look-ahead
-    # runs through interpolated rows (drops cluster at the takeoffs).
+    # next row leaves the floor — by jumping (vz flips positive) OR by
+    # walking off (vz turns negative; the first falling frame sinks only
+    # ~0.1 qu, so a z-threshold alone misses walk-offs — Codex PR #120
+    # round 4 caught attempt 6 silently dropping out of the lip checks).
+    # Arc rows crossing the -488 plane mid-flight carry vz != 0 and are
+    # rejected as lips. vz look-ahead runs through interpolated rows
+    # (drops cluster at the takeoffs).
     att_table = []
     for ai, (a, b) in enumerate(attempts):
         lip = None
@@ -121,7 +125,7 @@ def main():
                     or f["velocity"][2] != 0):
                 continue
             nxt = frames[k + 1]
-            if abs(nxt["origin"][2] - LAND_Z) > 0.5:
+            if abs(nxt["origin"][2] - LAND_Z) > 0.5 or nxt["velocity"][2] != 0:
                 lip = k
         ent = {"attempt": ai + 1, "rows": [a, b]}
         if lip is not None:
@@ -193,9 +197,16 @@ def main():
                 and win_heading is not None and -14 <= win_heading <= -8
                 and all(h > win_heading for h in other_headings))
 
-    lips_tracked = all(a["max_err_10rows_before_lip"] is not None
-                       and a["max_err_10rows_before_lip"] <= RECOVER_BOUND
-                       for a in att_table if "lip_row" in a)
+    # EVERY attempt must yield a lip and track there (a missing lip can not
+    # silently pass — Codex round 4); the demo's documented structure is
+    # exactly 10 jump-launches + 1 walk-off botch.
+    lips_tracked = (len(att_table) == 11
+                    and all("lip_row" in a for a in att_table)
+                    and all(a["max_err_10rows_before_lip"] is not None
+                            and a["max_err_10rows_before_lip"] <= RECOVER_BOUND
+                            for a in att_table))
+    structure_ok = (sum(1 for a in att_table if a.get("jumped")) == 10
+                    and sum(1 for a in att_table if not a.get("jumped")) == 1)
     anchored_ok = (anch_summary["p95_err"] is not None
                    and anch_summary["p95_err"] <= 0.5)
     verdict = {
@@ -208,7 +219,8 @@ def main():
         "n_anomalous_reference_windows": len(anom) // 2,
         "anomaly_recovery_failures": recover_fail,
         "n_attempts": len(att_table),
-        "all_lips_tracked_under_2qu": lips_tracked,
+        "all_11_lips_found_and_tracked_under_2qu": lips_tracked,
+        "structure_10_jumps_1_walkoff": structure_ok,
         "win_attempt_max_err_clean": round(win_max_err, 3),
         "win_attempt_tracked": win_max_err <= ERR_BOUND and not win_reanchor_inside,
         "checkpoints": checkpoints,
@@ -217,7 +229,7 @@ def main():
         "win_landed_sim": win["landed_sim"],
         "spec_table_ok": table_ok,
     }
-    ok = (anchored_ok and lips_tracked and not recover_fail
+    ok = (anchored_ok and lips_tracked and structure_ok and not recover_fail
           and verdict["win_attempt_tracked"] and cp_ok and win["landed_sim"]
           and table_ok)
     out = {
