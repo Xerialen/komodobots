@@ -225,6 +225,24 @@ Verification:
 - `s6f-route-edge-geometry` inspects the static `dm3.bot` route edge `276->59` and S6d/S6e attribution samples. The edge and its reciprocal are explicit, but marker `276` has no static `CreateMarker` origin, so no precise static edge vector or tiny coordinate fix is justified from the route file alone.
 - Stock `dm2` has `dm2.bsp` and `dm2.loc`, but no `ktx/bots/maps/dm2.bot`; do not treat stock `dm2` as a Frogbot-supported map unless a real route appears.
 
+### Lab dashboard frontend (lab/dashboard)
+
+Canonical home since LD-A1 (#84): `lab/dashboard/` in this repository — a self-contained
+Vite + React + TypeScript + three.js app built with base `/botlab/`.
+
+Provenance: absorbed from the separate `Xerialen/local-hub` repo, branch
+`feat/botlab-viewer`, where the page existed only as `deploy/frontend-botlab.patch`
+against a gitignored clone of `quakeworldnu/hub.quakeworld.nu` plus
+`deploy/botlab-assets/`. The ported sources (`telemetryClient.ts`, `BotLab3D.tsx`,
+`TelemetryHud.tsx`, `quakeCoords.ts`) are functionally identical to the patch versions;
+the app shell (`App.tsx`, `main.tsx`) was adapted to drop the hub fork's `@qwhub/*`
+dependencies (the `FteQtvPlayer` live-game panel is temporarily an iframe to the deployed
+`/qtv/` page until LD-B2, #88). Assets `public/dm3.obj` and `public/dm3_sng_to_rl.cmds`
+match the local-hub blobs byte-for-byte (verified by git blob SHA:
+`d23bbfa` / `da9a987`).
+
+The local-hub copy is deprecated for development; see `lab/README.md` for the dev loop.
+
 ### mvd_analyzer
 
 Repository: https://github.com/galfthan/mvd_analyzer

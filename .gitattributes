@@ -3,3 +3,7 @@
 # files should not.
 .gitattributes text eol=lf
 *.patch text eol=lf whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+
+# Dashboard data assets absorbed byte-for-byte from local-hub (LD-A1, #84):
+# keep them byte-identical on every checkout — deploys serve them verbatim.
+lab/dashboard/public/* -text

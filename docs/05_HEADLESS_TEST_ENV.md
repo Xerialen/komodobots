@@ -354,6 +354,23 @@ Important guardrails:
 - Prefer a temporary screen session name such as `komodobots_lab_28599`.
 - Record exact KTX/MVDSV/mvd_analyzer commits or binary versions in each report.
 
+## Lab Dashboard Frontend
+
+Canonical home since LD-A1 (#84): `lab/dashboard/` in this repository (Vite + React +
+TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
+`feat/botlab-viewer` — see `docs/02_SOURCE_MAP.md` and `lab/README.md`).
+
+- Deployed surface: `http://192.168.86.33:8095/botlab/`, served by the local-hub
+  `web/serve.py` (screen `localhub-web`) on servexeri. Until LD-A2 (#85) lands the
+  additive deploy script and same-URL cutover, the deployed copy still comes from the
+  old local-hub patch build; this repo's `lab/dashboard/dist/` is the replacement.
+- Live services the page consumes: telemetry sidecar `ws://192.168.86.33:8770`
+  (`scripts/telemetry_ws.py`) and the deployed `/qtv/` page in an iframe (temporary,
+  replaced by the standalone postMessage QTV pane in LD-B2, #88).
+- Dev loop: `cd lab/dashboard && npm ci && npm run dev` (see `lab/README.md`).
+- The dashboard is read-only with respect to the lab in this stage: it watches whatever
+  attempt happens to run; it cannot start or steer anything until LD-F1/F2/F3.
+
 ## Folder Layout
 
 Current relevant layout:
