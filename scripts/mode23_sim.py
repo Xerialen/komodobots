@@ -47,6 +47,7 @@ import re
 import statistics
 import struct
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 sys.setrecursionlimit(20000)
@@ -92,6 +93,37 @@ DELEG_TIMEOUT = 3.0
 
 LOOKAHEAD_TIME = 17.5   # skill.lookahead_time at k_fb_skill 10:
                         # RangeOverSkill(10, 5, 30) = 5 + 0.5*25 (bot_botimp.c:161)
+
+
+@dataclass(frozen=True)
+class LawParams:
+    """Sweepable mode-23 constants (A2 #74). Defaults = the calibrated live
+    c5 values, so mode23_step(params=None) is byte-identical to the A1 port.
+
+    pass_r .. corner_aim map 1:1 to live cvars (cvar-only transfer):
+    k_fb_moveprobe_s23_pass / _accel_numerator / _s21_swing / _s21_turn /
+    _s21_corner_thresh / _s21_corner_aim (+ _accel_bootstrap_deg, _s19_wall).
+    governor / prec_* / carrot_lead are CODE changes for a live deploy:
+    governor re-implements the two live-rejected designs (c2 velocity-
+    triggered, c3 positional; ledger 23:30/23:45/00:25) on top of the
+    surviving apply/clear block (bot_movement.c:3849-3876); carrot_lead adds
+    a speed-adaptive handover trigger (dist < vh*lead) alongside pass_r.
+    """
+    pass_r: float = PASS_R
+    numerator: float = NUMERATOR
+    bootstrap_deg: float = BOOTSTRAP_DEG
+    look: float = LOOK
+    swing: float = SWING
+    turn_thresh: float = TURN_THRESH
+    corner_aim: float = CORNER_AIM
+    corner_thresh: float = CORNER_THRESH
+    governor: str = "none"          # none | vel (c2) | pos (c3)
+    prec_thresh: float = 60.0       # engage when |leg turn| exceeds this (deg)
+    prec_timeout: float = 2.0       # escape window, seconds (mirror line 3855)
+    carrot_lead: float = 0.0        # extra handover trigger: dist < vh*lead (s)
+
+
+LIVE_PARAMS = LawParams()
 
 # live cmd cadence on the c5 block (msec histogram over 10 runs; the four
 # dominant buckets, renormalized — see calibration report)
@@ -633,6 +665,8 @@ class LawState:
         self.deleg_since = 0.0          # moveprobe_s23_deleg_since
         self.deleg_marker = None        # moveprobe_s23_deleg_marker
         self.carrot_done = None         # moveprobe_s23_carrot_done
+        self.prec_marker = None         # moveprobe_s23_prec_marker (governor)
+        self.prec_since = 0.0           # moveprobe_s23_prec_since
 
 
 CONFIGS = ("c1", "c4", "c5")
@@ -640,7 +674,7 @@ CONFIGS = ("c1", "c4", "c5")
 
 def mode23_step(law: LawState, nav: NavState, brain: FrogbotBrain,
                 st: PlayerState, now, config="c5", trace_fn=None,
-                carrot_enabled=True):
+                carrot_enabled=True, params: LawParams | None = None):
     """One BotApplyMoveProbe mode-23 evaluation.
 
     Returns (yaw, move, jump) or None for the vanilla fall-through
@@ -648,7 +682,12 @@ def mode23_step(law: LawState, nav: NavState, brain: FrogbotBrain,
 
     carrot_enabled=False skips the handover block (the audit-law mode: nav
     state is supplied externally from a live log, so the law itself can be
-    compared tick-for-tick against the recorded commands)."""
+    compared tick-for-tick against the recorded commands).
+
+    params (A2 #74): sweepable constants; None means LIVE_PARAMS, which is
+    byte-identical to the calibrated A1 behavior (the governor branches are
+    dead when params.governor == "none", and carrot_lead 0 adds nothing)."""
+    p = params if params is not None else LIVE_PARAMS
     g = brain.g
     trace_fn = trace_fn or (lambda a, b: line_fraction(g.world, a, b))
     onground = st.onground
@@ -663,7 +702,10 @@ def mode23_step(law: LawState, nav: NavState, brain: FrogbotBrain,
         marker_dist_sq = nav_dir[0] * nav_dir[0] + nav_dir[1] * nav_dir[1]
         marker_dz = nav_dir[2]
 
-        # CARROT: edge-triggered early handover at pass_r, guarded per config
+        # CARROT: edge-triggered early handover at pass_r, guarded per config.
+        # carrot_lead > 0 ALSO fires the handover within vh*lead seconds-worth
+        # of distance (speed-adaptive earlier handover; the pass_through weave
+        # zone below stays tied to pass_r alone).
         guard = False
         if config == "c4":      # broad guard (config-2/4): any close climb
             guard = onground and marker_dz > DELEG_DZ
@@ -671,12 +713,19 @@ def mode23_step(law: LawState, nav: NavState, brain: FrogbotBrain,
             guard = (onground and marker_dz > DELEG_DZ
                      and marker_dist_sq < DELEG_DIST * DELEG_DIST
                      and not (path_flags & JUMP_FLAGS))
+        trigger_r = p.pass_r
+        if p.carrot_lead > 0.0:
+            trigger_r = max(trigger_r,
+                            math.hypot(st.velocity[0], st.velocity[1]) * p.carrot_lead)
         if (carrot_enabled
-                and marker_dist_sq < PASS_R * PASS_R
+                and marker_dist_sq < trigger_r * trigger_r
                 and law.carrot_done != nav.linked_marker
                 and not guard):
             passed = nav.linked_marker
             law.carrot_done = passed
+            # Positional bearing of the CURRENT leg (bot -> passed marker),
+            # captured before the handover (mirror: old_leg2d).
+            old_leg2d = [nav_dir[0], nav_dir[1], 0.0]
             # SetMarker(self, passed)
             nav.touch_marker = passed
             nav.touch_marker_time = now + 5.0
@@ -689,6 +738,28 @@ def mode23_step(law: LawState, nav: NavState, brain: FrogbotBrain,
                            mk.nav[2] - st.origin[2]]
                 marker_dist_sq = nav_dir[0] * nav_dir[0] + nav_dir[1] * nav_dir[1]
                 marker_dz = nav_dir[2]
+                # PRECISION GOVERNOR engage (A2 #74 re-test of the two
+                # live-rejected designs; engage code was removed from the C
+                # mirror after the live A/B, re-implemented per the ledger):
+                #   vel (config-2): leg turn vs the VELOCITY heading.
+                #   pos (config-3): leg turn vs the positional old-leg
+                #     bearing; never engages on climb legs (dz > 18).
+                if p.governor != "none":
+                    new_bearing = vectoyaw(nav_dir)
+                    if p.governor == "vel":
+                        ref = vectoyaw([st.velocity[0], st.velocity[1], 0.0])
+                        climb_ok = True
+                    else:               # "pos"
+                        ref = vectoyaw(old_leg2d)
+                        climb_ok = marker_dz <= DELEG_DZ
+                    leg_turn = new_bearing - ref
+                    while leg_turn > 180.0:
+                        leg_turn -= 360.0
+                    while leg_turn < -180.0:
+                        leg_turn += 360.0
+                    if climb_ok and abs(leg_turn) > p.prec_thresh:
+                        law.prec_marker = nav.linked_marker
+                        law.prec_since = now
             path_flags = nav.path_state
     else:
         nav_dir = list(nav.dir_move)
@@ -700,7 +771,7 @@ def mode23_step(law: LawState, nav: NavState, brain: FrogbotBrain,
     if l <= 0:
         return None
 
-    pass_through = marker_dist_sq < PASS_R * PASS_R
+    pass_through = marker_dist_sq < p.pass_r * p.pass_r
 
     # DELEGATION: grounded climb legs go to vanilla actuation (all configs)
     if (onground and marker_dz > DELEG_DZ
@@ -734,10 +805,10 @@ def mode23_step(law: LawState, nav: NavState, brain: FrogbotBrain,
         proposed = list(nav_dir)
     else:
         hard_corner = False
-        if herr > TURN_THRESH and not pass_through:
+        if herr > p.turn_thresh and not pass_through:
             sign = 1 if signed_to_goal >= 0 else -1
             law.strafe_sign = sign
-            if herr > CORNER_THRESH:
+            if herr > p.corner_thresh:
                 hard_corner = True
         elif pass_through:
             if law.strafe_sign == 0:
@@ -746,21 +817,21 @@ def mode23_step(law: LawState, nav: NavState, brain: FrogbotBrain,
         else:
             if law.strafe_sign == 0:
                 law.strafe_sign = 1 if signed_to_goal >= 0 else -1
-            if law.strafe_sign > 0 and signed_to_goal < -SWING:
+            if law.strafe_sign > 0 and signed_to_goal < -p.swing:
                 law.strafe_sign = -1
-            elif law.strafe_sign < 0 and signed_to_goal > SWING:
+            elif law.strafe_sign < 0 and signed_to_goal > p.swing:
                 law.strafe_sign = 1
             sign = law.strafe_sign
 
         # wall safety net
-        fp = [st.origin[0] + LOOK * cur_dir[0], st.origin[1] + LOOK * cur_dir[1],
+        fp = [st.origin[0] + p.look * cur_dir[0], st.origin[1] + p.look * cur_dir[1],
               st.origin[2]]
         fwd_open = trace_fn(st.origin, fp)
         if fwd_open < 0.35:
             ld = rotate2d(cur_dir, 45.0)
             rd = rotate2d(cur_dir, -45.0)
-            lp = [st.origin[0] + LOOK * ld[0], st.origin[1] + LOOK * ld[1], st.origin[2]]
-            rp = [st.origin[0] + LOOK * rd[0], st.origin[1] + LOOK * rd[1], st.origin[2]]
+            lp = [st.origin[0] + p.look * ld[0], st.origin[1] + p.look * ld[1], st.origin[2]]
+            rp = [st.origin[0] + p.look * rd[0], st.origin[1] + p.look * rd[1], st.origin[2]]
             left_open = trace_fn(st.origin, lp)
             right_open = trace_fn(st.origin, rp)
             sign = 1 if left_open >= right_open else -1
@@ -768,19 +839,29 @@ def mode23_step(law: LawState, nav: NavState, brain: FrogbotBrain,
             hard_corner = False
 
         if hard_corner:
-            rotation = min(herr, CORNER_AIM)
-        elif hor_speed_sq > NUMERATOR * NUMERATOR:
-            rotation = math.degrees(math.acos(NUMERATOR / math.sqrt(hor_speed_sq)))
+            rotation = min(herr, p.corner_aim)
+        elif hor_speed_sq > p.numerator * p.numerator:
+            rotation = math.degrees(math.acos(p.numerator / math.sqrt(hor_speed_sq)))
         else:
-            rotation = BOOTSTRAP_DEG
+            rotation = p.bootstrap_deg
         proposed = rotate2d(cur_dir, rotation * sign)
         proposed, pl = norm2d(proposed)
         if pl <= 0:
             proposed = list(cur_dir)
 
-    # (precision governor: REMOVED in config-5; prec_marker is never set)
+    # Precision leg (governor; dead when params.governor == "none" — nothing
+    # ever sets prec_marker, matching the deployed c5): straight-aim override
+    # while the engaged marker is still the linked marker and the escape
+    # window is open; cleared otherwise (mirror lines 3849-3861).
+    if (law.prec_marker is not None
+            and law.prec_marker == nav.linked_marker
+            and (now - law.prec_since) < p.prec_timeout):
+        proposed = list(nav_dir)
+    else:
+        law.prec_marker = None
 
-    if herr > TURN_THRESH and not pass_through:
+    if (law.prec_marker is not None
+            or (herr > p.turn_thresh and not pass_through)):
         press_jump = False
     else:
         press_jump = onground and not law.jump_press
@@ -799,7 +880,7 @@ class AttemptResult:
 
 def run_attempt(world, graph, seed, config="c5", budget_s=RUN_BUDGET_S,
                 spawn=SPAWN, goal_marker=GOAL_MARKER, goal_pos=None,
-                teleporters=None, floor_fn=None):
+                teleporters=None, floor_fn=None, params: LawParams | None = None):
     """Simulate one directed attempt; returns trace rows in the verify_route
     row shape (t, x, y, z, vh, onground, over_void, dist_goal)."""
     rng = random.Random(seed)
@@ -827,7 +908,7 @@ def run_attempt(world, graph, seed, config="c5", budget_s=RUN_BUDGET_S,
                 next_marker_time = t + MARKER_FRAME_INTERVAL
 
         # BotSetCommand: mode-23 law (may carrot -> SetMarker+PNLM)
-        out = mode23_step(law, nav, brain, st, t, config=config)
+        out = mode23_step(law, nav, brain, st, t, config=config, params=params)
         if out is not None:
             yaw, move, jump = out
         else:
@@ -892,13 +973,27 @@ def run_attempt(world, graph, seed, config="c5", budget_s=RUN_BUDGET_S,
 
 
 # ── analysis (verify_route conditioning, metrics imported) ───────────────────
+_VR = None
+
+
+def verify_route_mod():
+    """Load scripts/verify_route.py ONCE per process (it is imported by file
+    location to keep the scorer's CLI shape; a sweep calls analyze_attempt
+    tens of thousands of times, so the module is cached)."""
+    global _VR
+    if _VR is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "verify_route", SCRIPTS / "verify_route.py")
+        _VR = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_VR)
+    return _VR
+
+
 def analyze_attempt(rows, route):
     """Apply verify_route's attempt segmentation + classification + metrics to
     a sim trace. Returns the per-run dict (reach, arrival attempt tws, ...)."""
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("verify_route", SCRIPTS / "verify_route.py")
-    vr = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(vr)
+    vr = verify_route_mod()
     from route_metrics import legit_segment, time_weighted_speed
 
     segs = vr.segment_attempts(rows, route)
@@ -922,12 +1017,8 @@ def analyze_attempt(rows, route):
     return out
 
 
-def load_route_cfg():
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("verify_route", SCRIPTS / "verify_route.py")
-    vr = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(vr)
-    return vr.load_route("sng_shortcut2")
+def load_route_cfg(name="sng_shortcut2"):
+    return verify_route_mod().load_route(name)
 
 
 # ── selection audit (nav stub vs live c5 logs) ───────────────────────────────
