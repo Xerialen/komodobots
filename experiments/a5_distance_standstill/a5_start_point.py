@@ -32,14 +32,20 @@ sys.path.insert(0, str(REPO / "scripts"))
 from pmove_sim import detect_teleports, load_cmds_file  # noqa: E402
 from mode23_sim import load_teleporters  # noqa: E402
 
-DEFAULT_CMDS = (REPO / "experiments" / "bunnyhop_mastery" / "evidence"
-                / "getspeed" / "getspeed.cmds")
+# the TIME-ALIGNED rebuild (a5_rebuild_cmds.py) — the committed
+# start-point.json comes from it; the original bunnyhop-evidence
+# getspeed.cmds carries the zip-pairing misalignment (identical arrival
+# POSITIONS — state stream — but stale view angles next to them)
+DEFAULT_CMDS = HERE / "getspeed-aligned.cmds"
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cmds", default=str(DEFAULT_CMDS))
-    ap.add_argument("--bsp", default=r"C:\nQuake\qw\maps\trick.bsp")
+    # ztricks.bsp = the demo's actual map (the A5 correction; running this
+    # against trick.bsp is exactly the wrong-map analysis this experiment
+    # retired - Codex PR #120 P2 caught the stale default)
+    ap.add_argument("--bsp", default=r"C:\nQuake\qw\maps\ztricks.bsp")
     ap.add_argument("--out", default=str(HERE / "start-point.json"))
     args = ap.parse_args()
 

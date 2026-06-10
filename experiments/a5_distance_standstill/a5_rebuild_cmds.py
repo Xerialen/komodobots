@@ -48,12 +48,16 @@ def main():
     ap.add_argument("--demo", default=r"C:\nQuake\qw\matchinfo\demos\getspeed.qwd")
     ap.add_argument("--out", default=str(HERE / "getspeed-aligned.cmds"))
     ap.add_argument("--meta", default=str(HERE / "alignment-meta.json"))
-    ap.add_argument("--shift", type=int, default=0,
+    ap.add_argument("--shift", type=int, default=2,
                     help="integer pipeline latency L: state j pairs with cmd "
                          "(nearest-time + L). The replay row convention needs "
                          "state BEFORE cmd; L absorbs the demo's fixed "
-                         "cmd->state lag. Determined empirically (anchored "
-                         "replay error, see alignment-meta).")
+                         "cmd->state lag. DEFAULT 2 = the VALIDATED value for "
+                         "getspeed.qwd (anchored-replay-error scan over "
+                         "L=-1..4: p95 0.147 qu at L=2, >=0.48 elsewhere; "
+                         "Codex PR #120 P2: the default must reproduce the "
+                         "committed evidence). Re-scan when aligning a "
+                         "DIFFERENT demo.")
     args = ap.parse_args()
 
     data = Path(args.demo).read_bytes()

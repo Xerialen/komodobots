@@ -1,5 +1,5 @@
 {
- "cmds": "experiments\\a5_distance_standstill\\getspeed-aligned.cmds",
+ "cmds": "C:\\Users\\benya\\projects\\komodobots\\experiments\\a5_distance_standstill\\getspeed-aligned.cmds",
  "bsp": "C:\\nQuake\\qw\\maps\\ztricks.bsp",
  "n_frames": 2145,
  "teleport_frames": [

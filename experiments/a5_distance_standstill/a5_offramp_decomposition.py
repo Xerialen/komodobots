@@ -8,11 +8,17 @@ per-attempt release + lip states (sweep-results.json):
   RELEASE  does the release fire, where (d_lip), aimed how (herr), or by
            timeout?
   LIP      where do attempts actually cross the lip (y line, heading, vh)?
-  ARC      for each lip crossing, the flat-jump ballistic check: does the
-           flight reach the far floor (x >= -3048) inside the y band
-           [3616, 3804] (platform 3600..3820 inset by the 16 qu hull)?
-           Failure classes: SHORT (x reach), Y-OUT (drift off the band),
-           NO-JUMP (crossed falling, never jumped).
+  ARC      classify each lip crossing FIRST by whether the launch had
+           RELEASED at-or-before the crossing (release fires the jump on
+           the spot, so released-by-then == jumped): un-released crossings
+           are NO-JUMP walk-offs — they fall from platform height and can
+           NEVER reach the same-height far floor, no arc math applied
+           (Codex PR #120 P2: applying jump airtime to walk-offs would
+           fake their reach). JUMPED crossings get the flat-jump ballistic
+           check: carry vh*0.675 (+air gain) must reach the far floor
+           (x >= -3048) inside the y band [3616, 3804] (platform
+           3600..3820 inset by the 16 qu hull). Classes: NO-JUMP,
+           SHORT (x reach), Y-OUT (off the band), WOULD-LAND.
 
 Writes offramp-decomposition.json and prints the plain-words verdict.
 """
@@ -67,17 +73,24 @@ def main():
             lip = att.get("lip")
             if lip:
                 lips.append(lip)
-                # ballistic check from the lip state
-                h = math.radians(lip["heading"])
-                carry = lip["vh"] * AIRTIME + AIR_GAIN
-                x1 = lip["x"] + carry * math.cos(h)
-                y1 = lip["y"] + carry * math.sin(h)
-                if x1 < FAR_EDGE_X:
-                    cls = "SHORT"
-                elif not (Y_LO <= y1 <= Y_HI):
-                    cls = "Y-OUT"
+                # jumped at the crossing? The launch release fires the jump
+                # immediately, so "released at-or-before the crossing" is
+                # the recorded jump signal. Un-released = walk-off: a fall
+                # from z=-488 can never reach the same-height far floor.
+                jumped = rel is not None and rel["t"] <= lip["t"] + 0.05
+                if not jumped:
+                    cls = "NO-JUMP"
                 else:
-                    cls = "WOULD-LAND"
+                    h = math.radians(lip["heading"])
+                    carry = lip["vh"] * AIRTIME + AIR_GAIN
+                    x1 = lip["x"] + carry * math.cos(h)
+                    y1 = lip["y"] + carry * math.sin(h)
+                    if x1 < FAR_EDGE_X:
+                        cls = "SHORT"
+                    elif not (Y_LO <= y1 <= Y_HI):
+                        cls = "Y-OUT"
+                    else:
+                        cls = "WOULD-LAND"
                 arc_classes[cls] += 1
                 cfg_classes[cls] += 1
             else:

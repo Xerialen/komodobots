@@ -55,8 +55,9 @@
   }
  },
  "arc_classes": {
-  "SHORT": 4593,
-  "Y-OUT": 267
+  "SHORT": 335,
+  "NO-JUMP": 4522,
+  "Y-OUT": 3
  },
  "configs_with_would_land_lips": []
 }
