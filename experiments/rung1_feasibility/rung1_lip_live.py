@@ -17,8 +17,14 @@ Per attempt (rung1_lib conventions; conditioning of record):
   * reached_lip   — approach < 80 qu (share reported; cf. P2's Gate-1 stat:
                     66 lip-marker entries across the baseline 10, 41 fell
                     back = 25 conversions)
-  * grounded_near_vh_max — best grounded vh within 150 qu of the edge on the
-                    upper level (the classify() near-edge convention)
+  * takeoff_near_vh_max — PRIMARY: best takeoff-capable (haf < 4, the locked
+                    climb_detector grounded convention) vh within 150 qu of
+                    the edge on the upper level (Codex PR #119 P2: the
+                    headline 437-comparison lives in this artifact, in the
+                    same convention the report cites)
+  * grounded_near_vh_max — SECONDARY: same with the raw onground flag (the
+                    classify() near-edge convention; audited strictly
+                    conservative vs haf — 0 onground-only rows)
 
 Usage:  python rung1_lip_live.py [--out live-lip.json]
 """
@@ -137,6 +143,15 @@ def main():
     lip_vh = [a["lip_approach"]["vh"] for a in lip]
     near = [a["grounded_near_vh_max"] for a in atts
             if a["grounded_near_vh_max"] is not None]
+    # PRIMARY headline stat: best takeoff-capable vh near the lip, PER RUN
+    # (max over the run's conditioned attempts; haf<4 convention).
+    run_best = []
+    for r in runs:
+        vals = [a["takeoff_near_vh_max"] for a in r["attempts"]
+                if a["takeoff_near_vh_max"] is not None]
+        r["takeoff_near_vh_best"] = max(vals) if vals else None
+        if vals:
+            run_best.append(max(vals))
     summary = {
         "runs": len(runs), "skipped_no_cmdlog": skipped,
         "attempts": len(atts),
@@ -150,6 +165,12 @@ def main():
         "lip_approach_vh_sorted": sorted(lip_vh),
         "lip_approach_vh_median": round(median(lip_vh), 1) if lip_vh else None,
         "lip_vh_ge_437": sum(1 for v in lip_vh if v >= REQUIRED),
+        "takeoff_near_runs_with_state": len(run_best),
+        "takeoff_near_run_best_sorted": sorted(run_best),
+        "takeoff_near_run_best_median": (round(median(run_best), 1)
+                                         if run_best else None),
+        "takeoff_near_run_best_max": max(run_best) if run_best else None,
+        "takeoff_near_runs_ge_437": sum(1 for v in run_best if v >= REQUIRED),
         "grounded_near_vh_max_median": round(median(near), 1) if near else None,
         "grounded_near_vh_max_max": max(near) if near else None,
         "grounded_near_ge_437": sum(1 for v in near if v >= REQUIRED),
@@ -174,6 +195,11 @@ def main():
           f"({summary['reached_lip_share']}), edge crossings {summary['edge_crossings']} "
           f"(median {summary['edge_median']}, max {summary['edge_max']}, "
           f">=437: {summary['edge_ge_437']})")
+    print(f"PRIMARY takeoff-capable (haf<4) per-run best: "
+          f"{summary['takeoff_near_runs_with_state']}/{summary['runs']} runs, "
+          f"median {summary['takeoff_near_run_best_median']}, "
+          f"max {summary['takeoff_near_run_best_max']}, "
+          f">=437 in {summary['takeoff_near_runs_ge_437']} runs")
     for name, b in by_block.items():
         print(f"  {name:12s} runs={b['runs']:2d} attempts={b['attempts']:3d} "
               f"lip={b['reached_lip']:3d} edge_n={len(b['edges'])} "

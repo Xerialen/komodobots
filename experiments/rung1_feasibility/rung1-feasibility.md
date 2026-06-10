@@ -13,11 +13,12 @@ one free marker slot (299/300) stays untouched — the bridge plan keeps it.
 
 **The bot already carries enough speed at this lip.** In all 70 directed
 runs on disk, the bot gets grounded, takeoff-capable moments near the lip;
-the best of them is at median 440 qu/s (max 467), and 50 of 70 runs hit the
-censused requirement of 437. The physics check (validated pmove port, real
-collision) says the requirement is actually friendlier than the census
-number: launched 25 qu before the edge on the right line, **370 qu/s
-already clears**; 437 buys ~40 qu of takeoff-window slack.
+the best of them is at median 439 qu/s (max 467), **44 of 70 runs hit the
+censused requirement of 437** and 63 of 70 are within 27 qu/s of it
+(≥410). The physics check (validated pmove port, real collision) says the
+requirement is actually friendlier than the census number: launched 25 qu
+before the edge on the right line, **370 qu/s already clears**; 437 buys
+~40 qu of takeoff-window slack.
 
 **The two real risks are aim and timing, not speed.**
 1. *Aim:* the clearing heading window is only ~12° wide ([−4°..+8°] around
@@ -108,7 +109,7 @@ Conditioning of record: verify_route attempt segmentation → legit_segment
 |---|---|
 | reached the lip area (z>96, <80 qu of edge) | **76/87 attempts (87 %)** |
 | vh at closest lip approach (median) | 419.4 (mostly mid-hop, airborne) |
-| best takeoff-capable vh near lip, per run (haf<4, ≤150 qu) | **median 440.1, max 466.7, ≥437 in 50/70 runs, ≥395 in 70/70** |
+| best takeoff-capable vh near lip, per run (haf<4, ≤150 qu, conditioned) | **median 439.0, max 466.7, ≥437 in 44/70 runs, ≥410 in 63/70, ≥395 in 67/70** |
 | A0 edge_speed crossings (rung-1 gap) | 70/87; median 440.3, max 478.6, ≥437: 36 |
 
 **Cross-track audit (do not over-read the A0 number):** 63/70 qualifying
@@ -116,10 +117,16 @@ crossings sit 100–160 qu cross-track from the edge point — they are the
 walkable detour traversing the launch *plane* up on the ledge, not
 launches. Only 7 crossings are within 80 qu of the lip, and those are slow
 (165–407: Gate-1 wobble). The per-run takeoff-capable stat (haf<4 within
-150 qu) is the honest "speed at the lip" number. The onground flag was
-audited against haf<4: onground never fires where haf<4 does not (0
-onground-only rows); haf<4 adds 351 rows — both conventions reported,
-haf<4 primary (the locked climb_detector convention).
+150 qu) is the honest "speed at the lip" number. Convention notes (Codex
+PR #119 P2): the PRIMARY stat above lives in live-lip.json
+(`takeoff_near_*`), computed on the CONDITIONED attempt segments
+(legit_segment + arrival truncation, like every other metric); the
+unconditioned whole-trace cross-check (inspect_grounded.py) reads slightly
+higher (median 440.1, ≥437 in 50/70) because conditioning drops rows after
+stray teleports/segment ends. The onground flag was audited against haf<4:
+onground never fires where haf<4 does not (0 onground-only rows); haf<4
+adds 351 rows — both conventions emitted side by side in the JSON, haf<4
+primary (the locked climb_detector convention).
 
 Per block (A0 edge crossings): pre-18s 392.5 (n=7) | baseline-v8 339.9
 (n=10) | carrot-family 428–469 (n=40) | c5-comparator 407.5 (n=13).
@@ -190,6 +197,9 @@ state aimed at m97: **24/70 clear** (the other 46 are takeoff states
 60–150 qu before the lip — jumping there is too early; the hop chain would
 ground again closer). Same speeds advanced to the census takeoff point:
 **70/70 clear at err 0; 64/70 at +8; 0/70 at −8** (the block wall).
+(Injection inputs are the unconditioned whole-trace haf<4 states, median
+440.1 — the per-state inputs for flights, distinct from §2's conditioned
+headline stat.)
 
 ## 5. End-to-end sim with the link in the graph (link-sim.json)
 

@@ -184,6 +184,8 @@
        "heading": -176.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -213,6 +215,8 @@
        "heading": -104.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 379.7,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 379.7,
       "grounded_near_n": 5,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -250,6 +254,8 @@
        "heading": 164.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 395.4,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 395.4,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -279,6 +285,8 @@
        "heading": -157.5
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -308,6 +316,8 @@
        "heading": 162.6
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 372.7,
+      "takeoff_near_n": 3,
       "grounded_near_vh_max": 372.7,
       "grounded_near_n": 3,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -345,6 +355,8 @@
        "heading": -106.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 388.1,
+      "takeoff_near_n": 3,
       "grounded_near_vh_max": 388.1,
       "grounded_near_n": 3,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -374,6 +386,8 @@
        "heading": 137.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 377.9,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 377.9,
       "grounded_near_n": 4,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -411,6 +425,8 @@
        "heading": -109.6
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 399.2,
+      "takeoff_near_n": 7,
       "grounded_near_vh_max": 399.2,
       "grounded_near_n": 7,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -448,6 +464,8 @@
        "heading": -109.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 322.0,
+      "takeoff_near_n": 1,
       "grounded_near_vh_max": 322.0,
       "grounded_near_n": 1,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -477,6 +495,8 @@
        "heading": 160.6
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 398.8,
+      "takeoff_near_n": 1,
       "grounded_near_vh_max": 398.8,
       "grounded_near_n": 1,
       "cls": "REACHED_RL",
@@ -506,6 +526,8 @@
        "heading": 156.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 375.5,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 375.5,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -543,6 +565,8 @@
        "heading": 174.3
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 388.8,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 388.8,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -580,6 +604,8 @@
        "heading": 170.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 371.0,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 371.0,
       "grounded_near_n": 4,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -617,6 +643,8 @@
        "heading": -112.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 372.0,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 372.0,
       "grounded_near_n": 6,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -654,6 +682,8 @@
        "heading": 176.6
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 375.1,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 375.1,
       "grounded_near_n": 2,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -691,6 +721,8 @@
        "heading": 159.3
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 381.3,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 381.3,
       "grounded_near_n": 4,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -728,6 +760,8 @@
        "heading": -100.3
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 380.1,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 380.1,
       "grounded_near_n": 6,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -765,6 +799,8 @@
        "heading": -125.3
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 381.7,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 381.7,
       "grounded_near_n": 4,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -794,6 +830,8 @@
        "heading": 175.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 381.1,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 381.1,
       "grounded_near_n": 4,
       "cls": "REACHED_RL",
@@ -831,6 +869,8 @@
        "heading": -113.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 385.4,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 385.4,
       "grounded_near_n": 4,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -868,6 +908,8 @@
        "heading": 161.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 373.6,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 373.6,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -897,6 +939,8 @@
        "heading": -139.7
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 382.3,
+      "takeoff_near_n": 9,
       "grounded_near_vh_max": 382.3,
       "grounded_near_n": 9,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -926,6 +970,8 @@
        "heading": 173.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 367.9,
+      "takeoff_near_n": 1,
       "grounded_near_vh_max": 367.9,
       "grounded_near_n": 1,
       "cls": "REACHED_RL",
@@ -963,6 +1009,8 @@
        "heading": -109.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 387.6,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 387.6,
       "grounded_near_n": 6,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1000,6 +1048,8 @@
        "heading": 172.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 376.1,
+      "takeoff_near_n": 3,
       "grounded_near_vh_max": 376.1,
       "grounded_near_n": 3,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1037,6 +1087,8 @@
        "heading": 169.6
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 379.8,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 379.8,
       "grounded_near_n": 2,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1074,6 +1126,8 @@
        "heading": 173.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 376.9,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 376.9,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -1111,6 +1165,8 @@
        "heading": 169.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 391.4,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 391.4,
       "grounded_near_n": 6,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1148,6 +1204,8 @@
        "heading": -103.3
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 385.8,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 385.8,
       "grounded_near_n": 5,
       "cls": "REACHED_RL",
@@ -1185,6 +1243,8 @@
        "heading": -110.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 377.8,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 377.8,
       "grounded_near_n": 5,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1222,6 +1282,8 @@
        "heading": -143.6
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 377.9,
+      "takeoff_near_n": 7,
       "grounded_near_vh_max": 377.9,
       "grounded_near_n": 7,
       "cls": "REACHED_RL",
@@ -1251,6 +1313,8 @@
        "heading": 176.5
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": 409.3,
+      "takeoff_near_n": 3,
       "grounded_near_vh_max": 409.3,
       "grounded_near_n": 3,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1288,6 +1352,8 @@
        "heading": -120.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 370.9,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 370.9,
       "grounded_near_n": 4,
       "cls": "REACHED_RL",
@@ -1325,6 +1391,8 @@
        "heading": 165.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 368.3,
+      "takeoff_near_n": 1,
       "grounded_near_vh_max": 368.3,
       "grounded_near_n": 1,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1354,6 +1422,8 @@
        "heading": 157.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 382.4,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 382.4,
       "grounded_near_n": 2,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1391,6 +1461,8 @@
        "heading": -97.7
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 254.8,
+      "takeoff_near_n": 1,
       "grounded_near_vh_max": 254.8,
       "grounded_near_n": 1,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1420,6 +1492,8 @@
        "heading": 157.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 375.4,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 375.4,
       "grounded_near_n": 4,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1457,6 +1531,8 @@
        "heading": 138.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 382.1,
+      "takeoff_near_n": 3,
       "grounded_near_vh_max": 382.1,
       "grounded_near_n": 3,
       "cls": "REACHED_RL",
@@ -1486,6 +1562,8 @@
        "heading": 171.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 383.9,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 383.9,
       "grounded_near_n": 2,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1523,6 +1601,8 @@
        "heading": 179.7
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 373.5,
+      "takeoff_near_n": 3,
       "grounded_near_vh_max": 373.5,
       "grounded_near_n": 3,
       "cls": "REACHED_RL",
@@ -1562,6 +1642,8 @@
        "heading": 149.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 386.8,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 386.8,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -1599,6 +1681,8 @@
        "heading": 168.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 377.8,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 377.8,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -1636,6 +1720,8 @@
        "heading": 110.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 331.5,
+      "takeoff_near_n": 1,
       "grounded_near_vh_max": 331.5,
       "grounded_near_n": 1,
       "cls": "REACHED_RL",
@@ -1673,6 +1759,8 @@
        "heading": -176.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 394.1,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 394.1,
       "grounded_near_n": 5,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1710,6 +1798,8 @@
        "heading": -130.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 394.1,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 394.1,
       "grounded_near_n": 4,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1739,6 +1829,8 @@
        "heading": 148.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 414.1,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 414.1,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -1776,6 +1868,8 @@
        "heading": 179.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 379.1,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 379.1,
       "grounded_near_n": 4,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1813,6 +1907,8 @@
        "heading": 159.7
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 375.8,
+      "takeoff_near_n": 1,
       "grounded_near_vh_max": 375.8,
       "grounded_near_n": 1,
       "cls": "REACHED_RL",
@@ -1850,6 +1946,8 @@
        "heading": -179.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 395.0,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 395.0,
       "grounded_near_n": 6,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1887,6 +1985,8 @@
        "heading": 126.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 397.3,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 397.3,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -1924,6 +2024,8 @@
        "heading": 137.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 423.0,
+      "takeoff_near_n": 1,
       "grounded_near_vh_max": 423.0,
       "grounded_near_n": 1,
       "cls": "REACHED_RL",
@@ -1961,6 +2063,8 @@
        "heading": 175.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 377.4,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 377.4,
       "grounded_near_n": 4,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1998,6 +2102,8 @@
        "heading": 147.7
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 408.5,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 408.5,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -2035,6 +2141,8 @@
        "heading": -177.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 383.6,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 383.6,
       "grounded_near_n": 4,
       "cls": "REACHED_RL",
@@ -2072,6 +2180,8 @@
        "heading": 140.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 395.3,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 395.3,
       "grounded_near_n": 6,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -2109,6 +2219,8 @@
        "heading": -135.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 385.1,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 385.1,
       "grounded_near_n": 5,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2146,6 +2258,8 @@
        "heading": 176.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 390.8,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 390.8,
       "grounded_near_n": 5,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2175,6 +2289,8 @@
        "heading": 141.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 397.0,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 397.0,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -2212,6 +2328,8 @@
        "heading": -140.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 380.5,
+      "takeoff_near_n": 7,
       "grounded_near_vh_max": 380.5,
       "grounded_near_n": 7,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2249,6 +2367,8 @@
        "heading": -179.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 382.0,
+      "takeoff_near_n": 8,
       "grounded_near_vh_max": 382.0,
       "grounded_near_n": 8,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -2286,6 +2406,8 @@
        "heading": 158.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 384.5,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 384.5,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -2323,6 +2445,8 @@
        "heading": -176.7
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 393.0,
+      "takeoff_near_n": 3,
       "grounded_near_vh_max": 393.0,
       "grounded_near_n": 3,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2352,6 +2476,8 @@
        "heading": 138.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 378.8,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 378.8,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -2389,6 +2515,8 @@
        "heading": -173.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 380.9,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 380.9,
       "grounded_near_n": 4,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2426,6 +2554,8 @@
        "heading": 177.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 379.5,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 379.5,
       "grounded_near_n": 4,
       "cls": "REACHED_RL",
@@ -2463,6 +2593,8 @@
        "heading": 119.3
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 403.4,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 403.4,
       "grounded_near_n": 6,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2500,6 +2632,8 @@
        "heading": 173.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 388.3,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 388.3,
       "grounded_near_n": 4,
       "cls": "REACHED_RL",
@@ -2537,6 +2671,8 @@
        "heading": 167.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 378.4,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 378.4,
       "grounded_near_n": 4,
       "cls": "REACHED_RL",
@@ -2574,6 +2710,8 @@
        "heading": 137.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 406.5,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 406.5,
       "grounded_near_n": 6,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2611,6 +2749,8 @@
        "heading": -177.6
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 381.7,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 381.7,
       "grounded_near_n": 6,
       "cls": "REACHED_RL",
@@ -2650,6 +2790,8 @@
        "heading": 174.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 376.5,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 376.5,
       "grounded_near_n": 2,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -2679,6 +2821,8 @@
        "heading": -101.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 381.5,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 381.5,
       "grounded_near_n": 4,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2716,6 +2860,8 @@
        "heading": 157.3
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 384.2,
+      "takeoff_near_n": 3,
       "grounded_near_vh_max": 384.2,
       "grounded_near_n": 3,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2753,6 +2899,8 @@
        "heading": -100.7
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 392.7,
+      "takeoff_near_n": 17,
       "grounded_near_vh_max": 392.7,
       "grounded_near_n": 17,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -2790,6 +2938,8 @@
        "heading": -131.6
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 385.7,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 385.7,
       "grounded_near_n": 5,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2827,6 +2977,8 @@
        "heading": -135.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 391.1,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 391.1,
       "grounded_near_n": 5,
       "cls": "REACHED_RL",
@@ -2864,6 +3016,8 @@
        "heading": -159.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 374.2,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 374.2,
       "grounded_near_n": 4,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2901,6 +3055,8 @@
        "heading": -97.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 396.3,
+      "takeoff_near_n": 15,
       "grounded_near_vh_max": 396.3,
       "grounded_near_n": 15,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2938,6 +3094,8 @@
        "heading": -141.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 381.8,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 381.8,
       "grounded_near_n": 4,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2967,6 +3125,8 @@
        "heading": -150.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 374.2,
+      "takeoff_near_n": 3,
       "grounded_near_vh_max": 374.2,
       "grounded_near_n": 3,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -3004,6 +3164,8 @@
        "heading": -92.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 384.4,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 384.4,
       "grounded_near_n": 5,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -3041,6 +3203,8 @@
        "heading": -136.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 377.1,
+      "takeoff_near_n": 13,
       "grounded_near_vh_max": 377.1,
       "grounded_near_n": 13,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -3078,6 +3242,8 @@
        "heading": 151.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 338.6,
+      "takeoff_near_n": 1,
       "grounded_near_vh_max": 338.6,
       "grounded_near_n": 1,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -3115,6 +3281,8 @@
        "heading": -178.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 380.6,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 380.6,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -3152,6 +3320,8 @@
        "heading": 179.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 378.9,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 378.9,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -3189,6 +3359,8 @@
        "heading": -86.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 376.9,
+      "takeoff_near_n": 18,
       "grounded_near_vh_max": 376.9,
       "grounded_near_n": 18,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -3226,6 +3398,8 @@
        "heading": 176.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 396.1,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 396.1,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -3263,6 +3437,8 @@
        "heading": -94.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 391.1,
+      "takeoff_near_n": 7,
       "grounded_near_vh_max": 391.1,
       "grounded_near_n": 7,
       "cls": "REACHED_RL",
@@ -3292,6 +3468,8 @@
        "heading": -140.5
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -3321,6 +3499,8 @@
        "heading": -151.7
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 379.3,
+      "takeoff_near_n": 3,
       "grounded_near_vh_max": 379.3,
       "grounded_near_n": 3,
       "cls": "REACHED_RL",
@@ -3358,6 +3538,8 @@
        "heading": -148.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 378.8,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 378.8,
       "grounded_near_n": 6,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -3395,6 +3577,8 @@
        "heading": 163.6
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 259.2,
+      "takeoff_near_n": 1,
       "grounded_near_vh_max": 259.2,
       "grounded_near_n": 1,
       "cls": "REACHED_RL",
@@ -3432,6 +3616,8 @@
        "heading": -145.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 391.2,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 391.2,
       "grounded_near_n": 5,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -3469,6 +3655,8 @@
        "heading": 171.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 381.8,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 381.8,
       "grounded_near_n": 4,
       "cls": "REACHED_RL",
@@ -3506,6 +3694,8 @@
        "heading": -95.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 379.5,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 379.5,
       "grounded_near_n": 5,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -3543,6 +3733,8 @@
        "heading": -138.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 384.7,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 384.7,
       "grounded_near_n": 2,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -3572,6 +3764,8 @@
        "heading": -119.0
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -3601,6 +3795,8 @@
        "heading": -139.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 374.2,
+      "takeoff_near_n": 3,
       "grounded_near_vh_max": 374.2,
       "grounded_near_n": 3,
       "cls": "REACHED_RL",
@@ -3638,6 +3834,8 @@
        "heading": -131.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 380.2,
+      "takeoff_near_n": 20,
       "grounded_near_vh_max": 380.2,
       "grounded_near_n": 20,
       "cls": "REACHED_RL",
@@ -3675,6 +3873,8 @@
        "heading": 178.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 406.3,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 406.3,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -3712,6 +3912,8 @@
        "heading": -91.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 376.7,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 376.7,
       "grounded_near_n": 4,
       "cls": "REACHED_RL",
@@ -3749,6 +3951,8 @@
        "heading": -76.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 380.4,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 380.4,
       "grounded_near_n": 5,
       "cls": "REACHED_RL",
@@ -3786,6 +3990,8 @@
        "heading": -178.7
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 389.9,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 389.9,
       "grounded_near_n": 5,
       "cls": "REACHED_RL",
@@ -3823,6 +4029,8 @@
        "heading": -130.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 390.1,
+      "takeoff_near_n": 18,
       "grounded_near_vh_max": 390.1,
       "grounded_near_n": 18,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -3862,6 +4070,8 @@
        "heading": 149.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 386.8,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 386.8,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -3899,6 +4109,8 @@
        "heading": 168.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 377.8,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 377.8,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -3936,6 +4148,8 @@
        "heading": 110.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 331.5,
+      "takeoff_near_n": 1,
       "grounded_near_vh_max": 331.5,
       "grounded_near_n": 1,
       "cls": "REACHED_RL",
@@ -3973,6 +4187,8 @@
        "heading": -134.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 394.1,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 394.1,
       "grounded_near_n": 4,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -4010,6 +4226,8 @@
        "heading": 126.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 380.0,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 380.0,
       "grounded_near_n": 6,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -4039,6 +4257,8 @@
        "heading": 148.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 414.1,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 414.1,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -4076,6 +4296,8 @@
        "heading": 146.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 226.5,
+      "takeoff_near_n": 7,
       "grounded_near_vh_max": 226.5,
       "grounded_near_n": 7,
       "cls": "REACHED_RL",
@@ -4113,6 +4335,8 @@
        "heading": 159.7
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 375.8,
+      "takeoff_near_n": 1,
       "grounded_near_vh_max": 375.8,
       "grounded_near_n": 1,
       "cls": "REACHED_RL",
@@ -4150,6 +4374,8 @@
        "heading": -179.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 395.0,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 395.0,
       "grounded_near_n": 6,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -4187,6 +4413,8 @@
        "heading": 126.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 397.3,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 397.3,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -4224,6 +4452,8 @@
        "heading": 137.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 423.0,
+      "takeoff_near_n": 1,
       "grounded_near_vh_max": 423.0,
       "grounded_near_n": 1,
       "cls": "REACHED_RL",
@@ -4261,6 +4491,8 @@
        "heading": 175.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 377.4,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 377.4,
       "grounded_near_n": 4,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -4298,6 +4530,8 @@
        "heading": 147.7
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 408.5,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 408.5,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -4335,6 +4569,8 @@
        "heading": -176.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 380.4,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 380.4,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -4372,6 +4608,8 @@
        "heading": -127.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 384.0,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 384.0,
       "grounded_near_n": 5,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -4409,6 +4647,8 @@
        "heading": -135.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 385.1,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 385.1,
       "grounded_near_n": 5,
       "cls": "REACHED_RL",
@@ -4446,6 +4686,8 @@
        "heading": 176.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 390.8,
+      "takeoff_near_n": 7,
       "grounded_near_vh_max": 390.8,
       "grounded_near_n": 7,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -4475,6 +4717,8 @@
        "heading": 141.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 397.0,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 397.0,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -4512,6 +4756,8 @@
        "heading": -171.6
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 380.0,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 380.0,
       "grounded_near_n": 4,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -4549,6 +4795,8 @@
        "heading": 126.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 396.2,
+      "takeoff_near_n": 8,
       "grounded_near_vh_max": 396.2,
       "grounded_near_n": 8,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -4586,6 +4834,8 @@
        "heading": 158.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 384.5,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 384.5,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -4623,6 +4873,8 @@
        "heading": -129.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 393.0,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 393.0,
       "grounded_near_n": 5,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -4660,6 +4912,8 @@
        "heading": 177.3
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 382.6,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 382.6,
       "grounded_near_n": 4,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -4697,6 +4951,8 @@
        "heading": -173.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 380.9,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 380.9,
       "grounded_near_n": 4,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -4734,6 +4990,8 @@
        "heading": 177.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 379.5,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 379.5,
       "grounded_near_n": 4,
       "cls": "REACHED_RL",
@@ -4771,6 +5029,8 @@
        "heading": 119.3
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 403.4,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 403.4,
       "grounded_near_n": 6,
       "cls": "REACHED_RL",
@@ -4808,6 +5068,8 @@
        "heading": 173.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 388.3,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 388.3,
       "grounded_near_n": 4,
       "cls": "REACHED_RL",
@@ -4845,6 +5107,8 @@
        "heading": 167.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 378.4,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 378.4,
       "grounded_near_n": 4,
       "cls": "REACHED_RL",
@@ -4882,6 +5146,8 @@
        "heading": 137.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 406.5,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 406.5,
       "grounded_near_n": 6,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -4919,6 +5185,8 @@
        "heading": -177.6
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 378.2,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 378.2,
       "grounded_near_n": 4,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -4958,6 +5226,8 @@
        "heading": -176.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 378.6,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 378.6,
       "grounded_near_n": 6,
       "cls": "REACHED_RL",
@@ -4995,6 +5265,8 @@
        "heading": 144.6
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 382.7,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 382.7,
       "grounded_near_n": 6,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -5032,6 +5304,8 @@
        "heading": 133.7
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 377.8,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 377.8,
       "grounded_near_n": 6,
       "cls": "REACHED_RL",
@@ -5061,6 +5335,8 @@
        "heading": 176.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 380.9,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 380.9,
       "grounded_near_n": 6,
       "cls": "REACHED_RL",
@@ -5090,6 +5366,8 @@
        "heading": -169.7
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 377.1,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 377.1,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -5127,6 +5405,8 @@
        "heading": 171.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 375.9,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 375.9,
       "grounded_near_n": 6,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -5164,6 +5444,8 @@
        "heading": 160.3
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 386.3,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 386.3,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -5201,6 +5483,8 @@
        "heading": -179.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 374.7,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 374.7,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -5238,6 +5522,8 @@
        "heading": -175.6
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 376.9,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 376.9,
       "grounded_near_n": 6,
       "cls": "REACHED_RL",
@@ -5275,6 +5561,8 @@
        "heading": 137.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 380.7,
+      "takeoff_near_n": 8,
       "grounded_near_vh_max": 380.7,
       "grounded_near_n": 8,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -5312,6 +5600,8 @@
        "heading": 145.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 377.1,
+      "takeoff_near_n": 5,
       "grounded_near_vh_max": 377.1,
       "grounded_near_n": 5,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -5349,6 +5639,8 @@
        "heading": 121.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 377.9,
+      "takeoff_near_n": 6,
       "grounded_near_vh_max": 377.9,
       "grounded_near_n": 6,
       "cls": "REACHED_RL",
@@ -5386,6 +5678,8 @@
        "heading": 158.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 381.4,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 381.4,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -5415,6 +5709,8 @@
        "heading": -175.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 375.5,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 375.5,
       "grounded_near_n": 2,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -5452,6 +5748,8 @@
        "heading": 125.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 381.0,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 381.0,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -5489,6 +5787,8 @@
        "heading": 122.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 380.2,
+      "takeoff_near_n": 3,
       "grounded_near_vh_max": 380.2,
       "grounded_near_n": 3,
       "cls": "REACHED_RL",
@@ -5526,6 +5826,8 @@
        "heading": 132.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 387.9,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 387.9,
       "grounded_near_n": 4,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -5563,6 +5865,8 @@
        "heading": 127.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 375.7,
+      "takeoff_near_n": 16,
       "grounded_near_vh_max": 375.7,
       "grounded_near_n": 16,
       "cls": "REACHED_RL",
@@ -5592,6 +5896,8 @@
        "heading": 177.3
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 386.6,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 386.6,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -5629,6 +5935,8 @@
        "heading": -175.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 379.4,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 379.4,
       "grounded_near_n": 4,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -5658,6 +5966,8 @@
        "heading": -170.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 374.3,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 374.3,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -5695,6 +6005,8 @@
        "heading": -176.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 384.9,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 384.9,
       "grounded_near_n": 4,
       "cls": "REACHED_RL",
@@ -5732,6 +6044,8 @@
        "heading": 153.5
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 380.5,
+      "takeoff_near_n": 7,
       "grounded_near_vh_max": 380.5,
       "grounded_near_n": 7,
       "cls": "REACHED_RL",
@@ -5761,6 +6075,8 @@
        "heading": -173.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 394.7,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 394.7,
       "grounded_near_n": 4,
       "cls": "REACHED_RL",
@@ -5790,6 +6106,8 @@
        "heading": 126.4
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 375.4,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 375.4,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -5827,6 +6145,8 @@
        "heading": -178.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 384.9,
+      "takeoff_near_n": 4,
       "grounded_near_vh_max": 384.9,
       "grounded_near_n": 4,
       "cls": "REACHED_RL",
@@ -5856,6 +6176,8 @@
        "heading": 125.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 383.1,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 383.1,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -5893,6 +6215,8 @@
        "heading": 142.2
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 390.9,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 390.9,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -5930,6 +6254,8 @@
        "heading": 130.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 374.8,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 374.8,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -5959,6 +6285,8 @@
        "heading": -173.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 372.1,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 372.1,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -5996,6 +6324,8 @@
        "heading": -178.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 371.8,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 371.8,
       "grounded_near_n": 2,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -6027,6 +6357,8 @@
        "heading": 115.3
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "REACHED_RL",
@@ -6056,6 +6388,8 @@
        "heading": 175.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 385.9,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 385.9,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -6076,6 +6410,8 @@
       "crossing": null,
       "lip_approach": null,
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6105,6 +6441,8 @@
        "heading": -90.0
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6125,6 +6463,8 @@
       "crossing": null,
       "lip_approach": null,
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6154,6 +6494,8 @@
        "heading": -90.0
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6183,6 +6525,8 @@
        "heading": -90.0
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6212,6 +6556,8 @@
        "heading": -3.4
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "REACHED_RL",
@@ -6232,6 +6578,8 @@
       "crossing": null,
       "lip_approach": null,
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6261,6 +6609,8 @@
        "heading": 167.3
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 382.4,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 382.4,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -6290,6 +6640,8 @@
        "heading": -32.0
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "REACHED_RL",
@@ -6319,6 +6671,8 @@
        "heading": -69.6
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6348,6 +6702,8 @@
        "heading": 1.4
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6377,6 +6733,8 @@
        "heading": -20.5
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6406,6 +6764,8 @@
        "heading": -70.0
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6435,6 +6795,8 @@
        "heading": -90.0
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "REACHED_RL",
@@ -6464,6 +6826,8 @@
        "heading": 179.0
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 377.9,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 377.9,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -6484,6 +6848,8 @@
       "crossing": null,
       "lip_approach": null,
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6513,6 +6879,8 @@
        "heading": 177.1
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 379.9,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 379.9,
       "grounded_near_n": 2,
       "cls": "REACHED_RL",
@@ -6542,6 +6910,8 @@
        "heading": -90.0
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -6571,6 +6941,8 @@
        "heading": -90.0
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6600,6 +6972,8 @@
        "heading": 168.9
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 371.9,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 371.9,
       "grounded_near_n": 2,
       "cls": "REACHED_LEDGE_NO_JUMP",
@@ -6629,6 +7003,8 @@
        "heading": -42.2
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "REACHED_RL",
@@ -6649,6 +7025,8 @@
       "crossing": null,
       "lip_approach": null,
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6669,6 +7047,8 @@
       "crossing": null,
       "lip_approach": null,
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6698,6 +7078,8 @@
        "heading": -90.0
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "REACHED_RL",
@@ -6718,6 +7100,8 @@
       "crossing": null,
       "lip_approach": null,
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6747,6 +7131,8 @@
        "heading": -90.0
       },
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6767,6 +7153,8 @@
       "crossing": null,
       "lip_approach": null,
       "reached_lip": false,
+      "takeoff_near_vh_max": null,
+      "takeoff_near_n": 0,
       "grounded_near_vh_max": null,
       "grounded_near_n": 0,
       "cls": "LEFT_ROUTE",
@@ -6796,6 +7184,8 @@
        "heading": 176.8
       },
       "reached_lip": true,
+      "takeoff_near_vh_max": 374.8,
+      "takeoff_near_n": 2,
       "grounded_near_vh_max": 374.8,
       "grounded_near_n": 2,
       "cls": "ATTEMPTED_JUMP_FELL_SHORT",

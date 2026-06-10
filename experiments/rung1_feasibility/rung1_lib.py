@@ -33,6 +33,15 @@ counts a bot standing UNDER the lip):
                          (best grounded vh within 150 qu of the edge),
                          restricted to upper-level rows.
 
+  * TAKEOFF-CAPABLE (the PRIMARY grounded convention, Codex PR #119 P2):
+    haf < 4 (height_above_floor, the locked climb_detector grounded rule —
+    the live trace onground flag is unreliable for bots and was audited
+    strictly-conservative vs haf: 0 onground-only rows near the lip). Live
+    rows carry haf from trace.csv; sim rows have no haf and fall back to
+    the sim's own onground state (authoritative there — it is pmove state,
+    not a logged flag). Both conventions are emitted side by side:
+    takeoff_near_* (primary) and grounded_near_* (onground, secondary).
+
 Attempt conditioning = the rung-A protocol of record (A1/A2): verify_route
 segment_attempts -> legit_segment(rows, ()) (sng_shortcut2 sanctions no
 teleporters; the stray-teleport guard is load-bearing, DO NOT weaken) ->
@@ -165,6 +174,16 @@ def heading_at(seg, i):
     return None
 
 
+def takeoff_capable(row):
+    """PRIMARY grounded convention: haf < 4 when the row carries
+    height_above_floor (live trace.csv), else the row's onground state
+    (sim rows — pmove state, authoritative). See module docstring."""
+    haf = row.get("haf")
+    if haf is not None:
+        return haf < 4.0
+    return bool(row.get("onground"))
+
+
 def lip_attempt_metrics(seg, gap):
     """All A4 per-attempt lip measurements on one conditioned segment."""
     ex, ey, _ez = edge_point(gap)
@@ -179,21 +198,24 @@ def lip_attempt_metrics(seg, gap):
     approach = None
     if upper:
         i, r = min(upper, key=lambda ir: math.hypot(ir[1]["x"] - ex, ir[1]["y"] - ey))
+        hdg = heading_at(seg, i)
         approach = {"hdist": round(math.hypot(r["x"] - ex, r["y"] - ey), 1),
                     "vh": round(r["vh"], 1), "t": r["t"],
                     "x": round(r["x"], 1), "y": round(r["y"], 1),
                     "z": round(r["z"], 1),
                     "onground": int(r.get("onground", 0)),
-                    "heading": (None if heading_at(seg, i) is None
-                                else round(heading_at(seg, i), 1))}
-    near = [r["vh"] for r in seg
-            if r["z"] > LIP_Z_MIN and r.get("onground")
-            and math.hypot(r["x"] - ex, r["y"] - ey) < NEAR_R]
+                    "heading": None if hdg is None else round(hdg, 1)}
+    in_near = [r for r in seg if r["z"] > LIP_Z_MIN
+               and math.hypot(r["x"] - ex, r["y"] - ey) < NEAR_R]
+    takeoff = [r["vh"] for r in in_near if takeoff_capable(r)]
+    near = [r["vh"] for r in in_near if r.get("onground")]
     return {
         "edge": None if edge is None else round(edge, 1),
         "crossing": det,
         "lip_approach": approach,
         "reached_lip": bool(approach and approach["hdist"] < LIP_R),
+        "takeoff_near_vh_max": round(max(takeoff), 1) if takeoff else None,
+        "takeoff_near_n": len(takeoff),
         "grounded_near_vh_max": round(max(near), 1) if near else None,
         "grounded_near_n": len(near),
     }
@@ -209,7 +231,10 @@ def load_live_rows(run_id, route):
             row = {"t": float(r["t"]), "x": float(r["x"]), "y": float(r["y"]),
                    "z": float(r["z"]), "vh": float(r["vh"]),
                    "onground": int(r["onground"]),
-                   "over_void": int(r["over_void"])}
+                   "over_void": int(r["over_void"]),
+                   "haf": (float(r["height_above_floor"])
+                           if r.get("height_above_floor") not in (None, "")
+                           else None)}
             row["dist_goal"] = math.sqrt((row["x"] - gx) ** 2
                                          + (row["y"] - gy) ** 2
                                          + (row["z"] - gz) ** 2)

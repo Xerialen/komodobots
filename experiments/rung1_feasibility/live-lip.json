@@ -161,6 +161,82 @@
   ],
   "lip_approach_vh_median": 419.4,
   "lip_vh_ge_437": 26,
+  "takeoff_near_runs_with_state": 70,
+  "takeoff_near_run_best_sorted": [
+   219.4,
+   360.6,
+   384.7,
+   395.2,
+   402.0,
+   408.9,
+   409.9,
+   412.3,
+   413.8,
+   415.4,
+   417.9,
+   421.3,
+   423.8,
+   424.3,
+   425.2,
+   425.5,
+   426.3,
+   428.8,
+   428.8,
+   433.0,
+   433.3,
+   433.4,
+   434.8,
+   435.1,
+   435.4,
+   436.5,
+   437.0,
+   437.3,
+   437.3,
+   437.3,
+   437.7,
+   438.0,
+   438.0,
+   438.6,
+   438.9,
+   439.1,
+   439.4,
+   439.7,
+   440.1,
+   440.1,
+   440.4,
+   440.6,
+   440.6,
+   440.7,
+   440.8,
+   441.1,
+   441.4,
+   441.6,
+   441.7,
+   442.1,
+   442.1,
+   442.3,
+   442.4,
+   442.5,
+   442.5,
+   443.1,
+   443.5,
+   444.0,
+   446.6,
+   447.0,
+   448.1,
+   448.7,
+   449.7,
+   453.0,
+   453.3,
+   453.8,
+   454.1,
+   455.4,
+   458.1,
+   466.7
+  ],
+  "takeoff_near_run_best_median": 439.0,
+  "takeoff_near_run_best_max": 466.7,
+  "takeoff_near_runs_ge_437": 44,
   "grounded_near_vh_max_median": 436.0,
   "grounded_near_vh_max_max": 466.7,
   "grounded_near_ge_437": 33
@@ -328,6 +404,8 @@
       "heading": -85.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 434.8,
+     "takeoff_near_n": 22,
      "grounded_near_vh_max": 148.7,
      "grounded_near_n": 12,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -335,7 +413,8 @@
      "t0": 7.301,
      "dur": 21.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 434.8
   },
   {
    "run_id": "20260609T224845Z",
@@ -356,6 +435,8 @@
       "heading": 146.5
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 442.5,
+     "takeoff_near_n": 6,
      "grounded_near_vh_max": 442.5,
      "grounded_near_n": 1,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -363,7 +444,8 @@
      "t0": 7.294,
      "dur": 21.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 442.5
   },
   {
    "run_id": "20260609T224918Z",
@@ -384,6 +466,8 @@
       "heading": 117.2
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 409.9,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 409.9,
      "grounded_near_n": 1,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -391,7 +475,8 @@
      "t0": 7.297,
      "dur": 21.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 409.9
   },
   {
    "run_id": "20260609T224951Z",
@@ -412,6 +497,8 @@
       "heading": 159.3
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 440.6,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 436.0,
      "grounded_near_n": 1,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -419,7 +506,8 @@
      "t0": 7.298,
      "dur": 21.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 440.6
   },
   {
    "run_id": "20260609T225024Z",
@@ -448,6 +536,8 @@
       "heading": 178.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 441.7,
+     "takeoff_near_n": 2,
      "grounded_near_vh_max": 437.0,
      "grounded_near_n": 1,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -455,7 +545,8 @@
      "t0": 7.302,
      "dur": 21.0
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 441.7
   },
   {
    "run_id": "20260609T225057Z",
@@ -484,6 +575,8 @@
       "heading": 172.5
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 438.9,
+     "takeoff_near_n": 2,
      "grounded_near_vh_max": 434.1,
      "grounded_near_n": 1,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -491,7 +584,8 @@
      "t0": 7.302,
      "dur": 21.0
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 438.9
   },
   {
    "run_id": "20260609T225130Z",
@@ -520,6 +614,8 @@
       "heading": 121.1
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 437.7,
+     "takeoff_near_n": 1,
      "grounded_near_vh_max": null,
      "grounded_near_n": 0,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -527,7 +623,8 @@
      "t0": 7.3,
      "dur": 21.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 437.7
   },
   {
    "run_id": "20260609T225203Z",
@@ -556,6 +653,8 @@
       "heading": 162.5
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 439.4,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 433.8,
      "grounded_near_n": 1,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -563,7 +662,8 @@
      "t0": 7.301,
      "dur": 21.0
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 439.4
   },
   {
    "run_id": "20260609T225236Z",
@@ -592,6 +692,8 @@
       "heading": 156.4
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": null,
+     "takeoff_near_n": 0,
      "grounded_near_vh_max": null,
      "grounded_near_n": 0,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -613,6 +715,8 @@
       "heading": 2.0
      },
      "reached_lip": false,
+     "takeoff_near_vh_max": null,
+     "takeoff_near_n": 0,
      "grounded_near_vh_max": null,
      "grounded_near_n": 0,
      "cls": "LEFT_ROUTE",
@@ -642,6 +746,8 @@
       "heading": 77.6
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 441.6,
+     "takeoff_near_n": 19,
      "grounded_near_vh_max": 424.6,
      "grounded_near_n": 12,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -649,7 +755,8 @@
      "t0": 14.89,
      "dur": 13.5
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 441.6
   },
   {
    "run_id": "20260609T225309Z",
@@ -670,6 +777,8 @@
       "heading": 173.9
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 424.3,
+     "takeoff_near_n": 6,
      "grounded_near_vh_max": 380.5,
      "grounded_near_n": 2,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -677,7 +786,8 @@
      "t0": 7.33,
      "dur": 21.0
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 424.3
   },
   {
    "run_id": "20260609T225417Z",
@@ -706,6 +816,8 @@
       "heading": -62.3
      },
      "reached_lip": false,
+     "takeoff_near_vh_max": null,
+     "takeoff_near_n": 0,
      "grounded_near_vh_max": null,
      "grounded_near_n": 0,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -735,6 +847,8 @@
       "heading": -68.2
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 438.0,
+     "takeoff_near_n": 5,
      "grounded_near_vh_max": 438.0,
      "grounded_near_n": 2,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -742,7 +856,8 @@
      "t0": 19.464,
      "dur": 35.9
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 438.0
   },
   {
    "run_id": "20260609T225518Z",
@@ -763,6 +878,8 @@
       "heading": 112.2
      },
      "reached_lip": false,
+     "takeoff_near_vh_max": null,
+     "takeoff_near_n": 0,
      "grounded_near_vh_max": null,
      "grounded_near_n": 0,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -784,6 +901,8 @@
       "heading": -0.4
      },
      "reached_lip": false,
+     "takeoff_near_vh_max": null,
+     "takeoff_near_n": 0,
      "grounded_near_vh_max": null,
      "grounded_near_n": 0,
      "cls": "LEFT_ROUTE",
@@ -805,6 +924,8 @@
       "heading": 176.8
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 453.3,
+     "takeoff_near_n": 6,
      "grounded_near_vh_max": 453.3,
      "grounded_near_n": 1,
      "cls": "REACHED_RL",
@@ -812,7 +933,8 @@
      "t0": 31.548,
      "dur": 20.0
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 453.3
   },
   {
    "run_id": "20260609T225619Z",
@@ -841,6 +963,8 @@
       "heading": 145.9
      },
      "reached_lip": false,
+     "takeoff_near_vh_max": null,
+     "takeoff_near_n": 0,
      "grounded_near_vh_max": null,
      "grounded_near_n": 0,
      "cls": "LEFT_ROUTE",
@@ -862,6 +986,8 @@
       "heading": -5.9
      },
      "reached_lip": false,
+     "takeoff_near_vh_max": null,
+     "takeoff_near_n": 0,
      "grounded_near_vh_max": null,
      "grounded_near_n": 0,
      "cls": "LEFT_ROUTE",
@@ -883,6 +1009,8 @@
       "heading": 177.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 440.1,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 435.4,
      "grounded_near_n": 1,
      "cls": "REACHED_RL",
@@ -890,7 +1018,8 @@
      "t0": 12.0,
      "dur": 6.0
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 440.1
   },
   {
    "run_id": "20260609T225719Z",
@@ -919,6 +1048,8 @@
       "heading": -64.8
      },
      "reached_lip": false,
+     "takeoff_near_vh_max": null,
+     "takeoff_near_n": 0,
      "grounded_near_vh_max": null,
      "grounded_near_n": 0,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -940,6 +1071,8 @@
       "heading": -166.2
      },
      "reached_lip": false,
+     "takeoff_near_vh_max": null,
+     "takeoff_near_n": 0,
      "grounded_near_vh_max": null,
      "grounded_near_n": 0,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -969,6 +1102,8 @@
       "heading": -71.8
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 443.5,
+     "takeoff_near_n": 15,
      "grounded_near_vh_max": 443.5,
      "grounded_near_n": 7,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -976,7 +1111,8 @@
      "t0": 27.894,
      "dur": 27.5
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 443.5
   },
   {
    "run_id": "20260609T225820Z",
@@ -1005,6 +1141,8 @@
       "heading": -172.9
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 435.4,
+     "takeoff_near_n": 16,
      "grounded_near_vh_max": 435.4,
      "grounded_near_n": 11,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1012,7 +1150,8 @@
      "t0": 7.299,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 435.4
   },
   {
    "run_id": "20260609T225920Z",
@@ -1041,6 +1180,8 @@
       "heading": 131.3
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 442.4,
+     "takeoff_near_n": 25,
      "grounded_near_vh_max": 439.3,
      "grounded_near_n": 8,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1048,7 +1189,8 @@
      "t0": 7.297,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 442.4
   },
   {
    "run_id": "20260609T230021Z",
@@ -1077,6 +1219,8 @@
       "heading": 141.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 428.8,
+     "takeoff_near_n": 5,
      "grounded_near_vh_max": 428.8,
      "grounded_near_n": 2,
      "cls": "REACHED_RL",
@@ -1084,7 +1228,8 @@
      "t0": 7.298,
      "dur": 6.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 428.8
   },
   {
    "run_id": "20260609T230122Z",
@@ -1113,6 +1258,8 @@
       "heading": 150.2
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 448.7,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 443.2,
      "grounded_near_n": 1,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1120,7 +1267,8 @@
      "t0": 7.296,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 448.7
   },
   {
    "run_id": "20260609T230222Z",
@@ -1141,6 +1289,8 @@
       "heading": 155.7
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 441.1,
+     "takeoff_near_n": 2,
      "grounded_near_vh_max": 436.5,
      "grounded_near_n": 1,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1148,7 +1298,8 @@
      "t0": 7.301,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 441.1
   },
   {
    "run_id": "20260609T230323Z",
@@ -1177,6 +1328,8 @@
       "heading": 167.4
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 433.3,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 428.6,
      "grounded_near_n": 1,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1184,7 +1337,8 @@
      "t0": 7.296,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 433.3
   },
   {
    "run_id": "20260610T004839Z",
@@ -1213,6 +1367,8 @@
       "heading": -75.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 421.3,
+     "takeoff_near_n": 5,
      "grounded_near_vh_max": 421.3,
      "grounded_near_n": 2,
      "cls": "REACHED_RL",
@@ -1220,7 +1376,8 @@
      "t0": 7.3,
      "dur": 10.7
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 421.3
   },
   {
    "run_id": "20260610T004939Z",
@@ -1249,6 +1406,8 @@
       "heading": 163.1
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 408.9,
+     "takeoff_near_n": 2,
      "grounded_near_vh_max": 403.8,
      "grounded_near_n": 1,
      "cls": "REACHED_RL",
@@ -1256,7 +1415,8 @@
      "t0": 7.3,
      "dur": 6.0
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 408.9
   },
   {
    "run_id": "20260610T005040Z",
@@ -1285,6 +1445,8 @@
       "heading": -114.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 425.2,
+     "takeoff_near_n": 8,
      "grounded_near_vh_max": 414.5,
      "grounded_near_n": 3,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1292,7 +1454,8 @@
      "t0": 7.297,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 425.2
   },
   {
    "run_id": "20260610T005140Z",
@@ -1321,6 +1484,8 @@
       "heading": 168.7
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 458.1,
+     "takeoff_near_n": 6,
      "grounded_near_vh_max": 458.1,
      "grounded_near_n": 1,
      "cls": "REACHED_RL",
@@ -1328,7 +1493,8 @@
      "t0": 7.299,
      "dur": 5.4
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 458.1
   },
   {
    "run_id": "20260610T005241Z",
@@ -1357,6 +1523,8 @@
       "heading": 171.9
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 435.1,
+     "takeoff_near_n": 12,
      "grounded_near_vh_max": 430.4,
      "grounded_near_n": 11,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1364,7 +1532,8 @@
      "t0": 7.299,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 435.1
   },
   {
    "run_id": "20260610T005341Z",
@@ -1393,6 +1562,8 @@
       "heading": -54.7
      },
      "reached_lip": false,
+     "takeoff_near_vh_max": 440.1,
+     "takeoff_near_n": 2,
      "grounded_near_vh_max": 440.1,
      "grounded_near_n": 1,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1422,6 +1593,8 @@
       "heading": -124.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 438.0,
+     "takeoff_near_n": 11,
      "grounded_near_vh_max": 430.4,
      "grounded_near_n": 3,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1429,7 +1602,8 @@
      "t0": 15.424,
      "dur": 40.0
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 440.1
   },
   {
    "run_id": "20260610T005442Z",
@@ -1458,6 +1632,8 @@
       "heading": 167.2
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 428.8,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 428.8,
      "grounded_near_n": 1,
      "cls": "REACHED_RL",
@@ -1465,7 +1641,8 @@
      "t0": 7.3,
      "dur": 13.2
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 428.8
   },
   {
    "run_id": "20260610T005542Z",
@@ -1494,6 +1671,8 @@
       "heading": 159.8
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 425.5,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 419.7,
      "grounded_near_n": 1,
      "cls": "REACHED_RL",
@@ -1501,7 +1680,8 @@
      "t0": 7.301,
      "dur": 6.7
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 425.5
   },
   {
    "run_id": "20260610T005643Z",
@@ -1530,6 +1710,8 @@
       "heading": 146.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 436.5,
+     "takeoff_near_n": 4,
      "grounded_near_vh_max": 436.5,
      "grounded_near_n": 1,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1537,7 +1719,8 @@
      "t0": 7.302,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 436.5
   },
   {
    "run_id": "20260610T005744Z",
@@ -1566,6 +1749,8 @@
       "heading": 177.7
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 442.3,
+     "takeoff_near_n": 7,
      "grounded_near_vh_max": 442.3,
      "grounded_near_n": 3,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1573,7 +1758,8 @@
      "t0": 7.323,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 442.3
   },
   {
    "run_id": "20260610T010219Z",
@@ -1602,6 +1788,8 @@
       "heading": -84.5
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 437.3,
+     "takeoff_near_n": 11,
      "grounded_near_vh_max": 432.6,
      "grounded_near_n": 7,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1609,7 +1797,8 @@
      "t0": 7.301,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 437.3
   },
   {
    "run_id": "20260610T010319Z",
@@ -1638,6 +1827,8 @@
       "heading": 172.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 395.2,
+     "takeoff_near_n": 15,
      "grounded_near_vh_max": 395.2,
      "grounded_near_n": 6,
      "cls": "REACHED_RL",
@@ -1645,7 +1836,8 @@
      "t0": 7.299,
      "dur": 48.0
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 395.2
   },
   {
    "run_id": "20260610T010420Z",
@@ -1674,6 +1866,8 @@
       "heading": -172.7
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 441.4,
+     "takeoff_near_n": 18,
      "grounded_near_vh_max": 441.4,
      "grounded_near_n": 12,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1681,7 +1875,8 @@
      "t0": 7.298,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 441.4
   },
   {
    "run_id": "20260610T010520Z",
@@ -1710,6 +1905,8 @@
       "heading": 174.3
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 438.6,
+     "takeoff_near_n": 19,
      "grounded_near_vh_max": 438.6,
      "grounded_near_n": 12,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1717,7 +1914,8 @@
      "t0": 7.299,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 438.6
   },
   {
    "run_id": "20260610T010621Z",
@@ -1746,6 +1944,8 @@
       "heading": -154.4
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 437.3,
+     "takeoff_near_n": 6,
      "grounded_near_vh_max": 434.1,
      "grounded_near_n": 3,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1753,7 +1953,8 @@
      "t0": 7.297,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 437.3
   },
   {
    "run_id": "20260610T010721Z",
@@ -1782,6 +1983,8 @@
       "heading": -82.6
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 439.7,
+     "takeoff_near_n": 61,
      "grounded_near_vh_max": 439.7,
      "grounded_near_n": 56,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -1789,7 +1992,8 @@
      "t0": 7.3,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 439.7
   },
   {
    "run_id": "20260610T010822Z",
@@ -1818,6 +2022,8 @@
       "heading": 178.6
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 440.4,
+     "takeoff_near_n": 8,
      "grounded_near_vh_max": 440.4,
      "grounded_near_n": 2,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1825,7 +2031,8 @@
      "t0": 7.301,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 440.4
   },
   {
    "run_id": "20260610T010922Z",
@@ -1854,6 +2061,8 @@
       "heading": 172.5
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 437.0,
+     "takeoff_near_n": 15,
      "grounded_near_vh_max": 437.0,
      "grounded_near_n": 8,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1861,7 +2070,8 @@
      "t0": 7.3,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 437.0
   },
   {
    "run_id": "20260610T011023Z",
@@ -1890,6 +2100,8 @@
       "heading": -85.3
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 440.7,
+     "takeoff_near_n": 14,
      "grounded_near_vh_max": 440.7,
      "grounded_near_n": 10,
      "cls": "REACHED_RL",
@@ -1897,7 +2109,8 @@
      "t0": 7.302,
      "dur": 29.0
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 440.7
   },
   {
    "run_id": "20260610T011123Z",
@@ -1926,6 +2139,8 @@
       "heading": 169.8
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 413.8,
+     "takeoff_near_n": 4,
      "grounded_near_vh_max": 413.8,
      "grounded_near_n": 2,
      "cls": "REACHED_RL",
@@ -1933,7 +2148,8 @@
      "t0": 7.296,
      "dur": 17.0
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 413.8
   },
   {
    "run_id": "20260610T011345Z",
@@ -1962,6 +2178,8 @@
       "heading": -172.7
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 439.1,
+     "takeoff_near_n": 16,
      "grounded_near_vh_max": 439.1,
      "grounded_near_n": 11,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -1969,7 +2187,8 @@
      "t0": 7.302,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 439.1
   },
   {
    "run_id": "20260610T011445Z",
@@ -1998,6 +2217,8 @@
       "heading": 161.1
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 423.8,
+     "takeoff_near_n": 11,
      "grounded_near_vh_max": 423.8,
      "grounded_near_n": 4,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2005,7 +2226,8 @@
      "t0": 7.297,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 423.8
   },
   {
    "run_id": "20260610T011546Z",
@@ -2034,6 +2256,8 @@
       "heading": 172.2
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 447.0,
+     "takeoff_near_n": 26,
      "grounded_near_vh_max": 443.6,
      "grounded_near_n": 13,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2041,7 +2265,8 @@
      "t0": 7.315,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 447.0
   },
   {
    "run_id": "20260610T011646Z",
@@ -2070,6 +2295,8 @@
       "heading": 142.2
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 433.4,
+     "takeoff_near_n": 5,
      "grounded_near_vh_max": 428.6,
      "grounded_near_n": 2,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -2077,7 +2304,8 @@
      "t0": 7.299,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 433.4
   },
   {
    "run_id": "20260610T011747Z",
@@ -2106,6 +2334,8 @@
       "heading": -86.8
      },
      "reached_lip": false,
+     "takeoff_near_vh_max": null,
+     "takeoff_near_n": 0,
      "grounded_near_vh_max": null,
      "grounded_near_n": 0,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -2135,6 +2365,8 @@
       "heading": -177.4
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 442.5,
+     "takeoff_near_n": 6,
      "grounded_near_vh_max": 442.5,
      "grounded_near_n": 2,
      "cls": "REACHED_RL",
@@ -2142,7 +2374,8 @@
      "t0": 13.531,
      "dur": 4.7
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 442.5
   },
   {
    "run_id": "20260610T011847Z",
@@ -2171,6 +2404,8 @@
       "heading": 176.6
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 454.1,
+     "takeoff_near_n": 10,
      "grounded_near_vh_max": 454.1,
      "grounded_near_n": 2,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -2178,7 +2413,8 @@
      "t0": 7.295,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 454.1
   },
   {
    "run_id": "20260610T011948Z",
@@ -2207,6 +2443,8 @@
       "heading": -179.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 438.0,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 432.4,
      "grounded_near_n": 1,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2214,7 +2452,8 @@
      "t0": 7.302,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 438.0
   },
   {
    "run_id": "20260610T012048Z",
@@ -2235,6 +2474,8 @@
       "heading": 151.1
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 442.1,
+     "takeoff_near_n": 6,
      "grounded_near_vh_max": 442.1,
      "grounded_near_n": 2,
      "cls": "REACHED_RL",
@@ -2242,7 +2483,8 @@
      "t0": 7.299,
      "dur": 35.7
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 442.1
   },
   {
    "run_id": "20260610T012149Z",
@@ -2271,6 +2513,8 @@
       "heading": -103.9
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 442.1,
+     "takeoff_near_n": 11,
      "grounded_near_vh_max": 442.1,
      "grounded_near_n": 5,
      "cls": "REACHED_RL",
@@ -2278,7 +2522,8 @@
      "t0": 7.335,
      "dur": 31.0
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 442.1
   },
   {
    "run_id": "20260610T012249Z",
@@ -2307,6 +2552,8 @@
       "heading": -94.2
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 453.8,
+     "takeoff_near_n": 26,
      "grounded_near_vh_max": 453.8,
      "grounded_near_n": 11,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2314,7 +2561,8 @@
      "t0": 7.299,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 453.8
   },
   {
    "run_id": "20260610T012657Z",
@@ -2335,6 +2583,8 @@
       "heading": 179.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 446.6,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 441.9,
      "grounded_near_n": 1,
      "cls": "REACHED_RL",
@@ -2364,6 +2614,8 @@
       "heading": 177.9
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 443.5,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 438.8,
      "grounded_near_n": 1,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -2371,7 +2623,8 @@
      "t0": 27.737,
      "dur": 27.7
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 446.6
   },
   {
    "run_id": "20260610T012758Z",
@@ -2400,6 +2653,8 @@
       "heading": 175.3
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 443.1,
+     "takeoff_near_n": 7,
      "grounded_near_vh_max": 438.4,
      "grounded_near_n": 3,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -2407,7 +2662,8 @@
      "t0": 7.301,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 443.1
   },
   {
    "run_id": "20260610T012858Z",
@@ -2436,6 +2692,8 @@
       "heading": 153.1
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 453.0,
+     "takeoff_near_n": 19,
      "grounded_near_vh_max": 447.6,
      "grounded_near_n": 14,
      "cls": "REACHED_RL",
@@ -2443,7 +2701,8 @@
      "t0": 7.3,
      "dur": 47.9
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 453.0
   },
   {
    "run_id": "20260610T012959Z",
@@ -2472,6 +2731,8 @@
       "heading": -41.3
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 448.1,
+     "takeoff_near_n": 10,
      "grounded_near_vh_max": 442.6,
      "grounded_near_n": 6,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2479,7 +2740,8 @@
      "t0": 7.3,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 448.1
   },
   {
    "run_id": "20260610T013059Z",
@@ -2500,6 +2762,8 @@
       "heading": 146.3
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 412.3,
+     "takeoff_near_n": 2,
      "grounded_near_vh_max": 412.3,
      "grounded_near_n": 1,
      "cls": "REACHED_RL",
@@ -2507,7 +2771,8 @@
      "t0": 7.3,
      "dur": 5.0
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 412.3
   },
   {
    "run_id": "20260610T013200Z",
@@ -2536,6 +2801,8 @@
       "heading": 171.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 417.9,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 413.0,
      "grounded_near_n": 1,
      "cls": "REACHED_RL",
@@ -2543,7 +2810,8 @@
      "t0": 7.302,
      "dur": 12.8
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 417.9
   },
   {
    "run_id": "20260610T013300Z",
@@ -2572,6 +2840,8 @@
       "heading": 150.8
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 444.0,
+     "takeoff_near_n": 5,
      "grounded_near_vh_max": 439.4,
      "grounded_near_n": 2,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -2579,7 +2849,8 @@
      "t0": 7.3,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 444.0
   },
   {
    "run_id": "20260610T013401Z",
@@ -2608,6 +2879,8 @@
       "heading": 166.7
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 415.4,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 410.3,
      "grounded_near_n": 1,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2615,7 +2888,8 @@
      "t0": 7.302,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 415.4
   },
   {
    "run_id": "20260610T013502Z",
@@ -2644,6 +2918,8 @@
       "heading": 178.2
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 429.3,
+     "takeoff_near_n": 2,
      "grounded_near_vh_max": 429.3,
      "grounded_near_n": 1,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -2665,6 +2941,8 @@
       "heading": 160.5
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 437.3,
+     "takeoff_near_n": 2,
      "grounded_near_vh_max": 432.6,
      "grounded_near_n": 1,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2672,7 +2950,8 @@
      "t0": 26.454,
      "dur": 28.9
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 437.3
   },
   {
    "run_id": "20260610T013602Z",
@@ -2701,6 +2980,8 @@
       "heading": 173.8
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 360.6,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 360.6,
      "grounded_near_n": 1,
      "cls": "REACHED_RL",
@@ -2708,7 +2989,8 @@
      "t0": 7.301,
      "dur": 7.7
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 360.6
   },
   {
    "run_id": "20260610T013959Z",
@@ -2737,6 +3019,8 @@
       "heading": 180.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 466.7,
+     "takeoff_near_n": 11,
      "grounded_near_vh_max": 466.7,
      "grounded_near_n": 6,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2744,7 +3028,8 @@
      "t0": 7.319,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 466.7
   },
   {
    "run_id": "20260610T014100Z",
@@ -2773,6 +3058,8 @@
       "heading": -34.6
      },
      "reached_lip": false,
+     "takeoff_near_vh_max": null,
+     "takeoff_near_n": 0,
      "grounded_near_vh_max": null,
      "grounded_near_n": 0,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2802,6 +3089,8 @@
       "heading": -177.9
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 433.0,
+     "takeoff_near_n": 3,
      "grounded_near_vh_max": 433.0,
      "grounded_near_n": 2,
      "cls": "REACHED_RL",
@@ -2809,7 +3098,8 @@
      "t0": 29.767,
      "dur": 6.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 433.0
   },
   {
    "run_id": "20260610T014200Z",
@@ -2830,6 +3120,8 @@
       "heading": 148.4
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 402.0,
+     "takeoff_near_n": 1,
      "grounded_near_vh_max": 402.0,
      "grounded_near_n": 1,
      "cls": "REACHED_RL",
@@ -2837,7 +3129,8 @@
      "t0": 7.304,
      "dur": 6.9
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 402.0
   },
   {
    "run_id": "20260610T014301Z",
@@ -2866,6 +3159,8 @@
       "heading": -119.9
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 377.4,
+     "takeoff_near_n": 6,
      "grounded_near_vh_max": 377.4,
      "grounded_near_n": 2,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -2895,6 +3190,8 @@
       "heading": 170.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 449.7,
+     "takeoff_near_n": 4,
      "grounded_near_vh_max": 449.7,
      "grounded_near_n": 1,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2902,7 +3199,8 @@
      "t0": 50.243,
      "dur": 5.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 449.7
   },
   {
    "run_id": "20260610T014401Z",
@@ -2931,6 +3229,8 @@
       "heading": 167.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": null,
+     "takeoff_near_n": 0,
      "grounded_near_vh_max": null,
      "grounded_near_n": 0,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -2960,6 +3260,8 @@
       "heading": -149.4
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 440.8,
+     "takeoff_near_n": 5,
      "grounded_near_vh_max": 436.1,
      "grounded_near_n": 2,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -2967,7 +3269,8 @@
      "t0": 18.959,
      "dur": 36.4
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 440.8
   },
   {
    "run_id": "20260610T014502Z",
@@ -2996,6 +3299,8 @@
       "heading": 164.7
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 219.4,
+     "takeoff_near_n": 4,
      "grounded_near_vh_max": 219.4,
      "grounded_near_n": 1,
      "cls": "REACHED_RL",
@@ -3003,7 +3308,8 @@
      "t0": 7.299,
      "dur": 6.6
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 219.4
   },
   {
    "run_id": "20260610T014603Z",
@@ -3032,6 +3338,8 @@
       "heading": 161.4
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": null,
+     "takeoff_near_n": 0,
      "grounded_near_vh_max": null,
      "grounded_near_n": 0,
      "cls": "ATTEMPTED_JUMP_FELL_SHORT",
@@ -3061,6 +3369,8 @@
       "heading": -75.3
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 455.4,
+     "takeoff_near_n": 14,
      "grounded_near_vh_max": 455.4,
      "grounded_near_n": 4,
      "cls": "REACHED_RL",
@@ -3068,7 +3378,8 @@
      "t0": 22.178,
      "dur": 32.7
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 455.4
   },
   {
    "run_id": "20260610T014703Z",
@@ -3097,6 +3408,8 @@
       "heading": 159.0
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 426.3,
+     "takeoff_near_n": 6,
      "grounded_near_vh_max": 421.6,
      "grounded_near_n": 2,
      "cls": "REACHED_LEDGE_NO_JUMP",
@@ -3104,7 +3417,8 @@
      "t0": 7.3,
      "dur": 48.1
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 426.3
   },
   {
    "run_id": "20260610T014804Z",
@@ -3133,6 +3447,8 @@
       "heading": -145.2
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 440.6,
+     "takeoff_near_n": 8,
      "grounded_near_vh_max": 440.6,
      "grounded_near_n": 4,
      "cls": "REACHED_RL",
@@ -3140,7 +3456,8 @@
      "t0": 7.297,
      "dur": 17.7
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 440.6
   },
   {
    "run_id": "20260610T014904Z",
@@ -3169,6 +3486,8 @@
       "heading": 154.4
      },
      "reached_lip": true,
+     "takeoff_near_vh_max": 384.7,
+     "takeoff_near_n": 5,
      "grounded_near_vh_max": 384.7,
      "grounded_near_n": 2,
      "cls": "REACHED_RL",
@@ -3176,7 +3495,8 @@
      "t0": 7.297,
      "dur": 11.4
     }
-   ]
+   ],
+   "takeoff_near_vh_best": 384.7
   }
  ]
 }

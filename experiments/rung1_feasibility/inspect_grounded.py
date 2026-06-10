@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Audit: onground flag vs height_above_floor (haf < 4, the locked
-climb_detector grounded convention) on live rows near the rung-1 lip."""
+climb_detector grounded convention) on live rows near the rung-1 lip.
+
+NOTE (Codex PR #119 P2): this scans the WHOLE raw trace (no attempt
+conditioning) — an upper-bound cross-check. The PRIMARY headline stat
+lives in live-lip.json (takeoff_near_*, conditioned attempt segments via
+rung1_lib.lip_attempt_metrics); it reads slightly lower (median 439.0,
+>=437 in 44/70 vs 440.1 / 50/70 here) because conditioning drops rows
+after stray teleports / segment boundaries."""
 import csv
 import json
 import math
