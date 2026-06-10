@@ -16,7 +16,12 @@ ONE definition of each speed metric, used by every scorer/gate:
     speed%% column in verify_route.py. Gates use time_weighted_speed as
     primary; active_mean_speed is secondary/diagnostic only.
 
-Both metrics sit on top of legit_segment(): the stray-teleport truncation
+  * edge_speed(rows, gap, ...)      -- THE LAUNCH-EDGE METRIC (issue #63):
+    speed carried at the crossing of a censused gap's launch edge. ">= 526
+    qu/s at the launch edge" is the sprint pass condition; this is its one
+    definition. None (not 0.0) when the trajectory never crosses the edge.
+
+All metrics sit on top of legit_segment(): the stray-teleport truncation
 that stops counting at the first teleporter the route does NOT sanction.
 DO NOT weaken or bypass it -- a previous rewrite dropped it and produced a
 false "442/79-short" reading from a stray teleporter dumping the bot near
@@ -33,6 +38,19 @@ import math
 # Single-frame origin jump beyond this = a teleport (same constant as the
 # original verify_route.py scorer; covers every dm3 teleporter throw).
 TELEPORT_JUMP = 250.0
+
+# edge_speed() crossing gates. The launch plane is the vertical plane through
+# the censused edge point, perpendicular (in xy) to the edge->land direction.
+EDGE_CROSS_EPS = 0.5     # census coords are rounded to 0.1 qu; a real approach
+                         # tick at launch speed is ~5-7 qu, so 0.5 only absorbs
+                         # that rounding and can never skip a real tick.
+EDGE_CORRIDOR = 160.0    # crossing must be within this cross-track distance of
+                         # the censused edge point (same half-width as the
+                         # verify_route leap-attempt corridor |y-ey| < 160).
+EDGE_Z_WINDOW = 100.0    # ... and within this much z of the censused edge
+                         # height. The census's own DEEP_DROP criterion: > 100
+                         # qu below the lip is the pit, not a launch; +100
+                         # bounds it above (jump apex is ~46 qu).
 
 
 def legit_segment(rows, tele_entrances=(), teleport_jump=TELEPORT_JUMP):
@@ -109,6 +127,88 @@ def time_weighted_speed(rows, tele_entrances=(), reach=None, dist_key="dist_goal
                if (step := math.hypot(b["x"] - a["x"], b["y"] - a["y"])) <= teleport_jump)
     dt = rows[-1]["t"] - rows[0]["t"]
     return dist / dt if dt > 0 else 0.0
+
+
+def final_hard_gap(route_census):
+    """The route's goal-gating leap: its FINAL censused hard gap.
+
+    `route_census` is one route's entry from the trick census
+    (artifacts/trick-census/census.json, committed copy under
+    experiments/nav_doctrine/evidence/trick-census/). Same selection rule
+    verify_route.load_route uses for leap geometry. None if the route has no
+    hard gaps (then there is no launch edge to measure).
+    """
+    hard = [g for g in route_census.get("gaps", ()) if g.get("hard")]
+    return hard[-1] if hard else None
+
+
+def edge_speed(rows, gap, tele_entrances=(), teleport_jump=TELEPORT_JUMP,
+               corridor=EDGE_CORRIDOR, z_window=EDGE_Z_WINDOW):
+    """LAUNCH-EDGE metric: horizontal speed (qu/s) carried at the crossing of
+    `gap`'s launch edge, or None if the trajectory never crosses it.
+
+    `gap` is a census gap dict (needs "edge" [x,y,z] and "land" [x,y,...]);
+    use final_hard_gap(census[route]) for the route's goal-gating leap, so the
+    metric is route-parameterized by the census alone.
+
+    Detection is geometric, so it works for arbitrary (bot) trajectories, not
+    just the human replay the census indexed by frame:
+
+      * The launch plane is the vertical plane through the censused edge
+        point, perpendicular (in xy) to the edge->land direction. A crossing
+        is a row pair a->b with a behind the plane and b at/past it (within
+        EDGE_CROSS_EPS; see the constant).
+      * b must be within `corridor` qu cross-track of the edge point and
+        within `z_window` qu of the edge height -- a bot that already fell
+        > 100 qu below the lip is in the pit, not launching (the census's own
+        DEEP_DROP criterion), and a plane crossing far from the edge point is
+        a different part of the map.
+      * The LAST qualifying crossing of the segment is the measurement: the
+        launch that decides the attempt's outcome. Routes can traverse the
+        same lip more than once (hilljump crosses its final gap's plane 3
+        times, rl_to_bridge twice); taking an earlier crossing would let a
+        bot that crossed fast early but arrived at the goal-gating launch
+        slow report a passing edge speed (Codex PR #82 P2). With the last
+        crossing, that bot reports the slow final launch -- an early fast
+        crossing can never fake a pass.
+      * Returns that b's vh: exactly the census's human_speed_at_edge
+        convention (horizontal speed at the first frame over the deep void).
+        Reproduces the census final-hard-gap anchor on ALL 11 censused
+        routes from the committed human replays, e.g. sng_to_rl 528.6 qu/s
+        at frame 510 (required 525.3), sng_shortcut2 458.8, and on the
+        multi-crossing routes hilljump 528.9 and rl_to_bridge 467.3.
+      * Same domain as time_weighted_speed: legit_segment() is applied
+        internally (stray teleport truncates the attempt), and a
+        teleport-sized step is not player movement, so it can never register
+        as a crossing (the sanctioned-teleport exclusion convention).
+      * None -- not 0.0 -- when no crossing exists: "never reached the edge"
+        is absence of a measurement, and must not average/gate as a dead stop.
+    """
+    if gap is None:
+        return None
+    ex, ey, ez = (float(v) for v in gap["edge"][:3])
+    ux, uy = float(gap["land"][0]) - ex, float(gap["land"][1]) - ey
+    norm = math.hypot(ux, uy)
+    if norm <= 0:
+        return None
+    ux, uy = ux / norm, uy / norm
+    rows = legit_segment(rows, tele_entrances, teleport_jump)
+
+    def along(r):
+        return (r["x"] - ex) * ux + (r["y"] - ey) * uy
+
+    found = None
+    for a, b in zip(rows, rows[1:]):
+        if along(a) >= -EDGE_CROSS_EPS or along(b) < -EDGE_CROSS_EPS:
+            continue
+        step = math.hypot(b["x"] - a["x"], b["y"] - a["y"]) + abs(b["z"] - a["z"])
+        if step > teleport_jump:
+            continue            # a teleport throw is not a launch
+        cross = abs((b["y"] - ey) * ux - (b["x"] - ex) * uy)
+        if cross > corridor or abs(b["z"] - ez) > z_window:
+            continue            # crossed the plane, but not at this edge
+        found = float(b["vh"])  # keep scanning: the LAST crossing decides
+    return found
 
 
 def active_mean_speed(rows, threshold=1.0, reach=60.0, dist_key="dist_goal"):

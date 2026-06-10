@@ -48,6 +48,9 @@ import sys
 from pathlib import Path
 
 from route_metrics import legit_segment, time_weighted_speed, active_mean_speed
+# alias: classify() returns a local diagnostic named edge_speed (best grounded
+# vh near the ledge); the imported metric is the launch-edge CROSSING speed.
+from route_metrics import edge_speed as launch_edge_speed
 
 REPO = Path(__file__).resolve().parent.parent
 RUNS = REPO / "artifacts" / "lab-runs"
@@ -82,10 +85,17 @@ def load_route(name):
                          EVID / "dm3_sng_to_rl.cmds")
         geom_path = _resolve(REPO / "artifacts" / "bsp" / "dm3" / "dm3_jump_geom.json",
                              EVID / "dm3_jump_geom.json")
+        geom = json.loads(geom_path.read_text())
+        # edge_speed() gap geometry from the validated reference (launch edge
+        # + landing ledge; agrees with the census final hard gap to <1 qu/s).
+        gap = {"edge": [geom["launch_edge"]["x"], geom["launch_edge"]["y"],
+                        geom["launch_edge"]["z"]],
+               "land": [geom["landing_ledge"]["x"], geom["landing_ledge"]["y"],
+                        geom["landing_ledge"]["z"]]}
         return {
             "name": name, "human": human, "start": SNG, "goal": RL,
             "tele_entrances": (TELE_ENT,),
-            "geom": json.loads(geom_path.read_text()),
+            "geom": geom, "gap": gap,
             "native_dist": True,   # trace.csv dist_to_rl column IS this goal
         }
     # Census + per-route human replays resolve like the default route's inputs:
@@ -105,9 +115,10 @@ def load_route(name):
     ent = census[name]
     # leap geometry := the route's FINAL hard gap (the goal-gating leap).
     hard = [g for g in ent["gaps"] if g.get("hard")]
-    geom = None
+    geom, gap = None, None
     if hard:
         g = hard[-1]
+        gap = g     # census gap dict, consumed as-is by route_metrics.edge_speed
         geom = {
             "launch_edge": {"x": g["edge"][0], "y": g["edge"][1]},
             "required_launch_speed_qu_s": g["required_speed"],
@@ -123,7 +134,7 @@ def load_route(name):
     return {
         "name": name, "human": human, "start": (start[0], start[1]), "goal": goal,
         "tele_entrances": tuple((t["from"][0], t["from"][1]) for t in ent["teleports"]),
-        "geom": geom,
+        "geom": geom, "gap": gap,
         "native_dist": False,
     }
 
@@ -308,6 +319,7 @@ def main():
     print(f"attempts: {len(segs)}\n")
 
     best = None
+    edge_xs = []   # per scored attempt: route_metrics.edge_speed (None = never crossed)
     for k, (s, e) in enumerate(segs):
         seg = legit_segment(rows[s:e], route["tele_entrances"])
         if len(seg) < 3:
@@ -317,11 +329,14 @@ def main():
         speedpct = 100.0 * ms / hmean if hmean else 0.0
         cls, crl, edge_speed, vreq = classify(seg, geom)
         passed = cls == "REACHED_RL" and rt >= 80 and speedpct >= 80
+        ev = launch_edge_speed(seg, route["gap"], route["tele_entrances"])
+        edge_xs.append(ev)
         leap = (f"edge_speed={edge_speed:.0f}/{vreq:.0f}qu/s" if edge_speed else "no ledge approach")
         extra = ""
         if show_metrics:
             tws = time_weighted_speed(seg, route["tele_entrances"], reach=REACH_RL)
             extra = f" tws={tws:.0f}qu/s"
+            extra += f" edge={ev:.0f}qu/s" if ev is not None else " edge=None"
         print(f"  #{k:2d} {cls:25s} route={rt:5.1f}% speed={speedpct:4.0f}% "
               f"closestRL={crl:6.0f}qu  {leap}  {'*** PASS ***' if passed else ''}" + extra)
         score = (cls == "REACHED_RL", rt, speedpct)
@@ -337,6 +352,16 @@ def main():
                   + (f"edge speed {edge_speed:.0f} qu/s is {gap:.0f} short of the {geom['required_launch_speed_qu_s']:.0f} needed to clear the void."
                      if edge_speed and gap > 0 else
                      f"classification {cls} -- see per-attempt leap diagnostics."))
+        if route["gap"] is not None and geom is not None:
+            # THE launch-edge metric (route_metrics.edge_speed, issue #63):
+            # speed carried across the launch edge; None = never crossed it.
+            crossed = [v for v in edge_xs if v is not None]
+            req = geom["required_launch_speed_qu_s"]
+            stat = f"{len(crossed)}/{len(edge_xs)} attempts crossed the launch edge; required >= {req:.1f}"
+            if crossed:
+                print(f"edge_speed[crossing]: best {max(crossed):.1f} qu/s ({stat})")
+            else:
+                print(f"edge_speed[crossing]: None ({stat})")
     else:
         # "Never run blind": zero scored attempts is a measurement failure, not
         # a scored run (Codex PR #58 P2). Wrong map/mode, a failed spawn, or an
