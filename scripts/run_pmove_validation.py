@@ -19,9 +19,12 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import math
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -228,6 +231,46 @@ python scripts/pmove_sim.py replay --botlog artifacts/lab-runs/20260609T214845Z/
 """
 
 
+REPO = Path(__file__).resolve().parent.parent
+SNG_EVID = REPO / "experiments" / "dm3_sng_to_rl_observability" / "evidence"
+PMOVE_EVID = REPO / "experiments" / "nav_doctrine" / "evidence" / "pmove"
+
+
+def resolve_cmds(path):
+    """Live artifacts/ copy first, committed evidence fallback, so the
+    documented no-arg reproduction works from a clean checkout (Codex PR #60)."""
+    p = Path(path)
+    if p.exists():
+        return p
+    fallback = SNG_EVID / p.name
+    if fallback.exists():
+        return fallback
+    raise SystemExit(f"{p} missing and no committed copy at {fallback}")
+
+
+DEFAULT_BOTLOG = "artifacts/lab-runs/20260609T214845Z/moveprobe-commands.json"
+COMMITTED_BOTLOG_GZ = PMOVE_EVID / "moveprobe-commands.20260609T214845Z.json.gz"
+
+
+def resolve_botlog(path):
+    """Fallback rule for the DEFAULT botlog only: every run dir has a
+    moveprobe-commands.json, so a name-keyed fallback would silently swap a
+    missing log from some OTHER run for the committed 2148 one. An explicit
+    --botlog that does not exist is therefore a hard error. The committed copy
+    is gzipped (8.3 MB -> 261 KB); decompress to a temp file for the loader."""
+    p = Path(path)
+    if p.exists():
+        return p
+    if str(path).replace("\\", "/") != DEFAULT_BOTLOG:
+        raise SystemExit(f"--botlog {p} missing (no fallback for non-default logs)")
+    if not COMMITTED_BOTLOG_GZ.exists():
+        raise SystemExit(f"{p} missing and no committed copy at {COMMITTED_BOTLOG_GZ}")
+    tmp = Path(tempfile.gettempdir()) / COMMITTED_BOTLOG_GZ.stem  # strips .gz
+    with gzip.open(COMMITTED_BOTLOG_GZ, "rb") as src, open(tmp, "wb") as dst:
+        shutil.copyfileobj(src, dst)
+    return tmp
+
+
 def main():
     global args
     ap = argparse.ArgumentParser()
@@ -237,6 +280,14 @@ def main():
                     default="artifacts/lab-runs/20260609T214845Z/moveprobe-commands.json")
     ap.add_argument("--out", default="artifacts/pmove-validation")
     args = ap.parse_args()
+
+    if not Path(args.bsp).exists():
+        raise SystemExit(
+            f"{args.bsp} missing. dm3.bsp is original id content and cannot be "
+            "committed; point --bsp at any Quake install's copy "
+            r"(e.g. C:\nQuake\qw\maps\dm3.bsp or ~/nquake/qw/maps/dm3.bsp).")
+    args.cmds = str(resolve_cmds(args.cmds))
+    args.botlog = str(resolve_botlog(args.botlog))
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
