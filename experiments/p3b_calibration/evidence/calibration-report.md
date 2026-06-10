@@ -182,6 +182,8 @@ sets `prec_marker`; lines 3849–3861 only clear it).
    `teleport_player` semantics (dest origin +27 z, velocity = 300·forward(mangle))
    + `BotsPostTeleport` marker handover. sng_shortcut2 sanctions no teleporter, so
    any sim teleport ride truncates the attempt via `legit_segment` exactly as live.
+   (Codex round 2 caught a touch-box double expansion — fixed; zero teleport
+   events occurred in all 90 recorded attempts either way, so no number moved.)
 8. **pmove caveats inherited** (from its validation report): submodels (plats/
    doors) and player-player collision not traced; float64 vs float32.
 
