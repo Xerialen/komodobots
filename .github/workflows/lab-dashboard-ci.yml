@@ -1,0 +1,79 @@
+name: Lab Dashboard CI
+
+# Hosted frontend/lab-code check for PRs that touch lab/**. This is separate
+# from Lab CI, which is the manual self-hosted servexeri bot-lab runner.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "lab/**"
+      - ".github/workflows/lab-dashboard-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lab-dashboard-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dashboard:
+    name: dashboard build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: lab/dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: lab/dashboard/package-lock.json
+      - name: Install dashboard dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm exec tsc -- --noEmit
+      - name: Lint if configured
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"; then
+            npm run lint
+          else
+            echo "No lint script configured; skipping."
+          fi
+      - name: Build
+        run: npm exec vite -- build
+
+  lab-python:
+    name: lab python
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile lab Python
+        run: |
+          set -euo pipefail
+          paths=()
+          [ -d lab/server ] && paths+=(lab/server)
+          [ -d lab/tools ] && paths+=(lab/tools)
+          if [ "${#paths[@]}" -eq 0 ]; then
+            echo "No lab Python directories present; skipping compileall."
+          else
+            python -m compileall "${paths[@]}"
+          fi
+      - name: Run lab pytest tests if present
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          tests=(tests/lab_*.py)
+          if [ "${#tests[@]}" -eq 0 ]; then
+            echo "No tests/lab_*.py files present; skipping pytest."
+          else
+            python -m pip install pytest
+            python -m pytest "${tests[@]}"
+          fi

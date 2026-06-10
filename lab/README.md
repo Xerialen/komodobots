@@ -41,6 +41,14 @@ npm run build      # tsc typecheck + vite build -> dist/ (all paths under /botla
 npm run preview    # serves the production build at http://localhost:4173/botlab/
 ```
 
+### CI
+
+`.github/workflows/lab-dashboard-ci.yml` runs on hosted `ubuntu-latest` for pull
+requests touching `lab/**`. It installs `dashboard/`, runs `tsc --noEmit`, runs
+`npm run lint` when a lint script exists, builds with Vite, and does cheap Python
+checks for `lab/server/` plus future `lab/tools/`. The workflow deliberately does
+not touch the servexeri lab server or the manual self-hosted `lab-ci.yml` runner.
+
 ### Layout (v1, LD-A1)
 
 Two panels: left the three.js telemetry scene (`BotLab3D.tsx` + `TelemetryHud.tsx`,

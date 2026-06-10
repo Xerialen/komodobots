@@ -368,6 +368,12 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   (`scripts/telemetry_ws.py`) and the deployed `/qtv/` page in an iframe (temporary,
   replaced by the standalone postMessage QTV pane in LD-B2, #88).
 - Dev loop: `cd lab/dashboard && npm ci && npm run dev` (see `lab/README.md`).
+- Hosted CI: `.github/workflows/lab-dashboard-ci.yml` runs on GitHub-hosted
+  `ubuntu-latest` for pull requests touching `lab/**`. It performs `npm ci`,
+  `tsc --noEmit`, optional lint, `vite build`, `python -m compileall` over lab
+  Python directories, and optional `tests/lab_*.py` pytest. This is distinct
+  from `.github/workflows/lab-ci.yml`, which remains the manual self-hosted
+  servexeri bot-lab runner and is not touched by LD-A3 (#86).
 - The dashboard is read-only with respect to the lab in this stage: it watches whatever
   attempt happens to run; it cannot start or steer anything until LD-F1/F2/F3.
 - Multi-bot attempts: the telemetry stream interleaves one frame per probed bot
