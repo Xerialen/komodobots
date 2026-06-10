@@ -263,6 +263,47 @@ class TestSessionLifecycle(unittest.TestCase):
             self.assertIsNone(broadcast)
             self.assertEqual(executor.calls, [])
 
+    def test_force_start_after_stale_dashboard_lock_sweeps_old_session(self):
+        # Codex P2 (#129): the stale dashboard lock's screen can still be
+        # alive (staleness tracks the bridge pid, not the MVDSV screen).
+        # A forced session_start must stop that session before allocating,
+        # or the old screen is orphaned with no lock pointing at it.
+        with tempfile.TemporaryDirectory() as tmp:
+            dashboard_lock(tmp, port=28600, ts=old_ts())
+            bridge, executor = make_bridge(tmp, available_ports={28601})
+            # Model the live orphan screen: 28600 reads occupied until swept.
+            real_stop = executor.stop_session
+
+            def stop_session(port):
+                real_stop(port)
+                executor.available.add(port)
+
+            executor.stop_session = stop_session
+            response, broadcast = bridge.handle(
+                {"op": "session_start", "map": "dm3", "force": True, "req_id": "1"}, "p"
+            )
+            self.assertTrue(response["ok"], response)
+            # swept FIRST, then started -- and the swept port is reusable
+            self.assertEqual(executor.calls[0], ("stop_session", 28600))
+            self.assertEqual(executor.calls[1][0], "start_session")
+            self.assertEqual(response["port"], 28600)
+            self.assertEqual(broadcast["event"], "session_start")
+            lock = cb.read_lock(Path(tmp) / "lab.lock")
+            self.assertEqual(lock["owner"], "dashboard")
+            self.assertEqual(lock["port"], 28600)
+            self.assertEqual(lock["pid"], 4242)
+
+    def test_force_start_after_stale_lock_without_port_does_not_sweep(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            harness_lock(tmp, ts=old_ts())  # harness locks carry no port
+            bridge, executor = make_bridge(tmp)
+            response, _ = bridge.handle(
+                {"op": "session_start", "map": "dm3", "force": True, "req_id": "1"}, "p"
+            )
+            self.assertTrue(response["ok"], response)
+            stops = [c for c in executor.calls if c[0] == "stop_session"]
+            self.assertEqual(stops, [])
+
     def test_session_start_invalid_map(self):
         with tempfile.TemporaryDirectory() as tmp:
             bridge, executor = make_bridge(tmp)

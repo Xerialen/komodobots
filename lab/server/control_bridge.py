@@ -666,6 +666,19 @@ class ControlBridge:
         map_name = validate_map_name(request.get("map"))
         if map_name is None:
             return self._refuse(req_id, "invalid map name"), None
+        # Codex P2 (#129): a stale dashboard lock can still have a live
+        # komodobots_lab_<port> screen, because staleness tracks the bridge
+        # pid/age, not the MVDSV screen. Without a sweep, that port reads as
+        # occupied, a NEW port gets allocated, and overwriting the lock
+        # orphans the old screen (a later session_stop only reaches the new
+        # port). Stop the stale lock's session first so the screen is swept
+        # and the port can be reused. Harness screens use a different name
+        # shape (komodobots_lab_<map>_<port>_<run>), which stop_session's
+        # exact komodobots_lab_<port> match never touches.
+        if lock is not None and state == "stale":
+            stale_port = validate_lab_port(lock.get("port"))
+            if stale_port is not None:
+                self.executor.stop_session(stale_port)
         port = next((p for p in ALLOWED_LAB_PORTS if self.executor.port_available(p)), None)
         if port is None:
             return self._refuse(req_id, "no free lab port in the 28599-28609 allowlist"), None
