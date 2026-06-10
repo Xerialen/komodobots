@@ -34,6 +34,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
+from demo_archive import archive_run_demo
 from extract_movement_metrics import write_movement_metrics
 from moveprobe_parse import (
     parse_moveprobe_command_logs,
@@ -995,6 +996,7 @@ def write_summary(
         f"- Local demo: `{local_run_dir / 'demo.mvd'}`",
         f"- Demo size: `{demo_size}` bytes",
         f"- Demo SHA-256: `{demo_sha.split()[0] if demo_sha else ''}`",
+        f"- SSD archive: `{first_line(local_run_dir / 'archive.result.txt')}`",
         "",
         "## Parser",
         "",
@@ -1481,6 +1483,10 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             args.lab_mvdsv,
             local_run_dir,
         )
+        # B5 (#64): every lab attempt's MVD is archived to the servexeri demo
+        # SSD, server-side, sha256-verified, idempotent. Never fatal: an SSD
+        # hiccup must not lose the run (it only warns; backfill recovers later).
+        archive_run_demo(args.host, run_id, args.map_name, local_run_dir=local_run_dir)
         scp_from_remote(args.host, run_id, local_run_dir)
         parser_exits = run_analyzer(local_run_dir, args.wsl_distro, args.analyzer)
         movement_metrics = write_movement_metrics(local_run_dir)
