@@ -9,6 +9,16 @@ import type { TelemetryClient, TelemetryFrame } from "./telemetryClient.ts";
 const MAX_TRAIL_POINTS = 12000;
 const VELOCITY_ARROW_SCALE = 0.25; // qu/s -> qu of arrow length
 
+// One marker/trail color pair per bot, assigned in order of first appearance
+// within an attempt (a lab run can spawn several Frogbots — see
+// docs/05_HEADLESS_TEST_ENV.md, "/ bro" + "/ goldenboy").
+const BOT_COLORS = [
+  { marker: 0xff7722, trail: 0xffaa33 },
+  { marker: 0x22aaff, trail: 0x55ccff },
+  { marker: 0xff44cc, trail: 0xff88dd },
+  { marker: 0xaaff33, trail: 0xccff77 },
+];
+
 // .cmds replay line: msec ox oy oz vx vy vz pitch yaw roll fwd side up buttons
 function parseCmdsPath(text: string): THREE.Vector3[] {
   const points: THREE.Vector3[] = [];
@@ -120,83 +130,145 @@ export function BotLab3D({
       scene.add(obj);
     });
 
-    // Bot marker: player-sized box (32x32x56 qu), origin at center
-    const botMarker = new THREE.Mesh(
-      new THREE.BoxGeometry(32, 56, 32),
-      new THREE.MeshBasicMaterial({ color: 0xff7722 }),
-    );
-    botMarker.visible = false;
-    scene.add(botMarker);
+    // Per-bot live actors, keyed by frame.ed (edict number — stable per
+    // entity for the lifetime of an attempt). A telemetry stream interleaves
+    // frames from every probed bot, so marker/trail/arrow state must never be
+    // shared across bots.
+    type BotActor = {
+      marker: THREE.Mesh;
+      trail: THREE.Line;
+      trailGeometry: THREE.BufferGeometry;
+      trailPositions: Float32Array;
+      trailCount: number;
+      velocityArrow: THREE.ArrowHelper;
+      position: THREE.Vector3;
+    };
+    const actors = new Map<number, BotActor>();
 
-    // Growing trajectory polyline
-    const trailPositions = new Float32Array(MAX_TRAIL_POINTS * 3);
-    const trailGeometry = new THREE.BufferGeometry();
-    trailGeometry.setAttribute(
-      "position",
-      new THREE.BufferAttribute(trailPositions, 3),
-    );
-    trailGeometry.setDrawRange(0, 0);
-    const trail = new THREE.Line(
-      trailGeometry,
-      new THREE.LineBasicMaterial({ color: 0xffaa33 }),
-    );
-    trail.frustumCulled = false;
-    scene.add(trail);
-    let trailCount = 0;
+    function createActor(): BotActor {
+      const colors = BOT_COLORS[actors.size % BOT_COLORS.length];
 
-    // Velocity arrow
-    const velocityArrow = new THREE.ArrowHelper(
-      new THREE.Vector3(1, 0, 0),
-      new THREE.Vector3(),
-      100,
-      0x33ff66,
-      24,
-      12,
-    );
-    velocityArrow.visible = false;
-    scene.add(velocityArrow);
+      // Bot marker: player-sized box (32x32x56 qu), origin at center
+      const marker = new THREE.Mesh(
+        new THREE.BoxGeometry(32, 56, 32),
+        new THREE.MeshBasicMaterial({ color: colors.marker }),
+      );
+      marker.visible = false;
+      scene.add(marker);
 
-    const botPosition = new THREE.Vector3();
+      // Growing trajectory polyline
+      const trailPositions = new Float32Array(MAX_TRAIL_POINTS * 3);
+      const trailGeometry = new THREE.BufferGeometry();
+      trailGeometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(trailPositions, 3),
+      );
+      trailGeometry.setDrawRange(0, 0);
+      const trail = new THREE.Line(
+        trailGeometry,
+        new THREE.LineBasicMaterial({ color: colors.trail }),
+      );
+      trail.frustumCulled = false;
+      scene.add(trail);
+
+      // Velocity arrow
+      const velocityArrow = new THREE.ArrowHelper(
+        new THREE.Vector3(1, 0, 0),
+        new THREE.Vector3(),
+        100,
+        0x33ff66,
+        24,
+        12,
+      );
+      velocityArrow.visible = false;
+      scene.add(velocityArrow);
+
+      return {
+        marker,
+        trail,
+        trailGeometry,
+        trailPositions,
+        trailCount: 0,
+        velocityArrow,
+        position: new THREE.Vector3(),
+      };
+    }
+
+    function disposeActors() {
+      for (const actor of actors.values()) {
+        scene.remove(actor.marker);
+        scene.remove(actor.trail);
+        scene.remove(actor.velocityArrow);
+        actor.marker.geometry.dispose();
+        (actor.marker.material as THREE.Material).dispose();
+        actor.trailGeometry.dispose();
+        (actor.trail.material as THREE.Material).dispose();
+        actor.velocityArrow.dispose();
+      }
+      actors.clear();
+    }
+
     const velocityDir = new THREE.Vector3();
+    // Camera follows the attempt's first-seen bot (same bot the HUD locks to)
+    let primaryEd: number | null = null;
+    const followPosition = new THREE.Vector3();
     let hasFrame = false;
 
     function onFrame(frame: TelemetryFrame) {
-      setFromQuake(botPosition, frame.origin.x, frame.origin.y, frame.origin.z);
+      let actor = actors.get(frame.ed);
+      if (!actor) {
+        actor = createActor();
+        actors.set(frame.ed, actor);
+      }
+      if (primaryEd === null) {
+        primaryEd = frame.ed;
+      }
+
+      setFromQuake(
+        actor.position,
+        frame.origin.x,
+        frame.origin.y,
+        frame.origin.z,
+      );
       // marker origin is mid-body; telemetry origin is quake player origin
       // (24 qu above feet for the 56-tall hull) — close enough at this scale
-      botMarker.position.copy(botPosition);
-      botMarker.visible = true;
+      actor.marker.position.copy(actor.position);
+      actor.marker.visible = true;
 
-      if (trailCount < MAX_TRAIL_POINTS) {
-        trailPositions[trailCount * 3] = botPosition.x;
-        trailPositions[trailCount * 3 + 1] = botPosition.y;
-        trailPositions[trailCount * 3 + 2] = botPosition.z;
-        trailCount += 1;
-        trailGeometry.setDrawRange(0, trailCount);
-        trailGeometry.attributes.position.needsUpdate = true;
+      if (actor.trailCount < MAX_TRAIL_POINTS) {
+        actor.trailPositions[actor.trailCount * 3] = actor.position.x;
+        actor.trailPositions[actor.trailCount * 3 + 1] = actor.position.y;
+        actor.trailPositions[actor.trailCount * 3 + 2] = actor.position.z;
+        actor.trailCount += 1;
+        actor.trailGeometry.setDrawRange(0, actor.trailCount);
+        actor.trailGeometry.attributes.position.needsUpdate = true;
       }
 
       setFromQuake(velocityDir, frame.vel.x, frame.vel.y, frame.vel.z);
       const speed = velocityDir.length();
       if (speed > 1) {
         velocityDir.normalize();
-        velocityArrow.position.copy(botPosition);
-        velocityArrow.setDirection(velocityDir);
-        velocityArrow.setLength(
+        actor.velocityArrow.position.copy(actor.position);
+        actor.velocityArrow.setDirection(velocityDir);
+        actor.velocityArrow.setLength(
           Math.max(32, speed * VELOCITY_ARROW_SCALE),
           24,
           12,
         );
-        velocityArrow.visible = true;
+        actor.velocityArrow.visible = true;
       } else {
-        velocityArrow.visible = false;
+        actor.velocityArrow.visible = false;
       }
-      hasFrame = true;
+
+      if (frame.ed === primaryEd) {
+        followPosition.copy(actor.position);
+        hasFrame = true;
+      }
     }
 
     function onAttempt() {
-      trailCount = 0;
-      trailGeometry.setDrawRange(0, 0);
+      disposeActors();
+      primaryEd = null;
       hasFrame = false;
     }
 
@@ -212,9 +284,9 @@ export function BotLab3D({
       if (hasFrame) {
         // follow: shift camera by the same delta as the orbit target so the
         // user-chosen viewing angle/distance is preserved
-        cameraDelta.copy(botPosition).sub(controls.target);
+        cameraDelta.copy(followPosition).sub(controls.target);
         camera.position.add(cameraDelta);
-        controls.target.copy(botPosition);
+        controls.target.copy(followPosition);
       }
       controls.update();
       renderer.render(scene, camera);

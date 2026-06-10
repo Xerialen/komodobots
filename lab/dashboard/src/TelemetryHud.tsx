@@ -32,6 +32,7 @@ export function TelemetryHud({ client }: { client: TelemetryClient }) {
   // derived-state accumulators live in refs: they update at frame rate,
   // React state only at HUD_UPDATE_MS
   const accumulator = useRef({
+    ed: null as number | null,
     prevFrame: null as TelemetryFrame | null,
     hopCount: 0,
     airborneSince: null as number | null,
@@ -41,6 +42,15 @@ export function TelemetryHud({ client }: { client: TelemetryClient }) {
   useEffect(() => {
     function onFrame(frame: TelemetryFrame) {
       const acc = accumulator.current;
+      // The stream interleaves frames from every probed bot; derived values
+      // (yaw rate, hops, air time) are only meaningful within one bot's frame
+      // sequence, so lock onto the attempt's first-seen bot and ignore the
+      // rest. Same bot the 3D view follows.
+      if (acc.ed === null) {
+        acc.ed = frame.ed;
+      } else if (frame.ed !== acc.ed) {
+        return;
+      }
       let yawRate = 0;
       if (acc.prevFrame && frame.t > acc.prevFrame.t) {
         yawRate =
@@ -88,6 +98,7 @@ export function TelemetryHud({ client }: { client: TelemetryClient }) {
 
     function onAttempt() {
       accumulator.current = {
+        ed: null,
         prevFrame: null,
         hopCount: 0,
         airborneSince: null,
@@ -115,6 +126,7 @@ export function TelemetryHud({ client }: { client: TelemetryClient }) {
   const { frame } = hud;
   return (
     <div className="font-mono text-xs p-2 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 bg-black/70">
+      <Cell label="bot" value={frame.name || `ed ${frame.ed}`} highlight />
       <Cell label="speed (vh)" value={frame.vh.toFixed(0)} highlight />
       <Cell
         label="vel x/y/z"

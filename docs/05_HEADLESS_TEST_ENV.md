@@ -370,6 +370,11 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
 - Dev loop: `cd lab/dashboard && npm ci && npm run dev` (see `lab/README.md`).
 - The dashboard is read-only with respect to the lab in this stage: it watches whatever
   attempt happens to run; it cannot start or steer anything until LD-F1/F2/F3.
+- Multi-bot attempts: the telemetry stream interleaves one frame per probed bot
+  (`frame.ed`/`frame.name`). The 3D view keeps a separate marker/trail/velocity-arrow
+  per `ed` (distinct colors, in order of first appearance); the camera follow and the
+  HUD's derived values (yaw rate, hops, air time) lock onto the attempt's first-seen
+  bot, and the HUD shows that bot's name. A `new_attempt` resets all of it.
 
 ## Folder Layout
 
