@@ -142,6 +142,48 @@ def final_hard_gap(route_census):
     return hard[-1] if hard else None
 
 
+def edge_crossing(rows, gap, tele_entrances=(), teleport_jump=TELEPORT_JUMP,
+                  corridor=EDGE_CORRIDOR, z_window=EDGE_Z_WINDOW):
+    """LAUNCH-EDGE metric with its timestamp: `(speed_qu_s, t_s)` of the LAST
+    qualifying crossing of `gap`'s launch edge, or None if the trajectory never
+    crosses it. `t_s` is the trace clock of the crossing row (the same `t` the
+    rows carry -- server time for lab traces), so consumers like the records
+    store (issue #93) can seek a demo to the launch moment. `t_s` is None when
+    the rows do not carry `t` (edge_speed()'s historical row contract).
+
+    This is THE one crossing definition: edge_speed() below is a thin wrapper
+    that drops the timestamp. All semantics are documented there.
+    """
+    if gap is None:
+        return None
+    ex, ey, ez = (float(v) for v in gap["edge"][:3])
+    ux, uy = float(gap["land"][0]) - ex, float(gap["land"][1]) - ey
+    norm = math.hypot(ux, uy)
+    if norm <= 0:
+        return None
+    ux, uy = ux / norm, uy / norm
+    rows = legit_segment(rows, tele_entrances, teleport_jump)
+
+    def along(r):
+        return (r["x"] - ex) * ux + (r["y"] - ey) * uy
+
+    found = None
+    for a, b in zip(rows, rows[1:]):
+        if along(a) >= -EDGE_CROSS_EPS or along(b) < -EDGE_CROSS_EPS:
+            continue
+        step = math.hypot(b["x"] - a["x"], b["y"] - a["y"]) + abs(b["z"] - a["z"])
+        if step > teleport_jump:
+            continue            # a teleport throw is not a launch
+        cross = abs((b["y"] - ey) * ux - (b["x"] - ex) * uy)
+        if cross > corridor or abs(b["z"] - ez) > z_window:
+            continue            # crossed the plane, but not at this edge
+        # the LAST crossing decides; t is optional in the row contract
+        # (edge_speed() never required it), so report None when absent.
+        t = b.get("t")
+        found = (float(b["vh"]), float(t) if t is not None else None)
+    return found
+
+
 def edge_speed(rows, gap, tele_entrances=(), teleport_jump=TELEPORT_JUMP,
                corridor=EDGE_CORRIDOR, z_window=EDGE_Z_WINDOW):
     """LAUNCH-EDGE metric: horizontal speed (qu/s) carried at the crossing of
@@ -183,32 +225,13 @@ def edge_speed(rows, gap, tele_entrances=(), teleport_jump=TELEPORT_JUMP,
         as a crossing (the sanctioned-teleport exclusion convention).
       * None -- not 0.0 -- when no crossing exists: "never reached the edge"
         is absence of a measurement, and must not average/gate as a dead stop.
+
+    Implementation lives in edge_crossing() (which also reports the crossing
+    timestamp); this wrapper keeps the historical speed-only signature.
     """
-    if gap is None:
-        return None
-    ex, ey, ez = (float(v) for v in gap["edge"][:3])
-    ux, uy = float(gap["land"][0]) - ex, float(gap["land"][1]) - ey
-    norm = math.hypot(ux, uy)
-    if norm <= 0:
-        return None
-    ux, uy = ux / norm, uy / norm
-    rows = legit_segment(rows, tele_entrances, teleport_jump)
-
-    def along(r):
-        return (r["x"] - ex) * ux + (r["y"] - ey) * uy
-
-    found = None
-    for a, b in zip(rows, rows[1:]):
-        if along(a) >= -EDGE_CROSS_EPS or along(b) < -EDGE_CROSS_EPS:
-            continue
-        step = math.hypot(b["x"] - a["x"], b["y"] - a["y"]) + abs(b["z"] - a["z"])
-        if step > teleport_jump:
-            continue            # a teleport throw is not a launch
-        cross = abs((b["y"] - ey) * ux - (b["x"] - ex) * uy)
-        if cross > corridor or abs(b["z"] - ez) > z_window:
-            continue            # crossed the plane, but not at this edge
-        found = float(b["vh"])  # keep scanning: the LAST crossing decides
-    return found
+    found = edge_crossing(rows, gap, tele_entrances, teleport_jump,
+                          corridor, z_window)
+    return found[0] if found is not None else None
 
 
 def active_mean_speed(rows, threshold=1.0, reach=60.0, dist_key="dist_goal"):
