@@ -1,0 +1,1009 @@
+{
+ "declared": [
+  {
+   "id": "p100_n5_s24_t35_c45-85_gpos60x2_l0.3",
+   "params": {
+    "pass_r": 100.0,
+    "numerator": 5.0,
+    "bootstrap_deg": 25.0,
+    "look": 500.0,
+    "swing": 24.0,
+    "turn_thresh": 35.0,
+    "corner_aim": 85.0,
+    "corner_thresh": 45.0,
+    "governor": "pos",
+    "prec_thresh": 60.0,
+    "prec_timeout": 2.0,
+    "carrot_lead": 0.3
+   },
+   "rungA": {
+    "reach": 16,
+    "tws_median": 278.0,
+    "corner_exits_207": 125,
+    "corner_conv": 0.296,
+    "corner_exits_206": 125,
+    "corner_206_to_207": 0.984,
+    "per_seed": [
+     {
+      "seed": 1,
+      "reached": true,
+      "arrival_tws": 316.5,
+      "arrival_t": 4.4
+     },
+     {
+      "seed": 2,
+      "reached": true,
+      "arrival_tws": 307.4,
+      "arrival_t": 9.9
+     },
+     {
+      "seed": 3,
+      "reached": true,
+      "arrival_tws": 271.2,
+      "arrival_t": 5.3
+     },
+     {
+      "seed": 4,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 5,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 6,
+      "reached": true,
+      "arrival_tws": 284.7,
+      "arrival_t": 5.1
+     },
+     {
+      "seed": 7,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 8,
+      "reached": true,
+      "arrival_tws": 266.2,
+      "arrival_t": 18.0
+     },
+     {
+      "seed": 9,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 10,
+      "reached": true,
+      "arrival_tws": 282.3,
+      "arrival_t": 6.9
+     },
+     {
+      "seed": 11,
+      "reached": true,
+      "arrival_tws": 270.1,
+      "arrival_t": 5.1
+     },
+     {
+      "seed": 12,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 13,
+      "reached": true,
+      "arrival_tws": 313.5,
+      "arrival_t": 4.5
+     },
+     {
+      "seed": 14,
+      "reached": true,
+      "arrival_tws": 272.6,
+      "arrival_t": 35.0
+     },
+     {
+      "seed": 15,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 16,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 17,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 18,
+      "reached": true,
+      "arrival_tws": 321.0,
+      "arrival_t": 4.3
+     },
+     {
+      "seed": 19,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 20,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 21,
+      "reached": true,
+      "arrival_tws": 230.9,
+      "arrival_t": 28.6
+     },
+     {
+      "seed": 22,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 23,
+      "reached": true,
+      "arrival_tws": 282.0,
+      "arrival_t": 7.7
+     },
+     {
+      "seed": 24,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 25,
+      "reached": true,
+      "arrival_tws": 214.2,
+      "arrival_t": 41.2
+     },
+     {
+      "seed": 26,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 27,
+      "reached": true,
+      "arrival_tws": 280.2,
+      "arrival_t": 17.7
+     },
+     {
+      "seed": 28,
+      "reached": true,
+      "arrival_tws": 275.8,
+      "arrival_t": 22.2
+     },
+     {
+      "seed": 29,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 30,
+      "reached": true,
+      "arrival_tws": 236.7,
+      "arrival_t": 39.6
+     }
+    ]
+   },
+   "rungB": {
+    "edge_n": 14,
+    "edge_median": 470.1,
+    "edge_max": 494.1,
+    "arrivals": 15,
+    "edge_values": [
+     477.9,
+     null,
+     null,
+     472.5,
+     359.5,
+     474.6,
+     434.5,
+     null,
+     null,
+     null,
+     null,
+     448.1,
+     null,
+     482.4,
+     null,
+     null,
+     null,
+     469.2,
+     407.6,
+     466.7,
+     null,
+     null,
+     null,
+     470.9,
+     null,
+     485.9,
+     null,
+     328.3,
+     null,
+     494.1
+    ]
+   },
+   "elapsed_s": 24.2
+  },
+  {
+   "id": "p130_n5_s24_t50_c75-50_gvel60x2_l0",
+   "params": {
+    "pass_r": 130.0,
+    "numerator": 5.0,
+    "bootstrap_deg": 25.0,
+    "look": 500.0,
+    "swing": 24.0,
+    "turn_thresh": 50.0,
+    "corner_aim": 50.0,
+    "corner_thresh": 75.0,
+    "governor": "vel",
+    "prec_thresh": 60.0,
+    "prec_timeout": 2.0,
+    "carrot_lead": 0.0
+   },
+   "rungA": {
+    "reach": 14,
+    "tws_median": 286.2,
+    "corner_exits_207": 96,
+    "corner_conv": 0.323,
+    "corner_exits_206": 102,
+    "corner_206_to_207": 0.922,
+    "per_seed": [
+     {
+      "seed": 1,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 2,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 3,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 4,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 5,
+      "reached": true,
+      "arrival_tws": 232.8,
+      "arrival_t": 41.6
+     },
+     {
+      "seed": 6,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 7,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 8,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 9,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 10,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 11,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 12,
+      "reached": true,
+      "arrival_tws": 308.3,
+      "arrival_t": 4.4
+     },
+     {
+      "seed": 13,
+      "reached": true,
+      "arrival_tws": 281.8,
+      "arrival_t": 8.4
+     },
+     {
+      "seed": 14,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 15,
+      "reached": true,
+      "arrival_tws": 311.8,
+      "arrival_t": 4.9
+     },
+     {
+      "seed": 16,
+      "reached": true,
+      "arrival_tws": 260.2,
+      "arrival_t": 43.2
+     },
+     {
+      "seed": 17,
+      "reached": true,
+      "arrival_tws": 261.8,
+      "arrival_t": 12.0
+     },
+     {
+      "seed": 18,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 19,
+      "reached": true,
+      "arrival_tws": 290.6,
+      "arrival_t": 5.0
+     },
+     {
+      "seed": 20,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 21,
+      "reached": true,
+      "arrival_tws": 223.5,
+      "arrival_t": 24.4
+     },
+     {
+      "seed": 22,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 23,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 24,
+      "reached": true,
+      "arrival_tws": 298.2,
+      "arrival_t": 11.1
+     },
+     {
+      "seed": 25,
+      "reached": true,
+      "arrival_tws": 296.2,
+      "arrival_t": 28.7
+     },
+     {
+      "seed": 26,
+      "reached": true,
+      "arrival_tws": 318.2,
+      "arrival_t": 4.6
+     },
+     {
+      "seed": 27,
+      "reached": true,
+      "arrival_tws": 295.8,
+      "arrival_t": 22.9
+     },
+     {
+      "seed": 28,
+      "reached": true,
+      "arrival_tws": 250.6,
+      "arrival_t": 9.1
+     },
+     {
+      "seed": 29,
+      "reached": true,
+      "arrival_tws": 231.4,
+      "arrival_t": 26.2
+     },
+     {
+      "seed": 30,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     }
+    ]
+   },
+   "rungB": {
+    "edge_n": 13,
+    "edge_median": 468.8,
+    "edge_max": 511.0,
+    "arrivals": 11,
+    "edge_values": [
+     470.2,
+     368.2,
+     475.7,
+     468.9,
+     null,
+     null,
+     null,
+     null,
+     null,
+     511.0,
+     null,
+     null,
+     null,
+     373.1,
+     336.9,
+     null,
+     null,
+     472.3,
+     null,
+     468.8,
+     443.3,
+     null,
+     480.8,
+     458.9,
+     null,
+     null,
+     459.3,
+     null,
+     null,
+     null
+    ]
+   },
+   "elapsed_s": 25.5
+  },
+  {
+   "id": "p100_n5_s24_t35_c45-85_gpos75x2_l0.3",
+   "params": {
+    "pass_r": 100.0,
+    "numerator": 5.0,
+    "bootstrap_deg": 25.0,
+    "look": 500.0,
+    "swing": 24.0,
+    "turn_thresh": 35.0,
+    "corner_aim": 85.0,
+    "corner_thresh": 45.0,
+    "governor": "pos",
+    "prec_thresh": 75.0,
+    "prec_timeout": 2.0,
+    "carrot_lead": 0.3
+   },
+   "rungA": {
+    "reach": 17,
+    "tws_median": 273.3,
+    "corner_exits_207": 116,
+    "corner_conv": 0.319,
+    "corner_exits_206": 116,
+    "corner_206_to_207": 0.983,
+    "per_seed": [
+     {
+      "seed": 1,
+      "reached": true,
+      "arrival_tws": 316.5,
+      "arrival_t": 4.4
+     },
+     {
+      "seed": 2,
+      "reached": true,
+      "arrival_tws": 307.4,
+      "arrival_t": 9.9
+     },
+     {
+      "seed": 3,
+      "reached": true,
+      "arrival_tws": 271.2,
+      "arrival_t": 5.3
+     },
+     {
+      "seed": 4,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 5,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 6,
+      "reached": true,
+      "arrival_tws": 284.7,
+      "arrival_t": 5.1
+     },
+     {
+      "seed": 7,
+      "reached": true,
+      "arrival_tws": 269.2,
+      "arrival_t": 17.3
+     },
+     {
+      "seed": 8,
+      "reached": true,
+      "arrival_tws": 266.2,
+      "arrival_t": 18.0
+     },
+     {
+      "seed": 9,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 10,
+      "reached": true,
+      "arrival_tws": 273.3,
+      "arrival_t": 7.0
+     },
+     {
+      "seed": 11,
+      "reached": true,
+      "arrival_tws": 270.1,
+      "arrival_t": 5.1
+     },
+     {
+      "seed": 12,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 13,
+      "reached": true,
+      "arrival_tws": 313.5,
+      "arrival_t": 4.5
+     },
+     {
+      "seed": 14,
+      "reached": true,
+      "arrival_tws": 288.0,
+      "arrival_t": 14.5
+     },
+     {
+      "seed": 15,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 16,
+      "reached": true,
+      "arrival_tws": 262.1,
+      "arrival_t": 22.9
+     },
+     {
+      "seed": 17,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 18,
+      "reached": true,
+      "arrival_tws": 321.0,
+      "arrival_t": 4.3
+     },
+     {
+      "seed": 19,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 20,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 21,
+      "reached": true,
+      "arrival_tws": 230.9,
+      "arrival_t": 28.6
+     },
+     {
+      "seed": 22,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 23,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 24,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 25,
+      "reached": true,
+      "arrival_tws": 214.2,
+      "arrival_t": 41.2
+     },
+     {
+      "seed": 26,
+      "reached": true,
+      "arrival_tws": 227.9,
+      "arrival_t": 43.2
+     },
+     {
+      "seed": 27,
+      "reached": true,
+      "arrival_tws": 280.2,
+      "arrival_t": 17.7
+     },
+     {
+      "seed": 28,
+      "reached": true,
+      "arrival_tws": 275.8,
+      "arrival_t": 22.2
+     },
+     {
+      "seed": 29,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 30,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     }
+    ]
+   },
+   "rungB": {
+    "edge_n": 16,
+    "edge_median": 468.4,
+    "edge_max": 494.1,
+    "arrivals": 17,
+    "edge_values": [
+     477.9,
+     null,
+     null,
+     472.5,
+     359.5,
+     474.6,
+     470.1,
+     null,
+     null,
+     null,
+     null,
+     448.1,
+     null,
+     482.4,
+     null,
+     460.2,
+     null,
+     365.9,
+     407.6,
+     466.7,
+     327.2,
+     null,
+     null,
+     470.9,
+     null,
+     485.9,
+     null,
+     328.3,
+     null,
+     494.1
+    ]
+   },
+   "elapsed_s": 24.5
+  },
+  {
+   "id": "p100_n9_s24_t50_c45-85_gnone_l0",
+   "params": {
+    "pass_r": 100.0,
+    "numerator": 9.0,
+    "bootstrap_deg": 25.0,
+    "look": 500.0,
+    "swing": 24.0,
+    "turn_thresh": 50.0,
+    "corner_aim": 85.0,
+    "corner_thresh": 45.0,
+    "governor": "none",
+    "prec_thresh": 60.0,
+    "prec_timeout": 2.0,
+    "carrot_lead": 0.0
+   },
+   "rungA": {
+    "reach": 23,
+    "tws_median": 269.1,
+    "corner_exits_207": 95,
+    "corner_conv": 0.411,
+    "corner_exits_206": 97,
+    "corner_206_to_207": 0.979,
+    "per_seed": [
+     {
+      "seed": 1,
+      "reached": true,
+      "arrival_tws": 252.4,
+      "arrival_t": 42.8
+     },
+     {
+      "seed": 2,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 3,
+      "reached": true,
+      "arrival_tws": 236.6,
+      "arrival_t": 45.1
+     },
+     {
+      "seed": 4,
+      "reached": true,
+      "arrival_tws": 239.0,
+      "arrival_t": 46.1
+     },
+     {
+      "seed": 5,
+      "reached": true,
+      "arrival_tws": 290.5,
+      "arrival_t": 5.9
+     },
+     {
+      "seed": 6,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 7,
+      "reached": true,
+      "arrival_tws": 318.2,
+      "arrival_t": 4.4
+     },
+     {
+      "seed": 8,
+      "reached": true,
+      "arrival_tws": 269.7,
+      "arrival_t": 14.3
+     },
+     {
+      "seed": 9,
+      "reached": true,
+      "arrival_tws": 265.1,
+      "arrival_t": 37.0
+     },
+     {
+      "seed": 10,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 11,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 12,
+      "reached": true,
+      "arrival_tws": 269.1,
+      "arrival_t": 33.1
+     },
+     {
+      "seed": 13,
+      "reached": true,
+      "arrival_tws": 288.3,
+      "arrival_t": 17.4
+     },
+     {
+      "seed": 14,
+      "reached": true,
+      "arrival_tws": 285.8,
+      "arrival_t": 8.1
+     },
+     {
+      "seed": 15,
+      "reached": true,
+      "arrival_tws": 239.8,
+      "arrival_t": 29.3
+     },
+     {
+      "seed": 16,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 17,
+      "reached": true,
+      "arrival_tws": 263.0,
+      "arrival_t": 14.5
+     },
+     {
+      "seed": 18,
+      "reached": true,
+      "arrival_tws": 304.9,
+      "arrival_t": 7.9
+     },
+     {
+      "seed": 19,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     },
+     {
+      "seed": 20,
+      "reached": true,
+      "arrival_tws": 293.3,
+      "arrival_t": 7.6
+     },
+     {
+      "seed": 21,
+      "reached": true,
+      "arrival_tws": 259.4,
+      "arrival_t": 28.0
+     },
+     {
+      "seed": 22,
+      "reached": true,
+      "arrival_tws": 266.9,
+      "arrival_t": 32.3
+     },
+     {
+      "seed": 23,
+      "reached": true,
+      "arrival_tws": 294.8,
+      "arrival_t": 17.8
+     },
+     {
+      "seed": 24,
+      "reached": true,
+      "arrival_tws": 272.8,
+      "arrival_t": 18.0
+     },
+     {
+      "seed": 25,
+      "reached": true,
+      "arrival_tws": 208.2,
+      "arrival_t": 41.8
+     },
+     {
+      "seed": 26,
+      "reached": true,
+      "arrival_tws": 294.3,
+      "arrival_t": 5.7
+     },
+     {
+      "seed": 27,
+      "reached": true,
+      "arrival_tws": 328.5,
+      "arrival_t": 5.4
+     },
+     {
+      "seed": 28,
+      "reached": true,
+      "arrival_tws": 255.4,
+      "arrival_t": 18.4
+     },
+     {
+      "seed": 29,
+      "reached": true,
+      "arrival_tws": 267.9,
+      "arrival_t": 9.9
+     },
+     {
+      "seed": 30,
+      "reached": false,
+      "arrival_tws": null,
+      "arrival_t": null
+     }
+    ]
+   },
+   "rungB": {
+    "edge_n": 24,
+    "edge_median": 440.8,
+    "edge_max": 478.1,
+    "arrivals": 29,
+    "edge_values": [
+     378.2,
+     320.1,
+     null,
+     null,
+     395.6,
+     447.1,
+     null,
+     431.0,
+     478.1,
+     455.3,
+     434.4,
+     466.2,
+     460.7,
+     null,
+     null,
+     453.5,
+     416.3,
+     366.2,
+     458.9,
+     457.1,
+     424.8,
+     468.6,
+     null,
+     408.7,
+     429.9,
+     197.1,
+     416.3,
+     459.9,
+     469.5,
+     467.4
+    ]
+   },
+   "elapsed_s": 26.1
+  }
+ ],
+ "literal_rule_ids": [
+  "p100_n5_s24_t35_c45-85_gpos60x1_l0.3",
+  "p100_n5_s24_t35_c45-85_gpos60x2_l0.3",
+  "p100_n5_s24_t35_c45-85_gpos60x3_l0.3",
+  "p100_n9_s24_t50_c45-85_gnone_l0"
+ ],
+ "top3_signature_groups": [
+  [
+   "p100_n5_s24_t35_c45-85_gpos60x1_l0.3",
+   "p100_n5_s24_t35_c45-85_gpos60x2_l0.3",
+   "p100_n5_s24_t35_c45-85_gpos60x3_l0.3"
+  ],
+  [
+   "p130_n5_s24_t50_c75-50_gvel60x2_l0"
+  ],
+  [
+   "p100_n5_s24_t35_c45-85_gpos75x1_l0.3",
+   "p100_n5_s24_t35_c45-85_gpos75x2_l0.3",
+   "p100_n5_s24_t35_c45-85_gpos75x3_l0.3"
+  ]
+ ]
+}

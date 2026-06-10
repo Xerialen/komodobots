@@ -351,6 +351,149 @@ class TestTeleporterBoxes(unittest.TestCase):
         self.assertEqual(tp.mangle_yaw, 90.0)
 
 
+def gov_setup(linked_nav=(100.0, 0.0, 0.0), next_nav=(0.0, 9999.0, 0.0),
+              velocity=(400.0, 0.0, 0.0), onground=False):
+    """Carrot-handover fixture (A2 #74): bot at origin, linked marker 2
+    inside pass_r so the carrot fires and PNLM re-aims at marker 3 (goal)."""
+    g = FakeGraph({1: (0.0, 0.0, 0.0), 2: linked_nav, 3: next_nav},
+                  {(1, 2, 0): (0, 1.0), (2, 3, 0): (0, 1.0)})
+    brain = M.FrogbotBrain(g, 3, FixedRng(0.5))
+    law = M.LawState()
+    nav = M.NavState()
+    nav.touch_marker = 1
+    nav.linked_marker = 2
+    st = PlayerState([0.0, 0.0, 0.0], list(velocity))
+    st.onground = onground
+    st.waterlevel = 0
+    return law, nav, brain, st
+
+
+class TestPrecisionGovernor(unittest.TestCase):
+    """A2 #74: the two live-rejected governor designs, re-implemented per the
+    ledger (c2 velocity-triggered / c3 positional) on the surviving C apply/
+    clear block. governor='none' (the default) must leave them fully dead."""
+
+    VEL = M.LawParams(governor="vel")
+    POS = M.LawParams(governor="pos")
+
+    def test_none_never_engages(self):
+        law, nav, brain, st = gov_setup()
+        out = M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN)
+        self.assertIsNone(law.prec_marker)
+        # handover happened, weave continues: hard corner (herr 90 > 58)
+        # clamps the rotation at corner_aim 68
+        self.assertEqual(nav.linked_marker, 3)
+        self.assertAlmostEqual(out[0], 68.0, places=4)
+
+    def test_vel_engages_on_sharp_leg_turn(self):
+        # new leg bearing 90 deg, velocity yaw 0 -> |leg_turn| = 90 > 60
+        law, nav, brain, st = gov_setup()
+        out = M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN,
+                            params=self.VEL)
+        self.assertEqual(law.prec_marker, 3)
+        self.assertAlmostEqual(out[0], 90.0, places=4)   # straight-aim at 3
+
+    def test_vel_quiet_on_straight_legs(self):
+        # next marker straight ahead of the velocity: leg_turn 0 -> no engage
+        law, nav, brain, st = gov_setup(next_nav=(9999.0, 0.0, 0.0))
+        M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=self.VEL)
+        self.assertIsNone(law.prec_marker)
+
+    def test_pos_uses_positional_bearing_not_velocity(self):
+        # velocity NORTH (yaw 90) toward the new marker -> the vel variant
+        # stays quiet; the pos variant compares old-leg bearing (0 deg,
+        # marker 2 east) vs new-leg bearing (90 deg) -> engages.
+        law, nav, brain, st = gov_setup(velocity=(0.0, 400.0, 0.0))
+        M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=self.VEL)
+        self.assertIsNone(law.prec_marker)
+        law, nav, brain, st = gov_setup(velocity=(0.0, 400.0, 0.0))
+        M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=self.POS)
+        self.assertEqual(law.prec_marker, 3)
+
+    def test_pos_never_engages_on_climb_legs(self):
+        # new marker 40 up (> 18): c3's climb exemption blocks the engage;
+        # c2 has no such exemption.
+        law, nav, brain, st = gov_setup(next_nav=(0.0, 9999.0, 40.0))
+        M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=self.POS)
+        self.assertIsNone(law.prec_marker)
+        law, nav, brain, st = gov_setup(next_nav=(0.0, 9999.0, 40.0))
+        M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=self.VEL)
+        self.assertEqual(law.prec_marker, 3)
+
+    def test_apply_window_suppresses_jump_then_times_out(self):
+        # pos engage with velocity ALIGNED to the new leg (herr 0): without
+        # the governor the grounded toggle would hop, so out[2] isolates the
+        # precision suppression, and the 2 s escape restores it.
+        law, nav, brain, st = gov_setup(velocity=(0.0, 400.0, 0.0),
+                                        onground=True)
+        out = M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN,
+                            params=self.POS)
+        self.assertEqual(law.prec_marker, 3)
+        self.assertFalse(out[2])                  # suppressed by precision
+        out = M.mode23_step(law, nav, brain, st, 1.5, trace_fn=OPEN,
+                            params=self.POS)
+        self.assertEqual(law.prec_marker, 3)
+        self.assertFalse(out[2])                  # still inside the window
+        out = M.mode23_step(law, nav, brain, st, 2.5, trace_fn=OPEN,
+                            params=self.POS)
+        self.assertIsNone(law.prec_marker)        # escape: cleared
+        self.assertTrue(out[2])                   # bunnyhop toggle resumes
+
+    def test_cleared_when_marker_taken(self):
+        law, nav, brain, st = gov_setup()
+        M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=self.VEL)
+        self.assertEqual(law.prec_marker, 3)
+        nav.linked_marker = 2                     # marker changed under us
+        nav.touch_marker = 1
+        M.mode23_step(law, nav, brain, st, 0.1, trace_fn=OPEN, params=self.VEL)
+        self.assertIsNone(law.prec_marker)
+
+
+class TestCarrotLead(unittest.TestCase):
+    """carrot_lead: the handover ALSO fires within vh*lead distance (speed-
+    adaptive earlier handover); the pass_through weave zone stays at pass_r."""
+
+    def test_lead_extends_the_handover_trigger(self):
+        p = M.LawParams(pass_r=100.0, carrot_lead=0.3)
+        # marker 150 away (> pass_r 100), vh 600 -> 600*0.3 = 180 > 150: fires
+        law, nav, brain, st = gov_setup(linked_nav=(150.0, 0.0, 0.0),
+                                        velocity=(600.0, 0.0, 0.0))
+        M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=p)
+        self.assertEqual(law.carrot_done, 2)
+
+    def test_lead_zero_keeps_live_behavior(self):
+        p = M.LawParams(pass_r=100.0, carrot_lead=0.0)
+        law, nav, brain, st = gov_setup(linked_nav=(150.0, 0.0, 0.0),
+                                        velocity=(600.0, 0.0, 0.0))
+        M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=p)
+        self.assertIsNone(law.carrot_done)
+
+    def test_slow_speed_does_not_fire_early(self):
+        p = M.LawParams(pass_r=100.0, carrot_lead=0.3)
+        # vh 300 -> 90 < 150: no fire
+        law, nav, brain, st = gov_setup(linked_nav=(150.0, 0.0, 0.0),
+                                        velocity=(300.0, 0.0, 0.0))
+        M.mode23_step(law, nav, brain, st, 0.0, trace_fn=OPEN, params=p)
+        self.assertIsNone(law.carrot_done)
+
+
+class TestLawParamsParity(unittest.TestCase):
+    """params=None must be byte-identical to explicit LawParams() (the A1
+    calibration behavior; the sweep's identity config)."""
+
+    def test_default_params_match_none(self):
+        for vel, og in (((400.0, 0.0, 0.0), False),
+                        ((100.0, 380.0, 0.0), False),
+                        ((300.0, 0.0, 0.0), True)):
+            law1, nav1, brain1, st1 = law_setup(velocity=vel, onground=og)
+            law2, nav2, brain2, st2 = law_setup(velocity=vel, onground=og)
+            out1 = M.mode23_step(law1, nav1, brain1, st1, 0.0, trace_fn=OPEN)
+            out2 = M.mode23_step(law2, nav2, brain2, st2, 0.0, trace_fn=OPEN,
+                                 params=M.LawParams())
+            self.assertEqual(out1, out2)
+            self.assertEqual(law1.strafe_sign, law2.strafe_sign)
+
+
 class TestVectorHelpers(unittest.TestCase):
     def test_vectoyaw_quadrants(self):
         self.assertEqual(M.vectoyaw((1, 0, 0)), 0.0)
