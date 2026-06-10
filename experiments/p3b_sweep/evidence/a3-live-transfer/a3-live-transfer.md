@@ -95,8 +95,9 @@ From `divergence.json` (trace-level, all 20 screen runs):
   vh at (1936..1939, -340..-364) z-40 right after release, then fell).
 * **Runway conversion: the second leak.** The S1 runs that DID cross entered the last
   1000 path-qu at **424-447 vh — ABOVE the sim lucky median (386)** — yet crossed at only
-  432-461: live gain over the runway **+13..+37 vs the sim lucky tries' +143**. Carried
-  speed survives to the runway entry but is shed in the corner + weave touches.
+  213.6-460.7: per-run gain over the runway **−14.4 / +35.4 / +36.4 (and one −222
+  post-entry crash) vs the sim lucky tries' +143**. Carried speed survives to the runway
+  entry but is shed in the corner + weave touches (or lost entirely to a fall).
 * **The 570.7 proves the runway CAN convert live:** entry 453.1 -> crossing 570.7
   (**+118**, sim-lucky-sized), t_cross 15.3 s — a late, wandering, nav-noise approach,
   exactly the sim's natural lucky shape (late cross after a detour). The deliberate
