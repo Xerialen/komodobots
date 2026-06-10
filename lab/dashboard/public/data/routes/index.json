@@ -1,0 +1,26 @@
+{
+  "schema": "komodobots.routes.v1",
+  "v": 1,
+  "maps": [
+    {
+      "map": "dm3",
+      "file": "dm3.json",
+      "routes": 11
+    },
+    {
+      "map": "dm2",
+      "file": "dm2.json",
+      "routes": 0
+    },
+    {
+      "map": "frobodm2",
+      "file": "frobodm2.json",
+      "routes": 0
+    },
+    {
+      "map": "trick",
+      "file": "trick.json",
+      "routes": 0
+    }
+  ]
+}

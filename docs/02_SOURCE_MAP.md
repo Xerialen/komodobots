@@ -243,6 +243,19 @@ match the local-hub blobs byte-for-byte (verified by git blob SHA:
 
 The local-hub copy is deprecated for development; see `lab/README.md` for the dev loop.
 
+### Lab dashboard data builders (lab/tools)
+
+- `lab/tools/build_routes_manifest.py` (LD-C1, #90) — stdlib builder that exports the
+  committed trick census (`experiments/nav_doctrine/evidence/trick-census/census.json`)
+  plus the committed human replay trajectories
+  (`experiments/nav_doctrine/evidence/replay/dm3_<route>.cmds`) into the committed,
+  versioned routes manifests `lab/dashboard/public/data/routes/{dm3,dm2,frobodm2,trick,index}.json`
+  (schema `komodobots.routes.v1`) — the canonical "what routes exist" feed for the
+  Mockup view, KPI dock and control drawer. Deterministic/idempotent (LF outputs,
+  `-text` in `.gitattributes`, LF-normalized sha256 provenance hashes);
+  `tests/test_build_routes_manifest.py` locks the committed outputs against a fresh
+  build. Pipeline details: `docs/06_DATA_AND_MVD_PIPELINE.md` § Routes manifest.
+
 ### mvd_analyzer
 
 Repository: https://github.com/galfthan/mvd_analyzer
