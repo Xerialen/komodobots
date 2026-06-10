@@ -93,11 +93,6 @@ def plane_axes(gap):
     return ex, ey, ez, ux / n, uy / n
 
 
-def along_of(gap, x, y):
-    ex, ey, _, ux, uy = plane_axes(gap)
-    return (x - ex) * ux + (y - ey) * uy
-
-
 def find_crossings(rows, gap):
     """Indices b of every QUALIFYING crossing row pair a->b, in row order —
     the same scan edge_speed performs (route_metrics constants, teleport
@@ -423,25 +418,18 @@ def analyze(outdir):
 # ── patternization design grid (TRAINING seeds 1..30 only) ──────────────────
 # Tuning happens HERE, on the same seeds the sweep used; the pre-registered
 # fresh-seed test (31..60) never feeds back into the design.
-DESIGN_BASES = {
-    "spiker": dict(pass_r=130.0, numerator=5.0, swing=12.0, turn_thresh=35.0,
-                   corner_thresh=45.0, corner_aim=85.0),
-    "median": dict(pass_r=100.0, numerator=5.0, swing=24.0, turn_thresh=35.0,
-                   corner_thresh=45.0, corner_aim=85.0),
-}
 DESIGN_SEEDS = tuple(range(1, 31))
 
 
 def design_grid():
-    """Round 4 (focused; rounds 1-3 kept in design-grid-r{1,2,3}.json).
-    Round 3: launch assist alone -> median 498 (single-pass ceiling ~514);
-    spinup loop tail max 534-541 but the loop turn costs ~30-50 vs natural
-    arcs. Round 4 crosses the remaining accel lever: NUMERATOR. n5 rotates
-    the wishdir ~89 deg off velocity on straights (turn-optimal) vs the
-    accel-optimal ~acos(26/v) ~ 85-86 deg (n26). The A2 sweep rejected high
-    numerators for the MEDIAN because of low-speed orbit chaos -- which the
-    launch assist removes. Straight-runway accel is what the 526 objective
-    needs."""
+    """The FINAL design round (r7): refinement of the circle-jump launch
+    around the round-6 optimum (cj400a40), crossing runway cvar families x
+    launch_vh x launch_angle. The full design path (rounds 1-7: spin-up
+    loops, delegation speed gate, jump floor, numerator cross, runway
+    constants, circle-jump discovery, this refinement) is preserved in
+    evidence design-grid-r{1..7}.json and narrated in tail-autopsy.md §4 —
+    the committed code holds the LAST grid only; earlier grids are
+    reproducible from their JSON params records. Winner -> PATTERNIZED."""
     bases = {
         "p130s12t35": dict(pass_r=130.0, numerator=5.0, swing=12.0,
                            turn_thresh=35.0, corner_thresh=45.0,

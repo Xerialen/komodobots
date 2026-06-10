@@ -233,7 +233,7 @@ python scripts/tail_autopsy.py design --workers 12   # the (final-round) design 
 python scripts/tail_autopsy.py rung-a --workers 12   # rung-A floor, training seeds
 python scripts/tail_autopsy.py fresh --workers 12    # THE pre-registered 31..60 block
 python scripts/mode23_sim.py calibrate --config c5 --seeds 30 --out artifacts/tail-autopsy/parity-check
-python -m unittest discover -s tests -p "test_*.py"  # 267 tests
+python -m unittest discover -s tests -p "test_*.py"  # 269 tests
 ```
 
 Raw (gitignored): `artifacts/tail-autopsy/` (features.jsonl 1.9 MB, parity
