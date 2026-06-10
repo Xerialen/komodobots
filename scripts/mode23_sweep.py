@@ -221,13 +221,62 @@ def split_ranked(records):
 
 
 def pick_candidates(ranked):
-    """Transfer candidates: ranks 1-3 + mid rank max(4, ceil(N/2)), 1-based.
-    Fewer than 4 rankable configs -> escalation (None)."""
+    """Transfer candidates, the LITERAL pre-registered rule: ranks 1-3 + mid
+    rank max(4, ceil(N/2)), 1-based. Fewer than 4 rankable -> escalation."""
     n = len(ranked)
     if n < 4:
         return None
     mid = max(4, math.ceil(n / 2))
     return [ranked[0], ranked[1], ranked[2], ranked[mid - 1]]
+
+
+def signature(rec):
+    """Trajectory signature: two configs with identical per-seed rung-A
+    records AND identical per-seed rung-B edge values produced the same 60
+    trajectories — the swept parameter never bound (the A1 c4≡c5
+    phenomenon). Such configs are ONE behavior, not several."""
+    return (json.dumps(rec["rungA"]["per_seed"], sort_keys=True),
+            json.dumps(rec["rungB"]["edge_values"]))
+
+
+def _canonical_key(rec):
+    """Representative choice inside an identical-signature group: closest to
+    the live-tested governor constants (timeout 2.0 s, threshold 60 deg) —
+    the sim cannot distinguish group members, so deploy the variant nearest
+    the design that was actually tested live; id breaks remaining ties."""
+    p = LawParams(**rec["params"])
+    return (abs(p.prec_timeout - 2.0), abs(p.prec_thresh - 60.0), rec["id"])
+
+
+def dedup_ranked(ranked):
+    """Collapse per-seed-identical configs (ranked order preserved).
+    Returns (groups, representatives): groups[i] = member records in ranked
+    order; representatives[i] = the canonical member of group i."""
+    index = {}
+    groups = []
+    for r in ranked:
+        s = signature(r)
+        if s in index:
+            groups[index[s]].append(r)
+        else:
+            index[s] = len(groups)
+            groups.append([r])
+    reps = [min(g, key=_canonical_key) for g in groups]
+    return groups, reps
+
+
+def pick_candidates_distinct(ranked):
+    """The DECLARED candidate rule where the literal rule is degenerate:
+    distinct-signature top-3 (canonical representatives) + the LITERAL mid
+    (the literal mid pick is not degenerate, so the registration is kept
+    verbatim there). Returns (candidates, top3_groups) or (None, None)."""
+    lit = pick_candidates(ranked)
+    if lit is None:
+        return None, None
+    groups, reps = dedup_ranked(ranked)
+    if len(reps) < 3:
+        return None, None
+    return reps[:3] + [lit[3]], groups[:3]
 
 
 # ── stage-2 grid (pre-registered refinement rule) ────────────────────────────
@@ -408,7 +457,8 @@ def build_report(outdir):
     s1, s2 = load_all(outdir)
     records = s1 + s2
     ranked, unranked = split_ranked(records)
-    cands = pick_candidates(ranked)
+    cands_literal = pick_candidates(ranked)
+    cands, top3_groups = pick_candidates_distinct(ranked)
     best_overall = None
     for r in records:
         mx = r["rungB"]["edge_max"]
@@ -439,6 +489,15 @@ def build_report(outdir):
                        "edge_n": live["rungB"]["edge_n"]} if live else None,
         "marginals": marginal_ranges(ranked) if ranked else {},
         "candidates": [c["id"] for c in cands] if cands else None,
+        "candidates_literal_rule": [c["id"] for c in cands_literal]
+        if cands_literal else None,
+        "top3_signature_groups": [[m["id"] for m in g] for g in top3_groups]
+        if top3_groups else None,
+        "n_distinct_signatures": len(dedup_ranked(ranked)[0]) if ranked else 0,
+        "configs_with_seed_over_target": sum(
+            1 for r in records
+            if r["rungB"]["edge_max"] is not None
+            and r["rungB"]["edge_max"] >= EDGE_TARGET),
         "ranked": [r["id"] for r in ranked],
     }
     return records, ranked, unranked, cands, out
@@ -478,7 +537,13 @@ def main():
         (outdir / "ranked.md").write_text(
             "\n".join(lines) + f"\n\nunranked: {len(unranked)} configs "
             f"(reach < {REACH_FLOOR}/30 or edge_n < {EDGE_N_FLOOR}/30)\n")
-        print(f"wrote {outdir / 'ranked.json'} and ranked.md "
+        if cands:
+            (outdir / "candidates.json").write_text(json.dumps(
+                {"declared": cands,
+                 "literal_rule_ids": summary["candidates_literal_rule"],
+                 "top3_signature_groups": summary["top3_signature_groups"]},
+                indent=1))
+        print(f"wrote {outdir / 'ranked.json'}, ranked.md, candidates.json "
               f"({len(ranked)} ranked, {len(unranked)} unranked)")
         return
 

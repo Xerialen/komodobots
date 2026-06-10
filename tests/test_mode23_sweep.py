@@ -171,6 +171,61 @@ class TestRanking(unittest.TestCase):
                          ["c00", "c01", "c02", "c03"])   # mid = max(4, 2)
 
 
+def rec_sig(cid, per_seed, edge_values, edge_median, params=None, conv=0.5):
+    r = rec(cid, edge_median=edge_median, conv=conv, params=params)
+    r["rungA"]["per_seed"] = per_seed
+    r["rungB"]["edge_values"] = edge_values
+    return r
+
+
+class TestSignatureDedup(unittest.TestCase):
+    """Per-seed-identical configs are ONE behavior (the A1 c4≡c5 phenomenon):
+    the declared candidate rule collapses them for the top-3 slots and keeps
+    the literal pre-registered mid pick."""
+
+    def _trip(self):
+        # three governor-timeout variants with IDENTICAL trajectories, one
+        # next distinct config, and filler so the literal mid exists
+        seeds_a = [{"seed": 1, "reached": True}]
+        seeds_b = [{"seed": 1, "reached": False}]
+        rs = []
+        for t in (1.0, 2.0, 3.0):
+            p = replace(LawParams(), governor="pos", prec_timeout=t)
+            rs.append(rec_sig(SW.config_id(p), seeds_a, [470.0], 470.0,
+                              params=p))
+        q = replace(LawParams(), swing=24.0)
+        rs.append(rec_sig(SW.config_id(q), seeds_b, [468.0], 468.0, params=q))
+        for i in range(6):
+            w = replace(LawParams(), pass_r=100.0 + i)
+            rs.append(rec_sig(SW.config_id(w), [{"seed": 1, "i": i}],
+                              [460.0 - i], 460.0 - i, params=w))
+        return rs
+
+    def test_signature_groups(self):
+        ranked, _ = SW.split_ranked(self._trip())
+        groups, reps = SW.dedup_ranked(ranked)
+        self.assertEqual(len(ranked), 10)
+        self.assertEqual(len(groups), 8)             # triple collapsed
+        self.assertEqual(len(groups[0]), 3)
+        self.assertEqual(len(reps), 8)
+
+    def test_canonical_representative_prefers_live_timeout(self):
+        ranked, _ = SW.split_ranked(self._trip())
+        _, reps = SW.dedup_ranked(ranked)
+        p = LawParams(**reps[0]["params"])
+        self.assertEqual(p.prec_timeout, 2.0)        # not the id-asc winner
+
+    def test_distinct_candidates_top3_plus_literal_mid(self):
+        rs = self._trip()
+        ranked, _ = SW.split_ranked(rs)
+        lit = SW.pick_candidates(ranked)
+        cands, groups = SW.pick_candidates_distinct(ranked)
+        self.assertEqual(LawParams(**cands[0]["params"]).prec_timeout, 2.0)
+        self.assertEqual(len({SW.signature(c) for c in cands[:3]}), 3)
+        self.assertEqual(cands[3]["id"], lit[3]["id"])   # literal mid kept
+        self.assertEqual(len(groups[0]), 3)
+
+
 class TestStage2Rule(unittest.TestCase):
     def _stage1(self):
         # leader: numerator 26 strongly ahead -> numerator is a top dim;
