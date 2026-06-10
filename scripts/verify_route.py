@@ -254,6 +254,16 @@ def main():
                   + (f"edge speed {edge_speed:.0f} qu/s is {gap:.0f} short of the {geom['required_launch_speed_qu_s']:.0f} needed to clear the void."
                      if edge_speed and gap > 0 else
                      f"classification {cls} -- see per-attempt leap diagnostics."))
+    else:
+        # "Never run blind": zero scored attempts is a measurement failure, not
+        # a scored run (Codex PR #58 P2). Wrong map/mode, a failed spawn, or an
+        # origin stream that never reaches the route start must not exit 0, or
+        # run_dm3.py would report a blind run as success.
+        print("\nERROR: no route attempt scored -- the trace never produced a "
+              "scoreable segment near the SNG start. Check map/mode, spawn "
+              "setup, and that the origin stream covers the route.",
+              file=sys.stderr)
+        sys.exit(2)
 
 
 if __name__ == "__main__":
