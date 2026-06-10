@@ -1,13 +1,15 @@
 name: Lab Dashboard CI
 
-# Hosted frontend/lab-code check for PRs that touch lab/**. This is separate
-# from Lab CI, which is the manual self-hosted servexeri bot-lab runner.
+# Hosted frontend/lab-code check for PRs that touch lab/** or the lab pytest
+# files (tests/lab_*.py, which PR Tests' unittest discovery does not pick up).
+# This is separate from Lab CI, the manual self-hosted servexeri bot-lab runner.
 
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "lab/**"
+      - "tests/lab_*.py"
       - ".github/workflows/lab-dashboard-ci.yml"
 
 permissions:

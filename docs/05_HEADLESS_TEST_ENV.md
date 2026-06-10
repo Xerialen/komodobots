@@ -369,7 +369,9 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   replaced by the standalone postMessage QTV pane in LD-B2, #88).
 - Dev loop: `cd lab/dashboard && npm ci && npm run dev` (see `lab/README.md`).
 - Hosted CI: `.github/workflows/lab-dashboard-ci.yml` runs on GitHub-hosted
-  `ubuntu-latest` for pull requests touching `lab/**`. It performs `npm ci`,
+  `ubuntu-latest` for pull requests touching `lab/**` or `tests/lab_*.py`
+  (lab pytest files are not discovered by `PR Tests`' `test_*.py` unittest
+  glob, so this workflow is their only hosted gate). It performs `npm ci`,
   `tsc --noEmit`, optional lint, `vite build`, `python -m compileall` over lab
   Python directories, and optional `tests/lab_*.py` pytest. This is distinct
   from `.github/workflows/lab-ci.yml`, which remains the manual self-hosted

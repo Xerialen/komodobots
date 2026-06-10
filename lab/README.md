@@ -44,7 +44,9 @@ npm run preview    # serves the production build at http://localhost:4173/botlab
 ### CI
 
 `.github/workflows/lab-dashboard-ci.yml` runs on hosted `ubuntu-latest` for pull
-requests touching `lab/**`. It installs `dashboard/`, runs `tsc --noEmit`, runs
+requests touching `lab/**` or `tests/lab_*.py` (lab pytest files, which the
+`PR Tests` `test_*.py` unittest discovery does not run). It installs
+`dashboard/`, runs `tsc --noEmit`, runs
 `npm run lint` when a lint script exists, builds with Vite, and does cheap Python
 checks for `lab/server/` plus future `lab/tools/`. The workflow deliberately does
 not touch the servexeri lab server or the manual self-hosted `lab-ci.yml` runner.
