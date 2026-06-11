@@ -256,7 +256,28 @@ match the local-hub blobs byte-for-byte (verified by git blob SHA:
 LD-B1 (#87) added the view shell: `src/layoutState.ts` (fixed view order, `?views=` /
 localStorage persistence) and an `App.tsx` top bar + pane grid that rehomes the LD-A1
 Live 3D scene and live-game iframe into their fixed pane slots (Demo/Mockup/dock/drawer
-are labeled placeholders for LD-D3/LD-C3/LD-E1/LD-F3).
+are labeled placeholders for LD-C3/LD-E1/LD-F3; Demo landed in LD-D3).
+
+LD-D3 (#98) implemented the Demo view:
+
+- `src/DemoPane.tsx` — Demo view React component. Picker header with two source tabs:
+  **Records** (fetches `/demos/records/records.json` in `komodobots.records.v1` schema;
+  groups by route → kind; click-to-play with `event_t_s` seek) and **Archive** (fetches
+  `/v2/demos.json`; walks the `["non-games","lab","Komodobots"]` subtree; map-filterable;
+  newest-first). Player area is the `public/panes/demo.html` iframe mounted once a demo
+  is selected, then reloaded via `{cmd:"load"}` postMessage (no React re-mount between
+  demos). Exports `OpenDemoParams`, `DemoContext`, and `DemoPaneHandle` types; the handle
+  ref carries `openDemo` for the shell.
+- `src/App.tsx` additions:
+  - `openDemo(params: OpenDemoParams)` — shell-level entry point (SPEC §6.5). Opens
+    the Demo view if closed, then posts `{cmd:"load"}` via `DemoPaneHandle`. Exported
+    as the single entry point for LD-E4 (#104) record clicks.
+  - `ShellActionsContext` / `useShellActions()` — React context that provides
+    `openDemo` to child components (KPI dock, future LD-E4) without prop-drilling.
+  - `demoContext` state: receives `{map, route?}` from `DemoPane.onContext` while a
+    demo is playing; displayed in the status bar; wired to the shared context store in
+    LD-E3 (#100).
+  - The Demo pane placeholder is replaced by the real `<DemoPane>` component.
 
 LD-B3 (#89) extracted the reusable map-scene module:
 
@@ -332,7 +353,7 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   `tests/test_build_routes_manifest.py` locks the committed outputs against a fresh
   build. Pipeline details: `docs/06_DATA_AND_MVD_PIPELINE.md` § Routes manifest.
 
-### Lab map meshes (lab/tools/bsp_to_obj.py)
+### Lab map meshes (lab/tools/bsp_to_obj.py and bsp_to_mesh.py)
 
 - `lab/tools/bsp_to_obj.py` (LD-C2, #91) — stdlib Quake1 BSP v29 → OBJ exporter that
   commits the previously one-off path that produced `public/dm3.obj` (2026-06-09 via
@@ -340,7 +361,7 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   triangulation, `scripts/bsp_geom.py`'s stdlib-struct lump parsing. Worldmodel faces
   only, raw Quake coords, triangle-only 1-indexed `f` lines — same conventions as the
   deployed dm3.obj, so `BotLab3D.tsx` needs no changes.
-- Committed outputs: `lab/dashboard/public/maps/{dm3,dm2,frobodm2,trick}.obj` plus
+- Committed OBJ outputs: `lab/dashboard/public/maps/{dm3,dm2,frobodm2,trick}.obj` plus
   `maps.json` (schema `komodobots.maps.v1`) with per-map source-BSP sha256 provenance,
   vertex/triangle counts, and the world AABB whose center is the Mockup view's
   camera-overview start point (#97). Deterministic: same BSP in → byte-identical OBJ
@@ -355,6 +376,26 @@ app so the FTE engine owns its own window — one engine instance per window, SP
 - The legacy `public/dm3.obj` (all-models export, mojibake header) stays untouched —
   the deployed viewer loads it by that path until the Mockup view (#97) switches to
   `maps/`.
+- `lab/tools/bsp_to_mesh.py` (LD-C4, #92) — textured glTF binary (`.glb`) pipeline,
+  successor to `bsp_to_obj.py` for the Mockup and Live 3D views. Decodes BSP v29
+  miptex pixel data using the Quake 256-colour palette (loaded from `pak0.pak` or
+  `palette.lmp`; canonical id1 palette also embedded as a fallback), computes per-face
+  UV coordinates from texinfo `s_axis`/`t_axis`/offsets, groups worldmodel faces by
+  texture into per-material glTF primitives, and emits a self-contained GLB with
+  embedded PNG images. Requires stdlib only (no third-party dependencies): PNG encoding uses a
+  minimal zlib-based encoder (`_encode_png_rgb`) and nearest-neighbour resize (`_nn_resize_rgb`)
+  in pure Python — no Pillow.
+  Special texture handling: sky textures → TAG_SKY placeholder; clip/trigger/hint/skip
+  tool textures → TAG_SKIP placeholder; `*`-prefixed liquid textures → TAG_LIQUID
+  (decoded normally); fullbright naive (no lightmaps). Sampler uses REPEAT wrap for
+  correct tiling. `--validate` mode checks UV spans and enforces the ≤ 3 MB/map budget.
+  Committed outputs: `lab/dashboard/public/maps/{dm3,dm2,frobodm2,trick}.glb` plus
+  new keys (`glb`, `texture_count`, `glb_bytes`, `glb_triangles`, `glb_vertices`)
+  added to `maps.json` alongside the existing OBJ keys (no conflicts).
+  `maps.json` source-BSP sha256 matches the value embedded in each GLB's `asset.extras`.
+  `tests/test_bsp_to_mesh.py` locks the pipeline on a synthetic in-memory BSP (UV
+  formula, worldmodel-only rule, GLB structure, sampler REPEAT, material extras tags,
+  determinism) and the committed assets (GLB magic/version, size budget, SHA provenance).
 
 ### Lab Dashboard React sources — Mockup pane + KPI dock (LD-C3, LD-E1)
 
