@@ -3600,3 +3600,51 @@ section 10). Live-phase standing requirement (user directive 2026-06-10): **the 
 any of this runs on the server, every run must be visible in the bot lab**
 (dashboard at 192.168.86.33:8095/botlab/; B5 #64 already auto-archives every lab MVD to
 the servexeri SSD).
+
+
+## 2026-06-11 -- LD-C3 Mockup pane wired (offline map/route browser, #97)
+
+### Finding
+
+The Mockup view pane (`lab/dashboard/src/MockupPane.tsx`) is implemented and
+wired into the App shell.  All dependencies were already merged (LD-B1 view
+shell, LD-C1 routes manifest, LD-C2 map meshes, LD-B3 map-scene module).
+
+The pane provides:
+- Map selector (dm3 / dm2 / frobodm2 / trick) using the committed maps.json
+  AABB centers for per-map overview camera positioning.
+- Route browser listing all 11 dm3 routes with human stats (mean speed, peak
+  speed) from the komodobots.routes.v1 manifest; dm2/frobodm2/trick show
+  "no censused routes yet" rather than hiding the list (honest empty state).
+- Human reference polyline + gap markers (edge in route color, land in grey)
+  + teleport entry markers (teal), built from census xyz coords via
+  setFromQuake() to match the Live 3D pane's Quake coordinate convention.
+- Multiple simultaneous route selections (distinct palette colors); deselect
+  by clicking again; map switch resets selection.
+- MockupSelection { map, route } context event emitted via onSelect callback on
+  every map or selection change, consumed by App shell state; ready for LD-E1
+  (#100) to wire to the KPI dock context store.
+
+### Evidence
+
+- `tsc --noEmit`: 0 errors (with MockupPane.tsx and App.tsx changes).
+- `vite build`: succeeds, 2.66 s, 705 KB bundle (Three.js is the bulk; no
+  change from pre-LD-C3 baseline -- three was already a dependency).
+- `test_mockup_context.py`: 22 tests pass, covering schema contract,
+  per-route field contract, critical census values (sng_to_rl final gap
+  req=525.3, peak=534.7), and the MockupSelection context event shape.
+- Full suite `python -m unittest discover -s tests -p "test_*.py"`: 476 OK.
+
+### Deferred (deployment screenshots require servexeri)
+
+The issue DoD calls for Playwright MCP screenshots from the deployed
+:8095/botlab/ server.  That requires SSH access to servexeri which is out of
+reach for this agent.  The deploy is a `deploy_dashboard.py --staged` +
+`--cutover --confirm-live` two-step identical to all prior LD- PRs.  Deployment
+screenshots are marked as deferred in the PR; the Coder or user should run them
+after merge.
+
+### Confidence
+
+High on the TypeScript type-safety and data contract (tsc clean + 22 Python
+tests).  Deployment validation pending.
