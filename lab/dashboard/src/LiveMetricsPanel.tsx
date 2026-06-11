@@ -823,7 +823,7 @@ export function LiveMetricsPanel({ client, context, isLive, selectedEd = null }:
             </span>
             <span className="text-gray-600">/</span>
             <span className="text-gray-500">
-              needs {Math.round(m.edgeCallout.requiredSpeed)}
+              needs {Math.ceil(m.edgeCallout.requiredSpeed)}
             </span>
             <span className="text-gray-700">·</span>
             <span className="text-[9px] text-cyan-800 font-sans">

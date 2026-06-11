@@ -614,14 +614,21 @@ class TestDesignatedLaunchEdgeSngToRl(unittest.TestCase):
         self.assertAlmostEqual(speeds[2], 525.3)
 
     def test_designated_edge_is_526(self):
-        """designated_launch_edge selects the 525.3 gap (displays as 'needs 526')."""
+        """designated_launch_edge selects the 525.3 gap (displays as 'needs 526').
+
+        The panel uses Math.ceil(requiredSpeed) to produce the integer label, so
+        525.3 must display as 526 (the #102 north-star threshold).  This test
+        directly asserts the ceiling semantics used in the UI.
+        """
+        import math
         edge = designated_launch_edge(self.gaps)
         self.assertIsNotNone(edge)
         self.assertAlmostEqual(edge['required_speed'], 525.3)
-        # Verify the display rounds to 526 (int(round(525.3)) == 525 but
-        # Math.round(525.3) in JS == 525; however the issue refers to >=526 as
-        # the threshold label; the edge speed value is 525.3 which rounds to 525.
-        # The key contract: it is NOT 402 and NOT 468.7.
+        # The UI label uses Math.ceil — assert the displayed integer is 526, not 525.
+        displayed_label = math.ceil(edge['required_speed'])
+        self.assertEqual(displayed_label, 526,
+            msg="edge callout must show 'needs 526' (Math.ceil(525.3)), not 525")
+        # Also confirm it is not one of the easier gaps.
         self.assertNotAlmostEqual(edge['required_speed'], 402.0)
         self.assertNotAlmostEqual(edge['required_speed'], 468.7)
 
