@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { BotLab3D } from "./BotLab3D.tsx";
 import { TelemetryHud } from "./TelemetryHud.tsx";
 import { type TelemetryAttempt, TelemetryClient } from "./telemetryClient.ts";
@@ -11,6 +20,31 @@ import {
   VIEW_ORDER,
   type ViewId,
 } from "./layoutState.ts";
+import {
+  DemoPane,
+  type DemoContext,
+  type DemoPaneHandle,
+  type OpenDemoParams,
+} from "./DemoPane.tsx";
+
+// Re-export openDemo type for LD-E4 (#104) to import.
+export type { OpenDemoParams } from "./DemoPane.tsx";
+
+// LD-D3 (#98): Shell context — exposes the openDemo action to the KPI dock
+// (LD-E4, #104) and any future child without prop drilling.
+// The context is populated in App and consumed in the dock record rows.
+
+export interface ShellActions {
+  /** Shell-level openDemo: opens Demo view if closed, then loads the demo. */
+  openDemo: (params: OpenDemoParams) => void;
+}
+
+export const ShellActionsContext = createContext<ShellActions | null>(null);
+
+/** Hook for child components to call shell-level actions (e.g. KPI dock #104). */
+export function useShellActions(): ShellActions | null {
+  return useContext(ShellActionsContext);
+}
 
 // v1 defaults: dm3 lab on servexeri (LAN). Override per-instance with
 // ?port=28600&ws=ws://localhost:8770&relay=ws://... (e.g. through ssh -L
@@ -102,6 +136,31 @@ export function App() {
   // is installed (race condition fix per Codex PR #137 review).
   const qtvAttachRef = useRef<{ port: number; relay: string; map: string } | null>(null);
 
+  // LD-D3 (#98): Demo pane handle (openDemo shell action) + demo context.
+  // The handle ref is populated by DemoPane via its handleRef prop so App.tsx
+  // can call openDemo from the KPI dock record clicks (LD-E4, #104).
+  const demoPaneHandleRef = useRef<DemoPaneHandle | null>(null);
+  const [demoContext, setDemoContext] = useState<DemoContext | null>(null);
+
+  /**
+   * openDemo — shell-level entry point (SPEC §6.5).
+   * Opens/focuses the Demo view if closed, then loads the demo in the pane.
+   * Exported via demoPaneHandleRef for LD-E4 (#104) to reuse.
+   */
+  const openDemo = useCallback(
+    (params: OpenDemoParams) => {
+      // Ensure the Demo view is open (toggles it on if closed).
+      setLayout((state) => {
+        if (state.views.includes("demo")) return state;
+        return { ...state, views: orderViews([...state.views, "demo"]) };
+      });
+      // Delegate to the pane — may be called the frame before DemoPane mounts,
+      // but DemoPane's useEffect will flush once it renders.
+      demoPaneHandleRef.current?.openDemo(params);
+    },
+    [],
+  );
+
   useEffect(() => {
     const telemetry = new TelemetryClient(wsUrl);
     telemetry.attemptListeners.add(setAttempt);
@@ -186,11 +245,16 @@ export function App() {
   }, [labPort, runId, qtvRelay, mapName]);
 
   const paneContent: Record<ViewId, ReactNode> = {
+    // LD-D3 (#98): Demo view — records/archive picker + FTE demo iframe.
+    // DemoPane manages the FTE iframe and picker; App.tsx wires openDemo and
+    // context. The pane header stays minimal (label + status chip is inside the
+    // picker bar) to keep the DemoPane layout self-contained.
     demo: (
       <Pane key="demo" id="demo" header={<span>Demo</span>}>
-        <PlaceholderPane
-          title="Demo view"
-          note="placeholder — in-engine demo playback lands in LD-D3 (#94, #98)"
+        <DemoPane
+          contextMap={mapName}
+          onContext={setDemoContext}
+          handleRef={demoPaneHandleRef}
         />
       </Pane>
     ),
@@ -294,7 +358,11 @@ export function App() {
     ),
   };
 
+  // LD-D3 (#98): build the shell actions value; stable reference via useMemo.
+  const shellActions = useMemo(() => ({ openDemo }), [openDemo]);
+
   return (
+    <ShellActionsContext.Provider value={shellActions}>
     <div className="h-screen flex flex-col overflow-hidden">
       <header className="relative z-20 flex items-center gap-x-4 px-4 py-2 text-sm border-b border-slate-800">
         <span className="font-bold">bot lab</span>
@@ -350,6 +418,16 @@ export function App() {
           Control
         </button>
 
+        {/* LD-D3 (#98): demo context line — emitted by DemoPane while playing;
+            wired to the shared context store in LD-E3 (#100). Shown in the
+            status bar as a preview until the KPI dock context line (LD-E1) lands. */}
+        {demoContext && !connection.live && (
+          <span className="font-mono text-sky-600 text-xs">
+            {demoContext.map}
+            {demoContext.route ? ` · ${demoContext.route}` : ""}
+            {" · demo"}
+          </span>
+        )}
         <span className="ml-auto font-mono text-gray-400">
           {mapName} · port {labPort} · {runId ?? "no attempt yet"}
         </span>
@@ -416,6 +494,7 @@ export function App() {
         </main>
       </div>
     </div>
+    </ShellActionsContext.Provider>
   );
 }
 
