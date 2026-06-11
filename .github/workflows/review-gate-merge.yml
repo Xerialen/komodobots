@@ -5,19 +5,22 @@ name: Review Gate Merge
 #
 # It merges a PR ONLY when ALL hold:
 #   - `gate: ready` label present; `gate: blocked` absent
+#   - a top-level gate verdict comment says `LABEL: gate: ready` for the current
+#     PR head SHA, so a stale ready label cannot authorize a newer commit
 #   - PR open, non-draft, on `main`, mergeable
 #   - every non-gate status check passing (this is where `pr-tests` — the
 #     deterministic CI floor — is enforced)
 #
 # It re-evaluates on label events and completion of the `PR Tests` workflow, so
-# a PR merges as soon as the LAST of {tests green, gate: ready} arrives. NOTE:
-# `check_suite`/`check_run` are NOT used — GitHub does not emit those events for
-# check suites created by GitHub Actions, so they'd never fire for `PR Tests`;
-# `workflow_run` is the mechanism that does. Both `pull_request:labeled` and
-# `issues:labeled` are handled because PR labels can arrive through either
-# webhook surface depending on which API applies the label. A low-frequency
-# schedule reconciles eligible `gate: ready` PRs if a label event is missed.
-# "Not ready yet" is silent (log only); it comments only on an actual merge.
+# a PR merges as soon as the LAST of {tests green, current-head gate ready}
+# arrives. NOTE: `check_suite`/`check_run` are NOT used — GitHub does not emit
+# those events for check suites created by GitHub Actions, so they'd never fire
+# for `PR Tests`; `workflow_run` is the mechanism that does. Both
+# `pull_request:labeled` and `issues:labeled` are handled because PR labels can
+# arrive through either webhook surface depending on which API applies the label.
+# A low-frequency schedule reconciles eligible `gate: ready` PRs if a label
+# event is missed. "Not ready yet" is silent (log only); it comments only on an
+# actual merge.
 
 on:
   pull_request:
@@ -116,6 +119,25 @@ jobs:
             [ "$has_blocked" = "false" ]   || { echo "skip #$PR: 'gate: blocked' present"; return 0; }
             [ "$mergeable" = "MERGEABLE" ] || { echo "skip #$PR: not mergeable ($mergeable)"; return 0; }
 
+            # `gate: ready` is merge-authorizing only when a top-level gate
+            # verdict comment explicitly binds that decision to the CURRENT head
+            # SHA. This prevents a stale ready label from approving newer code.
+            # Expected reviewer/gate-comment contract:
+            #   DECISION: PASS
+            #   LABEL: gate: ready
+            #   HEAD_SHA: <full current head SHA>
+            local comments_json ready_for_current_head
+            comments_json=$(gh api --paginate --slurp "repos/$REPO/issues/$PR/comments")
+            ready_for_current_head=$(jq -r --arg head "$head" '
+              [.[][]
+                | (.body // "") as $body
+                | select($body | test("(^|\\n)DECISION: (PASS|READY)(\\n|$)"))
+                | select($body | contains("LABEL: gate: ready"))
+                | select($body | contains("HEAD_SHA: " + $head))]
+              | length
+            ' <<<"$comments_json")
+            [ "${ready_for_current_head:-0}" -ge 1 ] || { echo "skip #$PR: no SHA-bound gate-ready verdict for current head $short"; return 0; }
+
             # Exclude this gate's own workflow runs from the rollup count so the
             # merge job can't deadlock on itself; pr-tests and any real CI count.
             local n_checks n_bad
@@ -141,10 +163,10 @@ jobs:
             [ "${pt_total:-0}" -ge 1 ]        || { echo "skip #$PR: required 'PR Tests' check absent (CI floor missing)"; return 0; }
             [ "${pt_total}" -eq "${pt_ok}" ]  || { echo "skip #$PR: 'PR Tests' not all passing ($pt_ok/$pt_total)"; return 0; }
 
-            echo "merging #$PR @ $short ($n_checks check(s) passing, incl. PR Tests $pt_ok/$pt_total)"
+            echo "merging #$PR @ $short ($n_checks check(s) passing, incl. PR Tests $pt_ok/$pt_total; SHA-bound gate verdict present)"
             gh pr merge "$PR" -R "$REPO" --squash --delete-branch
             gh pr comment "$PR" -R "$REPO" \
-              --body "**Merged** by review-gate executor. Gate: open, non-draft, base \`main\`, mergeable, $n_checks check(s) passing (incl. \`PR Tests\`), label \`gate: ready\` @ \`$short\`."
+              --body "**Merged** by review-gate executor. Gate: open, non-draft, base \`main\`, mergeable, current-head gate verdict for \`$short\`, $n_checks check(s) passing (incl. \`PR Tests\`), label \`gate: ready\`."
           }
 
           for PR in $PRS; do
