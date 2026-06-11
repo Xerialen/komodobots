@@ -665,7 +665,8 @@ export function App() {
 
       <div className="grow min-h-0 flex">
         {/* LD-E1 (#100): KPI dock — real component replaces the placeholder aside.
-            LD-E2 (#101): scoreboardRefreshKey triggers refetch after attempt ends. */}
+            LD-E2 (#101): scoreboardRefreshKey triggers refetch after attempt ends.
+            LD-E3 (#102): client + isLive wire the live metrics panel. */}
         <KpiDock
           context={kpiContext}
           collapsed={layout.dockCollapsed}
@@ -673,6 +674,8 @@ export function App() {
             setLayout((state) => ({ ...state, dockCollapsed: !state.dockCollapsed }))
           }
           refreshKey={scoreboardRefreshKey}
+          client={client}
+          isLive={connection.live}
         />
 
         <main className="grow min-w-0 overflow-x-auto">

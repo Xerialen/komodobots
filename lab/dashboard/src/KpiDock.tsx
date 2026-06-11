@@ -1,6 +1,8 @@
 // LD-E1 (#100): KPI dock — collapsible thin left dock with context store.
 // LD-E2 (#101): Brutal scoreboard — four metric rows (Race / Jump Count /
 //               Speedometer / Eye Test) wired into the scoreboard section slot.
+// LD-E3 (#102): Live metrics panel — vh sparkline, arc-local human comparison,
+//               launch-edge callout, attempt meta.  Replaces the skeleton slot.
 //
 // Renders as a flex/grid column member (never an overlay) so the Demo pane
 // (leftmost) is never obscured.  Two modes:
@@ -10,13 +12,14 @@
 // The collapse/expand button is also wired from the top-bar stub in App.tsx
 // (the button existed as a placeholder since LD-B1).
 //
-// Section slots for LD-E3 (live metrics) and LD-E4 (records) are still rendered
-// as named skeleton placeholders.  The scoreboard slot is now the real component.
+// Section slot for LD-E4 (records) is still a named skeleton placeholder.
 //
 // Context line format: "<map> · <route> · <source>" or "<map> · (no route) · <source>"
 
 import type { KpiContext } from "./contextStore.ts";
 import { BrutalScoreboard, RailScoreboard } from "./BrutalScoreboard.tsx";
+import { LiveMetricsPanel } from "./LiveMetricsPanel.tsx";
+import type { TelemetryClient } from "./telemetryClient.ts";
 
 // ---- Props ------------------------------------------------------------------
 
@@ -30,6 +33,16 @@ type KpiDockProps = {
    * LD-E2 (#101).
    */
   refreshKey?: number;
+  /**
+   * Shared TelemetryClient instance from App.tsx.  Passed through to the
+   * LiveMetricsPanel (LD-E3, #102) so it can subscribe to frames.
+   */
+  client?: TelemetryClient | null;
+  /**
+   * Whether a live attempt is currently running (from App.tsx connection.live).
+   * LD-E3 (#102).
+   */
+  isLive?: boolean;
 };
 
 // ---- Helpers ----------------------------------------------------------------
@@ -58,7 +71,14 @@ function SectionSlot({ label, section }: { label: string; section: string }) {
 
 // ---- Component --------------------------------------------------------------
 
-export function KpiDock({ context, collapsed, onToggle, refreshKey = 0 }: KpiDockProps) {
+export function KpiDock({
+  context,
+  collapsed,
+  onToggle,
+  refreshKey = 0,
+  client = null,
+  isLive = false,
+}: KpiDockProps) {
   if (collapsed) {
     return (
       <aside
@@ -144,11 +164,12 @@ export function KpiDock({ context, collapsed, onToggle, refreshKey = 0 }: KpiDoc
           <BrutalScoreboard context={context} refreshKey={refreshKey} />
         </div>
 
-        {/* LD-E3 (#102): Live metrics — skeleton placeholder. */}
+        {/* LD-E3 (#102): Live metrics — real component. */}
         <div className="px-3 py-2 border-t border-slate-800">
-          <SectionSlot
-            section="live-metrics"
-            label="Live metrics — LD-E3 (#102)"
+          <LiveMetricsPanel
+            client={client}
+            context={context}
+            isLive={isLive}
           />
         </div>
 
