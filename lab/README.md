@@ -48,3 +48,59 @@ fed by `telemetryClient.ts`), right the live game iframe. `public/` carries the 
 render mesh (`dm3.obj`) and the human reference trajectory (`dm3_sng_to_rl.cmds`),
 served under `/botlab/`. The view shell, KPI dock, and the rest of the SPEC views land
 in later tickets (LD-B1+).
+
+### Demo pane (LD-D2, #94) — `public/panes/demo.html`
+
+Standalone FTE WASM demo player at `/botlab/panes/demo.html`, designed to be iframed by
+the view shell (LD-D3, #98) but fully usable as a direct URL. Modeled on the working
+precedent `local-hub/web/demos/play.html`: the demo is mapped as virtual file
+`qw/match.<ext>` and `panes/fte_demo.cfg` (mapped to `id1/config.cfg`) starts playback
+with `playdemo match` at the correct moment, after FTE has downloaded every virtual file.
+
+URL params: `?demo=<url>&map=<name>&t=<seconds>&track=<userid>` (optional:
+`&duration=<seconds>` bounds the seek bar, `&name=<label>`). With `t`, the pane seeks to
+`max(0, t-2)` once playback rolls — 2 s pre-roll, ±2 s in-spec (SPEC §6.5; engine seek
+granularity is ≈1 s).
+
+postMessage API (same-origin only; events are emitted only when embedded):
+
+- inbound: `{cmd:"load", demo, map, t?, track?}` (reloads the page — one FTE instance
+  per window, reload is the reliable reset), `{cmd:"seek", t}`, `{cmd:"speed", pct}`,
+  `{cmd:"pause"}`, `{cmd:"play"}`
+- outbound: `{evt:"status", state, detail?}` on every state change
+  (`loading|playing|seeking|ended|error`), `{evt:"time", t}` at 1 Hz, `{evt:"ended"}`
+
+Map `.bsp` resolution is **local-first**: the pane HEADs `/maps/<map>.bsp` on its own
+web tier before falling back to `https://assets.quake.world/maps/<map>.bsp`, so lab-only
+maps play without being published to the CDN.
+
+Engine behavior notes (measured during LD-D2 validation, FTE git-30-0a71790):
+
+- **Demo parser is picked by the virtual filename extension.** A `.qwd` mapped as
+  `match.mvd` dies with `mvd demos/qtv streams should not contain dem_cmd`; the pane
+  maps `.qwd` demos as `match.qwd`.
+- **The demo clock is wall-anchored and load hitches are swallowed.** With the stock
+  config a 9 s human `.qwd` was consumed to its end before the first rendered frame.
+  Mitigation chain: `fte_demo.cfg` boots the demo paused → the pane waits until the
+  clock settles and the render loop flows → creeps at 10% speed through the first
+  world-render hitch → restores full speed → if the surviving offset still exceeds
+  1.5 s, one corrective backward `demo_jump` recovers the start (clean once the map is
+  cached). Result: playback from ≈1 s at true 1.0 s/s pacing for both formats.
+- **Backward seek = engine restart + fast-forward** (SPEC §6.6); measured landings are
+  within ±0.2 s of target in both directions.
+- **QWD end-of-demo does not fire `f_demoend`**, so the `ended` sentinel only covers
+  MVD; a 10 s stalled-clock fallback emits `ended` for QWD (≈11 s latency, honest).
+
+### Deploy (pending LD-A2 #85 cutover)
+
+The pane ships inside `dist/` like the rest of the app — no extra deploy step. Two
+web-root requirements on servexeri (`~/local-hub/web/`, served by `web/serve.py` on
+:8095), **documented here but not yet applied — the lab host is read-only until the
+LD-A2 deploy path lands**:
+
+- `maps` symlink → `~/nquakesv/qw/maps` (enables the local-first `.bsp` resolution:
+  `ln -s ~/nquakesv/qw/maps ~/local-hub/web/maps`). Verified absent as of 2026-06-11.
+- demo archive exposure: `/demos/files/non-games/` already serves
+  `/mnt/usb-ssd/non-games/` (existing symlink from the local-hub demo browser), which
+  includes the lab archive `lab/Komodobots/<map>/<run_id>.mvd` and `human/*.qwd`
+  written by `scripts/demo_archive.py`.
