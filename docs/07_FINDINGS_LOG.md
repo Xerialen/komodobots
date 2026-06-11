@@ -36,6 +36,50 @@ What should be tested next?
 
 ---
 
+## 2026-06-11
+
+### Experiment
+
+LD-G2 (#108): golden-path validation harness for Lab Dashboard v1.  Ran the
+offline harness (`scripts/ld_g2_golden_path.py`) against the committed
+`lab/dashboard/public/` artifacts for the first time.
+
+### Result
+
+Contract gap found: `maps.json` recorded `"glb_bytes": 611980` for dm2 but
+the committed `dm2.glb` is 613256 bytes (the GLB header's own declared length
+also says 613256 — consistent internally).  The GLB itself is valid; only the
+maps.json provenance field was stale.  Corrected in this PR.
+
+All other contracts pass: routes-manifest (index + per-map JSON, 11 dm3 routes,
+field completeness), GLB magic/version/SHA round-trip for dm3/frobodm2/trick,
+verdicts.seed.json schema, deploy file-set (panes, top-level assets).
+
+### Evidence
+
+`tests/test_ld_g2_golden_path.py` (42 tests, including the broken-fixture
+negative control).  `python -m unittest discover -s tests -p "test_*.py" -v`
+→ 934 tests, all pass.
+
+### Interpretation
+
+The stale `glb_bytes` value in maps.json was inert for the dashboard (three.js
+loads by path, not by length check), but it would have caused silent mismatch
+in any future provenance auditor or integrity check.  Now corrected and
+regression-locked.
+
+### Confidence
+
+High — the check directly compares file size vs declared size; no inference.
+
+### Follow-up
+
+Live-path evidence (telemetry WebSocket frame, deployed records.json schema)
+deferred to a declared lab slot; see LD-G2 PR and the `--live` flag in the
+harness.
+
+---
+
 ## 2026-06-10
 
 ### Experiment
