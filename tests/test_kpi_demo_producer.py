@@ -197,5 +197,87 @@ class TestDemoProducerPrecedence(unittest.TestCase):
         self.assertIsNone(store.context["route"])
 
 
+
+class TestMockupCallbackStability(unittest.TestCase):
+    """App.tsx must use a stable (memoized) onSelect callback for MockupPane.
+
+    Codex inline P1 (Xerialen/komodobots#142 discussion_r3395309484):
+      "MockupPane runs its context effect with onSelect in the dependency list,
+       and this inline arrow gets a new identity on every App render.  The
+       callback dispatches a context update, whose reducer always returns a fresh
+       state object, so the parent re-renders, the prop changes again, and the
+       child effect dispatches again until React hits the maximum update depth."
+
+    Fix contract:
+      - App.tsx must define a useCallback-memoized handler (onMockupSelect)
+        for the MockupPane onSelect prop.
+      - The inline arrow `(sel: MockupSelection) => { dispatchContext(...) }`
+        must NOT be passed directly as the onSelect prop.
+      - onMockupSelect must dispatch {kind:"mockup", map, route}.
+    """
+
+    def setUp(self):
+        import os
+        _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+        _APP_TSX = os.path.join(_REPO_ROOT, "lab", "dashboard", "src", "App.tsx")
+        with open(_APP_TSX, encoding="utf-8") as fh:
+            self.source = fh.read()
+
+    def test_onMockupSelect_callback_defined(self):
+        """App.tsx must define a named memoized handler for the MockupPane prop.
+        A useCallback wrapping the dispatch is required to prevent the render loop."""
+        self.assertIn("onMockupSelect", self.source,
+                      "App.tsx must define onMockupSelect (memoized mockup handler)")
+
+    def test_onMockupSelect_uses_useCallback(self):
+        """onMockupSelect must be wrapped in useCallback."""
+        import re
+        pattern = re.compile(
+            r"onMockupSelect\s*=\s*useCallback",
+            re.DOTALL,
+        )
+        self.assertRegex(
+            self.source,
+            pattern,
+            "onMockupSelect must be assigned via useCallback (not a plain arrow)",
+        )
+
+    def test_MockupPane_receives_stable_callback(self):
+        """MockupPane must receive onMockupSelect (not an inline arrow)."""
+        # The stable form: onSelect={onMockupSelect}
+        self.assertIn("onSelect={onMockupSelect}", self.source,
+                      "MockupPane must receive onSelect={onMockupSelect}")
+
+    def test_no_inline_arrow_for_mockup_onSelect(self):
+        """The inline arrow for mockup dispatch must not be passed directly to onSelect.
+        Pattern: onSelect={(sel => or onSelect={(sel: MockupSelection) =>"""
+        import re
+        # Look for the dangerous pattern in JSX prop assignment
+        pattern = re.compile(
+            r"onSelect=\{.*?sel.*?=>.*?dispatchContext.*?mockup",
+            re.DOTALL,
+        )
+        # Must NOT match
+        self.assertNotRegex(
+            self.source,
+            pattern,
+            "MockupPane onSelect must not use an inline arrow (causes render loop)",
+        )
+
+    def test_onMockupSelect_dispatches_mockup_kind(self):
+        """The memoized callback must dispatch {kind:'mockup'} with map and route."""
+        import re
+        # Find onMockupSelect body and verify it dispatches kind:mockup
+        # Accept either direct string or variable reference
+        idx = self.source.find("onMockupSelect = useCallback")
+        self.assertGreater(idx, -1, "onMockupSelect = useCallback not found")
+        block = self.source[idx:idx + 400]
+        self.assertIn('"mockup"', block,
+                      "onMockupSelect must dispatch kind:'mockup'")
+        self.assertIn("sel.map", block,
+                      "onMockupSelect must forward sel.map")
+        self.assertIn("sel.route", block,
+                      "onMockupSelect must forward sel.route")
+
 if __name__ == "__main__":
     unittest.main()

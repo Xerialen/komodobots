@@ -314,6 +314,17 @@ export function App() {
     );
   }, [labPort, runId, qtvRelay, mapName]);
 
+  // LD-E1 (#100): Stable mockup-selection callback — memoized so MockupPane's
+  // useEffect (which lists onSelect as a dep) does not re-run on every App render.
+  // An inline arrow would get a new identity each render, causing dispatchContext
+  // → new state object → re-render → new arrow → loop (Codex inline P1).
+  const onMockupSelect = useCallback(
+    (sel: MockupSelection) => {
+      dispatchContext({ kind: "mockup", map: sel.map, route: sel.route });
+    },
+    [], // dispatchContext is the useReducer dispatch — always stable
+  );
+
   const paneContent: Record<ViewId, ReactNode> = {
     // LD-D3 (#98): Demo view — records/archive picker + FTE demo iframe.
     // DemoPane manages the FTE iframe and picker; App.tsx wires openDemo and
@@ -359,9 +370,7 @@ export function App() {
             shell so the KPI dock (LD-E1, #100) reacts to map/route context
             changes from the Mockup pane. */}
         <MockupPane
-          onSelect={(sel: MockupSelection) => {
-            dispatchContext({ kind: "mockup", map: sel.map, route: sel.route });
-          }}
+          onSelect={onMockupSelect}
         />
       </Pane>
     ),
