@@ -661,8 +661,11 @@ def build_glb(map_name: str, bsp_data: bytes, palette: bytes,
         padded = data_bytes + b"\x00" * (_pad4(len(data_bytes)) - len(data_bytes))
         bin_chunks.append(padded)
         bv_idx = len(buffer_views)
-        buffer_views.append({"byteOffset": current_offset, "byteLength": len(data_bytes),
-                              "target": target})
+        # glTF 2.0 spec §5.12: bufferView.buffer is REQUIRED.  With a single BIN
+        # chunk the index is always 0.  Omitting it causes GLTFLoader to crash with
+        # "Cannot read properties of undefined (reading 'type')".
+        buffer_views.append({"buffer": 0, "byteOffset": current_offset,
+                              "byteLength": len(data_bytes), "target": target})
         current_offset += len(padded)
         return bv_idx
 
@@ -671,7 +674,9 @@ def build_glb(map_name: str, bsp_data: bytes, palette: bytes,
         padded = data_bytes + b"\x00" * (_pad4(len(data_bytes)) - len(data_bytes))
         bin_chunks.append(padded)
         bv_idx = len(buffer_views)
-        buffer_views.append({"byteOffset": current_offset, "byteLength": len(data_bytes)})
+        # Same contract: image bufferViews also require buffer: 0.
+        buffer_views.append({"buffer": 0, "byteOffset": current_offset,
+                              "byteLength": len(data_bytes)})
         current_offset += len(padded)
         return bv_idx
 

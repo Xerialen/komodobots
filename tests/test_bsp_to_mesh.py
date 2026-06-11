@@ -354,6 +354,25 @@ class TestSyntheticGLB(unittest.TestCase):
         glb2, _ = bsp_to_mesh.build_glb("synth", self.bsp_data, self.palette)
         self.assertEqual(self.glb, glb2, "GLB output must be byte-identical on re-run")
 
+    def test_all_bufferview_have_buffer_field(self):
+        """Every bufferView emitted by build_glb must have buffer == 0.
+
+        glTF 2.0 spec §5.12: bufferView.buffer is REQUIRED.  Omitting it
+        causes Three.js GLTFLoader to crash at runtime even though tsc and
+        vite build pass — the error only surfaces in a real browser.
+        """
+        bvs = self.json_obj.get("bufferViews", [])
+        self.assertGreater(len(bvs), 0, "GLB has no bufferViews")
+        for idx, bv in enumerate(bvs):
+            self.assertIn(
+                "buffer", bv,
+                f"bufferViews[{idx}] missing required 'buffer' field",
+            )
+            self.assertEqual(
+                bv["buffer"], 0,
+                f"bufferViews[{idx}] buffer={bv['buffer']!r}, expected 0",
+            )
+
     def test_uv_correctness(self):
         """Verify UV values match manual computation for the synthetic quad.
 
@@ -604,6 +623,31 @@ class TestCommittedAssets(unittest.TestCase):
                                  f"{name}: expected {n_prims*3} accessors, got {n_acc}")
                 self.assertGreaterEqual(n_bv, n_prims,
                                         f"{name}: bufferViews should be >= primitives")
+
+    def test_all_bufferview_have_buffer_field_in_committed_glbs(self):
+        """Every bufferView in every committed GLB must have buffer == 0.
+
+        glTF 2.0 spec §5.12: bufferView.buffer is REQUIRED.  Omitting it
+        causes Three.js GLTFLoader to crash with
+        'Cannot read properties of undefined (reading \'type\')',
+        preventing the map from loading in the browser at all.
+        """
+        for name in EXPECTED_MAPS:
+            with self.subTest(map=name):
+                glb = (MAPS_DIR / f"{name}.glb").read_bytes()
+                json_len = struct.unpack_from("<I", glb, 12)[0]
+                j = json.loads(glb[20:20 + json_len])
+                bvs = j.get("bufferViews", [])
+                self.assertGreater(len(bvs), 0, f"{name}.glb has no bufferViews")
+                for idx, bv in enumerate(bvs):
+                    self.assertIn(
+                        "buffer", bv,
+                        f"{name}.glb bufferViews[{idx}] missing required 'buffer' field",
+                    )
+                    self.assertEqual(
+                        bv["buffer"], 0,
+                        f"{name}.glb bufferViews[{idx}] buffer={bv['buffer']!r}, expected 0",
+                    )
 
 
 # ---------------------------------------------------------------------------
