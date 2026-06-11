@@ -21,6 +21,8 @@ Protocol (JSON text frames):
    "origin": {x,y,z}, "vel": {x,y,z}, "vh", "yaw", "pitch",
    "move": {"fwd","side","up"}, "buttons", "onground",
    "dir_speed", "dist_to_rl"}                                 per FBMOVEPROBE_CMD tick
+  {"type": "assign",      "run_id", "ed", "name", "mode",
+   "replay_file", "fixed_goal", "spawn_origin"}               per FBMOVEPROBE_ASSIGN row
 
 Control channel (client -> server text frames, see lab/server/control_bridge.py):
   {"op", "req_id", ...}        command request
@@ -63,7 +65,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # repo layout: the control bridge lives in lab/server/; deployed flat it sits
 # next to this file (first sys.path entry above already covers that).
 sys.path.insert(1, str(Path(__file__).resolve().parents[1] / "lab" / "server"))
-from moveprobe_parse import parse_moveprobe_command_line  # noqa: E402
+from moveprobe_parse import (  # noqa: E402
+    parse_moveprobe_command_line,
+    parse_moveprobe_assign_line,
+)
 
 try:
     from control_bridge import ControlBridge  # noqa: E402
@@ -395,9 +400,22 @@ async def tail_runs(hub: Hub, runs_dir: Path) -> None:
                         pending += chunk
                         *lines, pending = pending.split(b"\n")
                         for raw in lines:
-                            row = parse_moveprobe_command_line(
-                                raw.decode("utf-8", errors="replace")
-                            )
+                            line = raw.decode("utf-8", errors="replace")
+                            # LD-F3 (#105): ASSIGN rows expose per-bot route
+                            # assignment (server truth) to connected clients.
+                            assign_row = parse_moveprobe_assign_line(line)
+                            if assign_row is not None:
+                                await hub.broadcast({
+                                    "type": "assign",
+                                    "run_id": hub.run_id,
+                                    "ed": assign_row["ed"],
+                                    "name": assign_row["name"],
+                                    "mode": assign_row["mode"],
+                                    "replay_file": assign_row["replay_file"],
+                                    "fixed_goal": assign_row["fixed_goal"],
+                                    "spawn_origin": assign_row["spawn_origin"],
+                                })
+                            row = parse_moveprobe_command_line(line)
                             if row is None:
                                 continue
                             frame = command_row_to_frame(row, hub)
