@@ -1,0 +1,62 @@
+name: Reset Review Gate
+
+# Reset the agentic review gate whenever a PR receives new commits.
+#
+# Why this exists:
+# - `gate: ready` is a merge-authorizing label consumed by Review Gate Merge.
+# - A new commit invalidates any previous review unless a trusted reviewer has
+#   explicitly reviewed the new head SHA.
+# - This workflow therefore removes `gate: ready` on pull_request synchronize and
+#   marks the PR as needing review again.
+#
+# This workflow does NOT merge, approve, or run an LLM. It only keeps PR labels
+# consistent with the current head state.
+
+on:
+  pull_request:
+    types: [synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: reset-review-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Reset stale review gate labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          short="${HEAD_SHA:0:7}"
+
+          # Ensure the non-authorizing review-state label exists. This is safe to
+          # ignore if it already exists or if label creation is unavailable.
+          gh label create "review: needed" \
+            --repo "$REPO" \
+            --color "FBD38D" \
+            --description "Review required before the PR can be gate-ready" \
+            2>/dev/null || true
+
+          # Remove the merge-authorizing label. The REST endpoint returns 404 if
+          # the label is absent; that is an expected no-op for PRs not yet ready.
+          gh api \
+            --method DELETE \
+            "repos/$REPO/issues/$PR/labels/gate:%20ready" \
+            >/dev/null 2>&1 || true
+
+          # Mark the PR as needing a fresh review after the new head commit.
+          gh pr edit "$PR" --repo "$REPO" --add-label "review: needed"
+
+          gh pr comment "$PR" --repo "$REPO" --body "Review gate reset for new head commit \`$short\`. Removed \`gate: ready\` if present and marked the PR \`review: needed\`. A fresh review must approve this head before merge."
