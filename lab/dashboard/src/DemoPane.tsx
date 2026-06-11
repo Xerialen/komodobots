@@ -570,9 +570,15 @@ interface DemoPaneProps {
    * it as the shell-level openDemo action.
    */
   handleRef?: React.MutableRefObject<DemoPaneHandle | null>;
+  /**
+   * Called immediately after the handle is wired into handleRef (mount effect).
+   * The shell uses this to flush any params queued while the Demo view was closed
+   * (i.e. before DemoPane was mounted) so click-to-play delivers the demo.
+   */
+  onHandleReady?: () => void;
 }
 
-export function DemoPane({ contextMap, onContext, handleRef }: DemoPaneProps) {
+export function DemoPane({ contextMap, onContext, handleRef, onHandleReady }: DemoPaneProps) {
   const [tab, setTab] = useState<TabId>("records");
   const [demoState, setDemoState] = useState<DemoState>({ current: null });
   const [demoStatus, setDemoStatus] = useState<DemoStatus>("empty");
@@ -610,11 +616,20 @@ export function DemoPane({ contextMap, onContext, handleRef }: DemoPaneProps) {
   );
 
   // Wire the handle ref so App.tsx can call openDemo from outside.
+  // After wiring, call onHandleReady so the shell can flush any params that were
+  // queued while this pane was unmounted (the "closed Demo view" race, P1 fix).
   useEffect(() => {
     if (handleRef) {
       handleRef.current = { openDemo };
+      onHandleReady?.();
     }
-  }, [handleRef, openDemo]);
+    return () => {
+      // Clear the handle on unmount so App.tsx knows the pane is gone.
+      if (handleRef) {
+        handleRef.current = null;
+      }
+    };
+  }, [handleRef, openDemo, onHandleReady]);
 
   // ------------------------------------------------------------------
   // Listen for postMessage events from demo.html (same-origin).

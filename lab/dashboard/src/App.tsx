@@ -135,6 +135,13 @@ export function App() {
   const demoPaneHandleRef = useRef<DemoPaneHandle | null>(null);
   const [demoContext, setDemoContext] = useState<DemoContext | null>(null);
 
+  // LD-D3 (#98): pending demo params queue.
+  // When openDemo is called while the Demo view is closed, DemoPane has not
+  // yet mounted and demoPaneHandleRef.current is null. We park the params here
+  // and flush them in onDemoPaneHandleReady (called by DemoPane's mount effect)
+  // so the iframe receives the {cmd:"load"} postMessage once the pane exists.
+  const pendingDemoRef = useRef<OpenDemoParams | null>(null);
+
   /**
    * openDemo — shell-level entry point (SPEC §6.5).
    * Opens/focuses the Demo view if closed, then loads the demo in the pane.
@@ -147,12 +154,30 @@ export function App() {
         if (state.views.includes("demo")) return state;
         return { ...state, views: orderViews([...state.views, "demo"]) };
       });
-      // Delegate to the pane — may be called the frame before DemoPane mounts,
-      // but DemoPane's useEffect will flush once it renders.
-      demoPaneHandleRef.current?.openDemo(params);
+      if (demoPaneHandleRef.current) {
+        // Pane is already mounted — deliver immediately.
+        demoPaneHandleRef.current.openDemo(params);
+      } else {
+        // Pane not yet mounted (view was closed); park params for flush in
+        // onDemoPaneHandleReady, which fires once DemoPane's mount effect runs.
+        pendingDemoRef.current = params;
+      }
     },
     [],
   );
+
+  /**
+   * onDemoPaneHandleReady — called by DemoPane immediately after it wires its
+   * handle into demoPaneHandleRef (mount effect). Flushes any queued params so
+   * a click-to-play that arrived before the pane existed is delivered.
+   */
+  const onDemoPaneHandleReady = useCallback(() => {
+    const params = pendingDemoRef.current;
+    if (params && demoPaneHandleRef.current) {
+      pendingDemoRef.current = null;
+      demoPaneHandleRef.current.openDemo(params);
+    }
+  }, []);
 
   useEffect(() => {
     const telemetry = new TelemetryClient(wsUrl);
@@ -248,6 +273,7 @@ export function App() {
           contextMap={mapName}
           onContext={setDemoContext}
           handleRef={demoPaneHandleRef}
+          onHandleReady={onDemoPaneHandleReady}
         />
       </Pane>
     ),
