@@ -6,6 +6,9 @@
 // collapsed flag, and the control-drawer open flag persist to localStorage;
 // the open set is also reflected in the URL as `?views=demo,live3d` so
 // layouts are shareable. URL params win over localStorage on load (SPEC §4.2).
+//
+// LD-C5 (#99): mapOpacity (0.05–1.0, default 0.3 "quite transparent") and
+// wireframe (default false) are shared across both 3D views (SPEC §6.3).
 
 export const VIEW_ORDER = ["demo", "mockup", "live3d", "game"] as const;
 
@@ -23,10 +26,23 @@ export type LayoutState = {
   views: ViewId[];
   dockCollapsed: boolean;
   drawerOpen: boolean;
+  /**
+   * Map mesh opacity shared across both 3D views (Mockup + Live 3D).
+   * Range 0.05–1.0; default 0.3 ("quite transparent") per SPEC §6.3 / #99.
+   */
+  mapOpacity: number;
+  /**
+   * Wireframe overlay toggle for both 3D views. Default false (textures on).
+   * Per SPEC §6.3 / #99.
+   */
+  wireframe: boolean;
 };
 
 // Phase 1 default: the two views that exist today (SPEC §3.4, §3.5).
 export const DEFAULT_VIEWS: ViewId[] = ["live3d", "game"];
+
+/** Default map opacity ("quite transparent", SPEC §6.3 / #99). */
+export const DEFAULT_MAP_OPACITY = 0.3;
 
 const STORAGE_KEY = "komodobots.botlab.layout.v1";
 
@@ -83,6 +99,16 @@ function readStoredLayout(): Partial<LayoutState> | null {
   if (typeof record.drawerOpen === "boolean") {
     result.drawerOpen = record.drawerOpen;
   }
+  if (
+    typeof record.mapOpacity === "number" &&
+    record.mapOpacity >= 0.05 &&
+    record.mapOpacity <= 1.0
+  ) {
+    result.mapOpacity = record.mapOpacity;
+  }
+  if (typeof record.wireframe === "boolean") {
+    result.wireframe = record.wireframe;
+  }
   return result;
 }
 
@@ -96,6 +122,8 @@ export function loadLayout(search: string): LayoutState {
     views: stored?.views ?? DEFAULT_VIEWS,
     dockCollapsed: stored?.dockCollapsed ?? false,
     drawerOpen: stored?.drawerOpen ?? false,
+    mapOpacity: stored?.mapOpacity ?? DEFAULT_MAP_OPACITY,
+    wireframe: stored?.wireframe ?? false,
   };
   const viewsParam = new URLSearchParams(search).get("views");
   if (viewsParam !== null) {
@@ -116,6 +144,8 @@ export function persistLayout(state: LayoutState): void {
         views: state.views,
         dockCollapsed: state.dockCollapsed,
         drawerOpen: state.drawerOpen,
+        mapOpacity: state.mapOpacity,
+        wireframe: state.wireframe,
       }),
     );
   } catch {

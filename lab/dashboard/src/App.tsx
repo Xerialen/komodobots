@@ -92,6 +92,10 @@ export function useShellActions(): ShellActions | null {
 // map-scene setup (scene/camera/renderer/controls/mesh/resize) is factored
 // into src/mapScene.ts for reuse by the Mockup pane (LD-C3, #97).
 //
+// LD-C5 (#99): mapOpacity and wireframe layout state wired to BotLab3D and
+// MockupPane so both 3D views share the top-bar opacity slider / wireframe
+// toggle.  Controls persist via layoutState.ts.
+//
 // LD-F4 (#103): selectedEd state — tracks which bot is followed by the
 // camera and which HUD row is expanded.  null = first-seen bot (single-bot
 // compat).  Set by clicking a marker in BotLab3D or a compact row in
@@ -160,6 +164,13 @@ export function App() {
     { context: INITIAL_KPI_CONTEXT, lastUser: INITIAL_KPI_CONTEXT },
   );
   const kpiContext = ctxPair.context;
+
+  // LD-E2 (#101): scoreboard refresh key — incremented when an attempt ends so
+  // the KPI dock's BrutalScoreboard refetches records.json + verdicts.json.
+  // We detect "attempt ended" by watching connection.live transition false→true
+  // (attempt start is not relevant; we want the refetch on completion).
+  const [scoreboardRefreshKey, setScoreboardRefreshKey] = useState(0);
+  const prevLiveRef = useRef(false);
 
   // LD-F4 (#103): selected bot ed — drives BotLab3D camera follow and
   // TelemetryHud expanded row.  null = first-seen bot (single-bot compat).
@@ -302,6 +313,18 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connection.live, attempt?.map]);
 
+  // LD-E2 (#101): scoreboard refetch on attempt end.
+  // When connection.live transitions from true to false, an attempt just ended
+  // and the records store may have new data.  Increment scoreboardRefreshKey
+  // to trigger a refetch in BrutalScoreboard / RailScoreboard.
+  useEffect(() => {
+    if (prevLiveRef.current && !connection.live) {
+      // live just went false — attempt ended.
+      setScoreboardRefreshKey((k) => k + 1);
+    }
+    prevLiveRef.current = connection.live;
+  }, [connection.live]);
+
   // LD-B2 (#88): send {cmd:"attach"} to qtv.html whenever the lab port or run
   // changes (i.e. new attempt), mirroring the hub App.tsx attach/retry pattern.
   // labPort and mapName are derived below; keep the effect after their declarations.
@@ -436,9 +459,13 @@ export function App() {
       >
         {/* LD-C3 (#97): offline map/route browser. Emits MockupSelection to the
             shell so the KPI dock (LD-E1, #100) reacts to map/route context
-            changes from the Mockup pane. */}
+            changes from the Mockup pane.
+            LD-C5 (#99): mapOpacity / wireframe forwarded from shared layout
+            state so both 3D panes react to the top-bar shared controls. */}
         <MockupPane
           onSelect={onMockupSelect}
+          mapOpacity={layout.mapOpacity}
+          wireframe={layout.wireframe}
         />
       </Pane>
     ),
@@ -449,7 +476,43 @@ export function App() {
         header={
           <>
             <span>Live 3D</span>
-            <label className="ml-auto flex items-center gap-x-1 normal-case tracking-normal text-gray-400">
+            {/* LD-C5 (#99): shared opacity slider + wireframe toggle for
+                both 3D panes; values live in layout state (persisted). */}
+            <label className="ml-2 flex items-center gap-x-1 normal-case tracking-normal text-gray-400 text-[10px]">
+              opacity
+              <input
+                type="range"
+                min={0.05}
+                max={1.0}
+                step={0.05}
+                value={layout.mapOpacity}
+                onChange={(event) =>
+                  setLayout((state) => ({
+                    ...state,
+                    mapOpacity: Number(event.target.value),
+                  }))
+                }
+                className="w-16 accent-sky-400"
+                title={`Map opacity: ${Math.round(layout.mapOpacity * 100)}%`}
+              />
+              <span className="w-6 text-right font-mono">
+                {Math.round(layout.mapOpacity * 100)}%
+              </span>
+            </label>
+            <label className="flex items-center gap-x-1 normal-case tracking-normal text-gray-400 text-[10px]">
+              <input
+                type="checkbox"
+                checked={layout.wireframe}
+                onChange={(event) =>
+                  setLayout((state) => ({
+                    ...state,
+                    wireframe: event.target.checked,
+                  }))
+                }
+              />
+              wire
+            </label>
+            <label className="flex items-center gap-x-1 normal-case tracking-normal text-gray-400">
               <input
                 type="checkbox"
                 checked={showReference}
@@ -468,6 +531,8 @@ export function App() {
               mapName === "dm3" ? "/botlab/dm3_sng_to_rl.cmds" : null
             }
             showReferencePath={showReference}
+            mapOpacity={layout.mapOpacity}
+            wireframe={layout.wireframe}
             selectedEd={selectedEd}
             onBotClick={setSelectedEd}
           />
@@ -644,13 +709,15 @@ export function App() {
       </header>
 
       <div className="grow min-h-0 flex">
-        {/* LD-E1 (#100): KPI dock — real component replaces the placeholder aside. */}
+        {/* LD-E1 (#100): KPI dock — real component replaces the placeholder aside.
+            LD-E2 (#101): scoreboardRefreshKey triggers refetch after attempt ends. */}
         <KpiDock
           context={kpiContext}
           collapsed={layout.dockCollapsed}
           onToggle={() =>
             setLayout((state) => ({ ...state, dockCollapsed: !state.dockCollapsed }))
           }
+          refreshKey={scoreboardRefreshKey}
         />
 
         <main className="grow min-w-0 overflow-x-auto">

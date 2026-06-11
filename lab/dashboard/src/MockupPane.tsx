@@ -1,6 +1,6 @@
 ﻿// LD-C3 (#97): Mockup view -- offline 3D map/route browser pane.
 //
-// Shows the committed map meshes (OBJ) and human route data from the committed
+// Shows the committed map meshes (GLB) and human route data from the committed
 // routes manifests (komodobots.routes.v1).  No live telemetry.  Selecting a
 // map or route emits a MockupSelection context event to the parent via the
 // onSelect callback so the future KPI dock (LD-E1, #100) can react.
@@ -8,7 +8,8 @@
 // Data flow:
 //   maps.json                  -> map selector (dm3 / dm2 / frobodm2 / trick)
 //   data/routes/<map>.json     -> route browser (11 dm3 routes; others: empty)
-//   maps/<map>.obj             -> Three.js scene via the shared mapScene module
+//   maps/<map>.glb             -> Three.js scene via the shared mapScene module
+//                                 (LD-C4 textured GLB assets, LD-C5 #99)
 //
 // Quake <-> Three.js coordinate transform: see quakeCoords.ts (x,y,z)_quake ->
 // (x,z,-y)_three.  All polyline / gap marker geometry is built from census
@@ -21,6 +22,9 @@
 // either changes.  route is null when zero routes are selected; it is the most
 // recently selected route name otherwise.  (LD-E1 will subscribe to this to
 // drive the KPI dock context line.)
+//
+// LD-C5 (#99): accepts mapOpacity and wireframe props forwarded from the shell
+// layout state; applies them to the mapScene via setOpacity / setWireframe.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
@@ -135,12 +139,24 @@ function buildMarker(
 
 export function MockupPane({
   onSelect,
+  mapOpacity,
+  wireframe,
 }: {
   /**
    * Called whenever the active map or route selection changes.
    * Consumed by the shell to populate the future KPI dock context store (LD-E1).
    */
   onSelect?: (sel: MockupSelection) => void;
+  /**
+   * Map mesh opacity (0.05–1.0, default 0.3).  Forwarded from the shell
+   * layout state; persisted there (SPEC §6.3 / #99).
+   */
+  mapOpacity: number;
+  /**
+   * Wireframe overlay toggle (default false).  Forwarded from the shell
+   * layout state (SPEC §6.3 / #99).
+   */
+  wireframe: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<ReturnType<typeof createMapScene> | null>(null);
@@ -178,6 +194,9 @@ export function MockupPane({
 
       const mapScene = createMapScene(containerRef.current, activeMap, center);
       sceneRef.current = mapScene;
+      // Apply current opacity/wireframe to the new scene immediately.
+      mapScene.setOpacity(mapOpacity);
+      mapScene.setWireframe(wireframe);
 
       function animate() {
         animIdRef.current = requestAnimationFrame(animate);
@@ -199,6 +218,19 @@ export function MockupPane({
       slotIndexRef.current.clear();
     };
   }, [activeMap]);
+
+  // ---- Opacity / wireframe sync (LD-C5, #99) --------------------------------
+  // Applied separately from the scene lifecycle effect so map switches and
+  // opacity changes are independent; the scene-lifecycle effect applies them
+  // once on scene creation, these keep them in sync on subsequent changes.
+
+  useEffect(() => {
+    sceneRef.current?.setOpacity(mapOpacity);
+  }, [mapOpacity]);
+
+  useEffect(() => {
+    sceneRef.current?.setWireframe(wireframe);
+  }, [wireframe]);
 
   // ---- Manifest fetching ----------------------------------------------------
 
