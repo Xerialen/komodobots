@@ -3,18 +3,22 @@
 Validates the deriveScoreboard logic in Python, testing the same rules as
 BrutalScoreboard.tsx:
 
-- The Race: finishes/attempts + median×human from route aggregates (or overall)
+- The Race: finishes/attempts + median×human from route aggregates (or overall);
+  overall mode uses median-of-multiples (not arithmetic mean) across routes with data
 - Jump Count: N/11 from first_completion records across all dm3 routes
-- Speedometer: peak_speed % of human_ref, edge_speed sub-line
+- Speedometer: active_mean_speed % of human census active_mean_speed (SPEC §7.3);
+  edge_speed is the decisive-edge sub-line only
 - Eye Test: latest verdict from verdicts.json per route
 - Honest zeros: no record yet → null/0, never hidden
 - Route context: single-route mode vs overall mode
 - Context route completed flag from first_completion presence
+- Targets: north-star Race ≤×1.0, Speedometer ≥100%; v1 milestones ×1.25/80%
 
 These tests exercise the pure data derivation.  No browser or TypeScript
 runtime required.
 """
 
+import statistics
 import unittest
 
 
@@ -126,7 +130,7 @@ def derive_scoreboard(records, verdicts, context):
             if f > 0 and m is not None and h > 0:
                 multiples.append(m / h)
         if multiples:
-            race_multiple = sum(multiples) / len(multiples)
+            race_multiple = statistics.median(multiples)
 
     # ---- Speedometer -------------------------------------------------------
     bot_speed = None
@@ -138,10 +142,12 @@ def derive_scoreboard(records, verdicts, context):
         route_data = dm3_routes[route]
         records_dict = route_data.get("records", {})
 
-        peak_rec = records_dict.get("peak_speed")
-        if peak_rec:
-            bot_speed = peak_rec.get("value")
-            hr = peak_rec.get("human_ref")
+        # Speedometer primary: active_mean_speed record vs human census active_mean_speed
+        # (SPEC §7.3).  peak_speed is not the Speedometer KPI.
+        ams_rec = records_dict.get("active_mean_speed")
+        if ams_rec:
+            bot_speed = ams_rec.get("value")
+            hr = ams_rec.get("human_ref")
             if hr:
                 human_speed = hr.get("value")
         if bot_speed is not None and human_speed is not None and human_speed > 0:
@@ -208,13 +214,20 @@ def make_route_record(
     finishes=6,
     median_time_s=14.2,
     human_time_s=3.65,
+    active_mean_speed_bot=None,
+    active_mean_speed_human=None,
     peak_speed_bot=None,
     peak_speed_human=None,
     edge_speed_bot=None,
     edge_speed_human=None,
     has_first_completion=False,
 ):
-    """Build a minimal RouteRecords fixture."""
+    """Build a minimal RouteRecords fixture.
+
+    active_mean_speed_{bot,human} feed the Speedometer primary KPI (SPEC §7.3).
+    peak_speed_{bot,human} remain in records but are NOT used for the Speedometer.
+    edge_speed_{bot,human} feed the decisive-edge sub-line.
+    """
     records = {}
     if has_first_completion:
         records["first_completion"] = {
@@ -223,13 +236,24 @@ def make_route_record(
             "run_id": "20260610T000000Z",
             "human_ref": {"value": human_time_s, "source": "census"},
         }
+    if active_mean_speed_bot is not None:
+        records["active_mean_speed"] = {
+            "value": active_mean_speed_bot,
+            "units": "qu/s",
+            "run_id": "20260610T000001Z",
+            "human_ref": (
+                {"value": active_mean_speed_human, "source": "census active_mean_speed"}
+                if active_mean_speed_human is not None
+                else None
+            ),
+        }
     if peak_speed_bot is not None:
         records["peak_speed"] = {
             "value": peak_speed_bot,
             "units": "qu/s",
-            "run_id": "20260610T000001Z",
+            "run_id": "20260610T000002Z",
             "human_ref": (
-                {"value": peak_speed_human, "source": "census"}
+                {"value": peak_speed_human, "source": "census peak_speed"}
                 if peak_speed_human is not None
                 else None
             ),
@@ -238,7 +262,7 @@ def make_route_record(
         records["edge_speed"] = {
             "value": edge_speed_bot,
             "units": "qu/s",
-            "run_id": "20260610T000002Z",
+            "run_id": "20260610T000003Z",
             "human_ref": (
                 {"value": edge_speed_human, "source": "census"}
                 if edge_speed_human is not None
@@ -269,19 +293,28 @@ def make_records_with_sng_to_rl(
     attempts=10,
     finishes=6,
     median_time_s=35.1,  # ~×3.9 of 8.99
-    peak_bot=327.0,
+    ams_bot=298.0,        # ~70% of human active_mean_speed 424.9 (SPEC §7 current state)
+    ams_human=424.9,      # census active_mean_speed for sng_to_rl
+    peak_bot=327.0,       # kept in records, not used for Speedometer primary
     peak_human=534.7,
     edge_bot=327.0,
     edge_human=528.6,
     has_first_completion=False,
 ):
-    """Records fixture with sng_to_rl populated."""
+    """Records fixture with sng_to_rl populated.
+
+    ams_* drives the Speedometer primary (active_mean_speed).
+    peak_* remains in records but is separate from the KPI.
+    edge_* drives the decisive-edge sub-line.
+    """
     routes = {r: make_route_record(attempts=0, finishes=0, median_time_s=None) for r in DM3_ROUTES_ORDERED}
     routes["sng_to_rl"] = make_route_record(
         attempts=attempts,
         finishes=finishes,
         median_time_s=median_time_s,
         human_time_s=8.99,
+        active_mean_speed_bot=ams_bot,
+        active_mean_speed_human=ams_human,
         peak_speed_bot=peak_bot,
         peak_speed_human=peak_human,
         edge_speed_bot=edge_bot,
@@ -442,14 +475,46 @@ class TestDeriveScoreboardRaceOverallMode(unittest.TestCase):
     def test_total_attempts(self):
         self.assertEqual(self.sb["race"]["attempts"], 15)  # 10+5
 
-    def test_overall_multiple_is_average(self):
-        # average of 35.1/8.99 and 14.2/3.65
+    def test_overall_multiple_is_median(self):
+        """Overall mode uses median of multiples across routes with data (#101)."""
+        # Two routes: median of [35.1/8.99, 14.2/3.65] = mean of both (even count)
         m1 = 35.1 / 8.99
         m2 = 14.2 / 3.65
-        expected = (m1 + m2) / 2
+        expected = statistics.median([m1, m2])
         multiple = self.sb["race"]["multipleOfHuman"]
         self.assertIsNotNone(multiple)
         self.assertAlmostEqual(multiple, expected, places=4)
+
+    def test_overall_multiple_is_not_arithmetic_mean(self):
+        """Confirm the result is median, not arithmetic mean (they differ with skewed data)."""
+        # Three routes: median != mean when distribution is skewed.
+        routes = {r: make_route_record(attempts=0, finishes=0, median_time_s=None) for r in DM3_ROUTES_ORDERED}
+        routes["sng_to_rl"] = make_route_record(
+            attempts=10, finishes=6, median_time_s=35.1, human_time_s=8.99
+        )
+        routes["sng_shortcut2"] = make_route_record(
+            attempts=5, finishes=3, median_time_s=14.2, human_time_s=3.65
+        )
+        routes["hilljump"] = make_route_record(
+            attempts=8, finishes=4, median_time_s=100.0, human_time_s=5.0
+        )
+        records = {
+            "schema": "komodobots.records.v1",
+            "maps": {"dm3": {"routes": routes}},
+        }
+        ctx = _make_context()
+        sb = derive_scoreboard(records, None, ctx)
+        m1 = 35.1 / 8.99
+        m2 = 14.2 / 3.65
+        m3 = 100.0 / 5.0
+        multiples = sorted([m1, m2, m3])
+        expected_median = multiples[1]  # middle of 3
+        expected_mean = (m1 + m2 + m3) / 3
+        result = sb["race"]["multipleOfHuman"]
+        self.assertIsNotNone(result)
+        self.assertAlmostEqual(result, expected_median, places=4)
+        # Sanity: median and mean are different here (if not, the test is not distinguishing)
+        self.assertNotAlmostEqual(expected_median, expected_mean, places=2)
 
 
 class TestJumpCount(unittest.TestCase):
@@ -514,7 +579,11 @@ class TestJumpCount(unittest.TestCase):
 
 
 class TestSpeedometer(unittest.TestCase):
-    """Speedometer — bot speed as % of human on context route."""
+    """Speedometer — bot active_mean_speed as % of human active_mean_speed (SPEC §7.3).
+
+    The primary metric is whole-route active-mean speed, NOT peak_speed.
+    edge_speed is the decisive-edge sub-line only.
+    """
 
     def test_no_route_context_no_speed(self):
         records = make_empty_records()
@@ -522,36 +591,56 @@ class TestSpeedometer(unittest.TestCase):
         sb = derive_scoreboard(records, None, ctx)
         self.assertIsNone(sb["speedometer"]["pct"])
 
-    def test_route_no_peak_record(self):
+    def test_route_no_active_mean_speed_record(self):
+        """No active_mean_speed record → Speedometer pct is None."""
         records = make_empty_records()
         ctx = _make_context(route="sng_to_rl")
         sb = derive_scoreboard(records, None, ctx)
         self.assertIsNone(sb["speedometer"]["pct"])
 
-    def test_speed_percentage(self):
-        # Bot 327 qu/s / human 534.7 qu/s = ~61.1%
-        records = make_records_with_sng_to_rl(peak_bot=327.0, peak_human=534.7)
+    def test_speed_percentage_uses_active_mean(self):
+        """Speedometer uses active_mean_speed, not peak_speed (SPEC §7.3)."""
+        # Bot 298 qu/s active-mean / human 424.9 qu/s = ~70.1%
+        records = make_records_with_sng_to_rl(ams_bot=298.0, ams_human=424.9)
         ctx = _make_context(route="sng_to_rl")
         sb = derive_scoreboard(records, None, ctx)
         pct = sb["speedometer"]["pct"]
         self.assertIsNotNone(pct)
-        self.assertAlmostEqual(pct, 327.0 / 534.7 * 100, places=3)
+        self.assertAlmostEqual(pct, 298.0 / 424.9 * 100, places=3)
+
+    def test_peak_speed_does_not_drive_speedometer(self):
+        """peak_speed record present, but active_mean_speed absent → pct is None."""
+        routes = {r: make_route_record(attempts=0, finishes=0, median_time_s=None) for r in DM3_ROUTES_ORDERED}
+        routes["sng_to_rl"] = make_route_record(
+            attempts=5, finishes=2, median_time_s=35.1, human_time_s=8.99,
+            peak_speed_bot=327.0, peak_speed_human=534.7,
+            # no active_mean_speed
+        )
+        records = {
+            "schema": "komodobots.records.v1",
+            "maps": {"dm3": {"routes": routes}},
+        }
+        ctx = _make_context(route="sng_to_rl")
+        sb = derive_scoreboard(records, None, ctx)
+        # active_mean_speed record is absent → pct must be None
+        self.assertIsNone(sb["speedometer"]["pct"])
 
     def test_speed_above_100_pct(self):
-        """Bot faster than human reference → pct > 100."""
-        records = make_records_with_sng_to_rl(peak_bot=600.0, peak_human=534.7)
+        """Bot faster than human active-mean reference → pct > 100."""
+        records = make_records_with_sng_to_rl(ams_bot=500.0, ams_human=424.9)
         ctx = _make_context(route="sng_to_rl")
         sb = derive_scoreboard(records, None, ctx)
         self.assertGreater(sb["speedometer"]["pct"], 100.0)
 
     def test_bot_speed_stored(self):
-        records = make_records_with_sng_to_rl(peak_bot=327.0, peak_human=534.7)
+        records = make_records_with_sng_to_rl(ams_bot=298.0, ams_human=424.9)
         ctx = _make_context(route="sng_to_rl")
         sb = derive_scoreboard(records, None, ctx)
-        self.assertEqual(sb["speedometer"]["botSpeed"], 327.0)
-        self.assertEqual(sb["speedometer"]["humanSpeed"], 534.7)
+        self.assertEqual(sb["speedometer"]["botSpeed"], 298.0)
+        self.assertEqual(sb["speedometer"]["humanSpeed"], 424.9)
 
     def test_edge_speed_sub_line(self):
+        """edge_speed is the decisive-edge sub-line, separate from the main KPI."""
         # Edge: bot 327 / human 528.6 = ~61.9%
         records = make_records_with_sng_to_rl(
             edge_bot=327.0, edge_human=528.6
@@ -571,12 +660,12 @@ class TestSpeedometer(unittest.TestCase):
         self.assertIsNone(sb["speedometer"]["edge"])
 
     def test_no_human_ref_pct_null(self):
-        """peak_speed record with no human_ref → pct is None."""
+        """active_mean_speed record with no human_ref → pct is None."""
         routes = {r: make_route_record(attempts=0, finishes=0, median_time_s=None) for r in DM3_ROUTES_ORDERED}
         routes["sng_to_rl"] = {
             "records": {
-                "peak_speed": {
-                    "value": 327.0,
+                "active_mean_speed": {
+                    "value": 298.0,
                     "units": "qu/s",
                     "run_id": "20260610T000000Z",
                     "human_ref": None,
@@ -700,7 +789,8 @@ class TestHonestZeros(unittest.TestCase):
         sb = derive_scoreboard(records, None, ctx)
         self.assertIsNone(sb["race"]["multipleOfHuman"])
 
-    def test_no_peak_speed_pct_is_null_not_zero(self):
+    def test_no_active_mean_speed_pct_is_null_not_zero(self):
+        """No active_mean_speed record → speedometer pct is null, not 0."""
         records = make_empty_records()
         ctx = _make_context(route="sng_to_rl")
         sb = derive_scoreboard(records, None, ctx)
@@ -717,8 +807,11 @@ class TestHonestZeros(unittest.TestCase):
 class TestCurrentHonestStateSpec(unittest.TestCase):
     """Validate the honest current state from SPEC §7 table (2026-06).
 
-    Today: 6/10 · ×3.9, Jump Count 0/11, ~70%/62%, fail verdict.
+    Today: 6/10 · ×3.9, Jump Count 0/11, ~70% active-mean / 62% edge, fail verdict.
     These tests lock the logic against those current real values.
+
+    Speedometer primary: bot 298 qu/s active-mean vs human 424.9 qu/s ≈ 70.1%
+    Decisive edge sub-line: bot 327 vs human 528.6 ≈ 61.9%
     """
 
     def setUp(self):
@@ -727,9 +820,9 @@ class TestCurrentHonestStateSpec(unittest.TestCase):
             attempts=10,
             finishes=6,
             median_time_s=35.1,  # ×3.9 of 8.99
-            peak_bot=327.0,      # ~70% of 534.7? Actually spec says ~70% active-mean
-            peak_human=534.7,
-            edge_bot=327.0,      # ~62% of 528.6
+            ams_bot=298.0,        # ~70% of human active_mean_speed 424.9
+            ams_human=424.9,      # census active_mean_speed for sng_to_rl
+            edge_bot=327.0,       # ~62% of 528.6
             edge_human=528.6,
         )
         self.verdicts = {
@@ -748,7 +841,7 @@ class TestCurrentHonestStateSpec(unittest.TestCase):
         self.assertIsNotNone(m)
         # 35.1 / 8.99 ≈ 3.904
         self.assertAlmostEqual(m, 35.1 / 8.99, places=2)
-        self.assertGreater(m, 1.25)  # fails the v1 target
+        self.assertGreater(m, 1.25)  # fails the v1 milestone; north-star target is ≤×1.0
 
     def test_jump_count_zero(self):
         self.assertEqual(self.sb["jumpCount"]["completed"], 0)
@@ -757,15 +850,28 @@ class TestCurrentHonestStateSpec(unittest.TestCase):
         self.assertEqual(self.sb["eyeTest"]["verdict"], "fail")
         self.assertEqual(self.sb["eyeTest"]["label"], "obviously a bot")
 
-    def test_speedometer_below_80_pct_target(self):
+    def test_speedometer_uses_active_mean(self):
+        """Speedometer primary is active-mean, currently ~70% (below v1 80% and north-star 100%)."""
         pct = self.sb["speedometer"]["pct"]
         self.assertIsNotNone(pct)
-        self.assertLess(pct, 80.0)  # fails the v1 target
+        self.assertAlmostEqual(pct, 298.0 / 424.9 * 100, places=2)
+        self.assertLess(pct, 80.0)   # fails v1 milestone
+        self.assertLess(pct, 100.0)  # fails north-star target
 
     def test_edge_below_100_pct(self):
         edge = self.sb["speedometer"]["edge"]
         self.assertIsNotNone(edge)
         self.assertLess(edge["pct"], 100.0)
+
+    def test_targets_north_star_race(self):
+        """North-star Race target is ≤×1.0 (not ≤×1.25)."""
+        m = self.sb["race"]["multipleOfHuman"]
+        self.assertGreater(m, 1.0)  # currently fails north-star ≤×1.0
+
+    def test_targets_north_star_speedometer(self):
+        """North-star Speedometer target is ≥100% (not ≥80%)."""
+        pct = self.sb["speedometer"]["pct"]
+        self.assertLess(pct, 100.0)  # currently fails north-star ≥100%
 
 
 if __name__ == "__main__":

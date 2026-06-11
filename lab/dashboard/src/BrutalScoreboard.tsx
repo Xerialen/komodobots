@@ -27,7 +27,7 @@ import type { KpiContext } from "./contextStore.ts";
 // Types — records schema (komodobots.records.v1), partial
 // ---------------------------------------------------------------------------
 
-type RecordKind = "fastest_time" | "first_completion" | "peak_speed" | "edge_speed";
+type RecordKind = "fastest_time" | "first_completion" | "peak_speed" | "edge_speed" | "active_mean_speed";
 
 interface HumanRef {
   value: number;
@@ -122,9 +122,9 @@ interface ScoreboardState {
   };
   /** Speedometer: bot's best active-mean speed as % of human on context route. */
   speedometer: {
-    /** Bot peak_speed value (qu/s), best run, or null. */
+    /** Bot active_mean_speed record value (qu/s), best run, or null. */
     botSpeed: number | null;
-    /** Human active_mean_speed from census (best available human ref). */
+    /** Human active_mean_speed from census. */
     humanSpeed: number | null;
     /** Percentage, or null if either number is missing. */
     pct: number | null;
@@ -207,7 +207,7 @@ function deriveScoreboard(
       raceFinishes += routeData.aggregates.finishes;
       raceAttempts += routeData.aggregates.attempts;
     }
-    // Overall median multiple: weighted average across routes that have data.
+    // Overall median multiple: median across routes that have data (per #101).
     const multiples: number[] = [];
     for (const routeData of Object.values(dm3MapData.routes)) {
       const agg = routeData.aggregates;
@@ -216,7 +216,12 @@ function deriveScoreboard(
       }
     }
     if (multiples.length > 0) {
-      raceMultiple = multiples.reduce((a, b) => a + b, 0) / multiples.length;
+      const sorted = [...multiples].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      raceMultiple =
+        sorted.length % 2 === 1
+          ? sorted[mid]
+          : (sorted[mid - 1] + sorted[mid]) / 2;
     }
   }
 
@@ -229,12 +234,13 @@ function deriveScoreboard(
   if (context.route && dm3MapData.routes[context.route]) {
     const routeData = dm3MapData.routes[context.route];
 
-    // Bot speed: use peak_speed record value (best ever on-route peak).
-    const peakRec = routeData.records?.peak_speed;
-    if (peakRec) {
-      botSpeed = peakRec.value;
-      if (peakRec.human_ref) {
-        humanSpeed = peakRec.human_ref.value;
+    // Bot speed: use active_mean_speed record (whole-route active-mean, per SPEC §7.3).
+    // edge_speed is the decisive-edge sub-line only; peak_speed is not the Speedometer KPI.
+    const amsRec = routeData.records?.active_mean_speed;
+    if (amsRec) {
+      botSpeed = amsRec.value;
+      if (amsRec.human_ref) {
+        humanSpeed = amsRec.human_ref.value;
       }
     }
     if (botSpeed != null && humanSpeed != null && humanSpeed > 0) {
@@ -449,17 +455,19 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
   const { race, jumpCount, speedometer, eyeTest } = sb;
   const hasRoute = context.route != null;
 
-  // Race: v1 target is 16/20 attempts · ≤×1.25; today honest is 6/10 · ×3.9
-  const RACE_TARGET_MULTIPLE = 1.25;
+  // Race: north-star target ≤×1.0; v1 milestone ≤×1.25 (SPEC §7 table, #101)
+  const RACE_NS_TARGET = 1.0;      // end state: match human
+  const RACE_V1_TARGET = 1.25;     // v1 milestone: first-usable
   const raceMultipleFail =
-    race.multipleOfHuman != null && race.multipleOfHuman > RACE_TARGET_MULTIPLE * 2;
+    race.multipleOfHuman != null && race.multipleOfHuman > RACE_V1_TARGET * 2;
   const raceMultipleClose =
     race.multipleOfHuman != null &&
-    race.multipleOfHuman > RACE_TARGET_MULTIPLE &&
+    race.multipleOfHuman > RACE_V1_TARGET &&
     !raceMultipleFail;
 
-  // Speedometer: ≥80% is target
-  const SPEED_TARGET_PCT = 80;
+  // Speedometer: north-star ≥100%; v1 milestone ≥80% (SPEC §7 table, #101)
+  const SPEED_NS_TARGET = 100;
+  const SPEED_V1_TARGET = 80;
 
   return (
     <div data-section="scoreboard" className="flex flex-col">
@@ -495,7 +503,8 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
               </span>
               <span className="text-[10px] text-gray-600">
                 median vs human ·{" "}
-                <span className="text-gray-500">target ≤×{RACE_TARGET_MULTIPLE}</span>
+                <span className="text-gray-500">target ≤×{RACE_NS_TARGET.toFixed(1)}</span>
+                <span className="text-gray-700"> (v1 ≤×{RACE_V1_TARGET})</span>
               </span>
             </>
           ) : (
@@ -570,9 +579,9 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
                 <>
                   <span
                     className={`font-mono text-base ${
-                      speedometer.pct >= SPEED_TARGET_PCT
+                      speedometer.pct >= SPEED_NS_TARGET
                         ? "text-green-400"
-                        : speedometer.pct >= 60
+                        : speedometer.pct >= SPEED_V1_TARGET
                           ? "text-amber-300"
                           : "text-red-400"
                     }`}
@@ -580,8 +589,9 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
                     {speedometer.pct.toFixed(0)}%
                   </span>
                   <span className="text-[10px] text-gray-600">
-                    of human speed ·{" "}
-                    <span className="text-gray-500">target ≥{SPEED_TARGET_PCT}%</span>
+                    active-mean vs human ·{" "}
+                    <span className="text-gray-500">target ≥{SPEED_NS_TARGET}%</span>
+                    <span className="text-gray-700"> (v1 ≥{SPEED_V1_TARGET}%)</span>
                   </span>
                 </>
               ) : (
@@ -597,7 +607,7 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
                 <span className="text-cyan-700">
                   {speedometer.humanSpeed != null ? Math.round(speedometer.humanSpeed) : "?"}
                 </span>
-                <span className="font-sans">qu/s peak</span>
+                <span className="font-sans">qu/s active-mean</span>
               </div>
             )}
 
@@ -729,9 +739,9 @@ export function RailScoreboard({ context, refreshKey = 0 }: BrutalScoreboardProp
           className={
             speedometer.pct == null
               ? "text-gray-700"
-              : speedometer.pct >= 80
+              : speedometer.pct >= 100
                 ? "text-green-400"
-                : speedometer.pct >= 60
+                : speedometer.pct >= 80
                   ? "text-amber-400"
                   : "text-red-400"
           }

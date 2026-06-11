@@ -16,10 +16,11 @@ Schema `komodobots.records.v1`
       "routes": {                   #  non-dm3 maps have empty route sets)
         "<route>": {                # all 11 censused dm3 routes, always present
           "records": {
-            "fastest_time":     <record|null>,   # fastest FINISH (any path), s, lower=better
-            "first_completion": <record|null>,   # first on-route completion (set once)
-            "peak_speed":       <record|null>,   # highest on-route peak, qu/s, higher=better
-            "edge_speed":       <record|null>    # highest launch-edge crossing, qu/s, higher=better
+            "fastest_time":      <record|null>,   # fastest FINISH (any path), s, lower=better
+            "first_completion":  <record|null>,   # first on-route completion (set once)
+            "peak_speed":        <record|null>,   # highest on-route peak, qu/s, higher=better
+            "edge_speed":        <record|null>,   # highest launch-edge crossing, qu/s, higher=better
+            "active_mean_speed": <record|null>    # highest whole-run active-mean speed, qu/s — the Speedometer primary
           },
           "aggregates": {
             "attempts":      <int>,        # scored attempts across all runs
@@ -130,7 +131,7 @@ DEMO_URL_PREFIX = "/demos/files/non-games/lab/Komodobots"
 DEFAULT_PUBLISH_HOST = "servexeri"
 VERDICTS_SEED = Path(__file__).resolve().parent / "verdicts.seed.json"
 
-RECORD_KINDS = ("fastest_time", "first_completion", "peak_speed", "edge_speed")
+RECORD_KINDS = ("fastest_time", "first_completion", "peak_speed", "edge_speed", "active_mean_speed")
 ON_ROUTE_XTRACK = 150.0       # same corridor route_progress credits progress in
 COMPLETION_ROUTE_PCT = 80.0   # verify_route PASS route criterion = "on-route"
 
@@ -251,6 +252,7 @@ def score_attempt(seg: list[dict], route: dict, H, cum, hmean) -> dict:
 
     ms = active_mean_speed(seg, threshold=1.0, reach=vr.REACH_RL)
     speed_pct = round(100.0 * ms / hmean, 1) if hmean else 0.0
+    ams = round(ms, 1) if ms else None
 
     edge = None
     crossing = edge_crossing(seg, route["gap"], route["tele_entrances"])
@@ -267,6 +269,7 @@ def score_attempt(seg: list[dict], route: dict, H, cum, hmean) -> dict:
         "classification": cls,
         "route_pct": route_pct,
         "speed_pct": speed_pct,
+        "active_mean_speed": ams,
         "finish": cls == "REACHED_RL",
         "completion": completion,
         "finish_time_s": finish_time_s,
@@ -362,6 +365,8 @@ def census_human_refs(census: dict, route: str) -> dict:
         "peak_speed": {"value": ent.get("peak_speed"),
                        "source": "census peak_speed", "demo_url": demo_url},
         "edge_speed": None,
+        "active_mean_speed": {"value": ent.get("active_mean_speed"),
+                              "source": "census active_mean_speed", "demo_url": demo_url},
     }
     if hard:
         refs["edge_speed"] = {"value": hard[-1].get("human_speed_at_edge"),
@@ -406,6 +411,20 @@ def build_route_entry(route: str, scorings: list[dict], census: dict,
                     records["edge_speed"] = make_record(
                         a["edge"]["speed"], "qu/s", scoring, a["edge"]["t"],
                         refs["edge_speed"], archived)
+            # active_mean_speed: highest whole-run active-mean speed (qu/s).
+            # Stored per-attempt as speed_pct * hmean / 100 is already in the
+            # scoring dict as speed_pct; we re-derive the raw qu/s value here.
+            # score_attempt stores "speed_pct" which is ms/hmean*100, but does
+            # NOT store the raw ms value; we recompute from score_attempt output.
+            # We store active_mean_speed directly in the scoring dict so we can
+            # pick it up here without re-running route_metrics.
+            ams = a.get("active_mean_speed")
+            if ams is not None and ams > 0:
+                cur = records["active_mean_speed"]
+                if cur is None or ams > cur["value"]:
+                    records["active_mean_speed"] = make_record(
+                        round(ams, 1), "qu/s", scoring, a.get("finish_t"),
+                        refs["active_mean_speed"], archived)
     records["first_completion"] = first_completion
 
     return {
@@ -556,7 +575,7 @@ def publish(out_path: Path, host: str) -> bool:
 # ----------------------------------------------------------------------- main
 
 def summarize(data: dict) -> str:
-    lines = ["route                | attempts finishes | fastest_time first_completion peak_speed edge_speed"]
+    lines = ["route                | attempts finishes | fastest_time first_completion peak_speed edge_speed active_mean_speed"]
     for route, ent in data["maps"]["dm3"]["routes"].items():
         agg = ent["aggregates"]
         cells = []
