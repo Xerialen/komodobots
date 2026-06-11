@@ -15,6 +15,40 @@ deprecated for development — change the dashboard here, never via the patch.
 - `deploy_dashboard.py` — additive deploy/staging/cutover script (LD-A2, #85; see below).
 - `evidence/` — validation screenshots referenced by the stage PRs.
 
+## Validation harness (LD-G2, #108)
+
+`scripts/ld_g2_golden_path.py` is the offline golden-path validation harness
+for Lab Dashboard v1.  It validates the data contracts that the dashboard
+depends on without requiring a live servexeri connection or npm build.
+
+```bash
+# Offline only — always safe to run, used in CI and PR review
+python scripts/ld_g2_golden_path.py
+
+# With live-lab access (owner-declared lab slot only)
+python scripts/ld_g2_golden_path.py --live
+```
+
+**Offline checks** (run on every PR that touches `lab/` committed assets):
+
+1. `komodobots.routes.v1` contract — `index.json` + per-map files, field
+   completeness, route counts, map cross-reference vs `maps.json`.
+2. `komodobots.maps.v1` + GLB structural — magic bytes, version 2 header,
+   declared/actual file size match, `asset.extras.source_bsp_sha256` vs
+   `maps.json` provenance record.
+3. `komodobots.verdicts.v1` seed + `records_build.SCHEMA` constant alignment.
+4. Deploy expected file-set — pane files, top-level `dm3.obj` / `.cmds`,
+   per-map GLB/OBJ, routes JSON files all committed.
+
+**Live checks** (skipped offline, `--live` flag, run in a declared lab slot):
+
+5. Telemetry WebSocket frame validation (`ws://servexeri:8770`).
+6. Deployed `records.json` schema check (`http://servexeri:8095`).
+
+Tests: `tests/test_ld_g2_golden_path.py` (42 tests, including broken-fixture
+negative controls that ensure wrong GLB magic / bad verdict / missing route
+fields each produce loud, specific errors).
+
 ## dashboard/
 
 Self-contained single-page app, built with base `/botlab/` so the production build is
