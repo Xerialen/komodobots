@@ -43,6 +43,16 @@ npm run build      # tsc typecheck + vite build -> dist/ (all paths under /botla
 npm run preview    # serves the production build at http://localhost:4173/botlab/
 ```
 
+### CI
+
+`.github/workflows/lab-dashboard-ci.yml` runs on hosted `ubuntu-latest` for pull
+requests touching `lab/**` or `tests/lab_*.py` (lab pytest files, which the
+`PR Tests` `test_*.py` unittest discovery does not run). It installs
+`dashboard/`, runs `tsc --noEmit`, runs
+`npm run lint` when a lint script exists, builds with Vite, and does cheap Python
+checks for `lab/server/` plus future `lab/tools/`. The workflow deliberately does
+not touch the servexeri lab server or the manual self-hosted `lab-ci.yml` runner.
+
 ### Layout (v1, LD-A1)
 
 Two panels: left the three.js telemetry scene (`BotLab3D.tsx` + `TelemetryHud.tsx`,
@@ -73,3 +83,11 @@ python lab/tools/build_routes_manifest.py   # rewrites lab/dashboard/public/data
 
 Full schema in the `lab/tools/build_routes_manifest.py` header; tests in
 `tests/test_build_routes_manifest.py`.
+
+`public/maps/` (LD-C2, #91) carries the scripted worldmodel meshes for the whole lab
+map set — `{dm3,dm2,frobodm2,trick}.obj` plus `maps.json` (per-map source-BSP sha256
+provenance and the world AABB whose center is the Mockup view's camera start, #97) —
+built deterministically by `lab/tools/bsp_to_obj.py` from the non-committed `.bsp`
+files (see `docs/06_DATA_AND_MVD_PIPELINE.md` § Map meshes). The top-level
+`public/dm3.obj` is the legacy one-off export the deployed viewer still loads; it is
+superseded by `maps/dm3.obj` once #97 switches the viewer to `maps/`.

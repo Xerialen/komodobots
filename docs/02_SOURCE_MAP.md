@@ -230,6 +230,15 @@ Verification:
 Canonical home since LD-A1 (#84): `lab/dashboard/` in this repository — a self-contained
 Vite + React + TypeScript + three.js app built with base `/botlab/`.
 
+Hosted dashboard CI (LD-A3, #86): `.github/workflows/lab-dashboard-ci.yml`.
+It runs on GitHub-hosted `ubuntu-latest` for PRs touching `lab/**` or
+`tests/lab_*.py` (lab pytest files, which `PR Tests`' `test_*.py` unittest
+discovery does not pick up), installs
+`lab/dashboard` with `npm ci`, runs `tsc --noEmit`, optional `npm run lint`,
+`vite build`, and cheap Python checks for `lab/server` / future `lab/tools`.
+This workflow is separate from `.github/workflows/lab-ci.yml`, the manual
+self-hosted servexeri bot-lab runner.
+
 Provenance: absorbed from the separate `Xerialen/local-hub` repo, branch
 `feat/botlab-viewer`, where the page existed only as `deploy/frontend-botlab.patch`
 against a gitignored clone of `quakeworldnu/hub.quakeworld.nu` plus
@@ -255,6 +264,30 @@ The local-hub copy is deprecated for development; see `lab/README.md` for the de
   `-text` in `.gitattributes`, LF-normalized sha256 provenance hashes);
   `tests/test_build_routes_manifest.py` locks the committed outputs against a fresh
   build. Pipeline details: `docs/06_DATA_AND_MVD_PIPELINE.md` § Routes manifest.
+
+### Lab map meshes (lab/tools/bsp_to_obj.py)
+
+- `lab/tools/bsp_to_obj.py` (LD-C2, #91) — stdlib Quake1 BSP v29 → OBJ exporter that
+  commits the previously one-off path that produced `public/dm3.obj` (2026-06-09 via
+  demopasha `phase0/bsp_parse.py`). Lineage: demopasha's face/edge/surfedge walk + fan
+  triangulation, `scripts/bsp_geom.py`'s stdlib-struct lump parsing. Worldmodel faces
+  only, raw Quake coords, triangle-only 1-indexed `f` lines — same conventions as the
+  deployed dm3.obj, so `BotLab3D.tsx` needs no changes.
+- Committed outputs: `lab/dashboard/public/maps/{dm3,dm2,frobodm2,trick}.obj` plus
+  `maps.json` (schema `komodobots.maps.v1`) with per-map source-BSP sha256 provenance,
+  vertex/triangle counts, and the world AABB whose center is the Mockup view's
+  camera-overview start point (#97). Deterministic: same BSP in → byte-identical OBJ
+  out (LF outputs, `-text` in `.gitattributes`). The source BSPs are NOT committed
+  (~1 MB game assets); they live in `C:\nQuake\qw\maps\` locally and
+  `servexeri:~/nquakesv/qw/maps/` (verified byte-identical for dm3/frobodm2/trick;
+  dm2 fetched from the lab pool). `tests/test_bsp_to_obj.py` locks the exporter on a
+  synthetic in-memory BSP and the committed assets against `maps.json`. Evidence:
+  `lab/evidence/ld-c2-mesh-*.png` (harness: `lab/evidence/ld-c2-meshdev.html`).
+  Pipeline details:
+  `docs/06_DATA_AND_MVD_PIPELINE.md` § Map meshes.
+- The legacy `public/dm3.obj` (all-models export, mojibake header) stays untouched —
+  the deployed viewer loads it by that path until the Mockup view (#97) switches to
+  `maps/`.
 
 ### mvd_analyzer
 

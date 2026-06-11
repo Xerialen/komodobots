@@ -917,6 +917,48 @@ python lab/tools/build_routes_manifest.py
   a fresh build byte-for-byte, so a census/replay change that is not followed
   by a rebuild fails CI.
 
+## Map meshes (LD-C2, issue #91)
+
+The dashboard's 3D map backdrops are the committed
+`lab/dashboard/public/maps/` directory: per-map untextured worldmodel OBJs
+(`dm3.obj` / `dm2.obj` / `frobodm2.obj` / `trick.obj`) plus `maps.json`
+(schema `komodobots.maps.v1`), built by `lab/tools/bsp_to_obj.py` from the
+Quake1 BSP v29 map files:
+
+```text
+python lab/tools/bsp_to_obj.py \
+    dm3=C:/nQuake/qw/maps/dm3.bsp dm2=<path>/dm2.bsp \
+    frobodm2=C:/nQuake/qw/maps/frobodm2.bsp trick=C:/nQuake/qw/maps/trick.bsp
+```
+
+- **Sources (NOT committed)**: the `.bsp` files (~1 MB game assets each).
+  Local `C:\nQuake\qw\maps\{dm3,frobodm2,trick}.bsp` are byte-identical to the
+  lab pool `servexeri:~/nquakesv/qw/maps/` (sha256-verified 2026-06-11);
+  `dm2.bsp` is fetched read-only from the lab pool (the WSL
+  `~/mvd-mcp-bundle/bsps/dm2.bsp` is a different dm2 build — lab pool wins).
+- **Mesh conventions** (identical to the original one-off dm3 export so
+  `BotLab3D.tsx` needs no changes): worldmodel faces only (submodels —
+  doors/plats — dropped), raw Quake coords, fan triangulation, 1-indexed
+  triangle-only `f` lines, no normals/uvs. Only referenced vertices are
+  emitted.
+- **maps.json**: per map, the source BSP name + sha256 (provenance), vertex /
+  triangle / worldmodel-face counts, and the mesh AABB (`mins`/`maxs`/
+  `center`). The center is the per-map camera-overview start point the Mockup
+  view needs (#97) — dm3's computed center is `(532, 88, 40)`; the
+  `(514, 88, 32)` hardcoded in `BotLab3D.tsx` came from the MODELS-lump bounds
+  (which include submodels) and is superseded by `maps.json` when #97 lands.
+- **Determinism**: same BSP bytes in → byte-identical OBJ out. Floats print as
+  the shortest decimal that round-trips through float32; outputs are explicit
+  LF and marked `-text` in `.gitattributes`. `tests/test_bsp_to_obj.py` runs
+  the real exporter over a synthetic in-memory BSP (exact byte lock + two-run
+  determinism — the source BSPs cannot be committed, so the #134-style
+  "committed outputs match a fresh build" lock runs on the fixture) and checks
+  the committed assets against `maps.json` (counts, index ranges, recomputed
+  AABB centers, LF-only).
+- These untextured meshes are interim assets — LD-C4 (#92, textured glTF)
+  supersedes them. Visual evidence: `lab/evidence/ld-c2-mesh-*.png`
+  (rendered with the committed harness `lab/evidence/ld-c2-meshdev.html`).
+
 ## Open questions
 
 - Can/should the current `events.txt` kind `5` position stream remain canonical for first-pass movement metrics?
