@@ -361,7 +361,9 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   `palette.lmp`; canonical id1 palette also embedded as a fallback), computes per-face
   UV coordinates from texinfo `s_axis`/`t_axis`/offsets, groups worldmodel faces by
   texture into per-material glTF primitives, and emits a self-contained GLB with
-  embedded PNG images. Requires Pillow for miptex→PNG encode; all other logic is stdlib.
+  embedded PNG images. Requires stdlib only (no third-party dependencies): PNG encoding uses a
+  minimal zlib-based encoder (`_encode_png_rgb`) and nearest-neighbour resize (`_nn_resize_rgb`)
+  in pure Python — no Pillow.
   Special texture handling: sky textures → TAG_SKY placeholder; clip/trigger/hint/skip
   tool textures → TAG_SKIP placeholder; `*`-prefixed liquid textures → TAG_LIQUID
   (decoded normally); fullbright naive (no lightmaps). Sampler uses REPEAT wrap for
