@@ -87,6 +87,10 @@ export function App() {
   // LD-B2 (#88): QTV iframe ref + status chip state.
   const qtvIframeRef = useRef<HTMLIFrameElement>(null);
   const [qtvStatus, setQtvStatus] = useState<QtvStatus>("loading");
+  // Tracks the latest attach params so the iframe onLoad handler can reliably
+  // send the initial attach even if the effect fires before the iframe listener
+  // is installed (race condition fix per Codex PR #137 review).
+  const qtvAttachRef = useRef<{ port: number; relay: string; map: string } | null>(null);
 
   useEffect(() => {
     const telemetry = new TelemetryClient(wsUrl);
@@ -155,11 +159,18 @@ export function App() {
   // port or run_id changes (covers: initial load, new attempt, port change).
   // The iframe drives its own ~3 s retry loop on disconnect; this effect only
   // fires on explicit port/run changes from telemetry, not on every retry cycle.
+  //
+  // The attach params are also stored in qtvAttachRef so the iframe onLoad
+  // handler can resend them reliably if the iframe document has not yet installed
+  // its message listener when this effect first fires (timing race on cold load,
+  // or on ssh-tunnel/?port= override paths where non-default params are in use).
   useEffect(() => {
+    const params = { port: labPort, relay: qtvRelay, map: mapName };
+    qtvAttachRef.current = params;
     const iframe = qtvIframeRef.current;
     if (!iframe || !iframe.contentWindow) return;
     iframe.contentWindow.postMessage(
-      { cmd: "attach", port: labPort, relay: qtvRelay, map: mapName },
+      { cmd: "attach", ...params },
       window.location.origin,
     );
   }, [labPort, runId, qtvRelay, mapName]);
@@ -250,12 +261,24 @@ export function App() {
             The iframe boots once; the shell re-attaches on every new attempt via
             postMessage {cmd:"attach"}. The pane drives its own ~3 s retry loop.
             src is fixed (no port in the URL) so the iframe never reloads; port
-            changes are communicated via postMessage only. */}
+            changes are communicated via postMessage only.
+            onLoad resends the current attach params once the iframe document is
+            parsed and its message listener is installed — this is the reliable
+            handshake that closes the timing race on initial load / tunnel paths. */}
         <iframe
           ref={qtvIframeRef}
           src="/botlab/panes/qtv.html"
           title="live game view"
           className="block w-full h-full border-0"
+          onLoad={() => {
+            const iframe = qtvIframeRef.current;
+            const params = qtvAttachRef.current;
+            if (!iframe || !iframe.contentWindow || !params) return;
+            iframe.contentWindow.postMessage(
+              { cmd: "attach", ...params },
+              window.location.origin,
+            );
+          }}
         />
       </Pane>
     ),
