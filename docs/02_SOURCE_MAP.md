@@ -252,6 +252,16 @@ match the local-hub blobs byte-for-byte (verified by git blob SHA:
 
 The local-hub copy is deprecated for development; see `lab/README.md` for the dev loop.
 
+Deployment (LD-A2, #85): `lab/deploy_dashboard.py` builds the app and ships `dist/` to
+`servexeri:~/local-hub/web/botlab-staged/` (additive staging; tar-over-ssh, then rsync
+runs remotely on servexeri). The live same-URL cutover (`--cutover --confirm-live`,
+promoting `botlab-staged/` → `botlab/` after a tar.gz backup) is an owner-approval
+step. Sibling safety is structural: rsync destinations are restricted to a two-entry
+allowlist and sibling entry-HTML sha256 hashes are verified before/after every sync.
+`--audit-assets` is a read-only report of legacy shared `web/assets/` chunks still
+referenced outside `botlab*/`. Tests: `tests/test_deploy_dashboard.py`. Procedure and
+the do-not-overwrite-siblings rule: `lab/README.md`.
+
 ### Lab map meshes (lab/tools/bsp_to_obj.py)
 
 - `lab/tools/bsp_to_obj.py` (LD-C2, #91) — stdlib Quake1 BSP v29 → OBJ exporter that
