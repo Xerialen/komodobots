@@ -473,16 +473,17 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   user selection > none.  The pure logic is exercised by
   `tests/test_kpi_context_store.py` (33 tests) without any TypeScript/browser runtime.
 
-- `lab/dashboard/src/KpiDock.tsx` (LD-E1, #100; LD-E2, #101; LD-E3, #102) — collapsible
+- `lab/dashboard/src/KpiDock.tsx` (LD-E1, #100; LD-E2, #101; LD-E3, #102; LD-E4, #104) — collapsible
   left dock component.  Two modes: expanded (~288 px) with context line
   (`<data-context-line>`), source badge (`<data-source>`), the live BrutalScoreboard
   component (`<data-section="scoreboard">`), the LiveMetricsPanel
-  (`<data-section="live-metrics">` — LD-E3), and placeholder for records
-  (`<data-section="records">` for LD-E4); rail (~28 px) with a vertical "KPI" label,
+  (`<data-section="live-metrics">` — LD-E3), and the live RecordsPanel
+  (`<data-section="records">` — LD-E4); rail (~28 px) with a vertical "KPI" label,
   four micro scoreboard glyphs via RailScoreboard, and a colored source dot.
-  Added `refreshKey` prop (incremented by App.tsx when an attempt ends) to trigger
-  scoreboard refetch; added `client` and `isLive` props (LD-E3) for the live metrics
-  panel.  Collapse/expand driven by `layout.dockCollapsed` from `layoutState.ts`
+  `refreshKey` prop (incremented by App.tsx when an attempt ends) is shared by both
+  BrutalScoreboard and RecordsPanel; `client`, `isLive`, and `selectedEd` props (LD-E3)
+  wire the live metrics panel to the shared TelemetryClient and selected bot.
+  Collapse/expand driven by `layout.dockCollapsed` from `layoutState.ts`
   (persisted in localStorage since LD-B1).
 
 - `lab/dashboard/src/LiveMetricsPanel.tsx` (LD-E3, #102) — live attempt metrics panel
@@ -493,20 +494,24 @@ app so the FTE engine owns its own window — one engine instance per window, SP
     arc fraction from gap-edge anchors, displays bot/human as % + absolute delta.
     When the bot is >384 qu from the nearest polyline point, flags "off route" instead
     of projecting to a distant arc position.
-  - Launch-edge callout: when the bot enters a 96 qu XY radius around a census gap
-    edge, freezes and displays crossing speed vs `required_speed` and `human_speed_at_edge`
-    until `new_attempt`.  Display-only — the post-run verify_route scorer is the metric
-    of record (stated in a tooltip).
+  - Launch-edge callout: tracks the designated launch edge (highest `required_speed` gap
+    in the route, e.g. 525.3 qu/s for `sng_to_rl`); when the bot enters a 96 qu XY
+    radius around that edge, freezes and displays crossing speed vs `required_speed` and
+    `human_speed_at_edge` until `new_attempt`.  Display-only — the post-run
+    verify_route scorer is the metric of record (stated in a tooltip).
   - Attempt meta: run_id, elapsed time, distance-to-goal (`dist_to_rl`).
   - Route override dropdown: until LD-F1/F3 per-bot assignment exposure, the live route
     defaults to `sng_to_rl` on dm3 with a manual override dropdown.
+  - Bot identity filter: `selectedEd` prop (from App.tsx / LD-F4 #103) ensures only
+    frames from the selected bot are processed; first-seen fallback for single-bot sessions.
   Fetches the routes manifest (`/botlab/data/routes/<map>.json`) once per (map, route).
   Resets fully on `new_attempt`; collapses to "no live session" when not live.
   Pure geometry helpers (`projectOntoSegment`, `projectOntoPolyline`,
-  `interpolateSpeedAtArc`, `isInEdgeRegion`, `buildVertexSpeeds`) are exported for
-  Python unit tests.
+  `interpolateSpeedAtArc`, `isInEdgeRegion`, `buildVertexSpeeds`) and
+  `designatedLaunchEdge` are exported for Python unit tests.
   Tests: `tests/test_live_metrics_panel.py` (43 tests covering arc projection,
-  edge detection, speed interpolation, gap-anchor interpolation).
+  edge detection, speed interpolation, gap-anchor interpolation, designated-edge
+  selection including the committed `dm3/sng_to_rl` manifest).
 
 - `lab/dashboard/src/BrutalScoreboard.tsx` (LD-E2, #101) — the four KPI metric rows
   rendered inside the KPI dock.  Two exported components:
@@ -522,6 +527,19 @@ app so the FTE engine owns its own window — one engine instance per window, SP
     (finishes/attempts fraction), Jump Count (N/11), Speedometer (%), Eye Test (P/~/F/?).
   Tests: `tests/test_brutal_scoreboard.py` (57 tests locking derive_scoreboard logic,
   DM3_ROUTES_ORDERED, honest zeros, current honest state from SPEC §7).
+
+- `lab/dashboard/src/RecordsPanel.tsx` (LD-E4, #104) — context-sensitive records section
+  rendered inside the expanded KPI dock.  Two modes:
+    - **route-context**: shows the four record rows (fastest_time / first_completion /
+      peak_speed / edge_speed) with the bot value, human_ref comparison, and a freshness
+      dot when a value improves after a refetch.  Each set row is clickable and calls
+      `ShellActionsContext.openDemo({ demo_url, map, t: event_t_s, route, name })` via
+      the shell-level action wired in App.tsx (LD-D3 #98).
+    - **overall / no-context fallback**: per-route best table (fastest_time vs human_time_s,
+      sorted ascending by human route duration).  Clicking a row opens the fastest_time demo.
+  Fetches `/demos/records/records.json` on mount and when `refreshKey` changes. 404 →
+  explicit "records unavailable" state, no crash.  Not rendered in rail mode (numbers-only
+  per LD-E1 design).  Pure-logic contract tested in `tests/test_records_panel.py` (70 tests).
 
 - `lab/dashboard/src/controlClient.ts` (LD-F3, #105) — TypeScript client for the
   control bridge command channel.  Multiplexed on the SAME WebSocket as telemetry

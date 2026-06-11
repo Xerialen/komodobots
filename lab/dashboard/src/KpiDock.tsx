@@ -1,18 +1,18 @@
 // LD-E1 (#100): KPI dock — collapsible thin left dock with context store.
 // LD-E2 (#101): Brutal scoreboard — four metric rows (Race / Jump Count /
-//               Speedometer / Eye Test) wired into the scoreboard section slot.
+//               Speedometer / Eye Test) wired into the scoreboard section.
 // LD-E3 (#102): Live metrics panel — vh sparkline, arc-local human comparison,
 //               launch-edge callout, attempt meta.  Replaces the skeleton slot.
+// LD-E4 (#104): Records panel — context-sensitive record rows with click-to-demo.
 //
 // Renders as a flex/grid column member (never an overlay) so the Demo pane
 // (leftmost) is never obscured.  Two modes:
-//   expanded  — ~300 px, semi-opaque, context line + scoreboard + section slots
+//   expanded  — ~300 px, semi-opaque, context line + scoreboard + live-metrics
+//               panel + records panel
 //   rail      — ~28 px, slim vertical strip with four micro scoreboard glyphs
 //
 // The collapse/expand button is also wired from the top-bar stub in App.tsx
 // (the button existed as a placeholder since LD-B1).
-//
-// Section slot for LD-E4 (records) is still a named skeleton placeholder.
 //
 // Context line format: "<map> · <route> · <source>" or "<map> · (no route) · <source>"
 
@@ -20,6 +20,7 @@ import type { KpiContext } from "./contextStore.ts";
 import { BrutalScoreboard, RailScoreboard } from "./BrutalScoreboard.tsx";
 import { LiveMetricsPanel } from "./LiveMetricsPanel.tsx";
 import type { TelemetryClient } from "./telemetryClient.ts";
+import { RecordsPanel } from "./RecordsPanel.tsx";
 
 // ---- Props ------------------------------------------------------------------
 
@@ -29,8 +30,7 @@ type KpiDockProps = {
   onToggle: () => void;
   /**
    * Incremented by the parent (App.tsx) when an attempt ends so the scoreboard
-   * refetches records.  Passed through to BrutalScoreboard / RailScoreboard.
-   * LD-E2 (#101).
+   * (LD-E2) and RecordsPanel (LD-E4) refetch their data.
    */
   refreshKey?: number;
   /**
@@ -60,19 +60,6 @@ function sourceBadgeClass(source: KpiContext["source"]): string {
     case "demo":   return "bg-purple-900/60 text-purple-300 border border-purple-700";
     case "none":   return "bg-slate-800 text-gray-500 border border-slate-700";
   }
-}
-
-// ---- Sections ---------------------------------------------------------------
-
-function SectionSlot({ label, section }: { label: string; section: string }) {
-  return (
-    <div
-      data-section={section}
-      className="rounded border border-dashed border-slate-700 px-2 py-3 text-center"
-    >
-      <span className="text-xs text-gray-600">{label}</span>
-    </div>
-  );
 }
 
 // ---- Component --------------------------------------------------------------
@@ -181,12 +168,9 @@ export function KpiDock({
           />
         </div>
 
-        {/* LD-E4 (#104): Records — skeleton placeholder. */}
+        {/* LD-E4 (#104): live records section — replaces the placeholder SectionSlot. */}
         <div className="px-3 py-2 border-t border-slate-800">
-          <SectionSlot
-            section="records"
-            label="Records — LD-E4 (#104)"
-          />
+          <RecordsPanel context={context} refreshKey={refreshKey} />
         </div>
       </div>
     </aside>
