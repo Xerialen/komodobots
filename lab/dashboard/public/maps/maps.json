@@ -25,7 +25,12 @@
           -1120.0,
           196.0
         ]
-      }
+      },
+      "glb": "dm2.glb",
+      "texture_count": 29,
+      "glb_bytes": 611980,
+      "glb_triangles": 14540,
+      "glb_vertices": 24054
     },
     "dm3": {
       "obj": "dm3.obj",
@@ -50,7 +55,12 @@
           88.0,
           40.0
         ]
-      }
+      },
+      "glb": "dm3.glb",
+      "texture_count": 53,
+      "glb_bytes": 422292,
+      "glb_triangles": 9128,
+      "glb_vertices": 15280
     },
     "frobodm2": {
       "obj": "frobodm2.obj",
@@ -75,7 +85,12 @@
           -1104.0,
           196.0
         ]
-      }
+      },
+      "glb": "frobodm2.glb",
+      "texture_count": 30,
+      "glb_bytes": 745232,
+      "glb_triangles": 14164,
+      "glb_vertices": 23396
     },
     "trick": {
       "obj": "trick.obj",
@@ -100,7 +115,12 @@
           0.0,
           128.0
         ]
-      }
+      },
+      "glb": "trick.glb",
+      "texture_count": 14,
+      "glb_bytes": 358916,
+      "glb_triangles": 7026,
+      "glb_vertices": 12006
     }
   }
 }
