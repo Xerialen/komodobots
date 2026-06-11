@@ -2616,4 +2616,57 @@ here.
 
 ### Status
 
-Implemented in LD-C3 (#97).  LD-E1 will consume this.
+Implemented in LD-C3 (#97).  LD-E1 consumes this — see below.
+
+---
+
+## KPI context store design: useReducer + pure applyContextUpdate (LD-E1 #100)
+
+### Date
+
+2026-06-11
+
+### Decision
+
+The KPI context store is implemented as a `useReducer` in `App.tsx` (not
+a React Context / external Zustand store) holding a paired
+`{ context: KpiContext, lastUser: KpiContext }` state atom, with all logic in
+the pure function `applyContextUpdate` in `contextStore.ts`.
+
+### Alternatives Considered
+
+1. **React Context API** — allows any sub-tree component to subscribe without
+   prop drilling; adds provider boilerplate and `useContext` coupling.  Not
+   needed until LD-E2/E3/E4 need to read context without prop passing.
+2. **Separate `useState` for context + lastUser** — simpler to read but risks
+   stale-closure bugs when both values must be updated atomically.  useReducer
+   ensures the pair is always consistent.
+3. **Zustand / Jotai** — zero-dependency constraint; stdlib-only Python tests
+   could not exercise JS runtime stores anyway.
+
+### Evidence
+
+- `contextStore.ts` has no React import, so the pure logic is exercised by
+  33 stdlib Python unit tests (`tests/test_kpi_context_store.py`) without any
+  TypeScript/browser runtime.
+- The `useReducer(applyContextUpdate, initial)` pattern is the idiomatic React
+  approach for state that has compound update rules (precedence, side-by-side
+  `context` + `lastUser`).
+
+### Expected Consequences
+
+- LD-E2/E3/E4 receive `kpiContext: KpiContext` as a prop from App (no store
+  subscription needed at this scale).
+- If a future stage needs any dock section to produce its own context event
+  (e.g. record click in LD-E4), it adds a new `kind` to `ContextUpdate` and a
+  new case to `applyContextUpdate`; the tests codify the expected behavior.
+
+### Revisit Conditions
+
+If more than three components need to subscribe to kpiContext independently
+(i.e. prop drilling becomes painful), promote to a React Context + useContext.
+Document the change here.
+
+### Status
+
+Implemented in LD-E1 (#100).
