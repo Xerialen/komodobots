@@ -10,6 +10,8 @@ deprecated for development — change the dashboard here, never via the patch.
 - `dashboard/` — the frontend app (Vite + React + TypeScript + three.js).
 - `server/` — lab-host (servexeri) server-side pieces: `records_build.py` (LD-D1, #93)
   and `control_bridge.py` (LD-F2, #96).
+- `tools/` — build steps that export committed experiment data as stable
+  dashboard data files (currently `build_routes_manifest.py`, LD-C1 #90).
 - `deploy_dashboard.py` — additive deploy/staging/cutover script (LD-A2, #85; see below).
 - `evidence/` — validation screenshots referenced by the stage PRs.
 
@@ -109,6 +111,29 @@ mirrored into the URL as `?views=demo,live3d` (shareable layouts). On load an ex
 
 `public/` carries the dm3 render mesh (`dm3.obj`) and the human reference trajectory
 (`dm3_sng_to_rl.cmds`), served under `/botlab/`.
+
+### Routes manifests (`public/data/routes/`, LD-C1)
+
+The canonical "what routes exist" feed for the Mockup view, KPI dock and control
+drawer: per-map JSON (`dm3.json`, `dm2.json`, `frobodm2.json`, `trick.json`) plus
+`index.json`, schema `komodobots.routes.v1`. Built from the committed trick census
+(`experiments/nav_doctrine/evidence/trick-census/census.json`) and the committed human
+replay trajectories (`experiments/nav_doctrine/evidence/replay/dm3_<route>.cmds`) —
+the dashboard never parses experiment-internal files ad hoc. Each dm3 route carries
+human stats (duration, active-mean/peak speed), a downsampled display polyline, gap
+markers (edge/land, `required_speed` vs `human_speed_at_edge`), teleports, and source
+provenance with sha256 hashes. Non-dm3 maps are honest empty route lists until routes
+are censused there.
+
+The manifests are committed and deterministic. Regenerate after a census/replay
+change (the unit test fails if they go stale):
+
+```bash
+python lab/tools/build_routes_manifest.py   # rewrites lab/dashboard/public/data/routes/
+```
+
+Full schema in the `lab/tools/build_routes_manifest.py` header; tests in
+`tests/test_build_routes_manifest.py`.
 
 `public/maps/` (LD-C2, #91) carries the scripted worldmodel meshes for the whole lab
 map set — `{dm3,dm2,frobodm2,trick}.obj` plus `maps.json` (per-map source-BSP sha256
