@@ -344,11 +344,16 @@ function useRouteData(
 
   useEffect(() => {
     if (!route) {
+      // Reset prevKey so the next attempt re-fetches even when the same route
+      // is used (live session end → live session start with same sng_to_rl).
+      // Without this reset, key === prevKey.current on the second attempt and
+      // the hook skips the fetch, leaving routeData null for the whole run.
+      prevKey.current = null;
       setData(null);
       return;
     }
     const key = `${map}:${route}`;
-    if (key === prevKey.current) return; // Already loaded.
+    if (key === prevKey.current) return; // Already loaded (data is non-null).
     prevKey.current = key;
 
     let cancelled = false;
