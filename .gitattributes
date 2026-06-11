@@ -7,3 +7,8 @@
 # Dashboard data assets absorbed byte-for-byte from local-hub (LD-A1, #84):
 # keep them byte-identical on every checkout — deploys serve them verbatim.
 lab/dashboard/public/* -text
+
+# Map meshes + maps.json are generated with explicit LF by
+# lab/tools/bsp_to_obj.py (LD-C2, #91); keep them byte-identical on every
+# checkout so a rebuild diffs clean on any platform.
+lab/dashboard/public/maps/** -text
