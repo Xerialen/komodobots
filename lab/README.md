@@ -58,3 +58,11 @@ fed by `telemetryClient.ts`), right the live game iframe. `public/` carries the 
 render mesh (`dm3.obj`) and the human reference trajectory (`dm3_sng_to_rl.cmds`),
 served under `/botlab/`. The view shell, KPI dock, and the rest of the SPEC views land
 in later tickets (LD-B1+).
+
+`public/maps/` (LD-C2, #91) carries the scripted worldmodel meshes for the whole lab
+map set — `{dm3,dm2,frobodm2,trick}.obj` plus `maps.json` (per-map source-BSP sha256
+provenance and the world AABB whose center is the Mockup view's camera start, #97) —
+built deterministically by `lab/tools/bsp_to_obj.py` from the non-committed `.bsp`
+files (see `docs/06_DATA_AND_MVD_PIPELINE.md` § Map meshes). The top-level
+`public/dm3.obj` is the legacy one-off export the deployed viewer still loads; it is
+superseded by `maps/dm3.obj` once #97 switches the viewer to `maps/`.
