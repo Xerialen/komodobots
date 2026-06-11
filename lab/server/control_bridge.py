@@ -13,7 +13,8 @@ Protocol (JSON text frames over the existing websocket):
 
 Ops: session_start {map, force?} / session_stop {port?, force?} / set_map {map}
 / addbot {count?} / removebot {slot?|all?} / set_cvar {name, value, slot?}
-/ console {line} / lock_status / verdict (reserved for LD-F5 #106).
+/ console {line} / lock_status
+/ verdict {map, route, note?} (LD-F5 #106 — user certifies route reached human-level).
 
 SECURITY IS BINDING (all gates enforced server-side, the UI is courtesy):
 
@@ -98,10 +99,21 @@ LOCK_STALE_AGE_S = 2 * 3600
 LOCK_TS_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 MUTATING_OPS: frozenset[str] = frozenset(
-    {"session_start", "session_stop", "set_map", "addbot", "removebot", "set_cvar", "console"}
+    {"session_start", "session_stop", "set_map", "addbot", "removebot", "set_cvar", "console", "verdict"}
 )
 # Ops that require a running dashboard-owned session.
 SESSION_OPS: frozenset[str] = frozenset({"set_map", "addbot", "removebot", "set_cvar", "console"})
+
+# Ops that are EXEMPT from the harness lock: verdict writes only to the local
+# verdicts store, never to a running lab server, so it must not be blocked when
+# the user is watching a run that the harness currently owns.
+LOCK_EXEMPT_OPS: frozenset[str] = frozenset({"verdict"})
+
+# LD-F5 (#106): verdicts.json schema.
+# v2: sparse certification events — the user declares human-level reached.
+# (v1 was pass/close/fail three-state; replaced by the 2026-06-10 user decision.)
+VERDICTS_FILENAME = "verdicts.json"
+VERDICTS_SCHEMA = "komodobots.verdicts.v2"
 
 MVDSV_LAB_BIN = "mvdsv-lab"
 
@@ -207,6 +219,34 @@ def validate_console_line(line: object) -> str | None:
         if len(tokens) != 2 or validate_map_name(tokens[1]) is None:
             return None
     return line
+
+
+def validate_verdict_args(
+    map_name: object,
+    route: object,
+    note: object,
+) -> str | None:
+    """Returns an error string if any field is invalid, else None.
+
+    LD-F5 (#106): validates the verdict (certification) op fields.
+    User decision 2026-06-10: certification is binary (human-level reached),
+    no pass/close/fail three-state.
+    - map: TOKEN_RE (same as validate_map_name, stored for context)
+    - route: TOKEN_RE
+    - note: optional str, limited length, no control chars
+    """
+    if validate_map_name(map_name) is None:
+        return "invalid map name"
+    if not isinstance(route, str) or not TOKEN_RE.match(route) or hits_flat_deny(route):
+        return "invalid route name"
+    if note is not None:
+        if not isinstance(note, str):
+            return "note must be a string or null"
+        if len(note) > 1000:
+            return "note too long (max 1000 characters)"
+        if any(ord(c) < 32 and c not in ("\t",) for c in note):
+            return "note contains invalid control characters"
+    return None
 
 
 def lab_session_name(port: int) -> str:
@@ -560,8 +600,6 @@ class ControlBridge:
         op = request["op"]
         if op == "lock_status":
             return self._lock_status(req_id), None
-        if op == "verdict":
-            return self._refuse(req_id, "verdict is reserved for LD-F5 (#106)"), None
         if op not in MUTATING_OPS:
             return self._refuse(req_id, f"unknown op: {op}"), None
         auth_error = self._authorize(request, peer_host)
@@ -647,6 +685,14 @@ class ControlBridge:
     def _mutating(self, op: str, request: dict, peer: str):
         req_id = request.get("req_id")
         force = request.get("force") is True
+
+        # LD-F5 (#106): verdict is lock-exempt — it writes only to the local
+        # verdicts store and never touches a running lab server.  Dispatch it
+        # before the lock check so the operator can record verdicts while the
+        # experiment harness owns the lab.
+        if op == "verdict":
+            return self._verdict(req_id, request)
+
         lock, state = self._lock_view()
 
         if lock is not None:
@@ -731,6 +777,93 @@ class ControlBridge:
             )
 
         return self._refuse(req_id, f"unhandled op: {op}"), None
+
+    # -- verdict op (LD-F5 #106) -----------------------------------------------
+
+    @property
+    def _verdicts_path(self) -> Path:
+        """Path to the verdicts.json file on the lab SSD.
+
+        The path mirrors the layout used by records_build.py --publish: the
+        same directory that holds records.json on the lab host.  The bridge
+        writes verdicts.json into `~/komodobots-lab/records/` (the LabExecutor
+        default), keeping it co-located with records.json and reachable at the
+        same `/demos/records/verdicts.json` HTTP path the scoreboard fetches.
+        """
+        return self.lab_home / "records" / VERDICTS_FILENAME
+
+    def _verdict(self, req_id: object, request: dict):
+        """LD-F5 (#106): certify that a route has reached human-level movement.
+
+        User decision 2026-06-10: no pass/close/fail three-state; the user
+        declares human-level reached (one action).  Each certification is a
+        sparse dated event appended to certifications[route]; the scoreboard
+        reads the latest entry.  Lock-exempt: the operator certifies while
+        watching a run; the harness lock must not block this.
+        Atomic write via temp-file+rename.
+        """
+        map_name = request.get("map")
+        route = request.get("route")
+        note = request.get("note")
+
+        error = validate_verdict_args(map_name, route, note)
+        if error is not None:
+            return self._refuse(req_id, error), None
+
+        # Normalise optional note.
+        note_val: str | None = str(note).strip() if isinstance(note, str) and note.strip() else None
+        certification: dict[str, object] = {
+            "date": utc_now_iso()[:10],  # ISO date YYYY-MM-DD
+        }
+        if note_val is not None:
+            certification["note"] = note_val
+
+        verdicts_path = self._verdicts_path
+        verdicts_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Load existing file; initialise a fresh schema if absent or wrong version.
+        try:
+            existing_text = verdicts_path.read_text(encoding="utf-8")
+            existing: dict[str, object] = json.loads(existing_text)
+            if not isinstance(existing, dict) or existing.get("schema") != VERDICTS_SCHEMA:
+                existing = {"schema": VERDICTS_SCHEMA, "certifications": {}}
+        except FileNotFoundError:
+            existing = {"schema": VERDICTS_SCHEMA, "certifications": {}}
+        except (OSError, json.JSONDecodeError) as exc:
+            return self._refuse(req_id, f"could not read verdicts.json: {exc}"), None
+
+        certifications: dict[str, object] = existing.get("certifications", {})
+        if not isinstance(certifications, dict):
+            certifications = {}
+
+        # Append this certification event to the route's list (sparse, dated).
+        route_certs: list[object] = list(certifications.get(route) or [])  # type: ignore[arg-type]
+        route_certs.append(certification)
+        certifications[route] = route_certs
+        existing["certifications"] = certifications
+
+        # Atomic write.
+        tmp_path = verdicts_path.with_suffix(".json.tmp")
+        try:
+            tmp_path.write_text(
+                json.dumps(existing, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            tmp_path.replace(verdicts_path)
+        except OSError as exc:
+            return self._refuse(req_id, f"could not write verdicts.json: {exc}"), None
+
+        detail = f"certified human-level for {map_name}/{route} on {certification['date']}"
+        return (
+            self._ok(req_id, detail, map=map_name, route=route, date=certification["date"]),
+            {
+                "type": "control_event",
+                "event": "verdict",
+                "map": map_name,
+                "route": route,
+                "date": certification["date"],
+            },
+        )
 
     # -- session lifecycle -----------------------------------------------------
 

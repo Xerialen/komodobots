@@ -435,12 +435,16 @@ class TestProtocolEdges(unittest.TestCase):
                 self.assertFalse(response["ok"], request)
                 self.assertIsNone(broadcast)
 
-    def test_verdict_reserved(self):
+    def test_verdict_implemented(self):
+        # LD-F5 (#106): verdict (certification) is now a real op; a valid request succeeds.
+        # User decision 2026-06-10: no pass/close/fail -- certification only.
         with tempfile.TemporaryDirectory() as tmp:
             bridge, _ = make_bridge(tmp)
-            response, _ = local(bridge,{"op": "verdict", "req_id": "1"}, "p")
-            self.assertFalse(response["ok"])
-            self.assertIn("LD-F5", response["detail"])
+            response, broadcast = local(bridge, {
+                "op": "verdict", "map": "dm3", "route": "sng_to_rl", "req_id": "1",
+            })
+            self.assertTrue(response["ok"], response)
+            self.assertIsNotNone(broadcast)
 
     def test_executor_exception_answers_instead_of_raising(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -474,6 +478,8 @@ class TestAuthorization(unittest.TestCase):
         {"op": "removebot"},
         {"op": "set_cvar", "name": "k_fb_skill", "value": 10},
         {"op": "console", "line": "status"},
+        # LD-F5 (#106): verdict (certification) is a real mutating op.
+        {"op": "verdict", "map": "dm3", "route": "sng_to_rl"},
     )
 
     def test_request_set_covers_every_mutating_op(self):
@@ -599,6 +605,181 @@ class TestConfigBuilders(unittest.TestCase):
         for port in (28501, 27500):
             with self.assertRaises(ValueError):
                 cb.lab_session_name(port)
+
+
+# ---------------------------------------------------------------------------
+# LD-F5 (#106): verdict op tests
+# User decision 2026-06-10: certification only (no pass/close/fail).
+# ---------------------------------------------------------------------------
+
+
+class TestVerdictValidation(unittest.TestCase):
+    """Unit tests for validate_verdict_args (pure validator).
+
+    User decision 2026-06-10: verdict = sparse certification (human-level
+    declared by user).  No pass/close/fail three-state.  Args: map, route, note?.
+    """
+
+    def test_valid_certification(self):
+        # No note.
+        self.assertIsNone(cb.validate_verdict_args("dm3", "sng_to_rl", None))
+
+    def test_valid_certification_with_note(self):
+        self.assertIsNone(cb.validate_verdict_args("dm3", "sng_to_rl", "looks human"))
+
+    def test_invalid_map(self):
+        for bad_map in ("../dm3", "dm3;quit", "", None):
+            err = cb.validate_verdict_args(bad_map, "sng_to_rl", None)
+            self.assertIsNotNone(err, bad_map)
+            self.assertIn("map", err)
+
+    def test_invalid_route(self):
+        for bad_route in ("../route", "route;cmd", "", None):
+            err = cb.validate_verdict_args("dm3", bad_route, None)
+            self.assertIsNotNone(err, bad_route)
+            self.assertIn("route", err)
+
+    def test_note_too_long(self):
+        err = cb.validate_verdict_args("dm3", "sng_to_rl", "x" * 1001)
+        self.assertIsNotNone(err)
+        self.assertIn("note too long", err)
+
+    def test_note_control_chars(self):
+        err = cb.validate_verdict_args("dm3", "sng_to_rl", "bad\x00note")
+        self.assertIsNotNone(err)
+        self.assertIn("control character", err)
+
+    def test_note_tab_allowed(self):
+        # tabs are not control-char-blocked (they are printable in notes)
+        self.assertIsNone(cb.validate_verdict_args("dm3", "sng_to_rl", "ok\there"))
+
+    def test_note_none_is_valid(self):
+        self.assertIsNone(cb.validate_verdict_args("dm3", "sng_to_rl", None))
+
+
+class TestVerdictOp(unittest.TestCase):
+    """Integration tests for the bridge verdict (certification) op."""
+
+    def _certify(self, bridge, route="sng_to_rl", note=None, req_id="v1"):
+        req = {"op": "verdict", "map": "dm3", "route": route, "req_id": req_id}
+        if note is not None:
+            req["note"] = note
+        return local(bridge, req)
+
+    def _make_bridge_and_submit(self, tmp, request=None):
+        bridge, executor = make_bridge(tmp)
+        if request is None:
+            request = {
+                "op": "verdict",
+                "map": "dm3",
+                "route": "sng_to_rl",
+                "note": "looks human to me",
+                "req_id": "v1",
+            }
+        response, broadcast = local(bridge, request)
+        return response, broadcast, Path(tmp) / "records" / "verdicts.json"
+
+    def test_happy_path_writes_verdicts_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            response, broadcast, vpath = self._make_bridge_and_submit(tmp)
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(response["route"], "sng_to_rl")
+            self.assertIn("date", response)
+            self.assertTrue(vpath.exists())
+            verdicts = json.loads(vpath.read_text(encoding="utf-8"))
+            self.assertEqual(verdicts["schema"], "komodobots.verdicts.v2")
+            certs = verdicts["certifications"]["sng_to_rl"]
+            self.assertIsInstance(certs, list)
+            self.assertEqual(len(certs), 1)
+            self.assertIn("date", certs[0])
+            self.assertEqual(certs[0].get("note"), "looks human to me")
+
+    def test_broadcast_on_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            response, broadcast, _ = self._make_bridge_and_submit(tmp)
+            self.assertTrue(response["ok"])
+            self.assertIsNotNone(broadcast)
+            self.assertEqual(broadcast["type"], "control_event")
+            self.assertEqual(broadcast["event"], "verdict")
+            self.assertEqual(broadcast["route"], "sng_to_rl")
+            self.assertIn("date", broadcast)
+
+    def test_certifications_appended(self):
+        """Each certification is appended (sparse list, not latest-wins)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge, _ = make_bridge(tmp)
+            vpath = Path(tmp) / "records" / "verdicts.json"
+            self._certify(bridge, req_id="1")
+            self._certify(bridge, note="second cert", req_id="2")
+            verdicts = json.loads(vpath.read_text(encoding="utf-8"))
+            certs = verdicts["certifications"]["sng_to_rl"]
+            self.assertEqual(len(certs), 2)
+
+    def test_two_routes_independent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge, _ = make_bridge(tmp)
+            vpath = Path(tmp) / "records" / "verdicts.json"
+            self._certify(bridge, route="sng_to_rl", req_id="1")
+            self._certify(bridge, route="hilljump", req_id="2")
+            verdicts = json.loads(vpath.read_text(encoding="utf-8"))
+            self.assertEqual(len(verdicts["certifications"]["sng_to_rl"]), 1)
+            self.assertEqual(len(verdicts["certifications"]["hilljump"]), 1)
+
+    def test_verdict_lock_exempt_during_harness_lock(self):
+        """verdict must succeed even when the harness holds a fresh lock."""
+        with tempfile.TemporaryDirectory() as tmp:
+            harness_lock(tmp)
+            bridge, _ = make_bridge(tmp)
+            response, broadcast = self._certify(bridge)
+            self.assertTrue(response["ok"], response)
+
+    def test_verdict_invalid_fields_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge, _ = make_bridge(tmp)
+            # bad route name
+            response, _ = local(bridge, {"op": "verdict", "map": "dm3", "route": "../bad", "req_id": "2"})
+            self.assertFalse(response["ok"])
+            # bad map name
+            response, _ = local(bridge, {"op": "verdict", "map": "../dm3", "route": "sng_to_rl", "req_id": "3"})
+            self.assertFalse(response["ok"])
+            # note too long
+            response, _ = local(bridge, {"op": "verdict", "map": "dm3", "route": "sng_to_rl", "note": "x" * 1001, "req_id": "4"})
+            self.assertFalse(response["ok"])
+
+    def test_verdict_audited(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge, _ = make_bridge(tmp)
+            self._certify(bridge)
+            lines = (Path(tmp) / "control-audit.log").read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(lines), 1)
+            entry = json.loads(lines[0])
+            self.assertEqual(entry["op"], "verdict")
+            self.assertTrue(entry["ok"])
+
+    def test_verdict_requires_auth(self):
+        """verdict is still a mutating op: unauthorized remote peers are refused."""
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge, _ = make_bridge(tmp)
+            # no token configured, remote peer (not loopback) -- refused
+            response, _ = bridge.handle(
+                {"op": "verdict", "map": "dm3", "route": "sng_to_rl", "req_id": "1"},
+                "remote-peer",
+                peer_host="192.168.86.50",
+            )
+            self.assertFalse(response["ok"])
+            self.assertIn("unauthorized", response["detail"])
+
+    def test_note_optional(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            response, _, vpath = self._make_bridge_and_submit(
+                tmp,
+                {"op": "verdict", "map": "dm3", "route": "sng_to_rl", "req_id": "1"},
+            )
+            self.assertTrue(response["ok"])
+            verdicts = json.loads(vpath.read_text(encoding="utf-8"))
+            cert = verdicts["certifications"]["sng_to_rl"][0]
+            self.assertIn("date", cert)
+            self.assertNotIn("note", cert)  # no note key when absent
 
 
 if __name__ == "__main__":

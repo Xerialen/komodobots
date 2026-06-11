@@ -513,18 +513,22 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   edge detection, speed interpolation, gap-anchor interpolation, designated-edge
   selection including the committed `dm3/sng_to_rl` manifest).
 
-- `lab/dashboard/src/BrutalScoreboard.tsx` (LD-E2, #101) — the four KPI metric rows
+- `lab/dashboard/src/BrutalScoreboard.tsx` (LD-E2, #101; LD-F5, #106) — the four KPI metric rows
   rendered inside the KPI dock.  Two exported components:
   - `BrutalScoreboard` — full expanded scoreboard with four rows: The Race (finishes/
     attempts · median×human), Jump Count (N/11 censused dm3 routes completed), Speedometer
-    (bot peak_speed as % of human · decisive edge sub-line), Eye Test (latest verdict).
+    (bot peak_speed as % of human · decisive edge sub-line), Eye Test (data-suggested state
+    + latest user certification, default "not certified"; optional `controlClient` prop
+    enables the passive `CertifyHumanLevel` sub-component — one button, optional note;
+    user-initiated only, no nag prompts; calls `controlClient.verdict()` and on success
+    calls `refetch()` for immediate scoreboard update).
     Fetches `records.json` (RECORDS_URL `/demos/records/records.json`) and `verdicts.json`
     (VERDICTS_URL `/demos/records/verdicts.json`) on mount and on `refreshKey` change.
     Honest zeros everywhere: explicit empty/no-data states, never blanks or stale data.
-    Pass/fail/close framing via `VerdictBadge`.  Data derivation is `deriveScoreboard()`,
-    a pure function exercised by `tests/test_brutal_scoreboard.py` (57 tests).
+    Data derivation is `deriveScoreboard()`, a pure function exercised by
+    `tests/test_brutal_scoreboard.py` (57 tests).
   - `RailScoreboard` — compact vertical four-glyph strip for dock rail mode: Race
-    (finishes/attempts fraction), Jump Count (N/11), Speedometer (%), Eye Test (P/~/F/?).
+    (finishes/attempts fraction), Jump Count (N/11), Speedometer (%), Eye Test (★/–).
   Tests: `tests/test_brutal_scoreboard.py` (57 tests locking derive_scoreboard logic,
   DM3_ROUTES_ORDERED, honest zeros, current honest state from SPEC §7).
 
@@ -541,7 +545,7 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   explicit "records unavailable" state, no crash.  Not rendered in rail mode (numbers-only
   per LD-E1 design).  Pure-logic contract tested in `tests/test_records_panel.py` (70 tests).
 
-- `lab/dashboard/src/controlClient.ts` (LD-F3, #105) — TypeScript client for the
+- `lab/dashboard/src/controlClient.ts` (LD-F3, #105; LD-F5, #106) — TypeScript client for the
   control bridge command channel.  Multiplexed on the SAME WebSocket as telemetry
   (no second connection): `TelemetryClient` exposes `rawMessageListeners` and
   `sendText()` so `ControlClient` can route bridge responses / `control_event`
@@ -549,8 +553,9 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   (stable ref), wired to the telemetry socket via `onConnectionChange()`, and receives
   raw text frames via `onMessage()`.  Provides typed convenience wrappers for every
   mutating op: `sessionStart`, `sessionStop`, `addBot`, `removeBot`, `setCvar`, `console`
-  (with `@<slot>` expansion).  Token auth: optional `?ctoken=` URL param for non-loopback
-  callers; loopback dashboard sessions are trusted automatically by the bridge.
+  (with `@<slot>` expansion), and `verdict` (LD-F5: `map, route, note?` — certification
+  that the route has reached human-level).  Token auth: optional `?ctoken=` URL param
+  for non-loopback callers; loopback dashboard sessions are trusted automatically by the bridge.
 
 - `lab/dashboard/src/ControlDrawer.tsx` (LD-F3, #105) — slide-down control drawer
   component.  Rendered from `App.tsx` when `layout.drawerOpen`; positioned absolute
@@ -573,7 +578,7 @@ app so the FTE engine owns its own window — one engine instance per window, SP
 
 ### Lab control bridge (lab/server)
 
-`lab/server/control_bridge.py` (LD-F2, #96) is the browser→lab-server command channel,
+`lab/server/control_bridge.py` (LD-F2, #96; LD-F5, #106) is the browser→lab-server command channel,
 hosted inside the existing telemetry sidecar `scripts/telemetry_ws.py` (decision D4: no
 new service). The sidecar's client text frames carry JSON `{op, req_id, ...}` commands;
 the bridge authorizes the caller for every mutating op (loopback peer or per-deploy
@@ -594,6 +599,22 @@ client. Protocol, security gates, and the `kbot-telemetry` deploy/restart proced
 `tests/test_f3_control_drawer.py` (LD-F3 #105 Codex P1 fixes: full per-slot
 assignment cvar expansion, ASSIGN broadcast shape, route-name round-trip,
 spawn_origin allowlist).
+
+LD-F5 (#106) adds the `verdict` op: `{map, route, note?}` (user decision 2026-06-10:
+certification only — no pass/close/fail; the user declares the bot has reached human-level).
+Validates map + route tokens (same allowlist as `set_map`), optional note (max 1000 chars,
+no control chars), writes atomically (temp-file+rename) to
+`~/komodobots-lab/records/verdicts.json` (schema `komodobots.verdicts.v2`, co-located with
+`records.json`), appends to `certifications[route]` (sparse dated list, history kept),
+audit-logs the attempt, and broadcasts a `control_event` on success.  Lock-exempt: the
+verdict op bypasses the harness-priority lab lock because it touches only the local records
+store, never a running lab server.  The `controlClient.ts` `verdict()` wrapper mirrors the
+op; the `CertifyHumanLevel` sub-component inside `BrutalScoreboard.tsx` provides the dock
+UI (one button + optional note); user-initiated only, no nag prompts; on success it calls
+`refetch()` so the scoreboard Eye Test row updates immediately.  Tests:
+`tests/test_control_bridge.py` `TestVerdictValidation` + `TestVerdictOp` (new tests
+locking validation, atomic write, certification append, lock exemption, auth enforcement,
+audit).
 
 ### Lab Dashboard golden-path validation harness (LD-G2, #108)
 

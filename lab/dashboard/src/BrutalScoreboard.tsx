@@ -8,20 +8,22 @@
 //   2. Jump Count    — N / 11 censused dm3 routes completed, ever
 //   3. Speedometer   — bot record active-mean speed as % of human speed
 //                      + decisive edge sub-line
-//   4. Eye Test      — latest human verdict (pass | close | fail)
+//   4. Eye Test      — data-suggested state + latest user certification
+//                      (LD-F5 #106: user decision 2026-06-10: no pass/close/fail
+//                       — user certifies human-level reached, rarely, passively)
 //
 // Data sources:
 //   - records.json  (RECORDS_URL, same path as DemoPane)
 //   - verdicts.json (VERDICTS_URL, lives beside records.json)
 //
-// Update cadence: fetch on mount + on every `onRequestRefetch` call
-// (the dock calls this when an attempt ends or a verdict is submitted).
+// Update cadence: fetch on mount + on every `refreshKey` change.
 //
 // Rail-mode numbers: the parent (KpiDock) renders four micro-glyphs in rail
 // mode; export RailScoreboard for that case.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { KpiContext } from "./contextStore.ts";
+import type { ControlClient } from "./controlClient.ts";
 
 // ---------------------------------------------------------------------------
 // Types — records schema (komodobots.records.v1), partial
@@ -59,21 +61,19 @@ interface RecordsJson {
 }
 
 // ---------------------------------------------------------------------------
-// Types — verdicts schema (komodobots.verdicts.v1)
+// Types — verdicts schema (komodobots.verdicts.v2)
+// LD-F5 (#106) user decision 2026-06-10: sparse certifications, not three-state.
 // ---------------------------------------------------------------------------
 
-type EyeVerdict = "pass" | "close" | "fail";
-
-interface VerdictEntry {
-  verdict: EyeVerdict;
+interface CertificationEntry {
+  date: string;  // ISO date YYYY-MM-DD
   note?: string | null;
-  run_id?: string | null;
-  date?: string;
 }
 
 interface VerdictsJson {
   schema: string;
-  routes: Record<string, VerdictEntry>;
+  /** route -> list of dated certifications (sparse, append-only). */
+  certifications: Record<string, CertificationEntry[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -106,7 +106,7 @@ const TOTAL_DM3_ROUTES = DM3_ROUTES_ORDERED.length; // 11
 
 /** All four KPI values derived from records + verdicts. */
 interface ScoreboardState {
-  /** The Race: finishes/attempts for the context route (or overall), ×human median. */
+  /** The Race: finishes/attempts for the context route (or overall), xhuman median. */
   race: {
     finishes: number;
     attempts: number;
@@ -135,11 +135,15 @@ interface ScoreboardState {
       pct: number | null;
     } | null;
   };
-  /** Eye Test: latest verdict for the context route. */
+  /**
+   * Eye Test: latest user certification + data-suggested state.
+   * LD-F5 (#106): certification (user declares human-level reached) or null.
+   */
   eyeTest: {
-    verdict: EyeVerdict | null;
-    /** Human-readable label for the verdict. */
-    label: string;
+    /** Most recent certification, or null if never certified. */
+    latestCertification: CertificationEntry | null;
+    /** Data-suggested state derived from the other scoreboard numbers. */
+    suggestedLabel: string;
   };
   /** Freshness: when was data last fetched (ISO string). */
   fetchedAt: string | null;
@@ -163,7 +167,7 @@ function deriveScoreboard(
     race: { finishes: 0, attempts: 0, multipleOfHuman: null },
     jumpCount: { completed: 0, total: TOTAL_DM3_ROUTES, contextRouteCompleted: null },
     speedometer: { botSpeed: null, humanSpeed: null, pct: null, edge: null },
-    eyeTest: { verdict: null, label: "no verdict yet" },
+    eyeTest: { latestCertification: null, suggestedLabel: "no data yet" },
     fetchedAt: null,
     loaded: false,
     error: null,
@@ -261,19 +265,24 @@ function deriveScoreboard(
   }
 
   // ---- Eye Test ------------------------------------------------------------
-  let verdict: EyeVerdict | null = null;
-  let verdictLabel = "no verdict yet";
+  // Data-suggested state: derived from the quantitative scoreboard numbers.
+  let suggestedLabel = "data: not yet suggested";
+  if (speedPct != null && raceMultiple != null) {
+    if (speedPct >= 100 && raceMultiple <= 1.0) {
+      suggestedLabel = "data suggests: human-level";
+    } else if (speedPct >= 80 && raceMultiple <= 1.25) {
+      suggestedLabel = "data suggests: close";
+    } else {
+      suggestedLabel = "data suggests: not yet";
+    }
+  }
 
-  if (verdicts && context.route) {
-    const entry = verdicts.routes[context.route];
-    if (entry) {
-      verdict = entry.verdict;
-      verdictLabel =
-        verdict === "pass"
-          ? "could be human"
-          : verdict === "close"
-            ? "hesitates"
-            : "obviously a bot";
+  // Latest user certification for this route.
+  let latestCertification: CertificationEntry | null = null;
+  if (verdicts?.certifications && context.route) {
+    const certs = verdicts.certifications[context.route];
+    if (Array.isArray(certs) && certs.length > 0) {
+      latestCertification = certs[certs.length - 1];
     }
   }
 
@@ -285,7 +294,7 @@ function deriveScoreboard(
       contextRouteCompleted,
     },
     speedometer: { botSpeed, humanSpeed, pct: speedPct, edge: edgeInfo },
-    eyeTest: { verdict, label: verdictLabel },
+    eyeTest: { latestCertification, suggestedLabel },
     fetchedAt: new Date().toISOString(),
     loaded: true,
     error: null,
@@ -301,7 +310,7 @@ function useScoreboardData(
     race: { finishes: 0, attempts: 0, multipleOfHuman: null },
     jumpCount: { completed: 0, total: TOTAL_DM3_ROUTES, contextRouteCompleted: null },
     speedometer: { botSpeed: null, humanSpeed: null, pct: null, edge: null },
-    eyeTest: { verdict: null, label: "no verdict yet" },
+    eyeTest: { latestCertification: null, suggestedLabel: "no data yet" },
     fetchedAt: null,
     loaded: false,
     error: null,
@@ -321,7 +330,7 @@ function useScoreboardData(
       }),
       fetch(VERDICTS_URL).then((r) => {
         if (!r.ok) {
-          // Verdicts file may not exist yet (404 = no verdicts entered).
+          // Verdicts file may not exist yet (404 = no certifications entered).
           return null as VerdictsJson | null;
         }
         return r.json() as Promise<VerdictsJson>;
@@ -356,36 +365,6 @@ function useScoreboardData(
 // Sub-components
 // ---------------------------------------------------------------------------
 
-/** Verdict badge for Eye Test and generic pass/fail framing. */
-function VerdictBadge({ verdict }: { verdict: EyeVerdict | null }) {
-  if (verdict === "pass") {
-    return (
-      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-green-900/60 text-green-300 border border-green-700">
-        pass
-      </span>
-    );
-  }
-  if (verdict === "close") {
-    return (
-      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-900/60 text-amber-300 border border-amber-700">
-        close
-      </span>
-    );
-  }
-  if (verdict === "fail") {
-    return (
-      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-red-900/60 text-red-300 border border-red-700">
-        fail
-      </span>
-    );
-  }
-  return (
-    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-gray-600 border border-slate-700">
-      ?
-    </span>
-  );
-}
-
 /** A single metric row in the scoreboard. */
 function MetricRow({
   label,
@@ -418,16 +397,163 @@ function Delta({ value, goodDirection }: { value: number; goodDirection: "up" | 
 }
 
 // ---------------------------------------------------------------------------
+// LD-F5 (#106): Certify Human-Level control
+// ---------------------------------------------------------------------------
+
+interface CertifyHumanLevelProps {
+  context: KpiContext;
+  controlClient: ControlClient;
+  onSuccess: () => void;
+}
+
+/**
+ * Passive, user-initiated certification control for the Eye Test KPI.
+ *
+ * User decision 2026-06-10 (issue #106): no nag prompts, no pass/close/fail.
+ * The user declares human-level reached manually: one "certify human-level"
+ * button, optional note, rarely used.  Requires a route in context.
+ */
+function CertifyHumanLevel({ context, controlClient, onSuccess }: CertifyHumanLevelProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [note, setNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastCertDate, setLastCertDate] = useState<string | null>(null);
+
+  // Reset when route changes.
+  const routeKey = context.route ?? "__none__";
+  const prevRouteRef = useRef(routeKey);
+  if (prevRouteRef.current !== routeKey) {
+    prevRouteRef.current = routeKey;
+    setExpanded(false);
+    setNote("");
+    setError(null);
+    setLastCertDate(null);
+  }
+
+  const hasRoute = context.route != null;
+
+  const handleCertify = async () => {
+    if (!hasRoute || !context.route) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await controlClient.verdict(
+        context.map,
+        context.route,
+        note.trim() || undefined,
+      );
+      if (res.ok) {
+        const date = (res as { date?: string }).date ?? new Date().toISOString().slice(0, 10);
+        setLastCertDate(date);
+        setExpanded(false);
+        setNote("");
+        onSuccess();
+      } else {
+        setError(res.detail ?? "certification failed");
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!hasRoute) {
+    return (
+      <div className="mt-1.5 text-[10px] text-gray-700 italic">
+        select a route to certify
+      </div>
+    );
+  }
+
+  if (!controlClient.connected) {
+    return (
+      <div className="mt-1.5 text-[10px] text-gray-700 italic">
+        bridge disconnected — connect to certify
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex flex-col gap-y-1.5" data-certify-form>
+      {lastCertDate && !expanded && (
+        <div className="text-[10px] text-green-400 font-mono">
+          certified {lastCertDate}
+        </div>
+      )}
+      {!expanded ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="w-full px-2 py-1 rounded text-[10px] font-mono bg-slate-900/40 text-gray-500 border border-dashed border-slate-700 hover:border-slate-500 hover:text-gray-300 text-left"
+        >
+          certify human-level…
+        </button>
+      ) : (
+        <>
+          <div className="text-[10px] text-amber-300 font-mono">
+            declare: {context.route} has reached human-level
+          </div>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="optional note (max 200 chars)..."
+            maxLength={200}
+            rows={2}
+            disabled={submitting}
+            className="w-full text-[10px] font-mono bg-slate-900/60 border border-slate-700 rounded px-1.5 py-1 text-gray-300 placeholder-gray-700 resize-none focus:outline-none focus:border-slate-500 disabled:opacity-40"
+          />
+          <div className="flex gap-x-1">
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={handleCertify}
+              className="flex-1 px-2 py-1 rounded text-[10px] font-mono bg-green-900/50 text-green-300 border border-green-700 hover:bg-green-900/70 disabled:opacity-40"
+            >
+              {submitting ? "saving..." : "certify"}
+            </button>
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => { setExpanded(false); setNote(""); setError(null); }}
+              className="px-2 py-1 rounded text-[10px] font-mono bg-slate-900/40 text-gray-500 border border-slate-700 hover:border-slate-500 disabled:opacity-40"
+            >
+              cancel
+            </button>
+          </div>
+        </>
+      )}
+      {error && (
+        <div className="text-[10px] text-red-400 border border-red-900/40 rounded px-1.5 py-0.5 bg-red-950/10">
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main scoreboard component (expanded dock)
 // ---------------------------------------------------------------------------
 
 interface BrutalScoreboardProps {
   context: KpiContext;
-  /** External refresh trigger — incremented when an attempt ends. */
+  /** External refresh trigger -- incremented when an attempt ends. */
   refreshKey?: number;
+  /**
+   * LD-F5 (#106): control bridge client for the eye-test certification control.
+   * Optional: when absent the certification control is not rendered (e.g. rail mode,
+   * or tests that don't need it).
+   */
+  controlClient?: ControlClient;
 }
 
-export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardProps) {
+export function BrutalScoreboard({
+  context,
+  refreshKey = 0,
+  controlClient,
+}: BrutalScoreboardProps) {
   const sb = useScoreboardData(context, refreshKey);
 
   if (!sb.loaded) {
@@ -436,7 +562,7 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
         data-section="scoreboard"
         className="py-2 text-[10px] text-gray-600 animate-pulse text-center"
       >
-        loading scoreboard…
+        loading scoreboard...
       </div>
     );
   }
@@ -455,7 +581,7 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
   const { race, jumpCount, speedometer, eyeTest } = sb;
   const hasRoute = context.route != null;
 
-  // Race: north-star target ≤×1.0; v1 milestone ≤×1.25 (SPEC §7 table, #101)
+  // Race: north-star target <=x1.0; v1 milestone <=x1.25 (SPEC §7 table, #101)
   const RACE_NS_TARGET = 1.0;      // end state: match human
   const RACE_V1_TARGET = 1.25;     // v1 milestone: first-usable
   const raceMultipleFail =
@@ -465,7 +591,7 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
     race.multipleOfHuman > RACE_V1_TARGET &&
     !raceMultipleFail;
 
-  // Speedometer: north-star ≥100%; v1 milestone ≥80% (SPEC §7 table, #101)
+  // Speedometer: north-star >=100%; v1 milestone >=80% (SPEC §7 table, #101)
   const SPEED_NS_TARGET = 100;
   const SPEED_V1_TARGET = 80;
 
@@ -486,7 +612,7 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
           )}
         </div>
 
-        {/* ×human line */}
+        {/* xhuman line */}
         <div className="flex items-baseline gap-x-2">
           {race.multipleOfHuman != null ? (
             <>
@@ -499,12 +625,12 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
                       : "text-green-400"
                 }`}
               >
-                ×{race.multipleOfHuman.toFixed(1)}
+                x{race.multipleOfHuman.toFixed(1)}
               </span>
               <span className="text-[10px] text-gray-600">
-                median vs human ·{" "}
-                <span className="text-gray-500">target ≤×{RACE_NS_TARGET.toFixed(1)}</span>
-                <span className="text-gray-700"> (v1 ≤×{RACE_V1_TARGET})</span>
+                {"median vs human · "}
+                <span className="text-gray-500">{"target ≤×"}{RACE_NS_TARGET.toFixed(1)}</span>
+                <span className="text-gray-700">{" (v1 ≤×"}{RACE_V1_TARGET}{")"}</span>
               </span>
             </>
           ) : (
@@ -536,7 +662,7 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
                 jumpCount.contextRouteCompleted ? "text-green-400" : "text-red-400"
               }`}
             >
-              {jumpCount.contextRouteCompleted ? "✓" : "✗"}
+              {jumpCount.contextRouteCompleted ? "v" : "x"}
             </span>
             <span className="text-[10px] text-gray-600">
               {context.route}
@@ -565,7 +691,7 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
             })}
           </div>
           <div className="text-[9px] text-gray-600 mt-0.5">
-            target: 1/11 then climb → 11/11
+            target: 1/11 then climb to 11/11
           </div>
         </div>
       </MetricRow>
@@ -589,9 +715,9 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
                     {speedometer.pct.toFixed(0)}%
                   </span>
                   <span className="text-[10px] text-gray-600">
-                    active-mean vs human ·{" "}
-                    <span className="text-gray-500">target ≥{SPEED_NS_TARGET}%</span>
-                    <span className="text-gray-700"> (v1 ≥{SPEED_V1_TARGET}%)</span>
+                    {"active-mean vs human · "}
+                    <span className="text-gray-500">{"target ≥"}{SPEED_NS_TARGET}{"%"}</span>
+                    <span className="text-gray-700">{" (v1 ≥"}{SPEED_V1_TARGET}{"%)"}</span>
                   </span>
                 </>
               ) : (
@@ -630,7 +756,7 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
                       {Math.round(speedometer.edge.botEdgeSpeed)}
                     </span>
                   ) : (
-                    <span className="text-gray-600">—</span>
+                    <span className="text-gray-600">-</span>
                   )}
                   {speedometer.edge.humanEdgeSpeed != null && (
                     <>
@@ -642,7 +768,7 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
                   )}
                   {speedometer.edge.pct != null && (
                     <>
-                      <span className="text-gray-700">·</span>
+                      <span className="text-gray-700">.</span>
                       <Delta
                         value={speedometer.edge.pct - 100}
                         goodDirection="up"
@@ -660,12 +786,34 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
 
       {/* ---- 4. Eye Test ---- */}
       <MetricRow label="Eye Test">
-        <div className="flex items-center gap-x-2">
-          <VerdictBadge verdict={eyeTest.verdict} />
-          <span className="text-xs text-gray-400">{eyeTest.label}</span>
-        </div>
-        {!hasRoute && eyeTest.verdict == null && (
-          <span className="text-[10px] text-gray-600">select a route for verdict</span>
+        {/* Data-suggested state line */}
+        <div className="text-[10px] text-gray-500 font-mono">{eyeTest.suggestedLabel}</div>
+
+        {/* Latest user certification */}
+        {eyeTest.latestCertification ? (
+          <div className="flex items-center gap-x-1.5">
+            <span className="text-[10px] font-mono text-green-400">*</span>
+            <span className="text-[10px] text-gray-400">
+              certified human-level
+              <span className="text-gray-600"> on {eyeTest.latestCertification.date}</span>
+            </span>
+          </div>
+        ) : (
+          <div className="text-[10px] text-gray-600">not certified</div>
+        )}
+
+        {!hasRoute && (
+          <span className="text-[10px] text-gray-600">select a route for eye test</span>
+        )}
+
+        {/* LD-F5 (#106): passive certification control -- only when a controlClient is
+            provided (expanded dock only; rail mode + tests do not pass it). */}
+        {controlClient && (
+          <CertifyHumanLevel
+            context={context}
+            controlClient={controlClient}
+            onSuccess={sb.refetch}
+          />
         )}
       </MetricRow>
 
@@ -680,7 +828,7 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
 }
 
 // ---------------------------------------------------------------------------
-// Rail-mode micro scoreboard — four glyphs in a vertical strip
+// Rail-mode micro scoreboard -- four glyphs in a vertical strip
 // ---------------------------------------------------------------------------
 
 /** Compact vertical scoreboard for the KPI dock rail mode. */
@@ -690,7 +838,7 @@ export function RailScoreboard({ context, refreshKey = 0 }: BrutalScoreboardProp
   if (!sb.loaded) {
     return (
       <div className="flex flex-col items-center gap-y-1 text-[9px] text-gray-700">
-        <span>…</span>
+        <span>...</span>
       </div>
     );
   }
@@ -704,7 +852,7 @@ export function RailScoreboard({ context, refreshKey = 0 }: BrutalScoreboardProp
     >
       {/* Race: finishes fraction */}
       <div
-        title={`Race: ${race.finishes}/${race.attempts} finishes${race.multipleOfHuman != null ? ` ×${race.multipleOfHuman.toFixed(1)}` : ""}`}
+        title={`Race: ${race.finishes}/${race.attempts} finishes${race.multipleOfHuman != null ? ` x${race.multipleOfHuman.toFixed(1)}` : ""}`}
         className="flex flex-col items-center"
       >
         <span
@@ -750,29 +898,17 @@ export function RailScoreboard({ context, refreshKey = 0 }: BrutalScoreboardProp
         </span>
       </div>
 
-      {/* Eye Test: verdict glyph */}
+      {/* Eye Test: certified glyph */}
       <div
-        title={`Eye Test: ${eyeTest.verdict ?? "no verdict"} — ${eyeTest.label}`}
+        title={`Eye Test: ${eyeTest.latestCertification ? "certified " + eyeTest.latestCertification.date : "not certified"}`}
         className="flex flex-col items-center"
       >
         <span
           className={
-            eyeTest.verdict === "pass"
-              ? "text-green-400"
-              : eyeTest.verdict === "close"
-                ? "text-amber-400"
-                : eyeTest.verdict === "fail"
-                  ? "text-red-400"
-                  : "text-gray-700"
+            eyeTest.latestCertification ? "text-green-400" : "text-gray-700"
           }
         >
-          {eyeTest.verdict === "pass"
-            ? "P"
-            : eyeTest.verdict === "close"
-              ? "~"
-              : eyeTest.verdict === "fail"
-                ? "F"
-                : "?"}
+          {eyeTest.latestCertification ? "*" : "-"}
         </span>
       </div>
     </div>

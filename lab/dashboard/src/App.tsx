@@ -712,7 +712,8 @@ export function App() {
         {/* LD-E1 (#100): KPI dock — real component replaces the placeholder aside.
             LD-E2 (#101): refreshKey triggers BrutalScoreboard refetch on attempt end.
             LD-E3 (#102): client + isLive wire the live metrics panel.
-            LD-E4 (#104): same refreshKey also triggers RecordsPanel refetch. */}
+            LD-E4 (#104): same refreshKey also triggers RecordsPanel refetch.
+            LD-F5 (#106): controlClient for certification op wired through KpiDock. */}
         <KpiDock
           context={kpiContext}
           collapsed={layout.dockCollapsed}
@@ -723,6 +724,7 @@ export function App() {
           client={client}
           isLive={connection.live}
           selectedEd={selectedEd}
+          controlClient={controlClientRef.current}
         />
 
         <main className="grow min-w-0 overflow-x-auto">

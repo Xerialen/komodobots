@@ -4,6 +4,7 @@
 // LD-E3 (#102): Live metrics panel — vh sparkline, arc-local human comparison,
 //               launch-edge callout, attempt meta.  Replaces the skeleton slot.
 // LD-E4 (#104): Records panel — context-sensitive record rows with click-to-demo.
+// LD-F5 (#106): Eye Test certification control — sparse user-initiated action.
 //
 // Renders as a flex/grid column member (never an overlay) so the Demo pane
 // (leftmost) is never obscured.  Two modes:
@@ -21,6 +22,7 @@ import { BrutalScoreboard, RailScoreboard } from "./BrutalScoreboard.tsx";
 import { LiveMetricsPanel } from "./LiveMetricsPanel.tsx";
 import type { TelemetryClient } from "./telemetryClient.ts";
 import { RecordsPanel } from "./RecordsPanel.tsx";
+import type { ControlClient } from "./controlClient.ts";
 
 // ---- Props ------------------------------------------------------------------
 
@@ -49,6 +51,11 @@ type KpiDockProps = {
    * that BotLab3D and TelemetryHud are tracking.  null = first-seen fallback.
    */
   selectedEd?: number | null;
+  /**
+   * LD-F5 (#106): control bridge client for the eye-test certification control.
+   * Optional: when absent the certification control is not rendered.
+   */
+  controlClient?: ControlClient;
 };
 
 // ---- Helpers ----------------------------------------------------------------
@@ -72,6 +79,7 @@ export function KpiDock({
   client = null,
   isLive = false,
   selectedEd = null,
+  controlClient,
 }: KpiDockProps) {
   if (collapsed) {
     return (
@@ -153,9 +161,14 @@ export function KpiDock({
 
       {/* Sections */}
       <div className="flex flex-col overflow-y-auto grow">
-        {/* LD-E2 (#101): Brutal scoreboard — four KPI rows. */}
+        {/* LD-E2 (#101): Brutal scoreboard — four KPI rows.
+            LD-F5 (#106): controlClient for eye-test certification. */}
         <div className="px-3 pt-2 pb-1">
-          <BrutalScoreboard context={context} refreshKey={refreshKey} />
+          <BrutalScoreboard
+            context={context}
+            refreshKey={refreshKey}
+            controlClient={controlClient}
+          />
         </div>
 
         {/* LD-E3 (#102): Live metrics — real component. */}

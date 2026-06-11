@@ -167,6 +167,21 @@ export class ControlClient {
     return this.send("set_cvar", args);
   }
 
+  /**
+   * LD-F5 (#106): certify that a route has reached human-level movement.
+   * User decision 2026-06-10: no pass/close/fail -- user declares human-level.
+   * Lock-exempt op — allowed even when the harness owns the lab.
+   */
+  async verdict(
+    map: string,
+    route: string,
+    note?: string,
+  ): Promise<ControlResponse> {
+    const args: Record<string, unknown> = { map, route };
+    if (note !== undefined && note !== "") args.note = note;
+    return this.send("verdict", args);
+  }
+
   /** Raw console line. Supports @<N> shorthand prefix for per-slot. */
   async console(line: string): Promise<ControlResponse> {
     // @<slot> <cvar> <value>  ->  set_cvar with slot
