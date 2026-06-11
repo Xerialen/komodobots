@@ -2585,3 +2585,35 @@ from the first run (B5 #64 auto-archival is in place; dashboard wiring per lab/S
 
 Round 2 closed: carve variant + pre-registration (section 9), sweep 2430, extension
 300, decomposition with carve funnel, all committed on `a5-carve-release-118`.
+
+
+## 2026-06-11 -- LD-C3: MockupSelection context event contract (for LD-E1)
+
+### Decision
+
+The Mockup pane emits `MockupSelection { map: string, route: string | null }`
+via the `onSelect` prop on every map or route selection change.  The App shell
+holds this as state and passes it down.  When LD-E1 (#100) builds the KPI dock
+context store, it will subscribe to the same state (or lift it to a React
+context) rather than re-adding a separate event bus.
+
+`route` is the **last** selected route name when multiple routes are selected,
+or null when no route is selected.  This is intentionally simple: the KPI dock
+context line shows one map + one route, not all N selected routes.
+
+### Why
+
+The issue spec says "emits context events {map, route} on selection" -- a
+callback prop is the smallest correct React pattern for this (no context API
+overhead, no external store yet).  LD-E1 has explicit freedom to lift this
+state when it builds the dock.
+
+### Revisit Conditions
+
+If LD-E1 needs richer selection state (e.g. the full selected set, not just
+the last route), promote the state to a React context and document the change
+here.
+
+### Status
+
+Implemented in LD-C3 (#97).  LD-E1 will consume this.

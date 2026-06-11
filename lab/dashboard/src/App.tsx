@@ -26,6 +26,7 @@ import {
   type DemoPaneHandle,
   type OpenDemoParams,
 } from "./DemoPane.tsx";
+import { MockupPane, type MockupSelection } from "./MockupPane.tsx";
 
 // Re-export openDemo type for LD-E4 (#104) to import.
 export type { OpenDemoParams } from "./DemoPane.tsx";
@@ -103,15 +104,6 @@ function Pane({ id, header, children }: {
   );
 }
 
-function PlaceholderPane({ title, note }: { title: string; note: string }) {
-  return (
-    <div className="h-full flex flex-col items-center justify-center gap-y-2 text-center px-4">
-      <span className="text-gray-400">{title}</span>
-      <span className="text-xs text-gray-600">{note}</span>
-    </div>
-  );
-}
-
 export function App() {
   const wsUrl = useMemo(() => getParam("ws") ?? DEFAULT_TELEMETRY_WS, []);
   const qtvRelay = useMemo(() => getParam("relay") ?? DEFAULT_QTV_RELAY, []);
@@ -124,6 +116,7 @@ export function App() {
   const [attempt, setAttempt] = useState<TelemetryAttempt | null>(null);
   const [connection, setConnection] = useState({ connected: false, live: false });
   const [showReference, setShowReference] = useState(true);
+  const [mockupSelection, setMockupSelection] = useState<MockupSelection>({ map: "dm3", route: null });
   const [layout, setLayout] = useState<LayoutState>(() =>
     loadLayout(window.location.search),
   );
@@ -259,11 +252,24 @@ export function App() {
       </Pane>
     ),
     mockup: (
-      <Pane key="mockup" id="mockup" header={<span>Mockup</span>}>
-        <PlaceholderPane
-          title="Mockup view"
-          note="placeholder — offline 3D map/route browser lands in LD-C3 (#97)"
-        />
+      <Pane
+        key="mockup"
+        id="mockup"
+        header={
+          <>
+            <span>Mockup</span>
+            {mockupSelection.route !== null && (
+              <span className="ml-2 text-gray-500 font-mono">
+                {mockupSelection.map} · {mockupSelection.route}
+              </span>
+            )}
+          </>
+        }
+      >
+        {/* LD-C3 (#97): offline map/route browser. Emits MockupSelection to the
+            shell so the future KPI dock (LD-E1, #100) can react to map/route
+            context changes from the Mockup pane. */}
+        <MockupPane onSelect={setMockupSelection} />
       </Pane>
     ),
     live3d: (
