@@ -370,7 +370,11 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
 - Dev loop: `cd lab/dashboard && npm ci && npm run dev` (see `lab/README.md`).
 - Control bridge (LD-F2, #96): the telemetry sidecar also carries a JSON command
   channel (`lab/server/control_bridge.py`, deployed flat next to `telemetry_ws.py`
-  together with `qw_min_client.py`). Hard server-side gates: lab port allowlist
+  together with `qw_min_client.py`). Hard server-side gates: caller authorization
+  for every mutating op — loopback peer (operator/ssh tunnel) or the per-deploy
+  control token auto-created 0600 at `~/komodobots-lab/control.token`, plus a
+  browser Origin allowlist (`--allow-origin`, default empty = browsers are
+  telemetry-only) as CSRF defense on top (Codex P1, #129); lab port allowlist
   28599–28609 only; production 28501/28502/28503 and `qw_*` screens flat-denied;
   cvar/console allowlists; audit log at `~/komodobots-lab/control-audit.log`.
   The lab lock `~/komodobots-lab/lab.lock` gives the experiment harness absolute

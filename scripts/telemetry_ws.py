@@ -27,12 +27,23 @@ Control channel (client -> server text frames, see lab/server/control_bridge.py)
   {"re", "ok", "detail", ...}  response to the requesting client only
   {"type": "control_event", "event", ...}  broadcast to every client on success
 
+Control authorization (Codex P1, #129) -- telemetry stays open, mutation does not:
+  - mutating ops are authorized by the bridge: loopback peer (operator on the
+    lab host or an `ssh -L 8770:localhost:8770` tunnel) OR a request "token"
+    matching the per-deploy secret at <lab-home>/control.token (auto-generated
+    0600 on first start; override with --control-token-file);
+  - browser CSRF gate: a connection that sent an Origin header only reaches the
+    control channel when that origin is allowlisted via --allow-origin
+    (repeatable; default empty = browser clients are telemetry-only). This is
+    defense in depth on top of the bridge check, never a substitute.
+
 Deploy control_bridge.py (and qw_min_client.py for bot ops) flat next to this
 file on the lab host; without it the sidecar degrades to telemetry-only.
 
 Usage (manual v1, e.g. inside screen/tmux on servexeri):
   python3 telemetry_ws.py [--runs-dir ~/komodobots-lab/runs] [--host 0.0.0.0] [--port 8770]
                           [--lab-home ~/komodobots-lab] [--no-control]
+                          [--control-token-file <path>] [--allow-origin <origin> ...]
 """
 
 from __future__ import annotations
@@ -43,6 +54,8 @@ import base64
 import hashlib
 import json
 import math
+import os
+import secrets
 import sys
 from pathlib import Path
 
@@ -119,16 +132,28 @@ class Hub:
             writer.close()
 
 
-async def ws_handshake(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> bool:
+async def ws_handshake(
+    reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+) -> tuple[bool, str | None]:
+    """Returns (ok, origin). origin is the raw Origin header value when present.
+
+    A present Origin marks a browser connection; the control channel only
+    accepts it when allowlisted (see handle_client). The handshake itself is
+    never rejected on Origin: telemetry stays open to the LAN as before.
+    """
     request = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=5.0)
     key = None
+    origin = None
     for line in request.decode("latin-1").split("\r\n"):
-        if line.lower().startswith("sec-websocket-key:"):
+        low = line.lower()
+        if low.startswith("sec-websocket-key:"):
             key = line.split(":", 1)[1].strip()
+        elif low.startswith("origin:"):
+            origin = line.split(":", 1)[1].strip()
     if not key:
         writer.write(b"HTTP/1.1 400 Bad Request\r\n\r\n")
         await writer.drain()
-        return False
+        return False, None
     accept = base64.b64encode(hashlib.sha1((key + WS_GUID).encode()).digest()).decode()
     writer.write(
         (
@@ -139,7 +164,7 @@ async def ws_handshake(reader: asyncio.StreamReader, writer: asyncio.StreamWrite
         ).encode()
     )
     await writer.drain()
-    return True
+    return True, origin
 
 
 async def consume_client_frames(
@@ -181,36 +206,48 @@ async def handle_client(
     reader: asyncio.StreamReader,
     writer: asyncio.StreamWriter,
     bridge=None,
+    allowed_origins: frozenset[str] = frozenset(),
 ) -> None:
     peer = writer.get_extra_info("peername")
+    peer_host = peer[0] if isinstance(peer, tuple) and peer else None
+    origin: str | None = None  # set by the handshake before any on_text call
 
     async def on_text(payload: str) -> None:
         # Control channel (LD-F2 #96). bridge.handle blocks (screen/subprocess,
         # session_start waits for the server) -> run it in a worker thread so
         # telemetry frames keep flowing to every client meanwhile.
-        if bridge is None:
-            response, broadcast = (
-                {"re": None, "ok": False, "detail": "control bridge not deployed"},
-                None,
+        try:
+            request = json.loads(payload)
+        except json.JSONDecodeError:
+            request = None
+        req_id = request.get("req_id") if isinstance(request, dict) else None
+        broadcast = None
+        if origin is not None and origin not in allowed_origins:
+            # Browser CSRF gate (Codex P1, #129): a page from a non-allowlisted
+            # origin keeps its telemetry stream but never reaches the control
+            # bridge. Defense in depth on top of the bridge's loopback/token
+            # authorization, not a substitute for it.
+            response = {"re": req_id, "ok": False, "detail": "origin not allowed for control"}
+            print(
+                f"[bridge] refused control frame from {peer}: origin {origin!r} not allowlisted",
+                flush=True,
             )
+        elif bridge is None:
+            response = {"re": req_id, "ok": False, "detail": "control bridge not deployed"}
+        elif request is None:
+            response = {"re": None, "ok": False, "detail": "invalid JSON"}
         else:
-            try:
-                request = json.loads(payload)
-            except json.JSONDecodeError:
-                request = None
-            if request is None:
-                response, broadcast = {"re": None, "ok": False, "detail": "invalid JSON"}, None
-            else:
-                response, broadcast = await asyncio.get_running_loop().run_in_executor(
-                    None, bridge.handle, request, str(peer)
-                )
+            response, broadcast = await asyncio.get_running_loop().run_in_executor(
+                None, lambda: bridge.handle(request, str(peer), peer_host=peer_host)
+            )
         writer.write(encode_ws_text(json.dumps(response, separators=(",", ":"))))
         await writer.drain()
         if broadcast is not None:
             await hub.broadcast(broadcast)
 
     try:
-        if not await ws_handshake(reader, writer):
+        ok, origin = await ws_handshake(reader, writer)
+        if not ok:
             return
         print(f"[ws] client connected: {peer}", flush=True)
         hub.clients.add(writer)
@@ -223,6 +260,27 @@ async def handle_client(
         hub.clients.discard(writer)
         writer.close()
         print(f"[ws] client gone: {peer}", flush=True)
+
+
+def load_or_create_control_token(path: Path) -> tuple[str, bool]:
+    """Returns (token, created). The per-deploy control secret (Codex P1, #129).
+
+    Generated once per deploy with 256 bits of entropy and written 0600; remote
+    (non-loopback) control clients must present it in each mutating request.
+    The value is never printed -- the operator reads the file on the lab host.
+    """
+    try:
+        token = path.read_text(encoding="utf-8").strip()
+        if token:
+            return token, False
+    except FileNotFoundError:
+        pass
+    token = secrets.token_hex(32)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(token + "\n")
+    return token, True
 
 
 def read_run_env(run_dir: Path) -> dict[str, str]:
@@ -378,6 +436,26 @@ async def main() -> None:
         action="store_true",
         help="Disable the control bridge command channel (telemetry-only).",
     )
+    parser.add_argument(
+        "--control-token-file",
+        default=None,
+        help=(
+            "Per-deploy control token file (created 0600 with a random secret on "
+            "first start). Remote control clients must send its value as 'token' "
+            "in each mutating request. Defaults to <lab-home>/control.token."
+        ),
+    )
+    parser.add_argument(
+        "--allow-origin",
+        action="append",
+        default=[],
+        metavar="ORIGIN",
+        help=(
+            "Browser Origin allowed to use the control channel (repeatable, exact "
+            "match, e.g. http://192.168.86.33:8095). Browser connections from any "
+            "other origin stay telemetry-only."
+        ),
+    )
     args = parser.parse_args()
 
     bridge = None
@@ -386,12 +464,30 @@ async def main() -> None:
     elif ControlBridge is None:
         print("[bridge] control_bridge.py not found beside the sidecar; telemetry-only", flush=True)
     else:
-        bridge = ControlBridge(lab_home=Path(args.lab_home))
+        token_path = (
+            Path(args.control_token_file)
+            if args.control_token_file
+            else Path(args.lab_home) / "control.token"
+        )
+        token, created = load_or_create_control_token(token_path)
+        bridge = ControlBridge(lab_home=Path(args.lab_home), control_token=token)
         print(f"[bridge] control channel up (lab home {args.lab_home})", flush=True)
+        print(
+            f"[bridge] control token {'generated at' if created else 'loaded from'} "
+            f"{token_path}; mutating ops need loopback or this token",
+            flush=True,
+        )
+        if args.allow_origin:
+            print(f"[bridge] control origins allowlisted: {', '.join(args.allow_origin)}", flush=True)
+        else:
+            print("[bridge] no --allow-origin given: browser clients are telemetry-only", flush=True)
 
     hub = Hub()
+    allowed_origins = frozenset(args.allow_origin)
     server = await asyncio.start_server(
-        lambda r, w: handle_client(hub, r, w, bridge=bridge), args.host, args.port
+        lambda r, w: handle_client(hub, r, w, bridge=bridge, allowed_origins=allowed_origins),
+        args.host,
+        args.port,
     )
     print(f"[ws] listening on {args.host}:{args.port}, watching {args.runs_dir}", flush=True)
     async with server:

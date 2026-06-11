@@ -3,8 +3,11 @@
 Boots the real telemetry sidecar websocket handler in-process against a temp
 lab home seeded with a FRESH harness lock, then drives the control channel over
 a real hand-rolled websocket: handshake, hello, lock_status, and the refusal
-paths (session_start under harness lock, rcon cvar, bad JSON), and finally
-prints the audit log. No lab host involved -- everything runs on 127.0.0.1.
+paths (session_start under harness lock, rcon cvar, bad JSON), plus the browser
+CSRF gate (Codex P1, #129): a second connection that presents a non-allowlisted
+Origin header still gets telemetry but its control frames are refused before
+the bridge. Finally prints the audit log. No lab host involved -- everything
+runs on 127.0.0.1 (the first connection is loopback-trusted by the bridge).
 
 This is the manual evidence tool, not part of the unit suite (the suite covers
 the same logic via tests/test_control_bridge.py and
@@ -103,6 +106,7 @@ def recv_text(sock) -> str:
     return payload.decode()
 
 s = None
+s2 = None
 
 try:
     s = socket.create_connection(("127.0.0.1", port), timeout=5)
@@ -122,15 +126,33 @@ try:
     print("SET_CVAR rcon (must refuse):", recv_text(s))
     send_text(s, "not json")
     print("BAD JSON:", recv_text(s))
+
+    # Codex P1 (#129): browser CSRF gate. handle_client runs with the default
+    # empty allowed_origins, so a page from any origin is telemetry-only: its
+    # control frames are refused in the sidecar and never reach the bridge.
+    s2 = socket.create_connection(("127.0.0.1", port), timeout=5)
+    key2 = base64.b64encode(os.urandom(16)).decode()
+    s2.sendall((f"GET / HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                f"Origin: http://evil.example\r\n"
+                f"Sec-WebSocket-Key: {key2}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
+    resp2 = b""
+    while b"\r\n\r\n" not in resp2:
+        resp2 += s2.recv(1024)
+    print("EVIL-ORIGIN HANDSHAKE (telemetry stays open):", resp2.split(b"\r\n")[0].decode())
+    print("EVIL-ORIGIN HELLO:", recv_text(s2))
+    send_text(s2, '{"op":"session_start","map":"dm3","req_id":"e"}')
+    print("EVIL-ORIGIN SESSION_START (must refuse, origin gate):", recv_text(s2))
+
     audit = (tmp / "control-audit.log")
     print("AUDIT LINES:")
     print(audit.read_text() if audit.is_file() else "<none>")
 finally:
-    if s is not None:
-        try:
-            s.close()
-        except OSError:
-            pass
+    for sock in (s, s2):
+        if sock is not None:
+            try:
+                sock.close()
+            except OSError:
+                pass
     loop = loop_holder.get("loop")
     if loop is not None and loop.is_running():
         loop.call_soon_threadsafe(loop.stop)

@@ -17,6 +17,12 @@ Ops: session_start {map, force?} / session_stop {port?, force?} / set_map {map}
 
 SECURITY IS BINDING (all gates enforced server-side, the UI is courtesy):
 
+- caller authorization (Codex P1, #129): every mutating op requires a TRUSTED
+  caller -- a loopback peer (operator on the lab host, or an `ssh -L` tunnel)
+  or a request "token" matching the per-deploy control token (constant-time
+  compare; redacted in the audit log). With no token configured, remote peers
+  can never mutate. The sidecar's Origin allowlist is browser CSRF defense ON
+  TOP of this, never a substitute;
 - target port allowlist 28599-28609 ONLY;
 - flat deny of production ports 28501/28502/28503 and screen names `qw_*`
   anywhere in any command path (substring deny, deliberately over-broad);
@@ -46,6 +52,8 @@ deployed flat next to telemetry_ws.py (see lab/README.md).
 
 from __future__ import annotations
 
+import hmac
+import ipaddress
 import json
 import os
 import re
@@ -114,6 +122,25 @@ def hits_flat_deny(text: str) -> bool:
 
 def is_path_like(text: str) -> bool:
     return "/" in text or "\\" in text or ".." in text
+
+
+def is_loopback_host(host: object) -> bool:
+    """True only for a loopback peer address (127.0.0.0/8 or ::1).
+
+    The IPv4-mapped form ::ffff:127.0.0.1 unwraps to its IPv4 address first
+    (Python's IPv6Address.is_loopback is False for mapped addresses). Anything
+    unparseable -- including None, empty, or hostnames -- is NOT loopback:
+    authorization must fail closed.
+    """
+    if not isinstance(host, str) or not host:
+        return False
+    try:
+        addr = ipaddress.ip_address(host.split("%", 1)[0])
+    except ValueError:
+        return False
+    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
+        addr = addr.ipv4_mapped
+    return addr.is_loopback
 
 
 def validate_lab_port(port: object) -> int | None:
@@ -494,6 +521,7 @@ class ControlBridge:
         now_fn=time.time,
         pid_alive=default_pid_alive,
         own_pid: int | None = None,
+        control_token: str | None = None,
     ) -> None:
         self.lab_home = Path(lab_home) if lab_home else Path.home() / "komodobots-lab"
         self.lock_path = self.lab_home / "lab.lock"
@@ -502,16 +530,23 @@ class ControlBridge:
         self._now = now_fn
         self._pid_alive = pid_alive
         self._own_pid = own_pid if own_pid is not None else os.getpid()
+        self._control_token = control_token or None  # empty string == not configured
         self._mutex = threading.Lock()
 
     # -- plumbing -------------------------------------------------------------
 
-    def handle(self, request: object, peer: str) -> tuple[dict[str, object], dict[str, object] | None]:
-        """Returns (response, broadcast_or_None). Serialized: one command at a time."""
-        with self._mutex:
-            return self._handle_locked(request, peer)
+    def handle(
+        self, request: object, peer: str, peer_host: str | None = None
+    ) -> tuple[dict[str, object], dict[str, object] | None]:
+        """Returns (response, broadcast_or_None). Serialized: one command at a time.
 
-    def _handle_locked(self, request: object, peer: str):
+        peer_host is the raw remote IP of the websocket connection (used for the
+        loopback trust check); omitting it means the caller is treated as remote.
+        """
+        with self._mutex:
+            return self._handle_locked(request, peer, peer_host)
+
+    def _handle_locked(self, request: object, peer: str, peer_host: str | None):
         if not isinstance(request, dict) or not isinstance(request.get("op"), str):
             return self._refuse(None, "request must be a JSON object with an 'op' string"), None
         req_id = request.get("req_id")
@@ -522,12 +557,41 @@ class ControlBridge:
             return self._refuse(req_id, "verdict is reserved for LD-F5 (#106)"), None
         if op not in MUTATING_OPS:
             return self._refuse(req_id, f"unknown op: {op}"), None
+        auth_error = self._authorize(request, peer_host)
+        if auth_error is not None:
+            response = self._refuse(req_id, auth_error)
+            self._audit(peer, op, request, response)
+            return response, None
         try:
             response, broadcast = self._mutating(op, request, peer)
         except Exception as exc:  # executor failures must answer, not kill the sidecar
             response, broadcast = self._refuse(req_id, f"{type(exc).__name__}: {exc}"), None
         self._audit(peer, op, request, response)
         return response, broadcast
+
+    def _authorize(self, request: dict, peer_host: str | None) -> str | None:
+        """None when the caller may mutate, else the refusal detail (Codex P1, #129).
+
+        Trust requires ONE of:
+        - a loopback peer (operator on the lab host, or an `ssh -L` tunnel), or
+        - request["token"] matching the per-deploy control token (constant-time
+          compare). With no token configured, remote peers can never mutate.
+
+        The Origin allowlist in telemetry_ws.py is browser CSRF defense on top
+        of this check, never a substitute for it.
+        """
+        if is_loopback_host(peer_host):
+            return None
+        supplied = request.get("token")
+        if (
+            self._control_token is not None
+            and isinstance(supplied, str)
+            and hmac.compare_digest(supplied.encode(), self._control_token.encode())
+        ):
+            return None
+        if self._control_token is None:
+            return "unauthorized: no control token configured; mutating ops are loopback-only"
+        return "unauthorized: mutating ops require a loopback connection or a valid control token"
 
     def _refuse(self, req_id: object, detail: str, **extra) -> dict[str, object]:
         return {"re": req_id, "ok": False, "detail": detail, **extra}
@@ -540,7 +604,12 @@ class ControlBridge:
             "ts": utc_now_iso(),
             "peer": peer,
             "op": op,
-            "request": {k: v for k, v in request.items() if k != "req_id"},
+            # the control token is a secret: never write its value to the log
+            "request": {
+                k: ("<redacted>" if k == "token" else v)
+                for k, v in request.items()
+                if k != "req_id"
+            },
             "ok": bool(response.get("ok")),
             "detail": response.get("detail"),
         }

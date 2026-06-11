@@ -248,7 +248,10 @@ The local-hub copy is deprecated for development; see `lab/README.md` for the de
 `lab/server/control_bridge.py` (LD-F2, #96) is the browser→lab-server command channel,
 hosted inside the existing telemetry sidecar `scripts/telemetry_ws.py` (decision D4: no
 new service). The sidecar's client text frames carry JSON `{op, req_id, ...}` commands;
-the bridge validates (lab-port allowlist 28599–28609, flat deny of production
+the bridge authorizes the caller for every mutating op (loopback peer or per-deploy
+control token at `~/komodobots-lab/control.token`, fail-closed; the sidecar adds a
+browser Origin allowlist as CSRF defense on top — Codex P1, #129), validates (lab-port
+allowlist 28599–28609, flat deny of production
 28501/28502/28503 and `qw_*` screens, cvar/console allowlists), enforces the
 harness-priority lab lock (`~/komodobots-lab/lab.lock`), audits every mutating attempt
 to `~/komodobots-lab/control-audit.log`, and dispatches through an injectable

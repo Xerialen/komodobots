@@ -71,6 +71,18 @@ maps to the LD-F1 `_s<N>` per-slot form) · `console {line}` · `lock_status` ·
 
 ### Security (binding, all enforced server-side)
 
+- Caller authorization (Codex P1, #129): every mutating op requires a **trusted
+  caller** — a loopback peer (operator on servexeri, or an
+  `ssh -L 8770:localhost:8770` tunnel) or a request `token` matching the per-deploy
+  secret at `~/komodobots-lab/control.token` (auto-generated 0600 on first start,
+  constant-time compare, value redacted in the audit log; override the path with
+  `--control-token-file`). With no token configured, remote peers can never mutate.
+- Browser CSRF gate: a websocket connection that presented an `Origin` header only
+  reaches the control channel when that origin is allowlisted via `--allow-origin`
+  (repeatable, exact match; default empty = browser clients are telemetry-only).
+  This is defense in depth on top of the loopback/token check, never a substitute —
+  the LD-F3 UI deploy must pass both the dashboard origin and the token.
+  Telemetry frames and `lock_status` stay readable without auth, as before.
 - Target port allowlist **28599–28609 only**; production **28501/28502/28503 are
   untouchable** — those port numbers and `qw_*` screen names are flat-denied anywhere
   in any command path (bridge dispatch AND executor re-check).
@@ -103,8 +115,12 @@ The sidecar is deployed flat: `telemetry_ws.py` + `moveprobe_parse.py` (existing
 ```bash
 # on servexeri — copy the four files, then restart the screen:
 screen -S kbot-telemetry -X quit   # stop (telemetry consumers reconnect automatically)
-screen -dmS kbot-telemetry python3 ~/komodobots-lab/sidecar/telemetry_ws.py
+screen -dmS kbot-telemetry python3 ~/komodobots-lab/sidecar/telemetry_ws.py \
+    --allow-origin http://192.168.86.33:8095
 screen -ls | grep kbot-telemetry   # verify it is back
+# first start auto-creates the control token at ~/komodobots-lab/control.token (0600);
+# remote (non-loopback, non-browser) control clients send it as "token" per request,
+# or skip the token entirely via: ssh -L 8770:localhost:8770 servexeri
 # telemetry-only fallback if the bridge must be disabled:
 #   ... telemetry_ws.py --no-control
 ```

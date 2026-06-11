@@ -7,11 +7,17 @@ harness-priority lock lines in run_frobodm2_lab.py's remote script (owner=
 harness written before the server screen starts, released in the cleanup trap
 AND on the success path, removal guarded by run_id so another owner's lock is
 never clobbered, and the dashboard-session port guard); (c) the qw_min_client
---botcmd extension used by the bridge for bot ops.
+--botcmd extension used by the bridge for bot ops; (d) the control auth wiring
+(Codex P1, #129): the handshake captures Origin, non-allowlisted browser
+origins never reach the bridge, the peer IP is handed to the bridge for its
+loopback check, and the per-deploy control token file is created 0600 once.
 """
 
 import asyncio
+import os
+import stat
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -77,6 +83,130 @@ class TestSidecarTextFrames(unittest.TestCase):
         )
         self.assertEqual(got, [])
         self.assertEqual(written, bytes((0x88, 0)))
+
+
+def handshake_bytes(origin: str | None = None) -> bytes:
+    lines = [
+        "GET / HTTP/1.1",
+        "Host: x",
+        "Upgrade: websocket",
+        "Connection: Upgrade",
+        "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+        "Sec-WebSocket-Version: 13",
+    ]
+    if origin is not None:
+        lines.append(f"Origin: {origin}")
+    return ("\r\n".join(lines) + "\r\n\r\n").encode()
+
+
+class FakePeerWriter(FakeWriter):
+    def __init__(self, peer=("203.0.113.5", 4242)) -> None:
+        super().__init__()
+        self.peer = peer
+
+    def get_extra_info(self, name):
+        return self.peer if name == "peername" else None
+
+    def close(self) -> None:
+        pass
+
+
+class RecordingBridge:
+    """Stands in for ControlBridge; records exactly what the sidecar hands over."""
+
+    def __init__(self) -> None:
+        self.calls = []
+
+    def handle(self, request, peer, peer_host=None):
+        self.calls.append((request, peer, peer_host))
+        return {"re": request.get("req_id"), "ok": True, "detail": "recorded"}, None
+
+
+class TestHandshakeOrigin(unittest.TestCase):
+    def hs(self, raw: bytes):
+        async def scenario():
+            reader = asyncio.StreamReader()
+            writer = FakeWriter()
+            reader.feed_data(raw)
+            ok, origin = await tw.ws_handshake(reader, writer)
+            return ok, origin, writer.data
+
+        return asyncio.run(scenario())
+
+    def test_origin_is_captured(self):
+        ok, origin, data = self.hs(handshake_bytes(origin="http://192.168.86.33:8095"))
+        self.assertTrue(ok)
+        self.assertEqual(origin, "http://192.168.86.33:8095")
+        self.assertIn(b"101 Switching Protocols", data)
+
+    def test_no_origin_header_means_none(self):
+        ok, origin, data = self.hs(handshake_bytes())
+        self.assertTrue(ok)
+        self.assertIsNone(origin)
+        self.assertIn(b"101 Switching Protocols", data)
+
+    def test_missing_key_still_rejected(self):
+        ok, origin, data = self.hs(b"GET / HTTP/1.1\r\nHost: x\r\n\r\n")
+        self.assertFalse(ok)
+        self.assertIsNone(origin)
+        self.assertIn(b"400 Bad Request", data)
+
+
+class TestControlAuthWiring(unittest.TestCase):
+    """Codex P1 (#129): origin gate + peer_host hand-off in handle_client."""
+
+    def run_client(self, origin, allowed_origins, peer=("203.0.113.5", 4242)):
+        async def scenario():
+            reader = asyncio.StreamReader()
+            writer = FakePeerWriter(peer)
+            bridge = RecordingBridge()
+            reader.feed_data(handshake_bytes(origin=origin))
+            reader.feed_data(
+                client_frame(0x1, b'{"op":"session_start","map":"dm3","req_id":"1"}')
+            )
+            reader.feed_data(client_frame(0x8, b""))
+            await tw.handle_client(
+                tw.Hub(), reader, writer, bridge=bridge,
+                allowed_origins=frozenset(allowed_origins),
+            )
+            return bridge, writer.data
+
+        return asyncio.run(scenario())
+
+    def test_unlisted_browser_origin_never_reaches_the_bridge(self):
+        bridge, written = self.run_client("http://evil.example", [])
+        self.assertEqual(bridge.calls, [])
+        self.assertIn(b"origin not allowed for control", written)
+
+    def test_allowlisted_origin_reaches_the_bridge_with_peer_host(self):
+        bridge, written = self.run_client(
+            "http://192.168.86.33:8095", ["http://192.168.86.33:8095"]
+        )
+        self.assertEqual(len(bridge.calls), 1)
+        request, peer, peer_host = bridge.calls[0]
+        self.assertEqual(request["op"], "session_start")
+        self.assertEqual(peer_host, "203.0.113.5")
+        self.assertIn(b'"detail":"recorded"', written)
+
+    def test_non_browser_client_passes_peer_host_to_the_bridge(self):
+        # no Origin header (ssh tunnel / CLI): no origin gate, bridge decides
+        bridge, _ = self.run_client(None, [])
+        self.assertEqual(len(bridge.calls), 1)
+        self.assertEqual(bridge.calls[0][2], "203.0.113.5")
+
+
+class TestControlTokenFile(unittest.TestCase):
+    def test_generated_once_then_reloaded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "control.token"
+            token, created = tw.load_or_create_control_token(path)
+            self.assertTrue(created)
+            self.assertGreaterEqual(len(token), 64)  # 256 bits hex
+            again, created_again = tw.load_or_create_control_token(path)
+            self.assertFalse(created_again)
+            self.assertEqual(again, token)
+            if os.name == "posix":  # owner-only on the lab host
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
 
 
 class TestHarnessLabLock(unittest.TestCase):
