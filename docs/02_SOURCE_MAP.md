@@ -250,7 +250,22 @@ dependencies (the `FteQtvPlayer` live-game panel is temporarily an iframe to the
 match the local-hub blobs byte-for-byte (verified by git blob SHA:
 `d23bbfa` / `da9a987`).
 
+LD-B1 (#87) added the view shell: `src/layoutState.ts` (fixed view order, `?views=` /
+localStorage persistence) and an `App.tsx` top bar + pane grid that rehomes the LD-A1
+Live 3D scene and live-game iframe into their fixed pane slots (Demo/Mockup/dock/drawer
+are labeled placeholders for LD-D3/LD-C3/LD-E1/LD-F3).
+
 The local-hub copy is deprecated for development; see `lab/README.md` for the dev loop.
+
+Deployment (LD-A2, #85): `lab/deploy_dashboard.py` builds the app and ships `dist/` to
+`servexeri:~/local-hub/web/botlab-staged/` (additive staging; tar-over-ssh, then rsync
+runs remotely on servexeri). The live same-URL cutover (`--cutover --confirm-live`,
+promoting `botlab-staged/` → `botlab/` after a tar.gz backup) is an owner-approval
+step. Sibling safety is structural: rsync destinations are restricted to a two-entry
+allowlist and sibling entry-HTML sha256 hashes are verified before/after every sync.
+`--audit-assets` is a read-only report of legacy shared `web/assets/` chunks still
+referenced outside `botlab*/`. Tests: `tests/test_deploy_dashboard.py`. Procedure and
+the do-not-overwrite-siblings rule: `lab/README.md`.
 
 Standalone panes under `public/panes/` (served at `/botlab/panes/`, outside the React
 app so the FTE engine owns its own window — one engine instance per window, SPEC §10):
