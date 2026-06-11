@@ -283,6 +283,19 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   wall-anchored demo clock) and `f_demoend` echoes the sentinel the pane converts into
   the `ended` event.
 
+### Lab dashboard data builders (lab/tools)
+
+- `lab/tools/build_routes_manifest.py` (LD-C1, #90) — stdlib builder that exports the
+  committed trick census (`experiments/nav_doctrine/evidence/trick-census/census.json`)
+  plus the committed human replay trajectories
+  (`experiments/nav_doctrine/evidence/replay/dm3_<route>.cmds`) into the committed,
+  versioned routes manifests `lab/dashboard/public/data/routes/{dm3,dm2,frobodm2,trick,index}.json`
+  (schema `komodobots.routes.v1`) — the canonical "what routes exist" feed for the
+  Mockup view, KPI dock and control drawer. Deterministic/idempotent (LF outputs,
+  `-text` in `.gitattributes`, LF-normalized sha256 provenance hashes);
+  `tests/test_build_routes_manifest.py` locks the committed outputs against a fresh
+  build. Pipeline details: `docs/06_DATA_AND_MVD_PIPELINE.md` § Routes manifest.
+
 ### Lab map meshes (lab/tools/bsp_to_obj.py)
 
 - `lab/tools/bsp_to_obj.py` (LD-C2, #91) — stdlib Quake1 BSP v29 → OBJ exporter that
