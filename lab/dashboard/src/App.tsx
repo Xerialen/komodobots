@@ -30,6 +30,16 @@ import {
 // FTE WASM once and re-issues qtvplay on every new attempt via postMessage
 // {cmd:"attach", port, map}. The retry/attach loop is driven from here (same
 // pattern as the old hub App.tsx) so the shell can coordinate with telemetry.
+//
+// LD-B3 (#89): single shared TelemetryClient at shell scope — one WebSocket
+// connection per page.  The client instance is created in the App effect below
+// and passed as a prop into BotLab3D / TelemetryHud.  Future consumers (KPI
+// dock LD-E1, context store LD-E3) read the same client from a context or
+// prop.  Closing and reopening the Live 3D pane disposes and rebuilds the
+// Three.js scene without closing the shared socket (BotLab3D only registers
+// frameListeners on the client — it does not own the connection).  The
+// map-scene setup (scene/camera/renderer/controls/mesh/resize) is factored
+// into src/mapScene.ts for reuse by the Mockup pane (LD-C3, #97).
 const DEFAULT_LAB_PORT = 28599;
 const DEFAULT_TELEMETRY_WS = "ws://192.168.86.33:8770";
 const DEFAULT_QTV_RELAY = "ws://192.168.86.33:27599";
