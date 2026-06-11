@@ -1,20 +1,22 @@
 // LD-E1 (#100): KPI dock — collapsible thin left dock with context store.
+// LD-E2 (#101): Brutal scoreboard — four metric rows (Race / Jump Count /
+//               Speedometer / Eye Test) wired into the scoreboard section slot.
 //
 // Renders as a flex/grid column member (never an overlay) so the Demo pane
 // (leftmost) is never obscured.  Two modes:
-//   expanded  — ~300 px, semi-opaque, full context line + section slots
-//   rail      — ~28 px, slim vertical "KPI" label only
+//   expanded  — ~300 px, semi-opaque, context line + scoreboard + section slots
+//   rail      — ~28 px, slim vertical strip with four micro scoreboard glyphs
 //
 // The collapse/expand button is also wired from the top-bar stub in App.tsx
 // (the button existed as a placeholder since LD-B1).
 //
-// Section slots for LD-E2 (scoreboard), LD-E3 (live metrics), LD-E4 (records)
-// are rendered as named skeleton placeholders.  Each slot has a data-section
-// attribute so Playwright tests can assert presence.
+// Section slots for LD-E3 (live metrics) and LD-E4 (records) are still rendered
+// as named skeleton placeholders.  The scoreboard slot is now the real component.
 //
 // Context line format: "<map> · <route> · <source>" or "<map> · (no route) · <source>"
 
 import type { KpiContext } from "./contextStore.ts";
+import { BrutalScoreboard, RailScoreboard } from "./BrutalScoreboard.tsx";
 
 // ---- Props ------------------------------------------------------------------
 
@@ -22,6 +24,12 @@ type KpiDockProps = {
   context: KpiContext;
   collapsed: boolean;
   onToggle: () => void;
+  /**
+   * Incremented by the parent (App.tsx) when an attempt ends so the scoreboard
+   * refetches records.  Passed through to BrutalScoreboard / RailScoreboard.
+   * LD-E2 (#101).
+   */
+  refreshKey?: number;
 };
 
 // ---- Helpers ----------------------------------------------------------------
@@ -50,7 +58,7 @@ function SectionSlot({ label, section }: { label: string; section: string }) {
 
 // ---- Component --------------------------------------------------------------
 
-export function KpiDock({ context, collapsed, onToggle }: KpiDockProps) {
+export function KpiDock({ context, collapsed, onToggle, refreshKey = 0 }: KpiDockProps) {
   if (collapsed) {
     return (
       <aside
@@ -67,13 +75,10 @@ export function KpiDock({ context, collapsed, onToggle }: KpiDockProps) {
         >
           ▸
         </button>
-        {/* Vertical label */}
-        <span
-          className="text-[10px] text-gray-600 [writing-mode:vertical-rl] mt-2 select-none"
-          aria-hidden="true"
-        >
-          KPI
-        </span>
+        {/* LD-E2 (#101): four micro scoreboard glyphs in rail mode. */}
+        <div className="flex flex-col items-center gap-y-1 mt-1">
+          <RailScoreboard context={context} refreshKey={refreshKey} />
+        </div>
         {/* Source badge in rail: just a colored 4 px dot */}
         <span
           data-source={context.source}
@@ -132,20 +137,28 @@ export function KpiDock({ context, collapsed, onToggle }: KpiDockProps) {
         </span>
       </div>
 
-      {/* Section slots: populated by future LD stages */}
-      <div className="flex flex-col gap-y-2 p-3 overflow-y-auto grow">
-        <SectionSlot
-          section="scoreboard"
-          label="Scoreboard — LD-E2 (#101)"
-        />
-        <SectionSlot
-          section="live-metrics"
-          label="Live metrics — LD-E3 (#102)"
-        />
-        <SectionSlot
-          section="records"
-          label="Records — LD-E4 (#104)"
-        />
+      {/* Sections */}
+      <div className="flex flex-col overflow-y-auto grow">
+        {/* LD-E2 (#101): Brutal scoreboard — four KPI rows. */}
+        <div className="px-3 pt-2 pb-1">
+          <BrutalScoreboard context={context} refreshKey={refreshKey} />
+        </div>
+
+        {/* LD-E3 (#102): Live metrics — skeleton placeholder. */}
+        <div className="px-3 py-2 border-t border-slate-800">
+          <SectionSlot
+            section="live-metrics"
+            label="Live metrics — LD-E3 (#102)"
+          />
+        </div>
+
+        {/* LD-E4 (#104): Records — skeleton placeholder. */}
+        <div className="px-3 py-2 border-t border-slate-800">
+          <SectionSlot
+            section="records"
+            label="Records — LD-E4 (#104)"
+          />
+        </div>
       </div>
     </aside>
   );

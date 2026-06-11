@@ -442,13 +442,30 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   user selection > none.  The pure logic is exercised by
   `tests/test_kpi_context_store.py` (33 tests) without any TypeScript/browser runtime.
 
-- `lab/dashboard/src/KpiDock.tsx` (LD-E1, #100) — collapsible left dock component.
-  Two modes: expanded (~288 px) with context line (`<data-context-line>`), source badge
-  (`<data-source>`), and three section slots (`<data-section="scoreboard|live-metrics|records>`
-  for LD-E2/E3/E4); rail (~28 px) with a vertical "KPI" label and a colored source dot.
-  Collapse/expand is driven by `layout.dockCollapsed` from `layoutState.ts` (persisted
-  in localStorage since LD-B1).  Receives `{ context, collapsed, onToggle }` as props —
-  no internal state.
+- `lab/dashboard/src/KpiDock.tsx` (LD-E1, #100; LD-E2, #101) — collapsible left dock
+  component.  Two modes: expanded (~288 px) with context line (`<data-context-line>`),
+  source badge (`<data-source>`), the live BrutalScoreboard component
+  (`<data-section="scoreboard">`), and placeholder slots for live-metrics/records
+  (`<data-section="live-metrics|records>"` for LD-E3/E4); rail (~28 px) with a vertical
+  "KPI" label, four micro scoreboard glyphs via RailScoreboard, and a colored source dot.
+  Added `refreshKey` prop (incremented by App.tsx when an attempt ends) to trigger
+  scoreboard refetch.  Collapse/expand driven by `layout.dockCollapsed` from
+  `layoutState.ts` (persisted in localStorage since LD-B1).
+
+- `lab/dashboard/src/BrutalScoreboard.tsx` (LD-E2, #101) — the four KPI metric rows
+  rendered inside the KPI dock.  Two exported components:
+  - `BrutalScoreboard` — full expanded scoreboard with four rows: The Race (finishes/
+    attempts · median×human), Jump Count (N/11 censused dm3 routes completed), Speedometer
+    (bot peak_speed as % of human · decisive edge sub-line), Eye Test (latest verdict).
+    Fetches `records.json` (RECORDS_URL `/demos/records/records.json`) and `verdicts.json`
+    (VERDICTS_URL `/demos/records/verdicts.json`) on mount and on `refreshKey` change.
+    Honest zeros everywhere: explicit empty/no-data states, never blanks or stale data.
+    Pass/fail/close framing via `VerdictBadge`.  Data derivation is `deriveScoreboard()`,
+    a pure function exercised by `tests/test_brutal_scoreboard.py` (57 tests).
+  - `RailScoreboard` — compact vertical four-glyph strip for dock rail mode: Race
+    (finishes/attempts fraction), Jump Count (N/11), Speedometer (%), Eye Test (P/~/F/?).
+  Tests: `tests/test_brutal_scoreboard.py` (57 tests locking derive_scoreboard logic,
+  DM3_ROUTES_ORDERED, honest zeros, current honest state from SPEC §7).
 
 ### Lab control bridge (lab/server)
 
