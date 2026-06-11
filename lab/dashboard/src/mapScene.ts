@@ -32,6 +32,30 @@ const FILL_OPACITY = 0.3;
 const TAG_SKY = "sky";
 const TAG_SKIP = "skip";
 
+// Map-name aliases: telemetry may report a map name that differs from the
+// committed GLB asset name.  E.g. the server runs "ztricks" but the committed
+// asset is "trick".  Normalize before building the GLB URL so GLTFLoader never
+// requests a missing asset and falls back to a non-crashing state instead.
+// Add new entries here when a new alias is encountered in telemetry.
+const MAP_ALIASES: Readonly<Record<string, string>> = {
+  ztricks: "trick",
+};
+
+// Committed GLB asset names (the set present in public/maps/).  If a telemetry
+// map name (after alias expansion) is not in this set, we skip the GLB load
+// and call onMeshLoaded without a scene root so the 3D pane shows an empty but
+// non-crashing scene.
+const COMMITTED_MAPS = new Set(["dm2", "dm3", "frobodm2", "trick"]);
+
+/**
+ * Normalise a raw telemetry/user map name to the committed GLB asset name.
+ * Returns null if the name cannot be resolved to a committed asset.
+ */
+export function normalizeMapName(rawName: string): string | null {
+  const expanded = MAP_ALIASES[rawName] ?? rawName;
+  return COMMITTED_MAPS.has(expanded) ? expanded : null;
+}
+
 export type MapScene = {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
@@ -145,11 +169,17 @@ export function createMapScene(
   // ── Mesh loading ─────────────────────────────────────────────────────────
   // LD-C4 (#92) canonical GLB path; glb/ is present in public/maps/ and
   // shipped by Vite.
-  const glbUrl = `/botlab/maps/${mapName}.glb`;
+  //
+  // Resolve the committed GLB asset name: telemetry may report a map name that
+  // differs from the committed asset (e.g. "ztricks" -> "trick").  If the name
+  // cannot be resolved to a committed asset, skip the load to avoid a crashing
+  // GLTFLoader request that returns HTML (Codex P1, HEAD d9a42d1).
+  const resolvedName = normalizeMapName(mapName);
+  const glbUrl = resolvedName != null ? `/botlab/maps/${resolvedName}.glb` : null;
 
   let disposed = false;
-  const loader = new GLTFLoader();
-  loader.load(glbUrl, (gltf) => {
+
+  function processGLTF(gltf: { scene: THREE.Group }) {
     if (disposed) {
       // Late load after dispose: free GPU resources immediately.
       gltf.scene.traverse((child) => {
@@ -170,17 +200,25 @@ export function createMapScene(
     // maps (x,y,z) -> (x,z,-y), matching quakeToThree for telemetry points.
     root.rotation.x = -Math.PI / 2;
 
-    // Iterate all meshes to:
-    //  1. Mark sky/skip materials invisible (hidden by default per #92/#99).
-    //  2. Tune visible materials for the default opacity + depthWrite.
-    //  3. Add wireframe overlay meshes (hidden by default).
+    // Collect all original map meshes in a separate pass BEFORE mutating the
+    // scene graph.  THREE.Object3D.traverse visits children that are appended
+    // during the walk (because it iterates the live children array), which
+    // would cause infinite recursion if we called child.add(wireMesh) inside
+    // the same traversal (Codex P1, HEAD d9a42d1:
+    //   "RangeError: Maximum call stack size exceeded" from mapScene.ts:87).
+    const mapMeshes: THREE.Mesh[] = [];
     root.traverse((child) => {
-      if (!(child instanceof THREE.Mesh)) return;
+      if (child instanceof THREE.Mesh) {
+        mapMeshes.push(child);
+      }
+    });
 
+    for (const child of mapMeshes) {
       const mats = Array.isArray(child.material)
         ? (child.material as THREE.Material[])
         : [child.material as THREE.Material];
 
+      let isHidden = false;
       for (const mat of mats) {
         // bsp_to_mesh.py embeds quake_tag in material extras (GLTF extras path).
         // GLTFLoader places extras under material.userData (Three.js convention);
@@ -200,7 +238,8 @@ export function createMapScene(
         if (tag === TAG_SKY || tag === TAG_SKIP) {
           // Hide sky / clip / trigger / tool faces.
           child.visible = false;
-          return; // skip further processing for this mesh
+          isHidden = true;
+          break;
         }
 
         // Tune the visible map material.
@@ -215,20 +254,30 @@ export function createMapScene(
         visibleMaterials.push(typedMat);
       }
 
-      // Add wireframe overlay: respect wireframeActive in case setWireframe(true)
-      // was called before the GLB finished loading.  Without this, a pre-enabled
-      // wireframe would never show because the later setWireframe(true) calls
-      // `if (enabled === wireframeActive) return` and exits early (Codex P2).
-      const wireMesh = new THREE.Mesh(child.geometry, wireMaterial);
-      wireMesh.visible = wireframeActive; // honor pre-load toggle
-      wireMesh.frustumCulled = false;
-      child.add(wireMesh);
-      wireMeshes.push(wireMesh);
-    });
+      if (!isHidden) {
+        // Add wireframe overlay AFTER the traversal loop is complete (see above).
+        // Respect wireframeActive in case setWireframe(true) was called before
+        // the GLB finished loading.  Without this, a pre-enabled wireframe would
+        // never show because the later setWireframe(true) calls
+        // `if (enabled === wireframeActive) return` and exits early (Codex P2).
+        const wireMesh = new THREE.Mesh(child.geometry, wireMaterial);
+        wireMesh.visible = wireframeActive; // honor pre-load toggle
+        wireMesh.frustumCulled = false;
+        child.add(wireMesh);
+        wireMeshes.push(wireMesh);
+      }
+    }
 
     scene.add(root);
     onMeshLoaded?.(root);
-  });
+  }
+
+  if (glbUrl != null) {
+    const loader = new GLTFLoader();
+    loader.load(glbUrl, processGLTF);
+  }
+  // If glbUrl is null (unresolvable map name), the scene stays empty — no
+  // crash, no spurious HTML-as-GLTF errors in the browser console.
 
   // ── Resize observer ──────────────────────────────────────────────────────
   function onResize(): void {

@@ -171,5 +171,102 @@ class WireframePreloadTests(unittest.TestCase):
         )
 
 
+class TraversalMutationGuardTests(unittest.TestCase):
+    """Wire-mesh children must NOT be added inside the traverse callback.
+
+    Codex P1 (HEAD d9a42d1): root.traverse() iterated children while the
+    callback called child.add(wireMesh).  Three.js traverse visits the live
+    children array, so newly appended children are visited, each gets another
+    wireMesh child, causing:
+      RangeError: Maximum call stack size exceeded from mapScene.ts:87/Mesh.traverse
+
+    Fix: collect original map meshes in a first traversal pass, then add wire
+    overlay children in a separate loop after traverse completes.
+    """
+
+    def setUp(self):
+        self.src = read(MAP_SCENE)
+
+    def test_collect_meshes_before_adding_wire_children(self):
+        """mapScene.ts must collect meshes into a separate array before mutating
+        the scene graph — traverse + child.add in the same callback causes
+        infinite recursion in Three.js."""
+        # The fix pattern: a meshes accumulator array declared before traverse,
+        # then a separate for-of loop that calls child.add(wireMesh).
+        # We verify both halves are present.
+        self.assertIn(
+            "mapMeshes",
+            self.src,
+            "mapScene.ts must collect map meshes into a separate array (mapMeshes) "
+            "before adding wire-overlay children",
+        )
+
+    def test_wire_mesh_add_not_inside_traverse_callback(self):
+        """child.add(wireMesh) must appear in a for-of loop, not inside a
+        .traverse() callback, to prevent mid-traversal scene-graph mutation."""
+        # The safest proxy: the source must contain "for (const child of mapMeshes)"
+        # (or similar for-of over the collected array) somewhere after the traverse.
+        self.assertIn(
+            "for (const child of mapMeshes)",
+            self.src,
+            "mapScene.ts must iterate mapMeshes with a for-of loop (not traverse) "
+            "when adding wire-overlay children to avoid infinite recursion",
+        )
+
+
+class MapNameAliasTests(unittest.TestCase):
+    """normalizeMapName must resolve telemetry map names to committed GLB assets.
+
+    Codex P1 (HEAD d9a42d1): Live 3D pane used the raw telemetry map name
+    (e.g. "ztricks") to build the GLB URL.  "ztricks.glb" does not exist;
+    Vite returned app HTML for the missing asset, causing:
+      SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+    from GLTFLoader in the browser.
+
+    Fix: normalizeMapName maps known aliases (ztricks -> trick) and returns null
+    for unknown names, so GLTFLoader is never called with a non-existent path.
+    """
+
+    def setUp(self):
+        self.src = read(MAP_SCENE)
+
+    def test_normalizeMapName_function_exported(self):
+        """normalizeMapName must be an exported function in mapScene.ts."""
+        self.assertIn(
+            "export function normalizeMapName",
+            self.src,
+            "mapScene.ts must export normalizeMapName so it is testable and "
+            "reusable by consumers",
+        )
+
+    def test_ztricks_alias_present(self):
+        """The 'ztricks' -> 'trick' alias must be defined in mapScene.ts."""
+        self.assertIn(
+            "ztricks",
+            self.src,
+            "mapScene.ts must have a 'ztricks' alias entry mapping to 'trick' "
+            "(the committed GLB asset name)",
+        )
+
+    def test_committed_maps_set_present(self):
+        """A COMMITTED_MAPS set must guard against unknown map names."""
+        self.assertIn(
+            "COMMITTED_MAPS",
+            self.src,
+            "mapScene.ts must define a COMMITTED_MAPS set so that GLTFLoader is "
+            "never called with a non-existent asset path",
+        )
+
+    def test_null_glb_url_skips_load(self):
+        """When normalizeMapName returns null, the GLB load must be skipped
+        (glbUrl is null and the loader.load call is guarded)."""
+        self.assertIn(
+            "glbUrl != null",
+            self.src,
+            "mapScene.ts must guard the GLTFLoader.load call with 'glbUrl != null' "
+            "so unknown map names produce an empty scene rather than a crash",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
