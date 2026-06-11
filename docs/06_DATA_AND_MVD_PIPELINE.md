@@ -880,6 +880,43 @@ python lab/server/records_build.py --rebuild [--archive-ssh servexeri] [--publis
   under `/mnt/usb-ssd/non-games/lab/Komodobots/human/` and referenced from
   every record's `human_ref.demo_url`.
 
+## Routes manifest (LD-C1, issue #90)
+
+The dashboard's "what routes exist" source of truth is the committed
+`lab/dashboard/public/data/routes/` directory (per-map `dm3.json` / `dm2.json`
+/ `frobodm2.json` / `trick.json` plus `index.json`, schema
+`komodobots.routes.v1`), built by `lab/tools/build_routes_manifest.py` from the
+committed census and human replay trajectories — the dashboard never parses
+experiment-internal files ad hoc:
+
+```text
+python lab/tools/build_routes_manifest.py
+```
+
+- **Sources (committed, not artifacts/)**:
+  `experiments/nav_doctrine/evidence/trick-census/census.json` and
+  `experiments/nav_doctrine/evidence/replay/dm3_<route>.cmds` — the manifests
+  must be reproducible from a bare checkout, so the builder deliberately does
+  **not** use the `artifacts/trick-census` override that `records_build.py`
+  prefers for run scoring.
+- **What each dm3 route holds**: census human stats (`duration_s`,
+  `active_mean_speed`, `peak_speed`); a display polyline downsampled from the
+  human `.cmds` trajectory (~12.5 Hz: every Nth frame for N = round(fps/12.5),
+  last frame always kept, coords rounded to 0.1 qu); census gap markers
+  (`edge`/`land` xyz, `required_speed`, `human_speed_at_edge`, `hard`,
+  `type` — e.g. the sng_to_rl decisive gap: required 525.3 vs human 528.6);
+  teleporter `from`/`to`; and per-route source provenance (census + `.cmds`
+  path + sha256).
+- **Empty-map honesty**: dm2/frobodm2/trick emit `"routes": []` rather than
+  omitting files — the Mockup view renders "no censused routes yet" from that.
+- **Determinism**: no wall clock anywhere; hashes are sha256 over
+  LF-normalized text (git stores the sources as LF, autocrlf Windows checkouts
+  see CRLF); outputs are written with explicit LF and marked `-text` in
+  `.gitattributes`, so a rebuild diffs clean on every platform.
+  `tests/test_build_routes_manifest.py` locks the committed manifests against
+  a fresh build byte-for-byte, so a census/replay change that is not followed
+  by a rebuild fails CI.
+
 ## Map meshes (LD-C2, issue #91)
 
 The dashboard's 3D map backdrops are the committed
