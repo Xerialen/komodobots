@@ -193,9 +193,18 @@ export function App() {
     const telemetry = new TelemetryClient(wsUrl);
     telemetry.attemptListeners.add(setAttempt);
     telemetry.stateListeners.add(setConnection);
-    // LD-F4 (#103): reset bot selection on each new attempt so the camera
-    // re-locks to the first-seen bot automatically.
-    const resetSelectedEd = () => setSelectedEd(null);
+    // LD-F4 (#103): reset bot selection on new_attempt only — not on hello
+    // reconnects.  telemetryClient.attemptListeners fires for both new_attempt
+    // and hello (when run_id is set).  On a transient WebSocket reconnect the
+    // hello delivers the SAME run_id for the ongoing attempt; resetting there
+    // would drop the user's camera selection mid-attempt (Codex inline P2
+    // discussion_r3395550280).  Guard: check the type field on the raw message
+    // (present at runtime even though TelemetryAttempt does not include it).
+    const resetSelectedEd = (attempt: TelemetryAttempt) => {
+      if ((attempt as unknown as { type?: string }).type === "new_attempt") {
+        setSelectedEd(null);
+      }
+    };
     telemetry.attemptListeners.add(resetSelectedEd);
     setClient(telemetry);
     return () => {

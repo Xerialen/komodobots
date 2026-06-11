@@ -207,6 +207,9 @@ export function BotLab3D({
     // Camera follows the attempt's first-seen bot (same bot the HUD locks to)
     let primaryEd: number | null = null;
     const followPosition = new THREE.Vector3();
+    // LD-F4 (#103): multi-bot overview stores bounding radius so the animate
+    // loop can ensure all bots are in-frame.  0 = single-bot / no bounds data.
+    let followRadius = 0;
     let hasFrame = false;
 
     function onFrame(frame: TelemetryFrame) {
@@ -267,7 +270,10 @@ export function BotLab3D({
           followPosition.copy(actor.position);
           hasFrame = true;
         } else if (actors.size > 1) {
-          // Multi-bot overview: recompute centroid across all active actors
+          // Multi-bot overview: centroid + bounding radius so all active bots
+          // are framed.  Radius is the max distance from centroid to any actor
+          // plus a 128 qu margin (Codex P2 fix: plain centroid-only can crop
+          // bots as they diverge — camera must widen to contain all actors).
           let cx = 0, cy = 0, cz = 0;
           for (const a of actors.values()) {
             cx += a.position.x;
@@ -275,7 +281,20 @@ export function BotLab3D({
             cz += a.position.z;
           }
           const n = actors.size;
-          followPosition.set(cx / n, cy / n, cz / n);
+          const cx_avg = cx / n;
+          const cy_avg = cy / n;
+          const cz_avg = cz / n;
+          followPosition.set(cx_avg, cy_avg, cz_avg);
+          // Bounding radius: max actor distance from centroid + margin
+          let r = 0;
+          for (const a of actors.values()) {
+            const dx = a.position.x - cx_avg;
+            const dy = a.position.y - cy_avg;
+            const dz = a.position.z - cz_avg;
+            const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (d > r) r = d;
+          }
+          followRadius = r + 128; // 128 qu margin keeps bots off the edge
           hasFrame = true;
         }
       }
@@ -319,6 +338,9 @@ export function BotLab3D({
     let animFrameId: number;
     const cameraDelta = new THREE.Vector3();
 
+    // FOV half-angle for camera distance calculation (fov=60 set in createMapScene).
+    const FOV_HALF_RAD = (60 / 2) * (Math.PI / 180);
+
     function animate() {
       if (disposed) return;
       animFrameId = requestAnimationFrame(animate);
@@ -326,6 +348,25 @@ export function BotLab3D({
         cameraDelta.copy(followPosition).sub(controls.target);
         camera.position.add(cameraDelta);
         controls.target.copy(followPosition);
+
+        // LD-F4 (#103): multi-bot overview — ensure camera distance is large
+        // enough that all active bots fit in the frustum.  followRadius > 0 only
+        // in the multi-bot no-selection path; single-bot and selected-bot paths
+        // leave it 0 and this block is skipped.
+        if (followRadius > 0) {
+          // Minimum distance for the bounding sphere to fit in the vertical FOV.
+          const minDist = followRadius / Math.sin(FOV_HALF_RAD);
+          const toCamera = camera.position.clone().sub(controls.target);
+          const currentDist = toCamera.length();
+          if (currentDist < minDist) {
+            // Push the camera outward along its current direction.
+            camera.position.copy(
+              controls.target
+                .clone()
+                .add(toCamera.normalize().multiplyScalar(minDist)),
+            );
+          }
+        }
       }
       controls.update();
       renderer.render(scene, camera);

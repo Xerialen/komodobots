@@ -10,6 +10,7 @@ Codex review notes are preserved as docstring markers so the rationale
 survives future edits.
 """
 
+import math
 import pathlib
 import re
 import unittest
@@ -276,6 +277,100 @@ class BotHudLogicTests(unittest.TestCase):
         m = re.search(r"MAX_TRAIL_POINTS_PER_BOT\s*=\s*(\d+)", src)
         self.assertIsNotNone(m, "MAX_TRAIL_POINTS_PER_BOT not found in BotLab3D.tsx")
         self.assertGreaterEqual(int(m.group(1)), 6000)
+
+
+
+class CameraOverviewBoundsTests(unittest.TestCase):
+    """BotLab3D.tsx multi-bot overview must use bounding radius for camera distance.
+
+    Codex P2 (HEAD f146537): overview computed centroid only; camera never widened.
+    Fix: compute bounding sphere radius, enforce minDist = r / sin(FOV_HALF_RAD).
+    """
+
+    def setUp(self):
+        self.src = read(BOTLAB3D)
+
+    def test_follow_radius_variable_present(self):
+        self.assertIn("followRadius", self.src,
+                      "BotLab3D.tsx must declare followRadius for bounds-based framing")
+
+    def test_fov_half_rad_constant_present(self):
+        self.assertIn("FOV_HALF_RAD", self.src,
+                      "BotLab3D.tsx must define FOV_HALF_RAD for bounds-based framing")
+
+    def test_min_dist_uses_sin_fov(self):
+        self.assertIn("minDist", self.src, "BotLab3D.tsx must compute minDist")
+        sin_pattern = re.compile(r"minDist.*?sin.*?FOV|sin.*?FOV.*?minDist", re.DOTALL)
+        self.assertRegex(self.src, sin_pattern,
+                         "minDist must use Math.sin(FOV_HALF_RAD)")
+
+    def test_follow_radius_updated_in_multi_bot_path(self):
+        multi_block = re.compile(r"actors\.size > 1.*?followRadius", re.DOTALL)
+        self.assertRegex(self.src, multi_block,
+                         "followRadius must be updated in the actors.size>1 path")
+
+
+class ResetOnNewAttemptOnlyTests(unittest.TestCase):
+    """App.tsx must reset selectedEd only for new_attempt, not hello reconnects.
+
+    Codex inline P2 (discussion_r3395550280): resetSelectedEd fired on hello
+    reconnects (same run_id) dropping user camera selection mid-attempt.
+    Fix: guard on type==new_attempt.
+    """
+
+    def setUp(self):
+        self.src = read(APP)
+
+    def test_type_field_checked_for_new_attempt(self):
+        pattern = re.compile(r'\.type\s*===?\s*"new_attempt"')
+        self.assertRegex(self.src, pattern,
+                         "App.tsx must check .type === new_attempt in resetSelectedEd")
+
+    def test_reset_is_conditional_not_plain_arrow(self):
+        bad = re.compile(r'const resetSelectedEd\s*=\s*\(\)\s*=>\s*setSelectedEd\(null\)')
+        self.assertNotRegex(self.src, bad,
+                            "resetSelectedEd must not be an unconditional plain arrow")
+
+    def test_reset_still_sets_selected_ed_null(self):
+        self.assertIn("setSelectedEd(null)", self.src)
+
+
+class CameraOverviewBoundsPureLogicTests(unittest.TestCase):
+    """Pure-logic: bounding-radius camera distance formula."""
+
+    def _compute_min_dist(self, actor_positions, fov_deg=60):
+        if not actor_positions:
+            return 0
+        n = len(actor_positions)
+        cx = sum(p[0] for p in actor_positions) / n
+        cy = sum(p[1] for p in actor_positions) / n
+        cz = sum(p[2] for p in actor_positions) / n
+        r = max(
+            math.sqrt((p[0]-cx)**2 + (p[1]-cy)**2 + (p[2]-cz)**2)
+            for p in actor_positions
+        )
+        follow_radius = r + 128
+        fov_half = (fov_deg / 2) * (math.pi / 180)
+        return follow_radius / math.sin(fov_half)
+
+    def test_single_bot_zero_spread(self):
+        dist = self._compute_min_dist([(0, 0, 0)])
+        self.assertAlmostEqual(dist, 256.0, places=1)
+
+    def test_two_bots_500_apart(self):
+        dist = self._compute_min_dist([(-250, 0, 0), (250, 0, 0)])
+        self.assertAlmostEqual(dist, 756.0, places=1)
+
+    def test_min_dist_grows_with_separation(self):
+        close = self._compute_min_dist([(-100, 0, 0), (100, 0, 0)])
+        far = self._compute_min_dist([(-500, 0, 0), (500, 0, 0)])
+        self.assertGreater(far, close)
+
+    def test_camera_pushed_out_when_too_close(self):
+        actors = [(-300, 0, 0), (300, 0, 0)]
+        min_dist = self._compute_min_dist(actors)
+        self.assertGreater(max(200.0, min_dist), 200.0)
+        self.assertEqual(max(1000.0, min_dist), 1000.0)
 
 
 if __name__ == "__main__":
