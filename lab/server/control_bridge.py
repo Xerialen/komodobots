@@ -348,6 +348,13 @@ def build_session_setup_cmds(map_name: str) -> list[str]:
         "set sv_timeout 3600",
         "set k_idletime 0",
         "set k_matchless_max_idle_time 0",
+        # LD-F3 (#105) Codex P1 fix: ASSIGN rows require k_fb_moveprobe_log_commands=1.
+        # Without this the FBMOVEPROBE_ASSIGN emitter in the KTX patch returns early
+        # (frogbot-moveprobe-perslot.patch line 650) and the sidecar never broadcasts
+        # an assign frame, so the roster stays at s?? with assignment disabled forever.
+        # The interval (0.25 s) matches the harness default.
+        "set k_fb_moveprobe_log_commands 1",
+        "set k_fb_moveprobe_log_interval 0.25",
     ]
 
 
