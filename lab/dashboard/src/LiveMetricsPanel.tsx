@@ -234,6 +234,29 @@ export function isInEdgeRegion(
   return dx * dx + dy * dy <= radius * radius;
 }
 
+/**
+ * Select the designated launch edge for a route — the single gap to track and
+ * freeze on during a live attempt.
+ *
+ * Strategy: pick the gap with the highest `required_speed`.  For sng_to_rl
+ * (gaps at 402.0, 468.7, 525.3) this selects the 525.3 gap, which is the
+ * Sprint-1 north-star threshold for #102.  Ties are broken by last-in-array
+ * order (i.e. the later gap wins) so the harder, route-terminal gap is always
+ * preferred over an earlier gap with equal speed.
+ *
+ * Returns null if gaps is empty.
+ */
+export function designatedLaunchEdge(gaps: LiveGap[]): LiveGap | null {
+  if (gaps.length === 0) return null;
+  let best = gaps[0];
+  for (let i = 1; i < gaps.length; i++) {
+    if (gaps[i].required_speed >= best.required_speed) {
+      best = gaps[i];
+    }
+  }
+  return best;
+}
+
 // Default edge-detection radius (Quake units).
 export const EDGE_REGION_RADIUS = 96;
 
@@ -273,6 +296,8 @@ type LiveMetricsState = {
   isLive: boolean;
   /** Run ID. */
   runId: string | null;
+  /** ed of the bot whose frames are being displayed (null until first frame). */
+  activeEd: number | null;
   /** Elapsed time (ms since attempt started, derived from frame timestamps). */
   elapsedMs: number | null;
   /** Distance to RL goal (dist_to_rl from frame; null if not provided). */
@@ -295,6 +320,7 @@ const INITIAL_STATE: LiveMetricsState = {
   vh: 0,
   isLive: false,
   runId: null,
+  activeEd: null,
   elapsedMs: null,
   distToGoal: null,
   arcFrac: null,
@@ -434,6 +460,7 @@ function useLiveMetrics(
   client: TelemetryClient | null,
   isLive: boolean,
   routeData: LiveRouteData | null,
+  selectedEd: number | null,
 ): LiveMetricsState {
   const [state, setState] = useState<LiveMetricsState>(INITIAL_STATE);
 
@@ -445,6 +472,9 @@ function useLiveMetrics(
   const runIdRef = useRef<string | null>(null);
   const isLiveRef = useRef(isLive);
   const routeDataRef = useRef(routeData);
+  const selectedEdRef = useRef(selectedEd);
+  // First-seen ed for the current attempt — used when selectedEd is null.
+  const firstEdRef = useRef<number | null>(null);
   // Pre-computed vertex speeds for the current route; rebuilt when routeData changes.
   const vertexSpeedsRef = useRef<number[] | null>(null);
 
@@ -452,6 +482,10 @@ function useLiveMetrics(
   useEffect(() => {
     isLiveRef.current = isLive;
   }, [isLive]);
+
+  useEffect(() => {
+    selectedEdRef.current = selectedEd;
+  }, [selectedEd]);
 
   useEffect(() => {
     routeDataRef.current = routeData;
@@ -475,6 +509,7 @@ function useLiveMetrics(
         bufRef.current = [];
         edgeCalloutRef.current = null;
         attemptStartTRef.current = null;
+        firstEdRef.current = null;
         runIdRef.current = attempt.run_id;
         setState((prev) => ({
           ...INITIAL_STATE,
@@ -488,6 +523,14 @@ function useLiveMetrics(
 
     const onFrame = (frame: TelemetryFrame) => {
       if (!isLiveRef.current) return;
+
+      // Bot identity filter: use the explicit selection or fall back to first-seen.
+      // Record first-seen ed when this attempt's first frame arrives.
+      if (firstEdRef.current === null) {
+        firstEdRef.current = frame.ed;
+      }
+      const activeEd = selectedEdRef.current ?? firstEdRef.current;
+      if (frame.ed !== activeEd) return;
 
       const now = performance.now();
 
@@ -529,23 +572,23 @@ function useLiveMetrics(
         }
       }
 
-      // Edge callout: check all gaps; freeze on first entry (per attempt).
+      // Edge callout: track only the designated launch edge (highest required_speed),
+      // not the first gap encountered.  Freeze on first entry into that edge's region.
       if (rd && edgeCalloutRef.current === null) {
-        for (const gap of rd.gaps) {
-          if (
-            isInEdgeRegion(
-              frame.origin.x, frame.origin.y,
-              gap.edge[0], gap.edge[1],
-              EDGE_REGION_RADIUS,
-            )
-          ) {
-            edgeCalloutRef.current = {
-              crossingSpeed: frame.vh,
-              requiredSpeed: gap.required_speed,
-              humanSpeed: gap.human_speed_at_edge,
-            };
-            break; // Freeze on the first edge entered per attempt.
-          }
+        const targetGap = designatedLaunchEdge(rd.gaps);
+        if (
+          targetGap &&
+          isInEdgeRegion(
+            frame.origin.x, frame.origin.y,
+            targetGap.edge[0], targetGap.edge[1],
+            EDGE_REGION_RADIUS,
+          )
+        ) {
+          edgeCalloutRef.current = {
+            crossingSpeed: frame.vh,
+            requiredSpeed: targetGap.required_speed,
+            humanSpeed: targetGap.human_speed_at_edge,
+          };
         }
       }
 
@@ -557,6 +600,7 @@ function useLiveMetrics(
         vh: frame.vh,
         isLive: true,
         runId: runIdRef.current,
+        activeEd: frame.ed,
         elapsedMs,
         distToGoal: frame.dist_to_rl,
         arcFrac,
@@ -634,13 +678,18 @@ interface LiveMetricsPanelProps {
   context: KpiContext;
   /** Whether a live attempt is running (from App.tsx connection.live). */
   isLive: boolean;
+  /**
+   * ed of the selected bot (from App.tsx selectedEd / LD-F4 #103).
+   * null = use first-seen bot (single-bot compat, same as TelemetryHud/BotLab3D).
+   */
+  selectedEd?: number | null;
 }
 
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
-export function LiveMetricsPanel({ client, context, isLive }: LiveMetricsPanelProps) {
+export function LiveMetricsPanel({ client, context, isLive, selectedEd = null }: LiveMetricsPanelProps) {
   // Live route: default to DEFAULT_LIVE_ROUTE on dm3; respect context.route if set.
   // Until LD-F1/F3 assignment exposure, show a manual override dropdown.
   const [routeOverride, setRouteOverride] = useState<string>(DEFAULT_LIVE_ROUTE);
@@ -651,7 +700,7 @@ export function LiveMetricsPanel({ client, context, isLive }: LiveMetricsPanelPr
       : routeOverride;
 
   const routeData = useRouteData(context.map ?? "dm3", isLive ? effectiveRoute : null);
-  const m = useLiveMetrics(client, isLive, routeData);
+  const m = useLiveMetrics(client, isLive, routeData, selectedEd);
 
   // Reset override to default when map changes.
   useEffect(() => {
@@ -681,9 +730,19 @@ export function LiveMetricsPanel({ client, context, isLive }: LiveMetricsPanelPr
 
   return (
     <div data-section="live-metrics" className="flex flex-col gap-y-1">
-      {/* ---- Section header: label + route override dropdown ---- */}
+      {/* ---- Section header: label + tracked-bot badge + route override dropdown ---- */}
       <div className="flex items-center gap-x-1 text-[10px] uppercase tracking-wider text-gray-500">
         <span>Live</span>
+        {/* Bot identity badge: shows which ed is being tracked (selectedEd or first-seen).
+            Prevents ambiguous readings in multi-bot sessions (LD-F4 #103 / #102 P1). */}
+        {m.activeEd != null && (
+          <span
+            className="font-mono text-[9px] px-1 py-0 rounded bg-slate-800 border border-slate-700 text-amber-400/80 normal-case tracking-normal"
+            title={selectedEd != null ? `selected bot ed=${m.activeEd}` : `first-seen bot ed=${m.activeEd} (no selection)`}
+          >
+            ed={m.activeEd}
+          </span>
+        )}
         <select
           value={effectiveRoute}
           onChange={(e) => setRouteOverride(e.target.value)}

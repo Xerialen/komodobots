@@ -676,6 +676,7 @@ export function App() {
           refreshKey={scoreboardRefreshKey}
           client={client}
           isLive={connection.live}
+          selectedEd={selectedEd}
         />
 
         <main className="grow min-w-0 overflow-x-auto">

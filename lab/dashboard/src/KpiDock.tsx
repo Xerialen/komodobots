@@ -43,6 +43,12 @@ type KpiDockProps = {
    * LD-E3 (#102).
    */
   isLive?: boolean;
+  /**
+   * ed of the selected bot (from App.tsx selectedEd / LD-F4 #103).
+   * Passed through to LiveMetricsPanel so it filters frames for the same bot
+   * that BotLab3D and TelemetryHud are tracking.  null = first-seen fallback.
+   */
+  selectedEd?: number | null;
 };
 
 // ---- Helpers ----------------------------------------------------------------
@@ -78,6 +84,7 @@ export function KpiDock({
   refreshKey = 0,
   client = null,
   isLive = false,
+  selectedEd = null,
 }: KpiDockProps) {
   if (collapsed) {
     return (
@@ -170,6 +177,7 @@ export function KpiDock({
             client={client}
             context={context}
             isLive={isLive}
+            selectedEd={selectedEd}
           />
         </div>
 
