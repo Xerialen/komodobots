@@ -230,6 +230,15 @@ Verification:
 Canonical home since LD-A1 (#84): `lab/dashboard/` in this repository — a self-contained
 Vite + React + TypeScript + three.js app built with base `/botlab/`.
 
+Hosted dashboard CI (LD-A3, #86): `.github/workflows/lab-dashboard-ci.yml`.
+It runs on GitHub-hosted `ubuntu-latest` for PRs touching `lab/**` or
+`tests/lab_*.py` (lab pytest files, which `PR Tests`' `test_*.py` unittest
+discovery does not pick up), installs
+`lab/dashboard` with `npm ci`, runs `tsc --noEmit`, optional `npm run lint`,
+`vite build`, and cheap Python checks for `lab/server` / future `lab/tools`.
+This workflow is separate from `.github/workflows/lab-ci.yml`, the manual
+self-hosted servexeri bot-lab runner.
+
 Provenance: absorbed from the separate `Xerialen/local-hub` repo, branch
 `feat/botlab-viewer`, where the page existed only as `deploy/frontend-botlab.patch`
 against a gitignored clone of `quakeworldnu/hub.quakeworld.nu` plus
