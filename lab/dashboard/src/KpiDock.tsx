@@ -15,6 +15,7 @@
 // Context line format: "<map> · <route> · <source>" or "<map> · (no route) · <source>"
 
 import type { KpiContext } from "./contextStore.ts";
+import { RecordsPanel } from "./RecordsPanel.tsx";
 
 // ---- Props ------------------------------------------------------------------
 
@@ -22,6 +23,8 @@ type KpiDockProps = {
   context: KpiContext;
   collapsed: boolean;
   onToggle: () => void;
+  /** Incremented by App.tsx on attempt-end to trigger a records refetch (LD-E4). */
+  refreshKey?: number;
 };
 
 // ---- Helpers ----------------------------------------------------------------
@@ -50,7 +53,7 @@ function SectionSlot({ label, section }: { label: string; section: string }) {
 
 // ---- Component --------------------------------------------------------------
 
-export function KpiDock({ context, collapsed, onToggle }: KpiDockProps) {
+export function KpiDock({ context, collapsed, onToggle, refreshKey = 0 }: KpiDockProps) {
   if (collapsed) {
     return (
       <aside
@@ -142,10 +145,8 @@ export function KpiDock({ context, collapsed, onToggle }: KpiDockProps) {
           section="live-metrics"
           label="Live metrics — LD-E3 (#102)"
         />
-        <SectionSlot
-          section="records"
-          label="Records — LD-E4 (#104)"
-        />
+        {/* LD-E4 (#104): live records section — replaces the placeholder SectionSlot. */}
+        <RecordsPanel context={context} refreshKey={refreshKey} />
       </div>
     </aside>
   );

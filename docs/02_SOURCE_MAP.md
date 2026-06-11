@@ -442,13 +442,26 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   user selection > none.  The pure logic is exercised by
   `tests/test_kpi_context_store.py` (33 tests) without any TypeScript/browser runtime.
 
-- `lab/dashboard/src/KpiDock.tsx` (LD-E1, #100) — collapsible left dock component.
-  Two modes: expanded (~288 px) with context line (`<data-context-line>`), source badge
-  (`<data-source>`), and three section slots (`<data-section="scoreboard|live-metrics|records>`
-  for LD-E2/E3/E4); rail (~28 px) with a vertical "KPI" label and a colored source dot.
-  Collapse/expand is driven by `layout.dockCollapsed` from `layoutState.ts` (persisted
-  in localStorage since LD-B1).  Receives `{ context, collapsed, onToggle }` as props —
-  no internal state.
+- `lab/dashboard/src/KpiDock.tsx` (LD-E1, #100; updated LD-E4, #104) — collapsible left
+  dock component.  Two modes: expanded (~288 px) with context line (`<data-context-line>`),
+  source badge (`<data-source>`), scoreboard slot (LD-E2 skeleton), live-metrics slot
+  (LD-E3 skeleton), and the live `RecordsPanel` (LD-E4 #104); rail (~28 px) with a
+  vertical "KPI" label and a colored source dot.  Receives
+  `{ context, collapsed, onToggle, refreshKey? }` — `refreshKey` is incremented by App.tsx
+  on attempt-end to trigger a `RecordsPanel` refetch.
+
+- `lab/dashboard/src/RecordsPanel.tsx` (LD-E4, #104) — context-sensitive records section
+  rendered inside the expanded KPI dock.  Two modes:
+    - **route-context**: shows the four record rows (fastest_time / first_completion /
+      peak_speed / edge_speed) with the bot value, human_ref comparison, and a freshness
+      dot when a value improves after a refetch.  Each set row is clickable and calls
+      `ShellActionsContext.openDemo({ demo_url, map, t: event_t_s, route, name })` via
+      the shell-level action wired in App.tsx (LD-D3 #98).
+    - **overall / no-context fallback**: per-route best table (fastest_time vs human_time_s,
+      sorted ascending by human route duration).  Clicking a row opens the fastest_time demo.
+  Fetches `/demos/records/records.json` on mount and when `refreshKey` changes. 404 →
+  explicit "records unavailable" state, no crash.  Not rendered in rail mode (numbers-only
+  per LD-E1 design).  Pure-logic contract tested in `tests/test_records_panel.py` (70 tests).
 
 ### Lab control bridge (lab/server)
 

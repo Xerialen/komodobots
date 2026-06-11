@@ -155,6 +155,13 @@ export function App() {
   // Reset on new_attempt so camera re-locks to the first bot automatically.
   const [selectedEd, setSelectedEd] = useState<number | null>(null);
 
+  // LD-E4 (#104): records refresh key — incremented when an attempt ends
+  // (live true→false transition) so KpiDock.RecordsPanel refetches records.json
+  // after each run.  Shared with the future LD-E2 scoreboard (same increment,
+  // one source of truth per attempt-end).
+  const [recordsRefreshKey, setRecordsRefreshKey] = useState(0);
+  const prevLiveForRecordsRef = useRef(false);
+
   // LD-B2 (#88): QTV iframe ref + status chip state.
   const qtvIframeRef = useRef<HTMLIFrameElement>(null);
   const [qtvStatus, setQtvStatus] = useState<QtvStatus>("loading");
@@ -270,6 +277,17 @@ export function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connection.live, attempt?.map]);
+
+  // LD-E4 (#104): detect live true→false (attempt ended) and increment
+  // recordsRefreshKey so RecordsPanel (and the future scoreboard) refetch
+  // records.json after each run.  Uses a ref to avoid capturing stale state.
+  useEffect(() => {
+    const wasLive = prevLiveForRecordsRef.current;
+    prevLiveForRecordsRef.current = connection.live;
+    if (wasLive && !connection.live) {
+      setRecordsRefreshKey((k) => k + 1);
+    }
+  }, [connection.live]);
 
   // LD-B2 (#88): send {cmd:"attach"} to qtv.html whenever the lab port or run
   // changes (i.e. new attempt), mirroring the hub App.tsx attach/retry pattern.
@@ -599,13 +617,16 @@ export function App() {
       </header>
 
       <div className="grow min-h-0 flex">
-        {/* LD-E1 (#100): KPI dock — real component replaces the placeholder aside. */}
+        {/* LD-E1 (#100): KPI dock — real component replaces the placeholder aside.
+            LD-E4 (#104): refreshKey increments on attempt-end to trigger a
+            records refetch inside RecordsPanel (and future LD-E2 scoreboard). */}
         <KpiDock
           context={kpiContext}
           collapsed={layout.dockCollapsed}
           onToggle={() =>
             setLayout((state) => ({ ...state, dockCollapsed: !state.dockCollapsed }))
           }
+          refreshKey={recordsRefreshKey}
         />
 
         <main className="grow min-w-0 overflow-x-auto">
