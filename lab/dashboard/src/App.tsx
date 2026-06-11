@@ -323,7 +323,18 @@ export function App() {
       <Pane key="demo" id="demo" header={<span>Demo</span>}>
         <DemoPane
           contextMap={mapName}
-          onContext={setDemoContext}
+          onContext={(ctx: DemoContext | null) => {
+            // LD-E1 (#100): wire demo context to the KPI reducer (P1 fix).
+            // Set local preview state (used in the status-bar line) AND
+            // dispatch to the shared context store so the KPI dock reflects
+            // demo playback.  When ctx is null (demo ended/unloaded), we do
+            // not dispatch a reset — the last selection persists per
+            // applyContextUpdate precedence rules.
+            setDemoContext(ctx);
+            if (ctx !== null) {
+              dispatchContext({ kind: "demo", map: ctx.map, route: ctx.route });
+            }
+          }}
           handleRef={demoPaneHandleRef}
           onHandleReady={onDemoPaneHandleReady}
         />
