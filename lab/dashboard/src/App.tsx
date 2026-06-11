@@ -89,6 +89,10 @@ export function useShellActions(): ShellActions | null {
 // map-scene setup (scene/camera/renderer/controls/mesh/resize) is factored
 // into src/mapScene.ts for reuse by the Mockup pane (LD-C3, #97).
 //
+// LD-C5 (#99): mapOpacity and wireframe layout state wired to BotLab3D and
+// MockupPane so both 3D views share the top-bar opacity slider / wireframe
+// toggle.  Controls persist via layoutState.ts.
+//
 // LD-F4 (#103): selectedEd state — tracks which bot is followed by the
 // camera and which HUD row is expanded.  null = first-seen bot (single-bot
 // compat).  Set by clicking a marker in BotLab3D or a compact row in
@@ -150,17 +154,18 @@ export function App() {
   );
   const kpiContext = ctxPair.context;
 
+  // LD-E2 (#101) + LD-E4 (#104): shared refresh key — incremented when an
+  // attempt ends (live true→false) so the KPI dock's BrutalScoreboard
+  // (LD-E2) and RecordsPanel (LD-E4) both refetch their data after each run.
+  // Unified at merge time per the LD-E4 PR note: same increment event,
+  // one source of truth.
+  const [refreshKey, setRefreshKey] = useState(0);
+  const prevLiveRef = useRef(false);
+
   // LD-F4 (#103): selected bot ed — drives BotLab3D camera follow and
   // TelemetryHud expanded row.  null = first-seen bot (single-bot compat).
   // Reset on new_attempt so camera re-locks to the first bot automatically.
   const [selectedEd, setSelectedEd] = useState<number | null>(null);
-
-  // LD-E4 (#104): records refresh key — incremented when an attempt ends
-  // (live true→false transition) so KpiDock.RecordsPanel refetches records.json
-  // after each run.  Shared with the future LD-E2 scoreboard (same increment,
-  // one source of truth per attempt-end).
-  const [recordsRefreshKey, setRecordsRefreshKey] = useState(0);
-  const prevLiveForRecordsRef = useRef(false);
 
   // LD-B2 (#88): QTV iframe ref + status chip state.
   const qtvIframeRef = useRef<HTMLIFrameElement>(null);
@@ -278,15 +283,15 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connection.live, attempt?.map]);
 
-  // LD-E4 (#104): detect live true→false (attempt ended) and increment
-  // recordsRefreshKey so RecordsPanel (and the future scoreboard) refetch
-  // records.json after each run.  Uses a ref to avoid capturing stale state.
+  // LD-E2 (#101) + LD-E4 (#104): detect live true→false (attempt ended) and
+  // increment the shared refreshKey so BrutalScoreboard (LD-E2) and
+  // RecordsPanel (LD-E4) both refetch after each run.
   useEffect(() => {
-    const wasLive = prevLiveForRecordsRef.current;
-    prevLiveForRecordsRef.current = connection.live;
-    if (wasLive && !connection.live) {
-      setRecordsRefreshKey((k) => k + 1);
+    if (prevLiveRef.current && !connection.live) {
+      // live just went false — attempt ended.
+      setRefreshKey((k) => k + 1);
     }
+    prevLiveRef.current = connection.live;
   }, [connection.live]);
 
   // LD-B2 (#88): send {cmd:"attach"} to qtv.html whenever the lab port or run
@@ -409,9 +414,13 @@ export function App() {
       >
         {/* LD-C3 (#97): offline map/route browser. Emits MockupSelection to the
             shell so the KPI dock (LD-E1, #100) reacts to map/route context
-            changes from the Mockup pane. */}
+            changes from the Mockup pane.
+            LD-C5 (#99): mapOpacity / wireframe forwarded from shared layout
+            state so both 3D panes react to the top-bar shared controls. */}
         <MockupPane
           onSelect={onMockupSelect}
+          mapOpacity={layout.mapOpacity}
+          wireframe={layout.wireframe}
         />
       </Pane>
     ),
@@ -422,7 +431,43 @@ export function App() {
         header={
           <>
             <span>Live 3D</span>
-            <label className="ml-auto flex items-center gap-x-1 normal-case tracking-normal text-gray-400">
+            {/* LD-C5 (#99): shared opacity slider + wireframe toggle for
+                both 3D panes; values live in layout state (persisted). */}
+            <label className="ml-2 flex items-center gap-x-1 normal-case tracking-normal text-gray-400 text-[10px]">
+              opacity
+              <input
+                type="range"
+                min={0.05}
+                max={1.0}
+                step={0.05}
+                value={layout.mapOpacity}
+                onChange={(event) =>
+                  setLayout((state) => ({
+                    ...state,
+                    mapOpacity: Number(event.target.value),
+                  }))
+                }
+                className="w-16 accent-sky-400"
+                title={`Map opacity: ${Math.round(layout.mapOpacity * 100)}%`}
+              />
+              <span className="w-6 text-right font-mono">
+                {Math.round(layout.mapOpacity * 100)}%
+              </span>
+            </label>
+            <label className="flex items-center gap-x-1 normal-case tracking-normal text-gray-400 text-[10px]">
+              <input
+                type="checkbox"
+                checked={layout.wireframe}
+                onChange={(event) =>
+                  setLayout((state) => ({
+                    ...state,
+                    wireframe: event.target.checked,
+                  }))
+                }
+              />
+              wire
+            </label>
+            <label className="flex items-center gap-x-1 normal-case tracking-normal text-gray-400">
               <input
                 type="checkbox"
                 checked={showReference}
@@ -441,6 +486,8 @@ export function App() {
               mapName === "dm3" ? "/botlab/dm3_sng_to_rl.cmds" : null
             }
             showReferencePath={showReference}
+            mapOpacity={layout.mapOpacity}
+            wireframe={layout.wireframe}
             selectedEd={selectedEd}
             onBotClick={setSelectedEd}
           />
@@ -618,15 +665,15 @@ export function App() {
 
       <div className="grow min-h-0 flex">
         {/* LD-E1 (#100): KPI dock — real component replaces the placeholder aside.
-            LD-E4 (#104): refreshKey increments on attempt-end to trigger a
-            records refetch inside RecordsPanel (and future LD-E2 scoreboard). */}
+            LD-E2 (#101): refreshKey triggers BrutalScoreboard refetch on attempt end.
+            LD-E4 (#104): same refreshKey also triggers RecordsPanel refetch. */}
         <KpiDock
           context={kpiContext}
           collapsed={layout.dockCollapsed}
           onToggle={() =>
             setLayout((state) => ({ ...state, dockCollapsed: !state.dockCollapsed }))
           }
-          refreshKey={recordsRefreshKey}
+          refreshKey={refreshKey}
         />
 
         <main className="grow min-w-0 overflow-x-auto">
