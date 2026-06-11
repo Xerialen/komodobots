@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+﻿import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BotLab3D } from "./BotLab3D.tsx";
 import { TelemetryHud } from "./TelemetryHud.tsx";
 import { type TelemetryAttempt, TelemetryClient } from "./telemetryClient.ts";
@@ -11,6 +11,7 @@ import {
   VIEW_ORDER,
   type ViewId,
 } from "./layoutState.ts";
+import { MockupPane, type MockupSelection } from "./MockupPane.tsx";
 
 // v1 defaults: dm3 lab on servexeri (LAN). Override per-instance with
 // ?port=28600&ws=ws://localhost:8770&relay=ws://... (e.g. through ssh -L
@@ -90,6 +91,7 @@ export function App() {
   const [attempt, setAttempt] = useState<TelemetryAttempt | null>(null);
   const [connection, setConnection] = useState({ connected: false, live: false });
   const [showReference, setShowReference] = useState(true);
+  const [mockupSelection, setMockupSelection] = useState<MockupSelection>({ map: "dm3", route: null });
   const [layout, setLayout] = useState<LayoutState>(() =>
     loadLayout(window.location.search),
   );
@@ -195,11 +197,24 @@ export function App() {
       </Pane>
     ),
     mockup: (
-      <Pane key="mockup" id="mockup" header={<span>Mockup</span>}>
-        <PlaceholderPane
-          title="Mockup view"
-          note="placeholder — offline 3D map/route browser lands in LD-C3 (#97)"
-        />
+      <Pane
+        key="mockup"
+        id="mockup"
+        header={
+          <>
+            <span>Mockup</span>
+            {mockupSelection.route !== null && (
+              <span className="ml-2 text-gray-500 font-mono">
+                {mockupSelection.map} · {mockupSelection.route}
+              </span>
+            )}
+          </>
+        }
+      >
+        {/* LD-C3 (#97): offline map/route browser. Emits MockupSelection to the
+            shell so the future KPI dock (LD-E1, #100) can react to map/route
+            context changes from the Mockup pane. */}
+        <MockupPane onSelect={setMockupSelection} />
       </Pane>
     ),
     live3d: (
