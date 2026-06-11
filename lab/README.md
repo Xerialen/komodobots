@@ -36,6 +36,8 @@ The page talks to live LAN services by default:
 - live game view iframe `http://192.168.86.33:8095/qtv/` — override with `?game=...`;
   this is a temporary embed, replaced by the standalone postMessage QTV pane in LD-B2 (#88)
 - status-line fallback port `28599` — override with `?port=28600`
+- open view set — `?views=demo,mockup,live3d,game` (any subset; wins over the
+  localStorage-persisted layout; see "Layout" below)
 
 Build and preview:
 
@@ -86,13 +88,25 @@ requests touching `lab/**` or `tests/lab_*.py` (lab pytest files, which the
 checks for `lab/server/` plus future `lab/tools/`. The workflow deliberately does
 not touch the servexeri lab server or the manual self-hosted `lab-ci.yml` runner.
 
-### Layout (v1, LD-A1)
+### Layout (LD-B1 view shell, #87)
 
-Two panels: left the three.js telemetry scene (`BotLab3D.tsx` + `TelemetryHud.tsx`,
-fed by `telemetryClient.ts`), right the live game iframe. `public/` carries the dm3
-render mesh (`dm3.obj`) and the human reference trajectory (`dm3_sng_to_rl.cmds`),
-served under `/botlab/`. The view shell, KPI dock, and the rest of the SPEC views land
-in later tickets (LD-B1+).
+The shell renders a top bar (four view toggles + KPI/Control stub buttons + status
+line) over a fixed-order pane grid: **Demo → Mockup → Live 3D → Live Game** (SPEC §4.1
+— panes always appear in this left→right order regardless of toggle order; equal
+widths, 280 px min-width each, centered hint when zero views are open). Live 3D is the
+three.js telemetry scene (`BotLab3D.tsx` + `TelemetryHud.tsx`, fed by
+`telemetryClient.ts`); Live Game is the temporary `/qtv/` iframe (until LD-B2, #88);
+Demo and Mockup are labeled placeholders (until LD-D3 #94/#98 and LD-C3 #97). The KPI
+dock and control drawer are labeled placeholders too (LD-E1 #100, LD-F3 #105) — their
+buttons already toggle + persist the collapse/open state.
+
+Layout state (`src/layoutState.ts`): the open view set, dock-collapsed and drawer-open
+flags persist in `localStorage` (`komodobots.botlab.layout.v1`); the open set is also
+mirrored into the URL as `?views=demo,live3d` (shareable layouts). On load an explicit
+`?views=` param wins over localStorage — including `?views=` (empty) for zero views.
+
+`public/` carries the dm3 render mesh (`dm3.obj`) and the human reference trajectory
+(`dm3_sng_to_rl.cmds`), served under `/botlab/`.
 
 `public/maps/` (LD-C2, #91) carries the scripted worldmodel meshes for the whole lab
 map set — `{dm3,dm2,frobodm2,trick}.obj` plus `maps.json` (per-map source-BSP sha256
@@ -101,3 +115,4 @@ built deterministically by `lab/tools/bsp_to_obj.py` from the non-committed `.bs
 files (see `docs/06_DATA_AND_MVD_PIPELINE.md` § Map meshes). The top-level
 `public/dm3.obj` is the legacy one-off export the deployed viewer still loads; it is
 superseded by `maps/dm3.obj` once #97 switches the viewer to `maps/`.
+

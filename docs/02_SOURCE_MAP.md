@@ -250,6 +250,11 @@ dependencies (the `FteQtvPlayer` live-game panel is temporarily an iframe to the
 match the local-hub blobs byte-for-byte (verified by git blob SHA:
 `d23bbfa` / `da9a987`).
 
+LD-B1 (#87) added the view shell: `src/layoutState.ts` (fixed view order, `?views=` /
+localStorage persistence) and an `App.tsx` top bar + pane grid that rehomes the LD-A1
+Live 3D scene and live-game iframe into their fixed pane slots (Demo/Mockup/dock/drawer
+are labeled placeholders for LD-D3/LD-C3/LD-E1/LD-F3).
+
 The local-hub copy is deprecated for development; see `lab/README.md` for the dev loop.
 
 Deployment (LD-A2, #85): `lab/deploy_dashboard.py` builds the app and ships `dist/` to
