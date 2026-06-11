@@ -67,11 +67,17 @@ const _routeMetadataCache = new Map<string, Map<string, RouteMetadata>>();
 
 /** Load route metadata (spawn_origin) for all routes in a map manifest.
  *  Returns a Map<routeName, RouteMetadata>. Cached after the first fetch.
- *  Rejects on network error; callers fall back to empty-spawn gracefully. */
+ *  Rejects on network error; callers must treat failure as a hard assignment
+ *  error — do NOT silently proceed without spawn_origin (P1 fix, Codex #145).
+ *
+ *  Path: /botlab/data/routes/<map>.json — the same deployed path that
+ *  MockupPane uses.  The vite config has base="/botlab/" so assets are
+ *  served under that prefix; using "/" without the prefix returns 404 in
+ *  the deployed app. */
 async function loadRouteMetadata(map: MapName): Promise<Map<string, RouteMetadata>> {
   const cached = _routeMetadataCache.get(map);
   if (cached) return cached;
-  const resp = await fetch(`/data/routes/${map}.json`);
+  const resp = await fetch(`/botlab/data/routes/${map}.json`);
   if (!resp.ok) throw new Error(`route manifest fetch failed: ${resp.status}`);
   const json = await resp.json() as {
     routes: Array<{ name: string; polyline: number[][] }>;
@@ -241,13 +247,15 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
           break;
         }
         case "addbot": {
-          // We don't know the exact slot from the bridge event alone (it will
-          // appear when FBMOVEPROBE_ASSIGN rows emit via telemetry).  Add a
-          // placeholder row; slot is filled in when ASSIGN arrives.
-          setBots((prev) => {
-            const nextSlot = prev.length + 1;
-            return [...prev, { slot: nextSlot, name: `bot${nextSlot}`, assignedRoute: null, pendingRoute: null }];
-          });
+          // We don't know the real edict number from the bridge event alone —
+          // the real ed is printed in the FBMOVEPROBE_ASSIGN row once KTX
+          // processes the bot.  Add a provisional placeholder whose slot=-1
+          // marks it as unresolved; the ASSIGN upsert below will replace it
+          // (keyed by ed) when the server truth arrives.
+          setBots((prev) => [
+            ...prev,
+            { slot: -1, name: "…", assignedRoute: null, pendingRoute: null },
+          ]);
           break;
         }
         case "removebot": {
@@ -275,6 +283,13 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
   // FBMOVEPROBE_ASSIGN rows (not from bridge set_cvar confirmations) so the
   // roster reflects what KTX actually resolved, not what we sent.
   //
+  // Upsert semantics: if the ed is not yet present in the roster (e.g. page
+  // reload, existing session, or ASSIGN arrived before the addbot event settled)
+  // we create a new row.  The provisional slot=-1 placeholder left by addbot is
+  // adopted: replace the first unresolved slot=-1 placeholder if one exists and
+  // no row with this ed has been seen yet.  This handles the normal flow
+  // (addbot → placeholder → ASSIGN → real row) without duplicating.
+  //
   // Route name round-trip: the server's replay_file is "dm3_sng_to_rl.cmds";
   // strip the leading "<map>_" and trailing ".cmds" to recover the route id.
   // Using lastIndexOf("_") is wrong for underscored names like "sng_to_rl" —
@@ -282,26 +297,51 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
   useEffect(() => {
     if (!telemetryClient) return;
     function onAssign(assign: TelemetryAssign) {
-      if (!assign.replay_file) return;
       // Strip "<map>_" prefix (any known map) and ".cmds" suffix to recover route id.
       // e.g. "dm3_sng_to_rl.cmds" → "sng_to_rl"; "dm2_foo.cmds" → "foo"
-      let routeId = assign.replay_file.replace(/\.cmds$/, "");
-      for (const map of MAPS) {
-        const prefix = `${map}_`;
-        if (routeId.startsWith(prefix)) {
-          routeId = routeId.slice(prefix.length);
-          break;
+      // null replay_file means the bot has no route assigned yet — still upsert
+      // so the roster row appears with "unassigned" state.
+      let routeId: string | null = null;
+      if (assign.replay_file) {
+        let id = assign.replay_file.replace(/\.cmds$/, "");
+        for (const map of MAPS) {
+          const prefix = `${map}_`;
+          if (id.startsWith(prefix)) {
+            id = id.slice(prefix.length);
+            break;
+          }
         }
+        routeId = id;
       }
-      // ed → slot: in the KTX per-slot scheme, ed == slot for Frogbots.
-      const slot = assign.ed;
-      setBots((prev) =>
-        prev.map((b) =>
-          b.slot === slot
-            ? { ...b, assignedRoute: routeId, pendingRoute: null }
-            : b,
-        ),
-      );
+      // ed IS the per-slot cvar suffix (_s<N>) in KTX (NUM_FOR_EDICT(self)).
+      const ed = assign.ed;
+      setBots((prev) => {
+        // Find an existing row with this ed.
+        const existing = prev.findIndex((b) => b.slot === ed);
+        if (existing !== -1) {
+          // Update in place.
+          return prev.map((b) =>
+            b.slot === ed
+              ? { ...b, name: assign.name, assignedRoute: routeId, pendingRoute: null }
+              : b,
+          );
+        }
+        // No row yet — adopt the first provisional placeholder (slot=-1), or
+        // append a new row if no placeholder exists (page reload / existing session).
+        const placeholderIdx = prev.findIndex((b) => b.slot === -1);
+        if (placeholderIdx !== -1) {
+          return prev.map((b, i) =>
+            i === placeholderIdx
+              ? { slot: ed, name: assign.name, assignedRoute: routeId, pendingRoute: null }
+              : b,
+          );
+        }
+        // No placeholder — append (e.g. session was already running when we connected).
+        return [
+          ...prev,
+          { slot: ed, name: assign.name, assignedRoute: routeId, pendingRoute: null },
+        ];
+      });
     }
     telemetryClient.assignListeners.add(onAssign);
     return () => {
@@ -370,6 +410,12 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
 
   async function handleAssignRoute(bot: BotSlot, route: string) {
     if (!route) return;
+    // Guard: provisional rows (slot=-1) have not been resolved to a real ed yet.
+    // The ASSIGN upsert will set the real slot; the user should wait for it.
+    if (bot.slot === -1) {
+      addConsole("error", "bot slot not yet resolved — waiting for server ASSIGN row");
+      return;
+    }
     // Per-slot assignment: set all four per-slot cvars as one atomic group.
     // This matches the #95/#105 contract: replay_file + mode + fixed_goal +
     // spawn_origin must all be written together so KTX resolves the full
@@ -384,14 +430,28 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
     const slot = bot.slot;
 
     // Load spawn_origin from the route manifest for this map.
-    let spawnOrigin = "";
+    // Missing metadata is a hard failure: the #95/#105 assignment contract
+    // requires all four per-slot cvars.  Silently omitting spawn_origin would
+    // leave the bot at the global spawn, breaking the two-bots-two-routes path.
+    let spawnOrigin: string;
     try {
       const meta = await loadRouteMetadata(sessionMap as MapName);
-      spawnOrigin = meta.get(route)?.spawn_origin ?? "";
-    } catch {
-      // Manifest fetch failed — proceed without spawn_origin (server falls
-      // back to the global cvar, which is the pre-F3 behavior).
-      addConsole("error", `route manifest unavailable — spawn_origin not set for ${route}`);
+      const routeMeta = meta.get(route);
+      if (!routeMeta) {
+        addConsole("error", `no spawn_origin in manifest for route "${route}" on ${sessionMap} — assignment aborted`);
+        setBots((prev) =>
+          prev.map((b) => (b.slot === slot ? { ...b, pendingRoute: null } : b)),
+        );
+        return;
+      }
+      spawnOrigin = routeMeta.spawn_origin;
+    } catch (err) {
+      // Manifest fetch failed — abort rather than send a partial assignment.
+      addConsole("error", `route manifest unavailable for ${sessionMap} — assignment aborted (${String(err)})`);
+      setBots((prev) =>
+        prev.map((b) => (b.slot === slot ? { ...b, pendingRoute: null } : b)),
+      );
+      return;
     }
 
     const ops: Promise<import("./controlClient.ts").ControlResponse>[] = [
@@ -399,10 +459,9 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
       client.setCvar("k_fb_moveprobe_mode", "10", slot),
       // fixed_goal=0 means "no fixed goal" — replay mode does not need a marker.
       client.setCvar("k_fb_moveprobe_fixed_goal", "0", slot),
+      // spawn_origin is required (hard failure above if missing) so no guard needed.
+      client.setCvar("k_fb_moveprobe_spawn_origin", spawnOrigin, slot),
     ];
-    if (spawnOrigin) {
-      ops.push(client.setCvar("k_fb_moveprobe_spawn_origin", spawnOrigin, slot));
-    }
 
     const results = await Promise.all(ops);
     const allOk = results.every((r) => r.ok);
@@ -601,14 +660,14 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
 
           {isDashboardSession && bots.length > 0 && (
             <div className="flex flex-col gap-y-1">
-              {bots.map((bot) => (
+              {bots.map((bot, idx) => (
                 <BotRow
-                  key={bot.slot}
+                  key={bot.slot === -1 ? `provisional-${idx}` : bot.slot}
                   bot={bot}
                   routes={mapRoutes}
-                  canMutate={canMutate}
+                  canMutate={canMutate && bot.slot !== -1}
                   onAssign={(route) => handleAssignRoute(bot, route)}
-                  onRemove={() => handleRemoveBot(bot.slot)}
+                  onRemove={() => handleRemoveBot(bot.slot === -1 ? undefined : bot.slot)}
                 />
               ))}
             </div>
@@ -705,10 +764,13 @@ function BotRow({ bot, routes, canMutate, onAssign, onRemove }: BotRowProps) {
     ? `${bot.pendingRoute} (pending…)`
     : (bot.assignedRoute ?? "unassigned");
 
+  // slot=-1 is a provisional placeholder (addbot fired, ASSIGN not yet received).
+  const slotLabel = bot.slot === -1 ? "??" : `s${bot.slot}`;
+
   return (
     <div className="flex items-center gap-x-1.5 text-[10px]">
       <span className="shrink-0 font-mono text-gray-400 w-12">
-        s{bot.slot} {bot.name.slice(0, 6)}
+        {slotLabel} {bot.name.slice(0, 6)}
       </span>
       <select
         value={bot.assignedRoute ?? ""}

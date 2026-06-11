@@ -299,5 +299,196 @@ class TestCvarValueAllowlist(unittest.TestCase):
         self.assertIsNotNone(regex.match("754.600 247.600 56.000"))
 
 
+# ---------------------------------------------------------------------------
+# 5. Manifest path — /botlab/data/routes/<map>.json (Codex P1-1 fix, #145)
+# ---------------------------------------------------------------------------
+
+
+class TestManifestPath(unittest.TestCase):
+    """The route manifest URL must use the /botlab/ base prefix, matching vite
+    config base="/botlab/" and MockupPane.tsx's fetch path.  Without this the
+    fetch returns 404 in the deployed app and spawn_origin would be missing.
+
+    This test encodes the expected URL pattern as a string constant so that any
+    future change to the base path is caught.  The actual fetch is browser-side
+    (not testable from Python), so we verify the constant is in the source."""
+
+    DRAWER_SRC = (
+        Path(__file__).resolve().parents[1]
+        / "lab" / "dashboard" / "src" / "ControlDrawer.tsx"
+    )
+
+    def test_manifest_fetch_path_uses_botlab_prefix(self):
+        """ControlDrawer.tsx must fetch /botlab/data/routes/<map>.json, not /data/routes/."""
+        src = self.DRAWER_SRC.read_text(encoding="utf-8")
+        # Must contain the correct base-prefixed path.
+        self.assertIn("/botlab/data/routes/", src,
+                      "loadRouteMetadata must fetch from /botlab/data/routes/<map>.json")
+
+    def test_manifest_fetch_path_does_not_use_bare_data_routes(self):
+        """The old wrong path /data/routes/ must NOT appear in the drawer source."""
+        src = self.DRAWER_SRC.read_text(encoding="utf-8")
+        # Strip comments to avoid false positives in doc strings.
+        import re
+        code_only = re.sub(r"//.*", "", src)
+        self.assertNotIn(
+            "`/data/routes/", code_only,
+            "Bare /data/routes/ path found — must use /botlab/data/routes/ in deployed app",
+        )
+
+    def test_mockup_pane_uses_same_prefix(self):
+        """MockupPane.tsx is the reference: it uses /botlab/data/routes/. Both
+        must agree so that future refactors are caught immediately."""
+        mockup_src = (
+            Path(__file__).resolve().parents[1]
+            / "lab" / "dashboard" / "src" / "MockupPane.tsx"
+        ).read_text(encoding="utf-8")
+        self.assertIn("/botlab/data/routes/", mockup_src)
+
+
+# ---------------------------------------------------------------------------
+# 6. ASSIGN upsert — roster identity from server truth (Codex P1-2 fix, #145)
+# ---------------------------------------------------------------------------
+
+# This section mirrors the JS BotSlot state logic in Python so we can unit-test
+# the upsert semantics without a browser.  Keep in sync with ControlDrawer.tsx.
+
+MAPS_CONST = ["dm3", "dm2", "frobodm2", "trick"]
+
+
+def _route_id_from_replay_file(replay_file: str | None) -> str | None:
+    """Mirrors ControlDrawer.tsx onAssign route-id extraction."""
+    if not replay_file:
+        return None
+    route_id = replay_file.removesuffix(".cmds")
+    for map_name in MAPS_CONST:
+        prefix = f"{map_name}_"
+        if route_id.startswith(prefix):
+            route_id = route_id[len(prefix):]
+            break
+    return route_id
+
+
+def _apply_assign_upsert(
+    prev: list[dict],
+    assign: dict,
+) -> list[dict]:
+    """Mirrors ControlDrawer.tsx setBots upsert in onAssign.
+
+    assign keys: ed, name, replay_file (str|None)
+    prev rows: {slot, name, assignedRoute, pendingRoute}
+    """
+    ed = assign["ed"]
+    route_id = _route_id_from_replay_file(assign.get("replay_file"))
+
+    # Check for existing row.
+    existing_idx = next((i for i, b in enumerate(prev) if b["slot"] == ed), -1)
+    if existing_idx != -1:
+        result = list(prev)
+        result[existing_idx] = {
+            **result[existing_idx],
+            "name": assign["name"],
+            "assignedRoute": route_id,
+            "pendingRoute": None,
+        }
+        return result
+
+    # Adopt first provisional placeholder (slot=-1) if any.
+    placeholder_idx = next((i for i, b in enumerate(prev) if b["slot"] == -1), -1)
+    if placeholder_idx != -1:
+        result = list(prev)
+        result[placeholder_idx] = {
+            "slot": ed,
+            "name": assign["name"],
+            "assignedRoute": route_id,
+            "pendingRoute": None,
+        }
+        return result
+
+    # No placeholder — append (page reload / existing session).
+    return prev + [{"slot": ed, "name": assign["name"], "assignedRoute": route_id, "pendingRoute": None}]
+
+
+class TestAssignUpsert(unittest.TestCase):
+    """The ASSIGN subscriber must upsert roster rows keyed by ed, not just
+    update existing rows.  This covers page reload, existing session, and
+    non-1-based/sequential ed values."""
+
+    def test_upsert_updates_existing_row(self):
+        """When a row with the same slot/ed already exists, update it in place."""
+        prev = [{"slot": 3, "name": "goldenboy", "assignedRoute": None, "pendingRoute": None}]
+        assign = {"ed": 3, "name": "goldenboy", "replay_file": "dm3_sng_to_rl.cmds"}
+        result = _apply_assign_upsert(prev, assign)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["slot"], 3)
+        self.assertEqual(result[0]["assignedRoute"], "sng_to_rl")
+        self.assertIsNone(result[0]["pendingRoute"])
+
+    def test_upsert_adopts_provisional_placeholder(self):
+        """The first slot=-1 placeholder is adopted when ASSIGN arrives."""
+        prev = [{"slot": -1, "name": "…", "assignedRoute": None, "pendingRoute": None}]
+        assign = {"ed": 3, "name": "goldenboy", "replay_file": "dm3_hilljump.cmds"}
+        result = _apply_assign_upsert(prev, assign)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["slot"], 3, "provisional slot must be replaced with real ed")
+        self.assertEqual(result[0]["name"], "goldenboy")
+        self.assertEqual(result[0]["assignedRoute"], "hilljump")
+
+    def test_upsert_appends_when_no_placeholder_page_reload(self):
+        """If no row exists and no placeholder: append (page reload scenario)."""
+        prev: list[dict] = []
+        assign = {"ed": 5, "name": "bro", "replay_file": "dm3_rl_to_ya.cmds"}
+        result = _apply_assign_upsert(prev, assign)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["slot"], 5)
+        self.assertEqual(result[0]["assignedRoute"], "rl_to_ya")
+
+    def test_upsert_appends_for_existing_session_second_bot(self):
+        """Existing session with one resolved bot: second ASSIGN appends row."""
+        prev = [{"slot": 3, "name": "goldenboy", "assignedRoute": "sng_to_rl", "pendingRoute": None}]
+        assign = {"ed": 5, "name": "bro", "replay_file": "dm3_hilljump.cmds"}
+        result = _apply_assign_upsert(prev, assign)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[1]["slot"], 5)
+        self.assertEqual(result[1]["assignedRoute"], "hilljump")
+
+    def test_upsert_non_sequential_ed(self):
+        """Non-1-based ed values (e.g. ed=7, ed=9) are handled correctly."""
+        prev = [
+            {"slot": -1, "name": "…", "assignedRoute": None, "pendingRoute": None},
+            {"slot": -1, "name": "…", "assignedRoute": None, "pendingRoute": None},
+        ]
+        assign1 = {"ed": 7, "name": "bot7", "replay_file": "dm3_sng_to_rl.cmds"}
+        assign2 = {"ed": 9, "name": "bot9", "replay_file": "dm3_mega_to_rl.cmds"}
+        result = _apply_assign_upsert(prev, assign1)
+        result = _apply_assign_upsert(result, assign2)
+        slots = [r["slot"] for r in result]
+        self.assertIn(7, slots)
+        self.assertIn(9, slots)
+        self.assertEqual(len(result), 2, "must not create extra rows")
+
+    def test_upsert_null_replay_file_creates_unassigned_row(self):
+        """ASSIGN with no replay_file (bot has no route yet) creates a row with
+        assignedRoute=None — roster shows 'unassigned' instead of blank."""
+        prev: list[dict] = []
+        assign = {"ed": 3, "name": "goldenboy", "replay_file": None}
+        result = _apply_assign_upsert(prev, assign)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["slot"], 3)
+        self.assertIsNone(result[0]["assignedRoute"])
+
+    def test_upsert_two_bots_two_distinct_routes(self):
+        """Golden path: two bots, two ASSIGN rows, each with a distinct route."""
+        prev: list[dict] = []
+        assign1 = {"ed": 1, "name": "goldenboy", "replay_file": "dm3_sng_to_rl.cmds"}
+        assign2 = {"ed": 2, "name": "bro", "replay_file": "dm3_hilljump.cmds"}
+        result = _apply_assign_upsert(prev, assign1)
+        result = _apply_assign_upsert(result, assign2)
+        self.assertEqual(len(result), 2)
+        routes = {r["slot"]: r["assignedRoute"] for r in result}
+        self.assertEqual(routes[1], "sng_to_rl")
+        self.assertEqual(routes[2], "hilljump")
+
+
 if __name__ == "__main__":
     unittest.main()
