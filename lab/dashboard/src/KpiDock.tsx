@@ -1,22 +1,24 @@
 // LD-E1 (#100): KPI dock — collapsible thin left dock with context store.
 // LD-E2 (#101): Brutal scoreboard — four metric rows (Race / Jump Count /
-//               Speedometer / Eye Test) wired into the scoreboard section slot.
+//               Speedometer / Eye Test) wired into the scoreboard section.
+// LD-E4 (#104): Records panel — context-sensitive record rows with click-to-demo.
 //
 // Renders as a flex/grid column member (never an overlay) so the Demo pane
 // (leftmost) is never obscured.  Two modes:
-//   expanded  — ~300 px, semi-opaque, context line + scoreboard + section slots
+//   expanded  — ~300 px, semi-opaque, context line + scoreboard + live-metrics
+//               skeleton + records panel
 //   rail      — ~28 px, slim vertical strip with four micro scoreboard glyphs
 //
 // The collapse/expand button is also wired from the top-bar stub in App.tsx
 // (the button existed as a placeholder since LD-B1).
 //
-// Section slots for LD-E3 (live metrics) and LD-E4 (records) are still rendered
-// as named skeleton placeholders.  The scoreboard slot is now the real component.
+// Section slot for LD-E3 (live metrics) is still a named skeleton placeholder.
 //
 // Context line format: "<map> · <route> · <source>" or "<map> · (no route) · <source>"
 
 import type { KpiContext } from "./contextStore.ts";
 import { BrutalScoreboard, RailScoreboard } from "./BrutalScoreboard.tsx";
+import { RecordsPanel } from "./RecordsPanel.tsx";
 
 // ---- Props ------------------------------------------------------------------
 
@@ -26,8 +28,7 @@ type KpiDockProps = {
   onToggle: () => void;
   /**
    * Incremented by the parent (App.tsx) when an attempt ends so the scoreboard
-   * refetches records.  Passed through to BrutalScoreboard / RailScoreboard.
-   * LD-E2 (#101).
+   * (LD-E2) and RecordsPanel (LD-E4) refetch their data.
    */
   refreshKey?: number;
 };
@@ -152,12 +153,9 @@ export function KpiDock({ context, collapsed, onToggle, refreshKey = 0 }: KpiDoc
           />
         </div>
 
-        {/* LD-E4 (#104): Records — skeleton placeholder. */}
+        {/* LD-E4 (#104): live records section — replaces the placeholder SectionSlot. */}
         <div className="px-3 py-2 border-t border-slate-800">
-          <SectionSlot
-            section="records"
-            label="Records — LD-E4 (#104)"
-          />
+          <RecordsPanel context={context} refreshKey={refreshKey} />
         </div>
       </div>
     </aside>
