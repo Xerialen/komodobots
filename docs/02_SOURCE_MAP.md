@@ -356,6 +356,36 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   the deployed viewer loads it by that path until the Mockup view (#97) switches to
   `maps/`.
 
+### Lab Dashboard React sources — Mockup pane + KPI dock (LD-C3, LD-E1)
+
+- `lab/dashboard/src/MockupPane.tsx` (LD-C3, #97) — standalone Three.js offline map/route
+  browser.  Loads `public/maps/maps.json` for the map selector (dm3/dm2/frobodm2/trick),
+  fetches the per-map routes manifest (LD-C1 schema `komodobots.routes.v1`) from
+  `public/data/routes/<map>.json`, and renders human polylines + gap markers + teleport
+  markers using the shared `mapScene.ts` module.  Multiple routes can be selected
+  simultaneously (distinct palette colors); a second click deselects.  Map switch resets
+  selection.  Emits `MockupSelection { map: string; route: string | null }` to the
+  parent (`App.tsx`) via an `onSelect` callback on every selection change; the most
+  recently selected route name is reported (or null when nothing is selected).
+  Tests: `tests/test_mockup_context.py` (22 + 1 = 23 tests locking manifest schema +
+  teleport field names + MockupSelection contract).
+
+- `lab/dashboard/src/contextStore.ts` (LD-E1, #100) — pure TypeScript module (no React
+  import) for the KPI dock context store.  Defines `KpiContext { map, route, source }` and
+  `applyContextUpdate(current, lastUser, update)` — the pure reducer consumed by
+  `useReducer` in `App.tsx`.  Three update kinds: `live` (telemetry live-state),
+  `mockup` (MockupPane selection), `demo` (LD-D3 #98 stub).  Precedence: live > last
+  user selection > none.  The pure logic is exercised by
+  `tests/test_kpi_context_store.py` (33 tests) without any TypeScript/browser runtime.
+
+- `lab/dashboard/src/KpiDock.tsx` (LD-E1, #100) — collapsible left dock component.
+  Two modes: expanded (~288 px) with context line (`<data-context-line>`), source badge
+  (`<data-source>`), and three section slots (`<data-section="scoreboard|live-metrics|records>`
+  for LD-E2/E3/E4); rail (~28 px) with a vertical "KPI" label and a colored source dot.
+  Collapse/expand is driven by `layout.dockCollapsed` from `layoutState.ts` (persisted
+  in localStorage since LD-B1).  Receives `{ context, collapsed, onToggle }` as props —
+  no internal state.
+
 ### Lab control bridge (lab/server)
 
 `lab/server/control_bridge.py` (LD-F2, #96) is the browser→lab-server command channel,
