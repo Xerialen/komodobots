@@ -267,6 +267,22 @@ allowlist and sibling entry-HTML sha256 hashes are verified before/after every s
 referenced outside `botlab*/`. Tests: `tests/test_deploy_dashboard.py`. Procedure and
 the do-not-overwrite-siblings rule: `lab/README.md`.
 
+Standalone panes under `public/panes/` (served at `/botlab/panes/`, outside the React
+app so the FTE engine owns its own window — one engine instance per window, SPEC §10):
+
+- `public/panes/demo.html` — LD-D2 (#94) standalone FTE WASM demo player. Params
+  `?demo=<url>&map=<name>&t=<s>&track=<userid>[&duration=<s>&name=<label>]`; same-origin
+  postMessage API (`load`/`seek`/`speed`/`pause`/`play` in; `status`/`time`/`ended` out);
+  map `.bsp` resolves local-first (`/maps/<map>.bsp` on the lab web tier, then
+  `assets.quake.world`). Plays both `.mvd` and `.qwd` (the virtual demo filename's
+  extension must match the real format — FTE picks its parser by extension). Modeled on
+  `local-hub/web/demos/play.html`; full behavior notes in `lab/README.md`.
+- `public/panes/fte_demo.cfg` — the demo config mapped to `id1/config.cfg`, copied from
+  local-hub `config_v5.cfg` with two LD-D2 changes: it boots the demo paused
+  (`demo_setspeed 0` before `playdemo match`, so load hitches cannot fast-forward the
+  wall-anchored demo clock) and `f_demoend` echoes the sentinel the pane converts into
+  the `ended` event.
+
 ### Lab dashboard data builders (lab/tools)
 
 - `lab/tools/build_routes_manifest.py` (LD-C1, #90) — stdlib builder that exports the

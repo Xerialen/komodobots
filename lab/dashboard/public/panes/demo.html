@@ -1,0 +1,434 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>komodobots lab — demo pane</title>
+  <!--
+    LD-D2 (#94): standalone FTE demo player pane.
+
+    Modeled on the working precedent local-hub/web/demos/play.html: boot the FTE
+    WASM engine with the demo mapped as virtual file qw/match.mvd (the name is
+    extension-agnostic, .qwd plays too) and the map as id1/maps/<map>.bsp; the
+    demo config (fte_demo.cfg -> id1/config.cfg) auto-runs `playdemo match` once
+    every virtual file is downloaded, which is the correct timing (a manual
+    playdemo would race the demo download).
+
+    Params:  ?demo=<url>&map=<name>&t=<seconds>&track=<userid>&duration=<seconds>&name=<label>
+      - t: seek to max(0, t-2) once the demo is rolling (2 s pre-roll; FTE
+        demo_jump granularity is ~1 s) (SPEC 6.5).
+      - duration: optional; enables a bounded seek bar. Without it the bar's
+        max grows with observed playback time (skeleton quality, polish in LD-G1).
+
+    postMessage API (same-origin only):
+      inbound  {cmd:"load", demo, map, t?, track?}  -> reload this page with the
+               new params (one FTE instance per window; reload is the reliable reset)
+               {cmd:"seek", t} | {cmd:"speed", pct} | {cmd:"pause"} | {cmd:"play"}
+      outbound {evt:"status", state, detail?} on every state change
+               {evt:"time", t} at 1 Hz while playing
+               {evt:"ended"} when the demo finishes (f_demoend sentinel)
+
+    Map .bsp resolution is LOCAL-FIRST: try /maps/<map>.bsp on our own web tier
+    (servexeri web root `maps` symlink -> ~/nquakesv/qw/maps, see lab/README.md)
+    before the assets.quake.world CDN, so lab-only maps play too.
+
+    States: loading -> playing -> ended | error. A bad demo URL or a boot
+    timeout lands in an explicit error state - never an infinite spinner.
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; background: #06080d; color: #9ab; font: 13px monospace; overflow: hidden; }
+    #fteCanvas { width: 100vw; height: 100vh; display: block; }
+    #status { position: fixed; top: 8px; left: 10px; z-index: 10; white-space: pre; text-shadow: 0 0 3px #000; pointer-events: none; }
+    #error { display: none; position: fixed; inset: 0; z-index: 20; background: #0b0e14; }
+    #error .box { max-width: 560px; margin: 18vh auto 0; padding: 18px 22px; border: 1px solid #a33; border-radius: 6px; background: #1a0d0d; color: #e99; }
+    #error .box h1 { font-size: 15px; margin: 0 0 10px; color: #f66; }
+    #error .box code { color: #fbb; word-break: break-all; }
+    #bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; display: none; gap: 8px; align-items: center;
+           padding: 6px 10px; background: #0b0e14cc; border-top: 1px solid #1c2738; }
+    #bar button, #bar select { background: #141c2a; color: #9cf; border: 1px solid #2a3a55; border-radius: 4px; font: 12px monospace; padding: 3px 10px; cursor: pointer; }
+    #seek { flex: 1; accent-color: #4a8fd4; }
+    #clock { min-width: 86px; text-align: right; color: #6cf; }
+  </style>
+</head>
+<body>
+  <canvas id="fteCanvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+  <div id="status">booting…</div>
+  <div id="error"><div class="box"><h1>demo pane error</h1><div id="errorMsg"></div></div></div>
+  <div id="bar">
+    <button id="btnPlay" title="play/pause">&#10074;&#10074;</button>
+    <input id="seek" type="range" min="0" max="60" step="1" value="0" />
+    <select id="speed" title="playback speed">
+      <option value="10">10%</option><option value="25">25%</option><option value="50">50%</option>
+      <option value="100" selected>100%</option><option value="200">200%</option>
+    </select>
+    <span id="clock">0:00</span>
+  </div>
+
+  <script>
+    "use strict";
+    // ---------------------------------------------------------------- params
+    var q = new URLSearchParams(location.search);
+    var DEMO     = q.get("demo");                                 // url/path to .mvd/.qwd (already %-encoded)
+    var MAP      = (q.get("map") || "").toLowerCase();
+    var NAME     = q.get("name") || DEMO || "";
+    var SEEK_T   = q.get("t")     !== null ? parseFloat(q.get("t"))     : null;
+    var TRACK    = q.get("track");                                // userid for `track`
+    var DURATION = q.get("duration") !== null ? parseFloat(q.get("duration")) : null;
+
+    var FTE  = "https://a.quake.world";        // FTE engine + fte/* assets (existing pattern)
+    var MAPS = "https://assets.quake.world";   // .bsp fallback CDN
+
+    var EMBEDDED = (function () { try { return window.parent !== window; } catch (e) { return true; } })();
+
+    // ----------------------------------------------------------------- state
+    // loading -> playing -> ended | error  (+ transient "seeking" inside playing)
+    var state = "loading";
+    var lastSpeed = 100;          // last commanded positive demo speed (pct)
+    var commandedSpeed = 100;     // current commanded speed (0 = paused)
+    var seekWatch = null;         // backward-seek restore watcher
+    var stallSeconds = 0;         // consecutive 1 Hz ticks without time progress
+    var maxSeen = 0;              // grows the unbounded seek bar
+
+    var elStatus = document.getElementById("status");
+    var elError = document.getElementById("error");
+    var elErrorMsg = document.getElementById("errorMsg");
+    var elBar = document.getElementById("bar");
+    var elPlay = document.getElementById("btnPlay");
+    var elSeek = document.getElementById("seek");
+    var elSpeed = document.getElementById("speed");
+    var elClock = document.getElementById("clock");
+
+    function post(msg) {
+      if (!EMBEDDED) return;
+      try { window.parent.postMessage(msg, location.origin); } catch (e) { /* detached parent */ }
+    }
+    function setState(next, detail) {
+      state = next;
+      var line = next + (detail ? ": " + detail : "");
+      elStatus.textContent = line;
+      post({ evt: "status", state: next, detail: detail || null });
+    }
+    function fail(msg) {
+      setState("error", msg);
+      elErrorMsg.innerHTML = "";
+      var c = document.createElement("code");
+      c.textContent = msg;
+      elErrorMsg.appendChild(c);
+      elError.style.display = "block";
+      elBar.style.display = "none";
+    }
+
+    function cbuf(cmd) {
+      try { window.FTEC.cbufadd(cmd + "\n"); } catch (e) { console.log("fte cbufadd error:", e); }
+    }
+    function demoTime() {
+      try { return window.Module.getDemoTime(); } catch (e) { return 0; }
+    }
+    function fmtClock(t) {
+      t = Math.max(0, Math.floor(t));
+      return Math.floor(t / 60) + ":" + ("0" + (t % 60)).slice(-2);
+    }
+
+    // ------------------------------------------------------------- transport
+    function setSpeed(pct) {
+      pct = Math.max(0, parseFloat(pct) || 0);
+      commandedSpeed = pct;
+      if (pct > 0) lastSpeed = pct;
+      cbuf("demo_setspeed " + pct);
+      elPlay.innerHTML = pct > 0 ? "&#10074;&#10074;" : "&#9654;";
+    }
+    function pause() { setSpeed(0); }
+    function play() { setSpeed(lastSpeed); }
+
+    function seek(t) {
+      t = Math.max(0, Math.floor(parseFloat(t) || 0));
+      var cur = demoTime();
+      if (Math.abs(t - cur) < 1) return;        // below demo_jump granularity
+      var backward = t < cur;
+      setState("seeking", "to " + t + "s" + (backward ? " (engine restarts + fast-forwards)" : ""));
+      cbuf("demo_jump " + t);
+      // demo_jump backwards restarts the demo and fast-forwards; track/speed are
+      // re-applied once we arrive (precedent: hub FteController._restorePlayback).
+      if (seekWatch) clearInterval(seekWatch);
+      var started = Date.now();
+      seekWatch = setInterval(function () {
+        var now = demoTime();
+        var arrived = backward ? Math.abs(now - t) <= 2 : now >= t - 2;
+        if (arrived || Date.now() - started > 90000) {
+          clearInterval(seekWatch); seekWatch = null;
+          if (TRACK) cbuf("track " + TRACK);
+          cbuf("demo_setspeed " + commandedSpeed);
+          setState("playing", arrived ? null : "seek timed out near " + Math.floor(now) + "s");
+        }
+      }, 250);
+    }
+
+    // ------------------------------------------------------ postMessage (in)
+    window.addEventListener("message", function (ev) {
+      if (ev.origin !== location.origin) return;      // same-origin API only
+      var m = ev.data;
+      if (!m || typeof m !== "object" || !m.cmd) return;
+      switch (m.cmd) {
+        case "load": {
+          // one FTE instance per window: a reload is the reliable reset.
+          var p = new URLSearchParams();
+          if (m.demo) p.set("demo", m.demo);
+          if (m.map) p.set("map", m.map);
+          if (m.t !== undefined && m.t !== null) p.set("t", String(m.t));
+          if (m.track !== undefined && m.track !== null) p.set("track", String(m.track));
+          if (m.duration !== undefined && m.duration !== null) p.set("duration", String(m.duration));
+          if (m.name) p.set("name", m.name);
+          location.replace(location.pathname + "?" + p.toString());
+          break;
+        }
+        case "seek":  seek(m.t); break;
+        case "speed": setSpeed(m.pct); break;
+        case "pause": pause(); break;
+        case "play":  play(); break;
+      }
+    });
+
+    // --------------------------------------------------------------- controls
+    elPlay.addEventListener("click", function () { commandedSpeed > 0 ? pause() : play(); });
+    elSpeed.addEventListener("change", function () { setSpeed(elSpeed.value); });
+    elSeek.addEventListener("change", function () { seek(elSeek.value); });
+    if (DURATION && DURATION > 0) elSeek.max = String(Math.ceil(DURATION));
+
+    // ------------------------------------------------------------ 1 Hz ticker
+    var lastTickTime = -1;
+    setInterval(function () {
+      if (state !== "playing" && state !== "seeking") return;
+      var t = demoTime();
+      elClock.textContent = fmtClock(t);
+      maxSeen = Math.max(maxSeen, t);
+      if (!DURATION) elSeek.max = String(Math.ceil(maxSeen + 30)); // unbounded bar grows
+      elSeek.value = String(Math.floor(t));
+      post({ evt: "time", t: t });
+      // defensive ended detection: f_demoend pauses playback at the end, so a
+      // commanded-speed>0 stream whose clock stops for 10 s is over (the
+      // sentinel below is the primary signal; this catches a missed echo).
+      if (state === "playing" && commandedSpeed > 0) {
+        stallSeconds = (Math.abs(t - lastTickTime) < 0.01) ? stallSeconds + 1 : 0;
+        if (stallSeconds >= 10) ended();
+      }
+      lastTickTime = t;
+    }, 1000);
+
+    function ended() {
+      if (state === "ended") return;
+      setState("ended", NAME);
+      post({ evt: "ended" });
+      elPlay.innerHTML = "&#9654;";
+    }
+
+    // ---------------------------------------------------------------- assets
+    // Mirrors hub.quakeworld.nu getDemoPlayerAssets() via local-hub play.html.
+    var filePaths = [
+      "default.fmf","ctf/fragfile.dat","qw/fragfile.dat",
+      "id1/textures/charsets/povo5f_xtm.png","id1/crosshairs/xtm_dot.png","id1/gfx.wad",
+      "id1/gfx/anum_0.png","id1/gfx/anum_1.png","id1/gfx/anum_2.png","id1/gfx/anum_3.png","id1/gfx/anum_4.png",
+      "id1/gfx/anum_5.png","id1/gfx/anum_6.png","id1/gfx/anum_7.png","id1/gfx/anum_8.png","id1/gfx/anum_9.png",
+      "id1/gfx/anum_colon.png","id1/gfx/anum_minus.png","id1/gfx/anum_slash.png",
+      "id1/gfx/face1.png","id1/gfx/face2.png","id1/gfx/face3.png","id1/gfx/face4.png","id1/gfx/face5.png",
+      "id1/gfx/face_inv2.png","id1/gfx/face_invis.png","id1/gfx/face_invul2.png",
+      "id1/gfx/face_p1.png","id1/gfx/face_p2.png","id1/gfx/face_p3.png","id1/gfx/face_p4.png","id1/gfx/face_p5.png",
+      "id1/gfx/face_quad.png","id1/gfx/ibar.png",
+      "id1/gfx/inv2_lightng.png","id1/gfx/inv2_nailgun.png","id1/gfx/inv2_rlaunch.png","id1/gfx/inv2_shotgun.png",
+      "id1/gfx/inv2_snailgun.png","id1/gfx/inv2_srlaunch.png","id1/gfx/inv2_sshotgun.png",
+      "id1/gfx/inv_lightng.png","id1/gfx/inv_nailgun.png","id1/gfx/inv_nails.png","id1/gfx/inv_rlaunch.png",
+      "id1/gfx/inv_rocket.png","id1/gfx/inv_shells.png","id1/gfx/inv_shotgun.png","id1/gfx/inv_snailgun.png",
+      "id1/gfx/inv_srlaunch.png","id1/gfx/inv_sshotgun.png",
+      "id1/gfx/inva1_lightng.png","id1/gfx/inva1_nailgun.png","id1/gfx/inva1_rlaunch.png","id1/gfx/inva1_shotgun.png",
+      "id1/gfx/inva1_snailgun.png","id1/gfx/inva1_srlaunch.png","id1/gfx/inva1_sshotgun.png",
+      "id1/gfx/inva2_lightng.png","id1/gfx/inva2_nailgun.png","id1/gfx/inva2_rlaunch.png","id1/gfx/inva2_shotgun.png",
+      "id1/gfx/inva2_snailgun.png","id1/gfx/inva2_srlaunch.png","id1/gfx/inva2_sshotgun.png",
+      "id1/gfx/inva3_lightng.png","id1/gfx/inva3_nailgun.png","id1/gfx/inva3_rlaunch.png","id1/gfx/inva3_shotgun.png",
+      "id1/gfx/inva3_snailgun.png","id1/gfx/inva3_srlaunch.png","id1/gfx/inva3_sshotgun.png",
+      "id1/gfx/inva4_lightng.png","id1/gfx/inva4_nailgun.png","id1/gfx/inva4_rlaunch.png","id1/gfx/inva4_shotgun.png",
+      "id1/gfx/inva4_snailgun.png","id1/gfx/inva4_srlaunch.png","id1/gfx/inva4_sshotgun.png",
+      "id1/gfx/inva5_lightng.png","id1/gfx/inva5_nailgun.png","id1/gfx/inva5_rlaunch.png","id1/gfx/inva5_shotgun.png",
+      "id1/gfx/inva5_snailgun.png","id1/gfx/inva5_srlaunch.png","id1/gfx/inva5_sshotgun.png",
+      "id1/gfx/num_0.png","id1/gfx/num_1.png","id1/gfx/num_2.png","id1/gfx/num_3.png","id1/gfx/num_4.png",
+      "id1/gfx/num_5.png","id1/gfx/num_6.png","id1/gfx/num_7.png","id1/gfx/num_8.png","id1/gfx/num_9.png",
+      "id1/gfx/num_colon.png","id1/gfx/num_minus.png","id1/gfx/num_slash.png",
+      "id1/gfx/sb_armor1.png","id1/gfx/sb_armor2.png","id1/gfx/sb_armor3.png","id1/gfx/sb_cells.png",
+      "id1/gfx/sb_invis.png","id1/gfx/sb_invuln.png","id1/gfx/sb_key1.png","id1/gfx/sb_key2.png",
+      "id1/gfx/sb_nails.png","id1/gfx/sb_quad.png","id1/gfx/sb_rocket.png","id1/gfx/sb_shells.png",
+      "id1/gfx/sb_sigil1.png","id1/gfx/sb_sigil2.png","id1/gfx/sb_sigil3.png","id1/gfx/sb_sigil4.png","id1/gfx/sb_suit.png",
+      "id1/gfx/sba1_key1.png","id1/gfx/sba1_key2.png","id1/gfx/sba2_key1.png","id1/gfx/sba2_key2.png",
+      "id1/gfx/sba3_key1.png","id1/gfx/sba3_key2.png","id1/gfx/sba4_key1.png","id1/gfx/sba4_key2.png",
+      "id1/gfx/sba5_key1.png","id1/gfx/sba5_key2.png",
+      "id1/maps/b_batt0.bsp","id1/maps/b_batt1.bsp","id1/maps/b_bh10.bsp","id1/maps/b_bh100.bsp","id1/maps/b_bh25.bsp",
+      "id1/maps/b_explob.bsp","id1/maps/b_nail0.bsp","id1/maps/b_nail1.bsp","id1/maps/b_rock0.bsp","id1/maps/b_rock1.bsp",
+      "id1/maps/b_shell0.bsp","id1/maps/b_shell1.bsp",
+      "id1/particles/blood.cfg","id1/particles/bubble-trail.cfg","id1/particles/explosion.cfg","id1/particles/flame.cfg",
+      "id1/particles/grenade.cfg","id1/particles/particlefont.png","id1/particles/rocket.cfg","id1/particles/runes.cfg",
+      "id1/particles/torch.cfg",
+      "id1/progs/armor.mdl","id1/progs/backpack.mdl","id1/progs/bit.mdl","id1/progs/bolt.mdl","id1/progs/bolt2.mdl",
+      "id1/progs/bolt3.mdl","id1/progs/end1.mdl","id1/progs/end2.mdl","id1/progs/end3.mdl","id1/progs/end4.mdl",
+      "id1/progs/eyes.mdl","id1/progs/flag.mdl","id1/progs/flame.mdl","id1/progs/flame2.mdl","id1/progs/g_light.mdl",
+      "id1/progs/g_nail.mdl","id1/progs/g_nail2.mdl","id1/progs/g_rock.mdl","id1/progs/g_rock2.mdl","id1/progs/g_shot.mdl",
+      "id1/progs/gib1.mdl","id1/progs/gib2.mdl","id1/progs/gib3.mdl","id1/progs/grenade.md3","id1/progs/grenade_0.skin",
+      "id1/progs/h_player.mdl","id1/progs/invisibl.mdl","id1/progs/invulner.mdl","id1/progs/lavaball.mdl",
+      "id1/progs/missile.md3","id1/progs/missile_0.skin","id1/progs/player.mdl","id1/progs/quaddama.mdl",
+      "id1/progs/s_spike.mdl","id1/progs/spawn.mdl","id1/progs/spike.mdl","id1/progs/star.mdl","id1/progs/suit.mdl",
+      "id1/progs/v_axe.mdl","id1/progs/v_coil.mdl","id1/progs/v_light.mdl","id1/progs/v_nail.mdl","id1/progs/v_nail2.mdl",
+      "id1/progs/v_rock.mdl","id1/progs/v_rock2.mdl","id1/progs/v_shot.mdl","id1/progs/v_shot1.mdl","id1/progs/v_shot2.mdl",
+      "id1/progs/v_spike.mdl","id1/progs/v_star.mdl","id1/progs/vwplayer.mdl","id1/progs/w_axe.mdl","id1/progs/w_g_key.mdl",
+      "id1/progs/w_light.mdl","id1/progs/w_nail.mdl","id1/progs/w_nail2.mdl","id1/progs/w_rock.mdl","id1/progs/w_rock2.mdl",
+      "id1/progs/w_s_key.mdl","id1/progs/w_shot.mdl","id1/progs/w_shot2.mdl","id1/progs/wizard.mdl","id1/progs/zom_gib.mdl",
+      "id1/scripts/shell.shader",
+      "id1/skins/ctf_blue.jpg","id1/skins/ctf_red.jpg","id1/skins/blue.jpg","id1/skins/blue_solid.png","id1/skins/cyan.jpg",
+      "id1/skins/cyan_solid.png","id1/skins/enemy.jpg","id1/skins/green.jpg","id1/skins/green_solid.png","id1/skins/pink.jpg",
+      "id1/skins/pink_solid.png","id1/skins/red.jpg","id1/skins/red_solid.png","id1/skins/team.jpg","id1/skins/white.jpg",
+      "id1/skins/white_solid.png","id1/skins/yellow.jpg","id1/skins/yellow_solid.png"
+    ];
+
+    // ------------------------------------------------------------------ boot
+    function headOk(url) {
+      return fetch(url, { method: "HEAD" }).then(function (r) { return r.ok; }).catch(function () { return false; });
+    }
+
+    function boot(mapUrl) {
+      var files = { "qw/csaddon.dat": FTE + "/fte/csaddon/csaddon_003.dat" };
+      for (var i = 0; i < filePaths.length; i++) files[filePaths[i]] = FTE + "/fte/" + filePaths[i];
+      // our demo config: auto-runs `playdemo match` after all downloads finish
+      files["id1/config.cfg"] = new URL("fte_demo.cfg", location.href).toString();
+      // playdemo match resolves qw/match.<ext>. The virtual extension must match
+      // the real demo format: FTE picks its demo parser by extension, and a .qwd
+      // mapped as match.mvd dies with "mvd demos/qtv streams should not contain
+      // dem_cmd" (verified during LD-D2 validation).
+      var ext = /\.qwd(\?|#|$)/i.test(DEMO) ? "qwd" : "mvd";
+      files["qw/match." + ext] = DEMO;
+      if (MAP && mapUrl) files["id1/maps/" + MAP + ".bsp"] = mapUrl;
+      var manifestUrl = FTE + "/fte/default.fmf";
+
+      window.Module = {
+        canvas: document.getElementById("fteCanvas"),
+        manifest: manifestUrl,
+        arguments: ["-manifest", manifestUrl],
+        files: files,
+        print: function (text) {
+          if (typeof text === "string" && text.indexOf("KOMODOBOTS_DEMO_ENDED") !== -1) ended();
+          console.log(text);
+        },
+        printErr: function (text) {
+          if (typeof text === "string" && text.indexOf("KOMODOBOTS_DEMO_ENDED") !== -1) ended();
+          console.warn(text);
+        },
+        setStatus: function (v) { if (v && state === "loading") elStatus.textContent = "loading: " + v; },
+      };
+
+      var s = document.createElement("script");
+      s.src = FTE + "/fte/versions/004/ftewebgl.js";   // sets window.FTEC + drives window.Module
+      s.onerror = function () { fail("FTE engine failed to load from " + s.src); };
+      document.body.appendChild(s);
+
+      waitForEngine();
+    }
+
+    function waitForEngine() {
+      var tries = 0;
+      var poll = setInterval(function () {
+        tries++;
+        var ready = window.FTEC && typeof window.FTEC.cbufadd === "function" &&
+                    window.Module && typeof window.Module.getClientState === "function";
+        if (ready) {
+          clearInterval(poll);
+          cbuf("closemenu");
+          waitForLoad();
+        } else if (tries > 600) {                       // ~2 min
+          clearInterval(poll);
+          fail("FTE did not become ready within 2 minutes (check console / ftewebgl.js load)");
+        }
+      }, 200);
+    }
+
+    function waitForLoad() {
+      // QWD pacing catches up to the wall clock, so the demo must stay PAUSED
+      // (fte_demo.cfg boots it at demo_setspeed 0) until the map-load hitch is
+      // over — unpausing during the hitch fast-forwards a short .qwd to its
+      // end before the first rendered frame (observed in LD-D2 validation).
+      // "Hitch over" = the paused demo clock has settled (parse spill done)
+      // AND the render loop is flowing again (rAF frames under 250 ms apart).
+      var lastT = -1, stable = 0, smoothFrames = 0, lastFrame = 0;
+      function onFrame(ts) {
+        if (lastFrame && ts - lastFrame < 250) smoothFrames++; else smoothFrames = 0;
+        lastFrame = ts;
+        if (state === "loading") requestAnimationFrame(onFrame);
+      }
+      requestAnimationFrame(onFrame);
+      var tries = 0;
+      var poll = setInterval(function () {
+        tries++;
+        if (state === "ended" || state === "error") { clearInterval(poll); return; }
+        var t = demoTime();
+        stable = (t > 0 && t === lastT) ? stable + 1 : 0;
+        lastT = t;
+        if (stable >= 4 && smoothFrames >= 8) {
+          clearInterval(poll);
+          // two-phase unpause: the first world render can still hitch for
+          // seconds (texture upload), and any wall time spent hitching is
+          // swallowed by the demo clock at the current speed. Creep through
+          // it at 10% (so a 5 s hitch costs ~0.5 s of demo), then restore
+          // full speed once the clock is actually rolling (waitForDemo).
+          cbuf("demo_setspeed 10");
+          waitForDemo(t);
+        } else if (tries > 240) {                       // ~60 s
+          clearInterval(poll);
+          fail("demo never finished loading: " + DEMO);
+        }
+      }, 250);
+    }
+
+    function waitForDemo(frozenT) {
+      // Creep phase: playback just resumed at 10% from frozenT. Hold the creep
+      // until BOTH (a) the demo clock advanced >=0.4 s and (b) >=3 s of wall
+      // time passed - the first world render's hitch lands inside this window,
+      // and at 10% it can only swallow ~a tenth of its wall duration. Restoring
+      // full speed earlier put 100% playback inside the hitch (measured: a 9 s
+      // .qwd resumed at t=6.9 instead of ~1.3).
+      var tries = 0;
+      var poll = setInterval(function () {
+        tries++;
+        if (state === "ended" || state === "error") { clearInterval(poll); return; }
+        if (demoTime() > frozenT + 0.4 && tries >= 12) {
+          clearInterval(poll);
+          cbuf("demo_setspeed " + commandedSpeed);    // creep phase over
+          elBar.style.display = "flex";
+          setState("playing", NAME + (MAP ? "  [" + MAP + "]" : ""));
+          if (TRACK) cbuf("track " + TRACK);
+          if (SEEK_T !== null && !isNaN(SEEK_T)) {
+            seek(Math.max(0, Math.floor(SEEK_T) - 2));          // 2 s pre-roll (SPEC 6.5)
+          } else if (demoTime() > frozenT + 1.5) {
+            // load race ate the start of the demo (the engine's wall-anchored
+            // demo clock swallows load-hitch time); now that the map is cached
+            // a backward jump restarts the demo and lands cleanly at the top.
+            seek(Math.max(0, Math.floor(frozenT)));
+          }
+        } else if (tries > 300) {                       // ~60 s after engine ready
+          clearInterval(poll);
+          fail("demo never started playing: " + DEMO);
+        }
+      }, 200);
+    }
+
+    // ----------------------------------------------------------------- start
+    if (!DEMO) {
+      fail("no ?demo= given — usage: panes/demo.html?demo=<url>&map=<name>&t=<s>&track=<userid>");
+    } else {
+      setState("loading", NAME);
+      // pre-flight the demo URL so a bogus path is an immediate, visible error
+      // (the engine itself would otherwise stall forever on a missing file).
+      headOk(DEMO).then(function (ok) {
+        if (!ok) { fail("demo not found (HTTP error): " + DEMO); return; }
+        if (!MAP) { boot(null); return; }
+        // local-first map resolution: our web tier first, CDN fallback.
+        var localBsp = "/maps/" + MAP + ".bsp";
+        headOk(localBsp).then(function (localOk) {
+          boot(localOk ? localBsp : MAPS + "/maps/" + MAP + ".bsp");
+        });
+      });
+    }
+  </script>
+</body>
+</html>

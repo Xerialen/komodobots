@@ -389,6 +389,14 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   per `ed` (distinct colors, in order of first appearance); the camera follow and the
   HUD's derived values (yaw rate, hops, air time) lock onto the attempt's first-seen
   bot, and the HUD shows that bot's name. A `new_attempt` resets all of it.
+- Demo pane (LD-D2, #94): standalone FTE WASM demo player at `/botlab/panes/demo.html`
+  (plays archived lab `.mvd` and human `.qwd` with seek/track/speed and a same-origin
+  postMessage API; see `lab/README.md` for params, API, and FTE behavior notes). Two
+  servexeri web-root dependencies: the existing `demos/files/non-games ->
+  /mnt/usb-ssd/non-games` symlink (lab demo archive; verified present 2026-06-11) and a
+  NEW `maps -> ~/nquakesv/qw/maps` symlink for local-first `.bsp` resolution
+  (documented in `lab/README.md`, not yet created — lab host is read-only until the
+  LD-A2 deploy path lands; the pane falls back to `assets.quake.world` meanwhile).
 
 ## Folder Layout
 
