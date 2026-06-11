@@ -126,6 +126,32 @@ class TestRouteFields(unittest.TestCase):
             self.assertIsInstance(route["teleports"], list,
                                   f"route {route['name']!r} teleports must be a list")
 
+    def test_teleport_entry_shape_from_to(self):
+        """Each teleport entry must have 'from' and 'to' keys (komodobots.routes.v1).
+
+        MockupPane.tsx renders tp.from[0..2]; a mismatch (e.g. enter/exit) causes
+        a TypeError and unmounts the pane.  This test locks the field names so a
+        manifest schema change is caught in Python CI before a browser smoke test.
+        """
+        for route in self.routes:
+            for i, tp in enumerate(route["teleports"]):
+                self.assertIn(
+                    "from", tp,
+                    f"route {route['name']!r} teleport {i} missing 'from' key",
+                )
+                self.assertIn(
+                    "to", tp,
+                    f"route {route['name']!r} teleport {i} missing 'to' key",
+                )
+                self.assertEqual(
+                    len(tp["from"]), 3,
+                    f"route {route['name']!r} teleport {i} 'from' must be [x,y,z]",
+                )
+                self.assertEqual(
+                    len(tp["to"]), 3,
+                    f"route {route['name']!r} teleport {i} 'to' must be [x,y,z]",
+                )
+
     def test_hard_is_bool(self):
         for route in self.routes:
             for gap in route["gaps"]:

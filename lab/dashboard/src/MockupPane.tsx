@@ -47,8 +47,9 @@ type ManifestGap = {
 };
 
 type ManifestTeleport = {
-  enter: [number, number, number];
-  exit: [number, number, number];
+  // Field names match komodobots.routes.v1 manifest schema ("from"/"to").
+  from: [number, number, number];
+  to: [number, number, number];
 };
 
 type ManifestRoute = {
@@ -271,7 +272,7 @@ export function MockupPane({
       }
 
       for (const tp of route.teleports ?? []) {
-        const tpMark = buildMarker(tp.enter[0], tp.enter[1], tp.enter[2], 0x44ffee, 20);
+        const tpMark = buildMarker(tp.from[0], tp.from[1], tp.from[2], 0x44ffee, 20);
         scene.add(tpMark);
         objects.push(tpMark);
       }
