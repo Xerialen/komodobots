@@ -1,23 +1,25 @@
 // LD-E1 (#100): KPI dock — collapsible thin left dock with context store.
 // LD-E2 (#101): Brutal scoreboard — four metric rows (Race / Jump Count /
 //               Speedometer / Eye Test) wired into the scoreboard section.
+// LD-E3 (#102): Live metrics panel — vh sparkline, arc-local human comparison,
+//               launch-edge callout, attempt meta.  Replaces the skeleton slot.
 // LD-E4 (#104): Records panel — context-sensitive record rows with click-to-demo.
 //
 // Renders as a flex/grid column member (never an overlay) so the Demo pane
 // (leftmost) is never obscured.  Two modes:
 //   expanded  — ~300 px, semi-opaque, context line + scoreboard + live-metrics
-//               skeleton + records panel
+//               panel + records panel
 //   rail      — ~28 px, slim vertical strip with four micro scoreboard glyphs
 //
 // The collapse/expand button is also wired from the top-bar stub in App.tsx
 // (the button existed as a placeholder since LD-B1).
 //
-// Section slot for LD-E3 (live metrics) is still a named skeleton placeholder.
-//
 // Context line format: "<map> · <route> · <source>" or "<map> · (no route) · <source>"
 
 import type { KpiContext } from "./contextStore.ts";
 import { BrutalScoreboard, RailScoreboard } from "./BrutalScoreboard.tsx";
+import { LiveMetricsPanel } from "./LiveMetricsPanel.tsx";
+import type { TelemetryClient } from "./telemetryClient.ts";
 import { RecordsPanel } from "./RecordsPanel.tsx";
 
 // ---- Props ------------------------------------------------------------------
@@ -31,6 +33,22 @@ type KpiDockProps = {
    * (LD-E2) and RecordsPanel (LD-E4) refetch their data.
    */
   refreshKey?: number;
+  /**
+   * Shared TelemetryClient instance from App.tsx.  Passed through to the
+   * LiveMetricsPanel (LD-E3, #102) so it can subscribe to frames.
+   */
+  client?: TelemetryClient | null;
+  /**
+   * Whether a live attempt is currently running (from App.tsx connection.live).
+   * LD-E3 (#102).
+   */
+  isLive?: boolean;
+  /**
+   * ed of the selected bot (from App.tsx selectedEd / LD-F4 #103).
+   * Passed through to LiveMetricsPanel so it filters frames for the same bot
+   * that BotLab3D and TelemetryHud are tracking.  null = first-seen fallback.
+   */
+  selectedEd?: number | null;
 };
 
 // ---- Helpers ----------------------------------------------------------------
@@ -44,22 +62,17 @@ function sourceBadgeClass(source: KpiContext["source"]): string {
   }
 }
 
-// ---- Sections ---------------------------------------------------------------
-
-function SectionSlot({ label, section }: { label: string; section: string }) {
-  return (
-    <div
-      data-section={section}
-      className="rounded border border-dashed border-slate-700 px-2 py-3 text-center"
-    >
-      <span className="text-xs text-gray-600">{label}</span>
-    </div>
-  );
-}
-
 // ---- Component --------------------------------------------------------------
 
-export function KpiDock({ context, collapsed, onToggle, refreshKey = 0 }: KpiDockProps) {
+export function KpiDock({
+  context,
+  collapsed,
+  onToggle,
+  refreshKey = 0,
+  client = null,
+  isLive = false,
+  selectedEd = null,
+}: KpiDockProps) {
   if (collapsed) {
     return (
       <aside
@@ -145,11 +158,13 @@ export function KpiDock({ context, collapsed, onToggle, refreshKey = 0 }: KpiDoc
           <BrutalScoreboard context={context} refreshKey={refreshKey} />
         </div>
 
-        {/* LD-E3 (#102): Live metrics — skeleton placeholder. */}
+        {/* LD-E3 (#102): Live metrics — real component. */}
         <div className="px-3 py-2 border-t border-slate-800">
-          <SectionSlot
-            section="live-metrics"
-            label="Live metrics — LD-E3 (#102)"
+          <LiveMetricsPanel
+            client={client}
+            context={context}
+            isLive={isLive}
+            selectedEd={selectedEd}
           />
         </div>
 
