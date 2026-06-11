@@ -6,6 +6,10 @@
 // (LD-C3, #97) can reuse the same rig.  Bot actor management (marker/trail/
 // velocity arrow) and the telemetry frame loop remain here — they are specific
 // to the live telemetry view.
+//
+// LD-C5 (#99): mapScene now loads the textured GLB; opacity and wireframe
+// props are forwarded to mapScene.setOpacity / mapScene.setWireframe so the
+// live view inherits the shared 3D controls from the top bar.
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
@@ -51,16 +55,25 @@ export function BotLab3D({
   mapName,
   referencePathUrl,
   showReferencePath,
+  mapOpacity,
+  wireframe,
 }: {
   client: TelemetryClient;
   mapName: string;
   referencePathUrl: string | null;
   showReferencePath: boolean;
+  /** Map mesh opacity (0.05–1.0). Passed to mapScene.setOpacity on change. */
+  mapOpacity: number;
+  /** Wireframe overlay toggle. Passed to mapScene.setWireframe on change. */
+  wireframe: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const referenceLineRef = useRef<THREE.Line | null>(null);
   const showReferenceRef = useRef(showReferencePath);
   showReferenceRef.current = showReferencePath;
+  // Ref to the live mapScene so opacity/wireframe effects can call setters
+  // without re-running the heavy scene-setup effect.
+  const mapSceneRef = useRef<ReturnType<typeof createMapScene> | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -68,11 +81,15 @@ export function BotLab3D({
       return;
     }
 
-    // ── Map scene (shared module, LD-B3) ─────────────────────────────────
+    // ── Map scene (shared module, LD-B3/LD-C5) ───────────────────────────
     // createMapScene handles: scene + camera + renderer + OrbitControls +
-    // OBJ mesh loading + resize observer + GPU dispose.
+    // GLB mesh loading + resize observer + GPU dispose.
     // dm3 AABB center used as default overview point (matches maps.json).
     const mapScene = createMapScene(container, mapName);
+    mapSceneRef.current = mapScene;
+    // Apply initial opacity/wireframe in case they differ from defaults.
+    mapScene.setOpacity(mapOpacity);
+    mapScene.setWireframe(wireframe);
     const { scene, camera, renderer, controls } = mapScene;
 
     // ── Per-bot live actors ───────────────────────────────────────────────
@@ -283,8 +300,12 @@ export function BotLab3D({
       disposeActors();
       // Reference line geometry/material cleanup is handled by mapScene.dispose()
       // scene traversal (Line instances are traversed along with Meshes).
+      mapSceneRef.current = null;
       mapScene.dispose();
     };
+  // mapOpacity / wireframe intentionally excluded: they are applied via
+  // dedicated effects below so the heavy scene-setup effect is not re-run.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, mapName, referencePathUrl]);
 
   useEffect(() => {
@@ -292,6 +313,15 @@ export function BotLab3D({
       referenceLineRef.current.visible = showReferencePath;
     }
   }, [showReferencePath]);
+
+  // LD-C5 (#99): forward opacity / wireframe changes to the live scene.
+  useEffect(() => {
+    mapSceneRef.current?.setOpacity(mapOpacity);
+  }, [mapOpacity]);
+
+  useEffect(() => {
+    mapSceneRef.current?.setWireframe(wireframe);
+  }, [wireframe]);
 
   return <div ref={containerRef} className="w-full h-full min-h-[400px]" />;
 }
