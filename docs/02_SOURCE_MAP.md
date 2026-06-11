@@ -294,6 +294,29 @@ LD-B3 (#89) extracted the reusable map-scene module:
   shell scope and shared across all pane consumers (single WebSocket per page; panes only
   register frameListeners, they do not own the connection).
 
+LD-F4 (#103) extended `BotLab3D.tsx` and `TelemetryHud.tsx` for multi-bot live 3D:
+
+- `src/BotLab3D.tsx` additions:
+  - `makeNameSprite(name)` — canvas-texture `THREE.Sprite` per bot, child of the marker
+    mesh, positioned above it; shows bot name without a DOM overlay.
+  - Trail budget is now `MAX_TRAIL_POINTS_PER_BOT` (per-bot, not shared), so N bots each
+    get a full 12 000-point trail.
+  - `selectedEd` prop (optional `number | null`) controls camera follow: when null and one
+    bot is active, follow first-seen (single-bot compat); when null and 2+ bots are active,
+    follow their centroid (overview); when set, follow the selected bot exclusively.
+  - `onBotClick` prop — raycaster fires on `pointerdown` against marker meshes and calls
+    this callback with the clicked `ed`; `marker.userData.ed` carries the identity.
+  - `BOT_COLORS` is now exported so downstream components can reference the same palette.
+- `src/TelemetryHud.tsx` additions:
+  - Per-ed accumulators (`accumRef` holds a `Map<ed, PerEdAcc>`) — hop count and air time
+    tracked independently per bot; capped at `MAX_HUD_BOTS = 4` (exported).
+  - Compact row (non-selected bots): name / vh / hops / onground; clickable to select.
+  - Expanded row (selected or first-seen bot): full detail identical to pre-F4 display.
+  - `selectedEd` and `onBotClick` props parallel the BotLab3D interface; `App.tsx` wires
+    both to the same `selectedEd` state and `setSelectedEd` setter.
+- `src/App.tsx` additions: `selectedEd` state (`number | null`); reset to null on
+  `new_attempt` so camera re-locks to the first bot automatically.
+
 The local-hub copy is deprecated for development; see `lab/README.md` for the dev loop.
 
 Deployment (LD-A2, #85): `lab/deploy_dashboard.py` builds the app and ships `dist/` to

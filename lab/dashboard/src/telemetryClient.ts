@@ -29,11 +29,26 @@ export type TelemetryAttempt = {
   map: string | null;
 };
 
+/** LD-F3 (#105): FBMOVEPROBE_ASSIGN row — server truth for per-bot assignment.
+ *  Emitted by telemetry_ws.py whenever KTX logs an ASSIGN row.
+ *  `replay_file` and `spawn_origin` may be null when the global cvar is unset
+ *  (printed as "-" by KTX). */
+export type TelemetryAssign = {
+  run_id: string | null;
+  ed: number;
+  name: string;
+  mode: number;
+  replay_file: string | null;
+  fixed_goal: number;
+  spawn_origin: string | null;
+};
+
 type TelemetryMessage =
   | TelemetryFrame
   | ({ type: "hello"; live: boolean } & TelemetryAttempt)
   | ({ type: "new_attempt" } & TelemetryAttempt)
-  | { type: "status"; live: boolean };
+  | { type: "status"; live: boolean }
+  | ({ type: "assign" } & TelemetryAssign);
 
 const RECONNECT_DELAY_MS = 2000;
 
@@ -50,6 +65,9 @@ export class TelemetryClient {
    *  so the ControlClient can route bridge responses and control_event
    *  broadcasts without a second WebSocket connection. */
   rawMessageListeners = new Set<(text: string) => void>();
+  /** LD-F3 (#105): assign listeners — server-truth per-bot route assignment
+   *  rows (FBMOVEPROBE_ASSIGN) forwarded from the telemetry sidecar. */
+  assignListeners = new Set<(assign: TelemetryAssign) => void>();
 
   private connected = false;
   private live = false;
@@ -118,6 +136,10 @@ export class TelemetryClient {
           this.live = message.live;
           this.emitState();
         }
+      } else if (message.type === "assign") {
+        for (const listener of this.assignListeners) {
+          listener(message as unknown as TelemetryAssign);
+        }
       }
     };
     socket.onclose = () => {
@@ -165,5 +187,6 @@ export class TelemetryClient {
     this.attemptListeners.clear();
     this.stateListeners.clear();
     this.rawMessageListeners.clear();
+    this.assignListeners.clear();
   }
 }

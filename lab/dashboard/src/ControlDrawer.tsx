@@ -27,6 +27,7 @@ import {
   useState,
 } from "react";
 import type { ControlClient, ControlEvent, LockState } from "./controlClient.ts";
+import type { TelemetryAssign, TelemetryClient } from "./telemetryClient.ts";
 
 // ---- Types ------------------------------------------------------------------
 
@@ -54,8 +55,45 @@ type ConsoleEntry = {
 const MAPS = ["dm3", "dm2", "frobodm2", "trick"] as const;
 type MapName = (typeof MAPS)[number];
 
-// Per-map route lists (from the committed manifest schema; drawer only needs names)
-// These mirror the manifest keys — update if the census changes.
+// Per-route metadata: spawn_origin derived from the first polyline point.
+// Loaded once per map from /data/routes/{map}.json (the committed manifest).
+type RouteMetadata = {
+  /** spawn_origin as a space-separated "x y z" string (cvar format). */
+  spawn_origin: string;
+};
+
+// Cache loaded manifest metadata so we don't re-fetch on every assignment.
+const _routeMetadataCache = new Map<string, Map<string, RouteMetadata>>();
+
+/** Load route metadata (spawn_origin) for all routes in a map manifest.
+ *  Returns a Map<routeName, RouteMetadata>. Cached after the first fetch.
+ *  Rejects on network error; callers fall back to empty-spawn gracefully. */
+async function loadRouteMetadata(map: MapName): Promise<Map<string, RouteMetadata>> {
+  const cached = _routeMetadataCache.get(map);
+  if (cached) return cached;
+  const resp = await fetch(`/data/routes/${map}.json`);
+  if (!resp.ok) throw new Error(`route manifest fetch failed: ${resp.status}`);
+  const json = await resp.json() as {
+    routes: Array<{ name: string; polyline: number[][] }>;
+  };
+  const result = new Map<string, RouteMetadata>();
+  for (const route of json.routes ?? []) {
+    const pt = route.polyline?.[0];
+    if (pt && pt.length >= 3) {
+      // Round to 3 decimal places; KTX parses the cvar string on the fly so
+      // we can pass any precision — 3 dp is well within its float tolerance.
+      result.set(route.name, {
+        spawn_origin: `${pt[0].toFixed(3)} ${pt[1].toFixed(3)} ${pt[2].toFixed(3)}`,
+      });
+    }
+  }
+  _routeMetadataCache.set(map, result);
+  return result;
+}
+
+// Per-map route name lists.  Derived from the manifests — keep in sync with
+// /data/routes/*.json.  These are used to populate route dropdowns; the full
+// assignment metadata (spawn_origin) is fetched lazily from the manifest.
 const ROUTES_BY_MAP: Record<MapName, string[]> = {
   dm3: [
     "sng_shortcut2",
@@ -112,11 +150,14 @@ function lockBadge(state: LockState["state"] | null) {
 
 export type ControlDrawerProps = {
   client: ControlClient;
+  /** TelemetryClient — used to subscribe to ASSIGN rows for server-truth
+   *  assignment display (LD-F3 P1 fix: roster reflects what the server says). */
+  telemetryClient: TelemetryClient | null;
   wsConnected: boolean;
   onClose: () => void;
 };
 
-export function ControlDrawer({ client, wsConnected, onClose }: ControlDrawerProps) {
+export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }: ControlDrawerProps) {
   // Lock + session state
   const [lockState, setLockState] = useState<LockState | null>(null);
   const [lockOwner, setLockOwner] = useState<string | null>(null);
@@ -221,23 +262,6 @@ export function ControlDrawer({ client, wsConnected, onClose }: ControlDrawerPro
           }
           break;
         }
-        case "set_cvar": {
-          // Check for per-slot assignment cvar (_s<N> form).
-          const name = typeof event.name === "string" ? event.name : "";
-          const value = typeof event.value === "string" ? event.value : "";
-          const slotMatch = name.match(/_s(\d+)$/);
-          if (slotMatch && name.includes("replay_file")) {
-            const slot = parseInt(slotMatch[1], 10);
-            // Extract route name from file path (e.g. "dm3_hilljump.cmds" -> "hilljump")
-            const route = value.replace(/^.*_/, "").replace(/\.cmds$/, "");
-            setBots((prev) =>
-              prev.map((b) =>
-                b.slot === slot ? { ...b, assignedRoute: route, pendingRoute: null } : b,
-              ),
-            );
-          }
-          break;
-        }
       }
     }
     client.eventListeners.add(onEvent);
@@ -245,6 +269,45 @@ export function ControlDrawer({ client, wsConnected, onClose }: ControlDrawerPro
       client.eventListeners.delete(onEvent);
     };
   }, [client]);
+
+  // LD-F3 (#105) P1 fix: subscribe to ASSIGN rows from the telemetry sidecar
+  // for server-truth assignment display.  assignedRoute is updated ONLY from
+  // FBMOVEPROBE_ASSIGN rows (not from bridge set_cvar confirmations) so the
+  // roster reflects what KTX actually resolved, not what we sent.
+  //
+  // Route name round-trip: the server's replay_file is "dm3_sng_to_rl.cmds";
+  // strip the leading "<map>_" and trailing ".cmds" to recover the route id.
+  // Using lastIndexOf("_") is wrong for underscored names like "sng_to_rl" —
+  // instead strip the fixed "<map>_" prefix.
+  useEffect(() => {
+    if (!telemetryClient) return;
+    function onAssign(assign: TelemetryAssign) {
+      if (!assign.replay_file) return;
+      // Strip "<map>_" prefix (any known map) and ".cmds" suffix to recover route id.
+      // e.g. "dm3_sng_to_rl.cmds" → "sng_to_rl"; "dm2_foo.cmds" → "foo"
+      let routeId = assign.replay_file.replace(/\.cmds$/, "");
+      for (const map of MAPS) {
+        const prefix = `${map}_`;
+        if (routeId.startsWith(prefix)) {
+          routeId = routeId.slice(prefix.length);
+          break;
+        }
+      }
+      // ed → slot: in the KTX per-slot scheme, ed == slot for Frogbots.
+      const slot = assign.ed;
+      setBots((prev) =>
+        prev.map((b) =>
+          b.slot === slot
+            ? { ...b, assignedRoute: routeId, pendingRoute: null }
+            : b,
+        ),
+      );
+    }
+    telemetryClient.assignListeners.add(onAssign);
+    return () => {
+      telemetryClient.assignListeners.delete(onAssign);
+    };
+  }, [telemetryClient]);
 
   // Auto-scroll console.
   useEffect(() => {
@@ -307,17 +370,41 @@ export function ControlDrawer({ client, wsConnected, onClose }: ControlDrawerPro
 
   async function handleAssignRoute(bot: BotSlot, route: string) {
     if (!route) return;
-    // Per-slot assignment: set the four per-slot cvars atomically as a group.
-    // The server's ASSIGN read-back row updates assignedRoute; until then show "pending".
+    // Per-slot assignment: set all four per-slot cvars as one atomic group.
+    // This matches the #95/#105 contract: replay_file + mode + fixed_goal +
+    // spawn_origin must all be written together so KTX resolves the full
+    // assignment in one ASSIGN row.
+    //
+    // assignedRoute is updated only when the server broadcasts an ASSIGN row
+    // (server-truth display); pendingRoute shows "pending…" until then.
     setBots((prev) =>
       prev.map((b) => (b.slot === bot.slot ? { ...b, pendingRoute: route } : b)),
     );
     const mapRouteFile = `${sessionMap}_${route}.cmds`;
     const slot = bot.slot;
-    const results = await Promise.all([
+
+    // Load spawn_origin from the route manifest for this map.
+    let spawnOrigin = "";
+    try {
+      const meta = await loadRouteMetadata(sessionMap as MapName);
+      spawnOrigin = meta.get(route)?.spawn_origin ?? "";
+    } catch {
+      // Manifest fetch failed — proceed without spawn_origin (server falls
+      // back to the global cvar, which is the pre-F3 behavior).
+      addConsole("error", `route manifest unavailable — spawn_origin not set for ${route}`);
+    }
+
+    const ops: Promise<import("./controlClient.ts").ControlResponse>[] = [
       client.setCvar("k_fb_moveprobe_replay_file", mapRouteFile, slot),
       client.setCvar("k_fb_moveprobe_mode", "10", slot),
-    ]);
+      // fixed_goal=0 means "no fixed goal" — replay mode does not need a marker.
+      client.setCvar("k_fb_moveprobe_fixed_goal", "0", slot),
+    ];
+    if (spawnOrigin) {
+      ops.push(client.setCvar("k_fb_moveprobe_spawn_origin", spawnOrigin, slot));
+    }
+
+    const results = await Promise.all(ops);
     const allOk = results.every((r) => r.ok);
     if (!allOk) {
       const errors = results
@@ -330,8 +417,8 @@ export function ControlDrawer({ client, wsConnected, onClose }: ControlDrawerPro
         prev.map((b) => (b.slot === slot ? { ...b, pendingRoute: null } : b)),
       );
     }
-    // On success: the server will broadcast set_cvar events which update
-    // assignedRoute via the event listener above (server-truth display).
+    // On success: assignedRoute is updated when the telemetry sidecar emits an
+    // ASSIGN row — the server-truth subscriber above clears pendingRoute.
   }
 
   async function handleConsoleSend() {

@@ -91,6 +91,11 @@ export function useShellActions(): ShellActions | null {
 // frameListeners on the client — it does not own the connection).  The
 // map-scene setup (scene/camera/renderer/controls/mesh/resize) is factored
 // into src/mapScene.ts for reuse by the Mockup pane (LD-C3, #97).
+//
+// LD-F4 (#103): selectedEd state — tracks which bot is followed by the
+// camera and which HUD row is expanded.  null = first-seen bot (single-bot
+// compat).  Set by clicking a marker in BotLab3D or a compact row in
+// TelemetryHud; reset on new_attempt.
 const DEFAULT_LAB_PORT = 28599;
 const DEFAULT_TELEMETRY_WS = "ws://192.168.86.33:8770";
 const DEFAULT_QTV_RELAY = "ws://192.168.86.33:27599";
@@ -155,6 +160,11 @@ export function App() {
     { context: INITIAL_KPI_CONTEXT, lastUser: INITIAL_KPI_CONTEXT },
   );
   const kpiContext = ctxPair.context;
+
+  // LD-F4 (#103): selected bot ed — drives BotLab3D camera follow and
+  // TelemetryHud expanded row.  null = first-seen bot (single-bot compat).
+  // Reset on new_attempt so camera re-locks to the first bot automatically.
+  const [selectedEd, setSelectedEd] = useState<number | null>(null);
 
   // LD-B2 (#88): QTV iframe ref + status chip state.
   const qtvIframeRef = useRef<HTMLIFrameElement>(null);
@@ -233,10 +243,25 @@ export function App() {
     }
     telemetry.stateListeners.add(onConnState);
 
+    // LD-F4 (#103): reset bot selection on new_attempt only — not on hello
+    // reconnects.  telemetryClient.attemptListeners fires for both new_attempt
+    // and hello (when run_id is set).  On a transient WebSocket reconnect the
+    // hello delivers the SAME run_id for the ongoing attempt; resetting there
+    // would drop the user's camera selection mid-attempt (Codex inline P2
+    // discussion_r3395550280).  Guard: check the type field on the raw message
+    // (present at runtime even though TelemetryAttempt does not include it).
+    const resetSelectedEd = (attempt: TelemetryAttempt) => {
+      if ((attempt as unknown as { type?: string }).type === "new_attempt") {
+        setSelectedEd(null);
+      }
+    };
+    telemetry.attemptListeners.add(resetSelectedEd);
+
     setClient(telemetry);
     return () => {
       telemetry.rawMessageListeners.delete(onRawMessage);
       telemetry.stateListeners.delete(onConnState);
+      telemetry.attemptListeners.delete(resetSelectedEd);
       ctrl.onConnectionChange(false, null);
       telemetry.close();
       setClient(null);
@@ -443,6 +468,8 @@ export function App() {
               mapName === "dm3" ? "/botlab/dm3_sng_to_rl.cmds" : null
             }
             showReferencePath={showReference}
+            selectedEd={selectedEd}
+            onBotClick={setSelectedEd}
           />
         )}
         {!connection.live && (
@@ -455,7 +482,13 @@ export function App() {
           </div>
         )}
         <div className="absolute bottom-0 inset-x-0">
-          {client && <TelemetryHud client={client} />}
+          {client && (
+            <TelemetryHud
+              client={client}
+              selectedEd={selectedEd}
+              onBotClick={setSelectedEd}
+            />
+          )}
         </div>
       </Pane>
     ),
@@ -603,6 +636,7 @@ export function App() {
         {layout.drawerOpen && (
           <ControlDrawer
             client={controlClientRef.current}
+            telemetryClient={client}
             wsConnected={connection.connected}
             onClose={() => setLayout((state) => ({ ...state, drawerOpen: false }))}
           />
