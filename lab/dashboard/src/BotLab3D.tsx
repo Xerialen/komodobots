@@ -7,6 +7,10 @@
 // velocity arrow) and the telemetry frame loop remain here — they are specific
 // to the live telemetry view.
 //
+// LD-C5 (#99): mapScene now loads the textured GLB; opacity and wireframe
+// props are forwarded to mapScene.setOpacity / mapScene.setWireframe so the
+// live view inherits the shared 3D controls from the top bar.
+//
 // LD-F4 (#103): Multi-bot support — per-ed name labels (canvas sprite),
 // selected-bot follow (click marker or HUD row), overview camera when 2+
 // bots are live and none is selected.  Trail budget is per-bot (each bot
@@ -80,6 +84,8 @@ export function BotLab3D({
   mapName,
   referencePathUrl,
   showReferencePath,
+  mapOpacity,
+  wireframe,
   selectedEd = null,
   onBotClick,
 }: {
@@ -87,6 +93,10 @@ export function BotLab3D({
   mapName: string;
   referencePathUrl: string | null;
   showReferencePath: boolean;
+  /** Map mesh opacity (0.05–1.0). Passed to mapScene.setOpacity on change. */
+  mapOpacity: number;
+  /** Wireframe overlay toggle. Passed to mapScene.setWireframe on change. */
+  wireframe: boolean;
   /** ed of the currently selected bot (controls camera follow); null = auto. */
   selectedEd?: number | null;
   /** Called when the user clicks a bot marker; arg is the ed. */
@@ -96,6 +106,9 @@ export function BotLab3D({
   const referenceLineRef = useRef<THREE.Line | null>(null);
   const showReferenceRef = useRef(showReferencePath);
   showReferenceRef.current = showReferencePath;
+  // Ref to the live mapScene so opacity/wireframe effects can call setters
+  // without re-running the heavy scene-setup effect.
+  const mapSceneRef = useRef<ReturnType<typeof createMapScene> | null>(null);
 
   // Keep live refs for the props that change without remounting
   const selectedEdRef = useRef<number | null>(selectedEd);
@@ -109,8 +122,15 @@ export function BotLab3D({
       return;
     }
 
-    // ── Map scene (shared module, LD-B3) ─────────────────────────────────
+    // ── Map scene (shared module, LD-B3/LD-C5) ───────────────────────────
+    // createMapScene handles: scene + camera + renderer + OrbitControls +
+    // GLB mesh loading + resize observer + GPU dispose.
+    // dm3 AABB center used as default overview point (matches maps.json).
     const mapScene = createMapScene(container, mapName);
+    mapSceneRef.current = mapScene;
+    // Apply initial opacity/wireframe in case they differ from defaults.
+    mapScene.setOpacity(mapOpacity);
+    mapScene.setWireframe(wireframe);
     const { scene, camera, renderer, controls } = mapScene;
 
     // ── Per-bot live actors ───────────────────────────────────────────────
@@ -401,6 +421,11 @@ export function BotLab3D({
     }
 
     // ── Cleanup ───────────────────────────────────────────────────────────
+    // Set disposed first so any in-flight fetches bail out.  Then cancel the
+    // render loop, remove event listeners, remove telemetry listeners, dispose
+    // bot actors (which reference the scene), and finally call
+    // mapScene.dispose() which traverses the full scene, frees the renderer,
+    // and removes the canvas.
     return () => {
       disposed = true;
       cancelAnimationFrame(animFrameId);
@@ -408,8 +433,12 @@ export function BotLab3D({
       client.frameListeners.delete(onFrame);
       client.attemptListeners.delete(onAttempt);
       disposeActors();
+      mapSceneRef.current = null;
       mapScene.dispose();
     };
+  // mapOpacity / wireframe intentionally excluded: they are applied via
+  // dedicated effects below so the heavy scene-setup effect is not re-run.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, mapName, referencePathUrl]);
 
   useEffect(() => {
@@ -417,6 +446,15 @@ export function BotLab3D({
       referenceLineRef.current.visible = showReferencePath;
     }
   }, [showReferencePath]);
+
+  // LD-C5 (#99): forward opacity / wireframe changes to the live scene.
+  useEffect(() => {
+    mapSceneRef.current?.setOpacity(mapOpacity);
+  }, [mapOpacity]);
+
+  useEffect(() => {
+    mapSceneRef.current?.setWireframe(wireframe);
+  }, [wireframe]);
 
   return <div ref={containerRef} className="w-full h-full min-h-[400px]" />;
 }

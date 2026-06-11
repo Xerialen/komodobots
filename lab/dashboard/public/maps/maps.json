@@ -1,6 +1,6 @@
 {
   "schema": "komodobots.maps.v1",
-  "generator": "lab/tools/bsp_to_obj.py",
+  "generator": "lab/tools/bsp_to_mesh.py",
   "maps": {
     "dm2": {
       "obj": "dm2.obj",
@@ -58,7 +58,7 @@
       },
       "glb": "dm3.glb",
       "texture_count": 53,
-      "glb_bytes": 422292,
+      "glb_bytes": 420048,
       "glb_triangles": 9128,
       "glb_vertices": 15280
     },
@@ -88,7 +88,7 @@
       },
       "glb": "frobodm2.glb",
       "texture_count": 30,
-      "glb_bytes": 745232,
+      "glb_bytes": 653520,
       "glb_triangles": 14164,
       "glb_vertices": 23396
     },
@@ -118,7 +118,7 @@
       },
       "glb": "trick.glb",
       "texture_count": 14,
-      "glb_bytes": 358916,
+      "glb_bytes": 320364,
       "glb_triangles": 7026,
       "glb_vertices": 12006
     }

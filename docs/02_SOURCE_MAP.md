@@ -282,17 +282,45 @@ LD-D3 (#98) implemented the Demo view:
 LD-B3 (#89) extracted the reusable map-scene module:
 
 - `src/mapScene.ts` — standalone Three.js scene rig consumed by `BotLab3D.tsx` and
-  the future Mockup pane (LD-C3, #97).  Provides `createMapScene(container, mapName,
-  qCenter?, onMeshLoaded?)` which encapsulates: scene + `PerspectiveCamera` +
-  `WebGLRenderer` + `OrbitControls`, OBJ mesh loading from `/botlab/maps/<map>.obj`
-  with fill/wireframe materials and Quake Z→Y rotation, resize-observer wiring, and a
-  `dispose()` that frees all GPU resources.  Also exports `fetchMapCenter(mapName)` to
-  resolve per-map AABB centers from the committed `public/maps/maps.json` (LD-C2).
-  `BotLab3D.tsx` now delegates scene setup to `createMapScene` and retains only the
-  bot-actor lifecycle (marker/trail/velocity arrow), telemetry frame loop, and reference
-  path rendering.  `App.tsx` documents that one `TelemetryClient` instance is created at
-  shell scope and shared across all pane consumers (single WebSocket per page; panes only
+  `MockupPane.tsx`.  Provides `createMapScene(container, mapName, qCenter?, onMeshLoaded?)`
+  which encapsulates: scene + `PerspectiveCamera` + `WebGLRenderer` + `OrbitControls`,
+  mesh loading, Quake Z→Y rotation, resize-observer wiring, and a `dispose()` that frees
+  all GPU resources.  Also exports `fetchMapCenter(mapName)` to resolve per-map AABB
+  centers from the committed `public/maps/maps.json` (LD-C2).
+  `BotLab3D.tsx` delegates scene setup to `createMapScene` and retains only the bot-actor
+  lifecycle (marker/trail/velocity arrow), telemetry frame loop, and reference path
+  rendering.  `App.tsx` documents that one `TelemetryClient` instance is created at shell
+  scope and shared across all pane consumers (single WebSocket per page; panes only
   register frameListeners, they do not own the connection).
+
+LD-C5 (#99) updated the map-scene module to load textured `.glb` assets:
+
+- `src/mapScene.ts` — OBJ path replaced by `GLTFLoader` loading `/botlab/maps/<map>.glb`
+  (LD-C4 assets).  Sky textures (TAG_SKY) and tool textures (TAG_SKIP) are hidden by
+  default via GLTF material extras.  Visible materials are transparent
+  (`opacity = 0.3`, `depthWrite = false`) so trails/markers/lines remain readable at all
+  opacity values.  Exposes `setOpacity(value)` (range 0.05–1.0, default 0.3 "quite
+  transparent") and `setWireframe(enabled)` (default false) — both called by the shared
+  controls in the top bar (see `App.tsx` and `layoutState.ts`).  The `MapSceneMaterials`
+  export type is removed; the public API is now the two setters plus the existing
+  `setOverviewCamera` and `dispose`.
+- `src/layoutState.ts` — `LayoutState` gains `mapOpacity: number` (default 0.3) and
+  `wireframe: boolean` (default false); both persisted to localStorage and restored on
+  load.  `DEFAULT_MAP_OPACITY` exported.
+- `src/BotLab3D.tsx` — accepts new `mapOpacity` and `wireframe` props; forwards them to
+  `mapScene.setOpacity` / `mapScene.setWireframe` via dedicated `useEffect` hooks.  Holds
+  a `mapSceneRef` so the setters can be called without re-running the heavy scene-setup
+  effect.
+- `src/MockupPane.tsx` — accepts new `mapOpacity` and `wireframe` props; applies them to
+  the scene on creation and on subsequent changes via dedicated `useEffect` hooks.
+- `src/App.tsx` — Live 3D pane header gains an opacity range slider (0.05–1.0, step 0.05,
+  with live %-label) and a wireframe checkbox; both stored in `layout.mapOpacity` /
+  `layout.wireframe` (one value shared by both 3D panes per SPEC §6.3).  MockupPane
+  receives both props from layout state.  Old `MapSceneMaterials`-typed fields removed
+  (no caller referenced them directly).
+- The old OBJ load path (`OBJLoader`, `maps/<map>.obj` URL) is fully removed from the
+  app.  `public/dm3.obj` (top-level legacy file) is retained because
+  `tests/test_bsp_to_obj.py` reads it for regression comparison.
 
 LD-F4 (#103) extended `BotLab3D.tsx` and `TelemetryHud.tsx` for multi-bot live 3D:
 
@@ -307,6 +335,8 @@ LD-F4 (#103) extended `BotLab3D.tsx` and `TelemetryHud.tsx` for multi-bot live 3
   - `onBotClick` prop — raycaster fires on `pointerdown` against marker meshes and calls
     this callback with the clicked `ed`; `marker.userData.ed` carries the identity.
   - `BOT_COLORS` is now exported so downstream components can reference the same palette.
+  - `mapOpacity` and `wireframe` props (from LD-C5) are retained alongside the new
+    multi-bot props; both sets coexist in the same component.
 - `src/TelemetryHud.tsx` additions:
   - Per-ed accumulators (`accumRef` holds a `Map<ed, PerEdAcc>`) — hop count and air time
     tracked independently per bot; capped at `MAX_HUD_BOTS = 4` (exported).
@@ -315,7 +345,8 @@ LD-F4 (#103) extended `BotLab3D.tsx` and `TelemetryHud.tsx` for multi-bot live 3
   - `selectedEd` and `onBotClick` props parallel the BotLab3D interface; `App.tsx` wires
     both to the same `selectedEd` state and `setSelectedEd` setter.
 - `src/App.tsx` additions: `selectedEd` state (`number | null`); reset to null on
-  `new_attempt` so camera re-locks to the first bot automatically.
+  `new_attempt` so camera re-locks to the first bot automatically.  BotLab3D receives
+  all four props: `mapOpacity`, `wireframe` (LD-C5), `selectedEd`, `onBotClick` (LD-F4).
 
 The local-hub copy is deprecated for development; see `lab/README.md` for the dev loop.
 
