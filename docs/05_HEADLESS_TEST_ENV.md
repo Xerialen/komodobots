@@ -374,6 +374,14 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   control drawer are placeholders until LD-E1 (#100) / LD-F3 (#105). Layout state
   (open set, dock collapsed, drawer open) persists in localStorage and the open set is
   mirrored in the URL (`?views=…`, URL wins on load) — `lab/dashboard/src/layoutState.ts`.
+- Hosted CI: `.github/workflows/lab-dashboard-ci.yml` runs on GitHub-hosted
+  `ubuntu-latest` for pull requests touching `lab/**` or `tests/lab_*.py`
+  (lab pytest files are not discovered by `PR Tests`' `test_*.py` unittest
+  glob, so this workflow is their only hosted gate). It performs `npm ci`,
+  `tsc --noEmit`, optional lint, `vite build`, `python -m compileall` over lab
+  Python directories, and optional `tests/lab_*.py` pytest. This is distinct
+  from `.github/workflows/lab-ci.yml`, which remains the manual self-hosted
+  servexeri bot-lab runner and is not touched by LD-A3 (#86).
 - The dashboard is read-only with respect to the lab in this stage: it watches whatever
   attempt happens to run; it cannot start or steer anything until LD-F1/F2/F3.
 - Multi-bot attempts: the telemetry stream interleaves one frame per probed bot
