@@ -75,6 +75,11 @@ export function useShellActions(): ShellActions | null {
 // frameListeners on the client — it does not own the connection).  The
 // map-scene setup (scene/camera/renderer/controls/mesh/resize) is factored
 // into src/mapScene.ts for reuse by the Mockup pane (LD-C3, #97).
+//
+// LD-F4 (#103): selectedEd state — tracks which bot is followed by the
+// camera and which HUD row is expanded.  null = first-seen bot (single-bot
+// compat).  Set by clicking a marker in BotLab3D or a compact row in
+// TelemetryHud; reset on new_attempt.
 const DEFAULT_LAB_PORT = 28599;
 const DEFAULT_TELEMETRY_WS = "ws://192.168.86.33:8770";
 const DEFAULT_QTV_RELAY = "ws://192.168.86.33:27599";
@@ -120,6 +125,11 @@ export function App() {
   const [layout, setLayout] = useState<LayoutState>(() =>
     loadLayout(window.location.search),
   );
+
+  // LD-F4 (#103): selected bot ed — drives BotLab3D camera follow and
+  // TelemetryHud expanded row.  null = first-seen bot (single-bot compat).
+  // Reset on new_attempt so camera re-locks to the first bot automatically.
+  const [selectedEd, setSelectedEd] = useState<number | null>(null);
 
   // LD-B2 (#88): QTV iframe ref + status chip state.
   const qtvIframeRef = useRef<HTMLIFrameElement>(null);
@@ -183,6 +193,10 @@ export function App() {
     const telemetry = new TelemetryClient(wsUrl);
     telemetry.attemptListeners.add(setAttempt);
     telemetry.stateListeners.add(setConnection);
+    // LD-F4 (#103): reset bot selection on each new attempt so the camera
+    // re-locks to the first-seen bot automatically.
+    const resetSelectedEd = () => setSelectedEd(null);
+    telemetry.attemptListeners.add(resetSelectedEd);
     setClient(telemetry);
     return () => {
       telemetry.close();
@@ -324,6 +338,8 @@ export function App() {
               mapName === "dm3" ? "/botlab/dm3_sng_to_rl.cmds" : null
             }
             showReferencePath={showReference}
+            selectedEd={selectedEd}
+            onBotClick={setSelectedEd}
           />
         )}
         {!connection.live && (
@@ -336,7 +352,13 @@ export function App() {
           </div>
         )}
         <div className="absolute bottom-0 inset-x-0">
-          {client && <TelemetryHud client={client} />}
+          {client && (
+            <TelemetryHud
+              client={client}
+              selectedEd={selectedEd}
+              onBotClick={setSelectedEd}
+            />
+          )}
         </div>
       </Pane>
     ),

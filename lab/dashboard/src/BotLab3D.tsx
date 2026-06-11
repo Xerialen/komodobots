@@ -6,6 +6,14 @@
 // (LD-C3, #97) can reuse the same rig.  Bot actor management (marker/trail/
 // velocity arrow) and the telemetry frame loop remain here — they are specific
 // to the live telemetry view.
+//
+// LD-F4 (#103): Multi-bot support — per-ed name labels (canvas sprite),
+// selected-bot follow (click marker or HUD row), overview camera when 2+
+// bots are live and none is selected.  Trail budget is per-bot (each bot
+// gets MAX_TRAIL_POINTS_PER_BOT so the total scales with bot count; the
+// budget is still finite).  onBotClick fires when the user clicks a marker;
+// App.tsx tracks the selectedEd and passes it back via selectedEd prop so
+// the camera policy and HUD expansion stay in sync.
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
@@ -13,19 +21,40 @@ import { setFromQuake } from "./quakeCoords.ts";
 import { createMapScene } from "./mapScene.ts";
 import type { TelemetryClient, TelemetryFrame } from "./telemetryClient.ts";
 
-// 100 Hz x 2 min of trajectory is plenty for one attempt
-const MAX_TRAIL_POINTS = 12000;
+// Per-bot budget: 100 Hz × 2 min (enough for one attempt per bot without
+// sharing a fixed pool).  Four bots = 48 000 Float32 positions = 576 kB —
+// acceptable for a lab tool.
+const MAX_TRAIL_POINTS_PER_BOT = 12000;
 const VELOCITY_ARROW_SCALE = 0.25; // qu/s -> qu of arrow length
 
 // One marker/trail color pair per bot, assigned in order of first appearance
 // within an attempt (a lab run can spawn several Frogbots — see
 // docs/05_HEADLESS_TEST_ENV.md, "/ bro" + "/ goldenboy").
-const BOT_COLORS = [
+export const BOT_COLORS = [
   { marker: 0xff7722, trail: 0xffaa33 },
   { marker: 0x22aaff, trail: 0x55ccff },
   { marker: 0xff44cc, trail: 0xff88dd },
   { marker: 0xaaff33, trail: 0xccff77 },
 ];
+
+// Canvas-texture name label: creates a small white-text-on-transparent sprite
+// so each bot marker has a readable name without a DOM overlay.
+function makeNameSprite(name: string): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 32;
+  const ctx = canvas.getContext("2d")!;
+  ctx.font = "bold 18px monospace";
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillText(name, 4, 22);
+  const texture = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(96, 24, 1);
+  sprite.position.set(0, 44, 0); // above the 56-unit-tall marker
+  sprite.visible = false;
+  return sprite;
+}
 
 // .cmds replay line: msec ox oy oz vx vy vz pitch yaw roll fwd side up buttons
 function parseCmdsPath(text: string): THREE.Vector3[] {
@@ -51,16 +80,28 @@ export function BotLab3D({
   mapName,
   referencePathUrl,
   showReferencePath,
+  selectedEd = null,
+  onBotClick,
 }: {
   client: TelemetryClient;
   mapName: string;
   referencePathUrl: string | null;
   showReferencePath: boolean;
+  /** ed of the currently selected bot (controls camera follow); null = auto. */
+  selectedEd?: number | null;
+  /** Called when the user clicks a bot marker; arg is the ed. */
+  onBotClick?: (ed: number) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const referenceLineRef = useRef<THREE.Line | null>(null);
   const showReferenceRef = useRef(showReferencePath);
   showReferenceRef.current = showReferencePath;
+
+  // Keep live refs for the props that change without remounting
+  const selectedEdRef = useRef<number | null>(selectedEd);
+  selectedEdRef.current = selectedEd;
+  const onBotClickRef = useRef(onBotClick);
+  onBotClickRef.current = onBotClick;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -69,9 +110,6 @@ export function BotLab3D({
     }
 
     // ── Map scene (shared module, LD-B3) ─────────────────────────────────
-    // createMapScene handles: scene + camera + renderer + OrbitControls +
-    // OBJ mesh loading + resize observer + GPU dispose.
-    // dm3 AABB center used as default overview point (matches maps.json).
     const mapScene = createMapScene(container, mapName);
     const { scene, camera, renderer, controls } = mapScene;
 
@@ -81,16 +119,19 @@ export function BotLab3D({
     // bot, so marker/trail/arrow state must never be shared across bots.
     type BotActor = {
       marker: THREE.Mesh;
+      nameSprite: THREE.Sprite;
       trail: THREE.Line;
       trailGeometry: THREE.BufferGeometry;
       trailPositions: Float32Array;
       trailCount: number;
       velocityArrow: THREE.ArrowHelper;
       position: THREE.Vector3;
+      ed: number;
+      name: string;
     };
     const actors = new Map<number, BotActor>();
 
-    function createActor(): BotActor {
+    function createActor(ed: number, name: string): BotActor {
       const colors = BOT_COLORS[actors.size % BOT_COLORS.length];
 
       // Bot marker: player-sized box (32x32x56 qu), origin at center
@@ -99,10 +140,15 @@ export function BotLab3D({
         new THREE.MeshBasicMaterial({ color: colors.marker }),
       );
       marker.visible = false;
+      marker.userData = { ed };
       scene.add(marker);
 
+      // Name label sprite above the marker
+      const nameSprite = makeNameSprite(name || `ed ${ed}`);
+      marker.add(nameSprite); // child of marker so it moves with it
+
       // Growing trajectory polyline
-      const trailPositions = new Float32Array(MAX_TRAIL_POINTS * 3);
+      const trailPositions = new Float32Array(MAX_TRAIL_POINTS_PER_BOT * 3);
       const trailGeometry = new THREE.BufferGeometry();
       trailGeometry.setAttribute(
         "position",
@@ -130,12 +176,15 @@ export function BotLab3D({
 
       return {
         marker,
+        nameSprite,
         trail,
         trailGeometry,
         trailPositions,
         trailCount: 0,
         velocityArrow,
         position: new THREE.Vector3(),
+        ed,
+        name,
       };
     }
 
@@ -146,6 +195,7 @@ export function BotLab3D({
         scene.remove(actor.velocityArrow);
         actor.marker.geometry.dispose();
         (actor.marker.material as THREE.Material).dispose();
+        actor.nameSprite.material.dispose();
         actor.trailGeometry.dispose();
         (actor.trail.material as THREE.Material).dispose();
         actor.velocityArrow.dispose();
@@ -162,7 +212,7 @@ export function BotLab3D({
     function onFrame(frame: TelemetryFrame) {
       let actor = actors.get(frame.ed);
       if (!actor) {
-        actor = createActor();
+        actor = createActor(frame.ed, frame.name);
         actors.set(frame.ed, actor);
       }
       if (primaryEd === null) {
@@ -175,12 +225,11 @@ export function BotLab3D({
         frame.origin.y,
         frame.origin.z,
       );
-      // marker origin is mid-body; telemetry origin is quake player origin
-      // (24 qu above feet for the 56-tall hull) — close enough at this scale
       actor.marker.position.copy(actor.position);
       actor.marker.visible = true;
+      actor.nameSprite.visible = true;
 
-      if (actor.trailCount < MAX_TRAIL_POINTS) {
+      if (actor.trailCount < MAX_TRAIL_POINTS_PER_BOT) {
         actor.trailPositions[actor.trailCount * 3] = actor.position.x;
         actor.trailPositions[actor.trailCount * 3 + 1] = actor.position.y;
         actor.trailPositions[actor.trailCount * 3 + 2] = actor.position.z;
@@ -205,9 +254,30 @@ export function BotLab3D({
         actor.velocityArrow.visible = false;
       }
 
-      if (frame.ed === primaryEd) {
+      // Camera follow target: selectedEd (explicit user selection) takes
+      // precedence; fall back to primaryEd for single-bot; overview (centroid)
+      // when 2+ bots are active and no bot is selected.
+      const sel = selectedEdRef.current;
+      if (sel !== null && sel === frame.ed) {
         followPosition.copy(actor.position);
         hasFrame = true;
+      } else if (sel === null) {
+        if (actors.size <= 1 && frame.ed === primaryEd) {
+          // Single bot: follow as before
+          followPosition.copy(actor.position);
+          hasFrame = true;
+        } else if (actors.size > 1) {
+          // Multi-bot overview: recompute centroid across all active actors
+          let cx = 0, cy = 0, cz = 0;
+          for (const a of actors.values()) {
+            cx += a.position.x;
+            cy += a.position.y;
+            cz += a.position.z;
+          }
+          const n = actors.size;
+          followPosition.set(cx / n, cy / n, cz / n);
+          hasFrame = true;
+        }
       }
     }
 
@@ -220,8 +290,29 @@ export function BotLab3D({
     client.frameListeners.add(onFrame);
     client.attemptListeners.add(onAttempt);
 
-    // Local disposed flag — mirrors the internal flag inside mapScene so
-    // async fetches can bail out before touching a disposed scene.
+    // ── Raycaster for marker click → bot selection ────────────────────────
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+
+    function onPointerDown(ev: PointerEvent) {
+      if (!onBotClickRef.current) return;
+      const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+      pointer.set(
+        ((ev.clientX - rect.left) / rect.width) * 2 - 1,
+        -((ev.clientY - rect.top) / rect.height) * 2 + 1,
+      );
+      raycaster.setFromCamera(pointer, camera);
+      const meshes = [...actors.values()].map((a) => a.marker);
+      const hits = raycaster.intersectObjects(meshes);
+      if (hits.length > 0) {
+        const ed = hits[0].object.userData.ed as number;
+        onBotClickRef.current(ed);
+      }
+    }
+
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
+
+    // Local disposed flag
     let disposed = false;
 
     // ── Render loop ───────────────────────────────────────────────────────
@@ -232,8 +323,6 @@ export function BotLab3D({
       if (disposed) return;
       animFrameId = requestAnimationFrame(animate);
       if (hasFrame) {
-        // follow: shift camera by the same delta as the orbit target so the
-        // user-chosen viewing angle/distance is preserved
         cameraDelta.copy(followPosition).sub(controls.target);
         camera.position.add(cameraDelta);
         controls.target.copy(followPosition);
@@ -271,18 +360,13 @@ export function BotLab3D({
     }
 
     // ── Cleanup ───────────────────────────────────────────────────────────
-    // Set disposed first so any in-flight fetches bail out.  Then cancel the
-    // render loop, remove telemetry listeners, dispose bot actors (which
-    // reference the scene), and finally call mapScene.dispose() which
-    // traverses the full scene, frees the renderer, and removes the canvas.
     return () => {
       disposed = true;
       cancelAnimationFrame(animFrameId);
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       client.frameListeners.delete(onFrame);
       client.attemptListeners.delete(onAttempt);
       disposeActors();
-      // Reference line geometry/material cleanup is handled by mapScene.dispose()
-      // scene traversal (Line instances are traversed along with Meshes).
       mapScene.dispose();
     };
   }, [client, mapName, referencePathUrl]);
