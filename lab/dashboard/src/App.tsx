@@ -154,6 +154,13 @@ export function App() {
   );
   const kpiContext = ctxPair.context;
 
+  // LD-E2 (#101): scoreboard refresh key — incremented when an attempt ends so
+  // the KPI dock's BrutalScoreboard refetches records.json + verdicts.json.
+  // We detect "attempt ended" by watching connection.live transition false→true
+  // (attempt start is not relevant; we want the refetch on completion).
+  const [scoreboardRefreshKey, setScoreboardRefreshKey] = useState(0);
+  const prevLiveRef = useRef(false);
+
   // LD-F4 (#103): selected bot ed — drives BotLab3D camera follow and
   // TelemetryHud expanded row.  null = first-seen bot (single-bot compat).
   // Reset on new_attempt so camera re-locks to the first bot automatically.
@@ -274,6 +281,18 @@ export function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connection.live, attempt?.map]);
+
+  // LD-E2 (#101): scoreboard refetch on attempt end.
+  // When connection.live transitions from true to false, an attempt just ended
+  // and the records store may have new data.  Increment scoreboardRefreshKey
+  // to trigger a refetch in BrutalScoreboard / RailScoreboard.
+  useEffect(() => {
+    if (prevLiveRef.current && !connection.live) {
+      // live just went false — attempt ended.
+      setScoreboardRefreshKey((k) => k + 1);
+    }
+    prevLiveRef.current = connection.live;
+  }, [connection.live]);
 
   // LD-B2 (#88): send {cmd:"attach"} to qtv.html whenever the lab port or run
   // changes (i.e. new attempt), mirroring the hub App.tsx attach/retry pattern.
@@ -645,13 +664,15 @@ export function App() {
       </header>
 
       <div className="grow min-h-0 flex">
-        {/* LD-E1 (#100): KPI dock — real component replaces the placeholder aside. */}
+        {/* LD-E1 (#100): KPI dock — real component replaces the placeholder aside.
+            LD-E2 (#101): scoreboardRefreshKey triggers refetch after attempt ends. */}
         <KpiDock
           context={kpiContext}
           collapsed={layout.dockCollapsed}
           onToggle={() =>
             setLayout((state) => ({ ...state, dockCollapsed: !state.dockCollapsed }))
           }
+          refreshKey={scoreboardRefreshKey}
         />
 
         <main className="grow min-w-0 overflow-x-auto">
