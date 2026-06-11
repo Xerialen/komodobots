@@ -368,6 +368,20 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   (`scripts/telemetry_ws.py`) and the deployed `/qtv/` page in an iframe (temporary,
   replaced by the standalone postMessage QTV pane in LD-B2, #88).
 - Dev loop: `cd lab/dashboard && npm ci && npm run dev` (see `lab/README.md`).
+- View shell (LD-B1, #87): top-bar toggles render any subset of the four main views in
+  the fixed left→right order Demo → Mockup → Live 3D → Live Game (SPEC §4.1). Demo and
+  Mockup are labeled placeholders until LD-D3 (#94/#98) / LD-C3 (#97); the KPI dock and
+  control drawer are placeholders until LD-E1 (#100) / LD-F3 (#105). Layout state
+  (open set, dock collapsed, drawer open) persists in localStorage and the open set is
+  mirrored in the URL (`?views=…`, URL wins on load) — `lab/dashboard/src/layoutState.ts`.
+- Hosted CI: `.github/workflows/lab-dashboard-ci.yml` runs on GitHub-hosted
+  `ubuntu-latest` for pull requests touching `lab/**` or `tests/lab_*.py`
+  (lab pytest files are not discovered by `PR Tests`' `test_*.py` unittest
+  glob, so this workflow is their only hosted gate). It performs `npm ci`,
+  `tsc --noEmit`, optional lint, `vite build`, `python -m compileall` over lab
+  Python directories, and optional `tests/lab_*.py` pytest. This is distinct
+  from `.github/workflows/lab-ci.yml`, which remains the manual self-hosted
+  servexeri bot-lab runner and is not touched by LD-A3 (#86).
 - Control bridge (LD-F2, #96): the telemetry sidecar also carries a JSON command
   channel (`lab/server/control_bridge.py`, deployed flat next to `telemetry_ws.py`
   together with `qw_min_client.py`). Hard server-side gates: caller authorization

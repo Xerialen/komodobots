@@ -1,0 +1,106 @@
+{
+  "schema": "komodobots.maps.v1",
+  "generator": "lab/tools/bsp_to_obj.py",
+  "maps": {
+    "dm2": {
+      "obj": "dm2.obj",
+      "source_bsp": "dm2.bsp",
+      "source_bsp_sha256": "e027e360dce7a2008461815bea2ab17b590a98db52fdc72ec0cca251e9d5f40c",
+      "vertices": 6501,
+      "triangles": 14540,
+      "worldmodel_faces": 4757,
+      "aabb": {
+        "mins": [
+          1152.0,
+          -2592.0,
+          -184.0
+        ],
+        "maxs": [
+          3008.0,
+          352.0,
+          576.0
+        ],
+        "center": [
+          2080.0,
+          -1120.0,
+          196.0
+        ]
+      }
+    },
+    "dm3": {
+      "obj": "dm3.obj",
+      "source_bsp": "dm3.bsp",
+      "source_bsp_sha256": "aec9edbb727c0a206edc2c0688775ce8242c0d51e1ee7583c7126c76f7c3b2f1",
+      "vertices": 4385,
+      "triangles": 9128,
+      "worldmodel_faces": 3076,
+      "aabb": {
+        "mins": [
+          -984.0,
+          -960.0,
+          -416.0
+        ],
+        "maxs": [
+          2048.0,
+          1136.0,
+          496.0
+        ],
+        "center": [
+          532.0,
+          88.0,
+          40.0
+        ]
+      }
+    },
+    "frobodm2": {
+      "obj": "frobodm2.obj",
+      "source_bsp": "frobodm2.bsp",
+      "source_bsp_sha256": "c34872a4b6214c16978c608f1cdcb6fd356efb54a56ed4dd62a240efb035fd2b",
+      "vertices": 6455,
+      "triangles": 14164,
+      "worldmodel_faces": 4616,
+      "aabb": {
+        "mins": [
+          1152.0,
+          -2560.0,
+          -184.0
+        ],
+        "maxs": [
+          3008.0,
+          352.0,
+          576.0
+        ],
+        "center": [
+          2080.0,
+          -1104.0,
+          196.0
+        ]
+      }
+    },
+    "trick": {
+      "obj": "trick.obj",
+      "source_bsp": "trick.bsp",
+      "source_bsp_sha256": "a40915f976e7e4f7b28f38d212f86dc2553fc1088c76831790a12a63e4158c63",
+      "vertices": 3258,
+      "triangles": 7026,
+      "worldmodel_faces": 2490,
+      "aabb": {
+        "mins": [
+          -2560.0,
+          -3712.0,
+          -896.0
+        ],
+        "maxs": [
+          3712.0,
+          3712.0,
+          1152.0
+        ],
+        "center": [
+          576.0,
+          0.0,
+          128.0
+        ]
+      }
+    }
+  }
+}

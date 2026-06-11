@@ -1,0 +1,83 @@
+<!doctype html>
+<!-- LD-C2 (#91) visual-validation harness (committed as evidence; NOT part
+     of the dashboard app). Renders one exported map mesh with the exact
+     BotLab3D.tsx material/scene settings (translucent fill + wireframe
+     overlay, MeshBasicMaterial, quake->three coords), camera at the
+     maps.json AABB-center overview point (#97).
+     Usage: copy into lab/dashboard/ as meshdev.html, `npm ci` +
+     `node_modules/.bin/vite - -port 5199`, then headless-Chrome screenshot
+     "http://localhost:5199/botlab/meshdev.html?map=dm3|dm2|frobodm2|trick"
+     with: chrome - -headless=new - -enable-unsafe-swiftshader
+     - -window-size=1400,900 - -virtual-time-budget=12000 - -screenshot=<map>.png
+     (flags written with a space after the first dash: a literal double
+     hyphen would terminate this HTML comment). -->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { margin: 0; background: #0a0a14; }
+      #label { position: fixed; top: 10px; left: 12px; color: #cfd8ff;
+               font: 16px monospace; z-index: 2; }
+    </style>
+  </head>
+  <body>
+    <div id="label"></div>
+    <script type="module">
+      import * as THREE from "three";
+      import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
+
+      const setFromQuake = (t, x, y, z) => t.set(x, z, -y); // src/quakeCoords.ts
+      const mapName = new URLSearchParams(location.search).get("map") ?? "dm3";
+
+      const manifest = await (await fetch("/botlab/maps/maps.json")).json();
+      const entry = manifest.maps[mapName];
+      const [cx, cy, cz] = entry.aabb.center;
+      const extent = Math.max(
+        entry.aabb.maxs[0] - entry.aabb.mins[0],
+        entry.aabb.maxs[1] - entry.aabb.mins[1],
+        entry.aabb.maxs[2] - entry.aabb.mins[2],
+      );
+      document.getElementById("label").textContent =
+        `${mapName}.obj - ${entry.vertices} v / ${entry.triangles} tris - ` +
+        `aabb center (${cx}, ${cy}, ${cz})`;
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0a14);
+      const camera = new THREE.PerspectiveCamera(
+        60, innerWidth / innerHeight, 1, 40000);
+      const mapCenter = setFromQuake(new THREE.Vector3(), cx, cy, cz);
+      // same above-south overview direction as BotLab3D, scaled to map size
+      const back = Math.max(1.0 * extent, 1600);
+      camera.position.copy(mapCenter)
+        .add(new THREE.Vector3(0, back * 1.19, back));
+      camera.lookAt(mapCenter);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(innerWidth, innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      new OBJLoader().load(`/botlab/maps/${mapName}.obj`, (obj) => {
+        const fill = new THREE.MeshBasicMaterial({
+          color: 0x2a3550, transparent: true, opacity: 0.28,
+          side: THREE.DoubleSide, depthWrite: false,
+        });
+        const wire = new THREE.MeshBasicMaterial({
+          color: 0x4a5a80, wireframe: true, transparent: true, opacity: 0.35,
+        });
+        const meshes = [];
+        obj.traverse((c) => { if (c instanceof THREE.Mesh) meshes.push(c); });
+        for (const mesh of meshes) {
+          mesh.material = fill;
+          const overlay = new THREE.Mesh(mesh.geometry, wire);
+          mesh.add(overlay);
+        }
+        // quake->three: same basis change as BotLab3D applies to the map group
+        obj.rotation.x = -Math.PI / 2;
+        scene.add(obj);
+        renderer.render(scene, camera);
+        document.title = `meshdev ${mapName} READY`;
+      });
+      renderer.render(scene, camera);
+    </script>
+  </body>
+</html>
