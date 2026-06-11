@@ -3692,3 +3692,33 @@ after merge.
 
 High on the TypeScript type-safety and data contract (tsc clean + 22 Python
 tests).  Deployment validation pending.
+
+
+## 2026-06-11 -- Dashboard ztricks try path is live, controller still fails quickly
+
+### Finding
+
+The Lab Dashboard control panel can start a dashboard-owned `ztricks` session and run
+the Distance standstill preset from the visible browser. Final live pass:
+`dash_20260611T221516Z` on port `28599`.
+
+### Evidence
+
+Clicking **try** returned `game ztricks_distance_standstill` in the panel and produced
+one roster row (`s3 / bro`). The server log contained 18 nonzero `FBMOVEPROBE_CMD`
+rows beginning at `origin=-3516.125,3712.000,-453.759` with `move=320,0,0`, after the
+quoted spawn cvar had been applied. Earlier browser passes also verified `prewar`,
+`axe only`, and the single-bot respawn control path.
+
+### Interpretation
+
+The dashboard command path is working; the bot is not refusing to try. The visible
+"stands still" symptom after the initial burst is the current ztricks controller
+failing the jump and settling, not a UI command failure. `removeall` also proved
+unreliable with a 2 s short-lived shim, so botcmd shims now stay connected for 5 s.
+
+### Follow-up
+
+The next movement experiment should improve or instrument mode 23's post-launch failure
+on ztricks Distance, using the dashboard **try/pause** loop as the required live
+observation surface.

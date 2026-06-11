@@ -167,6 +167,12 @@ export class ControlClient {
     return this.send("set_cvar", args);
   }
 
+  async gameCommand(action: string, value?: string): Promise<ControlResponse> {
+    const args: Record<string, unknown> = { action };
+    if (value !== undefined) args.value = value;
+    return this.send("game_command", args);
+  }
+
   /**
    * LD-F5 (#106): certify that a route has reached human-level movement.
    * User decision 2026-06-10: no pass/close/fail -- user declares human-level.

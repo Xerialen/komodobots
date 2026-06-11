@@ -50,6 +50,9 @@ class FakeExecutor:
     def send_botcmds(self, port, botcmds):
         self.calls.append(("send_botcmds", port, tuple(botcmds)))
 
+    def send_client_cmds(self, port, commands):
+        self.calls.append(("send_client_cmds", port, tuple(commands)))
+
 
 NOW = 1_750_000_000.0
 
@@ -157,6 +160,52 @@ class TestValidators(unittest.TestCase):
         ):
             self.assertIsNone(cb.validate_console_line(line), line)
 
+    def test_game_command_allowlist(self):
+        self.assertEqual(cb.validate_game_command("gamemode", "4on4"), [("client", "4on4")])
+        self.assertEqual(cb.validate_game_command("gamemode", "FFA"), [("client", "ffa")])
+        self.assertEqual(cb.validate_game_command("deathmatch", 3), [("client", "dmm3")])
+        self.assertEqual(
+            cb.validate_game_command("powerups", "off"),
+            [
+                ("console", "set k_pow 0"),
+                ("console", "set k_pow_q 0"),
+                ("console", "set k_pow_p 0"),
+                ("console", "set k_pow_r 0"),
+                ("console", "set k_pow_s 0"),
+            ],
+        )
+        self.assertEqual(cb.validate_game_command("start"), [("client", "ready")])
+        self.assertEqual(cb.validate_game_command("stop"), [("client", "break")])
+        self.assertEqual(cb.validate_game_command("prewar"), [("client", "break"), ("console", "set k_prewar 0")])
+        self.assertEqual(cb.validate_game_command("bot_respawn", "4"), [("botcmd", "removeall"), ("addbot", "1")])
+        self.assertEqual(cb.validate_game_command("bot_weapon_lock"), [("botcmd", "weapon 1")])
+        self.assertEqual(cb.validate_game_command("bot_weapon_unlock"), [("botcmd", "weapon random")])
+        self.assertEqual(cb.validate_game_command("trick_pause"), [("botcmd", "removeall")])
+        self.assertEqual(
+            cb.validate_game_command("ztricks_distance_standstill"),
+            [
+                ("botcmd", "removeall"),
+                ("console", 'set k_fb_moveprobe_spawn_origin "-3516.125 3712 -453.125"'),
+                ("console", "set k_fb_moveprobe_mode 23"),
+                ("console", "set k_fb_moveprobe_fixed_goal 8"),
+                ("console", "set k_fb_moveprobe_s23_launch_vh 430"),
+                ("console", "set k_fb_moveprobe_s23_launch_angle 50"),
+                ("console", "set k_fb_moveprobe_s21_swing 8"),
+                ("console", "set k_fb_moveprobe_log_commands 1"),
+                ("console", "set k_fb_moveprobe_log_interval 0"),
+                ("addbot", "1"),
+            ],
+        )
+        for action, value in (
+            ("gamemode", "3on3"),
+            ("deathmatch", "5"),
+            ("powerups", "toggle"),
+            ("exec", "server.cfg"),
+            ("bot_respawn", "x"),
+            ("bot_respawn", "32"),
+        ):
+            self.assertIsInstance(cb.validate_game_command(action, value), str)
+
 
 class TestLock(unittest.TestCase):
     def test_classify(self):
@@ -192,6 +241,7 @@ class TestHarnessPriority(unittest.TestCase):
                 {"op": "removebot", "req_id": "5"},
                 {"op": "set_cvar", "name": "k_fb_skill", "value": 10, "req_id": "6"},
                 {"op": "console", "line": "status", "req_id": "7"},
+                {"op": "game_command", "action": "gamemode", "value": "4on4", "req_id": "7g"},
             ]
             for request in ops:
                 response, broadcast = local(bridge,request, "peer")
@@ -259,11 +309,31 @@ class TestSessionLifecycle(unittest.TestCase):
             self.assertFalse(response["ok"])
             self.assertIn("already running", response["detail"])
 
-            # stop releases the lock
+    def test_session_start_retries_next_port_after_start_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge, executor = make_bridge(tmp)
+            real_start = executor.start_session
+
+            def flaky_start(port, *args):
+                if port == 28599:
+                    raise RuntimeError("tcp bind failed")
+                return real_start(port, *args)
+
+            executor.start_session = flaky_start
+            response, broadcast = local(bridge,{"op": "session_start", "map": "trick", "req_id": "1"}, "p")
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(response["port"], 28600)
+            self.assertEqual(broadcast["port"], 28600)
+            self.assertIn(("stop_session", 28599), executor.calls)
+            lock = cb.read_lock(Path(tmp) / "lab.lock")
+            self.assertEqual(lock["port"], 28600)
+            self.assertEqual(lock["map"], "trick")
+
+            # stop releases the lock on the successfully retried port
             response, broadcast = local(bridge,{"op": "session_stop", "req_id": "3"}, "p")
             self.assertTrue(response["ok"], response)
-            self.assertEqual(broadcast, {"type": "control_event", "event": "session_stop", "port": 28599})
-            self.assertIn(("stop_session", 28599), executor.calls)
+            self.assertEqual(broadcast, {"type": "control_event", "event": "session_stop", "port": 28600})
+            self.assertIn(("stop_session", 28600), executor.calls)
             self.assertIsNone(cb.read_lock(Path(tmp) / "lab.lock"))
 
     def test_ports_exhausted_refuses(self):
@@ -355,6 +425,7 @@ class TestSessionScopedOps(unittest.TestCase):
                 {"op": "addbot", "req_id": "2"},
                 {"op": "set_cvar", "name": "k_fb_skill", "value": 1, "req_id": "3"},
                 {"op": "console", "line": "status", "req_id": "4"},
+                {"op": "game_command", "action": "start", "req_id": "5"},
             ):
                 response, _ = local(bridge,request, "p")
                 self.assertFalse(response["ok"], request)
@@ -425,6 +496,121 @@ class TestSessionScopedOps(unittest.TestCase):
             response, _ = local(bridge,{"op": "removebot", "slot": "x", "req_id": "5"}, "p")
             self.assertFalse(response["ok"])
 
+    def test_game_command_dispatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dashboard_lock(tmp, port=28600)
+            bridge, executor = make_bridge(tmp)
+
+            response, broadcast = local(bridge,
+                {"op": "game_command", "action": "gamemode", "value": "2on2", "req_id": "1"}, "p"
+            )
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(executor.calls[-1], ("send_client_cmds", 28600, ("2on2",)))
+            self.assertEqual(broadcast["event"], "game_command")
+            self.assertEqual(broadcast["action"], "gamemode")
+
+            response, _ = local(bridge,
+                {"op": "game_command", "action": "deathmatch", "value": "4", "req_id": "2"}, "p"
+            )
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(executor.calls[-1], ("send_client_cmds", 28600, ("dmm4",)))
+
+            response, _ = local(bridge,
+                {"op": "game_command", "action": "powerups", "value": "on", "req_id": "3"}, "p"
+            )
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(
+                executor.calls[-5:],
+                [
+                    ("stuff", 28600, "set k_pow 1"),
+                    ("stuff", 28600, "set k_pow_q 1"),
+                    ("stuff", 28600, "set k_pow_p 1"),
+                    ("stuff", 28600, "set k_pow_r 1"),
+                    ("stuff", 28600, "set k_pow_s 1"),
+                ],
+            )
+
+            response, _ = local(bridge,
+                {"op": "game_command", "action": "gamemode", "value": "wipeout", "req_id": "4"}, "p"
+            )
+            self.assertFalse(response["ok"])
+
+            response, broadcast = local(bridge,
+                {"op": "game_command", "action": "prewar", "req_id": "5"}, "p"
+            )
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(
+                executor.calls[-2:],
+                [
+                    ("send_client_cmds", 28600, ("break",)),
+                    ("stuff", 28600, "set k_prewar 0"),
+                ],
+            )
+            self.assertEqual(broadcast["action"], "prewar")
+
+            response, broadcast = local(bridge,
+                {"op": "game_command", "action": "bot_respawn", "value": "4", "req_id": "6"}, "p"
+            )
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(executor.calls[-2:], [("send_botcmds", 28600, ("removeall",)), ("add_bots", 28600, 1)])
+            self.assertEqual(broadcast["action"], "bot_respawn")
+            self.assertEqual(broadcast["value"], "4")
+
+            response, broadcast = local(bridge,
+                {"op": "game_command", "action": "bot_weapon_lock", "req_id": "7"}, "p"
+            )
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(executor.calls[-1], ("send_botcmds", 28600, ("weapon 1",)))
+            self.assertEqual(broadcast["action"], "bot_weapon_lock")
+
+            response, broadcast = local(bridge,
+                {"op": "game_command", "action": "trick_pause", "req_id": "8"}, "p"
+            )
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(executor.calls[-1], ("send_botcmds", 28600, ("removeall",)))
+            self.assertEqual(broadcast["action"], "trick_pause")
+
+    def test_ztricks_distance_standstill_dispatch_requires_ztricks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dashboard_lock(tmp, port=28600)  # default map is dm3
+            bridge, executor = make_bridge(tmp)
+
+            response, _ = local(bridge,
+                {"op": "game_command", "action": "ztricks_distance_standstill", "req_id": "1"}, "p"
+            )
+            self.assertFalse(response["ok"])
+            self.assertIn("requires a ztricks session", response["detail"])
+            self.assertEqual(executor.calls, [])
+
+    def test_ztricks_distance_standstill_dispatch_sets_preset_and_adds_bot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dashboard_lock(tmp, port=28600)
+            lock = cb.read_lock(Path(tmp) / "lab.lock")
+            lock["map"] = "ztricks"
+            cb.write_lock(Path(tmp) / "lab.lock", lock)
+            bridge, executor = make_bridge(tmp)
+
+            response, broadcast = local(bridge,
+                {"op": "game_command", "action": "ztricks_distance_standstill", "req_id": "1"}, "p"
+            )
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(broadcast["action"], "ztricks_distance_standstill")
+            self.assertEqual(
+                executor.calls,
+                [
+                    ("send_botcmds", 28600, ("removeall",)),
+                    ("stuff", 28600, 'set k_fb_moveprobe_spawn_origin "-3516.125 3712 -453.125"'),
+                    ("stuff", 28600, "set k_fb_moveprobe_mode 23"),
+                    ("stuff", 28600, "set k_fb_moveprobe_fixed_goal 8"),
+                    ("stuff", 28600, "set k_fb_moveprobe_s23_launch_vh 430"),
+                    ("stuff", 28600, "set k_fb_moveprobe_s23_launch_angle 50"),
+                    ("stuff", 28600, "set k_fb_moveprobe_s21_swing 8"),
+                    ("stuff", 28600, "set k_fb_moveprobe_log_commands 1"),
+                    ("stuff", 28600, "set k_fb_moveprobe_log_interval 0"),
+                    ("add_bots", 28600, 1),
+                ],
+            )
+
 
 class TestProtocolEdges(unittest.TestCase):
     def test_unknown_op_and_bad_request(self):
@@ -478,6 +664,7 @@ class TestAuthorization(unittest.TestCase):
         {"op": "removebot"},
         {"op": "set_cvar", "name": "k_fb_skill", "value": 10},
         {"op": "console", "line": "status"},
+        {"op": "game_command", "action": "start"},
         # LD-F5 (#106): verdict (certification) is a real mutating op.
         {"op": "verdict", "map": "dm3", "route": "sng_to_rl"},
     )

@@ -402,7 +402,7 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   (`experiments/nav_doctrine/evidence/replay/dm3_<route>.cmds`) into the committed,
   versioned routes manifests `lab/dashboard/public/data/routes/{dm3,dm2,frobodm2,trick,index}.json`
   (schema `komodobots.routes.v1`) — the canonical "what routes exist" feed for the
-  Mockup view, KPI dock and control drawer. Deterministic/idempotent (LF outputs,
+  Mockup view, KPI dock and control panels. Deterministic/idempotent (LF outputs,
   `-text` in `.gitattributes`, LF-normalized sha256 provenance hashes);
   `tests/test_build_routes_manifest.py` locks the committed outputs against a fresh
   build. Pipeline details: `docs/06_DATA_AND_MVD_PIPELINE.md` § Routes manifest.
@@ -553,27 +553,43 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   (stable ref), wired to the telemetry socket via `onConnectionChange()`, and receives
   raw text frames via `onMessage()`.  Provides typed convenience wrappers for every
   mutating op: `sessionStart`, `sessionStop`, `addBot`, `removeBot`, `setCvar`, `console`
-  (with `@<slot>` expansion), and `verdict` (LD-F5: `map, route, note?` — certification
-  that the route has reached human-level).  Token auth: optional `?ctoken=` URL param
-  for non-loopback callers; loopback dashboard sessions are trusted automatically by the bridge.
+  (with `@<slot>` expansion), `gameCommand` (allowlisted game-level controls), and
+  `verdict` (LD-F5: `map, route, note?` — certification that the route has reached
+  human-level).  Token auth: optional `?ctoken=` URL param for non-loopback callers;
+  loopback dashboard sessions are trusted automatically by the bridge.
 
-- `lab/dashboard/src/ControlDrawer.tsx` (LD-F3, #105) — slide-down control drawer
-  component.  Rendered from `App.tsx` when `layout.drawerOpen`; positioned absolute
-  below the top bar, non-modal.  Three columns:
+- `lab/dashboard/src/ControlDrawer.tsx` (LD-F3, #105) — side-panel control surfaces.
+  `ControlDrawer` renders from `App.tsx` when `layout.drawerOpen`; it is a fixed
+  vertical right-side panel, non-modal.  `CvarConsolePanel` renders separately when
+  `layout.consoleOpen`; it docks right when alone or left when the control panel is
+  already open.  The panels shrink to half-viewport width when both are open on narrow
+  screens.  Control panel sections:
   - **Session block**: lock badge (free / locked / stale), stale-takeover confirm flow,
-    map selector (dm3/dm2/frobodm2/trick), start/stop buttons.
+    map selector (dm3/dm2/frobodm2/trick/ztricks), start/stop buttons.
+  - **Game controls**: direct buttons call `gameCommand` for KTX `4on4`, `2on2`, `1on1`,
+    `ffa`, `dmm1`-`dmm4`, powerups on/off, `ready`, and `break`. These mutate the
+    running game inside the active dashboard-owned lab server, not the dashboard session
+    lifecycle.  The ztricks-only `ztricks_distance_standstill` button applies the A5
+    Distance standstill preset (clear existing dashboard bots, spawn-snap at
+    `-3516.125 3712 -453.125`, mode 23, fixed goal 8, circle-jump launch cvars)
+    and spawns one bot for a clean visible attempt.  Issue #155 controls are also
+    first-class game commands: `prewar`, bot ranged-weapon lock/unlock (`axe only` /
+    `weapons free`), single-live-bot respawn, and pause/clear for trick viewing.
   - **Bot roster**: per-slot rows with name, route dropdown (routes of the current map
     from the routes manifest), add/remove buttons.  Route display shows server truth from
     `FBMOVEPROBE_ASSIGN` rows via `TelemetryClient.assignListeners`, with a "pending…"
-    phase until the ASSIGN row arrives.  Route name round-trips correctly for underscored
-    names (e.g. `dm3_sng_to_rl.cmds` → `sng_to_rl`).
-  - **Cvar console**: command history (↑/↓), response echo, inline rejection rendering,
-    `@<slot>` per-slot shorthand.
+    phase until the ASSIGN row arrives.  For global ztricks presets that do not emit
+    ASSIGN rows, `TelemetryClient.frameListeners` provide an ed/name roster fallback;
+    late frames from cleared bots are briefly suppressed after reset/respawn so stale
+    edicts do not reappear as phantom rows.  Route name round-trips correctly for
+    underscored names (e.g. `dm3_sng_to_rl.cmds` → `sng_to_rl`).
+  - **Cvar console panel**: command history (up/down), response echo, inline rejection
+    rendering, `@<slot>` per-slot shorthand.
   Per-bot assignment sends all four per-slot cvars (`replay_file`, `mode`, `fixed_goal`,
   `spawn_origin`) atomically; `spawn_origin` is derived from `polyline[0]` in the route
   manifest (fetched lazily, cached).
   Disabled states enforced: bridge disconnected, harness lock fresh, no session running
-  (except `session_start`).  Esc and click-outside close (wired in `App.tsx`).
+  (except `session_start`).  Esc closes side panels (wired in `App.tsx`).
   Accepts `telemetryClient` prop for ASSIGN subscription.
 
 ### Lab control bridge (lab/server)
@@ -589,8 +605,13 @@ allowlist 28599–28609, flat deny of production
 harness-priority lab lock (`~/komodobots-lab/lab.lock`), audits every mutating attempt
 to `~/komodobots-lab/control-audit.log`, and dispatches through an injectable
 `LabExecutor` (screen sessions + the `qw_min_client.py` shim — `botcmd` is not a
-server-console command). `experiments/qw_min_client.py` gained a repeatable `--botcmd`
-flag for the bridge's bot ops; `scripts/run_frobodm2_lab.py` writes/releases the
+server-console command). `game_command` is a separate allowlisted enum for KTX
+game controls plus the guarded ztricks Distance standstill preset; it may dispatch
+safe client commands, console cvar lines, short-lived botcmd shims, and addbot actions.
+Botcmd shims stay connected for 5 s because `removeall` was unreliable with the earlier
+2 s window; client-command shims use 2 s to keep the dashboard response under timeout.
+`experiments/qw_min_client.py` gained repeatable `--botcmd` and `--cmd` flags for
+the bridge's bot ops and client-command game controls; `scripts/run_frobodm2_lab.py` writes/releases the
 `owner=harness` lock around each attempt and refuses ports held by dashboard sessions.
 `experiments/smoke_ws_control.py` is the manual local smoke / lab-slot end-to-end
 client. Protocol, security gates, and the `kbot-telemetry` deploy/restart procedure:

@@ -34,9 +34,9 @@ import {
   INITIAL_KPI_CONTEXT,
   type KpiContext,
 } from "./contextStore.ts";
-// LD-F3 (#105): control drawer
+// LD-F3 (#105): control side panels
 import { ControlClient } from "./controlClient.ts";
-import { ControlDrawer } from "./ControlDrawer.tsx";
+import { ControlDrawer, CvarConsolePanel } from "./ControlDrawer.tsx";
 
 // Re-export openDemo type for LD-E4 (#104) to import.
 export type { OpenDemoParams } from "./DemoPane.tsx";
@@ -67,8 +67,7 @@ export function useShellActions(): ShellActions | null {
 //
 // LD-B1 (#87): view shell — top-bar toggles + fixed-order pane grid
 // (Demo -> Mockup -> Live 3D -> Live Game). Demo/Mockup are labeled
-// placeholders until LD-D3 (#94/#98) / LD-C3 (#97); the control drawer
-// renders as a labeled placeholder until LD-F3 (#105). Layout state persists
+// placeholders until LD-D3 (#94/#98) / LD-C3 (#97); layout state persists
 // per lab/dashboard/src/layoutState.ts.
 //
 // LD-E1 (#100): KPI dock built — KpiDock component replaces the placeholder
@@ -329,33 +328,21 @@ export function App() {
   // changes (i.e. new attempt), mirroring the hub App.tsx attach/retry pattern.
   // labPort and mapName are derived below; keep the effect after their declarations.
 
-  // Esc closes the control drawer (SPEC §6.1).
-  // Click outside the drawer header area also closes (non-modal, SPEC §3.7).
+  // Esc closes side control surfaces (SPEC §6.1).
   useEffect(() => {
-    if (!layout.drawerOpen) {
+    if (!layout.drawerOpen && !layout.consoleOpen) {
       return;
     }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setLayout((state) => ({ ...state, drawerOpen: false }));
-      }
-    };
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as Element | null;
-      if (!target) return;
-      // Close if the click lands outside the drawer element itself.
-      const drawer = document.querySelector('[data-drawer="control"]');
-      if (drawer && !drawer.contains(target)) {
-        setLayout((state) => ({ ...state, drawerOpen: false }));
+        setLayout((state) => ({ ...state, drawerOpen: false, consoleOpen: false }));
       }
     };
     window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("pointerdown", onPointerDown);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [layout.drawerOpen]);
+  }, [layout.drawerOpen, layout.consoleOpen]);
 
   // LD-E1 (#100): "[" toggles the KPI dock (non-conflicting; no modifier needed).
   // Guard: skip when focus is inside an input, textarea, or select so normal
@@ -655,7 +642,7 @@ export function App() {
         <button
           type="button"
           aria-pressed={layout.drawerOpen}
-          title="Control drawer — built in LD-F3 (#105); this button persists the open state"
+          title="Control panel"
           onClick={() =>
             setLayout((state) => ({ ...state, drawerOpen: !state.drawerOpen }))
           }
@@ -666,6 +653,21 @@ export function App() {
           }`}
         >
           Control
+        </button>
+        <button
+          type="button"
+          aria-pressed={layout.consoleOpen}
+          title="Cvar console"
+          onClick={() =>
+            setLayout((state) => ({ ...state, consoleOpen: !state.consoleOpen }))
+          }
+          className={`px-2 py-0.5 rounded border border-dashed text-xs ${
+            layout.consoleOpen
+              ? "border-slate-500 text-gray-300"
+              : "border-slate-700 text-gray-500 hover:border-slate-500"
+          }`}
+        >
+          Console
         </button>
 
         {/* LD-D3 (#98): demo context line — emitted by DemoPane while playing;
@@ -697,16 +699,29 @@ export function App() {
               : "telemetry disconnected"}
         </span>
 
-        {/* LD-F3 (#105): real control drawer — session/map/roster/assignment/console */}
+        {/* LD-F3 (#105): right-side control panel — session/game/roster/assignment */}
         {layout.drawerOpen && (
           <ControlDrawer
             client={controlClientRef.current}
             telemetryClient={client}
             wsConnected={connection.connected}
+            consoleOpen={layout.consoleOpen}
+            onConsoleToggle={() =>
+              setLayout((state) => ({ ...state, consoleOpen: !state.consoleOpen }))
+            }
             onClose={() => setLayout((state) => ({ ...state, drawerOpen: false }))}
           />
         )}
       </header>
+
+      {layout.consoleOpen && (
+        <CvarConsolePanel
+          client={controlClientRef.current}
+          wsConnected={connection.connected}
+          side={layout.drawerOpen ? "left" : "right"}
+          onClose={() => setLayout((state) => ({ ...state, consoleOpen: false }))}
+        />
+      )}
 
       <div className="grow min-h-0 flex">
         {/* LD-E1 (#100): KPI dock — real component replaces the placeholder aside.

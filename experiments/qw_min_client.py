@@ -39,6 +39,11 @@ def signon_botcmds(bot_count: int, botcmds: list[str]) -> list[str]:
     return lines
 
 
+def signon_commands(bot_count: int, botcmds: list[str], commands: list[str]) -> list[str]:
+    """All reliable string commands sent once right after sign-on."""
+    return [*signon_botcmds(bot_count, botcmds), *commands]
+
+
 class QWMinClient:
     def __init__(
         self,
@@ -51,6 +56,7 @@ class QWMinClient:
         name: str,
         verbose: bool,
         botcmds: list[str] | None = None,
+        commands: list[str] | None = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -60,6 +66,7 @@ class QWMinClient:
         self.name = name
         self.verbose = verbose
         self.botcmds = list(botcmds or [])
+        self.commands = list(commands or [])
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("0.0.0.0", local_port))
@@ -224,7 +231,7 @@ class QWMinClient:
                 if self.bot_count > 0:
                     bots_sent = 1
                     next_bot_time = now + self.bot_spacing
-                commands.extend(signon_botcmds(self.bot_count, self.botcmds))
+                commands.extend(signon_commands(self.bot_count, self.botcmds, self.commands))
                 self.send_reliable(commands)
                 signed_on = True
                 next_nop = now + 0.5
@@ -257,6 +264,12 @@ def parse_args() -> argparse.Namespace:
         default=[],
         help="Extra 'botcmd <arg>' sent once after sign-on (repeatable), e.g. --botcmd removebot.",
     )
+    parser.add_argument(
+        "--cmd",
+        action="append",
+        default=[],
+        help="Extra raw client command sent once after sign-on (repeatable). Intended for allowlisted lab control only.",
+    )
     return parser.parse_args()
 
 
@@ -272,6 +285,7 @@ def main() -> None:
         name=args.name,
         verbose=not args.quiet,
         botcmds=args.botcmd,
+        commands=args.cmd,
     )
     client.run()
 
