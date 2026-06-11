@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   type ReactNode,
@@ -27,6 +28,12 @@ import {
   type OpenDemoParams,
 } from "./DemoPane.tsx";
 import { MockupPane, type MockupSelection } from "./MockupPane.tsx";
+import { KpiDock } from "./KpiDock.tsx";
+import {
+  applyContextUpdate,
+  INITIAL_KPI_CONTEXT,
+  type KpiContext,
+} from "./contextStore.ts";
 
 // Re-export openDemo type for LD-E4 (#104) to import.
 export type { OpenDemoParams } from "./DemoPane.tsx";
@@ -57,9 +64,15 @@ export function useShellActions(): ShellActions | null {
 //
 // LD-B1 (#87): view shell — top-bar toggles + fixed-order pane grid
 // (Demo -> Mockup -> Live 3D -> Live Game). Demo/Mockup are labeled
-// placeholders until LD-D3 (#94/#98) / LD-C3 (#97); the KPI dock and the
-// control drawer render as labeled placeholders until LD-E1 (#100) /
-// LD-F3 (#105). Layout state persists per lab/dashboard/src/layoutState.ts.
+// placeholders until LD-D3 (#94/#98) / LD-C3 (#97); the control drawer
+// renders as a labeled placeholder until LD-F3 (#105). Layout state persists
+// per lab/dashboard/src/layoutState.ts.
+//
+// LD-E1 (#100): KPI dock built — KpiDock component replaces the placeholder
+// <aside>.  Context store (contextStore.ts) tracks {map, route, source}
+// with precedence live > last-user-selection > none.  Three producers wired:
+// telemetry live-state (map from attempt, source live/none), MockupPane
+// selection (source mockup), Demo context stub (LD-D3 #98 will feed this).
 //
 // LD-B2 (#88): Live Game pane = standalone qtv.html iframe. The iframe boots
 // FTE WASM once and re-issues qtvplay on every new attempt via postMessage
@@ -116,10 +129,21 @@ export function App() {
   const [attempt, setAttempt] = useState<TelemetryAttempt | null>(null);
   const [connection, setConnection] = useState({ connected: false, live: false });
   const [showReference, setShowReference] = useState(true);
-  const [mockupSelection, setMockupSelection] = useState<MockupSelection>({ map: "dm3", route: null });
   const [layout, setLayout] = useState<LayoutState>(() =>
     loadLayout(window.location.search),
   );
+
+  // LD-E1 (#100): KPI context store — useReducer holds {context, lastUser}
+  // together so applyContextUpdate always sees consistent paired state.
+  type ContextPair = { context: KpiContext; lastUser: KpiContext };
+  const [ctxPair, dispatchContext] = useReducer(
+    (
+      state: ContextPair,
+      update: Parameters<typeof applyContextUpdate>[2],
+    ): ContextPair => applyContextUpdate(state.context, state.lastUser, update),
+    { context: INITIAL_KPI_CONTEXT, lastUser: INITIAL_KPI_CONTEXT },
+  );
+  const kpiContext = ctxPair.context;
 
   // LD-B2 (#88): QTV iframe ref + status chip state.
   const qtvIframeRef = useRef<HTMLIFrameElement>(null);
@@ -210,6 +234,20 @@ export function App() {
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
+  // LD-E1 (#100): telemetry live-state producer — when a live attempt starts,
+  // push source="live" with the current attempt map.  When it ends, push
+  // live=false so the context falls back to the last user selection.
+  // The map in the live update comes from `attempt.map` (may be null on initial
+  // connection before the first attempt; guard with ?? "dm3").
+  useEffect(() => {
+    if (connection.live) {
+      dispatchContext({ kind: "live", map: attempt?.map ?? "dm3", live: true });
+    } else {
+      dispatchContext({ kind: "live", map: attempt?.map ?? "dm3", live: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connection.live, attempt?.map]);
+
   // LD-B2 (#88): send {cmd:"attach"} to qtv.html whenever the lab port or run
   // changes (i.e. new attempt), mirroring the hub App.tsx attach/retry pattern.
   // labPort and mapName are derived below; keep the effect after their declarations.
@@ -227,6 +265,20 @@ export function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [layout.drawerOpen]);
+
+  // LD-E1 (#100): "[" toggles the KPI dock (non-conflicting; no modifier needed).
+  // Guard: skip when focus is inside an input, textarea, or select so normal
+  // typing is unaffected.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "[") return;
+      const tag = (event.target as HTMLElement | null)?.tagName ?? "";
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      setLayout((state) => ({ ...state, dockCollapsed: !state.dockCollapsed }));
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const toggleView = (view: ViewId) => {
     setLayout((state) => ({
@@ -262,6 +314,17 @@ export function App() {
     );
   }, [labPort, runId, qtvRelay, mapName]);
 
+  // LD-E1 (#100): Stable mockup-selection callback — memoized so MockupPane's
+  // useEffect (which lists onSelect as a dep) does not re-run on every App render.
+  // An inline arrow would get a new identity each render, causing dispatchContext
+  // → new state object → re-render → new arrow → loop (Codex inline P1).
+  const onMockupSelect = useCallback(
+    (sel: MockupSelection) => {
+      dispatchContext({ kind: "mockup", map: sel.map, route: sel.route });
+    },
+    [], // dispatchContext is the useReducer dispatch — always stable
+  );
+
   const paneContent: Record<ViewId, ReactNode> = {
     // LD-D3 (#98): Demo view — records/archive picker + FTE demo iframe.
     // DemoPane manages the FTE iframe and picker; App.tsx wires openDemo and
@@ -271,7 +334,18 @@ export function App() {
       <Pane key="demo" id="demo" header={<span>Demo</span>}>
         <DemoPane
           contextMap={mapName}
-          onContext={setDemoContext}
+          onContext={(ctx: DemoContext | null) => {
+            // LD-E1 (#100): wire demo context to the KPI reducer (P1 fix).
+            // Set local preview state (used in the status-bar line) AND
+            // dispatch to the shared context store so the KPI dock reflects
+            // demo playback.  When ctx is null (demo ended/unloaded), we do
+            // not dispatch a reset — the last selection persists per
+            // applyContextUpdate precedence rules.
+            setDemoContext(ctx);
+            if (ctx !== null) {
+              dispatchContext({ kind: "demo", map: ctx.map, route: ctx.route });
+            }
+          }}
           handleRef={demoPaneHandleRef}
           onHandleReady={onDemoPaneHandleReady}
         />
@@ -284,21 +358,21 @@ export function App() {
         header={
           <>
             <span>Mockup</span>
-            {mockupSelection.route !== null && (
+            {kpiContext.source === "mockup" && kpiContext.route !== null && (
               <span className="ml-2 text-gray-500 font-mono">
-                {mockupSelection.map} · {mockupSelection.route}
+                {kpiContext.map} · {kpiContext.route}
               </span>
             )}
           </>
         }
       >
         {/* LD-C3 (#97): offline map/route browser. Emits MockupSelection to the
-            shell so the future KPI dock (LD-E1, #100) can react to map/route
-            context changes from the Mockup pane.
+            shell so the KPI dock (LD-E1, #100) reacts to map/route context
+            changes from the Mockup pane.
             LD-C5 (#99): mapOpacity / wireframe forwarded from shared layout
             state so both 3D panes react to the top-bar shared controls. */}
         <MockupPane
-          onSelect={setMockupSelection}
+          onSelect={onMockupSelect}
           mapOpacity={layout.mapOpacity}
           wireframe={layout.wireframe}
         />
@@ -467,7 +541,8 @@ export function App() {
         <button
           type="button"
           aria-pressed={layout.dockCollapsed}
-          title="KPI dock — built in LD-E1 (#100); this button persists the collapse state"
+          aria-keyshortcuts="["
+          title="KPI dock — toggle with [ key (LD-E1 #100)"
           onClick={() =>
             setLayout((state) => ({
               ...state,
@@ -535,22 +610,14 @@ export function App() {
       </header>
 
       <div className="grow min-h-0 flex">
-        <aside
-          data-dock={layout.dockCollapsed ? "rail" : "expanded"}
-          className={`shrink-0 border-r border-dashed border-slate-800 text-gray-600 ${
-            layout.dockCollapsed
-              ? "w-7 flex items-start justify-center pt-3"
-              : "w-52 p-3"
-          }`}
-        >
-          {layout.dockCollapsed ? (
-            <span className="text-[10px] [writing-mode:vertical-rl]">KPI</span>
-          ) : (
-            <span className="text-xs">
-              KPI dock — placeholder; scoreboard lands in LD-E1 (#100).
-            </span>
-          )}
-        </aside>
+        {/* LD-E1 (#100): KPI dock — real component replaces the placeholder aside. */}
+        <KpiDock
+          context={kpiContext}
+          collapsed={layout.dockCollapsed}
+          onToggle={() =>
+            setLayout((state) => ({ ...state, dockCollapsed: !state.dockCollapsed }))
+          }
+        />
 
         <main className="grow min-w-0 overflow-x-auto">
           {openViews.length === 0 ? (
