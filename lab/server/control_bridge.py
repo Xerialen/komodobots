@@ -14,7 +14,7 @@ Protocol (JSON text frames over the existing websocket):
 Ops: session_start {map, force?} / session_stop {port?, force?} / set_map {map}
 / addbot {count?} / removebot {slot?|all?} / set_cvar {name, value, slot?}
 / console {line} / lock_status
-/ verdict {map, route, verdict: pass|close|fail, note?, run_id?} (LD-F5 #106).
+/ verdict {map, route, note?} (LD-F5 #106 — user certifies route reached human-level).
 
 SECURITY IS BINDING (all gates enforced server-side, the UI is courtesy):
 
@@ -109,10 +109,11 @@ SESSION_OPS: frozenset[str] = frozenset({"set_map", "addbot", "removebot", "set_
 # the user is watching a run that the harness currently owns.
 LOCK_EXEMPT_OPS: frozenset[str] = frozenset({"verdict"})
 
-# LD-F5 (#106): Allowed verdict values.
-VALID_VERDICTS: frozenset[str] = frozenset({"pass", "close", "fail"})
+# LD-F5 (#106): verdicts.json schema.
+# v2: sparse certification events — the user declares human-level reached.
+# (v1 was pass/close/fail three-state; replaced by the 2026-06-10 user decision.)
 VERDICTS_FILENAME = "verdicts.json"
-VERDICTS_SCHEMA = "komodobots.verdicts.v1"
+VERDICTS_SCHEMA = "komodobots.verdicts.v2"
 
 MVDSV_LAB_BIN = "mvdsv-lab"
 
@@ -223,25 +224,21 @@ def validate_console_line(line: object) -> str | None:
 def validate_verdict_args(
     map_name: object,
     route: object,
-    verdict: object,
     note: object,
-    run_id: object,
 ) -> str | None:
     """Returns an error string if any field is invalid, else None.
 
-    LD-F5 (#106): validates the verdict op fields before writing to verdicts.json.
-    - map: TOKEN_RE (same as validate_map_name, but stored for context only)
+    LD-F5 (#106): validates the verdict (certification) op fields.
+    User decision 2026-06-10: certification is binary (human-level reached),
+    no pass/close/fail three-state.
+    - map: TOKEN_RE (same as validate_map_name, stored for context)
     - route: TOKEN_RE
-    - verdict: 'pass', 'close', or 'fail'
     - note: optional str, limited length, no control chars
-    - run_id: optional str, TOKEN_RE or None
     """
     if validate_map_name(map_name) is None:
         return "invalid map name"
     if not isinstance(route, str) or not TOKEN_RE.match(route) or hits_flat_deny(route):
         return "invalid route name"
-    if verdict not in VALID_VERDICTS:
-        return f"verdict must be one of: {', '.join(sorted(VALID_VERDICTS))}"
     if note is not None:
         if not isinstance(note, str):
             return "note must be a string or null"
@@ -249,9 +246,6 @@ def validate_verdict_args(
             return "note too long (max 1000 characters)"
         if any(ord(c) < 32 and c not in ("\t",) for c in note):
             return "note contains invalid control characters"
-    if run_id is not None and run_id != "":
-        if not isinstance(run_id, str) or not TOKEN_RE.match(run_id):
-            return "run_id must be a simple alphanumeric token or null"
     return None
 
 
@@ -799,61 +793,54 @@ class ControlBridge:
         return self.lab_home / "records" / VERDICTS_FILENAME
 
     def _verdict(self, req_id: object, request: dict):
-        """LD-F5 (#106): write an eye-test verdict to verdicts.json.
+        """LD-F5 (#106): certify that a route has reached human-level movement.
 
-        Lock-exempt: the operator records verdicts while watching a run; the
-        harness lock must not block this.  Atomic write via temp-file+rename.
-        History kept: the file stores the latest verdict per route plus an
-        optional history list (appended on every write so previous verdicts
-        are recoverable).
+        User decision 2026-06-10: no pass/close/fail three-state; the user
+        declares human-level reached (one action).  Each certification is a
+        sparse dated event appended to certifications[route]; the scoreboard
+        reads the latest entry.  Lock-exempt: the operator certifies while
+        watching a run; the harness lock must not block this.
+        Atomic write via temp-file+rename.
         """
         map_name = request.get("map")
         route = request.get("route")
-        verdict = request.get("verdict")
         note = request.get("note")
-        run_id = request.get("run_id")
 
-        error = validate_verdict_args(map_name, route, verdict, note, run_id)
+        error = validate_verdict_args(map_name, route, note)
         if error is not None:
             return self._refuse(req_id, error), None
 
-        # Normalise optional fields.
+        # Normalise optional note.
         note_val: str | None = str(note).strip() if isinstance(note, str) and note.strip() else None
-        run_id_val: str | None = str(run_id) if isinstance(run_id, str) and run_id.strip() else None
-        entry: dict[str, object] = {
-            "verdict": verdict,
-            "note": note_val,
-            "run_id": run_id_val,
+        certification: dict[str, object] = {
             "date": utc_now_iso()[:10],  # ISO date YYYY-MM-DD
         }
+        if note_val is not None:
+            certification["note"] = note_val
 
         verdicts_path = self._verdicts_path
         verdicts_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Load existing file; initialise a fresh schema if absent.
+        # Load existing file; initialise a fresh schema if absent or wrong version.
         try:
             existing_text = verdicts_path.read_text(encoding="utf-8")
             existing: dict[str, object] = json.loads(existing_text)
             if not isinstance(existing, dict) or existing.get("schema") != VERDICTS_SCHEMA:
-                existing = {"schema": VERDICTS_SCHEMA, "routes": {}}
+                existing = {"schema": VERDICTS_SCHEMA, "certifications": {}}
         except FileNotFoundError:
-            existing = {"schema": VERDICTS_SCHEMA, "routes": {}}
+            existing = {"schema": VERDICTS_SCHEMA, "certifications": {}}
         except (OSError, json.JSONDecodeError) as exc:
             return self._refuse(req_id, f"could not read verdicts.json: {exc}"), None
 
-        routes: dict[str, object] = existing.get("routes", {})
-        if not isinstance(routes, dict):
-            routes = {}
+        certifications: dict[str, object] = existing.get("certifications", {})
+        if not isinstance(certifications, dict):
+            certifications = {}
 
-        # Append previous entry to history before overwriting the latest slot.
-        prev = routes.get(route)
-        if isinstance(prev, dict) and prev.get("verdict") in VALID_VERDICTS:
-            history: list[object] = list(existing.get("_history", {}).get(route) or [])  # type: ignore[arg-type]
-            history.append(prev)
-            existing.setdefault("_history", {})[route] = history  # type: ignore[index]
-
-        routes[route] = entry
-        existing["routes"] = routes
+        # Append this certification event to the route's list (sparse, dated).
+        route_certs: list[object] = list(certifications.get(route) or [])  # type: ignore[arg-type]
+        route_certs.append(certification)
+        certifications[route] = route_certs
+        existing["certifications"] = certifications
 
         # Atomic write.
         tmp_path = verdicts_path.with_suffix(".json.tmp")
@@ -866,15 +853,15 @@ class ControlBridge:
         except OSError as exc:
             return self._refuse(req_id, f"could not write verdicts.json: {exc}"), None
 
-        detail = f"verdict '{verdict}' written for {map_name}/{route}"
+        detail = f"certified human-level for {map_name}/{route} on {certification['date']}"
         return (
-            self._ok(req_id, detail, map=map_name, route=route, verdict=verdict),
+            self._ok(req_id, detail, map=map_name, route=route, date=certification["date"]),
             {
                 "type": "control_event",
                 "event": "verdict",
                 "map": map_name,
                 "route": route,
-                "verdict": verdict,
+                "date": certification["date"],
             },
         )
 

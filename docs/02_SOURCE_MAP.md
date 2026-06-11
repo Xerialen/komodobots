@@ -473,35 +473,47 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   user selection > none.  The pure logic is exercised by
   `tests/test_kpi_context_store.py` (33 tests) without any TypeScript/browser runtime.
 
-- `lab/dashboard/src/KpiDock.tsx` (LD-E1, #100; LD-E2, #101) — collapsible left dock
-  component.  Two modes: expanded (~288 px) with context line (`<data-context-line>`),
-  source badge (`<data-source>`), the live BrutalScoreboard component
-  (`<data-section="scoreboard">`), and placeholder slots for live-metrics/records
-  (`<data-section="live-metrics|records>"` for LD-E3/E4); rail (~28 px) with a vertical
-  "KPI" label, four micro scoreboard glyphs via RailScoreboard, and a colored source dot.
-  Added `refreshKey` prop (incremented by App.tsx when an attempt ends) to trigger
-  scoreboard refetch.  Collapse/expand driven by `layout.dockCollapsed` from
-  `layoutState.ts` (persisted in localStorage since LD-B1).
+- `lab/dashboard/src/KpiDock.tsx` (LD-E1, #100; LD-E2, #101; LD-E4, #104) — collapsible
+  left dock component.  Two modes: expanded (~288 px) with context line
+  (`<data-context-line>`), source badge (`<data-source>`), the live BrutalScoreboard
+  component (LD-E2), a live-metrics skeleton placeholder (LD-E3), and the live
+  RecordsPanel (LD-E4 #104); rail (~28 px) with a vertical "KPI" label, four micro
+  scoreboard glyphs via RailScoreboard, and a colored source dot.  `refreshKey` prop
+  (incremented by App.tsx when an attempt ends) is shared by both BrutalScoreboard and
+  RecordsPanel.  Collapse/expand driven by `layout.dockCollapsed` from `layoutState.ts`
+  (persisted in localStorage since LD-B1).
 
 - `lab/dashboard/src/BrutalScoreboard.tsx` (LD-E2, #101; LD-F5, #106) — the four KPI metric rows
   rendered inside the KPI dock.  Two exported components:
   - `BrutalScoreboard` — full expanded scoreboard with four rows: The Race (finishes/
     attempts · median×human), Jump Count (N/11 censused dm3 routes completed), Speedometer
-    (bot peak_speed as % of human · decisive edge sub-line), Eye Test (latest verdict +
-    LD-F5 entry form: three-state verdict buttons + optional note + run_id autofill).
+    (bot peak_speed as % of human · decisive edge sub-line), Eye Test (data-suggested state
+    + latest user certification, default "not certified"; optional `controlClient` prop
+    enables the passive `CertifyHumanLevel` sub-component — one button, optional note;
+    user-initiated only, no nag prompts; calls `controlClient.verdict()` and on success
+    calls `refetch()` for immediate scoreboard update).
     Fetches `records.json` (RECORDS_URL `/demos/records/records.json`) and `verdicts.json`
     (VERDICTS_URL `/demos/records/verdicts.json`) on mount and on `refreshKey` change.
-    Accepts optional `controlClient` (LD-F5) and `currentRunId` (LD-F5) props; when
-    `controlClient` is present the `EyeTestForm` sub-component renders below the verdict
-    display, calls `controlClient.verdict()`, and on success calls `refetch()` for
-    immediate scoreboard update.  Honest zeros everywhere: explicit empty/no-data states,
-    never blanks or stale data.  Pass/fail/close framing via `VerdictBadge`.
+    Honest zeros everywhere: explicit empty/no-data states, never blanks or stale data.
     Data derivation is `deriveScoreboard()`, a pure function exercised by
     `tests/test_brutal_scoreboard.py` (57 tests).
   - `RailScoreboard` — compact vertical four-glyph strip for dock rail mode: Race
-    (finishes/attempts fraction), Jump Count (N/11), Speedometer (%), Eye Test (P/~/F/?).
+    (finishes/attempts fraction), Jump Count (N/11), Speedometer (%), Eye Test (★/–).
   Tests: `tests/test_brutal_scoreboard.py` (57 tests locking derive_scoreboard logic,
   DM3_ROUTES_ORDERED, honest zeros, current honest state from SPEC §7).
+
+- `lab/dashboard/src/RecordsPanel.tsx` (LD-E4, #104) — context-sensitive records section
+  rendered inside the expanded KPI dock.  Two modes:
+    - **route-context**: shows the four record rows (fastest_time / first_completion /
+      peak_speed / edge_speed) with the bot value, human_ref comparison, and a freshness
+      dot when a value improves after a refetch.  Each set row is clickable and calls
+      `ShellActionsContext.openDemo({ demo_url, map, t: event_t_s, route, name })` via
+      the shell-level action wired in App.tsx (LD-D3 #98).
+    - **overall / no-context fallback**: per-route best table (fastest_time vs human_time_s,
+      sorted ascending by human route duration).  Clicking a row opens the fastest_time demo.
+  Fetches `/demos/records/records.json` on mount and when `refreshKey` changes. 404 →
+  explicit "records unavailable" state, no crash.  Not rendered in rail mode (numbers-only
+  per LD-E1 design).  Pure-logic contract tested in `tests/test_records_panel.py` (70 tests).
 
 - `lab/dashboard/src/controlClient.ts` (LD-F3, #105; LD-F5, #106) — TypeScript client for the
   control bridge command channel.  Multiplexed on the SAME WebSocket as telemetry
@@ -511,9 +523,9 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   (stable ref), wired to the telemetry socket via `onConnectionChange()`, and receives
   raw text frames via `onMessage()`.  Provides typed convenience wrappers for every
   mutating op: `sessionStart`, `sessionStop`, `addBot`, `removeBot`, `setCvar`, `console`
-  (with `@<slot>` expansion), and `verdict` (LD-F5: `map, route, verdict, note?, run_id?`).
-  Token auth: optional `?ctoken=` URL param for non-loopback
-  callers; loopback dashboard sessions are trusted automatically by the bridge.
+  (with `@<slot>` expansion), and `verdict` (LD-F5: `map, route, note?` — certification
+  that the route has reached human-level).  Token auth: optional `?ctoken=` URL param
+  for non-loopback callers; loopback dashboard sessions are trusted automatically by the bridge.
 
 - `lab/dashboard/src/ControlDrawer.tsx` (LD-F3, #105) — slide-down control drawer
   component.  Rendered from `App.tsx` when `layout.drawerOpen`; positioned absolute
@@ -558,19 +570,21 @@ client. Protocol, security gates, and the `kbot-telemetry` deploy/restart proced
 assignment cvar expansion, ASSIGN broadcast shape, route-name round-trip,
 spawn_origin allowlist).
 
-LD-F5 (#106) adds the `verdict` op: `{map, route, verdict: pass|close|fail, note?, run_id?}`.
-Validates fields, writes atomically (temp-file+rename) to `~/komodobots-lab/records/verdicts.json`
-(schema `komodobots.verdicts.v1`, co-located with `records.json`), appends the previous verdict
-to `_history[route]` (history kept), audit-logs the attempt, and broadcasts a `control_event`
-on success.  Lock-exempt: the verdict op bypasses the harness-priority lab lock because it
-touches only the local records store, never a running lab server — the operator can record
-verdicts while the harness is running.  The `controlClient.ts` `verdict()` wrapper mirrors
-the op; the `EyeTestForm` component inside `BrutalScoreboard.tsx` provides the dock UI
-(three-state buttons + optional note + run_id autofill from the current attempt); on
-success it calls `refetch()` so the scoreboard Eye Test row updates immediately without
-a manual reload.  Tests: `tests/test_control_bridge.py` `TestVerdictValidation` +
-`TestVerdictOp` (12 new tests locking validation, atomic write, history append,
-latest-wins, lock exemption, auth enforcement, audit).
+LD-F5 (#106) adds the `verdict` op: `{map, route, note?}` (user decision 2026-06-10:
+certification only — no pass/close/fail; the user declares the bot has reached human-level).
+Validates map + route tokens (same allowlist as `set_map`), optional note (max 1000 chars,
+no control chars), writes atomically (temp-file+rename) to
+`~/komodobots-lab/records/verdicts.json` (schema `komodobots.verdicts.v2`, co-located with
+`records.json`), appends to `certifications[route]` (sparse dated list, history kept),
+audit-logs the attempt, and broadcasts a `control_event` on success.  Lock-exempt: the
+verdict op bypasses the harness-priority lab lock because it touches only the local records
+store, never a running lab server.  The `controlClient.ts` `verdict()` wrapper mirrors the
+op; the `CertifyHumanLevel` sub-component inside `BrutalScoreboard.tsx` provides the dock
+UI (one button + optional note); user-initiated only, no nag prompts; on success it calls
+`refetch()` so the scoreboard Eye Test row updates immediately.  Tests:
+`tests/test_control_bridge.py` `TestVerdictValidation` + `TestVerdictOp` (new tests
+locking validation, atomic write, certification append, lock exemption, auth enforcement,
+audit).
 
 ### mvd_analyzer
 

@@ -165,11 +165,12 @@ export function App() {
   );
   const kpiContext = ctxPair.context;
 
-  // LD-E2 (#101): scoreboard refresh key — incremented when an attempt ends so
-  // the KPI dock's BrutalScoreboard refetches records.json + verdicts.json.
-  // We detect "attempt ended" by watching connection.live transition false→true
-  // (attempt start is not relevant; we want the refetch on completion).
-  const [scoreboardRefreshKey, setScoreboardRefreshKey] = useState(0);
+  // LD-E2 (#101) + LD-E4 (#104): shared refresh key — incremented when an
+  // attempt ends (live true→false) so the KPI dock's BrutalScoreboard
+  // (LD-E2) and RecordsPanel (LD-E4) both refetch their data after each run.
+  // Unified at merge time per the LD-E4 PR note: same increment event,
+  // one source of truth.
+  const [refreshKey, setRefreshKey] = useState(0);
   const prevLiveRef = useRef(false);
 
   // LD-F4 (#103): selected bot ed — drives BotLab3D camera follow and
@@ -313,14 +314,13 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connection.live, attempt?.map]);
 
-  // LD-E2 (#101): scoreboard refetch on attempt end.
-  // When connection.live transitions from true to false, an attempt just ended
-  // and the records store may have new data.  Increment scoreboardRefreshKey
-  // to trigger a refetch in BrutalScoreboard / RailScoreboard.
+  // LD-E2 (#101) + LD-E4 (#104): detect live true→false (attempt ended) and
+  // increment the shared refreshKey so BrutalScoreboard (LD-E2) and
+  // RecordsPanel (LD-E4) both refetch after each run.
   useEffect(() => {
     if (prevLiveRef.current && !connection.live) {
       // live just went false — attempt ended.
-      setScoreboardRefreshKey((k) => k + 1);
+      setRefreshKey((k) => k + 1);
     }
     prevLiveRef.current = connection.live;
   }, [connection.live]);
@@ -710,17 +710,17 @@ export function App() {
 
       <div className="grow min-h-0 flex">
         {/* LD-E1 (#100): KPI dock — real component replaces the placeholder aside.
-            LD-E2 (#101): scoreboardRefreshKey triggers refetch after attempt ends.
-            LD-F5 (#106): controlClient + currentRunId for eye-test verdict entry. */}
+            LD-E2 (#101): refreshKey triggers BrutalScoreboard refetch on attempt end.
+            LD-E4 (#104): same refreshKey also triggers RecordsPanel refetch.
+            LD-F5 (#106): controlClient for certification op wired through KpiDock. */}
         <KpiDock
           context={kpiContext}
           collapsed={layout.dockCollapsed}
           onToggle={() =>
             setLayout((state) => ({ ...state, dockCollapsed: !state.dockCollapsed }))
           }
-          refreshKey={scoreboardRefreshKey}
+          refreshKey={refreshKey}
           controlClient={controlClientRef.current}
-          currentRunId={runId}
         />
 
         <main className="grow min-w-0 overflow-x-auto">

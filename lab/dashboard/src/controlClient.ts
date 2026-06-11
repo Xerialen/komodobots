@@ -168,19 +168,17 @@ export class ControlClient {
   }
 
   /**
-   * LD-F5 (#106): submit an eye-test verdict.
+   * LD-F5 (#106): certify that a route has reached human-level movement.
+   * User decision 2026-06-10: no pass/close/fail -- user declares human-level.
    * Lock-exempt op — allowed even when the harness owns the lab.
    */
   async verdict(
     map: string,
     route: string,
-    verdict: "pass" | "close" | "fail",
     note?: string,
-    run_id?: string,
   ): Promise<ControlResponse> {
-    const args: Record<string, unknown> = { map, route, verdict };
+    const args: Record<string, unknown> = { map, route };
     if (note !== undefined && note !== "") args.note = note;
-    if (run_id !== undefined && run_id !== "") args.run_id = run_id;
     return this.send("verdict", args);
   }
 
