@@ -190,6 +190,20 @@ export function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [layout.drawerOpen]);
 
+  // LD-E1 (#100): "[" toggles the KPI dock (non-conflicting; no modifier needed).
+  // Guard: skip when focus is inside an input, textarea, or select so normal
+  // typing is unaffected.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "[") return;
+      const tag = (event.target as HTMLElement | null)?.tagName ?? "";
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      setLayout((state) => ({ ...state, dockCollapsed: !state.dockCollapsed }));
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const toggleView = (view: ViewId) => {
     setLayout((state) => ({
       ...state,
@@ -379,7 +393,8 @@ export function App() {
         <button
           type="button"
           aria-pressed={layout.dockCollapsed}
-          title="KPI dock — built in LD-E1 (#100); this button persists the collapse state"
+          aria-keyshortcuts="["
+          title="KPI dock — toggle with [ key (LD-E1 #100)"
           onClick={() =>
             setLayout((state) => ({
               ...state,
