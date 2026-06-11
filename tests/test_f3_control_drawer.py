@@ -490,5 +490,129 @@ class TestAssignUpsert(unittest.TestCase):
         self.assertEqual(routes[2], "hilljump")
 
 
+# ---------------------------------------------------------------------------
+# 7. Dashboard session setup enables ASSIGN emission (Codex P1 fix, round 3)
+# ---------------------------------------------------------------------------
+
+
+class TestSessionSetupEnablesAssign(unittest.TestCase):
+    """build_session_setup_cmds() must include k_fb_moveprobe_log_commands 1
+    so that the KTX ASSIGN emitter is not gated off in dashboard sessions.
+    Without this cvar the FBMOVEPROBE_ASSIGN emitter in the perslot patch
+    returns early and the telemetry sidecar never broadcasts an assign frame,
+    leaving the roster at s?? with route assignment disabled forever (#105 P1).
+    """
+
+    def _setup_cmds(self, map_name: str = "dm3") -> list[str]:
+        return cb.build_session_setup_cmds(map_name)
+
+    def test_log_commands_enabled_in_setup(self):
+        """k_fb_moveprobe_log_commands 1 must appear in the setup command list."""
+        cmds = self._setup_cmds()
+        self.assertIn(
+            "set k_fb_moveprobe_log_commands 1",
+            cmds,
+            "dashboard session setup must enable ASSIGN emission via k_fb_moveprobe_log_commands 1",
+        )
+
+    def test_log_interval_set_in_setup(self):
+        """k_fb_moveprobe_log_interval must be set (any value > 0) in the setup commands."""
+        cmds = self._setup_cmds()
+        interval_cmds = [c for c in cmds if "k_fb_moveprobe_log_interval" in c]
+        self.assertEqual(
+            len(interval_cmds), 1,
+            "exactly one k_fb_moveprobe_log_interval command expected in setup",
+        )
+        # Extract value and confirm it is a positive float
+        _, _, val = interval_cmds[0].partition("k_fb_moveprobe_log_interval ")
+        self.assertTrue(
+            float(val) > 0,
+            f"k_fb_moveprobe_log_interval must be > 0, got {val!r}",
+        )
+
+    def test_log_commands_is_valid_cvar_set(self):
+        """validate_cvar must accept k_fb_moveprobe_log_commands with value '1'."""
+        result = cb.validate_cvar("k_fb_moveprobe_log_commands", "1")
+        self.assertIsInstance(
+            result, tuple,
+            f"validate_cvar refused k_fb_moveprobe_log_commands=1: {result}",
+        )
+        name, value = result
+        self.assertEqual(name, "k_fb_moveprobe_log_commands")
+        self.assertEqual(value, "1")
+
+    def test_log_interval_is_valid_cvar_set(self):
+        """validate_cvar must accept k_fb_moveprobe_log_interval with value '0.25'."""
+        result = cb.validate_cvar("k_fb_moveprobe_log_interval", "0.25")
+        self.assertIsInstance(
+            result, tuple,
+            f"validate_cvar refused k_fb_moveprobe_log_interval=0.25: {result}",
+        )
+        name, value = result
+        self.assertEqual(name, "k_fb_moveprobe_log_interval")
+        self.assertEqual(value, "0.25")
+
+    def test_addbot_assign_route_reachable(self):
+        """Simulate the addbot → ASSIGN → assign-route flow to show it is
+        reachable without manual cvars once log_commands is in the setup.
+
+        Step 1: session_start calls build_session_setup_cmds → log_commands=1 present.
+        Step 2: addbot is accepted (session-scoped op, bridge returns broadcast).
+        Step 3: ASSIGN row arrives with real ed → upsert resolves slot.
+        Step 4: handleAssignRoute sees slot != -1 and can proceed.
+
+        This is a logic-flow test, not an end-to-end integration test.  The
+        bridge's validate_cvar and build_session_setup_cmds are real; the
+        roster upsert reuses the Python mirror from TestAssignUpsert."""
+        # Step 1: verify log_commands present
+        cmds = cb.build_session_setup_cmds("dm3")
+        self.assertIn("set k_fb_moveprobe_log_commands 1", cmds)
+
+        # Step 2: addbot → provisional placeholder
+        roster: list[dict] = []
+        roster.append({"slot": -1, "name": "…", "assignedRoute": None, "pendingRoute": None})
+        self.assertEqual(roster[0]["slot"], -1, "addbot must produce a provisional placeholder")
+
+        # Step 3: ASSIGN arrives (log_commands was set → this row is emitted)
+        assign = {"ed": 4, "name": "goldenboy", "replay_file": "dm3_hilljump.cmds"}
+        roster = _apply_assign_upsert(roster, assign)
+        self.assertEqual(roster[0]["slot"], 4, "ASSIGN must resolve the provisional placeholder to real ed")
+
+        # Step 4: slot is now a real ed — handleAssignRoute guard (slot != -1) is clear
+        self.assertNotEqual(roster[0]["slot"], -1, "slot must be resolved before assign-route is allowed")
+        result = cb.validate_cvar("k_fb_moveprobe_replay_file", "dm3_hilljump.cmds", roster[0]["slot"])
+        self.assertIsInstance(result, tuple, "cvar expansion must succeed with real ed as slot")
+
+    def test_moveprobe_log_cmds_all_accepted_by_validate_cvar(self):
+        """The new k_fb_moveprobe_* cvars added by this fix must be accepted by
+        validate_cvar — they go through the bridge cvar allowlist.
+
+        Note: setup commands are stuffed directly via screen (not through the
+        bridge set_cvar op), so only the k_fb_* cvars are subject to validate_cvar.
+        sv_* and k_* server config cvars in setup_cmds are stuffed pre-auth.
+        This test covers only the two new ASSIGN-enabling cvars."""
+        log_commands_result = cb.validate_cvar("k_fb_moveprobe_log_commands", "1")
+        self.assertIsInstance(
+            log_commands_result, tuple,
+            f"validate_cvar refused k_fb_moveprobe_log_commands=1: {log_commands_result}",
+        )
+        log_interval_result = cb.validate_cvar("k_fb_moveprobe_log_interval", "0.25")
+        self.assertIsInstance(
+            log_interval_result, tuple,
+            f"validate_cvar refused k_fb_moveprobe_log_interval=0.25: {log_interval_result}",
+        )
+
+    def test_log_commands_not_zero_in_setup(self):
+        """Ensure k_fb_moveprobe_log_commands is NOT set to 0 (which would
+        disable ASSIGN emission and break the roster read-back)."""
+        cmds = cb.build_session_setup_cmds("dm3")
+        for cmd in cmds:
+            if "k_fb_moveprobe_log_commands" in cmd:
+                self.assertNotIn(
+                    "k_fb_moveprobe_log_commands 0", cmd,
+                    "k_fb_moveprobe_log_commands must not be disabled in dashboard session setup",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
