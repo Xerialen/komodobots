@@ -46,6 +46,10 @@ export class TelemetryClient {
   frameListeners = new Set<(frame: TelemetryFrame) => void>();
   attemptListeners = new Set<(attempt: TelemetryAttempt) => void>();
   stateListeners = new Set<(state: { connected: boolean; live: boolean }) => void>();
+  /** LD-F3 (#105): raw text listeners — receive every incoming WS text frame
+   *  so the ControlClient can route bridge responses and control_event
+   *  broadcasts without a second WebSocket connection. */
+  rawMessageListeners = new Set<(text: string) => void>();
 
   private connected = false;
   private live = false;
@@ -76,6 +80,11 @@ export class TelemetryClient {
       this.emitState();
     };
     socket.onmessage = (event) => {
+      // LD-F3 (#105): notify raw listeners first so the ControlClient can
+      // pick up bridge responses / control_event broadcasts.
+      for (const listener of this.rawMessageListeners) {
+        listener(event.data as string);
+      }
       let message: TelemetryMessage;
       try {
         message = JSON.parse(event.data);
@@ -138,6 +147,13 @@ export class TelemetryClient {
     }
   }
 
+  /** LD-F3 (#105): send a text frame (used by ControlClient for bridge ops). */
+  sendText(text: string): void {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(text);
+    }
+  }
+
   close() {
     this.closed = true;
     if (this.reconnectTimer !== null) {
@@ -148,5 +164,6 @@ export class TelemetryClient {
     this.frameListeners.clear();
     this.attemptListeners.clear();
     this.stateListeners.clear();
+    this.rawMessageListeners.clear();
   }
 }

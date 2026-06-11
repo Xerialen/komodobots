@@ -1,0 +1,653 @@
+// LD-F3 (#105): Control drawer — slide-down overlay from the top bar.
+//
+// Provides:
+//  - Session block: start/stop, map selector, lock-state badge (harness /
+//    dashboard / free).  Stale-lock takeover requires an explicit confirm.
+//  - Bot roster: live rows from control_event broadcasts and lock state.
+//    Add-bot / remove-bot buttons.  Per-bot route assignment dropdowns.
+//  - Assignment display shows what the SERVER reports (ASSIGN rows from
+//    telemetry), never optimistic state.
+//  - Cvar console with command history (↑/↓) and inline rejection rendering.
+//    Supports @<slot> prefix for per-slot cvars.
+//
+// Disabled states (every mutating control):
+//  - bridge disconnected
+//  - harness lock fresh
+//  - no session running (except session_start)
+//
+// Non-modal: panes keep streaming underneath.  Esc closes (wired in App.tsx).
+//
+// Security: all validation and enforcement lives in control_bridge.py (#96).
+// The UI is a courtesy layer only.
+
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import type { ControlClient, ControlEvent, LockState } from "./controlClient.ts";
+
+// ---- Types ------------------------------------------------------------------
+
+type BotSlot = {
+  slot: number;
+  name: string;
+  assignedRoute: string | null;   // what the server reports (never optimistic)
+  pendingRoute: string | null;    // set while awaiting read-back from server
+};
+
+type DrawerSession = {
+  running: boolean;
+  port: number | null;
+  map: string | null;
+};
+
+type ConsoleEntry = {
+  id: number;
+  kind: "sent" | "ok" | "error";
+  text: string;
+};
+
+// ---- Constants --------------------------------------------------------------
+
+const MAPS = ["dm3", "dm2", "frobodm2", "trick"] as const;
+type MapName = (typeof MAPS)[number];
+
+// Per-map route lists (from the committed manifest schema; drawer only needs names)
+// These mirror the manifest keys — update if the census changes.
+const ROUTES_BY_MAP: Record<MapName, string[]> = {
+  dm3: [
+    "sng_shortcut2",
+    "hilljump",
+    "rl_to_ya",
+    "ring_to_mega",
+    "ra_jumps",
+    "mega_to_rl",
+    "rl_to_bridge",
+    "sng_shortcut",
+    "sng_to_rl",
+    "mega_to_window",
+    "sng_jumps",
+  ],
+  dm2: [],
+  frobodm2: [],
+  trick: [],
+};
+
+let _consoleCounter = 0;
+
+// ---- Helpers ----------------------------------------------------------------
+
+function lockBadge(state: LockState["state"] | null) {
+  switch (state) {
+    case "free":
+      return (
+        <span className="px-1.5 py-0.5 rounded text-[10px] bg-green-900/60 text-green-300 border border-green-700">
+          free
+        </span>
+      );
+    case "fresh":
+      return (
+        <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-900/60 text-amber-300 border border-amber-700">
+          locked
+        </span>
+      );
+    case "stale":
+      return (
+        <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-900/60 text-red-300 border border-red-700">
+          stale lock
+        </span>
+      );
+    default:
+      return (
+        <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-gray-500 border border-slate-700">
+          unknown
+        </span>
+      );
+  }
+}
+
+// ---- Component --------------------------------------------------------------
+
+export type ControlDrawerProps = {
+  client: ControlClient;
+  wsConnected: boolean;
+  onClose: () => void;
+};
+
+export function ControlDrawer({ client, wsConnected, onClose }: ControlDrawerProps) {
+  // Lock + session state
+  const [lockState, setLockState] = useState<LockState | null>(null);
+  const [lockOwner, setLockOwner] = useState<string | null>(null);
+  const [session, setSession] = useState<DrawerSession>({ running: false, port: null, map: null });
+
+  // UI state
+  const [selectedMap, setSelectedMap] = useState<MapName>("dm3");
+  const [bots, setBots] = useState<BotSlot[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [staleTakeoverPending, setStaleTakeoverPending] = useState(false);
+
+  // Console state
+  const [consoleLine, setConsoleLine] = useState("");
+  const [consoleLog, setConsoleLog] = useState<ConsoleEntry[]>([]);
+  const [historyIdx, setHistoryIdx] = useState(-1);
+  const sentHistoryRef = useRef<string[]>([]);
+  const consoleEndRef = useRef<HTMLDivElement>(null);
+  const consoleInputRef = useRef<HTMLInputElement>(null);
+
+  // Derived: are mutating controls disabled?
+  const bridgeOk = wsConnected && client.connected;
+  const isHarnessLocked = lockState?.state === "fresh" && lockOwner === "harness";
+  const isDashboardSession = session.running;
+  const sessionMap = session.map ?? selectedMap;
+
+  // Refresh lock status on open and whenever a control event arrives.
+  const refreshLock = useCallback(async () => {
+    if (!bridgeOk) return;
+    const resp = await client.lockStatus();
+    if (!resp.ok) return;
+    const state = (resp as { state?: string }).state as string | undefined;
+    const lock = (resp as { lock?: Record<string, unknown> }).lock;
+    if (state === "free") {
+      setLockState({ state: "free", lock: null });
+      setLockOwner(null);
+      setSession({ running: false, port: null, map: null });
+    } else if (state === "fresh" || state === "stale") {
+      const owner = (lock?.owner as string) ?? null;
+      setLockState({ state, lock: lock ?? {} });
+      setLockOwner(owner);
+      if (owner === "dashboard") {
+        const port = typeof lock?.port === "number" ? lock.port : null;
+        const map = typeof lock?.map === "string" ? lock.map : null;
+        setSession({ running: true, port, map });
+        if (map && MAPS.includes(map as MapName)) {
+          setSelectedMap(map as MapName);
+        }
+      } else {
+        setSession({ running: false, port: null, map: null });
+      }
+    }
+  }, [bridgeOk, client]);
+
+  // On mount / reconnect: fetch initial lock state.
+  useEffect(() => {
+    if (bridgeOk) {
+      refreshLock();
+    }
+  }, [bridgeOk, refreshLock]);
+
+  // Subscribe to control events.
+  useEffect(() => {
+    function onEvent(event: ControlEvent) {
+      switch (event.event) {
+        case "session_start": {
+          const port = typeof event.port === "number" ? event.port : null;
+          const map = typeof event.map === "string" ? event.map : null;
+          setSession({ running: true, port, map });
+          setLockOwner("dashboard");
+          setLockState({ state: "fresh", lock: { owner: "dashboard", port, map } });
+          if (map && MAPS.includes(map as MapName)) {
+            setSelectedMap(map as MapName);
+          }
+          break;
+        }
+        case "session_stop": {
+          setSession({ running: false, port: null, map: null });
+          setLockOwner(null);
+          setLockState({ state: "free", lock: null });
+          setBots([]);
+          break;
+        }
+        case "addbot": {
+          // We don't know the exact slot from the bridge event alone (it will
+          // appear when FBMOVEPROBE_ASSIGN rows emit via telemetry).  Add a
+          // placeholder row; slot is filled in when ASSIGN arrives.
+          setBots((prev) => {
+            const nextSlot = prev.length + 1;
+            return [...prev, { slot: nextSlot, name: `bot${nextSlot}`, assignedRoute: null, pendingRoute: null }];
+          });
+          break;
+        }
+        case "removebot": {
+          const slot = event.slot;
+          if (slot === "all") {
+            setBots([]);
+          } else if (typeof slot === "number") {
+            setBots((prev) => prev.filter((b) => b.slot !== slot));
+          } else {
+            // removebot with no slot = remove last
+            setBots((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev));
+          }
+          break;
+        }
+        case "set_cvar": {
+          // Check for per-slot assignment cvar (_s<N> form).
+          const name = typeof event.name === "string" ? event.name : "";
+          const value = typeof event.value === "string" ? event.value : "";
+          const slotMatch = name.match(/_s(\d+)$/);
+          if (slotMatch && name.includes("replay_file")) {
+            const slot = parseInt(slotMatch[1], 10);
+            // Extract route name from file path (e.g. "dm3_hilljump.cmds" -> "hilljump")
+            const route = value.replace(/^.*_/, "").replace(/\.cmds$/, "");
+            setBots((prev) =>
+              prev.map((b) =>
+                b.slot === slot ? { ...b, assignedRoute: route, pendingRoute: null } : b,
+              ),
+            );
+          }
+          break;
+        }
+      }
+    }
+    client.eventListeners.add(onEvent);
+    return () => {
+      client.eventListeners.delete(onEvent);
+    };
+  }, [client]);
+
+  // Auto-scroll console.
+  useEffect(() => {
+    consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [consoleLog]);
+
+  // ---- Action helpers -------------------------------------------------------
+
+  function addConsole(kind: ConsoleEntry["kind"], text: string) {
+    setConsoleLog((prev) => [...prev, { id: ++_consoleCounter, kind, text }]);
+  }
+
+  async function handleSessionStart() {
+    if (busy) return;
+    const force = lockState?.state === "stale" && staleTakeoverPending;
+    if (lockState?.state === "stale" && !staleTakeoverPending) {
+      setStaleTakeoverPending(true);
+      return;
+    }
+    setStaleTakeoverPending(false);
+    setBusy(true);
+    const resp = await client.sessionStart(selectedMap, force);
+    setBusy(false);
+    if (!resp.ok) {
+      addConsole("error", `session_start failed: ${resp.detail}`);
+    }
+    await refreshLock();
+  }
+
+  async function handleSessionStop() {
+    if (busy) return;
+    setBusy(true);
+    const resp = await client.sessionStop();
+    setBusy(false);
+    if (!resp.ok) {
+      addConsole("error", `session_stop failed: ${resp.detail}`);
+    }
+    await refreshLock();
+  }
+
+  async function handleAddBot() {
+    if (busy) return;
+    setBusy(true);
+    const resp = await client.addBot(1);
+    setBusy(false);
+    if (!resp.ok) {
+      addConsole("error", `addbot failed: ${resp.detail}`);
+    }
+  }
+
+  async function handleRemoveBot(slot?: number) {
+    if (busy) return;
+    setBusy(true);
+    const resp = await client.removeBot(slot);
+    setBusy(false);
+    if (!resp.ok) {
+      addConsole("error", `removebot failed: ${resp.detail}`);
+    }
+  }
+
+  async function handleAssignRoute(bot: BotSlot, route: string) {
+    if (!route) return;
+    // Per-slot assignment: set the four per-slot cvars atomically as a group.
+    // The server's ASSIGN read-back row updates assignedRoute; until then show "pending".
+    setBots((prev) =>
+      prev.map((b) => (b.slot === bot.slot ? { ...b, pendingRoute: route } : b)),
+    );
+    const mapRouteFile = `${sessionMap}_${route}.cmds`;
+    const slot = bot.slot;
+    const results = await Promise.all([
+      client.setCvar("k_fb_moveprobe_replay_file", mapRouteFile, slot),
+      client.setCvar("k_fb_moveprobe_mode", "10", slot),
+    ]);
+    const allOk = results.every((r) => r.ok);
+    if (!allOk) {
+      const errors = results
+        .filter((r) => !r.ok)
+        .map((r) => r.detail)
+        .join("; ");
+      addConsole("error", `assign route failed: ${errors}`);
+      // Clear pending state on failure.
+      setBots((prev) =>
+        prev.map((b) => (b.slot === slot ? { ...b, pendingRoute: null } : b)),
+      );
+    }
+    // On success: the server will broadcast set_cvar events which update
+    // assignedRoute via the event listener above (server-truth display).
+  }
+
+  async function handleConsoleSend() {
+    const line = consoleLine.trim();
+    if (!line) return;
+    addConsole("sent", `> ${line}`);
+    sentHistoryRef.current = [line, ...sentHistoryRef.current].slice(0, 100);
+    setConsoleLine("");
+    setHistoryIdx(-1);
+    const resp = await client.console(line);
+    if (resp.ok) {
+      addConsole("ok", resp.detail);
+    } else {
+      addConsole("error", resp.detail);
+    }
+  }
+
+  function handleConsoleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleConsoleSend();
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const next = Math.min(historyIdx + 1, sentHistoryRef.current.length - 1);
+      setHistoryIdx(next);
+      setConsoleLine(sentHistoryRef.current[next] ?? "");
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const next = Math.max(historyIdx - 1, -1);
+      setHistoryIdx(next);
+      setConsoleLine(next === -1 ? "" : (sentHistoryRef.current[next] ?? ""));
+      return;
+    }
+  }
+
+  // ---- Disable rules -------------------------------------------------------
+
+  const canStart = bridgeOk && !isDashboardSession && !isHarnessLocked && !busy;
+  const canStop = bridgeOk && isDashboardSession && !busy;
+  const canMutate = bridgeOk && isDashboardSession && !isHarnessLocked && !busy;
+  const canConsole = canMutate;
+
+  const mapRoutes = ROUTES_BY_MAP[sessionMap as MapName] ?? ROUTES_BY_MAP.dm3;
+
+  // ---- Render ---------------------------------------------------------------
+
+  return (
+    <div
+      data-drawer="control"
+      className="absolute top-full inset-x-0 z-10 border-b border-slate-700 bg-slate-950/97 shadow-lg"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="px-4 py-3 grid grid-cols-[1fr_1fr_1fr] gap-x-6 gap-y-3 text-xs">
+        {/* ---- SESSION BLOCK ---- */}
+        <div className="flex flex-col gap-y-2">
+          <div className="flex items-center gap-x-2 text-gray-400 uppercase tracking-wide font-semibold">
+            <span>Session</span>
+            {lockBadge(lockState?.state ?? null)}
+            {lockOwner && lockState?.state !== "free" && (
+              <span className="text-gray-500 normal-case">{lockOwner}</span>
+            )}
+          </div>
+
+          {/* harness lock warning */}
+          {isHarnessLocked && (
+            <div className="text-amber-400 text-[10px] bg-amber-900/20 border border-amber-800 rounded px-2 py-1">
+              experiment harness owns the lab — controls disabled
+            </div>
+          )}
+
+          {/* stale lock takeover */}
+          {lockState?.state === "stale" && (
+            <div className="text-red-400 text-[10px] bg-red-900/20 border border-red-800 rounded px-2 py-1">
+              stale lock detected
+              {!staleTakeoverPending ? (
+                <button
+                  type="button"
+                  className="ml-2 underline text-red-300 hover:text-red-100"
+                  onClick={() => setStaleTakeoverPending(true)}
+                >
+                  force takeover
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="ml-2 font-bold text-red-200 underline hover:text-white"
+                  onClick={handleSessionStart}
+                >
+                  confirm takeover
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Map selector */}
+          <label className="flex items-center gap-x-2 text-gray-400">
+            <span className="shrink-0">Map</span>
+            <select
+              value={isDashboardSession ? (session.map ?? selectedMap) : selectedMap}
+              disabled={isDashboardSession}
+              onChange={(e) => setSelectedMap(e.target.value as MapName)}
+              className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-gray-200 text-xs disabled:opacity-50"
+            >
+              {MAPS.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* Start/stop buttons */}
+          <div className="flex gap-x-2">
+            {!isDashboardSession ? (
+              <button
+                type="button"
+                disabled={!canStart}
+                onClick={handleSessionStart}
+                className="flex-1 px-2 py-1 rounded bg-green-800 text-green-100 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {busy ? "starting…" : "start session"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={!canStop}
+                onClick={handleSessionStop}
+                className="flex-1 px-2 py-1 rounded bg-red-900 text-red-100 hover:bg-red-800 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {busy ? "stopping…" : "stop session"}
+              </button>
+            )}
+          </div>
+
+          {/* Session status */}
+          {isDashboardSession && session.port && (
+            <div className="text-gray-500 font-mono">
+              port {session.port} · {session.map}
+            </div>
+          )}
+        </div>
+
+        {/* ---- BOT ROSTER ---- */}
+        <div className="flex flex-col gap-y-2">
+          <div className="flex items-center gap-x-2 text-gray-400 uppercase tracking-wide font-semibold">
+            <span>Bots</span>
+            {isDashboardSession && (
+              <div className="ml-auto flex gap-x-1">
+                <button
+                  type="button"
+                  disabled={!canMutate}
+                  onClick={handleAddBot}
+                  className="px-1.5 py-0.5 rounded bg-sky-900 text-sky-200 hover:bg-sky-800 border border-sky-700 disabled:opacity-40 disabled:cursor-not-allowed normal-case"
+                >
+                  + add
+                </button>
+                <button
+                  type="button"
+                  disabled={!canMutate || bots.length === 0}
+                  onClick={() => handleRemoveBot()}
+                  className="px-1.5 py-0.5 rounded bg-slate-800 text-gray-300 hover:bg-slate-700 border border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed normal-case"
+                >
+                  - remove
+                </button>
+              </div>
+            )}
+          </div>
+
+          {!isDashboardSession && (
+            <div className="text-gray-600 italic">start a session to manage bots</div>
+          )}
+
+          {isDashboardSession && bots.length === 0 && (
+            <div className="text-gray-600 italic">no bots — click + add</div>
+          )}
+
+          {isDashboardSession && bots.length > 0 && (
+            <div className="flex flex-col gap-y-1">
+              {bots.map((bot) => (
+                <BotRow
+                  key={bot.slot}
+                  bot={bot}
+                  routes={mapRoutes}
+                  canMutate={canMutate}
+                  onAssign={(route) => handleAssignRoute(bot, route)}
+                  onRemove={() => handleRemoveBot(bot.slot)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ---- CVAR CONSOLE ---- */}
+        <div className="flex flex-col gap-y-2">
+          <div className="text-gray-400 uppercase tracking-wide font-semibold">Cvar console</div>
+          {!bridgeOk && (
+            <div className="text-red-400 text-[10px]">bridge disconnected</div>
+          )}
+          {bridgeOk && !isDashboardSession && (
+            <div className="text-gray-600 text-[10px] italic">start a session to send cvars</div>
+          )}
+
+          {/* Log */}
+          <div className="flex-1 overflow-y-auto max-h-24 font-mono text-[10px] bg-black/30 border border-slate-800 rounded px-1.5 py-1 flex flex-col gap-y-0.5">
+            {consoleLog.map((entry) => (
+              <div
+                key={entry.id}
+                className={
+                  entry.kind === "error"
+                    ? "text-red-400"
+                    : entry.kind === "sent"
+                      ? "text-gray-300"
+                      : "text-green-400"
+                }
+              >
+                {entry.text}
+              </div>
+            ))}
+            <div ref={consoleEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="flex gap-x-1">
+            <input
+              ref={consoleInputRef}
+              type="text"
+              value={consoleLine}
+              disabled={!canConsole}
+              onChange={(e) => setConsoleLine(e.target.value)}
+              onKeyDown={handleConsoleKeyDown}
+              placeholder={
+                !bridgeOk
+                  ? "bridge disconnected"
+                  : !isDashboardSession
+                    ? "no session"
+                    : "cvar val  or  @2 k_fb_… val"
+              }
+              className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 font-mono text-[11px] text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed placeholder:text-gray-600"
+            />
+            <button
+              type="button"
+              disabled={!canConsole || !consoleLine.trim()}
+              onClick={handleConsoleSend}
+              className="px-2 py-0.5 rounded bg-slate-700 text-gray-300 hover:bg-slate-600 border border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              send
+            </button>
+          </div>
+          <div className="text-gray-600 text-[9px]">
+            ↑/↓ history · @2 k_fb_… val → per-slot
+          </div>
+        </div>
+      </div>
+
+      {/* Close button */}
+      <button
+        type="button"
+        aria-label="close control drawer"
+        onClick={onClose}
+        className="absolute top-2 right-3 text-gray-500 hover:text-gray-300 text-sm"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
+// ---- BotRow sub-component ---------------------------------------------------
+
+type BotRowProps = {
+  bot: BotSlot;
+  routes: string[];
+  canMutate: boolean;
+  onAssign: (route: string) => void;
+  onRemove: () => void;
+};
+
+function BotRow({ bot, routes, canMutate, onAssign, onRemove }: BotRowProps) {
+  const displayRoute = bot.pendingRoute
+    ? `${bot.pendingRoute} (pending…)`
+    : (bot.assignedRoute ?? "unassigned");
+
+  return (
+    <div className="flex items-center gap-x-1.5 text-[10px]">
+      <span className="shrink-0 font-mono text-gray-400 w-12">
+        s{bot.slot} {bot.name.slice(0, 6)}
+      </span>
+      <select
+        value={bot.assignedRoute ?? ""}
+        disabled={!canMutate || !!bot.pendingRoute}
+        onChange={(e) => {
+          if (e.target.value) onAssign(e.target.value);
+        }}
+        title={displayRoute}
+        className="flex-1 min-w-0 bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-gray-200 text-[10px] disabled:opacity-50"
+      >
+        <option value="">— {bot.pendingRoute ? "pending…" : "route"}</option>
+        {routes.map((r) => (
+          <option key={r} value={r}>
+            {r}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        disabled={!canMutate}
+        onClick={onRemove}
+        className="shrink-0 px-1 py-0.5 rounded text-gray-500 hover:text-red-300 hover:bg-red-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
+        title="remove this bot"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}

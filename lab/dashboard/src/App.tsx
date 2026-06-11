@@ -34,6 +34,9 @@ import {
   INITIAL_KPI_CONTEXT,
   type KpiContext,
 } from "./contextStore.ts";
+// LD-F3 (#105): control drawer
+import { ControlClient } from "./controlClient.ts";
+import { ControlDrawer } from "./ControlDrawer.tsx";
 
 // Re-export openDemo type for LD-E4 (#104) to import.
 export type { OpenDemoParams } from "./DemoPane.tsx";
@@ -128,6 +131,14 @@ export function App() {
   const [client, setClient] = useState<TelemetryClient | null>(null);
   const [attempt, setAttempt] = useState<TelemetryAttempt | null>(null);
   const [connection, setConnection] = useState({ connected: false, live: false });
+
+  // LD-F3 (#105): single ControlClient instance — stable ref, not recreated
+  // on reconnects (the telemetry effect wires/unwires it via onConnectionChange).
+  const controlClientRef = useRef<ControlClient>(
+    new ControlClient(
+      new URLSearchParams(window.location.search).get("ctoken") ?? undefined,
+    ),
+  );
   const [showReference, setShowReference] = useState(true);
   const [layout, setLayout] = useState<LayoutState>(() =>
     loadLayout(window.location.search),
@@ -204,11 +215,29 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    const ctrl = controlClientRef.current;
     const telemetry = new TelemetryClient(wsUrl);
     telemetry.attemptListeners.add(setAttempt);
     telemetry.stateListeners.add(setConnection);
+
+    // LD-F3 (#105): wire the ControlClient to the telemetry socket.
+    // Raw message listener routes bridge responses/events to the control client.
+    function onRawMessage(text: string) {
+      ctrl.onMessage(text);
+    }
+    telemetry.rawMessageListeners.add(onRawMessage);
+
+    // State listener to keep ControlClient's connection flag in sync.
+    function onConnState(state: { connected: boolean }) {
+      ctrl.onConnectionChange(state.connected, state.connected ? (t) => telemetry.sendText(t) : null);
+    }
+    telemetry.stateListeners.add(onConnState);
+
     setClient(telemetry);
     return () => {
+      telemetry.rawMessageListeners.delete(onRawMessage);
+      telemetry.stateListeners.delete(onConnState);
+      ctrl.onConnectionChange(false, null);
       telemetry.close();
       setClient(null);
     };
@@ -252,7 +281,8 @@ export function App() {
   // changes (i.e. new attempt), mirroring the hub App.tsx attach/retry pattern.
   // labPort and mapName are derived below; keep the effect after their declarations.
 
-  // Esc closes the control drawer (SPEC §6.1) — placeholder drawer included.
+  // Esc closes the control drawer (SPEC §6.1).
+  // Click outside the drawer header area also closes (non-modal, SPEC §3.7).
   useEffect(() => {
     if (!layout.drawerOpen) {
       return;
@@ -262,8 +292,21 @@ export function App() {
         setLayout((state) => ({ ...state, drawerOpen: false }));
       }
     };
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (!target) return;
+      // Close if the click lands outside the drawer element itself.
+      const drawer = document.querySelector('[data-drawer="control"]');
+      if (drawer && !drawer.contains(target)) {
+        setLayout((state) => ({ ...state, drawerOpen: false }));
+      }
+    };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pointerdown", onPointerDown);
+    };
   }, [layout.drawerOpen]);
 
   // LD-E1 (#100): "[" toggles the KPI dock (non-conflicting; no modifier needed).
@@ -556,14 +599,13 @@ export function App() {
               : "telemetry disconnected"}
         </span>
 
+        {/* LD-F3 (#105): real control drawer — session/map/roster/assignment/console */}
         {layout.drawerOpen && (
-          <div
-            data-drawer="control"
-            className="absolute top-full inset-x-0 border-b border-slate-700 bg-slate-900/95 px-4 py-3 text-xs text-gray-500"
-          >
-            Control drawer — placeholder; session/bot/cvar controls land in
-            LD-F3 (#105). Esc closes.
-          </div>
+          <ControlDrawer
+            client={controlClientRef.current}
+            wsConnected={connection.connected}
+            onClose={() => setLayout((state) => ({ ...state, drawerOpen: false }))}
+          />
         )}
       </header>
 

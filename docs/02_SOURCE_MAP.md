@@ -427,6 +427,31 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   in localStorage since LD-B1).  Receives `{ context, collapsed, onToggle }` as props —
   no internal state.
 
+- `lab/dashboard/src/controlClient.ts` (LD-F3, #105) — TypeScript client for the
+  control bridge command channel.  Multiplexed on the SAME WebSocket as telemetry
+  (no second connection): `TelemetryClient` exposes `rawMessageListeners` and
+  `sendText()` so `ControlClient` can route bridge responses / `control_event`
+  broadcasts without owning the socket.  `ControlClient` is created once in `App.tsx`
+  (stable ref), wired to the telemetry socket via `onConnectionChange()`, and receives
+  raw text frames via `onMessage()`.  Provides typed convenience wrappers for every
+  mutating op: `sessionStart`, `sessionStop`, `addBot`, `removeBot`, `setCvar`, `console`
+  (with `@<slot>` expansion).  Token auth: optional `?ctoken=` URL param for non-loopback
+  callers; loopback dashboard sessions are trusted automatically by the bridge.
+
+- `lab/dashboard/src/ControlDrawer.tsx` (LD-F3, #105) — slide-down control drawer
+  component.  Rendered from `App.tsx` when `layout.drawerOpen`; positioned absolute
+  below the top bar, non-modal.  Three columns:
+  - **Session block**: lock badge (free / locked / stale), stale-takeover confirm flow,
+    map selector (dm3/dm2/frobodm2/trick), start/stop buttons.
+  - **Bot roster**: per-slot rows with name, route dropdown (routes of the current map
+    from the routes manifest), add/remove buttons.  Route display shows what the server
+    reports (`ASSIGN` events via `control_event`), with a "pending…" phase while waiting
+    for read-back.
+  - **Cvar console**: command history (↑/↓), response echo, inline rejection rendering,
+    `@<slot>` per-slot shorthand.
+  Disabled states enforced: bridge disconnected, harness lock fresh, no session running
+  (except `session_start`).  Esc and click-outside close (wired in `App.tsx`).
+
 ### Lab control bridge (lab/server)
 
 `lab/server/control_bridge.py` (LD-F2, #96) is the browser→lab-server command channel,
