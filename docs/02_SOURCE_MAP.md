@@ -616,6 +616,46 @@ UI (one button + optional note); user-initiated only, no nag prompts; on success
 locking validation, atomic write, certification append, lock exemption, auth enforcement,
 audit).
 
+### Lab Dashboard golden-path validation harness (LD-G2, #108)
+
+`scripts/ld_g2_golden_path.py` — stdlib-only offline validation harness for the
+Lab Dashboard v1 data contracts.  Runs four offline checks without requiring a
+live servexeri connection or a browser:
+
+1. **routes-manifest integrity** — index.json + per-map files parse; every route
+   has all required `komodobots.routes.v1` fields (name, human, polyline, gaps,
+   teleports, source); route counts match; map names cross-reference `maps.json`.
+2. **maps.json / GLB structural check** — every committed `.glb` has correct glTF
+   magic (`glTF`), version 2, self-consistent declared file length, and an
+   `asset.extras.source_bsp_sha256` that matches the `komodobots.maps.v1`
+   provenance record in `maps.json`.
+3. **records / verdicts schema round-trip** — `lab/server/verdicts.seed.json`
+   parses as valid `komodobots.verdicts.v1`; verdict values are in
+   `{pass, close, fail}`; `records_build.SCHEMA` constant matches the harness's
+   sentinel.
+4. **deploy expected file-set** — committed `public/` key assets (`panes/*.html`,
+   `panes/*.cfg`, top-level `dm3.obj`, `dm3_sng_to_rl.cmds`, per-map GLB/OBJ,
+   routes JSON files) all exist before the npm build step runs.
+
+Live checks (skipped offline, pass `--live`):
+- `@live`: telemetry WebSocket frame validation against `ws://servexeri:8770`.
+- `@live`: deployed `records.json` schema check at `http://servexeri:8095`.
+
+Usage:
+```bash
+python scripts/ld_g2_golden_path.py           # offline only (CI path)
+python scripts/ld_g2_golden_path.py --live    # owner slot with servexeri access
+```
+
+Contract gap found during LD-G2: `maps.json["dm2"]["glb_bytes"]` was stale
+(`611980` vs actual `613256`); corrected in the same PR (see `07_FINDINGS_LOG.md`
+entry 2026-06-11).
+
+Tests: `tests/test_ld_g2_golden_path.py` (42 tests).  Includes a deliberately-
+broken-fixture negative-control suite (`TestBrokenFixtureFailsLoud`) that
+verifies wrong GLB magic, missing route fields, and invalid verdict values each
+produce loud, specific failure messages.
+
 ### mvd_analyzer
 
 Repository: https://github.com/galfthan/mvd_analyzer
