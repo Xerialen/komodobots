@@ -119,6 +119,23 @@ send_cmd() {
   sleep "$delay"
 }
 
+# Lab lock (LD-F2 #96): the experiment harness has absolute priority on the
+# serial lab queue. While this lock is fresh, the dashboard control bridge
+# refuses every mutating op. Written at server start, removed in cleanup
+# (the EXIT trap covers the failure paths) and again on the success path.
+lab_lock="$HOME/komodobots-lab/lab.lock"
+acquire_lab_lock() {
+  mkdir -p "$HOME/komodobots-lab"
+  printf '{"owner":"harness","run_id":"%s","pid":%s,"ts":"%s"}\n' \
+    "$run_id" "$$" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$lab_lock"
+}
+release_lab_lock() {
+  # Only remove a lock this run wrote; never clobber another owner's lock.
+  if [ -f "$lab_lock" ] && grep -q "\"run_id\":\"${run_id}\"" "$lab_lock"; then
+    rm -f -- "$lab_lock"
+  fi
+}
+
 cleanup() {
   set +e
   if session_exists; then
@@ -126,11 +143,19 @@ cleanup() {
     screen -S "$session" -p 0 -X hardcopy "$rundir/hardcopy.cleanup.txt"
     screen -S "$session" -X quit
   fi
+  release_lab_lock
 }
 trap cleanup EXIT
 
 if session_exists; then
   echo "Screen session already exists: $session" >&2
+  exit 2
+fi
+
+# Dashboard sessions (control bridge, LD-F2 #96) use the bare screen name
+# komodobots_lab_<port>; the harness must not start on a port one occupies.
+if screen -ls | grep -q "[.]komodobots_lab_${port}[[:space:]]"; then
+  echo "Lab port $port is held by a dashboard session (komodobots_lab_${port}); pick another port or stop it" >&2
   exit 2
 fi
 
@@ -249,6 +274,7 @@ MOVEPROBE_REPLAY_FILE=$moveprobe_replay_file
 START_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 
+acquire_lab_lock
 log "starting $session on port $port"
 cd "$nq"
 screen -L -Logfile "$rundir/screen.log" -dmS "$session" "./$mvdsv_bin" -port "$port" -mem 64 -game ktx +exec "$cfg_name"
@@ -337,6 +363,7 @@ sha256sum "$rundir/demo.mvd" > "$rundir/demo.sha256"
 log "stopping $session"
 screen -S "$session" -X quit
 trap - EXIT
+release_lab_lock
 
 cat >> "$rundir/run.env" <<EOF
 END_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)
