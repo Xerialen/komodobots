@@ -26,11 +26,9 @@ import { setFromQuake } from "./quakeCoords.ts";
 // Default opacity for the map mesh — "quite transparent" per SPEC §6.3 / #99.
 const FILL_OPACITY = 0.3;
 
-// TAG strings set by bsp_to_mesh.py in material extras.quake_tag; used to
-// hide sky / tool textures by default (#92).
-// These must match bsp_to_mesh.TAG_SKY / TAG_SKIP ("sky" / "skip").
-// GLTFLoader merges glTF material extras directly into material.userData
-// (Object.assign), so the key is material.userData.quake_tag.
+// TAG strings set by bsp_to_mesh.py in material extras (quake_tag field);
+// values are lowercase "sky" / "skip" matching lab/tools/bsp_to_mesh.py
+// TAG_SKY = "sky" / TAG_SKIP = "skip" (locked by tests/test_bsp_to_mesh.py).
 const TAG_SKY = "sky";
 const TAG_SKIP = "skip";
 
@@ -184,12 +182,20 @@ export function createMapScene(
         : [child.material as THREE.Material];
 
       for (const mat of mats) {
-        // bsp_to_mesh.py sets quake_tag in glTF material extras.
-        // GLTFLoader (three.js) merges extras directly into material.userData
-        // via Object.assign, so the key is material.userData.quake_tag.
+        // bsp_to_mesh.py embeds quake_tag in material extras (GLTF extras path).
+        // GLTFLoader places extras under material.userData (Three.js convention);
+        // key is "quake_tag" with lowercase values "sky" / "skip" / "regular" /
+        // "liquid" (see lab/tools/bsp_to_mesh.py TAG_* constants, locked by
+        // tests/test_bsp_to_mesh.py test_material_extras_quake_tag_present).
+        const extras =
+          (mat as { userData?: { quake_tag?: string; extras?: { quake_tag?: string } } }).userData
+            ?? {};
+        // Check direct userData.quake_tag first (Three.js GLTFLoader flattens
+        // GLTF material extras into userData), then fall back to nested .extras.
         const tag: string =
-          (mat as { userData?: { quake_tag?: string } }).userData
-            ?.quake_tag ?? "";
+          (extras as { quake_tag?: string }).quake_tag ??
+          (extras as { extras?: { quake_tag?: string } }).extras?.quake_tag ??
+          "";
 
         if (tag === TAG_SKY || tag === TAG_SKIP) {
           // Hide sky / clip / trigger / tool faces.
@@ -209,9 +215,12 @@ export function createMapScene(
         visibleMaterials.push(typedMat);
       }
 
-      // Add wireframe overlay (hidden until setWireframe(true)).
+      // Add wireframe overlay: respect wireframeActive in case setWireframe(true)
+      // was called before the GLB finished loading.  Without this, a pre-enabled
+      // wireframe would never show because the later setWireframe(true) calls
+      // `if (enabled === wireframeActive) return` and exits early (Codex P2).
       const wireMesh = new THREE.Mesh(child.geometry, wireMaterial);
-      wireMesh.visible = false;
+      wireMesh.visible = wireframeActive; // honor pre-load toggle
       wireMesh.frustumCulled = false;
       child.add(wireMesh);
       wireMeshes.push(wireMesh);
