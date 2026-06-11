@@ -258,6 +258,21 @@ localStorage persistence) and an `App.tsx` top bar + pane grid that rehomes the 
 Live 3D scene and live-game iframe into their fixed pane slots (Demo/Mockup/dock/drawer
 are labeled placeholders for LD-D3/LD-C3/LD-E1/LD-F3).
 
+LD-B3 (#89) extracted the reusable map-scene module:
+
+- `src/mapScene.ts` — standalone Three.js scene rig consumed by `BotLab3D.tsx` and
+  the future Mockup pane (LD-C3, #97).  Provides `createMapScene(container, mapName,
+  qCenter?, onMeshLoaded?)` which encapsulates: scene + `PerspectiveCamera` +
+  `WebGLRenderer` + `OrbitControls`, OBJ mesh loading from `/botlab/maps/<map>.obj`
+  with fill/wireframe materials and Quake Z→Y rotation, resize-observer wiring, and a
+  `dispose()` that frees all GPU resources.  Also exports `fetchMapCenter(mapName)` to
+  resolve per-map AABB centers from the committed `public/maps/maps.json` (LD-C2).
+  `BotLab3D.tsx` now delegates scene setup to `createMapScene` and retains only the
+  bot-actor lifecycle (marker/trail/velocity arrow), telemetry frame loop, and reference
+  path rendering.  `App.tsx` documents that one `TelemetryClient` instance is created at
+  shell scope and shared across all pane consumers (single WebSocket per page; panes only
+  register frameListeners, they do not own the connection).
+
 The local-hub copy is deprecated for development; see `lab/README.md` for the dev loop.
 
 Deployment (LD-A2, #85): `lab/deploy_dashboard.py` builds the app and ships `dist/` to

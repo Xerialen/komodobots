@@ -1,8 +1,16 @@
+// LD-A1 (#84) / LD-B3 (#89): Live 3D pane — Three.js scene driven by the
+// shared TelemetryClient.
+//
+// LD-B3 refactor: the map-scene setup (scene/camera/renderer/controls/mesh
+// loading/resize handling/dispose) is now in mapScene.ts so the Mockup pane
+// (LD-C3, #97) can reuse the same rig.  Bot actor management (marker/trail/
+// velocity arrow) and the telemetry frame loop remain here — they are specific
+// to the live telemetry view.
+
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { setFromQuake } from "./quakeCoords.ts";
+import { createMapScene } from "./mapScene.ts";
 import type { TelemetryClient, TelemetryFrame } from "./telemetryClient.ts";
 
 // 100 Hz x 2 min of trajectory is plenty for one attempt
@@ -60,80 +68,17 @@ export function BotLab3D({
       return;
     }
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0a14);
+    // ── Map scene (shared module, LD-B3) ─────────────────────────────────
+    // createMapScene handles: scene + camera + renderer + OrbitControls +
+    // OBJ mesh loading + resize observer + GPU dispose.
+    // dm3 AABB center used as default overview point (matches maps.json).
+    const mapScene = createMapScene(container, mapName);
+    const { scene, camera, renderer, controls } = mapScene;
 
-    const camera = new THREE.PerspectiveCamera(
-      60,
-      container.clientWidth / container.clientHeight,
-      1,
-      20000,
-    );
-    // start on a whole-map overview (dm3 world AABB center, from above-south);
-    // once frames arrive the camera follows the bot
-    const mapCenter = setFromQuake(new THREE.Vector3(), 514, 88, 32);
-    camera.position.copy(mapCenter).add(new THREE.Vector3(0, 1900, 1600));
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    container.appendChild(renderer.domElement);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.target.copy(mapCenter);
-
-    let disposed = false;
-
-    // Map mesh: translucent fill + wireframe overlay (MeshBasicMaterial — the
-    // exported OBJ has no normals and we want the readability, not lighting).
-    const loader = new OBJLoader();
-    loader.load(`/botlab/${mapName}.obj`, (obj) => {
-      if (disposed) {
-        // late load after unmount: the cleanup traversal already ran, so
-        // free the parsed geometry instead of adding it to a dead scene
-        obj.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            child.geometry.dispose();
-          }
-        });
-        return;
-      }
-      const fill = new THREE.MeshBasicMaterial({
-        color: 0x2a3550,
-        transparent: true,
-        opacity: 0.28,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-      });
-      const wire = new THREE.MeshBasicMaterial({
-        color: 0x4a5a80,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.35,
-      });
-      // collect first — adding children during traverse() recurses into them
-      const meshes: THREE.Mesh[] = [];
-      obj.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          meshes.push(child);
-        }
-      });
-      for (const mesh of meshes) {
-        mesh.material = fill;
-        mesh.add(new THREE.Mesh(mesh.geometry, wire));
-      }
-      // Rotate the whole map from Quake Z-up to three.js Y-up instead of
-      // rewriting vertices: -90deg around X maps (x,y,z) -> (x,z,-y),
-      // matching quakeToThree for telemetry points.
-      obj.rotation.x = -Math.PI / 2;
-      scene.add(obj);
-    });
-
-    // Per-bot live actors, keyed by frame.ed (edict number — stable per
-    // entity for the lifetime of an attempt). A telemetry stream interleaves
-    // frames from every probed bot, so marker/trail/arrow state must never be
-    // shared across bots.
+    // ── Per-bot live actors ───────────────────────────────────────────────
+    // Keyed by frame.ed (edict number — stable per entity for the lifetime of
+    // an attempt).  A telemetry stream interleaves frames from every probed
+    // bot, so marker/trail/arrow state must never be shared across bots.
     type BotActor = {
       marker: THREE.Mesh;
       trail: THREE.Line;
@@ -275,12 +220,17 @@ export function BotLab3D({
     client.frameListeners.add(onFrame);
     client.attemptListeners.add(onAttempt);
 
+    // Local disposed flag — mirrors the internal flag inside mapScene so
+    // async fetches can bail out before touching a disposed scene.
+    let disposed = false;
+
+    // ── Render loop ───────────────────────────────────────────────────────
+    let animFrameId: number;
     const cameraDelta = new THREE.Vector3();
+
     function animate() {
-      if (disposed) {
-        return;
-      }
-      requestAnimationFrame(animate);
+      if (disposed) return;
+      animFrameId = requestAnimationFrame(animate);
       if (hasFrame) {
         // follow: shift camera by the same delta as the orbit target so the
         // user-chosen viewing angle/distance is preserved
@@ -293,26 +243,13 @@ export function BotLab3D({
     }
     animate();
 
-    function onResize() {
-      if (!container) {
-        return;
-      }
-      camera.aspect = container.clientWidth / container.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
-    }
-    const resizeObserver = new ResizeObserver(onResize);
-    resizeObserver.observe(container);
-
-    const sceneForReference = scene;
+    // ── Human reference path ──────────────────────────────────────────────
     referenceLineRef.current = null;
     if (referencePathUrl) {
       fetch(referencePathUrl)
         .then((response) => (response.ok ? response.text() : Promise.reject()))
         .then((text) => {
-          if (disposed) {
-            return;
-          }
+          if (disposed) return;
           const points = parseCmdsPath(text);
           if (!points.length) {
             return;
@@ -328,31 +265,25 @@ export function BotLab3D({
           line.frustumCulled = false;
           line.visible = showReferenceRef.current;
           referenceLineRef.current = line;
-          sceneForReference.add(line);
+          scene.add(line);
         })
         .catch(() => undefined);
     }
 
+    // ── Cleanup ───────────────────────────────────────────────────────────
+    // Set disposed first so any in-flight fetches bail out.  Then cancel the
+    // render loop, remove telemetry listeners, dispose bot actors (which
+    // reference the scene), and finally call mapScene.dispose() which
+    // traverses the full scene, frees the renderer, and removes the canvas.
     return () => {
       disposed = true;
+      cancelAnimationFrame(animFrameId);
       client.frameListeners.delete(onFrame);
       client.attemptListeners.delete(onAttempt);
-      resizeObserver.disconnect();
-      controls.dispose();
-      // free GPU buffers — StrictMode double-mounts this effect in dev
-      scene.traverse((object) => {
-        if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-          object.geometry.dispose();
-          const materials = Array.isArray(object.material)
-            ? object.material
-            : [object.material];
-          for (const material of materials) {
-            material.dispose();
-          }
-        }
-      });
-      renderer.dispose();
-      container.removeChild(renderer.domElement);
+      disposeActors();
+      // Reference line geometry/material cleanup is handled by mapScene.dispose()
+      // scene traversal (Line instances are traversed along with Meshes).
+      mapScene.dispose();
     };
   }, [client, mapName, referencePathUrl]);
 
