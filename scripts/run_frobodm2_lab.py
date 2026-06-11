@@ -37,7 +37,9 @@ from typing import Iterable
 from demo_archive import archive_run_demo
 from extract_movement_metrics import write_movement_metrics
 from moveprobe_parse import (
+    parse_moveprobe_assign_logs,
     parse_moveprobe_command_logs,
+    parse_moveprobe_perslot_error_logs,
     parse_moveprobe_qwd_event_logs,
     parse_moveprobe_replay_event_logs,
 )
@@ -871,6 +873,64 @@ def write_moveprobe_replay_event_logs(local_run_dir: Path) -> dict[str, object]:
     return summary
 
 
+def write_moveprobe_assign_logs(local_run_dir: Path) -> dict[str, object]:
+    """LD-F1 (#95): per-bot assignment evidence.
+
+    FBMOVEPROBE_ASSIGN rows expose which mode/route/goal/spawn each bot
+    actually resolved (per-slot `_s<N>` cvar vs global fallback) and
+    FBMOVEPROBE_PERSLOT_ERROR rows are the loud-fail evidence for malformed
+    per-slot values. Both land in moveprobe-assignments.json/md.
+    """
+    screen_log = (local_run_dir / "screen.log").read_text(encoding="utf-8", errors="replace")
+    assignments = parse_moveprobe_assign_logs(screen_log)
+    errors = parse_moveprobe_perslot_error_logs(screen_log)
+
+    latest: dict[tuple[int, str], dict[str, object]] = {}
+    for row in assignments:
+        latest[(int(row["ed"]), str(row["name"]))] = row
+
+    summary = {
+        "assignment_count": len(assignments),
+        "perslot_error_count": len(errors),
+        "latest_assignments": [latest[key] for key in sorted(latest)],
+        "assignments": assignments,
+        "perslot_errors": errors,
+    }
+
+    json_path = local_run_dir / "moveprobe-assignments.json"
+    md_path = local_run_dir / "moveprobe-assignments.md"
+    json_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+
+    lines = [
+        "# Moveprobe Per-Bot Assignments",
+        "",
+        f"- Assignment rows parsed: `{summary['assignment_count']}`",
+        f"- Per-slot error rows parsed: `{summary['perslot_error_count']}`",
+        "",
+    ]
+    if latest:
+        lines.extend(["## Latest assignment per bot", ""])
+        for (ed, name), row in sorted(latest.items()):
+            lines.append(
+                f"- `{name}` ed `{ed}`: mode `{row['mode']}` ({row['mode_src']}), "
+                f"replay_file `{row['replay_file'] or '-'}` ({row['replay_src']}), "
+                f"fixed_goal `{row['fixed_goal']}` ({row['goal_src']}), "
+                f"spawn_origin `{row['spawn_origin'] or '-'}` ({row['spawn_src']})"
+            )
+    else:
+        lines.append("- No `FBMOVEPROBE_ASSIGN` lines found in `screen.log`.")
+    if errors:
+        lines.extend(["", "## Per-slot loud failures", ""])
+        for err in errors:
+            lines.append(
+                f"- `{err['name']}` ed `{err['ed']}` at `{fmt_number(err['time_s'], 3)}`s: "
+                f"param `{err['param']}` value `{err['value']}` reason `{err['reason']}`"
+            )
+
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return summary
+
+
 def find_bot_entries(screen_log: str) -> list[str]:
     entries = []
     for line in screen_log.splitlines():
@@ -1378,6 +1438,19 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--extra-replay-cmds",
+        type=Path,
+        action="append",
+        default=None,
+        help=(
+            "Additional local replay .cmds file uploaded to ~/nquakesv/ktx/bots/replay/ "
+            "WITHOUT touching the global k_fb_moveprobe_replay_file cvar. Repeatable. "
+            "Pair with per-slot cvars (LD-F1 #95), e.g. --ktx-extra-cvars "
+            "'k_fb_moveprobe_replay_file_s3 bots/replay/dm3_hilljump.cmds' so two bots "
+            "can run two different routes in one session."
+        ),
+    )
+    parser.add_argument(
         "--ktx-extra-cvars",
         default="",
         help=(
@@ -1438,6 +1511,9 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         replay_remote = ""
         if args.replay_cmds is not None:
             replay_remote = upload_replay_cmds(args.host, args.replay_cmds)
+        for extra_cmds in args.extra_replay_cmds or []:
+            uploaded = upload_replay_cmds(args.host, extra_cmds)
+            print(f"extra_replay_cmds={uploaded}")
         extra_cvars_blob = ""
         if args.ktx_extra_cvars:
             _lines = []
@@ -1493,6 +1569,7 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         write_moveprobe_command_logs(local_run_dir)
         write_moveprobe_qwd_event_logs(local_run_dir)
         write_moveprobe_replay_event_logs(local_run_dir)
+        write_moveprobe_assign_logs(local_run_dir)
         write_summary(local_run_dir, args.host, port, run_id, args.map_name, parser_exits)
 
         if args.record_trick_name:

@@ -46,6 +46,13 @@ on a fresh pre-declared block; stop-loss hit = stop looping, escalate per plan.
 - Marker index: live = dm3.bot file line + 65. NUMBER_MARKERS=300, dm3 at 299. NUMBER_PATHS=8.
 - Harness: `scripts/run_frobodm2_lab.py` (cfg gen ~line 161-185, mode choices :1251);
   wrapper `scripts/run_dm3.py`.
+- Per-slot cvars (LD-F1 #95): `experiments/ktx_moveprobe/frogbot-moveprobe-perslot.patch`
+  adds `k_fb_moveprobe_{mode,replay_file,fixed_goal,spawn_origin}_s<N>` (N = ed),
+  FBMOVEPROBE_ASSIGN rows + loud-fail hold-at-spawn. Compile-verified offline against
+  the deployed base (md5s in experiments/ktx_moveprobe/README.md) and `git apply
+  --check` verified read-only on the live servexeri tree; NOT yet deployed to the
+  servexeri module — deploy + additive smoke + two-bots-two-routes proof ride the
+  next declared lab slot, yielding to the Sprint-1 serial queue.
 
 ## Run log (one line per gate block)
 

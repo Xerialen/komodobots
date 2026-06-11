@@ -65,6 +65,40 @@ MOVEPROBE_REPLAY_EVENT_RE = re.compile(
 )
 
 
+# LD-F1 (#95): one FBMOVEPROBE_ASSIGN row per bot whenever its resolved
+# assignment (mode/route/goal/spawn, each from a per-slot `_s<N>` cvar or the
+# global fallback) changes. Unset string values print as "-"; whitespace in
+# values is comma-folded server-side so every field is a single token.
+MOVEPROBE_ASSIGN_RE = re.compile(
+    r"FBMOVEPROBE_ASSIGN\s+"
+    r"time=(?P<time>-?\d+(?:\.\d+)?)\s+"
+    r"ed=(?P<ed>\d+)\s+"
+    r"name=(?P<name>.*?)\s+"
+    r"mode=(?P<mode>-?\d+)\s+"
+    r"mode_src=(?P<mode_src>slot|global)\s+"
+    r"replay_file=(?P<replay_file>\S+)\s+"
+    r"replay_src=(?P<replay_src>slot|global)\s+"
+    r"fixed_goal=(?P<fixed_goal>-?\d+)\s+"
+    r"goal_src=(?P<goal_src>slot|global)\s+"
+    r"spawn_origin=(?P<spawn_origin>\S+)\s+"
+    r"spawn_src=(?P<spawn_src>slot|global)"
+)
+
+
+# LD-F1 (#95): loud-failure row for a malformed per-slot cvar value (the bot
+# is held at spawn while the condition persists; the row is throttled to one
+# per slot per ~2 s). Printed unconditionally, not gated on command logging.
+MOVEPROBE_PERSLOT_ERROR_RE = re.compile(
+    r"FBMOVEPROBE_PERSLOT_ERROR\s+"
+    r"time=(?P<time>-?\d+(?:\.\d+)?)\s+"
+    r"ed=(?P<ed>\d+)\s+"
+    r"name=(?P<name>.*?)\s+"
+    r"param=(?P<param>\w+)\s+"
+    r"value=(?P<value>\S+)\s+"
+    r"reason=(?P<reason>\w+)"
+)
+
+
 MOVEPROBE_QWD_EVENT_RE = re.compile(
     r"FBMOVEPROBE_QWD_EVENT\s+"
     r"time=(?P<time>-?\d+(?:\.\d+)?)\s+"
@@ -226,6 +260,56 @@ def parse_moveprobe_replay_event_logs(screen_log: str) -> list[dict[str, object]
             }
         )
     return events
+
+
+def parse_moveprobe_assign_line(line: str) -> dict[str, object] | None:
+    """Parse one screen.log line; None when it is not an FBMOVEPROBE_ASSIGN line."""
+    match = MOVEPROBE_ASSIGN_RE.search(line)
+    if not match:
+        return None
+    groups = match.groupdict()
+    return {
+        "time_s": float(groups["time"]),
+        "ed": int(groups["ed"]),
+        "name": groups["name"].strip(),
+        "mode": int(groups["mode"]),
+        "mode_src": groups["mode_src"],
+        "replay_file": None if groups["replay_file"] == "-" else groups["replay_file"],
+        "replay_src": groups["replay_src"],
+        "fixed_goal": int(groups["fixed_goal"]),
+        "goal_src": groups["goal_src"],
+        "spawn_origin": None if groups["spawn_origin"] == "-" else groups["spawn_origin"],
+        "spawn_src": groups["spawn_src"],
+    }
+
+
+def parse_moveprobe_assign_logs(screen_log: str) -> list[dict[str, object]]:
+    assignments: list[dict[str, object]] = []
+    for line in screen_log.splitlines():
+        row = parse_moveprobe_assign_line(line)
+        if row is not None:
+            assignments.append(row)
+    return assignments
+
+
+def parse_moveprobe_perslot_error_logs(screen_log: str) -> list[dict[str, object]]:
+    errors: list[dict[str, object]] = []
+    for line in screen_log.splitlines():
+        match = MOVEPROBE_PERSLOT_ERROR_RE.search(line)
+        if not match:
+            continue
+        groups = match.groupdict()
+        errors.append(
+            {
+                "time_s": float(groups["time"]),
+                "ed": int(groups["ed"]),
+                "name": groups["name"].strip(),
+                "param": groups["param"],
+                "value": groups["value"],
+                "reason": groups["reason"],
+            }
+        )
+    return errors
 
 
 def parse_moveprobe_qwd_event_logs(screen_log: str) -> list[dict[str, object]]:
