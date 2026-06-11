@@ -467,13 +467,18 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   - **Session block**: lock badge (free / locked / stale), stale-takeover confirm flow,
     map selector (dm3/dm2/frobodm2/trick), start/stop buttons.
   - **Bot roster**: per-slot rows with name, route dropdown (routes of the current map
-    from the routes manifest), add/remove buttons.  Route display shows what the server
-    reports (`ASSIGN` events via `control_event`), with a "pending…" phase while waiting
-    for read-back.
+    from the routes manifest), add/remove buttons.  Route display shows server truth from
+    `FBMOVEPROBE_ASSIGN` rows via `TelemetryClient.assignListeners`, with a "pending…"
+    phase until the ASSIGN row arrives.  Route name round-trips correctly for underscored
+    names (e.g. `dm3_sng_to_rl.cmds` → `sng_to_rl`).
   - **Cvar console**: command history (↑/↓), response echo, inline rejection rendering,
     `@<slot>` per-slot shorthand.
+  Per-bot assignment sends all four per-slot cvars (`replay_file`, `mode`, `fixed_goal`,
+  `spawn_origin`) atomically; `spawn_origin` is derived from `polyline[0]` in the route
+  manifest (fetched lazily, cached).
   Disabled states enforced: bridge disconnected, harness lock fresh, no session running
   (except `session_start`).  Esc and click-outside close (wired in `App.tsx`).
+  Accepts `telemetryClient` prop for ASSIGN subscription.
 
 ### Lab control bridge (lab/server)
 
@@ -494,7 +499,10 @@ flag for the bridge's bot ops; `scripts/run_frobodm2_lab.py` writes/releases the
 `experiments/smoke_ws_control.py` is the manual local smoke / lab-slot end-to-end
 client. Protocol, security gates, and the `kbot-telemetry` deploy/restart procedure:
 `lab/README.md`. Tests: `tests/test_control_bridge.py`,
-`tests/test_control_channel_wiring.py`.
+`tests/test_control_channel_wiring.py`,
+`tests/test_f3_control_drawer.py` (LD-F3 #105 Codex P1 fixes: full per-slot
+assignment cvar expansion, ASSIGN broadcast shape, route-name round-trip,
+spawn_origin allowlist).
 
 ### mvd_analyzer
 
