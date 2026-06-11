@@ -17,6 +17,7 @@
 
 import type { KpiContext } from "./contextStore.ts";
 import { BrutalScoreboard, RailScoreboard } from "./BrutalScoreboard.tsx";
+import type { ControlClient } from "./controlClient.ts";
 
 // ---- Props ------------------------------------------------------------------
 
@@ -30,6 +31,16 @@ type KpiDockProps = {
    * LD-E2 (#101).
    */
   refreshKey?: number;
+  /**
+   * LD-F5 (#106): control bridge client for the eye-test entry form.
+   * Passed through to BrutalScoreboard; optional so existing callers are
+   * not broken.
+   */
+  controlClient?: ControlClient;
+  /**
+   * LD-F5 (#106): run_id of the currently-playing demo for verdict autofill.
+   */
+  currentRunId?: string | null;
 };
 
 // ---- Helpers ----------------------------------------------------------------
@@ -58,7 +69,7 @@ function SectionSlot({ label, section }: { label: string; section: string }) {
 
 // ---- Component --------------------------------------------------------------
 
-export function KpiDock({ context, collapsed, onToggle, refreshKey = 0 }: KpiDockProps) {
+export function KpiDock({ context, collapsed, onToggle, refreshKey = 0, controlClient, currentRunId }: KpiDockProps) {
   if (collapsed) {
     return (
       <aside
@@ -139,9 +150,15 @@ export function KpiDock({ context, collapsed, onToggle, refreshKey = 0 }: KpiDoc
 
       {/* Sections */}
       <div className="flex flex-col overflow-y-auto grow">
-        {/* LD-E2 (#101): Brutal scoreboard — four KPI rows. */}
+        {/* LD-E2 (#101): Brutal scoreboard — four KPI rows.
+            LD-F5 (#106): controlClient + currentRunId for eye-test entry. */}
         <div className="px-3 pt-2 pb-1">
-          <BrutalScoreboard context={context} refreshKey={refreshKey} />
+          <BrutalScoreboard
+            context={context}
+            refreshKey={refreshKey}
+            controlClient={controlClient}
+            currentRunId={currentRunId}
+          />
         </div>
 
         {/* LD-E3 (#102): Live metrics — skeleton placeholder. */}

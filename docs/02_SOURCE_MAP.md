@@ -483,22 +483,27 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   scoreboard refetch.  Collapse/expand driven by `layout.dockCollapsed` from
   `layoutState.ts` (persisted in localStorage since LD-B1).
 
-- `lab/dashboard/src/BrutalScoreboard.tsx` (LD-E2, #101) — the four KPI metric rows
+- `lab/dashboard/src/BrutalScoreboard.tsx` (LD-E2, #101; LD-F5, #106) — the four KPI metric rows
   rendered inside the KPI dock.  Two exported components:
   - `BrutalScoreboard` — full expanded scoreboard with four rows: The Race (finishes/
     attempts · median×human), Jump Count (N/11 censused dm3 routes completed), Speedometer
-    (bot peak_speed as % of human · decisive edge sub-line), Eye Test (latest verdict).
+    (bot peak_speed as % of human · decisive edge sub-line), Eye Test (latest verdict +
+    LD-F5 entry form: three-state verdict buttons + optional note + run_id autofill).
     Fetches `records.json` (RECORDS_URL `/demos/records/records.json`) and `verdicts.json`
     (VERDICTS_URL `/demos/records/verdicts.json`) on mount and on `refreshKey` change.
-    Honest zeros everywhere: explicit empty/no-data states, never blanks or stale data.
-    Pass/fail/close framing via `VerdictBadge`.  Data derivation is `deriveScoreboard()`,
-    a pure function exercised by `tests/test_brutal_scoreboard.py` (57 tests).
+    Accepts optional `controlClient` (LD-F5) and `currentRunId` (LD-F5) props; when
+    `controlClient` is present the `EyeTestForm` sub-component renders below the verdict
+    display, calls `controlClient.verdict()`, and on success calls `refetch()` for
+    immediate scoreboard update.  Honest zeros everywhere: explicit empty/no-data states,
+    never blanks or stale data.  Pass/fail/close framing via `VerdictBadge`.
+    Data derivation is `deriveScoreboard()`, a pure function exercised by
+    `tests/test_brutal_scoreboard.py` (57 tests).
   - `RailScoreboard` — compact vertical four-glyph strip for dock rail mode: Race
     (finishes/attempts fraction), Jump Count (N/11), Speedometer (%), Eye Test (P/~/F/?).
   Tests: `tests/test_brutal_scoreboard.py` (57 tests locking derive_scoreboard logic,
   DM3_ROUTES_ORDERED, honest zeros, current honest state from SPEC §7).
 
-- `lab/dashboard/src/controlClient.ts` (LD-F3, #105) — TypeScript client for the
+- `lab/dashboard/src/controlClient.ts` (LD-F3, #105; LD-F5, #106) — TypeScript client for the
   control bridge command channel.  Multiplexed on the SAME WebSocket as telemetry
   (no second connection): `TelemetryClient` exposes `rawMessageListeners` and
   `sendText()` so `ControlClient` can route bridge responses / `control_event`
@@ -506,7 +511,8 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   (stable ref), wired to the telemetry socket via `onConnectionChange()`, and receives
   raw text frames via `onMessage()`.  Provides typed convenience wrappers for every
   mutating op: `sessionStart`, `sessionStop`, `addBot`, `removeBot`, `setCvar`, `console`
-  (with `@<slot>` expansion).  Token auth: optional `?ctoken=` URL param for non-loopback
+  (with `@<slot>` expansion), and `verdict` (LD-F5: `map, route, verdict, note?, run_id?`).
+  Token auth: optional `?ctoken=` URL param for non-loopback
   callers; loopback dashboard sessions are trusted automatically by the bridge.
 
 - `lab/dashboard/src/ControlDrawer.tsx` (LD-F3, #105) — slide-down control drawer
@@ -530,7 +536,7 @@ app so the FTE engine owns its own window — one engine instance per window, SP
 
 ### Lab control bridge (lab/server)
 
-`lab/server/control_bridge.py` (LD-F2, #96) is the browser→lab-server command channel,
+`lab/server/control_bridge.py` (LD-F2, #96; LD-F5, #106) is the browser→lab-server command channel,
 hosted inside the existing telemetry sidecar `scripts/telemetry_ws.py` (decision D4: no
 new service). The sidecar's client text frames carry JSON `{op, req_id, ...}` commands;
 the bridge authorizes the caller for every mutating op (loopback peer or per-deploy
@@ -551,6 +557,20 @@ client. Protocol, security gates, and the `kbot-telemetry` deploy/restart proced
 `tests/test_f3_control_drawer.py` (LD-F3 #105 Codex P1 fixes: full per-slot
 assignment cvar expansion, ASSIGN broadcast shape, route-name round-trip,
 spawn_origin allowlist).
+
+LD-F5 (#106) adds the `verdict` op: `{map, route, verdict: pass|close|fail, note?, run_id?}`.
+Validates fields, writes atomically (temp-file+rename) to `~/komodobots-lab/records/verdicts.json`
+(schema `komodobots.verdicts.v1`, co-located with `records.json`), appends the previous verdict
+to `_history[route]` (history kept), audit-logs the attempt, and broadcasts a `control_event`
+on success.  Lock-exempt: the verdict op bypasses the harness-priority lab lock because it
+touches only the local records store, never a running lab server — the operator can record
+verdicts while the harness is running.  The `controlClient.ts` `verdict()` wrapper mirrors
+the op; the `EyeTestForm` component inside `BrutalScoreboard.tsx` provides the dock UI
+(three-state buttons + optional note + run_id autofill from the current attempt); on
+success it calls `refetch()` so the scoreboard Eye Test row updates immediately without
+a manual reload.  Tests: `tests/test_control_bridge.py` `TestVerdictValidation` +
+`TestVerdictOp` (12 new tests locking validation, atomic write, history append,
+latest-wins, lock exemption, auth enforcement, audit).
 
 ### mvd_analyzer
 

@@ -13,7 +13,8 @@ Protocol (JSON text frames over the existing websocket):
 
 Ops: session_start {map, force?} / session_stop {port?, force?} / set_map {map}
 / addbot {count?} / removebot {slot?|all?} / set_cvar {name, value, slot?}
-/ console {line} / lock_status / verdict (reserved for LD-F5 #106).
+/ console {line} / lock_status
+/ verdict {map, route, verdict: pass|close|fail, note?, run_id?} (LD-F5 #106).
 
 SECURITY IS BINDING (all gates enforced server-side, the UI is courtesy):
 
@@ -98,10 +99,20 @@ LOCK_STALE_AGE_S = 2 * 3600
 LOCK_TS_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 MUTATING_OPS: frozenset[str] = frozenset(
-    {"session_start", "session_stop", "set_map", "addbot", "removebot", "set_cvar", "console"}
+    {"session_start", "session_stop", "set_map", "addbot", "removebot", "set_cvar", "console", "verdict"}
 )
 # Ops that require a running dashboard-owned session.
 SESSION_OPS: frozenset[str] = frozenset({"set_map", "addbot", "removebot", "set_cvar", "console"})
+
+# Ops that are EXEMPT from the harness lock: verdict writes only to the local
+# verdicts store, never to a running lab server, so it must not be blocked when
+# the user is watching a run that the harness currently owns.
+LOCK_EXEMPT_OPS: frozenset[str] = frozenset({"verdict"})
+
+# LD-F5 (#106): Allowed verdict values.
+VALID_VERDICTS: frozenset[str] = frozenset({"pass", "close", "fail"})
+VERDICTS_FILENAME = "verdicts.json"
+VERDICTS_SCHEMA = "komodobots.verdicts.v1"
 
 MVDSV_LAB_BIN = "mvdsv-lab"
 
@@ -207,6 +218,41 @@ def validate_console_line(line: object) -> str | None:
         if len(tokens) != 2 or validate_map_name(tokens[1]) is None:
             return None
     return line
+
+
+def validate_verdict_args(
+    map_name: object,
+    route: object,
+    verdict: object,
+    note: object,
+    run_id: object,
+) -> str | None:
+    """Returns an error string if any field is invalid, else None.
+
+    LD-F5 (#106): validates the verdict op fields before writing to verdicts.json.
+    - map: TOKEN_RE (same as validate_map_name, but stored for context only)
+    - route: TOKEN_RE
+    - verdict: 'pass', 'close', or 'fail'
+    - note: optional str, limited length, no control chars
+    - run_id: optional str, TOKEN_RE or None
+    """
+    if validate_map_name(map_name) is None:
+        return "invalid map name"
+    if not isinstance(route, str) or not TOKEN_RE.match(route) or hits_flat_deny(route):
+        return "invalid route name"
+    if verdict not in VALID_VERDICTS:
+        return f"verdict must be one of: {', '.join(sorted(VALID_VERDICTS))}"
+    if note is not None:
+        if not isinstance(note, str):
+            return "note must be a string or null"
+        if len(note) > 1000:
+            return "note too long (max 1000 characters)"
+        if any(ord(c) < 32 and c not in ("\t",) for c in note):
+            return "note contains invalid control characters"
+    if run_id is not None and run_id != "":
+        if not isinstance(run_id, str) or not TOKEN_RE.match(run_id):
+            return "run_id must be a simple alphanumeric token or null"
+    return None
 
 
 def lab_session_name(port: int) -> str:
@@ -560,8 +606,6 @@ class ControlBridge:
         op = request["op"]
         if op == "lock_status":
             return self._lock_status(req_id), None
-        if op == "verdict":
-            return self._refuse(req_id, "verdict is reserved for LD-F5 (#106)"), None
         if op not in MUTATING_OPS:
             return self._refuse(req_id, f"unknown op: {op}"), None
         auth_error = self._authorize(request, peer_host)
@@ -647,6 +691,14 @@ class ControlBridge:
     def _mutating(self, op: str, request: dict, peer: str):
         req_id = request.get("req_id")
         force = request.get("force") is True
+
+        # LD-F5 (#106): verdict is lock-exempt — it writes only to the local
+        # verdicts store and never touches a running lab server.  Dispatch it
+        # before the lock check so the operator can record verdicts while the
+        # experiment harness owns the lab.
+        if op == "verdict":
+            return self._verdict(req_id, request)
+
         lock, state = self._lock_view()
 
         if lock is not None:
@@ -731,6 +783,100 @@ class ControlBridge:
             )
 
         return self._refuse(req_id, f"unhandled op: {op}"), None
+
+    # -- verdict op (LD-F5 #106) -----------------------------------------------
+
+    @property
+    def _verdicts_path(self) -> Path:
+        """Path to the verdicts.json file on the lab SSD.
+
+        The path mirrors the layout used by records_build.py --publish: the
+        same directory that holds records.json on the lab host.  The bridge
+        writes verdicts.json into `~/komodobots-lab/records/` (the LabExecutor
+        default), keeping it co-located with records.json and reachable at the
+        same `/demos/records/verdicts.json` HTTP path the scoreboard fetches.
+        """
+        return self.lab_home / "records" / VERDICTS_FILENAME
+
+    def _verdict(self, req_id: object, request: dict):
+        """LD-F5 (#106): write an eye-test verdict to verdicts.json.
+
+        Lock-exempt: the operator records verdicts while watching a run; the
+        harness lock must not block this.  Atomic write via temp-file+rename.
+        History kept: the file stores the latest verdict per route plus an
+        optional history list (appended on every write so previous verdicts
+        are recoverable).
+        """
+        map_name = request.get("map")
+        route = request.get("route")
+        verdict = request.get("verdict")
+        note = request.get("note")
+        run_id = request.get("run_id")
+
+        error = validate_verdict_args(map_name, route, verdict, note, run_id)
+        if error is not None:
+            return self._refuse(req_id, error), None
+
+        # Normalise optional fields.
+        note_val: str | None = str(note).strip() if isinstance(note, str) and note.strip() else None
+        run_id_val: str | None = str(run_id) if isinstance(run_id, str) and run_id.strip() else None
+        entry: dict[str, object] = {
+            "verdict": verdict,
+            "note": note_val,
+            "run_id": run_id_val,
+            "date": utc_now_iso()[:10],  # ISO date YYYY-MM-DD
+        }
+
+        verdicts_path = self._verdicts_path
+        verdicts_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Load existing file; initialise a fresh schema if absent.
+        try:
+            existing_text = verdicts_path.read_text(encoding="utf-8")
+            existing: dict[str, object] = json.loads(existing_text)
+            if not isinstance(existing, dict) or existing.get("schema") != VERDICTS_SCHEMA:
+                existing = {"schema": VERDICTS_SCHEMA, "routes": {}}
+        except FileNotFoundError:
+            existing = {"schema": VERDICTS_SCHEMA, "routes": {}}
+        except (OSError, json.JSONDecodeError) as exc:
+            return self._refuse(req_id, f"could not read verdicts.json: {exc}"), None
+
+        routes: dict[str, object] = existing.get("routes", {})
+        if not isinstance(routes, dict):
+            routes = {}
+
+        # Append previous entry to history before overwriting the latest slot.
+        prev = routes.get(route)
+        if isinstance(prev, dict) and prev.get("verdict") in VALID_VERDICTS:
+            history: list[object] = list(existing.get("_history", {}).get(route) or [])  # type: ignore[arg-type]
+            history.append(prev)
+            existing.setdefault("_history", {})[route] = history  # type: ignore[index]
+
+        routes[route] = entry
+        existing["routes"] = routes
+
+        # Atomic write.
+        tmp_path = verdicts_path.with_suffix(".json.tmp")
+        try:
+            tmp_path.write_text(
+                json.dumps(existing, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            tmp_path.replace(verdicts_path)
+        except OSError as exc:
+            return self._refuse(req_id, f"could not write verdicts.json: {exc}"), None
+
+        detail = f"verdict '{verdict}' written for {map_name}/{route}"
+        return (
+            self._ok(req_id, detail, map=map_name, route=route, verdict=verdict),
+            {
+                "type": "control_event",
+                "event": "verdict",
+                "map": map_name,
+                "route": route,
+                "verdict": verdict,
+            },
+        )
 
     # -- session lifecycle -----------------------------------------------------
 

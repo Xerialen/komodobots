@@ -435,12 +435,15 @@ class TestProtocolEdges(unittest.TestCase):
                 self.assertFalse(response["ok"], request)
                 self.assertIsNone(broadcast)
 
-    def test_verdict_reserved(self):
+    def test_verdict_implemented(self):
+        # LD-F5 (#106): verdict is now a real op; a valid request succeeds.
         with tempfile.TemporaryDirectory() as tmp:
             bridge, _ = make_bridge(tmp)
-            response, _ = local(bridge,{"op": "verdict", "req_id": "1"}, "p")
-            self.assertFalse(response["ok"])
-            self.assertIn("LD-F5", response["detail"])
+            response, broadcast = local(bridge, {
+                "op": "verdict", "map": "dm3", "route": "sng_to_rl", "verdict": "fail", "req_id": "1",
+            })
+            self.assertTrue(response["ok"], response)
+            self.assertIsNotNone(broadcast)
 
     def test_executor_exception_answers_instead_of_raising(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -474,6 +477,8 @@ class TestAuthorization(unittest.TestCase):
         {"op": "removebot"},
         {"op": "set_cvar", "name": "k_fb_skill", "value": 10},
         {"op": "console", "line": "status"},
+        # LD-F5 (#106): verdict is now a real mutating op.
+        {"op": "verdict", "map": "dm3", "route": "sng_to_rl", "verdict": "fail"},
     )
 
     def test_request_set_covers_every_mutating_op(self):
@@ -599,6 +604,190 @@ class TestConfigBuilders(unittest.TestCase):
         for port in (28501, 27500):
             with self.assertRaises(ValueError):
                 cb.lab_session_name(port)
+
+
+# ---------------------------------------------------------------------------
+# LD-F5 (#106): verdict op tests
+# ---------------------------------------------------------------------------
+
+
+class TestVerdictValidation(unittest.TestCase):
+    """Unit tests for validate_verdict_args (pure validator)."""
+
+    def test_valid_verdicts(self):
+        for verdict in ("pass", "close", "fail"):
+            self.assertIsNone(cb.validate_verdict_args("dm3", "sng_to_rl", verdict, None, None), verdict)
+
+    def test_invalid_verdict_value(self):
+        err = cb.validate_verdict_args("dm3", "sng_to_rl", "yes", None, None)
+        self.assertIsNotNone(err)
+        self.assertIn("verdict must be one of", err)
+
+    def test_invalid_map(self):
+        for bad_map in ("../dm3", "dm3;quit", "", None):
+            err = cb.validate_verdict_args(bad_map, "sng_to_rl", "pass", None, None)
+            self.assertIsNotNone(err, bad_map)
+            self.assertIn("map", err)
+
+    def test_invalid_route(self):
+        for bad_route in ("../route", "route;cmd", "", None):
+            err = cb.validate_verdict_args("dm3", bad_route, "pass", None, None)
+            self.assertIsNotNone(err, bad_route)
+            self.assertIn("route", err)
+
+    def test_note_too_long(self):
+        err = cb.validate_verdict_args("dm3", "sng_to_rl", "pass", "x" * 1001, None)
+        self.assertIsNotNone(err)
+        self.assertIn("note too long", err)
+
+    def test_note_control_chars(self):
+        err = cb.validate_verdict_args("dm3", "sng_to_rl", "pass", "bad\x00note", None)
+        self.assertIsNotNone(err)
+        self.assertIn("control character", err)
+
+    def test_note_tab_allowed(self):
+        # tabs are not control-char-blocked (they are printable in notes)
+        self.assertIsNone(cb.validate_verdict_args("dm3", "sng_to_rl", "pass", "ok\there", None))
+
+    def test_run_id_invalid(self):
+        err = cb.validate_verdict_args("dm3", "sng_to_rl", "pass", None, "bad run id")
+        self.assertIsNotNone(err)
+        self.assertIn("run_id", err)
+
+    def test_run_id_empty_is_none(self):
+        # empty run_id is treated as absent
+        self.assertIsNone(cb.validate_verdict_args("dm3", "sng_to_rl", "pass", None, ""))
+
+
+class TestVerdictOp(unittest.TestCase):
+    """Integration tests for the bridge verdict op."""
+
+    def _make_bridge_and_submit(self, tmp, request=None):
+        bridge, executor = make_bridge(tmp)
+        if request is None:
+            request = {
+                "op": "verdict",
+                "map": "dm3",
+                "route": "sng_to_rl",
+                "verdict": "fail",
+                "note": "obviously a bot",
+                "run_id": "run_20260610T123456Z",
+                "req_id": "v1",
+            }
+        response, broadcast = local(bridge, request)
+        return response, broadcast, Path(tmp) / "records" / "verdicts.json"
+
+    def test_happy_path_writes_verdicts_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            response, broadcast, vpath = self._make_bridge_and_submit(tmp)
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(response["verdict"], "fail")
+            self.assertEqual(response["route"], "sng_to_rl")
+            self.assertTrue(vpath.exists())
+            verdicts = json.loads(vpath.read_text(encoding="utf-8"))
+            self.assertEqual(verdicts["schema"], "komodobots.verdicts.v1")
+            entry = verdicts["routes"]["sng_to_rl"]
+            self.assertEqual(entry["verdict"], "fail")
+            self.assertEqual(entry["note"], "obviously a bot")
+            self.assertEqual(entry["run_id"], "run_20260610T123456Z")
+            self.assertIn("date", entry)
+
+    def test_broadcast_on_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            response, broadcast, _ = self._make_bridge_and_submit(tmp)
+            self.assertTrue(response["ok"])
+            self.assertIsNotNone(broadcast)
+            self.assertEqual(broadcast["type"], "control_event")
+            self.assertEqual(broadcast["event"], "verdict")
+            self.assertEqual(broadcast["route"], "sng_to_rl")
+            self.assertEqual(broadcast["verdict"], "fail")
+
+    def test_latest_wins_per_route(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge, _ = make_bridge(tmp)
+            vpath = Path(tmp) / "records" / "verdicts.json"
+            local(bridge, {"op": "verdict", "map": "dm3", "route": "sng_to_rl", "verdict": "fail", "req_id": "1"})
+            local(bridge, {"op": "verdict", "map": "dm3", "route": "sng_to_rl", "verdict": "close", "req_id": "2"})
+            verdicts = json.loads(vpath.read_text(encoding="utf-8"))
+            self.assertEqual(verdicts["routes"]["sng_to_rl"]["verdict"], "close")
+
+    def test_history_kept(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge, _ = make_bridge(tmp)
+            vpath = Path(tmp) / "records" / "verdicts.json"
+            local(bridge, {"op": "verdict", "map": "dm3", "route": "sng_to_rl", "verdict": "fail", "req_id": "1"})
+            local(bridge, {"op": "verdict", "map": "dm3", "route": "sng_to_rl", "verdict": "close", "req_id": "2"})
+            verdicts = json.loads(vpath.read_text(encoding="utf-8"))
+            history = verdicts.get("_history", {}).get("sng_to_rl", [])
+            self.assertEqual(len(history), 1)
+            self.assertEqual(history[0]["verdict"], "fail")
+
+    def test_two_routes_independent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge, _ = make_bridge(tmp)
+            vpath = Path(tmp) / "records" / "verdicts.json"
+            local(bridge, {"op": "verdict", "map": "dm3", "route": "sng_to_rl", "verdict": "fail", "req_id": "1"})
+            local(bridge, {"op": "verdict", "map": "dm3", "route": "hilljump", "verdict": "close", "req_id": "2"})
+            verdicts = json.loads(vpath.read_text(encoding="utf-8"))
+            self.assertEqual(verdicts["routes"]["sng_to_rl"]["verdict"], "fail")
+            self.assertEqual(verdicts["routes"]["hilljump"]["verdict"], "close")
+
+    def test_verdict_lock_exempt_during_harness_lock(self):
+        """verdict must succeed even when the harness holds a fresh lock."""
+        with tempfile.TemporaryDirectory() as tmp:
+            harness_lock(tmp)
+            bridge, _ = make_bridge(tmp)
+            response, broadcast = local(bridge, {
+                "op": "verdict", "map": "dm3", "route": "sng_to_rl", "verdict": "fail", "req_id": "v1",
+            })
+            self.assertTrue(response["ok"], response)
+
+    def test_verdict_invalid_fields_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge, _ = make_bridge(tmp)
+            # bad verdict value
+            response, _ = local(bridge, {"op": "verdict", "map": "dm3", "route": "sng_to_rl", "verdict": "yes", "req_id": "1"})
+            self.assertFalse(response["ok"])
+            # bad route name
+            response, _ = local(bridge, {"op": "verdict", "map": "dm3", "route": "../bad", "verdict": "fail", "req_id": "2"})
+            self.assertFalse(response["ok"])
+            # bad map name
+            response, _ = local(bridge, {"op": "verdict", "map": "../dm3", "route": "sng_to_rl", "verdict": "fail", "req_id": "3"})
+            self.assertFalse(response["ok"])
+
+    def test_verdict_audited(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge, _ = make_bridge(tmp)
+            local(bridge, {"op": "verdict", "map": "dm3", "route": "sng_to_rl", "verdict": "fail", "req_id": "1"})
+            lines = (Path(tmp) / "control-audit.log").read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(lines), 1)
+            entry = json.loads(lines[0])
+            self.assertEqual(entry["op"], "verdict")
+            self.assertTrue(entry["ok"])
+
+    def test_verdict_requires_auth(self):
+        """verdict is still a mutating op: unauthorized remote peers are refused."""
+        with tempfile.TemporaryDirectory() as tmp:
+            bridge, _ = make_bridge(tmp)
+            # no token configured, remote peer (not loopback) → refused
+            response, _ = bridge.handle(
+                {"op": "verdict", "map": "dm3", "route": "sng_to_rl", "verdict": "fail", "req_id": "1"},
+                "remote-peer",
+                peer_host="192.168.86.50",
+            )
+            self.assertFalse(response["ok"])
+            self.assertIn("unauthorized", response["detail"])
+
+    def test_note_and_run_id_optional(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            response, _, vpath = self._make_bridge_and_submit(
+                tmp,
+                {"op": "verdict", "map": "dm3", "route": "sng_to_rl", "verdict": "pass", "req_id": "1"},
+            )
+            self.assertTrue(response["ok"])
+            entry = json.loads(vpath.read_text(encoding="utf-8"))["routes"]["sng_to_rl"]
+            self.assertIsNone(entry["note"])
+            self.assertIsNone(entry["run_id"])
 
 
 if __name__ == "__main__":

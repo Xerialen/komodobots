@@ -9,6 +9,7 @@
 //   3. Speedometer   — bot record active-mean speed as % of human speed
 //                      + decisive edge sub-line
 //   4. Eye Test      — latest human verdict (pass | close | fail)
+//                      + entry form (LD-F5 #106)
 //
 // Data sources:
 //   - records.json  (RECORDS_URL, same path as DemoPane)
@@ -20,8 +21,9 @@
 // Rail-mode numbers: the parent (KpiDock) renders four micro-glyphs in rail
 // mode; export RailScoreboard for that case.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { KpiContext } from "./contextStore.ts";
+import type { ControlClient } from "./controlClient.ts";
 
 // ---------------------------------------------------------------------------
 // Types — records schema (komodobots.records.v1), partial
@@ -418,6 +420,171 @@ function Delta({ value, goodDirection }: { value: number; goodDirection: "up" | 
 }
 
 // ---------------------------------------------------------------------------
+// LD-F5 (#106): Eye-test entry form
+// ---------------------------------------------------------------------------
+
+type EyeVerdict_ = EyeVerdict; // re-alias to avoid shadowing
+
+interface EyeTestFormProps {
+  context: KpiContext;
+  controlClient: ControlClient;
+  /** run_id to auto-fill when a lab run demo is playing (from App.tsx attempt). */
+  currentRunId?: string | null;
+  onSuccess: () => void;
+}
+
+/**
+ * Passive, user-initiated certification form for the Eye Test KPI.
+ *
+ * Spec (issue #106, user decision 2026-06-10): no nag prompts; the user
+ * declares human-level manually after watching a run.  Three verdict buttons
+ * + optional note + auto-filled run_id.  Requires a route to be in context.
+ */
+function EyeTestForm({ context, controlClient, currentRunId, onSuccess }: EyeTestFormProps) {
+  const [selected, setSelected] = useState<EyeVerdict_ | null>(null);
+  const [note, setNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<{ verdict: EyeVerdict_; route: string } | null>(null);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
+
+  // Reset form state when route changes.
+  const routeKey = context.route ?? "__none__";
+  const prevRouteRef = useRef(routeKey);
+  if (prevRouteRef.current !== routeKey) {
+    prevRouteRef.current = routeKey;
+    // Synchronous reset: clear selection and error for new route.
+    // (useState setters are async in React but we use a ref guard so this
+    // path runs at most once per route change — safe without an effect.)
+    setSelected(null);
+    setNote("");
+    setError(null);
+    setLastResult(null);
+  }
+
+  const hasRoute = context.route != null;
+
+  const handleSubmit = async (verdict: EyeVerdict_) => {
+    if (!hasRoute || !context.route) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await controlClient.verdict(
+        context.map,
+        context.route,
+        verdict,
+        note.trim() || undefined,
+        currentRunId ?? undefined,
+      );
+      if (res.ok) {
+        setLastResult({ verdict, route: context.route });
+        setSelected(null);
+        setNote("");
+        onSuccess();
+      } else {
+        setError(res.detail ?? "verdict failed");
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!hasRoute) {
+    return (
+      <div className="mt-1.5 text-[10px] text-gray-700 italic">
+        select a route to certify a verdict
+      </div>
+    );
+  }
+
+  if (!controlClient.connected) {
+    return (
+      <div className="mt-1.5 text-[10px] text-gray-700 italic">
+        bridge disconnected — connect to certify
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex flex-col gap-y-1.5" data-eyetest-form>
+      <div className="text-[10px] text-gray-500 uppercase tracking-wider">certify verdict</div>
+
+      {/* Three-state verdict buttons */}
+      <div className="flex gap-x-1">
+        {(["pass", "close", "fail"] as const).map((v) => {
+          const activeClass =
+            v === "pass"
+              ? "bg-green-900/60 text-green-300 border-green-700"
+              : v === "close"
+                ? "bg-amber-900/60 text-amber-300 border-amber-700"
+                : "bg-red-900/60 text-red-300 border-red-700";
+          const idleClass = "bg-slate-900/40 text-gray-500 border-slate-700 hover:border-slate-500";
+          const isSelected = selected === v;
+          return (
+            <button
+              key={v}
+              type="button"
+              disabled={submitting}
+              onClick={() => setSelected(isSelected ? null : v)}
+              aria-pressed={isSelected}
+              className={`flex-1 px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors ${
+                isSelected ? activeClass : idleClass
+              } disabled:opacity-40`}
+            >
+              {v}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Optional note */}
+      {selected !== null && (
+        <>
+          <textarea
+            ref={noteRef}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="optional note (max 200 chars)…"
+            maxLength={200}
+            rows={2}
+            disabled={submitting}
+            className="w-full text-[10px] font-mono bg-slate-900/60 border border-slate-700 rounded px-1.5 py-1 text-gray-300 placeholder-gray-700 resize-none focus:outline-none focus:border-slate-500 disabled:opacity-40"
+          />
+          {/* run_id autofill badge */}
+          {currentRunId && (
+            <div className="text-[9px] text-gray-700 font-mono truncate" title={currentRunId}>
+              run: {currentRunId}
+            </div>
+          )}
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => handleSubmit(selected)}
+            className="w-full px-2 py-1 rounded text-[10px] font-mono bg-sky-900/50 text-sky-300 border border-sky-700 hover:bg-sky-900/70 disabled:opacity-40"
+          >
+            {submitting ? "saving…" : `certify ${selected}`}
+          </button>
+        </>
+      )}
+
+      {/* Feedback */}
+      {error && (
+        <div className="text-[10px] text-red-400 border border-red-900/40 rounded px-1.5 py-0.5 bg-red-950/10">
+          {error}
+        </div>
+      )}
+      {lastResult && lastResult.route === context.route && (
+        <div className="text-[10px] text-green-400">
+          saved: <span className="font-mono">{lastResult.verdict}</span> for {lastResult.route}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main scoreboard component (expanded dock)
 // ---------------------------------------------------------------------------
 
@@ -425,9 +592,26 @@ interface BrutalScoreboardProps {
   context: KpiContext;
   /** External refresh trigger — incremented when an attempt ends. */
   refreshKey?: number;
+  /**
+   * LD-F5 (#106): control bridge client for the eye-test entry form.
+   * Optional: when absent the entry form is not rendered (e.g. rail mode,
+   * or tests that don't need the form).
+   */
+  controlClient?: ControlClient;
+  /**
+   * LD-F5 (#106): run_id of the currently-playing demo (from App.tsx attempt),
+   * auto-filled into the verdict form so the certified verdict is linked to
+   * the specific run the operator just watched.  Optional.
+   */
+  currentRunId?: string | null;
 }
 
-export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardProps) {
+export function BrutalScoreboard({
+  context,
+  refreshKey = 0,
+  controlClient,
+  currentRunId,
+}: BrutalScoreboardProps) {
   const sb = useScoreboardData(context, refreshKey);
 
   if (!sb.loaded) {
@@ -666,6 +850,16 @@ export function BrutalScoreboard({ context, refreshKey = 0 }: BrutalScoreboardPr
         </div>
         {!hasRoute && eyeTest.verdict == null && (
           <span className="text-[10px] text-gray-600">select a route for verdict</span>
+        )}
+        {/* LD-F5 (#106): entry form — only in the expanded scoreboard when
+            a controlClient is provided (rail mode + tests do not pass it). */}
+        {controlClient && (
+          <EyeTestForm
+            context={context}
+            controlClient={controlClient}
+            currentRunId={currentRunId}
+            onSuccess={sb.refetch}
+          />
         )}
       </MetricRow>
 

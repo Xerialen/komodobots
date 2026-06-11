@@ -167,6 +167,23 @@ export class ControlClient {
     return this.send("set_cvar", args);
   }
 
+  /**
+   * LD-F5 (#106): submit an eye-test verdict.
+   * Lock-exempt op — allowed even when the harness owns the lab.
+   */
+  async verdict(
+    map: string,
+    route: string,
+    verdict: "pass" | "close" | "fail",
+    note?: string,
+    run_id?: string,
+  ): Promise<ControlResponse> {
+    const args: Record<string, unknown> = { map, route, verdict };
+    if (note !== undefined && note !== "") args.note = note;
+    if (run_id !== undefined && run_id !== "") args.run_id = run_id;
+    return this.send("verdict", args);
+  }
+
   /** Raw console line. Supports @<N> shorthand prefix for per-slot. */
   async console(line: string): Promise<ControlResponse> {
     // @<slot> <cvar> <value>  ->  set_cvar with slot
