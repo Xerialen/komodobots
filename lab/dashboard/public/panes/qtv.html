@@ -1,0 +1,309 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>komodobots lab — live game pane</title>
+  <!--
+    LD-B2 (#88): standalone FTE QTV pane — the Live In-Game view.
+
+    Modeled on the working precedents:
+      - local-hub/web/watch.html  (FTE WASM QTV spectate baseline)
+      - local-hub/frontend/src/pages/botlab/App.tsx  (retry/attach logic)
+      - lab/dashboard/public/panes/demo.html  (same-origin postMessage pattern)
+
+    The lab server (mvdsv/KTX) is ephemeral: it exists only while a session is
+    running, so disconnect->retry is the NORMAL cycle, not an error (SPEC §3.5).
+    The FTE engine is booted ONCE; subsequent attach/detach cycles are handled by
+    re-issuing `qtvplay` without reloading the page.
+
+    Params:  ?port=<labport>&relay=<ws-relay-url>&map=<mapname>
+      - port:  QTV source port on the lab host (loopback on servexeri), default 28599
+      - relay: fteqtv WebSocket relay URL, default ws://192.168.86.33:27599
+      - map:   initial map name for .bsp preload, default dm3
+
+    postMessage API (same-origin only):
+      inbound  {cmd:"attach", port, relay?, map?}  -> issue qtvplay to new port
+               {cmd:"disconnect"}                  -> disconnect from current stream
+      outbound {evt:"status", state: "loading"|"connected"|"retrying"|"disconnected"}
+
+    State machine:
+      loading   — FTE engine booting (initial state; one-time at page load)
+      connected — qtvplay succeeded (f_demostart fired: FTE confirmed game started)
+      retrying  — no attempt running; retry loop active (~3 s period, SPEC §3.5)
+      disconnected — explicit {cmd:"disconnect"} or unrecoverable engine boot failure
+
+    FTE QTV disconnect detection: FTE prints "svc_disconnect: EndOfDemo" to the
+    Module.print log whenever the QTV stream ends (server stopped / no stream).
+    The retry loop re-issues qtvplay after QTV_RETRY_MS (3000 ms) so the pane
+    re-attaches automatically when the next attempt starts.
+
+    Map .bsp resolution: local-first (same as demo.html) — /maps/<map>.bsp on
+    servexeri's web root first, CDN fallback. The relay URL comes from the parent
+    dashboard rather than being baked in, so the pane works over ssh -L tunnels.
+
+    FTE note: QTV streams do NOT have the same .qwd/.mvd extension constraint as
+    demo files — qtvplay sends a TCP connection string, not a virtual file. The
+    map .bsp is fetched via cl_download_mapsrc when FTE receives map info from
+    the QTV stream, so the preloaded .bsp is an optimization only (not required
+    for QTV to work).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; background: #06080d; color: #9ab; font: 13px monospace; overflow: hidden; }
+    #fteCanvas { width: 100vw; height: 100vh; display: block; }
+    #status { position: fixed; top: 8px; left: 10px; z-index: 10; white-space: pre; text-shadow: 0 0 3px #000; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <canvas id="fteCanvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+  <div id="status">booting…</div>
+
+  <script>
+    "use strict";
+    // ---------------------------------------------------------------- params
+    var q = new URLSearchParams(location.search);
+    var PORT     = parseInt(q.get("port") || "28599", 10) || 28599;
+    var RELAY    = q.get("relay") || "ws://192.168.86.33:27599";
+    var MAP      = (q.get("map") || "dm3").toLowerCase();
+
+    // The relay pulls upstreams over loopback on the lab host (servexeri).
+    var LAB_QTV_HOST = "127.0.0.1";
+    var QTV_RETRY_MS = 3000;  // ~3 s retry loop (SPEC §3.5)
+
+    var FTE  = "https://a.quake.world";        // FTE engine + fte/* assets
+    var MAPS = "https://assets.quake.world";   // .bsp fallback CDN
+
+    var EMBEDDED = (function () { try { return window.parent !== window; } catch (e) { return true; } })();
+
+    // -------------------------------------------------------------- state
+    // loading -> (connected | retrying) <-> connected  (never back to loading)
+    // disconnected: explicit cmd or unrecoverable engine boot failure
+    var state = "loading";
+    var retryTimer = null;
+    var engineReady = false;   // FTE WASM ready (cbufadd available)
+    var currentPort = PORT;    // port currently being watched
+
+    var elStatus = document.getElementById("status");
+
+    function post(msg) {
+      if (!EMBEDDED) return;
+      try { window.parent.postMessage(msg, location.origin); } catch (e) { /* detached */ }
+    }
+    function setState(next) {
+      if (state === next) return;
+      state = next;
+      elStatus.textContent = next;
+      post({ evt: "status", state: next });
+    }
+
+    function cbuf(cmd) {
+      try { window.FTEC.cbufadd(cmd + "\n"); } catch (e) { console.warn("fte cbufadd:", e); }
+    }
+
+    // ---------------------------------------------------------------- attach
+    // Issue qtvplay for the current port. Called:
+    //   (a) once when FTE becomes ready
+    //   (b) on every new attempt (via {cmd:"attach"} postMessage)
+    //   (c) ~3 s after every QTV disconnect (retry loop)
+    function attach(port, relay, map) {
+      currentPort = port || currentPort;
+      RELAY  = relay  || RELAY;
+      MAP    = (map || MAP).toLowerCase();
+      if (!engineReady) return;  // will be called again from waitForEngine
+      clearRetry();
+      setState("retrying");   // not confirmed connected until f_demostart fires
+      cbuf("disconnect");
+      cbuf("closemenu");
+      cbuf("qtvplay tcp:" + LAB_QTV_HOST + ":" + currentPort + "@" + RELAY);
+    }
+
+    // ------------------------------------------------------------- retry loop
+    function scheduleRetry() {
+      clearRetry();
+      retryTimer = setTimeout(function () {
+        retryTimer = null;
+        attach(currentPort, RELAY, MAP);
+      }, QTV_RETRY_MS);
+    }
+    function clearRetry() {
+      if (retryTimer !== null) { clearTimeout(retryTimer); retryTimer = null; }
+    }
+
+    // ------------------------------------------------- postMessage (inbound)
+    window.addEventListener("message", function (ev) {
+      if (ev.origin !== location.origin) return;
+      var m = ev.data;
+      if (!m || typeof m !== "object" || !m.cmd) return;
+      switch (m.cmd) {
+        case "attach":
+          attach(m.port || currentPort, m.relay || RELAY, m.map || MAP);
+          break;
+        case "disconnect":
+          clearRetry();
+          setState("disconnected");
+          if (engineReady) { cbuf("disconnect"); }
+          break;
+      }
+    });
+
+    // --------------------------------------------------------------- assets
+    // Mirrors hub.quakeworld.nu getQtvPlayerAssets() — identical to demo.html
+    // asset list (same FTE preset; QTV and demo share the same engine install).
+    var filePaths = [
+      "default.fmf","ctf/fragfile.dat","qw/fragfile.dat",
+      "id1/textures/charsets/povo5f_xtm.png","id1/crosshairs/xtm_dot.png","id1/gfx.wad",
+      "id1/gfx/anum_0.png","id1/gfx/anum_1.png","id1/gfx/anum_2.png","id1/gfx/anum_3.png","id1/gfx/anum_4.png",
+      "id1/gfx/anum_5.png","id1/gfx/anum_6.png","id1/gfx/anum_7.png","id1/gfx/anum_8.png","id1/gfx/anum_9.png",
+      "id1/gfx/anum_colon.png","id1/gfx/anum_minus.png","id1/gfx/anum_slash.png",
+      "id1/gfx/face1.png","id1/gfx/face2.png","id1/gfx/face3.png","id1/gfx/face4.png","id1/gfx/face5.png",
+      "id1/gfx/face_inv2.png","id1/gfx/face_invis.png","id1/gfx/face_invul2.png",
+      "id1/gfx/face_p1.png","id1/gfx/face_p2.png","id1/gfx/face_p3.png","id1/gfx/face_p4.png","id1/gfx/face_p5.png",
+      "id1/gfx/face_quad.png","id1/gfx/ibar.png",
+      "id1/gfx/inv2_lightng.png","id1/gfx/inv2_nailgun.png","id1/gfx/inv2_rlaunch.png","id1/gfx/inv2_shotgun.png",
+      "id1/gfx/inv2_snailgun.png","id1/gfx/inv2_srlaunch.png","id1/gfx/inv2_sshotgun.png",
+      "id1/gfx/inv_lightng.png","id1/gfx/inv_nailgun.png","id1/gfx/inv_nails.png","id1/gfx/inv_rlaunch.png",
+      "id1/gfx/inv_rocket.png","id1/gfx/inv_shells.png","id1/gfx/inv_shotgun.png","id1/gfx/inv_snailgun.png",
+      "id1/gfx/inv_srlaunch.png","id1/gfx/inv_sshotgun.png",
+      "id1/gfx/inva1_lightng.png","id1/gfx/inva1_nailgun.png","id1/gfx/inva1_rlaunch.png","id1/gfx/inva1_shotgun.png",
+      "id1/gfx/inva1_snailgun.png","id1/gfx/inva1_srlaunch.png","id1/gfx/inva1_sshotgun.png",
+      "id1/gfx/inva2_lightng.png","id1/gfx/inva2_nailgun.png","id1/gfx/inva2_rlaunch.png","id1/gfx/inva2_shotgun.png",
+      "id1/gfx/inva2_snailgun.png","id1/gfx/inva2_srlaunch.png","id1/gfx/inva2_sshotgun.png",
+      "id1/gfx/inva3_lightng.png","id1/gfx/inva3_nailgun.png","id1/gfx/inva3_rlaunch.png","id1/gfx/inva3_shotgun.png",
+      "id1/gfx/inva3_snailgun.png","id1/gfx/inva3_srlaunch.png","id1/gfx/inva3_sshotgun.png",
+      "id1/gfx/inva4_lightng.png","id1/gfx/inva4_nailgun.png","id1/gfx/inva4_rlaunch.png","id1/gfx/inva4_shotgun.png",
+      "id1/gfx/inva4_snailgun.png","id1/gfx/inva4_srlaunch.png","id1/gfx/inva4_sshotgun.png",
+      "id1/gfx/inva5_lightng.png","id1/gfx/inva5_nailgun.png","id1/gfx/inva5_rlaunch.png","id1/gfx/inva5_shotgun.png",
+      "id1/gfx/inva5_snailgun.png","id1/gfx/inva5_srlaunch.png","id1/gfx/inva5_sshotgun.png",
+      "id1/gfx/num_0.png","id1/gfx/num_1.png","id1/gfx/num_2.png","id1/gfx/num_3.png","id1/gfx/num_4.png",
+      "id1/gfx/num_5.png","id1/gfx/num_6.png","id1/gfx/num_7.png","id1/gfx/num_8.png","id1/gfx/num_9.png",
+      "id1/gfx/num_colon.png","id1/gfx/num_minus.png","id1/gfx/num_slash.png",
+      "id1/gfx/sb_armor1.png","id1/gfx/sb_armor2.png","id1/gfx/sb_armor3.png","id1/gfx/sb_cells.png",
+      "id1/gfx/sb_invis.png","id1/gfx/sb_invuln.png","id1/gfx/sb_key1.png","id1/gfx/sb_key2.png",
+      "id1/gfx/sb_nails.png","id1/gfx/sb_quad.png","id1/gfx/sb_rocket.png","id1/gfx/sb_shells.png",
+      "id1/gfx/sb_sigil1.png","id1/gfx/sb_sigil2.png","id1/gfx/sb_sigil3.png","id1/gfx/sb_sigil4.png","id1/gfx/sb_suit.png",
+      "id1/gfx/sba1_key1.png","id1/gfx/sba1_key2.png","id1/gfx/sba2_key1.png","id1/gfx/sba2_key2.png",
+      "id1/gfx/sba3_key1.png","id1/gfx/sba3_key2.png","id1/gfx/sba4_key1.png","id1/gfx/sba4_key2.png",
+      "id1/gfx/sba5_key1.png","id1/gfx/sba5_key2.png",
+      "id1/maps/b_batt0.bsp","id1/maps/b_batt1.bsp","id1/maps/b_bh10.bsp","id1/maps/b_bh100.bsp","id1/maps/b_bh25.bsp",
+      "id1/maps/b_explob.bsp","id1/maps/b_nail0.bsp","id1/maps/b_nail1.bsp","id1/maps/b_rock0.bsp","id1/maps/b_rock1.bsp",
+      "id1/maps/b_shell0.bsp","id1/maps/b_shell1.bsp",
+      "id1/particles/blood.cfg","id1/particles/bubble-trail.cfg","id1/particles/explosion.cfg","id1/particles/flame.cfg",
+      "id1/particles/grenade.cfg","id1/particles/particlefont.png","id1/particles/rocket.cfg","id1/particles/runes.cfg",
+      "id1/particles/torch.cfg",
+      "id1/progs/armor.mdl","id1/progs/backpack.mdl","id1/progs/bit.mdl","id1/progs/bolt.mdl","id1/progs/bolt2.mdl",
+      "id1/progs/bolt3.mdl","id1/progs/end1.mdl","id1/progs/end2.mdl","id1/progs/end3.mdl","id1/progs/end4.mdl",
+      "id1/progs/eyes.mdl","id1/progs/flag.mdl","id1/progs/flame.mdl","id1/progs/flame2.mdl","id1/progs/g_light.mdl",
+      "id1/progs/g_nail.mdl","id1/progs/g_nail2.mdl","id1/progs/g_rock.mdl","id1/progs/g_rock2.mdl","id1/progs/g_shot.mdl",
+      "id1/progs/gib1.mdl","id1/progs/gib2.mdl","id1/progs/gib3.mdl","id1/progs/grenade.md3","id1/progs/grenade_0.skin",
+      "id1/progs/h_player.mdl","id1/progs/invisibl.mdl","id1/progs/invulner.mdl","id1/progs/lavaball.mdl",
+      "id1/progs/missile.md3","id1/progs/missile_0.skin","id1/progs/player.mdl","id1/progs/quaddama.mdl",
+      "id1/progs/s_spike.mdl","id1/progs/spawn.mdl","id1/progs/spike.mdl","id1/progs/star.mdl","id1/progs/suit.mdl",
+      "id1/progs/v_axe.mdl","id1/progs/v_coil.mdl","id1/progs/v_light.mdl","id1/progs/v_nail.mdl","id1/progs/v_nail2.mdl",
+      "id1/progs/v_rock.mdl","id1/progs/v_rock2.mdl","id1/progs/v_shot.mdl","id1/progs/v_shot1.mdl","id1/progs/v_shot2.mdl",
+      "id1/progs/v_spike.mdl","id1/progs/v_star.mdl","id1/progs/vwplayer.mdl","id1/progs/w_axe.mdl","id1/progs/w_g_key.mdl",
+      "id1/progs/w_light.mdl","id1/progs/w_nail.mdl","id1/progs/w_nail2.mdl","id1/progs/w_rock.mdl","id1/progs/w_rock2.mdl",
+      "id1/progs/w_s_key.mdl","id1/progs/w_shot.mdl","id1/progs/w_shot2.mdl","id1/progs/wizard.mdl","id1/progs/zom_gib.mdl",
+      "id1/scripts/shell.shader",
+      "id1/skins/ctf_blue.jpg","id1/skins/ctf_red.jpg","id1/skins/blue.jpg","id1/skins/blue_solid.png","id1/skins/cyan.jpg",
+      "id1/skins/cyan_solid.png","id1/skins/enemy.jpg","id1/skins/green.jpg","id1/skins/green_solid.png","id1/skins/pink.jpg",
+      "id1/skins/pink_solid.png","id1/skins/red.jpg","id1/skins/red_solid.png","id1/skins/team.jpg","id1/skins/white.jpg",
+      "id1/skins/white_solid.png","id1/skins/yellow.jpg","id1/skins/yellow_solid.png"
+    ];
+
+    // ------------------------------------------------------------------ boot
+    function headOk(url) {
+      return fetch(url, { method: "HEAD" }).then(function (r) { return r.ok; }).catch(function () { return false; });
+    }
+
+    function boot(mapUrl) {
+      var files = { "qw/csaddon.dat": FTE + "/fte/csaddon/csaddon_003.dat" };
+      for (var i = 0; i < filePaths.length; i++) files[filePaths[i]] = FTE + "/fte/" + filePaths[i];
+      // QTV config: mapped to id1/config.cfg (same pattern as demo.html)
+      files["id1/config.cfg"] = new URL("fte_qtv.cfg", location.href).toString();
+      // Preload the initial map .bsp so the first connection renders faster.
+      // FTE will also fetch maps via cl_download_mapsrc on QTV connect, so this
+      // is purely an optimization — QTV does not require a pre-mapped .bsp.
+      if (MAP && mapUrl) files["id1/maps/" + MAP + ".bsp"] = mapUrl;
+      var manifestUrl = FTE + "/fte/default.fmf";
+
+      window.Module = {
+        canvas: document.getElementById("fteCanvas"),
+        manifest: manifestUrl,
+        arguments: ["-manifest", manifestUrl],
+        files: files,
+        print: function (text) {
+          if (typeof text !== "string") return;
+          console.log(text);
+          // QTV stream end: FTE prints this when the server stops or no stream
+          // is available (identical to the hub's fte.event.qtv_disconnect signal).
+          if (text.indexOf("svc_disconnect: EndOfDemo") !== -1) {
+            onQtvDisconnect();
+          }
+          // QTV connect confirmed: f_demostart -> autotrack fires when FTE has
+          // entered the game (map loaded, players visible).
+          if (text.indexOf("f_demostart") !== -1 || text.indexOf("autotrack") !== -1) {
+            onQtvConnected();
+          }
+        },
+        printErr: function (text) {
+          if (typeof text !== "string") return;
+          console.warn(text);
+          if (text.indexOf("svc_disconnect: EndOfDemo") !== -1) {
+            onQtvDisconnect();
+          }
+        },
+        setStatus: function (v) { if (v && state === "loading") elStatus.textContent = "loading: " + v; },
+      };
+
+      var s = document.createElement("script");
+      s.src = FTE + "/fte/versions/004/ftewebgl.js";
+      s.onerror = function () {
+        setState("disconnected");
+        elStatus.textContent = "FTE engine failed to load from " + s.src;
+      };
+      document.body.appendChild(s);
+
+      waitForEngine();
+    }
+
+    function onQtvConnected() {
+      clearRetry();
+      setState("connected");
+    }
+
+    function onQtvDisconnect() {
+      if (state === "disconnected") return;  // explicit disconnect — do not retry
+      setState("retrying");
+      scheduleRetry();
+    }
+
+    function waitForEngine() {
+      var tries = 0;
+      var poll = setInterval(function () {
+        tries++;
+        var ready = window.FTEC && typeof window.FTEC.cbufadd === "function" &&
+                    window.Module && typeof window.Module.getClientState === "function";
+        if (ready) {
+          clearInterval(poll);
+          engineReady = true;
+          cbuf("closemenu");
+          // Initial attach: issue qtvplay for the boot-time port.
+          setState("retrying");
+          attach(currentPort, RELAY, MAP);
+        } else if (tries > 600) {   // ~2 min
+          clearInterval(poll);
+          setState("disconnected");
+          elStatus.textContent = "FTE did not become ready within 2 minutes (check console)";
+        }
+      }, 200);
+    }
+
+    // ----------------------------------------------------------------- start
+    setState("loading");
+    // Local-first map resolution: our web tier first, CDN fallback (same as demo.html).
+    var localBsp = "/maps/" + MAP + ".bsp";
+    headOk(localBsp).then(function (localOk) {
+      boot(localOk ? localBsp : (MAP ? MAPS + "/maps/" + MAP + ".bsp" : null));
+    });
+  </script>
+</body>
+</html>

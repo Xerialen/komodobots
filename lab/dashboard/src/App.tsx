@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BotLab3D } from "./BotLab3D.tsx";
 import { TelemetryHud } from "./TelemetryHud.tsx";
 import { type TelemetryAttempt, TelemetryClient } from "./telemetryClient.ts";
@@ -13,23 +13,29 @@ import {
 } from "./layoutState.ts";
 
 // v1 defaults: dm3 lab on servexeri (LAN). Override per-instance with
-// ?port=28600&ws=ws://localhost:8770&game=http://... (e.g. through ssh -L
+// ?port=28600&ws=ws://localhost:8770&relay=ws://... (e.g. through ssh -L
 // tunnels).
 //
 // LD-A1 absorption note: the original local-hub page rendered the live game
 // panel with the hub fork's FteQtvPlayer (@qwhub/*) and drove qtvplay/retry
-// itself. That dependency is gone — the panel temporarily embeds the deployed
-// /qtv/ page in an iframe; the proper standalone same-origin postMessage QTV
-// pane lands in LD-B2 (#88).
+// itself. That dependency is gone.
 //
 // LD-B1 (#87): view shell — top-bar toggles + fixed-order pane grid
 // (Demo -> Mockup -> Live 3D -> Live Game). Demo/Mockup are labeled
 // placeholders until LD-D3 (#94/#98) / LD-C3 (#97); the KPI dock and the
 // control drawer render as labeled placeholders until LD-E1 (#100) /
 // LD-F3 (#105). Layout state persists per lab/dashboard/src/layoutState.ts.
+//
+// LD-B2 (#88): Live Game pane = standalone qtv.html iframe. The iframe boots
+// FTE WASM once and re-issues qtvplay on every new attempt via postMessage
+// {cmd:"attach", port, map}. The retry/attach loop is driven from here (same
+// pattern as the old hub App.tsx) so the shell can coordinate with telemetry.
 const DEFAULT_LAB_PORT = 28599;
 const DEFAULT_TELEMETRY_WS = "ws://192.168.86.33:8770";
-const DEFAULT_GAME_VIEW_URL = "http://192.168.86.33:8095/qtv/";
+const DEFAULT_QTV_RELAY = "ws://192.168.86.33:27599";
+
+// Status values emitted by qtv.html via postMessage {evt:"status", state}.
+type QtvStatus = "loading" | "connected" | "retrying" | "disconnected";
 
 function getParam(name: string): string | null {
   return new URLSearchParams(window.location.search).get(name);
@@ -64,10 +70,7 @@ function PlaceholderPane({ title, note }: { title: string; note: string }) {
 
 export function App() {
   const wsUrl = useMemo(() => getParam("ws") ?? DEFAULT_TELEMETRY_WS, []);
-  const gameViewUrl = useMemo(
-    () => getParam("game") ?? DEFAULT_GAME_VIEW_URL,
-    [],
-  );
+  const qtvRelay = useMemo(() => getParam("relay") ?? DEFAULT_QTV_RELAY, []);
   const fallbackPort = useMemo(() => {
     const port = Number(getParam("port"));
     return Number.isInteger(port) && port > 0 ? port : DEFAULT_LAB_PORT;
@@ -80,6 +83,10 @@ export function App() {
   const [layout, setLayout] = useState<LayoutState>(() =>
     loadLayout(window.location.search),
   );
+
+  // LD-B2 (#88): QTV iframe ref + status chip state.
+  const qtvIframeRef = useRef<HTMLIFrameElement>(null);
+  const [qtvStatus, setQtvStatus] = useState<QtvStatus>("loading");
 
   useEffect(() => {
     const telemetry = new TelemetryClient(wsUrl);
@@ -95,6 +102,26 @@ export function App() {
   useEffect(() => {
     persistLayout(layout);
   }, [layout]);
+
+  // LD-B2 (#88): listen for postMessage status events from qtv.html.
+  // Same-origin guard: the iframe is served from the same origin as the shell.
+  useEffect(() => {
+    function onMessage(ev: MessageEvent) {
+      if (ev.origin !== window.location.origin) return;
+      const m = ev.data as { evt?: string; state?: string } | null;
+      if (!m || typeof m !== "object" || m.evt !== "status") return;
+      const s = m.state;
+      if (s === "loading" || s === "connected" || s === "retrying" || s === "disconnected") {
+        setQtvStatus(s as QtvStatus);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+  // LD-B2 (#88): send {cmd:"attach"} to qtv.html whenever the lab port or run
+  // changes (i.e. new attempt), mirroring the hub App.tsx attach/retry pattern.
+  // labPort and mapName are derived below; keep the effect after their declarations.
 
   // Esc closes the control drawer (SPEC §6.1) — placeholder drawer included.
   useEffect(() => {
@@ -123,6 +150,19 @@ export function App() {
   const runId = attempt?.run_id ?? null;
   const mapName = attempt?.map ?? "dm3";
   const openViews = layout.views;
+
+  // LD-B2 (#88): send {cmd:"attach"} to the qtv.html iframe whenever the lab
+  // port or run_id changes (covers: initial load, new attempt, port change).
+  // The iframe drives its own ~3 s retry loop on disconnect; this effect only
+  // fires on explicit port/run changes from telemetry, not on every retry cycle.
+  useEffect(() => {
+    const iframe = qtvIframeRef.current;
+    if (!iframe || !iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(
+      { cmd: "attach", port: labPort, relay: qtvRelay, map: mapName },
+      window.location.origin,
+    );
+  }, [labPort, runId, qtvRelay, mapName]);
 
   const paneContent: Record<ViewId, ReactNode> = {
     demo: (
@@ -184,9 +224,36 @@ export function App() {
       </Pane>
     ),
     game: (
-      <Pane key="game" id="game" header={<span>Live Game</span>}>
+      <Pane
+        key="game"
+        id="game"
+        header={
+          <>
+            <span>Live Game</span>
+            <span
+              className={`ml-auto text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                qtvStatus === "connected"
+                  ? "bg-green-900/60 text-green-300 border border-green-700"
+                  : qtvStatus === "retrying"
+                    ? "bg-amber-900/60 text-amber-300 border border-amber-700 animate-pulse"
+                    : qtvStatus === "loading"
+                      ? "bg-slate-800 text-gray-400 border border-slate-600"
+                      : "bg-slate-800 text-gray-500 border border-slate-700"
+              }`}
+            >
+              {qtvStatus}
+            </span>
+          </>
+        }
+      >
+        {/* LD-B2 (#88): standalone qtv.html — FTE WASM QTV spectate pane.
+            The iframe boots once; the shell re-attaches on every new attempt via
+            postMessage {cmd:"attach"}. The pane drives its own ~3 s retry loop.
+            src is fixed (no port in the URL) so the iframe never reloads; port
+            changes are communicated via postMessage only. */}
         <iframe
-          src={gameViewUrl}
+          ref={qtvIframeRef}
+          src="/botlab/panes/qtv.html"
           title="live game view"
           className="block w-full h-full border-0"
         />

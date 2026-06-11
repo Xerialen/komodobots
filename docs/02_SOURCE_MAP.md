@@ -247,8 +247,9 @@ against a gitignored clone of `quakeworldnu/hub.quakeworld.nu` plus
 `deploy/botlab-assets/`. The ported sources (`telemetryClient.ts`, `BotLab3D.tsx`,
 `TelemetryHud.tsx`, `quakeCoords.ts`) are functionally identical to the patch versions;
 the app shell (`App.tsx`, `main.tsx`) was adapted to drop the hub fork's `@qwhub/*`
-dependencies (the `FteQtvPlayer` live-game panel is temporarily an iframe to the deployed
-`/qtv/` page until LD-B2, #88). Assets `public/dm3.obj` and `public/dm3_sng_to_rl.cmds`
+dependencies. LD-B2 (#88) replaced the temporary `/qtv/` iframe with the standalone
+`panes/qtv.html` same-origin FTE WASM pane and removed the `FteQtvPlayer` hub-fork
+dependency entirely. Assets `public/dm3.obj` and `public/dm3_sng_to_rl.cmds`
 match the local-hub blobs byte-for-byte (verified by git blob SHA:
 `d23bbfa` / `da9a987`).
 
@@ -284,6 +285,24 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   (`demo_setspeed 0` before `playdemo match`, so load hitches cannot fast-forward the
   wall-anchored demo clock) and `f_demoend` echoes the sentinel the pane converts into
   the `ended` event.
+- `public/panes/qtv.html` — LD-B2 (#88) standalone FTE WASM QTV spectate pane (the Live
+  In-Game view). Params `?port=<labport>&relay=<ws-relay-url>&map=<mapname>`; same-origin
+  postMessage API (`attach`/`disconnect` in; `status` out with states
+  `loading|connected|retrying|disconnected`). FTE boots once; subsequent attach/detach
+  cycles re-issue `qtvplay tcp:127.0.0.1:<port>@<relay>` without reloading the page. The
+  ~3 s retry loop on QTV disconnect is driven by the pane itself (detected via
+  `svc_disconnect: EndOfDemo` in FTE console output). `f_demostart → autotrack` picks a
+  bot to follow on connect. The shell (`App.tsx`) sends `{cmd:"attach"}` on every new
+  attempt from telemetry; the pane's own retry loop handles the between-attempts
+  reconnect without shell involvement. Map `.bsp` preload is local-first (optimization
+  only; QTV fetches maps independently via `cl_download_mapsrc`). Modeled on
+  `local-hub/web/watch.html` and `local-hub/frontend/src/pages/botlab/App.tsx`;
+  hub-fork `FteQtvPlayer` dependency removed.
+- `public/panes/fte_qtv.cfg` — the QTV config mapped to `id1/config.cfg`, copied from
+  local-hub `web/config_qtv_v5.cfg` with one LD-B2 addition: `con_stayhidden 1` so the
+  FTE console does not flash on QTV connect/disconnect. `f_demostart "autotrack"` is the
+  connect hook (same as the local-hub config). No `playdemo` / `demo_setspeed` lines —
+  this config is for live QTV streaming, not demo playback.
 
 ### Lab dashboard data builders (lab/tools)
 
