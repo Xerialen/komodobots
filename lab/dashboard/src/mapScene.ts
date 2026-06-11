@@ -26,10 +26,13 @@ import { setFromQuake } from "./quakeCoords.ts";
 // Default opacity for the map mesh — "quite transparent" per SPEC §6.3 / #99.
 const FILL_OPACITY = 0.3;
 
-// TAG strings set by bsp_to_mesh.py in material extras; used to hide
-// sky / tool textures by default (#92).
-const TAG_SKY = "TAG_SKY";
-const TAG_SKIP = "TAG_SKIP";
+// TAG strings set by bsp_to_mesh.py in material extras.quake_tag; used to
+// hide sky / tool textures by default (#92).
+// These must match bsp_to_mesh.TAG_SKY / TAG_SKIP ("sky" / "skip").
+// GLTFLoader merges glTF material extras directly into material.userData
+// (Object.assign), so the key is material.userData.quake_tag.
+const TAG_SKY = "sky";
+const TAG_SKIP = "skip";
 
 export type MapScene = {
   scene: THREE.Scene;
@@ -181,12 +184,12 @@ export function createMapScene(
         : [child.material as THREE.Material];
 
       for (const mat of mats) {
-        // bsp_to_mesh.py embeds a `tag` in material.userData.extras or via
-        // GLTF material extras.  Check both paths.
-        const extras =
-          (mat as { userData?: { extras?: { tag?: string } } }).userData
-            ?.extras ?? {};
-        const tag: string = (extras as { tag?: string }).tag ?? "";
+        // bsp_to_mesh.py sets quake_tag in glTF material extras.
+        // GLTFLoader (three.js) merges extras directly into material.userData
+        // via Object.assign, so the key is material.userData.quake_tag.
+        const tag: string =
+          (mat as { userData?: { quake_tag?: string } }).userData
+            ?.quake_tag ?? "";
 
         if (tag === TAG_SKY || tag === TAG_SKIP) {
           // Hide sky / clip / trigger / tool faces.

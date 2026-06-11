@@ -606,5 +606,80 @@ class TestCommittedAssets(unittest.TestCase):
                                         f"{name}: bufferViews should be >= primitives")
 
 
+# ---------------------------------------------------------------------------
+# Tests: TypeScript viewer tag-contract (LD-C5, #99)
+# ---------------------------------------------------------------------------
+
+class TestViewerTagContract(unittest.TestCase):
+    """Assert that mapScene.ts TAG_SKY / TAG_SKIP constants match bsp_to_mesh.py.
+
+    GLTFLoader (three.js) merges glTF material extras directly into
+    material.userData via Object.assign, so the TypeScript viewer reads
+    material.userData.quake_tag and must compare it against the same string
+    values that bsp_to_mesh.py writes into the GLB extras.
+
+    Concretely:
+      Python TAG_SKY  == "sky"   -> TS must read "sky"
+      Python TAG_SKIP == "skip"  -> TS must read "skip"
+    """
+
+    MAP_SCENE_TS = REPO / "lab" / "dashboard" / "src" / "mapScene.ts"
+
+    def _read_ts(self) -> str:
+        return self.MAP_SCENE_TS.read_text(encoding="utf-8")
+
+    def test_ts_file_exists(self):
+        self.assertTrue(self.MAP_SCENE_TS.is_file(),
+                        "mapScene.ts not found; update the path in this test")
+
+    def test_ts_tag_sky_matches_python_tag_sky(self):
+        """TAG_SKY constant in mapScene.ts must equal bsp_to_mesh.TAG_SKY."""
+        ts = self._read_ts()
+        expected = bsp_to_mesh.TAG_SKY   # "sky"
+        # Match: const TAG_SKY = "sky";  or  const TAG_SKY = 'sky';
+        import re
+        m = re.search(r'const\s+TAG_SKY\s*=\s*["\']([^"\']+)["\']', ts)
+        self.assertIsNotNone(m, "TAG_SKY constant not found in mapScene.ts")
+        self.assertEqual(
+            m.group(1), expected,
+            f"mapScene.ts TAG_SKY is {m.group(1)!r}; "
+            f"bsp_to_mesh.TAG_SKY is {expected!r} — they must match the GLB contract",
+        )
+
+    def test_ts_tag_skip_matches_python_tag_skip(self):
+        """TAG_SKIP constant in mapScene.ts must equal bsp_to_mesh.TAG_SKIP."""
+        ts = self._read_ts()
+        expected = bsp_to_mesh.TAG_SKIP  # "skip"
+        import re
+        m = re.search(r'const\s+TAG_SKIP\s*=\s*["\']([^"\']+)["\']', ts)
+        self.assertIsNotNone(m, "TAG_SKIP constant not found in mapScene.ts")
+        self.assertEqual(
+            m.group(1), expected,
+            f"mapScene.ts TAG_SKIP is {m.group(1)!r}; "
+            f"bsp_to_mesh.TAG_SKIP is {expected!r} — they must match the GLB contract",
+        )
+
+    def test_ts_reads_quake_tag_key(self):
+        """mapScene.ts must access quake_tag (not an incorrect 'tag' key)."""
+        ts = self._read_ts()
+        self.assertIn(
+            "quake_tag",
+            ts,
+            "mapScene.ts does not reference 'quake_tag'; "
+            "GLTFLoader maps material extras directly into userData so the key is "
+            "material.userData.quake_tag",
+        )
+
+    def test_ts_does_not_use_stale_extras_tag_path(self):
+        """mapScene.ts must not use the stale userData.extras.tag path."""
+        ts = self._read_ts()
+        self.assertNotIn(
+            "extras.tag",
+            ts,
+            "mapScene.ts still uses 'extras.tag' (stale nested path); "
+            "GLTFLoader flattens extras into userData directly",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
