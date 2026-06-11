@@ -64,7 +64,7 @@ Committed output: lab/dashboard/public/maps/{dm3,dm2,frobodm2,trick}.glb
 
 == Usage ==
 
-Requires: Pillow (for miptex -> PNG; stdlib only is used for everything else).
+Requires: stdlib only (no third-party dependencies).
 
     python lab/tools/bsp_to_mesh.py MAP=BSP_PATH [MAP=BSP_PATH ...] \
         [--palette PAK_PATH_OR_LMP_PATH] \
@@ -98,6 +98,7 @@ import json
 import math
 import struct
 import sys
+import zlib
 from pathlib import Path
 from typing import Optional
 
@@ -302,18 +303,67 @@ def _classify_texture(name: str) -> str:
     return TAG_REGULAR
 
 
+def _png_chunk(tag: bytes, data: bytes) -> bytes:
+    """Return a single PNG chunk: length + tag + data + CRC."""
+    length = struct.pack(">I", len(data))
+    crc = struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+    return length + tag + data + crc
+
+
+def _encode_png_rgb(rgb_data: bytes, w: int, h: int) -> bytes:
+    """Encode a raw RGB byte array (w*h*3 bytes, row-major) as a PNG byte string.
+
+    Pure stdlib implementation using zlib — no Pillow required.  Uses filter
+    type 0 (None) per scanline, which is sufficient for the non-photographic
+    palette-decoded textures in Quake BSPs.
+    """
+    # Build raw filtered scanlines: filter-byte 0 prepended to each row
+    raw_rows = bytearray()
+    row_stride = w * 3
+    for y in range(h):
+        raw_rows.append(0)  # filter type = None
+        raw_rows += rgb_data[y * row_stride:(y + 1) * row_stride]
+    # PNG file signature
+    sig = b"\x89PNG\r\n\x1a\n"
+    # IHDR: width, height, bit_depth=8, color_type=2 (RGB), compression=0, filter=0, interlace=0
+    ihdr_data = struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)
+    ihdr = _png_chunk(b"IHDR", ihdr_data)
+    # IDAT: zlib-compressed scanlines (level 6 is a reasonable default)
+    idat = _png_chunk(b"IDAT", zlib.compress(bytes(raw_rows), 6))
+    # IEND
+    iend = _png_chunk(b"IEND", b"")
+    return sig + ihdr + idat + iend
+
+
+def _nn_resize_rgb(rgb_data: bytes, src_w: int, src_h: int,
+                   dst_w: int, dst_h: int) -> bytes:
+    """Nearest-neighbour resize of an RGB byte array.  Pure stdlib."""
+    out = bytearray(dst_w * dst_h * 3)
+    x_ratio = src_w / dst_w
+    y_ratio = src_h / dst_h
+    for dy in range(dst_h):
+        sy = min(int(dy * y_ratio), src_h - 1)
+        for dx in range(dst_w):
+            sx = min(int(dx * x_ratio), src_w - 1)
+            src_off = (sy * src_w + sx) * 3
+            dst_off = (dy * dst_w + dx) * 3
+            out[dst_off] = rgb_data[src_off]
+            out[dst_off + 1] = rgb_data[src_off + 1]
+            out[dst_off + 2] = rgb_data[src_off + 2]
+    return bytes(out)
+
+
 def _miptex_to_png(miptex_data: bytes, palette: bytes, tex_abs_off: int,
                    w: int, h: int, mip0_off: int, max_dim: int = 0) -> bytes:
-    """Decode mip0 pixel data to a PNG bytes object using Pillow.
+    """Decode mip0 pixel data to a PNG bytes object.
 
     *miptex_data* is the full BSP bytes.  *tex_abs_off* is the byte offset of
     the start of this miptex within *miptex_data*.  *mip0_off* is the offset
     of the mip0 pixel array relative to *tex_abs_off*.  *max_dim* caps the
     longest edge via nearest-neighbour downscale (0 = no cap).
 
-    Returns raw PNG bytes.
+    Returns raw PNG bytes.  Pure stdlib — no Pillow required.
     """
-    from PIL import Image  # deferred so stdlib paths still work without Pillow
     pixel_start = tex_abs_off + mip0_off
     pixels = miptex_data[pixel_start:pixel_start + w * h]
     if len(pixels) != w * h:
@@ -326,24 +376,22 @@ def _miptex_to_png(miptex_data: bytes, palette: bytes, tex_abs_off: int,
         rgb_data[i * 3] = palette[pal_off]
         rgb_data[i * 3 + 1] = palette[pal_off + 1]
         rgb_data[i * 3 + 2] = palette[pal_off + 2]
-    img = Image.frombytes("RGB", (w, h), bytes(rgb_data))
+    # Optional nearest-neighbour downscale
     if max_dim > 0 and max(w, h) > max_dim:
         scale = max_dim / max(w, h)
         new_w = max(1, int(w * scale))
         new_h = max(1, int(h * scale))
-        img = img.resize((new_w, new_h), Image.NEAREST)
-    buf = io.BytesIO()
-    img.save(buf, format="PNG", optimize=False)
-    return buf.getvalue()
+        rgb_data = _nn_resize_rgb(bytes(rgb_data), w, h, new_w, new_h)
+        w, h = new_w, new_h
+    return _encode_png_rgb(bytes(rgb_data), w, h)
 
 
 def _solid_color_png(r: int, g: int, b: int) -> bytes:
-    """Return a 1x1 solid-colour PNG (fallback for missing/corrupt miptex)."""
-    from PIL import Image
-    img = Image.new("RGB", (1, 1), (r, g, b))
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return buf.getvalue()
+    """Return a 1x1 solid-colour PNG (fallback for missing/corrupt miptex).
+
+    Pure stdlib — no Pillow required.
+    """
+    return _encode_png_rgb(bytes([r, g, b]), 1, 1)
 
 
 def _sky_placeholder_png() -> bytes:
