@@ -256,7 +256,28 @@ match the local-hub blobs byte-for-byte (verified by git blob SHA:
 LD-B1 (#87) added the view shell: `src/layoutState.ts` (fixed view order, `?views=` /
 localStorage persistence) and an `App.tsx` top bar + pane grid that rehomes the LD-A1
 Live 3D scene and live-game iframe into their fixed pane slots (Demo/Mockup/dock/drawer
-are labeled placeholders for LD-D3/LD-C3/LD-E1/LD-F3).
+are labeled placeholders for LD-C3/LD-E1/LD-F3; Demo landed in LD-D3).
+
+LD-D3 (#98) implemented the Demo view:
+
+- `src/DemoPane.tsx` — Demo view React component. Picker header with two source tabs:
+  **Records** (fetches `/demos/records/records.json` in `komodobots.records.v1` schema;
+  groups by route → kind; click-to-play with `event_t_s` seek) and **Archive** (fetches
+  `/v2/demos.json`; walks the `["non-games","lab","Komodobots"]` subtree; map-filterable;
+  newest-first). Player area is the `public/panes/demo.html` iframe mounted once a demo
+  is selected, then reloaded via `{cmd:"load"}` postMessage (no React re-mount between
+  demos). Exports `OpenDemoParams`, `DemoContext`, and `DemoPaneHandle` types; the handle
+  ref carries `openDemo` for the shell.
+- `src/App.tsx` additions:
+  - `openDemo(params: OpenDemoParams)` — shell-level entry point (SPEC §6.5). Opens
+    the Demo view if closed, then posts `{cmd:"load"}` via `DemoPaneHandle`. Exported
+    as the single entry point for LD-E4 (#104) record clicks.
+  - `ShellActionsContext` / `useShellActions()` — React context that provides
+    `openDemo` to child components (KPI dock, future LD-E4) without prop-drilling.
+  - `demoContext` state: receives `{map, route?}` from `DemoPane.onContext` while a
+    demo is playing; displayed in the status bar; wired to the shared context store in
+    LD-E3 (#100).
+  - The Demo pane placeholder is replaced by the real `<DemoPane>` component.
 
 LD-B3 (#89) extracted the reusable map-scene module:
 
