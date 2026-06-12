@@ -216,6 +216,11 @@ class TestValidators(unittest.TestCase):
             ztricks_steps,
         )
         self.assertIn(("console", "set k_fb_moveprobe_replay_file_s3"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_launch_target_x -3044.1"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_lip_x -3348"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_release_vh 470"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_carve_angle 52"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_carve_side 1"), ztricks_steps)
         self.assertLess(
             ztricks_steps.index(("console", "set k_fb_moveprobe_fixed_goal_s3 8")),
             ztricks_steps.index(("console", "set k_fb_moveprobe_mode_s3 23")),
@@ -684,6 +689,11 @@ class TestSessionScopedOps(unittest.TestCase):
                 executor.calls,
             )
             self.assertIn(("stuff", 28600, "set k_fb_moveprobe_replay_file_s3"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_launch_target_x -3044.1"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_lip_x -3348"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_release_vh 470"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_carve_angle 52"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_carve_side 1"), executor.calls)
             fixed_goal_idx = executor.calls.index(("stuff", 28600, "set k_fb_moveprobe_fixed_goal_s3 8"))
             mode_idx = executor.calls.index(("stuff", 28600, "set k_fb_moveprobe_mode_s3 23"))
             self.assertLess(fixed_goal_idx, mode_idx)

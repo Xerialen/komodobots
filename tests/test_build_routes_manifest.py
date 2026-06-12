@@ -91,6 +91,22 @@ class TestSchema(unittest.TestCase):
         self.assertIsNone(route["gaps"][0]["required_speed"])
         self.assertGreaterEqual(len(route["polyline"]), 20)
 
+    def test_ztricks_route_carries_terminal_carve_control_cvars(self):
+        cvars = self.docs["ztricks.json"]["routes"][0]["control"]["cvars"]
+        self.assertEqual(cvars["k_fb_moveprobe_s23_launch_target_x"], -3044.1)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_launch_target_y"], 3760.5)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_launch_target_z"], -488)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_lip_x"], -3348)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_release_vh"], 470)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_release_vh_min"], 453)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_carve_d"], 80)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_carve_angle"], 52)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_carve_side"], 1)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_yawlead_min"], -12)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_yawlead_max"], -4)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_targeterr_min"], -2)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_targeterr_max"], 10)
+
     def test_ztricks_source_hashes_are_recorded(self):
         route = self.docs["ztricks.json"]["routes"][0]
         src = route["source"]

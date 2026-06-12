@@ -125,6 +125,13 @@ is travelling roughly north (`84.6 deg`) and does not press jump there. The next
 movement primitive should therefore target the terminal carve/release state
 before claiming landing success.
 
+Implementation v0 adds that target as default-off mode-23 route metadata rather
+than a separate trickjump UI path. When `k_fb_moveprobe_s23_launch_target_{x,y,z}`
+is unset, mode 23 keeps its existing Frogbot-route weave. The ztricks Distance
+route sets the target, lip, release-speed, carve-side/angle, yaw-lead, and
+target-error cvars; KTX then emits `zjump=` command telemetry so each live
+attempt can be scored on release state before landing.
+
 ## First movement override evidence
 
 The first S2 probe found a candidate command-emission seam in KTX/Frogbots:

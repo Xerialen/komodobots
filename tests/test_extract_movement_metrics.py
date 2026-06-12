@@ -317,7 +317,7 @@ class MovementMetricsTests(unittest.TestCase):
                 [
                     "noise before",
                     'FBMOVEPROBE_CMD time=12.250 ed=3 name=/ goldenboy mode=2 msec=13 angles=0.0,90.0,0.0 move=800,0,0 buttons=3 impulse=0',
-                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=9 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1 route=12,10,42,14,524288,8192,1,1.250 water=3,-3,528,16,120.0,25.5,-4.0,80.0,0.100,0.200,0.300 probe=0,0,999.000,999.000,1.000 qwd=1,3,14,72.250,4,0,1.375',
+                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=9 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1 route=12,10,42,14,524288,8192,1,1.250 water=3,-3,528,16,120.0,25.5,-4.0,80.0,0.100,0.200,0.300 probe=0,0,999.000,999.000,1.000 qwd=1,3,14,72.250,4,0,1.375 origin=-3360.800,3777.200,-488.000 zjump=2,12.800,475.200,-11.3,-3.0,8.3,-7.7,1,1',
                 ]
             )
         )
@@ -377,6 +377,28 @@ class MovementMetricsTests(unittest.TestCase):
                 "active_seconds": 1.375,
             },
         )
+        self.assertEqual(commands[1]["origin"], {"x": -3360.8, "y": 3777.2, "z": -488.0})
+        self.assertEqual(
+            commands[1]["zjump_state"],
+            {
+                "phase": 2,
+                "d_lip_qu": 12.8,
+                "horizontal_speed": 475.2,
+                "velocity_yaw_deg": -11.3,
+                "target_yaw_deg": -3.0,
+                "target_error_deg": 8.3,
+                "yaw_lead_deg": -7.7,
+                "armed": True,
+                "release_rule": 1,
+            },
+        )
+
+        summary = run_frobodm2_lab.summarize_moveprobe_commands(commands)
+        zjump_summary = summary["players"][0]["zjump_state"]
+        self.assertEqual(zjump_summary["sample_count"], 1)
+        self.assertEqual(zjump_summary["phase_values"], [2])
+        self.assertEqual(zjump_summary["release_rule_values"], [1])
+        self.assertAlmostEqual(zjump_summary["max_horizontal_speed"], 475.2, places=1)
 
     def test_parse_moveprobe_qwd_event_logs(self) -> None:
         events = run_frobodm2_lab.parse_moveprobe_qwd_event_logs(

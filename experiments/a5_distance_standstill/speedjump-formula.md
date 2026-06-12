@@ -144,10 +144,15 @@ fired later at `153.0` speed from the wrong lane.
 Add default-off cvars for a ztricks-oriented terminal carve:
 
 ```text
-k_fb_moveprobe_s23_launch_target "-3044.1 3760.5 -488"
+k_fb_moveprobe_s23_launch_target_x -3044.1
+k_fb_moveprobe_s23_launch_target_y 3760.5
+k_fb_moveprobe_s23_launch_target_z -488
+k_fb_moveprobe_s23_lip_x -3348
 k_fb_moveprobe_s23_release_vh 470
 k_fb_moveprobe_s23_release_vh_min 453
 k_fb_moveprobe_s23_carve_d 80
+k_fb_moveprobe_s23_carve_angle 52
+k_fb_moveprobe_s23_carve_side 1
 k_fb_moveprobe_s23_release_lip 35
 k_fb_moveprobe_s23_yawlead_min -12
 k_fb_moveprobe_s23_yawlead_max -4

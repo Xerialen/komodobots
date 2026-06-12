@@ -4191,3 +4191,45 @@ The next KTX primitive should score release state first, not landing first:
 the formula before any landing claim is meaningful. The live attempt failure is
 now explained precisely: it had location and exploratory speed, but not the
 terminal heading/yaw/jump synchronization.
+
+
+## 2026-06-12 -- ztricks terminal-carve primitive added to mode 23
+
+### Finding
+
+The ztricks Distance route can now ask mode 23 for the missing terminal
+speedjump primitive without making trickjump a separate GUI concept. The
+primitive is default-off: unset `k_fb_moveprobe_s23_launch_target_{x,y,z}` keeps
+the existing mode-23 Frogbot route weave, while the ztricks route metadata sets
+the target/lip/release cvars needed for the terminal right-carve.
+
+### Evidence
+
+- `experiments/ktx_moveprobe/frogbot-moveprobe-perslot.patch` now adds
+  `zjump=` command telemetry:
+  `phase,d_lip,vh,vel_yaw,target_yaw,target_err,yaw_lead,armed,release_rule`.
+- `lab/tools/build_routes_manifest.py` regenerates `ztricks.json` with the
+  terminal-carve cvars: landing target `(-3044.1, 3760.5, -488)`, `lip_x
+  -3348`, release speed floors `470/453`, `carve_d 80`, `carve_angle 52`,
+  `carve_side 1`, yaw-lead `-12..-4`, and target-error `-2..10`.
+- `scripts/moveprobe_parse.py` and `scripts/run_frobodm2_lab.py` parse and
+  summarize nested `zjump_state`, so the next live run can be judged on release
+  state before landing.
+
+Validation:
+
+- `python -m unittest tests.test_extract_movement_metrics tests.test_build_routes_manifest tests.test_control_bridge tests.test_perslot_moveprobe_patch`
+  -> `116` tests OK.
+- `python -m unittest discover -s tests` -> `993` tests OK.
+- `npm run build` in `lab/dashboard` -> passed; Vite still reports the existing
+  large chunk warning.
+- Temporary clean KTX worktree at base `08807da`: `git apply --check
+  frogbot-moveprobe-perslot.patch` passed.
+- Temporary patched KTX worktree at base `08807da`: `./build_cmake.sh
+  linux-amd64` built `qwprogs.so` successfully.
+
+### Interpretation
+
+This does not prove the bot can land the ztricks jump. It gives the live loop a
+proper attempt primitive and enough telemetry to tune attempt by attempt:
+first make `zjump_state` match the human release formula, then score landing.

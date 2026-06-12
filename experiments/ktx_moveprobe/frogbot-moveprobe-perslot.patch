@@ -69,10 +69,10 @@ index 541191f..4eede17 100644
  	{
  		self->s.v.goalentity = NUM_FOR_EDICT(self->fb.fixed_goal);
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..147d7a6 100644
+index c0654d1..3adacca 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -5,6 +5,258 @@
+@@ -5,6 +5,267 @@
  #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
@@ -164,6 +164,15 @@ index c0654d1..147d7a6 100644
 +static float moveprobe_s23_prec_since[MAX_CLIENTS];        // mode 23: when precision mode engaged (timeout escape)
 +static int moveprobe_s23_launch_done[MAX_CLIENTS];         // mode 23: circle-jump launch one-shot latch (A3 #75)
 +static float moveprobe_s23_launch_since[MAX_CLIENTS];      // mode 23: launch first-eval time (<=0 = not evaluated yet)
++static int moveprobe_s23_zjump_phase[MAX_CLIENTS];         // mode 23: ztricks terminal carve phase (0 off, 1 tracking, 2 released)
++static int moveprobe_s23_zjump_armed[MAX_CLIENTS];         // mode 23: ztricks speed/distance release window is active
++static int moveprobe_s23_zjump_release_rule[MAX_CLIENTS];  // mode 23: 0 none, 1 formula, 2 late-lip backstop
++static float moveprobe_s23_zjump_d_lip[MAX_CLIENTS];       // mode 23: horizontal distance to configured lip x
++static float moveprobe_s23_zjump_vh[MAX_CLIENTS];          // mode 23: horizontal speed at terminal-carve eval
++static float moveprobe_s23_zjump_vel_yaw[MAX_CLIENTS];     // mode 23: velocity yaw at terminal-carve eval
++static float moveprobe_s23_zjump_target_yaw[MAX_CLIENTS];  // mode 23: yaw from bot to configured landing target
++static float moveprobe_s23_zjump_target_err[MAX_CLIENTS];  // mode 23: target_yaw - vel_yaw, wrapped
++static float moveprobe_s23_zjump_yaw_lead[MAX_CLIENTS];    // mode 23: view yaw - vel_yaw, wrapped
 +static float moveprobe_orbit_yaw[MAX_CLIENTS];             // mode 14: base heading yaw (the "direction"/orbit)
 +static int   moveprobe_orbit_init[MAX_CLIENTS];            // mode 14: base heading seeded?
 +static int   moveprobe_orbit_jump[MAX_CLIENTS];            // mode 14: last-frame jump press (toggle)
@@ -331,7 +340,7 @@ index c0654d1..147d7a6 100644
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,142 +674,3963 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,142 +683,4125 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -3715,14 +3724,30 @@ index c0654d1..147d7a6 100644
 +		float deleg_vh_max = cvar("k_fb_moveprobe_s23_deleg_vh_max");
 +		float launch_vh = cvar("k_fb_moveprobe_s23_launch_vh");
 +		float launch_angle = cvar("k_fb_moveprobe_s23_launch_angle");
-+		qbool deleg_speed_ok;
++		float ztarget_x = cvar("k_fb_moveprobe_s23_launch_target_x");
++		float ztarget_y = cvar("k_fb_moveprobe_s23_launch_target_y");
++		float ztarget_z = cvar("k_fb_moveprobe_s23_launch_target_z");
++		float zlip_x = cvar("k_fb_moveprobe_s23_lip_x");
++		float zrelease_vh = cvar("k_fb_moveprobe_s23_release_vh");
++		float zrelease_vh_min = cvar("k_fb_moveprobe_s23_release_vh_min");
++		float zcarve_d = cvar("k_fb_moveprobe_s23_carve_d");
++		float zcarve_angle = cvar("k_fb_moveprobe_s23_carve_angle");
++		int zcarve_side = (int)cvar("k_fb_moveprobe_s23_carve_side");
++		float zrelease_lip = cvar("k_fb_moveprobe_s23_release_lip");
++		float zyawlead_min = cvar("k_fb_moveprobe_s23_yawlead_min");
++		float zyawlead_max = cvar("k_fb_moveprobe_s23_yawlead_max");
++		float ztargeterr_min = cvar("k_fb_moveprobe_s23_targeterr_min");
++		float ztargeterr_max = cvar("k_fb_moveprobe_s23_targeterr_max");
++		qbool zjump_enabled, deleg_speed_ok;
++		qbool ztrack, zarmed, ztarget_ok, zyawlead_ok;
 +		float hor_speed_sq, rotation, goal_yaw, vel_yaw, signed_to_goal, herr, corner_mag;
++		float zvh, zd_lip, ztarget_yaw, ztarget_err, zyaw_lead, ztmp;
 +		float marker_dist_sq, marker_dz = 0;
-+		int sign = 0;
++		int sign = 0, zside = 0, zrelease_rule = 0;
 +		int path_flags = (int)self->fb.path_state;
 +		qbool onground = ((int)self->s.v.flags & FL_ONGROUND) ? true : false;
 +		qbool press_jump, hard_corner, pass_through, climb;
-+		vec3_t nav_dir, cur_dir, proposed_dir;
++		vec3_t nav_dir, cur_dir, proposed_dir, ztarget_dir;
 +		vec3_t left_dir, right_dir, lp, rp, fp;
 +		vec3_t up_vector = { 0, 0, 1 };
 +		float left_open, right_open, fwd_open;
@@ -3738,6 +3763,45 @@ index c0654d1..147d7a6 100644
 +		if (corner_thresh <= 0) corner_thresh = 58.0f;
 +		if (sv_maxspeed <= 0) sv_maxspeed = 320.0f;
 +		if (launch_angle <= 0) launch_angle = 45.0f;
++		// ZTRICKS TERMINAL CARVE (default-off): route metadata can configure a
++		// landing target/lip pair so mode 23 deliberately reproduces the final
++		// human speedjump "symphony": keep accelerating, then near the lip emit
++		// a right/left strafe-jump command whose wishdir, view-yaw lead, speed
++		// floor, and jump release are all scored in FBMOVEPROBE_CMD zjump rows.
++		// With all target coordinates left at 0, this block is inert and the
++		// deployed mode-23 law is unchanged.
++		zjump_enabled = ((ztarget_x != 0.0f) || (ztarget_y != 0.0f) || (ztarget_z != 0.0f));
++		if (zjump_enabled)
++		{
++			if (zlip_x == 0.0f) zlip_x = -3348.0f;
++			if (zrelease_vh <= 0) zrelease_vh = 470.0f;
++			if (zrelease_vh_min <= 0) zrelease_vh_min = 453.0f;
++			if (zcarve_d <= 0) zcarve_d = 80.0f;
++			if (zcarve_angle <= 0) zcarve_angle = 52.0f;
++			if (zrelease_lip <= 0) zrelease_lip = 35.0f;
++			if ((zyawlead_min == 0.0f) && (zyawlead_max == 0.0f))
++			{
++				zyawlead_min = -12.0f;
++				zyawlead_max = -4.0f;
++			}
++			if ((ztargeterr_min == 0.0f) && (ztargeterr_max == 0.0f))
++			{
++				ztargeterr_min = -2.0f;
++				ztargeterr_max = 10.0f;
++			}
++			if (zyawlead_min > zyawlead_max)
++			{
++				ztmp = zyawlead_min;
++				zyawlead_min = zyawlead_max;
++				zyawlead_max = ztmp;
++			}
++			if (ztargeterr_min > ztargeterr_max)
++			{
++				ztmp = ztargeterr_min;
++				ztargeterr_min = ztargeterr_max;
++				ztargeterr_max = ztmp;
++			}
++		}
 +		// Delegation speed gate (A3 #75, sim knob deleg_vh_max): the grounded
 +		// climb delegation exists for SLOW stair legs; on a flying return it
 +		// would hijack the run and scrub the carried speed. Gate delegation
@@ -3890,6 +3954,94 @@ index c0654d1..147d7a6 100644
 +		while (signed_to_goal > 180.0f) signed_to_goal -= 360.0f;
 +		while (signed_to_goal < -180.0f) signed_to_goal += 360.0f;
 +		herr = (signed_to_goal >= 0) ? signed_to_goal : -signed_to_goal;
++
++		moveprobe_s23_zjump_phase[slot] = 0;
++		moveprobe_s23_zjump_armed[slot] = 0;
++		moveprobe_s23_zjump_release_rule[slot] = 0;
++		moveprobe_s23_zjump_d_lip[slot] = 999999.0f;
++		moveprobe_s23_zjump_vh[slot] = sqrt(hor_speed_sq);
++		moveprobe_s23_zjump_vel_yaw[slot] = vel_yaw;
++		moveprobe_s23_zjump_target_yaw[slot] = 0.0f;
++		moveprobe_s23_zjump_target_err[slot] = 0.0f;
++		moveprobe_s23_zjump_yaw_lead[slot] = 0.0f;
++
++		if (zjump_enabled)
++		{
++			ztarget_dir[0] = ztarget_x - self->s.v.origin[0];
++			ztarget_dir[1] = ztarget_y - self->s.v.origin[1];
++			ztarget_dir[2] = 0;
++			if (VectorNormalize(ztarget_dir) > 0)
++			{
++				zvh = sqrt(hor_speed_sq);
++				zd_lip = zlip_x - self->s.v.origin[0];
++				ztarget_yaw = vectoyaw(ztarget_dir);
++				ztarget_err = ztarget_yaw - vel_yaw;
++				while (ztarget_err > 180.0f) ztarget_err -= 360.0f;
++				while (ztarget_err < -180.0f) ztarget_err += 360.0f;
++				ztrack = onground && (zd_lip >= 0.0f) && (zd_lip <= zcarve_d);
++				zarmed = ztrack && (zvh >= zrelease_vh_min);
++				zside = zcarve_side;
++				if (zside == 0)
++				{
++					zside = (ztarget_err <= 0.0f) ? 1 : -1;
++				}
++				zside = (zside >= 0) ? 1 : -1;
++				// Positive sidemove is the ztricks right-carve. With fwd+side
++				// held equal, a 52 degree wishdir offset means view yaw trails
++				// velocity by roughly 7 degrees, matching the human release.
++				zyaw_lead = (45.0f - zcarve_angle) * zside;
++				if (zyaw_lead < zyawlead_min) zyaw_lead = zyawlead_min;
++				if (zyaw_lead > zyawlead_max) zyaw_lead = zyawlead_max;
++
++				moveprobe_s23_zjump_phase[slot] = ztrack ? 1 : 0;
++				moveprobe_s23_zjump_armed[slot] = zarmed ? 1 : 0;
++				moveprobe_s23_zjump_d_lip[slot] = zd_lip;
++				moveprobe_s23_zjump_vh[slot] = zvh;
++				moveprobe_s23_zjump_vel_yaw[slot] = vel_yaw;
++				moveprobe_s23_zjump_target_yaw[slot] = ztarget_yaw;
++				moveprobe_s23_zjump_target_err[slot] = ztarget_err;
++				moveprobe_s23_zjump_yaw_lead[slot] = zyaw_lead;
++
++				if (ztrack)
++				{
++					zyawlead_ok = (zyaw_lead >= zyawlead_min)
++						&& (zyaw_lead <= zyawlead_max);
++					if (zarmed)
++					{
++						ztarget_ok = (ztarget_err >= ztargeterr_min)
++							&& (ztarget_err <= ztargeterr_max);
++						if ((zvh >= zrelease_vh) && (zd_lip <= zrelease_lip)
++							&& ztarget_ok && zyawlead_ok)
++						{
++							zrelease_rule = 1;
++						}
++						else if ((zd_lip <= zrelease_lip * 0.35f)
++								 && (ztarget_err >= (ztargeterr_min - 20.0f))
++								 && (ztarget_err <= (ztargeterr_max + 10.0f))
++								 && zyawlead_ok)
++						{
++							zrelease_rule = 2;
++						}
++					}
++
++					self->fb.desired_angle[PITCH] = 0;
++					self->fb.desired_angle[YAW] = anglemod(vel_yaw + zyaw_lead);
++					self->fb.desired_angle[ROLL] = 0;
++					direction[0] = sv_maxspeed;
++					direction[1] = sv_maxspeed * zside;
++					direction[2] = 0;
++					*jumping = zrelease_rule ? true : false;
++					moveprobe_accel_jump_press[slot] = *jumping;
++					moveprobe_s23_zjump_phase[slot] = zrelease_rule ? 2 : 1;
++					moveprobe_s23_zjump_release_rule[slot] = zrelease_rule;
++					if (zrelease_rule)
++					{
++						moveprobe_s23_launch_done[slot] = 1;
++					}
++					return;
++				}
++			}
++		}
 +
 +		// CIRCLE-JUMP LAUNCH (A2b #111 -> A3 #75): one-shot at attempt start.
 +		// The >=526 tail tries all entered the final runway already fast via
@@ -4204,6 +4356,19 @@ index c0654d1..147d7a6 100644
 +		|| self->fb.obstruction_normal[1]
 +		|| self->fb.obstruction_normal[2];
 +
++	if (mode != 23)
++	{
++		moveprobe_s23_zjump_phase[slot] = 0;
++		moveprobe_s23_zjump_armed[slot] = 0;
++		moveprobe_s23_zjump_release_rule[slot] = 0;
++		moveprobe_s23_zjump_d_lip[slot] = 999999.0f;
++		moveprobe_s23_zjump_vh[slot] = 0.0f;
++		moveprobe_s23_zjump_vel_yaw[slot] = 0.0f;
++		moveprobe_s23_zjump_target_yaw[slot] = 0.0f;
++		moveprobe_s23_zjump_target_err[slot] = 0.0f;
++		moveprobe_s23_zjump_yaw_lead[slot] = 0.0f;
++	}
++
 +	G_cprint("FBMOVEPROBE_CMD time=%.3f ed=%d name=%s mode=%d msec=%d "
 +			 "angles=%.1f,%.1f,%.1f move=%d,%d,%d buttons=%d impulse=%d "
 +			 "diag=%.1f,%.1f,%.1f,%d "
@@ -4212,7 +4377,8 @@ index c0654d1..147d7a6 100644
 +			 "probe=%d,%d,%.3f,%.3f,%.3f "
 +			 "qwd=%d,%d,%d,%.3f,%d,%d,%.3f "
 +			 "replay=%d,%d,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f "
-+			 "origin=%.3f,%.3f,%.3f\n",
++			 "origin=%.3f,%.3f,%.3f "
++			 "zjump=%d,%.3f,%.3f,%.1f,%.1f,%.1f,%.1f,%d,%d\n",
 +			 g_globalvars.time, ednum, self->netname, mode, cmd_msec,
 +			 PASSVEC3(self->fb.desired_angle), PASSINTVEC3(direction),
 +			 buttons, impulse, route_yaw, view_yaw, yaw_delta, backward,
@@ -4233,7 +4399,12 @@ index c0654d1..147d7a6 100644
 +			 moveprobe_replay_cursor[slot], BotMoveProbeReplayCountForSlot(slot),
 +			 moveprobe_replay_divergence[slot], PASSVEC3(moveprobe_replay_expected[slot]),
 +			 moveprobe_replay_divergence_h[slot], moveprobe_replay_divergence_v[slot],
-+			 PASSVEC3(self->s.v.origin));
++			 PASSVEC3(self->s.v.origin),
++			 moveprobe_s23_zjump_phase[slot], moveprobe_s23_zjump_d_lip[slot],
++			 moveprobe_s23_zjump_vh[slot], moveprobe_s23_zjump_vel_yaw[slot],
++			 moveprobe_s23_zjump_target_yaw[slot], moveprobe_s23_zjump_target_err[slot],
++			 moveprobe_s23_zjump_yaw_lead[slot], moveprobe_s23_zjump_armed[slot],
++			 moveprobe_s23_zjump_release_rule[slot]);
 +}
 +
 +void BotSetCommand(gedict_t *self)

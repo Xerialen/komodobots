@@ -143,6 +143,12 @@ QWD mode `9` rows append SNG waypoint/controller state:
 FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=9 msec=12 angles=0.0,90.0,0.0 move=320,508,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,0 route=12,10,42,14,32768,128,0,0.050 water=1,-3,528,0,0.0,25.5,-4.0,80.0,0.100,0.200,0.300 probe=0,0,999.000,999.000,1.000 qwd=1,3,14,72.250,4,0,1.375
 ```
 
+Mode `23` ztricks terminal-carve rows append release-state diagnostics:
+
+```text
+FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=23 msec=13 angles=0.0,-19.0,0.0 move=320,320,0 buttons=2 impulse=0 diag=0.0,-19.0,19.0,0 route=8,7,42,8,32768,128,0,1.000 water=0,0,528,0,0.0,475.0,-94.0,0.0,1.000,0.000,0.000 probe=0,0,999.000,999.000,1.000 qwd=0,0,0,999999.000,0,0,0.000 replay=0,0,0,0,0.000,0.000,0.000,0.000,0.000,0.000 origin=-3360.800,3777.200,-488.000 zjump=2,12.800,475.200,-11.3,-3.0,8.3,-7.7,1,1
+```
+
 Those rows are deliberately console-oriented, temporary probe output. They exist to compare stock, forced-jump, fixed-command, route-yaw, and aim-independent runs before building a real movement controller.
 
 Modes:
@@ -159,6 +165,7 @@ Modes:
 | `7` | S3g probe: start from mode `6`, then cap horizontal command magnitude to the original route/strafe intent magnitude. This tests whether no-backpedal survives without very large folded sidemove. |
 | `8` | S7j probe: start from mode `7`, then scale horizontal command budget only during takeoff/recent-air/recent-landing transition windows. This is a falsifiable probe against S7i guardrails, not accepted controller behavior. |
 | `9` | QWD SNG probe: activate near the first `dm3_sng_shortcut.qwd` control point, advance through a bounded QWD waypoint string, and project waypoint attraction plus QWD-style sidemove into preserved combat view yaw. This is not accepted controller behavior. |
+| `23` | Hybrid Frogbot route + bunnyhop weave. When the ztricks terminal-carve cvars are unset it behaves as before; when the route sets target/lip/release cvars it temporarily emits the configured fwd+side terminal carve and jump release rule near the lip. |
 | `24` | Dashboard practice idle: apply spawn-snap/ASSIGN instrumentation, then emit no movement, jump, or firing until a per-slot route assignment overrides the global mode. |
 
 Mode `2`, `3`, `4`, `5`, `6`, `7`, `8`, and `9` cvars:
@@ -200,6 +207,8 @@ The S6d diagnostic suffix is shaped as `water=<waterlevel>,<watertype>,<flags>,<
 The S7j diagnostic suffix is shaped as `probe=<active>,<on_ground>,<since_ground>,<since_air>,<scale>`. It exists to verify that mode `8` only applies the transition scale in the intended takeoff/air-transition windows and to support post-run stop-condition checks. Transition timing uses resettable file-scope per-slot state with explicit "has ground/air time" flags so map/session gaps and time-zero samples do not inherit stale timing, while normal mode-8 frames still preserve recent-ground/recent-air history across command samples.
 
 The QWD diagnostic suffix is shaped as `qwd=<active>,<control_point_index>,<control_point_count>,<distance_qu>,<advanced_control_points>,<complete>,<active_seconds>`. It exists to prove whether the temporary QWD-derived controller activated, which target it was chasing, how far it got, and whether a future success claim is just waypoint-only slow/stuck motion.
+
+The ztricks terminal-carve suffix is shaped as `zjump=<phase>,<d_lip>,<vh>,<vel_yaw>,<target_yaw>,<target_err>,<yaw_lead>,<armed>,<release_rule>`. It exists to prove whether the mode-23 Distance attempt reaches the human release formula before scoring landing. The primitive is default-off and only engages when route/control metadata sets `k_fb_moveprobe_s23_launch_target_{x,y,z}`. The committed ztricks route also sets `k_fb_moveprobe_s23_lip_x`, release speed floors, `carve_d`, `carve_angle`, `carve_side`, `release_lip`, yaw-lead bounds, and target-error bounds.
 
 ## Runner
 

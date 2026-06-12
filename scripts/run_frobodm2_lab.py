@@ -551,6 +551,11 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
             for row in rows
             if isinstance(row.get("replay_state", {}), dict) and row.get("replay_state")
         ]
+        zjump_states = [
+            row.get("zjump_state", {})
+            for row in rows
+            if isinstance(row.get("zjump_state", {}), dict) and row.get("zjump_state")
+        ]
         yaw_deltas = [
             round(float(diagnostic["yaw_delta"]), 1)
             for diagnostic in diagnostics
@@ -582,6 +587,7 @@ def summarize_moveprobe_commands(commands: list[dict[str, object]]) -> dict[str,
                 "probe_state": summarize_probe_states(probe_states),
                 "qwd_state": summarize_qwd_states(qwd_states),
                 "replay_state": summarize_replay_states(replay_states),
+                "zjump_state": summarize_zjump_states(zjump_states),
                 "button_values": compact_unique(int(row["buttons"]) for row in rows),
                 "impulse_values": compact_unique(int(row["impulse"]) for row in rows),
             }
@@ -772,6 +778,36 @@ def summarize_replay_states(replay_states: list[dict[str, object]]) -> dict[str,
     }
 
 
+def summarize_zjump_states(zjump_states: list[dict[str, object]]) -> dict[str, object]:
+    if not zjump_states:
+        return {"sample_count": 0}
+
+    armed = [state for state in zjump_states if bool(state.get("armed", False))]
+    release_rules = [
+        int(state.get("release_rule", 0))
+        for state in zjump_states
+        if int(state.get("release_rule", 0)) > 0
+    ]
+    d_lips = [
+        round(float(state.get("d_lip_qu", 999999.0)), 3)
+        for state in zjump_states
+        if float(state.get("d_lip_qu", 999999.0)) < 999999.0
+    ]
+    speeds = [round(float(state.get("horizontal_speed", 0.0)), 3) for state in zjump_states]
+    target_errors = [round(float(state.get("target_error_deg", 0.0)), 1) for state in zjump_states]
+    yaw_leads = [round(float(state.get("yaw_lead_deg", 0.0)), 1) for state in zjump_states]
+    return {
+        "sample_count": len(zjump_states),
+        "phase_values": compact_unique(int(state.get("phase", 0)) for state in zjump_states),
+        "armed_ratio": round(len(armed) / len(zjump_states), 3),
+        "release_rule_values": compact_unique(release_rules),
+        "min_d_lip_qu": min(d_lips) if d_lips else None,
+        "max_horizontal_speed": max(speeds) if speeds else None,
+        "target_error_values": compact_unique(target_errors),
+        "yaw_lead_values": compact_unique(yaw_leads),
+    }
+
+
 def write_moveprobe_command_logs(local_run_dir: Path) -> dict[str, object]:
     screen_log = (local_run_dir / "screen.log").read_text(encoding="utf-8", errors="replace")
     commands = parse_moveprobe_command_logs(screen_log)
@@ -806,6 +842,7 @@ def write_moveprobe_command_logs(local_run_dir: Path) -> dict[str, object]:
                 f"probe `{player['probe_state']}`, "
                 f"qwd `{player['qwd_state']}`, "
                 f"replay `{player['replay_state']}`, "
+                f"zjump `{player['zjump_state']}`, "
                 f"buttons `{player['button_values']}`, "
                 f"impulses `{player['impulse_values']}`"
             )

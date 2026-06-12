@@ -46,6 +46,11 @@ MOVEPROBE_COMMAND_RE = re.compile(
     r"(?P<replay_exp_x>-?\d+(?:\.\d+)?),(?P<replay_exp_y>-?\d+(?:\.\d+)?),(?P<replay_exp_z>-?\d+(?:\.\d+)?),"
     r"(?P<replay_div_h>-?\d+(?:\.\d+)?),(?P<replay_div_v>-?\d+(?:\.\d+)?))?"
     r"(?:\s+origin=(?P<bot_x>-?\d+(?:\.\d+)?),(?P<bot_y>-?\d+(?:\.\d+)?),(?P<bot_z>-?\d+(?:\.\d+)?))?"
+    r"(?:\s+zjump=(?P<zjump_phase>-?\d+),(?P<zjump_d_lip>-?\d+(?:\.\d+)?),"
+    r"(?P<zjump_vh>-?\d+(?:\.\d+)?),(?P<zjump_vel_yaw>-?\d+(?:\.\d+)?),"
+    r"(?P<zjump_target_yaw>-?\d+(?:\.\d+)?),(?P<zjump_target_err>-?\d+(?:\.\d+)?),"
+    r"(?P<zjump_yaw_lead>-?\d+(?:\.\d+)?),(?P<zjump_armed>\d+),"
+    r"(?P<zjump_release_rule>-?\d+))?"
 )
 
 
@@ -216,6 +221,18 @@ def parse_moveprobe_command_line(line: str) -> dict[str, object] | None:
             "x": float(groups["bot_x"]),
             "y": float(groups["bot_y"]),
             "z": float(groups["bot_z"]),
+        }
+    if groups.get("zjump_phase") is not None:
+        row["zjump_state"] = {
+            "phase": int(groups["zjump_phase"]),
+            "d_lip_qu": float(groups["zjump_d_lip"]),
+            "horizontal_speed": float(groups["zjump_vh"]),
+            "velocity_yaw_deg": float(groups["zjump_vel_yaw"]),
+            "target_yaw_deg": float(groups["zjump_target_yaw"]),
+            "target_error_deg": float(groups["zjump_target_err"]),
+            "yaw_lead_deg": float(groups["zjump_yaw_lead"]),
+            "armed": bool(int(groups["zjump_armed"])),
+            "release_rule": int(groups["zjump_release_rule"]),
         }
     return row
 

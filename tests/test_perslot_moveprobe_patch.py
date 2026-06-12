@@ -165,6 +165,31 @@ class PerSlotPatchTests(unittest.TestCase):
         self.assertIn("*impulse = 0;", self.added_blob)
         self.assertIn("BotApplyMoveProbe(self, &jumping, &firing, &impulse, direction)", self.added_blob)
 
+    def test_ztricks_terminal_carve_primitive_is_default_off_and_logged(self) -> None:
+        # The ztricks route turns this on with target/lip cvars; unset target
+        # coordinates leave normal mode-23 behavior unchanged.
+        for cvar in (
+            "k_fb_moveprobe_s23_launch_target_x",
+            "k_fb_moveprobe_s23_launch_target_y",
+            "k_fb_moveprobe_s23_launch_target_z",
+            "k_fb_moveprobe_s23_lip_x",
+            "k_fb_moveprobe_s23_release_vh",
+            "k_fb_moveprobe_s23_release_vh_min",
+            "k_fb_moveprobe_s23_carve_d",
+            "k_fb_moveprobe_s23_carve_angle",
+            "k_fb_moveprobe_s23_carve_side",
+            "k_fb_moveprobe_s23_release_lip",
+            "k_fb_moveprobe_s23_yawlead_min",
+            "k_fb_moveprobe_s23_yawlead_max",
+            "k_fb_moveprobe_s23_targeterr_min",
+            "k_fb_moveprobe_s23_targeterr_max",
+        ):
+            self.assertIn(cvar, self.added_blob)
+        self.assertIn("zjump_enabled = ((ztarget_x != 0.0f)", self.added_blob)
+        self.assertIn("direction[1] = sv_maxspeed * zside;", self.added_blob)
+        self.assertIn("*jumping = zrelease_rule ? true : false;", self.added_blob)
+        self.assertIn("zjump=%d,%.3f,%.3f,%.1f,%.1f,%.1f,%.1f,%d,%d", self.added_blob)
+
 
 if __name__ == "__main__":
     unittest.main()

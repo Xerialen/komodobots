@@ -408,7 +408,9 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   is now represented as the normal `distance_standstill` route in the route manifest,
   not as a separate global trick control. The per-bot route row applies its A5
   spawn-snap (`-3516.125 3712 -453.125`), mode 23, fixed goal 8, launch-vh 430 /
-  launch-angle 50 / swing 8 metadata, then lets the operator start it with that bot's
+  launch-angle 50 / swing 8 metadata plus the default-off terminal-carve cvars
+  (`launch_target_{x,y,z}`, `lip_x`, release speed floors, carve side/angle, yaw-lead
+  and target-error windows), then lets the operator start it with that bot's
   `try` or `loop` action while `stand still` returns the slot to mode 24. This creates
   a visible standing-start attempt; it does not change the A5 finding that the current
   deployed controller has not solved the jump. Audit log at
