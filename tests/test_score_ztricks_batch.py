@@ -179,6 +179,47 @@ class TestScoreZtricksBatch(unittest.TestCase):
         self.assertIn("approach_speed_below_release_floor", md)
         self.assertEqual(report["attempt_count"], 1)
 
+    def test_spawn_left_route_scores_speed_gain_not_landing(self) -> None:
+        commands = [
+            command_row(1.00, x=-1168.0, y=1632.0, z=-496.0, vh=0.0),
+            command_row(
+                1.10,
+                x=-1080.0,
+                y=1720.0,
+                z=-496.0,
+                vh=310.0,
+                d_lip=226.0,
+                vel_yaw=45.0,
+                yaw_lead=-4.0,
+                phase=1,
+            ),
+            command_row(
+                1.20,
+                x=-980.0,
+                y=1820.0,
+                z=-496.0,
+                vh=510.0,
+                d_lip=84.0,
+                vel_yaw=45.0,
+                yaw_lead=-8.0,
+                phase=1,
+            ),
+        ]
+
+        report = scorer.score_commands(commands, run_id="synthetic", route="spawn_left_speedjump")
+        attempt = report["attempts"][0]
+        md = scorer.render_markdown(report)
+
+        self.assertEqual(report["success_metric"], "horizontal_speed_gain")
+        self.assertEqual(report["fastest_attempt"], 1)
+        self.assertEqual(attempt["classification"], "human_level_or_better")
+        self.assertAlmostEqual(attempt["human_speed_target"], 495.5, places=3)
+        self.assertAlmostEqual(attempt["speed_gain"], 510.0, places=3)
+        self.assertTrue(attempt["human_level_speed"])
+        self.assertNotIn("closest_landing", attempt)
+        self.assertIn("ztricks speed-gain score", md)
+        self.assertIn("human_level_or_better", md)
+
 
 if __name__ == "__main__":
     unittest.main()

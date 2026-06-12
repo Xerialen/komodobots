@@ -179,6 +179,7 @@ class PerSlotPatchTests(unittest.TestCase):
             "k_fb_moveprobe_s23_launch_target_y",
             "k_fb_moveprobe_s23_launch_target_z",
             "k_fb_moveprobe_s23_lip_x",
+            "k_fb_moveprobe_s23_lip_y",
             "k_fb_moveprobe_s23_release_vh",
             "k_fb_moveprobe_s23_release_vh_min",
             "k_fb_moveprobe_s23_carve_d",
@@ -203,6 +204,8 @@ class PerSlotPatchTests(unittest.TestCase):
         self.assertIn("BotMoveProbeQuadratic", self.added_blob)
         self.assertIn("zdesired_vel_yaw = anglemod(zdesired_vel_yaw + zrefcurve_yaw_offset);", self.added_blob)
         self.assertIn("zdesired_view_yaw = anglemod(zdesired_view_yaw + zrefcurve_yaw_offset);", self.added_blob)
+        self.assertIn("zd_lip = ((zlip_x - self->s.v.origin[0]) * zlip_dx)", self.added_blob)
+        self.assertIn("+ ((zlip_y - self->s.v.origin[1]) * zlip_dy);", self.added_blob)
         self.assertIn("fallback_x = zrefcurve_entry_x;", self.added_blob)
         self.assertIn("fallback_y = zrefcurve_entry_y;", self.added_blob)
         self.assertIn("nav_dir[0] = fallback_x - self->s.v.origin[0];", self.added_blob)

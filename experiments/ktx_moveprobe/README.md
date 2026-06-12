@@ -208,7 +208,7 @@ The S7j diagnostic suffix is shaped as `probe=<active>,<on_ground>,<since_ground
 
 The QWD diagnostic suffix is shaped as `qwd=<active>,<control_point_index>,<control_point_count>,<distance_qu>,<advanced_control_points>,<complete>,<active_seconds>`. It exists to prove whether the temporary QWD-derived controller activated, which target it was chasing, how far it got, and whether a future success claim is just waypoint-only slow/stuck motion.
 
-The ztricks terminal-carve suffix is shaped as `zjump=<phase>,<d_lip>,<vh>,<vel_yaw>,<target_yaw>,<target_err>,<yaw_lead>,<armed>,<release_rule>`. It exists to prove whether the mode-23 Distance attempt reaches the human release formula before scoring landing. The primitive is default-off and only engages when route/control metadata sets `k_fb_moveprobe_s23_launch_target_{x,y,z}`. The committed ztricks route also sets `k_fb_moveprobe_s23_lip_x`, release speed floors, `carve_d`, `carve_angle`, `carve_side`, `release_lip`, yaw-lead bounds, target-error bounds, `spawn_velocity`, and optional human-reference curve knobs (`k_fb_moveprobe_s23_refcurve*`). `k_fb_moveprobe_s23_refcurve_yaw_offset` rotates the human reference curve onto safe-floor calibration lanes such as `spawn_left_speedjump`; leave it at `0` for the original Distance lane. The reference curve can steer with fwd+side inside the terminal lane corridor; formula release still requires `armed=1`, and the fallback unarmed jump is limited to the release-lip window so it cannot spend the attempt at terminal-lane entry.
+The ztricks terminal-carve suffix is shaped as `zjump=<phase>,<d_lip>,<vh>,<vel_yaw>,<target_yaw>,<target_err>,<yaw_lead>,<armed>,<release_rule>`. It exists to prove whether the mode-23 Distance attempt reaches the human release formula before scoring landing. The primitive is default-off and only engages when route/control metadata sets `k_fb_moveprobe_s23_launch_target_{x,y,z}`. The committed ztricks route also sets `k_fb_moveprobe_s23_lip_x`, optional `k_fb_moveprobe_s23_lip_y`, release speed floors, `carve_d`, `carve_angle`, `carve_side`, `release_lip`, yaw-lead bounds, target-error bounds, `spawn_velocity`, and optional human-reference curve knobs (`k_fb_moveprobe_s23_refcurve*`). When `lip_y` is non-zero, KTX computes `d_lip` as projected progress along the configured lip-to-target lane instead of raw `lip_x - origin.x`; this lets `spawn_left_speedjump` use the same Nexus curve timing on a diagonal floor route. `k_fb_moveprobe_s23_refcurve_yaw_offset` rotates the human reference curve onto safe-floor calibration lanes such as `spawn_left_speedjump`; leave both `lip_y` and yaw offset at `0` for the original Distance lane. The reference curve can steer with fwd+side inside the terminal lane corridor; formula release still requires `armed=1`, and the fallback unarmed jump is limited to the release-lip window so it cannot spend the attempt at terminal-lane entry.
 
 ## Runner
 
@@ -240,10 +240,13 @@ python scripts/score_ztricks_batch.py --run-id <run-id>
 
 `run_ztricks_batch.py` keeps one temporary `ztricks` server and one MVD
 recording alive, then cycles clean single-bot attempts by clearing spawn-snap
-state, `removeall`, setting the mode-23 Distance cvars, restoring the A5 spawn
-origin/velocity, and adding one bot. `score_ztricks_batch.py` segments the
-resulting `moveprobe-commands.json` into attempts and scores each against the
-successful human `getspeed.qwd` release formula before landing distance.
+state, `removeall`, setting the route's mode-23 cvars, restoring the route
+spawn origin/velocity, and adding one bot. Pass `--route spawn_left_speedjump`
+to run the safe-floor drill from the real spawn. `score_ztricks_batch.py`
+segments the resulting `moveprobe-commands.json` into attempts and scores by
+route profile: Distance still uses the successful human `getspeed.qwd` release
+formula before landing distance, while `spawn_left_speedjump` reports
+start-to-peak horizontal speed gain against the `495.5 qu/s` human target.
 
 Interpolation contract (Nexus note, 2026-06-12): do not compare only discrete
 sample rows. `score_ztricks_batch.py` estimates bot release/landing by

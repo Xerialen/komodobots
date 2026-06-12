@@ -390,7 +390,7 @@ index c0654d1..0dfc32b 100644
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,142 +733,4222 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,142 +733,4243 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -3807,6 +3807,7 @@ index c0654d1..0dfc32b 100644
 +		float ztarget_y = cvar("k_fb_moveprobe_s23_launch_target_y");
 +		float ztarget_z = cvar("k_fb_moveprobe_s23_launch_target_z");
 +		float zlip_x = cvar("k_fb_moveprobe_s23_lip_x");
++		float zlip_y = cvar("k_fb_moveprobe_s23_lip_y");
 +		float zrelease_vh = cvar("k_fb_moveprobe_s23_release_vh");
 +		float zrelease_vh_min = cvar("k_fb_moveprobe_s23_release_vh_min");
 +		float zcarve_d = cvar("k_fb_moveprobe_s23_carve_d");
@@ -3827,7 +3828,7 @@ index c0654d1..0dfc32b 100644
 +		qbool zjump_enabled, deleg_speed_ok;
 +		qbool ztrack, zterminal, zcorridor, zarmed, zcurve, ztarget_ok, zyawlead_ok;
 +		float hor_speed_sq, rotation, goal_yaw, vel_yaw, signed_to_goal, herr, corner_mag;
-+		float zvh, zd_lip, ztarget_yaw, ztarget_err, zyaw_lead, ztmp;
++		float zvh, zd_lip, zlip_dx, zlip_dy, zlip_len, ztarget_yaw, ztarget_err, zyaw_lead, ztmp;
 +		float zdesired_vel_yaw, zdesired_view_yaw, zvel_err, zcorridor_err;
 +		float marker_dist_sq, marker_dz = 0;
 +		int sign = 0, zside = 0, zrelease_rule = 0;
@@ -4097,7 +4098,27 @@ index c0654d1..0dfc32b 100644
 +			if (VectorNormalize(ztarget_dir) > 0)
 +			{
 +				zvh = sqrt(hor_speed_sq);
-+				zd_lip = zlip_x - self->s.v.origin[0];
++				if (zlip_y != 0.0f)
++				{
++					zlip_dx = ztarget_x - zlip_x;
++					zlip_dy = ztarget_y - zlip_y;
++					zlip_len = sqrt(zlip_dx * zlip_dx + zlip_dy * zlip_dy);
++					if (zlip_len > 0.001f)
++					{
++						zlip_dx /= zlip_len;
++						zlip_dy /= zlip_len;
++						zd_lip = ((zlip_x - self->s.v.origin[0]) * zlip_dx)
++							+ ((zlip_y - self->s.v.origin[1]) * zlip_dy);
++					}
++					else
++					{
++						zd_lip = zlip_x - self->s.v.origin[0];
++					}
++				}
++				else
++				{
++					zd_lip = zlip_x - self->s.v.origin[0];
++				}
 +				ztarget_yaw = vectoyaw(ztarget_dir);
 +				ztarget_err = ztarget_yaw - vel_yaw;
 +				while (ztarget_err > 180.0f) ztarget_err -= 360.0f;

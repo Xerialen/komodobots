@@ -4591,3 +4591,80 @@ This does not claim the bot can execute the full multi-hop stop/turn-back drill
 yet. It creates the smallest live calibration step that answers the user's
 actual question: does the same speedjump/mouse-curve law increase speed on safe
 ground when ledges and traps are removed?
+
+
+## 2026-06-12 -- spawn-floor ztricks route reaches human-level speed
+
+### Finding
+
+The safe-floor `spawn_left_speedjump` route can now reach human-level horizontal
+speed. This is the first positive live result for the reduced ztricks problem:
+remove ledge/trap completion, keep the same speedjump/Nexus reference-curve
+primitive, and score actual speed gain.
+
+### Change
+
+- Added optional KTX cvar `k_fb_moveprobe_s23_lip_y`.
+- When `lip_y` is non-zero, mode 23 computes `d_lip` as projected progress
+  along the configured lip-to-target lane, instead of raw `lip_x - origin.x`.
+  This lets the local-quadratic human reference curve keep its timing on the
+  diagonal `spawn_left_speedjump` lane.
+- The Distance route and legacy bridge preset now explicitly set `lip_y=0` and
+  `k_fb_moveprobe_s23_refcurve_yaw_offset=0` so route switching cannot leak
+  the safe-floor lane settings into Distance.
+- `scripts/run_ztricks_batch.py` now takes `--route` and reads route control
+  metadata from `lab/dashboard/public/data/routes/ztricks.json`.
+- `scripts/score_ztricks_batch.py` now scores by route profile:
+  `distance_standstill` keeps release/landing formula scoring, while
+  `spawn_left_speedjump` reports start-to-peak horizontal speed gain against
+  the `495.5 qu/s` human target.
+
+### Evidence
+
+Local validation:
+
+```text
+python lab\tools\build_routes_manifest.py
+python -m py_compile scripts\score_ztricks_batch.py scripts\run_ztricks_batch.py lab\tools\build_routes_manifest.py lab\server\control_bridge.py
+python -m unittest tests.test_score_ztricks_batch tests.test_build_routes_manifest tests.test_perslot_moveprobe_patch tests.test_control_bridge tests.test_f3_control_drawer -v
+git apply --check experiments/ktx_moveprobe/frogbot-moveprobe-perslot.patch against clean KTX 08807da
+```
+
+Result: `163` focused tests passed; KTX patch apply check passed.
+
+Remote KTX build:
+
+- Built clean remote worktree at `08807da` with the updated
+  `frogbot-moveprobe-perslot.patch`.
+- Deployed as
+  `~/nquakesv/ktx/qwprogs-zspawn-20260612T180834Z.so`, SHA-256
+  `778f3dcfb549ce271d76d950534d8f598c971696ff0a7bcd965ecea1f8427672`.
+
+Live batch:
+
+```text
+python scripts\run_ztricks_batch.py --route spawn_left_speedjump --attempts 6 --attempt-seconds 6 --launch-vh 430,380,340 --launch-angle 50,45 --swing 8,14 --port 28599
+```
+
+Run `zbatch_20260612T180901Z`, archived MVD SHA-256
+`c4ba8ab8aa47ecdbca1359b360cf664b763da18a070fd3ca4d1080fdfc8d9dff`.
+
+Speed-gain score:
+
+| attempt | max vh | pct human | class |
+|---:|---:|---:|---|
+| 1 | 498.6 | 100.6% | `human_level_or_better` |
+| 2 | 503.0 | 101.5% | `human_level_or_better` |
+| 3 | 477.8 | 96.4% | `speed_gain_below_human` |
+| 4 | 506.2 | 102.2% | `human_level_or_better` |
+| 5 | 495.7 | 100.0% | `human_level_or_better` |
+| 6 | 500.4 | 101.0% | `human_level_or_better` |
+
+### Interpretation
+
+This proves the reduced speedjump problem can now reach human-level speed on
+flat ground. It does not prove the original Distance jump is solved, because
+Distance still adds the hard release-cadence and landing geometry gates. The
+next smallest experiment is to use the fastest safe-floor attempts to tune
+approach timing and then move the synthetic lip/route start closer to the real
+Distance release problem while preserving this speed-gain evidence.

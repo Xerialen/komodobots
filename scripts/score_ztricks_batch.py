@@ -31,10 +31,33 @@ DEFAULT_ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
 
 BUTTON_JUMP = 2
 
-SPAWN_ORIGIN = {"x": -3516.125, "y": 3712.0, "z": -453.125}
+DISTANCE_SPAWN_ORIGIN = {"x": -3516.125, "y": 3712.0, "z": -453.125}
+SPAWN_LEFT_ORIGIN = {"x": -1168.0, "y": 1632.0, "z": -496.0}
 HUMAN_RELEASE = ref.HUMAN_RELEASE
 HUMAN_LANDING = ref.HUMAN_LANDING
 PHYSICAL_LIP_X = ref.PHYSICAL_LIP_X
+
+ROUTE_PROFILES = {
+    "distance_standstill": {
+        "route": "distance_standstill",
+        "metric": "release_formula",
+        "spawn_origin": DISTANCE_SPAWN_ORIGIN,
+    },
+    "spawn_left_speedjump": {
+        "route": "spawn_left_speedjump",
+        "metric": "speed_gain",
+        "spawn_origin": SPAWN_LEFT_ORIGIN,
+        "human_speed_target": HUMAN_LANDING["horizontal_speed"],
+        "success_metric": "horizontal_speed_gain",
+    },
+}
+
+
+def route_profile(route: str) -> dict[str, object]:
+    try:
+        return ROUTE_PROFILES[route]
+    except KeyError as exc:
+        raise ValueError(f"Unknown ztricks route: {route}") from exc
 
 
 def load_json(path: Path) -> dict:
@@ -309,6 +332,7 @@ def compare_to_reference_event(row: dict[str, object] | None, reference_event: d
 def split_attempts(
     commands: list[dict[str, object]],
     *,
+    spawn_origin: dict[str, object] = DISTANCE_SPAWN_ORIGIN,
     gap_s: float = 0.75,
     spawn_radius_qu: float = 32.0,
     min_rows_before_spawn_split: int = 4,
@@ -327,7 +351,7 @@ def split_attempts(
         current: list[dict[str, object]] = []
         for row in rows:
             origin = row["origin"]
-            near_spawn = distance_h(origin, SPAWN_ORIGIN) <= spawn_radius_qu
+            near_spawn = distance_h(origin, spawn_origin) <= spawn_radius_qu
             start_new = False
             if current:
                 prev = current[-1]
@@ -335,7 +359,7 @@ def split_attempts(
                 prev_origin = prev.get("origin", {})
                 prev_near_spawn = (
                     isinstance(prev_origin, dict)
-                    and distance_h(prev_origin, SPAWN_ORIGIN) <= spawn_radius_qu
+                    and distance_h(prev_origin, spawn_origin) <= spawn_radius_qu
                 )
                 start_new = gap > gap_s or (
                     near_spawn and not prev_near_spawn and len(current) >= min_rows_before_spawn_split
@@ -395,11 +419,87 @@ def classify_attempt(summary: dict[str, object]) -> str:
     return "no_zjump_data"
 
 
+def classify_speed_gain_attempt(summary: dict[str, object]) -> str:
+    if float(summary["max_zjump_speed"]) >= float(summary["human_speed_target"]):
+        return "human_level_or_better"
+    if int(summary["nonzero_move_rows"]) == 0 and float(summary["max_zjump_speed"]) < 1.0:
+        return "no_movement"
+    if float(summary["speed_gain"]) > 10.0:
+        return "speed_gain_below_human"
+    return "no_meaningful_speed_gain"
+
+
+def enrich_speed_row(row: dict[str, object] | None) -> dict[str, object] | None:
+    if row is None:
+        return None
+    origin = row.get("origin") if isinstance(row.get("origin"), dict) else None
+    zjump = row.get("zjump_state") if isinstance(row.get("zjump_state"), dict) else {}
+    return {
+        "time_s": round(float(row.get("time_s", 0.0)), 3),
+        "origin": origin,
+        "horizontal_speed": round(row_speed(row), 3),
+        "buttons": int(row.get("buttons", 0)),
+        "move": row.get("move"),
+        "zjump_state": zjump,
+    }
+
+
+def summarize_speed_gain_attempt(
+    attempt: dict[str, object],
+    *,
+    profile: dict[str, object],
+) -> dict[str, object]:
+    rows: list[dict[str, object]] = list(attempt["rows"])
+    zjump_rows = [row for row in rows if isinstance(row.get("zjump_state"), dict)]
+    fastest = max(rows, key=row_speed) if rows else None
+    start = rows[0] if rows else None
+    start_speed = row_speed(start) if start else 0.0
+    max_speed = row_speed(fastest) if fastest else 0.0
+    human_target = float(profile["human_speed_target"])
+    start_time = float(rows[0]["time_s"]) if rows else 0.0
+    end_time = float(rows[-1]["time_s"]) if rows else 0.0
+    summary = {
+        "attempt_index": int(attempt["attempt_index"]),
+        "ed": int(attempt["ed"]),
+        "name": str(attempt["name"]),
+        "row_count": len(rows),
+        "zjump_row_count": len(zjump_rows),
+        "start_time_s": round(start_time, 3),
+        "end_time_s": round(end_time, 3),
+        "duration_s": round(max(0.0, end_time - start_time), 3),
+        "start_speed": round(start_speed, 3),
+        "max_zjump_speed": round(max_speed, 3),
+        "speed_gain": round(max_speed - start_speed, 3),
+        "human_speed_target": round(human_target, 3),
+        "max_speed_pct_human_target": round(max_speed / human_target, 3) if human_target else None,
+        "human_level_speed": max_speed >= human_target,
+        "jump_button_rows": sum(1 for row in rows if int(row.get("buttons", 0)) & BUTTON_JUMP),
+        "nonzero_move_rows": sum(
+            1
+            for row in rows
+            if isinstance(row.get("move"), dict)
+            and (
+                int(row["move"].get("forward", 0)) != 0
+                or int(row["move"].get("side", 0)) != 0
+                or int(row["move"].get("up", 0)) != 0
+            )
+        ),
+        "best_speed": enrich_speed_row(fastest),
+    }
+    summary["classification"] = classify_speed_gain_attempt(summary)
+    return summary
+
+
 def summarize_attempt(
     attempt: dict[str, object],
     *,
+    profile: dict[str, object] | None = None,
     reference_events: dict[str, object] | None = None,
 ) -> dict[str, object]:
+    profile = profile or route_profile("distance_standstill")
+    if profile.get("metric") == "speed_gain":
+        return summarize_speed_gain_attempt(attempt, profile=profile)
+
     rows: list[dict[str, object]] = list(attempt["rows"])
     zjump_rows = [row for row in rows if isinstance(row.get("zjump_state"), dict)]
     reference_events = reference_events or {}
@@ -481,17 +581,24 @@ def summarize_attempt(
 def score_commands(
     commands: list[dict[str, object]],
     *,
+    route: str = "distance_standstill",
     gap_s: float = 0.75,
     spawn_radius_qu: float = 32.0,
     run_id: str = "",
     reference_trace: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    attempts = split_attempts(commands, gap_s=gap_s, spawn_radius_qu=spawn_radius_qu)
+    profile = route_profile(route)
+    attempts = split_attempts(
+        commands,
+        spawn_origin=profile["spawn_origin"],
+        gap_s=gap_s,
+        spawn_radius_qu=spawn_radius_qu,
+    )
     reference_events = {}
     if reference_trace and isinstance(reference_trace.get("events"), dict):
         reference_events = reference_trace["events"]
     summaries = [
-        summarize_attempt(attempt, reference_events=reference_events)
+        summarize_attempt(attempt, profile=profile, reference_events=reference_events)
         for attempt in attempts
     ]
 
@@ -500,20 +607,25 @@ def score_commands(
         key=lambda s: float(s["best_formula"]["formula_score"]),
         default=None,
     )
-    best_landing = min(
-        (s for s in summaries if s.get("closest_landing")),
-        key=lambda s: float(s["closest_landing"]["landing_distance_h_qu"]),
-        default=None,
-    )
+    best_landing = None
+    if profile.get("metric") != "speed_gain":
+        best_landing = min(
+            (s for s in summaries if s.get("closest_landing")),
+            key=lambda s: float(s["closest_landing"]["landing_distance_h_qu"]),
+            default=None,
+        )
     fastest = max(summaries, key=lambda s: float(s["max_zjump_speed"]), default=None)
 
     return {
         "schema": "komodobots.ztricks_batch_score.v1",
         "run_id": run_id,
+        "route": route,
+        "success_metric": profile.get("success_metric", profile.get("metric")),
         "human_reference": {
-            "spawn_origin": SPAWN_ORIGIN,
+            "spawn_origin": profile["spawn_origin"],
             "release": HUMAN_RELEASE,
             "landing": HUMAN_LANDING,
+            "speed_target": profile.get("human_speed_target"),
         },
         "interpolation": {
             "attempt_events": "xy_projection_onto_adjacent_bot_samples",
@@ -547,12 +659,14 @@ def load_reference_trace(path: Path | None = None) -> dict[str, object]:
 def score_run_dir(
     run_dir: Path,
     *,
+    route: str = "distance_standstill",
     gap_s: float = 0.75,
     spawn_radius_qu: float = 32.0,
     reference_trace: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return score_commands(
         read_commands(run_dir),
+        route=route,
         gap_s=gap_s,
         spawn_radius_qu=spawn_radius_qu,
         run_id=run_dir.name,
@@ -570,8 +684,13 @@ def fmt(value: object, digits: int = 1) -> str:
 
 
 def render_markdown(report: dict[str, object]) -> str:
+    if report.get("success_metric") == "horizontal_speed_gain":
+        return render_speed_gain_markdown(report)
+
     lines = [
         f"# ztricks batch score: {report.get('run_id') or 'commands'}",
+        "",
+        f"- Route: `{report.get('route', 'distance_standstill')}`",
         "",
         f"- Attempts scored: `{report['attempt_count']}`",
         f"- Best release-formula attempt: `{report['best_formula_attempt']}`",
@@ -623,6 +742,44 @@ def render_markdown(report: dict[str, object]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_speed_gain_markdown(report: dict[str, object]) -> str:
+    target = report.get("human_reference", {}).get("speed_target")
+    lines = [
+        f"# ztricks speed-gain score: {report.get('run_id') or 'commands'}",
+        "",
+        f"- Route: `{report.get('route')}`",
+        f"- Attempts scored: `{report['attempt_count']}`",
+        f"- Human speed target: `{fmt(target)} qu/s`",
+        f"- Fastest attempt: `{report['fastest_attempt']}`",
+        f"- Success metric: `{report.get('success_metric')}`",
+        "",
+        "| # | bot | rows | start vh | max vh | gain | pct human | move/jump rows | best speed row | class |",
+        "|---:|---|---:|---:|---:|---:|---:|---|---|---|",
+    ]
+    for attempt in report["attempts"]:
+        best = attempt.get("best_speed") or {}
+        zjump = best.get("zjump_state") or {}
+        best_text = (
+            f"{fmt(best.get('time_s'), 3)}s "
+            f"d_lip {fmt(zjump.get('d_lip_qu'))} "
+            f"vel {fmt(zjump.get('velocity_yaw_deg'))} "
+            f"lead {fmt(zjump.get('yaw_lead_deg'))}"
+        )
+        lines.append(
+            f"| {attempt['attempt_index']} | `{attempt['name']}` ed `{attempt['ed']}` | "
+            f"{attempt['row_count']} | {fmt(attempt.get('start_speed'))} | "
+            f"{fmt(attempt.get('max_zjump_speed'))} | {fmt(attempt.get('speed_gain'))} | "
+            f"{fmt(100.0 * float(attempt.get('max_speed_pct_human_target') or 0.0), 1)}% | "
+            f"{attempt['nonzero_move_rows']}/{attempt['jump_button_rows']} | "
+            f"{best_text} | `{attempt['classification']}` |"
+        )
+
+    if not report["attempts"]:
+        lines.append("")
+        lines.append("No mode-23/zjump command rows with origins were found.")
+    return "\n".join(lines) + "\n"
+
+
 def write_outputs(report: dict[str, object], output_json: Path, output_md: Path) -> None:
     output_json.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     output_md.write_text(render_markdown(report), encoding="utf-8")
@@ -639,6 +796,12 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         type=float,
         default=32.0,
         help="Spawn-snap radius in qu used to split same-ed repeated attempts.",
+    )
+    parser.add_argument(
+        "--route",
+        choices=sorted(ROUTE_PROFILES),
+        default="distance_standstill",
+        help="ztricks route profile to score.",
     )
     parser.add_argument(
         "--reference-trace",
@@ -660,6 +823,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     try:
         report = score_run_dir(
             run_dir,
+            route=args.route,
             gap_s=args.gap_s,
             spawn_radius_qu=args.spawn_radius,
             reference_trace=load_reference_trace(args.reference_trace),

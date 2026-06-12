@@ -227,6 +227,12 @@ The score is release-first: it compares each attempt to the successful
 `getspeed.qwd` formula (`vh`, lip distance, velocity yaw, target error, yaw
 lead, jump release, and landing distance). Do not treat a high raw speed or a
 near-lip pass as success unless the release formula rows also improve.
+This release-first warning applies to `distance_standstill`. The safe-floor
+`spawn_left_speedjump` route deliberately uses a different profile:
+`python scripts/run_ztricks_batch.py --route spawn_left_speedjump ...` and
+`python scripts/score_ztricks_batch.py --route spawn_left_speedjump --run-id <run-id>`
+score start-to-peak horizontal speed gain against the successful human
+attempt's `495.5 qu/s` peak, with no ledge/landing completion gate.
 
 The ztricks scorer now follows Nexus's interpolation advice: sampled telemetry
 rows are not treated as isolated dots. Bot release and landing estimates use
@@ -468,8 +474,11 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   deployed controller has not solved the jump. The `spawn_left_speedjump` route is the
   safe-floor counterpart: it starts at the real ztricks deathmatch spawn
   (`-1168 1632 -496`), seeds zero velocity, points 90 degrees left from the BSP
-  spawn angle, rotates the reference curve by `45` degrees, and measures horizontal
-  speed increase rather than far-platform landing. Audit log at
+  spawn angle, sets both `lip_x` and `lip_y` so KTX projects Nexus-curve progress
+  along the diagonal lane, rotates the reference curve by `45` degrees, and
+  measures horizontal speed increase rather than far-platform landing. Live batch
+  `zbatch_20260612T180901Z` reached human-level speed on `5/6` attempts, best
+  `506.2 qu/s` against the `495.5 qu/s` target. Audit log at
   `~/komodobots-lab/control-audit.log`.
   The lab lock `~/komodobots-lab/lab.lock` gives the experiment harness absolute
   priority: `run_frobodm2_lab.py` writes `owner=harness` for the duration of each

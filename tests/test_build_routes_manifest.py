@@ -103,6 +103,7 @@ class TestSchema(unittest.TestCase):
         self.assertEqual(cvars["k_fb_moveprobe_s23_launch_target_y"], 3760.5)
         self.assertEqual(cvars["k_fb_moveprobe_s23_launch_target_z"], -488)
         self.assertEqual(cvars["k_fb_moveprobe_s23_lip_x"], -3348)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_lip_y"], 0)
         self.assertEqual(cvars["k_fb_moveprobe_s23_release_vh"], 470)
         self.assertEqual(cvars["k_fb_moveprobe_s23_release_vh_min"], 453)
         self.assertEqual(cvars["k_fb_moveprobe_s23_carve_d"], 95)
@@ -110,6 +111,7 @@ class TestSchema(unittest.TestCase):
         self.assertEqual(cvars["k_fb_moveprobe_s23_carve_side"], 1)
         self.assertEqual(cvars["k_fb_moveprobe_s23_refcurve"], 1)
         self.assertEqual(cvars["k_fb_moveprobe_s23_refcurve_vh_min"], 0)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_refcurve_yaw_offset"], 0)
         self.assertEqual(cvars["k_fb_moveprobe_s23_refcurve_entry_x"], -3439.375)
         self.assertEqual(cvars["k_fb_moveprobe_s23_refcurve_entry_y"], 3758.125)
         self.assertEqual(cvars["k_fb_moveprobe_s23_refcurve_y"], 3768.5)
@@ -141,6 +143,7 @@ class TestSchema(unittest.TestCase):
         cvars = route["control"]["cvars"]
         self.assertEqual(cvars["k_fb_moveprobe_s23_refcurve_yaw_offset"], 45.0)
         self.assertEqual(cvars["k_fb_moveprobe_s23_lip_x"], -920.5)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_lip_y"], 1879.5)
         self.assertEqual(cvars["k_fb_moveprobe_s23_launch_target_x"], -796.1)
         self.assertEqual(cvars["k_fb_moveprobe_s23_launch_target_y"], 2003.9)
         self.assertEqual(route["polyline"][0], [-1168.0, 1632.0, -496.0])

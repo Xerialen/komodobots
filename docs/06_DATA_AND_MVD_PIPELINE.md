@@ -917,7 +917,11 @@ python lab/tools/build_routes_manifest.py
   sufficient success gate for the Distance jump. The same manifest also
   carries `spawn_left_speedjump`, a flat-ground spawn-floor route from the real
   deathmatch spawn (`-1168 1632 -496`, BSP angle `315`, left yaw `45`) whose
-  success metric is horizontal speed gain rather than reaching a landing.
+  control metadata includes a diagonal `lip_x/lip_y` so KTX projects the
+  Nexus reference curve along the safe-floor lane. Its success metric is
+  horizontal speed gain rather than reaching a landing. Live batch
+  `zbatch_20260612T180901Z` reached/exceeded the `495.5 qu/s` human speed
+  target in `5/6` attempts.
 - **Empty-map honesty**: dm2/frobodm2/trick emit `"routes": []` rather than
   omitting files — the Mockup view renders "no censused routes yet" from that.
 - **Determinism**: no wall clock anywhere; hashes are sha256 over

@@ -141,6 +141,11 @@ starts at the real ztricks deathmatch spawn, turns 90 degrees left from the BSP
 spawn angle, rotates the reference-curve yaw by `45` degrees, and scores
 horizontal speed gain instead of ledge completion. This exists to separate
 "the controller cannot gain speed" from "the controller cannot land Distance."
+On 2026-06-12, `zbatch_20260612T180901Z` proved the speed-gain side of that
+split: `5/6` safe-floor attempts reached or exceeded the human reference target
+of `495.5 qu/s`, with a best sampled `zjump` peak of `506.2 qu/s`. This is not
+a Distance completion claim; it proves the controller can generate human-level
+speed on the same speedjump primitive when ledge geometry is removed.
 
 The 2026-06-12 reference-curve live retries fixed the no-movement symptom but
 did not solve Distance. Best scored segments stayed around `401-407 qu/s`, below
