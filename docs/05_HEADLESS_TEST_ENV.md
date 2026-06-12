@@ -373,10 +373,11 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   replaced by the standalone postMessage QTV pane in LD-B2, #88).
 - Dev loop: `cd lab/dashboard && npm ci && npm run dev` (see `lab/README.md`).
 - View shell (LD-B1, #87): top-bar toggles render any subset of the four main views in
-  the fixed left→right order Demo → Mockup → Live 3D → Live Game (SPEC §4.1). Demo and
-  Mockup are labeled placeholders until LD-D3 (#94/#98) / LD-C3 (#97); the KPI dock and
-  control drawer are placeholders until LD-E1 (#100) / LD-F3 (#105). Layout state
-  (open set, dock collapsed, drawer open) persists in localStorage and the open set is
+  the fixed left→right order Demo → Mockup → Live 3D → Live Game (SPEC §4.1). The KPI
+  dock is a real shell column; the control panel and cvar console are non-modal side
+  panels. The control panel docks right. The cvar console docks right when alone, or
+  left when the control panel is already open. Layout state (open set, dock collapsed,
+  control panel open, console panel open) persists in localStorage and the open set is
   mirrored in the URL (`?views=…`, URL wins on load) — `lab/dashboard/src/layoutState.ts`.
 - Hosted CI: `.github/workflows/lab-dashboard-ci.yml` runs on GitHub-hosted
   `ubuntu-latest` for pull requests touching `lab/**` or `tests/lab_*.py`
@@ -394,16 +395,45 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   browser Origin allowlist (`--allow-origin`, default empty = browsers are
   telemetry-only) as CSRF defense on top (Codex P1, #129); lab port allowlist
   28599–28609 only; production 28501/28502/28503 and `qw_*` screens flat-denied;
-  cvar/console allowlists; audit log at `~/komodobots-lab/control-audit.log`.
+  cvar/console allowlists; the `game_command` op is a separate allowlisted enum for
+  KTX game controls (`4on4`, `2on2`, `1on1`, `ffa`, `dmm1`–`dmm4`, powerups on/off,
+  `ready`, `break`) and the guarded `ztricks_distance_standstill` lab preset rather
+  than a broad raw-command escape hatch. The ztricks preset is accepted only when
+  the dashboard lock says the active session map is `ztricks`; it applies the A5
+  Distance start spawn-snap (`-3516.125 3712 -453.125`), mode 23, fixed goal 8,
+  launch-vh 430 / launch-angle 50 / swing 8, command logging, clears existing
+  dashboard bots, then spawns one bot.
+  This creates a visible standing-start attempt; it does not change the A5 finding
+  that the current deployed controller has not solved the jump. Audit log at
+  `~/komodobots-lab/control-audit.log`.
   The lab lock `~/komodobots-lab/lab.lock` gives the experiment harness absolute
   priority: `run_frobodm2_lab.py` writes `owner=harness` for the duration of each
   attempt and the bridge refuses every mutating op while that lock is fresh
   (pid alive, ≤ 2 h); stale locks need an explicit `force=true`. Dashboard sessions
-  run as `komodobots_lab_<port>` screens with the `mvdsv-lab` binary, and the harness
-  refuses a port such a session occupies. Protocol, ops, and the `kbot-telemetry`
-  restart procedure: `lab/README.md`. The UI for all of this lands in LD-F3 (#105).
-- Until LD-F3, the dashboard page itself remains watch-only: it consumes telemetry and
-  cannot start or steer anything from the UI.
+  run as `komodobots_lab_<port>` screens with the `mvdsv-lab` binary. The bridge checks
+  both TCP and UDP bind availability and retries the next allowlisted lab port if MVDSV
+  still fails during startup, and the harness refuses a port such a session occupies.
+  Protocol, ops, and the `kbot-telemetry`
+  restart procedure: `lab/README.md`. The dashboard UI can start/stop dashboard-owned
+  sessions, manage bots/routes, send allowlisted cvars, and change allowlisted game
+  controls through the bridge.
+
+  Dashboard ztricks smoke on 2026-06-11: after redeploying the sidecar bridge, the
+  browser flow started `ztricks` run `dash_20260611T214504Z` on port `28600` and clicked
+  **Distance standstill**. The server log shows the quoted spawn-snap cvar applied and
+  the first `FBMOVEPROBE_CMD` row at `origin=-3516.125,3712.000,-453.125`; later rows show
+  `move=320` and `buttons=2`, proving a visible standing-start attempt from the A5 start
+  point. Earlier unquoted smoke rows stayed at a normal spawn, which is why the preset
+  now uses the quoted triplet form from the proven lab cfg.
+  Follow-up browser pass on 2026-06-11 used the right-side control panel against
+  `dash_20260611T221516Z` on port `28599`: a fresh force-takeover ztricks session
+  showed `no bots`, clicking **try** returned `game ztricks_distance_standstill`,
+  produced one roster row (`s3 / bro`), and the server log contained 18 nonzero
+  `FBMOVEPROBE_CMD` rows starting at the same spawn. The visible symptom after that
+  burst is that the bot settles/stands still; that is current controller behavior, not
+  a dashboard command failure. The same pass verified the shorter response path no
+  longer times out, while botcmd shims still need a 5 s connected window for reliable
+  `removeall`.
 - Multi-bot attempts: the telemetry stream interleaves one frame per probed bot
   (`frame.ed`/`frame.name`). The 3D view keeps a separate marker/trail/velocity-arrow
   per `ed` (distinct colors, in order of first appearance); the camera follow and the

@@ -26,6 +26,7 @@ export type LayoutState = {
   views: ViewId[];
   dockCollapsed: boolean;
   drawerOpen: boolean;
+  consoleOpen: boolean;
   /**
    * Map mesh opacity shared across both 3D views (Mockup + Live 3D).
    * Range 0.05–1.0; default 0.3 ("quite transparent") per SPEC §6.3 / #99.
@@ -38,8 +39,9 @@ export type LayoutState = {
   wireframe: boolean;
 };
 
-// Phase 1 default: the two views that exist today (SPEC §3.4, §3.5).
-export const DEFAULT_VIEWS: ViewId[] = ["live3d", "game"];
+// Default operator layout: Live Game only. Live 3D remains available as an
+// explicit instrument view, but no longer opens by default.
+export const DEFAULT_VIEWS: ViewId[] = ["game"];
 
 /** Default map opacity ("quite transparent", SPEC §6.3 / #99). */
 export const DEFAULT_MAP_OPACITY = 0.3;
@@ -99,6 +101,9 @@ function readStoredLayout(): Partial<LayoutState> | null {
   if (typeof record.drawerOpen === "boolean") {
     result.drawerOpen = record.drawerOpen;
   }
+  if (typeof record.consoleOpen === "boolean") {
+    result.consoleOpen = record.consoleOpen;
+  }
   if (
     typeof record.mapOpacity === "number" &&
     record.mapOpacity >= 0.05 &&
@@ -122,6 +127,7 @@ export function loadLayout(search: string): LayoutState {
     views: stored?.views ?? DEFAULT_VIEWS,
     dockCollapsed: stored?.dockCollapsed ?? false,
     drawerOpen: stored?.drawerOpen ?? false,
+    consoleOpen: stored?.consoleOpen ?? false,
     mapOpacity: stored?.mapOpacity ?? DEFAULT_MAP_OPACITY,
     wireframe: stored?.wireframe ?? false,
   };
@@ -144,6 +150,7 @@ export function persistLayout(state: LayoutState): void {
         views: state.views,
         dockCollapsed: state.dockCollapsed,
         drawerOpen: state.drawerOpen,
+        consoleOpen: state.consoleOpen,
         mapOpacity: state.mapOpacity,
         wireframe: state.wireframe,
       }),

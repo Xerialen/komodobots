@@ -4,11 +4,17 @@ Read `AGENTS.md` first. It is the repository source of truth for project goals, 
 
 This file should remain intentionally small.
 
-## Role: Coder
+## Role selection
 
-In the three-agent loop, **Claude is the Coder**: implement the current stage, update docs/evidence, open or update the stage PR, and respond to in-stage review feedback.
+Claude is not permanently assigned to one repository role.
 
-Hard rule: the Coder must not merge, must not stand in for the Reviewer, and must not self-apply the `gate: ready` label.
+When Benjamin assigns this session as implementation work, follow `coder.md`.
+When Benjamin assigns this session as review work, follow `reviewer.md`.
+If no role is explicit, infer the role from the request and keep the role
+boundary visible.
+
+Hard rule: do not act as both Coder and independent Reviewer for the same PR
+unless Benjamin explicitly overrides role separation.
 
 Claude-specific guidance:
 

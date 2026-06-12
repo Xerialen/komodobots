@@ -13,7 +13,7 @@ Protocol (JSON text frames over the existing websocket):
 
 Ops: session_start {map, force?} / session_stop {port?, force?} / set_map {map}
 / addbot {count?} / removebot {slot?|all?} / set_cvar {name, value, slot?}
-/ console {line} / lock_status
+/ console {line} / game_command {action, value?} / lock_status
 / verdict {map, route, note?} (LD-F5 #106 — user certifies route reached human-level).
 
 SECURITY IS BINDING (all gates enforced server-side, the UI is courtesy):
@@ -77,10 +77,51 @@ DENIED_PORTS: tuple[int, ...] = (28501, 28502, 28503)
 DENIED_SUBSTRINGS: tuple[str, ...] = ("28501", "28502", "28503", "qw_")
 
 LAB_SCREEN_PREFIX = "komodobots_lab_"
+BOTCMD_SHIM_RUN_FOR = "5"
+CLIENT_SHIM_RUN_FOR = "2"
 
 # Cvar allowlist: prefix family + explicit safe set. Everything else refused.
 CVAR_ALLOWED_PREFIXES: tuple[str, ...] = ("k_fb_",)
 CVAR_ALLOWED_EXACT: frozenset[str] = frozenset({"timelimit", "fraglimit", "samelevel"})
+
+# First-class game-control buttons. These intentionally do not widen the raw
+# console allowlist: each action maps to a tiny, source-checked KTX command set.
+GAME_MODE_COMMANDS: dict[str, str] = {
+    "1on1": "1on1",
+    "2on2": "2on2",
+    "4on4": "4on4",
+    "ffa": "ffa",
+}
+GAME_DMM_COMMANDS: dict[str, str] = {
+    "1": "dmm1",
+    "2": "dmm2",
+    "3": "dmm3",
+    "4": "dmm4",
+}
+POWERUP_CVARS: tuple[str, ...] = ("k_pow", "k_pow_q", "k_pow_p", "k_pow_r", "k_pow_s")
+GAME_BOTCMDS: frozenset[str] = frozenset(
+    {"removeall", "weapon 1", "weapon random"}
+    | {f"removebot {slot}" for slot in range(32)}
+)
+ZTRICKS_DISTANCE_STANDSTILL_STEPS: tuple[tuple[str, str], ...] = (
+    # One visible attempt: clear any older dashboard bots first so the spawn
+    # snap is not polluted by telefragging or stale per-bot state.
+    ("botcmd", "removeall"),
+    # A5 Distance start: teleport deposit at t5, zero velocity via spawn-snap.
+    ("console", 'set k_fb_moveprobe_spawn_origin "-3516.125 3712 -453.125"'),
+    # Mode 23 is the deployed frogbot-nav + bunnyhop-weave controller. Marker
+    # 8 in the generated ztricks.bot graph is the far-platform landing marker
+    # for the first getspeed attempt family.
+    ("console", "set k_fb_moveprobe_mode 23"),
+    ("console", "set k_fb_moveprobe_fixed_goal 8"),
+    # Deployed circle-jump launch knobs from the A5 round-2 standstill ledger.
+    ("console", "set k_fb_moveprobe_s23_launch_vh 430"),
+    ("console", "set k_fb_moveprobe_s23_launch_angle 50"),
+    ("console", "set k_fb_moveprobe_s21_swing 8"),
+    ("console", "set k_fb_moveprobe_log_commands 1"),
+    ("console", "set k_fb_moveprobe_log_interval 0"),
+    ("addbot", "1"),
+)
 
 # Console: first token must be allowlisted AND must not hit the denylist.
 CONSOLE_ALLOWED_FIRST_TOKENS: frozenset[str] = frozenset(
@@ -99,10 +140,22 @@ LOCK_STALE_AGE_S = 2 * 3600
 LOCK_TS_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 MUTATING_OPS: frozenset[str] = frozenset(
-    {"session_start", "session_stop", "set_map", "addbot", "removebot", "set_cvar", "console", "verdict"}
+    {
+        "session_start",
+        "session_stop",
+        "set_map",
+        "addbot",
+        "removebot",
+        "set_cvar",
+        "console",
+        "game_command",
+        "verdict",
+    }
 )
 # Ops that require a running dashboard-owned session.
-SESSION_OPS: frozenset[str] = frozenset({"set_map", "addbot", "removebot", "set_cvar", "console"})
+SESSION_OPS: frozenset[str] = frozenset(
+    {"set_map", "addbot", "removebot", "set_cvar", "console", "game_command"}
+)
 
 # Ops that are EXEMPT from the harness lock: verdict writes only to the local
 # verdicts store, never to a running lab server, so it must not be blocked when
@@ -219,6 +272,74 @@ def validate_console_line(line: object) -> str | None:
         if len(tokens) != 2 or validate_map_name(tokens[1]) is None:
             return None
     return line
+
+
+def validate_game_command(action: object, value: object = None) -> list[tuple[str, str]] | str:
+    """Return executor steps for an allowlisted game control, or an error."""
+    if not isinstance(action, str):
+        return "invalid game action"
+    action = action.strip().lower()
+
+    if action == "gamemode":
+        if not isinstance(value, str):
+            return "invalid gamemode"
+        mode = value.strip().lower()
+        command = GAME_MODE_COMMANDS.get(mode)
+        if command is None:
+            return "gamemode must be one of 1on1, 2on2, 4on4, ffa"
+        return [("client", command)]
+
+    if action == "deathmatch":
+        value_text = str(value).strip() if value is not None else ""
+        command = GAME_DMM_COMMANDS.get(value_text)
+        if command is None:
+            return "deathmatch must be one of 1, 2, 3, 4"
+        return [("client", command)]
+
+    if action == "powerups":
+        if not isinstance(value, str) or value.strip().lower() not in ("on", "off"):
+            return "powerups must be on or off"
+        enabled = "1" if value.strip().lower() == "on" else "0"
+        return [("console", f"set {name} {enabled}") for name in POWERUP_CVARS]
+
+    if action == "start":
+        return [("client", "ready")]
+
+    if action == "stop":
+        return [("client", "break")]
+
+    if action == "prewar":
+        # k_prewar=0 means pre-match players may not fire; break returns the
+        # running game to prewar first when possible.
+        return [("client", "break"), ("console", "set k_prewar 0")]
+
+    if action == "bot_respawn":
+        if isinstance(value, bool) or not isinstance(value, (int, str)):
+            return "bot respawn needs a bot slot"
+        value_text = str(value).strip()
+        if not value_text.isdigit():
+            return "bot respawn needs a bot slot"
+        slot = int(value_text)
+        if not (0 <= slot <= MAX_SLOT):
+            return "bot slot must be in 0..31"
+        # KTX's removebot command is not reliably slot-addressable in this
+        # lab build. The dashboard only enables this when one live bot is
+        # present, so clear-all + add-one is the precise single-bot respawn.
+        return [("botcmd", "removeall"), ("addbot", "1")]
+
+    if action == "bot_weapon_lock":
+        return [("botcmd", "weapon 1")]
+
+    if action == "bot_weapon_unlock":
+        return [("botcmd", "weapon random")]
+
+    if action == "trick_pause":
+        return [("botcmd", "removeall")]
+
+    if action == "ztricks_distance_standstill":
+        return list(ZTRICKS_DISTANCE_STANDSTILL_STEPS)
+
+    return "unknown game action"
 
 
 def validate_verdict_args(
@@ -457,6 +578,11 @@ class LabExecutor:
             if tcp.connect_ex(("127.0.0.1", port)) == 0:
                 return False  # something (e.g. a QTV stream) listens here
         try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_bind:
+                tcp_bind.bind(("0.0.0.0", port))
+        except OSError:
+            return False
+        try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
                 udp.bind(("0.0.0.0", port))
         except OSError:
@@ -544,11 +670,19 @@ class LabExecutor:
         )
 
     def send_botcmds(self, port: int, botcmds: list[str]) -> None:
-        extra = ["--run-for", "8", "--bot-count", "0"]
+        extra = ["--run-for", BOTCMD_SHIM_RUN_FOR, "--bot-count", "0"]
         for cmd in botcmds:
             if not TOKEN_RE.match(cmd.replace(" ", "_")) or hits_flat_deny(cmd):
                 raise ValueError(f"refusing botcmd: {cmd!r}")
             extra += ["--botcmd", cmd]
+        subprocess.run(self._shim_cmd(port, extra), check=True, capture_output=True, timeout=60)
+
+    def send_client_cmds(self, port: int, commands: list[str]) -> None:
+        extra = ["--run-for", CLIENT_SHIM_RUN_FOR, "--bot-count", "0"]
+        for cmd in commands:
+            if not TOKEN_RE.match(cmd.replace(" ", "_")) or hits_flat_deny(cmd):
+                raise ValueError(f"refusing client command: {cmd!r}")
+            extra += ["--cmd", cmd]
         subprocess.run(self._shim_cmd(port, extra), check=True, capture_output=True, timeout=60)
 
 
@@ -776,6 +910,54 @@ class ControlBridge:
                 {"type": "control_event", "event": "console", "port": port, "line": line},
             )
 
+        if op == "game_command":
+            raw_action = request.get("action")
+            action = raw_action.strip().lower() if isinstance(raw_action, str) else ""
+            if action == "ztricks_distance_standstill" and lock.get("map") != "ztricks":
+                return self._refuse(req_id, "ztricks Distance standstill requires a ztricks session"), None
+            steps = validate_game_command(raw_action, request.get("value"))
+            if isinstance(steps, str):
+                return self._refuse(req_id, steps), None
+            client_commands: list[str] = []
+            console_lines: list[str] = []
+            botcmds: list[str] = []
+            addbot_count = 0
+            for kind, line in steps:
+                if kind == "client":
+                    client_commands.append(line)
+                elif kind == "console":
+                    console_lines.append(line)
+                elif kind == "botcmd":
+                    if line not in GAME_BOTCMDS:
+                        return self._refuse(req_id, "invalid botcmd game command step"), None
+                    botcmds.append(line)
+                elif kind == "addbot":
+                    if line != "1":
+                        return self._refuse(req_id, "invalid addbot game command step"), None
+                    addbot_count += 1
+                else:
+                    return self._refuse(req_id, "invalid game command step"), None
+            if client_commands:
+                self.executor.send_client_cmds(port, client_commands)
+            if botcmds:
+                self.executor.send_botcmds(port, botcmds)
+            for line in console_lines:
+                self.executor.stuff(port, line)
+            if addbot_count:
+                self.executor.add_bots(port, addbot_count)
+            value = request.get("value")
+            detail = f"game {action}" + (f" {value}" if value is not None else "")
+            return (
+                self._ok(req_id, detail, port=port),
+                {
+                    "type": "control_event",
+                    "event": "game_command",
+                    "port": port,
+                    "action": action,
+                    "value": value,
+                },
+            )
+
         return self._refuse(req_id, f"unhandled op: {op}"), None
 
     # -- verdict op (LD-F5 #106) -----------------------------------------------
@@ -888,28 +1070,44 @@ class ControlBridge:
             stale_port = validate_lab_port(lock.get("port"))
             if stale_port is not None:
                 self.executor.stop_session(stale_port)
-        port = next((p for p in ALLOWED_LAB_PORTS if self.executor.port_available(p)), None)
-        if port is None:
+        failures: list[str] = []
+        saw_available = False
+        for port in ALLOWED_LAB_PORTS:
+            if not self.executor.port_available(port):
+                continue
+            saw_available = True
+            run_id = "dash_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            cfg = build_session_config(map_name, port)
+            setup = build_session_setup_cmds(map_name)
+            try:
+                self.executor.start_session(port, map_name, run_id, cfg, setup)
+            except Exception as exc:
+                failures.append(f"{port}: {type(exc).__name__}: {exc}")
+                try:
+                    self.executor.stop_session(port)
+                except Exception:
+                    pass
+                continue
+            write_lock(
+                self.lock_path,
+                {
+                    "owner": "dashboard",
+                    "run_id": run_id,
+                    "pid": self._own_pid,
+                    "ts": utc_now_iso(),
+                    "port": port,
+                    "map": map_name,
+                },
+            )
+            return (
+                self._ok(req_id, f"session started on port {port}", port=port, map=map_name, run_id=run_id),
+                {"type": "control_event", "event": "session_start", "port": port, "map": map_name, "run_id": run_id},
+            )
+        if failures:
+            return self._refuse(req_id, "no lab port started (" + "; ".join(failures[-3:]) + ")"), None
+        if not saw_available:
             return self._refuse(req_id, "no free lab port in the 28599-28609 allowlist"), None
-        run_id = "dash_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        cfg = build_session_config(map_name, port)
-        setup = build_session_setup_cmds(map_name)
-        self.executor.start_session(port, map_name, run_id, cfg, setup)
-        write_lock(
-            self.lock_path,
-            {
-                "owner": "dashboard",
-                "run_id": run_id,
-                "pid": self._own_pid,
-                "ts": utc_now_iso(),
-                "port": port,
-                "map": map_name,
-            },
-        )
-        return (
-            self._ok(req_id, f"session started on port {port}", port=port, map=map_name, run_id=run_id),
-            {"type": "control_event", "event": "session_start", "port": port, "map": map_name, "run_id": run_id},
-        )
+        return self._refuse(req_id, "no lab port started"), None
 
     def _session_stop(self, req_id, request, lock, state, force):
         port = None

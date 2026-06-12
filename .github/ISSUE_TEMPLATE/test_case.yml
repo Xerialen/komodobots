@@ -1,0 +1,63 @@
+name: Test case
+description: Durable reusable check for behavior that agents should rerun
+title: "Test case: "
+labels: ["type:test-case", "status:inbox"]
+body:
+  - type: input
+    id: test_id
+    attributes:
+      label: Test case ID
+      description: Example TC-LAYOUT-001
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Dashboard layout
+        - Control bridge
+        - Live Game / QTV
+        - Live 3D / telemetry
+        - Lab harness
+        - Movement evidence
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: automation
+    attributes:
+      label: Automation target
+      options:
+        - Manual browser
+        - Playwright/browser automation
+        - Python unit/integration test
+        - CI
+        - Not automatable yet
+    validations:
+      required: true
+  - type: textarea
+    id: preconditions
+    attributes:
+      label: Preconditions
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence required
+      description: What must be captured when this test is run?
+  - type: textarea
+    id: linked_work
+    attributes:
+      label: Linked stories, bugs, or PRs

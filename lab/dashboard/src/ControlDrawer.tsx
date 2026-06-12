@@ -1,13 +1,15 @@
-// LD-F3 (#105): Control drawer — slide-down overlay from the top bar.
+// LD-F3 (#105): Control side panels.
 //
 // Provides:
 //  - Session block: start/stop, map selector, lock-state badge (harness /
 //    dashboard / free).  Stale-lock takeover requires an explicit confirm.
+//  - Game controls: allowlisted KTX game mode, DMM, powerups, ready/break,
+//    and named lab presets like ztricks Distance standstill.
 //  - Bot roster: live rows from control_event broadcasts and lock state.
 //    Add-bot / remove-bot buttons.  Per-bot route assignment dropdowns.
 //  - Assignment display shows what the SERVER reports (ASSIGN rows from
 //    telemetry), never optimistic state.
-//  - Cvar console with command history (↑/↓) and inline rejection rendering.
+//  - Separate Cvar console panel with command history and response rendering.
 //    Supports @<slot> prefix for per-slot cvars.
 //
 // Disabled states (every mutating control):
@@ -15,7 +17,7 @@
 //  - harness lock fresh
 //  - no session running (except session_start)
 //
-// Non-modal: panes keep streaming underneath.  Esc closes (wired in App.tsx).
+// Non-modal: panes keep streaming underneath.  Esc closes side panels (App.tsx).
 //
 // Security: all validation and enforcement lives in control_bridge.py (#96).
 // The UI is a courtesy layer only.
@@ -27,7 +29,7 @@ import {
   useState,
 } from "react";
 import type { ControlClient, ControlEvent, LockState } from "./controlClient.ts";
-import type { TelemetryAssign, TelemetryClient } from "./telemetryClient.ts";
+import type { TelemetryAssign, TelemetryClient, TelemetryFrame } from "./telemetryClient.ts";
 
 // ---- Types ------------------------------------------------------------------
 
@@ -52,8 +54,17 @@ type ConsoleEntry = {
 
 // ---- Constants --------------------------------------------------------------
 
-const MAPS = ["dm3", "dm2", "frobodm2", "trick"] as const;
+const MAPS = ["dm3", "dm2", "frobodm2", "trick", "ztricks"] as const;
 type MapName = (typeof MAPS)[number];
+
+type TrickId = "ztricks_distance_standstill";
+
+type TrickPreset = {
+  id: TrickId;
+  label: string;
+  map: MapName;
+  action: string;
+};
 
 // Per-route metadata: spawn_origin derived from the first polyline point.
 // Loaded once per map from /data/routes/{map}.json (the committed manifest).
@@ -117,7 +128,17 @@ const ROUTES_BY_MAP: Record<MapName, string[]> = {
   dm2: [],
   frobodm2: [],
   trick: [],
+  ztricks: [],
 };
+
+const TRICK_PRESETS: TrickPreset[] = [
+  {
+    id: "ztricks_distance_standstill",
+    label: "Distance standstill",
+    map: "ztricks",
+    action: "ztricks_distance_standstill",
+  },
+];
 
 let _consoleCounter = 0;
 
@@ -160,10 +181,19 @@ export type ControlDrawerProps = {
    *  assignment display (LD-F3 P1 fix: roster reflects what the server says). */
   telemetryClient: TelemetryClient | null;
   wsConnected: boolean;
+  consoleOpen: boolean;
+  onConsoleToggle: () => void;
   onClose: () => void;
 };
 
-export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }: ControlDrawerProps) {
+export function ControlDrawer({
+  client,
+  telemetryClient,
+  wsConnected,
+  consoleOpen,
+  onConsoleToggle,
+  onClose,
+}: ControlDrawerProps) {
   // Lock + session state
   const [lockState, setLockState] = useState<LockState | null>(null);
   const [lockOwner, setLockOwner] = useState<string | null>(null);
@@ -174,14 +204,20 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
   const [bots, setBots] = useState<BotSlot[]>([]);
   const [busy, setBusy] = useState(false);
   const [staleTakeoverPending, setStaleTakeoverPending] = useState(false);
+  const [panelMessage, setPanelMessage] = useState<string | null>(null);
+  const [selectedTrick, setSelectedTrick] = useState<TrickId>("ztricks_distance_standstill");
+  const [weaponLocked, setWeaponLocked] = useState(false);
+  const [prewarActive, setPrewarActive] = useState(false);
+  const suppressedFrameSlotsRef = useRef<Map<number, number>>(new Map());
 
-  // Console state
-  const [consoleLine, setConsoleLine] = useState("");
-  const [consoleLog, setConsoleLog] = useState<ConsoleEntry[]>([]);
-  const [historyIdx, setHistoryIdx] = useState(-1);
-  const sentHistoryRef = useRef<string[]>([]);
-  const consoleEndRef = useRef<HTMLDivElement>(null);
-  const consoleInputRef = useRef<HTMLInputElement>(null);
+  const suppressLiveFrameSlots = useCallback((rows: BotSlot[]) => {
+    const until = Date.now() + 10_000;
+    rows.forEach((bot) => {
+      if (bot.slot !== -1) {
+        suppressedFrameSlotsRef.current.set(bot.slot, until);
+      }
+    });
+  }, []);
 
   // Derived: are mutating controls disabled?
   const bridgeOk = wsConnected && client.connected;
@@ -193,7 +229,10 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
   const refreshLock = useCallback(async () => {
     if (!bridgeOk) return;
     const resp = await client.lockStatus();
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      setPanelMessage(`lock_status failed: ${resp.detail}`);
+      return;
+    }
     const state = (resp as { state?: string }).state as string | undefined;
     const lock = (resp as { lock?: Record<string, unknown> }).lock;
     if (state === "free") {
@@ -237,6 +276,12 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
           if (map && MAPS.includes(map as MapName)) {
             setSelectedMap(map as MapName);
           }
+          setBots((prev) => {
+            suppressLiveFrameSlots(prev);
+            return [];
+          });
+          setPrewarActive(false);
+          setWeaponLocked(false);
           break;
         }
         case "session_stop": {
@@ -261,12 +306,50 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
         case "removebot": {
           const slot = event.slot;
           if (slot === "all") {
-            setBots([]);
+            setBots((prev) => {
+              suppressLiveFrameSlots(prev);
+              return [];
+            });
           } else if (typeof slot === "number") {
+            suppressedFrameSlotsRef.current.set(slot, Date.now() + 10_000);
             setBots((prev) => prev.filter((b) => b.slot !== slot));
           } else {
             // removebot with no slot = remove last
-            setBots((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev));
+            setBots((prev) => {
+              const removed = prev[prev.length - 1];
+              if (removed && removed.slot !== -1) {
+                suppressedFrameSlotsRef.current.set(removed.slot, Date.now() + 10_000);
+              }
+              return prev.length > 0 ? prev.slice(0, -1) : prev;
+            });
+          }
+          break;
+        }
+        case "game_command": {
+          const action = typeof event.action === "string" ? event.action : "";
+          if (action === "ztricks_distance_standstill") {
+            setBots((prev) => {
+              suppressLiveFrameSlots(prev);
+              return [{ slot: -1, name: "...", assignedRoute: null, pendingRoute: null }];
+            });
+          } else if (action === "trick_pause") {
+            setBots((prev) => {
+              suppressLiveFrameSlots(prev);
+              return [];
+            });
+          } else if (action === "bot_respawn") {
+            setBots((prev) => {
+              suppressLiveFrameSlots(prev);
+              return [{ slot: -1, name: "...", assignedRoute: null, pendingRoute: null }];
+            });
+          } else if (action === "bot_weapon_lock") {
+            setWeaponLocked(true);
+          } else if (action === "bot_weapon_unlock") {
+            setWeaponLocked(false);
+          } else if (action === "prewar") {
+            setPrewarActive(true);
+          } else if (action === "start") {
+            setPrewarActive(false);
           }
           break;
         }
@@ -276,7 +359,7 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
     return () => {
       client.eventListeners.delete(onEvent);
     };
-  }, [client]);
+  }, [client, suppressLiveFrameSlots]);
 
   // LD-F3 (#105) P1 fix: subscribe to ASSIGN rows from the telemetry sidecar
   // for server-truth assignment display.  assignedRoute is updated ONLY from
@@ -349,15 +432,55 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
     };
   }, [telemetryClient]);
 
-  // Auto-scroll console.
+  // ztricks/global presets do not always emit an ASSIGN row because they use
+  // global moveprobe cvars, but every live command frame carries the real ed.
+  // Use frames as a roster identity fallback so row actions become reachable.
   useEffect(() => {
-    consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [consoleLog]);
+    if (!telemetryClient) return;
+    function onFrame(frame: TelemetryFrame) {
+      setBots((prev) => {
+        const suppressedUntil = suppressedFrameSlotsRef.current.get(frame.ed);
+        if (suppressedUntil !== undefined) {
+          if (Date.now() < suppressedUntil) {
+            return prev;
+          }
+          suppressedFrameSlotsRef.current.delete(frame.ed);
+        }
+        const existing = prev.findIndex((b) => b.slot === frame.ed);
+        if (existing !== -1) {
+          if (prev[existing].name === frame.name) {
+            return prev;
+          }
+          return prev.map((b) =>
+            b.slot === frame.ed
+              ? { ...b, name: frame.name }
+              : b,
+          );
+        }
+        const placeholderIdx = prev.findIndex((b) => b.slot === -1);
+        if (placeholderIdx !== -1) {
+          return prev.map((b, i) =>
+            i === placeholderIdx
+              ? { slot: frame.ed, name: frame.name, assignedRoute: null, pendingRoute: null }
+              : b,
+          );
+        }
+        return [
+          ...prev,
+          { slot: frame.ed, name: frame.name, assignedRoute: null, pendingRoute: null },
+        ];
+      });
+    }
+    telemetryClient.frameListeners.add(onFrame);
+    return () => {
+      telemetryClient.frameListeners.delete(onFrame);
+    };
+  }, [telemetryClient]);
 
   // ---- Action helpers -------------------------------------------------------
 
-  function addConsole(kind: ConsoleEntry["kind"], text: string) {
-    setConsoleLog((prev) => [...prev, { id: ++_consoleCounter, kind, text }]);
+  function addPanelMessage(text: string) {
+    setPanelMessage(text);
   }
 
   async function handleSessionStart() {
@@ -368,11 +491,14 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
       return;
     }
     setStaleTakeoverPending(false);
+    setPanelMessage(`starting ${selectedMap}...`);
     setBusy(true);
     const resp = await client.sessionStart(selectedMap, force);
     setBusy(false);
     if (!resp.ok) {
-      addConsole("error", `session_start failed: ${resp.detail}`);
+      addPanelMessage(`session_start failed: ${resp.detail}`);
+    } else {
+      addPanelMessage(resp.detail);
     }
     await refreshLock();
   }
@@ -383,7 +509,7 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
     const resp = await client.sessionStop();
     setBusy(false);
     if (!resp.ok) {
-      addConsole("error", `session_stop failed: ${resp.detail}`);
+      addPanelMessage(`session_stop failed: ${resp.detail}`);
     }
     await refreshLock();
   }
@@ -394,7 +520,7 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
     const resp = await client.addBot(1);
     setBusy(false);
     if (!resp.ok) {
-      addConsole("error", `addbot failed: ${resp.detail}`);
+      addPanelMessage(`addbot failed: ${resp.detail}`);
     }
   }
 
@@ -404,7 +530,7 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
     const resp = await client.removeBot(slot);
     setBusy(false);
     if (!resp.ok) {
-      addConsole("error", `removebot failed: ${resp.detail}`);
+      addPanelMessage(`removebot failed: ${resp.detail}`);
     }
   }
 
@@ -413,7 +539,7 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
     // Guard: provisional rows (slot=-1) have not been resolved to a real ed yet.
     // The ASSIGN upsert will set the real slot; the user should wait for it.
     if (bot.slot === -1) {
-      addConsole("error", "bot slot not yet resolved — waiting for server ASSIGN row");
+      addPanelMessage("bot slot not yet resolved - waiting for server ASSIGN row");
       return;
     }
     // Per-slot assignment: set all four per-slot cvars as one atomic group.
@@ -438,7 +564,7 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
       const meta = await loadRouteMetadata(sessionMap as MapName);
       const routeMeta = meta.get(route);
       if (!routeMeta) {
-        addConsole("error", `no spawn_origin in manifest for route "${route}" on ${sessionMap} — assignment aborted`);
+        addPanelMessage(`no spawn_origin in manifest for route "${route}" on ${sessionMap} - assignment aborted`);
         setBots((prev) =>
           prev.map((b) => (b.slot === slot ? { ...b, pendingRoute: null } : b)),
         );
@@ -447,7 +573,7 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
       spawnOrigin = routeMeta.spawn_origin;
     } catch (err) {
       // Manifest fetch failed — abort rather than send a partial assignment.
-      addConsole("error", `route manifest unavailable for ${sessionMap} — assignment aborted (${String(err)})`);
+      addPanelMessage(`route manifest unavailable for ${sessionMap} - assignment aborted (${String(err)})`);
       setBots((prev) =>
         prev.map((b) => (b.slot === slot ? { ...b, pendingRoute: null } : b)),
       );
@@ -470,7 +596,7 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
         .filter((r) => !r.ok)
         .map((r) => r.detail)
         .join("; ");
-      addConsole("error", `assign route failed: ${errors}`);
+      addPanelMessage(`assign route failed: ${errors}`);
       // Clear pending state on failure.
       setBots((prev) =>
         prev.map((b) => (b.slot === slot ? { ...b, pendingRoute: null } : b)),
@@ -480,41 +606,39 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
     // ASSIGN row — the server-truth subscriber above clears pendingRoute.
   }
 
-  async function handleConsoleSend() {
-    const line = consoleLine.trim();
-    if (!line) return;
-    addConsole("sent", `> ${line}`);
-    sentHistoryRef.current = [line, ...sentHistoryRef.current].slice(0, 100);
-    setConsoleLine("");
-    setHistoryIdx(-1);
-    const resp = await client.console(line);
-    if (resp.ok) {
-      addConsole("ok", resp.detail);
-    } else {
-      addConsole("error", resp.detail);
-    }
+  async function handleGameCommand(action: string, value?: string) {
+    if (!canMutate || busy) return;
+    setBusy(true);
+    const resp = await client.gameCommand(action, value);
+    setBusy(false);
+    setPanelMessage(resp.ok ? resp.detail : `game command failed: ${resp.detail}`);
   }
 
-  function handleConsoleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleConsoleSend();
+  async function handleTrickTry() {
+    const preset = TRICK_PRESETS.find((p) => p.id === selectedTrick);
+    if (!preset) return;
+    await handleGameCommand(preset.action);
+  }
+
+  async function handleTrickPause() {
+    await handleGameCommand("trick_pause");
+  }
+
+  async function handleBotRespawn(bot: BotSlot) {
+    if (bot.slot === -1) {
+      addPanelMessage("bot slot not yet resolved - waiting for server ASSIGN row");
       return;
     }
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      const next = Math.min(historyIdx + 1, sentHistoryRef.current.length - 1);
-      setHistoryIdx(next);
-      setConsoleLine(sentHistoryRef.current[next] ?? "");
+    const resolvedBots = bots.filter((b) => b.slot !== -1);
+    if (resolvedBots.length > 1) {
+      addPanelMessage("respawn is precise only with one live bot in this KTX build");
       return;
     }
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      const next = Math.max(historyIdx - 1, -1);
-      setHistoryIdx(next);
-      setConsoleLine(next === -1 ? "" : (sentHistoryRef.current[next] ?? ""));
-      return;
-    }
+    await handleGameCommand("bot_respawn", String(bot.slot));
+  }
+
+  async function handleWeaponLockToggle() {
+    await handleGameCommand(weaponLocked ? "bot_weapon_unlock" : "bot_weapon_lock");
   }
 
   // ---- Disable rules -------------------------------------------------------
@@ -522,22 +646,24 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
   const canStart = bridgeOk && !isDashboardSession && !isHarnessLocked && !busy;
   const canStop = bridgeOk && isDashboardSession && !busy;
   const canMutate = bridgeOk && isDashboardSession && !isHarnessLocked && !busy;
-  const canConsole = canMutate;
 
   const mapRoutes = ROUTES_BY_MAP[sessionMap as MapName] ?? ROUTES_BY_MAP.dm3;
+  const gameModes = ["4on4", "2on2", "1on1", "ffa"] as const;
+  const dmmModes = ["1", "2", "3", "4"] as const;
+  const selectedTrickPreset = TRICK_PRESETS.find((p) => p.id === selectedTrick) ?? TRICK_PRESETS[0];
+  const isSelectedTrickSession = isDashboardSession && sessionMap === selectedTrickPreset.map;
 
   // ---- Render ---------------------------------------------------------------
 
   return (
     <div
       data-drawer="control"
-      className="absolute top-full inset-x-0 z-10 border-b border-slate-700 bg-slate-950/97 shadow-lg"
-      onClick={(e) => e.stopPropagation()}
+      className="relative shrink-0 w-[320px] min-w-[280px] max-w-[34vw] border-l border-slate-800 bg-slate-950"
     >
-      <div className="px-4 py-3 grid grid-cols-[1fr_1fr_1fr] gap-x-6 gap-y-3 text-xs">
+      <div className="h-full overflow-y-auto px-4 py-3 flex flex-col gap-y-4 text-xs">
         {/* ---- SESSION BLOCK ---- */}
         <div className="flex flex-col gap-y-2">
-          <div className="flex items-center gap-x-2 text-gray-400 uppercase tracking-wide font-semibold">
+          <div className="flex items-center gap-x-2 pr-5 text-gray-400 uppercase tracking-wide font-semibold">
             <span>Session</span>
             {lockBadge(lockState?.state ?? null)}
             {lockOwner && lockState?.state !== "free" && (
@@ -622,10 +748,174 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
               port {session.port} · {session.map}
             </div>
           )}
+          {panelMessage && (
+            <div className="font-mono text-[10px] text-gray-400 bg-black/30 border border-slate-800 rounded px-2 py-1 break-words">
+              {panelMessage}
+            </div>
+          )}
+        </div>
+
+        {/* ---- GAME CONTROLS ---- */}
+        <div className="flex flex-col gap-y-2 border-t border-slate-800 pt-3">
+          <div className="flex items-center gap-x-2 text-gray-400 uppercase tracking-wide font-semibold">
+            <span>Game</span>
+            <span className="ml-auto text-[10px] text-gray-600 normal-case font-normal">
+              {canMutate ? "ready" : "disabled"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-1">
+            {gameModes.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                disabled={!canMutate}
+                onClick={() => handleGameCommand("gamemode", mode)}
+                className="px-1.5 py-1 rounded bg-slate-800 text-gray-200 hover:bg-slate-700 border border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {mode.toUpperCase()}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-4 gap-1">
+            {dmmModes.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                disabled={!canMutate}
+                onClick={() => handleGameCommand("deathmatch", mode)}
+                className="px-1.5 py-1 rounded bg-slate-800 text-gray-200 hover:bg-slate-700 border border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                DMM {mode}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              disabled={!canMutate}
+              onClick={() => handleGameCommand("powerups", "on")}
+              className="px-2 py-1 rounded bg-slate-800 text-gray-200 hover:bg-slate-700 border border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              powerups on
+            </button>
+            <button
+              type="button"
+              disabled={!canMutate}
+              onClick={() => handleGameCommand("powerups", "off")}
+              className="px-2 py-1 rounded bg-slate-800 text-gray-200 hover:bg-slate-700 border border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              powerups off
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              disabled={!canMutate}
+              onClick={() => handleGameCommand("start")}
+              className="px-2 py-1 rounded bg-green-900 text-green-100 hover:bg-green-800 border border-green-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              start game
+            </button>
+            <button
+              type="button"
+              disabled={!canMutate}
+              onClick={() => handleGameCommand("stop")}
+              className="px-2 py-1 rounded bg-red-950 text-red-100 hover:bg-red-900 border border-red-800 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              stop game
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              disabled={!canMutate}
+              aria-pressed={prewarActive}
+              onClick={() => handleGameCommand("prewar")}
+              className={`px-2 py-1 rounded border disabled:opacity-40 disabled:cursor-not-allowed ${
+                prewarActive
+                  ? "bg-amber-900 text-amber-100 border-amber-700"
+                  : "bg-slate-800 text-gray-200 hover:bg-slate-700 border-slate-600"
+              }`}
+            >
+              prewar
+            </button>
+            <button
+              type="button"
+              disabled={!canMutate}
+              aria-pressed={weaponLocked}
+              onClick={handleWeaponLockToggle}
+              className={`px-2 py-1 rounded border disabled:opacity-40 disabled:cursor-not-allowed ${
+                weaponLocked
+                  ? "bg-amber-900 text-amber-100 border-amber-700"
+                  : "bg-slate-800 text-gray-200 hover:bg-slate-700 border-slate-600"
+              }`}
+            >
+              {weaponLocked ? "axe only" : "weapons free"}
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-y-1 rounded border border-slate-800 bg-black/20 px-2 py-2">
+            <div className="flex items-center gap-x-2">
+              <span className="shrink-0 text-gray-500">Trick</span>
+              <select
+                value={selectedTrick}
+                disabled={!canMutate}
+                onChange={(e) => setSelectedTrick(e.target.value as TrickId)}
+                className="flex-1 min-w-0 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-gray-200 text-xs disabled:opacity-50"
+              >
+                {TRICK_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                type="button"
+                disabled={!canMutate || !isSelectedTrickSession}
+                onClick={handleTrickTry}
+                className="px-2 py-1 rounded bg-sky-950 text-sky-100 hover:bg-sky-900 border border-sky-800 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                try
+              </button>
+              <button
+                type="button"
+                disabled={!canMutate || bots.length === 0}
+                onClick={handleTrickPause}
+                className="px-2 py-1 rounded bg-slate-900 text-gray-300 hover:bg-slate-800 border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                pause
+              </button>
+            </div>
+            {!isSelectedTrickSession && (
+              <div className="text-[10px] text-gray-600">
+                start {selectedTrickPreset.map} to run this trick
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            aria-pressed={consoleOpen}
+            onClick={onConsoleToggle}
+            className={`px-2 py-1 rounded border text-gray-300 ${
+              consoleOpen
+                ? "bg-slate-700 border-slate-500"
+                : "bg-slate-900 border-slate-700 hover:border-slate-500"
+            }`}
+          >
+            cvar console
+          </button>
         </div>
 
         {/* ---- BOT ROSTER ---- */}
-        <div className="flex flex-col gap-y-2">
+        <div className="flex flex-col gap-y-2 border-t border-slate-800 pt-3">
           <div className="flex items-center gap-x-2 text-gray-400 uppercase tracking-wide font-semibold">
             <span>Bots</span>
             {isDashboardSession && (
@@ -667,83 +957,140 @@ export function ControlDrawer({ client, telemetryClient, wsConnected, onClose }:
                   routes={mapRoutes}
                   canMutate={canMutate && bot.slot !== -1}
                   onAssign={(route) => handleAssignRoute(bot, route)}
+                  onRespawn={() => handleBotRespawn(bot)}
                   onRemove={() => handleRemoveBot(bot.slot === -1 ? undefined : bot.slot)}
                 />
               ))}
             </div>
           )}
         </div>
-
-        {/* ---- CVAR CONSOLE ---- */}
-        <div className="flex flex-col gap-y-2">
-          <div className="text-gray-400 uppercase tracking-wide font-semibold">Cvar console</div>
-          {!bridgeOk && (
-            <div className="text-red-400 text-[10px]">bridge disconnected</div>
-          )}
-          {bridgeOk && !isDashboardSession && (
-            <div className="text-gray-600 text-[10px] italic">start a session to send cvars</div>
-          )}
-
-          {/* Log */}
-          <div className="flex-1 overflow-y-auto max-h-24 font-mono text-[10px] bg-black/30 border border-slate-800 rounded px-1.5 py-1 flex flex-col gap-y-0.5">
-            {consoleLog.map((entry) => (
-              <div
-                key={entry.id}
-                className={
-                  entry.kind === "error"
-                    ? "text-red-400"
-                    : entry.kind === "sent"
-                      ? "text-gray-300"
-                      : "text-green-400"
-                }
-              >
-                {entry.text}
-              </div>
-            ))}
-            <div ref={consoleEndRef} />
-          </div>
-
-          {/* Input */}
-          <div className="flex gap-x-1">
-            <input
-              ref={consoleInputRef}
-              type="text"
-              value={consoleLine}
-              disabled={!canConsole}
-              onChange={(e) => setConsoleLine(e.target.value)}
-              onKeyDown={handleConsoleKeyDown}
-              placeholder={
-                !bridgeOk
-                  ? "bridge disconnected"
-                  : !isDashboardSession
-                    ? "no session"
-                    : "cvar val  or  @2 k_fb_… val"
-              }
-              className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 font-mono text-[11px] text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed placeholder:text-gray-600"
-            />
-            <button
-              type="button"
-              disabled={!canConsole || !consoleLine.trim()}
-              onClick={handleConsoleSend}
-              className="px-2 py-0.5 rounded bg-slate-700 text-gray-300 hover:bg-slate-600 border border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              send
-            </button>
-          </div>
-          <div className="text-gray-600 text-[9px]">
-            ↑/↓ history · @2 k_fb_… val → per-slot
-          </div>
-        </div>
       </div>
 
       {/* Close button */}
       <button
         type="button"
-        aria-label="close control drawer"
+        aria-label="close control panel"
         onClick={onClose}
         className="absolute top-2 right-3 text-gray-500 hover:text-gray-300 text-sm"
       >
         ✕
+      </button>
+    </div>
+  );
+}
+
+export type CvarConsolePanelProps = {
+  client: ControlClient;
+  wsConnected: boolean;
+  onClose: () => void;
+};
+
+export function CvarConsolePanel({ client, wsConnected, onClose }: CvarConsolePanelProps) {
+  const [consoleLine, setConsoleLine] = useState("");
+  const [consoleLog, setConsoleLog] = useState<ConsoleEntry[]>([]);
+  const [historyIdx, setHistoryIdx] = useState(-1);
+  const sentHistoryRef = useRef<string[]>([]);
+  const consoleEndRef = useRef<HTMLDivElement>(null);
+  const bridgeOk = wsConnected && client.connected;
+  const canConsole = bridgeOk;
+
+  useEffect(() => {
+    consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [consoleLog]);
+
+  function addConsole(kind: ConsoleEntry["kind"], text: string) {
+    setConsoleLog((prev) => [...prev, { id: ++_consoleCounter, kind, text }]);
+  }
+
+  async function handleConsoleSend() {
+    const line = consoleLine.trim();
+    if (!line) return;
+    addConsole("sent", `> ${line}`);
+    sentHistoryRef.current = [line, ...sentHistoryRef.current].slice(0, 100);
+    setConsoleLine("");
+    setHistoryIdx(-1);
+    const resp = await client.console(line);
+    addConsole(resp.ok ? "ok" : "error", resp.detail);
+  }
+
+  function handleConsoleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleConsoleSend();
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const next = Math.min(historyIdx + 1, sentHistoryRef.current.length - 1);
+      setHistoryIdx(next);
+      setConsoleLine(sentHistoryRef.current[next] ?? "");
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const next = Math.max(historyIdx - 1, -1);
+      setHistoryIdx(next);
+      setConsoleLine(next === -1 ? "" : (sentHistoryRef.current[next] ?? ""));
+    }
+  }
+
+  return (
+    <div
+      data-drawer="console"
+      className="relative shrink-0 w-[320px] min-w-[280px] max-w-[34vw] border-l border-slate-800 bg-slate-950"
+    >
+      <div className="h-full px-4 py-3 flex flex-col gap-y-3 text-xs">
+        <div className="flex items-center gap-x-2 pr-5 text-gray-400 uppercase tracking-wide font-semibold">
+          <span>Cvar console</span>
+          {!bridgeOk && <span className="ml-auto text-[10px] text-red-400 normal-case">disconnected</span>}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto font-mono text-[10px] bg-black/30 border border-slate-800 rounded px-2 py-2 flex flex-col gap-y-0.5">
+          {consoleLog.map((entry) => (
+            <div
+              key={entry.id}
+              className={
+                entry.kind === "error"
+                  ? "text-red-400"
+                  : entry.kind === "sent"
+                    ? "text-gray-300"
+                    : "text-green-400"
+              }
+            >
+              {entry.text}
+            </div>
+          ))}
+          <div ref={consoleEndRef} />
+        </div>
+
+        <div className="flex gap-x-1">
+          <input
+            type="text"
+            value={consoleLine}
+            disabled={!canConsole}
+            onChange={(e) => setConsoleLine(e.target.value)}
+            onKeyDown={handleConsoleKeyDown}
+            placeholder={!bridgeOk ? "bridge disconnected" : "cvar val  or  @2 k_fb_... val"}
+            className="flex-1 min-w-0 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 font-mono text-[11px] text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed placeholder:text-gray-600"
+          />
+          <button
+            type="button"
+            disabled={!canConsole || !consoleLine.trim()}
+            onClick={handleConsoleSend}
+            className="px-2 py-1 rounded bg-slate-700 text-gray-300 hover:bg-slate-600 border border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            send
+          </button>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        aria-label="close cvar console"
+        onClick={onClose}
+        className="absolute top-2 right-3 text-gray-500 hover:text-gray-300 text-sm"
+      >
+        x
       </button>
     </div>
   );
@@ -756,10 +1103,11 @@ type BotRowProps = {
   routes: string[];
   canMutate: boolean;
   onAssign: (route: string) => void;
+  onRespawn: () => void;
   onRemove: () => void;
 };
 
-function BotRow({ bot, routes, canMutate, onAssign, onRemove }: BotRowProps) {
+function BotRow({ bot, routes, canMutate, onAssign, onRespawn, onRemove }: BotRowProps) {
   const displayRoute = bot.pendingRoute
     ? `${bot.pendingRoute} (pending…)`
     : (bot.assignedRoute ?? "unassigned");
@@ -788,6 +1136,15 @@ function BotRow({ bot, routes, canMutate, onAssign, onRemove }: BotRowProps) {
           </option>
         ))}
       </select>
+      <button
+        type="button"
+        disabled={!canMutate}
+        onClick={onRespawn}
+        className="shrink-0 px-1 py-0.5 rounded text-gray-500 hover:text-sky-300 hover:bg-sky-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
+        title="respawn this bot"
+      >
+        respawn
+      </button>
       <button
         type="button"
         disabled={!canMutate}

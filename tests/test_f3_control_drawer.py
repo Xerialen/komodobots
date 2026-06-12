@@ -222,7 +222,7 @@ class TestRouteNameRoundTrip(unittest.TestCase):
 
     # This replicates the JS logic from ControlDrawer.tsx in Python so we can
     # unit-test it without a browser.  Keep in sync with the TS implementation.
-    MAPS = ["dm3", "dm2", "frobodm2", "trick"]
+    MAPS = ["dm3", "dm2", "frobodm2", "trick", "ztricks"]
 
     def _route_id_from_replay_file(self, replay_file: str) -> str:
         route_id = replay_file.removesuffix(".cmds")
@@ -353,7 +353,7 @@ class TestManifestPath(unittest.TestCase):
 # This section mirrors the JS BotSlot state logic in Python so we can unit-test
 # the upsert semantics without a browser.  Keep in sync with ControlDrawer.tsx.
 
-MAPS_CONST = ["dm3", "dm2", "frobodm2", "trick"]
+MAPS_CONST = ["dm3", "dm2", "frobodm2", "trick", "ztricks"]
 
 
 def _route_id_from_replay_file(replay_file: str | None) -> str | None:

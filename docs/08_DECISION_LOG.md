@@ -2670,3 +2670,51 @@ Document the change here.
 ### Status
 
 Implemented in LD-E1 (#100).
+
+---
+
+## Agent-agnostic roles and durable test-case workflow
+
+### Date
+
+2026-06-12
+
+### Decision
+
+Replace fixed tool-brand role assignment with tool-agnostic Coder and Reviewer
+roles, and introduce durable test cases plus logged test runs as the default
+evidence workflow for user-facing behavior.
+
+### Why
+
+Benjamin wants to choose whichever agent is best for a given moment instead of
+hardcoding "Claude codes, Codex reviews" into the repository contract. The
+project also needs evidence that survives chat sessions: a test case should stay
+available for reruns, while a completed execution is recorded as a test run.
+
+### Implementation
+
+- `coder.md` defines the implementation role.
+- `reviewer.md` defines the technical merge-safety role.
+- `AGENTS.md` now refers to Coder Agent and Reviewer Agent rather than fixed
+  tools.
+- `CLAUDE.md` and `codex.md` are thin role-selection adapters.
+- `docs/09_TEST_CASES_AND_EVIDENCE.md` defines user stories, durable test cases,
+  test runs, evidence, statuses, IDs, and agent usage.
+- `docs/10_AGENT_WEB_TESTING.md` defines real-browser validation expectations
+  for web/UI changes.
+- GitHub issue and PR templates now include user stories, bugs, durable test
+  cases, test runs, docs, and web/UI evidence prompts.
+
+### Consequences
+
+Agents can be assigned by capability and availability without rewriting the repo
+rules. Review separation still exists, but it is a role boundary rather than a
+brand boundary. Test cases become reusable project assets, and PRs record the
+specific evidence from each run.
+
+### Revisit Conditions
+
+Revisit if agents confuse role selection, if gate labels no longer match the
+review automation, if issue templates create too much friction, or if a
+dedicated test-run issue/template becomes necessary.

@@ -87,9 +87,9 @@ selection (#100). The current context is always displayed at the top of the dock
   metrics section (#102), context locks to the attempt. Live sessions come from two
   origins the user treats differently:
   - **harness-owned** — the scripted experiment queue owns the lab; the dashboard is
-    read-only (watch, but the control drawer refuses) (#96);
-  - **dashboard-owned** — the user started a session from the control drawer and may
-    spawn bots, assign routes, and send cvars (#105).
+    read-only (watch, but the control panels refuse) (#96);
+  - **dashboard-owned** — the user started a session from the control panel and may
+    spawn bots, assign routes, send cvars, and change allowlisted game controls (#105).
 
 ---
 
@@ -102,7 +102,8 @@ Always visible (#87).
 - **Four view toggles** `[Demo | Mockup | Live 3D | Live Game]` — independent on/off;
   any subset including none (none → centered hint in the empty pane area).
 - **KPI dock collapse/expand control** (#100).
-- **Control drawer button** — opens the slide-down drawer (#105).
+- **Control panel button** — opens the right-side control panel (#105).
+- **Console button** — opens the cvar console side panel (#105).
 - **Status line**: `map · port · run_id · telemetry state` (e.g.
   `dm3 · port 28599 · 20260605T201217Z · connected`; `no attempt yet` when idle) (#84, #87).
 
@@ -218,7 +219,7 @@ micro form; live section and records hidden (#100, #101, #104). Collapse state p
 failed — the dock never silently shows outdated numbers as current) (#101) · live vs
 browse (#102) · no-data ("honest zeros", §7).
 
-### 3.7 Control drawer (slide-down, not a main view)
+### 3.7 Control side panels (not main views)
 
 **Purpose.** Steer the lab: start/stop a session, pick the map, spawn/remove bots, assign
 each bot its route, send cvars — *lab server only*, always subordinate to the experiment
@@ -227,22 +228,37 @@ harness (#96, #105).
 **Content.**
 - **Session block**: start/stop, target port, **lock-state badge** (who owns the lab:
   `harness | dashboard | free`, with force-takeover confirm for stale locks) (#96, #105).
-- **Map selector**: dm3 / dm2 / frobodm2 / trick (#105).
+- **Map selector**: dm3 / dm2 / frobodm2 / trick / ztricks (#105).
+- **Game controls**: direct game-level buttons for KTX `4on4`, `2on2`, `1on1`, `ffa`,
+  `dmm1`–`dmm4`, powerups on/off (`k_pow` plus q/p/r/s), start game (`ready`), and
+  stop game (`break`), prewar, and bot weapon lockout (`axe only` / `weapons free`).
+  These control the running game, not the dashboard session.
+  A ztricks-only **Distance standstill** preset applies the A5 start-point cvars
+  (`spawn_origin`, mode 23, far-platform fixed goal, and circle-jump launch knobs)
+  clears existing dashboard bots, and spawns one bot so the visible lab can watch a clean standing-start attempt.
+  The preset is exposed as **try** beside a **pause** button; pause clears the visible
+  trick bot(s) without stopping the session.
 - **Bot roster**: one row per live bot — name, slot, **assigned route read back from the
   server** (never optimistic; the roster shows what the server says it is running, #95,
-  #105) — plus add-bot / remove-bot controls.
+  #105) — plus add-bot / remove-bot controls. A per-row respawn control is enabled
+  only when it is safe to be precise: one live bot in this KTX build. Internally that
+  uses clear-all + add-one because KTX `removebot` is not reliably slot-addressable.
 - **Per-bot route assignment**: a route dropdown per roster row (routes of the current
   map); assigning issues one atomic "assign" action. Two bots may run two *different*
   routes on the same map at the same time — this is the module's acceptance test (#95,
   #105).
-- **Cvar console**: input with command history (up/down), response echo, inline rejection
-  rendering for denied commands, `@2 k_fb_… value` shorthand to target bot slot 2 (#105).
+- **Cvar console side panel**: separate vertical panel with command history (up/down),
+  response echo, inline rejection rendering for denied commands, `@2 k_fb_… value`
+  shorthand to target bot slot 2 (#105).
 
 **States.** closed · open+free · open+dashboard-session-running · open+locked-by-harness
 (every mutating control disabled, reason shown: "experiment harness owns the lab") ·
 open+bridge-disconnected (everything mutating disabled) · stale-lock (takeover offered
-behind an explicit confirm) (#96, #105). Esc or click-outside closes; non-modal — panes
-keep streaming underneath (#87, #105).
+behind an explicit confirm) (#96, #105). The control panel and cvar console dock as
+solid vertical rails to the right of the view panes.
+They consume layout width like the KPI rail; they must never be translucent overlays on
+top of Live Game / Live 3D. Esc closes side panels; non-modal — panes keep streaming
+beside them (#87, #105).
 
 ---
 
@@ -254,8 +270,8 @@ One horizontal arrangement, left to right (#87, #100):
 
 ```
 [KPI dock | rail] [Demo] [Mockup] [Live 3D] [Live Game]
+[Control] [Cvar console]
 [--------------------- top bar above all ---------------------]
-[control drawer slides down from the top bar, over the panes]
 ```
 
 - Open panes share a single row in **fixed order regardless of the order they were
@@ -263,8 +279,8 @@ One horizontal arrangement, left to right (#87, #100):
 - The KPI dock is a **grid column, not an overlay** — it reflows the panes when it
   collapses/expands; it never covers the Demo view (#100; this is why the dock design
   beat an overlay).
-- The control drawer is the only overlay surface: it slides down from the top bar,
-  non-modal, over the upper part of the panes (#105).
+- The control panel and cvar console are side rails: non-modal, vertical, and
+  constrained so the panes keep streaming beside them (#105).
 
 ### 4.2 The toggle matrix
 
@@ -275,9 +291,10 @@ One horizontal arrangement, left to right (#87, #100):
 | 2–3 | Equal split in fixed order |
 | 4 | Four-up; at narrow widths min-widths bind (see 4.4) |
 
-Layout state (open set, dock collapsed, drawer open, opacity value) persists in
+Layout state (open set, dock collapsed, control panel open, console panel open, opacity value) persists in
 localStorage and is reflected in the URL (`?views=demo,live3d`) for shareable layouts;
-URL params win on load (#87, #99).
+URL params win on load (#87, #99). Without URL or stored layout, the default open set
+is Live Game only; Live 3D is opt-in via the toggle.
 
 Interactions may change the layout: clicking a record opens/focuses the Demo view if it
 was closed (#98, #104). That reflow must be unsurprising — the pane appears in its fixed
@@ -344,8 +361,9 @@ bindings are a design-pass deliverable, #87, #100, #107.)
 | Toggle a view on/off (top bar) | Pane appears/disappears in its fixed slot; row reflows; persisted + URL updated (#87) |
 | Toggle all views off | Centered hint (#87) |
 | Collapse/expand KPI dock (button or shortcut) | Dock ↔ rail; panes reflow to use the width; persisted (#100) |
-| Open control drawer | Slides down from top bar, non-modal (#105) |
-| Esc / click outside drawer | Drawer closes (#105) |
+| Open control panel | Right-side vertical panel opens, non-modal (#105) |
+| Open cvar console | Right-side vertical panel opens, or left-side when control is already open (#105) |
+| Esc | Side panels close (#105) |
 | Reload / open shared URL | `?views=` wins; else localStorage restores last layout (#87) |
 
 ### 6.2 Mockup view
@@ -420,13 +438,17 @@ dock and the rest of the app stay functional (#104).
 | Live section route override (interim) | Re-targets the live comparison (#102) |
 | (system) attempt ends | Scoreboard refetches; changed records get a "new record" highlight (#101, #104) |
 
-### 6.8 Control drawer
+### 6.8 Control side panels
 
 | Action | Outcome |
 |---|---|
 | Start session (map picked) | Lab server starts on the first free lab port; lock taken (`dashboard`); roster appears; Live Game attaches (#96, #105) |
 | Stop session | Server stops; lock released (#96) |
 | Add bot / remove bot | Roster row appears/greys; Live 3D gains/freezes its marker (#103, #105) |
+| Game mode: 4on4 / 2on2 / 1on1 / FFA | Sends the exact allowlisted KTX client command for the running game (#105) |
+| Deathmatch: DMM 1 / 2 / 3 / 4 | Sends the exact allowlisted KTX `dmmN` client command (#105) |
+| Powerups on/off | Applies `k_pow` and `k_pow_q/p/r/s` together (#105) |
+| Start game / stop game | Sends KTX `ready` / `break` through the client-command path (#105) |
 | Assign route to a bot (dropdown per row) | One atomic assign; the row then shows the route **the server reports** — until read-back arrives, the row is "pending", never silently confirmed (#95, #105) |
 | Cvar console: allowed cvar | Applied live; response echoed (#96, #105) |
 | Cvar console: denied cvar/command (not allowlisted, or anything touching production) | Inline rejection rendered exactly where typed; nothing applied (#96, #105) |
@@ -728,6 +750,6 @@ treatments, the help popover, empty-state illustrations, and the keyboard map (#
 | **Marker (goal marker)** | The KTX nav-graph node used as a route's goal; "reaching the marker" ends an attempt successfully. |
 | **Telemetry sidecar** | The lab service streaming ~100 Hz bot state (position, velocity, speed, onground…) to the dashboard, plus attempt start/end events. |
 | **Harness** | The scripted experiment pipeline that owns the lab during automated runs; the dashboard always yields to it (the lock). |
-| **Lab lock** | Who owns the lab server right now: `harness`, `dashboard`, or free. Drives every disabled state in the control drawer. |
+| **Lab lock** | Who owns the lab server right now: `harness`, `dashboard`, or free. Drives every disabled state in the control panels. |
 | **ed / slot** | A bot's server-side identity (entity/client slot number); keys per-bot colors, HUD rows, and per-slot cvars (`…_s2` targets slot 2). |
 | **Eye test** | The human verdict: does this run look human? `pass / close / fail` — the only KPI measured by a person. |

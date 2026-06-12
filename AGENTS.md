@@ -32,24 +32,35 @@ This is unproven.
 
 The first project objective is to build a repeatable lab that can prove or disprove this hypothesis.
 
-## Autonomous three-agent loop
+## Agent roles and autonomous loop
 
-This repository is worked by **Coder = Claude** and **adversarial Reviewer = Codex** (both run as external/cloud agents). Two gates must both pass to merge, and they are deliberately layered per best practice: a deterministic machine check is the real authority, the AI review is an advisory filter on top.
+This repository uses tool-agnostic roles. Benjamin may assign any capable agent
+to either implementation or review work.
+
+- **Coder Agent** - follows `coder.md`.
+- **Reviewer Agent** - follows `reviewer.md`.
+- **Merge executor** - deterministic GitHub Action; it does not implement or
+  review.
+
+The same agent must not act as both Coder and independent Reviewer for the same
+PR unless Benjamin explicitly overrides role separation.
+
+Two gates must both pass to merge, and they are deliberately layered per best practice: a deterministic machine check is the real authority, the AI review is an advisory filter on top.
 
 1. **Deterministic CI floor** - `.github/workflows/pr-tests.yml` runs the stdlib unit suite on a hosted runner for every PR. This is the hard, machine-checked gate.
-2. **Reviewer filter** - a neutral PR label applied by the Codex Desktop automation after a technical merge-safety review. The terminal labels are `gate: ready` or `gate: blocked`.
+2. **Reviewer filter** - a neutral PR label applied after a technical merge-safety review. The terminal labels are `gate: ready` or `gate: blocked`.
 
 The deterministic merge executor (`.github/workflows/review-gate-merge.yml`, no LLM, no API tokens) merges only when `gate: ready` is present, `gate: blocked` is absent, the PR is mergeable, and **every non-gate check (including `PR Tests`) is passing**. It re-evaluates on `gate: ready` label events from both PR and issue-label webhook surfaces, `PR Tests` completion events, and a 10-minute reconciler for already-ready PRs, so the PR merges as soon as the last of {tests green, `gate: ready`} is observed. Branch protection would normally enforce this natively, but it requires GitHub Pro/public; the executor provides the same gate on the free private plan. **Gemini** is an **on-demand second opinion only** (`/gemini review`) - it does not auto-review and never merges.
 
 ```text
-Coder (Claude) implements -> reset sets `gate: reviewing` -> Reviewer (Codex Desktop automation) reviews and applies `gate: ready` or `gate: blocked` -> deterministic Action merges on `gate: ready` if `PR Tests` and all other non-gate checks pass -> Coder starts the next stage from updated main
+Coder Agent implements -> reset sets `gate: reviewing` -> Reviewer Agent reviews and applies `gate: ready` or `gate: blocked` -> deterministic Action merges on `gate: ready` if `PR Tests` and all other non-gate checks pass -> a Coder Agent starts the next stage from updated main
 ```
 
 Role boundaries are mandatory:
 
-- Coder implements the current stage, updates docs/evidence, opens or updates the stage PR, and responds to review feedback that stays inside the same stage.
-- Reviewer (Codex) reviews only technical merge safety: correctness, regressions, security, reliability, CI/CD, GitHub Actions logic, workflow triggers, label/merge-gate logic, permissions, secrets, branch-protection assumptions, operational/deployment risk, data-loss/destructive behavior, and tests for changed behavior.
-- Codex Desktop automation posts the required structured review comment for the current head SHA and applies exactly one terminal label: `gate: ready` or `gate: blocked`.
+- Coder Agent implements the current stage, updates docs/evidence, opens or updates the stage PR, and responds to review feedback that stays inside the same stage.
+- Reviewer Agent reviews only technical merge safety: correctness, regressions, security, reliability, CI/CD, GitHub Actions logic, workflow triggers, label/merge-gate logic, permissions, secrets, branch-protection assumptions, operational/deployment risk, data-loss/destructive behavior, and tests for changed behavior.
+- Review automation or the assigned Reviewer posts the required structured review comment for the current head SHA and applies exactly one terminal label: `gate: ready` or `gate: blocked`.
 - The merge executor (a deterministic, no-LLM Action) performs the final gate check and merges only when `gate: ready` is set and all gates pass.
 - Gemini is an on-demand second opinion (`/gemini review`) - not part of the autonomous loop, and never merges.
 
@@ -89,12 +100,12 @@ Do not post repeated comments with the same conclusion. Do not create new branch
 
 ## Review gate rule
 
-The merge gate is a neutral PR label applied by the Codex Desktop automation after reviewing the PR's current head SHA:
+The merge gate is a neutral PR label applied after reviewing the PR's current head SHA:
 
 ```text
 gate: reviewing  -> transient; set when a PR opens, reopens, becomes ready for review, or receives new commits
-gate: ready      -> Codex found no blocking technical merge-safety issue for the reviewed head SHA
-gate: blocked    -> Codex found at least one blocking technical merge-safety issue for the reviewed head SHA
+gate: ready      -> Reviewer Agent found no blocking technical merge-safety issue for the reviewed head SHA
+gate: blocked    -> Reviewer Agent found at least one blocking technical merge-safety issue for the reviewed head SHA
 ```
 
 A pushed commit invalidates any previous decision: `review-gate-reset.yml` clears `gate: ready`/`gate: blocked` and sets `gate: reviewing`, so the gate always reflects the current head. If Codex cannot complete the review, leave `gate: reviewing` in place and say why; do not default to pass.
@@ -102,12 +113,12 @@ A pushed commit invalidates any previous decision: `review-gate-reset.yml` clear
 Per-PR lifecycle:
 
 ```text
-push/open PR -> reset to `gate: reviewing` -> Codex Desktop automation reviews current head SHA and applies `gate: ready` or `gate: blocked` -> deterministic Action merges on `gate: ready` plus green `PR Tests` and no failing non-gate checks, either from the event path or the 10-minute reconciler
+push/open PR -> reset to `gate: reviewing` -> Reviewer Agent reviews current head SHA and applies `gate: ready` or `gate: blocked` -> deterministic Action merges on `gate: ready` plus green `PR Tests` and no failing non-gate checks, either from the event path or the 10-minute reconciler
 ```
 
 ## Review guidelines
 
-These guide the Reviewer (Codex) on every PR review. Do not review plan, roadmap, scope, architecture-plan deviation, north-star drift, or documentation drift. Do not block on style, naming, or formatting unless it creates a concrete defect risk.
+These guide the Reviewer Agent on every PR review. Do not review plan, roadmap, scope, architecture-plan deviation, north-star drift, or documentation drift. Do not block on style, naming, or formatting unless it creates a concrete defect risk.
 
 Review focus, in priority order:
 
@@ -161,6 +172,8 @@ Use this routing:
 - MVD/data pipeline discovery -> update `docs/06_DATA_AND_MVD_PIPELINE.md`
 - Experiment result -> update `docs/07_FINDINGS_LOG.md`
 - Architecture/project decision -> update `docs/08_DECISION_LOG.md`
+- Test-case or evidence workflow change -> update `docs/09_TEST_CASES_AND_EVIDENCE.md`
+- Web/UI validation workflow change -> update `docs/10_AGENT_WEB_TESTING.md`
 
 ## Verification workflow
 
@@ -171,6 +184,13 @@ Before modifying source, define how the change will be validated. Where possible
 After implementing, run the validation again. If validation fails, fix the issue or document the blocker. Do not declare success without real output.
 
 Record terminal output, logs, metrics, screenshots, MVD-analysis output, or other evidence in the relevant doc or PR comment.
+
+For test-case driven work, keep the durable test case and log each execution as
+a test run. See `docs/09_TEST_CASES_AND_EVIDENCE.md`.
+
+For web/UI changes, validate in a real browser and record the tool, URL,
+viewport, console/network state, and screenshot or geometry evidence. See
+`docs/10_AGENT_WEB_TESTING.md`.
 
 ## Before finishing any task
 

@@ -250,6 +250,12 @@ class TestShimBotcmds(unittest.TestCase):
             ["botcmd addbot", "botcmd skill 10"],
         )
 
+    def test_signon_commands_appends_allowlisted_client_commands(self):
+        self.assertEqual(
+            qmc.signon_commands(0, ["removeall"], ["ffa", "ready"]),
+            ["botcmd removeall", "ffa", "ready"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
