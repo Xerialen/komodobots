@@ -191,6 +191,38 @@ The `--moveprobe-*` options only change behavior when the S2 KTX patch from `exp
 
 `--moveprobe-log-commands` enables the patch's sampled `FBMOVEPROBE_CMD` console rows. The runner parses those rows from `screen.log` into `moveprobe-commands.json` and `moveprobe-commands.md`, making it possible to compare the actual command values emitted by stock mode `0`, forced-jump mode `1`, fixed-command mode `2`, route-yaw modes `3`/`4`, aim-independent mode `5`, and no-backpedal mode `6`. S3e/S3f diagnostic rows also include route yaw, view yaw, yaw delta, and backward-command flags.
 
+### ztricks batch attempts
+
+For ztricks Distance tuning, prefer the batch harness over the old one-attempt
+manual loop:
+
+```bash
+python scripts/run_ztricks_batch.py --attempts 6 --attempt-seconds 8
+```
+
+What it does:
+
+1. Starts one temporary `ztricks` lab server and one MVD recording.
+2. Keeps a passive client connected so recording does not depend on each short
+   control shim.
+3. For each attempt, clears spawn-snap state, sends `botcmd removeall`, sets
+   the mode-23 Distance route cvars, restores the known A5 spawn origin, adds
+   one bot, and lets the attempt run.
+4. Copies the normal lab artifacts back under `artifacts/lab-runs/<run-id>/`.
+5. Writes `ztricks-batch-plan.*`, `ztricks-batch-execution.tsv`, and
+   `ztricks-batch-score.json/md`.
+
+The scorer can also be run on any existing compatible artifact directory:
+
+```bash
+python scripts/score_ztricks_batch.py --run-id <run-id>
+```
+
+The score is release-first: it compares each attempt to the successful
+`getspeed.qwd` formula (`vh`, lip distance, velocity yaw, target error, yaw
+lead, jump release, and landing distance). Do not treat a high raw speed or a
+near-lip pass as success unless the release formula rows also improve.
+
 ### Per-slot moveprobe cvars (LD-F1 #95)
 
 With `experiments/ktx_moveprobe/frogbot-moveprobe-perslot.patch` applied to the deployed lab KTX build, the route-defining lab cvars accept a per-slot form `k_fb_moveprobe_<param>_s<N>` for `mode`, `replay_file`, `fixed_goal`, and `spawn_origin`, where `N` is the bot's `ed` number from `FBMOVEPROBE_CMD` rows. Unset per-slot cvars fall back to the global cvar (existing single-route configs behave identically); malformed per-slot values fail loudly (`FBMOVEPROBE_PERSLOT_ERROR` row + bot held at spawn). This is what lets two bots attempt two different routes on the same map at the same time. Per-slot cvars are set through `--ktx-extra-cvars`; extra route files upload via `--extra-replay-cmds` (repeatable). When command logging is on, each bot also emits one `FBMOVEPROBE_ASSIGN` row per assignment change, and `scripts/run_frobodm2_lab.py` parses assignment + error rows into `moveprobe-assignments.json` / `moveprobe-assignments.md` beside the other run artifacts. Full convention, formats, base checksums, and apply notes: `experiments/ktx_moveprobe/README.md`.

@@ -229,6 +229,21 @@ python scripts/run_bot_lab.py --map dm3 --duration 45 --bot-count 2 --bot-spacin
 
 Each run records the mode and command values in `run.env`, `lab.cfg`, and `run-summary.md`.
 
+For ztricks Distance specifically, use the batch harness when tuning approach
+and release parameters:
+
+```bash
+python scripts/run_ztricks_batch.py --attempts 6 --attempt-seconds 8
+python scripts/score_ztricks_batch.py --run-id <run-id>
+```
+
+`run_ztricks_batch.py` keeps one temporary `ztricks` server and one MVD
+recording alive, then cycles clean single-bot attempts by clearing spawn-snap
+state, `removeall`, setting the mode-23 Distance cvars, restoring the A5 spawn
+origin, and adding one bot. `score_ztricks_batch.py` segments the resulting
+`moveprobe-commands.json` into attempts and scores each against the successful
+human `getspeed.qwd` release formula before landing distance.
+
 When command logging is enabled, the runner parses `screen.log` and writes:
 
 - `moveprobe-commands.json`

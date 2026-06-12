@@ -4299,3 +4299,84 @@ experiment is an approach-speed probe: preserve the speed-floor-gated zjump
 release, then tune the approach before the lip (start/launch route state,
 `launch_vh`, launch angle, and/or a pre-terminal acceleration segment) until
 `zjump` can reach `armed=1`.
+
+
+## 2026-06-12 -- ztricks batch harness replaces one-attempt manual loop
+
+### Finding
+
+The live ztricks tuning loop can now run multiple clean attempts inside one
+temporary server/MVD session. This is materially faster than restarting and
+documenting one jump at a time, and it produces one scored row per attempt.
+
+### Change
+
+- Added `scripts/run_ztricks_batch.py`: starts one temporary `ztricks` lab
+  server, keeps a passive client connected, cycles `removeall` / cvar setup /
+  spawn-snap / one-bot attempt rows, then runs the standard artifact pipeline.
+- Added `scripts/score_ztricks_batch.py`: segments `moveprobe-commands.json`
+  into named-bot attempts and scores each against the successful `getspeed.qwd`
+  release formula (`vh`, lip distance, velocity yaw, target error, yaw lead,
+  release rule, landing distance).
+- Documented the harness in `docs/05_HEADLESS_TEST_ENV.md`,
+  `docs/02_SOURCE_MAP.md`, and `experiments/ktx_moveprobe/README.md`.
+
+### Evidence
+
+Validation:
+
+```text
+python -m py_compile scripts\score_ztricks_batch.py scripts\run_ztricks_batch.py scripts\run_frobodm2_lab.py
+python -m unittest tests.test_score_ztricks_batch tests.test_extract_movement_metrics -v
+```
+
+Result: `21` tests passed. The new scorer tests cover time-gap splitting,
+spawn-snap splitting, nameless-row exclusion, release-formula scoring, and
+Markdown output.
+
+Live batch:
+
+- Temporarily switched `servexeri:~/nquakesv/ktx/qwprogs.so` to
+  `qwprogs-zjump-fixed-20260612T152818Z.so` for a new lab process only.
+- Ran:
+
+```text
+python scripts\run_ztricks_batch.py --attempts 3 --attempt-seconds 6 --port 28599 --strict-port
+```
+
+- Run ID: `zbatch_20260612T160053Z`.
+- Artifacts:
+  `artifacts/lab-runs/zbatch_20260612T160053Z/`.
+- Demo archived to
+  `/mnt/usb-ssd/non-games/lab/Komodobots/ztricks/zbatch_20260612T160053Z.mvd`,
+  SHA-256 `5de82275e8e0b6ca43ad5349bb9d5160359b1ddc78a51ee0d0f7d04bc383a631`.
+- Parser exits: JSON `0`, Markdown `0`, events `1` with the known
+  `qw-analyze: end of demo`.
+- `moveprobe-commands.json`: `4595` commands parsed.
+- Rescored after excluding unnamed empty-slot rows:
+  `3` real named-bot attempts.
+
+Best attempt was attempt `2` (`launch_vh=430`, `launch_angle=50`,
+`swing=14`):
+
+- max zjump speed `183.5 qu/s`.
+- closest release point `79.7q` away at `133.3 qu/s`.
+- closest landing point `332.0q` away.
+- `armed_rows=0`, `release_rows=0`.
+- classification: `approach_speed_below_release_floor`.
+
+After the run, restored the production symlink:
+
+```text
+/home/xerial/nquakesv/ktx/qwprogs-mode24-20260612T101218Z.so
+49a41cd17e5eec3aadf4b0bd1042a87214b7f8f50f65c8d7a617001ef5926418
+localhost:28599 DOWN
+```
+
+### Interpretation
+
+The efficient batch mechanism works, and the scorer now produces the row shape
+needed for attempt-to-attempt tuning. The controller did not improve: all three
+attempts stayed far below the `453 qu/s` release floor, so the next useful work
+is still approach-speed generation before the lip, not release-threshold
+relaxation or GUI changes.
