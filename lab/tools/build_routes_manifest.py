@@ -21,8 +21,10 @@ from a bare checkout, and artifacts/ is gitignored):
 
 Schema `komodobots.routes.v1`
 -----------------------------
-Per-map file `<map>.json` (maps: dm3, dm2, frobodm2, trick -- non-dm3 maps
-carry empty route lists until routes are censused there):
+Per-map file `<map>.json` (maps: dm3, dm2, frobodm2, trick, ztricks --
+non-dm3 maps carry empty route lists until routes are censused there; ztricks
+currently carries the A5 Distance route control metadata plus the successful
+11th `getspeed.qwd` human reference):
 
 {
   "schema": "komodobots.routes.v1",
@@ -96,12 +98,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import sys
 from pathlib import Path
 
 SCHEMA = "komodobots.routes.v1"
 SCHEMA_V = 1
-MAPS = ("dm3", "dm2", "frobodm2", "trick")   # dashboard map set (records_build)
+MAPS = ("dm3", "dm2", "frobodm2", "trick", "ztricks")   # dashboard map set
 POLYLINE_TARGET_HZ = 12.5    # ~5-10 Hz is plenty for display; 12.5 keeps the
                              # shortest routes comfortably dense (sng_to_rl
                              # spot check: >100 points) while staying small
@@ -111,9 +114,27 @@ CENSUS_PATH = (REPO / "experiments" / "nav_doctrine" / "evidence"
                / "trick-census" / "census.json")
 REPLAY_DIR = REPO / "experiments" / "nav_doctrine" / "evidence" / "replay"
 DEFAULT_OUT = REPO / "lab" / "dashboard" / "public" / "data" / "routes"
+ZTRICKS_A5_DIR = REPO / "experiments" / "a5_distance_standstill"
+ZTRICKS_A5_REPORT = ZTRICKS_A5_DIR / "a5-distance-standstill.md"
+ZTRICKS_ALIGNED_CMDS = ZTRICKS_A5_DIR / "getspeed-aligned.cmds"
+ZTRICKS_HUMAN_REPLAY = ZTRICKS_A5_DIR / "human-replay.json"
+ZTRICKS_ALIGNMENT_META = ZTRICKS_A5_DIR / "alignment-meta.json"
+ZTRICKS_WINNING_ATTEMPT = 11
 
 GAP_FIELDS = ("edge", "land", "required_speed", "human_speed_at_edge",
               "hard", "type")
+
+ZTRICKS_DISTANCE_CONTROL = {
+    "mode": 23,
+    "fixed_goal": 8,
+    "spawn_origin": "-3516.125 3712 -453.125",
+    "replay_file": "",
+    "cvars": {
+        "k_fb_moveprobe_s23_launch_vh": 430,
+        "k_fb_moveprobe_s23_launch_angle": 50,
+        "k_fb_moveprobe_s21_swing": 8,
+    },
+}
 
 
 def sha256_normalized(path: Path) -> str:
@@ -137,6 +158,39 @@ def parse_cmds_points(path: Path) -> list[list[float]]:
     return points
 
 
+def parse_cmd_rows(path: Path) -> list[dict]:
+    """Replay .cmds rows with position, velocity, input, and timing fields."""
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        cols = line.split()
+        if len(cols) < 14:
+            continue
+        rows.append({
+            "msec": int(float(cols[0])),
+            "origin": [float(cols[1]), float(cols[2]), float(cols[3])],
+            "velocity": [float(cols[4]), float(cols[5]), float(cols[6])],
+            "forwardmove": int(float(cols[10])),
+            "sidemove": int(float(cols[11])),
+            "upmove": int(float(cols[12])),
+            "buttons": int(float(cols[13])),
+        })
+    return rows
+
+
+def parse_cmds_fps(path: Path) -> float:
+    """Read `fps=<number>` from the replay header."""
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("#"):
+            break
+        for part in line.split():
+            if part.startswith("fps="):
+                return float(part.split("=", 1)[1])
+    return 0.0
+
+
 def downsample(points: list[list[float]], fps: float) -> list[list[float]]:
     """Every Nth frame at ~POLYLINE_TARGET_HZ, last frame always kept,
     coordinates rounded to 0.1 qu (display polyline, not a data trace)."""
@@ -147,6 +201,24 @@ def downsample(points: list[list[float]], fps: float) -> list[list[float]]:
     if (len(points) - 1) % stride != 0:
         sampled.append(points[-1])
     return [[round(c, 1) for c in p] for p in sampled]
+
+
+def horizontal_speed(row: dict) -> float:
+    vx, vy = row["velocity"][0], row["velocity"][1]
+    return math.hypot(vx, vy)
+
+
+def is_distance_landing(row: dict) -> bool:
+    """A5 locked far-platform detector, using player-origin coordinates."""
+    x, y, z = row["origin"]
+    return abs(z + 488.0) < 0.5 and x > -3100.0 and 3600.0 <= y <= 3824.0
+
+
+def find_ztricks_landing_row(rows: list[dict], lip_row: int, end_row: int) -> int:
+    for idx in range(lip_row, min(end_row, len(rows) - 1) + 1):
+        if is_distance_landing(rows[idx]):
+            return idx
+    raise ValueError("ztricks winning attempt has no far-platform landing row")
 
 
 def build_route(name: str, ent: dict, census_rel: str) -> dict:
@@ -173,6 +245,90 @@ def build_route(name: str, ent: dict, census_rel: str) -> dict:
     }
 
 
+def build_ztricks_distance_route() -> dict:
+    """Build the ztricks Distance route from the successful 11th getspeed.qwd attempt.
+
+    The A5 evidence shows speed alone is not a sufficient scalar gate for this jump:
+    the winning attempt is distinguished by release/heading geometry. Therefore the
+    gap keeps `required_speed` null while carrying the human lip speed separately.
+    """
+    human_replay = json.loads(ZTRICKS_HUMAN_REPLAY.read_text(encoding="utf-8"))
+    alignment = json.loads(ZTRICKS_ALIGNMENT_META.read_text(encoding="utf-8"))
+    rows = parse_cmd_rows(ZTRICKS_ALIGNED_CMDS)
+    fps = parse_cmds_fps(ZTRICKS_ALIGNED_CMDS)
+
+    attempt = next(
+        a for a in human_replay["attempt_table"]
+        if a["attempt"] == ZTRICKS_WINNING_ATTEMPT
+    )
+    start_row, attempt_end_row = attempt["rows"]
+    lip_row = attempt["lip_row"]
+    landing_row = find_ztricks_landing_row(rows, lip_row, attempt_end_row)
+    segment = rows[start_row:landing_row + 1]
+    active_rows = [
+        r for r in segment
+        if r["forwardmove"] or r["sidemove"] or r["upmove"] or r["buttons"]
+    ]
+    speeds = [horizontal_speed(r) for r in segment]
+    active_speeds = [horizontal_speed(r) for r in active_rows] or speeds
+    points = [r["origin"] for r in segment]
+
+    route_rel = ZTRICKS_A5_REPORT.relative_to(REPO).as_posix()
+    cmds_rel = ZTRICKS_ALIGNED_CMDS.relative_to(REPO).as_posix()
+    human_replay_rel = ZTRICKS_HUMAN_REPLAY.relative_to(REPO).as_posix()
+    alignment_rel = ZTRICKS_ALIGNMENT_META.relative_to(REPO).as_posix()
+
+    return {
+        "name": "distance_standstill",
+        "human": {
+            "duration_s": round(sum(r["msec"] for r in segment) / 1000.0, 3),
+            "active_mean_speed": round(sum(active_speeds) / len(active_speeds), 1),
+            "peak_speed": round(max(speeds), 1),
+        },
+        "polyline": downsample(points, fps),
+        "gaps": [
+            {
+                "edge": [round(c, 1) for c in rows[lip_row]["origin"]],
+                "land": [round(c, 1) for c in rows[landing_row]["origin"]],
+                "required_speed": None,
+                "human_speed_at_edge": round(attempt["lip_vh"], 1),
+                "hard": True,
+                "type": "distance_standstill",
+            }
+        ],
+        "teleports": [],
+        "source": {
+            "census": route_rel,
+            "cmds": cmds_rel,
+            "cmds_sha256": sha256_normalized(ZTRICKS_ALIGNED_CMDS),
+            "human_replay": human_replay_rel,
+            "human_replay_sha256": sha256_normalized(ZTRICKS_HUMAN_REPLAY),
+            "alignment_meta": alignment_rel,
+            "alignment_meta_sha256": sha256_normalized(ZTRICKS_ALIGNMENT_META),
+        },
+        "reference": {
+            "demo": "getspeed.qwd",
+            "demo_sha256": alignment["sha256"],
+            "attempt": ZTRICKS_WINNING_ATTEMPT,
+            "attempt_rows": attempt["rows"],
+            "route_rows": [start_row, landing_row],
+            "lip_row": lip_row,
+            "landing_row": landing_row,
+            "lip_speed": round(attempt["lip_vh"], 1),
+            "landing_speed": round(horizontal_speed(rows[landing_row]), 1),
+            "launch_heading_deg": round(attempt["launch_heading_deg"], 1),
+            "jump_bit_at_lip": bool(attempt["jump_bit_at_lip"]),
+            "landed_recorded": bool(attempt["landed_recorded"]),
+            "landed_sim": bool(attempt["landed_sim"]),
+            "required_speed_note": (
+                "Speed alone is not sufficient; A5 identifies terminal "
+                "release heading/geometry as the decisive gate."
+            ),
+        },
+        "control": ZTRICKS_DISTANCE_CONTROL,
+    }
+
+
 def build_manifests() -> dict[str, dict]:
     """All five output documents, keyed by file name."""
     census = json.loads(CENSUS_PATH.read_text(encoding="utf-8"))
@@ -190,6 +346,8 @@ def build_manifests() -> dict[str, dict]:
         if map_name == "dm3":
             routes = [build_route(name, census[name], census_rel)
                       for name in sorted(census)]
+        elif map_name == "ztricks":
+            routes = [build_ztricks_distance_route()]
         out[f"{map_name}.json"] = {
             "schema": SCHEMA,
             "v": SCHEMA_V,

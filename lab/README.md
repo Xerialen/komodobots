@@ -36,16 +36,20 @@ python scripts/ld_g2_golden_path.py --live
 2. `komodobots.maps.v1` + GLB structural — magic bytes, version 2 header,
    declared/actual file size match, `asset.extras.source_bsp_sha256` vs
    `maps.json` provenance record.
-3. `komodobots.verdicts.v1` seed + `records_build.SCHEMA` constant alignment.
-4. Deploy expected file-set — pane files, top-level `dm3.obj` / `.cmds`,
-   per-map GLB/OBJ, routes JSON files all committed.
+3. `komodobots.map_entities.v1` contract — imported mvd_analyzer map-entity
+   files for `dm2`, `dm3`, `e1m2`, `phantombase`, `schloss`, and `ztricks`,
+   with entity/type counts checked against `index.json`.
+4. `komodobots.verdicts.v1` seed + `records_build.SCHEMA` constant alignment.
+5. Deploy expected file-set — pane files, top-level `dm3.obj` / `.cmds`,
+   per-map GLB/OBJ, routes JSON files, and map-entity JSON files all committed.
 
 **Live checks** (skipped offline, `--live` flag, run in a declared lab slot):
 
-5. Telemetry WebSocket frame validation (`ws://servexeri:8770`).
-6. Deployed `records.json` schema check (`http://servexeri:8095`).
+6. Telemetry WebSocket frame validation (`ws://servexeri:8770`).
+7. Deployed `records.json` schema check (`http://servexeri:8095`).
 
-Tests: `tests/test_ld_g2_golden_path.py` (42 tests, including broken-fixture
+Tests: `tests/test_ld_g2_golden_path.py` plus
+`tests/test_import_map_entities.py` (including broken-fixture
 negative controls that ensure wrong GLB magic / bad verdict / missing route
 fields each produce loud, specific errors).
 
@@ -149,15 +153,19 @@ mirrored into the URL as `?views=demo,live3d` (shareable layouts). On load an ex
 ### Routes manifests (`public/data/routes/`, LD-C1)
 
 The canonical "what routes exist" feed for the Mockup view, KPI dock and control
-drawer: per-map JSON (`dm3.json`, `dm2.json`, `frobodm2.json`, `trick.json`) plus
-`index.json`, schema `komodobots.routes.v1`. Built from the committed trick census
+drawer: per-map JSON (`dm3.json`, `dm2.json`, `frobodm2.json`, `trick.json`,
+`ztricks.json`) plus `index.json`, schema `komodobots.routes.v1`. Built from the committed trick census
 (`experiments/nav_doctrine/evidence/trick-census/census.json`) and the committed human
 replay trajectories (`experiments/nav_doctrine/evidence/replay/dm3_<route>.cmds`) —
 the dashboard never parses experiment-internal files ad hoc. Each dm3 route carries
 human stats (duration, active-mean/peak speed), a downsampled display polyline, gap
 markers (edge/land, `required_speed` vs `human_speed_at_edge`), teleports, and source
 provenance with sha256 hashes. Non-dm3 maps are honest empty route lists until routes
-are censused there.
+are censused there, except `ztricks`, which carries the `distance_standstill`
+route built from the successful 11th `getspeed.qwd` attempt (`route_rows`
+`1807..1969`, lip speed `475.2`, launch heading `-11.7`). Its
+`required_speed` stays `null` because A5 showed speed alone does not decide the
+jump; release heading/geometry is the gate.
 
 The manifests are committed and deterministic. Regenerate after a census/replay
 change (the unit test fails if they go stale):
@@ -168,6 +176,33 @@ python lab/tools/build_routes_manifest.py   # rewrites lab/dashboard/public/data
 
 Full schema in the `lab/tools/build_routes_manifest.py` header; tests in
 `tests/test_build_routes_manifest.py`.
+
+### Map entities (`public/data/map_entities/`)
+
+Static map context from upstream `mvd_analyzer` is committed as a separate
+dashboard data layer: per-map JSON plus `index.json`, schema
+`komodobots.map_entities.v1`. The current import covers `dm2`, `dm3`, `e1m2`,
+`phantombase`, `schloss`, and `ztricks`; upstream already includes `ztricks`.
+This data is independent from routes and meshes, so maps can have entity data
+before they have censused routes or committed GLB assets.
+
+`MockupPane.tsx` consumes this layer when present: it overlays static entities
+in the 3D scene and shows nearest static entity context for the selected route's
+start, final edge, and landing. ztricks Distance uses this to expose its
+teleporter/landing context beside the successful `getspeed.qwd` human reference.
+
+Regenerate from the sibling `mvd_analyzer` checkout:
+
+```bash
+python lab/tools/import_map_entities.py \
+  --source-repo C:/Users/benya/projects/quakeworld/tools/mvd_analyzer \
+  --ref upstream/main
+```
+
+The importer records repo/ref/commit/path and entity/type counts in
+`public/data/map_entities/index.json`. The golden-path harness validates the
+committed files; the importer tests use a temporary git repo so CI does not need
+the real sibling checkout.
 
 ### Demo pane (LD-D2, #94) — `public/panes/demo.html`
 
@@ -232,6 +267,10 @@ built deterministically by `lab/tools/bsp_to_obj.py` from the non-committed `.bs
 files (see `docs/06_DATA_AND_MVD_PIPELINE.md` § Map meshes). The top-level
 `public/dm3.obj` is the legacy one-off export the deployed viewer still loads; it is
 superseded by `maps/dm3.obj` once #97 switches the viewer to `maps/`.
+
+`public/data/map_entities/` carries static entity context imported from upstream
+`mvd_analyzer`, including `ztricks`; see `docs/06_DATA_AND_MVD_PIPELINE.md` § Map
+entity corpus.
 
 ## Control bridge (LD-F2, #96)
 

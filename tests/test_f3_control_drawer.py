@@ -346,6 +346,47 @@ class TestManifestPath(unittest.TestCase):
         self.assertIn("/botlab/data/routes/", mockup_src)
 
 
+class TestUnifiedRouteControls(unittest.TestCase):
+    """Trickjumps should stay represented as routes in the per-bot control row."""
+
+    DRAWER_SRC = (
+        Path(__file__).resolve().parents[1]
+        / "lab" / "dashboard" / "src" / "ControlDrawer.tsx"
+    )
+
+    def test_ztricks_distance_is_a_route_not_a_trick_preset(self):
+        src = self.DRAWER_SRC.read_text(encoding="utf-8")
+        self.assertIn('ztricks: ["distance_standstill"]', src)
+        self.assertNotIn("ztricks_distance_standstill", src)
+        self.assertIn("configureBotRoute", src)
+        self.assertNotIn("TRICK_PRESETS", src)
+        self.assertNotIn("selectedTrick", src)
+
+    def test_bot_row_exposes_route_behavior_controls(self):
+        src = self.DRAWER_SRC.read_text(encoding="utf-8")
+        for text in ("try selected route", "loop selected route", "hold this bot still", "respawn this bot"):
+            self.assertIn(text, src)
+
+    def test_session_start_clears_old_frame_suppression(self):
+        src = self.DRAWER_SRC.read_text(encoding="utf-8")
+        self.assertIn("suppressedFrameSlotsRef.current.clear();", src)
+        self.assertIn("function pruneUnassignedPlaceholders", src)
+
+    def test_route_assignment_clears_spawn_origin_before_rewriting(self):
+        src = self.DRAWER_SRC.read_text(encoding="utf-8")
+        clear_call = 'client.setCvar("k_fb_moveprobe_spawn_origin", "", slot)'
+        rearm_wait = "SPAWN_REARM_WAIT_MS"
+        route_call = 'client.setCvar("k_fb_moveprobe_spawn_origin", spawnOrigin, slot)'
+        self.assertIn(clear_call, src)
+        self.assertIn(rearm_wait, src)
+        self.assertIn(route_call, src)
+        clear_idx = src.index(clear_call)
+        wait_idx = src.index(rearm_wait, clear_idx)
+        route_idx = src.index(route_call)
+        self.assertLess(clear_idx, wait_idx)
+        self.assertLess(wait_idx, route_idx)
+
+
 # ---------------------------------------------------------------------------
 # 6. ASSIGN upsert — roster identity from server truth (Codex P1-2 fix, #145)
 # ---------------------------------------------------------------------------
@@ -385,10 +426,11 @@ def _apply_assign_upsert(
     existing_idx = next((i for i, b in enumerate(prev) if b["slot"] == ed), -1)
     if existing_idx != -1:
         result = list(prev)
+        previous = result[existing_idx]
         result[existing_idx] = {
-            **result[existing_idx],
+            **previous,
             "name": assign["name"],
-            "assignedRoute": route_id,
+            "assignedRoute": route_id or previous.get("pendingRoute") or previous.get("assignedRoute"),
             "pendingRoute": None,
         }
         return result
@@ -397,16 +439,52 @@ def _apply_assign_upsert(
     placeholder_idx = next((i for i, b in enumerate(prev) if b["slot"] == -1), -1)
     if placeholder_idx != -1:
         result = list(prev)
+        previous = result[placeholder_idx]
         result[placeholder_idx] = {
             "slot": ed,
             "name": assign["name"],
-            "assignedRoute": route_id,
+            "assignedRoute": route_id or previous.get("pendingRoute") or previous.get("assignedRoute"),
             "pendingRoute": None,
         }
         return result
 
     # No placeholder — append (page reload / existing session).
     return prev + [{"slot": ed, "name": assign["name"], "assignedRoute": route_id, "pendingRoute": None}]
+
+
+def _prune_unassigned_placeholders(rows: list[dict]) -> list[dict]:
+    """Mirrors ControlDrawer.tsx pruneUnassignedPlaceholders."""
+    if not any(row["slot"] != -1 for row in rows):
+        return rows
+    return [
+        row for row in rows
+        if row["slot"] != -1 or row.get("assignedRoute") is not None or row.get("pendingRoute") is not None
+    ]
+
+
+def _apply_frame_upsert(prev: list[dict], frame: dict) -> list[dict]:
+    """Mirrors ControlDrawer.tsx live frame roster fallback."""
+    ed = frame["ed"]
+    existing_idx = next((i for i, b in enumerate(prev) if b["slot"] == ed), -1)
+    if existing_idx != -1:
+        result = list(prev)
+        if result[existing_idx].get("name") != frame["name"]:
+            result[existing_idx] = {**result[existing_idx], "name": frame["name"]}
+        return _prune_unassigned_placeholders(result)
+
+    placeholder_idx = next((i for i, b in enumerate(prev) if b["slot"] == -1), -1)
+    if placeholder_idx != -1:
+        result = list(prev)
+        previous = result[placeholder_idx]
+        result[placeholder_idx] = {
+            "slot": ed,
+            "name": frame["name"],
+            "assignedRoute": previous.get("pendingRoute") or previous.get("assignedRoute"),
+            "pendingRoute": None,
+        }
+        return result
+
+    return prev + [{"slot": ed, "name": frame["name"], "assignedRoute": None, "pendingRoute": None}]
 
 
 class TestAssignUpsert(unittest.TestCase):
@@ -476,6 +554,46 @@ class TestAssignUpsert(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["slot"], 3)
         self.assertIsNone(result[0]["assignedRoute"])
+
+    def test_upsert_null_replay_file_preserves_pending_control_route(self):
+        """Control-only routes such as ztricks mode 23 have no replay file but
+        should still clear pending and keep the operator-selected route."""
+        prev = [{"slot": 5, "name": "", "assignedRoute": None, "pendingRoute": "distance_standstill"}]
+        assign = {"ed": 5, "name": "", "replay_file": None}
+        result = _apply_assign_upsert(prev, assign)
+        self.assertEqual(result[0]["assignedRoute"], "distance_standstill")
+        self.assertIsNone(result[0]["pendingRoute"])
+
+    def test_placeholder_null_replay_file_preserves_bridge_route_label(self):
+        """Bridge-backed ztricks action clears/readds a bot and may emit no
+        replay file; the provisional row should not become unassigned."""
+        prev = [{"slot": -1, "name": "...", "assignedRoute": "distance_standstill", "pendingRoute": None}]
+        assign = {"ed": 3, "name": "", "replay_file": None}
+        result = _apply_assign_upsert(prev, assign)
+        self.assertEqual(result[0]["slot"], 3)
+        self.assertEqual(result[0]["assignedRoute"], "distance_standstill")
+        self.assertIsNone(result[0]["pendingRoute"])
+
+    def test_frame_upsert_prunes_dangling_unassigned_placeholder(self):
+        """If live rows already exist, an addbot placeholder must not remain as
+        an extra s?? card forever."""
+        prev = [
+            {"slot": 3, "name": "/ bro", "assignedRoute": None, "pendingRoute": None},
+            {"slot": -1, "name": "...", "assignedRoute": None, "pendingRoute": None},
+        ]
+        result = _apply_frame_upsert(prev, {"ed": 3, "name": "/ bro"})
+        self.assertEqual([row["slot"] for row in result], [3])
+
+    def test_frame_upsert_preserves_route_labeled_placeholder(self):
+        """Bridge-backed route placeholders keep their route label until a live
+        frame can adopt them."""
+        prev = [
+            {"slot": 3, "name": "/ old", "assignedRoute": None, "pendingRoute": None},
+            {"slot": -1, "name": "...", "assignedRoute": "distance_standstill", "pendingRoute": None},
+        ]
+        result = _apply_frame_upsert(prev, {"ed": 3, "name": "/ old"})
+        self.assertEqual([row["slot"] for row in result], [3, -1])
+        self.assertEqual(result[1]["assignedRoute"], "distance_standstill")
 
     def test_upsert_two_bots_two_distinct_routes(self):
         """Golden path: two bots, two ASSIGN rows, each with a distinct route."""

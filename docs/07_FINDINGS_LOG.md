@@ -3778,3 +3778,385 @@ exists" is only partially complete until #157 is fixed.
 Fix #157 first because stale roster rows can cause operator mistakes during the
 otherwise-working ztricks loop. Then fix #158 so the primary watch-live story is
 visually complete. Retest with the same test run artifact as the checklist.
+
+
+## 2026-06-12 -- ztricks Distance route reaches mode 23 but emits zero movement
+
+### Finding
+
+The BotLab GUI and control bridge can route the `distance_standstill` try action
+to live KTX, but the current ztricks mode-23 controller does not produce a real
+movement attempt. The apparent KPI speed bump is not sufficient evidence of a
+try; raw command rows show `move=0,0,0`.
+
+### Evidence
+
+Live session `dash_20260612T113124Z` on `ztricks`/port `28599`:
+
+- Browser panel showed `route distance_standstill selected - bot is standing still until try`.
+- Pressing **try** showed `trying distance_standstill`.
+- Raw `screen.log`/telemetry rows showed mode 23 active for ed `3` and `5`, but final commands stayed zero:
+
+```text
+FBMOVEPROBE_CMD ... ed=5 name=/ bro mode=23 ... move=0,0,0 buttons=0 ... route=65,65,44,8,0,128,0,0.000 ... origin=-3429.873,3692.024,-487.969
+FBMOVEPROBE_CMD ... ed=3 name= mode=23 ... move=0,0,0 buttons=0 ... route=1,1,0,-1,1048576,0,0,0.000 ... origin=-1168.000,1632.000,-574.969
+```
+
+Bridge/UI fixes made during the investigation:
+
+- ztricks Distance remains a normal dashboard route, but its try action can use the bridge-backed `ztricks_distance_standstill` compatibility action.
+- The bridge action now stamps route state onto per-slot moveprobe cvars before setting mode 23, so stale practice-idle suffixes no longer keep reused ed slots in mode 24.
+- The live `kbot-telemetry` sidecar was redeployed/restarted with the updated bridge.
+
+Verification:
+
+- `npm run build` in `lab/dashboard`: passed.
+- `python -m pytest tests\test_control_bridge.py tests\test_f3_control_drawer.py tests\test_build_routes_manifest.py`: 130 passed.
+
+### Bug Registered
+
+- #166: ztricks distance route enters mode 23 but emits zero movement.
+
+### Interpretation
+
+The "nothing happens" symptom is no longer a GUI button or bridge delivery bug.
+It is a route/controller capability gap: mode 23 is active on ztricks Distance
+but emits no final movement command in the live build. The A5 report already
+warns that the deployed mode-23 law did not solve this jump in sim (`0/4860`
+landings), so the next fix should either wire this route to a proven replay path
+or implement the missing terminal-carve/release controller work.
+
+
+## 2026-06-12 -- Browser validation of session, map, route, and add-bot flows
+
+### Finding
+
+The BotLab control drawer can now survive the operator flow of stopping a
+session, starting a different map, selecting and changing routes, and adding
+bots without leaving stale `s??` placeholder cards in the roster.
+
+### Evidence
+
+Browser target:
+`http://127.0.0.1:5173/botlab/?views=game&ws=ws%3A%2F%2F127.0.0.1%3A8771`.
+
+Validated in the Codex browser:
+
+- Stopped active `ztricks` session `dash_20260612T113124Z`; control returned to
+  `SESSION FREE` with no bot rows.
+- Started `dm3` session `dash_20260612T114209Z`; selecting `sng_to_rl` for bot
+  `s7` enabled per-bot route controls, then changing the same bot to `hilljump`
+  preserved the same bot card and showed
+  `route hilljump selected - bot is standing still until try`.
+- Pressed **+ add** on `dm3`; roster changed from `s7`, `s5`, `s3` to `s7`,
+  `s5`, `s3`, `s4` with no `??` placeholder.
+- Stopped `dm3`, selected `ztricks` from the map dropdown, and started
+  `ztricks` session `dash_20260612T114804Z`.
+- Pressed **+ add** on `ztricks`; roster showed real bot cards `s5`, `s3`,
+  `s7` with no `??` placeholder.
+- Selected `distance_standstill` on the first ztricks bot; its **try** and
+  **loop** buttons became enabled while unassigned bots stayed disabled.
+
+Code fix:
+
+- `session_start`/`session_stop` now clear stale frame-suppression state instead
+  of suppressing newly reused ed slots.
+- Live-frame and ASSIGN upserts prune unlabeled provisional rows once real bot
+  rows exist, while preserving route-labeled placeholders such as the ztricks
+  bridge route.
+
+Verification:
+
+- `npm run build` in `lab/dashboard`: passed.
+- `python -m pytest tests\test_f3_control_drawer.py tests\test_build_routes_manifest.py tests\test_control_bridge.py`: 133 passed.
+
+### Interpretation
+
+The control-drawer operator story is now usable for session start/stop, map
+change, route selection, route change, and add-bot roster reconciliation. The
+known remaining issue is still #166: pressing **try** for `distance_standstill`
+reaches mode 23 but the controller emits zero movement.
+
+
+## 2026-06-12 -- ztricks Distance per-bot try emits movement again
+
+### Finding
+
+The zero-command symptom from `dash_20260612T113124Z` was a control-path problem,
+not proof that mode 23 could no longer emit movement. ztricks Distance still had
+a legacy route `game_command` override, so the per-bot **try** button was secretly
+using the old global remove-all/add-one preset instead of configuring the
+selected bot like every other route. The bridge also stuffed space-separated
+`spawn_origin` cvar values without quotes on the generic per-bot `set_cvar`
+path.
+
+### Fix
+
+- Removed `control.game_command` from the generated ztricks Distance route
+  manifest; per-bot **try** now uses the route cvar sequence in
+  `ControlDrawer.configureBotRoute`.
+- Removed the UI-side `control?.game_command` shortcut so routes cannot bypass
+  the selected-bot path.
+- Added `format_set_cvar_command()` in the control bridge so validated values
+  containing spaces are quoted before being stuffed into the Quake console.
+- Redeployed `lab/server/control_bridge.py` to
+  `servexeri:~/komodobots-lab/sidecar/control_bridge.py` and restarted the
+  `kbot-telemetry` sidecar.
+
+### Evidence
+
+Browser retry against
+`http://127.0.0.1:5173/botlab/?views=game&ws=ws%3A%2F%2F127.0.0.1%3A8771`:
+
+- Confirmed stale takeover after sidecar restart.
+- Started clean ztricks session `dash_20260612T120449Z` on port `28600`.
+- Selected `distance_standstill` on bot `s5`; panel showed
+  `route distance_standstill selected - bot is standing still until try`.
+- Pressed the same row's **try**; panel showed `trying distance_standstill` and
+  roster stayed `s5`, `s3` rather than removing/readding bots.
+- Server log showed per-slot assignment and nonzero mode-23 commands:
+
+```text
+FBMOVEPROBE_ASSIGN ... ed=5 ... mode=23 mode_src=slot ... fixed_goal=8 goal_src=slot spawn_origin=-3516.125,3712,-453.125 spawn_src=slot
+FBMOVEPROBE_CMD ... ed=5 ... mode=23 ... move=320,0,0 buttons=1 ... origin=-3516.125,3712.000,-453.125
+```
+
+Verification:
+
+- `npm run build` in `lab/dashboard`: passed.
+- `python -m pytest tests\test_control_bridge.py tests\test_build_routes_manifest.py tests\test_f3_control_drawer.py`: 134 passed.
+
+### Interpretation
+
+The specific "selected route + try does nothing" GUI/bridge failure is fixed and
+retested. The controller still needs movement-quality work: mode 23 now launches
+again from the A5 start, but this does not mean the ztricks Distance jump is
+solved or landed.
+
+
+## 2026-06-12 -- mvd_analyzer map entities imported for BotLab
+
+### Finding
+
+Upstream `mvd_analyzer` already has static map-entity JSON for the requested
+maps and for `ztricks`; no local ztricks entity generation was needed. The
+source ref used for this import is
+`galfthan/mvd_analyzer` `upstream/main`
+`dbfee83f457946c93e941c4a0b76efd25183d25e`.
+
+Imported entity counts:
+
+- `dm2`: 70
+- `dm3`: 61
+- `e1m2`: 117
+- `phantombase`: 61
+- `schloss`: 57
+- `ztricks`: 35
+
+### Change
+
+- Added `lab/tools/import_map_entities.py` to copy the upstream
+  `mvd-analytics/mapents/data/<map>.json` files into BotLab public data and
+  write `komodobots.map_entities.v1` provenance/counts.
+- Committed `lab/dashboard/public/data/map_entities/{dm2,dm3,e1m2,phantombase,schloss,ztricks,index}.json`.
+- Extended `scripts/ld_g2_golden_path.py` so the offline dashboard harness
+  validates the map-entity corpus, including required presence of `ztricks`.
+- Added importer and harness tests.
+
+### Evidence
+
+- `python lab\tools\import_map_entities.py --source-repo C:\Users\benya\projects\quakeworld\tools\mvd_analyzer --ref upstream/main`: wrote six map files plus `index.json`.
+- `python -m pytest tests\test_import_map_entities.py tests\test_ld_g2_golden_path.py`: 55 passed.
+
+### Interpretation
+
+BotLab now has a reusable static map context layer separate from routes and
+meshes. `e1m2`, `phantombase`, and `schloss` have entity data available even
+though they do not yet have committed BotLab meshes or censused routes.
+
+
+## 2026-06-12 -- Mockup consumes ztricks map entities
+
+### Finding
+
+The imported map-entity corpus can already give useful route-authoring context
+for ztricks Distance. The route starts within 32 qu of upstream
+`tele-dst-1`, and the successful human landing point is nearest to upstream
+`tele-src-3` within 200 qu. That is enough to display the route's surrounding
+teleporter context directly in BotLab without inventing a separate ztricks
+schema.
+
+### Change
+
+- Added `ztricks` to the Mockup map selector.
+- Mockup now fetches `public/data/map_entities/<map>.json`, overlays static
+  entities in the Three.js scene, and shows per-map entity counts.
+- Selected-route detail now shows nearest static entities for route start,
+  final edge, and landing.
+- Null route metrics render as `n/a`; LiveMetricsPanel skips null human-speed
+  anchors and null required-speed gaps instead of coercing them to zero.
+
+### Evidence
+
+- `python -m pytest tests\test_mockup_context.py tests\test_live_metrics_panel.py tests\test_import_map_entities.py tests\test_ld_g2_golden_path.py`: 142 passed.
+- `npm run build` in `lab/dashboard`: passed, with the existing Vite chunk-size warning.
+- Codex browser validation on
+  `http://127.0.0.1:5173/botlab/?views=mockup`: selected `ztricks` and
+  `distance_standstill`; route detail rendered `dur 2.12 s`, `mean 388 qu/s`,
+  `peak 496 qu/s`, `req n/a hu 475`, `start tele-dst-1 teleportDst 27q`,
+  `edge tele-dst-1 teleportDst 172q`, and `land tele-src-3 teleportSrc 180q`;
+  entity summary rendered `35 total`, `spawn 1`, `teleportDst 8`,
+  `teleportSrc 26`.
+- Canvas screenshot crop pixel check passed: 480x500 canvas crop, 12,000
+  sampled pixels, 860 unique sampled colors, 1,791 bright samples, nonblank =
+  true.
+
+### Interpretation
+
+ztricks Distance is now inspectable in Mockup as a normal route with static
+teleporter/landing context. This does not yet add a scoring zone or new
+controller behavior; it makes the static context visible and contract-tested so
+the next scoring step can consume the same data.
+
+
+## 2026-06-12 -- ztricks route manifest promoted the successful getspeed.qwd attempt
+
+### Finding
+
+The human reference for ztricks Distance is present locally and already analyzed
+by A5. It is `C:\nQuake\qw\matchinfo\demos\getspeed.qwd`, sha256
+`dfb893a32d24b0aec5a5a94a94b16cee9cd42dcdd6602c6a093c5f21e9988307`: ten failed
+Distance attempts followed by a successful 11th attempt.
+
+A5's validated replay data identifies the successful route segment as rows
+`1807..1969`, with lip row `1918`, landing row `1969`, lip speed `475.2`,
+landing speed `495.5`, and launch heading `-11.7`. Both recorded and simulated
+replays land the far platform.
+
+### Change
+
+- `lab/tools/build_routes_manifest.py` now derives `ztricks.json`
+  `distance_standstill` from A5's committed `human-replay.json`,
+  `alignment-meta.json`, and `getspeed-aligned.cmds`.
+- The route manifest now carries the start-to-landing human polyline, duration
+  `2.116`, active mean speed `388.4`, peak speed `495.5`, human edge speed
+  `475.2`, and a `reference` block with attempt/row/heading/sha evidence.
+- `required_speed` intentionally remains null because A5 showed speed alone is
+  not a sufficient success gate for this jump; release heading/geometry is the
+  decisive dimension.
+
+### Evidence
+
+- `python lab\tools\build_routes_manifest.py`: regenerated `ztricks.json` with
+  one route and 28 polyline points.
+- `python -m pytest tests\test_build_routes_manifest.py tests\test_mockup_context.py tests\test_live_metrics_panel.py tests\test_import_map_entities.py tests\test_ld_g2_golden_path.py`: 166 passed.
+- Codex browser validation on
+  `http://127.0.0.1:5173/botlab/?views=mockup`: selected `ztricks` and
+  `distance_standstill`; the detail panel showed the successful-reference
+  metrics (`dur 2.12 s`, `mean 388 qu/s`, `peak 496 qu/s`, `req n/a hu 475`)
+  and current static context (`start tele-dst-1`, `edge tele-dst-1`,
+  `land tele-src-3`). Canvas crop was nonblank.
+
+### Interpretation
+
+BotLab now has the perfect human ztricks Distance reference in the same route
+manifest layer as the other routes. The next scoring/controller step should
+compare bot attempts to the successful QWD segment's lip row, landing row,
+speed, and launch heading rather than treating the jump as an abstract
+standstill distance preset.
+
+
+## 2026-06-12 -- live ztricks route attempts re-arm, but controller misses the landing
+
+### Finding
+
+The browser-to-bridge route flow can now assign and repeat the ztricks
+`distance_standstill` route as a normal per-bot route, but the deployed mode-23
+controller still does not complete the jump.
+
+### Change
+
+- `ControlDrawer.tsx` clears per-slot `spawn_origin`, waits one sampled frame,
+  then restores the route spawn before flipping the bot into route mode. This
+  gives KTX a real assignment edge for repeated tries of the same route.
+- `control_bridge.py` now formats empty cvar values as `set name ""` and reports
+  the exact stuffed command in control responses/audit details.
+
+### Evidence
+
+- `python -m pytest tests\test_control_bridge.py tests\test_f3_control_drawer.py`:
+  113 passed.
+- `npm run build` in `lab/dashboard`: passed, with the existing Vite chunk-size
+  warning.
+- Bridge redeployed to `servexeri` sidecar `kbot-telemetry`; fresh session
+  `dash_20260612T135158Z` started on port `28599`.
+- Browser selected `distance_standstill` for `s3` and pressed **try**. Server
+  emitted slot-sourced `FBMOVEPROBE_ASSIGN` rows, then `113` mode-23 rows with
+  `21` nonzero command rows. Closest configured spawn distance was about
+  `10.5q`, closest lip distance about `94.3q`, and closest landing distance
+  about `137.9q`; max x reached `-3156.651` versus human landing x `-3044.1`.
+- Pressing **try** again on the same selected route emitted fresh clear/restore
+  ASSIGN rows and nonzero movement again, proving the repeated-try standstill
+  failure is no longer the active UI/bridge failure. The repeat still missed:
+  closest landing distance was about `172.5q`.
+- Created GitHub issue #167 for the remaining controller/route-reproduction
+  failure.
+
+### Interpretation
+
+The next bottleneck is no longer "did the GUI make the bot try?" It is that
+mode 23 is not reproducing the human ztricks release geometry/heading well
+enough to land. The next useful experiment should compare the mode-23 command
+and origin trace against A5's successful `getspeed.qwd` rows around the lip and
+landing, not add more dashboard controls.
+
+
+## 2026-06-12 -- live ztricks attempt reaches the lip with speed but wrong heading
+
+### Finding
+
+The live one-attempt loop is useful, but the deployed mode-23 controller is
+missing the control primitive needed for the ztricks Distance jump. In a fresh
+dashboard-owned `ztricks` session (`dash_20260612T142054Z`, port `28600`), the
+bot reached the successful human lip neighborhood with enough speed, but its
+travel heading was almost perpendicular to the required release line and the
+jump bit did not fire there.
+
+### Evidence
+
+Baseline live retry on `/ bro` (`ed=3`) used the current dashboard route
+settings: spawn snap `-3516.125 3712 -453.125`, mode `23`, fixed goal `8`,
+`k_fb_moveprobe_s23_launch_vh 430`, `k_fb_moveprobe_s23_launch_angle 50`, and
+`k_fb_moveprobe_s21_swing 8`.
+
+- The server emitted `482` ed-3 mode-23 command rows from time `70.725` to
+  `76.825`; `443` rows had nonzero command output and `3` rows carried the
+  jump bit.
+- Closest pass to the successful human release point was only `6.0q` away:
+  `t=71.752`, origin `(-3354.980, 3775.733, -487.969)`, horizontal speed
+  `457.1`, velocity heading `84.6 deg`, yaw `134.6`, buttons `1`.
+- Human reference for the same release: origin about
+  `(-3360.8, 3777.2, -487.969)`, speed `475.2`, launch heading `-11.7 deg`,
+  jump bit on at the lip row.
+- The first actual jump bit in the live retry happened later and in the wrong
+  state: `t=74.684`, origin `(-3362.6, 3718.1, -487.969)`, speed `153.0`,
+  heading `133.8 deg`.
+- The closest observed approach to the human landing point remained `191.6q`
+  away (`t=72.639`, origin `(-3225.2, 3698.1, -539.3)`).
+
+One manual follow-up tried `k_fb_moveprobe_fixed_goal_s3 44`, the far marker on
+the successful y-band in the generated `ztricks.bot`. That run emitted `548`
+mode-23 rows from time `459.882` to `466.988`, but stayed at spawn with zero
+movement and zero jump rows (`dir_speed=0.000`), so changing only the fixed
+goal is not enough with the current generated graph/controller.
+
+### Interpretation
+
+This is not a raw-speed problem and not a "try button did nothing" problem. The
+live controller can move, and it can even arrive near the lip with about the
+right speed. It cannot synchronize the final mouse/yaw direction, strafe
+wishdir, and jump timing into the human terminal carve. A5 round 2 already
+showed the required missing idea in sim: terminal carve plus a release-speed
+floor. The live side now confirms that the next useful change is a default-off
+KTX control primitive for that terminal carve/release rule, exposed through the
+route settings, followed by the same one-attempt live loop.

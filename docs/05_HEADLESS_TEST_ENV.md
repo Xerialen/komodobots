@@ -397,20 +397,21 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   28599–28609 only; production 28501/28502/28503 and `qw_*` screens flat-denied;
   cvar/console allowlists; the `game_command` op is a separate allowlisted enum for
   KTX game controls (`4on4`, `2on2`, `1on1`, `ffa`, `dmm1`–`dmm4`, powerups on/off,
-  `ready`, `break`) and the guarded `ztricks_distance_standstill` lab preset rather
-  than a broad raw-command escape hatch. Dashboard session start is deliberately not
+  `ready`, `break`) and legacy guarded lab presets rather than a broad raw-command
+  escape hatch. Dashboard session start is deliberately not
   "start game": it seeds the practice roster in moveprobe mode `24`, assigns separated
   spawn-snap origins for maps with known safe starts (`dm3`, `ztricks`), clears the
   global spawn cvar after seeding, and suppresses movement/jump/firing so unassigned
   bots wait quietly until route assignment. The game-control `start` command clears the global
   practice idle mode, unlocks normal bot weapons, and readies the match; `stop` breaks
-  the match and restores quiet practice posture. The ztricks preset is accepted only when
-  the dashboard lock says the active session map is `ztricks`; it applies the A5
-  Distance start spawn-snap (`-3516.125 3712 -453.125`), mode 23, fixed goal 8,
-  launch-vh 430 / launch-angle 50 / swing 8, command logging, clears existing
-  dashboard bots, then spawns one bot.
-  This creates a visible standing-start attempt; it does not change the A5 finding
-  that the current deployed controller has not solved the jump. Audit log at
+  the match and restores quiet practice posture. In the dashboard UI, ztricks Distance
+  is now represented as the normal `distance_standstill` route in the route manifest,
+  not as a separate global trick control. The per-bot route row applies its A5
+  spawn-snap (`-3516.125 3712 -453.125`), mode 23, fixed goal 8, launch-vh 430 /
+  launch-angle 50 / swing 8 metadata, then lets the operator start it with that bot's
+  `try` or `loop` action while `stand still` returns the slot to mode 24. This creates
+  a visible standing-start attempt; it does not change the A5 finding that the current
+  deployed controller has not solved the jump. Audit log at
   `~/komodobots-lab/control-audit.log`.
   The lab lock `~/komodobots-lab/lab.lock` gives the experiment harness absolute
   priority: `run_frobodm2_lab.py` writes `owner=harness` for the duration of each
@@ -440,6 +441,25 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   a dashboard command failure. The same pass verified the shorter response path no
   longer times out, while botcmd shims still need a 5 s connected window for reliable
   `removeall`.
+  2026-06-12 route-only retry: the ztricks manifest no longer exposes a
+  `game_command` override, so per-bot **try** uses the same route-cvar sequence
+  as replay routes. The bridge quotes space-containing validated cvar values
+  before console stuffing. Browser retry on `dash_20260612T120449Z` selected
+  `distance_standstill` for bot `s5`, pressed that row's **try**, and the server
+  emitted `FBMOVEPROBE_ASSIGN ... ed=5 ... mode=23 mode_src=slot ... fixed_goal=8
+  goal_src=slot spawn_origin=-3516.125,3712,-453.125 spawn_src=slot` followed by
+  mode-23 `FBMOVEPROBE_CMD` rows from the A5 start with `move=320,0,0`.
+  2026-06-12 live retry on fresh session `dash_20260612T135158Z` (port `28599`)
+  exposed the repeat-attempt edge: clearing a per-slot cvar must be stuffed as
+  `set name ""`, and the dashboard must wait one sampled frame before restoring
+  `spawn_origin`, otherwise KTX may only observe the final unchanged value and
+  not re-arm the one-shot spawn snap. After fixing that, selecting
+  `distance_standstill` for `s3` and pressing **try** emitted slot-sourced ASSIGN
+  rows and 21 nonzero mode-23 command rows from the A5 start area. The repeat
+  **try** emitted fresh clear/restore ASSIGN rows and nonzero movement again.
+  The controller still missed the jump: closest first-attempt landing distance
+  was about `138q`, so the remaining controller failure is tracked in GitHub
+  issue #167.
 - Multi-bot attempts: the telemetry stream interleaves one frame per probed bot
   (`frame.ed`/`frame.name`). The 3D view keeps a separate marker/trail/velocity-arrow
   per `ed` (distinct colors, in order of first appearance); the camera follow and the

@@ -12,16 +12,18 @@ Offline validations (always run):
     2. maps.json / GLB structural check — every GLB listed in maps.json has
        the correct glTF magic bytes, version 2 header, and a JSON chunk whose
        asset.extras.source_bsp_sha256 matches the maps.json provenance record.
-    3. records / verdicts schema round-trip — the committed seed verdicts.seed.json
+    3. map-entity corpus integrity — every imported mvd_analyzer map-entity JSON
+       listed in index.json exists, parses, and matches the recorded entity counts.
+    4. records / verdicts schema round-trip — the committed seed verdicts.seed.json
        parses as valid komodobots.verdicts.v1; a minimal synthetic records.json
        round-trips through records_build to prove schema stability.
-    4. deploy script expected file-set — public/ key assets expected at the
+    5. deploy script expected file-set — public/ key assets expected at the
        dist/ or public/ path exist as committed files.
 
 Live path (deferred, skip unless --live is passed):
-    5. @live: telemetry WebSocket frame — connect to ws://servexeri:8770, receive
+    6. @live: telemetry WebSocket frame — connect to ws://servexeri:8770, receive
        one frame, validate it parses as a known telemetry message type.
-    6. @live: records.json freshness — fetch the deployed records.json over HTTP
+    7. @live: records.json freshness — fetch the deployed records.json over HTTP
        and validate it matches komodobots.records.v1.
 
 Usage:
@@ -50,6 +52,8 @@ REPO = Path(__file__).resolve().parent.parent
 MAPS_JSON = REPO / "lab" / "dashboard" / "public" / "maps" / "maps.json"
 ROUTES_INDEX = REPO / "lab" / "dashboard" / "public" / "data" / "routes" / "index.json"
 ROUTES_DIR = REPO / "lab" / "dashboard" / "public" / "data" / "routes"
+MAP_ENTITIES_INDEX = REPO / "lab" / "dashboard" / "public" / "data" / "map_entities" / "index.json"
+MAP_ENTITIES_DIR = REPO / "lab" / "dashboard" / "public" / "data" / "map_entities"
 MAPS_DIR = REPO / "lab" / "dashboard" / "public" / "maps"
 VERDICTS_SEED = REPO / "lab" / "server" / "verdicts.seed.json"
 PUBLIC_PANES = REPO / "lab" / "dashboard" / "public" / "panes"
@@ -57,6 +61,7 @@ PUBLIC_PANES = REPO / "lab" / "dashboard" / "public" / "panes"
 # Schema version sentinels
 ROUTES_SCHEMA = "komodobots.routes.v1"
 MAPS_SCHEMA = "komodobots.maps.v1"
+MAP_ENTITIES_SCHEMA = "komodobots.map_entities.v1"
 RECORDS_SCHEMA = "komodobots.records.v1"
 VERDICTS_SCHEMA = "komodobots.verdicts.v1"
 
@@ -65,6 +70,8 @@ ROUTE_REQUIRED_KEYS = {"name", "human", "polyline", "gaps", "teleports", "source
 HUMAN_REQUIRED_KEYS = {"duration_s", "active_mean_speed", "peak_speed"}
 SOURCE_REQUIRED_KEYS = {"census", "cmds", "cmds_sha256"}
 GAP_REQUIRED_KEYS = {"edge", "land", "required_speed", "human_speed_at_edge", "hard", "type"}
+MAP_ENTITY_REQUIRED_KEYS = {"type", "class", "x", "y", "z"}
+MAP_ENTITIES_REQUIRED_MAPS = {"dm2", "dm3", "e1m2", "phantombase", "schloss", "ztricks"}
 
 # Required keys in maps.json per-map entry
 MAPS_REQUIRED_KEYS = {
@@ -311,7 +318,113 @@ def check_maps_glb(errors: list[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Check 3: records / verdicts schema round-trip
+# Check 3: map-entity corpus integrity
+# ---------------------------------------------------------------------------
+
+
+def _entity_type_counts(entities: list[dict]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for entity in entities:
+        entity_type = str(entity.get("type", ""))
+        counts[entity_type] = counts.get(entity_type, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def check_map_entities(errors: list[str]) -> None:
+    """Validate the committed mvd_analyzer static map-entity data layer.
+
+    - index.json must parse and carry the correct schema
+    - the required imported maps must be present, including ztricks
+    - every per-map file must parse, match its map name, and carry version 1
+    - entity counts and type counts must match the index
+    - every entity must expose type/class plus x/y/z coordinates
+
+    This is deliberately separate from maps.json: e1m2, phantombase, and schloss
+    have entity data before they have committed BotLab mesh assets.
+    """
+    if not MAP_ENTITIES_INDEX.is_file():
+        _fail(errors, f"map-entities index not found: {MAP_ENTITIES_INDEX}")
+        return
+
+    try:
+        index = json.loads(MAP_ENTITIES_INDEX.read_text())
+    except json.JSONDecodeError as e:
+        _fail(errors, f"map-entities index is not valid JSON: {e}")
+        return
+
+    if index.get("schema") != MAP_ENTITIES_SCHEMA:
+        _fail(errors,
+              f"map-entities index wrong schema: got {index.get('schema')!r}, "
+              f"want {MAP_ENTITIES_SCHEMA!r}")
+
+    maps = index.get("maps", [])
+    seen_maps = {entry.get("map", "") for entry in maps}
+    missing_maps = MAP_ENTITIES_REQUIRED_MAPS - seen_maps
+    if missing_maps:
+        _fail(errors, f"map-entities index missing required maps: {sorted(missing_maps)}")
+
+    source = index.get("source", {})
+    commit = source.get("commit", "")
+    if not isinstance(commit, str) or len(commit) != 40 or not all(c in "0123456789abcdef" for c in commit):
+        _fail(errors, f"map-entities source.commit is not a 40-char lowercase sha: {commit!r}")
+
+    for entry in maps:
+        map_name = entry.get("map", "")
+        expected_file = entry.get("file", "")
+        expected_count = entry.get("entities", -1)
+        expected_types = entry.get("types", {})
+        prefix = f"map_entities[{map_name!r}]"
+
+        if not map_name or not expected_file:
+            _fail(errors, f"{prefix}: index entry missing map/file")
+            continue
+
+        path = MAP_ENTITIES_DIR / expected_file
+        if not path.is_file():
+            _fail(errors, f"{prefix}: file not found: {path}")
+            continue
+
+        try:
+            doc = json.loads(path.read_text())
+        except json.JSONDecodeError as e:
+            _fail(errors, f"{prefix}: file not valid JSON: {path}: {e}")
+            continue
+
+        if doc.get("map") != map_name:
+            _fail(errors, f"{prefix}: map field {doc.get('map')!r} != index map {map_name!r}")
+
+        if doc.get("version") != 1:
+            _fail(errors, f"{prefix}: version {doc.get('version')!r} != 1")
+
+        entities = doc.get("entities", [])
+        if not isinstance(entities, list) or not entities:
+            _fail(errors, f"{prefix}: entities must be a non-empty list")
+            continue
+
+        actual_count = len(entities)
+        if actual_count != expected_count:
+            _fail(errors,
+                  f"{prefix}: entity count mismatch: index says {expected_count}, "
+                  f"file has {actual_count}")
+
+        actual_types = _entity_type_counts(entities)
+        if actual_types != expected_types:
+            _fail(errors,
+                  f"{prefix}: type counts mismatch: index says {expected_types}, "
+                  f"file has {actual_types}")
+
+        for i, entity in enumerate(entities):
+            missing = MAP_ENTITY_REQUIRED_KEYS - set(entity.keys())
+            if missing:
+                _fail(errors, f"{prefix}: entity[{i}] missing required keys: {sorted(missing)}")
+                continue
+            for coord in ("x", "y", "z"):
+                if not isinstance(entity.get(coord), (int, float)):
+                    _fail(errors, f"{prefix}: entity[{i}].{coord} is not numeric: {entity.get(coord)!r}")
+
+
+# ---------------------------------------------------------------------------
+# Check 4: records / verdicts schema round-trip
 # ---------------------------------------------------------------------------
 
 
@@ -365,7 +478,7 @@ def check_records_verdicts_schema(errors: list[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Check 4: deploy script expected file-set
+# Check 5: deploy script expected file-set
 # ---------------------------------------------------------------------------
 
 
@@ -379,6 +492,7 @@ def check_deploy_file_set(errors: list[str]) -> None:
     - maps.json must be present (already checked, but cross-verify via deploy)
     - per-map GLB files listed in maps.json must be present
     - per-map routes JSON files listed in index.json must be present
+    - per-map map-entity JSON files listed in map_entities/index.json must be present
     - pane HTML + cfg files must be present
     - legacy dm3.obj (top-level public/ file, still loaded by deployed viewer) must exist
 
@@ -431,6 +545,18 @@ def check_deploy_file_set(errors: list[str]) -> None:
                           f"deploy asset missing: routes file {p.relative_to(REPO)}")
         except json.JSONDecodeError:
             pass  # already reported in check_routes_manifest
+
+    # Map entity per-map JSONs
+    if MAP_ENTITIES_INDEX.is_file():
+        try:
+            index = json.loads(MAP_ENTITIES_INDEX.read_text())
+            for entry in index.get("maps", []):
+                p = MAP_ENTITIES_DIR / entry.get("file", "")
+                if not p.is_file():
+                    _fail(errors,
+                          f"deploy asset missing: map-entities file {p.relative_to(REPO)}")
+        except json.JSONDecodeError:
+            pass  # already reported in check_map_entities
 
 
 # ---------------------------------------------------------------------------
@@ -561,6 +687,7 @@ def run_offline(verbose: bool = False) -> list[str]:
     checks = [
         ("routes-manifest integrity", check_routes_manifest),
         ("maps.json / GLB structural", check_maps_glb),
+        ("map-entities integrity", check_map_entities),
         ("records/verdicts schema round-trip", check_records_verdicts_schema),
         ("deploy expected file-set", check_deploy_file_set),
     ]
@@ -626,7 +753,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {e}")
         return 1
 
-    total = 4 + (2 if args.live else 0)
+    total = 5 + (2 if args.live else 0)
     print(f"\nAll {total} check(s) passed.")
     return 0
 

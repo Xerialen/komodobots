@@ -884,7 +884,7 @@ python lab/server/records_build.py --rebuild [--archive-ssh servexeri] [--publis
 
 The dashboard's "what routes exist" source of truth is the committed
 `lab/dashboard/public/data/routes/` directory (per-map `dm3.json` / `dm2.json`
-/ `frobodm2.json` / `trick.json` plus `index.json`, schema
+/ `frobodm2.json` / `trick.json` / `ztricks.json` plus `index.json`, schema
 `komodobots.routes.v1`), built by `lab/tools/build_routes_manifest.py` from the
 committed census and human replay trajectories — the dashboard never parses
 experiment-internal files ad hoc:
@@ -907,6 +907,14 @@ python lab/tools/build_routes_manifest.py
   `type` — e.g. the sng_to_rl decisive gap: required 525.3 vs human 528.6);
   teleporter `from`/`to`; and per-route source provenance (census + `.cmds`
   path + sha256).
+- **ztricks exception**: `ztricks.json` carries the `distance_standstill`
+  route from A5's successful 11th `getspeed.qwd` attempt, using
+  `experiments/a5_distance_standstill/human-replay.json` and
+  `getspeed-aligned.cmds`. The manifest records route rows `1807..1969`,
+  lip row `1918`, landing row `1969`, edge speed `475.2`, landing speed
+  `495.5`, launch heading `-11.7`, and the source hashes. Its
+  `required_speed` remains null because A5 showed speed alone is not a
+  sufficient success gate for the Distance jump.
 - **Empty-map honesty**: dm2/frobodm2/trick emit `"routes": []` rather than
   omitting files — the Mockup view renders "no censused routes yet" from that.
 - **Determinism**: no wall clock anywhere; hashes are sha256 over
@@ -916,6 +924,46 @@ python lab/tools/build_routes_manifest.py
   `tests/test_build_routes_manifest.py` locks the committed manifests against
   a fresh build byte-for-byte, so a census/replay change that is not followed
   by a rebuild fails CI.
+
+## Map entity corpus
+
+BotLab's static map context lives in the committed
+`lab/dashboard/public/data/map_entities/` directory (per-map JSON plus
+`index.json`, schema `komodobots.map_entities.v1`). It is imported from the
+upstream `mvd_analyzer` static map-entity corpus at
+`mvd-analytics/mapents/data/<map>.json`:
+
+```text
+python lab/tools/import_map_entities.py \
+    --source-repo C:/Users/benya/projects/quakeworld/tools/mvd_analyzer \
+    --ref upstream/main
+```
+
+- **Current source**: `https://github.com/galfthan/mvd_analyzer`,
+  `upstream/main` commit `dbfee83f457946c93e941c4a0b76efd25183d25e`.
+- **Current imported maps**: `dm2` (70 entities), `dm3` (61), `e1m2` (117),
+  `phantombase` (61), `schloss` (57), and `ztricks` (35). Upstream already
+  has `ztricks`, so no local generation was needed for that map.
+- **What each per-map file holds**: upstream `map`, `version`, and an
+  `entities[]` list with at least `type`, `class`, and `x/y/z` coordinates.
+  Entity types include items, spawns, teleporter sources/destinations, and
+  doors/buttons where the map has them. `ztricks` currently contains one spawn
+  plus teleporter source/destination entries.
+- **Index provenance**: `index.json` records source repo/ref/commit/path plus
+  per-map entity counts and entity-type counts. It intentionally does not store
+  a machine-local checkout path.
+- **Validation**: `scripts/ld_g2_golden_path.py` checks the committed
+  map-entity corpus offline; `tests/test_import_map_entities.py` covers the
+  importer with a tiny throwaway git repo so CI does not need the sibling
+  `mvd_analyzer` checkout.
+- **If a map is missing upstream**: generate it in `mvd_analyzer` with
+  `mvd-analytics/cmd/mapgen` and `-entities-out mvd-analytics/mapents/data`
+  from the map BSP, then rerun this importer. That fallback was not needed for
+  `ztricks` because upstream already carried `ztricks.json`.
+
+This layer is separate from route manifests and map meshes. A map can have
+entity data before it has a committed BotLab mesh or censused routes; that is
+currently true for `e1m2`, `phantombase`, and `schloss`.
 
 ## Map meshes (LD-C2, issue #91)
 

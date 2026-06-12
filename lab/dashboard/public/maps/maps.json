@@ -121,6 +121,36 @@
       "glb_bytes": 320364,
       "glb_triangles": 7026,
       "glb_vertices": 12006
+    },
+    "ztricks": {
+      "obj": "trick.obj",
+      "source_bsp": "trick.bsp",
+      "source_bsp_sha256": "a40915f976e7e4f7b28f38d212f86dc2553fc1088c76831790a12a63e4158c63",
+      "vertices": 3258,
+      "triangles": 7026,
+      "worldmodel_faces": 2490,
+      "aabb": {
+        "mins": [
+          -2560.0,
+          -3712.0,
+          -896.0
+        ],
+        "maxs": [
+          3712.0,
+          3712.0,
+          1152.0
+        ],
+        "center": [
+          576.0,
+          0.0,
+          128.0
+        ]
+      },
+      "glb": "trick.glb",
+      "texture_count": 14,
+      "glb_bytes": 320364,
+      "glb_triangles": 7026,
+      "glb_vertices": 12006
     }
   }
 }

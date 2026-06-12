@@ -3,8 +3,9 @@
 Locks the komodobots.routes.v1 contract the Mockup view, KPI dock and control
 drawer consume:
 
-  * all four dashboard maps emit a manifest plus index.json; non-dm3 maps are
-    honest empty route lists, never missing files;
+  * all dashboard maps emit a manifest plus index.json; non-dm3 maps are
+    honest empty route lists, never missing files, except ztricks, which
+    carries the successful getspeed.qwd Distance reference;
   * dm3 reproduces the 11 censused routes (sorted by name) with non-empty
     downsampled polylines, census human stats, gap markers (edge/land xyz,
     required_speed, human_speed_at_edge, hard, type), teleports, and
@@ -47,11 +48,11 @@ class TestSchema(unittest.TestCase):
     def setUpClass(cls):
         cls.docs = brm.build_manifests()
 
-    def test_all_five_files_emitted(self):
+    def test_all_dashboard_route_files_emitted(self):
         self.assertEqual(
             sorted(self.docs),
             sorted(["dm3.json", "dm2.json", "frobodm2.json", "trick.json",
-                    "index.json"]))
+                    "ztricks.json", "index.json"]))
 
     def test_schema_and_version_everywhere(self):
         for name, doc in self.docs.items():
@@ -63,23 +64,58 @@ class TestSchema(unittest.TestCase):
         self.assertEqual(len(names), 11)
         self.assertEqual(names, sorted(CENSUS))
 
-    def test_non_dm3_maps_are_honest_empty_lists(self):
+    def test_non_dm3_maps_are_honest_empty_lists_except_ztricks_route(self):
         for name in ("dm2.json", "frobodm2.json", "trick.json"):
             doc = self.docs[name]
             self.assertEqual(doc["routes"], [], name)
             self.assertIn("provenance", doc, name)
+        ztricks = self.docs["ztricks.json"]
+        self.assertEqual([r["name"] for r in ztricks["routes"]], ["distance_standstill"])
+        self.assertEqual(ztricks["routes"][0]["control"]["mode"], 23)
+        self.assertNotIn("game_command", ztricks["routes"][0]["control"])
+
+    def test_ztricks_route_uses_successful_getspeed_attempt(self):
+        route = self.docs["ztricks.json"]["routes"][0]
+        self.assertEqual(route["reference"]["demo"], "getspeed.qwd")
+        self.assertEqual(route["reference"]["attempt"], 11)
+        self.assertEqual(route["reference"]["route_rows"], [1807, 1969])
+        self.assertEqual(route["reference"]["lip_row"], 1918)
+        self.assertEqual(route["reference"]["landing_row"], 1969)
+        self.assertTrue(route["reference"]["landed_recorded"])
+        self.assertTrue(route["reference"]["landed_sim"])
+        self.assertAlmostEqual(route["reference"]["lip_speed"], 475.2, places=1)
+        self.assertAlmostEqual(
+            route["reference"]["launch_heading_deg"], -11.7, places=1)
+        self.assertAlmostEqual(
+            route["gaps"][0]["human_speed_at_edge"], 475.2, places=1)
+        self.assertIsNone(route["gaps"][0]["required_speed"])
+        self.assertGreaterEqual(len(route["polyline"]), 20)
+
+    def test_ztricks_source_hashes_are_recorded(self):
+        route = self.docs["ztricks.json"]["routes"][0]
+        src = route["source"]
+        for key in (
+            "cmds_sha256",
+            "human_replay_sha256",
+            "alignment_meta_sha256",
+        ):
+            self.assertRegex(src[key], r"^[0-9a-f]{64}$")
+        self.assertRegex(route["reference"]["demo_sha256"], r"^[0-9a-f]{64}$")
 
     def test_index_lists_all_maps_in_dashboard_order(self):
         maps = self.docs["index.json"]["maps"]
         self.assertEqual([m["map"] for m in maps],
-                         ["dm3", "dm2", "frobodm2", "trick"])
+                         ["dm3", "dm2", "frobodm2", "trick", "ztricks"])
         self.assertEqual([m["file"] for m in maps],
                          ["dm3.json", "dm2.json", "frobodm2.json",
-                          "trick.json"])
-        self.assertEqual([m["routes"] for m in maps], [11, 0, 0, 0])
+                          "trick.json", "ztricks.json"])
+        self.assertEqual([m["routes"] for m in maps], [11, 0, 0, 0, 1])
 
     def test_every_route_has_nonempty_polyline_of_xyz_points(self):
-        for route in self.docs["dm3.json"]["routes"]:
+        for route in (
+            self.docs["dm3.json"]["routes"] +
+            self.docs["ztricks.json"]["routes"]
+        ):
             poly = route["polyline"]
             self.assertGreater(len(poly), 0, route["name"])
             for p in poly:

@@ -32,8 +32,8 @@ import type { KpiContext } from "./contextStore.ts";
 export type LiveGap = {
   edge: [number, number, number];
   land: [number, number, number];
-  required_speed: number;
-  human_speed_at_edge: number;
+  required_speed: number | null;
+  human_speed_at_edge: number | null;
   hard: boolean;
 };
 
@@ -43,20 +43,20 @@ export type LiveRouteData = {
   /** Gaps (launch edges) from the census. */
   gaps: LiveGap[];
   /** Human active-mean speed (qu/s) for the whole route. */
-  humanActiveMeanSpeed: number;
+  humanActiveMeanSpeed: number | null;
 };
 
 type RouteManifestRaw = {
   schema: string;
   routes: {
     name: string;
-    human: { active_mean_speed: number };
+    human: { active_mean_speed: number | null };
     polyline: [number, number, number][];
     gaps: {
       edge: [number, number, number];
       land: [number, number, number];
-      required_speed: number;
-      human_speed_at_edge: number;
+      required_speed: number | null;
+      human_speed_at_edge: number | null;
       hard: boolean;
       type: string;
     }[];
@@ -247,11 +247,13 @@ export function isInEdgeRegion(
  * Returns null if gaps is empty.
  */
 export function designatedLaunchEdge(gaps: LiveGap[]): LiveGap | null {
-  if (gaps.length === 0) return null;
-  let best = gaps[0];
-  for (let i = 1; i < gaps.length; i++) {
-    if (gaps[i].required_speed >= best.required_speed) {
-      best = gaps[i];
+  let best: LiveGap | null = null;
+  for (const gap of gaps) {
+    if (typeof gap.required_speed !== "number" || !Number.isFinite(gap.required_speed)) {
+      continue;
+    }
+    if (best === null || gap.required_speed >= best.required_speed!) {
+      best = gap;
     }
   }
   return best;
@@ -405,14 +407,20 @@ function useRouteData(
 export function buildVertexSpeeds(
   polyline: [number, number, number][],
   gaps: LiveGap[],
-  activeMeanSpeed: number,
-): number[] {
+  activeMeanSpeed: number | null,
+): number[] | null {
   const n = polyline.length;
   if (n === 0) return [];
 
   // Find the nearest polyline vertex index for each gap edge.
   const anchors: { idx: number; speed: number }[] = [];
   for (const gap of gaps) {
+    if (
+      typeof gap.human_speed_at_edge !== "number" ||
+      !Number.isFinite(gap.human_speed_at_edge)
+    ) {
+      continue;
+    }
     const [ex, ey, ez] = gap.edge;
     let bestDist = Infinity;
     let bestIdx = 0;
@@ -429,7 +437,13 @@ export function buildVertexSpeeds(
   anchors.sort((a, b) => a.idx - b.idx);
 
   // Build vertex-speeds by linear interpolation between anchors.
-  const speeds: number[] = new Array(n).fill(activeMeanSpeed);
+  const fillSpeed =
+    typeof activeMeanSpeed === "number" && Number.isFinite(activeMeanSpeed)
+      ? activeMeanSpeed
+      : (anchors[0]?.speed ?? null);
+  if (fillSpeed === null) return null;
+
+  const speeds: number[] = new Array(n).fill(fillSpeed);
 
   if (anchors.length === 0) {
     return speeds; // All fill with active_mean_speed.
@@ -583,6 +597,8 @@ function useLiveMetrics(
         const targetGap = designatedLaunchEdge(rd.gaps);
         if (
           targetGap &&
+          typeof targetGap.required_speed === "number" &&
+          typeof targetGap.human_speed_at_edge === "number" &&
           isInEdgeRegion(
             frame.origin.x, frame.origin.y,
             targetGap.edge[0], targetGap.edge[1],

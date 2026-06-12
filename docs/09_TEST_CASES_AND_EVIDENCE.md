@@ -11,6 +11,10 @@ logged as a test run.
 This document defines how user stories, test cases, test runs, and evidence fit
 together for agents and humans.
 
+Global engineering habits that apply across projects live in the vault note
+`C:\Users\benya\Workspace\thevault\claude\engineering-hygiene-skills.md`. This
+file specializes those habits for KomodoBots lab evidence.
+
 ## Core model
 
 ```text
@@ -157,6 +161,56 @@ When acting as Reviewer:
 3. Treat missing evidence as a blocker only when it creates concrete merge risk.
 4. Prefer asking for a focused test run over broad, vague "more testing."
 
+## Contract-test workflow
+
+Use contract tests when runtime code depends on generated or committed artifacts.
+These tests should prove that the artifact class is valid before the browser,
+lab runner, or parser tries to consume it.
+
+Good KomodoBots targets:
+
+- GLB/glTF map assets and `maps.json` provenance.
+- Route manifests and committed route JSON.
+- `records.json` and `verdicts.json` schema.
+- GitHub issue-form YAML.
+- Control bridge request/response envelopes.
+- Telemetry frame shapes used by BotLab.
+
+A good contract test has three parts:
+
+1. A whole-artifact scan, not just one fixture.
+2. A negative-control fixture or intentionally broken input that fails loudly.
+3. A clear error message naming the broken field, file, route, map, or schema.
+
+If a browser or live run finds an artifact-shape bug, add a contract test before
+or with the fix. Examples include GLB bufferViews missing `buffer: 0`, stale
+`maps.json` byte counts, invalid verdict values, or a route missing required
+keys.
+
+## Live-state reconciliation workflow
+
+Use this workflow when the UI represents live lab state from telemetry, control
+events, QTV, or records feeds.
+
+Before coding, write down:
+
+- Source of truth: telemetry frame, control event, HTTP file, QTV/FTE state, or
+  local UI selection.
+- Entity key: edict, slot, bot name, run ID, map, route, or attempt ID.
+- Create/update signal.
+- Removal, expiry, or reset signal.
+- What the UI should show when the source is absent, stale, retrying, or failed.
+
+Test runs should explicitly say whether stale state converged. For example:
+
+- Bot roster after repeated ztricks tries should converge to the live bot set.
+- Live 3D can be healthy while Live Game/QTV is retrying; record both states.
+- Records data can be optional, absent, misconfigured, or valid; record which one.
+
+If a failed run exposes stale rows, phantom bots, retry loops, or misleading
+"unavailable" messages, link the run to a bug and keep the test case active until
+the next run proves convergence.
+
 ## KomodoLab starting cases
 
 Seed these as issues or doc-backed cases as the dashboard work continues:
@@ -169,3 +223,11 @@ Seed these as issues or doc-backed cases as the dashboard work continues:
 - `TC-LAB-002`: Harness runs refuse to take over a fresh dashboard lock.
 - `TC-QTV-001`: Live Game connects or shows an honest retry/error state.
 - `TC-LIVE3D-001`: Live 3D renders the selected live bot from telemetry frames.
+- `TC-LIVE3D-002`: Committed GLB map assets load in the browser without GLTFLoader
+  errors.
+- `TC-LIVE3D-003`: Telemetry map aliases, including `ztricks -> trick`, do not
+  crash Live 3D.
+- `TC-RECORDS-001`: KPI records distinguish valid data, optional missing verdicts,
+  and required records-feed errors.
+- `TC-ROSTER-001`: Bot roster converges after repeated preset tries and does not
+  keep stale bot rows as active controls.
