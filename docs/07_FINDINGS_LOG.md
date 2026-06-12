@@ -3722,3 +3722,59 @@ unreliable with a 2 s short-lived shim, so botcmd shims now stay connected for 5
 The next movement experiment should improve or instrument mode 23's post-launch failure
 on ztricks Distance, using the dashboard **try/pause** loop as the required live
 observation surface.
+
+
+## 2026-06-12 -- KomodoLab user-story test pass after side-rail merge
+
+### Finding
+
+KomodoLab is usable for the core control/telemetry operator loop, but three
+user-story blockers remain outside a small local fix: Live Game/QTV does not
+render, records/KPI data is unavailable in the dashboard, and the bot roster can
+retain stale rows after repeated ztricks resets.
+
+### Evidence
+
+Full evidence is recorded in
+`lab/evidence/komodolab-user-story-test-run-2026-06-12.md`.
+
+Baseline checks:
+
+- `npm run build` in `lab/dashboard`: passed.
+- `python -m unittest discover -s tests`: 957 tests passed.
+- GitHub issue-template YAML parse: passed.
+- `python scripts/ld_g2_golden_path.py --live`: all 6 checks passed.
+
+Browser/live pass:
+
+- Opened
+  `http://127.0.0.1:5173/botlab/?views=live3d%2Cgame&ws=ws%3A%2F%2F127.0.0.1%3A8771`.
+- Live 3D rendered the bot (`/ bro` / `ed 4`) and showed telemetry fields,
+  including `hops: 1` and increasing air time after **try**.
+- Control rail buttons succeeded for game mode, DMM, powerups, start/stop,
+  prewar, weapon lock/unlock, and ztricks Distance standstill. The control audit
+  logged the successful commands from `2026-06-12T07:21:36Z` through
+  `2026-06-12T07:25:46Z`.
+- Cvar console accepted `set samelevel 1` and rejected `quit`.
+- Server screen hardcopy showed fresh mode-23 `FBMOVEPROBE_CMD` rows after
+  **try**.
+
+### Bugs Registered
+
+- #157: Bot roster keeps stale rows after repeated ztricks tries.
+- #158: Live Game pane stays retrying while telemetry and Live 3D work.
+- #159: KPI records surface reports records.json 404 in BotLab.
+
+### Interpretation
+
+The user stories for controlling the game, starting/repeating a ztricks attempt,
+and seeing telemetry are doable today. The story "watch the live in-game view"
+is not complete until #158 is fixed. The story "review records/progress from the
+KPI dock" is not complete until #159 is fixed. The story "know exactly which bot
+exists" is only partially complete until #157 is fixed.
+
+### Follow-up
+
+Fix #157 first because stale roster rows can cause operator mistakes during the
+otherwise-working ztricks loop. Then fix #158 so the primary watch-live story is
+visually complete. Retest with the same test run artifact as the checklist.
