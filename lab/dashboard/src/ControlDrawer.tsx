@@ -44,6 +44,11 @@ type BotSlot = {
   draftTeam?: string;
 };
 
+type FrameRosterFallbackMode =
+  | { kind: "append" }
+  | { kind: "empty" }
+  | { kind: "single"; slot: number | null };
+
 type DrawerSession = {
   running: boolean;
   port: number | null;
@@ -228,6 +233,7 @@ export function ControlDrawer({
   const [weaponLocked, setWeaponLocked] = useState(false);
   const [prewarActive, setPrewarActive] = useState(false);
   const suppressedFrameSlotsRef = useRef<Map<number, number>>(new Map());
+  const frameRosterFallbackRef = useRef<FrameRosterFallbackMode>({ kind: "append" });
 
   const suppressLiveFrameSlots = useCallback((rows: BotSlot[]) => {
     const until = Date.now() + FRAME_SUPPRESS_MS;
@@ -237,6 +243,18 @@ export function ControlDrawer({
       }
     });
   }, []);
+
+  const resetFrameRosterToEmpty = useCallback((rows: BotSlot[]) => {
+    suppressLiveFrameSlots(rows);
+    frameRosterFallbackRef.current = { kind: "empty" };
+    return [];
+  }, [suppressLiveFrameSlots]);
+
+  const resetFrameRosterToSingleBot = useCallback((rows: BotSlot[]) => {
+    suppressLiveFrameSlots(rows);
+    frameRosterFallbackRef.current = { kind: "single", slot: null };
+    return [{ slot: -1, name: "...", assignedRoute: null, pendingRoute: null }];
+  }, [suppressLiveFrameSlots]);
 
   // Derived: are mutating controls disabled?
   const bridgeOk = wsConnected && client.connected;
@@ -295,8 +313,7 @@ export function ControlDrawer({
           if (map && MAPS.includes(map as MapName)) {
             setSelectedMap(map as MapName);
           }
-          suppressedFrameSlotsRef.current.clear();
-          setBots([]);
+          setBots((prev) => resetFrameRosterToEmpty(prev));
           setPrewarActive(false);
           setWeaponLocked(false);
           break;
@@ -306,6 +323,7 @@ export function ControlDrawer({
           setLockOwner(null);
           setLockState({ state: "free", lock: null });
           suppressedFrameSlotsRef.current.clear();
+          frameRosterFallbackRef.current = { kind: "append" };
           setBots([]);
           break;
         }
@@ -315,6 +333,7 @@ export function ControlDrawer({
           // processes the bot.  Add a provisional placeholder whose slot=-1
           // marks it as unresolved; the ASSIGN upsert below will replace it
           // (keyed by ed) when the server truth arrives.
+          frameRosterFallbackRef.current = { kind: "append" };
           setBots((prev) => [
             ...prev,
             { slot: -1, name: "…", assignedRoute: null, pendingRoute: null },
@@ -324,30 +343,30 @@ export function ControlDrawer({
         case "removebot": {
           const slot = event.slot;
           if (slot === "all") {
-            setBots((prev) => {
-              suppressLiveFrameSlots(prev);
-              return [];
-            });
+            setBots((prev) => resetFrameRosterToEmpty(prev));
+          } else if (typeof slot === "number") {
+            suppressedFrameSlotsRef.current.set(slot, Date.now() + 10_000);
+            frameRosterFallbackRef.current = { kind: "append" };
+            setBots((prev) => prev.filter((b) => b.slot !== slot));
           } else {
-            // KTX removebot is not reliably slot-addressable in this build.
-            // Clear the UI roster and let live telemetry frames repopulate the
-            // actual survivors instead of trusting the requested slot.
-            setBots([]);
+            // removebot with no slot = remove last
+            frameRosterFallbackRef.current = { kind: "append" };
+            setBots((prev) => {
+              const removed = prev[prev.length - 1];
+              if (removed && removed.slot !== -1) {
+                suppressedFrameSlotsRef.current.set(removed.slot, Date.now() + 10_000);
+              }
+              return prev.length > 0 ? prev.slice(0, -1) : prev;
+            });
           }
           break;
         }
         case "game_command": {
           const action = typeof event.action === "string" ? event.action : "";
           if (action === "trick_pause") {
-            setBots((prev) => {
-              suppressLiveFrameSlots(prev);
-              return [];
-            });
+            setBots((prev) => resetFrameRosterToEmpty(prev));
           } else if (action === "bot_respawn") {
-            setBots((prev) => {
-              suppressLiveFrameSlots(prev);
-              return [{ slot: -1, name: "...", assignedRoute: null, pendingRoute: null }];
-            });
+            setBots((prev) => resetFrameRosterToSingleBot(prev));
           } else if (action === "bot_weapon_lock") {
             setWeaponLocked(true);
           } else if (action === "bot_weapon_unlock") {
@@ -365,7 +384,7 @@ export function ControlDrawer({
     return () => {
       client.eventListeners.delete(onEvent);
     };
-  }, [client, suppressLiveFrameSlots]);
+  }, [client, resetFrameRosterToEmpty, resetFrameRosterToSingleBot]);
 
   // LD-F3 (#105) P1 fix: subscribe to ASSIGN rows from the telemetry sidecar
   // for server-truth assignment display.  assignedRoute is updated ONLY from
@@ -453,16 +472,29 @@ export function ControlDrawer({
   // ztricks/global presets do not always emit an ASSIGN row because they use
   // global moveprobe cvars, but every live command frame carries the real ed.
   // Use frames as a roster identity fallback so row actions become reachable.
+  // For single-bot reset flows, converge on one live ed and ignore later stale
+  // frame rows from earlier attempts until the user explicitly adds bots again.
   useEffect(() => {
     if (!telemetryClient) return;
     function onFrame(frame: TelemetryFrame) {
       setBots((prev) => {
+        const fallbackMode = frameRosterFallbackRef.current;
+        if (fallbackMode.kind === "empty") {
+          return prev;
+        }
         const suppressedUntil = suppressedFrameSlotsRef.current.get(frame.ed);
         if (suppressedUntil !== undefined) {
           if (Date.now() < suppressedUntil) {
             return prev;
           }
           suppressedFrameSlotsRef.current.delete(frame.ed);
+        }
+        if (
+          fallbackMode.kind === "single" &&
+          fallbackMode.slot !== null &&
+          fallbackMode.slot !== frame.ed
+        ) {
+          return prev;
         }
         const existing = prev.findIndex((b) => b.slot === frame.ed);
         if (existing !== -1) {
@@ -479,6 +511,9 @@ export function ControlDrawer({
         }
         const placeholderIdx = prev.findIndex((b) => b.slot === -1);
         if (placeholderIdx !== -1) {
+          if (fallbackMode.kind === "single") {
+            frameRosterFallbackRef.current = { kind: "single", slot: frame.ed };
+          }
           return prev.map((b, i) =>
             i === placeholderIdx
               ? {
@@ -489,6 +524,13 @@ export function ControlDrawer({
                 }
               : b,
           );
+        }
+        if (fallbackMode.kind === "single") {
+          if (fallbackMode.slot === null) {
+            frameRosterFallbackRef.current = { kind: "single", slot: frame.ed };
+          } else if (fallbackMode.slot !== frame.ed) {
+            return prev;
+          }
         }
         return [
           ...prev,

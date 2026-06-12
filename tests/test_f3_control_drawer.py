@@ -505,6 +505,61 @@ def _apply_frame_upsert(prev: list[dict], frame: dict) -> list[dict]:
     return prev + [{"slot": ed, "name": frame["name"], "assignedRoute": None, "pendingRoute": None}]
 
 
+def _apply_frame_roster_fallback(
+    prev: list[dict],
+    frame: dict,
+    mode: dict,
+) -> tuple[list[dict], dict]:
+    """Mirrors ControlDrawer.tsx frame fallback in onFrame.
+
+    The mode is one of:
+      {"kind": "append"}
+      {"kind": "empty"}
+      {"kind": "single", "slot": int|None}
+
+    The 10-second suppression map is intentionally not mirrored here.  These
+    tests cover the post-suppression leak from #157: once a single-bot reset has
+    converged on the new ed, later old ed frames must not append stale rows.
+    """
+    if mode["kind"] == "empty":
+        return prev, mode
+
+    ed = frame["ed"]
+    if mode["kind"] == "single" and mode.get("slot") is not None and mode["slot"] != ed:
+        return prev, mode
+
+    existing_idx = next((i for i, b in enumerate(prev) if b["slot"] == ed), -1)
+    if existing_idx != -1:
+        if prev[existing_idx]["name"] == frame["name"]:
+            return prev, mode
+        result = list(prev)
+        result[existing_idx] = {**result[existing_idx], "name": frame["name"]}
+        return result, mode
+
+    placeholder_idx = next((i for i, b in enumerate(prev) if b["slot"] == -1), -1)
+    if placeholder_idx != -1:
+        next_mode = mode
+        if mode["kind"] == "single":
+            next_mode = {"kind": "single", "slot": ed}
+        result = list(prev)
+        result[placeholder_idx] = {
+            "slot": ed,
+            "name": frame["name"],
+            "assignedRoute": None,
+            "pendingRoute": None,
+        }
+        return result, next_mode
+
+    next_mode = mode
+    if mode["kind"] == "single":
+        if mode.get("slot") is None:
+            next_mode = {"kind": "single", "slot": ed}
+        elif mode["slot"] != ed:
+            return prev, mode
+
+    return prev + [{"slot": ed, "name": frame["name"], "assignedRoute": None, "pendingRoute": None}], next_mode
+
+
 class TestAssignUpsert(unittest.TestCase):
     """The ASSIGN subscriber must upsert roster rows keyed by ed, not just
     update existing rows.  This covers page reload, existing session, and
@@ -624,6 +679,64 @@ class TestAssignUpsert(unittest.TestCase):
         routes = {r["slot"]: r["assignedRoute"] for r in result}
         self.assertEqual(routes[1], "sng_to_rl")
         self.assertEqual(routes[2], "hilljump")
+
+
+class TestFrameRosterFallback(unittest.TestCase):
+    """Frame-derived roster fallback must converge cleanly after reset flows.
+
+    Issue #157 reproduced when the UI cleared the visible roster, accepted the
+    fresh ztricks bot, and then appended old ed frames once the short suppression
+    timer expired.  The single-bot fallback mode prevents that stale append.
+    """
+
+    def test_single_bot_reset_ignores_late_old_ed_frames(self):
+        """After ztricks try resolves to one ed, another ed must not append."""
+        roster = [{"slot": -1, "name": "...", "assignedRoute": None, "pendingRoute": None}]
+        mode = {"kind": "single", "slot": None}
+
+        roster, mode = _apply_frame_roster_fallback(roster, {"ed": 6, "name": "/ bro"}, mode)
+        self.assertEqual(roster, [{"slot": 6, "name": "/ bro", "assignedRoute": None, "pendingRoute": None}])
+        self.assertEqual(mode, {"kind": "single", "slot": 6})
+
+        roster, mode = _apply_frame_roster_fallback(roster, {"ed": 2, "name": "/ bro"}, mode)
+        roster, mode = _apply_frame_roster_fallback(roster, {"ed": 4, "name": "/ bro"}, mode)
+
+        self.assertEqual([row["slot"] for row in roster], [6])
+
+    def test_single_bot_reset_keeps_current_ed_fresh(self):
+        """The accepted single-bot ed can still update its visible name."""
+        roster = [{"slot": 4, "name": "/ old", "assignedRoute": None, "pendingRoute": None}]
+        mode = {"kind": "single", "slot": 4}
+
+        roster, mode = _apply_frame_roster_fallback(roster, {"ed": 4, "name": "/ bro"}, mode)
+
+        self.assertEqual(roster[0]["slot"], 4)
+        self.assertEqual(roster[0]["name"], "/ bro")
+        self.assertEqual(mode, {"kind": "single", "slot": 4})
+
+    def test_empty_mode_ignores_frame_fallback_until_addbot_reopens_append(self):
+        """After pause/remove-all, frame fallback should not recreate rows."""
+        roster: list[dict] = []
+        mode = {"kind": "empty"}
+
+        roster, mode = _apply_frame_roster_fallback(roster, {"ed": 3, "name": "/ bro"}, mode)
+        self.assertEqual(roster, [])
+
+        mode = {"kind": "append"}
+        roster = [{"slot": -1, "name": "...", "assignedRoute": None, "pendingRoute": None}]
+        roster, mode = _apply_frame_roster_fallback(roster, {"ed": 3, "name": "/ bro"}, mode)
+        self.assertEqual([row["slot"] for row in roster], [3])
+
+    def test_append_mode_still_supports_multiple_frame_discovered_bots(self):
+        """Normal multi-bot fallback remains available outside reset flows."""
+        roster: list[dict] = []
+        mode = {"kind": "append"}
+
+        roster, mode = _apply_frame_roster_fallback(roster, {"ed": 3, "name": "/ a"}, mode)
+        roster, mode = _apply_frame_roster_fallback(roster, {"ed": 5, "name": "/ b"}, mode)
+
+        self.assertEqual([row["slot"] for row in roster], [3, 5])
+        self.assertEqual(mode, {"kind": "append"})
 
 
 # ---------------------------------------------------------------------------
