@@ -47,6 +47,9 @@ class FakeExecutor:
     def add_bots(self, port, count):
         self.calls.append(("add_bots", port, count))
 
+    def wait_for_bot_spawn(self, seconds):
+        self.calls.append(("wait_for_bot_spawn", seconds))
+
     def send_botcmds(self, port, botcmds):
         self.calls.append(("send_botcmds", port, tuple(botcmds)))
 
@@ -174,8 +177,22 @@ class TestValidators(unittest.TestCase):
                 ("console", "set k_pow_s 0"),
             ],
         )
-        self.assertEqual(cb.validate_game_command("start"), [("client", "ready")])
-        self.assertEqual(cb.validate_game_command("stop"), [("client", "break")])
+        self.assertEqual(
+            cb.validate_game_command("start"),
+            [
+                ("console", "set k_fb_moveprobe_mode 0"),
+                ("console", 'set k_fb_moveprobe_spawn_origin ""'),
+                ("botcmd", "weapon random"),
+                ("client", "ready"),
+            ],
+        )
+        self.assertEqual(
+            cb.validate_game_command("stop"),
+            [
+                ("client", "break"),
+                ("console", "set k_fb_moveprobe_mode 24"),
+            ],
+        )
         self.assertEqual(cb.validate_game_command("prewar"), [("client", "break"), ("console", "set k_prewar 0")])
         self.assertEqual(cb.validate_game_command("bot_respawn", "4"), [("botcmd", "removeall"), ("addbot", "1")])
         self.assertEqual(cb.validate_game_command("bot_weapon_lock"), [("botcmd", "weapon 1")])
@@ -297,6 +314,20 @@ class TestSessionLifecycle(unittest.TestCase):
             self.assertIn("set demo_tmp_record 1", cfg)
             self.assertIn("map dm3", call[5])
             self.assertIn("set k_fb_autoremove_at 0", call[5])
+            self.assertEqual(
+                executor.calls[1:9],
+                [
+                    ("stuff", 28599, "set k_fb_moveprobe_mode 24"),
+                    ("stuff", 28599, "set k_fb_moveprobe_fixed_goal 0"),
+                    ("stuff", 28599, 'set k_fb_moveprobe_spawn_origin "385.500 614.250 56.000"'),
+                    ("add_bots", 28599, 1),
+                    ("wait_for_bot_spawn", cb.PRACTICE_BOT_SPAWN_SETTLE_S),
+                    ("stuff", 28599, 'set k_fb_moveprobe_spawn_origin "-895.400 -129.100 -15.900"'),
+                    ("add_bots", 28599, 1),
+                    ("wait_for_bot_spawn", cb.PRACTICE_BOT_SPAWN_SETTLE_S),
+                ],
+            )
+            self.assertEqual(executor.calls[9], ("stuff", 28599, 'set k_fb_moveprobe_spawn_origin ""'))
             lock = cb.read_lock(Path(tmp) / "lab.lock")
             self.assertEqual(lock["owner"], "dashboard")
             self.assertEqual(lock["port"], 28599)
@@ -534,6 +565,34 @@ class TestSessionScopedOps(unittest.TestCase):
                 {"op": "game_command", "action": "gamemode", "value": "wipeout", "req_id": "4"}, "p"
             )
             self.assertFalse(response["ok"])
+
+            response, broadcast = local(bridge,
+                {"op": "game_command", "action": "start", "req_id": "4b"}, "p"
+            )
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(
+                executor.calls[-4:],
+                [
+                    ("stuff", 28600, "set k_fb_moveprobe_mode 0"),
+                    ("stuff", 28600, 'set k_fb_moveprobe_spawn_origin ""'),
+                    ("send_botcmds", 28600, ("weapon random",)),
+                    ("send_client_cmds", 28600, ("ready",)),
+                ],
+            )
+            self.assertEqual(broadcast["action"], "start")
+
+            response, broadcast = local(bridge,
+                {"op": "game_command", "action": "stop", "req_id": "4c"}, "p"
+            )
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(
+                executor.calls[-2:],
+                [
+                    ("send_client_cmds", 28600, ("break",)),
+                    ("stuff", 28600, "set k_fb_moveprobe_mode 24"),
+                ],
+            )
+            self.assertEqual(broadcast["action"], "stop")
 
             response, broadcast = local(bridge,
                 {"op": "game_command", "action": "prewar", "req_id": "5"}, "p"

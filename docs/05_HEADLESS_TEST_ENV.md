@@ -398,7 +398,13 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   cvar/console allowlists; the `game_command` op is a separate allowlisted enum for
   KTX game controls (`4on4`, `2on2`, `1on1`, `ffa`, `dmm1`–`dmm4`, powerups on/off,
   `ready`, `break`) and the guarded `ztricks_distance_standstill` lab preset rather
-  than a broad raw-command escape hatch. The ztricks preset is accepted only when
+  than a broad raw-command escape hatch. Dashboard session start is deliberately not
+  "start game": it seeds the practice roster in moveprobe mode `24`, assigns separated
+  spawn-snap origins for maps with known safe starts (`dm3`, `ztricks`), clears the
+  global spawn cvar after seeding, and suppresses movement/jump/firing so unassigned
+  bots wait quietly until route assignment. The game-control `start` command clears the global
+  practice idle mode, unlocks normal bot weapons, and readies the match; `stop` breaks
+  the match and restores quiet practice posture. The ztricks preset is accepted only when
   the dashboard lock says the active session map is `ztricks`; it applies the A5
   Distance start spawn-snap (`-3516.125 3712 -453.125`), mode 23, fixed goal 8,
   launch-vh 430 / launch-angle 50 / swing 8, command logging, clears existing

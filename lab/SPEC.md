@@ -229,10 +229,17 @@ harness (#96, #105).
 - **Session block**: start/stop, target port, **lock-state badge** (who owns the lab:
   `harness | dashboard | free`, with force-takeover confirm for stale locks) (#96, #105).
 - **Map selector**: dm3 / dm2 / frobodm2 / trick / ztricks (#105).
+- **Session start semantics**: starting a dashboard session prepares movement practice,
+  not a live match. The bridge seeds the default practice roster, gives known maps
+  separated spawn-snap origins to avoid repeated telefrag loops, and puts bots in
+  moveprobe practice-idle mode (no movement, jump, or firing) until a per-bot route assignment
+  overrides that slot.
 - **Game controls**: direct game-level buttons for KTX `4on4`, `2on2`, `1on1`, `ffa`,
   `dmm1`–`dmm4`, powerups on/off (`k_pow` plus q/p/r/s), start game (`ready`), and
   stop game (`break`), prewar, and bot weapon lockout (`axe only` / `weapons free`).
-  These control the running game, not the dashboard session.
+  These control the running game, not the dashboard session. **Start game** clears the
+  global practice idle mode, unlocks normal bot weapons, and readies the match; **stop
+  game** breaks the match and returns the session to quiet practice.
   A ztricks-only **Distance standstill** preset applies the A5 start-point cvars
   (`spawn_origin`, mode 23, far-platform fixed goal, and circle-jump launch knobs)
   clears existing dashboard bots, and spawns one bot so the visible lab can watch a clean standing-start attempt.

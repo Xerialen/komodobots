@@ -151,6 +151,17 @@ class PerSlotPatchTests(unittest.TestCase):
         )
         self.assertIn("moveprobe_spawn_snapped[slot] = 0;", self.added_blob)
 
+    def test_dashboard_practice_idle_mode_exists(self) -> None:
+        # Dashboard sessions seed bots in this global mode so they can spawn,
+        # emit ASSIGN state, and then wait still until per-slot route assignment.
+        self.assertIn("if (mode == 24)", self.added_blob)
+        self.assertIn("Dashboard practice idle", self.added_blob)
+        self.assertIn("VectorClear(direction);", self.added_blob)
+        self.assertIn("*jumping = false;", self.added_blob)
+        self.assertIn("*firing = false;", self.added_blob)
+        self.assertIn("*impulse = 0;", self.added_blob)
+        self.assertIn("BotApplyMoveProbe(self, &jumping, &firing, &impulse, direction)", self.added_blob)
+
 
 if __name__ == "__main__":
     unittest.main()

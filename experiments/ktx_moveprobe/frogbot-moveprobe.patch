@@ -1011,7 +1011,7 @@ index c0654d1..25a4451 100644
 +	}
 +}
 +
-+static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, vec3_t direction)
++static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, qbool *firing, int *impulse, vec3_t direction)
 +{
 +	int mode = (int)cvar("k_fb_moveprobe_mode");
 +	int slot = NUM_FOR_EDICT(self) - 1;
@@ -1038,6 +1038,17 @@ index c0654d1..25a4451 100644
 +	if (mode != 8)
 +	{
 +		BotMoveProbeResetTransitionTiming(slot);
++	}
++
++	if (mode == 24)
++	{
++		// Dashboard practice idle: allow spawn-snap/ASSIGN above, then hold
++		// still until a per-slot route assignment overrides this global mode.
++		VectorClear(direction);
++		*jumping = false;
++		*firing = false;
++		*impulse = 0;
++		return;
 +	}
 +
 +	if (mode == 1)
@@ -2730,7 +2741,7 @@ index c0654d1..25a4451 100644
 +		impulse = 0;
 +	}
 +
-+	BotApplyMoveProbe(self, &jumping, direction);
++	BotApplyMoveProbe(self, &jumping, &firing, &impulse, direction);
  
  	buttons |= (firing ? 1 : 0);
  	buttons |= (jumping ? 2 : 0);

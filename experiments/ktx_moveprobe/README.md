@@ -161,6 +161,7 @@ Modes:
 | `7` | S3g probe: start from mode `6`, then cap horizontal command magnitude to the original route/strafe intent magnitude. This tests whether no-backpedal survives without very large folded sidemove. |
 | `8` | S7j probe: start from mode `7`, then scale horizontal command budget only during takeoff/recent-air/recent-landing transition windows. This is a falsifiable probe against S7i guardrails, not accepted controller behavior. |
 | `9` | QWD SNG probe: activate near the first `dm3_sng_shortcut.qwd` control point, advance through a bounded QWD waypoint string, and project waypoint attraction plus QWD-style sidemove into preserved combat view yaw. This is not accepted controller behavior. |
+| `24` | Dashboard practice idle: apply spawn-snap/ASSIGN instrumentation, then emit no movement, jump, or firing until a per-slot route assignment overrides the global mode. |
 
 Mode `2`, `3`, `4`, `5`, `6`, `7`, `8`, and `9` cvars:
 

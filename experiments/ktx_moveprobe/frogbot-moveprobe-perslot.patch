@@ -611,7 +611,7 @@ index fb62970..b2a64f0 100644
  		d[2] = 0;
  		to_goal = sqrt(d[0] * d[0] + d[1] * d[1]);
  		home_straight = (to_goal < 256.0f) ? true : false;
-@@ -2027,11 +2273,93 @@ static qbool BotApplyMoveProbeReplay(gedict_t *self, int slot, qbool *jumping, v
+@@ -2027,11 +2273,94 @@ static qbool BotApplyMoveProbeReplay(gedict_t *self, int slot, qbool *jumping, v
  	}
  }
  
@@ -683,7 +683,8 @@ index fb62970..b2a64f0 100644
 +			 spawn_shown, spawn_from_slot ? "slot" : "global");
 +}
 +
- static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, vec3_t direction)
+-static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, vec3_t direction)
++static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, qbool *firing, int *impulse, vec3_t direction)
  {
 -	int mode = (int)cvar("k_fb_moveprobe_mode");
 +	int mode = 0;
@@ -786,15 +787,35 @@ index fb62970..b2a64f0 100644
  				moveprobe_spawn_snapped[slot] = 1;
  				// New attempt: re-arm the one-shot circle-jump launch latch
  				// (A3 #75) together with the snap itself.
-@@ -2094,6 +2472,8 @@ static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, vec3_t direction)
+@@ -2094,6 +2473,19 @@ static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, qbool *firing, int *impulse, vec3_t direction)
  		}
  	}
  
 +	BotMoveProbeEmitAssignRow(self, slot, mode, mode_from_slot);
 +
++	if (mode == 24)
++	{
++		// Dashboard practice idle: allow spawn-snap/ASSIGN above, then hold
++		// still until a per-slot route assignment overrides this global mode.
++		VectorClear(direction);
++		*jumping = false;
++		*firing = false;
++		*impulse = 0;
++		return;
++	}
++
  	if (mode == 1)
  	{
  		*jumping = true;
+@@ -4024,7 +4405,7 @@ void BotSetCommand(gedict_t *self)
+ 		VectorClear(direction);
+ 	}
+ 
+-	BotApplyMoveProbe(self, &jumping, direction);
++	BotApplyMoveProbe(self, &jumping, &firing, &impulse, direction);
+ 
+ 	buttons |= (firing ? 1 : 0);
+ 	buttons |= (jumping ? 2 : 0);
 @@ -4040,7 +4420,14 @@ static void BotLogMoveProbeCommand(gedict_t *self, int cmd_msec, vec3_t directio
  	}
  

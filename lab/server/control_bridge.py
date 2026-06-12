@@ -103,6 +103,29 @@ GAME_BOTCMDS: frozenset[str] = frozenset(
     {"removeall", "weapon 1", "weapon random"}
     | {f"removebot {slot}" for slot in range(32)}
 )
+PRACTICE_IDLE_MODE = 24
+PRACTICE_SESSION_BOT_COUNT = 2
+PRACTICE_BOT_SPAWN_SETTLE_S = 0.35
+PRACTICE_SPAWN_ORIGINS: dict[str, tuple[str, ...]] = {
+    # Existing dm3 route manifest starts: sng_shortcut2 and sng_to_rl.
+    "dm3": ("385.500 614.250 56.000", "-895.400 -129.100 -15.900"),
+    # A5 Distance platform, separated inside the measured run-up bounds.
+    "ztricks": ("-3516.125 3712.000 -453.125", "-3516.125 3776.000 -453.125"),
+}
+START_GAME_STEPS: tuple[tuple[str, str], ...] = (
+    # Start Game means real play: clear the global practice hold, let Frogbots
+    # choose weapons normally, then ready the KTX match.
+    ("console", "set k_fb_moveprobe_mode 0"),
+    ("console", "set k_fb_moveprobe_spawn_origin \"\""),
+    ("botcmd", "weapon random"),
+    ("client", "ready"),
+)
+STOP_GAME_STEPS: tuple[tuple[str, str], ...] = (
+    # Stop Game returns to the lab's practice posture without killing the
+    # dashboard session: mode 24 holds movement and firing at command emit.
+    ("client", "break"),
+    ("console", f"set k_fb_moveprobe_mode {PRACTICE_IDLE_MODE}"),
+)
 ZTRICKS_DISTANCE_STANDSTILL_STEPS: tuple[tuple[str, str], ...] = (
     # One visible attempt: clear any older dashboard bots first so the spawn
     # snap is not polluted by telefragging or stale per-bot state.
@@ -303,10 +326,10 @@ def validate_game_command(action: object, value: object = None) -> list[tuple[st
         return [("console", f"set {name} {enabled}") for name in POWERUP_CVARS]
 
     if action == "start":
-        return [("client", "ready")]
+        return list(START_GAME_STEPS)
 
     if action == "stop":
-        return [("client", "break")]
+        return list(STOP_GAME_STEPS)
 
     if action == "prewar":
         # k_prewar=0 means pre-match players may not fire; break returns the
@@ -519,6 +542,36 @@ def build_session_setup_cmds(map_name: str) -> list[str]:
     ]
 
 
+def practice_spawn_origins(map_name: str) -> tuple[str, ...]:
+    """Known safe practice starts for dashboard sessions on this map."""
+    if validate_map_name(map_name) is None:
+        raise ValueError("invalid map for practice spawn origins")
+    return PRACTICE_SPAWN_ORIGINS.get(map_name, ())
+
+
+def seed_practice_bots(executor, port: int, map_name: str) -> None:
+    """Spawn the dashboard's default quiet practice roster.
+
+    The global spawn-snap cvar is intentionally changed between one-bot adds:
+    the deployed snap latch does not re-arm already-snapped pure-global bots
+    when the global value changes, so existing bots keep their first origin
+    while the next bot snaps to the next practice start.
+    """
+    if validate_lab_port(port) is None or validate_map_name(map_name) is None:
+        raise ValueError("invalid port or map for practice bot seed")
+    executor.stuff(port, f"set k_fb_moveprobe_mode {PRACTICE_IDLE_MODE}")
+    executor.stuff(port, "set k_fb_moveprobe_fixed_goal 0")
+    origins = practice_spawn_origins(map_name)
+    if origins:
+        for origin in origins[:PRACTICE_SESSION_BOT_COUNT]:
+            executor.stuff(port, f'set k_fb_moveprobe_spawn_origin "{origin}"')
+            executor.add_bots(port, 1)
+            executor.wait_for_bot_spawn(PRACTICE_BOT_SPAWN_SETTLE_S)
+        executor.stuff(port, 'set k_fb_moveprobe_spawn_origin ""')
+    else:
+        executor.add_bots(port, PRACTICE_SESSION_BOT_COUNT)
+
+
 # ---------------------------------------------------------------------------
 # Executor: the only component that touches screen/processes. Injectable so
 # the bridge logic is fully unit-testable; live behavior is verified in the
@@ -657,20 +710,19 @@ class LabExecutor:
 
     def add_bots(self, port: int, count: int) -> None:
         shim = self._persistent_shims.get(port)
-        if shim is not None and shim.poll() is None:
-            self.send_botcmds(port, ["addbot"] * count)
-            return
-        self._persistent_shims[port] = subprocess.Popen(
-            self._shim_cmd(
-                port,
-                ["--run-for", "86400", "--bot-count", str(count), "--bot-spacing", "2"],
-            ),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        if shim is None or shim.poll() is not None:
+            self._persistent_shims[port] = subprocess.Popen(
+                self._shim_cmd(port, ["--run-for", "86400", "--bot-count", "0"]),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        self.send_botcmds(port, ["addbot"] * count, run_for=CLIENT_SHIM_RUN_FOR)
 
-    def send_botcmds(self, port: int, botcmds: list[str]) -> None:
-        extra = ["--run-for", BOTCMD_SHIM_RUN_FOR, "--bot-count", "0"]
+    def wait_for_bot_spawn(self, seconds: float) -> None:
+        time.sleep(seconds)
+
+    def send_botcmds(self, port: int, botcmds: list[str], run_for: str = BOTCMD_SHIM_RUN_FOR) -> None:
+        extra = ["--run-for", run_for, "--bot-count", "0"]
         for cmd in botcmds:
             if not TOKEN_RE.match(cmd.replace(" ", "_")) or hits_flat_deny(cmd):
                 raise ValueError(f"refusing botcmd: {cmd!r}")
@@ -918,33 +970,21 @@ class ControlBridge:
             steps = validate_game_command(raw_action, request.get("value"))
             if isinstance(steps, str):
                 return self._refuse(req_id, steps), None
-            client_commands: list[str] = []
-            console_lines: list[str] = []
-            botcmds: list[str] = []
-            addbot_count = 0
             for kind, line in steps:
                 if kind == "client":
-                    client_commands.append(line)
+                    self.executor.send_client_cmds(port, [line])
                 elif kind == "console":
-                    console_lines.append(line)
+                    self.executor.stuff(port, line)
                 elif kind == "botcmd":
                     if line not in GAME_BOTCMDS:
                         return self._refuse(req_id, "invalid botcmd game command step"), None
-                    botcmds.append(line)
+                    self.executor.send_botcmds(port, [line])
                 elif kind == "addbot":
                     if line != "1":
                         return self._refuse(req_id, "invalid addbot game command step"), None
-                    addbot_count += 1
+                    self.executor.add_bots(port, 1)
                 else:
                     return self._refuse(req_id, "invalid game command step"), None
-            if client_commands:
-                self.executor.send_client_cmds(port, client_commands)
-            if botcmds:
-                self.executor.send_botcmds(port, botcmds)
-            for line in console_lines:
-                self.executor.stuff(port, line)
-            if addbot_count:
-                self.executor.add_bots(port, addbot_count)
             value = request.get("value")
             detail = f"game {action}" + (f" {value}" if value is not None else "")
             return (
@@ -1081,6 +1121,7 @@ class ControlBridge:
             setup = build_session_setup_cmds(map_name)
             try:
                 self.executor.start_session(port, map_name, run_id, cfg, setup)
+                seed_practice_bots(self.executor, port, map_name)
             except Exception as exc:
                 failures.append(f"{port}: {type(exc).__name__}: {exc}")
                 try:
