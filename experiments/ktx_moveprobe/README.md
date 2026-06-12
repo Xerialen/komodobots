@@ -208,7 +208,7 @@ The S7j diagnostic suffix is shaped as `probe=<active>,<on_ground>,<since_ground
 
 The QWD diagnostic suffix is shaped as `qwd=<active>,<control_point_index>,<control_point_count>,<distance_qu>,<advanced_control_points>,<complete>,<active_seconds>`. It exists to prove whether the temporary QWD-derived controller activated, which target it was chasing, how far it got, and whether a future success claim is just waypoint-only slow/stuck motion.
 
-The ztricks terminal-carve suffix is shaped as `zjump=<phase>,<d_lip>,<vh>,<vel_yaw>,<target_yaw>,<target_err>,<yaw_lead>,<armed>,<release_rule>`. It exists to prove whether the mode-23 Distance attempt reaches the human release formula before scoring landing. The primitive is default-off and only engages when route/control metadata sets `k_fb_moveprobe_s23_launch_target_{x,y,z}`. The committed ztricks route also sets `k_fb_moveprobe_s23_lip_x`, release speed floors, `carve_d`, `carve_angle`, `carve_side`, `release_lip`, yaw-lead bounds, and target-error bounds.
+The ztricks terminal-carve suffix is shaped as `zjump=<phase>,<d_lip>,<vh>,<vel_yaw>,<target_yaw>,<target_err>,<yaw_lead>,<armed>,<release_rule>`. It exists to prove whether the mode-23 Distance attempt reaches the human release formula before scoring landing. The primitive is default-off and only engages when route/control metadata sets `k_fb_moveprobe_s23_launch_target_{x,y,z}`; it logs the terminal zone as `phase=1`, but only takes over the command once the configured speed floor makes `armed=1`. The committed ztricks route also sets `k_fb_moveprobe_s23_lip_x`, release speed floors, `carve_d`, `carve_angle`, `carve_side`, `release_lip`, yaw-lead bounds, and target-error bounds.
 
 ## Runner
 

@@ -69,7 +69,7 @@ index 541191f..4eede17 100644
  	{
  		self->s.v.goalentity = NUM_FOR_EDICT(self->fb.fixed_goal);
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..3adacca 100644
+index c0654d1..6012e01 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
 @@ -5,6 +5,267 @@
@@ -340,7 +340,7 @@ index c0654d1..3adacca 100644
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,142 +683,4125 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,142 +683,4122 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -4002,26 +4002,23 @@ index c0654d1..3adacca 100644
 +				moveprobe_s23_zjump_target_err[slot] = ztarget_err;
 +				moveprobe_s23_zjump_yaw_lead[slot] = zyaw_lead;
 +
-+				if (ztrack)
++				if (zarmed)
 +				{
++					ztarget_ok = (ztarget_err >= ztargeterr_min)
++						&& (ztarget_err <= ztargeterr_max);
 +					zyawlead_ok = (zyaw_lead >= zyawlead_min)
 +						&& (zyaw_lead <= zyawlead_max);
-+					if (zarmed)
++					if ((zvh >= zrelease_vh) && (zd_lip <= zrelease_lip)
++						&& ztarget_ok && zyawlead_ok)
 +					{
-+						ztarget_ok = (ztarget_err >= ztargeterr_min)
-+							&& (ztarget_err <= ztargeterr_max);
-+						if ((zvh >= zrelease_vh) && (zd_lip <= zrelease_lip)
-+							&& ztarget_ok && zyawlead_ok)
-+						{
-+							zrelease_rule = 1;
-+						}
-+						else if ((zd_lip <= zrelease_lip * 0.35f)
-+								 && (ztarget_err >= (ztargeterr_min - 20.0f))
-+								 && (ztarget_err <= (ztargeterr_max + 10.0f))
-+								 && zyawlead_ok)
-+						{
-+							zrelease_rule = 2;
-+						}
++						zrelease_rule = 1;
++					}
++					else if ((zd_lip <= zrelease_lip * 0.35f)
++							 && (ztarget_err >= (ztargeterr_min - 20.0f))
++							 && (ztarget_err <= (ztargeterr_max + 10.0f))
++							 && zyawlead_ok)
++					{
++						zrelease_rule = 2;
 +					}
 +
 +					self->fb.desired_angle[PITCH] = 0;

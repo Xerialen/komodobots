@@ -130,7 +130,9 @@ than a separate trickjump UI path. When `k_fb_moveprobe_s23_launch_target_{x,y,z
 is unset, mode 23 keeps its existing Frogbot-route weave. The ztricks Distance
 route sets the target, lip, release-speed, carve-side/angle, yaw-lead, and
 target-error cvars; KTX then emits `zjump=` command telemetry so each live
-attempt can be scored on release state before landing.
+attempt can be scored on release state before landing. The command takeover is
+gated on the configured speed floor: entering the terminal zone logs `phase=1`,
+but `armed=1` is required before KTX emits the fwd+side carve or release jump.
 
 ## First movement override evidence
 

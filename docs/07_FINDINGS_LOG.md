@@ -4233,3 +4233,69 @@ Validation:
 This does not prove the bot can land the ztricks jump. It gives the live loop a
 proper attempt primitive and enough telemetry to tune attempt by attempt:
 first make `zjump_state` match the human release formula, then score landing.
+
+
+## 2026-06-12 -- live zjump primitive test exposes approach-speed blocker
+
+### Finding
+
+Two live `ztricks` harness runs proved the new `zjump=` telemetry works and
+bounded the next blocker. The first build let the terminal-carve primitive own
+the command too early; the corrected build waits for the speed floor before
+taking over. After that fix, the bot still did not arm or release because the
+mode-23 approach reached the human lip neighborhood far too slowly.
+
+### Evidence
+
+Deployment safety:
+
+- Built from a temporary clean local KTX worktree at base `08807da`, applied
+  `frogbot-moveprobe-perslot.patch`, compiled `linux-amd64`, and uploaded named
+  modules to `servexeri:~/nquakesv/ktx/`.
+- The active lab symlink was restored after each run to
+  `qwprogs-mode24-20260612T101218Z.so`.
+- Restore hash verified:
+  `49a41cd17e5eec3aadf4b0bd1042a87214b7f8f50f65c8d7a617001ef5926418`.
+
+Run `zjump_20260612T152517Z` used the first zjump build
+`qwprogs-zjump-20260612T152431Z.so`:
+
+- `1005` command rows parsed; demo archived with SHA-256
+  `9dbca706e48570c551ecc19fae7fcf52b53982d5fe61046a2fcd67ce5e8cd17f`.
+- `zjump.phase` spent `904` rows at `1`, but `armed_rows=0` and
+  `release_rows=0`.
+- The primitive took over at low speed and starved the approach: max logged
+  zjump speed was only `272.7 qu/s`; closest pass to the human release point was
+  `74.5q` away at `190.0 qu/s`.
+
+Fix applied:
+
+- Changed mode 23 so `phase=1` still logs the configured terminal zone, but the
+  command override only returns early when `armed=1` (`vh >=
+  k_fb_moveprobe_s23_release_vh_min`).
+- Re-generated patch headers and compile-verified the corrected patch in a
+  temporary KTX worktree.
+
+Run `zjump_fixed_20260612T152858Z` used corrected build
+`qwprogs-zjump-fixed-20260612T152818Z.so`:
+
+- `1007` command rows parsed; demo archived with SHA-256
+  `1022b66b7e4153813c9dae1c170e85370bb3fc3752ed94aba7f5d34902657131`.
+- Movement improved versus the first run: average `85.5 qu/s`, max MVD segment
+  speed `423.3 qu/s`, p95 `300.3 qu/s`.
+- `zjump.phase` was `1` for only `14` rows, confirming the primitive no longer
+  monopolized the approach; still `armed_rows=0` and `release_rows=0`.
+- Closest pass to the human release point was `26.4q` away at only `228.0
+  qu/s`, with velocity yaw `335.3 deg` (equivalent to `-24.7 deg`) and target
+  error `26.0 deg`.
+- Closest pass to the human landing point was still `141.8q` away.
+
+### Interpretation
+
+The code path and telemetry are usable, but the ztricks route/controller is not
+entering the terminal runway with enough speed to use the release primitive. Do
+not lower the accepted release formula and call that success. The next smallest
+experiment is an approach-speed probe: preserve the speed-floor-gated zjump
+release, then tune the approach before the lip (start/launch route state,
+`launch_vh`, launch angle, and/or a pre-terminal acceleration segment) until
+`zjump` can reach `armed=1`.
