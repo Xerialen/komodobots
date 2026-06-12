@@ -381,11 +381,15 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   `loading|connected|retrying|disconnected`). FTE boots once; subsequent attach/detach
   cycles re-issue `qtvplay tcp:127.0.0.1:<port>@<relay>` without reloading the page. The
   ~3 s retry loop on QTV disconnect is driven by the pane itself (detected via
-  `svc_disconnect: EndOfDemo` in FTE console output). `f_demostart → autotrack` picks a
-  bot to follow on connect. The shell (`App.tsx`) sends `{cmd:"attach"}` on every new
-  attempt from telemetry; the pane's own retry loop handles the between-attempts
-  reconnect without shell involvement. Map `.bsp` preload is local-first (optimization
-  only; QTV fetches maps independently via `cl_download_mapsrc`). Modeled on
+  `svc_disconnect: EndOfDemo` in FTE console output). Connected-state detection accepts
+  FTE hook echoes (`f_demostart`/`autotrack`), relay acceptance (`Welcome to FTEQTV` /
+  `streaming ... via ...`), runtime stream messages such as `entered the game`, and a
+  short post-`qtvplay` fallback so the shell does not remain stuck at `retrying` while
+  FTE is visibly attached. `f_demostart → autotrack` picks a bot to follow on connect.
+  The shell (`App.tsx`) sends `{cmd:"attach"}` on every new attempt from telemetry; the
+  pane's own retry loop handles the between-attempts reconnect without shell involvement.
+  Map `.bsp` preload is local-first (optimization only; QTV fetches maps independently
+  via `cl_download_mapsrc`). Modeled on
   `local-hub/web/watch.html` and `local-hub/frontend/src/pages/botlab/App.tsx`;
   hub-fork `FteQtvPlayer` dependency removed.
 - `public/panes/fte_qtv.cfg` — the QTV config mapped to `id1/config.cfg`, copied from
