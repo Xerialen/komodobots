@@ -650,7 +650,6 @@ export function ControlDrawer({
   const mapRoutes = ROUTES_BY_MAP[sessionMap as MapName] ?? ROUTES_BY_MAP.dm3;
   const gameModes = ["4on4", "2on2", "1on1", "ffa"] as const;
   const dmmModes = ["1", "2", "3", "4"] as const;
-  const panelStyle = consoleOpen ? { width: "min(360px, 50vw)" } : undefined;
   const selectedTrickPreset = TRICK_PRESETS.find((p) => p.id === selectedTrick) ?? TRICK_PRESETS[0];
   const isSelectedTrickSession = isDashboardSession && sessionMap === selectedTrickPreset.map;
 
@@ -659,9 +658,7 @@ export function ControlDrawer({
   return (
     <div
       data-drawer="control"
-      className="fixed top-[41px] right-0 bottom-0 z-30 w-[360px] max-w-[92vw] border-l border-slate-700 bg-slate-950/97 shadow-2xl"
-      style={panelStyle}
-      onClick={(e) => e.stopPropagation()}
+      className="relative shrink-0 w-[320px] min-w-[280px] max-w-[34vw] border-l border-slate-800 bg-slate-950"
     >
       <div className="h-full overflow-y-auto px-4 py-3 flex flex-col gap-y-4 text-xs">
         {/* ---- SESSION BLOCK ---- */}
@@ -985,11 +982,10 @@ export function ControlDrawer({
 export type CvarConsolePanelProps = {
   client: ControlClient;
   wsConnected: boolean;
-  side: "left" | "right";
   onClose: () => void;
 };
 
-export function CvarConsolePanel({ client, wsConnected, side, onClose }: CvarConsolePanelProps) {
+export function CvarConsolePanel({ client, wsConnected, onClose }: CvarConsolePanelProps) {
   const [consoleLine, setConsoleLine] = useState("");
   const [consoleLog, setConsoleLog] = useState<ConsoleEntry[]>([]);
   const [historyIdx, setHistoryIdx] = useState(-1);
@@ -997,8 +993,6 @@ export function CvarConsolePanel({ client, wsConnected, side, onClose }: CvarCon
   const consoleEndRef = useRef<HTMLDivElement>(null);
   const bridgeOk = wsConnected && client.connected;
   const canConsole = bridgeOk;
-  const sideClass = side === "left" ? "left-0 border-r" : "right-0 border-l";
-  const panelStyle = side === "left" ? { width: "min(360px, 50vw)" } : undefined;
 
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1043,9 +1037,7 @@ export function CvarConsolePanel({ client, wsConnected, side, onClose }: CvarCon
   return (
     <div
       data-drawer="console"
-      className={`fixed top-[41px] bottom-0 z-30 w-[360px] max-w-[92vw] ${sideClass} border-slate-700 bg-slate-950/97 shadow-2xl`}
-      style={panelStyle}
-      onClick={(e) => e.stopPropagation()}
+      className="relative shrink-0 w-[320px] min-w-[280px] max-w-[34vw] border-l border-slate-800 bg-slate-950"
     >
       <div className="h-full px-4 py-3 flex flex-col gap-y-3 text-xs">
         <div className="flex items-center gap-x-2 pr-5 text-gray-400 uppercase tracking-wide font-semibold">

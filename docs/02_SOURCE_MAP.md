@@ -559,11 +559,12 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   loopback dashboard sessions are trusted automatically by the bridge.
 
 - `lab/dashboard/src/ControlDrawer.tsx` (LD-F3, #105) — side-panel control surfaces.
-  `ControlDrawer` renders from `App.tsx` when `layout.drawerOpen`; it is a fixed
-  vertical right-side panel, non-modal.  `CvarConsolePanel` renders separately when
-  `layout.consoleOpen`; it docks right when alone or left when the control panel is
-  already open.  The panels shrink to half-viewport width when both are open on narrow
-  screens.  Control panel sections:
+  `ControlDrawer` renders from `App.tsx` when `layout.drawerOpen`; it is a solid
+  vertical flex rail to the right of the main view area, not an overlay.
+  `CvarConsolePanel` renders as the next solid flex rail when `layout.consoleOpen`.
+  Both consume layout width so Live 3D / Live Game shrink instead of being covered;
+  the default open view set is Live Game only (`DEFAULT_VIEWS = ["game"]`).
+  Control panel sections:
   - **Session block**: lock badge (free / locked / stale), stale-takeover confirm flow,
     map selector (dm3/dm2/frobodm2/trick/ztricks), start/stop buttons.
   - **Game controls**: direct buttons call `gameCommand` for KTX `4on4`, `2on2`, `1on1`,
@@ -756,6 +757,45 @@ Important files/anchors:
 
 ## External conceptual sources
 
+## Workflow and agent-operation sources
+
+### Agent-agnostic role docs
+
+Local files:
+
+- `AGENTS.md`
+- `coder.md`
+- `reviewer.md`
+- `CLAUDE.md`
+- `codex.md`
+
+Why they matter:
+
+- `AGENTS.md` is the shared project contract.
+- `coder.md` defines the implementation role independent of tool brand.
+- `reviewer.md` defines the technical merge-safety review role independent of
+  tool brand.
+- Tool-specific files are thin adapters and must not assign permanent roles.
+
+### Test-case and web-validation methodology
+
+Local files:
+
+- `docs/09_TEST_CASES_AND_EVIDENCE.md`
+- `docs/10_AGENT_WEB_TESTING.md`
+- `.github/pull_request_template.md`
+- `.github/ISSUE_TEMPLATE/user_story.yml`
+- `.github/ISSUE_TEMPLATE/bug_report.yml`
+- `.github/ISSUE_TEMPLATE/test_case.yml`
+
+Why they matter:
+
+- Durable test cases remain reusable across changes.
+- Each execution is logged as a test run with evidence.
+- Web/UI changes require real-browser validation by an agent before completion.
+- GitHub templates make the workflow usable from issues and PRs instead of
+  living only in chat memory.
+
 ### Meag KTX/Frogbots blog/discussion
 
 URL: https://www.quakeworld.nu/blog/396
@@ -782,4 +822,4 @@ Why it matters:
 - Treat old blog/forum posts as design context only.
 - Pin commits when making claims about code behaviour.
 - Record any local forks and patches here.
-- If Codex discovers a new source, add it here before relying on it.
+- If an agent discovers a new source, add it here before relying on it.

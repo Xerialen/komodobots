@@ -1,0 +1,39 @@
+name: Bug report
+description: Something is broken or behaving incorrectly
+title: "Bug: "
+labels: ["type:bug", "status:inbox"]
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Exact steps, URL, commands, inputs, or map/session state.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Commit, branch, OS/browser, server, map, port, WebSocket URL, etc.
+  - type: textarea
+    id: failed_tests
+    attributes:
+      label: Failed or blocked test runs
+      description: Link test cases/test runs if this was found during validation.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Logs, screenshots, console errors, command output, MVD artifacts.

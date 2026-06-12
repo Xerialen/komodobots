@@ -699,29 +699,7 @@ export function App() {
               : "telemetry disconnected"}
         </span>
 
-        {/* LD-F3 (#105): right-side control panel — session/game/roster/assignment */}
-        {layout.drawerOpen && (
-          <ControlDrawer
-            client={controlClientRef.current}
-            telemetryClient={client}
-            wsConnected={connection.connected}
-            consoleOpen={layout.consoleOpen}
-            onConsoleToggle={() =>
-              setLayout((state) => ({ ...state, consoleOpen: !state.consoleOpen }))
-            }
-            onClose={() => setLayout((state) => ({ ...state, drawerOpen: false }))}
-          />
-        )}
       </header>
-
-      {layout.consoleOpen && (
-        <CvarConsolePanel
-          client={controlClientRef.current}
-          wsConnected={connection.connected}
-          side={layout.drawerOpen ? "left" : "right"}
-          onClose={() => setLayout((state) => ({ ...state, consoleOpen: false }))}
-        />
-      )}
 
       <div className="grow min-h-0 flex">
         {/* LD-E1 (#100): KPI dock — real component replaces the placeholder aside.
@@ -758,6 +736,30 @@ export function App() {
             </div>
           )}
         </main>
+
+        {/* LD-F3 (#105): control surfaces are solid right-side flex rails, not
+            overlays. They sit to the right of Live Game/Live 3D and consume
+            layout width so the game pane is never covered. */}
+        {layout.drawerOpen && (
+          <ControlDrawer
+            client={controlClientRef.current}
+            telemetryClient={client}
+            wsConnected={connection.connected}
+            consoleOpen={layout.consoleOpen}
+            onConsoleToggle={() =>
+              setLayout((state) => ({ ...state, consoleOpen: !state.consoleOpen }))
+            }
+            onClose={() => setLayout((state) => ({ ...state, drawerOpen: false }))}
+          />
+        )}
+
+        {layout.consoleOpen && (
+          <CvarConsolePanel
+            client={controlClientRef.current}
+            wsConnected={connection.connected}
+            onClose={() => setLayout((state) => ({ ...state, consoleOpen: false }))}
+          />
+        )}
       </div>
     </div>
     </ShellActionsContext.Provider>

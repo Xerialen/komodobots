@@ -254,10 +254,11 @@ harness (#96, #105).
 **States.** closed · open+free · open+dashboard-session-running · open+locked-by-harness
 (every mutating control disabled, reason shown: "experiment harness owns the lab") ·
 open+bridge-disconnected (everything mutating disabled) · stale-lock (takeover offered
-behind an explicit confirm) (#96, #105). The control panel docks vertically on the right.
-The cvar console docks vertically on the right when alone, or on the left when the
-control panel is already open. Esc closes side panels; non-modal — panes keep streaming
-underneath (#87, #105).
+behind an explicit confirm) (#96, #105). The control panel and cvar console dock as
+solid vertical rails to the right of the view panes.
+They consume layout width like the KPI rail; they must never be translucent overlays on
+top of Live Game / Live 3D. Esc closes side panels; non-modal — panes keep streaming
+beside them (#87, #105).
 
 ---
 
@@ -269,8 +270,8 @@ One horizontal arrangement, left to right (#87, #100):
 
 ```
 [KPI dock | rail] [Demo] [Mockup] [Live 3D] [Live Game]
+[Control] [Cvar console]
 [--------------------- top bar above all ---------------------]
-[control panel right side; cvar console right side or left side when both are open]
 ```
 
 - Open panes share a single row in **fixed order regardless of the order they were
@@ -278,8 +279,8 @@ One horizontal arrangement, left to right (#87, #100):
 - The KPI dock is a **grid column, not an overlay** — it reflows the panes when it
   collapses/expands; it never covers the Demo view (#100; this is why the dock design
   beat an overlay).
-- The control panel and cvar console are side overlay surfaces: non-modal, vertical, and
-  constrained so the panes keep streaming underneath (#105).
+- The control panel and cvar console are side rails: non-modal, vertical, and
+  constrained so the panes keep streaming beside them (#105).
 
 ### 4.2 The toggle matrix
 
@@ -292,7 +293,8 @@ One horizontal arrangement, left to right (#87, #100):
 
 Layout state (open set, dock collapsed, control panel open, console panel open, opacity value) persists in
 localStorage and is reflected in the URL (`?views=demo,live3d`) for shareable layouts;
-URL params win on load (#87, #99).
+URL params win on load (#87, #99). Without URL or stored layout, the default open set
+is Live Game only; Live 3D is opt-in via the toggle.
 
 Interactions may change the layout: clicking a record opens/focuses the Demo view if it
 was closed (#98, #104). That reflow must be unsurprising — the pane appears in its fixed

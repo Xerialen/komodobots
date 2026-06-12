@@ -39,8 +39,9 @@ export type LayoutState = {
   wireframe: boolean;
 };
 
-// Phase 1 default: the two views that exist today (SPEC §3.4, §3.5).
-export const DEFAULT_VIEWS: ViewId[] = ["live3d", "game"];
+// Default operator layout: Live Game only. Live 3D remains available as an
+// explicit instrument view, but no longer opens by default.
+export const DEFAULT_VIEWS: ViewId[] = ["game"];
 
 /** Default map opacity ("quite transparent", SPEC §6.3 / #99). */
 export const DEFAULT_MAP_OPACITY = 0.3;
