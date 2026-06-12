@@ -165,8 +165,14 @@ Modes:
 | `7` | S3g probe: start from mode `6`, then cap horizontal command magnitude to the original route/strafe intent magnitude. This tests whether no-backpedal survives without very large folded sidemove. |
 | `8` | S7j probe: start from mode `7`, then scale horizontal command budget only during takeoff/recent-air/recent-landing transition windows. This is a falsifiable probe against S7i guardrails, not accepted controller behavior. |
 | `9` | QWD SNG probe: activate near the first `dm3_sng_shortcut.qwd` control point, advance through a bounded QWD waypoint string, and project waypoint attraction plus QWD-style sidemove into preserved combat view yaw. This is not accepted controller behavior. |
+| `10` | Open-loop replay: snap to frame 0 of a `.cmds` file and emit the exact recorded view angles, movement, and jump buttons on the replay clock. |
+| `11` | Closed-loop replay steering: use the replay clock/path but re-aim from the bot origin toward a lookahead human frame. Diagnostic only; it discards the recorded mouse. |
+| `12` | Corrective replay: emit the exact recorded command stream plus a bounded yaw correction once divergence exceeds the configured deadband. |
+| `21` | Generative replay-route follow: use replay frames as waypoints, then apply the mode-20 style bunnyhop weave toward the path. |
+| `22` | Human-faithful actuation probe: reuse mode-21 navigation but drive a smooth simulated yaw plus held strafe key. |
 | `23` | Hybrid Frogbot route + bunnyhop weave. When the ztricks terminal-carve cvars are unset it behaves as before; when the route sets target/lip/release cvars it temporarily emits the configured fwd+side terminal carve and jump release rule near the lip. |
 | `24` | Dashboard practice idle: apply spawn-snap/ASSIGN instrumentation, then emit no movement, jump, or firing until a per-slot route assignment overrides the global mode. |
+| `25` | Human-mouse speed catch-up probe: replay the recorded mouse/timeline, but when live speed trails the human frame by `k_fb_moveprobe_s25_gap` above `k_fb_moveprobe_s25_min_speed`, project a velocity-relative accel wishdir into the recorded view basis. Experimental; current ztricks evidence improves peak/top-end speed but does not yet beat sustained human speed. |
 
 Mode `2`, `3`, `4`, `5`, `6`, `7`, `8`, and `9` cvars:
 
@@ -183,6 +189,57 @@ Mode `2`, `3`, `4`, `5`, `6`, `7`, `8`, and `9` cvars:
 | `k_fb_moveprobe_qwd_waypoints` | empty | Mode `9` semicolon-separated QWD control points as `x,y,z` triples. |
 | `k_fb_moveprobe_qwd_point_radius` | `96` | Mode `9` radius for advancing to the next QWD control point. |
 | `k_fb_moveprobe_qwd_start_radius` | `192` | Mode `9` radius around control point `0` required before the QWD probe activates. |
+
+Mode `25` cvars:
+
+Replay-backed modes (`10`, `11`, `12`, `21`, `22`, and `25`) also accept two
+benchmark-safety cvars. `k_fb_moveprobe_replay_stale_gap` defaults to `1.0`
+second and is clamped to `0.1..120.0`; set it high enough to prevent an in-run
+command gap from silently re-snapping the bot to frame 0. `k_fb_moveprobe_replay_one_shot`
+defaults off; set it to `1` for one-shot benchmarks such as
+`getandmaintainspeed.qwd` so death/respawn marks the attempt done instead of
+mixing several attempts into one MVD. The replay clock also tolerates tiny
+backward jitter up to `0.25s`; larger backward jumps still reset as map/session
+clock resets.
+
+| Cvar | Default in KTX | Meaning |
+|---|---:|---|
+| `k_fb_moveprobe_s25_min_speed` | `320` | Minimum live horizontal speed before the catch-up branch can replace the recorded movement vector. |
+| `k_fb_moveprobe_s25_gap` | `32` | Required human-frame speed lead, in qu/s, before catch-up engages. |
+| `k_fb_moveprobe_s25_numerator` | `8` | Target `v dot wishdir` numerator for the velocity-relative air-strafe wishdir. |
+| `k_fb_moveprobe_s25_bootstrap_deg` | `25` | Fallback wishdir angle when speed is too low for the numerator formula. |
+| `k_fb_moveprobe_s25_move` | `400` | Local movement magnitude used when projecting the catch-up wishdir into the recorded view basis. |
+| `k_fb_moveprobe_s25_flip` | `0` | Diagnostic sign inversion for the catch-up wishdir. `1` was worse on the first ztricks run. |
+| `k_fb_moveprobe_s25_path_div` | `0` | Default-off path leash. When >0 and divergence exceeds this horizontal distance, the catch-up branch can also engage for path correction. |
+| `k_fb_moveprobe_s25_path_blend` | `0` | Default-off path blend amount, clamped 0..1, that mixes the velocity-relative wishdir toward the human frame origin when the path leash is active. Early live tests with `0.25` and `0.05` were worse. |
+| `k_fb_moveprobe_s25_velsign` | `0` | Default-off diagnostic that chooses the strafe side whose wishdir is closer to the human velocity vector. First live test was worse, so leave disabled unless explicitly probing direction. |
+| `k_fb_moveprobe_s25_phase_start` | `0` | Default-off replay cursor where phase recovery can engage even below the global speed floor. Used to test the post-burst sustain collapse in `getandmaintainspeed.qwd`. |
+| `k_fb_moveprobe_s25_phase_target` | `850` | Human-frame speed required for phase recovery once `phase_start` is reached. |
+| `k_fb_moveprobe_s25_phase_min_speed` | `0` | Live speed floor for phase recovery. |
+| `k_fb_moveprobe_s25_phase_move` | same as `s25_move` | Movement magnitude used only while phase recovery is active. |
+| `k_fb_moveprobe_s25_phase_numerator` | same as `s25_numerator` | Velocity-relative numerator used only while phase recovery is active. |
+| `k_fb_moveprobe_s25_phase_human_cmd` | `0` | Default-off phase probe that keeps the recorded mouse and human side-input sign, but uses `phase_move` as the side magnitude instead of projecting a velocity-relative wishdir. This produced the best current `getandmaintainspeed.qwd` live result at `phase_start 1500`, `phase_target 850`, `phase_move 950`, but still does not beat the human's sustained `>900` time. |
+| `k_fb_moveprobe_s25_phase2_start` | `0` | Default-off second phase cursor that can switch phase recovery to `phase2_move`. The first late-boost test after cursor `2044` was worse, so leave disabled unless explicitly probing late sustain. |
+| `k_fb_moveprobe_s25_phase2_move` | same as `phase_move` | Movement magnitude used after `phase2_start` when enabled. |
+| `k_fb_moveprobe_s25_phase_jump` | `0` | Default-off phase jump-hold probe. The first live test was much worse than replayed human jump timing, so leave disabled unless explicitly isolating bunnyhop cadence. |
+| `k_fb_moveprobe_s25_phase_gap_gain` | `0` | Default-off adaptive phase probe that adds `(human_speed - live_speed) * gain` to the phase movement magnitude when the bot is behind. A conservative `0.25` capped at `960` was worse than the fixed `950` profile. |
+| `k_fb_moveprobe_s25_phase_move_max` | `0` | Optional cap for `phase_gap_gain`; `0` means no cap. |
+| `k_fb_moveprobe_s25_phase_yaw_offset` | `0` | Default-off phase yaw-bias probe, clamped to `-20..20` degrees. First `+5` and `-5` live tests were both worse than the unshifted human mouse. |
+| `k_fb_moveprobe_s25_phase_human_scale` | `0` | Default-off phase probe that scales the exact recorded forward/side command values instead of replacing side input with a fixed magnitude. `2.375` (`400 -> 950`) was worse than fixed side magnitude because it preserved too many low/zero command frames for this live bot. |
+
+Mode `25` accepted operational baseline:
+
+- Run: `gm25_clocktol1500m950_0420`.
+- Evidence snapshot:
+  `experiments/ktx_moveprobe/evidence/getandmaintainspeed-accepted-baseline-20260613.md`.
+- Deployed binary:
+  `~/nquakesv/ktx/qwprogs-s25clocktol-20260612T2207Z.so`, SHA-256
+  `83b0b75297cd81a5b0c29d1e747eec434a703ca00dd430152689eca3176463fe`.
+- User verdict: visually/operationally more than good enough for the current
+  baseline.
+- Strict scorer verdict: still `FAIL` because the human reference sustains
+  `>900` qu/s much longer. Treat the run as the frozen accepted baseline, not
+  as proof that mode `25` beats `getandmaintainspeed.qwd`.
 
 Mode `3` ignores `k_fb_moveprobe_yaw`; it computes yaw from `self->fb.dir_move_` when Frogbot has a non-zero horizontal route direction. If that route vector is empty for a frame, mode `3` leaves the already-computed stock command intact for that frame.
 

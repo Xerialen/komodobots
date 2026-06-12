@@ -317,7 +317,7 @@ class MovementMetricsTests(unittest.TestCase):
                 [
                     "noise before",
                     'FBMOVEPROBE_CMD time=12.250 ed=3 name=/ goldenboy mode=2 msec=13 angles=0.0,90.0,0.0 move=800,0,0 buttons=3 impulse=0',
-                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=9 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1 route=12,10,42,14,524288,8192,1,1.250 water=3,-3,528,16,120.0,25.5,-4.0,80.0,0.100,0.200,0.300 probe=0,0,999.000,999.000,1.000 qwd=1,3,14,72.250,4,0,1.375 origin=-3360.800,3777.200,-488.000 zjump=2,12.800,475.200,-11.3,-3.0,8.3,-7.7,1,1',
+                    'FBMOVEPROBE_CMD time=12.500 ed=3 name=/ goldenboy mode=9 msec=12 angles=0.0,90.0,0.0 move=-200,400,0 buttons=2 impulse=7 diag=270.0,90.0,180.0,1 route=12,10,42,14,524288,8192,1,1.250 water=3,-3,528,16,120.0,25.5,-4.0,80.0,0.100,0.200,0.300 probe=0,0,999.000,999.000,1.000 qwd=1,3,14,72.250,4,0,1.375 origin=-3360.800,3777.200,-488.000 zjump=2,12.800,475.200,-11.3,-3.0,8.3,-7.7,1,1 s25=1,1,5,888.2,924.4,36.2,-1,89.5,215.3,181.2,204.4,23.2,12.5,-399.8',
                 ]
             )
         )
@@ -390,6 +390,25 @@ class MovementMetricsTests(unittest.TestCase):
                 "yaw_lead_deg": -7.7,
                 "armed": True,
                 "release_rule": 1,
+            },
+        )
+        self.assertEqual(
+            commands[1]["s25_state"],
+            {
+                "active": True,
+                "engaged": True,
+                "reason": 5,
+                "speed": 888.2,
+                "target_speed": 924.4,
+                "speed_gap": 36.2,
+                "sign": -1,
+                "rotation_deg": 89.5,
+                "wish_yaw_deg": 215.3,
+                "velocity_yaw_deg": 181.2,
+                "target_velocity_yaw_deg": 204.4,
+                "target_velocity_error_deg": 23.2,
+                "projected_forward": 12.5,
+                "projected_side": -399.8,
             },
         )
 

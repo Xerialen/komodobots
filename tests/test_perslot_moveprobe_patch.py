@@ -217,6 +217,37 @@ class PerSlotPatchTests(unittest.TestCase):
         self.assertIn("&& (zd_lip <= zrelease_lip) && press_jump", self.added_blob)
         self.assertIn("zjump=%d,%.3f,%.3f,%.1f,%.1f,%.1f,%.1f,%d,%d", self.added_blob)
 
+    def test_mode25_catchup_telemetry_is_logged(self) -> None:
+        self.assertIn("k_fb_moveprobe_replay_stale_gap", self.added_blob)
+        self.assertIn("k_fb_moveprobe_replay_one_shot", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_gap", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_path_div", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_velsign", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_phase_start", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_phase_move", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_phase_human_cmd", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_phase2_start", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_phase2_move", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_phase_jump", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_phase_gap_gain", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_phase_move_max", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_phase_yaw_offset", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_phase_human_scale", self.added_blob)
+        self.assertIn("effective_move", self.added_blob)
+        self.assertIn("phase_reason", self.added_blob)
+        self.assertIn("phase-human-cmd", self.added_blob)
+        self.assertIn("phase2-move", self.added_blob)
+        self.assertIn("phase-jump", self.added_blob)
+        self.assertIn("phase-gap-boost", self.added_blob)
+        self.assertIn("phase-yaw-offset", self.added_blob)
+        self.assertIn("phase-human-scale", self.added_blob)
+        self.assertIn("moveprobe_s25_engaged", self.added_blob)
+        self.assertIn("moveprobe_s25_target_vel_err", self.added_blob)
+        self.assertIn(
+            "s25=%d,%d,%d,%.1f,%.1f,%.1f,%d,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f",
+            self.added_blob,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

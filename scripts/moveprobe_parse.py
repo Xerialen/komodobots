@@ -51,6 +51,13 @@ MOVEPROBE_COMMAND_RE = re.compile(
     r"(?P<zjump_target_yaw>-?\d+(?:\.\d+)?),(?P<zjump_target_err>-?\d+(?:\.\d+)?),"
     r"(?P<zjump_yaw_lead>-?\d+(?:\.\d+)?),(?P<zjump_armed>\d+),"
     r"(?P<zjump_release_rule>-?\d+))?"
+    r"(?:\s+s25=(?P<s25_active>\d+),(?P<s25_engaged>\d+),(?P<s25_reason>-?\d+),"
+    r"(?P<s25_hs>-?\d+(?:\.\d+)?),(?P<s25_target_hs>-?\d+(?:\.\d+)?),"
+    r"(?P<s25_speed_gap>-?\d+(?:\.\d+)?),(?P<s25_sign>-?\d+),"
+    r"(?P<s25_rotation>-?\d+(?:\.\d+)?),(?P<s25_wish_yaw>-?\d+(?:\.\d+)?),"
+    r"(?P<s25_vel_yaw>-?\d+(?:\.\d+)?),(?P<s25_target_vel_yaw>-?\d+(?:\.\d+)?),"
+    r"(?P<s25_target_vel_err>-?\d+(?:\.\d+)?),(?P<s25_out_fwd>-?\d+(?:\.\d+)?),"
+    r"(?P<s25_out_side>-?\d+(?:\.\d+)?))?"
 )
 
 
@@ -233,6 +240,23 @@ def parse_moveprobe_command_line(line: str) -> dict[str, object] | None:
             "yaw_lead_deg": float(groups["zjump_yaw_lead"]),
             "armed": bool(int(groups["zjump_armed"])),
             "release_rule": int(groups["zjump_release_rule"]),
+        }
+    if groups.get("s25_active") is not None:
+        row["s25_state"] = {
+            "active": bool(int(groups["s25_active"])),
+            "engaged": bool(int(groups["s25_engaged"])),
+            "reason": int(groups["s25_reason"]),
+            "speed": float(groups["s25_hs"]),
+            "target_speed": float(groups["s25_target_hs"]),
+            "speed_gap": float(groups["s25_speed_gap"]),
+            "sign": int(groups["s25_sign"]),
+            "rotation_deg": float(groups["s25_rotation"]),
+            "wish_yaw_deg": float(groups["s25_wish_yaw"]),
+            "velocity_yaw_deg": float(groups["s25_vel_yaw"]),
+            "target_velocity_yaw_deg": float(groups["s25_target_vel_yaw"]),
+            "target_velocity_error_deg": float(groups["s25_target_vel_err"]),
+            "projected_forward": float(groups["s25_out_fwd"]),
+            "projected_side": float(groups["s25_out_side"]),
         }
     return row
 

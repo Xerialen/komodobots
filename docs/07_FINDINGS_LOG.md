@@ -4697,3 +4697,605 @@ miss was `494.9 qu/s`, `0.6 qu/s` below the `495.5 qu/s` target.
 Across the three live safe-floor batches so far, the strict hit rate is
 `18/20`. Treat this as reproducible for the reduced speed-gain route, with a
 small stochastic threshold-margin failure rate still present.
+
+
+## 2026-06-12 -- getspeedstill QWD room/POV visualization
+
+### Experiment
+
+Rendered `C:\nQuake\qw\matchinfo\demos\getspeedstill.qwd` with the same
+QWD extraction and simple room/first-person POV visualization used for
+`mousemovement.qwd`.
+
+### Result
+
+The QWD bridge recovered a usable exact-command plus anchored self-trajectory
+stream: `2106` command frames, `2069` paired command/state frames, `0.982`
+coverage, and `112` downsampled waypoints.  The generated MP4 shows the path,
+extracted first-person view direction, yaw/pitch trace, command pulses, and
+speed pulses.
+
+The standalone `qw-analyze-v20` events mode still does not produce useful rows
+for this QWD (`qw-analyze: unexpected EOF`), so the controller evidence should
+continue to come from `tools/qwd_usercmd/qwd_usercmd.py` plus
+`scripts/probe_qwd_route_applicability.py`.
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/qwd-getspeedstill/getspeedstill_room_pov.mp4`
+- `artifacts/qwd-getspeedstill/getspeedstill_room_pov_frame.png`
+- `artifacts/qwd-getspeedstill/getspeedstill_view.html`
+- `artifacts/qwd-getspeedstill/getspeedstill_visual_summary.json`
+- `artifacts/qwd-getspeedstill/trajectory-probe.md`
+- `artifacts/qwd-getspeedstill/replay-build.json`
+
+Key visualization summary values:
+
+- duration `26.857s`, frames `2069`, rendered frames `1004`
+- speed avg `237.4 qu/s`, p50 `319.8`, p95 `452.3`, max `458.4`
+- forward nonzero `49.3%`, side nonzero `48.8%`, jump button `8.2%`
+- yaw total absolute travel `2952.6 deg`, yaw reversals `64`,
+  p95 absolute yaw rate `364.6 deg/s`
+
+### Interpretation
+
+`getspeedstill.qwd` is usable as human-input/trajectory evidence for
+speedjump-style controller work, and it looks more oscillatory than
+`mousemovement.qwd` in yaw reversal count.  It is still a visual and data
+reference, not proof that a Frogbot can replay the movement without live-server
+controller validation.
+
+
+## 2026-06-12 -- live safe-floor speedjump beats getspeedstill speed
+
+### Experiment
+
+Opened BotLab live game/telemetry against lab port `28599` and ran a short
+live `ztricks` batch on the `spawn_left_speedjump` route while the browser was
+visible.  The controller used the reduced safe-floor speedjump pattern:
+real ztricks spawn, turn left onto the flat lane, mode-23 reference yaw curve,
+and forward+side movement (`move=320,320`) with the proven fixed parameters
+`launch_vh=430`, `launch_angle=50`, `swing=8`.
+
+This was not a frame-for-frame replay of `getspeedstill.qwd`; it was the same
+movement family/control law applied live, with the speed target set above the
+`getspeedstill.qwd` visualized max of `458.4 qu/s`.
+
+### Result
+
+All four live attempts exceeded both the `getspeedstill.qwd` visualized max
+speed and the existing safe-floor human target of `495.5 qu/s`.
+
+| attempt | command-score max vh | movement-metrics max vh | classification |
+|---:|---:|---:|---|
+| 1 | `496.0` | `518.8` | `human_level_or_better` |
+| 2 | `503.4` | `528.3` | `human_level_or_better` |
+| 3 | `498.7` | `514.4` | `human_level_or_better` |
+| 4 | `496.9` | `521.0` | `human_level_or_better` |
+
+### Evidence
+
+- Run ID: `zlive_20260612T211350Z`
+- Local artifacts:
+  `artifacts/lab-runs/zlive_20260612T211350Z/`
+- Local demo:
+  `artifacts/lab-runs/zlive_20260612T211350Z/demo.mvd`
+- Remote demo:
+  `/home/xerial/nquakesv/ktx/demos/komodobots_ztricks_zlive_20260612t211350z.mvd`
+- Archive:
+  `/mnt/usb-ssd/non-games/lab/Komodobots/ztricks/zlive_20260612T211350Z.mvd`
+- Demo SHA-256:
+  `762242a91506e2b4152db93356ec0516b53984a7a7aebca4b9604ebbce3c5792`
+- Command rows parsed: `9846`
+- Parser exits: JSON `0`, Markdown `0`, events `1` with known
+  `qw-analyze: end of demo`
+- Cleanup: lab port `28599` verified down after the run.
+
+### Interpretation
+
+The reduced safe-floor speedjump is live-server reproducible at speeds above
+the `getspeedstill.qwd` reference visualization.  The remaining gap is not raw
+speed generation on flat ground; it is turning this into a controller that
+uses `getspeedstill.qwd`'s exact yaw/strafe timing as data and then transfers
+that timing back to harder geometry without losing direction, release cadence,
+or landing control.
+
+
+## 2026-06-12 -- getspeedstill vs live zspawn mouse comparison
+
+### Experiment
+
+Built a side-by-side simple-room visualization comparing
+`getspeedstill.qwd` against the fastest live safe-floor attempt from
+`zlive_20260612T211350Z` (attempt 2, ed `6`, `30.689s..39.047s`).
+The visualization normalizes playback progress so the full human demo and the
+shorter live attempt can be inspected together.
+
+### Result
+
+The live attempt is faster, but the mouse/control shape is not human-like.
+
+| metric | getspeedstill.qwd | live attempt 2 |
+|---|---:|---:|
+| max speed | `458.4 qu/s` | `503.4 qu/s` |
+| p95 speed | `452.3 qu/s` | `483.0 qu/s` |
+| yaw travel / second | `109.9 deg/s` | `1396.3 deg/s` |
+| yaw p95 rate | `365.0 deg/s` | `14807.0 deg/s` |
+| yaw reversals | `57` | `75` |
+| pitch range | `-5.5..41.3 deg` | `-3.5..0.0 deg` |
+| forward nonzero | `49.3%` | `98.9%` |
+| side nonzero | `48.8%` | `2.6%` |
+| jump button | `8.2%` | `1.5%` |
+
+### Evidence
+
+- Viewer: `artifacts/comparison-getspeedstill-zlive/comparison_view.html`
+- Video: `artifacts/comparison-getspeedstill-zlive/getspeedstill_vs_zlive_room.mp4`
+- Summary: `artifacts/comparison-getspeedstill-zlive/comparison_summary.json`
+- Analysis: `artifacts/comparison-getspeedstill-zlive/comparison_analysis.md`
+- Thumbnail: `artifacts/comparison-getspeedstill-zlive/comparison_frame.png`
+
+### Interpretation
+
+The safe-floor controller can create speed, but it does so through a much more
+mechanical pattern than the human demo: snap-like view-yaw changes, almost no
+pitch, mostly forward-only movement, and only brief terminal side input.  The
+next controller step should not chase more speed first.  It should use the QWD
+as a timing reference for smoother yaw/pitch/strafe synchronization, then
+retest whether that human-shaped controller can preserve the speed already
+shown on the safe-floor route.
+
+
+## 2026-06-12 -- getandmaintainspeed QWD mouse-first analysis
+
+### Experiment
+
+Analyzed `C:\nQuake\qw\matchinfo\demos\getandmaintainspeed.qwd` with mouse
+movement treated as the primary signal, not a secondary decoration.  Extracted
+exact QWD user commands, paired them with recovered self-player trajectory,
+rendered a simple room/POV video, and computed yaw/pitch/input/speed metrics.
+
+### Result
+
+This demo is a stronger human reference than the earlier short speed-gain
+clips because it sustains high speed with a controlled mouse/input rhythm.
+
+| metric | value |
+|---|---:|
+| exact command frames | `2615` |
+| paired command/state frames | `2541` |
+| paired coverage | `0.972` |
+| duration analyzed | `32.987s` |
+| average speed | `666.1 qu/s` |
+| p50 / p95 / max speed | `720.8 / 924.4 / 948.5 qu/s` |
+| time above 700 qu/s | `18.507s` (`56.1%`) |
+| time above 900 qu/s | `6.377s` (`19.3%`) |
+| yaw p50 / p95 / p99 rate | `132.7 / 244.8 / 618.2 deg/s` |
+| yaw reversals | `43` (`1.3/s`) |
+| pitch range | `0.0..40.7 deg` |
+| side-only input | `84.8%` |
+| jump button | `74.0%` |
+| side+mouse coupling | `1918` frames, `95.1%` opposite-sign |
+
+`qw-analyze-v20` JSON/Markdown produced an empty match summary for this QWD
+and events mode failed with `unexpected dem_cmd in MVD file`; the useful
+evidence is therefore the exact QWD command extraction plus
+`probe_qwd_route_applicability.py`, not the generic MVD event parser.
+
+### Evidence
+
+- Viewer: `artifacts/qwd-getandmaintainspeed/getandmaintainspeed_view.html`
+- Video: `artifacts/qwd-getandmaintainspeed/getandmaintainspeed_room_pov.mp4`
+- Thumbnail: `artifacts/qwd-getandmaintainspeed/getandmaintainspeed_room_pov_frame.png`
+- Mouse analysis: `artifacts/qwd-getandmaintainspeed/mouse-analysis.json`
+- Mouse analysis notes: `artifacts/qwd-getandmaintainspeed/mouse-analysis.md`
+- Paired trajectory: `artifacts/qwd-getandmaintainspeed/raw/getandmaintainspeed.paired.ndjson`
+- Replay command file: `artifacts/qwd-getandmaintainspeed/getandmaintainspeed.cmds`
+- Source SHA-256:
+  `28ab7b7748bc0b6b3be0720d62d700ce177cae977ac97d8d5b7b8300ba8901a8`
+
+### Interpretation
+
+Do not reduce this demo to "speed is high."  The important discovery is that
+high speed is maintained while side input, jump cadence, pitch, yaw lead, and
+velocity heading stay coordinated.  Compared with the live bot controller, this
+is exactly the missing quality: controlled mouse movement instead of spammy
+view-yaw snapping.  The next controller experiment should use this QWD as a
+mouse/input timing target and only then evaluate whether speed remains high.
+
+
+## 2026-06-12 -- ztricks getandmaintainspeed live replay/catch-up attempts
+
+### Experiment
+
+Ran live `ztricks` attempts against
+`artifacts/qwd-getandmaintainspeed/getandmaintainspeed.cmds` with the deployed
+lab KTX build.  The target is not only peak speed: the bot must preserve the
+human mouse/input timing and sustain the high-speed window from the QWD
+reference.
+
+Added experimental moveprobe mode `25`: it keeps the recorded replay view
+angles and clock, but when live horizontal speed trails the human frame by a
+configured gap above a configured speed floor, it projects a velocity-relative
+air-strafe wishdir into the recorded view basis.  This keeps the mouse trace
+human-derived while testing whether movement can catch up.
+
+### Result
+
+The goal is **not met yet**.  Open-loop replay remains the most human-shaped
+baseline; mode `25` can improve the top end, but current settings do not
+maintain the human speed window.
+
+Per-command velocity comparison over the first replay attempt:
+
+| run | mode / key cvars | avg | p50 | p95 | max | time >700 | time >900 |
+|---|---|---:|---:|---:|---:|---:|---:|
+| human `getandmaintainspeed.qwd` | reference | `666.1` | `720.8` | `924.4` | `948.5` | `18.507s` | `6.377s` |
+| `getmaintain_mode10_20260612T2140Z` | exact replay | `623.0` | `680.3` | `816.6` | `827.3` | `15.497s` | `0.000s` |
+| `getmaintain_mode25_hi700g80_20260612T2225Z` | min `700`, gap `80`, num `8` | `639.9` | `700.9` | `848.3` | `855.9` | `16.525s` | `0.000s` |
+| `getmaintain_mode25_hi700g20_20260612T2229Z` | min `700`, gap `20`, num `8` | `559.7` | `578.5` | `891.5` | `910.8` | `10.638s` | `1.062s` |
+| `getmaintain_mode25_hi700g0_20260612T2233Z` | min `700`, gap `0.1`, num `8` | `458.1` | `490.0` | `862.2` | `903.6` | `7.547s` | `0.103s` |
+
+Other probes rejected:
+
+- Mode `22` default smooth held-strafe route actuation did not bootstrap in this
+  room (`p95 389.8`, max `461.0` by movement metrics).
+- Mode `20` raw speed steering did not transfer to `ztricks`; it produced many
+  teleports and maxed at `701.1` by movement metrics.
+- Mode `11` path steering discarded the human mouse and was slow (`p95 391.3`,
+  max `458.5`).
+- Mode `25` with `s25_flip 1` was worse, confirming the original catch-up sign
+  convention is the better of the two.
+- Mode `25` with `s25_numerator 15` and with an `800` speed floor both failed
+  to complete the full replay stream.
+
+### Evidence
+
+- Patched/deployed KTX build:
+  `~/nquakesv/ktx/qwprogs-s25c-20260612T2243Z.so`, SHA-256
+  `7450eec6d3cd6ed958c9b309aef28cf5c01f6a31a3ac84f6c3fff642c72ed6fc`
+- Main live run artifacts:
+  `artifacts/lab-runs/getmaintain_mode10_20260612T2140Z`
+- Best mode-25 top-end run:
+  `artifacts/lab-runs/getmaintain_mode25_hi700g20_20260612T2229Z`
+- Rejected mode-25 runs:
+  `artifacts/lab-runs/getmaintain_mode25_default_fix_20260612T2221Z`,
+  `artifacts/lab-runs/getmaintain_mode25_hi700g80_20260612T2225Z`,
+  `artifacts/lab-runs/getmaintain_mode25_hi700g0_20260612T2233Z`,
+  `artifacts/lab-runs/getmaintain_mode25_hi700g20n15_20260612T2238Z`,
+  `artifacts/lab-runs/getmaintain_mode25_hi700g20flip_20260612T2244Z`,
+  `artifacts/lab-runs/getmaintain_mode25_hi800g20_20260612T2249Z`
+
+### Interpretation
+
+The useful signal is that the recorded mouse trace can survive mode `25` while
+top-end speed rises above exact replay, but the intervention is not yet the
+right shape.  More catch-up increases peak speed but steals sustained
+medium-high speed and route stability.  The next smallest useful experiment is
+not another broad cvar sweep; it is to make mode `25` log when the catch-up
+branch engages and compare those frames to the human yaw/velocity lead.  Then
+gate the boost by the human phase (for example, only inside stable side-only
+arcs), not just by speed gap.
+
+### 2026-06-12 continuation: full rebuild and direction probes
+
+Reconstructed the KTX source from the last full per-slot/ztricks patch plus
+mode `25` after a regenerated source tree had dropped the older
+`spawn_velocity` and mode-23 zjump pieces.  The restored patch again passes the
+structural guard and the deployed source includes mode `25`.
+
+Added three default-off mode-25 diagnostics:
+
+- `k_fb_moveprobe_s25_path_div` / `k_fb_moveprobe_s25_path_blend`: optional
+  divergence-triggered wishdir blend toward the human frame origin.
+- `k_fb_moveprobe_s25_velsign`: optional strafe-side choice by whichever
+  velocity-relative wishdir points closer to the human velocity vector.
+
+These diagnostics did **not** solve the target.  They are preserved only as
+controlled probes; leave them off for the current best mode-25 baseline.
+
+Human gate remains:
+
+| reference | avg | p50 | p95 | max | time >700 | time >900 |
+|---|---:|---:|---:|---:|---:|---:|
+| human `getandmaintainspeed.qwd` | `666.1` | `720.8` | `924.4` | `948.5` | `18.507s` | `6.377s` |
+
+Segmented first-attempt command scores from the rebuilt/live probes:
+
+| run | key cvars | avg | p50 | p95 | max | time >700 | time >900 | note |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| `getmaintain_mode25full_hi700g20_20260612T2317Z` | min `700`, gap `20`, num `8`, move `400` | `597.1` | `606.4` | `895.2` | `914.9` | `12.762s` | `1.307s` | fastest rebuilt segment, but fell/teleported out before completing |
+| `gm25_g20_rerun_2325` | same | `536.7` | `559.2` | `879.5` | `904.8` | `8.933s` | `0.865s` | completed replay, still below human |
+| `gm25_m800_2320` | move `800` | `459.1` | `491.4` | `854.6` | `883.9` | `8.703s` | `0.000s` | rejected; too much command magnitude |
+| `gm25_n30_2322` | numerator `30` | `287.5` | `186.6` | `693.7` | `722.3` | `1.379s` | `0.000s` | rejected |
+| `gm25_m508_2327` | move `508` | `461.9` | `491.9` | `856.5` | `888.0` | `9.116s` | `0.000s` | rejected |
+| `gm25_path025_2330` | path div `400`, blend `0.25` | `385.6` | `326.5` | `730.8` | `767.6` | `3.466s` | `0.000s` | rejected; leash threw the bot out vertically |
+| `gm25_path005_2332` | path div `500`, blend `0.05` | `520.7` | `526.8` | `753.1` | `790.0` | `2.401s` | `0.000s` | rejected; leash killed high-speed phase |
+| `gm25_velsign_2335` | `velsign 1` | `435.6` | `472.2` | `796.4` | `841.9` | `4.663s` | `0.000s` | rejected; velocity sign choice worsened direction |
+
+Phase comparison of `getmaintain_mode25full_hi700g20_20260612T2317Z` showed the
+bot briefly overlaps the human's main high-speed phase: around cursors
+`1760..1859`, bot average speed was `906.9` with max `914.9`.  The failure is
+after that: human stays above `900` through later cursor ranges (`2044..2087`,
+`2097..2104`, `2106..2230`), while the bot either falls/teleports or drops into
+the `220..300` speed range.  This confirms the user's observation: speed alone
+is not enough; the missing piece is synchronized direction/phase control after
+the first successful high-speed burst.
+
+Deploy evidence:
+
+- `~/nquakesv/ktx/qwprogs-s25full-20260612T2315Z.so`, SHA-256
+  `b21d65184d99caf27e1efdc57810e2324210bbd9916b00cd484672253f90b12b`
+- `~/nquakesv/ktx/qwprogs-s25path-20260612T2330Z.so`, SHA-256
+  `6755a2df956af5343af7b0747e7d051f82d2b7de7ca68e18792c8ca173a209b9`
+- `~/nquakesv/ktx/qwprogs-s25vel-20260612T2335Z.so`, SHA-256
+  `52035227301bf81464fbe9b2e788eec7a916ec666d7adf9bfd588209c45e80c1`
+
+Verification:
+
+```powershell
+python -m unittest tests.test_perslot_moveprobe_patch tests.test_moveprobe_assign_parse -v
+```
+
+Result: `23` tests passed.
+
+Next smallest useful experiment: add explicit mode-25 branch telemetry
+(`engaged`, speed gap, chosen sign, rotation, projected forward/side, velocity
+lead to human) and score it against the cursor ranges above.  The next
+controller change should be phase-aware around the post-1900 cursor collapse,
+not another global movement-magnitude sweep.
+
+### 2026-06-13 continuation: phase human-command probe
+
+Added mode-25 branch telemetry plus default-off phase probes:
+
+- `s25=` command suffix: active/engaged/reason, live speed, target speed,
+  speed gap, sign, rotation, wish yaw, live/target velocity yaw, target-velocity
+  error, and emitted forward/side command.
+- `k_fb_moveprobe_s25_phase_start`, `phase_target`, `phase_min_speed`,
+  `phase_move`, and `phase_numerator` for phase-aware recovery after the
+  first high-speed burst.
+- `k_fb_moveprobe_s25_phase_human_cmd`: preserve the recorded mouse and human
+  side-input sign, but use `phase_move` as the side magnitude instead of
+  projecting the velocity-relative wishdir into the human view basis.
+- `k_fb_moveprobe_s25_phase2_start` / `phase2_move`: default-off late-window
+  boost probe.
+- `k_fb_moveprobe_s25_phase_jump`: default-off jump-hold probe.
+
+The goal is still **not met**.  The best current live result is the
+phase-human-command profile:
+
+```text
+k_fb_moveprobe_s25_min_speed 700
+k_fb_moveprobe_s25_gap 20
+k_fb_moveprobe_s25_numerator 8
+k_fb_moveprobe_s25_move 400
+k_fb_moveprobe_s25_phase_start 1500
+k_fb_moveprobe_s25_phase_target 850
+k_fb_moveprobe_s25_phase_min_speed 320
+k_fb_moveprobe_s25_phase_move 950
+k_fb_moveprobe_s25_phase_human_cmd 1
+```
+
+Scoreboard against `getandmaintainspeed.qwd`:
+
+| run | key difference | movement p95 | movement max | command p95 | command max | event time >900 | result |
+|---|---|---:|---:|---:|---:|---:|---|
+| human `getandmaintainspeed.qwd` | reference | `924.4` | `948.5` | `924.4` | `948.5` | `6.377s` | target |
+| `gm25_phasehuman1500m900_0018` | phase human cmd, move `900` | `903.3` | `959.9` | `893.8` | `910.2` | `2.656s` | stable but too slow |
+| `gm25_phasehuman1500m950_0024` | phase human cmd, move `950` | `922.9` | `963.5` | `896.5` | `915.7` | `3.840s` | best so far, still short |
+| `gm25_phasehuman1500m1100_0021` | phase human cmd, move `1100` | `818.9` | `856.6` | `819.2` | `830.7` | `0.000s` | rejected, overshot rhythm |
+| `gm25_phasehuman1500t900m950_0033` | target `900` | `913.6` | `967.1` | `902.9` | `919.5` | `3.733s` | more command >900, worse overall |
+| `gm25_phasehuman1500t875m950_0046` | target `875` | `881.9` | `958.8` | `871.9` | `898.6` | `1.314s` | rejected |
+| `gm25_phasehuman1500m950p2_2044m980_0050` | late phase2 move `980` | `889.6` | `935.3` | `884.0` | `899.3` | `0.986s` | rejected |
+| `gm25_phasehuman1500m950jump_0100` | phase jump-hold | `751.7` | `823.7` | `787.5` | `847.4` | `0.041s` | rejected |
+
+Interpretation:
+
+- Preserving the human mouse and using boosted human side-only command is much
+  better than the earlier projected catch-up vector for this reference.  It
+  removes the forward/back command noise and stays on the floor.
+- The useful side-move magnitude is narrow.  `950` is near the live physics
+  cliff; `960`, `980`, and `1100` variants either fell or became slower.
+- Holding jump continuously is not a shortcut.  It breaks the recorded rhythm
+  and destroys the high-speed window.
+- The bot now beats the human peak speed (`963.5` vs `948.5`) and nearly
+  matches p95 (`922.9` vs `924.4`), but it does **not** maintain `>900` as long
+  as the human (`3.840s` vs `6.377s`).
+
+Deploy evidence:
+
+- `~/nquakesv/ktx/qwprogs-s25telemetry-20260612T2345Z.so`, SHA-256
+  `ddd73045cfcb35bafe225e60eb408ca4e115bba74f5a84bea53d3c629df8a1b9`
+- `~/nquakesv/ktx/qwprogs-s25phase-20260612T2350Z.so`, SHA-256
+  `2aed23fa9dbd5ede4f0a89998f2f63a03e91d0a1f62335a7577a7d96b2a1dfaf`
+- `~/nquakesv/ktx/qwprogs-s25phasemove-20260613T0000Z.so`, SHA-256
+  `9045c33d61c9d3571769f94759cde178a98a41882943228d0caad75f7e33ce67`
+- `~/nquakesv/ktx/qwprogs-s25humancmd-20260613T0015Z.so`, SHA-256
+  `42844ef7aff1a709766bcb449730409340d05f209319d16021e4044d7b91872c`
+- `~/nquakesv/ktx/qwprogs-s25phase2-20260613T0050Z.so`, SHA-256
+  `82643586e914b4dfa43c5e7c3d9a8bec7dcaa111ba6c8c5c411be3548ae21bdd`
+- `~/nquakesv/ktx/qwprogs-s25phasejump-20260613T0100Z.so`, SHA-256
+  `acc6aaf786055961519b120b93d351b2eb7c4b95576805bc36b15194d3d48fca`
+
+Next smallest useful experiment: do not add more scalar magnitude sweeps.
+Extract the human cursor windows where speed remains above `900` and fit a
+smooth per-window side-magnitude/yaw-offset curve from the existing telemetry.
+Then test one curve-shaped phase-human-command controller against the current
+best profile, with success gated on event time above `900`, not peak speed.
+
+### 2026-06-13 continuation: adaptive, yaw, and scaled-input probes
+
+Tested four follow-up hypotheses against the current best profile
+(`phase_start 1500`, `phase_target 850`, fixed phase side magnitude `950`):
+
+1. Adaptive gap boost: add a tiny speed-deficit-based increase to phase move
+   magnitude.
+2. Phase yaw offset: keep mouse timing but apply a small constant phase yaw
+   bias to test whether the movement basis was slightly misaligned.
+3. Exact human command scaling: scale recorded forward/side commands instead
+   of replacing side with a fixed magnitude, preserving human zero/transition
+   frames.
+4. Phase-start timing: delay phase human-command takeover from cursor `1500`
+   to `1600`.
+
+All four were worse than the current best.  The best-known run remains
+`gm25_phasehuman1500m950_0024`.
+
+| run | probe | movement p95 | movement max | command p95 | command max | event time >900 | result |
+|---|---|---:|---:|---:|---:|---:|---|
+| `gm25_phasehuman1500m950_0024` | current best | `922.9` | `963.5` | `896.5` | `915.7` | `3.799s` | best so far |
+| `gm25_phasehuman1500m950gap025cap960_0125` | gap gain `0.25`, cap `960` | `764.8` | `842.8` | `764.3` | `802.9` | `0.000s` | rejected |
+| `gm25_phasehuman1500m950yawp5_0135` | yaw offset `+5` | `884.4` | `946.3` | `879.7` | `898.5` | `1.309s` | rejected |
+| `gm25_phasehuman1500m950yawn5_0138` | yaw offset `-5` | `878.1` | `1988.8` | `875.1` | `891.1` | `0.563s` | rejected; teleport spike in movement max |
+| `gm25_phasehumanscale2375_0145` | exact human cmd scale `2.375` | `818.6` | `867.2` | `811.2` | `825.9` | `0.000s` | rejected |
+| `gm25_phasehuman1600m950_0150` | phase start `1600` | `861.7` | `906.3` | `860.1` | `877.5` | `0.080s` | rejected |
+
+Interpretation:
+
+- The fixed phase side magnitude is still better than preserving exact zero
+  frames.  For this bot, the human's timing alone is not enough once the body
+  has diverged from the human trajectory; the controller still needs stronger
+  continuous side actuation.
+- Small constant yaw offsets hurt both signs, so the remaining alignment
+  problem is not a simple fixed angular bias.
+- A tiny adaptive magnitude increase already crosses a bad rhythm/physics
+  boundary.  The current `950` side magnitude is close to the usable ceiling.
+- Delaying phase takeover to cursor `1600` loses the first high-speed window.
+
+Deploy evidence:
+
+- `~/nquakesv/ktx/qwprogs-s25phasegap-20260613T0125Z.so`, SHA-256
+  `66eb7023c62146ba0b886cc0c76cfca9f2d667e1c26d51257d2d5717420e4d6e`
+- `~/nquakesv/ktx/qwprogs-s25phaseyaw-20260613T0135Z.so`, SHA-256
+  `aaaaa71d9917f589c37884c2435b1895c8c0175c0d832fe689cdad523e0448f8`
+- `~/nquakesv/ktx/qwprogs-s25humanscale-20260613T0145Z.so`, SHA-256
+  `964f168b617a87aea1c56db6b9f7e06a5c8089d4c9f763a60935ff2dabe7cd6b`
+
+Next smallest useful experiment: stop using a single global phase actuation
+model. Split the reference into human cursor arcs and learn one small table of
+phase controls per arc: fixed side magnitude, whether zero frames should be
+overridden, and optional sign handling.  The table should be derived from the
+successful frames in `gm25_phasehuman1500m950_0024` and must be validated on
+event time above `900`, not only p95 or peak speed.
+
+### 2026-06-13 continuation: repeatability and simple per-arc checks
+
+Closed several missing checks around the best-known profile
+(`phase_start 1500`, `phase_target 850`, fixed phase side magnitude `950`):
+
+- Fixed `phase_move 960` with the same target/start as the best run.
+- Two-arc profile: `950` until cursor `2044`, then `900`.
+- Explicitly zeroed all newer default-off cvars.
+- Reran the same `950` profile on both the latest all-probe binary and the
+  older `qwprogs-s25humancmd-20260613T0015Z.so` binary that originally produced
+  the best run.
+- Tested phase start `1450` on the older binary.
+
+None beat the human target, and the original best did not reproduce.
+
+| run | probe | movement p95 | movement max | command p95 | command max | event time >900 | result |
+|---|---|---:|---:|---:|---:|---:|---|
+| human `getandmaintainspeed.qwd` | reference | `924.4` | `948.5` | `924.4` | `948.5` | `6.377s` | target |
+| `gm25_phasehuman1500m950_0024` | previous best | `922.9` | `963.5` | `896.5` | `915.7` | `3.799s` | best single run, not repeated |
+| `gm25_phasehuman1500m960_0200` | fixed move `960` | `840.6` | `891.5` | `837.4` | `855.1` | `0.000s` | rejected |
+| `gm25_phasehuman1500m950p2_2044m900_0205` | `950 -> 900` at cursor `2044` | `898.6` | `963.5` | `892.1` | `908.4` | `2.174s` | rejected |
+| `gm25_phasehuman1500m950_rerun_0210` | latest binary, same best cvars | `791.8` | `850.8` | `809.2` | `823.0` | `0.000s` | not reproduced |
+| `gm25_phasehuman1500m950_zeroed_0215` | latest binary, all newer cvars explicitly `0` | `859.2` | `1988.8` | `851.3` | `867.6` | `0.281s` | not reproduced; teleport spike in movement max |
+| `gm25_phasehuman1500m950_oldbin_0220` | old `s25humancmd` binary, same best cvars | `899.8` | `956.6` | `894.5` | `910.3` | `2.197s` | closer, still not reproduced |
+| `gm25_phasehuman1450m950_oldbin_0225` | old binary, phase start `1450` | `862.0` | `894.1` | `835.9` | `852.6` | `0.000s` | rejected |
+
+Interpretation:
+
+- The fixed `950` phase-human-command profile can produce near-human p95 and
+  bot-higher peak speed, but the result is not repeatable enough to claim the
+  goal.
+- The poorer reruns do not show leaked newer reason bits; explicitly zeroing
+  the new cvars did not recover the old best.  The repeatability problem is
+  therefore either live physics/setup variance or sensitivity to early route
+  state, not a simple hidden-cvar leak.
+- Lowering late move to `900` improved some late-window averages in earlier
+  isolated evidence but did not improve full-run `>900` duration when combined
+  as a two-arc controller.
+- Starting phase takeover at `1450` is too early and `1600` is too late.  Cursor
+  `1500` remains the best tested takeover point, but it is not robust.
+
+Next smallest useful experiment: make repeatability first-class. Run a small
+batch harness for the exact best profile, collect at least 5 attempts, and
+compare early-window state before cursor `1500` between high and low outcomes.
+Only then should the controller table be expanded; otherwise a per-arc table is
+likely to overfit a single lucky run.
+
+### 2026-06-13 continuation: accepted getandmaintainspeed baseline
+
+After the repeatability investigation, the replay harness itself was tightened
+before freezing a practical baseline:
+
+- Added `k_fb_moveprobe_replay_stale_gap` so a normal command gap does not
+  silently restart a replay from cursor `0`.
+- Added `k_fb_moveprobe_replay_one_shot` so one-shot benchmarks can complete or
+  die without falling back into stock Frogbot movement and mixing attempts.
+- Relaxed replay clock-back reset to tolerate tiny backward jitter up to
+  `0.25s`; the live server produced a small `11.980 -> 11.971` backward tick
+  that previously caused duplicate activation.
+- Added `scripts/score_getandmaintainspeed.py` so strict scoring is repeatable
+  and does not depend on hand-reading one MVD.
+
+The accepted live run is `gm25_clocktol1500m950_0420`. Benjamin watched it live
+and judged the behavior more than good enough for the current baseline. This is
+now frozen as an accepted operational/visual baseline, with an explicit caveat:
+it still does not beat the human `getandmaintainspeed.qwd` benchmark under the
+strict scorer.
+
+Reproduction command:
+
+```powershell
+$cvars = 'k_fb_moveprobe_replay_stale_gap 120;k_fb_moveprobe_replay_one_shot 1;k_fb_moveprobe_s25_min_speed 700;k_fb_moveprobe_s25_gap 20;k_fb_moveprobe_s25_numerator 8;k_fb_moveprobe_s25_move 400;k_fb_moveprobe_s25_phase_start 1500;k_fb_moveprobe_s25_phase_target 850;k_fb_moveprobe_s25_phase_min_speed 320;k_fb_moveprobe_s25_phase_move 950;k_fb_moveprobe_s25_phase_human_cmd 1'
+python scripts\run_frobodm2_lab.py --map ztricks --run-id gm25_clocktol1500m950_0420 --duration 45 --bot-count 1 --bot-spacing 0 --moveprobe-mode 25 --replay-cmds artifacts\qwd-getandmaintainspeed\getandmaintainspeed.cmds --moveprobe-log-commands --moveprobe-log-interval 0 --ktx-extra-cvars $cvars
+python scripts\score_getandmaintainspeed.py --run-id gm25_clocktol1500m950_0420
+```
+
+Deploy evidence:
+
+- `~/nquakesv/ktx/qwprogs.so` points to
+  `/home/xerial/nquakesv/ktx/qwprogs-s25clocktol-20260612T2207Z.so`.
+- SHA-256:
+  `83b0b75297cd81a5b0c29d1e747eec434a703ca00dd430152689eca3176463fe`.
+
+Clean replay evidence:
+
+| event | time | cursor | note |
+|---|---:|---:|---|
+| activate | `7.565s` | `0` | single activation |
+| complete | `40.559s` | `2540` | single completion, final horizontal divergence `71.837` |
+
+Strict score:
+
+| metric | human | accepted run event | accepted run command |
+|---|---:|---:|---:|
+| p95 speed | `924.4` | `873.6` | `869.9` |
+| max speed | `948.5` | `917.6` | `886.6` |
+| time >900 | `6.377s` | `0.240s` | `0.000s` |
+| yaw p95 | `244.8` |  | `280.0` |
+| yaw reversals/s | `1.30` |  | `1.10` |
+
+Committed evidence snapshot:
+
+- `experiments/ktx_moveprobe/evidence/getandmaintainspeed-accepted-baseline-20260613.json`
+- `experiments/ktx_moveprobe/evidence/getandmaintainspeed-accepted-baseline-20260613.md`
+
+Interpretation:
+
+- The bot behavior is good enough to stop this tuning pass and preserve the
+  baseline.
+- The strict scorer remains valuable because it prevents us from confusing a
+  visually good baseline with a numeric beat-human claim.
+- Future attempts should copy this profile and compare against
+  `scripts/score_getandmaintainspeed.py`; do not overwrite the accepted
+  baseline while exploring stricter improvements.
+
+Next smallest useful experiment: branch from this accepted profile, run one
+strict-score improvement at a time, and keep the accepted baseline as the
+rollback/reference profile.

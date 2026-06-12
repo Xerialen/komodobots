@@ -1383,7 +1383,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument(
         "--moveprobe-mode",
         type=int,
-        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23),
+        choices=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25),
         default=0,
         help=(
             "Set k_fb_moveprobe_mode in the generated KTX lab config. "
@@ -1565,7 +1565,7 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
 
         port = choose_port(args.host, args.port, explicit=args.strict_port)
         upload_shim(args.host, run_id)
-        if args.moveprobe_mode in (10, 11, 12, 21, 22) and args.replay_cmds is None:
+        if args.moveprobe_mode in (10, 11, 12, 21, 22, 25) and args.replay_cmds is None:
             raise RuntimeError(
                 f"--moveprobe-mode {args.moveprobe_mode} (replay-backed) requires "
                 "--replay-cmds; without it KTX loads no frames and silently falls "
