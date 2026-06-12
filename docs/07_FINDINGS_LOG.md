@@ -5242,6 +5242,10 @@ before freezing a practical baseline:
   that previously caused duplicate activation.
 - Added `scripts/score_getandmaintainspeed.py` so strict scoring is repeatable
   and does not depend on hand-reading one MVD.
+- Fixed the generated ztricks route manifest provenance for
+  `spawn_left_speedjump`: it now carries the required `source.census`,
+  `source.cmds`, and `source.cmds_sha256` fields, with a note that the route is
+  a synthetic spawn-floor drill rather than a separate human census.
 
 The accepted live run is `gm25_clocktol1500m950_0420`. Benjamin watched it live
 and judged the behavior more than good enough for the current baseline. This is

@@ -148,6 +148,21 @@ class TestSchema(unittest.TestCase):
         self.assertEqual(cvars["k_fb_moveprobe_s23_launch_target_y"], 2003.9)
         self.assertEqual(route["polyline"][0], [-1168.0, 1632.0, -496.0])
         self.assertEqual(route["polyline"][-1], [-796.1, 2003.9, -496.0])
+        source = route["source"]
+        self.assertEqual(
+            source["census"],
+            "experiments/a5_distance_standstill/ztricks-reference-trace.json",
+        )
+        self.assertEqual(
+            source["cmds"],
+            "experiments/a5_distance_standstill/getspeed-aligned.cmds",
+        )
+        self.assertRegex(source["cmds_sha256"], r"^[0-9a-f]{64}$")
+        self.assertEqual(
+            source["map_entities"],
+            "lab/dashboard/public/data/map_entities/ztricks.json",
+        )
+        self.assertRegex(source["map_entities_sha256"], r"^[0-9a-f]{64}$")
 
     def test_ztricks_source_hashes_are_recorded(self):
         route = self.docs["ztricks.json"]["routes"][0]

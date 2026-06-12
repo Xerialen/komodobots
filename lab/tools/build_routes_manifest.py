@@ -119,6 +119,8 @@ ZTRICKS_A5_REPORT = ZTRICKS_A5_DIR / "a5-distance-standstill.md"
 ZTRICKS_ALIGNED_CMDS = ZTRICKS_A5_DIR / "getspeed-aligned.cmds"
 ZTRICKS_HUMAN_REPLAY = ZTRICKS_A5_DIR / "human-replay.json"
 ZTRICKS_ALIGNMENT_META = ZTRICKS_A5_DIR / "alignment-meta.json"
+ZTRICKS_REFERENCE_TRACE = ZTRICKS_A5_DIR / "ztricks-reference-trace.json"
+ZTRICKS_MAP_ENTITIES = REPO / "lab" / "dashboard" / "public" / "data" / "map_entities" / "ztricks.json"
 ZTRICKS_WINNING_ATTEMPT = 11
 ZTRICKS_SPAWN_ORIGIN = [-1168.0, 1632.0, -496.0]
 ZTRICKS_SPAWN_ANGLE_DEG = 315.0
@@ -382,6 +384,9 @@ def build_ztricks_spawn_left_speedjump_route() -> dict:
         rounded_point(point_at_yaw(ZTRICKS_SPAWN_ORIGIN, ZTRICKS_SPAWN_LEFT_YAW_DEG, d))
         for d in (0.0, 128.0, 256.0, 384.0, 526.0)
     ]
+    reference_rel = ZTRICKS_REFERENCE_TRACE.relative_to(REPO).as_posix()
+    cmds_rel = ZTRICKS_ALIGNED_CMDS.relative_to(REPO).as_posix()
+    map_entities_rel = ZTRICKS_MAP_ENTITIES.relative_to(REPO).as_posix()
     return {
         "name": "spawn_left_speedjump",
         "human": {
@@ -393,11 +398,17 @@ def build_ztricks_spawn_left_speedjump_route() -> dict:
         "gaps": [],
         "teleports": [],
         "source": {
-            "map_entities": (
-                "lab/dashboard/public/data/map_entities/ztricks.json"
-            ),
+            "census": reference_rel,
+            "cmds": cmds_rel,
+            "cmds_sha256": sha256_normalized(ZTRICKS_ALIGNED_CMDS),
+            "map_entities": map_entities_rel,
+            "map_entities_sha256": sha256_normalized(ZTRICKS_MAP_ENTITIES),
             "spawn_angle_source": (
                 "ztricks.bsp entity lump: info_player_deathmatch angle 315"
+            ),
+            "note": (
+                "Synthetic spawn-floor drill derived from the ztricks map spawn "
+                "and the A5 Distance reference curve; not a separate human census."
             ),
         },
         "reference": {
