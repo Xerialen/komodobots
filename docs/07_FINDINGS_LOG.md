@@ -4668,3 +4668,32 @@ Distance still adds the hard release-cadence and landing geometry gates. The
 next smallest experiment is to use the fastest safe-floor attempts to tune
 approach timing and then move the synthetic lip/route start closer to the real
 Distance release problem while preserving this speed-gain evidence.
+
+### Reproduction check
+
+Two follow-up batches tested whether the result repeats.
+
+Same six-attempt sweep:
+
+```text
+python scripts\run_ztricks_batch.py --route spawn_left_speedjump --attempts 6 --attempt-seconds 6 --launch-vh 430,380,340 --launch-angle 50,45 --swing 8,14 --port 28599
+```
+
+Run `zbatch_20260612T182309Z`, archived MVD SHA-256
+`de711aab8b744f0f5bcfc46e4cbe414b92b60ecd4bfa3c945ca32d5202de6697`:
+`6/6` attempts reached human-level speed, best `515.6 qu/s`.
+
+Fixed default route params:
+
+```text
+python scripts\run_ztricks_batch.py --route spawn_left_speedjump --attempts 8 --attempt-seconds 6 --launch-vh 430 --launch-angle 50 --swing 8 --port 28599
+```
+
+Run `zbatch_20260612T182505Z`, archived MVD SHA-256
+`dfb49f230e706665b4e7268ab7b4f128af5769e8e136a18c78ff475f84070ca8`:
+`7/8` attempts reached human-level speed, best `530.3 qu/s`; the only strict
+miss was `494.9 qu/s`, `0.6 qu/s` below the `495.5 qu/s` target.
+
+Across the three live safe-floor batches so far, the strict hit rate is
+`18/20`. Treat this as reproducible for the reduced speed-gain route, with a
+small stochastic threshold-margin failure rate still present.

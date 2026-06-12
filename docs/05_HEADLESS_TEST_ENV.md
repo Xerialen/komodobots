@@ -478,7 +478,9 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   along the diagonal lane, rotates the reference curve by `45` degrees, and
   measures horizontal speed increase rather than far-platform landing. Live batch
   `zbatch_20260612T180901Z` reached human-level speed on `5/6` attempts, best
-  `506.2 qu/s` against the `495.5 qu/s` target. Audit log at
+  `506.2 qu/s` against the `495.5 qu/s` target. Reproduction batches
+  `zbatch_20260612T182309Z` and `zbatch_20260612T182505Z` reached `6/6` and
+  `7/8` respectively, with the fixed-param miss at `494.9 qu/s`. Audit log at
   `~/komodobots-lab/control-audit.log`.
   The lab lock `~/komodobots-lab/lab.lock` gives the experiment harness absolute
   priority: `run_frobodm2_lab.py` writes `owner=harness` for the duration of each

@@ -143,9 +143,12 @@ horizontal speed gain instead of ledge completion. This exists to separate
 "the controller cannot gain speed" from "the controller cannot land Distance."
 On 2026-06-12, `zbatch_20260612T180901Z` proved the speed-gain side of that
 split: `5/6` safe-floor attempts reached or exceeded the human reference target
-of `495.5 qu/s`, with a best sampled `zjump` peak of `506.2 qu/s`. This is not
-a Distance completion claim; it proves the controller can generate human-level
-speed on the same speedjump primitive when ledge geometry is removed.
+of `495.5 qu/s`, with a best sampled `zjump` peak of `506.2 qu/s`. Reproduction
+checks strengthened the result: same sweep `zbatch_20260612T182309Z` hit `6/6`
+and fixed default params (`430/50/8`) in `zbatch_20260612T182505Z` hit `7/8`
+with the only miss at `494.9 qu/s`. This is not a Distance completion claim; it
+proves the controller can reproducibly generate human-level speed on the same
+speedjump primitive when ledge geometry is removed.
 
 The 2026-06-12 reference-curve live retries fixed the no-movement symptom but
 did not solve Distance. Best scored segments stayed around `401-407 qu/s`, below
