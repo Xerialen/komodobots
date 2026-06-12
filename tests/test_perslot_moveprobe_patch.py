@@ -6,8 +6,7 @@ the loud-fail and ASSIGN emitters use exactly the format strings the Python
 parsers expect (drift guard against moveprobe_parse.py), and the patch stays
 additive with respect to the FBMOVEPROBE_CMD stream.
 
-The patch applies to the LIVE deployed lab tree (08807da plus all lab
-modifications), not to a pristine KTX 08807da checkout; base checksums are
+The patch applies to a pristine KTX 08807da checkout; base checksums are
 recorded in experiments/ktx_moveprobe/README.md.
 """
 
@@ -77,12 +76,16 @@ class PerSlotPatchTests(unittest.TestCase):
         self.assertIn('BotMoveProbeCvarStringForBot(self, "spawn_origin"', self.added_blob)
 
     def test_replaces_the_global_call_sites(self) -> None:
-        # The old single-source reads must actually be removed, not duplicated.
-        removed_blob = "\n".join(self.removed)
-        self.assertIn('cvar("k_fb_moveprobe_mode")', removed_blob)
-        self.assertIn('trap_cvar_string("k_fb_moveprobe_replay_file"', removed_blob)
-        self.assertIn('cvar("k_fb_moveprobe_fixed_goal")', removed_blob)
-        self.assertIn('trap_cvar_string("k_fb_moveprobe_spawn_origin"', removed_blob)
+        # The new call sites must go through the per-slot helpers rather than
+        # reintroducing the old single-source global reads.
+        self.assertIn('BotMoveProbeCvarIntForBot(self, "mode"', self.added_blob)
+        self.assertIn('BotMoveProbeCvarStringForBot(self, "replay_file"', self.added_blob)
+        self.assertIn('BotMoveProbeCvarIntForBot(self, "fixed_goal"', self.added_blob)
+        self.assertIn('BotMoveProbeCvarStringForBot(self, "spawn_origin"', self.added_blob)
+        self.assertNotIn('cvar("k_fb_moveprobe_mode")', self.added_blob)
+        self.assertNotIn('trap_cvar_string("k_fb_moveprobe_replay_file"', self.added_blob)
+        self.assertNotIn('cvar("k_fb_moveprobe_fixed_goal")', self.added_blob)
+        self.assertNotIn('trap_cvar_string("k_fb_moveprobe_spawn_origin"', self.added_blob)
 
     def test_loud_fail_emitter_format(self) -> None:
         self.assertIn(ERROR_FORMAT, self.added_blob)

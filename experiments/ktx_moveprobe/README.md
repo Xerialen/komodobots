@@ -26,19 +26,17 @@ The patch adds `k_fb_moveprobe_mode` handling inside `BotSetCommand()` after the
 
 ## Per-slot cvars patch (LD-F1 #95)
 
-`frogbot-moveprobe-perslot.patch` is a second, additive patch in this lineage. It does
-NOT apply to a pristine `08807da` checkout: it applies to the **live deployed lab tree**
-(servexeri `~/nquakesv/build/ktx`, which carries `08807da` plus all lab modifications up
-to mode 23). Base file checksums when the patch was cut (2026-06-10):
+`frogbot-moveprobe-perslot.patch` is a second patch in this lineage. It applies to a
+pristine KTX `08807da` checkout and includes the earlier lab movement-probe
+instrumentation plus the per-slot and dashboard-practice additions. Base file
+checksums for that clean checkout:
 
 ```text
 md5 src/bot_movement.c  105e3beeb86b7b351a0c2b3bb870e109
 md5 src/bot_botgoals.c  bcca093dc21ef7387036d5e50d7b02a2
 ```
 
-The deployed copies of those files carry CRLF line endings (Windows-side lab edits);
-the patch itself is LF per the repo `.gitattributes` rule, and `git apply --check`
-was verified read-only against the live servexeri tree on 2026-06-10. Apply with:
+The patch itself is LF per the repo `.gitattributes` rule. Apply with:
 
 ```bash
 cd ~/nquakesv/build/ktx
@@ -102,12 +100,12 @@ python scripts/run_frobodm2_lab.py --map dm3 --duration 45 --bot-count 2 \
 (`--extra-replay-cmds` uploads additional route files without touching the global
 `k_fb_moveprobe_replay_file`; per-slot values use the same `bots/replay/<name>` form.)
 
-Validation so far: compile-verified against an exact local reconstruction of the
-deployed tree (`08807da` + the live `bot_movement.c`/`bot_botgoals.c`, gcc via
-`build_cmake.sh linux-amd64`, zero warnings) and `git apply --check` against the
-pristine live base. The additive smoke run, the two-bots-two-routes live proof, and the
-loud-fail screen.log capture are pending the next declared lab slot (they yield to the
-Sprint-1 serial queue per #95).
+Validation so far: `git apply --check` against a fresh `08807da` KTX worktree,
+compile-verified on servexeri with `./build_cmake.sh linux-amd64`, and deployed as
+`~/nquakesv/ktx/qwprogs-mode24-20260612T101218Z.so` on 2026-06-12. Live dashboard
+proof started `ztricks` through the bridge (`dash_20260612T101502Z`) and emitted
+mode-24 command rows with zero movement/buttons while the seeded practice bots waited
+for per-slot route assignment.
 
 It can also emit sampled command rows with the exact values about to be handed to `trap_SetBotCMD(...)`:
 
