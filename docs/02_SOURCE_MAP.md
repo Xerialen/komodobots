@@ -166,6 +166,7 @@ Why it matters:
 - The patch now includes S7j mode `8`, a temporary air-transition horizontal-command budget probe. It starts from mode `7`, scales desired horizontal command only in takeoff/recent-air/recent-landing windows, preserves the mode-7 water-edge upmove behavior, and appends `probe=active,on_ground,since_ground,since_air,scale` to sampled command rows.
 - The patch now includes QWD-derived mode `9`, a temporary `dm3` SNG hybrid waypoint/controller probe. It reads a bounded QWD waypoint string, activates near the first SNG control point, advances control points by radius, projects waypoint attraction plus side-dominant QWD-style movement into preserved combat view yaw, and appends `qwd=active,index,count,distance,advanced,complete,active_seconds` to sampled command rows.
 - Mode `9` now also emits unsampled `FBMOVEPROBE_QWD_EVENT` rows on QWD `activate`, `advance`, and `complete` edges when command logging is enabled. These rows preserve target/next indices, distance, advanced count, active/complete flags, active seconds, and origin so a future rerun can prove internal activation/advance timing without relying on sparse sampled command rows.
+- The patch now includes dashboard practice idle mode `24`: it allows spawn-snap and ASSIGN instrumentation to run, then emits zero movement, no jump, and no firing until a per-slot route assignment overrides the global mode.
 - The patch now includes S6b diagnostic route-state logging as `route=linked_marker,touch_marker,goal_ed,goal_marker,path_state,bot_state,blocked,dir_speed` appended to sampled `FBMOVEPROBE_CMD` rows.
 - The patch now includes S6d diagnostic water/swim logging as `water=waterlevel,watertype,flags,swim_arrow,emitted_upmove,velocity_xyz,dir_move_xyz` appended to sampled `FBMOVEPROBE_CMD` rows after the `route=` suffix.
 - `scripts/run_frobodm2_lab.py` parses those command rows into `moveprobe-commands.json` and `moveprobe-commands.md` beside the normal MVD, parser, and movement-metrics artifacts.
@@ -566,11 +567,17 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   the default open view set is Live Game only (`DEFAULT_VIEWS = ["game"]`).
   Control panel sections:
   - **Session block**: lock badge (free / locked / stale), stale-takeover confirm flow,
-    map selector (dm3/dm2/frobodm2/trick/ztricks), start/stop buttons.
+    map selector (dm3/dm2/frobodm2/trick/ztricks), start/stop buttons. Starting a
+    dashboard session is a movement-practice setup step: the bridge seeds a default
+    quiet roster, applies separated spawn-snap origins on known maps (`dm3`, `ztricks`),
+    and uses moveprobe mode `24` so bots wait still without firing until a per-slot
+    route assignment overrides the global idle mode.
   - **Game controls**: direct buttons call `gameCommand` for KTX `4on4`, `2on2`, `1on1`,
     `ffa`, `dmm1`-`dmm4`, powerups on/off, `ready`, and `break`. These mutate the
     running game inside the active dashboard-owned lab server, not the dashboard session
-    lifecycle.  The ztricks-only `ztricks_distance_standstill` button applies the A5
+    lifecycle. `start` clears the global practice idle mode, unlocks normal bot weapons,
+    and readies the match; `stop` breaks the match and returns the session to quiet
+    practice.  The ztricks-only `ztricks_distance_standstill` button applies the A5
     Distance standstill preset (clear existing dashboard bots, spawn-snap at
     `-3516.125 3712 -453.125`, mode 23, fixed goal 8, circle-jump launch cvars)
     and spawns one bot for a clean visible attempt.  Issue #155 controls are also
@@ -606,9 +613,12 @@ allowlist 28599–28609, flat deny of production
 harness-priority lab lock (`~/komodobots-lab/lab.lock`), audits every mutating attempt
 to `~/komodobots-lab/control-audit.log`, and dispatches through an injectable
 `LabExecutor` (screen sessions + the `qw_min_client.py` shim — `botcmd` is not a
-server-console command). `game_command` is a separate allowlisted enum for KTX
-game controls plus the guarded ztricks Distance standstill preset; it may dispatch
-safe client commands, console cvar lines, short-lived botcmd shims, and addbot actions.
+server-console command). Session start now calls `seed_practice_bots()`, which applies
+moveprobe mode `24`, spawns the default practice roster one bot at a time with known
+safe spawn origins when available, and clears the global spawn cvar. `game_command` is
+a separate allowlisted enum for KTX game controls plus the
+guarded ztricks Distance standstill preset; it may dispatch safe client commands,
+console cvar lines, short-lived botcmd shims, and addbot actions in declared order.
 Botcmd shims stay connected for 5 s because `removeall` was unreliable with the earlier
 2 s window; client-command shims use 2 s to keep the dashboard response under timeout.
 `experiments/qw_min_client.py` gained repeatable `--botcmd` and `--cmd` flags for
