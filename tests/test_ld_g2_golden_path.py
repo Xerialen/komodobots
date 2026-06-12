@@ -4,12 +4,13 @@ Offline validations exercised here:
     1. routes-manifest integrity checks (schema, field completeness, count
        consistency, map cross-reference)
     2. maps.json / GLB structural checks (magic, version, length, SHA provenance)
-    3. records / verdicts schema round-trip (seed file, schema constants,
+    3. map-entity corpus integrity checks (schema, required maps, counts)
+    4. records / verdicts schema round-trip (seed file, schema constants,
        required verdict fields)
-    4. deploy expected file-set (pane files, top-level public assets)
-    5. Negative control: a deliberately broken fixture must fail loud
+    5. deploy expected file-set (pane files, top-level public assets)
+    6. Negative control: a deliberately broken fixture must fail loud
        (wrong GLB magic, missing route field, bad verdict value)
-    6. Committed artifacts integration (round-trip the real committed files
+    7. Committed artifacts integration (round-trip the real committed files
        through the harness — all offline checks must pass on a clean checkout)
 """
 
@@ -116,6 +117,30 @@ def _verdicts_json(tmp: Path, routes: dict | None = None) -> Path:
         }
     data = {"schema": gp.VERDICTS_SCHEMA, "routes": routes}
     p = tmp / "verdicts.seed.json"
+    p.write_text(json.dumps(data))
+    return p
+
+
+def _map_entities_doc(tmp: Path, map_name: str, entities: list[dict]) -> Path:
+    data = {"map": map_name, "version": 1, "entities": entities}
+    p = tmp / f"{map_name}.json"
+    p.write_text(json.dumps(data))
+    return p
+
+
+def _map_entities_index(tmp: Path, maps: list[dict], commit: str = "a" * 40) -> Path:
+    data = {
+        "schema": gp.MAP_ENTITIES_SCHEMA,
+        "v": 1,
+        "source": {
+            "repo": "https://github.com/galfthan/mvd_analyzer",
+            "ref": "upstream/main",
+            "commit": commit,
+            "path": "mvd-analytics/mapents/data",
+        },
+        "maps": maps,
+    }
+    p = tmp / "index.json"
     p.write_text(json.dumps(data))
     return p
 
@@ -410,7 +435,144 @@ class TestGlbStructural(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 3. Records / verdicts schema round-trip
+# 3. Map-entity corpus integrity
+# ---------------------------------------------------------------------------
+
+
+class TestMapEntities(unittest.TestCase):
+    def setUp(self):
+        self._td = tempfile.mkdtemp()
+        self.tmp = Path(self._td)
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self._td, ignore_errors=True)
+
+    def _run(self, entities_dir: Path, index_path: Path) -> list[str]:
+        orig_index = gp.MAP_ENTITIES_INDEX
+        orig_dir = gp.MAP_ENTITIES_DIR
+        orig_required = gp.MAP_ENTITIES_REQUIRED_MAPS
+        try:
+            gp.MAP_ENTITIES_INDEX = index_path
+            gp.MAP_ENTITIES_DIR = entities_dir
+            gp.MAP_ENTITIES_REQUIRED_MAPS = {"dm3"}
+            errors: list[str] = []
+            gp.check_map_entities(errors)
+            return errors
+        finally:
+            gp.MAP_ENTITIES_INDEX = orig_index
+            gp.MAP_ENTITIES_DIR = orig_dir
+            gp.MAP_ENTITIES_REQUIRED_MAPS = orig_required
+
+    def test_valid_map_entities_pass(self):
+        entities = [
+            {"type": "item", "class": "weapon_rocketlauncher", "kind": "rl",
+             "x": 1, "y": 2, "z": 3},
+            {"type": "spawn", "class": "info_player_deathmatch",
+             "x": 4.0, "y": 5.0, "z": 6.0},
+        ]
+        _map_entities_doc(self.tmp, "dm3", entities)
+        idx = _map_entities_index(
+            self.tmp,
+            [{"map": "dm3", "file": "dm3.json", "entities": 2,
+              "types": {"item": 1, "spawn": 1}}],
+        )
+        errors = self._run(self.tmp, idx)
+        self.assertEqual(errors, [], errors)
+
+    def test_wrong_schema_fails(self):
+        _map_entities_doc(self.tmp, "dm3", [
+            {"type": "item", "class": "item_health", "x": 1, "y": 2, "z": 3}
+        ])
+        idx = self.tmp / "index.json"
+        idx.write_text(json.dumps({
+            "schema": "wrong",
+            "source": {"commit": "a" * 40},
+            "maps": [{"map": "dm3", "file": "dm3.json", "entities": 1,
+                      "types": {"item": 1}}],
+        }))
+        errors = self._run(self.tmp, idx)
+        self.assertTrue(any("wrong schema" in e for e in errors), errors)
+
+    def test_missing_required_map_fails(self):
+        idx = _map_entities_index(self.tmp, [])
+        orig_index = gp.MAP_ENTITIES_INDEX
+        orig_dir = gp.MAP_ENTITIES_DIR
+        orig_required = gp.MAP_ENTITIES_REQUIRED_MAPS
+        try:
+            gp.MAP_ENTITIES_INDEX = idx
+            gp.MAP_ENTITIES_DIR = self.tmp
+            gp.MAP_ENTITIES_REQUIRED_MAPS = {"ztricks"}
+            errors: list[str] = []
+            gp.check_map_entities(errors)
+        finally:
+            gp.MAP_ENTITIES_INDEX = orig_index
+            gp.MAP_ENTITIES_DIR = orig_dir
+            gp.MAP_ENTITIES_REQUIRED_MAPS = orig_required
+        self.assertTrue(any("ztricks" in e for e in errors), errors)
+
+    def test_missing_file_fails(self):
+        idx = _map_entities_index(
+            self.tmp,
+            [{"map": "dm3", "file": "dm3.json", "entities": 1,
+              "types": {"item": 1}}],
+        )
+        errors = self._run(self.tmp, idx)
+        self.assertTrue(any("file not found" in e for e in errors), errors)
+
+    def test_entity_count_mismatch_fails(self):
+        _map_entities_doc(self.tmp, "dm3", [
+            {"type": "item", "class": "item_health", "x": 1, "y": 2, "z": 3}
+        ])
+        idx = _map_entities_index(
+            self.tmp,
+            [{"map": "dm3", "file": "dm3.json", "entities": 2,
+              "types": {"item": 1}}],
+        )
+        errors = self._run(self.tmp, idx)
+        self.assertTrue(any("entity count mismatch" in e for e in errors), errors)
+
+    def test_type_count_mismatch_fails(self):
+        _map_entities_doc(self.tmp, "dm3", [
+            {"type": "spawn", "class": "info_player_deathmatch",
+             "x": 1, "y": 2, "z": 3}
+        ])
+        idx = _map_entities_index(
+            self.tmp,
+            [{"map": "dm3", "file": "dm3.json", "entities": 1,
+              "types": {"item": 1}}],
+        )
+        errors = self._run(self.tmp, idx)
+        self.assertTrue(any("type counts mismatch" in e for e in errors), errors)
+
+    def test_missing_entity_coordinate_fails(self):
+        _map_entities_doc(self.tmp, "dm3", [
+            {"type": "item", "class": "item_health", "x": 1, "y": 2}
+        ])
+        idx = _map_entities_index(
+            self.tmp,
+            [{"map": "dm3", "file": "dm3.json", "entities": 1,
+              "types": {"item": 1}}],
+        )
+        errors = self._run(self.tmp, idx)
+        self.assertTrue(any("missing required keys" in e for e in errors), errors)
+
+    def test_bad_source_commit_fails(self):
+        _map_entities_doc(self.tmp, "dm3", [
+            {"type": "item", "class": "item_health", "x": 1, "y": 2, "z": 3}
+        ])
+        idx = _map_entities_index(
+            self.tmp,
+            [{"map": "dm3", "file": "dm3.json", "entities": 1,
+              "types": {"item": 1}}],
+            commit="not-a-sha",
+        )
+        errors = self._run(self.tmp, idx)
+        self.assertTrue(any("source.commit" in e for e in errors), errors)
+
+
+# ---------------------------------------------------------------------------
+# 4. Records / verdicts schema round-trip
 # ---------------------------------------------------------------------------
 
 
@@ -689,6 +851,12 @@ class TestCommittedArtifactsPassOffline(unittest.TestCase):
         gp.check_records_verdicts_schema(errors)
         self.assertEqual(errors, [],
                          f"Committed verdicts.seed.json / schema constants failed: {errors}")
+
+    def test_map_entities_committed(self):
+        errors: list[str] = []
+        gp.check_map_entities(errors)
+        self.assertEqual(errors, [],
+                         f"Committed map-entities data failed: {errors}")
 
     def test_deploy_file_set_committed(self):
         errors: list[str] = []

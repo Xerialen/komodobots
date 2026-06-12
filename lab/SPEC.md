@@ -138,17 +138,27 @@ while playing, the view emits context `{map, route?}` (#98).
 does the route look like, where are the gaps, what speed does each gap demand (#97)?
 
 **Content.**
-- **Map selector**: `dm3 · dm2 · frobodm2 · trick` (#91, #97).
+- **Map selector**: `dm3 · dm2 · frobodm2 · trick · ztricks` (#91, #97).
 - **3D scene**: the textured map mesh (default quite transparent, §3.8), free-orbit
   camera starting at a per-map overview point (#91, #97).
 - **Route browser**: the censused routes for the map (11 on dm3, §7.2; from the routes
   manifest, #90) with human stats (duration, active-mean speed, peak). Selecting a route draws its **human reference
   polyline** plus **gap markers** at the census launch-edge/landing points, labeled
   `required <speed> vs human <speed>` (e.g. the sng_to_rl decisive gap: required 526,
-  human carried 528). Teleporter entrances are marked. Multiple routes can be shown at
-  once in distinct colors (#97).
+  human carried 528). Teleporter entrances are marked. ztricks Distance is sourced from
+  the successful 11th `getspeed.qwd` attempt: its human reference line runs from the
+  teleport deposit to the far-platform landing, with human edge speed shown while
+  `required_speed` remains `n/a` because A5 showed speed alone is not a sufficient
+  success gate. Multiple
+  routes can be shown at once in distinct colors (#97).
+- **Static map context**: when `public/data/map_entities/<map>.json` exists, the pane
+  overlays imported mvd_analyzer entities (items, spawns, teleporter sources/destinations,
+  doors/buttons). The selected-route detail shows nearest static entities for route
+  start, final edge, and landing; ztricks Distance uses this to expose its teleporter
+  source/landing context.
 - **Empty-map honesty**: dm2/frobodm2/trick currently have no censused routes — the list
-  says so explicitly ("no censused routes yet") rather than hiding (#97).
+  says so explicitly ("no censused routes yet") rather than hiding (#97). ztricks is the
+  non-dm3 exception with `distance_standstill`.
 
 **States.** map + no route · one/many routes selected · empty-route-list map.
 
@@ -240,16 +250,22 @@ harness (#96, #105).
   These control the running game, not the dashboard session. **Start game** clears the
   global practice idle mode, unlocks normal bot weapons, and readies the match; **stop
   game** breaks the match and returns the session to quiet practice.
-  A ztricks-only **Distance standstill** preset applies the A5 start-point cvars
-  (`spawn_origin`, mode 23, far-platform fixed goal, and circle-jump launch knobs)
-  clears existing dashboard bots, and spawns one bot so the visible lab can watch a clean standing-start attempt.
-  The preset is exposed as **try** beside a **pause** button; pause clears the visible
-  trick bot(s) without stopping the session.
-- **Bot roster**: one row per live bot — name, slot, **assigned route read back from the
-  server** (never optimistic; the roster shows what the server says it is running, #95,
-  #105) — plus add-bot / remove-bot controls. A per-row respawn control is enabled
+- **Bot roster**: one row per live bot — name/profile draft, slot, **assigned route read
+  back from the server** (never optimistic; the roster shows what the server says it is
+  running, #95, #105) — plus add-bot / remove-bot controls. Trickjumps are normal
+  routes here: ztricks Distance is `distance_standstill` in the route manifest, with the
+  A5 start-point cvars (`spawn_origin`, mode 23, far-platform fixed goal, and
+  circle-jump launch knobs) stored as route control metadata. Selecting a route keeps
+  the bot in practice-idle mode; the row-level **try**, **loop**, **stand still**, and
+  **respawn** buttons control that selected bot. A per-row respawn control is enabled
   only when it is safe to be precise: one live bot in this KTX build. Internally that
   uses clear-all + add-one because KTX `removebot` is not reliably slot-addressable.
+  The roster header also exposes **clear**, which sends KTX `removeall` and is the
+  reliable recovery path when slot-addressed removal leaves the session in a confusing
+  multi-bot state.
+  Bot name/color/team profile fields are staged in the row; current KTX only has
+  spawn-time Frogbot name cvars, so live color/team application requires a future
+  bot-userinfo bridge hook.
 - **Per-bot route assignment**: a route dropdown per roster row (routes of the current
   map); assigning issues one atomic "assign" action. Two bots may run two *different*
   routes on the same map at the same time — this is the module's acceptance test (#95,

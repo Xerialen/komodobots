@@ -74,6 +74,16 @@ Movement metrics extractor: `C:\Users\benya\projects\quakeworld\komodobots\scrip
 
 Moveprobe plausibility summarizer: `C:\Users\benya\projects\quakeworld\komodobots\scripts\summarize_moveprobe_plausibility.py`
 
+ztricks batch runner: `C:\Users\benya\projects\quakeworld\komodobots\scripts\run_ztricks_batch.py`
+
+ztricks batch scorer: `C:\Users\benya\projects\quakeworld\komodobots\scripts\score_ztricks_batch.py`
+
+getandmaintainspeed scorer: `C:\Users\benya\projects\quakeworld\komodobots\scripts\score_getandmaintainspeed.py`
+
+ztricks reference trace builder: `C:\Users\benya\projects\quakeworld\komodobots\scripts\build_ztricks_reference_trace.py`
+
+ztricks reference interpolation helpers: `C:\Users\benya\projects\quakeworld\komodobots\scripts\ztricks_reference_trace.py`
+
 Route-state diagnosis helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\diagnose_route_state.py`
 
 Route-state attribution helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\attribute_route_state_windows.py`
@@ -129,6 +139,11 @@ Why it matters:
 - `experiments/qw_min_client.py` is the protocol-narrow connected-client control path for KTX commands such as `botcmd addbot`.
 - `scripts/extract_movement_metrics.py` derives per-player horizontal speed, distance, speed-threshold time ratios, stationary time, airborne proxy, and jump cadence from `events.txt` kind `5` player origin samples. S7b added an indexed landing-window speed lookup so long 4on4 human traces can produce movement metrics in seconds instead of timing out in repeated full-list scans.
 - `scripts/summarize_moveprobe_plausibility.py` combines per-run `movement-metrics.json` and `moveprobe-commands.json` artifacts into an explicit command-coverage plus stationary/low-speed gate. S7c carries `jump_cadence_per_min` from movement metrics into committed S3g bot summaries.
+- `scripts/run_ztricks_batch.py` keeps one temporary `ztricks` lab server and one MVD recording alive while cycling remove/add/single-bot route attempts through a cvar sweep. It now takes a ztricks route profile (`distance_standstill` or `spawn_left_speedjump`) from the route manifest, so Distance uses the A5 target/lip/release metadata while the safe-floor route uses the real spawn, zero velocity, diagonal lip/target, and rotated Nexus reference curve.
+- `scripts/score_ztricks_batch.py` segments a batched `moveprobe-commands.json` into attempts and scores by route profile. `distance_standstill` still scores against the successful `getspeed.qwd` release formula, interpolating release/landing by XY projection and the physical lip by linear `x=-3348` crossing. `spawn_left_speedjump` scores start-to-peak horizontal speed gain against the human reference target `495.5 qu/s`.
+- `scripts/score_getandmaintainspeed.py` scores one mode-25 live run against `artifacts/qwd-getandmaintainspeed/mouse-analysis.json`. It recomputes MVD event-speed segments, command-log speed/yaw diagnostics, human high-speed cursor windows, and writes `getandmaintainspeed-score.json/md` into the run directory. Its strict PASS target still requires beating human p95, max, sustained `>900` time, and mouse-shape checks; the accepted 2026-06-13 CEST baseline is documented as user-accepted visual/operational evidence, not a strict scorer pass.
+- `scripts/build_ztricks_reference_trace.py` writes `experiments/a5_distance_standstill/ztricks-reference-trace.json/md` from A5's successful attempt. The trace preserves raw rows, event crossings, and a local-quadratic controller guidance curve over the terminal sweep; angles are unwrapped before interpolation.
+- `scripts/ztricks_reference_trace.py` is the shared interpolation helper for the ztricks reference trace and scorer. Event proof stays conservative (piecewise linear/projection) while controller guidance can use local quadratic samples.
 - `scripts/diagnose_route_state.py` joins position segments, sampled moveprobe commands, and map-entity locations to identify low-speed windows and whether current artifacts contain route node/goal/obstruction state.
 - `scripts/attribute_route_state_windows.py` decodes route-state low-speed windows against KTX/Frogbot flag definitions and `.bot` route-map edges, producing compact S6 attribution evidence without changing controller behavior.
 - `scripts/inspect_route_edge_geometry.py` inspects one Frogbot `.bot` edge, its reciprocal/direct neighborhood, static marker-origin availability, and matching S6 attribution samples to decide whether a route-data geometry fix is justified.
@@ -173,8 +188,9 @@ Why it matters:
 - `scripts/run_frobodm2_lab.py` parses S6d water rows into nested `water_state` command data and summarizes waterlevels, watertypes, player flags, swim arrows, emitted upmove, velocity Z, and raw route `dir_move` Z.
 - `scripts/run_frobodm2_lab.py` parses S7j probe rows into nested `probe_state` command data and summarizes transition-active sample counts, active ratios, and active scale values.
 - `scripts/run_frobodm2_lab.py` passes mode-9 QWD waypoint/radius cvars through base64-safe remote shell transport, parses nested `qwd_state` command data, and summarizes QWD activation, control-point index/count, target distance, advanced points, completion, and active seconds.
+- `scripts/run_frobodm2_lab.py` parses mode-23 ztricks terminal-carve rows into nested `zjump_state` command data and summarizes phase, arm/release, speed, lip distance, target-error, and yaw-lead values.
 - `scripts/run_frobodm2_lab.py` parses `FBMOVEPROBE_QWD_EVENT` rows into `moveprobe-qwd-events.json` and `moveprobe-qwd-events.md`; run summaries include the parsed QWD event count.
-- `experiments/ktx_moveprobe/frogbot-moveprobe-perslot.patch` (LD-F1 #95) adds the per-slot cvar convention `k_fb_moveprobe_<param>_s<N>` (`mode`, `replay_file`, `fixed_goal`, `spawn_origin`; `N` = the bot's `ed`), bounded per-slot replay-file stores, `FBMOVEPROBE_ASSIGN` assignment rows, dashboard practice idle mode `24`, and `FBMOVEPROBE_PERSLOT_ERROR` loud failures with hold-at-spawn. It applies to a pristine KTX `08807da` checkout; base checksums, apply notes, and 2026-06-12 deploy evidence live in `experiments/ktx_moveprobe/README.md`.
+- `experiments/ktx_moveprobe/frogbot-moveprobe-perslot.patch` (LD-F1 #95) adds the per-slot cvar convention `k_fb_moveprobe_<param>_s<N>` (`mode`, `replay_file`, `fixed_goal`, `spawn_origin`, `spawn_velocity`; `N` = the bot's `ed`), bounded per-slot replay-file stores, `FBMOVEPROBE_ASSIGN` assignment rows, dashboard practice idle mode `24`, `FBMOVEPROBE_PERSLOT_ERROR` loud failures with hold-at-spawn, the default-off mode-23 ztricks terminal-carve/reference-curve/release primitive, and experimental mode `25` for human-mouse replay speed catch-up. Replay-backed modes now expose `k_fb_moveprobe_replay_stale_gap` and `k_fb_moveprobe_replay_one_shot` so one-shot benchmark runs can prevent silent in-run replay reactivation after command gaps or death/respawn. Mode `25` logs `s25=` branch telemetry and has default-off diagnostics for path-divergence wishdir blending, human-velocity strafe-side selection, phase recovery, phase human-command actuation, late second-phase movement, phase jump-hold, adaptive phase gap boost, phase yaw offset, and exact-human-command scaling. Current `getandmaintainspeed.qwd` evidence rejects path-blend, velsign, late phase2, jump-hold, gap boost, yaw offset, human-command scaling, and phase-start `1600`; the best live profile uses fixed-magnitude phase human-command actuation but still does not beat the human's sustained `>900` time. The ztricks primitive includes optional `k_fb_moveprobe_s23_lip_y` so diagonal calibration routes can compute `d_lip` by projected lane progress while Distance keeps raw X-axis lip distance. It applies to a pristine KTX `08807da` checkout; base checksums, apply notes, and 2026-06-12 deploy evidence live in `experiments/ktx_moveprobe/README.md`.
 - `scripts/moveprobe_parse.py` additionally parses `FBMOVEPROBE_ASSIGN` and `FBMOVEPROBE_PERSLOT_ERROR` rows (`parse_moveprobe_assign_logs`, `parse_moveprobe_perslot_error_logs`); `scripts/run_frobodm2_lab.py` writes them to `moveprobe-assignments.json` and `moveprobe-assignments.md` and accepts `--extra-replay-cmds` for uploading additional per-slot route files.
 - `scripts/diagnose_route_state.py` now consumes the nested `route_state` command data and reports marker/goal/path-state/blocked context for low-speed windows.
 - `scripts/attribute_route_state_windows.py` uses KTX `include/fb_globals.h`, `include/g_consts.h`, `src/route_calc.c`, `src/bot_botwater.c`, `src/bot_movement.c`, and `resources/example-configs/ktx/bots/maps/dm3.bot` to decode S6b/S6d/S6e repeated marker/path-state/water-state patterns.
@@ -401,12 +417,35 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   committed trick census (`experiments/nav_doctrine/evidence/trick-census/census.json`)
   plus the committed human replay trajectories
   (`experiments/nav_doctrine/evidence/replay/dm3_<route>.cmds`) into the committed,
-  versioned routes manifests `lab/dashboard/public/data/routes/{dm3,dm2,frobodm2,trick,index}.json`
+  versioned routes manifests `lab/dashboard/public/data/routes/{dm3,dm2,frobodm2,trick,ztricks,index}.json`
   (schema `komodobots.routes.v1`) — the canonical "what routes exist" feed for the
-  Mockup view, KPI dock and control panels. Deterministic/idempotent (LF outputs,
+  Mockup view, KPI dock and control panels. ztricks is the non-dm3 exception: its
+  `distance_standstill` route is built from A5's successful 11th `getspeed.qwd`
+  attempt (`experiments/a5_distance_standstill/human-replay.json` +
+  `getspeed-aligned.cmds`), with the real start-to-landing polyline, edge speed,
+  launch heading, and provenance hashes; `required_speed` stays null because A5
+  showed speed alone is not a sufficient success gate. ztricks also carries
+  `spawn_left_speedjump`, a flat spawn-floor speed-gain drill from the real
+  deathmatch spawn (`-1168 1632 -496`, BSP angle `315`, left yaw `45`) that
+  reuses the mode-23 speedjump/reference-curve primitive with no ledge-completion
+  gate. Deterministic/idempotent (LF outputs,
   `-text` in `.gitattributes`, LF-normalized sha256 provenance hashes);
   `tests/test_build_routes_manifest.py` locks the committed outputs against a fresh
-  build. Pipeline details: `docs/06_DATA_AND_MVD_PIPELINE.md` § Routes manifest.
+  build. The controller-shaped breakdown of the successful speedjump lives in
+  `experiments/a5_distance_standstill/speedjump-formula.md`. Pipeline details:
+  `docs/06_DATA_AND_MVD_PIPELINE.md` § Routes manifest.
+
+- `lab/tools/import_map_entities.py` — stdlib importer that copies the upstream
+  `mvd_analyzer` static map-entity corpus from
+  `mvd-analytics/mapents/data/<map>.json` into the committed BotLab data layer
+  `lab/dashboard/public/data/map_entities/` (schema
+  `komodobots.map_entities.v1`). Current imported map set:
+  `dm2`, `dm3`, `e1m2`, `phantombase`, `schloss`, and `ztricks`; the upstream
+  source already includes `ztricks`, so no local generation was needed. The index
+  records the upstream repo, ref, commit, source path, entity counts, and type
+  counts. `tests/test_import_map_entities.py` covers the importer with a throwaway
+  git fixture, and `scripts/ld_g2_golden_path.py` validates the committed data.
+  Pipeline details: `docs/06_DATA_AND_MVD_PIPELINE.md` § Map entity corpus.
 
 ### Lab map meshes (lab/tools/bsp_to_obj.py and bsp_to_mesh.py)
 
@@ -455,16 +494,23 @@ app so the FTE engine owns its own window — one engine instance per window, SP
 ### Lab Dashboard React sources — Mockup pane + KPI dock (LD-C3, LD-E1)
 
 - `lab/dashboard/src/MockupPane.tsx` (LD-C3, #97) — standalone Three.js offline map/route
-  browser.  Loads `public/maps/maps.json` for the map selector (dm3/dm2/frobodm2/trick),
+  browser.  Loads `public/maps/maps.json` for the map selector (dm3/dm2/frobodm2/trick/ztricks),
   fetches the per-map routes manifest (LD-C1 schema `komodobots.routes.v1`) from
-  `public/data/routes/<map>.json`, and renders human polylines + gap markers + teleport
-  markers using the shared `mapScene.ts` module.  Multiple routes can be selected
+  `public/data/routes/<map>.json`, fetches static map entities from
+  `public/data/map_entities/<map>.json` when present, and renders route polylines,
+  gap markers, route teleport markers, plus static item/spawn/teleporter context
+  using the shared `mapScene.ts` module.  The selected-route detail panel shows nearest
+  static entities to the route start, final edge, and landing point; this is now how
+  ztricks Distance exposes its source teleporter/landing context. ztricks Distance
+  carries the successful `getspeed.qwd` human reference metrics, while null fields such
+  as `required_speed` still render as `n/a` instead of being coerced to zero. Multiple routes can be selected
   simultaneously (distinct palette colors); a second click deselects.  Map switch resets
   selection.  Emits `MockupSelection { map: string; route: string | null }` to the
   parent (`App.tsx`) via an `onSelect` callback on every selection change; the most
   recently selected route name is reported (or null when nothing is selected).
-  Tests: `tests/test_mockup_context.py` (22 + 1 = 23 tests locking manifest schema +
-  teleport field names + MockupSelection contract).
+  Tests: `tests/test_mockup_context.py` (route schema, ztricks successful-attempt
+  reference metrics, nearest static entity context, teleport field names, and MockupSelection
+  contract).
 
 - `lab/dashboard/src/contextStore.ts` (LD-E1, #100) — pure TypeScript module (no React
   import) for the KPI dock context store.  Defines `KpiContext { map, route, source }` and
@@ -499,7 +545,11 @@ app so the FTE engine owns its own window — one engine instance per window, SP
     in the route, e.g. 525.3 qu/s for `sng_to_rl`); when the bot enters a 96 qu XY
     radius around that edge, freezes and displays crossing speed vs `required_speed` and
     `human_speed_at_edge` until `new_attempt`.  Display-only — the post-run
-    verify_route scorer is the metric of record (stated in a tooltip).
+    verify_route scorer is the metric of record (stated in a tooltip). Routes with
+    null human-speed anchors are skipped for interpolation, and gaps with null
+    `required_speed` (including ztricks Distance and the ztricks spawn-floor
+    speed-gain drill) do not create edge-speed callouts rather than being treated
+    as zero-speed routes.
   - Attempt meta: run_id, elapsed time, distance-to-goal (`dist_to_rl`).
   - Route override dropdown: until LD-F1/F3 per-bot assignment exposure, the live route
     defaults to `sng_to_rl` on dm3 with a manual override dropdown.
@@ -577,25 +627,35 @@ app so the FTE engine owns its own window — one engine instance per window, SP
     running game inside the active dashboard-owned lab server, not the dashboard session
     lifecycle. `start` clears the global practice idle mode, unlocks normal bot weapons,
     and readies the match; `stop` breaks the match and returns the session to quiet
-    practice.  The ztricks-only `ztricks_distance_standstill` button applies the A5
-    Distance standstill preset (clear existing dashboard bots, spawn-snap at
-    `-3516.125 3712 -453.125`, mode 23, fixed goal 8, circle-jump launch cvars)
-    and spawns one bot for a clean visible attempt.  Issue #155 controls are also
-    first-class game commands: `prewar`, bot ranged-weapon lock/unlock (`axe only` /
-    `weapons free`), single-live-bot respawn, and pause/clear for trick viewing.
-  - **Bot roster**: per-slot rows with name, route dropdown (routes of the current map
-    from the routes manifest), add/remove buttons.  Route display shows server truth from
-    `FBMOVEPROBE_ASSIGN` rows via `TelemetryClient.assignListeners`, with a "pending…"
-    phase until the ASSIGN row arrives.  For global ztricks presets that do not emit
-    ASSIGN rows, `TelemetryClient.frameListeners` provide an ed/name roster fallback;
-    late frames from cleared bots are briefly suppressed after reset/respawn so stale
-    edicts do not reappear as phantom rows.  Route name round-trips correctly for
-    underscored names (e.g. `dm3_sng_to_rl.cmds` → `sng_to_rl`).
+    practice.  Issue #155 controls are also first-class game commands: `prewar` and bot
+    ranged-weapon lock/unlock (`axe only` / `weapons free`).
+  - **Bot roster**: per-slot rows with name/profile draft fields, route dropdown (routes
+    of the current map from the routes manifest), `try`, `loop`, `stand still`,
+    `respawn`, and remove controls.  Trickjumps are not a separate UI concept:
+    ztricks Distance is the normal `distance_standstill` route in
+    `public/data/routes/ztricks.json`, and the safe flat-floor calibration route
+    is `spawn_left_speedjump`; both store their mode-23 start/controller cvars as
+    route `control` metadata.  Selecting a route configures the per-slot assignment
+    but keeps the bot in practice-idle mode `24`; `try` starts that slot's route mode,
+    `loop` enables the replay-loop cvar and starts it, and `stand still` returns the
+    slot to mode `24`.  Route display shows server truth from `FBMOVEPROBE_ASSIGN` rows
+    via `TelemetryClient.assignListeners`, with a "pending…" phase until the ASSIGN row
+    arrives.  `TelemetryClient.frameListeners` provide an ed/name roster fallback; late
+    frames from cleared bots are briefly suppressed after reset/respawn so stale edicts
+    do not reappear as phantom rows.  The roster header's `clear` button uses KTX
+    `removeall` and is the reliable recovery path when slot-addressed removal leaves
+    actual extra bots alive.  Route name round-trips correctly for underscored
+    names (e.g. `dm3_sng_to_rl.cmds` → `sng_to_rl`, `ztricks_distance_standstill.cmds`
+    → `distance_standstill`).  The row also stages bot name/color/team profile intent;
+    current KTX exposes spawn-time Frogbot name cvars but not a safe live color/team
+    userinfo mutation command, so full live identity application needs a future bridge
+    hook.
   - **Cvar console panel**: command history (up/down), response echo, inline rejection
     rendering, `@<slot>` per-slot shorthand.
-  Per-bot assignment sends all four per-slot cvars (`replay_file`, `mode`, `fixed_goal`,
-  `spawn_origin`) atomically; `spawn_origin` is derived from `polyline[0]` in the route
-  manifest (fetched lazily, cached).
+  Per-bot assignment sends the per-slot cvars (`replay_file`, `mode`, `fixed_goal`,
+  `spawn_origin`, `spawn_velocity`) atomically plus route-level control cvars when present;
+  `spawn_origin` is derived from `polyline[0]` in the route manifest unless the route
+  declares a `control.spawn_origin` override (fetched lazily, cached).
   Disabled states enforced: bridge disconnected, harness lock fresh, no session running
   (except `session_start`).  Esc closes side panels (wired in `App.tsx`).
   Accepts `telemetryClient` prop for ASSIGN subscription.
@@ -616,8 +676,14 @@ to `~/komodobots-lab/control-audit.log`, and dispatches through an injectable
 server-console command). Session start now calls `seed_practice_bots()`, which applies
 moveprobe mode `24`, spawns the default practice roster one bot at a time with known
 safe spawn origins when available, and clears the global spawn cvar. `game_command` is
-a separate allowlisted enum for KTX game controls plus the
-guarded ztricks Distance standstill preset; it may dispatch safe client commands,
+a separate allowlisted enum for KTX game controls plus legacy guarded lab presets; normal
+route attempts, including ztricks Distance, use per-bot route cvars instead. Space-containing
+cvar values such as `k_fb_moveprobe_spawn_origin_s<N>` are quoted when stuffed into the
+Quake console so the full `x y z` triplet survives; empty cvar values are stuffed as
+`set name ""` because bare `set name` only prints the current value. The dashboard
+route assignment path clears per-slot `spawn_origin`, waits one sampled frame, then
+restores the route spawn so repeated tries of the same route re-arm KTX's one-shot
+spawn snap. The enum may dispatch safe client commands,
 console cvar lines, short-lived botcmd shims, and addbot actions in declared order.
 Botcmd shims stay connected for 5 s because `removeall` was unreliable with the earlier
 2 s window; client-command shims use 2 s to keep the dashboard response under timeout.
@@ -651,7 +717,7 @@ audit).
 ### Lab Dashboard golden-path validation harness (LD-G2, #108)
 
 `scripts/ld_g2_golden_path.py` — stdlib-only offline validation harness for the
-Lab Dashboard v1 data contracts.  Runs four offline checks without requiring a
+Lab Dashboard v1 data contracts.  Runs five offline checks without requiring a
 live servexeri connection or a browser:
 
 1. **routes-manifest integrity** — index.json + per-map files parse; every route
@@ -661,13 +727,19 @@ live servexeri connection or a browser:
    magic (`glTF`), version 2, self-consistent declared file length, and an
    `asset.extras.source_bsp_sha256` that matches the `komodobots.maps.v1`
    provenance record in `maps.json`.
-3. **records / verdicts schema round-trip** — `lab/server/verdicts.seed.json`
+3. **map-entity corpus integrity** — the committed
+   `public/data/map_entities/index.json` parses as `komodobots.map_entities.v1`;
+   the required maps (`dm2`, `dm3`, `e1m2`, `phantombase`, `schloss`, `ztricks`)
+   are present; per-map files parse; entity/type counts and required coordinate
+   fields match.
+4. **records / verdicts schema round-trip** — `lab/server/verdicts.seed.json`
    parses as valid `komodobots.verdicts.v1`; verdict values are in
    `{pass, close, fail}`; `records_build.SCHEMA` constant matches the harness's
    sentinel.
-4. **deploy expected file-set** — committed `public/` key assets (`panes/*.html`,
+5. **deploy expected file-set** — committed `public/` key assets (`panes/*.html`,
    `panes/*.cfg`, top-level `dm3.obj`, `dm3_sng_to_rl.cmds`, per-map GLB/OBJ,
-   routes JSON files) all exist before the npm build step runs.
+   routes JSON files, and map-entity JSON files) all exist before the npm build
+   step runs.
 
 Live checks (skipped offline, pass `--live`):
 - `@live`: telemetry WebSocket frame validation against `ws://servexeri:8770`.
@@ -706,6 +778,9 @@ Relevant areas:
 
 - `mvd-reader/MVD_FORMAT.md`
 - `mvd-analytics/RESULT_SCHEMA.md`
+- `mvd-analytics/mapents/data/*.json` — static map-entity corpus; upstream
+  `dbfee83f457946c93e941c4a0b76efd25183d25e` includes the committed BotLab
+  imports for `dm2`, `dm3`, `e1m2`, `phantombase`, `schloss`, and `ztricks`.
 - CLI: `mvd-analytics/cmd/qw-analyze`
 
 Runtime note:

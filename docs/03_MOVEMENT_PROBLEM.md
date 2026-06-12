@@ -103,6 +103,59 @@ The real target is a movement mode or controller with:
 - Whether route logic and movement logic are sufficiently decoupled.
 - Whether KTX/Frogbots should remain the substrate or be replaced by a new bot architecture.
 
+## Ztricks Distance Speedjump Formula
+
+The successful `getspeed.qwd` Distance jump shows that the useful unit is not
+speed alone. It is a synchronized release state: speed, velocity heading, view
+yaw, local strafe/forward command, and jump timing at the lip.
+
+The current controller-shaped formula lives in
+`experiments/a5_distance_standstill/speedjump-formula.md`. Its core target is:
+
+- terminal sweep duration: about `195 ms`
+- speed: `441 -> 475 qu/s`
+- velocity heading: `+41 deg -> -11 deg`
+- view yaw: `+39 deg -> -19 deg`
+- view yaw lead relative to velocity: about `-5` to `-10 deg`
+- jump release: `vh ~= 475`, `d_lip ~= 13`, jump bit on
+
+The live `dash_20260612T142054Z` retry confirmed the opposite failure: the bot
+can arrive within `6q` of the human release point with about `457 qu/s`, but it
+is travelling roughly north (`84.6 deg`) and does not press jump there. The next
+movement primitive should therefore target the terminal carve/release state
+before claiming landing success.
+
+Implementation v0 adds that target as default-off mode-23 route metadata rather
+than a separate trickjump UI path. When `k_fb_moveprobe_s23_launch_target_{x,y,z}`
+is unset, mode 23 keeps its existing Frogbot-route weave. The ztricks Distance
+route sets the target, lip, release-speed, carve-side/angle, yaw-lead,
+target-error, spawn velocity, and optional reference-curve cvars; KTX then
+emits `zjump=` command telemetry so each live attempt can be scored on release
+state before landing. The current reference-curve path may emit the terminal
+fwd+side carve while inside the lane corridor, but the jump/release remains
+gated: a normal formula release still requires `armed=1`, and the fallback
+"try anyway" jump is limited to the release-lip window.
+
+The `spawn_left_speedjump` route reduces the same problem to flat ground. It
+starts at the real ztricks deathmatch spawn, turns 90 degrees left from the BSP
+spawn angle, rotates the reference-curve yaw by `45` degrees, and scores
+horizontal speed gain instead of ledge completion. This exists to separate
+"the controller cannot gain speed" from "the controller cannot land Distance."
+On 2026-06-12, `zbatch_20260612T180901Z` proved the speed-gain side of that
+split: `5/6` safe-floor attempts reached or exceeded the human reference target
+of `495.5 qu/s`, with a best sampled `zjump` peak of `506.2 qu/s`. Reproduction
+checks strengthened the result: same sweep `zbatch_20260612T182309Z` hit `6/6`
+and fixed default params (`430/50/8`) in `zbatch_20260612T182505Z` hit `7/8`
+with the only miss at `494.9 qu/s`. This is not a Distance completion claim; it
+proves the controller can reproducibly generate human-level speed on the same
+speedjump primitive when ledge geometry is removed.
+
+The 2026-06-12 reference-curve live retries fixed the no-movement symptom but
+did not solve Distance. Best scored segments stayed around `401-407 qu/s`, below
+the `453 qu/s` arm floor. Raw rows show the bot reaches the terminal corridor
+but crosses the lip under speed and often airborne, so the next dimension is
+approach-hop timing/starting geometry rather than only terminal mouse yaw.
+
 ## First movement override evidence
 
 The first S2 probe found a candidate command-emission seam in KTX/Frogbots:

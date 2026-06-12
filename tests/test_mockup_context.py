@@ -8,9 +8,13 @@ Validates the routes manifest data layer that MockupPane.tsx consumes:
 - Gap required_speed range check: sng_to_rl final gap is in the 526-region
   (the census measurement the project depends on for the trick link).
 - Empty-map honesty: dm2/frobodm2/trick emit route lists that are either
-  empty or contain valid schemas -- never missing.
+  empty or contain valid schemas -- never missing. ztricks is the exception:
+  it carries the successful getspeed.qwd distance_standstill reference and a
+  spawn-floor speed-gain drill.
 - Teleports field is always present (list, possibly empty) so MockupPane.tsx
   can iterate unconditionally.
+- Map-entity context exists for ztricks so the pane can annotate the route
+  start/edge/land against static teleport/spawn entities.
 
 These tests lock the manifest schema as consumed by the TypeScript component;
 changes to komodobots.routes.v1 or the manifest builder must keep them green.
@@ -23,11 +27,17 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 ROUTES_DIR = REPO / "lab" / "dashboard" / "public" / "data" / "routes"
-MAPS = ["dm3", "dm2", "frobodm2", "trick"]
+ENTITIES_DIR = REPO / "lab" / "dashboard" / "public" / "data" / "map_entities"
+MAPS = ["dm3", "dm2", "frobodm2", "trick", "ztricks"]
 
 
 def load_manifest(map_name: str) -> dict:
     path = ROUTES_DIR / f"{map_name}.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_entities(map_name: str) -> dict:
+    path = ENTITIES_DIR / f"{map_name}.json"
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -38,7 +48,7 @@ class TestManifestSchema(unittest.TestCase):
     def setUpClass(cls):
         cls.manifests = {m: load_manifest(m) for m in MAPS}
 
-    def test_all_four_maps_present(self):
+    def test_all_mockup_maps_present(self):
         for m in MAPS:
             self.assertIn(m, self.manifests, f"{m}.json missing")
 
@@ -61,6 +71,10 @@ class TestManifestSchema(unittest.TestCase):
         for m in ["dm2", "frobodm2", "trick"]:
             self.assertEqual(self.manifests[m]["routes"], [],
                              f"{m} should have no routes yet")
+
+    def test_ztricks_has_practice_route(self):
+        names = [r["name"] for r in self.manifests["ztricks"]["routes"]]
+        self.assertEqual(names, ["distance_standstill", "spawn_left_speedjump"])
 
 
 class TestRouteFields(unittest.TestCase):
@@ -231,6 +245,69 @@ class TestMockupContextContract(unittest.TestCase):
             len(self.dm3["routes"]) > 0,
             "dm3 must have routes so MockupPane can emit a non-null selection",
         )
+
+
+class TestZtricksEntityContext(unittest.TestCase):
+    """Static map-entity context consumed by MockupPane.tsx for ztricks."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.route = load_manifest("ztricks")["routes"][0]
+        cls.entities = load_entities("ztricks")["entities"]
+
+    def _nearest(self, point):
+        import math
+        return min(
+            (
+                (math.dist(point, [e["x"], e["y"], e["z"]]), e)
+                for e in self.entities
+            ),
+            key=lambda row: row[0],
+        )
+
+    def test_ztricks_entities_have_teleport_context(self):
+        types = {}
+        for entity in self.entities:
+            types[entity["type"]] = types.get(entity["type"], 0) + 1
+        self.assertEqual(types["spawn"], 1)
+        self.assertEqual(types["teleportDst"], 8)
+        self.assertEqual(types["teleportSrc"], 26)
+
+    def test_route_start_nearest_teleport_destination(self):
+        distance, entity = self._nearest(self.route["polyline"][0])
+        self.assertEqual(entity["type"], "teleportDst")
+        self.assertEqual(entity["name"], "tele-dst-1")
+        self.assertLess(distance, 32.0)
+
+    def test_route_landing_nearest_teleport_source(self):
+        distance, entity = self._nearest(self.route["gaps"][0]["land"])
+        self.assertEqual(entity["type"], "teleportSrc")
+        self.assertEqual(entity["name"], "tele-src-3")
+        self.assertLess(distance, 200.0)
+
+    def test_ztricks_route_uses_successful_attempt_reference_metrics(self):
+        self.assertAlmostEqual(self.route["human"]["duration_s"], 2.116, places=3)
+        self.assertAlmostEqual(self.route["human"]["active_mean_speed"], 388.4, places=1)
+        self.assertAlmostEqual(self.route["human"]["peak_speed"], 495.5, places=1)
+        self.assertIsNone(self.route["gaps"][0]["required_speed"])
+        self.assertAlmostEqual(
+            self.route["gaps"][0]["human_speed_at_edge"], 475.2, places=1)
+        self.assertEqual(self.route["reference"]["attempt"], 11)
+        self.assertEqual(self.route["reference"]["route_rows"], [1807, 1969])
+        self.assertAlmostEqual(
+            self.route["reference"]["launch_heading_deg"], -11.7, places=1)
+        self.assertTrue(self.route["reference"]["landed_recorded"])
+        self.assertTrue(self.route["reference"]["landed_sim"])
+
+    def test_spawn_left_speedjump_starts_at_real_spawn(self):
+        route = next(r for r in load_manifest("ztricks")["routes"]
+                     if r["name"] == "spawn_left_speedjump")
+        self.assertEqual(route["polyline"][0], [-1168.0, 1632.0, -496.0])
+        distance, entity = self._nearest(route["polyline"][0])
+        self.assertEqual(entity["type"], "spawn")
+        self.assertLess(distance, 1.0)
+        self.assertEqual(route["reference"]["success_metric"], "horizontal_speed_gain")
+        self.assertEqual(route["control"]["spawn_velocity"], "0 0 0")
 
 
 if __name__ == "__main__":

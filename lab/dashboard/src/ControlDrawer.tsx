@@ -3,10 +3,10 @@
 // Provides:
 //  - Session block: start/stop, map selector, lock-state badge (harness /
 //    dashboard / free).  Stale-lock takeover requires an explicit confirm.
-//  - Game controls: allowlisted KTX game mode, DMM, powerups, ready/break,
-//    and named lab presets like ztricks Distance standstill.
+//  - Game controls: allowlisted KTX game mode, DMM, powerups, ready/break.
 //  - Bot roster: live rows from control_event broadcasts and lock state.
-//    Add-bot / remove-bot buttons.  Per-bot route assignment dropdowns.
+//    Add-bot / remove-bot buttons.  Per-bot route assignment and behavior
+//    buttons; trickjumps are represented as normal routes.
 //  - Assignment display shows what the SERVER reports (ASSIGN rows from
 //    telemetry), never optimistic state.
 //  - Separate Cvar console panel with command history and response rendering.
@@ -28,7 +28,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ControlClient, ControlEvent, LockState } from "./controlClient.ts";
+import type { ControlClient, ControlEvent, ControlResponse, LockState } from "./controlClient.ts";
 import type { TelemetryAssign, TelemetryClient, TelemetryFrame } from "./telemetryClient.ts";
 
 // ---- Types ------------------------------------------------------------------
@@ -38,6 +38,10 @@ type BotSlot = {
   name: string;
   assignedRoute: string | null;   // what the server reports (never optimistic)
   pendingRoute: string | null;    // set while awaiting read-back from server
+  draftName?: string;
+  draftTopColor?: string;
+  draftBottomColor?: string;
+  draftTeam?: string;
 };
 
 type DrawerSession = {
@@ -57,20 +61,22 @@ type ConsoleEntry = {
 const MAPS = ["dm3", "dm2", "frobodm2", "trick", "ztricks"] as const;
 type MapName = (typeof MAPS)[number];
 
-type TrickId = "ztricks_distance_standstill";
-
-type TrickPreset = {
-  id: TrickId;
-  label: string;
-  map: MapName;
-  action: string;
+type RouteControl = {
+  mode?: number;
+  fixed_goal?: number;
+  spawn_origin?: string;
+  spawn_velocity?: string;
+  replay_file?: string;
+  cvars?: Record<string, string | number>;
 };
 
-// Per-route metadata: spawn_origin derived from the first polyline point.
+// Per-route metadata: spawn_origin derived from the first polyline point unless
+// the route declares a control override.
 // Loaded once per map from /data/routes/{map}.json (the committed manifest).
 type RouteMetadata = {
   /** spawn_origin as a space-separated "x y z" string (cvar format). */
   spawn_origin: string;
+  control?: RouteControl;
 };
 
 // Cache loaded manifest metadata so we don't re-fetch on every assignment.
@@ -91,16 +97,18 @@ async function loadRouteMetadata(map: MapName): Promise<Map<string, RouteMetadat
   const resp = await fetch(`/botlab/data/routes/${map}.json`);
   if (!resp.ok) throw new Error(`route manifest fetch failed: ${resp.status}`);
   const json = await resp.json() as {
-    routes: Array<{ name: string; polyline: number[][] }>;
+    routes: Array<{ name: string; polyline: number[][]; control?: RouteControl }>;
   };
   const result = new Map<string, RouteMetadata>();
   for (const route of json.routes ?? []) {
     const pt = route.polyline?.[0];
-    if (pt && pt.length >= 3) {
+    const controlSpawn = typeof route.control?.spawn_origin === "string" ? route.control.spawn_origin : null;
+    if (controlSpawn || (pt && pt.length >= 3)) {
       // Round to 3 decimal places; KTX parses the cvar string on the fly so
       // we can pass any precision — 3 dp is well within its float tolerance.
       result.set(route.name, {
-        spawn_origin: `${pt[0].toFixed(3)} ${pt[1].toFixed(3)} ${pt[2].toFixed(3)}`,
+        spawn_origin: controlSpawn ?? `${pt[0].toFixed(3)} ${pt[1].toFixed(3)} ${pt[2].toFixed(3)}`,
+        control: route.control,
       });
     }
   }
@@ -128,19 +136,31 @@ const ROUTES_BY_MAP: Record<MapName, string[]> = {
   dm2: [],
   frobodm2: [],
   trick: [],
-  ztricks: [],
+  ztricks: ["distance_standstill", "spawn_left_speedjump"],
 };
 
-const TRICK_PRESETS: TrickPreset[] = [
-  {
-    id: "ztricks_distance_standstill",
-    label: "Distance standstill",
-    map: "ztricks",
-    action: "ztricks_distance_standstill",
-  },
-];
+const PRACTICE_IDLE_MODE = "24";
+const DEFAULT_REPLAY_MODE = "10";
+const REPLAY_LOOP_CVAR = "k_fb_moveprobe_replay_loop";
+const BOT_COLORS = Array.from({ length: 14 }, (_, i) => String(i));
+const FRAME_SUPPRESS_MS = 2_500;
+const SPAWN_REARM_WAIT_MS = 400;
 
 let _consoleCounter = 0;
+
+function controlDelay(ms: number, detail: string): Promise<ControlResponse> {
+  return new Promise((resolve) => {
+    window.setTimeout(() => resolve({ re: null, ok: true, detail }), ms);
+  });
+}
+
+function pruneUnassignedPlaceholders(rows: BotSlot[]): BotSlot[] {
+  const hasRealRow = rows.some((bot) => bot.slot !== -1);
+  if (!hasRealRow) return rows;
+  return rows.filter((bot) =>
+    bot.slot !== -1 || bot.assignedRoute !== null || bot.pendingRoute !== null,
+  );
+}
 
 // ---- Helpers ----------------------------------------------------------------
 
@@ -205,13 +225,12 @@ export function ControlDrawer({
   const [busy, setBusy] = useState(false);
   const [staleTakeoverPending, setStaleTakeoverPending] = useState(false);
   const [panelMessage, setPanelMessage] = useState<string | null>(null);
-  const [selectedTrick, setSelectedTrick] = useState<TrickId>("ztricks_distance_standstill");
   const [weaponLocked, setWeaponLocked] = useState(false);
   const [prewarActive, setPrewarActive] = useState(false);
   const suppressedFrameSlotsRef = useRef<Map<number, number>>(new Map());
 
   const suppressLiveFrameSlots = useCallback((rows: BotSlot[]) => {
-    const until = Date.now() + 10_000;
+    const until = Date.now() + FRAME_SUPPRESS_MS;
     rows.forEach((bot) => {
       if (bot.slot !== -1) {
         suppressedFrameSlotsRef.current.set(bot.slot, until);
@@ -276,10 +295,8 @@ export function ControlDrawer({
           if (map && MAPS.includes(map as MapName)) {
             setSelectedMap(map as MapName);
           }
-          setBots((prev) => {
-            suppressLiveFrameSlots(prev);
-            return [];
-          });
+          suppressedFrameSlotsRef.current.clear();
+          setBots([]);
           setPrewarActive(false);
           setWeaponLocked(false);
           break;
@@ -288,6 +305,7 @@ export function ControlDrawer({
           setSession({ running: false, port: null, map: null });
           setLockOwner(null);
           setLockState({ state: "free", lock: null });
+          suppressedFrameSlotsRef.current.clear();
           setBots([]);
           break;
         }
@@ -310,29 +328,17 @@ export function ControlDrawer({
               suppressLiveFrameSlots(prev);
               return [];
             });
-          } else if (typeof slot === "number") {
-            suppressedFrameSlotsRef.current.set(slot, Date.now() + 10_000);
-            setBots((prev) => prev.filter((b) => b.slot !== slot));
           } else {
-            // removebot with no slot = remove last
-            setBots((prev) => {
-              const removed = prev[prev.length - 1];
-              if (removed && removed.slot !== -1) {
-                suppressedFrameSlotsRef.current.set(removed.slot, Date.now() + 10_000);
-              }
-              return prev.length > 0 ? prev.slice(0, -1) : prev;
-            });
+            // KTX removebot is not reliably slot-addressable in this build.
+            // Clear the UI roster and let live telemetry frames repopulate the
+            // actual survivors instead of trusting the requested slot.
+            setBots([]);
           }
           break;
         }
         case "game_command": {
           const action = typeof event.action === "string" ? event.action : "";
-          if (action === "ztricks_distance_standstill") {
-            setBots((prev) => {
-              suppressLiveFrameSlots(prev);
-              return [{ slot: -1, name: "...", assignedRoute: null, pendingRoute: null }];
-            });
-          } else if (action === "trick_pause") {
+          if (action === "trick_pause") {
             setBots((prev) => {
               suppressLiveFrameSlots(prev);
               return [];
@@ -403,10 +409,17 @@ export function ControlDrawer({
         const existing = prev.findIndex((b) => b.slot === ed);
         if (existing !== -1) {
           // Update in place.
-          return prev.map((b) =>
-            b.slot === ed
-              ? { ...b, name: assign.name, assignedRoute: routeId, pendingRoute: null }
-              : b,
+          return pruneUnassignedPlaceholders(
+            prev.map((b) =>
+              b.slot === ed
+                ? {
+                    ...b,
+                    name: assign.name,
+                    assignedRoute: routeId ?? b.pendingRoute ?? b.assignedRoute,
+                    pendingRoute: null,
+                  }
+                : b,
+            ),
           );
         }
         // No row yet — adopt the first provisional placeholder (slot=-1), or
@@ -415,7 +428,12 @@ export function ControlDrawer({
         if (placeholderIdx !== -1) {
           return prev.map((b, i) =>
             i === placeholderIdx
-              ? { slot: ed, name: assign.name, assignedRoute: routeId, pendingRoute: null }
+              ? {
+                  slot: ed,
+                  name: assign.name,
+                  assignedRoute: routeId ?? b.pendingRoute ?? b.assignedRoute,
+                  pendingRoute: null,
+                }
               : b,
           );
         }
@@ -449,19 +467,26 @@ export function ControlDrawer({
         const existing = prev.findIndex((b) => b.slot === frame.ed);
         if (existing !== -1) {
           if (prev[existing].name === frame.name) {
-            return prev;
+            return pruneUnassignedPlaceholders(prev);
           }
-          return prev.map((b) =>
-            b.slot === frame.ed
-              ? { ...b, name: frame.name }
-              : b,
+          return pruneUnassignedPlaceholders(
+            prev.map((b) =>
+              b.slot === frame.ed
+                ? { ...b, name: frame.name }
+                : b,
+            ),
           );
         }
         const placeholderIdx = prev.findIndex((b) => b.slot === -1);
         if (placeholderIdx !== -1) {
           return prev.map((b, i) =>
             i === placeholderIdx
-              ? { slot: frame.ed, name: frame.name, assignedRoute: null, pendingRoute: null }
+              ? {
+                  slot: frame.ed,
+                  name: frame.name,
+                  assignedRoute: b.pendingRoute ?? b.assignedRoute,
+                  pendingRoute: null,
+                }
               : b,
           );
         }
@@ -524,7 +549,7 @@ export function ControlDrawer({
     }
   }
 
-  async function handleRemoveBot(slot?: number) {
+  async function handleRemoveBot(slot?: number | "all") {
     if (busy) return;
     setBusy(true);
     const resp = await client.removeBot(slot);
@@ -534,7 +559,11 @@ export function ControlDrawer({
     }
   }
 
-  async function handleAssignRoute(bot: BotSlot, route: string) {
+  async function configureBotRoute(
+    bot: BotSlot,
+    route: string,
+    mode: "idle" | "try" | "loop",
+  ) {
     if (!route) return;
     // Guard: provisional rows (slot=-1) have not been resolved to a real ed yet.
     // The ASSIGN upsert will set the real slot; the user should wait for it.
@@ -542,24 +571,23 @@ export function ControlDrawer({
       addPanelMessage("bot slot not yet resolved - waiting for server ASSIGN row");
       return;
     }
-    // Per-slot assignment: set all four per-slot cvars as one atomic group.
-    // This matches the #95/#105 contract: replay_file + mode + fixed_goal +
-    // spawn_origin must all be written together so KTX resolves the full
-    // assignment in one ASSIGN row.
+    // Per-slot assignment: set the route description as one atomic group.
+    // Selecting a route keeps the bot idle (mode 24); the per-bot try/loop
+    // buttons switch that slot into the route's controller mode.
     //
     // assignedRoute is updated only when the server broadcasts an ASSIGN row
     // (server-truth display); pendingRoute shows "pending…" until then.
     setBots((prev) =>
       prev.map((b) => (b.slot === bot.slot ? { ...b, pendingRoute: route } : b)),
     );
-    const mapRouteFile = `${sessionMap}_${route}.cmds`;
     const slot = bot.slot;
 
-    // Load spawn_origin from the route manifest for this map.
+    // Load spawn_origin and optional control overrides from the route manifest.
     // Missing metadata is a hard failure: the #95/#105 assignment contract
-    // requires all four per-slot cvars.  Silently omitting spawn_origin would
+    // requires the per-slot route cvars.  Silently omitting spawn_origin would
     // leave the bot at the global spawn, breaking the two-bots-two-routes path.
     let spawnOrigin: string;
+    let control: RouteControl | undefined;
     try {
       const meta = await loadRouteMetadata(sessionMap as MapName);
       const routeMeta = meta.get(route);
@@ -571,6 +599,7 @@ export function ControlDrawer({
         return;
       }
       spawnOrigin = routeMeta.spawn_origin;
+      control = routeMeta.control;
     } catch (err) {
       // Manifest fetch failed — abort rather than send a partial assignment.
       addPanelMessage(`route manifest unavailable for ${sessionMap} - assignment aborted (${String(err)})`);
@@ -580,16 +609,46 @@ export function ControlDrawer({
       return;
     }
 
-    const ops: Promise<import("./controlClient.ts").ControlResponse>[] = [
-      client.setCvar("k_fb_moveprobe_replay_file", mapRouteFile, slot),
-      client.setCvar("k_fb_moveprobe_mode", "10", slot),
-      // fixed_goal=0 means "no fixed goal" — replay mode does not need a marker.
-      client.setCvar("k_fb_moveprobe_fixed_goal", "0", slot),
+    const routeMode = String(control?.mode ?? DEFAULT_REPLAY_MODE);
+    const replayFile = typeof control?.replay_file === "string"
+      ? control.replay_file
+      : `${sessionMap}_${route}.cmds`;
+    const spawnVelocity = typeof control?.spawn_velocity === "string"
+      ? control.spawn_velocity
+      : "";
+    const fixedGoal = String(control?.fixed_goal ?? 0);
+    const cvars = Object.entries(control?.cvars ?? {});
+
+    const ops: Array<() => Promise<ControlResponse>> = [
+      // First force a hold so a repeated try re-arms one-shot controllers such
+      // as ztricks mode 23 before route-specific state is rewritten.
+      () => client.setCvar("k_fb_moveprobe_mode", PRACTICE_IDLE_MODE, slot),
+      () => client.setCvar("k_fb_moveprobe_replay_file", replayFile, slot),
+      // fixed_goal=0 means "no fixed goal" for replay routes.
+      () => client.setCvar("k_fb_moveprobe_fixed_goal", fixedGoal, slot),
+      // Clear first so repeated tries of the same route still produce a
+      // spawn assignment edge for KTX's one-shot snap latch.
+      () => client.setCvar("k_fb_moveprobe_spawn_origin", "", slot),
+      () => client.setCvar("k_fb_moveprobe_spawn_velocity", "", slot),
+      () => controlDelay(SPAWN_REARM_WAIT_MS, "spawn-origin rearm wait"),
+      ...(spawnVelocity ? [
+        () => client.setCvar("k_fb_moveprobe_spawn_velocity", spawnVelocity, slot),
+      ] : []),
       // spawn_origin is required (hard failure above if missing) so no guard needed.
-      client.setCvar("k_fb_moveprobe_spawn_origin", spawnOrigin, slot),
+      () => client.setCvar("k_fb_moveprobe_spawn_origin", spawnOrigin, slot),
+      () => client.setCvar(REPLAY_LOOP_CVAR, mode === "loop" ? "1" : "0"),
+      ...cvars.map(([name, value]) => () => client.setCvar(name, String(value))),
+      // Mode must be last: KTX reads mode immediately in BotSetCommand(), so
+      // flipping it before fixed_goal/spawn/controller cvars can hold the bot.
+      () => client.setCvar("k_fb_moveprobe_mode", mode === "idle" ? PRACTICE_IDLE_MODE : routeMode, slot),
     ];
 
-    const results = await Promise.all(ops);
+    const results: ControlResponse[] = [];
+    for (const op of ops) {
+      const result = await op();
+      results.push(result);
+      if (!result.ok) break;
+    }
     const allOk = results.every((r) => r.ok);
     if (!allOk) {
       const errors = results
@@ -601,9 +660,50 @@ export function ControlDrawer({
       setBots((prev) =>
         prev.map((b) => (b.slot === slot ? { ...b, pendingRoute: null } : b)),
       );
+      return;
+    }
+    if (mode === "idle") {
+      addPanelMessage(`route ${route} selected - bot is standing still until try`);
+    } else {
+      addPanelMessage(`${mode === "loop" ? "looping" : "trying"} ${route}`);
+    }
+    if (replayFile === "") {
+      setBots((prev) =>
+        prev.map((b) =>
+          b.slot === slot ? { ...b, assignedRoute: route, pendingRoute: null } : b,
+        ),
+      );
     }
     // On success: assignedRoute is updated when the telemetry sidecar emits an
     // ASSIGN row — the server-truth subscriber above clears pendingRoute.
+  }
+
+  async function handleAssignRoute(bot: BotSlot, route: string) {
+    await configureBotRoute(bot, route, "idle");
+  }
+
+  async function handleBotTry(bot: BotSlot, loop = false) {
+    const route = bot.pendingRoute ?? bot.assignedRoute;
+    if (!route) {
+      addPanelMessage("select a route for this bot first");
+      return;
+    }
+    await configureBotRoute(bot, route, loop ? "loop" : "try");
+  }
+
+  async function handleBotStandStill(bot: BotSlot) {
+    if (bot.slot === -1) {
+      addPanelMessage("bot slot not yet resolved - waiting for server ASSIGN row");
+      return;
+    }
+    const results = await Promise.all([
+      client.setCvar("k_fb_moveprobe_mode", PRACTICE_IDLE_MODE, bot.slot),
+      client.setCvar(REPLAY_LOOP_CVAR, "0"),
+    ]);
+    const failed = results.find((r) => !r.ok);
+    if (failed) {
+      addPanelMessage(`stand still failed: ${failed.detail}`);
+    }
   }
 
   async function handleGameCommand(action: string, value?: string) {
@@ -612,16 +712,6 @@ export function ControlDrawer({
     const resp = await client.gameCommand(action, value);
     setBusy(false);
     setPanelMessage(resp.ok ? resp.detail : `game command failed: ${resp.detail}`);
-  }
-
-  async function handleTrickTry() {
-    const preset = TRICK_PRESETS.find((p) => p.id === selectedTrick);
-    if (!preset) return;
-    await handleGameCommand(preset.action);
-  }
-
-  async function handleTrickPause() {
-    await handleGameCommand("trick_pause");
   }
 
   async function handleBotRespawn(bot: BotSlot) {
@@ -641,6 +731,53 @@ export function ControlDrawer({
     await handleGameCommand(weaponLocked ? "bot_weapon_unlock" : "bot_weapon_lock");
   }
 
+  function handleBotProfileChange(bot: BotSlot, patch: Partial<BotSlot>) {
+    setBots((prev) =>
+      prev.map((b) => (b.slot === bot.slot ? { ...b, ...patch } : b)),
+    );
+  }
+
+  async function handleApplyBotProfile(bot: BotSlot) {
+    if (bot.slot === -1) {
+      addPanelMessage("bot slot not yet resolved - waiting for server ASSIGN row");
+      return;
+    }
+    const nextName = (bot.draftName ?? bot.name).trim();
+    const topColor = (bot.draftTopColor ?? "13").trim();
+    const bottomColor = (bot.draftBottomColor ?? topColor).trim();
+    const team = (bot.draftTeam ?? "").trim();
+    const safeName = nextName.replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 15);
+    const safeTeam = team.replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 15);
+
+    if (!safeName) {
+      addPanelMessage("bot name needs at least one safe character");
+      return;
+    }
+
+    // Current KTX exposes Frogbot names as spawn-time cvars. Live color/team
+    // mutation needs a server command hook; until that exists we keep the draft
+    // visible and write the name cvar for the next bot spawn only.
+    const resp = await client.console(`set k_fb_name_${Math.max(0, bot.slot - 1)} ${safeName}`);
+    setBots((prev) =>
+      prev.map((b) =>
+        b.slot === bot.slot
+          ? {
+              ...b,
+              draftName: safeName,
+              draftTopColor: topColor,
+              draftBottomColor: bottomColor,
+              draftTeam: safeTeam,
+            }
+          : b,
+      ),
+    );
+    addPanelMessage(
+      resp.ok
+        ? "profile saved for next spawn; live color/team changes need a KTX bot-userinfo hook"
+        : `profile save failed: ${resp.detail}`,
+    );
+  }
+
   // ---- Disable rules -------------------------------------------------------
 
   const canStart = bridgeOk && !isDashboardSession && !isHarnessLocked && !busy;
@@ -650,8 +787,6 @@ export function ControlDrawer({
   const mapRoutes = ROUTES_BY_MAP[sessionMap as MapName] ?? ROUTES_BY_MAP.dm3;
   const gameModes = ["4on4", "2on2", "1on1", "ffa"] as const;
   const dmmModes = ["1", "2", "3", "4"] as const;
-  const selectedTrickPreset = TRICK_PRESETS.find((p) => p.id === selectedTrick) ?? TRICK_PRESETS[0];
-  const isSelectedTrickSession = isDashboardSession && sessionMap === selectedTrickPreset.map;
 
   // ---- Render ---------------------------------------------------------------
 
@@ -859,47 +994,6 @@ export function ControlDrawer({
             </button>
           </div>
 
-          <div className="flex flex-col gap-y-1 rounded border border-slate-800 bg-black/20 px-2 py-2">
-            <div className="flex items-center gap-x-2">
-              <span className="shrink-0 text-gray-500">Trick</span>
-              <select
-                value={selectedTrick}
-                disabled={!canMutate}
-                onChange={(e) => setSelectedTrick(e.target.value as TrickId)}
-                className="flex-1 min-w-0 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-gray-200 text-xs disabled:opacity-50"
-              >
-                {TRICK_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-1">
-              <button
-                type="button"
-                disabled={!canMutate || !isSelectedTrickSession}
-                onClick={handleTrickTry}
-                className="px-2 py-1 rounded bg-sky-950 text-sky-100 hover:bg-sky-900 border border-sky-800 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                try
-              </button>
-              <button
-                type="button"
-                disabled={!canMutate || bots.length === 0}
-                onClick={handleTrickPause}
-                className="px-2 py-1 rounded bg-slate-900 text-gray-300 hover:bg-slate-800 border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                pause
-              </button>
-            </div>
-            {!isSelectedTrickSession && (
-              <div className="text-[10px] text-gray-600">
-                start {selectedTrickPreset.map} to run this trick
-              </div>
-            )}
-          </div>
-
           <button
             type="button"
             aria-pressed={consoleOpen}
@@ -936,6 +1030,14 @@ export function ControlDrawer({
                 >
                   - remove
                 </button>
+                <button
+                  type="button"
+                  disabled={!canMutate || bots.length === 0}
+                  onClick={() => handleRemoveBot("all")}
+                  className="px-1.5 py-0.5 rounded bg-red-950 text-red-200 hover:bg-red-900 border border-red-800 disabled:opacity-40 disabled:cursor-not-allowed normal-case"
+                >
+                  clear
+                </button>
               </div>
             )}
           </div>
@@ -957,8 +1059,13 @@ export function ControlDrawer({
                   routes={mapRoutes}
                   canMutate={canMutate && bot.slot !== -1}
                   onAssign={(route) => handleAssignRoute(bot, route)}
+                  onTry={() => handleBotTry(bot)}
+                  onLoop={() => handleBotTry(bot, true)}
+                  onStandStill={() => handleBotStandStill(bot)}
                   onRespawn={() => handleBotRespawn(bot)}
                   onRemove={() => handleRemoveBot(bot.slot === -1 ? undefined : bot.slot)}
+                  onProfileChange={(patch) => handleBotProfileChange(bot, patch)}
+                  onApplyProfile={() => handleApplyBotProfile(bot)}
                 />
               ))}
             </div>
@@ -1103,57 +1210,166 @@ type BotRowProps = {
   routes: string[];
   canMutate: boolean;
   onAssign: (route: string) => void;
+  onTry: () => void;
+  onLoop: () => void;
+  onStandStill: () => void;
   onRespawn: () => void;
   onRemove: () => void;
+  onProfileChange: (patch: Partial<BotSlot>) => void;
+  onApplyProfile: () => void;
 };
 
-function BotRow({ bot, routes, canMutate, onAssign, onRespawn, onRemove }: BotRowProps) {
+function BotRow({
+  bot,
+  routes,
+  canMutate,
+  onAssign,
+  onTry,
+  onLoop,
+  onStandStill,
+  onRespawn,
+  onRemove,
+  onProfileChange,
+  onApplyProfile,
+}: BotRowProps) {
   const displayRoute = bot.pendingRoute
     ? `${bot.pendingRoute} (pending…)`
     : (bot.assignedRoute ?? "unassigned");
 
   // slot=-1 is a provisional placeholder (addbot fired, ASSIGN not yet received).
   const slotLabel = bot.slot === -1 ? "??" : `s${bot.slot}`;
+  const profileName = bot.draftName ?? bot.name;
+  const topColor = bot.draftTopColor ?? "13";
+  const bottomColor = bot.draftBottomColor ?? topColor;
+  const team = bot.draftTeam ?? "";
 
   return (
-    <div className="flex items-center gap-x-1.5 text-[10px]">
-      <span className="shrink-0 font-mono text-gray-400 w-12">
-        {slotLabel} {bot.name.slice(0, 6)}
-      </span>
-      <select
-        value={bot.assignedRoute ?? ""}
-        disabled={!canMutate || !!bot.pendingRoute}
-        onChange={(e) => {
-          if (e.target.value) onAssign(e.target.value);
-        }}
-        title={displayRoute}
-        className="flex-1 min-w-0 bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-gray-200 text-[10px] disabled:opacity-50"
-      >
-        <option value="">— {bot.pendingRoute ? "pending…" : "route"}</option>
-        {routes.map((r) => (
-          <option key={r} value={r}>
-            {r}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        disabled={!canMutate}
-        onClick={onRespawn}
-        className="shrink-0 px-1 py-0.5 rounded text-gray-500 hover:text-sky-300 hover:bg-sky-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
-        title="respawn this bot"
-      >
-        respawn
-      </button>
-      <button
-        type="button"
-        disabled={!canMutate}
-        onClick={onRemove}
-        className="shrink-0 px-1 py-0.5 rounded text-gray-500 hover:text-red-300 hover:bg-red-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
-        title="remove this bot"
-      >
-        ✕
-      </button>
+    <div className="flex flex-col gap-y-2 rounded border border-slate-800 bg-black/20 px-2 py-2 text-[10px]">
+      <div className="flex items-center gap-x-2">
+        <span className="shrink-0 font-mono text-gray-400 w-8">{slotLabel}</span>
+        <input
+          type="text"
+          value={profileName}
+          disabled={!canMutate}
+          onChange={(e) => onProfileChange({ draftName: e.target.value })}
+          className="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-gray-200 disabled:opacity-50"
+          title="bot name"
+        />
+        <button
+          type="button"
+          disabled={!canMutate}
+          onClick={onApplyProfile}
+          className="shrink-0 px-1.5 py-0.5 rounded bg-slate-800 text-gray-300 hover:bg-slate-700 border border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed"
+          title="apply bot profile"
+        >
+          save
+        </button>
+        <button
+          type="button"
+          disabled={!canMutate}
+          onClick={onRemove}
+          className="shrink-0 px-1 py-0.5 rounded text-gray-500 hover:text-red-300 hover:bg-red-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
+          title="remove this bot"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="grid grid-cols-[1fr_56px_56px] gap-1">
+        <input
+          type="text"
+          value={team}
+          disabled={!canMutate}
+          onChange={(e) => onProfileChange({ draftTeam: e.target.value })}
+          placeholder="team"
+          className="min-w-0 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-gray-200 disabled:opacity-50 placeholder:text-gray-600"
+          title="team"
+        />
+        <select
+          value={topColor}
+          disabled={!canMutate}
+          onChange={(e) => onProfileChange({ draftTopColor: e.target.value })}
+          className="bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-gray-200 disabled:opacity-50"
+          title="top color"
+        >
+          {BOT_COLORS.map((color) => (
+            <option key={color} value={color}>
+              top {color}
+            </option>
+          ))}
+        </select>
+        <select
+          value={bottomColor}
+          disabled={!canMutate}
+          onChange={(e) => onProfileChange({ draftBottomColor: e.target.value })}
+          className="bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-gray-200 disabled:opacity-50"
+          title="bottom color"
+        >
+          {BOT_COLORS.map((color) => (
+            <option key={color} value={color}>
+              bot {color}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex items-center gap-x-1">
+        <select
+          value={bot.assignedRoute ?? ""}
+          disabled={!canMutate || !!bot.pendingRoute || routes.length === 0}
+          onChange={(e) => {
+            if (e.target.value) onAssign(e.target.value);
+          }}
+          title={displayRoute}
+          className="flex-1 min-w-0 bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-gray-200 disabled:opacity-50"
+        >
+          <option value="">— {bot.pendingRoute ? "pending…" : "route"}</option>
+          {routes.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          disabled={!canMutate || !(bot.pendingRoute ?? bot.assignedRoute)}
+          onClick={onTry}
+          className="shrink-0 px-1.5 py-0.5 rounded bg-sky-950 text-sky-100 hover:bg-sky-900 border border-sky-800 disabled:opacity-40 disabled:cursor-not-allowed"
+          title="try selected route"
+        >
+          try
+        </button>
+        <button
+          type="button"
+          disabled={!canMutate || !(bot.pendingRoute ?? bot.assignedRoute)}
+          onClick={onLoop}
+          className="shrink-0 px-1.5 py-0.5 rounded bg-slate-800 text-gray-200 hover:bg-slate-700 border border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed"
+          title="loop selected route"
+        >
+          loop
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1">
+        <button
+          type="button"
+          disabled={!canMutate}
+          onClick={onStandStill}
+          className="px-1.5 py-0.5 rounded bg-slate-900 text-gray-300 hover:bg-slate-800 border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          title="hold this bot still"
+        >
+          stand still
+        </button>
+        <button
+          type="button"
+          disabled={!canMutate}
+          onClick={onRespawn}
+          className="px-1.5 py-0.5 rounded bg-slate-900 text-gray-300 hover:bg-slate-800 border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          title="respawn this bot"
+        >
+          respawn
+        </button>
+      </div>
     </div>
   );
 }

@@ -140,6 +140,14 @@ class TestValidators(unittest.TestCase):
         self.assertIsInstance(cb.validate_cvar("k_fb_x", "1", slot=99), str)
         self.assertIsInstance(cb.validate_cvar("k_fb_x", "1", slot=True), str)
 
+    def test_format_set_cvar_quotes_space_values(self):
+        self.assertEqual(cb.format_set_cvar_command("k_fb_moveprobe_mode_s3", "23"), "set k_fb_moveprobe_mode_s3 23")
+        self.assertEqual(cb.format_set_cvar_command("k_fb_moveprobe_replay_file_s3", ""), 'set k_fb_moveprobe_replay_file_s3 ""')
+        self.assertEqual(
+            cb.format_set_cvar_command("k_fb_moveprobe_spawn_origin_s3", "-3516.125 3712 -453.125"),
+            'set k_fb_moveprobe_spawn_origin_s3 "-3516.125 3712 -453.125"',
+        )
+
     def test_console_allow_and_deny(self):
         for line in ("status", "map dm3", "set k_fb_skill 10", "timelimit 2", "sv_demostop"):
             self.assertEqual(cb.validate_console_line(line), line)
@@ -198,21 +206,39 @@ class TestValidators(unittest.TestCase):
         self.assertEqual(cb.validate_game_command("bot_weapon_lock"), [("botcmd", "weapon 1")])
         self.assertEqual(cb.validate_game_command("bot_weapon_unlock"), [("botcmd", "weapon random")])
         self.assertEqual(cb.validate_game_command("trick_pause"), [("botcmd", "removeall")])
-        self.assertEqual(
-            cb.validate_game_command("ztricks_distance_standstill"),
-            [
-                ("botcmd", "removeall"),
-                ("console", 'set k_fb_moveprobe_spawn_origin "-3516.125 3712 -453.125"'),
-                ("console", "set k_fb_moveprobe_mode 23"),
-                ("console", "set k_fb_moveprobe_fixed_goal 8"),
-                ("console", "set k_fb_moveprobe_s23_launch_vh 430"),
-                ("console", "set k_fb_moveprobe_s23_launch_angle 50"),
-                ("console", "set k_fb_moveprobe_s21_swing 8"),
-                ("console", "set k_fb_moveprobe_log_commands 1"),
-                ("console", "set k_fb_moveprobe_log_interval 0"),
-                ("addbot", "1"),
-            ],
+        ztricks_steps = cb.validate_game_command("ztricks_distance_standstill")
+        self.assertEqual(ztricks_steps[0], ("botcmd", "removeall"))
+        self.assertIn(("console", "set k_fb_moveprobe_mode_s3 0"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_mode_s3 23"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_fixed_goal_s3 8"), ztricks_steps)
+        self.assertIn(
+            ("console", 'set k_fb_moveprobe_spawn_velocity_s3 "259 -172 0"'),
+            ztricks_steps,
         )
+        self.assertIn(
+            ("console", 'set k_fb_moveprobe_spawn_origin_s3 "-3434.375 3686.875 -488"'),
+            ztricks_steps,
+        )
+        self.assertIn(("console", "set k_fb_moveprobe_replay_file_s3"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_launch_target_x -3044.1"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_lip_x -3348"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_lip_y 0"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_release_vh 470"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_carve_d 95"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_carve_angle 52"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_carve_side 1"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_refcurve 1"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_refcurve_vh_min 0"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_refcurve_yaw_offset 0"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_refcurve_entry_x -3439.375"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_refcurve_entry_y 3758.125"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_refcurve_y 3768.5"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_refcurve_y_tol 24"), ztricks_steps)
+        self.assertLess(
+            ztricks_steps.index(("console", "set k_fb_moveprobe_fixed_goal_s3 8")),
+            ztricks_steps.index(("console", "set k_fb_moveprobe_mode_s3 23")),
+        )
+        self.assertEqual(ztricks_steps[-1], ("addbot", "1"))
         for action, value in (
             ("gamemode", "3on3"),
             ("deathmatch", "5"),
@@ -480,6 +506,19 @@ class TestSessionScopedOps(unittest.TestCase):
             self.assertTrue(response["ok"])
             self.assertEqual(executor.calls[-1], ("stuff", 28600, "set k_fb_moveprobe_mode_s2 21"))
 
+            response, _ = local(bridge, {
+                "op": "set_cvar",
+                "name": "k_fb_moveprobe_spawn_origin",
+                "value": "-3516.125 3712 -453.125",
+                "slot": 2,
+                "req_id": "3",
+            }, "p")
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(
+                executor.calls[-1],
+                ("stuff", 28600, 'set k_fb_moveprobe_spawn_origin_s2 "-3516.125 3712 -453.125"'),
+            )
+
     def test_set_cvar_security_refusals(self):
         with tempfile.TemporaryDirectory() as tmp:
             dashboard_lock(tmp)
@@ -654,21 +693,37 @@ class TestSessionScopedOps(unittest.TestCase):
             )
             self.assertTrue(response["ok"], response)
             self.assertEqual(broadcast["action"], "ztricks_distance_standstill")
-            self.assertEqual(
+            self.assertEqual(executor.calls[0], ("send_botcmds", 28600, ("removeall",)))
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_mode_s3 0"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_mode_s3 23"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_fixed_goal_s3 8"), executor.calls)
+            self.assertIn(
+                ("stuff", 28600, 'set k_fb_moveprobe_spawn_velocity_s3 "259 -172 0"'),
                 executor.calls,
-                [
-                    ("send_botcmds", 28600, ("removeall",)),
-                    ("stuff", 28600, 'set k_fb_moveprobe_spawn_origin "-3516.125 3712 -453.125"'),
-                    ("stuff", 28600, "set k_fb_moveprobe_mode 23"),
-                    ("stuff", 28600, "set k_fb_moveprobe_fixed_goal 8"),
-                    ("stuff", 28600, "set k_fb_moveprobe_s23_launch_vh 430"),
-                    ("stuff", 28600, "set k_fb_moveprobe_s23_launch_angle 50"),
-                    ("stuff", 28600, "set k_fb_moveprobe_s21_swing 8"),
-                    ("stuff", 28600, "set k_fb_moveprobe_log_commands 1"),
-                    ("stuff", 28600, "set k_fb_moveprobe_log_interval 0"),
-                    ("add_bots", 28600, 1),
-                ],
             )
+            self.assertIn(
+                ("stuff", 28600, 'set k_fb_moveprobe_spawn_origin_s3 "-3434.375 3686.875 -488"'),
+                executor.calls,
+            )
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_replay_file_s3"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_launch_target_x -3044.1"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_lip_x -3348"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_lip_y 0"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_release_vh 470"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_carve_d 95"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_carve_angle 52"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_carve_side 1"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_refcurve 1"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_refcurve_vh_min 0"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_refcurve_yaw_offset 0"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_refcurve_entry_x -3439.375"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_refcurve_entry_y 3758.125"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_refcurve_y 3768.5"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_refcurve_y_tol 24"), executor.calls)
+            fixed_goal_idx = executor.calls.index(("stuff", 28600, "set k_fb_moveprobe_fixed_goal_s3 8"))
+            mode_idx = executor.calls.index(("stuff", 28600, "set k_fb_moveprobe_mode_s3 23"))
+            self.assertLess(fixed_goal_idx, mode_idx)
+            self.assertEqual(executor.calls[-1], ("add_bots", 28600, 1))
 
 
 class TestProtocolEdges(unittest.TestCase):

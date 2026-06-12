@@ -147,6 +147,8 @@ def build_vertex_speeds(polyline, gaps, active_mean_speed):
     # Find nearest polyline vertex for each gap edge.
     anchors = []
     for gap in gaps:
+        if not isinstance(gap.get('human_speed_at_edge'), (int, float)):
+            continue
         ex, ey, ez = gap['edge']
         best_dist = float('inf')
         best_idx = 0
@@ -159,7 +161,13 @@ def build_vertex_speeds(polyline, gaps, active_mean_speed):
 
     anchors.sort(key=lambda a: a['idx'])
 
-    speeds = [active_mean_speed] * n
+    fill_speed = active_mean_speed if isinstance(active_mean_speed, (int, float)) else (
+        anchors[0]['speed'] if anchors else None
+    )
+    if fill_speed is None:
+        return None
+
+    speeds = [fill_speed] * n
 
     if not anchors:
         return speeds
@@ -188,11 +196,11 @@ def designated_launch_edge(gaps):
     gaps: list of dicts with 'required_speed', 'human_speed_at_edge', 'edge', 'hard'.
     Returns the gap with the highest required_speed (last-wins on ties), or None.
     """
-    if not gaps:
-        return None
-    best = gaps[0]
-    for g in gaps[1:]:
-        if g['required_speed'] >= best['required_speed']:
+    best = None
+    for g in gaps:
+        if not isinstance(g.get('required_speed'), (int, float)):
+            continue
+        if best is None or g['required_speed'] >= best['required_speed']:
             best = g
     return best
 
@@ -454,6 +462,19 @@ class TestBuildVertexSpeeds(unittest.TestCase):
         for s in speeds:
             self.assertAlmostEqual(s, 400.0)
 
+    def test_no_numeric_reference_returns_none(self):
+        """Practice routes with null human speeds should not synthesize zeroes."""
+        poly = [(0.0, 0.0, 0.0), (10.0, 0.0, 0.0)]
+        gaps = [{'edge': (10.0, 0.0, 0.0), 'human_speed_at_edge': None}]
+        self.assertIsNone(build_vertex_speeds(poly, gaps, None))
+
+    def test_null_active_mean_can_use_numeric_gap_anchor(self):
+        """If active_mean is null but gap speed exists, use the gap as fill/anchor."""
+        poly = [(0.0, 0.0, 0.0), (10.0, 0.0, 0.0)]
+        gaps = [{'edge': (10.0, 0.0, 0.0), 'human_speed_at_edge': 500.0}]
+        speeds = build_vertex_speeds(poly, gaps, None)
+        self.assertEqual(speeds, [500.0, 500.0])
+
     def test_single_gap_at_start(self):
         """Gap edge at first vertex → all vertices at gap speed."""
         poly = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (2.0, 0.0, 0.0)]
@@ -532,6 +553,17 @@ class TestDesignatedLaunchEdge(unittest.TestCase):
 
     def test_empty_returns_none(self):
         self.assertIsNone(designated_launch_edge([]))
+
+    def test_null_required_speeds_return_none(self):
+        """Practice-route gaps with null required_speed should not become 0 qu/s."""
+        self.assertIsNone(designated_launch_edge([
+            self._gap(None),
+        ]))
+
+    def test_null_required_speeds_are_skipped(self):
+        gaps = [self._gap(None), self._gap(430.0)]
+        result = designated_launch_edge(gaps)
+        self.assertAlmostEqual(result['required_speed'], 430.0)
 
     def test_single_gap(self):
         gap = self._gap(402.0)

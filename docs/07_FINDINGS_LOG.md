@@ -3778,3 +3778,1528 @@ exists" is only partially complete until #157 is fixed.
 Fix #157 first because stale roster rows can cause operator mistakes during the
 otherwise-working ztricks loop. Then fix #158 so the primary watch-live story is
 visually complete. Retest with the same test run artifact as the checklist.
+
+
+## 2026-06-12 -- ztricks Distance route reaches mode 23 but emits zero movement
+
+### Finding
+
+The BotLab GUI and control bridge can route the `distance_standstill` try action
+to live KTX, but the current ztricks mode-23 controller does not produce a real
+movement attempt. The apparent KPI speed bump is not sufficient evidence of a
+try; raw command rows show `move=0,0,0`.
+
+### Evidence
+
+Live session `dash_20260612T113124Z` on `ztricks`/port `28599`:
+
+- Browser panel showed `route distance_standstill selected - bot is standing still until try`.
+- Pressing **try** showed `trying distance_standstill`.
+- Raw `screen.log`/telemetry rows showed mode 23 active for ed `3` and `5`, but final commands stayed zero:
+
+```text
+FBMOVEPROBE_CMD ... ed=5 name=/ bro mode=23 ... move=0,0,0 buttons=0 ... route=65,65,44,8,0,128,0,0.000 ... origin=-3429.873,3692.024,-487.969
+FBMOVEPROBE_CMD ... ed=3 name= mode=23 ... move=0,0,0 buttons=0 ... route=1,1,0,-1,1048576,0,0,0.000 ... origin=-1168.000,1632.000,-574.969
+```
+
+Bridge/UI fixes made during the investigation:
+
+- ztricks Distance remains a normal dashboard route, but its try action can use the bridge-backed `ztricks_distance_standstill` compatibility action.
+- The bridge action now stamps route state onto per-slot moveprobe cvars before setting mode 23, so stale practice-idle suffixes no longer keep reused ed slots in mode 24.
+- The live `kbot-telemetry` sidecar was redeployed/restarted with the updated bridge.
+
+Verification:
+
+- `npm run build` in `lab/dashboard`: passed.
+- `python -m pytest tests\test_control_bridge.py tests\test_f3_control_drawer.py tests\test_build_routes_manifest.py`: 130 passed.
+
+### Bug Registered
+
+- #166: ztricks distance route enters mode 23 but emits zero movement.
+
+### Interpretation
+
+The "nothing happens" symptom is no longer a GUI button or bridge delivery bug.
+It is a route/controller capability gap: mode 23 is active on ztricks Distance
+but emits no final movement command in the live build. The A5 report already
+warns that the deployed mode-23 law did not solve this jump in sim (`0/4860`
+landings), so the next fix should either wire this route to a proven replay path
+or implement the missing terminal-carve/release controller work.
+
+
+## 2026-06-12 -- Browser validation of session, map, route, and add-bot flows
+
+### Finding
+
+The BotLab control drawer can now survive the operator flow of stopping a
+session, starting a different map, selecting and changing routes, and adding
+bots without leaving stale `s??` placeholder cards in the roster.
+
+### Evidence
+
+Browser target:
+`http://127.0.0.1:5173/botlab/?views=game&ws=ws%3A%2F%2F127.0.0.1%3A8771`.
+
+Validated in the Codex browser:
+
+- Stopped active `ztricks` session `dash_20260612T113124Z`; control returned to
+  `SESSION FREE` with no bot rows.
+- Started `dm3` session `dash_20260612T114209Z`; selecting `sng_to_rl` for bot
+  `s7` enabled per-bot route controls, then changing the same bot to `hilljump`
+  preserved the same bot card and showed
+  `route hilljump selected - bot is standing still until try`.
+- Pressed **+ add** on `dm3`; roster changed from `s7`, `s5`, `s3` to `s7`,
+  `s5`, `s3`, `s4` with no `??` placeholder.
+- Stopped `dm3`, selected `ztricks` from the map dropdown, and started
+  `ztricks` session `dash_20260612T114804Z`.
+- Pressed **+ add** on `ztricks`; roster showed real bot cards `s5`, `s3`,
+  `s7` with no `??` placeholder.
+- Selected `distance_standstill` on the first ztricks bot; its **try** and
+  **loop** buttons became enabled while unassigned bots stayed disabled.
+
+Code fix:
+
+- `session_start`/`session_stop` now clear stale frame-suppression state instead
+  of suppressing newly reused ed slots.
+- Live-frame and ASSIGN upserts prune unlabeled provisional rows once real bot
+  rows exist, while preserving route-labeled placeholders such as the ztricks
+  bridge route.
+
+Verification:
+
+- `npm run build` in `lab/dashboard`: passed.
+- `python -m pytest tests\test_f3_control_drawer.py tests\test_build_routes_manifest.py tests\test_control_bridge.py`: 133 passed.
+
+### Interpretation
+
+The control-drawer operator story is now usable for session start/stop, map
+change, route selection, route change, and add-bot roster reconciliation. The
+known remaining issue is still #166: pressing **try** for `distance_standstill`
+reaches mode 23 but the controller emits zero movement.
+
+
+## 2026-06-12 -- ztricks Distance per-bot try emits movement again
+
+### Finding
+
+The zero-command symptom from `dash_20260612T113124Z` was a control-path problem,
+not proof that mode 23 could no longer emit movement. ztricks Distance still had
+a legacy route `game_command` override, so the per-bot **try** button was secretly
+using the old global remove-all/add-one preset instead of configuring the
+selected bot like every other route. The bridge also stuffed space-separated
+`spawn_origin` cvar values without quotes on the generic per-bot `set_cvar`
+path.
+
+### Fix
+
+- Removed `control.game_command` from the generated ztricks Distance route
+  manifest; per-bot **try** now uses the route cvar sequence in
+  `ControlDrawer.configureBotRoute`.
+- Removed the UI-side `control?.game_command` shortcut so routes cannot bypass
+  the selected-bot path.
+- Added `format_set_cvar_command()` in the control bridge so validated values
+  containing spaces are quoted before being stuffed into the Quake console.
+- Redeployed `lab/server/control_bridge.py` to
+  `servexeri:~/komodobots-lab/sidecar/control_bridge.py` and restarted the
+  `kbot-telemetry` sidecar.
+
+### Evidence
+
+Browser retry against
+`http://127.0.0.1:5173/botlab/?views=game&ws=ws%3A%2F%2F127.0.0.1%3A8771`:
+
+- Confirmed stale takeover after sidecar restart.
+- Started clean ztricks session `dash_20260612T120449Z` on port `28600`.
+- Selected `distance_standstill` on bot `s5`; panel showed
+  `route distance_standstill selected - bot is standing still until try`.
+- Pressed the same row's **try**; panel showed `trying distance_standstill` and
+  roster stayed `s5`, `s3` rather than removing/readding bots.
+- Server log showed per-slot assignment and nonzero mode-23 commands:
+
+```text
+FBMOVEPROBE_ASSIGN ... ed=5 ... mode=23 mode_src=slot ... fixed_goal=8 goal_src=slot spawn_origin=-3516.125,3712,-453.125 spawn_src=slot
+FBMOVEPROBE_CMD ... ed=5 ... mode=23 ... move=320,0,0 buttons=1 ... origin=-3516.125,3712.000,-453.125
+```
+
+Verification:
+
+- `npm run build` in `lab/dashboard`: passed.
+- `python -m pytest tests\test_control_bridge.py tests\test_build_routes_manifest.py tests\test_f3_control_drawer.py`: 134 passed.
+
+### Interpretation
+
+The specific "selected route + try does nothing" GUI/bridge failure is fixed and
+retested. The controller still needs movement-quality work: mode 23 now launches
+again from the A5 start, but this does not mean the ztricks Distance jump is
+solved or landed.
+
+
+## 2026-06-12 -- mvd_analyzer map entities imported for BotLab
+
+### Finding
+
+Upstream `mvd_analyzer` already has static map-entity JSON for the requested
+maps and for `ztricks`; no local ztricks entity generation was needed. The
+source ref used for this import is
+`galfthan/mvd_analyzer` `upstream/main`
+`dbfee83f457946c93e941c4a0b76efd25183d25e`.
+
+Imported entity counts:
+
+- `dm2`: 70
+- `dm3`: 61
+- `e1m2`: 117
+- `phantombase`: 61
+- `schloss`: 57
+- `ztricks`: 35
+
+### Change
+
+- Added `lab/tools/import_map_entities.py` to copy the upstream
+  `mvd-analytics/mapents/data/<map>.json` files into BotLab public data and
+  write `komodobots.map_entities.v1` provenance/counts.
+- Committed `lab/dashboard/public/data/map_entities/{dm2,dm3,e1m2,phantombase,schloss,ztricks,index}.json`.
+- Extended `scripts/ld_g2_golden_path.py` so the offline dashboard harness
+  validates the map-entity corpus, including required presence of `ztricks`.
+- Added importer and harness tests.
+
+### Evidence
+
+- `python lab\tools\import_map_entities.py --source-repo C:\Users\benya\projects\quakeworld\tools\mvd_analyzer --ref upstream/main`: wrote six map files plus `index.json`.
+- `python -m pytest tests\test_import_map_entities.py tests\test_ld_g2_golden_path.py`: 55 passed.
+
+### Interpretation
+
+BotLab now has a reusable static map context layer separate from routes and
+meshes. `e1m2`, `phantombase`, and `schloss` have entity data available even
+though they do not yet have committed BotLab meshes or censused routes.
+
+
+## 2026-06-12 -- Mockup consumes ztricks map entities
+
+### Finding
+
+The imported map-entity corpus can already give useful route-authoring context
+for ztricks Distance. The route starts within 32 qu of upstream
+`tele-dst-1`, and the successful human landing point is nearest to upstream
+`tele-src-3` within 200 qu. That is enough to display the route's surrounding
+teleporter context directly in BotLab without inventing a separate ztricks
+schema.
+
+### Change
+
+- Added `ztricks` to the Mockup map selector.
+- Mockup now fetches `public/data/map_entities/<map>.json`, overlays static
+  entities in the Three.js scene, and shows per-map entity counts.
+- Selected-route detail now shows nearest static entities for route start,
+  final edge, and landing.
+- Null route metrics render as `n/a`; LiveMetricsPanel skips null human-speed
+  anchors and null required-speed gaps instead of coercing them to zero.
+
+### Evidence
+
+- `python -m pytest tests\test_mockup_context.py tests\test_live_metrics_panel.py tests\test_import_map_entities.py tests\test_ld_g2_golden_path.py`: 142 passed.
+- `npm run build` in `lab/dashboard`: passed, with the existing Vite chunk-size warning.
+- Codex browser validation on
+  `http://127.0.0.1:5173/botlab/?views=mockup`: selected `ztricks` and
+  `distance_standstill`; route detail rendered `dur 2.12 s`, `mean 388 qu/s`,
+  `peak 496 qu/s`, `req n/a hu 475`, `start tele-dst-1 teleportDst 27q`,
+  `edge tele-dst-1 teleportDst 172q`, and `land tele-src-3 teleportSrc 180q`;
+  entity summary rendered `35 total`, `spawn 1`, `teleportDst 8`,
+  `teleportSrc 26`.
+- Canvas screenshot crop pixel check passed: 480x500 canvas crop, 12,000
+  sampled pixels, 860 unique sampled colors, 1,791 bright samples, nonblank =
+  true.
+
+### Interpretation
+
+ztricks Distance is now inspectable in Mockup as a normal route with static
+teleporter/landing context. This does not yet add a scoring zone or new
+controller behavior; it makes the static context visible and contract-tested so
+the next scoring step can consume the same data.
+
+
+## 2026-06-12 -- ztricks route manifest promoted the successful getspeed.qwd attempt
+
+### Finding
+
+The human reference for ztricks Distance is present locally and already analyzed
+by A5. It is `C:\nQuake\qw\matchinfo\demos\getspeed.qwd`, sha256
+`dfb893a32d24b0aec5a5a94a94b16cee9cd42dcdd6602c6a093c5f21e9988307`: ten failed
+Distance attempts followed by a successful 11th attempt.
+
+A5's validated replay data identifies the successful route segment as rows
+`1807..1969`, with lip row `1918`, landing row `1969`, lip speed `475.2`,
+landing speed `495.5`, and launch heading `-11.7`. Both recorded and simulated
+replays land the far platform.
+
+### Change
+
+- `lab/tools/build_routes_manifest.py` now derives `ztricks.json`
+  `distance_standstill` from A5's committed `human-replay.json`,
+  `alignment-meta.json`, and `getspeed-aligned.cmds`.
+- The route manifest now carries the start-to-landing human polyline, duration
+  `2.116`, active mean speed `388.4`, peak speed `495.5`, human edge speed
+  `475.2`, and a `reference` block with attempt/row/heading/sha evidence.
+- `required_speed` intentionally remains null because A5 showed speed alone is
+  not a sufficient success gate for this jump; release heading/geometry is the
+  decisive dimension.
+
+### Evidence
+
+- `python lab\tools\build_routes_manifest.py`: regenerated `ztricks.json` with
+  one route and 28 polyline points.
+- `python -m pytest tests\test_build_routes_manifest.py tests\test_mockup_context.py tests\test_live_metrics_panel.py tests\test_import_map_entities.py tests\test_ld_g2_golden_path.py`: 166 passed.
+- Codex browser validation on
+  `http://127.0.0.1:5173/botlab/?views=mockup`: selected `ztricks` and
+  `distance_standstill`; the detail panel showed the successful-reference
+  metrics (`dur 2.12 s`, `mean 388 qu/s`, `peak 496 qu/s`, `req n/a hu 475`)
+  and current static context (`start tele-dst-1`, `edge tele-dst-1`,
+  `land tele-src-3`). Canvas crop was nonblank.
+
+### Interpretation
+
+BotLab now has the perfect human ztricks Distance reference in the same route
+manifest layer as the other routes. The next scoring/controller step should
+compare bot attempts to the successful QWD segment's lip row, landing row,
+speed, and launch heading rather than treating the jump as an abstract
+standstill distance preset.
+
+
+## 2026-06-12 -- live ztricks route attempts re-arm, but controller misses the landing
+
+### Finding
+
+The browser-to-bridge route flow can now assign and repeat the ztricks
+`distance_standstill` route as a normal per-bot route, but the deployed mode-23
+controller still does not complete the jump.
+
+### Change
+
+- `ControlDrawer.tsx` clears per-slot `spawn_origin`, waits one sampled frame,
+  then restores the route spawn before flipping the bot into route mode. This
+  gives KTX a real assignment edge for repeated tries of the same route.
+- `control_bridge.py` now formats empty cvar values as `set name ""` and reports
+  the exact stuffed command in control responses/audit details.
+
+### Evidence
+
+- `python -m pytest tests\test_control_bridge.py tests\test_f3_control_drawer.py`:
+  113 passed.
+- `npm run build` in `lab/dashboard`: passed, with the existing Vite chunk-size
+  warning.
+- Bridge redeployed to `servexeri` sidecar `kbot-telemetry`; fresh session
+  `dash_20260612T135158Z` started on port `28599`.
+- Browser selected `distance_standstill` for `s3` and pressed **try**. Server
+  emitted slot-sourced `FBMOVEPROBE_ASSIGN` rows, then `113` mode-23 rows with
+  `21` nonzero command rows. Closest configured spawn distance was about
+  `10.5q`, closest lip distance about `94.3q`, and closest landing distance
+  about `137.9q`; max x reached `-3156.651` versus human landing x `-3044.1`.
+- Pressing **try** again on the same selected route emitted fresh clear/restore
+  ASSIGN rows and nonzero movement again, proving the repeated-try standstill
+  failure is no longer the active UI/bridge failure. The repeat still missed:
+  closest landing distance was about `172.5q`.
+- Created GitHub issue #167 for the remaining controller/route-reproduction
+  failure.
+
+### Interpretation
+
+The next bottleneck is no longer "did the GUI make the bot try?" It is that
+mode 23 is not reproducing the human ztricks release geometry/heading well
+enough to land. The next useful experiment should compare the mode-23 command
+and origin trace against A5's successful `getspeed.qwd` rows around the lip and
+landing, not add more dashboard controls.
+
+
+## 2026-06-12 -- live ztricks attempt reaches the lip with speed but wrong heading
+
+### Finding
+
+The live one-attempt loop is useful, but the deployed mode-23 controller is
+missing the control primitive needed for the ztricks Distance jump. In a fresh
+dashboard-owned `ztricks` session (`dash_20260612T142054Z`, port `28600`), the
+bot reached the successful human lip neighborhood with enough speed, but its
+travel heading was almost perpendicular to the required release line and the
+jump bit did not fire there.
+
+### Evidence
+
+Baseline live retry on `/ bro` (`ed=3`) used the current dashboard route
+settings: spawn snap `-3516.125 3712 -453.125`, mode `23`, fixed goal `8`,
+`k_fb_moveprobe_s23_launch_vh 430`, `k_fb_moveprobe_s23_launch_angle 50`, and
+`k_fb_moveprobe_s21_swing 8`.
+
+- The server emitted `482` ed-3 mode-23 command rows from time `70.725` to
+  `76.825`; `443` rows had nonzero command output and `3` rows carried the
+  jump bit.
+- Closest pass to the successful human release point was only `6.0q` away:
+  `t=71.752`, origin `(-3354.980, 3775.733, -487.969)`, horizontal speed
+  `457.1`, velocity heading `84.6 deg`, yaw `134.6`, buttons `1`.
+- Human reference for the same release: origin about
+  `(-3360.8, 3777.2, -487.969)`, speed `475.2`, launch heading `-11.7 deg`,
+  jump bit on at the lip row.
+- The first actual jump bit in the live retry happened later and in the wrong
+  state: `t=74.684`, origin `(-3362.6, 3718.1, -487.969)`, speed `153.0`,
+  heading `133.8 deg`.
+- The closest observed approach to the human landing point remained `191.6q`
+  away (`t=72.639`, origin `(-3225.2, 3698.1, -539.3)`).
+
+One manual follow-up tried `k_fb_moveprobe_fixed_goal_s3 44`, the far marker on
+the successful y-band in the generated `ztricks.bot`. That run emitted `548`
+mode-23 rows from time `459.882` to `466.988`, but stayed at spawn with zero
+movement and zero jump rows (`dir_speed=0.000`), so changing only the fixed
+goal is not enough with the current generated graph/controller.
+
+### Interpretation
+
+This is not a raw-speed problem and not a "try button did nothing" problem. The
+live controller can move, and it can even arrive near the lip with about the
+right speed. It cannot synchronize the final mouse/yaw direction, strafe
+wishdir, and jump timing into the human terminal carve. A5 round 2 already
+showed the required missing idea in sim: terminal carve plus a release-speed
+floor. The live side now confirms that the next useful change is a default-off
+KTX control primitive for that terminal carve/release rule, exposed through the
+route settings, followed by the same one-attempt live loop.
+
+
+## 2026-06-12 -- ztricks speedjump formula v0 extracted
+
+### Finding
+
+The successful ztricks Distance attempt can be expressed as a concrete release
+formula rather than a vague "go faster" instruction. The important window is a
+15-command-row / `195 ms` terminal sweep ending at the lip.
+
+### Evidence
+
+`experiments/a5_distance_standstill/speedjump-formula.md` extracts attempt 11
+from `getspeed-aligned.cmds` into a controller contract:
+
+- terminal sweep starts around row `1904`: speed `441.4`, velocity heading
+  `41.4 deg`, view yaw `39.1 deg`, `d_lip 91.4`.
+- speed floor crosses around row `1908`: speed `450.8`, velocity heading
+  `27.5 deg`, view yaw `23.8 deg`, `d_lip 71.9`.
+- release happens at row `1918`: speed `475.2`, velocity heading `-11.3 deg`,
+  view yaw `-19.0 deg`, yaw lead `-7.7 deg`, `d_lip 12.8`, jump bit on.
+- landing happens at row `1969`: origin `(-3044.1, 3760.5, -488.0)`, speed
+  `495.5`.
+
+### Interpretation
+
+The next KTX primitive should score release state first, not landing first:
+`vh`, `d_lip`, velocity heading, target error, yaw lead, and jump bit must match
+the formula before any landing claim is meaningful. The live attempt failure is
+now explained precisely: it had location and exploratory speed, but not the
+terminal heading/yaw/jump synchronization.
+
+
+## 2026-06-12 -- ztricks terminal-carve primitive added to mode 23
+
+### Finding
+
+The ztricks Distance route can now ask mode 23 for the missing terminal
+speedjump primitive without making trickjump a separate GUI concept. The
+primitive is default-off: unset `k_fb_moveprobe_s23_launch_target_{x,y,z}` keeps
+the existing mode-23 Frogbot route weave, while the ztricks route metadata sets
+the target/lip/release cvars needed for the terminal right-carve.
+
+### Evidence
+
+- `experiments/ktx_moveprobe/frogbot-moveprobe-perslot.patch` now adds
+  `zjump=` command telemetry:
+  `phase,d_lip,vh,vel_yaw,target_yaw,target_err,yaw_lead,armed,release_rule`.
+- `lab/tools/build_routes_manifest.py` regenerates `ztricks.json` with the
+  terminal-carve cvars: landing target `(-3044.1, 3760.5, -488)`, `lip_x
+  -3348`, release speed floors `470/453`, `carve_d 80`, `carve_angle 52`,
+  `carve_side 1`, yaw-lead `-12..-4`, and target-error `-2..10`.
+- `scripts/moveprobe_parse.py` and `scripts/run_frobodm2_lab.py` parse and
+  summarize nested `zjump_state`, so the next live run can be judged on release
+  state before landing.
+
+Validation:
+
+- `python -m unittest tests.test_extract_movement_metrics tests.test_build_routes_manifest tests.test_control_bridge tests.test_perslot_moveprobe_patch`
+  -> `116` tests OK.
+- `python -m unittest discover -s tests` -> `993` tests OK.
+- `npm run build` in `lab/dashboard` -> passed; Vite still reports the existing
+  large chunk warning.
+- Temporary clean KTX worktree at base `08807da`: `git apply --check
+  frogbot-moveprobe-perslot.patch` passed.
+- Temporary patched KTX worktree at base `08807da`: `./build_cmake.sh
+  linux-amd64` built `qwprogs.so` successfully.
+
+### Interpretation
+
+This does not prove the bot can land the ztricks jump. It gives the live loop a
+proper attempt primitive and enough telemetry to tune attempt by attempt:
+first make `zjump_state` match the human release formula, then score landing.
+
+
+## 2026-06-12 -- live zjump primitive test exposes approach-speed blocker
+
+### Finding
+
+Two live `ztricks` harness runs proved the new `zjump=` telemetry works and
+bounded the next blocker. The first build let the terminal-carve primitive own
+the command too early; the corrected build waits for the speed floor before
+taking over. After that fix, the bot still did not arm or release because the
+mode-23 approach reached the human lip neighborhood far too slowly.
+
+### Evidence
+
+Deployment safety:
+
+- Built from a temporary clean local KTX worktree at base `08807da`, applied
+  `frogbot-moveprobe-perslot.patch`, compiled `linux-amd64`, and uploaded named
+  modules to `servexeri:~/nquakesv/ktx/`.
+- The active lab symlink was restored after each run to
+  `qwprogs-mode24-20260612T101218Z.so`.
+- Restore hash verified:
+  `49a41cd17e5eec3aadf4b0bd1042a87214b7f8f50f65c8d7a617001ef5926418`.
+
+Run `zjump_20260612T152517Z` used the first zjump build
+`qwprogs-zjump-20260612T152431Z.so`:
+
+- `1005` command rows parsed; demo archived with SHA-256
+  `9dbca706e48570c551ecc19fae7fcf52b53982d5fe61046a2fcd67ce5e8cd17f`.
+- `zjump.phase` spent `904` rows at `1`, but `armed_rows=0` and
+  `release_rows=0`.
+- The primitive took over at low speed and starved the approach: max logged
+  zjump speed was only `272.7 qu/s`; closest pass to the human release point was
+  `74.5q` away at `190.0 qu/s`.
+
+Fix applied:
+
+- Changed mode 23 so `phase=1` still logs the configured terminal zone, but the
+  command override only returns early when `armed=1` (`vh >=
+  k_fb_moveprobe_s23_release_vh_min`).
+- Re-generated patch headers and compile-verified the corrected patch in a
+  temporary KTX worktree.
+
+Run `zjump_fixed_20260612T152858Z` used corrected build
+`qwprogs-zjump-fixed-20260612T152818Z.so`:
+
+- `1007` command rows parsed; demo archived with SHA-256
+  `1022b66b7e4153813c9dae1c170e85370bb3fc3752ed94aba7f5d34902657131`.
+- Movement improved versus the first run: average `85.5 qu/s`, max MVD segment
+  speed `423.3 qu/s`, p95 `300.3 qu/s`.
+- `zjump.phase` was `1` for only `14` rows, confirming the primitive no longer
+  monopolized the approach; still `armed_rows=0` and `release_rows=0`.
+- Closest pass to the human release point was `26.4q` away at only `228.0
+  qu/s`, with velocity yaw `335.3 deg` (equivalent to `-24.7 deg`) and target
+  error `26.0 deg`.
+- Closest pass to the human landing point was still `141.8q` away.
+
+### Interpretation
+
+The code path and telemetry are usable, but the ztricks route/controller is not
+entering the terminal runway with enough speed to use the release primitive. Do
+not lower the accepted release formula and call that success. The next smallest
+experiment is an approach-speed probe: preserve the speed-floor-gated zjump
+release, then tune the approach before the lip (start/launch route state,
+`launch_vh`, launch angle, and/or a pre-terminal acceleration segment) until
+`zjump` can reach `armed=1`.
+
+
+## 2026-06-12 -- ztricks batch harness replaces one-attempt manual loop
+
+### Finding
+
+The live ztricks tuning loop can now run multiple clean attempts inside one
+temporary server/MVD session. This is materially faster than restarting and
+documenting one jump at a time, and it produces one scored row per attempt.
+
+### Change
+
+- Added `scripts/run_ztricks_batch.py`: starts one temporary `ztricks` lab
+  server, keeps a passive client connected, cycles `removeall` / cvar setup /
+  spawn-snap / one-bot attempt rows, then runs the standard artifact pipeline.
+- Added `scripts/score_ztricks_batch.py`: segments `moveprobe-commands.json`
+  into named-bot attempts and scores each against the successful `getspeed.qwd`
+  release formula (`vh`, lip distance, velocity yaw, target error, yaw lead,
+  release rule, landing distance).
+- Documented the harness in `docs/05_HEADLESS_TEST_ENV.md`,
+  `docs/02_SOURCE_MAP.md`, and `experiments/ktx_moveprobe/README.md`.
+
+### Evidence
+
+Validation:
+
+```text
+python -m py_compile scripts\score_ztricks_batch.py scripts\run_ztricks_batch.py scripts\run_frobodm2_lab.py
+python -m unittest tests.test_score_ztricks_batch tests.test_extract_movement_metrics -v
+```
+
+Result: `21` tests passed. The new scorer tests cover time-gap splitting,
+spawn-snap splitting, nameless-row exclusion, release-formula scoring, and
+Markdown output.
+
+Live batch:
+
+- Temporarily switched `servexeri:~/nquakesv/ktx/qwprogs.so` to
+  `qwprogs-zjump-fixed-20260612T152818Z.so` for a new lab process only.
+- Ran:
+
+```text
+python scripts\run_ztricks_batch.py --attempts 3 --attempt-seconds 6 --port 28599 --strict-port
+```
+
+- Run ID: `zbatch_20260612T160053Z`.
+- Artifacts:
+  `artifacts/lab-runs/zbatch_20260612T160053Z/`.
+- Demo archived to
+  `/mnt/usb-ssd/non-games/lab/Komodobots/ztricks/zbatch_20260612T160053Z.mvd`,
+  SHA-256 `5de82275e8e0b6ca43ad5349bb9d5160359b1ddc78a51ee0d0f7d04bc383a631`.
+- Parser exits: JSON `0`, Markdown `0`, events `1` with the known
+  `qw-analyze: end of demo`.
+- `moveprobe-commands.json`: `4595` commands parsed.
+- Rescored after excluding unnamed empty-slot rows:
+  `3` real named-bot attempts.
+
+Best attempt was attempt `2` (`launch_vh=430`, `launch_angle=50`,
+`swing=14`):
+
+- max zjump speed `183.5 qu/s`.
+- closest release point `79.7q` away at `133.3 qu/s`.
+- closest landing point `332.0q` away.
+- `armed_rows=0`, `release_rows=0`.
+- classification: `approach_speed_below_release_floor`.
+
+After the run, restored the production symlink:
+
+```text
+/home/xerial/nquakesv/ktx/qwprogs-mode24-20260612T101218Z.so
+49a41cd17e5eec3aadf4b0bd1042a87214b7f8f50f65c8d7a617001ef5926418
+localhost:28599 DOWN
+```
+
+### Interpretation
+
+The efficient batch mechanism works, and the scorer now produces the row shape
+needed for attempt-to-attempt tuning. The controller did not improve: all three
+attempts stayed far below the `453 qu/s` release floor, so the next useful work
+is still approach-speed generation before the lip, not release-threshold
+relaxation or GUI changes.
+
+
+## 2026-06-12 -- ztricks scoring now interpolates between datapoints
+
+### Finding
+
+Nexus pointed out that discrete timestep data should be interpolated between
+datapoints. Applying that to ztricks changes both how we score live attempts and
+how the controller should eventually consume the human reference. Nearest-row
+scoring is too coarse for a 13 ms command stream when the decisive terminal
+window is about 195 ms.
+
+### Change
+
+- Added `scripts/ztricks_reference_trace.py` and
+  `scripts/build_ztricks_reference_trace.py`.
+- Generated
+  `experiments/a5_distance_standstill/ztricks-reference-trace.json/md` from
+  the successful `getspeed.qwd` attempt.
+- Updated `scripts/score_ztricks_batch.py`:
+  - release and landing estimates now project onto adjacent bot-sample
+    segments instead of choosing only the nearest sampled row.
+  - the physical lip event now uses a piecewise-linear crossing at `x=-3348`.
+  - reports include interpolation metadata and can take an explicit
+    `--reference-trace`.
+- Added tests for angle unwrapping, local quadratic interpolation, interpolated
+  physical-lip detection, and bot-side release/lip projection.
+
+### Evidence
+
+Reference trace generation:
+
+```text
+python scripts\build_ztricks_reference_trace.py
+```
+
+Key generated reference events:
+
+- `release_jump`: row `1918`, `t=1.441`, origin
+  `(-3360.8, 3777.2, -488.0)`, `vh=475.2`, velocity yaw `-11.3`,
+  view yaw `-19.0`, yaw lead `-7.7`, buttons `2`.
+- `physical_lip_x_crossing`: interpolated between rows `1920..1921`,
+  `t=1.468`, `x=-3348.0`, `vh=475.2`.
+- `landing`: row `1969`, `t=2.103`, origin
+  `(-3044.1, 3760.5, -488.0)`, `vh=495.5`.
+- Controller guidance curve: local quadratic Lagrange samples every `0.01s`
+  from terminal sweep start to physical lip crossing, with angles unwrapped
+  before interpolation.
+
+Validation:
+
+```text
+python -m unittest tests.test_ztricks_reference_trace tests.test_score_ztricks_batch tests.test_extract_movement_metrics -v
+python -m py_compile scripts\ztricks_reference_trace.py scripts\build_ztricks_reference_trace.py scripts\score_ztricks_batch.py scripts\run_ztricks_batch.py
+```
+
+Result: `26` focused/adjacent interpolation, scorer, and moveprobe parsing
+tests passed.
+
+Rescoring live batch `zbatch_20260612T160053Z` still yields the same controller
+verdict, now with interpolated event semantics:
+
+- `3` attempts scored.
+- best attempt still attempt `2`.
+- release projection: `79.7q` away at `133.3 qu/s`.
+- physical lip crossing estimate: `t=29.804s` at `120.4 qu/s`.
+- closest landing projection: `332.0q` away at `70.8 qu/s`.
+- `armed_rows=0`, `release_rows=0`, classification
+  `approach_speed_below_release_floor`.
+
+### Interpretation
+
+Nexus's interpolation point is now part of the toolchain. Evidence events stay
+conservative and non-overshooting (linear/projection), while the reference
+trace also exposes a smooth local-quadratic controller curve for the mouse/yaw
+sweep. The result does not make the current controller better; it makes the
+diagnosis sharper. The next controller experiment should chase the
+interpolated/quadratic terminal yaw and velocity-heading curve, while still
+using release-state gates before claiming a jump attempt is meaningful.
+
+
+## 2026-06-12 -- ztricks reference-curve live retry fixes no-movement, not release
+
+### Finding
+
+The live "bots just jump in their spot" failure was real, and is now separated
+from the harder ztricks problem. Mode 23 can move the bot again from the A5
+practice state, but the current controller still does not create a valid
+Distance release: the bot crosses the lip under the `453 qu/s` arm floor and
+often on the wrong ground/air cadence.
+
+### Change
+
+- Added optional `k_fb_moveprobe_spawn_velocity` so ztricks attempts can start
+  from the first grounded human reference state with its teleport-exit momentum
+  (`-3434.375 3686.875 -488`, velocity `259 -172 0`) instead of a zero-velocity
+  teleport deposit.
+- Added a default-off mode-23 ztricks human-reference terminal curve using the
+  successful attempt's local quadratic yaw samples. The route/dashboard/batch
+  presets enable it for ztricks Distance with a terminal-lane entry target
+  `(-3439.375, 3758.125)` and a tighter y corridor centered on `3768.5` with
+  tolerance `24`.
+- Fixed the silent-marker case: if Frogbot navigation gives no horizontal route
+  vector for ztricks, mode 23 now falls back to the terminal-lane entry before
+  chasing the far landing target.
+- Fixed the scorer speed helper so phase-0 `zjump` rows with zero zjump speed
+  fall back to actual water/velocity speed instead of hiding movement as `0`.
+- Tightened the unarmed reference-curve jump: it may only press the "try
+  anyway" jump inside the release-lip window, not at the start of the terminal
+  lane.
+
+### Evidence
+
+Validation:
+
+```text
+python -m unittest tests.test_perslot_moveprobe_patch tests.test_build_routes_manifest tests.test_control_bridge tests.test_score_ztricks_batch -v
+python -m py_compile scripts\run_ztricks_batch.py scripts\score_ztricks_batch.py scripts\build_ztricks_reference_trace.py lab\tools\build_routes_manifest.py lab\server\control_bridge.py
+```
+
+Result: `108` focused tests passed; Python compile passed.
+
+Remote KTX build/deploy safety:
+
+- Built temporary modules from clean KTX commit `08807da` in disposable
+  worktrees, without touching the dirty `~/nquakesv/build/ktx` checkout.
+- After each live run, restored
+  `/home/xerial/nquakesv/ktx/qwprogs-mode24-20260612T101218Z.so`, SHA-256
+  `49a41cd17e5eec3aadf4b0bd1042a87214b7f8f50f65c8d7a617001ef5926418`, and
+  verified `localhost:28599 DOWN`.
+
+Live sequence:
+
+- `qwprogs-zcurve-20260612T184820Z.so`
+  (`a1b2466529b7b5a210f48238d1b845ac79ae12c241648a8fb912883fc12c50b5`) /
+  `zbatch_20260612T164913Z`: reference curve engaged too late/wrong-lane;
+  best max zjump speed about `134.5 qu/s`, no arm/release. This matched the
+  user's live observation that the bot mostly jumped in place.
+- `qwprogs-zcurve2-20260612T185630Z.so`
+  (`5a76b1c5e466f681a09ba51b8fdd9ed769f2bb03ae56bea2a128d158e98e59ba`) /
+  `zbatch_20260612T165711Z`: spawn velocity was applied, but the Frogbot marker
+  route was silent at the practice point; raw rows showed `move=0,0,0`.
+- `qwprogs-zcurve3-20260612T185950Z.so`
+  (`a60b7fb7989380ece38801c4ee7222f7133181f00654f9d085e8b20d8162c69b`) /
+  `zbatch_20260612T170030Z`: real movement returned. Movement metrics reported
+  max speeds `483.2` and `508.1 qu/s`, but terminal rows were in the wrong lane
+  and no arm/release happened.
+- `qwprogs-zcurve4-20260612T190756Z.so`
+  (`0afc421095a8c964f986fe6e336d8b1c10586749e49a028018ee24bee8a258d8`) /
+  `zbatch_20260612T170840Z`: terminal-lane fallback worked, but the unarmed
+  reference curve spent a jump too early around `60-70q` before the lip. Best
+  scored segment maxed at `406.6 qu/s`; `armed/release = 0/0`.
+- `qwprogs-zcurve5-20260612T171142Z.so`
+  (`bc95454f69dc38d730ecba7efa9b7f226bd88682e79d27f2d1460f40a495763b`) /
+  `zbatch_20260612T171211Z`: early terminal-curve jump was removed. Best scored
+  segment maxed at `401.3 qu/s`; movement metrics saw player max speeds
+  `424.9` and `423.4 qu/s`; `armed/release = 0/0`.
+
+Raw `zbatch_20260612T171211Z` command rows show the current failure mode:
+
+- ordinary approach bunnyhop rows still occur around `d_lip ~= 80q`;
+- terminal rows reach the human y corridor, but at about `322-324 qu/s`;
+- the bot crosses the lip under the arm floor and not on a valid grounded
+  release cadence.
+
+### Interpretation
+
+This fixes the "no real movement" bug, but not the ztricks jump. The missing
+dimension is now approach-hop timing/starting geometry, not only the terminal
+mouse curve: the controller must arrive at the ledge on a useful ground frame
+with at least `453 qu/s`, then spend the jump in the release window. The next
+smallest experiment should tune start position and/or approach-hop cadence
+before changing the terminal formula again.
+
+
+## 2026-06-12 -- ztricks spawn-floor speedjump route added
+
+### Finding
+
+The live Distance loop is too hard as the first calibration target. The same
+speedjump controller now has a safe ztricks route that removes ledge/trap
+success from the equation: start at the real deathmatch spawn, turn 90 degrees
+left from the BSP spawn angle, run the terminal speedjump/reference-curve law on
+flat ground, and judge the attempt by horizontal speed gain.
+
+### Change
+
+- Added `spawn_left_speedjump` to `lab/dashboard/public/data/routes/ztricks.json`
+  via `lab/tools/build_routes_manifest.py`.
+- The route uses spawn origin `-1168 1632 -496`, zero spawn velocity, yaw `45`,
+  synthetic lip `[-920.5, 1879.5, -496.0]`, and target
+  `[-796.1, 2003.9, -496.0]`.
+- Added default-off KTX patch support for
+  `k_fb_moveprobe_s23_refcurve_yaw_offset`, so the human reference curve can be
+  rotated onto the spawn-floor lane without changing Distance behavior.
+- Updated the dashboard control drawer so route assignment clears and reapplies
+  per-slot `spawn_velocity`; this prevents the A5 Distance route's seeded
+  velocity from leaking into standstill routes.
+
+### Evidence
+
+Validation in this change: route manifest rebuild and focused unit tests for
+the manifest, mockup data contract, drawer route-cvar assignment, and KTX patch
+static contract.
+
+### Interpretation
+
+This does not claim the bot can execute the full multi-hop stop/turn-back drill
+yet. It creates the smallest live calibration step that answers the user's
+actual question: does the same speedjump/mouse-curve law increase speed on safe
+ground when ledges and traps are removed?
+
+
+## 2026-06-12 -- spawn-floor ztricks route reaches human-level speed
+
+### Finding
+
+The safe-floor `spawn_left_speedjump` route can now reach human-level horizontal
+speed. This is the first positive live result for the reduced ztricks problem:
+remove ledge/trap completion, keep the same speedjump/Nexus reference-curve
+primitive, and score actual speed gain.
+
+### Change
+
+- Added optional KTX cvar `k_fb_moveprobe_s23_lip_y`.
+- When `lip_y` is non-zero, mode 23 computes `d_lip` as projected progress
+  along the configured lip-to-target lane, instead of raw `lip_x - origin.x`.
+  This lets the local-quadratic human reference curve keep its timing on the
+  diagonal `spawn_left_speedjump` lane.
+- The Distance route and legacy bridge preset now explicitly set `lip_y=0` and
+  `k_fb_moveprobe_s23_refcurve_yaw_offset=0` so route switching cannot leak
+  the safe-floor lane settings into Distance.
+- `scripts/run_ztricks_batch.py` now takes `--route` and reads route control
+  metadata from `lab/dashboard/public/data/routes/ztricks.json`.
+- `scripts/score_ztricks_batch.py` now scores by route profile:
+  `distance_standstill` keeps release/landing formula scoring, while
+  `spawn_left_speedjump` reports start-to-peak horizontal speed gain against
+  the `495.5 qu/s` human target.
+
+### Evidence
+
+Local validation:
+
+```text
+python lab\tools\build_routes_manifest.py
+python -m py_compile scripts\score_ztricks_batch.py scripts\run_ztricks_batch.py lab\tools\build_routes_manifest.py lab\server\control_bridge.py
+python -m unittest tests.test_score_ztricks_batch tests.test_build_routes_manifest tests.test_perslot_moveprobe_patch tests.test_control_bridge tests.test_f3_control_drawer -v
+git apply --check experiments/ktx_moveprobe/frogbot-moveprobe-perslot.patch against clean KTX 08807da
+```
+
+Result: `163` focused tests passed; KTX patch apply check passed.
+
+Remote KTX build:
+
+- Built clean remote worktree at `08807da` with the updated
+  `frogbot-moveprobe-perslot.patch`.
+- Deployed as
+  `~/nquakesv/ktx/qwprogs-zspawn-20260612T180834Z.so`, SHA-256
+  `778f3dcfb549ce271d76d950534d8f598c971696ff0a7bcd965ecea1f8427672`.
+
+Live batch:
+
+```text
+python scripts\run_ztricks_batch.py --route spawn_left_speedjump --attempts 6 --attempt-seconds 6 --launch-vh 430,380,340 --launch-angle 50,45 --swing 8,14 --port 28599
+```
+
+Run `zbatch_20260612T180901Z`, archived MVD SHA-256
+`c4ba8ab8aa47ecdbca1359b360cf664b763da18a070fd3ca4d1080fdfc8d9dff`.
+
+Speed-gain score:
+
+| attempt | max vh | pct human | class |
+|---:|---:|---:|---|
+| 1 | 498.6 | 100.6% | `human_level_or_better` |
+| 2 | 503.0 | 101.5% | `human_level_or_better` |
+| 3 | 477.8 | 96.4% | `speed_gain_below_human` |
+| 4 | 506.2 | 102.2% | `human_level_or_better` |
+| 5 | 495.7 | 100.0% | `human_level_or_better` |
+| 6 | 500.4 | 101.0% | `human_level_or_better` |
+
+### Interpretation
+
+This proves the reduced speedjump problem can now reach human-level speed on
+flat ground. It does not prove the original Distance jump is solved, because
+Distance still adds the hard release-cadence and landing geometry gates. The
+next smallest experiment is to use the fastest safe-floor attempts to tune
+approach timing and then move the synthetic lip/route start closer to the real
+Distance release problem while preserving this speed-gain evidence.
+
+### Reproduction check
+
+Two follow-up batches tested whether the result repeats.
+
+Same six-attempt sweep:
+
+```text
+python scripts\run_ztricks_batch.py --route spawn_left_speedjump --attempts 6 --attempt-seconds 6 --launch-vh 430,380,340 --launch-angle 50,45 --swing 8,14 --port 28599
+```
+
+Run `zbatch_20260612T182309Z`, archived MVD SHA-256
+`de711aab8b744f0f5bcfc46e4cbe414b92b60ecd4bfa3c945ca32d5202de6697`:
+`6/6` attempts reached human-level speed, best `515.6 qu/s`.
+
+Fixed default route params:
+
+```text
+python scripts\run_ztricks_batch.py --route spawn_left_speedjump --attempts 8 --attempt-seconds 6 --launch-vh 430 --launch-angle 50 --swing 8 --port 28599
+```
+
+Run `zbatch_20260612T182505Z`, archived MVD SHA-256
+`dfb49f230e706665b4e7268ab7b4f128af5769e8e136a18c78ff475f84070ca8`:
+`7/8` attempts reached human-level speed, best `530.3 qu/s`; the only strict
+miss was `494.9 qu/s`, `0.6 qu/s` below the `495.5 qu/s` target.
+
+Across the three live safe-floor batches so far, the strict hit rate is
+`18/20`. Treat this as reproducible for the reduced speed-gain route, with a
+small stochastic threshold-margin failure rate still present.
+
+
+## 2026-06-12 -- getspeedstill QWD room/POV visualization
+
+### Experiment
+
+Rendered `C:\nQuake\qw\matchinfo\demos\getspeedstill.qwd` with the same
+QWD extraction and simple room/first-person POV visualization used for
+`mousemovement.qwd`.
+
+### Result
+
+The QWD bridge recovered a usable exact-command plus anchored self-trajectory
+stream: `2106` command frames, `2069` paired command/state frames, `0.982`
+coverage, and `112` downsampled waypoints.  The generated MP4 shows the path,
+extracted first-person view direction, yaw/pitch trace, command pulses, and
+speed pulses.
+
+The standalone `qw-analyze-v20` events mode still does not produce useful rows
+for this QWD (`qw-analyze: unexpected EOF`), so the controller evidence should
+continue to come from `tools/qwd_usercmd/qwd_usercmd.py` plus
+`scripts/probe_qwd_route_applicability.py`.
+
+### Evidence
+
+Artifacts:
+
+- `artifacts/qwd-getspeedstill/getspeedstill_room_pov.mp4`
+- `artifacts/qwd-getspeedstill/getspeedstill_room_pov_frame.png`
+- `artifacts/qwd-getspeedstill/getspeedstill_view.html`
+- `artifacts/qwd-getspeedstill/getspeedstill_visual_summary.json`
+- `artifacts/qwd-getspeedstill/trajectory-probe.md`
+- `artifacts/qwd-getspeedstill/replay-build.json`
+
+Key visualization summary values:
+
+- duration `26.857s`, frames `2069`, rendered frames `1004`
+- speed avg `237.4 qu/s`, p50 `319.8`, p95 `452.3`, max `458.4`
+- forward nonzero `49.3%`, side nonzero `48.8%`, jump button `8.2%`
+- yaw total absolute travel `2952.6 deg`, yaw reversals `64`,
+  p95 absolute yaw rate `364.6 deg/s`
+
+### Interpretation
+
+`getspeedstill.qwd` is usable as human-input/trajectory evidence for
+speedjump-style controller work, and it looks more oscillatory than
+`mousemovement.qwd` in yaw reversal count.  It is still a visual and data
+reference, not proof that a Frogbot can replay the movement without live-server
+controller validation.
+
+
+## 2026-06-12 -- live safe-floor speedjump beats getspeedstill speed
+
+### Experiment
+
+Opened BotLab live game/telemetry against lab port `28599` and ran a short
+live `ztricks` batch on the `spawn_left_speedjump` route while the browser was
+visible.  The controller used the reduced safe-floor speedjump pattern:
+real ztricks spawn, turn left onto the flat lane, mode-23 reference yaw curve,
+and forward+side movement (`move=320,320`) with the proven fixed parameters
+`launch_vh=430`, `launch_angle=50`, `swing=8`.
+
+This was not a frame-for-frame replay of `getspeedstill.qwd`; it was the same
+movement family/control law applied live, with the speed target set above the
+`getspeedstill.qwd` visualized max of `458.4 qu/s`.
+
+### Result
+
+All four live attempts exceeded both the `getspeedstill.qwd` visualized max
+speed and the existing safe-floor human target of `495.5 qu/s`.
+
+| attempt | command-score max vh | movement-metrics max vh | classification |
+|---:|---:|---:|---|
+| 1 | `496.0` | `518.8` | `human_level_or_better` |
+| 2 | `503.4` | `528.3` | `human_level_or_better` |
+| 3 | `498.7` | `514.4` | `human_level_or_better` |
+| 4 | `496.9` | `521.0` | `human_level_or_better` |
+
+### Evidence
+
+- Run ID: `zlive_20260612T211350Z`
+- Local artifacts:
+  `artifacts/lab-runs/zlive_20260612T211350Z/`
+- Local demo:
+  `artifacts/lab-runs/zlive_20260612T211350Z/demo.mvd`
+- Remote demo:
+  `/home/xerial/nquakesv/ktx/demos/komodobots_ztricks_zlive_20260612t211350z.mvd`
+- Archive:
+  `/mnt/usb-ssd/non-games/lab/Komodobots/ztricks/zlive_20260612T211350Z.mvd`
+- Demo SHA-256:
+  `762242a91506e2b4152db93356ec0516b53984a7a7aebca4b9604ebbce3c5792`
+- Command rows parsed: `9846`
+- Parser exits: JSON `0`, Markdown `0`, events `1` with known
+  `qw-analyze: end of demo`
+- Cleanup: lab port `28599` verified down after the run.
+
+### Interpretation
+
+The reduced safe-floor speedjump is live-server reproducible at speeds above
+the `getspeedstill.qwd` reference visualization.  The remaining gap is not raw
+speed generation on flat ground; it is turning this into a controller that
+uses `getspeedstill.qwd`'s exact yaw/strafe timing as data and then transfers
+that timing back to harder geometry without losing direction, release cadence,
+or landing control.
+
+
+## 2026-06-12 -- getspeedstill vs live zspawn mouse comparison
+
+### Experiment
+
+Built a side-by-side simple-room visualization comparing
+`getspeedstill.qwd` against the fastest live safe-floor attempt from
+`zlive_20260612T211350Z` (attempt 2, ed `6`, `30.689s..39.047s`).
+The visualization normalizes playback progress so the full human demo and the
+shorter live attempt can be inspected together.
+
+### Result
+
+The live attempt is faster, but the mouse/control shape is not human-like.
+
+| metric | getspeedstill.qwd | live attempt 2 |
+|---|---:|---:|
+| max speed | `458.4 qu/s` | `503.4 qu/s` |
+| p95 speed | `452.3 qu/s` | `483.0 qu/s` |
+| yaw travel / second | `109.9 deg/s` | `1396.3 deg/s` |
+| yaw p95 rate | `365.0 deg/s` | `14807.0 deg/s` |
+| yaw reversals | `57` | `75` |
+| pitch range | `-5.5..41.3 deg` | `-3.5..0.0 deg` |
+| forward nonzero | `49.3%` | `98.9%` |
+| side nonzero | `48.8%` | `2.6%` |
+| jump button | `8.2%` | `1.5%` |
+
+### Evidence
+
+- Viewer: `artifacts/comparison-getspeedstill-zlive/comparison_view.html`
+- Video: `artifacts/comparison-getspeedstill-zlive/getspeedstill_vs_zlive_room.mp4`
+- Summary: `artifacts/comparison-getspeedstill-zlive/comparison_summary.json`
+- Analysis: `artifacts/comparison-getspeedstill-zlive/comparison_analysis.md`
+- Thumbnail: `artifacts/comparison-getspeedstill-zlive/comparison_frame.png`
+
+### Interpretation
+
+The safe-floor controller can create speed, but it does so through a much more
+mechanical pattern than the human demo: snap-like view-yaw changes, almost no
+pitch, mostly forward-only movement, and only brief terminal side input.  The
+next controller step should not chase more speed first.  It should use the QWD
+as a timing reference for smoother yaw/pitch/strafe synchronization, then
+retest whether that human-shaped controller can preserve the speed already
+shown on the safe-floor route.
+
+
+## 2026-06-12 -- getandmaintainspeed QWD mouse-first analysis
+
+### Experiment
+
+Analyzed `C:\nQuake\qw\matchinfo\demos\getandmaintainspeed.qwd` with mouse
+movement treated as the primary signal, not a secondary decoration.  Extracted
+exact QWD user commands, paired them with recovered self-player trajectory,
+rendered a simple room/POV video, and computed yaw/pitch/input/speed metrics.
+
+### Result
+
+This demo is a stronger human reference than the earlier short speed-gain
+clips because it sustains high speed with a controlled mouse/input rhythm.
+
+| metric | value |
+|---|---:|
+| exact command frames | `2615` |
+| paired command/state frames | `2541` |
+| paired coverage | `0.972` |
+| duration analyzed | `32.987s` |
+| average speed | `666.1 qu/s` |
+| p50 / p95 / max speed | `720.8 / 924.4 / 948.5 qu/s` |
+| time above 700 qu/s | `18.507s` (`56.1%`) |
+| time above 900 qu/s | `6.377s` (`19.3%`) |
+| yaw p50 / p95 / p99 rate | `132.7 / 244.8 / 618.2 deg/s` |
+| yaw reversals | `43` (`1.3/s`) |
+| pitch range | `0.0..40.7 deg` |
+| side-only input | `84.8%` |
+| jump button | `74.0%` |
+| side+mouse coupling | `1918` frames, `95.1%` opposite-sign |
+
+`qw-analyze-v20` JSON/Markdown produced an empty match summary for this QWD
+and events mode failed with `unexpected dem_cmd in MVD file`; the useful
+evidence is therefore the exact QWD command extraction plus
+`probe_qwd_route_applicability.py`, not the generic MVD event parser.
+
+### Evidence
+
+- Viewer: `artifacts/qwd-getandmaintainspeed/getandmaintainspeed_view.html`
+- Video: `artifacts/qwd-getandmaintainspeed/getandmaintainspeed_room_pov.mp4`
+- Thumbnail: `artifacts/qwd-getandmaintainspeed/getandmaintainspeed_room_pov_frame.png`
+- Mouse analysis: `artifacts/qwd-getandmaintainspeed/mouse-analysis.json`
+- Mouse analysis notes: `artifacts/qwd-getandmaintainspeed/mouse-analysis.md`
+- Paired trajectory: `artifacts/qwd-getandmaintainspeed/raw/getandmaintainspeed.paired.ndjson`
+- Replay command file: `artifacts/qwd-getandmaintainspeed/getandmaintainspeed.cmds`
+- Source SHA-256:
+  `28ab7b7748bc0b6b3be0720d62d700ce177cae977ac97d8d5b7b8300ba8901a8`
+
+### Interpretation
+
+Do not reduce this demo to "speed is high."  The important discovery is that
+high speed is maintained while side input, jump cadence, pitch, yaw lead, and
+velocity heading stay coordinated.  Compared with the live bot controller, this
+is exactly the missing quality: controlled mouse movement instead of spammy
+view-yaw snapping.  The next controller experiment should use this QWD as a
+mouse/input timing target and only then evaluate whether speed remains high.
+
+
+## 2026-06-12 -- ztricks getandmaintainspeed live replay/catch-up attempts
+
+### Experiment
+
+Ran live `ztricks` attempts against
+`artifacts/qwd-getandmaintainspeed/getandmaintainspeed.cmds` with the deployed
+lab KTX build.  The target is not only peak speed: the bot must preserve the
+human mouse/input timing and sustain the high-speed window from the QWD
+reference.
+
+Added experimental moveprobe mode `25`: it keeps the recorded replay view
+angles and clock, but when live horizontal speed trails the human frame by a
+configured gap above a configured speed floor, it projects a velocity-relative
+air-strafe wishdir into the recorded view basis.  This keeps the mouse trace
+human-derived while testing whether movement can catch up.
+
+### Result
+
+The goal is **not met yet**.  Open-loop replay remains the most human-shaped
+baseline; mode `25` can improve the top end, but current settings do not
+maintain the human speed window.
+
+Per-command velocity comparison over the first replay attempt:
+
+| run | mode / key cvars | avg | p50 | p95 | max | time >700 | time >900 |
+|---|---|---:|---:|---:|---:|---:|---:|
+| human `getandmaintainspeed.qwd` | reference | `666.1` | `720.8` | `924.4` | `948.5` | `18.507s` | `6.377s` |
+| `getmaintain_mode10_20260612T2140Z` | exact replay | `623.0` | `680.3` | `816.6` | `827.3` | `15.497s` | `0.000s` |
+| `getmaintain_mode25_hi700g80_20260612T2225Z` | min `700`, gap `80`, num `8` | `639.9` | `700.9` | `848.3` | `855.9` | `16.525s` | `0.000s` |
+| `getmaintain_mode25_hi700g20_20260612T2229Z` | min `700`, gap `20`, num `8` | `559.7` | `578.5` | `891.5` | `910.8` | `10.638s` | `1.062s` |
+| `getmaintain_mode25_hi700g0_20260612T2233Z` | min `700`, gap `0.1`, num `8` | `458.1` | `490.0` | `862.2` | `903.6` | `7.547s` | `0.103s` |
+
+Other probes rejected:
+
+- Mode `22` default smooth held-strafe route actuation did not bootstrap in this
+  room (`p95 389.8`, max `461.0` by movement metrics).
+- Mode `20` raw speed steering did not transfer to `ztricks`; it produced many
+  teleports and maxed at `701.1` by movement metrics.
+- Mode `11` path steering discarded the human mouse and was slow (`p95 391.3`,
+  max `458.5`).
+- Mode `25` with `s25_flip 1` was worse, confirming the original catch-up sign
+  convention is the better of the two.
+- Mode `25` with `s25_numerator 15` and with an `800` speed floor both failed
+  to complete the full replay stream.
+
+### Evidence
+
+- Patched/deployed KTX build:
+  `~/nquakesv/ktx/qwprogs-s25c-20260612T2243Z.so`, SHA-256
+  `7450eec6d3cd6ed958c9b309aef28cf5c01f6a31a3ac84f6c3fff642c72ed6fc`
+- Main live run artifacts:
+  `artifacts/lab-runs/getmaintain_mode10_20260612T2140Z`
+- Best mode-25 top-end run:
+  `artifacts/lab-runs/getmaintain_mode25_hi700g20_20260612T2229Z`
+- Rejected mode-25 runs:
+  `artifacts/lab-runs/getmaintain_mode25_default_fix_20260612T2221Z`,
+  `artifacts/lab-runs/getmaintain_mode25_hi700g80_20260612T2225Z`,
+  `artifacts/lab-runs/getmaintain_mode25_hi700g0_20260612T2233Z`,
+  `artifacts/lab-runs/getmaintain_mode25_hi700g20n15_20260612T2238Z`,
+  `artifacts/lab-runs/getmaintain_mode25_hi700g20flip_20260612T2244Z`,
+  `artifacts/lab-runs/getmaintain_mode25_hi800g20_20260612T2249Z`
+
+### Interpretation
+
+The useful signal is that the recorded mouse trace can survive mode `25` while
+top-end speed rises above exact replay, but the intervention is not yet the
+right shape.  More catch-up increases peak speed but steals sustained
+medium-high speed and route stability.  The next smallest useful experiment is
+not another broad cvar sweep; it is to make mode `25` log when the catch-up
+branch engages and compare those frames to the human yaw/velocity lead.  Then
+gate the boost by the human phase (for example, only inside stable side-only
+arcs), not just by speed gap.
+
+### 2026-06-12 continuation: full rebuild and direction probes
+
+Reconstructed the KTX source from the last full per-slot/ztricks patch plus
+mode `25` after a regenerated source tree had dropped the older
+`spawn_velocity` and mode-23 zjump pieces.  The restored patch again passes the
+structural guard and the deployed source includes mode `25`.
+
+Added three default-off mode-25 diagnostics:
+
+- `k_fb_moveprobe_s25_path_div` / `k_fb_moveprobe_s25_path_blend`: optional
+  divergence-triggered wishdir blend toward the human frame origin.
+- `k_fb_moveprobe_s25_velsign`: optional strafe-side choice by whichever
+  velocity-relative wishdir points closer to the human velocity vector.
+
+These diagnostics did **not** solve the target.  They are preserved only as
+controlled probes; leave them off for the current best mode-25 baseline.
+
+Human gate remains:
+
+| reference | avg | p50 | p95 | max | time >700 | time >900 |
+|---|---:|---:|---:|---:|---:|---:|
+| human `getandmaintainspeed.qwd` | `666.1` | `720.8` | `924.4` | `948.5` | `18.507s` | `6.377s` |
+
+Segmented first-attempt command scores from the rebuilt/live probes:
+
+| run | key cvars | avg | p50 | p95 | max | time >700 | time >900 | note |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| `getmaintain_mode25full_hi700g20_20260612T2317Z` | min `700`, gap `20`, num `8`, move `400` | `597.1` | `606.4` | `895.2` | `914.9` | `12.762s` | `1.307s` | fastest rebuilt segment, but fell/teleported out before completing |
+| `gm25_g20_rerun_2325` | same | `536.7` | `559.2` | `879.5` | `904.8` | `8.933s` | `0.865s` | completed replay, still below human |
+| `gm25_m800_2320` | move `800` | `459.1` | `491.4` | `854.6` | `883.9` | `8.703s` | `0.000s` | rejected; too much command magnitude |
+| `gm25_n30_2322` | numerator `30` | `287.5` | `186.6` | `693.7` | `722.3` | `1.379s` | `0.000s` | rejected |
+| `gm25_m508_2327` | move `508` | `461.9` | `491.9` | `856.5` | `888.0` | `9.116s` | `0.000s` | rejected |
+| `gm25_path025_2330` | path div `400`, blend `0.25` | `385.6` | `326.5` | `730.8` | `767.6` | `3.466s` | `0.000s` | rejected; leash threw the bot out vertically |
+| `gm25_path005_2332` | path div `500`, blend `0.05` | `520.7` | `526.8` | `753.1` | `790.0` | `2.401s` | `0.000s` | rejected; leash killed high-speed phase |
+| `gm25_velsign_2335` | `velsign 1` | `435.6` | `472.2` | `796.4` | `841.9` | `4.663s` | `0.000s` | rejected; velocity sign choice worsened direction |
+
+Phase comparison of `getmaintain_mode25full_hi700g20_20260612T2317Z` showed the
+bot briefly overlaps the human's main high-speed phase: around cursors
+`1760..1859`, bot average speed was `906.9` with max `914.9`.  The failure is
+after that: human stays above `900` through later cursor ranges (`2044..2087`,
+`2097..2104`, `2106..2230`), while the bot either falls/teleports or drops into
+the `220..300` speed range.  This confirms the user's observation: speed alone
+is not enough; the missing piece is synchronized direction/phase control after
+the first successful high-speed burst.
+
+Deploy evidence:
+
+- `~/nquakesv/ktx/qwprogs-s25full-20260612T2315Z.so`, SHA-256
+  `b21d65184d99caf27e1efdc57810e2324210bbd9916b00cd484672253f90b12b`
+- `~/nquakesv/ktx/qwprogs-s25path-20260612T2330Z.so`, SHA-256
+  `6755a2df956af5343af7b0747e7d051f82d2b7de7ca68e18792c8ca173a209b9`
+- `~/nquakesv/ktx/qwprogs-s25vel-20260612T2335Z.so`, SHA-256
+  `52035227301bf81464fbe9b2e788eec7a916ec666d7adf9bfd588209c45e80c1`
+
+Verification:
+
+```powershell
+python -m unittest tests.test_perslot_moveprobe_patch tests.test_moveprobe_assign_parse -v
+```
+
+Result: `23` tests passed.
+
+Next smallest useful experiment: add explicit mode-25 branch telemetry
+(`engaged`, speed gap, chosen sign, rotation, projected forward/side, velocity
+lead to human) and score it against the cursor ranges above.  The next
+controller change should be phase-aware around the post-1900 cursor collapse,
+not another global movement-magnitude sweep.
+
+### 2026-06-13 continuation: phase human-command probe
+
+Added mode-25 branch telemetry plus default-off phase probes:
+
+- `s25=` command suffix: active/engaged/reason, live speed, target speed,
+  speed gap, sign, rotation, wish yaw, live/target velocity yaw, target-velocity
+  error, and emitted forward/side command.
+- `k_fb_moveprobe_s25_phase_start`, `phase_target`, `phase_min_speed`,
+  `phase_move`, and `phase_numerator` for phase-aware recovery after the
+  first high-speed burst.
+- `k_fb_moveprobe_s25_phase_human_cmd`: preserve the recorded mouse and human
+  side-input sign, but use `phase_move` as the side magnitude instead of
+  projecting the velocity-relative wishdir into the human view basis.
+- `k_fb_moveprobe_s25_phase2_start` / `phase2_move`: default-off late-window
+  boost probe.
+- `k_fb_moveprobe_s25_phase_jump`: default-off jump-hold probe.
+
+The goal is still **not met**.  The best current live result is the
+phase-human-command profile:
+
+```text
+k_fb_moveprobe_s25_min_speed 700
+k_fb_moveprobe_s25_gap 20
+k_fb_moveprobe_s25_numerator 8
+k_fb_moveprobe_s25_move 400
+k_fb_moveprobe_s25_phase_start 1500
+k_fb_moveprobe_s25_phase_target 850
+k_fb_moveprobe_s25_phase_min_speed 320
+k_fb_moveprobe_s25_phase_move 950
+k_fb_moveprobe_s25_phase_human_cmd 1
+```
+
+Scoreboard against `getandmaintainspeed.qwd`:
+
+| run | key difference | movement p95 | movement max | command p95 | command max | event time >900 | result |
+|---|---|---:|---:|---:|---:|---:|---|
+| human `getandmaintainspeed.qwd` | reference | `924.4` | `948.5` | `924.4` | `948.5` | `6.377s` | target |
+| `gm25_phasehuman1500m900_0018` | phase human cmd, move `900` | `903.3` | `959.9` | `893.8` | `910.2` | `2.656s` | stable but too slow |
+| `gm25_phasehuman1500m950_0024` | phase human cmd, move `950` | `922.9` | `963.5` | `896.5` | `915.7` | `3.840s` | best so far, still short |
+| `gm25_phasehuman1500m1100_0021` | phase human cmd, move `1100` | `818.9` | `856.6` | `819.2` | `830.7` | `0.000s` | rejected, overshot rhythm |
+| `gm25_phasehuman1500t900m950_0033` | target `900` | `913.6` | `967.1` | `902.9` | `919.5` | `3.733s` | more command >900, worse overall |
+| `gm25_phasehuman1500t875m950_0046` | target `875` | `881.9` | `958.8` | `871.9` | `898.6` | `1.314s` | rejected |
+| `gm25_phasehuman1500m950p2_2044m980_0050` | late phase2 move `980` | `889.6` | `935.3` | `884.0` | `899.3` | `0.986s` | rejected |
+| `gm25_phasehuman1500m950jump_0100` | phase jump-hold | `751.7` | `823.7` | `787.5` | `847.4` | `0.041s` | rejected |
+
+Interpretation:
+
+- Preserving the human mouse and using boosted human side-only command is much
+  better than the earlier projected catch-up vector for this reference.  It
+  removes the forward/back command noise and stays on the floor.
+- The useful side-move magnitude is narrow.  `950` is near the live physics
+  cliff; `960`, `980`, and `1100` variants either fell or became slower.
+- Holding jump continuously is not a shortcut.  It breaks the recorded rhythm
+  and destroys the high-speed window.
+- The bot now beats the human peak speed (`963.5` vs `948.5`) and nearly
+  matches p95 (`922.9` vs `924.4`), but it does **not** maintain `>900` as long
+  as the human (`3.840s` vs `6.377s`).
+
+Deploy evidence:
+
+- `~/nquakesv/ktx/qwprogs-s25telemetry-20260612T2345Z.so`, SHA-256
+  `ddd73045cfcb35bafe225e60eb408ca4e115bba74f5a84bea53d3c629df8a1b9`
+- `~/nquakesv/ktx/qwprogs-s25phase-20260612T2350Z.so`, SHA-256
+  `2aed23fa9dbd5ede4f0a89998f2f63a03e91d0a1f62335a7577a7d96b2a1dfaf`
+- `~/nquakesv/ktx/qwprogs-s25phasemove-20260613T0000Z.so`, SHA-256
+  `9045c33d61c9d3571769f94759cde178a98a41882943228d0caad75f7e33ce67`
+- `~/nquakesv/ktx/qwprogs-s25humancmd-20260613T0015Z.so`, SHA-256
+  `42844ef7aff1a709766bcb449730409340d05f209319d16021e4044d7b91872c`
+- `~/nquakesv/ktx/qwprogs-s25phase2-20260613T0050Z.so`, SHA-256
+  `82643586e914b4dfa43c5e7c3d9a8bec7dcaa111ba6c8c5c411be3548ae21bdd`
+- `~/nquakesv/ktx/qwprogs-s25phasejump-20260613T0100Z.so`, SHA-256
+  `acc6aaf786055961519b120b93d351b2eb7c4b95576805bc36b15194d3d48fca`
+
+Next smallest useful experiment: do not add more scalar magnitude sweeps.
+Extract the human cursor windows where speed remains above `900` and fit a
+smooth per-window side-magnitude/yaw-offset curve from the existing telemetry.
+Then test one curve-shaped phase-human-command controller against the current
+best profile, with success gated on event time above `900`, not peak speed.
+
+### 2026-06-13 continuation: adaptive, yaw, and scaled-input probes
+
+Tested four follow-up hypotheses against the current best profile
+(`phase_start 1500`, `phase_target 850`, fixed phase side magnitude `950`):
+
+1. Adaptive gap boost: add a tiny speed-deficit-based increase to phase move
+   magnitude.
+2. Phase yaw offset: keep mouse timing but apply a small constant phase yaw
+   bias to test whether the movement basis was slightly misaligned.
+3. Exact human command scaling: scale recorded forward/side commands instead
+   of replacing side with a fixed magnitude, preserving human zero/transition
+   frames.
+4. Phase-start timing: delay phase human-command takeover from cursor `1500`
+   to `1600`.
+
+All four were worse than the current best.  The best-known run remains
+`gm25_phasehuman1500m950_0024`.
+
+| run | probe | movement p95 | movement max | command p95 | command max | event time >900 | result |
+|---|---|---:|---:|---:|---:|---:|---|
+| `gm25_phasehuman1500m950_0024` | current best | `922.9` | `963.5` | `896.5` | `915.7` | `3.799s` | best so far |
+| `gm25_phasehuman1500m950gap025cap960_0125` | gap gain `0.25`, cap `960` | `764.8` | `842.8` | `764.3` | `802.9` | `0.000s` | rejected |
+| `gm25_phasehuman1500m950yawp5_0135` | yaw offset `+5` | `884.4` | `946.3` | `879.7` | `898.5` | `1.309s` | rejected |
+| `gm25_phasehuman1500m950yawn5_0138` | yaw offset `-5` | `878.1` | `1988.8` | `875.1` | `891.1` | `0.563s` | rejected; teleport spike in movement max |
+| `gm25_phasehumanscale2375_0145` | exact human cmd scale `2.375` | `818.6` | `867.2` | `811.2` | `825.9` | `0.000s` | rejected |
+| `gm25_phasehuman1600m950_0150` | phase start `1600` | `861.7` | `906.3` | `860.1` | `877.5` | `0.080s` | rejected |
+
+Interpretation:
+
+- The fixed phase side magnitude is still better than preserving exact zero
+  frames.  For this bot, the human's timing alone is not enough once the body
+  has diverged from the human trajectory; the controller still needs stronger
+  continuous side actuation.
+- Small constant yaw offsets hurt both signs, so the remaining alignment
+  problem is not a simple fixed angular bias.
+- A tiny adaptive magnitude increase already crosses a bad rhythm/physics
+  boundary.  The current `950` side magnitude is close to the usable ceiling.
+- Delaying phase takeover to cursor `1600` loses the first high-speed window.
+
+Deploy evidence:
+
+- `~/nquakesv/ktx/qwprogs-s25phasegap-20260613T0125Z.so`, SHA-256
+  `66eb7023c62146ba0b886cc0c76cfca9f2d667e1c26d51257d2d5717420e4d6e`
+- `~/nquakesv/ktx/qwprogs-s25phaseyaw-20260613T0135Z.so`, SHA-256
+  `aaaaa71d9917f589c37884c2435b1895c8c0175c0d832fe689cdad523e0448f8`
+- `~/nquakesv/ktx/qwprogs-s25humanscale-20260613T0145Z.so`, SHA-256
+  `964f168b617a87aea1c56db6b9f7e06a5c8089d4c9f763a60935ff2dabe7cd6b`
+
+Next smallest useful experiment: stop using a single global phase actuation
+model. Split the reference into human cursor arcs and learn one small table of
+phase controls per arc: fixed side magnitude, whether zero frames should be
+overridden, and optional sign handling.  The table should be derived from the
+successful frames in `gm25_phasehuman1500m950_0024` and must be validated on
+event time above `900`, not only p95 or peak speed.
+
+### 2026-06-13 continuation: repeatability and simple per-arc checks
+
+Closed several missing checks around the best-known profile
+(`phase_start 1500`, `phase_target 850`, fixed phase side magnitude `950`):
+
+- Fixed `phase_move 960` with the same target/start as the best run.
+- Two-arc profile: `950` until cursor `2044`, then `900`.
+- Explicitly zeroed all newer default-off cvars.
+- Reran the same `950` profile on both the latest all-probe binary and the
+  older `qwprogs-s25humancmd-20260613T0015Z.so` binary that originally produced
+  the best run.
+- Tested phase start `1450` on the older binary.
+
+None beat the human target, and the original best did not reproduce.
+
+| run | probe | movement p95 | movement max | command p95 | command max | event time >900 | result |
+|---|---|---:|---:|---:|---:|---:|---|
+| human `getandmaintainspeed.qwd` | reference | `924.4` | `948.5` | `924.4` | `948.5` | `6.377s` | target |
+| `gm25_phasehuman1500m950_0024` | previous best | `922.9` | `963.5` | `896.5` | `915.7` | `3.799s` | best single run, not repeated |
+| `gm25_phasehuman1500m960_0200` | fixed move `960` | `840.6` | `891.5` | `837.4` | `855.1` | `0.000s` | rejected |
+| `gm25_phasehuman1500m950p2_2044m900_0205` | `950 -> 900` at cursor `2044` | `898.6` | `963.5` | `892.1` | `908.4` | `2.174s` | rejected |
+| `gm25_phasehuman1500m950_rerun_0210` | latest binary, same best cvars | `791.8` | `850.8` | `809.2` | `823.0` | `0.000s` | not reproduced |
+| `gm25_phasehuman1500m950_zeroed_0215` | latest binary, all newer cvars explicitly `0` | `859.2` | `1988.8` | `851.3` | `867.6` | `0.281s` | not reproduced; teleport spike in movement max |
+| `gm25_phasehuman1500m950_oldbin_0220` | old `s25humancmd` binary, same best cvars | `899.8` | `956.6` | `894.5` | `910.3` | `2.197s` | closer, still not reproduced |
+| `gm25_phasehuman1450m950_oldbin_0225` | old binary, phase start `1450` | `862.0` | `894.1` | `835.9` | `852.6` | `0.000s` | rejected |
+
+Interpretation:
+
+- The fixed `950` phase-human-command profile can produce near-human p95 and
+  bot-higher peak speed, but the result is not repeatable enough to claim the
+  goal.
+- The poorer reruns do not show leaked newer reason bits; explicitly zeroing
+  the new cvars did not recover the old best.  The repeatability problem is
+  therefore either live physics/setup variance or sensitivity to early route
+  state, not a simple hidden-cvar leak.
+- Lowering late move to `900` improved some late-window averages in earlier
+  isolated evidence but did not improve full-run `>900` duration when combined
+  as a two-arc controller.
+- Starting phase takeover at `1450` is too early and `1600` is too late.  Cursor
+  `1500` remains the best tested takeover point, but it is not robust.
+
+Next smallest useful experiment: make repeatability first-class. Run a small
+batch harness for the exact best profile, collect at least 5 attempts, and
+compare early-window state before cursor `1500` between high and low outcomes.
+Only then should the controller table be expanded; otherwise a per-arc table is
+likely to overfit a single lucky run.
+
+### 2026-06-13 continuation: accepted getandmaintainspeed baseline
+
+After the repeatability investigation, the replay harness itself was tightened
+before freezing a practical baseline:
+
+- Added `k_fb_moveprobe_replay_stale_gap` so a normal command gap does not
+  silently restart a replay from cursor `0`.
+- Added `k_fb_moveprobe_replay_one_shot` so one-shot benchmarks can complete or
+  die without falling back into stock Frogbot movement and mixing attempts.
+- Relaxed replay clock-back reset to tolerate tiny backward jitter up to
+  `0.25s`; the live server produced a small `11.980 -> 11.971` backward tick
+  that previously caused duplicate activation.
+- Added `scripts/score_getandmaintainspeed.py` so strict scoring is repeatable
+  and does not depend on hand-reading one MVD.
+- Fixed the generated ztricks route manifest provenance for
+  `spawn_left_speedjump`: it now carries the required `source.census`,
+  `source.cmds`, and `source.cmds_sha256` fields, with a note that the route is
+  a synthetic spawn-floor drill rather than a separate human census.
+
+The accepted live run is `gm25_clocktol1500m950_0420`. Benjamin watched it live
+and judged the behavior more than good enough for the current baseline. This is
+now frozen as an accepted operational/visual baseline, with an explicit caveat:
+it still does not beat the human `getandmaintainspeed.qwd` benchmark under the
+strict scorer.
+
+Reproduction command:
+
+```powershell
+$cvars = 'k_fb_moveprobe_replay_stale_gap 120;k_fb_moveprobe_replay_one_shot 1;k_fb_moveprobe_s25_min_speed 700;k_fb_moveprobe_s25_gap 20;k_fb_moveprobe_s25_numerator 8;k_fb_moveprobe_s25_move 400;k_fb_moveprobe_s25_phase_start 1500;k_fb_moveprobe_s25_phase_target 850;k_fb_moveprobe_s25_phase_min_speed 320;k_fb_moveprobe_s25_phase_move 950;k_fb_moveprobe_s25_phase_human_cmd 1'
+python scripts\run_frobodm2_lab.py --map ztricks --run-id gm25_clocktol1500m950_0420 --duration 45 --bot-count 1 --bot-spacing 0 --moveprobe-mode 25 --replay-cmds artifacts\qwd-getandmaintainspeed\getandmaintainspeed.cmds --moveprobe-log-commands --moveprobe-log-interval 0 --ktx-extra-cvars $cvars
+python scripts\score_getandmaintainspeed.py --run-id gm25_clocktol1500m950_0420
+```
+
+Deploy evidence:
+
+- `~/nquakesv/ktx/qwprogs.so` points to
+  `/home/xerial/nquakesv/ktx/qwprogs-s25clocktol-20260612T2207Z.so`.
+- SHA-256:
+  `83b0b75297cd81a5b0c29d1e747eec434a703ca00dd430152689eca3176463fe`.
+
+Clean replay evidence:
+
+| event | time | cursor | note |
+|---|---:|---:|---|
+| activate | `7.565s` | `0` | single activation |
+| complete | `40.559s` | `2540` | single completion, final horizontal divergence `71.837` |
+
+Strict score:
+
+| metric | human | accepted run event | accepted run command |
+|---|---:|---:|---:|
+| p95 speed | `924.4` | `873.6` | `869.9` |
+| max speed | `948.5` | `917.6` | `886.6` |
+| time >900 | `6.377s` | `0.240s` | `0.000s` |
+| yaw p95 | `244.8` |  | `280.0` |
+| yaw reversals/s | `1.30` |  | `1.10` |
+
+Committed evidence snapshot:
+
+- `experiments/ktx_moveprobe/evidence/getandmaintainspeed-accepted-baseline-20260613.json`
+- `experiments/ktx_moveprobe/evidence/getandmaintainspeed-accepted-baseline-20260613.md`
+
+Interpretation:
+
+- The bot behavior is good enough to stop this tuning pass and preserve the
+  baseline.
+- The strict scorer remains valuable because it prevents us from confusing a
+  visually good baseline with a numeric beat-human claim.
+- Future attempts should copy this profile and compare against
+  `scripts/score_getandmaintainspeed.py`; do not overwrite the accepted
+  baseline while exploring stricter improvements.
+
+Next smallest useful experiment: branch from this accepted profile, run one
+strict-score improvement at a time, and keep the accepted baseline as the
+rollback/reference profile.

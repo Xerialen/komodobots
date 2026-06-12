@@ -1,8 +1,9 @@
 """LD-F3 (#105): control drawer — Codex P1 fix coverage.
 
 Tests cover the four areas named in the Codex block:
-  1. Full per-slot assignment emission (all 4 cvars: replay_file, mode,
-     fixed_goal, spawn_origin) via control_bridge.validate_cvar expansion.
+  1. Full per-slot assignment emission (all route cvars: replay_file, mode,
+     fixed_goal, spawn_origin, spawn_velocity) via control_bridge.validate_cvar
+     expansion.
   2. ASSIGN telemetry row broadcast in telemetry_ws (new path added in this PR).
   3. Route-name round-trip: "dm3_sng_to_rl.cmds" -> "sng_to_rl";
      "dm2_foo_to_bar.cmds" -> "foo_to_bar" (underscored names must not lose the
@@ -29,12 +30,12 @@ import telemetry_ws as tw  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
-# 1. Full per-slot assignment — validate_cvar expands all four cvar names
+# 1. Full per-slot assignment — validate_cvar expands route cvar names
 # ---------------------------------------------------------------------------
 
 
 class TestFullAssignmentCvarExpansion(unittest.TestCase):
-    """validate_cvar(name, value, slot) must accept all four per-slot assignment
+    """validate_cvar(name, value, slot) must accept per-slot route assignment
     cvars and return the correct _s<N>-suffixed names."""
 
     def _ok(self, name, value, slot=1):
@@ -77,26 +78,33 @@ class TestFullAssignmentCvarExpansion(unittest.TestCase):
         result = cb.validate_cvar("k_fb_moveprobe_spawn_origin", "100.0,200.0,-24.0", slot=1)
         self.assertIsInstance(result, str, "Comma-separated spawn_origin should be refused")
 
-    def test_all_four_slot_1(self):
-        """All four cvars must be accepted for slot 1 (the minimum two-bot case)."""
+    def test_spawn_velocity_space_separated_expands(self):
+        name, value = self._ok("k_fb_moveprobe_spawn_velocity", "0 0 0", slot=1)
+        self.assertEqual(name, "k_fb_moveprobe_spawn_velocity_s1")
+        self.assertEqual(value, "0 0 0")
+
+    def test_all_route_cvars_slot_1(self):
+        """All route cvars must be accepted for slot 1 (the minimum two-bot case)."""
         pairs = [
             ("k_fb_moveprobe_replay_file", "dm3_hilljump.cmds"),
             ("k_fb_moveprobe_mode", "10"),
             ("k_fb_moveprobe_fixed_goal", "0"),
             ("k_fb_moveprobe_spawn_origin", "754.600 247.600 56.000"),
+            ("k_fb_moveprobe_spawn_velocity", "0 0 0"),
         ]
         for name, value in pairs:
             with self.subTest(name=name):
                 result = cb.validate_cvar(name, value, 1)
                 self.assertIsInstance(result, tuple, f"Refused: {name}={value!r}: {result}")
 
-    def test_all_four_slot_2(self):
-        """All four cvars must be accepted for slot 2 (second bot in two-bot run)."""
+    def test_all_route_cvars_slot_2(self):
+        """All route cvars must be accepted for slot 2 (second bot in two-bot run)."""
         pairs = [
             ("k_fb_moveprobe_replay_file", "dm3_sng_to_rl.cmds"),
             ("k_fb_moveprobe_mode", "10"),
             ("k_fb_moveprobe_fixed_goal", "0"),
             ("k_fb_moveprobe_spawn_origin", "-895.400 -129.100 -15.900"),
+            ("k_fb_moveprobe_spawn_velocity", "259 -172 0"),
         ]
         for name, value in pairs:
             with self.subTest(name=name):
@@ -346,6 +354,57 @@ class TestManifestPath(unittest.TestCase):
         self.assertIn("/botlab/data/routes/", mockup_src)
 
 
+class TestUnifiedRouteControls(unittest.TestCase):
+    """Trickjumps should stay represented as routes in the per-bot control row."""
+
+    DRAWER_SRC = (
+        Path(__file__).resolve().parents[1]
+        / "lab" / "dashboard" / "src" / "ControlDrawer.tsx"
+    )
+
+    def test_ztricks_distance_is_a_route_not_a_trick_preset(self):
+        src = self.DRAWER_SRC.read_text(encoding="utf-8")
+        self.assertIn('ztricks: ["distance_standstill", "spawn_left_speedjump"]', src)
+        self.assertNotIn("ztricks_distance_standstill", src)
+        self.assertIn("configureBotRoute", src)
+        self.assertNotIn("TRICK_PRESETS", src)
+        self.assertNotIn("selectedTrick", src)
+
+    def test_bot_row_exposes_route_behavior_controls(self):
+        src = self.DRAWER_SRC.read_text(encoding="utf-8")
+        for text in ("try selected route", "loop selected route", "hold this bot still", "respawn this bot"):
+            self.assertIn(text, src)
+
+    def test_session_start_clears_old_frame_suppression(self):
+        src = self.DRAWER_SRC.read_text(encoding="utf-8")
+        self.assertIn("suppressedFrameSlotsRef.current.clear();", src)
+        self.assertIn("function pruneUnassignedPlaceholders", src)
+
+    def test_route_assignment_clears_spawn_origin_before_rewriting(self):
+        src = self.DRAWER_SRC.read_text(encoding="utf-8")
+        clear_call = 'client.setCvar("k_fb_moveprobe_spawn_origin", "", slot)'
+        rearm_wait = "SPAWN_REARM_WAIT_MS"
+        route_call = 'client.setCvar("k_fb_moveprobe_spawn_origin", spawnOrigin, slot)'
+        self.assertIn(clear_call, src)
+        self.assertIn(rearm_wait, src)
+        self.assertIn(route_call, src)
+        clear_idx = src.index(clear_call)
+        wait_idx = src.index(rearm_wait, clear_idx)
+        route_idx = src.index(route_call)
+        self.assertLess(clear_idx, wait_idx)
+        self.assertLess(wait_idx, route_idx)
+
+    def test_route_assignment_clears_and_applies_spawn_velocity(self):
+        src = self.DRAWER_SRC.read_text(encoding="utf-8")
+        self.assertIn("spawn_velocity?: string;", src)
+        self.assertIn("const spawnVelocity = typeof control?.spawn_velocity", src)
+        clear_call = 'client.setCvar("k_fb_moveprobe_spawn_velocity", "", slot)'
+        set_call = 'client.setCvar("k_fb_moveprobe_spawn_velocity", spawnVelocity, slot)'
+        self.assertIn(clear_call, src)
+        self.assertIn(set_call, src)
+        self.assertLess(src.index(clear_call), src.index(set_call))
+
+
 # ---------------------------------------------------------------------------
 # 6. ASSIGN upsert — roster identity from server truth (Codex P1-2 fix, #145)
 # ---------------------------------------------------------------------------
@@ -385,10 +444,11 @@ def _apply_assign_upsert(
     existing_idx = next((i for i, b in enumerate(prev) if b["slot"] == ed), -1)
     if existing_idx != -1:
         result = list(prev)
+        previous = result[existing_idx]
         result[existing_idx] = {
-            **result[existing_idx],
+            **previous,
             "name": assign["name"],
-            "assignedRoute": route_id,
+            "assignedRoute": route_id or previous.get("pendingRoute") or previous.get("assignedRoute"),
             "pendingRoute": None,
         }
         return result
@@ -397,16 +457,52 @@ def _apply_assign_upsert(
     placeholder_idx = next((i for i, b in enumerate(prev) if b["slot"] == -1), -1)
     if placeholder_idx != -1:
         result = list(prev)
+        previous = result[placeholder_idx]
         result[placeholder_idx] = {
             "slot": ed,
             "name": assign["name"],
-            "assignedRoute": route_id,
+            "assignedRoute": route_id or previous.get("pendingRoute") or previous.get("assignedRoute"),
             "pendingRoute": None,
         }
         return result
 
     # No placeholder — append (page reload / existing session).
     return prev + [{"slot": ed, "name": assign["name"], "assignedRoute": route_id, "pendingRoute": None}]
+
+
+def _prune_unassigned_placeholders(rows: list[dict]) -> list[dict]:
+    """Mirrors ControlDrawer.tsx pruneUnassignedPlaceholders."""
+    if not any(row["slot"] != -1 for row in rows):
+        return rows
+    return [
+        row for row in rows
+        if row["slot"] != -1 or row.get("assignedRoute") is not None or row.get("pendingRoute") is not None
+    ]
+
+
+def _apply_frame_upsert(prev: list[dict], frame: dict) -> list[dict]:
+    """Mirrors ControlDrawer.tsx live frame roster fallback."""
+    ed = frame["ed"]
+    existing_idx = next((i for i, b in enumerate(prev) if b["slot"] == ed), -1)
+    if existing_idx != -1:
+        result = list(prev)
+        if result[existing_idx].get("name") != frame["name"]:
+            result[existing_idx] = {**result[existing_idx], "name": frame["name"]}
+        return _prune_unassigned_placeholders(result)
+
+    placeholder_idx = next((i for i, b in enumerate(prev) if b["slot"] == -1), -1)
+    if placeholder_idx != -1:
+        result = list(prev)
+        previous = result[placeholder_idx]
+        result[placeholder_idx] = {
+            "slot": ed,
+            "name": frame["name"],
+            "assignedRoute": previous.get("pendingRoute") or previous.get("assignedRoute"),
+            "pendingRoute": None,
+        }
+        return result
+
+    return prev + [{"slot": ed, "name": frame["name"], "assignedRoute": None, "pendingRoute": None}]
 
 
 class TestAssignUpsert(unittest.TestCase):
@@ -476,6 +572,46 @@ class TestAssignUpsert(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["slot"], 3)
         self.assertIsNone(result[0]["assignedRoute"])
+
+    def test_upsert_null_replay_file_preserves_pending_control_route(self):
+        """Control-only routes such as ztricks mode 23 have no replay file but
+        should still clear pending and keep the operator-selected route."""
+        prev = [{"slot": 5, "name": "", "assignedRoute": None, "pendingRoute": "distance_standstill"}]
+        assign = {"ed": 5, "name": "", "replay_file": None}
+        result = _apply_assign_upsert(prev, assign)
+        self.assertEqual(result[0]["assignedRoute"], "distance_standstill")
+        self.assertIsNone(result[0]["pendingRoute"])
+
+    def test_placeholder_null_replay_file_preserves_bridge_route_label(self):
+        """Bridge-backed ztricks action clears/readds a bot and may emit no
+        replay file; the provisional row should not become unassigned."""
+        prev = [{"slot": -1, "name": "...", "assignedRoute": "distance_standstill", "pendingRoute": None}]
+        assign = {"ed": 3, "name": "", "replay_file": None}
+        result = _apply_assign_upsert(prev, assign)
+        self.assertEqual(result[0]["slot"], 3)
+        self.assertEqual(result[0]["assignedRoute"], "distance_standstill")
+        self.assertIsNone(result[0]["pendingRoute"])
+
+    def test_frame_upsert_prunes_dangling_unassigned_placeholder(self):
+        """If live rows already exist, an addbot placeholder must not remain as
+        an extra s?? card forever."""
+        prev = [
+            {"slot": 3, "name": "/ bro", "assignedRoute": None, "pendingRoute": None},
+            {"slot": -1, "name": "...", "assignedRoute": None, "pendingRoute": None},
+        ]
+        result = _apply_frame_upsert(prev, {"ed": 3, "name": "/ bro"})
+        self.assertEqual([row["slot"] for row in result], [3])
+
+    def test_frame_upsert_preserves_route_labeled_placeholder(self):
+        """Bridge-backed route placeholders keep their route label until a live
+        frame can adopt them."""
+        prev = [
+            {"slot": 3, "name": "/ old", "assignedRoute": None, "pendingRoute": None},
+            {"slot": -1, "name": "...", "assignedRoute": "distance_standstill", "pendingRoute": None},
+        ]
+        result = _apply_frame_upsert(prev, {"ed": 3, "name": "/ old"})
+        self.assertEqual([row["slot"] for row in result], [3, -1])
+        self.assertEqual(result[1]["assignedRoute"], "distance_standstill")
 
     def test_upsert_two_bots_two_distinct_routes(self):
         """Golden path: two bots, two ASSIGN rows, each with a distinct route."""

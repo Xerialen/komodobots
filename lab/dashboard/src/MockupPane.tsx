@@ -6,8 +6,9 @@
 // onSelect callback so the future KPI dock (LD-E1, #100) can react.
 //
 // Data flow:
-//   maps.json                  -> map selector (dm3 / dm2 / frobodm2 / trick)
+//   maps.json                  -> map selector (dm3 / dm2 / frobodm2 / trick / ztricks)
 //   data/routes/<map>.json     -> route browser (11 dm3 routes; others: empty)
+//   data/map_entities/<map>.json -> static item/spawn/teleporter context
 //   maps/<map>.glb             -> Three.js scene via the shared mapScene module
 //                                 (LD-C4 textured GLB assets, LD-C5 #99)
 //
@@ -44,8 +45,8 @@ export type MockupSelection = {
 type ManifestGap = {
   edge: [number, number, number];
   land: [number, number, number];
-  required_speed: number;
-  human_speed_at_edge: number;
+  required_speed: number | null;
+  human_speed_at_edge: number | null;
   hard: boolean;
   type: string;
 };
@@ -59,9 +60,9 @@ type ManifestTeleport = {
 type ManifestRoute = {
   name: string;
   human: {
-    duration_s: number;
-    active_mean_speed: number;
-    peak_speed: number;
+    duration_s: number | null;
+    active_mean_speed: number | null;
+    peak_speed: number | null;
   };
   polyline: [number, number, number][];
   gaps: ManifestGap[];
@@ -75,9 +76,36 @@ type RouteManifest = {
   routes: ManifestRoute[];
 };
 
+// ---- Map entity types (komodobots.map_entities.v1) -------------------------
+
+type MapEntityBounds = {
+  min: [number, number, number];
+  max: [number, number, number];
+};
+
+type MapEntity = {
+  type: string;
+  class: string;
+  kind?: string;
+  name?: string;
+  loc?: string;
+  x: number;
+  y: number;
+  z: number;
+  target?: string;
+  targetName?: string;
+  bounds?: MapEntityBounds;
+};
+
+type MapEntitiesManifest = {
+  map: string;
+  version: number;
+  entities: MapEntity[];
+};
+
 // ---- Constants ---------------------------------------------------------------
 
-const MAPS = ["dm3", "dm2", "frobodm2", "trick"] as const;
+const MAPS = ["dm3", "dm2", "frobodm2", "trick", "ztricks"] as const;
 type MapName = (typeof MAPS)[number];
 
 // One color per route selection slot (assigned in selection order).
@@ -94,6 +122,61 @@ const ROUTE_PALETTE = [
 
 function routeColor(slotIndex: number): number {
   return ROUTE_PALETTE[slotIndex % ROUTE_PALETTE.length];
+}
+
+function metricText(value: number | null | undefined, decimals = 0): string {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value.toFixed(decimals)
+    : "n/a";
+}
+
+function entityColor(entity: MapEntity): number {
+  if (entity.type === "teleportDst") return 0x66e7ff;
+  if (entity.type === "teleportSrc") return 0x14b8a6;
+  if (entity.type === "spawn") return 0xe5e7eb;
+  if (entity.type === "door") return 0x94a3b8;
+  if (entity.type === "button") return 0xfacc15;
+  if (entity.kind === "rl") return 0xef4444;
+  if (entity.kind === "lg") return 0xf59e0b;
+  if (entity.kind === "ra") return 0xdc2626;
+  if (entity.kind === "ya") return 0xeab308;
+  if (entity.kind === "quad" || entity.kind === "pent" || entity.kind === "ring") return 0xa855f7;
+  if (entity.type === "item") return 0x22c55e;
+  return 0x94a3b8;
+}
+
+function entityDisplayName(entity: MapEntity): string {
+  return entity.name ?? entity.loc ?? entity.kind ?? entity.class;
+}
+
+function dist3(a: [number, number, number], b: [number, number, number]): number {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const dz = b[2] - a[2];
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+function nearestEntity(
+  point: [number, number, number] | undefined,
+  entities: MapEntity[],
+): { entity: MapEntity; distance: number } | null {
+  if (!point || entities.length === 0) return null;
+  let best: { entity: MapEntity; distance: number } | null = null;
+  for (const entity of entities) {
+    const distance = dist3(point, [entity.x, entity.y, entity.z]);
+    if (best === null || distance < best.distance) {
+      best = { entity, distance };
+    }
+  }
+  return best;
+}
+
+function entityTypeCounts(entities: MapEntity[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const entity of entities) {
+    counts[entity.type] = (counts[entity.type] ?? 0) + 1;
+  }
+  return counts;
 }
 
 // ---- Geometry helpers --------------------------------------------------------
@@ -135,6 +218,65 @@ function buildMarker(
   return mesh;
 }
 
+function buildBoundsBox(bounds: MapEntityBounds, color: number): THREE.Mesh {
+  const min = bounds.min;
+  const max = bounds.max;
+  const center: [number, number, number] = [
+    (min[0] + max[0]) / 2,
+    (min[1] + max[1]) / 2,
+    (min[2] + max[2]) / 2,
+  ];
+  const sizeX = Math.max(1, Math.abs(max[0] - min[0]));
+  const sizeY = Math.max(1, Math.abs(max[2] - min[2]));
+  const sizeZ = Math.max(1, Math.abs(max[1] - min[1]));
+  const geo = new THREE.BoxGeometry(sizeX, sizeY, sizeZ);
+  const mat = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.18,
+    wireframe: true,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  setFromQuake(mesh.position, center[0], center[1], center[2]);
+  return mesh;
+}
+
+function buildEntityObject(entity: MapEntity): THREE.Object3D {
+  const color = entityColor(entity);
+  const group = new THREE.Group();
+  group.userData = {
+    type: "mapEntity",
+    entityType: entity.type,
+    entityName: entityDisplayName(entity),
+  };
+
+  if (entity.bounds) {
+    group.add(buildBoundsBox(entity.bounds, color));
+  }
+
+  const radius =
+    entity.type === "teleportDst"
+      ? 20
+      : entity.type === "teleportSrc"
+        ? 10
+        : entity.type === "spawn"
+          ? 14
+          : 8;
+  const geo =
+    entity.type === "teleportDst"
+      ? new THREE.OctahedronGeometry(radius)
+      : new THREE.SphereGeometry(radius, 8, 8);
+  const mat = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: entity.type === "item" ? 0.75 : 0.9,
+  });
+  const marker = new THREE.Mesh(geo, mat);
+  setFromQuake(marker.position, entity.x, entity.y, entity.z);
+  group.add(marker);
+  return group;
+}
+
 // ---- Component ---------------------------------------------------------------
 
 export function MockupPane({
@@ -163,12 +305,16 @@ export function MockupPane({
   const animIdRef = useRef<number | null>(null);
   // THREE objects for each currently-selected route, keyed by route name.
   const routeObjectsRef = useRef<Map<string, THREE.Object3D[]>>(new Map());
+  const entityObjectsRef = useRef<THREE.Object3D[]>([]);
   // Slot index for each selected route (determines the palette color).
   const slotIndexRef = useRef<Map<string, number>>(new Map());
 
   const [activeMap, setActiveMap] = useState<MapName>("dm3");
   const [manifest, setManifest] = useState<RouteManifest | null>(null);
+  const [entityManifest, setEntityManifest] = useState<MapEntitiesManifest | null>(null);
   const [loadingManifest, setLoadingManifest] = useState(false);
+  const [loadingEntities, setLoadingEntities] = useState(false);
+  const [sceneGeneration, setSceneGeneration] = useState(0);
   // Ordered selection list (insertion-order stable, drives slotIndex colors).
   const [selectedRoutes, setSelectedRoutes] = useState<string[]>([]);
 
@@ -185,6 +331,7 @@ export function MockupPane({
     sceneRef.current?.dispose();
     sceneRef.current = null;
     routeObjectsRef.current.clear();
+    entityObjectsRef.current = [];
     slotIndexRef.current.clear();
 
     let disposed = false;
@@ -194,6 +341,7 @@ export function MockupPane({
 
       const mapScene = createMapScene(containerRef.current, activeMap, center);
       sceneRef.current = mapScene;
+      setSceneGeneration((n) => n + 1);
       // Apply current opacity/wireframe to the new scene immediately.
       mapScene.setOpacity(mapOpacity);
       mapScene.setWireframe(wireframe);
@@ -215,6 +363,7 @@ export function MockupPane({
       sceneRef.current?.dispose();
       sceneRef.current = null;
       routeObjectsRef.current.clear();
+      entityObjectsRef.current = [];
       slotIndexRef.current.clear();
     };
   }, [activeMap]);
@@ -249,6 +398,20 @@ export function MockupPane({
       .finally(() => setLoadingManifest(false));
   }, [activeMap]);
 
+  useEffect(() => {
+    setEntityManifest(null);
+    setLoadingEntities(true);
+    fetch(`/botlab/data/map_entities/${activeMap}.json`)
+      .then((r) =>
+        r.ok
+          ? (r.json() as Promise<MapEntitiesManifest>)
+          : Promise.reject(new Error(`HTTP ${r.status}`)),
+      )
+      .then(setEntityManifest)
+      .catch(() => setEntityManifest(null))
+      .finally(() => setLoadingEntities(false));
+  }, [activeMap]);
+
   // ---- Context events --------------------------------------------------------
 
   useEffect(() => {
@@ -258,6 +421,35 @@ export function MockupPane({
         : null;
     onSelect?.({ map: activeMap, route });
   }, [activeMap, selectedRoutes, onSelect]);
+
+  // ---- Static map entity geometry ------------------------------------------
+
+  useEffect(() => {
+    const scene = sceneRef.current?.scene;
+    if (!scene) return;
+
+    for (const obj of entityObjectsRef.current) {
+      scene.remove(obj);
+      obj.traverse((child) => {
+        if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
+          child.geometry.dispose();
+          const mats = Array.isArray(child.material)
+            ? child.material
+            : [child.material];
+          for (const mat of mats) mat.dispose();
+        }
+      });
+    }
+    entityObjectsRef.current = [];
+
+    if (!entityManifest) return;
+
+    const objects = entityManifest.entities.map(buildEntityObject);
+    for (const obj of objects) {
+      scene.add(obj);
+    }
+    entityObjectsRef.current = objects;
+  }, [entityManifest, sceneGeneration]);
 
   // ---- Route geometry --------------------------------------------------------
 
@@ -347,6 +539,36 @@ export function MockupPane({
   const lastSelectedRoute = lastSelected
     ? (manifest?.routes.find((r) => r.name === lastSelected) ?? null)
     : null;
+  const entities = entityManifest?.entities ?? [];
+  const entityCounts = entityTypeCounts(entities);
+  const finalGap =
+    lastSelectedRoute && lastSelectedRoute.gaps.length > 0
+      ? lastSelectedRoute.gaps[lastSelectedRoute.gaps.length - 1]
+      : null;
+  const routeEntityContext =
+    lastSelectedRoute && entities.length > 0
+      ? {
+          start: nearestEntity(lastSelectedRoute.polyline[0], entities),
+          edge: nearestEntity(finalGap?.edge, entities),
+          land: nearestEntity(finalGap?.land, entities),
+        }
+      : null;
+
+  function nearestLine(
+    label: string,
+    nearest: { entity: MapEntity; distance: number } | null,
+  ) {
+    if (!nearest) return null;
+    const entity = nearest.entity;
+    return (
+      <div>
+        {label} {entityDisplayName(entity)}{" "}
+        <span className="text-gray-700">
+          {entity.type} {Math.round(nearest.distance)}q
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex min-h-0 overflow-hidden">
@@ -406,7 +628,7 @@ export function MockupPane({
                     onClick={() => toggleRoute(route.name)}
                     data-route={route.name}
                     aria-pressed={selected}
-                    title={`${route.name} - peak ${route.human.peak_speed.toFixed(0)} qu/s - ${route.gaps.length} gap(s)`}
+                    title={`${route.name} - peak ${metricText(route.human.peak_speed)} qu/s - ${route.gaps.length} gap(s)`}
                     className={`text-left px-1.5 py-0.5 rounded leading-tight ${
                       selected
                         ? "bg-slate-700/60 text-white"
@@ -422,13 +644,34 @@ export function MockupPane({
                     />
                     {route.name}
                     <span className="block pl-3 text-[10px] text-gray-600 font-mono">
-                      {route.human.active_mean_speed.toFixed(0)} mu{" "}
-                      {route.human.peak_speed.toFixed(0)} pk
+                      {metricText(route.human.active_mean_speed)} mu{" "}
+                      {metricText(route.human.peak_speed)} pk
                     </span>
                   </button>
                 );
               })}
             </div>
+          )}
+        </section>
+
+        <section
+          data-map-entity-summary={activeMap}
+          className="px-2 py-1 border-t border-slate-800 text-[10px] text-gray-500 font-mono"
+        >
+          <div className="font-bold text-gray-400 text-xs mb-0.5">Entities</div>
+          {loadingEntities && <div className="text-gray-600">loading...</div>}
+          {!loadingEntities && entityManifest === null && (
+            <div className="text-gray-600 italic">none</div>
+          )}
+          {entityManifest !== null && (
+            <>
+              <div>{entities.length} total</div>
+              {Object.entries(entityCounts).map(([type, count]) => (
+                <div key={type}>
+                  {type} {count}
+                </div>
+              ))}
+            </>
           )}
         </section>
 
@@ -440,16 +683,26 @@ export function MockupPane({
             <div className="font-bold text-gray-400 text-xs mb-0.5 truncate">
               {lastSelectedRoute.name}
             </div>
-            <div>dur {lastSelectedRoute.human.duration_s.toFixed(2)} s</div>
-            <div>mean {lastSelectedRoute.human.active_mean_speed.toFixed(0)} qu/s</div>
-            <div>peak {lastSelectedRoute.human.peak_speed.toFixed(0)} qu/s</div>
+            <div>dur {metricText(lastSelectedRoute.human.duration_s, 2)} s</div>
+            <div>mean {metricText(lastSelectedRoute.human.active_mean_speed)} qu/s</div>
+            <div>peak {metricText(lastSelectedRoute.human.peak_speed)} qu/s</div>
             {lastSelectedRoute.gaps.map((g, i) => (
               <div key={i} className="mt-0.5 border-t border-slate-800 pt-0.5">
                 gap {i + 1}: {g.type}{g.hard ? " [hard]" : ""}
                 <br />
-                req {g.required_speed.toFixed(0)} hu {g.human_speed_at_edge.toFixed(0)}
+                req {metricText(g.required_speed)} hu {metricText(g.human_speed_at_edge)}
               </div>
             ))}
+            {routeEntityContext && (
+              <div
+                data-route-entity-context={lastSelectedRoute.name}
+                className="mt-0.5 border-t border-slate-800 pt-0.5"
+              >
+                {nearestLine("start", routeEntityContext.start)}
+                {nearestLine("edge", routeEntityContext.edge)}
+                {nearestLine("land", routeEntityContext.land)}
+              </div>
+            )}
           </section>
         )}
       </aside>

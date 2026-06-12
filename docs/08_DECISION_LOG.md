@@ -2718,3 +2718,168 @@ specific evidence from each run.
 Revisit if agents confuse role selection, if gate labels no longer match the
 review automation, if issue templates create too much friction, or if a
 dedicated test-run issue/template becomes necessary.
+
+---
+
+## Decision
+
+Keep reusable engineering hygiene global; specialize BotLab rituals in KomodoBots.
+
+### Date
+
+2026-06-12
+
+### Decision
+
+Browser-runtime debugging, artifact contract tests, idempotent pipeline design,
+CI/review-gate state machines, and re-entry hygiene are global engineering
+skills. Their reusable guidance lives in the vault at
+`C:\Users\benya\Workspace\thevault\claude\engineering-hygiene-skills.md`.
+
+KomodoBots keeps the concrete BotLab rituals in project docs:
+
+- `docs/09_TEST_CASES_AND_EVIDENCE.md` for durable test cases, contract-test
+  triggers, and live-state reconciliation.
+- `docs/10_AGENT_WEB_TESTING.md` for browser evidence, GLB/runtime probes, QTV
+  state checks, and records/verdicts fetch behavior.
+
+### Alternatives Considered
+
+- Put all new guidance in the global vault. Rejected because BotLab agents need
+  local URLs, assets, telemetry/QTV terms, and test-case IDs in the repo they are
+  changing.
+- Put all guidance in KomodoBots. Rejected because the same process failures
+  appear in Clipsmith, Local Hub, and future projects.
+
+### Evidence
+
+Recent PR/review history showed both global and project-local failure modes:
+
+- KomodoBots browser checks caught GLB schema errors, Three.js traversal
+  mutation, missing map aliases, QTV retry state, and records-feed failures.
+- KomodoBots user-story test runs produced durable bugs for stale bot roster,
+  Live Game retry, and records 404 behavior.
+- Clipsmith reviews repeatedly focused on idempotent render/upload reruns,
+  failure-state preservation, and stale re-entry docs.
+- Review-gate PRs showed that CI/label automation needs current-head SHA binding
+  and duplicate-workflow checks.
+
+### Expected Consequences
+
+Future project agents should read the global habit once, then follow the
+KomodoBots-specific checklists for exact commands, URLs, artifacts, and evidence
+requirements. Review comments should ask for focused missing evidence instead of
+generic "more testing."
+
+### Revisit Conditions
+
+Revisit if the global note becomes stale, if KomodoBots needs an automated web
+test harness instead of manual/browser evidence, or if a different project
+develops a stronger version of these rituals that should be harvested back into
+the vault.
+
+---
+
+## Decision
+
+Keep imported static map entities as their own BotLab data layer.
+
+### Date
+
+2026-06-12
+
+### Decision
+
+BotLab stores upstream `mvd_analyzer` static map entities under
+`lab/dashboard/public/data/map_entities/` with schema
+`komodobots.map_entities.v1`, separate from route manifests and map meshes.
+
+The initial imported map set is `dm2`, `dm3`, `e1m2`, `phantombase`,
+`schloss`, and `ztricks`, sourced from `galfthan/mvd_analyzer`
+`upstream/main` commit `dbfee83f457946c93e941c4a0b76efd25183d25e`.
+
+### Alternatives Considered
+
+- Merge entity data into `routes/*.json`. Rejected because routes answer "what
+  can the bot attempt?" while entities answer "what static map context exists?";
+  maps can have entity context before they have censused routes.
+- Require committed meshes before importing entities. Rejected because
+  `e1m2`, `phantombase`, and `schloss` can already benefit from item/spawn/
+  teleport context even though BotLab has not yet committed their GLB/OBJ assets.
+- Generate ztricks locally. Rejected for now because upstream already provides
+  `ztricks.json`.
+
+### Evidence
+
+- `python lab\tools\import_map_entities.py --source-repo C:\Users\benya\projects\quakeworld\tools\mvd_analyzer --ref upstream/main`
+  imported the six-map corpus and wrote index provenance/counts.
+- `python -m pytest tests\test_import_map_entities.py tests\test_ld_g2_golden_path.py`
+  passed with 55 tests.
+
+### Expected Consequences
+
+Future route authoring, spawn selection, landing-zone scoring, and map-aware
+BotLab UI work can consume map context without waiting for a full route census.
+The offline golden-path harness now catches missing or malformed entity data.
+
+### Revisit Conditions
+
+Revisit if upstream changes the map-entity schema, if BotLab needs all maps from
+the upstream corpus rather than a curated subset, or if the frontend begins
+rendering entities and needs a display-specific derived format.
+
+---
+
+## Decision
+
+Use the successful getspeed.qwd attempt as the canonical ztricks Distance route reference.
+
+### Date
+
+2026-06-12
+
+### Decision
+
+`lab/dashboard/public/data/routes/ztricks.json` should derive
+`distance_standstill` from A5's validated `getspeed.qwd` artifacts, specifically
+the successful 11th attempt segment from row `1807` through landing row `1969`.
+
+The manifest records the human start-to-landing polyline, lip row `1918`,
+landing row `1969`, lip speed `475.2`, landing speed `495.5`, launch heading
+`-11.7`, source hashes, and the demo sha256. `required_speed` remains null
+because A5 showed speed alone is not sufficient for the jump; release
+heading/geometry is the discriminating gate.
+
+### Alternatives Considered
+
+- Keep the placeholder straight-line ztricks route with null human metrics.
+  Rejected because the successful QWD attempt is available and already
+  validated in committed A5 artifacts.
+- Set `required_speed` to the human lip speed. Rejected because that would
+  encode a false speed-only acceptance criterion.
+- Require a fresh ztricks census pipeline before exposing the reference.
+  Rejected because A5 already provides the narrower evidence needed for this
+  single route, and the manifest can point at that provenance explicitly.
+
+### Evidence
+
+- `experiments/a5_distance_standstill/human-replay.json` marks attempt 11 as
+  `landed_recorded=true` and `landed_sim=true`.
+- `python lab\tools\build_routes_manifest.py` regenerated `ztricks.json` with
+  one route and 28 polyline points.
+- `python -m pytest tests\test_build_routes_manifest.py tests\test_mockup_context.py tests\test_live_metrics_panel.py tests\test_import_map_entities.py tests\test_ld_g2_golden_path.py`
+  passed with 166 tests.
+
+### Expected Consequences
+
+Mockup, route selection, and future scoring/controller work now consume the same
+successful human reference. Bot attempts should be compared against lip row,
+landing row, speed, and launch heading rather than against a hand-written
+standstill placeholder.
+
+### Revisit Conditions
+
+Revisit if a broader ztricks route-census pipeline supersedes A5, if a second
+successful human demo exposes a materially different line, or if scoring needs a
+multi-dimensional required-success object instead of the current nullable
+`required_speed` field.

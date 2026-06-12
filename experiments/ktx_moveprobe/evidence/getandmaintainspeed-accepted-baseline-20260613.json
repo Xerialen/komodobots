@@ -1,0 +1,112 @@
+{
+  "schema": "komodobots.getandmaintainspeed_accepted_baseline.v1",
+  "accepted_as": "user_accepted_visual_operational_baseline",
+  "accepted_at": "2026-06-13 CEST",
+  "caveat": "The run is more than good enough by live visual review, but it still fails the strict beat-human scorer for sustained time above 900 qu/s.",
+  "run": {
+    "id": "gm25_clocktol1500m950_0420",
+    "map": "ztricks",
+    "duration_s": 45,
+    "bot_count": 1,
+    "moveprobe_mode": 25,
+    "replay_cmds": "artifacts/qwd-getandmaintainspeed/getandmaintainspeed.cmds"
+  },
+  "deployed_ktx": {
+    "host": "servexeri",
+    "active_symlink": "~/nquakesv/ktx/qwprogs.so",
+    "target": "/home/xerial/nquakesv/ktx/qwprogs-s25clocktol-20260612T2207Z.so",
+    "sha256": "83b0b75297cd81a5b0c29d1e747eec434a703ca00dd430152689eca3176463fe"
+  },
+  "cvars": {
+    "k_fb_moveprobe_replay_stale_gap": 120,
+    "k_fb_moveprobe_replay_one_shot": 1,
+    "k_fb_moveprobe_s25_min_speed": 700,
+    "k_fb_moveprobe_s25_gap": 20,
+    "k_fb_moveprobe_s25_numerator": 8,
+    "k_fb_moveprobe_s25_move": 400,
+    "k_fb_moveprobe_s25_phase_start": 1500,
+    "k_fb_moveprobe_s25_phase_target": 850,
+    "k_fb_moveprobe_s25_phase_min_speed": 320,
+    "k_fb_moveprobe_s25_phase_move": 950,
+    "k_fb_moveprobe_s25_phase_human_cmd": 1
+  },
+  "replay_events": {
+    "activate": {
+      "time_s": 7.565,
+      "cursor": 0
+    },
+    "complete": {
+      "time_s": 40.559,
+      "cursor": 2540,
+      "final_horizontal_divergence": 71.837
+    },
+    "attempt": {
+      "n": 1,
+      "end": "complete",
+      "break_cursor": 231,
+      "furthest_cursor": 2540,
+      "frame_count": 2541,
+      "max_horizontal_speed": 808.5,
+      "final_max_horizontal_speed": 808.5
+    }
+  },
+  "strict_score": {
+    "verdict": "FAIL",
+    "human": {
+      "event_p95_speed": 924.4,
+      "event_max_speed": 948.5,
+      "time_above_900_s": 6.377,
+      "yaw_rate_abs_p95_deg_s": 244.8,
+      "yaw_reversals_per_s": 1.3
+    },
+    "run_event": {
+      "p95_speed": 873.6,
+      "max_speed": 917.6,
+      "time_above_900_s": 0.24
+    },
+    "run_command": {
+      "p95_speed": 869.9,
+      "max_speed": 886.6,
+      "time_above_900_s": 0.0,
+      "yaw_rate_abs_p95_deg_s": 280.0,
+      "yaw_reversals_per_s": 1.1
+    }
+  },
+  "cursor_windows": [
+    {
+      "cursor_start": 1634,
+      "cursor_end": 1648,
+      "avg_speed": 805.6,
+      "p95_speed": 808.9,
+      "max_speed": 809.0
+    },
+    {
+      "cursor_start": 1655,
+      "cursor_end": 1953,
+      "avg_speed": 836.9,
+      "p95_speed": 854.2,
+      "max_speed": 858.3
+    },
+    {
+      "cursor_start": 2044,
+      "cursor_end": 2087,
+      "avg_speed": 861.7,
+      "p95_speed": 866.5,
+      "max_speed": 866.6
+    },
+    {
+      "cursor_start": 2097,
+      "cursor_end": 2104,
+      "avg_speed": 869.6,
+      "p95_speed": 870.9,
+      "max_speed": 871.1
+    },
+    {
+      "cursor_start": 2106,
+      "cursor_end": 2230,
+      "avg_speed": 874.9,
+      "p95_speed": 884.2,
+      "max_speed": 884.7
+    }
+  ]
+}

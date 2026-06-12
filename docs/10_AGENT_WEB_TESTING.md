@@ -10,6 +10,10 @@ before it is called done.
 Builds and unit tests are necessary, but they do not prove the visible workflow.
 For web work, the evidence should include a browser check.
 
+Global browser-runtime validation habits live in
+`C:\Users\benya\Workspace\thevault\claude\engineering-hygiene-skills.md`. This
+file is the KomodoBots/BotLab-specific specialization.
+
 ## Preferred local rig
 
 Use the shared debug-Chrome setup documented in:
@@ -67,12 +71,67 @@ For dashboard layout/control changes, the normal validation packet is:
 - Narrow/mobile-ish viewport checked when layout changed.
 - Screenshot or geometry assertion recorded for layout changes.
 
+## Runtime failure probes
+
+Recent dashboard regressions were not caught by TypeScript, Vite build, or source
+inspection alone. Use these probes whenever the touched code is near the listed
+area.
+
+### 3D map and asset loading
+
+Run a browser smoke against both Mockup and Live 3D when touching map assets,
+`mapScene.ts`, `BotLab3D.tsx`, route display, GLB generation, or layout state:
+
+```text
+/botlab/?views=mockup,live3d
+```
+
+Record:
+
+- Console output containing `GLTFLoader`, `RangeError`, `Unexpected token`, `.glb`,
+  `mapScene`, or `ztricks`.
+- Network responses for `/botlab/maps/*.glb`.
+- Whether the loaded asset response is really `model/gltf-binary` with `glTF`
+  magic, not routed HTML.
+- Whether unknown or aliased maps render a non-crashing empty/unavailable state.
+
+Known regression classes to guard:
+
+- GLB `bufferView` entries missing the required `buffer` index.
+- Adding wireframe children while iterating `Object3D.traverse`, which can recurse
+  until `Maximum call stack size exceeded`.
+- Raw telemetry map names that do not match committed assets, for example
+  `ztricks` needing the committed `trick.glb` asset.
+
 For Live Game / QTV work, also record:
 
 - QTV relay URL.
 - WebSocket URL.
 - Whether the iframe is connected, retrying, or failed.
 - Relevant console/network errors from the FTE/QTV runtime.
+
+If telemetry and Live 3D work while Live Game stays `retrying`, treat that as a
+QTV/relay/runtime state split, not a generic dashboard connection failure. The
+test run should say which path is healthy and which path is failing.
+
+### Records and KPI data
+
+For KPI dock, scoreboard, records, and verdict changes, record the responses for:
+
+```text
+/botlab/records.json
+/botlab/verdicts.json
+```
+
+Distinguish these outcomes:
+
+- Valid data loaded and rendered.
+- Expected missing optional data, such as `verdicts.json` not deployed yet.
+- Misconfigured required data, such as `records.json` returning 404 while the UI
+  presents it as a runtime scoreboard error.
+
+Do not collapse these into a generic "records unavailable" note when the user
+story depends on reviewing recorded attempts.
 
 ## Repeatable automation path
 

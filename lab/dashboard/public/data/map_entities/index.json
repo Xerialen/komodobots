@@ -1,0 +1,82 @@
+{
+  "schema": "komodobots.map_entities.v1",
+  "v": 1,
+  "source": {
+    "repo": "https://github.com/galfthan/mvd_analyzer",
+    "ref": "upstream/main",
+    "commit": "dbfee83f457946c93e941c4a0b76efd25183d25e",
+    "path": "mvd-analytics/mapents/data"
+  },
+  "maps": [
+    {
+      "map": "dm2",
+      "file": "dm2.json",
+      "entities": 70,
+      "types": {
+        "button": 9,
+        "door": 15,
+        "item": 30,
+        "spawn": 9,
+        "teleportDst": 3,
+        "teleportSrc": 4
+      }
+    },
+    {
+      "map": "dm3",
+      "file": "dm3.json",
+      "entities": 61,
+      "types": {
+        "item": 51,
+        "spawn": 6,
+        "teleportDst": 2,
+        "teleportSrc": 2
+      }
+    },
+    {
+      "map": "e1m2",
+      "file": "e1m2.json",
+      "entities": 117,
+      "types": {
+        "button": 4,
+        "door": 27,
+        "item": 58,
+        "spawn": 14,
+        "teleportDst": 7,
+        "teleportSrc": 7
+      }
+    },
+    {
+      "map": "phantombase",
+      "file": "phantombase.json",
+      "entities": 61,
+      "types": {
+        "door": 5,
+        "item": 42,
+        "spawn": 8,
+        "teleportDst": 3,
+        "teleportSrc": 3
+      }
+    },
+    {
+      "map": "schloss",
+      "file": "schloss.json",
+      "entities": 57,
+      "types": {
+        "item": 45,
+        "spawn": 8,
+        "teleportDst": 2,
+        "teleportSrc": 2
+      }
+    },
+    {
+      "map": "ztricks",
+      "file": "ztricks.json",
+      "entities": 35,
+      "types": {
+        "spawn": 1,
+        "teleportDst": 8,
+        "teleportSrc": 26
+      }
+    }
+  ]
+}

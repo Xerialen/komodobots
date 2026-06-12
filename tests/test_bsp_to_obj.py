@@ -26,7 +26,7 @@ sys.path.insert(0, str(REPO / "lab" / "tools"))
 import bsp_to_obj  # noqa: E402
 
 MAPS_DIR = REPO / "lab" / "dashboard" / "public" / "maps"
-EXPECTED_MAPS = ("dm2", "dm3", "frobodm2", "trick")
+EXPECTED_MAPS = ("dm2", "dm3", "frobodm2", "trick", "ztricks")
 
 
 # ---------------------------------------------------------------------------

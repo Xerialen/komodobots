@@ -21,6 +21,11 @@
       "map": "trick",
       "file": "trick.json",
       "routes": 0
+    },
+    {
+      "map": "ztricks",
+      "file": "ztricks.json",
+      "routes": 2
     }
   ]
 }

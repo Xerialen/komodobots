@@ -191,9 +191,67 @@ The `--moveprobe-*` options only change behavior when the S2 KTX patch from `exp
 
 `--moveprobe-log-commands` enables the patch's sampled `FBMOVEPROBE_CMD` console rows. The runner parses those rows from `screen.log` into `moveprobe-commands.json` and `moveprobe-commands.md`, making it possible to compare the actual command values emitted by stock mode `0`, forced-jump mode `1`, fixed-command mode `2`, route-yaw modes `3`/`4`, aim-independent mode `5`, and no-backpedal mode `6`. S3e/S3f diagnostic rows also include route yaw, view yaw, yaw delta, and backward-command flags.
 
+### ztricks batch attempts
+
+For ztricks Distance tuning, prefer the batch harness over the old one-attempt
+manual loop:
+
+```bash
+python scripts/run_ztricks_batch.py --attempts 6 --attempt-seconds 8 --refcurve
+```
+
+What it does:
+
+1. Starts one temporary `ztricks` lab server and one MVD recording.
+2. Keeps a passive client connected so recording does not depend on each short
+   control shim.
+3. For each attempt, clears spawn-snap state, sends `botcmd removeall`, sets
+   the mode-23 Distance route cvars, restores the known A5 spawn
+   origin/velocity, adds one bot, and lets the attempt run.
+4. Copies the normal lab artifacts back under `artifacts/lab-runs/<run-id>/`.
+5. Writes `ztricks-batch-plan.*`, `ztricks-batch-execution.tsv`, and
+   `ztricks-batch-score.json/md`.
+
+The current ztricks defaults use the first grounded human reference state
+(`-3434.375 3686.875 -488`, velocity `259 -172 0`) and, with `--refcurve`,
+enable the human terminal guidance curve with entry target
+`(-3439.375, 3758.125)`, y corridor `3768.5 +/- 24`, and `carve_d=95`.
+
+The scorer can also be run on any existing compatible artifact directory:
+
+```bash
+python scripts/score_ztricks_batch.py --run-id <run-id>
+```
+
+The score is release-first: it compares each attempt to the successful
+`getspeed.qwd` formula (`vh`, lip distance, velocity yaw, target error, yaw
+lead, jump release, and landing distance). Do not treat a high raw speed or a
+near-lip pass as success unless the release formula rows also improve.
+This release-first warning applies to `distance_standstill`. The safe-floor
+`spawn_left_speedjump` route deliberately uses a different profile:
+`python scripts/run_ztricks_batch.py --route spawn_left_speedjump ...` and
+`python scripts/score_ztricks_batch.py --route spawn_left_speedjump --run-id <run-id>`
+score start-to-peak horizontal speed gain against the successful human
+attempt's `495.5 qu/s` peak, with no ledge/landing completion gate.
+
+The ztricks scorer now follows Nexus's interpolation advice: sampled telemetry
+rows are not treated as isolated dots. Bot release and landing estimates use
+XY projection onto adjacent sampled segments, and the physical lip event uses
+a linear crossing at `x=-3348`. The human reference trace is generated with:
+
+```bash
+python scripts/build_ztricks_reference_trace.py
+```
+
+That writes `experiments/a5_distance_standstill/ztricks-reference-trace.json/md`.
+The trace keeps conservative linear/projection events for evidence, and also
+adds a local-quadratic controller guidance curve over the terminal mouse/yaw
+sweep. Angles are unwrapped before interpolation so `359 -> 1` is treated as a
+small turn, not a full rotation.
+
 ### Per-slot moveprobe cvars (LD-F1 #95)
 
-With `experiments/ktx_moveprobe/frogbot-moveprobe-perslot.patch` applied to the deployed lab KTX build, the route-defining lab cvars accept a per-slot form `k_fb_moveprobe_<param>_s<N>` for `mode`, `replay_file`, `fixed_goal`, and `spawn_origin`, where `N` is the bot's `ed` number from `FBMOVEPROBE_CMD` rows. Unset per-slot cvars fall back to the global cvar (existing single-route configs behave identically); malformed per-slot values fail loudly (`FBMOVEPROBE_PERSLOT_ERROR` row + bot held at spawn). This is what lets two bots attempt two different routes on the same map at the same time. Per-slot cvars are set through `--ktx-extra-cvars`; extra route files upload via `--extra-replay-cmds` (repeatable). When command logging is on, each bot also emits one `FBMOVEPROBE_ASSIGN` row per assignment change, and `scripts/run_frobodm2_lab.py` parses assignment + error rows into `moveprobe-assignments.json` / `moveprobe-assignments.md` beside the other run artifacts. Full convention, formats, base checksums, and apply notes: `experiments/ktx_moveprobe/README.md`.
+With `experiments/ktx_moveprobe/frogbot-moveprobe-perslot.patch` applied to the deployed lab KTX build, the route-defining lab cvars accept a per-slot form `k_fb_moveprobe_<param>_s<N>` for `mode`, `replay_file`, `fixed_goal`, `spawn_origin`, and `spawn_velocity`, where `N` is the bot's `ed` number from `FBMOVEPROBE_CMD` rows. Unset per-slot cvars fall back to the global cvar (existing single-route configs behave identically); malformed per-slot values fail loudly (`FBMOVEPROBE_PERSLOT_ERROR` row + bot held at spawn). This is what lets two bots attempt two different routes on the same map at the same time. Per-slot cvars are set through `--ktx-extra-cvars`; extra route files upload via `--extra-replay-cmds` (repeatable). When command logging is on, each bot also emits one `FBMOVEPROBE_ASSIGN` row per assignment change, and `scripts/run_frobodm2_lab.py` parses assignment + error rows into `moveprobe-assignments.json` / `moveprobe-assignments.md` beside the other run artifacts. Full convention, formats, base checksums, and apply notes: `experiments/ktx_moveprobe/README.md`.
 
 What it does:
 
@@ -397,20 +455,32 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   28599–28609 only; production 28501/28502/28503 and `qw_*` screens flat-denied;
   cvar/console allowlists; the `game_command` op is a separate allowlisted enum for
   KTX game controls (`4on4`, `2on2`, `1on1`, `ffa`, `dmm1`–`dmm4`, powerups on/off,
-  `ready`, `break`) and the guarded `ztricks_distance_standstill` lab preset rather
-  than a broad raw-command escape hatch. Dashboard session start is deliberately not
+  `ready`, `break`) and legacy guarded lab presets rather than a broad raw-command
+  escape hatch. Dashboard session start is deliberately not
   "start game": it seeds the practice roster in moveprobe mode `24`, assigns separated
   spawn-snap origins for maps with known safe starts (`dm3`, `ztricks`), clears the
   global spawn cvar after seeding, and suppresses movement/jump/firing so unassigned
   bots wait quietly until route assignment. The game-control `start` command clears the global
   practice idle mode, unlocks normal bot weapons, and readies the match; `stop` breaks
-  the match and restores quiet practice posture. The ztricks preset is accepted only when
-  the dashboard lock says the active session map is `ztricks`; it applies the A5
-  Distance start spawn-snap (`-3516.125 3712 -453.125`), mode 23, fixed goal 8,
-  launch-vh 430 / launch-angle 50 / swing 8, command logging, clears existing
-  dashboard bots, then spawns one bot.
-  This creates a visible standing-start attempt; it does not change the A5 finding
-  that the current deployed controller has not solved the jump. Audit log at
+  the match and restores quiet practice posture. In the dashboard UI, ztricks Distance
+  is now represented as the normal `distance_standstill` route in the route manifest,
+  not as a separate global trick control. The per-bot route row applies its A5
+  spawn-snap (`-3516.125 3712 -453.125`), mode 23, fixed goal 8, launch-vh 430 /
+  launch-angle 50 / swing 8 metadata plus the default-off terminal-carve cvars
+  (`launch_target_{x,y,z}`, `lip_x`, release speed floors, carve side/angle, yaw-lead
+  and target-error windows), then lets the operator start it with that bot's
+  `try` or `loop` action while `stand still` returns the slot to mode 24. This creates
+  a visible standing-start attempt; it does not change the A5 finding that the current
+  deployed controller has not solved the jump. The `spawn_left_speedjump` route is the
+  safe-floor counterpart: it starts at the real ztricks deathmatch spawn
+  (`-1168 1632 -496`), seeds zero velocity, points 90 degrees left from the BSP
+  spawn angle, sets both `lip_x` and `lip_y` so KTX projects Nexus-curve progress
+  along the diagonal lane, rotates the reference curve by `45` degrees, and
+  measures horizontal speed increase rather than far-platform landing. Live batch
+  `zbatch_20260612T180901Z` reached human-level speed on `5/6` attempts, best
+  `506.2 qu/s` against the `495.5 qu/s` target. Reproduction batches
+  `zbatch_20260612T182309Z` and `zbatch_20260612T182505Z` reached `6/6` and
+  `7/8` respectively, with the fixed-param miss at `494.9 qu/s`. Audit log at
   `~/komodobots-lab/control-audit.log`.
   The lab lock `~/komodobots-lab/lab.lock` gives the experiment harness absolute
   priority: `run_frobodm2_lab.py` writes `owner=harness` for the duration of each
@@ -440,6 +510,25 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   a dashboard command failure. The same pass verified the shorter response path no
   longer times out, while botcmd shims still need a 5 s connected window for reliable
   `removeall`.
+  2026-06-12 route-only retry: the ztricks manifest no longer exposes a
+  `game_command` override, so per-bot **try** uses the same route-cvar sequence
+  as replay routes. The bridge quotes space-containing validated cvar values
+  before console stuffing. Browser retry on `dash_20260612T120449Z` selected
+  `distance_standstill` for bot `s5`, pressed that row's **try**, and the server
+  emitted `FBMOVEPROBE_ASSIGN ... ed=5 ... mode=23 mode_src=slot ... fixed_goal=8
+  goal_src=slot spawn_origin=-3516.125,3712,-453.125 spawn_src=slot` followed by
+  mode-23 `FBMOVEPROBE_CMD` rows from the A5 start with `move=320,0,0`.
+  2026-06-12 live retry on fresh session `dash_20260612T135158Z` (port `28599`)
+  exposed the repeat-attempt edge: clearing a per-slot cvar must be stuffed as
+  `set name ""`, and the dashboard must wait one sampled frame before restoring
+  `spawn_origin`, otherwise KTX may only observe the final unchanged value and
+  not re-arm the one-shot spawn snap. After fixing that, selecting
+  `distance_standstill` for `s3` and pressing **try** emitted slot-sourced ASSIGN
+  rows and 21 nonzero mode-23 command rows from the A5 start area. The repeat
+  **try** emitted fresh clear/restore ASSIGN rows and nonzero movement again.
+  The controller still missed the jump: closest first-attempt landing distance
+  was about `138q`, so the remaining controller failure is tracked in GitHub
+  issue #167.
 - Multi-bot attempts: the telemetry stream interleaves one frame per probed bot
   (`frame.ed`/`frame.name`). The 3D view keeps a separate marker/trail/velocity-arrow
   per `ed` (distinct colors, in order of first appearance); the camera follow and the

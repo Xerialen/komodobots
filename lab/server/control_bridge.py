@@ -126,23 +126,63 @@ STOP_GAME_STEPS: tuple[tuple[str, str], ...] = (
     ("client", "break"),
     ("console", f"set k_fb_moveprobe_mode {PRACTICE_IDLE_MODE}"),
 )
+ZTRICKS_PERSLOT_PRESET_STEPS: tuple[tuple[str, str], ...] = tuple(
+    ("console", line)
+    for slot in range(32)
+    for line in (
+        f"set k_fb_moveprobe_mode_s{slot} 0",
+        f"set k_fb_moveprobe_replay_file_s{slot}",
+        f"set k_fb_moveprobe_fixed_goal_s{slot} 8",
+        f'set k_fb_moveprobe_spawn_velocity_s{slot} "259 -172 0"',
+        f'set k_fb_moveprobe_spawn_origin_s{slot} "-3434.375 3686.875 -488"',
+        f"set k_fb_moveprobe_mode_s{slot} 23",
+    )
+)
 ZTRICKS_DISTANCE_STANDSTILL_STEPS: tuple[tuple[str, str], ...] = (
     # One visible attempt: clear any older dashboard bots first so the spawn
     # snap is not polluted by telefragging or stale per-bot state.
     ("botcmd", "removeall"),
-    # A5 Distance start: teleport deposit at t5, zero velocity via spawn-snap.
-    ("console", 'set k_fb_moveprobe_spawn_origin "-3516.125 3712 -453.125"'),
-    # Mode 23 is the deployed frogbot-nav + bunnyhop-weave controller. Marker
-    # 8 in the generated ztricks.bot graph is the far-platform landing marker
-    # for the first getspeed attempt family.
-    ("console", "set k_fb_moveprobe_mode 23"),
+    # Per-slot GUI practice cvars override globals in KTX. Stamp the ztricks
+    # route onto every possible suffix so reused ed slots cannot stay idle.
+    *ZTRICKS_PERSLOT_PRESET_STEPS,
+    ("console", "set k_fb_moveprobe_mode 0"),
+    # A5 Distance first grounded state: avoids the teleport deposit trigger and
+    # preserves the human attempt's existing teleport-exit momentum.
+    ("console", 'set k_fb_moveprobe_spawn_velocity "259 -172 0"'),
+    ("console", 'set k_fb_moveprobe_spawn_origin "-3434.375 3686.875 -488"'),
     ("console", "set k_fb_moveprobe_fixed_goal 8"),
     # Deployed circle-jump launch knobs from the A5 round-2 standstill ledger.
     ("console", "set k_fb_moveprobe_s23_launch_vh 430"),
     ("console", "set k_fb_moveprobe_s23_launch_angle 50"),
     ("console", "set k_fb_moveprobe_s21_swing 8"),
+    ("console", "set k_fb_moveprobe_s23_launch_target_x -3044.1"),
+    ("console", "set k_fb_moveprobe_s23_launch_target_y 3760.5"),
+    ("console", "set k_fb_moveprobe_s23_launch_target_z -488"),
+    ("console", "set k_fb_moveprobe_s23_lip_x -3348"),
+    ("console", "set k_fb_moveprobe_s23_lip_y 0"),
+    ("console", "set k_fb_moveprobe_s23_release_vh 470"),
+    ("console", "set k_fb_moveprobe_s23_release_vh_min 453"),
+    ("console", "set k_fb_moveprobe_s23_carve_d 95"),
+    ("console", "set k_fb_moveprobe_s23_carve_angle 52"),
+    ("console", "set k_fb_moveprobe_s23_carve_side 1"),
+    ("console", "set k_fb_moveprobe_s23_release_lip 35"),
+    ("console", "set k_fb_moveprobe_s23_refcurve 1"),
+    ("console", "set k_fb_moveprobe_s23_refcurve_vh_min 0"),
+    ("console", "set k_fb_moveprobe_s23_refcurve_yaw_offset 0"),
+    ("console", "set k_fb_moveprobe_s23_refcurve_entry_x -3439.375"),
+    ("console", "set k_fb_moveprobe_s23_refcurve_entry_y 3758.125"),
+    ("console", "set k_fb_moveprobe_s23_refcurve_y 3768.5"),
+    ("console", "set k_fb_moveprobe_s23_refcurve_y_tol 24"),
+    ("console", "set k_fb_moveprobe_s23_yawlead_min -12"),
+    ("console", "set k_fb_moveprobe_s23_yawlead_max -4"),
+    ("console", "set k_fb_moveprobe_s23_targeterr_min -2"),
+    ("console", "set k_fb_moveprobe_s23_targeterr_max 10"),
     ("console", "set k_fb_moveprobe_log_commands 1"),
     ("console", "set k_fb_moveprobe_log_interval 0"),
+    # Mode 23 is the deployed frogbot-nav + bunnyhop-weave controller. Marker
+    # 8 in the generated ztricks.bot graph is the far-platform landing marker
+    # for the first getspeed attempt family. Set mode last so all state is armed.
+    ("console", "set k_fb_moveprobe_mode 23"),
     ("addbot", "1"),
 )
 
@@ -266,6 +306,15 @@ def validate_cvar(name: object, value: object, slot: object = None) -> tuple[str
     if hits_flat_deny(name) or hits_flat_deny(value_text):
         return "value or name references a denied port/screen"
     return name, value_text
+
+
+def format_set_cvar_command(name: str, value: str) -> str:
+    """Build a Quake console `set` command for a validated cvar/value pair."""
+    if not value:
+        return f'set {name} ""'
+    if any(ch.isspace() for ch in value):
+        return f'set {name} "{value}"'
+    return f"set {name} {value}"
 
 
 def validate_console_line(line: object) -> str | None:
@@ -946,9 +995,10 @@ class ControlBridge:
             if isinstance(result, str):
                 return self._refuse(req_id, result), None
             name, value = result
-            self.executor.stuff(port, f"set {name} {value}".rstrip())
+            command = format_set_cvar_command(name, value)
+            self.executor.stuff(port, command)
             return (
-                self._ok(req_id, f"set {name} {value}", port=port),
+                self._ok(req_id, command, port=port),
                 {"type": "control_event", "event": "set_cvar", "port": port, "name": name, "value": value},
             )
 
