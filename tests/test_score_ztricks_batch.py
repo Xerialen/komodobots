@@ -126,6 +126,34 @@ class TestScoreZtricksBatch(unittest.TestCase):
         self.assertAlmostEqual(attempt["best_formula"]["formula_score"], 0.0, places=3)
         self.assertAlmostEqual(attempt["closest_landing"]["landing_distance_h_qu"], 0.0, places=3)
 
+    def test_scores_release_projection_between_bot_samples(self) -> None:
+        commands = [
+            command_row(1.00, x=-3370.8, y=3777.2, z=-488.0, vh=450.0, d_lip=22.8),
+            command_row(1.10, x=-3350.8, y=3777.2, z=-488.0, vh=470.0, d_lip=2.8),
+        ]
+
+        report = scorer.score_commands(commands, run_id="synthetic")
+        release = report["attempts"][0]["closest_release"]
+
+        self.assertTrue(release["interpolated"])
+        self.assertAlmostEqual(release["origin"]["x"], -3360.8, places=3)
+        self.assertAlmostEqual(release["release_distance_h_qu"], 0.0, places=3)
+        self.assertAlmostEqual(release["horizontal_speed"], 460.0, places=3)
+
+    def test_scores_physical_lip_x_crossing_between_bot_samples(self) -> None:
+        commands = [
+            command_row(1.00, x=-3350.0, y=3775.0, z=-488.0, vh=460.0, d_lip=2.0),
+            command_row(1.10, x=-3346.0, y=3773.0, z=-482.0, vh=480.0, d_lip=-2.0),
+        ]
+
+        report = scorer.score_commands(commands, run_id="synthetic")
+        lip = report["attempts"][0]["physical_lip_x_crossing"]
+
+        self.assertTrue(lip["interpolated"])
+        self.assertEqual(lip["event_axis"], "x")
+        self.assertAlmostEqual(lip["origin"]["x"], scorer.PHYSICAL_LIP_X, places=3)
+        self.assertAlmostEqual(lip["time_s"], 1.05, places=3)
+
     def test_scores_run_dir_outputs_markdown(self) -> None:
         commands = [
             command_row(1.00, vh=120),

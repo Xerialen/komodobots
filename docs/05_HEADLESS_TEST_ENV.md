@@ -223,6 +223,21 @@ The score is release-first: it compares each attempt to the successful
 lead, jump release, and landing distance). Do not treat a high raw speed or a
 near-lip pass as success unless the release formula rows also improve.
 
+The ztricks scorer now follows Nexus's interpolation advice: sampled telemetry
+rows are not treated as isolated dots. Bot release and landing estimates use
+XY projection onto adjacent sampled segments, and the physical lip event uses
+a linear crossing at `x=-3348`. The human reference trace is generated with:
+
+```bash
+python scripts/build_ztricks_reference_trace.py
+```
+
+That writes `experiments/a5_distance_standstill/ztricks-reference-trace.json/md`.
+The trace keeps conservative linear/projection events for evidence, and also
+adds a local-quadratic controller guidance curve over the terminal mouse/yaw
+sweep. Angles are unwrapped before interpolation so `359 -> 1` is treated as a
+small turn, not a full rotation.
+
 ### Per-slot moveprobe cvars (LD-F1 #95)
 
 With `experiments/ktx_moveprobe/frogbot-moveprobe-perslot.patch` applied to the deployed lab KTX build, the route-defining lab cvars accept a per-slot form `k_fb_moveprobe_<param>_s<N>` for `mode`, `replay_file`, `fixed_goal`, and `spawn_origin`, where `N` is the bot's `ed` number from `FBMOVEPROBE_CMD` rows. Unset per-slot cvars fall back to the global cvar (existing single-route configs behave identically); malformed per-slot values fail loudly (`FBMOVEPROBE_PERSLOT_ERROR` row + bot held at spawn). This is what lets two bots attempt two different routes on the same map at the same time. Per-slot cvars are set through `--ktx-extra-cvars`; extra route files upload via `--extra-replay-cmds` (repeatable). When command logging is on, each bot also emits one `FBMOVEPROBE_ASSIGN` row per assignment change, and `scripts/run_frobodm2_lab.py` parses assignment + error rows into `moveprobe-assignments.json` / `moveprobe-assignments.md` beside the other run artifacts. Full convention, formats, base checksums, and apply notes: `experiments/ktx_moveprobe/README.md`.

@@ -78,6 +78,10 @@ ztricks batch runner: `C:\Users\benya\projects\quakeworld\komodobots\scripts\run
 
 ztricks batch scorer: `C:\Users\benya\projects\quakeworld\komodobots\scripts\score_ztricks_batch.py`
 
+ztricks reference trace builder: `C:\Users\benya\projects\quakeworld\komodobots\scripts\build_ztricks_reference_trace.py`
+
+ztricks reference interpolation helpers: `C:\Users\benya\projects\quakeworld\komodobots\scripts\ztricks_reference_trace.py`
+
 Route-state diagnosis helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\diagnose_route_state.py`
 
 Route-state attribution helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\attribute_route_state_windows.py`
@@ -134,7 +138,9 @@ Why it matters:
 - `scripts/extract_movement_metrics.py` derives per-player horizontal speed, distance, speed-threshold time ratios, stationary time, airborne proxy, and jump cadence from `events.txt` kind `5` player origin samples. S7b added an indexed landing-window speed lookup so long 4on4 human traces can produce movement metrics in seconds instead of timing out in repeated full-list scans.
 - `scripts/summarize_moveprobe_plausibility.py` combines per-run `movement-metrics.json` and `moveprobe-commands.json` artifacts into an explicit command-coverage plus stationary/low-speed gate. S7c carries `jump_cadence_per_min` from movement metrics into committed S3g bot summaries.
 - `scripts/run_ztricks_batch.py` keeps one temporary `ztricks` lab server and one MVD recording alive while cycling remove/add/single-bot Distance attempts through a cvar sweep. It is the efficient harness for attempt-to-attempt ztricks tuning.
-- `scripts/score_ztricks_batch.py` segments a batched `moveprobe-commands.json` into attempts and scores each row against the successful `getspeed.qwd` release formula: release point, speed, velocity yaw, target error, yaw lead, and landing distance.
+- `scripts/score_ztricks_batch.py` segments a batched `moveprobe-commands.json` into attempts and scores each attempt against the successful `getspeed.qwd` release formula. It now interpolates bot attempt events between samples: release/landing use XY projection onto adjacent sampled segments, and the physical lip event uses linear `x=-3348` crossing. This avoids treating sampled rows as isolated dots.
+- `scripts/build_ztricks_reference_trace.py` writes `experiments/a5_distance_standstill/ztricks-reference-trace.json/md` from A5's successful attempt. The trace preserves raw rows, event crossings, and a local-quadratic controller guidance curve over the terminal sweep; angles are unwrapped before interpolation.
+- `scripts/ztricks_reference_trace.py` is the shared interpolation helper for the ztricks reference trace and scorer. Event proof stays conservative (piecewise linear/projection) while controller guidance can use local quadratic samples.
 - `scripts/diagnose_route_state.py` joins position segments, sampled moveprobe commands, and map-entity locations to identify low-speed windows and whether current artifacts contain route node/goal/obstruction state.
 - `scripts/attribute_route_state_windows.py` decodes route-state low-speed windows against KTX/Frogbot flag definitions and `.bot` route-map edges, producing compact S6 attribution evidence without changing controller behavior.
 - `scripts/inspect_route_edge_geometry.py` inspects one Frogbot `.bot` edge, its reciprocal/direct neighborhood, static marker-origin availability, and matching S6 attribution samples to decide whether a route-data geometry fix is justified.

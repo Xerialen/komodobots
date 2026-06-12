@@ -23,6 +23,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Iterable
 
+import ztricks_reference_trace as ref
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
@@ -30,18 +32,9 @@ DEFAULT_ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
 BUTTON_JUMP = 2
 
 SPAWN_ORIGIN = {"x": -3516.125, "y": 3712.0, "z": -453.125}
-HUMAN_RELEASE = {
-    "origin": {"x": -3360.8, "y": 3777.2, "z": -488.0},
-    "horizontal_speed": 475.2,
-    "velocity_yaw_deg": -11.3,
-    "target_error_deg": 8.3,
-    "yaw_lead_deg": -7.7,
-    "d_lip_qu": 12.8,
-}
-HUMAN_LANDING = {
-    "origin": {"x": -3044.1, "y": 3760.5, "z": -488.0},
-    "horizontal_speed": 495.5,
-}
+HUMAN_RELEASE = ref.HUMAN_RELEASE
+HUMAN_LANDING = ref.HUMAN_LANDING
+PHYSICAL_LIP_X = ref.PHYSICAL_LIP_X
 
 
 def load_json(path: Path) -> dict:
@@ -120,6 +113,197 @@ def has_attempt_signal(row: dict[str, object]) -> bool:
     )
 
 
+def interpolate_zjump_state(a: dict[str, object], b: dict[str, object], alpha: float) -> dict[str, object]:
+    az = a.get("zjump_state")
+    bz = b.get("zjump_state")
+    if not isinstance(az, dict) or not isinstance(bz, dict):
+        chosen = az if alpha < 0.5 else bz
+        return dict(chosen) if isinstance(chosen, dict) else {}
+    return {
+        "phase": int(az.get("phase", 0)) if alpha < 0.5 else int(bz.get("phase", 0)),
+        "d_lip_qu": ref.lerp(float(az.get("d_lip_qu", 999999.0)), float(bz.get("d_lip_qu", 999999.0)), alpha),
+        "horizontal_speed": ref.lerp(
+            float(az.get("horizontal_speed", 0.0)),
+            float(bz.get("horizontal_speed", 0.0)),
+            alpha,
+        ),
+        "velocity_yaw_deg": ref.lerp_angle_deg(
+            float(az.get("velocity_yaw_deg", 0.0)),
+            float(bz.get("velocity_yaw_deg", 0.0)),
+            alpha,
+        ),
+        "target_yaw_deg": ref.lerp_angle_deg(
+            float(az.get("target_yaw_deg", 0.0)),
+            float(bz.get("target_yaw_deg", 0.0)),
+            alpha,
+        ),
+        "target_error_deg": ref.lerp_angle_deg(
+            float(az.get("target_error_deg", 0.0)),
+            float(bz.get("target_error_deg", 0.0)),
+            alpha,
+        ),
+        "yaw_lead_deg": ref.lerp_angle_deg(
+            float(az.get("yaw_lead_deg", 0.0)),
+            float(bz.get("yaw_lead_deg", 0.0)),
+            alpha,
+        ),
+        "armed": bool(az.get("armed", False)) if alpha < 0.5 else bool(bz.get("armed", False)),
+        "release_rule": int(az.get("release_rule", 0)) if alpha < 0.5 else int(bz.get("release_rule", 0)),
+    }
+
+
+def interpolate_attempt_rows(a: dict[str, object], b: dict[str, object], alpha: float) -> dict[str, object]:
+    origin_a = a["origin"]
+    origin_b = b["origin"]
+    row = {
+        "time_s": ref.lerp(float(a["time_s"]), float(b["time_s"]), alpha),
+        "ed": int(a["ed"]),
+        "name": str(a["name"]),
+        "mode": int(a.get("mode", 23)),
+        "msec": int(a.get("msec", 0)) if alpha < 0.5 else int(b.get("msec", 0)),
+        "angles": a.get("angles") if alpha < 0.5 else b.get("angles"),
+        "move": a.get("move") if alpha < 0.5 else b.get("move"),
+        "buttons": int(a.get("buttons", 0)) if alpha < 0.5 else int(b.get("buttons", 0)),
+        "impulse": int(a.get("impulse", 0)) if alpha < 0.5 else int(b.get("impulse", 0)),
+        "origin": {
+            axis: ref.lerp(float(origin_a[axis]), float(origin_b[axis]), alpha)
+            for axis in ("x", "y", "z")
+        },
+        "zjump_state": interpolate_zjump_state(a, b, alpha),
+        "interpolated": True,
+        "interpolation_alpha": round(alpha, 6),
+        "interpolated_between_time_s": [
+            round(float(a["time_s"]), 6),
+            round(float(b["time_s"]), 6),
+        ],
+    }
+    return row
+
+
+def project_point_to_segment(
+    a: dict[str, object],
+    b: dict[str, object],
+    point: dict[str, object],
+) -> tuple[float, dict[str, object]]:
+    ao = a["origin"]
+    bo = b["origin"]
+    ax = float(ao["x"])
+    ay = float(ao["y"])
+    bx = float(bo["x"])
+    by = float(bo["y"])
+    px = float(point["x"])
+    py = float(point["y"])
+    dx = bx - ax
+    dy = by - ay
+    length_sq = dx * dx + dy * dy
+    alpha = 0.0 if length_sq <= 1e-9 else max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / length_sq))
+    row = interpolate_attempt_rows(a, b, alpha)
+    distance = distance_h(row["origin"], point)
+    row["projection_distance_h_qu"] = round(distance, 3)
+    return distance, row
+
+
+def continuous_closest_row(rows: list[dict[str, object]], point: dict[str, object]) -> dict[str, object] | None:
+    origin_rows = [row for row in rows if isinstance(row.get("origin"), dict)]
+    if not origin_rows:
+        return None
+    best_distance = float("inf")
+    best_row: dict[str, object] | None = None
+    for row in origin_rows:
+        dist = distance_h(row["origin"], point)
+        if dist < best_distance:
+            best_distance = dist
+            best_row = dict(row)
+            best_row["projection_distance_h_qu"] = round(dist, 3)
+            best_row["interpolated"] = False
+    for a, b in zip(origin_rows, origin_rows[1:]):
+        dist, projected = project_point_to_segment(a, b, point)
+        if dist < best_distance:
+            best_distance = dist
+            best_row = projected
+    return best_row
+
+
+def x_crossing_event(rows: list[dict[str, object]], x: float) -> dict[str, object] | None:
+    origin_rows = [row for row in rows if isinstance(row.get("origin"), dict)]
+    for a, b in zip(origin_rows, origin_rows[1:]):
+        ax = float(a["origin"]["x"])
+        bx = float(b["origin"]["x"])
+        if (ax <= x <= bx) or (bx <= x <= ax):
+            alpha = 0.0 if abs(bx - ax) < 1e-9 else (x - ax) / (bx - ax)
+            row = interpolate_attempt_rows(a, b, alpha)
+            row["event_axis"] = "x"
+            row["event_value"] = x
+            return row
+    closest = continuous_closest_row(origin_rows, {"x": x, "y": HUMAN_RELEASE["origin"]["y"], "z": HUMAN_RELEASE["origin"]["z"]})
+    if closest is not None:
+        closest["event_axis"] = "x"
+        closest["event_value"] = x
+        closest["event_fallback"] = "closest_sample_or_segment"
+    return closest
+
+
+def first_matching_row(rows: list[dict[str, object]], predicate) -> dict[str, object] | None:
+    for row in rows:
+        if predicate(row):
+            out = dict(row)
+            out["interpolated"] = False
+            return out
+    return None
+
+
+def reference_event_summary(reference_trace: dict[str, object] | None) -> dict[str, object] | None:
+    if not reference_trace:
+        return None
+    events = reference_trace.get("events")
+    if not isinstance(events, dict):
+        return None
+    return {
+        "schema": reference_trace.get("schema"),
+        "source": reference_trace.get("source", {}),
+        "events": {
+            name: events.get(name)
+            for name in ("release_jump", "physical_lip_x_crossing", "landing")
+            if name in events
+        },
+    }
+
+
+def compare_to_reference_event(row: dict[str, object] | None, reference_event: dict[str, object] | None) -> dict[str, object] | None:
+    if row is None or reference_event is None:
+        return None
+    zjump = row.get("zjump_state") if isinstance(row.get("zjump_state"), dict) else {}
+    origin = row.get("origin") if isinstance(row.get("origin"), dict) else None
+    ref_origin = reference_event.get("origin") if isinstance(reference_event.get("origin"), dict) else None
+    return {
+        "time_error_s": round(float(row.get("time_s", 0.0)) - float(reference_event.get("time_s", 0.0)), 6),
+        "position_error_h_qu": round(distance_h(origin, ref_origin), 3) if origin and ref_origin else None,
+        "position_error_3d_qu": round(distance_3d(origin, ref_origin), 3) if origin and ref_origin else None,
+        "speed_error": round(row_speed(row) - float(reference_event.get("horizontal_speed", 0.0)), 3),
+        "velocity_yaw_error_deg": round(
+            angle_delta_deg(float(zjump.get("velocity_yaw_deg", 0.0)), float(reference_event.get("velocity_yaw_deg", 0.0))),
+            3,
+        )
+        if zjump
+        else None,
+        "target_error_delta_deg": round(
+            angle_delta_deg(float(zjump.get("target_error_deg", 0.0)), float(reference_event.get("target_error_deg", 0.0))),
+            3,
+        )
+        if zjump
+        else None,
+        "yaw_lead_delta_deg": round(
+            angle_delta_deg(float(zjump.get("yaw_lead_deg", 0.0)), float(reference_event.get("yaw_lead_deg", 0.0))),
+            3,
+        )
+        if zjump
+        else None,
+        "d_lip_error_qu": round(float(zjump.get("d_lip_qu", 0.0)) - float(reference_event.get("d_lip_qu", 0.0)), 3)
+        if zjump
+        else None,
+    }
+
+
 def split_attempts(
     commands: list[dict[str, object]],
     *,
@@ -170,7 +354,7 @@ def split_attempts(
 def enrich_row(row: dict[str, object]) -> dict[str, object]:
     origin = row.get("origin") if isinstance(row.get("origin"), dict) else None
     zjump = row.get("zjump_state") if isinstance(row.get("zjump_state"), dict) else {}
-    return {
+    enriched = {
         "time_s": round(float(row.get("time_s", 0.0)), 3),
         "origin": origin,
         "horizontal_speed": round(row_speed(row), 3),
@@ -183,6 +367,18 @@ def enrich_row(row: dict[str, object]) -> dict[str, object]:
         "move": row.get("move"),
         "zjump_state": zjump,
     }
+    for key in (
+        "interpolated",
+        "interpolation_alpha",
+        "interpolated_between_time_s",
+        "projection_distance_h_qu",
+        "event_axis",
+        "event_value",
+        "event_fallback",
+    ):
+        if key in row:
+            enriched[key] = row[key]
+    return enriched
 
 
 def classify_attempt(summary: dict[str, object]) -> str:
@@ -197,10 +393,14 @@ def classify_attempt(summary: dict[str, object]) -> str:
     return "no_zjump_data"
 
 
-def summarize_attempt(attempt: dict[str, object]) -> dict[str, object]:
+def summarize_attempt(
+    attempt: dict[str, object],
+    *,
+    reference_events: dict[str, object] | None = None,
+) -> dict[str, object]:
     rows: list[dict[str, object]] = list(attempt["rows"])
     zjump_rows = [row for row in rows if isinstance(row.get("zjump_state"), dict)]
-    origins = [row for row in rows if isinstance(row.get("origin"), dict)]
+    reference_events = reference_events or {}
 
     phase_counts: Counter[int] = Counter()
     armed_rows = 0
@@ -213,17 +413,15 @@ def summarize_attempt(attempt: dict[str, object]) -> dict[str, object]:
         if int(zjump.get("release_rule", 0)) > 0:
             release_rows += 1
 
-    best_formula = min(zjump_rows, key=row_formula_score) if zjump_rows else None
-    closest_release = (
-        min(origins, key=lambda row: distance_h(row["origin"], HUMAN_RELEASE["origin"]))
-        if origins
-        else None
-    )
-    closest_landing = (
-        min(origins, key=lambda row: distance_h(row["origin"], HUMAN_LANDING["origin"]))
-        if origins
-        else None
-    )
+    continuous_release = continuous_closest_row(rows, HUMAN_RELEASE["origin"])
+    continuous_landing = continuous_closest_row(rows, HUMAN_LANDING["origin"])
+    physical_lip_crossing = x_crossing_event(rows, PHYSICAL_LIP_X)
+    first_jump = first_matching_row(rows, lambda row: bool(int(row.get("buttons", 0)) & BUTTON_JUMP))
+    formula_candidates = [row for row in zjump_rows if isinstance(row.get("zjump_state"), dict)]
+    for candidate in (continuous_release, physical_lip_crossing, first_jump):
+        if candidate is not None and isinstance(candidate.get("zjump_state"), dict):
+            formula_candidates.append(candidate)
+    best_formula = min(formula_candidates, key=row_formula_score) if formula_candidates else None
     fastest = max(rows, key=row_speed) if rows else None
 
     start_time = float(rows[0]["time_s"]) if rows else 0.0
@@ -257,8 +455,22 @@ def summarize_attempt(attempt: dict[str, object]) -> dict[str, object]:
         if HUMAN_RELEASE["horizontal_speed"]
         else None,
         "best_formula": enrich_row(best_formula) if best_formula else None,
-        "closest_release": enrich_row(closest_release) if closest_release else None,
-        "closest_landing": enrich_row(closest_landing) if closest_landing else None,
+        "closest_release": enrich_row(continuous_release) if continuous_release else None,
+        "physical_lip_x_crossing": enrich_row(physical_lip_crossing) if physical_lip_crossing else None,
+        "first_jump": enrich_row(first_jump) if first_jump else None,
+        "closest_landing": enrich_row(continuous_landing) if continuous_landing else None,
+        "release_vs_reference": compare_to_reference_event(
+            continuous_release,
+            reference_events.get("release_jump") if isinstance(reference_events, dict) else None,
+        ),
+        "lip_vs_reference": compare_to_reference_event(
+            physical_lip_crossing,
+            reference_events.get("physical_lip_x_crossing") if isinstance(reference_events, dict) else None,
+        ),
+        "landing_vs_reference": compare_to_reference_event(
+            continuous_landing,
+            reference_events.get("landing") if isinstance(reference_events, dict) else None,
+        ),
     }
     summary["classification"] = classify_attempt(summary)
     return summary
@@ -270,9 +482,16 @@ def score_commands(
     gap_s: float = 0.75,
     spawn_radius_qu: float = 32.0,
     run_id: str = "",
+    reference_trace: dict[str, object] | None = None,
 ) -> dict[str, object]:
     attempts = split_attempts(commands, gap_s=gap_s, spawn_radius_qu=spawn_radius_qu)
-    summaries = [summarize_attempt(attempt) for attempt in attempts]
+    reference_events = {}
+    if reference_trace and isinstance(reference_trace.get("events"), dict):
+        reference_events = reference_trace["events"]
+    summaries = [
+        summarize_attempt(attempt, reference_events=reference_events)
+        for attempt in attempts
+    ]
 
     best_formula = min(
         (s for s in summaries if s.get("best_formula")),
@@ -294,6 +513,11 @@ def score_commands(
             "release": HUMAN_RELEASE,
             "landing": HUMAN_LANDING,
         },
+        "interpolation": {
+            "attempt_events": "xy_projection_onto_adjacent_bot_samples",
+            "lip_crossing": "piecewise_linear_x_crossing",
+            "reference": reference_event_summary(reference_trace),
+        },
         "command_count": len(commands),
         "attempt_count": len(summaries),
         "best_formula_attempt": best_formula["attempt_index"] if best_formula else None,
@@ -311,12 +535,26 @@ def read_commands(run_dir: Path) -> list[dict[str, object]]:
     return commands
 
 
-def score_run_dir(run_dir: Path, *, gap_s: float = 0.75, spawn_radius_qu: float = 32.0) -> dict[str, object]:
+def load_reference_trace(path: Path | None = None) -> dict[str, object]:
+    trace_path = path or ref.DEFAULT_TRACE_JSON
+    if trace_path.is_file():
+        return load_json(trace_path)
+    return ref.build_trace()
+
+
+def score_run_dir(
+    run_dir: Path,
+    *,
+    gap_s: float = 0.75,
+    spawn_radius_qu: float = 32.0,
+    reference_trace: dict[str, object] | None = None,
+) -> dict[str, object]:
     return score_commands(
         read_commands(run_dir),
         gap_s=gap_s,
         spawn_radius_qu=spawn_radius_qu,
         run_id=run_dir.name,
+        reference_trace=reference_trace or load_reference_trace(),
     )
 
 
@@ -337,18 +575,25 @@ def render_markdown(report: dict[str, object]) -> str:
         f"- Best release-formula attempt: `{report['best_formula_attempt']}`",
         f"- Fastest attempt: `{report['fastest_attempt']}`",
         f"- Best landing-distance attempt: `{report['best_landing_attempt']}`",
+        f"- Attempt-event interpolation: `{report.get('interpolation', {}).get('attempt_events', 'n/a')}`",
+        f"- Lip-crossing interpolation: `{report.get('interpolation', {}).get('lip_crossing', 'n/a')}`",
         "",
-        "| # | bot | rows | max vh | closest release | best formula | armed/release | closest landing | class |",
-        "|---:|---|---:|---:|---|---|---|---|---|",
+        "| # | bot | rows | max vh | release projection | lip x=-3348 | best formula | armed/release | landing projection | class |",
+        "|---:|---|---:|---:|---|---|---|---|---|---|",
     ]
     for attempt in report["attempts"]:
         closest_release = attempt.get("closest_release") or {}
+        physical_lip = attempt.get("physical_lip_x_crossing") or {}
         best_formula = attempt.get("best_formula") or {}
         closest_landing = attempt.get("closest_landing") or {}
         best_zjump = best_formula.get("zjump_state") or {}
         release_text = (
             f"{fmt(closest_release.get('release_distance_h_qu'))}q @ "
             f"{fmt(closest_release.get('horizontal_speed'))}"
+        )
+        lip_text = (
+            f"{fmt(physical_lip.get('time_s'), 3)}s @ "
+            f"{fmt(physical_lip.get('horizontal_speed'))}"
         )
         formula_text = (
             f"score {fmt(best_formula.get('formula_score'))}, "
@@ -365,7 +610,7 @@ def render_markdown(report: dict[str, object]) -> str:
         lines.append(
             f"| {attempt['attempt_index']} | `{attempt['name']}` ed `{attempt['ed']}` | "
             f"{attempt['row_count']} | {fmt(attempt['max_zjump_speed'])} | "
-            f"{release_text} | {formula_text} | "
+            f"{release_text} | {lip_text} | {formula_text} | "
             f"{attempt['armed_rows']}/{attempt['release_rows']} | "
             f"{landing_text} | `{attempt['classification']}` |"
         )
@@ -393,6 +638,12 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         default=32.0,
         help="Spawn-snap radius in qu used to split same-ed repeated attempts.",
     )
+    parser.add_argument(
+        "--reference-trace",
+        type=Path,
+        default=None,
+        help="Interpolated ztricks reference trace JSON. Defaults to A5 generated trace.",
+    )
     parser.add_argument("--output-json", type=Path, default=None, help="Output JSON path.")
     parser.add_argument("--output-md", type=Path, default=None, help="Output Markdown path.")
     return parser.parse_args(list(argv))
@@ -405,7 +656,12 @@ def main(argv: Iterable[str] | None = None) -> int:
         print(f"Run directory not found: {run_dir}", file=sys.stderr)
         return 2
     try:
-        report = score_run_dir(run_dir, gap_s=args.gap_s, spawn_radius_qu=args.spawn_radius)
+        report = score_run_dir(
+            run_dir,
+            gap_s=args.gap_s,
+            spawn_radius_qu=args.spawn_radius,
+            reference_trace=load_reference_trace(args.reference_trace),
+        )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"Could not score run: {exc}", file=sys.stderr)
         return 2

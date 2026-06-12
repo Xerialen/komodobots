@@ -233,6 +233,7 @@ For ztricks Distance specifically, use the batch harness when tuning approach
 and release parameters:
 
 ```bash
+python scripts/build_ztricks_reference_trace.py
 python scripts/run_ztricks_batch.py --attempts 6 --attempt-seconds 8
 python scripts/score_ztricks_batch.py --run-id <run-id>
 ```
@@ -243,6 +244,15 @@ state, `removeall`, setting the mode-23 Distance cvars, restoring the A5 spawn
 origin, and adding one bot. `score_ztricks_batch.py` segments the resulting
 `moveprobe-commands.json` into attempts and scores each against the successful
 human `getspeed.qwd` release formula before landing distance.
+
+Interpolation contract (Nexus note, 2026-06-12): do not compare only discrete
+sample rows. `score_ztricks_batch.py` estimates bot release/landing by
+projecting the target point onto adjacent sampled segments, and estimates the
+physical lip event by linearly crossing `x=-3348`. The generated
+`ztricks-reference-trace.json` keeps those conservative event estimates for
+evidence, plus a local-quadratic controller guidance curve over the successful
+human terminal sweep (angles are unwrapped before interpolation). Do not spline
+across teleports or attempt boundaries.
 
 When command logging is enabled, the runner parses `screen.log` and writes:
 

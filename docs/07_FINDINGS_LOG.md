@@ -4380,3 +4380,82 @@ needed for attempt-to-attempt tuning. The controller did not improve: all three
 attempts stayed far below the `453 qu/s` release floor, so the next useful work
 is still approach-speed generation before the lip, not release-threshold
 relaxation or GUI changes.
+
+
+## 2026-06-12 -- ztricks scoring now interpolates between datapoints
+
+### Finding
+
+Nexus pointed out that discrete timestep data should be interpolated between
+datapoints. Applying that to ztricks changes both how we score live attempts and
+how the controller should eventually consume the human reference. Nearest-row
+scoring is too coarse for a 13 ms command stream when the decisive terminal
+window is about 195 ms.
+
+### Change
+
+- Added `scripts/ztricks_reference_trace.py` and
+  `scripts/build_ztricks_reference_trace.py`.
+- Generated
+  `experiments/a5_distance_standstill/ztricks-reference-trace.json/md` from
+  the successful `getspeed.qwd` attempt.
+- Updated `scripts/score_ztricks_batch.py`:
+  - release and landing estimates now project onto adjacent bot-sample
+    segments instead of choosing only the nearest sampled row.
+  - the physical lip event now uses a piecewise-linear crossing at `x=-3348`.
+  - reports include interpolation metadata and can take an explicit
+    `--reference-trace`.
+- Added tests for angle unwrapping, local quadratic interpolation, interpolated
+  physical-lip detection, and bot-side release/lip projection.
+
+### Evidence
+
+Reference trace generation:
+
+```text
+python scripts\build_ztricks_reference_trace.py
+```
+
+Key generated reference events:
+
+- `release_jump`: row `1918`, `t=1.441`, origin
+  `(-3360.8, 3777.2, -488.0)`, `vh=475.2`, velocity yaw `-11.3`,
+  view yaw `-19.0`, yaw lead `-7.7`, buttons `2`.
+- `physical_lip_x_crossing`: interpolated between rows `1920..1921`,
+  `t=1.468`, `x=-3348.0`, `vh=475.2`.
+- `landing`: row `1969`, `t=2.103`, origin
+  `(-3044.1, 3760.5, -488.0)`, `vh=495.5`.
+- Controller guidance curve: local quadratic Lagrange samples every `0.01s`
+  from terminal sweep start to physical lip crossing, with angles unwrapped
+  before interpolation.
+
+Validation:
+
+```text
+python -m unittest tests.test_ztricks_reference_trace tests.test_score_ztricks_batch tests.test_extract_movement_metrics -v
+python -m py_compile scripts\ztricks_reference_trace.py scripts\build_ztricks_reference_trace.py scripts\score_ztricks_batch.py scripts\run_ztricks_batch.py
+```
+
+Result: `26` focused/adjacent interpolation, scorer, and moveprobe parsing
+tests passed.
+
+Rescoring live batch `zbatch_20260612T160053Z` still yields the same controller
+verdict, now with interpolated event semantics:
+
+- `3` attempts scored.
+- best attempt still attempt `2`.
+- release projection: `79.7q` away at `133.3 qu/s`.
+- physical lip crossing estimate: `t=29.804s` at `120.4 qu/s`.
+- closest landing projection: `332.0q` away at `70.8 qu/s`.
+- `armed_rows=0`, `release_rows=0`, classification
+  `approach_speed_below_release_floor`.
+
+### Interpretation
+
+Nexus's interpolation point is now part of the toolchain. Evidence events stay
+conservative and non-overshooting (linear/projection), while the reference
+trace also exposes a smooth local-quadratic controller curve for the mouse/yaw
+sweep. The result does not make the current controller better; it makes the
+diagnosis sharper. The next controller experiment should chase the
+interpolated/quadratic terminal yaw and velocity-heading curve, while still
+using release-state gates before claiming a jump attempt is meaningful.
