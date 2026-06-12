@@ -136,6 +136,12 @@ fwd+side carve while inside the lane corridor, but the jump/release remains
 gated: a normal formula release still requires `armed=1`, and the fallback
 "try anyway" jump is limited to the release-lip window.
 
+The `spawn_left_speedjump` route reduces the same problem to flat ground. It
+starts at the real ztricks deathmatch spawn, turns 90 degrees left from the BSP
+spawn angle, rotates the reference-curve yaw by `45` degrees, and scores
+horizontal speed gain instead of ledge completion. This exists to separate
+"the controller cannot gain speed" from "the controller cannot land Distance."
+
 The 2026-06-12 reference-curve live retries fixed the no-movement symptom but
 did not solve Distance. Best scored segments stayed around `401-407 qu/s`, below
 the `453 qu/s` arm floor. Raw rows show the bot reaches the terminal corridor

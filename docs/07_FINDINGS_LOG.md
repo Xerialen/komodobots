@@ -4553,3 +4553,41 @@ mouse curve: the controller must arrive at the ledge on a useful ground frame
 with at least `453 qu/s`, then spend the jump in the release window. The next
 smallest experiment should tune start position and/or approach-hop cadence
 before changing the terminal formula again.
+
+
+## 2026-06-12 -- ztricks spawn-floor speedjump route added
+
+### Finding
+
+The live Distance loop is too hard as the first calibration target. The same
+speedjump controller now has a safe ztricks route that removes ledge/trap
+success from the equation: start at the real deathmatch spawn, turn 90 degrees
+left from the BSP spawn angle, run the terminal speedjump/reference-curve law on
+flat ground, and judge the attempt by horizontal speed gain.
+
+### Change
+
+- Added `spawn_left_speedjump` to `lab/dashboard/public/data/routes/ztricks.json`
+  via `lab/tools/build_routes_manifest.py`.
+- The route uses spawn origin `-1168 1632 -496`, zero spawn velocity, yaw `45`,
+  synthetic lip `[-920.5, 1879.5, -496.0]`, and target
+  `[-796.1, 2003.9, -496.0]`.
+- Added default-off KTX patch support for
+  `k_fb_moveprobe_s23_refcurve_yaw_offset`, so the human reference curve can be
+  rotated onto the spawn-floor lane without changing Distance behavior.
+- Updated the dashboard control drawer so route assignment clears and reapplies
+  per-slot `spawn_velocity`; this prevents the A5 Distance route's seeded
+  velocity from leaking into standstill routes.
+
+### Evidence
+
+Validation in this change: route manifest rebuild and focused unit tests for
+the manifest, mockup data contract, drawer route-cvar assignment, and KTX patch
+static contract.
+
+### Interpretation
+
+This does not claim the bot can execute the full multi-hop stop/turn-back drill
+yet. It creates the smallest live calibration step that answers the user's
+actual question: does the same speedjump/mouse-curve law increase speed on safe
+ground when ledges and traps are removed?

@@ -1,7 +1,7 @@
 """LD-F1 (#95): structural guard for the committed per-slot KTX patch.
 
 CI cannot compile KTX, so this asserts the contract the rest of the lab
-depends on: the per-slot helper + all four wired params exist in the patch,
+depends on: the per-slot helper + all route params exist in the patch,
 the loud-fail and ASSIGN emitters use exactly the format strings the Python
 parsers expect (drift guard against moveprobe_parse.py), and the patch stays
 additive with respect to the FBMOVEPROBE_CMD stream.
@@ -187,6 +187,7 @@ class PerSlotPatchTests(unittest.TestCase):
             "k_fb_moveprobe_s23_release_lip",
             "k_fb_moveprobe_s23_refcurve",
             "k_fb_moveprobe_s23_refcurve_vh_min",
+            "k_fb_moveprobe_s23_refcurve_yaw_offset",
             "k_fb_moveprobe_s23_refcurve_entry_x",
             "k_fb_moveprobe_s23_refcurve_entry_y",
             "k_fb_moveprobe_s23_refcurve_y",
@@ -200,6 +201,8 @@ class PerSlotPatchTests(unittest.TestCase):
         self.assertIn("zjump_enabled = ((ztarget_x != 0.0f)", self.added_blob)
         self.assertIn("BotMoveProbeZtricksReferenceCurve", self.added_blob)
         self.assertIn("BotMoveProbeQuadratic", self.added_blob)
+        self.assertIn("zdesired_vel_yaw = anglemod(zdesired_vel_yaw + zrefcurve_yaw_offset);", self.added_blob)
+        self.assertIn("zdesired_view_yaw = anglemod(zdesired_view_yaw + zrefcurve_yaw_offset);", self.added_blob)
         self.assertIn("fallback_x = zrefcurve_entry_x;", self.added_blob)
         self.assertIn("fallback_y = zrefcurve_entry_y;", self.added_blob)
         self.assertIn("nav_dir[0] = fallback_x - self->s.v.origin[0];", self.added_blob)

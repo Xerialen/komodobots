@@ -465,7 +465,11 @@ TypeScript + three.js, base `/botlab/`; absorbed from `Xerialen/local-hub`
   and target-error windows), then lets the operator start it with that bot's
   `try` or `loop` action while `stand still` returns the slot to mode 24. This creates
   a visible standing-start attempt; it does not change the A5 finding that the current
-  deployed controller has not solved the jump. Audit log at
+  deployed controller has not solved the jump. The `spawn_left_speedjump` route is the
+  safe-floor counterpart: it starts at the real ztricks deathmatch spawn
+  (`-1168 1632 -496`), seeds zero velocity, points 90 degrees left from the BSP
+  spawn angle, rotates the reference curve by `45` degrees, and measures horizontal
+  speed increase rather than far-platform landing. Audit log at
   `~/komodobots-lab/control-audit.log`.
   The lab lock `~/komodobots-lab/lab.lock` gives the experiment harness absolute
   priority: `run_frobodm2_lab.py` writes `owner=harness` for the duration of each

@@ -5,7 +5,8 @@ drawer consume:
 
   * all dashboard maps emit a manifest plus index.json; non-dm3 maps are
     honest empty route lists, never missing files, except ztricks, which
-    carries the successful getspeed.qwd Distance reference;
+    carries the successful getspeed.qwd Distance reference plus a spawn-floor
+    speed-gain drill;
   * dm3 reproduces the 11 censused routes (sorted by name) with non-empty
     downsampled polylines, census human stats, gap markers (edge/land xyz,
     required_speed, human_speed_at_edge, hard, type), teleports, and
@@ -70,7 +71,10 @@ class TestSchema(unittest.TestCase):
             self.assertEqual(doc["routes"], [], name)
             self.assertIn("provenance", doc, name)
         ztricks = self.docs["ztricks.json"]
-        self.assertEqual([r["name"] for r in ztricks["routes"]], ["distance_standstill"])
+        self.assertEqual(
+            [r["name"] for r in ztricks["routes"]],
+            ["distance_standstill", "spawn_left_speedjump"],
+        )
         self.assertEqual(ztricks["routes"][0]["control"]["mode"], 23)
         self.assertEqual(ztricks["routes"][0]["control"]["spawn_origin"], "-3434.375 3686.875 -488")
         self.assertEqual(ztricks["routes"][0]["control"]["spawn_velocity"], "259 -172 0")
@@ -115,6 +119,33 @@ class TestSchema(unittest.TestCase):
         self.assertEqual(cvars["k_fb_moveprobe_s23_targeterr_min"], -2)
         self.assertEqual(cvars["k_fb_moveprobe_s23_targeterr_max"], 10)
 
+    def test_ztricks_spawn_left_speedjump_is_flat_speed_gain_route(self):
+        route = next(
+            r for r in self.docs["ztricks.json"]["routes"]
+            if r["name"] == "spawn_left_speedjump"
+        )
+        self.assertEqual(route["human"], {
+            "duration_s": None,
+            "active_mean_speed": None,
+            "peak_speed": None,
+        })
+        self.assertEqual(route["gaps"], [])
+        self.assertEqual(route["reference"]["spawn_origin"], [-1168.0, 1632.0, -496.0])
+        self.assertEqual(route["reference"]["spawn_angle_deg"], 315.0)
+        self.assertEqual(route["reference"]["left_yaw_deg"], 45.0)
+        self.assertEqual(route["reference"]["success_metric"], "horizontal_speed_gain")
+        self.assertEqual(route["control"]["mode"], 23)
+        self.assertEqual(route["control"]["fixed_goal"], 0)
+        self.assertEqual(route["control"]["spawn_origin"], "-1168 1632 -496")
+        self.assertEqual(route["control"]["spawn_velocity"], "0 0 0")
+        cvars = route["control"]["cvars"]
+        self.assertEqual(cvars["k_fb_moveprobe_s23_refcurve_yaw_offset"], 45.0)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_lip_x"], -920.5)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_launch_target_x"], -796.1)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_launch_target_y"], 2003.9)
+        self.assertEqual(route["polyline"][0], [-1168.0, 1632.0, -496.0])
+        self.assertEqual(route["polyline"][-1], [-796.1, 2003.9, -496.0])
+
     def test_ztricks_source_hashes_are_recorded(self):
         route = self.docs["ztricks.json"]["routes"][0]
         src = route["source"]
@@ -133,7 +164,7 @@ class TestSchema(unittest.TestCase):
         self.assertEqual([m["file"] for m in maps],
                          ["dm3.json", "dm2.json", "frobodm2.json",
                           "trick.json", "ztricks.json"])
-        self.assertEqual([m["routes"] for m in maps], [11, 0, 0, 0, 1])
+        self.assertEqual([m["routes"] for m in maps], [11, 0, 0, 0, 2])
 
     def test_every_route_has_nonempty_polyline_of_xyz_points(self):
         for route in (

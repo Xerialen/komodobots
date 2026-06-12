@@ -914,7 +914,10 @@ python lab/tools/build_routes_manifest.py
   lip row `1918`, landing row `1969`, edge speed `475.2`, landing speed
   `495.5`, launch heading `-11.7`, and the source hashes. Its
   `required_speed` remains null because A5 showed speed alone is not a
-  sufficient success gate for the Distance jump.
+  sufficient success gate for the Distance jump. The same manifest also
+  carries `spawn_left_speedjump`, a flat-ground spawn-floor route from the real
+  deathmatch spawn (`-1168 1632 -496`, BSP angle `315`, left yaw `45`) whose
+  success metric is horizontal speed gain rather than reaching a landing.
 - **Empty-map honesty**: dm2/frobodm2/trick emit `"routes": []` rather than
   omitting files — the Mockup view renders "no censused routes yet" from that.
 - **Determinism**: no wall clock anywhere; hashes are sha256 over

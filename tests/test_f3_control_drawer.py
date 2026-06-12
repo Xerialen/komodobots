@@ -1,8 +1,9 @@
 """LD-F3 (#105): control drawer — Codex P1 fix coverage.
 
 Tests cover the four areas named in the Codex block:
-  1. Full per-slot assignment emission (all 4 cvars: replay_file, mode,
-     fixed_goal, spawn_origin) via control_bridge.validate_cvar expansion.
+  1. Full per-slot assignment emission (all route cvars: replay_file, mode,
+     fixed_goal, spawn_origin, spawn_velocity) via control_bridge.validate_cvar
+     expansion.
   2. ASSIGN telemetry row broadcast in telemetry_ws (new path added in this PR).
   3. Route-name round-trip: "dm3_sng_to_rl.cmds" -> "sng_to_rl";
      "dm2_foo_to_bar.cmds" -> "foo_to_bar" (underscored names must not lose the
@@ -29,12 +30,12 @@ import telemetry_ws as tw  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
-# 1. Full per-slot assignment — validate_cvar expands all four cvar names
+# 1. Full per-slot assignment — validate_cvar expands route cvar names
 # ---------------------------------------------------------------------------
 
 
 class TestFullAssignmentCvarExpansion(unittest.TestCase):
-    """validate_cvar(name, value, slot) must accept all four per-slot assignment
+    """validate_cvar(name, value, slot) must accept per-slot route assignment
     cvars and return the correct _s<N>-suffixed names."""
 
     def _ok(self, name, value, slot=1):
@@ -77,26 +78,33 @@ class TestFullAssignmentCvarExpansion(unittest.TestCase):
         result = cb.validate_cvar("k_fb_moveprobe_spawn_origin", "100.0,200.0,-24.0", slot=1)
         self.assertIsInstance(result, str, "Comma-separated spawn_origin should be refused")
 
-    def test_all_four_slot_1(self):
-        """All four cvars must be accepted for slot 1 (the minimum two-bot case)."""
+    def test_spawn_velocity_space_separated_expands(self):
+        name, value = self._ok("k_fb_moveprobe_spawn_velocity", "0 0 0", slot=1)
+        self.assertEqual(name, "k_fb_moveprobe_spawn_velocity_s1")
+        self.assertEqual(value, "0 0 0")
+
+    def test_all_route_cvars_slot_1(self):
+        """All route cvars must be accepted for slot 1 (the minimum two-bot case)."""
         pairs = [
             ("k_fb_moveprobe_replay_file", "dm3_hilljump.cmds"),
             ("k_fb_moveprobe_mode", "10"),
             ("k_fb_moveprobe_fixed_goal", "0"),
             ("k_fb_moveprobe_spawn_origin", "754.600 247.600 56.000"),
+            ("k_fb_moveprobe_spawn_velocity", "0 0 0"),
         ]
         for name, value in pairs:
             with self.subTest(name=name):
                 result = cb.validate_cvar(name, value, 1)
                 self.assertIsInstance(result, tuple, f"Refused: {name}={value!r}: {result}")
 
-    def test_all_four_slot_2(self):
-        """All four cvars must be accepted for slot 2 (second bot in two-bot run)."""
+    def test_all_route_cvars_slot_2(self):
+        """All route cvars must be accepted for slot 2 (second bot in two-bot run)."""
         pairs = [
             ("k_fb_moveprobe_replay_file", "dm3_sng_to_rl.cmds"),
             ("k_fb_moveprobe_mode", "10"),
             ("k_fb_moveprobe_fixed_goal", "0"),
             ("k_fb_moveprobe_spawn_origin", "-895.400 -129.100 -15.900"),
+            ("k_fb_moveprobe_spawn_velocity", "259 -172 0"),
         ]
         for name, value in pairs:
             with self.subTest(name=name):
@@ -356,7 +364,7 @@ class TestUnifiedRouteControls(unittest.TestCase):
 
     def test_ztricks_distance_is_a_route_not_a_trick_preset(self):
         src = self.DRAWER_SRC.read_text(encoding="utf-8")
-        self.assertIn('ztricks: ["distance_standstill"]', src)
+        self.assertIn('ztricks: ["distance_standstill", "spawn_left_speedjump"]', src)
         self.assertNotIn("ztricks_distance_standstill", src)
         self.assertIn("configureBotRoute", src)
         self.assertNotIn("TRICK_PRESETS", src)
@@ -385,6 +393,16 @@ class TestUnifiedRouteControls(unittest.TestCase):
         route_idx = src.index(route_call)
         self.assertLess(clear_idx, wait_idx)
         self.assertLess(wait_idx, route_idx)
+
+    def test_route_assignment_clears_and_applies_spawn_velocity(self):
+        src = self.DRAWER_SRC.read_text(encoding="utf-8")
+        self.assertIn("spawn_velocity?: string;", src)
+        self.assertIn("const spawnVelocity = typeof control?.spawn_velocity", src)
+        clear_call = 'client.setCvar("k_fb_moveprobe_spawn_velocity", "", slot)'
+        set_call = 'client.setCvar("k_fb_moveprobe_spawn_velocity", spawnVelocity, slot)'
+        self.assertIn(clear_call, src)
+        self.assertIn(set_call, src)
+        self.assertLess(src.index(clear_call), src.index(set_call))
 
 
 # ---------------------------------------------------------------------------

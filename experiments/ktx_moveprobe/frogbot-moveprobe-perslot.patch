@@ -390,7 +390,7 @@ index c0654d1..0dfc32b 100644
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,142 +733,4219 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,142 +733,4222 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -3815,6 +3815,7 @@ index c0654d1..0dfc32b 100644
 +		float zrelease_lip = cvar("k_fb_moveprobe_s23_release_lip");
 +		float zrefcurve = cvar("k_fb_moveprobe_s23_refcurve");
 +		float zrefcurve_vh_min = cvar("k_fb_moveprobe_s23_refcurve_vh_min");
++		float zrefcurve_yaw_offset = cvar("k_fb_moveprobe_s23_refcurve_yaw_offset");
 +		float zrefcurve_entry_x = cvar("k_fb_moveprobe_s23_refcurve_entry_x");
 +		float zrefcurve_entry_y = cvar("k_fb_moveprobe_s23_refcurve_entry_y");
 +		float zrefcurve_y = cvar("k_fb_moveprobe_s23_refcurve_y");
@@ -4122,6 +4123,8 @@ index c0654d1..0dfc32b 100644
 +				{
 +					BotMoveProbeZtricksReferenceCurve(zd_lip, &zdesired_vel_yaw,
 +													  &zdesired_view_yaw);
++					zdesired_vel_yaw = anglemod(zdesired_vel_yaw + zrefcurve_yaw_offset);
++					zdesired_view_yaw = anglemod(zdesired_view_yaw + zrefcurve_yaw_offset);
 +					zvel_err = BotMoveProbeWrap180(zdesired_vel_yaw - vel_yaw);
 +					if (zcarve_side == 0)
 +					{

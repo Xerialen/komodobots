@@ -24,7 +24,7 @@ Schema `komodobots.routes.v1`
 Per-map file `<map>.json` (maps: dm3, dm2, frobodm2, trick, ztricks --
 non-dm3 maps carry empty route lists until routes are censused there; ztricks
 currently carries the A5 Distance route control metadata plus the successful
-11th `getspeed.qwd` human reference):
+11th `getspeed.qwd` human reference and a spawn-floor speed-gain drill):
 
 {
   "schema": "komodobots.routes.v1",
@@ -120,6 +120,9 @@ ZTRICKS_ALIGNED_CMDS = ZTRICKS_A5_DIR / "getspeed-aligned.cmds"
 ZTRICKS_HUMAN_REPLAY = ZTRICKS_A5_DIR / "human-replay.json"
 ZTRICKS_ALIGNMENT_META = ZTRICKS_A5_DIR / "alignment-meta.json"
 ZTRICKS_WINNING_ATTEMPT = 11
+ZTRICKS_SPAWN_ORIGIN = [-1168.0, 1632.0, -496.0]
+ZTRICKS_SPAWN_ANGLE_DEG = 315.0
+ZTRICKS_SPAWN_LEFT_YAW_DEG = 45.0
 
 GAP_FIELDS = ("edge", "land", "required_speed", "human_speed_at_edge",
               "hard", "type")
@@ -156,6 +159,20 @@ ZTRICKS_DISTANCE_CONTROL = {
         "k_fb_moveprobe_s23_targeterr_max": 10,
     },
 }
+
+
+def point_at_yaw(origin: list[float], yaw_deg: float, distance: float) -> list[float]:
+    """Quake yaw projection on the XY plane: 0 = +X, 90 = +Y."""
+    yaw = math.radians(yaw_deg)
+    return [
+        origin[0] + math.cos(yaw) * distance,
+        origin[1] + math.sin(yaw) * distance,
+        origin[2],
+    ]
+
+
+def rounded_point(point: list[float]) -> list[float]:
+    return [round(c, 1) for c in point]
 
 
 def sha256_normalized(path: Path) -> str:
@@ -350,6 +367,82 @@ def build_ztricks_distance_route() -> dict:
     }
 
 
+def build_ztricks_spawn_left_speedjump_route() -> dict:
+    """Build a flat-ground ztricks speedjump calibration route from the real spawn.
+
+    This is intentionally not a ledge-completion route. It rotates the same
+    terminal speedjump/reference-curve primitive onto the map's spawn-floor
+    "turn 90 left" lane and measures whether the controller gains speed.
+    """
+    lip = point_at_yaw(ZTRICKS_SPAWN_ORIGIN, ZTRICKS_SPAWN_LEFT_YAW_DEG, 350.0)
+    target = point_at_yaw(ZTRICKS_SPAWN_ORIGIN, ZTRICKS_SPAWN_LEFT_YAW_DEG, 526.0)
+    polyline = [
+        rounded_point(point_at_yaw(ZTRICKS_SPAWN_ORIGIN, ZTRICKS_SPAWN_LEFT_YAW_DEG, d))
+        for d in (0.0, 128.0, 256.0, 384.0, 526.0)
+    ]
+    return {
+        "name": "spawn_left_speedjump",
+        "human": {
+            "duration_s": None,
+            "active_mean_speed": None,
+            "peak_speed": None,
+        },
+        "polyline": polyline,
+        "gaps": [],
+        "teleports": [],
+        "source": {
+            "map_entities": (
+                "lab/dashboard/public/data/map_entities/ztricks.json"
+            ),
+            "spawn_angle_source": (
+                "ztricks.bsp entity lump: info_player_deathmatch angle 315"
+            ),
+        },
+        "reference": {
+            "type": "spawn_floor_speed_gain",
+            "spawn_origin": rounded_point(ZTRICKS_SPAWN_ORIGIN),
+            "spawn_angle_deg": ZTRICKS_SPAWN_ANGLE_DEG,
+            "left_yaw_deg": ZTRICKS_SPAWN_LEFT_YAW_DEG,
+            "synthetic_lip": rounded_point(lip),
+            "target": rounded_point(target),
+            "success_metric": "horizontal_speed_gain",
+            "success_note": (
+                "Same speedjump controller as ztricks Distance, but no ledge "
+                "completion gate; evaluate start-to-peak horizontal speed gain."
+            ),
+        },
+        "control": {
+            "mode": 23,
+            "fixed_goal": 0,
+            "spawn_origin": "-1168 1632 -496",
+            "spawn_velocity": "0 0 0",
+            "replay_file": "",
+            "cvars": {
+                "k_fb_moveprobe_s23_launch_vh": 430,
+                "k_fb_moveprobe_s23_launch_angle": 50,
+                "k_fb_moveprobe_s21_swing": 8,
+                "k_fb_moveprobe_s23_launch_target_x": round(target[0], 1),
+                "k_fb_moveprobe_s23_launch_target_y": round(target[1], 1),
+                "k_fb_moveprobe_s23_launch_target_z": round(target[2], 1),
+                "k_fb_moveprobe_s23_lip_x": round(lip[0], 1),
+                "k_fb_moveprobe_s23_release_vh": 470,
+                "k_fb_moveprobe_s23_release_vh_min": 1,
+                "k_fb_moveprobe_s23_carve_d": 95,
+                "k_fb_moveprobe_s23_carve_angle": 52,
+                "k_fb_moveprobe_s23_carve_side": 1,
+                "k_fb_moveprobe_s23_release_lip": 35,
+                "k_fb_moveprobe_s23_refcurve": 1,
+                "k_fb_moveprobe_s23_refcurve_vh_min": 0,
+                "k_fb_moveprobe_s23_refcurve_yaw_offset": ZTRICKS_SPAWN_LEFT_YAW_DEG,
+                "k_fb_moveprobe_s23_yawlead_min": -12,
+                "k_fb_moveprobe_s23_yawlead_max": -4,
+                "k_fb_moveprobe_s23_targeterr_min": -2,
+                "k_fb_moveprobe_s23_targeterr_max": 10,
+            },
+        },
+    }
+
+
 def build_manifests() -> dict[str, dict]:
     """All five output documents, keyed by file name."""
     census = json.loads(CENSUS_PATH.read_text(encoding="utf-8"))
@@ -368,7 +461,10 @@ def build_manifests() -> dict[str, dict]:
             routes = [build_route(name, census[name], census_rel)
                       for name in sorted(census)]
         elif map_name == "ztricks":
-            routes = [build_ztricks_distance_route()]
+            routes = [
+                build_ztricks_distance_route(),
+                build_ztricks_spawn_left_speedjump_route(),
+            ]
         out[f"{map_name}.json"] = {
             "schema": SCHEMA,
             "v": SCHEMA_V,

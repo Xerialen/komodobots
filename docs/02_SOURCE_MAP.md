@@ -421,7 +421,11 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   attempt (`experiments/a5_distance_standstill/human-replay.json` +
   `getspeed-aligned.cmds`), with the real start-to-landing polyline, edge speed,
   launch heading, and provenance hashes; `required_speed` stays null because A5
-  showed speed alone is not a sufficient success gate. Deterministic/idempotent (LF outputs,
+  showed speed alone is not a sufficient success gate. ztricks also carries
+  `spawn_left_speedjump`, a flat spawn-floor speed-gain drill from the real
+  deathmatch spawn (`-1168 1632 -496`, BSP angle `315`, left yaw `45`) that
+  reuses the mode-23 speedjump/reference-curve primitive with no ledge-completion
+  gate. Deterministic/idempotent (LF outputs,
   `-text` in `.gitattributes`, LF-normalized sha256 provenance hashes);
   `tests/test_build_routes_manifest.py` locks the committed outputs against a fresh
   build. The controller-shaped breakdown of the successful speedjump lives in
@@ -540,8 +544,9 @@ app so the FTE engine owns its own window — one engine instance per window, SP
     `human_speed_at_edge` until `new_attempt`.  Display-only — the post-run
     verify_route scorer is the metric of record (stated in a tooltip). Routes with
     null human-speed anchors are skipped for interpolation, and gaps with null
-    `required_speed` (including ztricks Distance) do not create edge-speed callouts
-    rather than being treated as zero-speed routes.
+    `required_speed` (including ztricks Distance and the ztricks spawn-floor
+    speed-gain drill) do not create edge-speed callouts rather than being treated
+    as zero-speed routes.
   - Attempt meta: run_id, elapsed time, distance-to-goal (`dist_to_rl`).
   - Route override dropdown: until LD-F1/F3 per-bot assignment exposure, the live route
     defaults to `sng_to_rl` on dm3 with a manual override dropdown.
@@ -623,10 +628,11 @@ app so the FTE engine owns its own window — one engine instance per window, SP
     ranged-weapon lock/unlock (`axe only` / `weapons free`).
   - **Bot roster**: per-slot rows with name/profile draft fields, route dropdown (routes
     of the current map from the routes manifest), `try`, `loop`, `stand still`,
-    `respawn`, and remove controls.  Trickjumps are not a separate UI concept: ztricks
-    Distance is the normal `distance_standstill` route in
-    `public/data/routes/ztricks.json`, with the old A5 mode-23 start-point cvars stored
-    as route `control` metadata.  Selecting a route configures the per-slot assignment
+    `respawn`, and remove controls.  Trickjumps are not a separate UI concept:
+    ztricks Distance is the normal `distance_standstill` route in
+    `public/data/routes/ztricks.json`, and the safe flat-floor calibration route
+    is `spawn_left_speedjump`; both store their mode-23 start/controller cvars as
+    route `control` metadata.  Selecting a route configures the per-slot assignment
     but keeps the bot in practice-idle mode `24`; `try` starts that slot's route mode,
     `loop` enables the replay-loop cvar and starts it, and `stand still` returns the
     slot to mode `24`.  Route display shows server truth from `FBMOVEPROBE_ASSIGN` rows
@@ -644,7 +650,7 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   - **Cvar console panel**: command history (up/down), response echo, inline rejection
     rendering, `@<slot>` per-slot shorthand.
   Per-bot assignment sends the per-slot cvars (`replay_file`, `mode`, `fixed_goal`,
-  `spawn_origin`) atomically plus route-level control cvars when present;
+  `spawn_origin`, `spawn_velocity`) atomically plus route-level control cvars when present;
   `spawn_origin` is derived from `polyline[0]` in the route manifest unless the route
   declares a `control.spawn_origin` override (fetched lazily, cached).
   Disabled states enforced: bridge disconnected, harness lock fresh, no session running

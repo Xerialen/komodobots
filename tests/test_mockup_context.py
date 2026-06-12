@@ -9,7 +9,8 @@ Validates the routes manifest data layer that MockupPane.tsx consumes:
   (the census measurement the project depends on for the trick link).
 - Empty-map honesty: dm2/frobodm2/trick emit route lists that are either
   empty or contain valid schemas -- never missing. ztricks is the exception:
-  it carries the successful getspeed.qwd distance_standstill reference.
+  it carries the successful getspeed.qwd distance_standstill reference and a
+  spawn-floor speed-gain drill.
 - Teleports field is always present (list, possibly empty) so MockupPane.tsx
   can iterate unconditionally.
 - Map-entity context exists for ztricks so the pane can annotate the route
@@ -73,7 +74,7 @@ class TestManifestSchema(unittest.TestCase):
 
     def test_ztricks_has_practice_route(self):
         names = [r["name"] for r in self.manifests["ztricks"]["routes"]]
-        self.assertEqual(names, ["distance_standstill"])
+        self.assertEqual(names, ["distance_standstill", "spawn_left_speedjump"])
 
 
 class TestRouteFields(unittest.TestCase):
@@ -297,6 +298,16 @@ class TestZtricksEntityContext(unittest.TestCase):
             self.route["reference"]["launch_heading_deg"], -11.7, places=1)
         self.assertTrue(self.route["reference"]["landed_recorded"])
         self.assertTrue(self.route["reference"]["landed_sim"])
+
+    def test_spawn_left_speedjump_starts_at_real_spawn(self):
+        route = next(r for r in load_manifest("ztricks")["routes"]
+                     if r["name"] == "spawn_left_speedjump")
+        self.assertEqual(route["polyline"][0], [-1168.0, 1632.0, -496.0])
+        distance, entity = self._nearest(route["polyline"][0])
+        self.assertEqual(entity["type"], "spawn")
+        self.assertLess(distance, 1.0)
+        self.assertEqual(route["reference"]["success_metric"], "horizontal_speed_gain")
+        self.assertEqual(route["control"]["spawn_velocity"], "0 0 0")
 
 
 if __name__ == "__main__":

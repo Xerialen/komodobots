@@ -65,6 +65,7 @@ type RouteControl = {
   mode?: number;
   fixed_goal?: number;
   spawn_origin?: string;
+  spawn_velocity?: string;
   replay_file?: string;
   cvars?: Record<string, string | number>;
 };
@@ -135,7 +136,7 @@ const ROUTES_BY_MAP: Record<MapName, string[]> = {
   dm2: [],
   frobodm2: [],
   trick: [],
-  ztricks: ["distance_standstill"],
+  ztricks: ["distance_standstill", "spawn_left_speedjump"],
 };
 
 const PRACTICE_IDLE_MODE = "24";
@@ -583,7 +584,7 @@ export function ControlDrawer({
 
     // Load spawn_origin and optional control overrides from the route manifest.
     // Missing metadata is a hard failure: the #95/#105 assignment contract
-    // requires all four per-slot cvars.  Silently omitting spawn_origin would
+    // requires the per-slot route cvars.  Silently omitting spawn_origin would
     // leave the bot at the global spawn, breaking the two-bots-two-routes path.
     let spawnOrigin: string;
     let control: RouteControl | undefined;
@@ -612,6 +613,9 @@ export function ControlDrawer({
     const replayFile = typeof control?.replay_file === "string"
       ? control.replay_file
       : `${sessionMap}_${route}.cmds`;
+    const spawnVelocity = typeof control?.spawn_velocity === "string"
+      ? control.spawn_velocity
+      : "";
     const fixedGoal = String(control?.fixed_goal ?? 0);
     const cvars = Object.entries(control?.cvars ?? {});
 
@@ -623,9 +627,13 @@ export function ControlDrawer({
       // fixed_goal=0 means "no fixed goal" for replay routes.
       () => client.setCvar("k_fb_moveprobe_fixed_goal", fixedGoal, slot),
       // Clear first so repeated tries of the same route still produce a
-      // spawn-origin assignment edge for KTX's one-shot snap latch.
+      // spawn assignment edge for KTX's one-shot snap latch.
       () => client.setCvar("k_fb_moveprobe_spawn_origin", "", slot),
+      () => client.setCvar("k_fb_moveprobe_spawn_velocity", "", slot),
       () => controlDelay(SPAWN_REARM_WAIT_MS, "spawn-origin rearm wait"),
+      ...(spawnVelocity ? [
+        () => client.setCvar("k_fb_moveprobe_spawn_velocity", spawnVelocity, slot),
+      ] : []),
       // spawn_origin is required (hard failure above if missing) so no guard needed.
       () => client.setCvar("k_fb_moveprobe_spawn_origin", spawnOrigin, slot),
       () => client.setCvar(REPLAY_LOOP_CVAR, mode === "loop" ? "1" : "0"),
