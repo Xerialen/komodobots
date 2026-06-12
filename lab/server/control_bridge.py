@@ -133,7 +133,8 @@ ZTRICKS_PERSLOT_PRESET_STEPS: tuple[tuple[str, str], ...] = tuple(
         f"set k_fb_moveprobe_mode_s{slot} 0",
         f"set k_fb_moveprobe_replay_file_s{slot}",
         f"set k_fb_moveprobe_fixed_goal_s{slot} 8",
-        f'set k_fb_moveprobe_spawn_origin_s{slot} "-3516.125 3712 -453.125"',
+        f'set k_fb_moveprobe_spawn_velocity_s{slot} "259 -172 0"',
+        f'set k_fb_moveprobe_spawn_origin_s{slot} "-3434.375 3686.875 -488"',
         f"set k_fb_moveprobe_mode_s{slot} 23",
     )
 )
@@ -145,8 +146,10 @@ ZTRICKS_DISTANCE_STANDSTILL_STEPS: tuple[tuple[str, str], ...] = (
     # route onto every possible suffix so reused ed slots cannot stay idle.
     *ZTRICKS_PERSLOT_PRESET_STEPS,
     ("console", "set k_fb_moveprobe_mode 0"),
-    # A5 Distance start: teleport deposit at t5, zero velocity via spawn-snap.
-    ("console", 'set k_fb_moveprobe_spawn_origin "-3516.125 3712 -453.125"'),
+    # A5 Distance first grounded state: avoids the teleport deposit trigger and
+    # preserves the human attempt's existing teleport-exit momentum.
+    ("console", 'set k_fb_moveprobe_spawn_velocity "259 -172 0"'),
+    ("console", 'set k_fb_moveprobe_spawn_origin "-3434.375 3686.875 -488"'),
     ("console", "set k_fb_moveprobe_fixed_goal 8"),
     # Deployed circle-jump launch knobs from the A5 round-2 standstill ledger.
     ("console", "set k_fb_moveprobe_s23_launch_vh 430"),
@@ -158,10 +161,16 @@ ZTRICKS_DISTANCE_STANDSTILL_STEPS: tuple[tuple[str, str], ...] = (
     ("console", "set k_fb_moveprobe_s23_lip_x -3348"),
     ("console", "set k_fb_moveprobe_s23_release_vh 470"),
     ("console", "set k_fb_moveprobe_s23_release_vh_min 453"),
-    ("console", "set k_fb_moveprobe_s23_carve_d 80"),
+    ("console", "set k_fb_moveprobe_s23_carve_d 95"),
     ("console", "set k_fb_moveprobe_s23_carve_angle 52"),
     ("console", "set k_fb_moveprobe_s23_carve_side 1"),
     ("console", "set k_fb_moveprobe_s23_release_lip 35"),
+    ("console", "set k_fb_moveprobe_s23_refcurve 1"),
+    ("console", "set k_fb_moveprobe_s23_refcurve_vh_min 0"),
+    ("console", "set k_fb_moveprobe_s23_refcurve_entry_x -3439.375"),
+    ("console", "set k_fb_moveprobe_s23_refcurve_entry_y 3758.125"),
+    ("console", "set k_fb_moveprobe_s23_refcurve_y 3768.5"),
+    ("console", "set k_fb_moveprobe_s23_refcurve_y_tol 24"),
     ("console", "set k_fb_moveprobe_s23_yawlead_min -12"),
     ("console", "set k_fb_moveprobe_s23_yawlead_max -4"),
     ("console", "set k_fb_moveprobe_s23_targeterr_min -2"),

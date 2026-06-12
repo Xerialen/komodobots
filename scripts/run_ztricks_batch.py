@@ -247,16 +247,17 @@ send_cmd "sv_demoeasyrecord komodobots_${map_name}_${run_id}" 1.0
 send_cmd "status"
 screen -S "$session" -p 0 -X hardcopy "$rundir/hardcopy.before-attempts.txt"
 
-printf 'attempt\tstart_utc\tend_utc\tlaunch_vh\tlaunch_angle\tswing\trelease_vh_min\tcarve_d\tcarve_angle\trelease_lip\n' > "$rundir/ztricks-batch-execution.tsv"
+printf 'attempt\tstart_utc\tend_utc\tlaunch_vh\tlaunch_angle\tswing\trelease_vh_min\tcarve_d\tcarve_angle\trelease_lip\trefcurve\trefcurve_vh_min\trefcurve_entry_x\trefcurve_entry_y\trefcurve_y\trefcurve_y_tol\tspawn_origin\tspawn_velocity\n' > "$rundir/ztricks-batch-execution.tsv"
 
 {
   read -r _header || true
-  while IFS=$'\t' read -r attempt launch_vh launch_angle swing release_min carve_d carve_angle release_lip; do
+  while IFS=$'\t' read -r attempt launch_vh launch_angle swing release_min carve_d carve_angle release_lip refcurve refcurve_vh_min refcurve_entry_x refcurve_entry_y refcurve_y refcurve_y_tol spawn_origin spawn_velocity; do
     if [ -z "${attempt:-}" ]; then
       continue
     fi
-    log "attempt $attempt launch_vh=$launch_vh angle=$launch_angle swing=$swing"
+    log "attempt $attempt launch_vh=$launch_vh angle=$launch_angle swing=$swing refcurve=$refcurve"
     send_cmd 'set k_fb_moveprobe_spawn_origin ""' 0.2
+    send_cmd 'set k_fb_moveprobe_spawn_velocity ""' 0.05
     send_cmd "set k_fb_moveprobe_mode 24" 0.05
     python3 "$rundir/qw_min_client.py" "$port" \
       --host 127.0.0.1 \
@@ -283,11 +284,18 @@ printf 'attempt\tstart_utc\tend_utc\tlaunch_vh\tlaunch_angle\tswing\trelease_vh_
     send_cmd "set k_fb_moveprobe_s23_carve_angle $carve_angle" 0.05
     send_cmd "set k_fb_moveprobe_s23_carve_side 1" 0.05
     send_cmd "set k_fb_moveprobe_s23_release_lip $release_lip" 0.05
+    send_cmd "set k_fb_moveprobe_s23_refcurve $refcurve" 0.05
+    send_cmd "set k_fb_moveprobe_s23_refcurve_vh_min $refcurve_vh_min" 0.05
+    send_cmd "set k_fb_moveprobe_s23_refcurve_entry_x $refcurve_entry_x" 0.05
+    send_cmd "set k_fb_moveprobe_s23_refcurve_entry_y $refcurve_entry_y" 0.05
+    send_cmd "set k_fb_moveprobe_s23_refcurve_y $refcurve_y" 0.05
+    send_cmd "set k_fb_moveprobe_s23_refcurve_y_tol $refcurve_y_tol" 0.05
     send_cmd "set k_fb_moveprobe_s23_yawlead_min -12" 0.05
     send_cmd "set k_fb_moveprobe_s23_yawlead_max -4" 0.05
     send_cmd "set k_fb_moveprobe_s23_targeterr_min -2" 0.05
     send_cmd "set k_fb_moveprobe_s23_targeterr_max 10" 0.05
-    send_cmd 'set k_fb_moveprobe_spawn_origin "-3516.125 3712 -453.125"' 0.35
+    send_cmd "set k_fb_moveprobe_spawn_velocity \"$spawn_velocity\"" 0.05
+    send_cmd "set k_fb_moveprobe_spawn_origin \"$spawn_origin\"" 0.35
 
     start_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     python3 "$rundir/qw_min_client.py" "$port" \
@@ -300,14 +308,17 @@ printf 'attempt\tstart_utc\tend_utc\tlaunch_vh\tlaunch_angle\tswing\trelease_vh_
       > "$rundir/pyclient.attempt.${attempt}.stdout" \
       2> "$rundir/pyclient.attempt.${attempt}.stderr"
     end_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
       "$attempt" "$start_utc" "$end_utc" "$launch_vh" "$launch_angle" "$swing" \
-      "$release_min" "$carve_d" "$carve_angle" "$release_lip" \
+      "$release_min" "$carve_d" "$carve_angle" "$release_lip" "$refcurve" "$refcurve_vh_min" \
+      "$refcurve_entry_x" "$refcurve_entry_y" "$refcurve_y" "$refcurve_y_tol" \
+      "$spawn_origin" "$spawn_velocity" \
       >> "$rundir/ztricks-batch-execution.tsv"
   done
 } < "$rundir/ztricks-batch-plan.tsv"
 
 send_cmd 'set k_fb_moveprobe_spawn_origin ""' 0.2
+send_cmd 'set k_fb_moveprobe_spawn_velocity ""' 0.05
 python3 "$rundir/qw_min_client.py" "$port" \
   --host 127.0.0.1 \
   --run-for 5 \
@@ -393,6 +404,14 @@ def build_attempt_plan(args: argparse.Namespace) -> list[dict[str, float | int]]
                 "carve_d": float(args.carve_d),
                 "carve_angle": float(args.carve_angle),
                 "release_lip": float(args.release_lip),
+                "refcurve": 1.0 if args.refcurve else 0.0,
+                "refcurve_vh_min": float(args.refcurve_vh_min),
+                "refcurve_entry_x": float(args.refcurve_entry_x),
+                "refcurve_entry_y": float(args.refcurve_entry_y),
+                "refcurve_y": float(args.refcurve_y),
+                "refcurve_y_tol": float(args.refcurve_y_tol),
+                "spawn_origin": args.spawn_origin,
+                "spawn_velocity": args.spawn_velocity,
             }
         )
     return plan
@@ -400,7 +419,7 @@ def build_attempt_plan(args: argparse.Namespace) -> list[dict[str, float | int]]
 
 def plan_to_tsv(plan: list[dict[str, float | int]]) -> str:
     lines = [
-        "attempt\tlaunch_vh\tlaunch_angle\tswing\trelease_vh_min\tcarve_d\tcarve_angle\trelease_lip"
+        "attempt\tlaunch_vh\tlaunch_angle\tswing\trelease_vh_min\tcarve_d\tcarve_angle\trelease_lip\trefcurve\trefcurve_vh_min\trefcurve_entry_x\trefcurve_entry_y\trefcurve_y\trefcurve_y_tol\tspawn_origin\tspawn_velocity"
     ]
     for row in plan:
         lines.append(
@@ -414,6 +433,14 @@ def plan_to_tsv(plan: list[dict[str, float | int]]) -> str:
                     str(row["carve_d"]),
                     str(row["carve_angle"]),
                     str(row["release_lip"]),
+                    str(row["refcurve"]),
+                    str(row["refcurve_vh_min"]),
+                    str(row["refcurve_entry_x"]),
+                    str(row["refcurve_entry_y"]),
+                    str(row["refcurve_y"]),
+                    str(row["refcurve_y_tol"]),
+                    str(row["spawn_origin"]),
+                    str(row["spawn_velocity"]),
                 ]
             )
         )
@@ -476,9 +503,17 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument("--launch-angle", default="50,45,40", help="Comma-separated launch_angle sweep.")
     parser.add_argument("--swing", default="8,14", help="Comma-separated s21 swing sweep.")
     parser.add_argument("--release-vh-min", type=float, default=453.0)
-    parser.add_argument("--carve-d", type=float, default=80.0)
+    parser.add_argument("--carve-d", type=float, default=95.0)
     parser.add_argument("--carve-angle", type=float, default=52.0)
     parser.add_argument("--release-lip", type=float, default=35.0)
+    parser.add_argument("--refcurve", action="store_true", help="Enable the mode-23 ztricks human-reference terminal curve.")
+    parser.add_argument("--refcurve-vh-min", type=float, default=0.0, help="Minimum horizontal speed before refcurve takeover.")
+    parser.add_argument("--refcurve-entry-x", type=float, default=-3439.375, help="Fallback terminal-lane entry target x.")
+    parser.add_argument("--refcurve-entry-y", type=float, default=3758.125, help="Fallback terminal-lane entry target y.")
+    parser.add_argument("--refcurve-y", type=float, default=3768.5, help="Terminal corridor center y for refcurve takeover.")
+    parser.add_argument("--refcurve-y-tol", type=float, default=24.0, help="Terminal corridor half-width for refcurve takeover.")
+    parser.add_argument("--spawn-origin", default="-3434.375 3686.875 -488", help="Attempt spawn origin triplet.")
+    parser.add_argument("--spawn-velocity", default="259 -172 0", help="Attempt spawn velocity triplet.")
     parser.add_argument("--timelimit", type=int, default=5, help="KTX timelimit minutes.")
     parser.add_argument(
         "--lab-mvdsv",

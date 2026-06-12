@@ -212,15 +212,26 @@ class TestValidators(unittest.TestCase):
         self.assertIn(("console", "set k_fb_moveprobe_mode_s3 23"), ztricks_steps)
         self.assertIn(("console", "set k_fb_moveprobe_fixed_goal_s3 8"), ztricks_steps)
         self.assertIn(
-            ("console", 'set k_fb_moveprobe_spawn_origin_s3 "-3516.125 3712 -453.125"'),
+            ("console", 'set k_fb_moveprobe_spawn_velocity_s3 "259 -172 0"'),
+            ztricks_steps,
+        )
+        self.assertIn(
+            ("console", 'set k_fb_moveprobe_spawn_origin_s3 "-3434.375 3686.875 -488"'),
             ztricks_steps,
         )
         self.assertIn(("console", "set k_fb_moveprobe_replay_file_s3"), ztricks_steps)
         self.assertIn(("console", "set k_fb_moveprobe_s23_launch_target_x -3044.1"), ztricks_steps)
         self.assertIn(("console", "set k_fb_moveprobe_s23_lip_x -3348"), ztricks_steps)
         self.assertIn(("console", "set k_fb_moveprobe_s23_release_vh 470"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_carve_d 95"), ztricks_steps)
         self.assertIn(("console", "set k_fb_moveprobe_s23_carve_angle 52"), ztricks_steps)
         self.assertIn(("console", "set k_fb_moveprobe_s23_carve_side 1"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_refcurve 1"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_refcurve_vh_min 0"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_refcurve_entry_x -3439.375"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_refcurve_entry_y 3758.125"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_refcurve_y 3768.5"), ztricks_steps)
+        self.assertIn(("console", "set k_fb_moveprobe_s23_refcurve_y_tol 24"), ztricks_steps)
         self.assertLess(
             ztricks_steps.index(("console", "set k_fb_moveprobe_fixed_goal_s3 8")),
             ztricks_steps.index(("console", "set k_fb_moveprobe_mode_s3 23")),
@@ -685,15 +696,26 @@ class TestSessionScopedOps(unittest.TestCase):
             self.assertIn(("stuff", 28600, "set k_fb_moveprobe_mode_s3 23"), executor.calls)
             self.assertIn(("stuff", 28600, "set k_fb_moveprobe_fixed_goal_s3 8"), executor.calls)
             self.assertIn(
-                ("stuff", 28600, 'set k_fb_moveprobe_spawn_origin_s3 "-3516.125 3712 -453.125"'),
+                ("stuff", 28600, 'set k_fb_moveprobe_spawn_velocity_s3 "259 -172 0"'),
+                executor.calls,
+            )
+            self.assertIn(
+                ("stuff", 28600, 'set k_fb_moveprobe_spawn_origin_s3 "-3434.375 3686.875 -488"'),
                 executor.calls,
             )
             self.assertIn(("stuff", 28600, "set k_fb_moveprobe_replay_file_s3"), executor.calls)
             self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_launch_target_x -3044.1"), executor.calls)
             self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_lip_x -3348"), executor.calls)
             self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_release_vh 470"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_carve_d 95"), executor.calls)
             self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_carve_angle 52"), executor.calls)
             self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_carve_side 1"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_refcurve 1"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_refcurve_vh_min 0"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_refcurve_entry_x -3439.375"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_refcurve_entry_y 3758.125"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_refcurve_y 3768.5"), executor.calls)
+            self.assertIn(("stuff", 28600, "set k_fb_moveprobe_s23_refcurve_y_tol 24"), executor.calls)
             fixed_goal_idx = executor.calls.index(("stuff", 28600, "set k_fb_moveprobe_fixed_goal_s3 8"))
             mode_idx = executor.calls.index(("stuff", 28600, "set k_fb_moveprobe_mode_s3 23"))
             self.assertLess(fixed_goal_idx, mode_idx)

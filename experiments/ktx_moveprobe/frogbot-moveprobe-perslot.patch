@@ -69,10 +69,10 @@ index 541191f..4eede17 100644
  	{
  		self->s.v.goalentity = NUM_FOR_EDICT(self->fb.fixed_goal);
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index c0654d1..6012e01 100644
+index c0654d1..0dfc32b 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -5,6 +5,267 @@
+@@ -5,6 +5,317 @@
  #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
@@ -189,6 +189,55 @@ index c0654d1..6012e01 100644
 +static int   moveprobe_fig8_target[MAX_CLIENTS];           // mode 17: target curl sign (+1/-1)
 +static float moveprobe_fig8_ramp[MAX_CLIENTS];             // mode 17: effective curl, ramps -1..+1 (smooth flip)
 +static int   moveprobe_fig8_init[MAX_CLIENTS];             // mode 17: seeded?
++
++static float BotMoveProbeWrap180(float angle)
++{
++	while (angle > 180.0f) angle -= 360.0f;
++	while (angle < -180.0f) angle += 360.0f;
++	return angle;
++}
++
++static float BotMoveProbeQuadratic(float x,
++								   float x0, float y0,
++								   float x1, float y1,
++								   float x2, float y2)
++{
++	float d0 = (x0 - x1) * (x0 - x2);
++	float d1 = (x1 - x0) * (x1 - x2);
++	float d2 = (x2 - x0) * (x2 - x1);
++
++	if ((d0 == 0.0f) || (d1 == 0.0f) || (d2 == 0.0f))
++	{
++		return y1;
++	}
++	return y0 * ((x - x1) * (x - x2) / d0)
++		+ y1 * ((x - x0) * (x - x2) / d1)
++		+ y2 * ((x - x0) * (x - x1) / d2);
++}
++
++static void BotMoveProbeZtricksReferenceCurve(float d_lip,
++											  float *vel_yaw,
++											  float *view_yaw)
++{
++	float d = bound(0.0f, d_lip, 91.4f);
++
++	// Human attempt 11 terminal sweep, modeled in d_lip space with local
++	// quadratic segments. Angles are already unwrapped around the jump.
++	if (d > 25.0f)
++	{
++		*vel_yaw = BotMoveProbeQuadratic(d, 91.4f, 41.4f, 71.9f, 27.5f,
++										 25.0f, -3.3f);
++		*view_yaw = BotMoveProbeQuadratic(d, 91.4f, 39.1f, 71.9f, 23.8f,
++										  25.0f, -11.4f);
++	}
++	else
++	{
++		*vel_yaw = BotMoveProbeQuadratic(d, 25.0f, -3.3f, 12.8f, -11.3f,
++										 0.0f, -11.3f);
++		*view_yaw = BotMoveProbeQuadratic(d, 25.0f, -11.4f, 12.8f, -19.0f,
++										  0.0f, -24.6f);
++	}
++}
 +static int   moveprobe_fig8_jump[MAX_CLIENTS];             // mode 17: last-frame jump press (toggle)
 +static float moveprobe_fig8_flip_t[MAX_CLIENTS];           // mode 17: server time of last lobe-switch
 +static float moveprobe_orbit18_yaw[MAX_CLIENTS];           // mode 18: orbit view yaw (rotates at OMEGA deg/s)
@@ -215,7 +264,8 @@ index c0654d1..6012e01 100644
 +// existing single-route configs byte-identical (additive guarantee).
 +// Malformed per-slot values fail LOUDLY: an FBMOVEPROBE_PERSLOT_ERROR console
 +// row plus the bot held at spawn (zeroed movement), never a silent fallback.
-+// Per-slot wiring exists for: mode, replay_file, fixed_goal, spawn_origin.
++// Per-slot wiring exists for: mode, replay_file, fixed_goal, spawn_origin,
++// spawn_velocity.
 +// ---------------------------------------------------------------------------
 +
 +// Set by UpdateGoal() (bot_botgoals.c) when a per-slot fixed_goal value is
@@ -340,7 +390,7 @@ index c0654d1..6012e01 100644
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,142 +683,4122 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,142 +733,4219 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -691,7 +741,7 @@ index c0654d1..6012e01 100644
 -			direction[1] = DotProduct (g_globalvars.v_right, self->fb.dir_move_) * 800;
 -			direction[2] = DotProduct (g_globalvars.v_up, self->fb.dir_move_) * 800;
 +			break;
-+		}
+ 		}
 +		if (index >= count - 1)
 +		{
 +			moveprobe_qwd_complete[slot] = 1;
@@ -700,7 +750,7 @@ index c0654d1..6012e01 100644
 +			moveprobe_qwd_point_index[slot] = index;
 +			BotLogMoveProbeQwdEvent(self, slot, "complete", index, index, distance);
 +			break;
- 		}
++		}
 +		{
 +			int reached_index = index;
  
@@ -718,18 +768,27 @@ index c0654d1..6012e01 100644
  	}
  
 -	self->fb.desired_angle[2] = 0;
+-
+-	if (ISDEAD(self))
 +	moveprobe_qwd_point_index[slot] = index;
 +	moveprobe_qwd_distance[slot] = distance;
 +	if (moveprobe_qwd_has_active_since[slot])
-+	{
+ 	{
+-		firing = false;
+-		jumping = BotRequestRespawn(self);
+-		VectorClear(direction);
+-		impulse = 0;
 +		moveprobe_qwd_active_seconds[slot] = g_globalvars.time - moveprobe_qwd_active_since[slot];
-+	}
+ 	}
+-	else if (self->fb.min_move_time > g_globalvars.time)
 +	if (moveprobe_qwd_complete[slot])
-+	{
+ 	{
+-		VectorClear(direction);
 +		return false;
-+	}
+ 	}
  
--	if (ISDEAD(self))
+-	// Keep bots on spawns before match start
+-	if (match_in_progress != 2 && cvar(FB_CVAR_FREEZE_PREWAR))
 +	VectorSubtract(points[index], self->s.v.origin, route_direction);
 +	route_direction[2] = 0;
 +	return VectorNormalize(route_direction) > 0;
@@ -739,14 +798,12 @@ index c0654d1..6012e01 100644
 +{
 +	if (slot < 0 || slot >= MAX_CLIENTS)
  	{
--		firing = false;
--		jumping = BotRequestRespawn(self);
+-		jumping = firing = false;
 -		VectorClear(direction);
 -		impulse = 0;
 +		return;
  	}
--	else if (self->fb.min_move_time > g_globalvars.time)
-+
+ 
 +	moveprobe_replay_active[slot] = 0;
 +	moveprobe_replay_complete[slot] = 0;
 +	moveprobe_replay_cursor[slot] = 0;
@@ -775,8 +832,7 @@ index c0654d1..6012e01 100644
 +	int i;
 +
 +	for (i = 0; i < 14; i++)
- 	{
--		VectorClear(direction);
++	{
 +		while ((*cursor == ' ') || (*cursor == '\t'))
 +		{
 +			cursor++;
@@ -791,10 +847,8 @@ index c0654d1..6012e01 100644
 +		{
 +			cursor++;
 +		}
- 	}
- 
--	// Keep bots on spawns before match start
--	if (match_in_progress != 2 && cvar(FB_CVAR_FREEZE_PREWAR))
++	}
++
 +	f->msec = (int)vals[0];
 +	f->origin[0] = vals[1];
 +	f->origin[1] = vals[2];
@@ -821,13 +875,10 @@ index c0654d1..6012e01 100644
 +
 +	handle = std_fropen("%s", fname);
 +	if (handle < 0)
- 	{
--		jumping = firing = false;
--		VectorClear(direction);
--		impulse = 0;
++	{
 +		return -1;
- 	}
- 
++	}
++
 +	while ((count < MOVEPROBE_REPLAY_MAX_FRAMES) && std_fgets(handle, line, sizeof(line)))
 +	{
 +		moveprobe_replay_frame_t *f;
@@ -2159,45 +2210,73 @@ index c0654d1..6012e01 100644
 +	}
 +
 +	// Lab instrument: one-time spawn snap. If k_fb_moveprobe_spawn_origin is set
-+	// ("x y z"), teleport the bot there on its first moveprobe frame (per slot)
-+	// and zero velocity -- a deterministic start for directed tests (e.g. the
-+	// bot at a staircase bottom with the goal pinned at the top).
++	// ("x y z"), teleport the bot there on its first moveprobe frame (per slot).
++	// Optional k_fb_moveprobe_spawn_velocity ("vx vy vz") seeds the matching
++	// live velocity for reference states that already carry momentum.
 +	{
 +		static int moveprobe_spawn_snapped[MAX_CLIENTS];
 +		static char moveprobe_spawn_last[MAX_CLIENTS][64];
++		static char moveprobe_spawn_velocity_last[MAX_CLIENTS][64];
 +		static int moveprobe_spawn_last_from_slot[MAX_CLIENTS];
++		static int moveprobe_spawn_velocity_last_from_slot[MAX_CLIENTS];
 +		char snap_buf[64];
-+		int snap_from_slot;
++		char snap_velocity_buf[64];
++		int snap_from_slot, snap_velocity_from_slot;
 +
 +		snap_from_slot = BotMoveProbeCvarStringForBot(self, "spawn_origin", snap_buf,
 +													  sizeof(snap_buf));
++		snap_velocity_from_slot = BotMoveProbeCvarStringForBot(self, "spawn_velocity",
++															   snap_velocity_buf,
++															   sizeof(snap_velocity_buf));
 +		// A changed spawn assignment must re-arm the one-shot snap latch:
 +		// otherwise a per-slot value edited mid-session (e.g. reassigning a
 +		// slot without a server restart) is never re-parsed, so a malformed
 +		// triplet would be neither reported nor held (#95 review). Pure-global
 +		// configs never take this branch (additive guarantee).
-+		if ((snap_from_slot || moveprobe_spawn_last_from_slot[slot])
++		if ((snap_from_slot || snap_velocity_from_slot
++			 || moveprobe_spawn_last_from_slot[slot]
++			 || moveprobe_spawn_velocity_last_from_slot[slot])
 +			&& (!streq(snap_buf, moveprobe_spawn_last[slot])
-+				|| (snap_from_slot != moveprobe_spawn_last_from_slot[slot])))
++				|| !streq(snap_velocity_buf, moveprobe_spawn_velocity_last[slot])
++				|| (snap_from_slot != moveprobe_spawn_last_from_slot[slot])
++				|| (snap_velocity_from_slot != moveprobe_spawn_velocity_last_from_slot[slot])))
 +		{
 +			moveprobe_spawn_snapped[slot] = 0;
 +		}
 +		strlcpy(moveprobe_spawn_last[slot], snap_buf,
 +				sizeof(moveprobe_spawn_last[slot]));
++		strlcpy(moveprobe_spawn_velocity_last[slot], snap_velocity_buf,
++				sizeof(moveprobe_spawn_velocity_last[slot]));
 +		moveprobe_spawn_last_from_slot[slot] = snap_from_slot;
++		moveprobe_spawn_velocity_last_from_slot[slot] = snap_velocity_from_slot;
 +		if (snap_buf[0])
 +		{
 +			if (!moveprobe_spawn_snapped[slot])
 +			{
 +				float sx, sy, sz;
++				float svx = 0.0f, svy = 0.0f, svz = 0.0f;
 +
 +				if (sscanf(snap_buf, "%f %f %f", &sx, &sy, &sz) == 3)
 +				{
 +					vec3_t snap_org;
 +
++					if (snap_velocity_buf[0]
++						&& (sscanf(snap_velocity_buf, "%f %f %f", &svx, &svy, &svz) != 3))
++					{
++						if (snap_velocity_from_slot)
++						{
++							BotMoveProbeReportPerSlotError(self, "spawn_velocity",
++														   snap_velocity_buf,
++														   "bad_velocity_triplet");
++							VectorClear(direction);
++							*jumping = false;
++							return;
++						}
++						svx = svy = svz = 0.0f;
++					}
 +					VectorSet(snap_org, sx, sy, sz);
 +					setorigin(self, PASSVEC3(snap_org));
-+					VectorClear(self->s.v.velocity);
++					VectorSet(self->s.v.velocity, svx, svy, svz);
 +				}
 +				else if (snap_from_slot)
 +				{
@@ -3734,14 +3813,21 @@ index c0654d1..6012e01 100644
 +		float zcarve_angle = cvar("k_fb_moveprobe_s23_carve_angle");
 +		int zcarve_side = (int)cvar("k_fb_moveprobe_s23_carve_side");
 +		float zrelease_lip = cvar("k_fb_moveprobe_s23_release_lip");
++		float zrefcurve = cvar("k_fb_moveprobe_s23_refcurve");
++		float zrefcurve_vh_min = cvar("k_fb_moveprobe_s23_refcurve_vh_min");
++		float zrefcurve_entry_x = cvar("k_fb_moveprobe_s23_refcurve_entry_x");
++		float zrefcurve_entry_y = cvar("k_fb_moveprobe_s23_refcurve_entry_y");
++		float zrefcurve_y = cvar("k_fb_moveprobe_s23_refcurve_y");
++		float zrefcurve_y_tol = cvar("k_fb_moveprobe_s23_refcurve_y_tol");
 +		float zyawlead_min = cvar("k_fb_moveprobe_s23_yawlead_min");
 +		float zyawlead_max = cvar("k_fb_moveprobe_s23_yawlead_max");
 +		float ztargeterr_min = cvar("k_fb_moveprobe_s23_targeterr_min");
 +		float ztargeterr_max = cvar("k_fb_moveprobe_s23_targeterr_max");
 +		qbool zjump_enabled, deleg_speed_ok;
-+		qbool ztrack, zarmed, ztarget_ok, zyawlead_ok;
++		qbool ztrack, zterminal, zcorridor, zarmed, zcurve, ztarget_ok, zyawlead_ok;
 +		float hor_speed_sq, rotation, goal_yaw, vel_yaw, signed_to_goal, herr, corner_mag;
 +		float zvh, zd_lip, ztarget_yaw, ztarget_err, zyaw_lead, ztmp;
++		float zdesired_vel_yaw, zdesired_view_yaw, zvel_err, zcorridor_err;
 +		float marker_dist_sq, marker_dz = 0;
 +		int sign = 0, zside = 0, zrelease_rule = 0;
 +		int path_flags = (int)self->fb.path_state;
@@ -3779,6 +3865,16 @@ index c0654d1..6012e01 100644
 +			if (zcarve_d <= 0) zcarve_d = 80.0f;
 +			if (zcarve_angle <= 0) zcarve_angle = 52.0f;
 +			if (zrelease_lip <= 0) zrelease_lip = 35.0f;
++			if (zrefcurve_vh_min < 0) zrefcurve_vh_min = 0.0f;
++			if ((zrefcurve_y != 0.0f) && (zrefcurve_y_tol <= 0.0f))
++			{
++				zrefcurve_y_tol = 24.0f;
++			}
++			if ((zrefcurve_entry_x == 0.0f) && (zrefcurve_entry_y == 0.0f))
++			{
++				zrefcurve_entry_x = -3439.375f;
++				zrefcurve_entry_y = 3758.125f;
++			}
 +			if ((zyawlead_min == 0.0f) && (zyawlead_max == 0.0f))
 +			{
 +				zyawlead_min = -12.0f;
@@ -3897,7 +3993,34 @@ index c0654d1..6012e01 100644
 +		nav_dir[2] = 0;
 +		if (VectorNormalize(nav_dir) <= 0)
 +		{
-+			return;
++			if (zjump_enabled)
++			{
++				float fallback_x = ztarget_x;
++				float fallback_y = ztarget_y;
++
++				if ((zrefcurve > 0.0f) && (zrefcurve_y != 0.0f))
++				{
++					float yerr = self->s.v.origin[1] - zrefcurve_y;
++					if (yerr < 0.0f) yerr = -yerr;
++					if (yerr > zrefcurve_y_tol)
++					{
++						fallback_x = zrefcurve_entry_x;
++						fallback_y = zrefcurve_entry_y;
++					}
++				}
++				nav_dir[0] = fallback_x - self->s.v.origin[0];
++				nav_dir[1] = fallback_y - self->s.v.origin[1];
++				nav_dir[2] = 0;
++				marker_dist_sq = nav_dir[0] * nav_dir[0] + nav_dir[1] * nav_dir[1];
++				if (VectorNormalize(nav_dir) <= 0)
++				{
++					return;
++				}
++			}
++			else
++			{
++				return;
++			}
 +		}
 +		// PASS-THROUGH zone: close to the marker the bearing swings wildly as the
 +		// bot flies past; reacting to that grounded + re-aimed the bot at EVERY
@@ -3978,22 +4101,45 @@ index c0654d1..6012e01 100644
 +				ztarget_err = ztarget_yaw - vel_yaw;
 +				while (ztarget_err > 180.0f) ztarget_err -= 360.0f;
 +				while (ztarget_err < -180.0f) ztarget_err += 360.0f;
-+				ztrack = onground && (zd_lip >= 0.0f) && (zd_lip <= zcarve_d);
-+				zarmed = ztrack && (zvh >= zrelease_vh_min);
++				ztrack = (zd_lip >= 0.0f) && (zd_lip <= zcarve_d);
++				zcorridor = true;
++				if (zrefcurve_y != 0.0f)
++				{
++					zcorridor_err = self->s.v.origin[1] - zrefcurve_y;
++					if (zcorridor_err < 0.0f) zcorridor_err = -zcorridor_err;
++					zcorridor = (zcorridor_err <= zrefcurve_y_tol);
++				}
++				zterminal = ztrack && ((zrefcurve <= 0.0f) || zcorridor);
++				zarmed = zterminal && (zvh >= zrelease_vh_min);
++				zcurve = zterminal && (zrefcurve > 0.0f) && (zvh >= zrefcurve_vh_min);
 +				zside = zcarve_side;
 +				if (zside == 0)
 +				{
 +					zside = (ztarget_err <= 0.0f) ? 1 : -1;
 +				}
 +				zside = (zside >= 0) ? 1 : -1;
-+				// Positive sidemove is the ztricks right-carve. With fwd+side
-+				// held equal, a 52 degree wishdir offset means view yaw trails
-+				// velocity by roughly 7 degrees, matching the human release.
-+				zyaw_lead = (45.0f - zcarve_angle) * zside;
-+				if (zyaw_lead < zyawlead_min) zyaw_lead = zyawlead_min;
-+				if (zyaw_lead > zyawlead_max) zyaw_lead = zyawlead_max;
++				if (zcurve)
++				{
++					BotMoveProbeZtricksReferenceCurve(zd_lip, &zdesired_vel_yaw,
++													  &zdesired_view_yaw);
++					zvel_err = BotMoveProbeWrap180(zdesired_vel_yaw - vel_yaw);
++					if (zcarve_side == 0)
++					{
++						zside = (zvel_err >= 0.0f) ? 1 : -1;
++					}
++					zyaw_lead = BotMoveProbeWrap180(zdesired_view_yaw - vel_yaw);
++				}
++				else
++				{
++					// Positive sidemove is the ztricks right-carve. With fwd+side
++					// held equal, a 52 degree wishdir offset means view yaw trails
++					// velocity by roughly 7 degrees, matching the human release.
++					zyaw_lead = (45.0f - zcarve_angle) * zside;
++					if (zyaw_lead < zyawlead_min) zyaw_lead = zyawlead_min;
++					if (zyaw_lead > zyawlead_max) zyaw_lead = zyawlead_max;
++				}
 +
-+				moveprobe_s23_zjump_phase[slot] = ztrack ? 1 : 0;
++				moveprobe_s23_zjump_phase[slot] = zterminal ? 1 : 0;
 +				moveprobe_s23_zjump_armed[slot] = zarmed ? 1 : 0;
 +				moveprobe_s23_zjump_d_lip[slot] = zd_lip;
 +				moveprobe_s23_zjump_vh[slot] = zvh;
@@ -4002,18 +4148,18 @@ index c0654d1..6012e01 100644
 +				moveprobe_s23_zjump_target_err[slot] = ztarget_err;
 +				moveprobe_s23_zjump_yaw_lead[slot] = zyaw_lead;
 +
-+				if (zarmed)
++				if (zarmed || zcurve)
 +				{
 +					ztarget_ok = (ztarget_err >= ztargeterr_min)
 +						&& (ztarget_err <= ztargeterr_max);
 +					zyawlead_ok = (zyaw_lead >= zyawlead_min)
 +						&& (zyaw_lead <= zyawlead_max);
-+					if ((zvh >= zrelease_vh) && (zd_lip <= zrelease_lip)
++					if (zarmed && onground && (zvh >= zrelease_vh) && (zd_lip <= zrelease_lip)
 +						&& ztarget_ok && zyawlead_ok)
 +					{
 +						zrelease_rule = 1;
 +					}
-+					else if ((zd_lip <= zrelease_lip * 0.35f)
++					else if (zarmed && onground && (zd_lip <= zrelease_lip * 0.35f)
 +							 && (ztarget_err >= (ztargeterr_min - 20.0f))
 +							 && (ztarget_err <= (ztargeterr_max + 10.0f))
 +							 && zyawlead_ok)
@@ -4027,7 +4173,9 @@ index c0654d1..6012e01 100644
 +					direction[0] = sv_maxspeed;
 +					direction[1] = sv_maxspeed * zside;
 +					direction[2] = 0;
-+					*jumping = zrelease_rule ? true : false;
++					press_jump = onground && !moveprobe_accel_jump_press[slot];
++					*jumping = zrelease_rule ? true : (!zarmed && zcurve
++						&& (zd_lip <= zrelease_lip) && press_jump);
 +					moveprobe_accel_jump_press[slot] = *jumping;
 +					moveprobe_s23_zjump_phase[slot] = zrelease_rule ? 2 : 1;
 +					moveprobe_s23_zjump_release_rule[slot] = zrelease_rule;

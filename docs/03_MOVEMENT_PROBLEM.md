@@ -128,11 +128,19 @@ before claiming landing success.
 Implementation v0 adds that target as default-off mode-23 route metadata rather
 than a separate trickjump UI path. When `k_fb_moveprobe_s23_launch_target_{x,y,z}`
 is unset, mode 23 keeps its existing Frogbot-route weave. The ztricks Distance
-route sets the target, lip, release-speed, carve-side/angle, yaw-lead, and
-target-error cvars; KTX then emits `zjump=` command telemetry so each live
-attempt can be scored on release state before landing. The command takeover is
-gated on the configured speed floor: entering the terminal zone logs `phase=1`,
-but `armed=1` is required before KTX emits the fwd+side carve or release jump.
+route sets the target, lip, release-speed, carve-side/angle, yaw-lead,
+target-error, spawn velocity, and optional reference-curve cvars; KTX then
+emits `zjump=` command telemetry so each live attempt can be scored on release
+state before landing. The current reference-curve path may emit the terminal
+fwd+side carve while inside the lane corridor, but the jump/release remains
+gated: a normal formula release still requires `armed=1`, and the fallback
+"try anyway" jump is limited to the release-lip window.
+
+The 2026-06-12 reference-curve live retries fixed the no-movement symptom but
+did not solve Distance. Best scored segments stayed around `401-407 qu/s`, below
+the `453 qu/s` arm floor. Raw rows show the bot reaches the terminal corridor
+but crosses the lip under speed and often airborne, so the next dimension is
+approach-hop timing/starting geometry rather than only terminal mouse yaw.
 
 ## First movement override evidence
 

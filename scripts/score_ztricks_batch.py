@@ -61,7 +61,9 @@ def angle_delta_deg(a: float, b: float) -> float:
 def row_speed(row: dict[str, object]) -> float:
     zjump = row.get("zjump_state")
     if isinstance(zjump, dict) and "horizontal_speed" in zjump:
-        return float(zjump["horizontal_speed"])
+        zjump_speed = float(zjump["horizontal_speed"])
+        if zjump_speed > 0.0 or int(zjump.get("phase", 0)) > 0:
+            return zjump_speed
 
     water = row.get("water_state")
     if isinstance(water, dict):

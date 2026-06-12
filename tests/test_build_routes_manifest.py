@@ -72,6 +72,8 @@ class TestSchema(unittest.TestCase):
         ztricks = self.docs["ztricks.json"]
         self.assertEqual([r["name"] for r in ztricks["routes"]], ["distance_standstill"])
         self.assertEqual(ztricks["routes"][0]["control"]["mode"], 23)
+        self.assertEqual(ztricks["routes"][0]["control"]["spawn_origin"], "-3434.375 3686.875 -488")
+        self.assertEqual(ztricks["routes"][0]["control"]["spawn_velocity"], "259 -172 0")
         self.assertNotIn("game_command", ztricks["routes"][0]["control"])
 
     def test_ztricks_route_uses_successful_getspeed_attempt(self):
@@ -99,9 +101,15 @@ class TestSchema(unittest.TestCase):
         self.assertEqual(cvars["k_fb_moveprobe_s23_lip_x"], -3348)
         self.assertEqual(cvars["k_fb_moveprobe_s23_release_vh"], 470)
         self.assertEqual(cvars["k_fb_moveprobe_s23_release_vh_min"], 453)
-        self.assertEqual(cvars["k_fb_moveprobe_s23_carve_d"], 80)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_carve_d"], 95)
         self.assertEqual(cvars["k_fb_moveprobe_s23_carve_angle"], 52)
         self.assertEqual(cvars["k_fb_moveprobe_s23_carve_side"], 1)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_refcurve"], 1)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_refcurve_vh_min"], 0)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_refcurve_entry_x"], -3439.375)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_refcurve_entry_y"], 3758.125)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_refcurve_y"], 3768.5)
+        self.assertEqual(cvars["k_fb_moveprobe_s23_refcurve_y_tol"], 24)
         self.assertEqual(cvars["k_fb_moveprobe_s23_yawlead_min"], -12)
         self.assertEqual(cvars["k_fb_moveprobe_s23_yawlead_max"], -4)
         self.assertEqual(cvars["k_fb_moveprobe_s23_targeterr_min"], -2)

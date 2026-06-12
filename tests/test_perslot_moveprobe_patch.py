@@ -69,11 +69,12 @@ class PerSlotPatchTests(unittest.TestCase):
         # The global fallback read keeps unset slots additive.
         self.assertIn('"k_fb_moveprobe_%s"', self.added_blob)
 
-    def test_all_four_params_are_wired(self) -> None:
+    def test_all_five_params_are_wired(self) -> None:
         self.assertIn('BotMoveProbeCvarIntForBot(self, "mode"', self.added_blob)
         self.assertIn('BotMoveProbeCvarStringForBot(self, "replay_file"', self.added_blob)
         self.assertIn('BotMoveProbeCvarIntForBot(self, "fixed_goal"', self.added_blob)
         self.assertIn('BotMoveProbeCvarStringForBot(self, "spawn_origin"', self.added_blob)
+        self.assertIn('BotMoveProbeCvarStringForBot(self, "spawn_velocity"', self.added_blob)
 
     def test_replaces_the_global_call_sites(self) -> None:
         # The new call sites must go through the per-slot helpers rather than
@@ -82,6 +83,7 @@ class PerSlotPatchTests(unittest.TestCase):
         self.assertIn('BotMoveProbeCvarStringForBot(self, "replay_file"', self.added_blob)
         self.assertIn('BotMoveProbeCvarIntForBot(self, "fixed_goal"', self.added_blob)
         self.assertIn('BotMoveProbeCvarStringForBot(self, "spawn_origin"', self.added_blob)
+        self.assertIn('BotMoveProbeCvarStringForBot(self, "spawn_velocity"', self.added_blob)
         self.assertNotIn('cvar("k_fb_moveprobe_mode")', self.added_blob)
         self.assertNotIn('trap_cvar_string("k_fb_moveprobe_replay_file"', self.added_blob)
         self.assertNotIn('cvar("k_fb_moveprobe_fixed_goal")', self.added_blob)
@@ -147,12 +149,16 @@ class PerSlotPatchTests(unittest.TestCase):
         # re-arm the one-shot snap latch so the new value is re-parsed and a
         # malformed triplet loud-fails instead of being silently ignored.
         self.assertIn("moveprobe_spawn_last[MAX_CLIENTS][64]", self.added_blob)
+        self.assertIn("moveprobe_spawn_velocity_last[MAX_CLIENTS][64]", self.added_blob)
         self.assertIn("moveprobe_spawn_last_from_slot[MAX_CLIENTS]", self.added_blob)
+        self.assertIn("moveprobe_spawn_velocity_last_from_slot[MAX_CLIENTS]", self.added_blob)
         self.assertIn(
-            "if ((snap_from_slot || moveprobe_spawn_last_from_slot[slot])",
+            "if ((snap_from_slot || snap_velocity_from_slot",
             self.added_blob,
         )
         self.assertIn("moveprobe_spawn_snapped[slot] = 0;", self.added_blob)
+        self.assertIn('"spawn_velocity"', self.added_blob)
+        self.assertIn('"bad_velocity_triplet"', self.added_blob)
 
     def test_dashboard_practice_idle_mode_exists(self) -> None:
         # Dashboard sessions seed bots in this global mode so they can spawn,
@@ -179,6 +185,12 @@ class PerSlotPatchTests(unittest.TestCase):
             "k_fb_moveprobe_s23_carve_angle",
             "k_fb_moveprobe_s23_carve_side",
             "k_fb_moveprobe_s23_release_lip",
+            "k_fb_moveprobe_s23_refcurve",
+            "k_fb_moveprobe_s23_refcurve_vh_min",
+            "k_fb_moveprobe_s23_refcurve_entry_x",
+            "k_fb_moveprobe_s23_refcurve_entry_y",
+            "k_fb_moveprobe_s23_refcurve_y",
+            "k_fb_moveprobe_s23_refcurve_y_tol",
             "k_fb_moveprobe_s23_yawlead_min",
             "k_fb_moveprobe_s23_yawlead_max",
             "k_fb_moveprobe_s23_targeterr_min",
@@ -186,8 +198,17 @@ class PerSlotPatchTests(unittest.TestCase):
         ):
             self.assertIn(cvar, self.added_blob)
         self.assertIn("zjump_enabled = ((ztarget_x != 0.0f)", self.added_blob)
+        self.assertIn("BotMoveProbeZtricksReferenceCurve", self.added_blob)
+        self.assertIn("BotMoveProbeQuadratic", self.added_blob)
+        self.assertIn("fallback_x = zrefcurve_entry_x;", self.added_blob)
+        self.assertIn("fallback_y = zrefcurve_entry_y;", self.added_blob)
+        self.assertIn("nav_dir[0] = fallback_x - self->s.v.origin[0];", self.added_blob)
+        self.assertIn("zrefcurve_y_tol = 24.0f;", self.added_blob)
+        self.assertIn("ztrack = (zd_lip >= 0.0f) && (zd_lip <= zcarve_d);", self.added_blob)
+        self.assertIn("zterminal = ztrack && ((zrefcurve <= 0.0f) || zcorridor);", self.added_blob)
+        self.assertIn("if (zarmed && onground && (zvh >= zrelease_vh)", self.added_blob)
         self.assertIn("direction[1] = sv_maxspeed * zside;", self.added_blob)
-        self.assertIn("*jumping = zrelease_rule ? true : false;", self.added_blob)
+        self.assertIn("&& (zd_lip <= zrelease_lip) && press_jump", self.added_blob)
         self.assertIn("zjump=%d,%.3f,%.3f,%.1f,%.1f,%.1f,%.1f,%d,%d", self.added_blob)
 
 

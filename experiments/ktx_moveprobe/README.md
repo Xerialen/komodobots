@@ -47,7 +47,7 @@ git apply /path/to/frogbot-moveprobe-perslot.patch
 What it adds:
 
 - **Per-slot cvar convention** `k_fb_moveprobe_<param>_s<N>` for `mode`, `replay_file`,
-  `fixed_goal`, and `spawn_origin`, where `N` is the bot's edict/client number — the same
+  `fixed_goal`, `spawn_origin`, and `spawn_velocity`, where `N` is the bot's edict/client number — the same
   `ed` printed in `FBMOVEPROBE_CMD` rows, so telemetry joins to assignments directly.
   One helper pair (`BotMoveProbeCvarStringForBot` / `BotMoveProbeCvarIntForBot`) builds
   the suffixed name, reads it via `trap_cvar_string`, and falls back to the global cvar
@@ -59,7 +59,7 @@ What it adds:
   no client slot currently resolves to it.
 - **Loud failure** (lab precedent #77): a malformed per-slot value — non-integer `mode`
   or `fixed_goal`, per-slot `fixed_goal` naming a marker absent on the map, missing or
-  unloadable per-slot `replay_file`, bad `spawn_origin` triplet — prints (throttled to
+  unloadable per-slot `replay_file`, bad `spawn_origin` or `spawn_velocity` triplet — prints (throttled to
   one row per slot per ~2 s, not gated on command logging):
 
   ```text
@@ -208,7 +208,7 @@ The S7j diagnostic suffix is shaped as `probe=<active>,<on_ground>,<since_ground
 
 The QWD diagnostic suffix is shaped as `qwd=<active>,<control_point_index>,<control_point_count>,<distance_qu>,<advanced_control_points>,<complete>,<active_seconds>`. It exists to prove whether the temporary QWD-derived controller activated, which target it was chasing, how far it got, and whether a future success claim is just waypoint-only slow/stuck motion.
 
-The ztricks terminal-carve suffix is shaped as `zjump=<phase>,<d_lip>,<vh>,<vel_yaw>,<target_yaw>,<target_err>,<yaw_lead>,<armed>,<release_rule>`. It exists to prove whether the mode-23 Distance attempt reaches the human release formula before scoring landing. The primitive is default-off and only engages when route/control metadata sets `k_fb_moveprobe_s23_launch_target_{x,y,z}`; it logs the terminal zone as `phase=1`, but only takes over the command once the configured speed floor makes `armed=1`. The committed ztricks route also sets `k_fb_moveprobe_s23_lip_x`, release speed floors, `carve_d`, `carve_angle`, `carve_side`, `release_lip`, yaw-lead bounds, and target-error bounds.
+The ztricks terminal-carve suffix is shaped as `zjump=<phase>,<d_lip>,<vh>,<vel_yaw>,<target_yaw>,<target_err>,<yaw_lead>,<armed>,<release_rule>`. It exists to prove whether the mode-23 Distance attempt reaches the human release formula before scoring landing. The primitive is default-off and only engages when route/control metadata sets `k_fb_moveprobe_s23_launch_target_{x,y,z}`. The committed ztricks route also sets `k_fb_moveprobe_s23_lip_x`, release speed floors, `carve_d`, `carve_angle`, `carve_side`, `release_lip`, yaw-lead bounds, target-error bounds, `spawn_velocity`, and optional human-reference curve knobs (`k_fb_moveprobe_s23_refcurve*`). The reference curve can steer with fwd+side inside the terminal lane corridor; formula release still requires `armed=1`, and the fallback unarmed jump is limited to the release-lip window so it cannot spend the attempt at terminal-lane entry.
 
 ## Runner
 
@@ -234,16 +234,16 @@ and release parameters:
 
 ```bash
 python scripts/build_ztricks_reference_trace.py
-python scripts/run_ztricks_batch.py --attempts 6 --attempt-seconds 8
+python scripts/run_ztricks_batch.py --attempts 6 --attempt-seconds 8 --refcurve
 python scripts/score_ztricks_batch.py --run-id <run-id>
 ```
 
 `run_ztricks_batch.py` keeps one temporary `ztricks` server and one MVD
 recording alive, then cycles clean single-bot attempts by clearing spawn-snap
 state, `removeall`, setting the mode-23 Distance cvars, restoring the A5 spawn
-origin, and adding one bot. `score_ztricks_batch.py` segments the resulting
-`moveprobe-commands.json` into attempts and scores each against the successful
-human `getspeed.qwd` release formula before landing distance.
+origin/velocity, and adding one bot. `score_ztricks_batch.py` segments the
+resulting `moveprobe-commands.json` into attempts and scores each against the
+successful human `getspeed.qwd` release formula before landing distance.
 
 Interpolation contract (Nexus note, 2026-06-12): do not compare only discrete
 sample rows. `score_ztricks_batch.py` estimates bot release/landing by

@@ -4459,3 +4459,97 @@ sweep. The result does not make the current controller better; it makes the
 diagnosis sharper. The next controller experiment should chase the
 interpolated/quadratic terminal yaw and velocity-heading curve, while still
 using release-state gates before claiming a jump attempt is meaningful.
+
+
+## 2026-06-12 -- ztricks reference-curve live retry fixes no-movement, not release
+
+### Finding
+
+The live "bots just jump in their spot" failure was real, and is now separated
+from the harder ztricks problem. Mode 23 can move the bot again from the A5
+practice state, but the current controller still does not create a valid
+Distance release: the bot crosses the lip under the `453 qu/s` arm floor and
+often on the wrong ground/air cadence.
+
+### Change
+
+- Added optional `k_fb_moveprobe_spawn_velocity` so ztricks attempts can start
+  from the first grounded human reference state with its teleport-exit momentum
+  (`-3434.375 3686.875 -488`, velocity `259 -172 0`) instead of a zero-velocity
+  teleport deposit.
+- Added a default-off mode-23 ztricks human-reference terminal curve using the
+  successful attempt's local quadratic yaw samples. The route/dashboard/batch
+  presets enable it for ztricks Distance with a terminal-lane entry target
+  `(-3439.375, 3758.125)` and a tighter y corridor centered on `3768.5` with
+  tolerance `24`.
+- Fixed the silent-marker case: if Frogbot navigation gives no horizontal route
+  vector for ztricks, mode 23 now falls back to the terminal-lane entry before
+  chasing the far landing target.
+- Fixed the scorer speed helper so phase-0 `zjump` rows with zero zjump speed
+  fall back to actual water/velocity speed instead of hiding movement as `0`.
+- Tightened the unarmed reference-curve jump: it may only press the "try
+  anyway" jump inside the release-lip window, not at the start of the terminal
+  lane.
+
+### Evidence
+
+Validation:
+
+```text
+python -m unittest tests.test_perslot_moveprobe_patch tests.test_build_routes_manifest tests.test_control_bridge tests.test_score_ztricks_batch -v
+python -m py_compile scripts\run_ztricks_batch.py scripts\score_ztricks_batch.py scripts\build_ztricks_reference_trace.py lab\tools\build_routes_manifest.py lab\server\control_bridge.py
+```
+
+Result: `108` focused tests passed; Python compile passed.
+
+Remote KTX build/deploy safety:
+
+- Built temporary modules from clean KTX commit `08807da` in disposable
+  worktrees, without touching the dirty `~/nquakesv/build/ktx` checkout.
+- After each live run, restored
+  `/home/xerial/nquakesv/ktx/qwprogs-mode24-20260612T101218Z.so`, SHA-256
+  `49a41cd17e5eec3aadf4b0bd1042a87214b7f8f50f65c8d7a617001ef5926418`, and
+  verified `localhost:28599 DOWN`.
+
+Live sequence:
+
+- `qwprogs-zcurve-20260612T184820Z.so`
+  (`a1b2466529b7b5a210f48238d1b845ac79ae12c241648a8fb912883fc12c50b5`) /
+  `zbatch_20260612T164913Z`: reference curve engaged too late/wrong-lane;
+  best max zjump speed about `134.5 qu/s`, no arm/release. This matched the
+  user's live observation that the bot mostly jumped in place.
+- `qwprogs-zcurve2-20260612T185630Z.so`
+  (`5a76b1c5e466f681a09ba51b8fdd9ed769f2bb03ae56bea2a128d158e98e59ba`) /
+  `zbatch_20260612T165711Z`: spawn velocity was applied, but the Frogbot marker
+  route was silent at the practice point; raw rows showed `move=0,0,0`.
+- `qwprogs-zcurve3-20260612T185950Z.so`
+  (`a60b7fb7989380ece38801c4ee7222f7133181f00654f9d085e8b20d8162c69b`) /
+  `zbatch_20260612T170030Z`: real movement returned. Movement metrics reported
+  max speeds `483.2` and `508.1 qu/s`, but terminal rows were in the wrong lane
+  and no arm/release happened.
+- `qwprogs-zcurve4-20260612T190756Z.so`
+  (`0afc421095a8c964f986fe6e336d8b1c10586749e49a028018ee24bee8a258d8`) /
+  `zbatch_20260612T170840Z`: terminal-lane fallback worked, but the unarmed
+  reference curve spent a jump too early around `60-70q` before the lip. Best
+  scored segment maxed at `406.6 qu/s`; `armed/release = 0/0`.
+- `qwprogs-zcurve5-20260612T171142Z.so`
+  (`bc95454f69dc38d730ecba7efa9b7f226bd88682e79d27f2d1460f40a495763b`) /
+  `zbatch_20260612T171211Z`: early terminal-curve jump was removed. Best scored
+  segment maxed at `401.3 qu/s`; movement metrics saw player max speeds
+  `424.9` and `423.4 qu/s`; `armed/release = 0/0`.
+
+Raw `zbatch_20260612T171211Z` command rows show the current failure mode:
+
+- ordinary approach bunnyhop rows still occur around `d_lip ~= 80q`;
+- terminal rows reach the human y corridor, but at about `322-324 qu/s`;
+- the bot crosses the lip under the arm floor and not on a valid grounded
+  release cadence.
+
+### Interpretation
+
+This fixes the "no real movement" bug, but not the ztricks jump. The missing
+dimension is now approach-hop timing/starting geometry, not only the terminal
+mouse curve: the controller must arrive at the ledge on a useful ground frame
+with at least `453 qu/s`, then spend the jump in the release window. The next
+smallest experiment should tune start position and/or approach-hop cadence
+before changing the terminal formula again.

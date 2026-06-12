@@ -154,6 +154,12 @@ class TestScoreZtricksBatch(unittest.TestCase):
         self.assertAlmostEqual(lip["origin"]["x"], scorer.PHYSICAL_LIP_X, places=3)
         self.assertAlmostEqual(lip["time_s"], 1.05, places=3)
 
+    def test_row_speed_falls_back_to_water_velocity_before_zjump_arms(self) -> None:
+        row = command_row(1.00, vh=0.0, phase=0)
+        row["water_state"] = {"velocity": {"x": 259.0, "y": -172.0, "z": 0.0}}
+
+        self.assertAlmostEqual(scorer.row_speed(row), 310.91, places=2)
+
     def test_scores_run_dir_outputs_markdown(self) -> None:
         commands = [
             command_row(1.00, vh=120),
