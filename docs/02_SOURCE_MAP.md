@@ -411,7 +411,9 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   showed speed alone is not a sufficient success gate. Deterministic/idempotent (LF outputs,
   `-text` in `.gitattributes`, LF-normalized sha256 provenance hashes);
   `tests/test_build_routes_manifest.py` locks the committed outputs against a fresh
-  build. Pipeline details: `docs/06_DATA_AND_MVD_PIPELINE.md` § Routes manifest.
+  build. The controller-shaped breakdown of the successful speedjump lives in
+  `experiments/a5_distance_standstill/speedjump-formula.md`. Pipeline details:
+  `docs/06_DATA_AND_MVD_PIPELINE.md` § Routes manifest.
 
 - `lab/tools/import_map_entities.py` — stdlib importer that copies the upstream
   `mvd_analyzer` static map-entity corpus from

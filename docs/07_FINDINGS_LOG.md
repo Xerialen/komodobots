@@ -4160,3 +4160,34 @@ showed the required missing idea in sim: terminal carve plus a release-speed
 floor. The live side now confirms that the next useful change is a default-off
 KTX control primitive for that terminal carve/release rule, exposed through the
 route settings, followed by the same one-attempt live loop.
+
+
+## 2026-06-12 -- ztricks speedjump formula v0 extracted
+
+### Finding
+
+The successful ztricks Distance attempt can be expressed as a concrete release
+formula rather than a vague "go faster" instruction. The important window is a
+15-command-row / `195 ms` terminal sweep ending at the lip.
+
+### Evidence
+
+`experiments/a5_distance_standstill/speedjump-formula.md` extracts attempt 11
+from `getspeed-aligned.cmds` into a controller contract:
+
+- terminal sweep starts around row `1904`: speed `441.4`, velocity heading
+  `41.4 deg`, view yaw `39.1 deg`, `d_lip 91.4`.
+- speed floor crosses around row `1908`: speed `450.8`, velocity heading
+  `27.5 deg`, view yaw `23.8 deg`, `d_lip 71.9`.
+- release happens at row `1918`: speed `475.2`, velocity heading `-11.3 deg`,
+  view yaw `-19.0 deg`, yaw lead `-7.7 deg`, `d_lip 12.8`, jump bit on.
+- landing happens at row `1969`: origin `(-3044.1, 3760.5, -488.0)`, speed
+  `495.5`.
+
+### Interpretation
+
+The next KTX primitive should score release state first, not landing first:
+`vh`, `d_lip`, velocity heading, target error, yaw lead, and jump bit must match
+the formula before any landing claim is meaningful. The live attempt failure is
+now explained precisely: it had location and exploratory speed, but not the
+terminal heading/yaw/jump synchronization.

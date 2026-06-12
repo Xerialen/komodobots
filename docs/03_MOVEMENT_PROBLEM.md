@@ -103,6 +103,28 @@ The real target is a movement mode or controller with:
 - Whether route logic and movement logic are sufficiently decoupled.
 - Whether KTX/Frogbots should remain the substrate or be replaced by a new bot architecture.
 
+## Ztricks Distance Speedjump Formula
+
+The successful `getspeed.qwd` Distance jump shows that the useful unit is not
+speed alone. It is a synchronized release state: speed, velocity heading, view
+yaw, local strafe/forward command, and jump timing at the lip.
+
+The current controller-shaped formula lives in
+`experiments/a5_distance_standstill/speedjump-formula.md`. Its core target is:
+
+- terminal sweep duration: about `195 ms`
+- speed: `441 -> 475 qu/s`
+- velocity heading: `+41 deg -> -11 deg`
+- view yaw: `+39 deg -> -19 deg`
+- view yaw lead relative to velocity: about `-5` to `-10 deg`
+- jump release: `vh ~= 475`, `d_lip ~= 13`, jump bit on
+
+The live `dash_20260612T142054Z` retry confirmed the opposite failure: the bot
+can arrive within `6q` of the human release point with about `457 qu/s`, but it
+is travelling roughly north (`84.6 deg`) and does not press jump there. The next
+movement primitive should therefore target the terminal carve/release state
+before claiming landing success.
+
 ## First movement override evidence
 
 The first S2 probe found a candidate command-emission seam in KTX/Frogbots:
