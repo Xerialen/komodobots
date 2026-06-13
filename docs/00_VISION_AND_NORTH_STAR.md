@@ -49,3 +49,8 @@ Therefore the first laboratory objective is to understand whether KTX/Frogbots c
 A future milestone will decide whether the project primarily continues toward FantasyQuake or toward player-specific simulation (Megalodon Milton).
 
 That decision should be driven by evidence produced by the laboratory, not by assumptions.
+
+**Update (2026-06-14): Alpha taken provisionally → Megalodon Milton first**, on the evidence of the
+ztricks and dm3 movement breakthroughs. The program of record is `docs/12_DM3_4ON4_STANDIN_PROGRAM.md`
+(a learned individual brain for a live 4on4 DM3 stand-in); the decision record and revisit conditions
+are in `docs/08_DECISION_LOG.md`.
