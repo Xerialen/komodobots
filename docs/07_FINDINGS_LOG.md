@@ -5303,3 +5303,226 @@ Interpretation:
 Next smallest useful experiment: branch from this accepted profile, run one
 strict-score improvement at a time, and keep the accepted baseline as the
 rollback/reference profile.
+
+### 2026-06-13 continuation: DM3 rocket-route replay state
+
+The DM3 `mega_to_rl.qwd` reference is not pure movement.  Its serverinfo says
+`hostname=eQuakesv KTPro Server`, `deathmatch=3`, `status=Standby`,
+`pm_ktjump=0.5`; the QWD has attack+jump windows with `impulse 7`, and the
+first rocket window raises horizontal speed from about `321` to `635 qu/s`.
+Follow-up inspection found no literal `prewar` string in the QWD; `Standby` is
+the recorded server state.  The first attack window is at frame `119`, about
+`t=1.533`, near the mega-area marker (`item_health` marker 11 at roughly
+`1840 624 -203`): player origin is about `1859.6 645.5 -176.5`, `buttons=3`,
+`impulse=7`, and the paired state shows the rocket-style velocity change.
+
+The first live replay implementation preserved attack bits but failed to fire:
+`dm3_mega_to_rl_m25_attack_preselect_005` emitted `buttons=3` and `impulse=7`
+but the MVD event log reported repeated `no weapon`.  The blocker was lab
+inventory state, not mouse/strafe timing.
+
+Implemented two default-off KTX replay controls in
+`experiments/ktx_moveprobe/frogbot-moveprobe-perslot.patch`:
+
+- `k_fb_moveprobe_replay_attack_grant`: when combined with
+  `k_fb_moveprobe_replay_attack`, grants RL/rockets at replay activation.
+- `k_fb_moveprobe_corr_autojump`: mode-12 corrective replay presses jump on
+  unexpected ground contact when the QWD frame itself is not already jumping.
+
+Validation:
+
+- Patch contract: `python -m unittest tests.test_perslot_moveprobe_patch -v`
+  passes 16 tests.
+- Pristine KTX `08807da` apply check passes.
+- Deployed replay-grant binary:
+  `/home/xerial/nquakesv/ktx/qwprogs-replayattack-grant-20260612T231458Z.so`,
+  SHA-256
+  `2642695bab3d3f216cadc332cc9de2f52d33a24aeb2c9b57d4e64a420fc32b47`.
+- Deployed replay-autojump binary:
+  `/home/xerial/nquakesv/ktx/qwprogs-replayautojump-20260612T232658Z.so`,
+  SHA-256
+  `bfa1c33b554f9a4cb016900e80418de392bafa300385e82a8fffd590913e8d27`.
+
+Route evidence:
+
+| route | run | mode/cvars | result |
+|---|---|---|---|
+| `sng_to_rl` | `dm3_sng_m25_default_001` | mode 25, no attack | `REACHED_RL`, route `100%`, speed `101%`, closest `14 qu`, PASS |
+| `mega_to_rl` | `dm3_mega_to_rl_m12_attack_grant_008` | mode 12 + attack replay + RL grant | `REACHED_RL`, route `100%`, speed `93%`, closest `23 qu`, PASS |
+| `rl_to_bridge` | `dm3_rl_to_bridge_m12_attack_grant_001` | mode 12 + attack replay + RL grant | best before autojump: route `84.1%`, edge `398/467 qu/s`, fell short |
+| `rl_to_bridge` | `dm3_rl_to_bridge_m12_autojump_grant_006` | mode 12 + attack replay + RL grant + autojump | edge improved to `433/467 qu/s`, still fell short |
+| `rl_to_ya` | `dm3_rl_to_ya_m12_attack_grant_001` | mode 12 + attack replay + RL grant | route `94.1%`, speed `113%`, left route; best crossing speed high but goal not reached |
+
+Interpretation:
+
+- `mega_to_rl` is solved once the bot receives the same RL/rocket state as the
+  KTPro Standby QWD.
+- `rl_to_bridge` is now an actual live rocket-route attempt, not a no-weapon
+  fake.  The binding failure is a small path/ground-contact divergence: around
+  replay cursor `340`, the bot is only about `16 qu` off the human line but
+  touches the `z=-24` floor, drops from the human's `~546 qu/s` airborne state
+  to a grounded `~425 qu/s`, and cannot recover the `467 qu/s` final-edge
+  requirement.  Autojump helps but does not solve the route.
+- `rl_to_ya` has enough raw speed but still needs final-route/landing
+  correction; speed alone is again not sufficient.
+
+Next smallest useful experiment: for `rl_to_bridge`, add a route-local
+air-preservation correction rather than more global replay cvar nudging.  The
+controller should detect "human airborne but live bot grounded near the QWD
+line" and bias away from the floor/ledge contact before friction drains speed;
+the pass criterion remains `REACHED_RL`/bridge-goal with route `>=80%` and speed
+`>=80%`.
+
+### 2026-06-13 continuation: DM3 rocket-route completion
+
+The route-local realign experiment succeeded after adding a replay-cursor phase
+gate.  The important guard is `k_fb_moveprobe_corr_ground_realign_after`: it
+keeps the idle-frame walk-to-QWD-origin correction inactive during earlier
+rocket/landing phases, where a few units of pre-launch shift can miss the floor.
+
+Validation:
+
+- Patch contract: `python -m unittest tests.test_perslot_moveprobe_patch -v`
+  passes 17 tests.
+- Pristine KTX `08807da` apply check passes.
+- Deployed binary:
+  `/home/xerial/nquakesv/ktx/qwprogs-replaygroundalign-after-20260612T234438Z.so`,
+  SHA-256
+  `15d8bcda84f7f447278c0aaee4f5ce4f8506c6ce45e261df0de938b9beea5611`.
+
+Winning runs:
+
+| route | run | mode/cvars | result |
+|---|---|---|---|
+| `rl_to_bridge` | `dm3_rl_to_bridge_m12_groundalign_after340_grant_014` | mode 12 + attack replay + RL grant + ground realign after cursor `340` | `REACHED_RL`, route `100%`, speed `153%`, closest `9 qu`, PASS |
+| `rl_to_ya` | `dm3_rl_to_ya_m12_groundalign_after250_grant_003` | mode 12 + attack replay + RL grant + ground realign after cursor `250` | `REACHED_RL`, route `100%`, speed `129%`, closest `1 qu`, PASS |
+
+Interpretation:
+
+- The exact DM3 route set requested in the current goal is now solved in live
+  lab evidence: `sng_to_rl`, `mega_to_rl`, `rl_to_bridge`, and `rl_to_ya`.
+- The reusable principle is not "more correction everywhere."  The ungated
+  ground realign changed the first `rl_to_bridge` rocket approach by only a few
+  units and caused a miss.  Phase gating matters as much as the correction.
+- Speed alone is still not a sufficient success metric.  `rl_to_ya` had enough
+  speed before this change but needed final route/goal correction; `rl_to_bridge`
+  needed both rocket state and phase-specific path repair.
+
+Next smallest useful experiment: run a small repeatability batch for the two new
+rocket-route passes using the exact winning cvars, then promote the cvar recipes
+into route metadata only if they reproduce.
+
+### 2026-06-13 continuation: `dm3_ring_to_mega` is passable but not repeatable
+
+`dm3_ring_to_mega` is a tighter binding case than the solved rocket routes.  The
+human route needs about `536.5 qu/s` at the ring-room launch edge and the human
+reference only has about `536.8 qu/s`, so a few units of path/cadence drift are
+enough to turn a good-looking replay into a wall/slot clip.
+
+Validation and deploy evidence:
+
+- Patch contract: `python -m unittest tests.test_perslot_moveprobe_patch -v`
+  passes 20 tests.
+- Pristine KTX `08807da` apply check passes.
+- Deployed command-blend/interpolation binary:
+  `/home/xerial/nquakesv/ktx/qwprogs-replay-cmdblend-interp-20260613T080057Z.so`,
+  SHA-256
+  `1f0e3712642e1edb71c0d2a9f48f65bddb62bde12ebe4852a6e69e18c248daca`.
+
+Live route evidence:
+
+| run | cvars | result |
+|---|---|---|
+| `dm3_ring_to_mega_m12_baseline_002` | mode 12, yaw correction | Fell short: route `67.8%`, speed `77%`, edge `532/536`; trace shows a slot clip near `x=1232`, `y=684`. |
+| `dm3_ring_to_mega_m12_cmdblend005_noyaw_019` | command blend `0.05` after cursor `245`, yaw disabled | PASS: route `100%`, speed `99%`, closest `3 qu`. |
+| `dm3_ring_to_mega_m12_cmdblend005_noyaw_020` | same as above | Fell short: route `68.1%`, edge `514/536`; already `~27 qu` behind the human line at cursor `220`. |
+| `dm3_ring_to_mega_m12_cmdblend005_noyaw_021` | same as above | Fell short: route `68.1%`, edge `534/536`; clipped/stalled near `x=1232`. |
+| `dm3_ring_to_mega_m12_cmdblend005_noyaw_022` | same as above | PASS: route `100%`, speed `99%`, closest `0 qu`. |
+| `dm3_r2m_msec_only_027` | recorded `msec` override, no path blend | Worse: route `65.8%`, edge `468/536`; cadence override alone is rejected for this route. |
+| `dm3_r2m_interp_only_028` | QWD reference/view interpolation, no path blend | PASS: route `99.9%`, speed `99%`, closest `2 qu`. |
+| `dm3_r2m_interp_only_029` | same as above | Bad failure: no scoreable segment; interpolation can send the bot into an early wrong/teleporting line. |
+
+Interpretation:
+
+- The route is not unsolved because the bot cannot generate enough speed; the bot
+  can complete it in live KTX.  The failure is repeatability.
+- The stable principle from Nexus still looks right: the controller needs proper
+  interpolation/resampling between QWD datapoints, but the first live
+  implementation is too naive.  Smoothing the reference view/path without a
+  phase guard can make an early line much worse.
+- More path blend is not the answer.  Starting blend earlier or increasing
+  command magnitude stole speed or knocked the route off-line.
+- Recorded `msec` override is also not the answer by itself; it reduced edge
+  speed on this route.
+
+Next smallest useful experiment: add replay resampling diagnostics before more
+controller changes.  Log selected cursor, previous cursor, interpolation
+fraction, raw-frame yaw, interpolated yaw, and whether the live bot is on a
+teleporter/route marker during the first `120` replay cursors.  Then compare one
+pass (`028`) against the bad interpolation failure (`029`) to decide whether the
+fix is angle wrapping, start-phase gating, or not interpolating view yaw until
+after the first stable bunnyhop cycle.
+
+### 2026-06-13 continuation: later `dm3_ring_to_mega` repeatability sweep
+
+Live deploy evidence:
+
+- Local patch contract: `python -m pytest tests/test_perslot_moveprobe_patch.py`
+  passes `21` tests after adding step-cursor, start-resnap, and phase lane-nudge
+  guards.
+- Deployed start-resnap binary:
+  `/home/xerial/nquakesv/ktx/qwprogs-replay-startresnap-20260613T102652Z.so`,
+  SHA-256
+  `fdc61193a0b13ec03ac8be884d677c327209c9b89ce0dd358c4aca4de3063e1b`.
+- Deployed lane-nudge binary:
+  `/home/xerial/nquakesv/ktx/qwprogs-replay-lanenudge-20260613T113516Z.so`,
+  SHA-256
+  `6b04b69e0e95d6af2a2866e3d6496b7f498e042cb96d7dc0a9063d758df26b90`.
+
+Best live repeatability results:
+
+| profile | result | notes |
+|---|---:|---|
+| `jump268`, mode `25`, interpolation, phase `200/500`, move `650` | `2/6` | Too weak; failures include no ledge impulse and low-speed fall-short. |
+| same, move `700` | `3/6` | Still clips/stalls around `x=1232,y=688` in failed runs. |
+| same, move `800` | `6/8` | Best late-strength profile before phase-start tuning, but still has two short/clip misses. |
+| phase `170/440`, min speed `420`, move `800`, `jump268` | `3/3` in sweep, then `6/8` repeat | Best overall open-loop family so far; misses are one no-score start/vertical warp and one no-ledge contact miss. |
+| successful-bot-pass replay rebuilt from `dm3_r2m_m25_jump268_start170m800_repeat_001` and replayed in mode `12` | `3/6` | Replaying the bot's own successful live trajectory did not remove the contact variance. |
+
+Rejected or non-winning levers:
+
+- `k_fb_moveprobe_replay_step_cursor 1` with the `m800` profile was stable but
+  consistently short: `0/4`.
+- Recorded command `msec` with the `start170/m800` profile was consistently
+  worse: `0/4`, route only about `47%`.
+- `k_fb_moveprobe_s25_phase_jump 1` from cursor `170` was worse: `0/6`; it
+  changes earlier hops and leaves the route before the launch edge.
+- One-frame-earlier jump profiles (`jump266`, `jump267`) did not solve the
+  contact problem; `jump267` reached `2/3` in one sweep but still had a
+  no-ledge miss.
+- Final-window forward-bias profiles (`+100/+200`, cursors `250/260..285`) were
+  worse and often produced no ledge approach.
+- Small shifted-origin replay profiles (`shift4_7`, `shift8_14`, `shift0_8`)
+  were worse; `shift6_0` only reached `1/2`.
+- Phase lane-nudge was mixed/worse in its first sweep. It remains default-off.
+
+Current interpretation:
+
+- `dm3_ring_to_mega` is passable in live KTX but still not solved
+  reproducibly. The best profile completes multiple live attempts, but not
+  enough to promote it as a standard route.
+- The remaining scored miss is usually not raw speed; it is final contact. In
+  the clearest miss, the bot is only about `6 qu` short of the contact point at
+  cursor `270`, so it never receives the launch impulse and falls through the
+  void despite holding the correct jump button.
+- The no-score class can include vertical start corruption: one run went from
+  replay frame `0` at `(204.5,-151.6,56)` to `(192,-208,-175)` by cursor `1`.
+  The current start-resnap guard only checks horizontal divergence; a future
+  repair should consider total or vertical divergence too.
+
+Next smallest useful experiment: add final-contact diagnostics around cursors
+`250..285`: flags decoded by name, on-ground transition edges, collision/plane
+state if available, and the exact frame where vertical velocity flips positive
+in pass runs. Then add a route-local contact-aware jump/contact assist only if
+the diagnostics prove that the bot reaches the correct surface late rather than
+missing the surface entirely.

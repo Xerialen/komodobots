@@ -72,7 +72,7 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
 index c0654d1..b6f095e 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -5,6 +5,331 @@
+@@ -5,6 +5,332 @@
  #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
@@ -150,6 +150,9 @@ index c0654d1..b6f095e 100644
 +static float moveprobe_replay_divergence_v[MAX_CLIENTS];
 +static float moveprobe_replay_corr_accum[MAX_CLIENTS]; // mode 12: cumulative yaw correction (deg)
 +static float moveprobe_replay_corr_max[MAX_CLIENTS];   // mode 12: max per-frame yaw correction (deg)
++static int   moveprobe_replay_cmd_msec[MAX_CLIENTS];   // optional recorded-msec trap_SetBotCMD override
++static int   moveprobe_replay_step_emitted[MAX_CLIENTS]; // step-cursor mode: first command already emitted?
++static int   moveprobe_replay_start_resnaps[MAX_CLIENTS]; // optional early replay-start divergence repair count
 +static int   moveprobe_replay_attempt_num[MAX_CLIENTS];    // loop: attempt counter (1-based)
 +static float moveprobe_replay_attempt_maxh[MAX_CLIENTS];   // loop: max divH this attempt (qu)
 +static int   moveprobe_replay_attempt_break[MAX_CLIENTS];  // loop: first cursor divH>corridor (-1 none)
@@ -255,7 +258,7 @@ index c0654d1..b6f095e 100644
 +static float moveprobe_s22_flip_t[MAX_CLIENTS];            // mode 22: server time of last strafe-sign flip
 +static int   moveprobe_s25_active[MAX_CLIENTS];            // mode 25: frame was evaluated by human-mouse catch-up
 +static int   moveprobe_s25_engaged[MAX_CLIENTS];           // mode 25: catch-up replaced the recorded movement vector
-+static int   moveprobe_s25_reason[MAX_CLIENTS];            // mode 25: bitmask 1 speed-gap, 2 path-div, 4 velsign, 8 path-blend, 16 phase-recover, 32 phase-human-cmd, 64 phase2-move, 128 phase-jump, 256 phase-gap-boost, 512 phase-yaw-offset, 1024 phase-human-scale
++static int   moveprobe_s25_reason[MAX_CLIENTS];            // mode 25: bitmask 1 speed-gap, 2 path-div, 4 velsign, 8 path-blend, 16 phase-recover, 32 phase-human-cmd, 64 phase2-move, 128 phase-jump, 256 phase-gap-boost, 512 phase-yaw-offset, 1024 phase-human-scale, 2048 phase-lane-nudge
 +static int   moveprobe_s25_sign[MAX_CLIENTS];              // mode 25: chosen velocity-relative strafe sign
 +static float moveprobe_s25_hs[MAX_CLIENTS];                // mode 25: live horizontal speed
 +static float moveprobe_s25_target_hs[MAX_CLIENTS];         // mode 25: human-frame horizontal speed
@@ -404,7 +407,7 @@ index c0654d1..b6f095e 100644
  
  //#define DEBUG_MOVEMENT
  
-@@ -422,142 +747,4589 @@ static void BestJumpingDirection(gedict_t *self)
+@@ -422,142 +747,4792 @@ static void BestJumpingDirection(gedict_t *self)
  							avg_angle);
  }
  
@@ -832,6 +835,9 @@ index c0654d1..b6f095e 100644
 +	moveprobe_replay_divergence_v[slot] = 0.0f;
 +	moveprobe_replay_corr_accum[slot] = 0.0f;
 +	moveprobe_replay_corr_max[slot] = 0.0f;
++	moveprobe_replay_cmd_msec[slot] = 0;
++	moveprobe_replay_step_emitted[slot] = 0;
++	moveprobe_replay_start_resnaps[slot] = 0;
 +	moveprobe_replay_attempt_num[slot] = 0;
 +	moveprobe_replay_attempt_maxh[slot] = 0.0f;
 +	moveprobe_replay_attempt_break[slot] = -1;
@@ -1107,13 +1113,43 @@ index c0654d1..b6f095e 100644
 +// replay_variant: 0 = open-loop replay (mode 10), 1 = closed-loop steering
 +// (mode 11), 2 = corrective replay (mode 12). The snap, replay timeline,
 +// divergence and completion are shared so every variant is scored identically.
-+static qbool BotApplyMoveProbeReplay(gedict_t *self, int slot, qbool *jumping, vec3_t direction, int replay_variant)
++
++static void BotMoveProbeReplayGrantAttackLoadout(gedict_t *self)
++{
++	int rockets;
++
++	if (cvar("k_fb_moveprobe_replay_attack") <= 0.0f)
++	{
++		return;
++	}
++	if (cvar("k_fb_moveprobe_replay_attack_grant") <= 0.0f)
++	{
++		return;
++	}
++
++	rockets = (int)cvar("k_fb_moveprobe_replay_attack_rockets");
++	if (rockets <= 0)
++	{
++		rockets = 50;
++	}
++
++	self->s.v.items = (int)self->s.v.items | IT_ROCKET_LAUNCHER | IT_ROCKETS;
++	if (self->s.v.ammo_rockets < rockets)
++	{
++		self->s.v.ammo_rockets = rockets;
++	}
++	self->s.v.weapon = IT_ROCKET_LAUNCHER;
++	self->s.v.currentammo = self->s.v.ammo_rockets;
++}
++
++static qbool BotApplyMoveProbeReplay(gedict_t *self, int slot, qbool *jumping, qbool *firing, int *impulse, vec3_t direction, int replay_variant)
 +{
 +	float stale_gap = cvar("k_fb_moveprobe_replay_stale_gap");
 +	int count;
 +	int cursor;
 +	float elapsed_ms;
 +	moveprobe_replay_frame_t *f;
++	moveprobe_replay_frame_t interp_frame;
 +	moveprobe_replay_frame_t *frames;
 +	moveprobe_replay_store_t *store;
 +	int load_error = 0;
@@ -1140,6 +1176,8 @@ index c0654d1..b6f095e 100644
 +		BotMoveProbeResetReplaySession(slot);
 +		VectorClear(direction);
 +		*jumping = false;
++		*firing = false;
++		*impulse = 0;
 +		return true;
 +	}
 +	if (!store || (store->count < 2))
@@ -1185,6 +1223,8 @@ index c0654d1..b6f095e 100644
 +		{
 +			VectorClear(direction);
 +			*jumping = false;
++			*firing = false;
++			*impulse = 0;
 +			return true;
 +		}
 +		return false;
@@ -1221,6 +1261,8 @@ index c0654d1..b6f095e 100644
 +		moveprobe_replay_attempt_finalh[slot] = 0.0f;
 +		moveprobe_replay_corr_accum[slot] = 0.0f;
 +		moveprobe_replay_corr_max[slot] = 0.0f;
++		moveprobe_replay_step_emitted[slot] = 0;
++		moveprobe_replay_start_resnaps[slot] = 0;
 +		// Mode 21 (variant 3) fresh-attempt state: start at the first real waypoint,
 +		// no previous origin yet, undecided weave sign.
 +		moveprobe_s21_wp[slot] = 1;
@@ -1232,14 +1274,42 @@ index c0654d1..b6f095e 100644
 +		moveprobe_s22_init[slot] = 0;
 +		moveprobe_s22_strafe_sign[slot] = 0;
 +		moveprobe_s22_flip_t[slot] = g_globalvars.time;
++		BotMoveProbeReplayGrantAttackLoadout(self);
 +		BotLogMoveProbeReplayEvent(self, slot, "activate");
 +	}
 +
-+	elapsed_ms = (g_globalvars.time - moveprobe_replay_start_time[slot]) * 1000.0f;
-+	cursor = moveprobe_replay_cursor[slot];
-+	while ((cursor < count - 1) && (frames[cursor].cumulative_ms <= elapsed_ms))
++	if (cvar("k_fb_moveprobe_replay_step_cursor") > 0.0f)
 +	{
-+		cursor++;
++		int step = (int)cvar("k_fb_moveprobe_replay_step_cursor");
++
++		if (step <= 0)
++		{
++			step = 1;
++		}
++		step = bound(1, step, 8);
++		cursor = moveprobe_replay_cursor[slot];
++		if (moveprobe_replay_step_emitted[slot])
++		{
++			cursor += step;
++		}
++		else
++		{
++			moveprobe_replay_step_emitted[slot] = 1;
++		}
++		if (cursor > count - 1)
++		{
++			cursor = count - 1;
++		}
++		elapsed_ms = frames[cursor].cumulative_ms;
++	}
++	else
++	{
++		elapsed_ms = (g_globalvars.time - moveprobe_replay_start_time[slot]) * 1000.0f;
++		cursor = moveprobe_replay_cursor[slot];
++		while ((cursor < count - 1) && (frames[cursor].cumulative_ms <= elapsed_ms))
++		{
++			cursor++;
++		}
 +	}
 +	moveprobe_replay_cursor[slot] = cursor;
 +
@@ -1265,11 +1335,97 @@ index c0654d1..b6f095e 100644
 +	}
 +
 +	f = &frames[cursor];
++	if ((cvar("k_fb_moveprobe_replay_interpolate") > 0.0f) && (cursor > 0))
++	{
++		moveprobe_replay_frame_t *a = &frames[cursor - 1];
++		moveprobe_replay_frame_t *b = &frames[cursor];
++		float span = b->cumulative_ms - a->cumulative_ms;
++
++		if (span > 0.0f)
++		{
++			float frac = bound(0.0f, (elapsed_ms - a->cumulative_ms) / span, 1.0f);
++			float dyaw;
++
++			interp_frame = *b;
++			interp_frame.origin[0] = a->origin[0] + (b->origin[0] - a->origin[0]) * frac;
++			interp_frame.origin[1] = a->origin[1] + (b->origin[1] - a->origin[1]) * frac;
++			interp_frame.origin[2] = a->origin[2] + (b->origin[2] - a->origin[2]) * frac;
++			interp_frame.velocity[0] = a->velocity[0] + (b->velocity[0] - a->velocity[0]) * frac;
++			interp_frame.velocity[1] = a->velocity[1] + (b->velocity[1] - a->velocity[1]) * frac;
++			interp_frame.velocity[2] = a->velocity[2] + (b->velocity[2] - a->velocity[2]) * frac;
++			interp_frame.angles[PITCH] = a->angles[PITCH] + (b->angles[PITCH] - a->angles[PITCH]) * frac;
++			dyaw = anglemod(b->angles[YAW]) - anglemod(a->angles[YAW]);
++			while (dyaw > 180.0f)
++			{
++				dyaw -= 360.0f;
++			}
++			while (dyaw < -180.0f)
++			{
++				dyaw += 360.0f;
++			}
++			interp_frame.angles[YAW] = anglemod(a->angles[YAW] + dyaw * frac);
++			interp_frame.angles[ROLL] = a->angles[ROLL] + (b->angles[ROLL] - a->angles[ROLL]) * frac;
++			f = &interp_frame;
++		}
++	}
++	if (cvar("k_fb_moveprobe_replay_use_recorded_msec") > 0.0f)
++	{
++		moveprobe_replay_cmd_msec[slot] = bound(1, f->msec, 255);
++	}
 +	VectorCopy(f->origin, moveprobe_replay_expected[slot]);
 +	VectorSubtract(self->s.v.origin, f->origin, delta);
 +	moveprobe_replay_divergence[slot] = VectorLength(delta);
 +	moveprobe_replay_divergence_h[slot] = sqrt(delta[0] * delta[0] + delta[1] * delta[1]);
 +	moveprobe_replay_divergence_v[slot] = fabs(delta[2]);
++	if (cvar("k_fb_moveprobe_replay_start_resnap") > 0.0f)
++	{
++		int resnap_cursor = (int)cvar("k_fb_moveprobe_replay_start_resnap_cursor");
++		float resnap_dist = cvar("k_fb_moveprobe_replay_start_resnap_dist");
++
++		if (resnap_cursor <= 0)
++		{
++			resnap_cursor = 16;
++		}
++		if (resnap_dist <= 0.0f)
++		{
++			resnap_dist = 256.0f;
++		}
++		if ((moveprobe_replay_start_resnaps[slot] <= 0)
++			&& (cursor <= resnap_cursor)
++			&& (moveprobe_replay_divergence_h[slot] > resnap_dist))
++		{
++			setorigin(self, PASSVEC3(f->origin));
++			VectorCopy(f->velocity, self->s.v.velocity);
++			VectorCopy(f->angles, self->s.v.angles);
++			VectorCopy(f->angles, self->fb.desired_angle);
++			self->fb.desired_angle[ROLL] = 0;
++			self->s.v.fixangle = 1;
++			moveprobe_replay_start_resnaps[slot]++;
++			VectorCopy(f->origin, moveprobe_replay_expected[slot]);
++			VectorSubtract(self->s.v.origin, f->origin, delta);
++			moveprobe_replay_divergence[slot] = VectorLength(delta);
++			moveprobe_replay_divergence_h[slot] = sqrt(delta[0] * delta[0] + delta[1] * delta[1]);
++			moveprobe_replay_divergence_v[slot] = fabs(delta[2]);
++			BotLogMoveProbeReplayEvent(self, slot, "start_resnap");
++		}
++	}
++	if (cvar("k_fb_moveprobe_replay_attack") > 0.0f)
++	{
++		int attack_impulse = (int)cvar("k_fb_moveprobe_replay_attack_impulse");
++		if (attack_impulse <= 0)
++		{
++			attack_impulse = 7;
++		}
++		*impulse = attack_impulse;
++		if (f->buttons & 1)
++		{
++			*firing = true;
++		}
++		else
++		{
++			*firing = false;
++		}
++	}
 +
 +	{
 +		// Per-attempt tracking + blowup early-abort. corridor = the lock-on
@@ -2082,6 +2238,9 @@ index c0654d1..b6f095e 100644
 +		float phase_move_max = cvar("k_fb_moveprobe_s25_phase_move_max");
 +		float phase_yaw_offset = cvar("k_fb_moveprobe_s25_phase_yaw_offset");
 +		float phase_human_scale = cvar("k_fb_moveprobe_s25_phase_human_scale");
++		float phase_lane_nudge = cvar("k_fb_moveprobe_s25_phase_lane_nudge");
++		float phase_lane_deadband = cvar("k_fb_moveprobe_s25_phase_lane_deadband");
++		float phase_lane_max = cvar("k_fb_moveprobe_s25_phase_lane_max");
 +		int flip = (int)cvar("k_fb_moveprobe_s25_flip");
 +		int vel_sign = (int)cvar("k_fb_moveprobe_s25_velsign");
 +		int sign = 0;
@@ -2111,6 +2270,9 @@ index c0654d1..b6f095e 100644
 +		if (phase_move_max < 0) phase_move_max = 0.0f;
 +		phase_yaw_offset = bound(-20.0f, phase_yaw_offset, 20.0f);
 +		if (phase_human_scale < 0) phase_human_scale = 0.0f;
++		if (phase_lane_nudge < 0.0f) phase_lane_nudge = 0.0f;
++		if (phase_lane_deadband <= 0.0f) phase_lane_deadband = 6.0f;
++		if (phase_lane_max <= 0.0f) phase_lane_max = 96.0f;
 +
 +		VectorCopy(f->angles, self->fb.desired_angle);
 +		self->fb.desired_angle[ROLL] = 0;
@@ -2295,6 +2457,31 @@ index c0654d1..b6f095e 100644
 +						direction[0] = f->forwardmove;
 +						direction[1] = human_side * effective_move;
 +						moveprobe_s25_reason[slot] |= 32;
++						if (phase_lane_nudge > 0.0f)
++						{
++							vec3_t to_human;
++							float lane_dist;
++
++							VectorSubtract(f->origin, self->s.v.origin, to_human);
++							to_human[2] = 0;
++							lane_dist = VectorNormalize(to_human);
++							if (lane_dist > phase_lane_deadband)
++							{
++								float lane_move = (lane_dist - phase_lane_deadband) * phase_lane_nudge;
++
++								if (phase_lane_max > 0.0f)
++								{
++									lane_move = min(lane_move, phase_lane_max);
++								}
++								view_ang[0] = f->angles[PITCH];
++								view_ang[1] = f->angles[YAW];
++								view_ang[2] = 0;
++								trap_makevectors(view_ang);
++								direction[0] += DotProduct(g_globalvars.v_forward, to_human) * lane_move;
++								direction[1] += DotProduct(g_globalvars.v_right, to_human) * lane_move;
++								moveprobe_s25_reason[slot] |= 2048;
++							}
++						}
 +					}
 +					else
 +					{
@@ -2337,6 +2524,7 @@ index c0654d1..b6f095e 100644
 +		float deadband = cvar("k_fb_moveprobe_corr_deadband");
 +		float yaw_max = cvar("k_fb_moveprobe_corr_yaw_max");
 +		float applied = 0.0f;
++		qbool realigning = false;
 +
 +		if (deadband <= 0)
 +		{
@@ -2354,6 +2542,108 @@ index c0654d1..b6f095e 100644
 +		direction[1] = f->sidemove;
 +		direction[2] = f->upmove;
 +		*jumping = (f->buttons & 2) ? true : false;
++		if (cvar("k_fb_moveprobe_corr_cmd_blend") > 0.0f)
++		{
++			float cmd_blend = bound(0.0f, cvar("k_fb_moveprobe_corr_cmd_blend"), 1.0f);
++			float cmd_deadband = cvar("k_fb_moveprobe_corr_cmd_deadband");
++			float cmd_move = cvar("k_fb_moveprobe_corr_cmd_move");
++			int cmd_after = (int)cvar("k_fb_moveprobe_corr_cmd_after");
++			float recorded_move = sqrt(f->forwardmove * f->forwardmove + f->sidemove * f->sidemove);
++
++			if (cmd_deadband <= 0.0f)
++			{
++				cmd_deadband = 8.0f;
++			}
++			if (cmd_after < 0)
++			{
++				cmd_after = 0;
++			}
++			if (cmd_move <= 0.0f)
++			{
++				cmd_move = recorded_move;
++			}
++			if ((recorded_move > 0.0f)
++				&& (cmd_move > 0.0f)
++				&& (cursor >= cmd_after)
++				&& (moveprobe_replay_divergence_h[slot] > cmd_deadband))
++			{
++				vec3_t view_ang, recorded_wish, to_human, wish_dir;
++
++				view_ang[0] = f->angles[PITCH];
++				view_ang[1] = f->angles[YAW];
++				view_ang[2] = 0;
++				trap_makevectors(view_ang);
++				recorded_wish[0] = g_globalvars.v_forward[0] * f->forwardmove
++					+ g_globalvars.v_right[0] * f->sidemove;
++				recorded_wish[1] = g_globalvars.v_forward[1] * f->forwardmove
++					+ g_globalvars.v_right[1] * f->sidemove;
++				recorded_wish[2] = 0;
++				VectorSubtract(f->origin, self->s.v.origin, to_human);
++				to_human[2] = 0;
++				if ((VectorNormalize(recorded_wish) > 0) && (VectorNormalize(to_human) > 0))
++				{
++					wish_dir[0] = recorded_wish[0] * (1.0f - cmd_blend)
++						+ to_human[0] * cmd_blend;
++					wish_dir[1] = recorded_wish[1] * (1.0f - cmd_blend)
++						+ to_human[1] * cmd_blend;
++					wish_dir[2] = 0;
++					if (VectorNormalize(wish_dir) <= 0)
++					{
++						VectorCopy(recorded_wish, wish_dir);
++					}
++					direction[0] = DotProduct(g_globalvars.v_forward, wish_dir) * cmd_move;
++					direction[1] = DotProduct(g_globalvars.v_right, wish_dir) * cmd_move;
++					direction[2] = f->upmove;
++				}
++			}
++		}
++		if ((cvar("k_fb_moveprobe_corr_ground_realign") > 0.0f)
++			&& ((int)self->s.v.flags & FL_ONGROUND)
++			&& (f->forwardmove == 0)
++			&& (f->sidemove == 0)
++			&& (f->upmove == 0)
++			&& !(f->buttons & 3))
++		{
++			float align_deadband = cvar("k_fb_moveprobe_corr_ground_realign_deadband");
++			float align_move = cvar("k_fb_moveprobe_corr_ground_realign_move");
++			int align_after = (int)cvar("k_fb_moveprobe_corr_ground_realign_after");
++
++			if (align_deadband <= 0.0f)
++			{
++				align_deadband = 12.0f;
++			}
++			if (align_move <= 0.0f)
++			{
++				align_move = 320.0f;
++			}
++			if (align_after < 0)
++			{
++				align_after = 0;
++			}
++			if ((cursor >= align_after) && (moveprobe_replay_divergence_h[slot] > align_deadband))
++			{
++				vec3_t to_human;
++
++				VectorSubtract(f->origin, self->s.v.origin, to_human);
++				to_human[2] = 0;
++				if (VectorLength(to_human) > 1.0f)
++				{
++					float target_yaw = vectoyaw(to_human);
++
++					self->fb.desired_angle[YAW] = anglemod(target_yaw);
++					direction[0] = align_move;
++					direction[1] = 0;
++					direction[2] = 0;
++					*jumping = false;
++					realigning = true;
++				}
++			}
++		}
++		if (!realigning && !*jumping && (cvar("k_fb_moveprobe_corr_autojump") > 0.0f)
++			&& ((int)self->s.v.flags & FL_ONGROUND))
++		{
++			*jumping = true;
++		}
 +
 +		if (moveprobe_replay_divergence_h[slot] > deadband)
 +		{
@@ -2466,6 +2756,11 @@ index c0654d1..b6f095e 100644
 +	int perslot_hold = 0;
 +	int replay_backed_mode = 0;
 +	int slot = NUM_FOR_EDICT(self) - 1;
++
++	if ((slot >= 0) && (slot < MAX_CLIENTS))
++	{
++		moveprobe_replay_cmd_msec[slot] = 0;
++	}
 +
 +	// Per-slot resolution (#95): k_fb_moveprobe_mode_s<N> overrides the global
 +	// mode for this bot; malformed values hold the bot (loud-fail contract).
@@ -2856,7 +3151,7 @@ index c0654d1..b6f095e 100644
 +
 +	else if (mode == 10)
 +	{
-+		BotApplyMoveProbeReplay(self, slot, jumping, direction, 0);
++		BotApplyMoveProbeReplay(self, slot, jumping, firing, impulse, direction, 0);
 +	}
 +
 +	else if (mode == 11)
@@ -2865,7 +3160,7 @@ index c0654d1..b6f095e 100644
 +		// but re-derives the heading toward the human path from the bot's actual
 +		// origin each frame instead of replaying the exact usercmd. See the
 +		// k_fb_moveprobe_lookahead_frames cvar and docs/08_DECISION_LOG.md.
-+		BotApplyMoveProbeReplay(self, slot, jumping, direction, 1);
++		BotApplyMoveProbeReplay(self, slot, jumping, firing, impulse, direction, 1);
 +	}
 +
 +	else if (mode == 12)
@@ -2873,7 +3168,7 @@ index c0654d1..b6f095e 100644
 +		// Corrective replay: emits the exact human usercmd (preserving the
 +		// open-loop lockstep prefix) plus a clamped yaw nudge once divergence
 +		// exceeds k_fb_moveprobe_corr_deadband. See docs/08_DECISION_LOG.md.
-+		BotApplyMoveProbeReplay(self, slot, jumping, direction, 2);
++		BotApplyMoveProbeReplay(self, slot, jumping, firing, impulse, direction, 2);
 +	}
 +
 +	else if (mode == 21)
@@ -2881,7 +3176,7 @@ index c0654d1..b6f095e 100644
 +		// Generative route-follow: starts at the human frame-0 (SNG) via the replay
 +		// snap, then bunnyhops toward the human path with mode-20 cs->0 accel + a
 +		// goal-tracking weave. Needs --replay-cmds (the route) like modes 10-12.
-+		BotApplyMoveProbeReplay(self, slot, jumping, direction, 3);
++		BotApplyMoveProbeReplay(self, slot, jumping, firing, impulse, direction, 3);
 +	}
 +
 +	else if (mode == 22)
@@ -2890,7 +3185,7 @@ index c0654d1..b6f095e 100644
 +		// forward-only view SNAP with a smooth, rate-limited simulated-view sweep co-rotated
 +		// with a HELD strafe key -- the technique the human uses to hold max air accel
 +		// through turns. Needs --replay-cmds (the route) like modes 10-12/21.
-+		BotApplyMoveProbeReplay(self, slot, jumping, direction, 4);
++		BotApplyMoveProbeReplay(self, slot, jumping, firing, impulse, direction, 4);
 +	}
 +
 +	else if (mode == 25)
@@ -2899,7 +3194,7 @@ index c0654d1..b6f095e 100644
 +		// speed is below the human frame's speed by a cvar gap, project a
 +		// velocity-relative accel wishdir into the recorded view basis. Needs
 +		// --replay-cmds like modes 10-12/21/22.
-+		BotApplyMoveProbeReplay(self, slot, jumping, direction, 5);
++		BotApplyMoveProbeReplay(self, slot, jumping, firing, impulse, direction, 5);
 +	}
 +
 +	else if (mode == 13)
@@ -4943,6 +5238,7 @@ index c0654d1..b6f095e 100644
 +	int cmd_msec = (int)msec_since_last;
 +	int weapon_script_impulse = 0;
 +	int impulse = 0, buttons = 0;
++	int slot = NUM_FOR_EDICT(self) - 1;
 +	qbool jumping;
 +	qbool firing;
 +	vec3_t direction;
@@ -5071,6 +5367,11 @@ index c0654d1..b6f095e 100644
 +	}
 +
 +	BotApplyMoveProbe(self, &jumping, &firing, &impulse, direction);
++
++	if ((slot >= 0) && (slot < MAX_CLIENTS) && (moveprobe_replay_cmd_msec[slot] > 0))
++	{
++		cmd_msec = moveprobe_replay_cmd_msec[slot];
++	}
 +
  	buttons |= (firing ? 1 : 0);
  	buttons |= (jumping ? 2 : 0);

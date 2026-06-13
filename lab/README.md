@@ -246,19 +246,20 @@ Engine behavior notes (measured during LD-D2 validation, FTE git-30-0a71790):
 - **QWD end-of-demo does not fire `f_demoend`**, so the `ended` sentinel only covers
   MVD; a 10 s stalled-clock fallback emits `ended` for QWD (≈11 s latency, honest).
 
-### Deploy (pending LD-A2 #85 cutover)
+### Deploy
 
 The pane ships inside `dist/` like the rest of the app — no extra deploy step. Two
 web-root requirements on servexeri (`~/local-hub/web/`, served by `web/serve.py` on
-:8095), **documented here but not yet applied — the lab host is read-only until the
-LD-A2 deploy path lands**:
+:8095):
 
 - `maps` symlink → `~/nquakesv/qw/maps` (enables the local-first `.bsp` resolution:
   `ln -s ~/nquakesv/qw/maps ~/local-hub/web/maps`). Verified absent as of 2026-06-11.
-- demo archive exposure: `/demos/files/non-games/` already serves
+- lab demo exposure: `/demos/files/non-games/` already serves
   `/mnt/usb-ssd/non-games/` (existing symlink from the local-hub demo browser), which
-  includes the lab archive `lab/Komodobots/<map>/<run_id>.mvd` and `human/*.qwd`
-  written by `scripts/demo_archive.py`.
+  includes the active lab demo library `lab/Komodobots/<map>/<route>__<run_id>.mvd`
+  and `human/*.qwd` written by `scripts/demo_archive.py`. Released route demos use
+  `<route>__<run_id>.mvd`; unlabelled historical attempts may still be bare
+  `<run_id>.mvd`.
 
 `public/maps/` (LD-C2, #91) carries the scripted worldmodel meshes for the whole lab
 map set — `{dm3,dm2,frobodm2,trick}.obj` plus `maps.json` (per-map source-BSP sha256

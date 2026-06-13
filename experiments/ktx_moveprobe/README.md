@@ -167,7 +167,7 @@ Modes:
 | `9` | QWD SNG probe: activate near the first `dm3_sng_shortcut.qwd` control point, advance through a bounded QWD waypoint string, and project waypoint attraction plus QWD-style sidemove into preserved combat view yaw. This is not accepted controller behavior. |
 | `10` | Open-loop replay: snap to frame 0 of a `.cmds` file and emit the exact recorded view angles, movement, and jump buttons on the replay clock. |
 | `11` | Closed-loop replay steering: use the replay clock/path but re-aim from the bot origin toward a lookahead human frame. Diagnostic only; it discards the recorded mouse. |
-| `12` | Corrective replay: emit the exact recorded command stream plus a bounded yaw correction once divergence exceeds the configured deadband. |
+| `12` | Corrective replay: emit the recorded command stream, with default-off command-space path blend, ground realign, autojump, and bounded yaw correction probes for live/QWD divergence. |
 | `21` | Generative replay-route follow: use replay frames as waypoints, then apply the mode-20 style bunnyhop weave toward the path. |
 | `22` | Human-faithful actuation probe: reuse mode-21 navigation but drive a smooth simulated yaw plus held strafe key. |
 | `23` | Hybrid Frogbot route + bunnyhop weave. When the ztricks terminal-carve cvars are unset it behaves as before; when the route sets target/lip/release cvars it temporarily emits the configured fwd+side terminal carve and jump release rule near the lip. |
@@ -202,6 +202,83 @@ mixing several attempts into one MVD. The replay clock also tolerates tiny
 backward jitter up to `0.25s`; larger backward jumps still reset as map/session
 clock resets.
 
+Replay-backed modes can opt into recorded command cadence with
+`k_fb_moveprobe_replay_use_recorded_msec 1`. When enabled, the replay frame's
+recorded `msec` replaces the current bot-think `cmd_msec` immediately before
+`trap_SetBotCMD`. This is default-off because most lab runs should keep the
+server's native command cadence, but tight demos such as `dm3_ring_to_mega` can
+use it to test whether pass/fail variance comes from cadence drift rather than
+route steering.
+
+Replay-backed modes can also opt into reference interpolation with
+`k_fb_moveprobe_replay_interpolate 1`. The replay clock still selects the same
+current frame, and forward/side/up/buttons remain discrete from that frame, but
+the QWD reference origin, velocity, and view angles are linearly interpolated
+from the previous frame to the current clock position. This follows Nexus's
+"interpolate between datapoints" guidance without smearing strafe/jump key
+state, and is intended for tight routes where live server frame timing lands
+between QWD samples.
+
+Replay-backed modes also have two diagnostic/default-off start-clock controls.
+`k_fb_moveprobe_replay_step_cursor` advances the replay cursor by a fixed
+number of frames per emitted bot command instead of wall-clock time; this is a
+diagnostic for cadence drift and was rejected for `dm3_ring_to_mega` because it
+made the route consistently short. `k_fb_moveprobe_replay_start_resnap 1`
+repairs early activation warps by snapping the bot back to the expected replay
+frame when horizontal divergence exceeds
+`k_fb_moveprobe_replay_start_resnap_dist` before
+`k_fb_moveprobe_replay_start_resnap_cursor`. Keep it off for normal evidence
+runs unless a route has proven frame-0/frame-1 start corruption.
+
+Replay-backed modes can optionally preserve the QWD attack bit for rocket-jump
+routes. Set `k_fb_moveprobe_replay_attack 1` to translate recorded `buttons&1`
+frames into bot firing, and set `k_fb_moveprobe_replay_attack_impulse` to the
+weapon impulse to request while firing (`7` by default for RL). This is
+default-off so pure movement routes such as `dm3_sng_to_rl` keep their previous
+behavior, while routes such as `dm3_mega_to_rl`, `dm3_rl_to_bridge`, and
+`dm3_rl_to_ya` can reproduce their recorded attack+jump windows instead of
+trying to fake rocket-jump speed with strafe-only commands.
+When enabled, the replay asks for the configured weapon throughout the route and
+only raises `+attack` on recorded attack frames; that avoids losing the rocket
+jump to a same-frame weapon-switch delay.
+Rocket-jump demos recorded in KTPro Standby may also require the lab-only
+loadout grant: set `k_fb_moveprobe_replay_attack_grant 1` to give the bot RL
+and rockets at replay activation, and optionally set
+`k_fb_moveprobe_replay_attack_rockets` (default fallback `50`) when the route
+needs a specific ammo floor. The grant is gated by both
+`k_fb_moveprobe_replay_attack` and `k_fb_moveprobe_replay_attack_grant`, so
+pure movement replays cannot receive weapons accidentally.
+
+Corrective replay mode `12` also has a default-off early-landing guard:
+`k_fb_moveprobe_corr_autojump 1` presses jump only when the bot is unexpectedly
+on ground and the recorded QWD frame is not already jumping. This is for cases
+where a small live/QWD offset makes the bot touch a ledge the human barely
+missed; without a fresh jump press, exact replay can bleed all launch speed
+through ground friction.
+
+Mode `12` can also apply a default-off command-space path blend before the older
+yaw correction: set `k_fb_moveprobe_corr_cmd_blend` to a small value such as
+`0.02`-`0.05` to blend the recorded forward/side wish direction toward the
+current QWD origin while preserving the recorded mouse/view angles. Optional
+knobs are `k_fb_moveprobe_corr_cmd_deadband` (default fallback `8` qu),
+`k_fb_moveprobe_corr_cmd_after` (default fallback `0` replay cursor), and
+`k_fb_moveprobe_corr_cmd_move` (default fallback: preserve the recorded
+horizontal command magnitude). This exists for narrow routes such as
+`dm3_ring_to_mega`, where a small live offset can clip a slot even though the
+human mouse pattern and raw speed are nearly correct.
+
+Mode `12` can also use recorded idle windows to repair accumulated horizontal
+offset before the next route leg. Set `k_fb_moveprobe_corr_ground_realign 1` to
+walk toward the current QWD origin only when the live bot is grounded, the QWD
+frame has zero forward/side/up movement, and the QWD frame is not firing or
+jumping. Optional knobs: `k_fb_moveprobe_corr_ground_realign_deadband` (default
+fallback `12` qu), `k_fb_moveprobe_corr_ground_realign_move` (default fallback
+`320`), and `k_fb_moveprobe_corr_ground_realign_after` (default fallback `0`
+replay cursor). This exists for routes such as `dm3_rl_to_bridge`, where the
+human pauses on the ledge but the bot can arrive about `40` qu off-line after a
+rocket boost; use the `after` cursor to keep realign inactive before earlier
+boost/landing phases where a few units of pre-launch shift can miss the floor.
+
 | Cvar | Default in KTX | Meaning |
 |---|---:|---|
 | `k_fb_moveprobe_s25_min_speed` | `320` | Minimum live horizontal speed before the catch-up branch can replace the recorded movement vector. |
@@ -226,6 +303,9 @@ clock resets.
 | `k_fb_moveprobe_s25_phase_move_max` | `0` | Optional cap for `phase_gap_gain`; `0` means no cap. |
 | `k_fb_moveprobe_s25_phase_yaw_offset` | `0` | Default-off phase yaw-bias probe, clamped to `-20..20` degrees. First `+5` and `-5` live tests were both worse than the unshifted human mouse. |
 | `k_fb_moveprobe_s25_phase_human_scale` | `0` | Default-off phase probe that scales the exact recorded forward/side command values instead of replacing side input with a fixed magnitude. `2.375` (`400 -> 950`) was worse than fixed side magnitude because it preserved too many low/zero command frames for this live bot. |
+| `k_fb_moveprobe_s25_phase_lane_nudge` | `0` | Default-off phase-human-command nudge toward the replay origin when the bot is outside `phase_lane_deadband`. It preserves the human mouse and side-command backbone, then adds a small projected forward/side correction capped by `phase_lane_max`. First `dm3_ring_to_mega` tests were mixed/worse, so leave disabled unless explicitly probing final-lane contact drift. |
+| `k_fb_moveprobe_s25_phase_lane_deadband` | `6` fallback | Horizontal divergence deadband, in qu, before `phase_lane_nudge` contributes. |
+| `k_fb_moveprobe_s25_phase_lane_max` | `96` fallback | Maximum extra movement command contribution from `phase_lane_nudge`. |
 
 Mode `25` accepted operational baseline:
 

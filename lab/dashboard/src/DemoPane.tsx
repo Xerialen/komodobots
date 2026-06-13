@@ -1,4 +1,4 @@
-// LD-D3 (#98): Demo view — records/archive picker + click-to-play + seek-to-event.
+// LD-D3 (#98): Demo view — records/lab-demo picker + click-to-play + seek-to-event.
 //
 // Integrates the standalone demo.html FTE pane (LD-D2, #94) into the shell as
 // the first (leftmost) view. The picker header provides two source tabs:
@@ -8,9 +8,9 @@
 //              Clicking a record fires openDemo with the record's event_t_s
 //              (2 s pre-roll is applied inside demo.html, SPEC §6.5).
 //
-//   Archive  — /v2/demos.json filtered to the lab tree
-//              ["non-games","lab","Komodobots"], map-filterable, newest-first,
-//              plus the human/ subtree.  Clicking plays from the start (t=null).
+//   Lab demos — /v2/demos.json filtered to the active lab tree
+//              ["non-games","lab","Komodobots"], map-filterable and
+//              column-sortable. Clicking plays from the start (t=null).
 //
 // Shell-level openDemo({demo_url, map, t?, track?}):
 //   - Exported as the single entry point LD-E4's record clicks will reuse.
@@ -23,7 +23,7 @@
 //
 // Error states (SPEC §3.2):
 //   - demo.html missing/404            -> pane shows an explicit error state
-//   - records.json unreachable         -> Records tab shows explicit error; Archive unaffected
+//   - records.json unreachable         -> Records tab shows explicit error; Lab demos unaffected
 //   - individual demo 404              -> postMessage error from demo.html propagates
 //
 // postMessage API used (inbound from demo.html, same-origin):
@@ -34,6 +34,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -104,17 +105,20 @@ interface RecordsJson {
 }
 
 // --------------------------------------------------------------------------
-// Archive schema types (v2/demos.json partial)
+// Lab demo index schema types (v2/demos.json partial)
 // --------------------------------------------------------------------------
 
 interface DemoNode {
   name: string;
   path: string[];
-  is_dir: boolean;
+  is_dir?: boolean;
+  url?: string;
   demo_url?: string;
   children?: DemoNode[];
   date?: string;
 }
+
+type LabDemo = { url: string; label: string; map: string | null; date: string | null };
 
 // --------------------------------------------------------------------------
 // Constants
@@ -123,8 +127,10 @@ interface DemoNode {
 const RECORDS_URL = "/demos/records/records.json";
 // v2 API: the flat list endpoint is /v2/demos.json; we filter to the lab tree.
 const DEMOS_V2_URL = "/v2/demos.json";
-// Lab tree path prefix that archive demos live under.
+// Active lab demo tree path prefix. Older lab demos may later move under
+// a separate archive lifecycle folder and should not appear in this active list.
 const LAB_TREE_PATH = ["non-games", "lab", "Komodobots"];
+const LAB_NON_DEMO_FOLDERS = new Set(["archive", "human", "records"]);
 
 const KIND_LABELS: Record<RecordKind, string> = {
   fastest_time: "fastest time",
@@ -151,24 +157,23 @@ const RECORD_KINDS: RecordKind[] = [
 // Helpers
 // --------------------------------------------------------------------------
 
-/** Extract a flat list of demo entries from the v2 tree, newest-first. */
+/** Extract a flat list of demo entries from the v2 tree. */
 function extractDemosFromTree(
   node: DemoNode,
   path: string[],
   labPath: string[],
-): { url: string; label: string; map: string | null; date: string | null }[] {
-  const results: { url: string; label: string; map: string | null; date: string | null }[] = [];
+): LabDemo[] {
+  const results: LabDemo[] = [];
 
   // Only collect leaves that are inside (or at) the lab path.
-  const inLab = labPath.every((seg, i) => path[i] === seg);
+  const inActiveLabDemos = isActiveLabDemoPath(path);
+  const demoUrl = node.demo_url ?? node.url;
 
-  if (!node.is_dir && node.demo_url && inLab) {
-    // Infer map from the name (e.g. "20260605T201217Z_dm3.mvd" -> "dm3")
-    const mapMatch = node.name.match(/_(\w+)\.(mvd|qwd)$/i);
+  if (!node.is_dir && demoUrl && inActiveLabDemos) {
     results.push({
-      url: node.demo_url,
+      url: demoUrl,
       label: node.name,
-      map: mapMatch ? mapMatch[1].toLowerCase() : null,
+      map: inferLabDemoMap(path),
       date: node.date ?? null,
     });
   }
@@ -183,15 +188,46 @@ function extractDemosFromTree(
   return results;
 }
 
+function inferLabDemoMap(path: string[]): string | null {
+  const folder = path[LAB_TREE_PATH.length];
+  if (folder && !LAB_NON_DEMO_FOLDERS.has(folder)) {
+    return folder.toLowerCase();
+  }
+  return null;
+}
+
+function isActiveLabDemoPath(path: string[]): boolean {
+  if (!LAB_TREE_PATH.every((seg, i) => path[i] === seg)) return false;
+  const folder = path[LAB_TREE_PATH.length];
+  return Boolean(folder && !LAB_NON_DEMO_FOLDERS.has(folder));
+}
+
 /** Traverse the v2 tree to find nodes matching labPath then extract demos. */
 function collectLabDemos(
-  tree: DemoNode,
-): { url: string; label: string; map: string | null; date: string | null }[] {
+  tree: DemoNode | DemoNode[],
+): LabDemo[] {
+  if (Array.isArray(tree)) {
+    return tree
+      .filter((node) => isActiveLabDemoPath(node.path ?? []))
+      .map((node) => {
+        const path = [...(node.path ?? []), node.name];
+        const demoUrl = node.demo_url ?? node.url ?? "";
+        if (!demoUrl) return null;
+        return {
+          url: demoUrl,
+          label: node.name,
+          map: inferLabDemoMap(path),
+          date: node.date ?? null,
+        };
+      })
+      .filter((demo): demo is LabDemo => demo !== null);
+  }
+
   // Walk to the lab subtree root, then extract all leaves.
   function walk(
     node: DemoNode,
     depth: number,
-  ): { url: string; label: string; map: string | null; date: string | null }[] {
+  ): LabDemo[] {
     if (depth === LAB_TREE_PATH.length) {
       // We are at the Komodobots node; collect all leaves from here.
       return extractDemosFromTree(node, LAB_TREE_PATH, LAB_TREE_PATH);
@@ -203,6 +239,24 @@ function collectLabDemos(
     return walk(child, depth + 1);
   }
   return walk(tree, 0);
+}
+
+function demoDateMs(value: string | null): number | null {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatDemoDate(value: string | null): string {
+  const parsed = demoDateMs(value);
+  if (parsed === null) return value ?? "-";
+  return new Date(parsed).toLocaleString(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 // --------------------------------------------------------------------------
@@ -405,20 +459,37 @@ function RecordsTab({
 }
 
 // --------------------------------------------------------------------------
-// Archive tab
+// Lab demos tab
 // --------------------------------------------------------------------------
 
-function ArchiveTab({
+function LabDemosTab({
   onPlay,
 }: {
   onPlay: (p: OpenDemoParams) => void;
 }) {
-  type Demo = { url: string; label: string; map: string | null; date: string | null };
+  type Demo = LabDemo;
+  type SortKey = "label" | "map" | "date";
+  type SortState = { key: SortKey; dir: "asc" | "desc" };
 
   const [demos, setDemos] = useState<Demo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mapFilter, setMapFilter] = useState<string>("all");
+  const [sort, setSort] = useState<SortState>({ key: "date", dir: "desc" });
+
+  const setSortKey = (key: SortKey) => {
+    setSort((current) => ({
+      key,
+      dir:
+        current.key === key
+          ? current.dir === "asc"
+            ? "desc"
+            : "asc"
+          : key === "date"
+            ? "desc"
+            : "asc",
+    }));
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -426,12 +497,10 @@ function ArchiveTab({
     fetch(DEMOS_V2_URL)
       .then((r) => {
         if (!r.ok) throw new Error(`demos API: HTTP ${r.status}`);
-        return r.json() as Promise<DemoNode>;
+        return r.json() as Promise<DemoNode | DemoNode[]>;
       })
       .then((tree) => {
         const collected = collectLabDemos(tree);
-        // Sort newest-first by label (ISO run ids sort lexicographically).
-        collected.sort((a, b) => b.label.localeCompare(a.label));
         setDemos(collected);
         setLoading(false);
       })
@@ -441,10 +510,54 @@ function ArchiveTab({
       });
   }, []);
 
+  const maps = useMemo(
+    () =>
+      (Array.from(new Set(demos.map((d) => d.map).filter(Boolean))) as string[]).sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    [demos],
+  );
+  const filtered = useMemo(
+    () => (mapFilter === "all" ? demos : demos.filter((d) => d.map === mapFilter)),
+    [demos, mapFilter],
+  );
+  const sorted = useMemo(() => {
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      let result = 0;
+      if (sort.key === "date") {
+        const av = demoDateMs(a.date);
+        const bv = demoDateMs(b.date);
+        if (av === null && bv === null) result = a.label.localeCompare(b.label);
+        else if (av === null) return 1;
+        else if (bv === null) return -1;
+        else result = av - bv;
+      } else if (sort.key === "map") {
+        result = (a.map ?? "").localeCompare(b.map ?? "") || a.label.localeCompare(b.label);
+      } else {
+        result = a.label.localeCompare(b.label);
+      }
+      return result * dir;
+    });
+  }, [filtered, sort]);
+
+  const SortButton = ({ sortKey, label }: { sortKey: SortKey; label: string }) => (
+    <button
+      type="button"
+      onClick={() => setSortKey(sortKey)}
+      className="text-left text-[10px] uppercase tracking-normal text-gray-500 hover:text-gray-300"
+    >
+      {label}
+      <span className="ml-1 text-sky-600">
+        {sort.key === sortKey ? (sort.dir === "asc" ? "↑" : "↓") : ""}
+      </span>
+    </button>
+  );
+
   if (loading) {
     return (
       <div className="p-3 text-xs text-gray-500 animate-pulse">
-        loading archive…
+        loading lab demos…
       </div>
     );
   }
@@ -452,14 +565,10 @@ function ArchiveTab({
   if (error) {
     return (
       <div className="p-3 text-xs text-red-400 border border-red-900/50 rounded m-2 bg-red-950/20">
-        archive unavailable: {error}
+        lab demos unavailable: {error}
       </div>
     );
   }
-
-  const maps = Array.from(new Set(demos.map((d) => d.map).filter(Boolean))) as string[];
-  const filtered =
-    mapFilter === "all" ? demos : demos.filter((d) => d.map === mapFilter);
 
   return (
     <div className="flex flex-col h-full">
@@ -492,42 +601,51 @@ function ArchiveTab({
           </button>
         ))}
         <span className="ml-auto text-[10px] text-gray-600">
-          {filtered.length} demo{filtered.length !== 1 ? "s" : ""}
+          {sorted.length} demo{sorted.length !== 1 ? "s" : ""}
         </span>
       </div>
 
       {/* Demo list */}
       <div className="overflow-y-auto grow">
-        {filtered.length === 0 ? (
+        {sorted.length === 0 ? (
           <div className="p-3 text-xs text-gray-500">
-            no archived demos{mapFilter !== "all" ? ` for ${mapFilter}` : ""}
+            no lab demos{mapFilter !== "all" ? ` for ${mapFilter}` : ""}
           </div>
         ) : (
-          filtered.map((demo) => (
-            <div
-              key={demo.url}
-              className="px-3 py-1.5 text-xs font-mono text-gray-300 hover:bg-slate-800/60 cursor-pointer flex items-center gap-x-2 border-b border-slate-800/60 last:border-b-0 group"
-              onClick={() =>
-                onPlay({
-                  demo_url: demo.url,
-                  map: demo.map ?? "dm3",
-                  t: null,
-                  name: demo.label,
-                  route: null,
-                })
-              }
-            >
-              <span className="truncate grow">{demo.label}</span>
-              {demo.map && (
-                <span className="shrink-0 text-[10px] text-gray-600">
-                  {demo.map}
-                </span>
-              )}
-              <span className="text-sky-500 opacity-0 group-hover:opacity-100 text-[10px] transition-opacity shrink-0">
-                ▶
-              </span>
+          <div className="min-w-[520px]">
+            <div className="grid grid-cols-[minmax(220px,1fr)_72px_148px_24px] gap-x-2 px-3 py-1 border-b border-slate-800 bg-slate-950/50">
+              <SortButton sortKey="label" label="demo" />
+              <SortButton sortKey="map" label="map" />
+              <SortButton sortKey="date" label="date recorded" />
+              <span aria-hidden="true" />
             </div>
-          ))
+            {sorted.map((demo) => (
+              <div
+                key={demo.url}
+                className="grid grid-cols-[minmax(220px,1fr)_72px_148px_24px] gap-x-2 items-center px-3 py-1.5 text-xs font-mono text-gray-300 hover:bg-slate-800/60 cursor-pointer border-b border-slate-800/60 last:border-b-0 group"
+                onClick={() =>
+                  onPlay({
+                    demo_url: demo.url,
+                    map: demo.map ?? "dm3",
+                    t: null,
+                    name: demo.label,
+                    route: null,
+                  })
+                }
+              >
+                <span className="truncate">{demo.label}</span>
+                <span className="text-[10px] text-gray-600 truncate">
+                  {demo.map ?? "-"}
+                </span>
+                <span className="text-[10px] text-gray-500 truncate">
+                  {formatDemoDate(demo.date)}
+                </span>
+                <span className="text-sky-500 opacity-0 group-hover:opacity-100 text-[10px] transition-opacity justify-self-end">
+                  ▶
+                </span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -538,8 +656,8 @@ function ArchiveTab({
 // Main DemoPane component
 // --------------------------------------------------------------------------
 
-/** Tab choice: "records" or "archive". */
-type TabId = "records" | "archive";
+/** Tab choice: "records" or "lab". */
+type TabId = "records" | "lab";
 
 type DemoStatus = "empty" | "loading" | "playing" | "ended" | "error" | "seeking";
 
@@ -680,8 +798,8 @@ export function DemoPane({ contextMap, onContext, handleRef, onHandleReady }: De
           <TabButton active={tab === "records"} onClick={() => setTab("records")}>
             Records
           </TabButton>
-          <TabButton active={tab === "archive"} onClick={() => setTab("archive")}>
-            Archive
+          <TabButton active={tab === "lab"} onClick={() => setTab("lab")}>
+            Lab demos
           </TabButton>
           <StatusChip state={demoStatus} />
         </div>
@@ -691,7 +809,7 @@ export function DemoPane({ contextMap, onContext, handleRef, onHandleReady }: De
           {tab === "records" ? (
             <RecordsTab map={contextMap} onPlay={openDemo} />
           ) : (
-            <ArchiveTab onPlay={openDemo} />
+            <LabDemosTab onPlay={openDemo} />
           )}
         </div>
       </div>

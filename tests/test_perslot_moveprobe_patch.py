@@ -233,6 +233,9 @@ class PerSlotPatchTests(unittest.TestCase):
         self.assertIn("k_fb_moveprobe_s25_phase_move_max", self.added_blob)
         self.assertIn("k_fb_moveprobe_s25_phase_yaw_offset", self.added_blob)
         self.assertIn("k_fb_moveprobe_s25_phase_human_scale", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_phase_lane_nudge", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_phase_lane_deadband", self.added_blob)
+        self.assertIn("k_fb_moveprobe_s25_phase_lane_max", self.added_blob)
         self.assertIn("effective_move", self.added_blob)
         self.assertIn("phase_reason", self.added_blob)
         self.assertIn("phase-human-cmd", self.added_blob)
@@ -241,12 +244,103 @@ class PerSlotPatchTests(unittest.TestCase):
         self.assertIn("phase-gap-boost", self.added_blob)
         self.assertIn("phase-yaw-offset", self.added_blob)
         self.assertIn("phase-human-scale", self.added_blob)
+        self.assertIn("phase-lane-nudge", self.added_blob)
         self.assertIn("moveprobe_s25_engaged", self.added_blob)
         self.assertIn("moveprobe_s25_target_vel_err", self.added_blob)
         self.assertIn(
             "s25=%d,%d,%d,%.1f,%.1f,%.1f,%d,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f",
             self.added_blob,
         )
+
+    def test_replay_attack_can_be_opted_in_for_rocket_jump_routes(self) -> None:
+        self.assertIn("k_fb_moveprobe_replay_attack", self.added_blob)
+        self.assertIn("k_fb_moveprobe_replay_attack_impulse", self.added_blob)
+        self.assertIn("k_fb_moveprobe_replay_attack_grant", self.added_blob)
+        self.assertIn("k_fb_moveprobe_replay_attack_rockets", self.added_blob)
+        self.assertIn("BotMoveProbeReplayGrantAttackLoadout", self.added_blob)
+        self.assertIn("IT_ROCKET_LAUNCHER | IT_ROCKETS", self.added_blob)
+        self.assertIn("self->s.v.weapon = IT_ROCKET_LAUNCHER;", self.added_blob)
+        self.assertIn("self->s.v.currentammo = self->s.v.ammo_rockets;", self.added_blob)
+        self.assertIn("BotMoveProbeReplayGrantAttackLoadout(self);", self.added_blob)
+
+    def test_replay_start_resnap_is_default_off_and_bounded(self) -> None:
+        self.assertIn("moveprobe_replay_start_resnaps[MAX_CLIENTS]", self.added_blob)
+        self.assertIn("k_fb_moveprobe_replay_start_resnap", self.added_blob)
+        self.assertIn("k_fb_moveprobe_replay_start_resnap_cursor", self.added_blob)
+        self.assertIn("k_fb_moveprobe_replay_start_resnap_dist", self.added_blob)
+        self.assertIn("resnap_cursor = 16;", self.added_blob)
+        self.assertIn("resnap_dist = 256.0f;", self.added_blob)
+        self.assertIn("moveprobe_replay_start_resnaps[slot] <= 0", self.added_blob)
+        self.assertIn('BotLogMoveProbeReplayEvent(self, slot, "start_resnap");', self.added_blob)
+        self.assertIn("f->buttons & 1", self.added_blob)
+        self.assertIn("*firing = true;", self.added_blob)
+        self.assertIn("*impulse = attack_impulse;", self.added_blob)
+        self.assertLess(
+            self.added_blob.index("*impulse = attack_impulse;"),
+            self.added_blob.index("if (f->buttons & 1)"),
+        )
+        self.assertIn(
+            "BotApplyMoveProbeReplay(self, slot, jumping, firing, impulse, direction, 5);",
+            self.added_blob,
+        )
+
+    def test_replay_can_opt_into_recorded_msec_for_command_cadence(self) -> None:
+        self.assertIn("k_fb_moveprobe_replay_use_recorded_msec", self.added_blob)
+        self.assertIn("moveprobe_replay_cmd_msec[slot] = bound(1, f->msec, 255);", self.added_blob)
+        self.assertIn("cmd_msec = moveprobe_replay_cmd_msec[slot];", self.added_blob)
+        self.assertLess(
+            self.added_blob.index("BotApplyMoveProbe(self, &jumping, &firing, &impulse, direction);"),
+            self.added_blob.index("cmd_msec = moveprobe_replay_cmd_msec[slot];"),
+        )
+        self.assertLess(
+            self.added_blob.index("cmd_msec = moveprobe_replay_cmd_msec[slot];"),
+            self.added_blob.index("BotLogMoveProbeCommand(self, cmd_msec, direction, buttons, impulse);"),
+        )
+
+    def test_replay_can_interpolate_reference_path_and_view_angles(self) -> None:
+        self.assertIn("k_fb_moveprobe_replay_interpolate", self.added_blob)
+        self.assertIn("moveprobe_replay_frame_t interp_frame;", self.added_blob)
+        self.assertIn("interp_frame = *b;", self.added_blob)
+        self.assertIn("interp_frame.origin[0] = a->origin[0]", self.added_blob)
+        self.assertIn("interp_frame.velocity[0] = a->velocity[0]", self.added_blob)
+        self.assertIn("interp_frame.angles[PITCH]", self.added_blob)
+        self.assertIn("interp_frame.angles[YAW] = anglemod", self.added_blob)
+        self.assertIn("f = &interp_frame;", self.added_blob)
+        self.assertIn("direction[0] = f->forwardmove;", self.added_blob)
+
+    def test_corrective_replay_can_autohop_unexpected_ground_contact(self) -> None:
+        self.assertIn("k_fb_moveprobe_corr_autojump", self.added_blob)
+        self.assertIn("!*jumping && (cvar(\"k_fb_moveprobe_corr_autojump\") > 0.0f)", self.added_blob)
+        self.assertIn("&& ((int)self->s.v.flags & FL_ONGROUND)", self.added_blob)
+        self.assertIn("*jumping = true;", self.added_blob)
+
+    def test_corrective_replay_can_blend_command_toward_reference_path(self) -> None:
+        self.assertIn("k_fb_moveprobe_corr_cmd_blend", self.added_blob)
+        self.assertIn("k_fb_moveprobe_corr_cmd_deadband", self.added_blob)
+        self.assertIn("k_fb_moveprobe_corr_cmd_after", self.added_blob)
+        self.assertIn("k_fb_moveprobe_corr_cmd_move", self.added_blob)
+        self.assertIn("recorded_wish[0] = g_globalvars.v_forward[0] * f->forwardmove", self.added_blob)
+        self.assertIn("+ to_human[0] * cmd_blend", self.added_blob)
+        self.assertIn("direction[0] = DotProduct(g_globalvars.v_forward, wish_dir) * cmd_move;", self.added_blob)
+        self.assertIn("direction[1] = DotProduct(g_globalvars.v_right, wish_dir) * cmd_move;", self.added_blob)
+        self.assertLess(
+            self.added_blob.index("k_fb_moveprobe_corr_cmd_blend"),
+            self.added_blob.index("k_fb_moveprobe_corr_ground_realign"),
+        )
+
+    def test_corrective_replay_can_realign_during_recorded_idle_frames(self) -> None:
+        self.assertIn("k_fb_moveprobe_corr_ground_realign", self.added_blob)
+        self.assertIn("k_fb_moveprobe_corr_ground_realign_after", self.added_blob)
+        self.assertIn("k_fb_moveprobe_corr_ground_realign_deadband", self.added_blob)
+        self.assertIn("k_fb_moveprobe_corr_ground_realign_move", self.added_blob)
+        self.assertIn("cursor >= align_after", self.added_blob)
+        self.assertIn("f->forwardmove == 0", self.added_blob)
+        self.assertIn("f->sidemove == 0", self.added_blob)
+        self.assertIn("!(f->buttons & 3)", self.added_blob)
+        self.assertIn("self->fb.desired_angle[YAW] = anglemod(target_yaw);", self.added_blob)
+        self.assertIn("direction[0] = align_move;", self.added_blob)
+        self.assertIn("realigning = true;", self.added_blob)
+        self.assertIn("!realigning && !*jumping", self.added_blob)
 
 
 if __name__ == "__main__":

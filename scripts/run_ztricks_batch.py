@@ -645,7 +645,13 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             local_run_dir=local_run_dir,
         )
 
-        archive_run_demo(args.host, run_id, args.map_name, local_run_dir=local_run_dir)
+        archive_run_demo(
+            args.host,
+            run_id,
+            args.map_name,
+            demo_name=args.route,
+            local_run_dir=local_run_dir,
+        )
         scp_from_remote(args.host, run_id, local_run_dir)
         parser_exits = run_analyzer(local_run_dir, args.wsl_distro, args.analyzer)
         movement_metrics = write_movement_metrics(local_run_dir)

@@ -1,6 +1,6 @@
 """demo_archive: pure-helper coverage for the SSD archival hook + backfill (#64).
 
-Locks the path mapping (map/run_id -> SSD path, hostile names rejected), the
+Locks the path mapping (map/run_id[/route label] -> SSD path, hostile names rejected), the
 manifest/result parsing (sha256, run.env MAP, inventory TSV, KB_ARCHIVE lines),
 the repo tricks/<map> collector (full `<label>__<run_id>` stem kept as the
 archive name, never normalized), the nQuake mirror collector (the runner's
@@ -38,6 +38,16 @@ class TestSsdArchivePath(unittest.TestCase):
     def test_custom_run_ids_allowed(self):
         # C1/A3 sessions used descriptive ids like solo_prewar_d130.
         self.assertTrue(da.ssd_archive_path("trick", "solo_prewar_d130").endswith("/trick/solo_prewar_d130.mvd"))
+
+    def test_route_label_keeps_attempts_unique(self):
+        self.assertEqual(
+            da.archive_stem("20260610T120000Z", "ring_to_mega"),
+            "ring_to_mega__20260610T120000Z",
+        )
+        self.assertEqual(
+            da.ssd_archive_path("dm3", "20260610T120000Z", "ring_to_mega"),
+            "/mnt/usb-ssd/non-games/lab/Komodobots/dm3/ring_to_mega__20260610T120000Z.mvd",
+        )
 
     def test_hostile_names_rejected(self):
         for map_name, run_id in (
@@ -190,16 +200,12 @@ class TestRepoTricksCollector(unittest.TestCase):
 
 
 class TestNquakeMirrorCollector(unittest.TestCase):
-    """The local ezQuake review mirrors (Codex P2: the runner dual-writes to
-    `C:\\nQuake\\qw\\matchinfo\\demos\\tricks\\dm3`, so backfill must scan that
-    dir -- not just the older `C:\\nQuake\\qw\\tricks\\dm3` location)."""
+    """Historical local ezQuake review mirrors remain backfill sources."""
 
     def test_runner_watch_mirror_is_in_default_source_set(self):
-        import run_frobodm2_lab
-
-        # Regression for the path mismatch: the dir the lab runner actually
-        # writes --record-trick-name copies to must be scanned by backfill.
-        self.assertIn(run_frobodm2_lab.NQUAKE_TRICKS_DM3_DIR, da.NQUAKE_TRICKS_DM3_DIRS)
+        # New runs no longer write these mirrors, but old bytes may exist only
+        # there and must still be scanned by backfill.
+        self.assertIn(Path(r"C:\nQuake\qw\matchinfo\demos\tricks\dm3"), da.NQUAKE_TRICKS_DM3_DIRS)
         # The older mirror location stays in the set for historical copies.
         self.assertIn(Path(r"C:\nQuake\qw\tricks\dm3"), da.NQUAKE_TRICKS_DM3_DIRS)
 
@@ -316,7 +322,7 @@ class TestRemoteScripts(unittest.TestCase):
             self.assertNotIn("set -e", script)
             self.assertIn(da.SSD_ROOT, script)
             # bash printf placeholders survived the Python %-formatting
-            self.assertIn("KB_ARCHIVE run=%s map=%s status=%s sha256=%s dst=%s", script)
+            self.assertIn("KB_ARCHIVE run=%s map=%s status=%s sha256=%s name=%s dst=%s", script)
 
     def test_backfill_reads_plan_from_fd3(self):
         self.assertIn("<&3", da.BACKFILL_INSTALL_SCRIPT)

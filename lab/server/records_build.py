@@ -38,7 +38,7 @@ Schema `komodobots.records.v1`
 
 A <record> is:
   { "value": <float>, "units": "s"|"qu/s", "run_id": "<runid>",
-    "demo_url": "/demos/files/non-games/lab/Komodobots/<map>/<runid>.mvd",
+    "demo_url": "/demos/files/non-games/lab/Komodobots/<map>/<route>__<runid>.mvd",
     "demo_archived": true|false|null,   # null = archive listing unavailable
     "event_t_s": <float|null>,          # DEMO-relative seconds of the event
     "set_at": "YYYY-MM-DD",             # derived from the run id (deterministic)
@@ -137,6 +137,7 @@ COMPLETION_ROUTE_PCT = 80.0   # verify_route PASS route criterion = "on-route"
 
 RUN_ID_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})T\d{6}Z$")
 REPLAY_ROUTE_RE = re.compile(r"dm3_([a-z0-9_]+)\.cmds$")
+ARCHIVE_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 # ---------------------------------------------------------------- run scanning
@@ -339,16 +340,26 @@ def demo_event_t(scoring: dict, t: float | None) -> float | None:
 
 def make_record(value, units, scoring, t, human_ref, archived):
     run_id = scoring["run_id"]
+    demo_stem = demo_archive_stem(scoring)
     return {
         "value": value,
         "units": units,
         "run_id": run_id,
-        "demo_url": f"{DEMO_URL_PREFIX}/{scoring['map']}/{run_id}.mvd",
-        "demo_archived": archived(scoring["map"], run_id),
+        "demo_url": f"{DEMO_URL_PREFIX}/{scoring['map']}/{demo_stem}.mvd",
+        "demo_archived": archived(scoring["map"], demo_stem),
         "event_t_s": demo_event_t(scoring, t),
         "set_at": set_at_date(run_id),
         "human_ref": human_ref,
     }
+
+
+def demo_archive_stem(scoring: dict) -> str:
+    """Filename stem used for released bot demos on the SSD."""
+    run_id = scoring["run_id"]
+    route = scoring.get("route")
+    if route and ARCHIVE_NAME_RE.fullmatch(route):
+        return f"{route}__{run_id}"
+    return run_id
 
 
 def census_human_refs(census: dict, route: str) -> dict:
@@ -450,11 +461,11 @@ def build(runs_dir: Path, archive_paths: set[str] | None,
     census = load_census()
 
     if archive_paths is None:
-        def archived(map_name, run_id):
+        def archived(map_name, demo_stem):
             return None
     else:
-        def archived(map_name, run_id):
-            return f"{map_name}/{run_id}.mvd" in archive_paths
+        def archived(map_name, demo_stem):
+            return f"{map_name}/{demo_stem}.mvd" in archive_paths
 
     by_route: dict[str, list[dict]] = {r: [] for r in census}
     skipped: dict[str, int] = {}
