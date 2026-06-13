@@ -2,7 +2,9 @@
 """Archive lab-run MVDs to the servexeri demo SSD (issue #64).
 
 User directive (2026-06-10): EVERY lab attempt's MVD is archived to
-`servexeri:/mnt/usb-ssd/non-games/lab/Komodobots/<map>/<run_id>.mvd`.
+`servexeri:/mnt/usb-ssd/non-games/lab/Komodobots/<map>/<archive_stem>.mvd`.
+For released route demos, `<archive_stem>` is `<route>__<run_id>` so the
+filename is route-readable and still collision-free across repeat attempts.
 
 Two entry points:
 
@@ -17,10 +19,9 @@ Two entry points:
    known MVD source against the SSD tree and copies what is missing:
      * local `artifacts/lab-runs/<run_id>/demo.mvd` (map from `run.env`),
      * server-side `~/komodobots-lab/runs/<run_id>/demo.mvd` (map from `run.env`),
-     * the local ezQuake review mirrors: the lab runner's watch mirror
+     * historical local ezQuake review mirrors:
        `C:\\nQuake\\qw\\matchinfo\\demos\\tricks\\dm3\\<label>__<run_id>.mvd`
-       (where `run_frobodm2_lab.py --record-trick-name` dual-writes) plus the
-       older `C:\\nQuake\\qw\\tricks\\dm3\\<run_id>.mvd` location,
+       plus the older `C:\\nQuake\\qw\\tricks\\dm3\\<run_id>.mvd` location,
      * the repo's `tricks/<map>/*.mvd` evidence demos (the 16 committed ones
        plus any local-only copies in the same tree -- for some historical runs
        these are the ONLY remaining bytes).
@@ -58,10 +59,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
-# Both local ezQuake review-mirror locations are scanned. The first is where
-# `run_frobodm2_lab.py --record-trick-name` actually dual-writes (it must stay
-# in sync with NQUAKE_TRICKS_DM3_DIR in scripts/run_frobodm2_lab.py); the
-# second is the older mirror location kept for any historical copies.
+# Both historical local ezQuake review-mirror locations are scanned for
+# backfill only. New runs are archived directly to the SSD and are no longer
+# mirrored into local/repo tricks folders.
 NQUAKE_TRICKS_DM3_DIRS = (
     Path(r"C:\nQuake\qw\matchinfo\demos\tricks\dm3"),
     Path(r"C:\nQuake\qw\tricks\dm3"),
@@ -101,14 +101,33 @@ def validate_run_id(run_id: str) -> str:
     return run_id
 
 
-def ssd_archive_path(map_name: str, run_id: str) -> str:
+def validate_demo_name(demo_name: str) -> str:
+    if not _RUN_ID_RE.fullmatch(demo_name or ""):
+        raise ValueError(f"Invalid demo name for archival: {demo_name!r}")
+    return demo_name
+
+
+def archive_stem(run_id: str, demo_name: str | None = None) -> str:
+    """Return the SSD filename stem for a run.
+
+    Bare lab attempts remain `<run_id>.mvd`. Released route demos use
+    `<route>__<run_id>.mvd`; route-only filenames would be nicer to read but
+    would overwrite the next attempt of the same route.
+    """
+    rid = validate_run_id(run_id)
+    if demo_name:
+        return f"{validate_demo_name(demo_name)}__{rid}"
+    return rid
+
+
+def ssd_archive_path(map_name: str, run_id: str, demo_name: str | None = None) -> str:
     """Map a run's (map, run_id) to its canonical SSD archive path."""
-    return f"{SSD_ROOT}/{validate_map_name(map_name)}/{validate_run_id(run_id)}.mvd"
+    return f"{SSD_ROOT}/{validate_map_name(map_name)}/{archive_stem(run_id, demo_name)}.mvd"
 
 
-def ssd_archive_path_safe(map_name: str, run_id: str) -> str:
+def ssd_archive_path_safe(map_name: str, run_id: str, demo_name: str | None = None) -> str:
     try:
-        return ssd_archive_path(map_name, run_id)
+        return ssd_archive_path(map_name, run_id, demo_name)
     except ValueError:
         return ""
 
@@ -209,58 +228,60 @@ def sha256_file(path: Path) -> str:
 # a KB_ARCHIVE status line instead of an opaque non-zero exit.
 # ---------------------------------------------------------------------------
 
-# Shared installer: atomically install $1 (source file) as $root/$3/$2.mvd,
-# verifying against expected sha256 $4 ("" = trust the source's current hash).
+# Shared installer: atomically install $1 (source file) as
+# $root/$3/${5:-$2}.mvd, verifying against expected sha256 $4
+# ("" = trust the source's current hash).
 _INSTALL_FN = r"""
 root="%(ssd_root)s"
 
-emit() { # rid map status sha
-  printf 'KB_ARCHIVE run=%%s map=%%s status=%%s sha256=%%s dst=%%s\n' \
-    "$1" "$2" "$3" "$4" "$root/$2/$1.mvd"
+emit() { # rid map status sha stem
+  stem="${5:-$1}"
+  printf 'KB_ARCHIVE run=%%s map=%%s status=%%s sha256=%%s name=%%s dst=%%s\n' \
+    "$1" "$2" "$3" "$4" "$stem" "$root/$2/$stem.mvd"
 }
 
-install_one() { # src rid map expected_sha
-  src="$1"; rid="$2"; map="$3"; want="$4"
+install_one() { # src rid map expected_sha stem
+  src="$1"; rid="$2"; map="$3"; want="$4"; stem="${5:-$2}"
   dst_dir="$root/$map"
-  dst="$dst_dir/$rid.mvd"
-  if [ ! -s "$src" ]; then emit "$rid" "$map" missing-src ""; return 0; fi
+  dst="$dst_dir/$stem.mvd"
+  if [ ! -s "$src" ]; then emit "$rid" "$map" missing-src "" "$stem"; return 0; fi
   src_sha="$(sha256sum -- "$src" 2>/dev/null | cut -d' ' -f1)"
-  if [ -z "$src_sha" ]; then emit "$rid" "$map" hash-failed ""; return 0; fi
+  if [ -z "$src_sha" ]; then emit "$rid" "$map" hash-failed "" "$stem"; return 0; fi
   if [ -n "$want" ] && [ "$src_sha" != "$want" ]; then
-    emit "$rid" "$map" src-changed "$src_sha"; return 0
+    emit "$rid" "$map" src-changed "$src_sha" "$stem"; return 0
   fi
   if [ -e "$dst" ]; then
     dst_sha="$(sha256sum -- "$dst" 2>/dev/null | cut -d' ' -f1)"
     if [ -z "$dst_sha" ]; then
-      emit "$rid" "$map" hash-failed "$src_sha"
+      emit "$rid" "$map" hash-failed "$src_sha" "$stem"
     elif [ "$dst_sha" = "$src_sha" ]; then
-      emit "$rid" "$map" identical "$src_sha"
+      emit "$rid" "$map" identical "$src_sha" "$stem"
     else
-      emit "$rid" "$map" mismatch "$src_sha"
+      emit "$rid" "$map" mismatch "$src_sha" "$stem"
     fi
     return 0
   fi
-  mkdir -p -- "$dst_dir" 2>/dev/null || { emit "$rid" "$map" mkdir-failed "$src_sha"; return 0; }
+  mkdir -p -- "$dst_dir" 2>/dev/null || { emit "$rid" "$map" mkdir-failed "$src_sha" "$stem"; return 0; }
   tmp="$dst.part.$$"
   if ! cp -- "$src" "$tmp" 2>/dev/null; then
-    rm -f -- "$tmp"; emit "$rid" "$map" copy-failed "$src_sha"; return 0
+    rm -f -- "$tmp"; emit "$rid" "$map" copy-failed "$src_sha" "$stem"; return 0
   fi
   out_sha="$(sha256sum -- "$tmp" 2>/dev/null | cut -d' ' -f1)"
   if [ "$out_sha" != "$src_sha" ]; then
-    rm -f -- "$tmp"; emit "$rid" "$map" verify-failed "$src_sha"; return 0
+    rm -f -- "$tmp"; emit "$rid" "$map" verify-failed "$src_sha" "$stem"; return 0
   fi
   if ! mv -- "$tmp" "$dst" 2>/dev/null; then
-    rm -f -- "$tmp"; emit "$rid" "$map" mv-failed "$src_sha"; return 0
+    rm -f -- "$tmp"; emit "$rid" "$map" mv-failed "$src_sha" "$stem"; return 0
   fi
-  emit "$rid" "$map" copied "$src_sha"
+  emit "$rid" "$map" copied "$src_sha" "$stem"
 }
 """ % {"ssd_root": SSD_ROOT}
 
-# Post-run hook: archive one run dir's demo.mvd. argv: run_id map_name
+# Post-run hook: archive one run dir's demo.mvd. argv: run_id map_name archive_stem
 ARCHIVE_ONE_SCRIPT = (
     "set -u\n"
     + _INSTALL_FN
-    + f'\ninstall_one "$HOME/{REMOTE_RUNS_DIR}/$1/demo.mvd" "$1" "$2" ""\n'
+    + f'\ninstall_one "$HOME/{REMOTE_RUNS_DIR}/$1/demo.mvd" "$1" "$2" "" "${{3:-$1}}"\n'
 )
 
 # Backfill installer: plan lines arrive on fd 3 (a quoted heredoc prepended by
@@ -277,7 +298,7 @@ while IFS="$(printf '\t')" read -r kind rid map sha <&3; do
     staging) src="$HOME/{REMOTE_STAGING_DIR}/${{map}}__${{rid}}.mvd" ;;
     *)       emit "$rid" "$map" bad-plan-kind ""; continue ;;
   esac
-  install_one "$src" "$rid" "$map" "$sha"
+  install_one "$src" "$rid" "$map" "$sha" "$rid"
 done
 exit 0
 """
@@ -340,6 +361,7 @@ def archive_run_demo(
     run_id: str,
     map_name: str,
     *,
+    demo_name: str | None = None,
     local_run_dir: Path | None = None,
     timeout: float = 180.0,
 ) -> dict[str, str]:
@@ -353,7 +375,8 @@ def archive_run_demo(
     try:
         validate_run_id(run_id)
         validate_map_name(map_name)
-        proc = _ssh_script(host, ARCHIVE_ONE_SCRIPT, [run_id, map_name], timeout=timeout)
+        stem = archive_stem(run_id, demo_name)
+        proc = _ssh_script(host, ARCHIVE_ONE_SCRIPT, [run_id, map_name, stem], timeout=timeout)
         result = parse_archive_result(proc.stdout)
         if result["status"] == "no-result":
             stderr_lines = (proc.stderr or "").strip().splitlines()
@@ -361,10 +384,12 @@ def archive_run_demo(
     except Exception as exc:  # noqa: BLE001 - the hook must never kill a run
         result = {"status": "error", "detail": str(exc)}
 
-    result.setdefault("dst", ssd_archive_path_safe(map_name, run_id))
+    result.setdefault("dst", ssd_archive_path_safe(map_name, run_id, demo_name))
+    result.setdefault("name", archive_stem(run_id, demo_name) if result.get("dst") else "")
     line = (
         f"demo_archive status={result.get('status', '')} "
-        f"dst={result.get('dst', '')} sha256={result.get('sha256', '')}"
+        f"name={result.get('name', '')} dst={result.get('dst', '')} "
+        f"sha256={result.get('sha256', '')}"
     )
     print(line)
     if result.get("status") not in ARCHIVE_OK_STATUSES:
@@ -375,7 +400,8 @@ def archive_run_demo(
         )
         print(
             "WARNING: re-archive later with: python scripts/demo_archive.py "
-            f"--host {host} --run-id {run_id} --map {map_name}",
+            f"--host {host} --run-id {run_id} --map {map_name}"
+            + (f" --demo-name {demo_name}" if demo_name else ""),
             file=sys.stderr,
         )
     if local_run_dir is not None:
@@ -802,12 +828,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--run-id", default=None, help="Archive one server-side run dir (with --map).")
     parser.add_argument("--map", dest="map_name", default=None, help="Map for --run-id.")
+    parser.add_argument(
+        "--demo-name",
+        default=None,
+        help="Optional route/release name; archives as <demo-name>__<run-id>.mvd.",
+    )
     args = parser.parse_args(argv)
 
     if args.backfill:
         return backfill(args.host, apply=not args.dry_run)
     if args.run_id and args.map_name:
-        result = archive_run_demo(args.host, args.run_id, args.map_name)
+        result = archive_run_demo(args.host, args.run_id, args.map_name, demo_name=args.demo_name)
         return 0 if result.get("status") in ARCHIVE_OK_STATUSES else 1
     parser.error("nothing to do: pass --backfill, or --run-id RID --map MAP")
     return 2

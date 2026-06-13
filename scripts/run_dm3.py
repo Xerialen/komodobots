@@ -6,7 +6,8 @@ Wraps run_frobodm2_lab.py so a dm3 attempt is NEVER run blind: it always
     so the per-tick origin/velocity/onground/move stream is captured;
   * builds the unified trace (build_trace.py);
   * scores it with the goal-true metric (verify_route.py);
-  * mirrors demo.mvd to C:\\nQuake\\qw\\tricks\\dm3\\<run_id>.mvd for ezQuake review.
+  * relies on scripts/demo_archive.py for the canonical SSD demo copy under
+    /mnt/usb-ssd/non-games/lab/Komodobots/<map>/<route>__<run_id>.mvd.
 
 Any extra args are passed through to run_frobodm2_lab.py, e.g.:
   python run_dm3.py --moveprobe-mode 21 --duration 46 \
@@ -20,7 +21,6 @@ clean checkout). Override any of them by passing them explicitly.
 from __future__ import annotations
 
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -28,7 +28,6 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 LAB = REPO / "scripts" / "run_frobodm2_lab.py"
 RECORDS_BUILD = REPO / "lab" / "server" / "records_build.py"
-TRICKS = Path(r"C:\nQuake\qw\tricks\dm3")
 # Prefer a live (regenerated) replay under artifacts/ (gitignored); fall back to
 # the committed copy in the experiment evidence dir so the one-command default
 # works on a clean checkout (Codex PR #58). run_frobodm2_lab raises if the path
@@ -85,17 +84,6 @@ def main():
         sys.exit(1)
     run_id = m.group(1)
     run_dir = REPO / "artifacts" / "lab-runs" / run_id
-
-    # Mirror the raw demo first so it is preserved even if a measurement step
-    # below fails (the demo is the irreplaceable artifact).
-    demo = run_dir / "demo.mvd"
-    if demo.exists():
-        TRICKS.mkdir(parents=True, exist_ok=True)
-        dst = TRICKS / f"{run_id}.mvd"
-        shutil.copy2(demo, dst)
-        print(f"\nmirrored demo -> {dst}  (playdemo tricks/dm3/{run_id}; track 2 for bot POV)")
-    else:
-        print(f"\nWARNING: {demo} not found -- demo not mirrored", file=sys.stderr)
 
     # "Never run blind": a failed trace/score must NOT exit 0 (Codex PR #58 P2),
     # or automation could treat a failed measurement as a completed lab run.

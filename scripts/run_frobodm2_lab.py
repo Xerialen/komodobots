@@ -49,10 +49,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SHIM_PATH = REPO_ROOT / "experiments" / "qw_min_client.py"
 ARTIFACT_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
 DEFAULT_ANALYZER = "/home/xerial/qw-sim/bin/qw-analyze-v20"
-# Recorded trick attempts are committed under tricks/dm3/ and mirrored into the
-# local nQuake demo tree so they are watchable in ezQuake beside the human tricks.
-TRICKS_DM3_DIR = REPO_ROOT / "tricks" / "dm3"
-NQUAKE_TRICKS_DM3_DIR = Path(r"C:\nQuake\qw\matchinfo\demos\tricks\dm3")
 
 
 REMOTE_SCRIPT = r"""#!/usr/bin/env bash
@@ -1229,25 +1225,6 @@ def upload_replay_cmds(host: str, local_cmds: Path) -> str:
     return f"bots/replay/{name}"
 
 
-def dual_write_demo(local_run_dir: Path, record_name: str, run_id: str) -> list[Path]:
-    """Copy the run's demo.mvd to the committed tricks dir and the nQuake watch mirror."""
-    demo = local_run_dir / "demo.mvd"
-    if not demo.is_file():
-        print("WARNING: no demo.mvd to record into tricks/dm3", file=sys.stderr)
-        return []
-    out_name = f"{record_name}__{run_id}.mvd"
-    written: list[Path] = []
-    for dst_dir in (TRICKS_DM3_DIR, NQUAKE_TRICKS_DM3_DIR):
-        try:
-            dst_dir.mkdir(parents=True, exist_ok=True)
-            dst = dst_dir / out_name
-            shutil.copy2(demo, dst)
-            written.append(dst)
-        except OSError as exc:
-            print(f"WARNING: could not write demo to {dst_dir}: {exc}", file=sys.stderr)
-    return written
-
-
 def run_remote_lab(
     host: str,
     run_id: str,
@@ -1340,6 +1317,19 @@ def validate_qwd_waypoints(value: str) -> str:
     return value
 
 
+def infer_demo_name(map_name: str, replay_cmds: Path | None, explicit: str | None) -> str | None:
+    """Choose the route-based SSD archive label for released demos."""
+    if explicit:
+        return explicit
+    if map_name != "dm3" or replay_cmds is None:
+        return None
+    match = re.fullmatch(r"dm3_([A-Za-z0-9_]+)\.cmds", replay_cmds.name)
+    if not match:
+        return None
+    route = match.group(1)
+    return route if re.fullmatch(r"[A-Za-z0-9_-]+", route) else None
+
+
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a one-command Komodobots bot lab.")
     parser.add_argument("--host", default="servexeri", help="SSH host. Defaults to servexeri.")
@@ -1409,11 +1399,14 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--record-trick-name",
+        "--demo-name",
+        dest="record_trick_name",
         type=validate_run_id,
         default=None,
         help=(
-            "If set, the run's demo.mvd is also copied to komodobots/tricks/dm3/ and the "
-            "nQuake watch mirror as <name>__<run_id>.mvd."
+            "Optional route/release name for the SSD archive. Released demos are archived "
+            "only under /mnt/usb-ssd/non-games/lab/Komodobots/<map>/ as "
+            "<name>__<run_id>.mvd; no repo or local nQuake mirror is written."
         ),
     )
     parser.add_argument(
@@ -1626,7 +1619,14 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         # B5 (#64): every lab attempt's MVD is archived to the servexeri demo
         # SSD, server-side, sha256-verified, idempotent. Never fatal: an SSD
         # hiccup must not lose the run (it only warns; backfill recovers later).
-        archive_run_demo(args.host, run_id, args.map_name, local_run_dir=local_run_dir)
+        demo_name = infer_demo_name(args.map_name, args.replay_cmds, args.record_trick_name)
+        archive_run_demo(
+            args.host,
+            run_id,
+            args.map_name,
+            demo_name=demo_name,
+            local_run_dir=local_run_dir,
+        )
         scp_from_remote(args.host, run_id, local_run_dir)
         parser_exits = run_analyzer(local_run_dir, args.wsl_distro, args.analyzer)
         movement_metrics = write_movement_metrics(local_run_dir)
@@ -1635,11 +1635,6 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         write_moveprobe_replay_event_logs(local_run_dir)
         write_moveprobe_assign_logs(local_run_dir)
         write_summary(local_run_dir, args.host, port, run_id, args.map_name, parser_exits)
-
-        if args.record_trick_name:
-            recorded = dual_write_demo(local_run_dir, args.record_trick_name, run_id)
-            for dst in recorded:
-                print(f"recorded_demo={dst}")
 
         summary = local_run_dir / "run-summary.md"
         metrics_summary = local_run_dir / "movement-metrics.md"

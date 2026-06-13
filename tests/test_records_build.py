@@ -5,7 +5,7 @@ Locks the records.json contract the KPI dock and Demo view consume:
   * schema komodobots.records.v1: all four maps present, all 11 censused dm3
     routes always present (honest empty cells, never missing keys);
   * a completing run sets fastest_time / first_completion / peak_speed /
-    edge_speed with the run's id, canonical demo_url, a demo-relative
+    edge_speed with the run's id, route-based canonical demo_url, a demo-relative
     event_t_s (trace server clock minus the demo's kind-0 ServerTime), and
     the census human_ref beside every bot value;
   * finish vs completion: REACHED_RL = finish (any path); completion
@@ -145,7 +145,7 @@ class RecordsBuildTest(unittest.TestCase):
             self.assertEqual(rec["run_id"], "20260608T120000Z")
             self.assertEqual(rec["demo_url"],
                              "/demos/files/non-games/lab/Komodobots/dm3/"
-                             "20260608T120000Z.mvd")
+                             "sng_to_rl__20260608T120000Z.mvd")
             self.assertEqual(rec["set_at"], "2026-06-08")
             self.assertIsNone(rec["demo_archived"])     # no listing given
             self.assertIsNotNone(rec["human_ref"])
@@ -250,7 +250,7 @@ class RecordsBuildTest(unittest.TestCase):
 
     def test_demo_archived_reflects_listing(self):
         self.completing_run("20260608T120000Z")
-        listing = {"dm3/20260608T120000Z.mvd"}
+        listing = {"dm3/sng_to_rl__20260608T120000Z.mvd"}
         ft = self.build(archive_paths=listing)["maps"]["dm3"]["routes"][
             "sng_to_rl"]["records"]["fastest_time"]
         self.assertIs(ft["demo_archived"], True)

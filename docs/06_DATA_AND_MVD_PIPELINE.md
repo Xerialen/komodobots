@@ -249,7 +249,7 @@ Apparatus:
 
 - Builder: `scripts/build_replay_command_file.py` -> `komodobots.replay.v1` file. One line per frame: `msec ox oy oz vx vy vz pitch yaw roll fwd side up buttons`. Commands from `tools/qwd_usercmd`; per-frame origin/velocity from `probe_qwd_route_applicability` anchored `svc_playerinfo`, paired by frame order. Frame 0 is the snap state; every frame is the divergence reference. `dm3_sng_to_rl.qwd` builds to 692 frames at coverage 1.0.
 - KTX mode 10 (`experiments/ktx_moveprobe/frogbot-moveprobe.patch`): reads the file via `trap_FS_*` (too large for a cvar; the filename rides `k_fb_moveprobe_replay_file`), snaps the bot to the human frame-0 origin/velocity/angles once, then emits the exact human `forwardmove`/`sidemove`/`upmove` + view angles each frame with no projection (usercmd move is already view-relative), resampling the human msec timeline onto the server tick. It logs bot-vs-human divergence per frame on the `FBMOVEPROBE_CMD` line (`replay=` suffix) and emits `FBMOVEPROBE_REPLAY_EVENT` activate/complete rows.
-- Runner: `scripts/run_frobodm2_lab.py --moveprobe-mode 10 --replay-cmds <file> --record-trick-name <name>` uploads the file, runs the lab, and dual-writes the demo to `tricks/dm3/` (committed) plus the local nQuake demo mirror.
+- Runner: `scripts/run_frobodm2_lab.py --moveprobe-mode 10 --replay-cmds <file> --demo-name <route>` uploads the file, runs the lab, and stores the server-side `demo.mvd` at `servexeri:/mnt/usb-ssd/non-games/lab/Komodobots/<map>/<route>__<run_id>.mvd` via `scripts/demo_archive.py`. The legacy `--record-trick-name` spelling remains as an alias, but new runs are no longer mirrored into `tricks/dm3/` or local nQuake watch folders. For `dm3_<route>.cmds`, the route label is inferred when no explicit demo name is passed.
 
 Open caveat: open-loop replay is initial-condition sensitive; QW air physics amplifies any frame-0 mismatch, so the bot is expected to diverge partway. "Reproduces to frame N, diverges at marker X" is the intended finding, not a failure. No live run has been done yet; this PR is apparatus + the KTX decision, submitted for review ahead of the first run.
 
@@ -850,7 +850,8 @@ python lab/server/records_build.py --rebuild [--archive-ssh servexeri] [--publis
 
 - **What it holds**: per `(map, route, kind)` record — `fastest_time`,
   `first_completion`, `peak_speed`, `edge_speed` — each with value, run id,
-  the canonical demo URL under `/demos/files/non-games/lab/Komodobots/`, the
+  the route-based canonical demo URL under
+  `/demos/files/non-games/lab/Komodobots/<map>/<route>__<run_id>.mvd`, the
   demo-relative `event_t_s` of the recorded event, and the census human
   reference beside every bot value; plus per-route aggregates
   (`attempts`, `finishes`, `median_time_s`, `human_time_s`).
@@ -873,12 +874,27 @@ python lab/server/records_build.py --rebuild [--archive-ssh servexeri] [--publis
   human-entered) **only when it does not exist remotely** — it never
   overwrites verdicts. Both are HTTP-fetchable under
   `http://192.168.86.33:8095/demos/files/non-games/lab/Komodobots/records/`.
+  The shorter dashboard path `/demos/records/records.json` is a symlink to the
+  same SSD records directory.
 - **Post-run hook**: `scripts/run_dm3.py` appends each scored attempt and
   republishes after `verify_route` (additive; a records/publish failure warns
   loudly but never fails the lab run).
-- **Human references**: the 11 censused human trick `.qwd` demos are archived
+- **Human references**: the 11 censused human trick `.qwd` demos are stored
   under `/mnt/usb-ssd/non-games/lab/Komodobots/human/` and referenced from
   every record's `human_ref.demo_url`.
+- **Active lab demo browser index**: servexeri's local-hub `web/demos_index.py` emits
+  `/v2/demos.json` from `/mnt/usb-ssd/non-games/`, including `path`,
+  `url`/`demo_url`, and UTC file-mtime `date` for every playable `.mvd`/`.qwd`.
+  Botlab's Lab demos tab accepts this flat index (and the older tree shape),
+  filters to active map folders under `non-games/lab/Komodobots`, excludes
+  `archive`, `human`, and `records`, infers map from the map folder, and lets
+  the user sort by demo name, map, or date recorded. Default order is newest
+  recorded first.
+- **Lab demo lifecycle**: active lab-generated demos live under
+  `/mnt/usb-ssd/non-games/lab/Komodobots/<map>/`. "Archive" is reserved for a
+  later lifecycle state for lab-generated demos older than 30 days from date
+  recorded. That retention rule must apply only to Komodobots lab recordings,
+  not to downloaded external demo corpora or human reference files.
 
 ## Routes manifest (LD-C1, issue #90)
 
