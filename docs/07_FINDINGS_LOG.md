@@ -5550,3 +5550,50 @@ QWD "mouse movement" is the per-frame absolute view-angle result plus movement c
 ### Follow-up
 
 Restore or locate `getspeed.qwd` if raw-QWD seam validation needs to be repeated. Before scored A5 live runs, apply/review the servexeri overlay, run an inertness gate, run a short ztricks S23 smoke proving snap/re-arm/arm/release/timeout events, and run the replay timing audit on the next active replay artifact before changing live replay to source-row `msec`.
+
+---
+
+## 2026-06-12 -- Issue #157 roster convergence fixed for ztricks resets
+
+### Finding
+
+The BotLab control-panel roster now converges after ztricks practice resets and
+single-bot respawn flows instead of re-appending late frame rows from previous
+attempts.
+
+### Evidence
+
+Code validation:
+
+- `python -m unittest tests.test_f3_control_drawer -v`: 57 tests passed.
+- `npm run build` in `lab/dashboard`: passed.
+- `python -m unittest discover tests`: 1032 tests passed after rebasing onto
+  `Harden QWD replay seam alignment (#128)`.
+
+Browser/live validation:
+
+- Reloaded the patched local dashboard at
+  `http://127.0.0.1:5173/botlab/?views=game&ws=ws%3A%2F%2F127.0.0.1%3A8771`.
+- Used the control panel force-takeover flow to replace the stale dashboard lock
+  with a fresh dashboard-owned `ztricks` session on port `28599`.
+- Ran **try** twice. After the second try and a 14 s wait, beyond the old
+  10 s suppression window, the rendered bot roster contained exactly one row:
+  `s7 / bro`.
+- Existing Live Game/FTE console error was still present and remains covered by
+  #158; the roster fix did not depend on the Live Game pane rendering.
+
+### Interpretation
+
+The old timer-only suppression was too weak: once its 10 s window expired, late
+telemetry frames from removed edicts could be treated as new frame-discovered
+bots. The drawer now tracks frame fallback mode explicitly. Normal add-bot
+flows stay in append mode, pause/remove-all use an empty mode, and single-bot
+respawn uses a single-bot mode that locks onto the first accepted live ed and
+ignores later frames from other edicts. Ztricks Distance remains a normal route,
+not a hardcoded GUI trick preset.
+
+### Follow-up
+
+Close #157 after this PR lands. The next smallest useful experiment is #158:
+fix the Live Game/QTV rendering path so the primary watch-live story no longer
+depends on Live 3D alone.
