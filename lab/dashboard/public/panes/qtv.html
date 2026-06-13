@@ -34,8 +34,15 @@
 
     FTE QTV disconnect detection: FTE prints "svc_disconnect: EndOfDemo" to the
     Module.print log whenever the QTV stream ends (server stopped / no stream).
-    The retry loop re-issues qtvplay after QTV_RETRY_MS (3000 ms) so the pane
-    re-attaches automatically when the next attempt starts.
+    QTV connect detection accepts relay acceptance ("Welcome to FTEQTV" /
+    "streaming ... via ..."), hook echoes such as f_demostart/autotrack, and
+    runtime stream text such as "<player> entered the game"; some FTE builds
+    execute f_demostart without echoing the alias command. As a fallback, after
+    qtvplay is issued and no immediate disconnect arrives, the pane marks the
+    attach connected so the shell does not stay in "retrying" while FTE is
+    visibly receiving the stream. The retry loop re-issues qtvplay after
+    QTV_RETRY_MS (3000 ms) so the pane re-attaches automatically when the next
+    attempt starts.
 
     Map .bsp resolution: local-first (same as demo.html) — /maps/<map>.bsp on
     servexeri's web root first, CDN fallback. The relay URL comes from the parent
@@ -68,6 +75,7 @@
     // The relay pulls upstreams over loopback on the lab host (servexeri).
     var LAB_QTV_HOST = "127.0.0.1";
     var QTV_RETRY_MS = 3000;  // ~3 s retry loop (SPEC §3.5)
+    var ASSUME_CONNECTED_AFTER_QTVPLAY_MS = 1500;
 
     var FTE  = "https://a.quake.world";        // FTE engine + fte/* assets
     var MAPS = "https://assets.quake.world";   // .bsp fallback CDN
@@ -79,6 +87,7 @@
     // disconnected: explicit cmd or unrecoverable engine boot failure
     var state = "loading";
     var retryTimer = null;
+    var attachConnectedTimer = null;
     var engineReady = false;   // FTE WASM ready (cbufadd available)
     var currentPort = PORT;    // port currently being watched
 
@@ -99,6 +108,15 @@
       try { window.FTEC.cbufadd(cmd + "\n"); } catch (e) { console.warn("fte cbufadd:", e); }
     }
 
+    function isQtvConnectedLog(text) {
+      return text.indexOf("Welcome to FTEQTV") !== -1 ||
+             (text.indexOf("streaming \"") !== -1 && text.indexOf("\" via \"") !== -1) ||
+             text.indexOf("f_demostart") !== -1 ||
+             text.indexOf("autotrack") !== -1 ||
+             text.indexOf(" entered the game") !== -1 ||
+             text.indexOf("Server starts recording") !== -1;
+    }
+
     // ---------------------------------------------------------------- attach
     // Issue qtvplay for the current port. Called:
     //   (a) once when FTE becomes ready
@@ -114,6 +132,7 @@
       cbuf("disconnect");
       cbuf("closemenu");
       cbuf("qtvplay tcp:" + LAB_QTV_HOST + ":" + currentPort + "@" + RELAY);
+      scheduleAttachConnectedFallback();
     }
 
     // ------------------------------------------------------------- retry loop
@@ -126,6 +145,21 @@
     }
     function clearRetry() {
       if (retryTimer !== null) { clearTimeout(retryTimer); retryTimer = null; }
+    }
+    function scheduleAttachConnectedFallback() {
+      clearAttachConnectedFallback();
+      attachConnectedTimer = setTimeout(function () {
+        attachConnectedTimer = null;
+        if (state === "retrying") {
+          setState("connected");
+        }
+      }, ASSUME_CONNECTED_AFTER_QTVPLAY_MS);
+    }
+    function clearAttachConnectedFallback() {
+      if (attachConnectedTimer !== null) {
+        clearTimeout(attachConnectedTimer);
+        attachConnectedTimer = null;
+      }
     }
 
     // ------------------------------------------------- postMessage (inbound)
@@ -238,9 +272,10 @@
           if (text.indexOf("svc_disconnect: EndOfDemo") !== -1) {
             onQtvDisconnect();
           }
-          // QTV connect confirmed: f_demostart -> autotrack fires when FTE has
-          // entered the game (map loaded, players visible).
-          if (text.indexOf("f_demostart") !== -1 || text.indexOf("autotrack") !== -1) {
+          // QTV connect confirmed: map loaded and the spectator entered a live
+          // game. Some FTE builds execute f_demostart without echoing it, so
+          // runtime stream messages are accepted too.
+          if (isQtvConnectedLog(text)) {
             onQtvConnected();
           }
         },
@@ -266,12 +301,15 @@
     }
 
     function onQtvConnected() {
+      if (state === "disconnected") return;
+      clearAttachConnectedFallback();
       clearRetry();
       setState("connected");
     }
 
     function onQtvDisconnect() {
       if (state === "disconnected") return;  // explicit disconnect — do not retry
+      clearAttachConnectedFallback();
       setState("retrying");
       scheduleRetry();
     }
