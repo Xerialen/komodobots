@@ -45,6 +45,13 @@ to either implementation or review work.
 The same agent must not act as both Coder and independent Reviewer for the same
 PR unless Benjamin explicitly overrides role separation.
 
+Beyond not being the same agent, the Reviewer should ideally run on a *different
+LLM* than the Coder (for example, a Claude-authored PR reviewed by Codex or
+Gemini, and a Codex-authored PR reviewed by Claude). A model reviewing its own
+work is the weakest form of independence. Different-LLM review is strongly
+preferred; if no different-model reviewer is available, a different agent or
+session is an acceptable fallback, but note it as a weaker review.
+
 Two gates must both pass to merge, and they are deliberately layered per best practice: a deterministic machine check is the real authority, the AI review is an advisory filter on top.
 
 1. **Deterministic CI floor** - `.github/workflows/pr-tests.yml` runs the stdlib unit suite on a hosted runner for every PR. This is the hard, machine-checked gate.
