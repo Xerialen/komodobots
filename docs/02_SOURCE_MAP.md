@@ -102,6 +102,8 @@ ztricks reference trace builder: `C:\Users\benya\projects\quakeworld\komodobots\
 
 ztricks reference interpolation helpers: `C:\Users\benya\projects\quakeworld\komodobots\scripts\ztricks_reference_trace.py`
 
+QWD segmentation/interpolation procedure: `C:\Users\benya\projects\quakeworld\komodobots\experiments\ktx_moveprobe\evidence\qwd-segmentation-interpolation-procedure-20260613.md`
+
 Route-state diagnosis helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\diagnose_route_state.py`
 
 Route-state attribution helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\attribute_route_state_windows.py`
@@ -171,6 +173,7 @@ Why it matters:
 - `experiments/ktx_moveprobe/evidence/getandmaintainspeed-reference/` stores the small tracked clean-checkout reference bundle for the accepted mode-25 reproduction guide: the generated replay `.cmds`, mouse-analysis JSON, and mouse-analysis notes. Use this path in documentation or new reproduction runs instead of relying on ignored local `artifacts/qwd-getandmaintainspeed/` files.
 - `scripts/build_ztricks_reference_trace.py` writes `experiments/a5_distance_standstill/ztricks-reference-trace.json/md` from A5's successful attempt. The trace preserves raw rows, event crossings, and a local-quadratic controller guidance curve over the terminal sweep; angles are unwrapped before interpolation.
 - `scripts/ztricks_reference_trace.py` is the shared interpolation helper for the ztricks reference trace and scorer. Event proof stays conservative (piecewise linear/projection) while controller guidance can use local quadratic samples.
+- `experiments/ktx_moveprobe/evidence/qwd-segmentation-interpolation-procedure-20260613.md` is the self-contained QWD teaching-trace procedure. It explains why command labels are stronger than sparse state labels, why new QWD work should time-align rather than zip-align, how to segment teleports/respawns/gaps before interpolation, how to unwrap angles and preserve discrete button edges, and when the bot should validate a prepared trace.
 - `scripts/diagnose_route_state.py` joins position segments, sampled moveprobe commands, and map-entity locations to identify low-speed windows and whether current artifacts contain route node/goal/obstruction state.
 - `scripts/attribute_route_state_windows.py` decodes route-state low-speed windows against KTX/Frogbot flag definitions and `.bot` route-map edges, producing compact S6 attribution evidence without changing controller behavior.
 - `scripts/inspect_route_edge_geometry.py` inspects one Frogbot `.bot` edge, its reciprocal/direct neighborhood, static marker-origin availability, and matching S6 attribution samples to decide whether a route-data geometry fix is justified.

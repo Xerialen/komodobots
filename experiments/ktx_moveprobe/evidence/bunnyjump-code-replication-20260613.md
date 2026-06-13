@@ -29,6 +29,8 @@ enough command strength to maintain a believable high-speed run.
 
 Use these tracked reference artifacts:
 
+- QWD segmentation/interpolation procedure:
+  `experiments/ktx_moveprobe/evidence/qwd-segmentation-interpolation-procedure-20260613.md`
 - Human command file:
   `experiments/ktx_moveprobe/evidence/getandmaintainspeed-reference/getandmaintainspeed.cmds`
 - Human mouse/speed analysis:
@@ -229,7 +231,8 @@ Use the live reproduction command only when you need a new MVD.
 
 For future route work, copy the principle before copying the numbers:
 
-1. Extract exact QWD commands and paired trajectory.
+1. Extract exact QWD commands and paired trajectory using the segmentation and
+   interpolation procedure documented beside this guide.
 2. Preserve the QWD mouse timeline unless there is hard evidence it is wrong.
 3. Preserve human jump timing before trying any autojump or jump-hold probe.
 4. Add controller strength only inside a phase gate tied to replay cursor or
