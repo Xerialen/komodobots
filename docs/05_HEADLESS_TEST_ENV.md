@@ -329,6 +329,127 @@ Verified repeatability runs:
 
 In verified runs, `quakestat -qws localhost:28599 -P -nh` reported `DOWN` after cleanup.
 
+## Spectating the Lab (QTV)
+
+Status: `scripts/run_lab_qtv.py` added 2026-06-07 and **verified live on
+`servexeri` the same day** (logic also covered by `tests/test_run_lab_qtv.py`, 27
+cases, in CI). The live run disproved several things the offline-authored first
+draft assumed; they are fixed and documented below. During the verification a
+real moveprobe batch was running on `28599` and the QTV launcher correctly stayed
+off it — validating the non-disruption design.
+
+Purpose: watch the bot lab live without disturbing the measurement pipeline. It is
+a **standalone** launcher, separate from `run_bot_lab.py` / `run_frobodm2_lab.py`.
+
+How it stays non-disruptive:
+
+- Dedicated MVDSV/KTX process. **Default port `28610`**, deliberately clear of the
+  moveprobe lab's `28599` and the live servers (qtv `28000`, game `28501-28503`,
+  qwfwd `30000`).
+- QTV stream on the **same port number** as the game (`qtv_streamport == game
+  port`) — the proven servexeri model (`ktx/port_2850x.cfg`), so only one port
+  needs firewall-opening. (The first draft used game-port+100; that port is never
+  firewall-allowed and was unreachable.)
+- Own screen session, prefixed `komodobots_qtv_...`. `down`/`status` only match
+  that prefix; `down` only removes the `kqtv_*.cfg` it wrote + this run's
+  keepalive. Never calls `start_servers.sh`/`stop_servers.sh`, never edits
+  `~/.nquakesv/ports/*`, never touches the live QTV/QWFWD.
+- Bots run **stock**: no `k_fb_moveprobe_*` cvars, so a spectate session cannot
+  perturb a movement experiment.
+
+QTV mechanism (source-grounded): MVDSV has a built-in QTV server; no separate
+`qtv` proxy is needed. Cvars in `QW-Group/mvdsv` `src/sv_demo_qtv.c`:
+`qtv_streamport` (TCP listen, 0 disables), `qtv_password`, `qtv_maxstreams`. There
+is **no `sv_mvdhost`** — that cvar does not exist on this build (it logs `Unknown
+command`); the public address is only used for the printed watch link.
+
+Keeping the match populated — the reconnect-loop (the hard part):
+
+- QTV spectators don't count as players, so a connected "player" is needed for KTX
+  auto-add to maintain bots — `BotStartFrame` (`ktx/src/bot_commands.c:2785`) only
+  adds bots while `human_count > 0`.
+- But mvdsv **login-times-out a non-logged-in client at exactly 60s**
+  (`SV_LoginCheckTimeOut`, `sv_login.c:831`, hardcoded `> 60`). The minimal
+  keepalive (`experiments/qw_min_client.py`) is not a logged-in account, so a
+  single keepalive drops at 60s and the match drains. (Three other theories —
+  autoadd-without-a-human, the matchless idle-kick, `sv_login 0` — were each
+  disproven by instrumented mvdsv builds before the real cause was found.)
+- Fix: a **reconnect loop on a cycle shorter than 60s** (`KEEPALIVE_CYCLE_S=45`).
+  The old connection lingers to its 60s drop while the next connects at ~45s, so
+  presence overlaps and the server never empties — no flicker, no bot
+  accumulation. The keepalive adds **no** bots (`--bot-count 0`); autoadd does,
+  with `k_fb_autoadd_limit = bot_count + 1` (the +1 covers the keepalive human).
+  Verified: 4 bots stable across 12s / 70s / 130s / 165s samples.
+
+Reachability + firewall: servexeri's `ufw` only allows the standard QW ports
+(`28501-28503`). A lab QTV port binds `0.0.0.0` and `ss` shows it LISTENing, but
+it is **not reachable off-host until opened** — a server-side `ss | grep` is a
+false "it works" signal. The launcher runs a **real off-host TCP probe** after
+`up` and prints honest REACHABLE / NOT-reachable (exit 8 when not) with the exact
+`ufw` hint. For port `28610` a LAN-only rule was added:
+`ufw allow from 192.168.86.0/24 to any port 28610 proto tcp`.
+
+Watch paths:
+
+- ezQuake (desktop): `/qtvplay <public-host>:<qtv-port>` — **no `tcp:` prefix**.
+  ezQuake's `qtvplay` does not parse a `tcp:` scheme (`CL_QTVPlay_f` →
+  `NET_StringToSockaddr` mis-splits it, resolving "tcp" as a hostname → "Couldn't
+  connect to proxy"). The bare `host:port` works; mvdsv's built-in `QTVSV 1`
+  stream is directly watchable, no qtv.bin proxy needed (confirmed in
+  `Xerialen/ezquake-source src/cl_demo.c`).
+- Browser/Hub: needs the port reachable publicly (router forward) — not wired for
+  the lab; LAN ezQuake is the verified path.
+
+Usage:
+
+```bash
+python scripts/run_lab_qtv.py up --map dm3 --bot-count 4
+python scripts/run_lab_qtv.py status
+python scripts/run_lab_qtv.py down            # stops all lab QTV sessions
+python scripts/run_lab_qtv.py down --session komodobots_qtv_dm3_28610_<run-id>
+```
+
+`up` starts the server, launches the reconnect-loop keepalive, prints the watch
+URLs, runs the off-host reachability probe, and returns (the session
+self-terminates after `--duration`, default `3600`). `--public-host auto` resolves
+the box's LAN IP remotely via `hostname -I` (not ipify — on servexeri ipify
+returns the Cloudflare WARP egress, a non-inbound address).
+
+Verified path on a host that can reach `servexeri` (2026-06-07):
+
+```bash
+python scripts/run_lab_qtv.py up --map dm3 --bot-count 4   # -> REACHABLE, rc 0
+python scripts/run_lab_qtv.py status                       # -> 1 keepalive + N bots
+# in ezQuake:  /qtvplay 192.168.86.33:28610                # -> watches the FFA
+python scripts/run_lab_qtv.py down
+```
+
+### Spectating a *running experiment* (`attach` / `detach`)
+
+To watch a **moveprobe experiment** (or any `komodobots_*` lab server) live without
+disturbing it — and without editing `run_frobodm2_lab.py` — turn its built-in QTV
+stream on in place:
+
+```bash
+python scripts/run_lab_qtv.py attach --port 28599   # the moveprobe lab's port
+# -> /qtvplay 192.168.86.33:28599
+python scripts/run_lab_qtv.py detach --port 28599   # restores the server (qtv_streamport 0)
+```
+
+`attach` sends `qtv_streamport <port>` to the running server's console. QTV is a
+passive re-broadcast of the MVD the experiment already records and a spectator is
+not a player, so the recorded measurement is unchanged. **Safety:** it locates the
+server via the real `mvdsv` process (`pgrep -x mvdsv`, not the `SCREEN` wrapper) and
+**refuses** unless the port is owned by a `komodobots_*` screen session, so it can
+never touch the live `qw_2850x` / `qtv` / `qwfwd` servers (verified 2026-06-07:
+`attach --port 28501` is refused, `attach --port 28610` to a komodobots session
+succeeds). The experiment port must be firewall-open for off-host viewing — the
+existing LAN-only `28599/tcp` rule covers the moveprobe lab.
+
+If the QTV port never reports listening, the deployed MVDSV build may lack QTV
+support or the TCP port is firewalled; both are recorded as experiment results,
+not silent failures.
+
 ## 2026-06-05 Smoke Run
 
 Run identity:

@@ -2443,6 +2443,129 @@ Decision recorded 2026-06-07; KTX mode 10 implemented and pending Codex review (
 
 ---
 
+## Stand up a dedicated lab QTV stream for browser spectating.
+
+### Date
+
+2026-06-07
+
+### Decision
+
+Add `scripts/run_lab_qtv.py`, a standalone `up`/`down`/`status` launcher that
+exposes the bot lab as a live QTV stream watchable from a browser via the
+QuakeWorld Hub. It runs a dedicated MVDSV/KTX process on its own UDP game port
+and its own TCP QTV stream port, in a `komodobots_qtv_*` screen session, using a
+uniquely named `kqtv_*.cfg` it owns and removes. It uses MVDSV's built-in QTV
+(`qtv_streamport` family), prints a direct watch target, and keeps the
+measurement runner (`run_bot_lab.py`) untouched. The initial design assumed
+`sv_mvdhost` and Hub advertisement would handle the public stream address; live
+verification below superseded that assumption because this MVDSV build rejects
+`sv_mvdhost`.
+
+### Alternatives Considered
+
+- Reuse the existing nQuake QTV/QWFWD already configured on `servexeri`.
+- Self-host a browser QTV web client (ezquake-wasm) on `servexeri`.
+- Run a standalone `qtv` proxy instead of MVDSV's built-in stream.
+- Add a `--qtv` flag to the proven `run_bot_lab.py` instead of a separate tool.
+
+### Evidence
+
+- User chose: QW Hub web QTV as the browser path, a dedicated lab QTV instance,
+  and a standalone launcher (not integrated into `run_bot_lab.py`).
+- MVDSV built-in QTV cvars confirmed in `QW-Group/mvdsv` `src/sv_demo_qtv.c`:
+  `qtv_streamport`, `qtv_password`, `qtv_maxstreams`, `qtv_pendingtimeout`,
+  `qtv_streamtimeout`, `qtv_sayenabled`. Later live verification found that
+  `sv_mvdhost` is not available in the deployed build.
+- `docs/05_HEADLESS_TEST_ENV.md` already records that `stop_servers.sh` stops a
+  live QTV/QWFWD, confirming an nQuake-managed QTV proxy exists on the box; the
+  dedicated instance avoids coupling lab spectating to live service config.
+- `tests/test_run_lab_qtv.py` (16 tests) proves the pure logic: port selection,
+  config generation (required QTV cvars present, no `k_fb_moveprobe_*` cvars,
+  non-disruption banner), watch-URL building, lab-owned session/port validation.
+  Full suite is green (168 tests).
+
+### Expected Consequences
+
+Benjamin can watch the lab live in a browser. Spectating cannot perturb movement
+experiments (stock bots, separate ports/process/config/session, no moveprobe
+cvars), and cleanup only ever touches lab-owned `komodobots_qtv_*` sessions and
+`kqtv_*.cfg` files.
+
+### Revisit Conditions
+
+Revisit if the deployed MVDSV build lacks compiled QTV support, if the lab QTV
+TCP port is not internet-reachable so the Hub cannot bridge it, if a private
+high-port server does not appear on the Hub (then self-host a web client or use a
+direct `qtvplay` link), or if reusing the existing nQuake QTV proves simpler in
+practice.
+
+### Status
+
+Decision recorded 2026-06-07; launcher implemented with unit coverage. This
+initial status was superseded by the live verification and corrections recorded
+below.
+
+## QTV spectate launcher — live verification + corrections (2026-06-07)
+
+The launcher was verified live on `servexeri` from a host with SSH reach. The
+**first live run FAILED**; root-causing it (including building an instrumented
+mvdsv to trace the login state machine) corrected four wrong assumptions baked in
+during offline authoring. All fixed; re-verified working (ezQuake watching the dm3
+FFA over the LAN).
+
+### What was wrong vs. what shipped
+
+1. **Keep-the-match-populated (the deep one).** The match drained at exactly 60s.
+   It is **not** the matchless idle-kick, **not** a netchan timeout, and **not**
+   `sv_login` (already `0`): it is mvdsv's **login timeout** —
+   `SV_LoginCheckTimeOut` (`sv_login.c:831`) drops any client with `cl->logged==0`
+   after `> 60s`. `SV_Login` sets `logged=-1` (exempt) for our client, but the
+   minimal keepalive's non-compliant all-at-once signon triggers a second
+   `SV_Logout` that resets `logged` to `0`. Three earlier fix attempts (KTX
+   `k_fb_autoadd_limit` with no human; disabling `k_matchless_max_idle_time`;
+   `sv_login 0`) each failed because the real guard was elsewhere — confirmed by
+   `[DBG]`-instrumented mvdsv. **Fix:** a reconnect-loop keepalive on a cycle
+   (`KEEPALIVE_CYCLE_S=45`) shorter than the 60s timeout, so connections overlap
+   and the server never empties; KTX auto-add (`k_fb_autoadd_limit = bot_count+1`)
+   maintains the bots while the keepalive supplies the human presence. The owner
+   chose this pragmatic path over building a fully protocol-compliant client.
+
+2. **QTV port model.** First draft used `qtv_streamport = game_port + 100`; that
+   port is never firewall-allowed on servexeri and was unreachable. **Fix:**
+   `qtv_streamport == game_port` (the proven `ktx/port_2850x.cfg` model), one port
+   to open. Default game port moved to **`28610`** — clear of the moveprobe lab's
+   `28599` (which was running a live batch during verification) and the live
+   servers.
+
+3. **`sv_mvdhost` does not exist** on this mvdsv build (binary `strings` + runtime
+   `Unknown command`). Removed. `--public-host auto` now resolves the LAN IP via
+   `hostname -I` (ipify returned the Cloudflare WARP egress — a non-inbound
+   address).
+
+4. **Reachability was a false green.** The old `ss | grep :port` check matches a
+   localhost-only bind and cannot see a firewall. **Fix:** a real off-host TCP
+   probe from the launcher; honest REACHABLE / NOT-reachable + exit 8 + the exact
+   `ufw` remediation. servexeri `ufw` only allows `28501-28503`; a LAN-only rule
+   `ufw allow from 192.168.86.0/24 to any port 28610 proto tcp` was added for the
+   lab.
+
+5. **ezQuake `qtvplay` address format (client-side).** The launcher printed
+   `/qtvplay tcp:<host>:<port>`; ezQuake does **not** parse a `tcp:` scheme
+   (`CL_QTVPlay_f` → `NET_StringToSockaddr` mis-splits it → "Couldn't connect to
+   proxy"). It prints the bare `host:port` form now. mvdsv's built-in `QTVSV 1`
+   stream **is** directly watchable — no qtv.bin proxy required (verified in
+   `Xerialen/ezquake-source src/cl_demo.c`).
+
+### Status
+
+**Verified working 2026-06-07.** `up` reports REACHABLE (rc 0) with the firewall
+open; 4 bots held stable past the old 60s drain point; ezQuake watches the FFA via
+`/qtvplay 192.168.86.33:28610`. 179 unit tests green. The non-disruption design was
+validated in practice (a live moveprobe batch on `28599` was untouched).
+
+---
+
 ## Decision
 
 First movement-frontier controller = closed-loop CORRECTION (KTX moveprobe mode 12, corrective replay). Pure steering (mode 11) rejected; from-scratch movement brain scoped later.
