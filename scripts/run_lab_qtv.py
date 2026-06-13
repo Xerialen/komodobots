@@ -216,7 +216,7 @@ def build_qtv_cfg(
     QTV stream cvars. ``timelimit 0`` keeps the FFA running so the stream stays
     interesting for as long as the session is up.
     """
-    pw = qtv_password.replace('"', "")
+    pw = sanitize_qtv_password(qtv_password)
     return "\n".join(
         [
             f"// Auto-generated Komodobots QTV spectate lab config {run_id}",
@@ -270,11 +270,17 @@ def validate_map_name(map_name: str) -> str:
 
 
 def validate_run_id(run_id: str) -> str:
-    if not re.fullmatch(r"[A-Za-z0-9_-]+", run_id):
+    if not re.fullmatch(r"[A-Za-z0-9-]+", run_id):
         raise argparse.ArgumentTypeError(
-            "Run IDs may only contain letters, digits, underscore, or dash."
+            "Run IDs may only contain letters, digits, or dash."
         )
     return run_id
+
+
+def sanitize_qtv_password(qtv_password: str) -> str:
+    if any(ord(ch) < 32 for ch in qtv_password):
+        raise argparse.ArgumentTypeError("QTV password may not contain control characters.")
+    return qtv_password.replace('"', "")
 
 
 def validate_session(session: str) -> str:
@@ -781,7 +787,7 @@ def build_parser() -> argparse.ArgumentParser:
     up.add_argument("--game-port", type=validate_port, default=DEFAULT_GAME_PORT, help="Preferred MVDSV UDP game port (QTV TCP uses the same number). Defaults to 28610, clear of the moveprobe lab's 28599.")
     up.add_argument("--qtv-port", type=validate_port, default=None, help="QTV TCP stream port. Defaults to the game port (proven servexeri model).")
     up.add_argument("--public-host", type=validate_public_host, default="auto", help="Public IP/DNS advertised in the printed link, or 'auto' (resolves the host's LAN IP). Defaults to auto.")
-    up.add_argument("--qtv-password", default="", help="QTV stream password. Default empty (open).")
+    up.add_argument("--qtv-password", type=sanitize_qtv_password, default="", help="QTV stream password. Default empty (open).")
     up.add_argument("--skill", type=int, default=10, help="Frogbot skill. Defaults to 10.")
     up.add_argument("--run-id", type=validate_run_id, default=None, help="Run ID. Defaults to current UTC timestamp.")
     up.add_argument("--strict-port", action="store_true", help="Fail instead of auto-bumping if the preferred game port is busy.")

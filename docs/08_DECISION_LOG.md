@@ -2456,9 +2456,11 @@ exposes the bot lab as a live QTV stream watchable from a browser via the
 QuakeWorld Hub. It runs a dedicated MVDSV/KTX process on its own UDP game port
 and its own TCP QTV stream port, in a `komodobots_qtv_*` screen session, using a
 uniquely named `kqtv_*.cfg` it owns and removes. It uses MVDSV's built-in QTV
-(`qtv_streamport` family) plus `sv_mvdhost`, relies on the default master
-heartbeats for Hub discovery, and keeps the measurement runner
-(`run_bot_lab.py`) untouched.
+(`qtv_streamport` family), prints a direct watch target, and keeps the
+measurement runner (`run_bot_lab.py`) untouched. The initial design assumed
+`sv_mvdhost` and Hub advertisement would handle the public stream address; live
+verification below superseded that assumption because this MVDSV build rejects
+`sv_mvdhost`.
 
 ### Alternatives Considered
 
@@ -2473,8 +2475,8 @@ heartbeats for Hub discovery, and keeps the measurement runner
   and a standalone launcher (not integrated into `run_bot_lab.py`).
 - MVDSV built-in QTV cvars confirmed in `QW-Group/mvdsv` `src/sv_demo_qtv.c`:
   `qtv_streamport`, `qtv_password`, `qtv_maxstreams`, `qtv_pendingtimeout`,
-  `qtv_streamtimeout`, `qtv_sayenabled`. `sv_mvdhost` advertises the public
-  stream address (referenced in `src/sv_user.c` command table).
+  `qtv_streamtimeout`, `qtv_sayenabled`. Later live verification found that
+  `sv_mvdhost` is not available in the deployed build.
 - `docs/05_HEADLESS_TEST_ENV.md` already records that `stop_servers.sh` stops a
   live QTV/QWFWD, confirming an nQuake-managed QTV proxy exists on the box; the
   dedicated instance avoids coupling lab spectating to live service config.
@@ -2500,11 +2502,9 @@ practice.
 
 ### Status
 
-Decision recorded 2026-06-07; launcher implemented with unit coverage. Live
-`servexeri` behavior is **pending verification** — the authoring sandbox has no
-SSH reach to the box, so the SSH/screen orchestration must be confirmed from a
-host that can reach `servexeri` (see the first-verification checklist in
-`docs/05_HEADLESS_TEST_ENV.md`).
+Decision recorded 2026-06-07; launcher implemented with unit coverage. This
+initial status was superseded by the live verification and corrections recorded
+below.
 
 ## QTV spectate launcher — live verification + corrections (2026-06-07)
 

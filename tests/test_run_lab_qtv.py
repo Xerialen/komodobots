@@ -101,6 +101,10 @@ class CfgTests(unittest.TestCase):
         cfg = self._cfg(qtv_password='ab"cd')
         self.assertIn('qtv_password "abcd"', cfg)
 
+    def test_cfg_password_rejects_newline_injection(self) -> None:
+        with self.assertRaises(argparse.ArgumentTypeError):
+            self._cfg(qtv_password="abc\nset admin 1")
+
     def test_cfg_is_self_describing_about_non_disruption(self) -> None:
         cfg = self._cfg()
         self.assertIn("Does NOT modify nQuake-managed configs", cfg)
@@ -195,6 +199,9 @@ class ValidationTests(unittest.TestCase):
             qtv.validate_map_name("bad name")
         with self.assertRaises(argparse.ArgumentTypeError):
             qtv.validate_run_id("bad/id")
+        with self.assertRaises(argparse.ArgumentTypeError):
+            qtv.validate_run_id("foo_bar")
+        self.assertEqual(qtv.validate_run_id("foo-bar"), "foo-bar")
 
 
 class ParserTests(unittest.TestCase):
