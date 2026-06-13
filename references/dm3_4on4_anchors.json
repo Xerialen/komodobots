@@ -1,0 +1,1342 @@
+{
+  "schema": "komodobots.dm3_4on4_anchors.v1",
+  "stage": "stage0-spike4-anchor-build",
+  "map": "dm3",
+  "diagnostic_only": true,
+  "diagnostic_only_reason": "n=6 demos across 3 players (min 2 demos/player). Trustworthy-band floor is >=5 players AND >=5 demos/player; this pool is far below it, so EVERY band is DIAGNOSTIC-ONLY per program §6 discipline. Bands are the empirical per-player min/max, not single-point thresholds; no gate may pass/fail a bot on them until the pool widens.",
+  "pool_size": {
+    "n_demos": 6,
+    "n_players": 3,
+    "demos_per_player": {
+      "Milton": 2,
+      "carapace": 2,
+      "yeti": 2
+    },
+    "min_demos_per_player": 2,
+    "trustworthy_band_floor": {
+      "players": 5,
+      "demos_per_player": 5
+    }
+  },
+  "anchor_players": [
+    "Milton",
+    "carapace",
+    "yeti"
+  ],
+  "anchor_player_selection": {
+    "axis": "fantasyquake/scripts/rate_individual.py (carry-corrected blended individual+team rating)",
+    "evidence": {
+      "Milton": "rank #1/108 (tb4_s2 pool), blended=3334.93, games=1224",
+      "carapace": "rank #2/108 (tb4_s2 pool), blended=3046.47, games=710",
+      "yeti": "not in tb4_s2 reporting pool but 1510 4on4 games in qw-stats.db; recognised elite, carried in the S5b/S7b movement reference"
+    },
+    "note": "rate_individual ranks INDIVIDUAL skill (de-carried), unlike rate_4on4.py team W/L; this is the program's clone-selection axis."
+  },
+  "measurement_planes": {
+    "movement": {
+      "id": "mvd_event_rate_finite_difference",
+      "description": "qw-analyze -format events kind:5 player-origin samples (native MVD position event rate ~13 ms); horizontal speed = hypot(dx,dy)/dt between consecutive samples; percentiles unweighted per accepted segment. Teleport guard drops > 2500 qu/s segments. SAME plane the bot is scored on. NOT a 100 Hz pmove trace.",
+      "source_script": "scripts/extract_movement_metrics.py (schema komodobots.movement_metrics.v2)",
+      "derived_from": "experiments/human_comparison/evidence/player-signatures-s7c-dm3.json"
+    },
+    "economy_aim_positioning": {
+      "id": "ktx_demoinfo_stream",
+      "description": "qw-analyze analysis.json: KTX mvdhidden_dmgdone damage stream (given/taken/EWep buckets), KTX item took/respawn timeline, v19-corrected frag log (match.players[] kills/deaths/suicides), locGraph. Count/share-based — plane-agnostic w.r.t. movement speed.",
+      "analyzer_schema_version": 21,
+      "analyzer_current_schema_version": 32,
+      "schema_caveat": "Anchor analysis.json were produced at schemaVersion=21; the analyzer source is now v32. The damage/items/frag fields used here are stable across that range, but re-analysis at v32 is the clean path before any gate goes non-diagnostic."
+    },
+    "same_plane_discipline": "Movement metrics and economy/aim metrics are NEVER combined into a single number. Each metric below names its plane via the 'plane' key."
+  },
+  "metrics": {
+    "movement": {
+      "plane": "mvd_event_rate_finite_difference",
+      "source_stage": "s7c-player-signatures-dm3",
+      "source_aggregate_path": "experiments/human_comparison/evidence/human-reference-s7c-bot-comparable-cadence-dm3-aggregate.json",
+      "fields": {
+        "avg_horizontal_speed_qu_per_s": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                314.236,
+                306.388
+              ],
+              "stats": {
+                "n": 2,
+                "min": 306.388,
+                "mean": 310.312,
+                "max": 314.236,
+                "spread": 7.848
+              }
+            },
+            "carapace": {
+              "values": [
+                282.769,
+                295.323
+              ],
+              "stats": {
+                "n": 2,
+                "min": 282.769,
+                "mean": 289.046,
+                "max": 295.323,
+                "spread": 12.554
+              }
+            },
+            "yeti": {
+              "values": [
+                291.468,
+                301.323
+              ],
+              "stats": {
+                "n": 2,
+                "min": 291.468,
+                "mean": 296.3955,
+                "max": 301.323,
+                "spread": 9.855
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 282.769,
+            "mean": 298.5845,
+            "max": 314.236,
+            "spread": 31.467
+          },
+          "n_demos": 6
+        },
+        "p95_horizontal_speed_qu_per_s": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                535.023,
+                524.898
+              ],
+              "stats": {
+                "n": 2,
+                "min": 524.898,
+                "mean": 529.9605,
+                "max": 535.023,
+                "spread": 10.125
+              }
+            },
+            "carapace": {
+              "values": [
+                524.898,
+                508.889
+              ],
+              "stats": {
+                "n": 2,
+                "min": 508.889,
+                "mean": 516.8935,
+                "max": 524.898,
+                "spread": 16.009
+              }
+            },
+            "yeti": {
+              "values": [
+                505.786,
+                514.041
+              ],
+              "stats": {
+                "n": 2,
+                "min": 505.786,
+                "mean": 509.9135,
+                "max": 514.041,
+                "spread": 8.255
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 505.786,
+            "mean": 518.9225,
+            "max": 535.023,
+            "spread": 29.237
+          },
+          "n_demos": 6
+        },
+        "stationary_time_ratio": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                0.059,
+                0.085
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.059,
+                "mean": 0.072,
+                "max": 0.085,
+                "spread": 0.026
+              }
+            },
+            "carapace": {
+              "values": [
+                0.115,
+                0.087
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.087,
+                "mean": 0.101,
+                "max": 0.115,
+                "spread": 0.028
+              }
+            },
+            "yeti": {
+              "values": [
+                0.075,
+                0.083
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.075,
+                "mean": 0.079,
+                "max": 0.083,
+                "spread": 0.008
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 0.059,
+            "mean": 0.084,
+            "max": 0.115,
+            "spread": 0.056
+          },
+          "n_demos": 6
+        },
+        "low_speed_time_ratio": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                0.124,
+                0.156
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.124,
+                "mean": 0.14,
+                "max": 0.156,
+                "spread": 0.032
+              }
+            },
+            "carapace": {
+              "values": [
+                0.196,
+                0.171
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.171,
+                "mean": 0.1835,
+                "max": 0.196,
+                "spread": 0.025
+              }
+            },
+            "yeti": {
+              "values": [
+                0.154,
+                0.168
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.154,
+                "mean": 0.161,
+                "max": 0.168,
+                "spread": 0.014
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 0.124,
+            "mean": 0.1615,
+            "max": 0.196,
+            "spread": 0.072
+          },
+          "n_demos": 6
+        },
+        "airborne_proxy_time_ratio": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                0.351,
+                0.308
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.308,
+                "mean": 0.3295,
+                "max": 0.351,
+                "spread": 0.043
+              }
+            },
+            "carapace": {
+              "values": [
+                0.342,
+                0.282
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.282,
+                "mean": 0.312,
+                "max": 0.342,
+                "spread": 0.06
+              }
+            },
+            "yeti": {
+              "values": [
+                0.359,
+                0.36
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.359,
+                "mean": 0.3595,
+                "max": 0.36,
+                "spread": 0.001
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 0.282,
+            "mean": 0.3337,
+            "max": 0.36,
+            "spread": 0.078
+          },
+          "n_demos": 6
+        },
+        "jump_cadence_per_min": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                44.922,
+                42.026
+              ],
+              "stats": {
+                "n": 2,
+                "min": 42.026,
+                "mean": 43.474,
+                "max": 44.922,
+                "spread": 2.896
+              }
+            },
+            "carapace": {
+              "values": [
+                44.048,
+                40.368
+              ],
+              "stats": {
+                "n": 2,
+                "min": 40.368,
+                "mean": 42.208,
+                "max": 44.048,
+                "spread": 3.68
+              }
+            },
+            "yeti": {
+              "values": [
+                48.576,
+                50.975
+              ],
+              "stats": {
+                "n": 2,
+                "min": 48.576,
+                "mean": 49.7755,
+                "max": 50.975,
+                "spread": 2.399
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 40.368,
+            "mean": 45.1525,
+            "max": 50.975,
+            "spread": 10.607
+          },
+          "n_demos": 6
+        }
+      }
+    },
+    "economy": {
+      "plane": "ktx_demoinfo_stream",
+      "definition": "item-control share = target pickups / all-player pickups of that item across the match (dm3 single-spawn items).",
+      "gate": "G-E1 item-control share (RA/YA/mega/quad/RL)",
+      "fields": {
+        "mega_health_control_share": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                0.2698,
+                0.1803
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.1803,
+                "mean": 0.225,
+                "max": 0.2698,
+                "spread": 0.0895
+              }
+            },
+            "carapace": {
+              "values": [
+                0.1429,
+                0.1231
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.1231,
+                "mean": 0.133,
+                "max": 0.1429,
+                "spread": 0.0198
+              }
+            },
+            "yeti": {
+              "values": [
+                0.2034,
+                0.1667
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.1667,
+                "mean": 0.185,
+                "max": 0.2034,
+                "spread": 0.0367
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 0.1231,
+            "mean": 0.181,
+            "max": 0.2698,
+            "spread": 0.1467
+          },
+          "n_demos": 6
+        },
+        "red_armor_control_share": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                0.2727,
+                0.2292
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.2292,
+                "mean": 0.251,
+                "max": 0.2727,
+                "spread": 0.0435
+              }
+            },
+            "carapace": {
+              "values": [
+                0.0833,
+                0.2979
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.0833,
+                "mean": 0.1906,
+                "max": 0.2979,
+                "spread": 0.2146
+              }
+            },
+            "yeti": {
+              "values": [
+                0.2222,
+                0.3111
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.2222,
+                "mean": 0.2666,
+                "max": 0.3111,
+                "spread": 0.0889
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 0.0833,
+            "mean": 0.2361,
+            "max": 0.3111,
+            "spread": 0.2278
+          },
+          "n_demos": 6
+        },
+        "yellow_armor_control_share": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                0.1509,
+                0.24
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.1509,
+                "mean": 0.1955,
+                "max": 0.24,
+                "spread": 0.0891
+              }
+            },
+            "carapace": {
+              "values": [
+                0.0784,
+                0.1132
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.0784,
+                "mean": 0.0958,
+                "max": 0.1132,
+                "spread": 0.0348
+              }
+            },
+            "yeti": {
+              "values": [
+                0.1765,
+                0.1765
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.1765,
+                "mean": 0.1765,
+                "max": 0.1765,
+                "spread": 0.0
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 0.0784,
+            "mean": 0.1559,
+            "max": 0.24,
+            "spread": 0.1616
+          },
+          "n_demos": 6
+        },
+        "quad_control_share": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                0.35,
+                0.4
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.35,
+                "mean": 0.375,
+                "max": 0.4,
+                "spread": 0.05
+              }
+            },
+            "carapace": {
+              "values": [
+                0.15,
+                0.25
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.15,
+                "mean": 0.2,
+                "max": 0.25,
+                "spread": 0.1
+              }
+            },
+            "yeti": {
+              "values": [
+                0.35,
+                0.45
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.35,
+                "mean": 0.4,
+                "max": 0.45,
+                "spread": 0.1
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 0.15,
+            "mean": 0.325,
+            "max": 0.45,
+            "spread": 0.3
+          },
+          "n_demos": 6
+        },
+        "rocket_launcher_control_share": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                0.0789,
+                0.1282
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.0789,
+                "mean": 0.1036,
+                "max": 0.1282,
+                "spread": 0.0493
+              }
+            },
+            "carapace": {
+              "values": [
+                0.1579,
+                0.0513
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.0513,
+                "mean": 0.1046,
+                "max": 0.1579,
+                "spread": 0.1066
+              }
+            },
+            "yeti": {
+              "values": [
+                0.1111,
+                0.0789
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.0789,
+                "mean": 0.095,
+                "max": 0.1111,
+                "spread": 0.0322
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 0.0513,
+            "mean": 0.1011,
+            "max": 0.1579,
+            "spread": 0.1066
+          },
+          "n_demos": 6
+        }
+      }
+    },
+    "aim_combat": {
+      "plane": "ktx_demoinfo_stream",
+      "definition": {
+        "ddr_ratio": "given / max(taken_all,1) (deepfrag rate.py DDR form)",
+        "ddr_diff": "given - taken_all (rate_individual per-game diff)",
+        "ewep_pct": "ewep / given (share of damage dealt to RL/LG-armed foes)",
+        "kill_efficiency": "kills / (kills+deaths), v19-corrected frag log"
+      },
+      "gate": "G-A1 DDR, G-A2 frag efficiency (v19), G-A3/A4 EWep distribution",
+      "fields": {
+        "ddr_ratio": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                2.4641,
+                2.013
+              ],
+              "stats": {
+                "n": 2,
+                "min": 2.013,
+                "mean": 2.2386,
+                "max": 2.4641,
+                "spread": 0.4511
+              }
+            },
+            "carapace": {
+              "values": [
+                0.6361,
+                1.9512
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.6361,
+                "mean": 1.2936,
+                "max": 1.9512,
+                "spread": 1.3151
+              }
+            },
+            "yeti": {
+              "values": [
+                1.9844,
+                1.8734
+              ],
+              "stats": {
+                "n": 2,
+                "min": 1.8734,
+                "mean": 1.9289,
+                "max": 1.9844,
+                "spread": 0.111
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 0.6361,
+            "mean": 1.8204,
+            "max": 2.4641,
+            "spread": 1.828
+          },
+          "n_demos": 6
+        },
+        "ddr_diff": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                11922,
+                8155
+              ],
+              "stats": {
+                "n": 2,
+                "min": 8155.0,
+                "mean": 10038.5,
+                "max": 11922.0,
+                "spread": 3767.0
+              }
+            },
+            "carapace": {
+              "values": [
+                -4900,
+                7173
+              ],
+              "stats": {
+                "n": 2,
+                "min": -4900.0,
+                "mean": 1136.5,
+                "max": 7173.0,
+                "spread": 12073.0
+              }
+            },
+            "yeti": {
+              "values": [
+                7706,
+                7504
+              ],
+              "stats": {
+                "n": 2,
+                "min": 7504.0,
+                "mean": 7605.0,
+                "max": 7706.0,
+                "spread": 202.0
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": -4900.0,
+            "mean": 6260.0,
+            "max": 11922.0,
+            "spread": 16822.0
+          },
+          "n_demos": 6
+        },
+        "ewep_pct": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                0.1877,
+                0.3105
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.1877,
+                "mean": 0.2491,
+                "max": 0.3105,
+                "spread": 0.1228
+              }
+            },
+            "carapace": {
+              "values": [
+                0.4519,
+                0.2415
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.2415,
+                "mean": 0.3467,
+                "max": 0.4519,
+                "spread": 0.2104
+              }
+            },
+            "yeti": {
+              "values": [
+                0.1944,
+                0.3063
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.1944,
+                "mean": 0.2504,
+                "max": 0.3063,
+                "spread": 0.1119
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 0.1877,
+            "mean": 0.282,
+            "max": 0.4519,
+            "spread": 0.2642
+          },
+          "n_demos": 6
+        },
+        "kill_efficiency": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                0.8723,
+                0.811
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.811,
+                "mean": 0.8417,
+                "max": 0.8723,
+                "spread": 0.0613
+              }
+            },
+            "carapace": {
+              "values": [
+                0.3465,
+                0.8257
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.3465,
+                "mean": 0.5861,
+                "max": 0.8257,
+                "spread": 0.4792
+              }
+            },
+            "yeti": {
+              "values": [
+                0.7807,
+                0.8491
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.7807,
+                "mean": 0.8149,
+                "max": 0.8491,
+                "spread": 0.0684
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 0.3465,
+            "mean": 0.7475,
+            "max": 0.8723,
+            "spread": 0.5258
+          },
+          "n_demos": 6
+        },
+        "damage_given": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                20065,
+                16205
+              ],
+              "stats": {
+                "n": 2,
+                "min": 16205.0,
+                "mean": 18135.0,
+                "max": 20065.0,
+                "spread": 3860.0
+              }
+            },
+            "carapace": {
+              "values": [
+                8564,
+                14714
+              ],
+              "stats": {
+                "n": 2,
+                "min": 8564.0,
+                "mean": 11639.0,
+                "max": 14714.0,
+                "spread": 6150.0
+              }
+            },
+            "yeti": {
+              "values": [
+                15534,
+                16096
+              ],
+              "stats": {
+                "n": 2,
+                "min": 15534.0,
+                "mean": 15815.0,
+                "max": 16096.0,
+                "spread": 562.0
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 8564.0,
+            "mean": 15196.3333,
+            "max": 20065.0,
+            "spread": 11501.0
+          },
+          "n_demos": 6
+        },
+        "damage_taken_all": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                8143,
+                8050
+              ],
+              "stats": {
+                "n": 2,
+                "min": 8050.0,
+                "mean": 8096.5,
+                "max": 8143.0,
+                "spread": 93.0
+              }
+            },
+            "carapace": {
+              "values": [
+                13464,
+                7541
+              ],
+              "stats": {
+                "n": 2,
+                "min": 7541.0,
+                "mean": 10502.5,
+                "max": 13464.0,
+                "spread": 5923.0
+              }
+            },
+            "yeti": {
+              "values": [
+                7828,
+                8592
+              ],
+              "stats": {
+                "n": 2,
+                "min": 7828.0,
+                "mean": 8210.0,
+                "max": 8592.0,
+                "spread": 764.0
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 7541.0,
+            "mean": 8936.3333,
+            "max": 13464.0,
+            "spread": 5923.0
+          },
+          "n_demos": 6
+        },
+        "ewep": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                3766,
+                5031
+              ],
+              "stats": {
+                "n": 2,
+                "min": 3766.0,
+                "mean": 4398.5,
+                "max": 5031.0,
+                "spread": 1265.0
+              }
+            },
+            "carapace": {
+              "values": [
+                3870,
+                3554
+              ],
+              "stats": {
+                "n": 2,
+                "min": 3554.0,
+                "mean": 3712.0,
+                "max": 3870.0,
+                "spread": 316.0
+              }
+            },
+            "yeti": {
+              "values": [
+                3020,
+                4931
+              ],
+              "stats": {
+                "n": 2,
+                "min": 3020.0,
+                "mean": 3975.5,
+                "max": 4931.0,
+                "spread": 1911.0
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 3020.0,
+            "mean": 4028.6667,
+            "max": 5031.0,
+            "spread": 2011.0
+          },
+          "n_demos": 6
+        },
+        "kills": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                123,
+                103
+              ],
+              "stats": {
+                "n": 2,
+                "min": 103.0,
+                "mean": 113.0,
+                "max": 123.0,
+                "spread": 20.0
+              }
+            },
+            "carapace": {
+              "values": [
+                35,
+                90
+              ],
+              "stats": {
+                "n": 2,
+                "min": 35.0,
+                "mean": 62.5,
+                "max": 90.0,
+                "spread": 55.0
+              }
+            },
+            "yeti": {
+              "values": [
+                89,
+                90
+              ],
+              "stats": {
+                "n": 2,
+                "min": 89.0,
+                "mean": 89.5,
+                "max": 90.0,
+                "spread": 1.0
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 35.0,
+            "mean": 88.3333,
+            "max": 123.0,
+            "spread": 88.0
+          },
+          "n_demos": 6
+        },
+        "deaths": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                18,
+                24
+              ],
+              "stats": {
+                "n": 2,
+                "min": 18.0,
+                "mean": 21.0,
+                "max": 24.0,
+                "spread": 6.0
+              }
+            },
+            "carapace": {
+              "values": [
+                66,
+                19
+              ],
+              "stats": {
+                "n": 2,
+                "min": 19.0,
+                "mean": 42.5,
+                "max": 66.0,
+                "spread": 47.0
+              }
+            },
+            "yeti": {
+              "values": [
+                25,
+                16
+              ],
+              "stats": {
+                "n": 2,
+                "min": 16.0,
+                "mean": 20.5,
+                "max": 25.0,
+                "spread": 9.0
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 16.0,
+            "mean": 28.0,
+            "max": 66.0,
+            "spread": 50.0
+          },
+          "n_demos": 6
+        },
+        "suicides": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                0,
+                0
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.0,
+                "mean": 0.0,
+                "max": 0.0,
+                "spread": 0.0
+              }
+            },
+            "carapace": {
+              "values": [
+                1,
+                1
+              ],
+              "stats": {
+                "n": 2,
+                "min": 1.0,
+                "mean": 1.0,
+                "max": 1.0,
+                "spread": 0.0
+              }
+            },
+            "yeti": {
+              "values": [
+                0,
+                0
+              ],
+              "stats": {
+                "n": 2,
+                "min": 0.0,
+                "mean": 0.0,
+                "max": 0.0,
+                "spread": 0.0
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 0.0,
+            "mean": 0.3333,
+            "max": 1.0,
+            "spread": 1.0
+          },
+          "n_demos": 6
+        }
+      }
+    },
+    "positioning": {
+      "plane": "ktx_demoinfo_stream",
+      "status": "PARTIAL — match-level locGraph coverage only; per-player loc presence (G-P1) needs a streams.li pass, not yet populated.",
+      "gate": "G-P1 presence (DIAGNOSTIC-ONLY per program until pool widens)",
+      "fields": {
+        "locgraph_node_count": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                33,
+                34
+              ],
+              "stats": {
+                "n": 2,
+                "min": 33.0,
+                "mean": 33.5,
+                "max": 34.0,
+                "spread": 1.0
+              }
+            },
+            "carapace": {
+              "values": [
+                34,
+                34
+              ],
+              "stats": {
+                "n": 2,
+                "min": 34.0,
+                "mean": 34.0,
+                "max": 34.0,
+                "spread": 0.0
+              }
+            },
+            "yeti": {
+              "values": [
+                33,
+                34
+              ],
+              "stats": {
+                "n": 2,
+                "min": 33.0,
+                "mean": 33.5,
+                "max": 34.0,
+                "spread": 1.0
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 33.0,
+            "mean": 33.6667,
+            "max": 34.0,
+            "spread": 1.0
+          },
+          "n_demos": 6
+        },
+        "locgraph_edge_count": {
+          "per_player": {
+            "Milton": {
+              "values": [
+                121,
+                119
+              ],
+              "stats": {
+                "n": 2,
+                "min": 119.0,
+                "mean": 120.0,
+                "max": 121.0,
+                "spread": 2.0
+              }
+            },
+            "carapace": {
+              "values": [
+                123,
+                118
+              ],
+              "stats": {
+                "n": 2,
+                "min": 118.0,
+                "mean": 120.5,
+                "max": 123.0,
+                "spread": 5.0
+              }
+            },
+            "yeti": {
+              "values": [
+                114,
+                124
+              ],
+              "stats": {
+                "n": 2,
+                "min": 114.0,
+                "mean": 119.0,
+                "max": 124.0,
+                "spread": 10.0
+              }
+            }
+          },
+          "pool": {
+            "n": 6,
+            "min": 114.0,
+            "mean": 119.8333,
+            "max": 124.0,
+            "spread": 10.0
+          },
+          "n_demos": 6
+        }
+      }
+    }
+  },
+  "provenance": {
+    "demos": [
+      {
+        "target_player": "Milton",
+        "run_id": "s5a-milton-dm3-blue-vs-anza-20260602-2022",
+        "demo": "4on4_blue_vs_anza[dm3]20260602-2022.mvd",
+        "sha256": "9ca8f72b3afa95ba87830a83478c51bb9b3dd626b733190a4ca2d84b4d66490e",
+        "analysis_path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\s5a\\s5a-milton-dm3-blue-vs-anza-20260602-2022\\analysis.json",
+        "status": "ok",
+        "analysis_schema_version": 21,
+        "map": "The Abandoned Base",
+        "duration_ms": 1200013
+      },
+      {
+        "target_player": "Milton",
+        "run_id": "s7b-milton-dm3-blue-vs-red-20260601-1914",
+        "demo": "4on4_blue_vs_red[dm3]20260601-1914.mvd",
+        "sha256": "9acddc0807f997cbf59b0873907666f1a16af6624f2691389c22583781d85193",
+        "analysis_path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\s7b\\s7b-milton-dm3-blue-vs-red-20260601-1914\\analysis.json",
+        "status": "ok",
+        "analysis_schema_version": 21,
+        "map": "The Abandoned Base",
+        "duration_ms": 1200013
+      },
+      {
+        "target_player": "carapace",
+        "run_id": "s5b-carapace-dm3-book-vs-s-20260526-2011",
+        "demo": "4on4_book_vs_-s-[dm3]20260526-2011.mvd",
+        "sha256": "45f653c08fbb5488e2619a24ee0dd71347316e60265b8e4caaff0f3607ce0f30",
+        "analysis_path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\s5b\\s5b-carapace-dm3-book-vs-s-20260526-2011\\analysis.json",
+        "status": "ok",
+        "analysis_schema_version": 21,
+        "map": "The Abandoned Base",
+        "duration_ms": 1199998
+      },
+      {
+        "target_player": "carapace",
+        "run_id": "s7b-carapace-dm3-s-vs-sr-20260520-2032",
+        "demo": "4on4_-s-_vs_]sr[[dm3]20260520-2032.mvd",
+        "sha256": "2eed3c5acf9cc0b22f391d08ac5eba7c2198b2ba12afb4c27992676fbf00894d",
+        "analysis_path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\s7b\\s7b-carapace-dm3-s-vs-sr-20260520-2032\\analysis.json",
+        "status": "ok",
+        "analysis_schema_version": 21,
+        "map": "The Abandoned Base",
+        "duration_ms": 1200027
+      },
+      {
+        "target_player": "yeti",
+        "run_id": "s5b-yeti-dm3-red-vs-blue-20260530-0322",
+        "demo": "4on4_red_vs_blue[dm3]20260530-0322.mvd",
+        "sha256": "adedb2eccb861ebbc96f551fc21c738dc8740ecd327ea11990ede2802f83aff7",
+        "analysis_path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\s5b\\s5b-yeti-dm3-red-vs-blue-20260530-0322\\analysis.json",
+        "status": "ok",
+        "analysis_schema_version": 21,
+        "map": "The Abandoned Base",
+        "duration_ms": 1200062
+      },
+      {
+        "target_player": "yeti",
+        "run_id": "s7b-yeti-dm3-red-vs-blue-20260528-2109",
+        "demo": "4on4_red_vs_blue[dm3]20260528-2109.mvd",
+        "sha256": "fa3792df611f650db9c47627812e63f277c9cb2bbb2f06dda4c291ad04e33246",
+        "analysis_path": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\artifacts\\human-demos\\s7b\\s7b-yeti-dm3-red-vs-blue-20260528-2109\\analysis.json",
+        "status": "ok",
+        "analysis_schema_version": 21,
+        "map": "The Abandoned Base",
+        "duration_ms": 1200013
+      }
+    ],
+    "n_demos_ok": 6,
+    "missing_demos": [],
+    "rate_individual": {
+      "script": "fantasyquake/scripts/rate_individual.py",
+      "db": "fantasyquake/backups/qw-stats.db",
+      "ratings_artifact": "fantasyquake/data/individual_ratings.json",
+      "ratings_git_commit": "4f5fa39",
+      "window": "all-time"
+    },
+    "movement_signatures": {
+      "path": "experiments/human_comparison/evidence/player-signatures-s7c-dm3.json",
+      "stage": "s7c-player-signatures-dm3"
+    }
+  }
+}
