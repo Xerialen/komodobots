@@ -3021,3 +3021,54 @@ A5 proved `zip(cmds, states)` corrupts conclusions when `svc_playerinfo` rows dr
 ### Consequences
 
 `scripts/build_replay_command_file.py` now time-matches by default, emits alignment/msec/angle metadata, interpolates missing reference rows, and refuses unsafe legacy zip builds unless explicitly allowed. Live replay timing remains server-`cmd_msec` by default until `scripts/audit_replay_timing.py` produces evidence that source-row `msec` improves divergence.
+---
+
+## 2026-06-14 -- Decision Point Alpha taken (provisionally): Megalodon Milton first
+
+### Decision
+
+Take `docs/00`'s Decision Point Alpha **toward Megalodon Milton first**: pursue a learned-brain
+**live 4on4 DM3 stand-in bot** (clone the strongest per-skill players, prove on DM3, add a
+skill-down knob later) rather than FantasyQuake-first. The full program is `docs/12_DM3_4ON4_STANDIN_PROGRAM.md`.
+
+### Why
+
+The north star requires this call be **evidence-driven**. Two real-map breakthroughs supply it:
+ztricks (mode 25) established the synchronization *teaching principle* + the QWD->trace *method*,
+and dm3 SNG->RL established a goal-true *scoreboard*. Together they show the lab can teach and
+honestly measure human-signal movement, which is the foundation Megalodon Milton (learn/recreate
+individual players) builds on.
+
+### Scope honesty (corrections baked into docs/12)
+
+The program is a **learned _individual_ brain (move+aim+economy) under a _heuristic_ team protocol** --
+NOT "whole brain learned." Learned team coordination is **out-of-scope research** (no QW data pairs
+synchronized all-four-players intent). Two further corrections: the clone-selection axis is
+`fantasyquake/scripts/rate_individual.py` (carry-corrected per-player), **not** the team-W/L
+`rate_4on4.py`; and the "29 demos / 22,749 paired frames" ztricks corpus is a movement **prior**, not
+the match-behaviour corpus.
+
+### Scrutiny
+
+docs/12 was adversarially reviewed by a 15-agent workflow (5 critique lenses -> independent
+verification -> synthesis). Verdict: **revise, not replace** -- architecture sound; fixes were
+sequencing + honesty. Verification overturned the scariest critique ("no elite DM3 POV corpus"):
+99 4v4 dm3 demos exist on disk; the real issues are a self-POV-vs-spectator provenance filter and
+`.qwz` decompression. The roadmap was re-sequenced to a **Stage-0 of cheap spikes before any torch**
+(526-as-geometry, live-bridge benchmark, self-POV data census, anchor build) and a **hand-mover +
+stock-Frogbot-combat + blackboard first live bot** as the fastest credible stand-in.
+
+### Consequences
+
+`docs/12` is the program of record; `docs/11` (external-sources research, on branch
+`claude/research-humanoid-mlmove-9glc6p`) folds into docs/12 §9 and is superseded. Each roadmap stage
+is executed under its own PR with its own goal-true acceptance gates. Per #170, docs/12 (Claude-authored)
+requires non-Claude independent review before merge.
+
+### Revisit Conditions
+
+Revisit Alpha if the Stage-0 self-POV corpus census falls below the infeasibility floor (then
+learned MOVE/AIM-of-elites is abandoned and FantasyQuake-first is reconsidered), if the 526-edge
+proves unreachable under a believable approach AND that blocks a credible stand-in, or if learned
+team coordination becomes the primary near-term objective (which needs synchronized multi-POV capture
+that does not exist today).

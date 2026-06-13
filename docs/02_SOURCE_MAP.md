@@ -464,7 +464,11 @@ app so the FTE engine owns its own window — one engine instance per window, SP
   attempt (`experiments/a5_distance_standstill/human-replay.json` +
   `getspeed-aligned.cmds`), with the real start-to-landing polyline, edge speed,
   launch heading, and provenance hashes; `required_speed` stays null because A5
-  showed speed alone is not a sufficient success gate. ztricks also carries
+  showed speed alone is not a sufficient success gate. The solved live control
+  asset is `experiments/a5_distance_standstill/replay/ztricks_distance_standstill.cmds`,
+  a 140-frame slice of `getspeed-aligned.cmds` rows `1830..1969`, exposed in the
+  manifest as `replay_file=ztricks_distance_standstill.cmds`, mode `10`, recorded
+  msec, and replay interpolation. ztricks also carries
   `spawn_left_speedjump`, a flat spawn-floor speed-gain drill from the real
   deathmatch spawn (`-1168 1632 -496`, BSP angle `315`, left yaw `45`) that
   reuses the mode-23 speedjump/reference-curve primitive with no ledge-completion
@@ -674,8 +678,10 @@ app so the FTE engine owns its own window — one engine instance per window, SP
     `respawn`, and remove controls.  Trickjumps are not a separate UI concept:
     ztricks Distance is the normal `distance_standstill` route in
     `public/data/routes/ztricks.json`, and the safe flat-floor calibration route
-    is `spawn_left_speedjump`; both store their mode-23 start/controller cvars as
-    route `control` metadata.  Selecting a route configures the per-slot assignment
+    is `spawn_left_speedjump`.  Distance now stores the solved timed replay recipe
+    (`mode=10`, `ztricks_distance_standstill.cmds`, recorded msec, interpolation)
+    as route `control` metadata; the flat-floor calibration route still stores its
+    mode-23 speed-gain cvars.  Selecting a route configures the per-slot assignment
     but keeps the bot in practice-idle mode `24`; `try` starts that slot's route mode,
     `loop` enables the replay-loop cvar and starts it, and `stand still` returns the
     slot to mode `24`.  Route display shows server truth from `FBMOVEPROBE_ASSIGN` rows
@@ -950,6 +956,34 @@ Why it matters:
 - Potential supplementary source if video analysis or manual review becomes useful.
 - Reportedly shows bunnyjump technique with live key/button presses.
 - Not a core dependency for the first lab.
+
+## QuakeWorld ecosystem tooling (DM3 4on4 stand-in program)
+
+Registered for the `docs/12_DM3_4ON4_STANDIN_PROGRAM.md` program. All verified on disk under
+`C:\Users\benya\projects\quakeworld\`. Pin commits before relying on behaviour.
+
+- **mvd_analyzer** — `tools/mvd_analyzer` (Go, Schema v32; REST + MCP + `qw-analyze` CLI). Macro /
+  economy signal from MVD server demos: `damage` (per-hit, given/taken, EWep buckets, matrix),
+  `items`, `timelineAnalysis.regionControl`, `locGraph`, `frags`, `streams`, v19-corrected
+  `match.players[]` kills/deaths/suicides. **No usercmd labels.** Field reference:
+  `tools/mvd_analyzer/mvd-analytics/RESULT_SCHEMA.md` — read before implementing any gate.
+- **deepfrag** — `tools/deepfrag` (Python, OpenSkill). 1on1 ratings; DDR / perf-delta formulas in
+  `rate.py` (reused by the A-gates).
+- **fantasyquake** — `fantasyquake/scripts/` (fork of deepfrag). `rate_4on4.py` = team-W/L OpenSkill
+  (NOT suitable for clone selection — carry-confounded); **`rate_individual.py` = carry-corrected
+  per-player rating = the clone-selection axis.**
+- **ezquake-source** — `engine/ezquake-source` (C). usercmd/demo ground truth
+  (`src/cl_demo.c::CL_WriteDemoCmd`); `.qwd` stores absolute post-mouse view angles, no mouse deltas.
+- **ktx** — `engine/ktx` (C). Host substrate + bot code (`bot_aim.c`/`bot_botthink.c`/`bot_botweap.c`);
+  seam `src/bot_movement.c::BotSetCommand -> trap_SetBotCMD`; 32-bot cap; hosts live without humans.
+- **demoparser** (`engine/demoparser`, Rust; `--dump-moments` for ML) and **demopasha**
+  (`tools/demopasha`, Rust+CUDA; byte-perfect MVD+BSP, GPU-validated on the 4090) — data-quality layer.
+
+### Program & external movement-AI references
+
+- `docs/12_DM3_4ON4_STANDIN_PROGRAM.md` — the DM3 4on4 stand-in program of record (Megalodon Milton).
+- External method/validation literature (MLMove, Pearce, Humanoid + one-hop refs) is consolidated in
+  `docs/12` §9, folded from the prior `docs/11_EXTERNAL_MOVEMENT_AI_SOURCES.md` (superseded).
 
 ## Source hygiene rules
 
