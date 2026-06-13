@@ -1,0 +1,75 @@
+{
+  "schema": "komodobots.qwd_mouse_analysis.v1",
+  "demo": "getandmaintainspeed.qwd",
+  "source_sha256": "28ab7b7748bc0b6b3be0720d62d700ce177cae977ac97d8d5b7b8300ba8901a8",
+  "frames": 2541,
+  "duration_s": 32.987,
+  "speed_qu_per_s": {
+    "avg": 666.1,
+    "p50": 720.8,
+    "p95": 924.4,
+    "max": 948.5,
+    "time_above": {
+      "320": 30.156,
+      "400": 29.74,
+      "500": 25.779,
+      "700": 18.507,
+      "900": 6.377
+    },
+    "ratio_above": {
+      "320": 0.914,
+      "400": 0.902,
+      "500": 0.781,
+      "700": 0.561,
+      "900": 0.193
+    }
+  },
+  "mouse": {
+    "yaw_start_deg": 315.0,
+    "yaw_end_unwrapped_deg": 1820.96,
+    "yaw_total_abs_deg": 4157.5,
+    "yaw_abs_deg_per_s": 126.0,
+    "yaw_reversals": 43,
+    "yaw_reversals_per_s": 1.3,
+    "yaw_rate_abs_p50_deg_s": 132.7,
+    "yaw_rate_abs_p95_deg_s": 244.8,
+    "yaw_rate_abs_p99_deg_s": 618.2,
+    "yaw_accel_abs_p95_deg_s2": 3419.9,
+    "pitch_min_deg": 0.0,
+    "pitch_max_deg": 40.7,
+    "pitch_total_abs_deg": 690.1,
+    "pitch_rate_abs_p95_deg_s": 86.7
+  },
+  "yaw_vs_velocity": {
+    "lead_mean_deg": -36.3,
+    "lead_abs_p50_deg": 37.0,
+    "lead_abs_p95_deg": 132.7,
+    "lead_min_deg": -176.5,
+    "lead_max_deg": 69.2
+  },
+  "input": {
+    "forward_values": [
+      -400,
+      0,
+      400
+    ],
+    "side_values": [
+      -400,
+      0,
+      400
+    ],
+    "no_move_ratio": 0.108,
+    "forward_only_ratio": 0.011,
+    "side_only_ratio": 0.848,
+    "both_forward_side_ratio": 0.034,
+    "jump_ratio": 0.74,
+    "side_yaw_coupled_frames": 1918,
+    "side_yaw_same_sign_ratio": 0.049,
+    "side_yaw_opposite_sign_ratio": 0.951,
+    "side_yaw_coupled_yaw_rate_abs_p50_deg_s": 160.2
+  },
+  "notes": [
+    "Mouse metrics filter yaw-rate samples to 5-30 ms dt to avoid parser/timing artifacts.",
+    "Yaw-vs-velocity lead uses exact QWD view yaw against recovered player velocity heading; it is the core mouse/direction synchronization signal."
+  ]
+}

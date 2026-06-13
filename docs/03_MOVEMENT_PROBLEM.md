@@ -103,6 +103,19 @@ The real target is a movement mode or controller with:
 - Whether route logic and movement logic are sufficiently decoupled.
 - Whether KTX/Frogbots should remain the substrate or be replaced by a new bot architecture.
 
+## Current Practical Bunnyjump Code
+
+The 2026-06-13 ztricks `getandmaintainspeed.qwd` work produced an accepted
+visual/operational baseline for sustained bunnyjumping:
+`experiments/ktx_moveprobe/evidence/bunnyjump-code-replication-20260613.md`.
+
+The reusable rule is that speed is subordinate to synchronization. Preserve the
+human QWD mouse timeline, human jump timing, and human side-switch timing; add
+extra command strength only through a phase-gated controller; and reject mixed
+replay attempts that restart cursor `0` inside one MVD. The accepted mode-25
+profile is not a strict numeric win over the human reference, but it is now the
+baseline another agent should reproduce before attempting stricter improvement.
+
 ## Ztricks Distance Speedjump Formula
 
 The successful `getspeed.qwd` Distance jump shows that the useful unit is not
