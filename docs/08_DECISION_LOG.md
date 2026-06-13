@@ -2883,3 +2883,18 @@ Revisit if a broader ztricks route-census pipeline supersedes A5, if a second
 successful human demo exposes a materially different line, or if scoring needs a
 multi-dimensional required-success object instead of the current nullable
 `required_speed` field.
+---
+
+## 2026-06-10 -- QWD replay builder uses time alignment by default
+
+### Decision
+
+Use QWD demo time, not frame-order zip, as the default command/state join for replay command files. Treat `view_angles` as the authoritative angle channel for replay and imitation labels; QWD does not provide raw device mouse deltas.
+
+### Why
+
+A5 proved `zip(cmds, states)` corrupts conclusions when `svc_playerinfo` rows drop. `DM3_trick5.qwd` reproduced the same class of risk locally: 479 command rows, 473 state rows, and unsafe zip pairing. `cmd_angles` vs trailing `view_angles` differed only by thousandths of a degree in the real-demo seam audit, so absolute view-angle replay remains the right actuation seam for `trap_SetBotCMD`.
+
+### Consequences
+
+`scripts/build_replay_command_file.py` now time-matches by default, emits alignment/msec/angle metadata, interpolates missing reference rows, and refuses unsafe legacy zip builds unless explicitly allowed. Live replay timing remains server-`cmd_msec` by default until `scripts/audit_replay_timing.py` produces evidence that source-row `msec` improves divergence.

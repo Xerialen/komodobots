@@ -1,6 +1,6 @@
 {
  "bsp": "C:\\nQuake\\qw\\maps\\ztricks.bsp",
- "cmds": "C:\\Users\\benya\\projects\\komodobots\\experiments\\a5_distance_standstill\\getspeed-aligned.cmds",
+ "cmds": "C:\\Users\\benya\\projects\\quakeworld\\komodobots\\experiments\\a5_distance_standstill\\getspeed-aligned.cmds",
  "summary": {
   "frames_simulated": 2144,
   "first_divergence_frame": 257,

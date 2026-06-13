@@ -87,6 +87,20 @@ def synthetic_demo() -> bytes:
     )
 
 
+def synthetic_demo_missing_state() -> bytes:
+    return b"".join(
+        [
+            dem_cmd_record(0.000, msec=13, view_yaw=90.0, forward=0, side=0, buttons=0),
+            dem_read_record(0.000, playerinfo_payload(origin=(0.0, 0.0, 24.0), velocity=(0, 0, 0))),
+            dem_cmd_record(0.013, msec=13, view_yaw=91.0, forward=400, side=200, buttons=2),
+            dem_read_record(0.013, playerinfo_payload(origin=(10.0, 0.0, 24.0), velocity=(320, 0, 0))),
+            dem_cmd_record(0.026, msec=13, view_yaw=92.0, forward=400, side=-200, buttons=2),
+            dem_cmd_record(0.039, msec=13, view_yaw=93.0, forward=400, side=-200, buttons=2),
+            dem_read_record(0.039, playerinfo_payload(origin=(30.0, 0.0, 24.0), velocity=(520, 0, 0))),
+        ]
+    )
+
+
 class BuildReplayCommandFileTests(unittest.TestCase):
     def test_frames_match_commands_and_capture_frame0(self) -> None:
         data = synthetic_demo()
@@ -98,6 +112,11 @@ class BuildReplayCommandFileTests(unittest.TestCase):
         self.assertEqual(meta["state_frames"], 3)
         self.assertEqual(meta["paired_frames"], 3)
         self.assertEqual(meta["paired_coverage"], 1.0)
+        self.assertEqual(meta["reference_frames"], 3)
+        self.assertEqual(meta["state_alignment"]["method"], "time")
+        self.assertEqual(meta["reference_source_counts"], {"matched": 3})
+        self.assertEqual(meta["interpolated_command_indices"], [])
+        self.assertEqual(meta["angle_channel_delta_deg"]["yaw"]["max"], 0.0)
         # frame 0 is the snap state: human origin/velocity/angles before any input.
         self.assertEqual(frames[0]["origin"], [0.0, 0.0, 24.0])
         self.assertEqual(frames[0]["velocity"], [0, 0, 0])
@@ -109,6 +128,92 @@ class BuildReplayCommandFileTests(unittest.TestCase):
         self.assertEqual(frames[2]["move"], [400, -200, 10])
         self.assertEqual(frames[2]["buttons"], 3)
         self.assertEqual(frames[1]["origin"], [8.0, 0.0, 24.0])
+
+    def test_time_alignment_interpolates_dropped_state_without_shifting_inputs(self) -> None:
+        data = synthetic_demo_missing_state()
+        with self._tempfile(data) as path:
+            frames, meta = builder.build_replay_frames(path)
+
+        self.assertEqual(len(frames), 4)
+        self.assertEqual(meta["command_frames"], 4)
+        self.assertEqual(meta["state_frames"], 3)
+        self.assertEqual(meta["paired_frames"], 3)
+        self.assertEqual(meta["state_alignment"]["unmatched_command_frames"], 1)
+        self.assertEqual(meta["state_alignment"]["dropped_cmd_indices"], [2])
+        self.assertEqual(meta["interpolated_command_indices"], [2])
+        self.assertEqual(meta["reference_source_counts"]["interpolated"], 1)
+        self.assertEqual(frames[2]["reference_source"], "interpolated")
+        self.assertTrue(frames[2]["reference_interpolated"])
+        # The missing state row is reconstructed halfway between the adjacent
+        # timed references; the command itself remains the original command 2.
+        self.assertEqual(frames[2]["origin"], [20.0, 0.0, 24.0])
+        self.assertEqual(frames[2]["velocity"], [420, 0, 0])
+        self.assertEqual(frames[2]["angles"][1], 92.0)
+        self.assertEqual(frames[2]["move"], [400, -200, 0])
+
+    def test_legacy_zip_alignment_marks_dropped_state_unsafe(self) -> None:
+        data = synthetic_demo_missing_state()
+        with self._tempfile(data) as path:
+            frames, meta = builder.build_replay_frames(path, alignment="zip")
+
+        self.assertEqual(len(frames), 4)
+        self.assertTrue(meta["state_alignment"]["unsafe_zip_pairing"])
+        self.assertEqual(meta["state_alignment"]["dropped_cmd_indices"], [3])
+        # Zip pairing assigns the third state to command 2, shifting the
+        # reference that actually belongs to command 3.
+        self.assertEqual(frames[2]["origin"], [30.0, 0.0, 24.0])
+
+    def test_cli_refuses_unsafe_zip_without_explicit_opt_in(self) -> None:
+        import io
+        import tempfile
+        from contextlib import redirect_stderr, redirect_stdout
+
+        data = synthetic_demo_missing_state()
+        with tempfile.TemporaryDirectory() as tmp:
+            demo = Path(tmp) / "sample.qwd"
+            out_cmds = Path(tmp) / "sample.cmds"
+            out_json = Path(tmp) / "sample.json"
+            demo.write_bytes(data)
+
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                code = builder.main(
+                    [
+                        "--demo",
+                        str(demo),
+                        "--alignment",
+                        "zip",
+                        "--output",
+                        str(out_cmds),
+                        "--output-json",
+                        str(out_json),
+                    ]
+                )
+
+            self.assertEqual(code, 2)
+            self.assertIn("Refusing unsafe zip alignment", stderr.getvalue())
+            self.assertFalse(out_cmds.exists())
+            self.assertFalse(out_json.exists())
+
+            stdout = io.StringIO()
+            with redirect_stdout(stdout), redirect_stderr(io.StringIO()):
+                code = builder.main(
+                    [
+                        "--demo",
+                        str(demo),
+                        "--alignment",
+                        "zip",
+                        "--allow-unsafe-zip",
+                        "--output",
+                        str(out_cmds),
+                        "--output-json",
+                        str(out_json),
+                    ]
+                )
+
+            self.assertEqual(code, 0)
+            self.assertTrue(out_cmds.exists())
+            self.assertTrue(out_json.exists())
 
     def test_render_is_round_trippable_per_line(self) -> None:
         data = synthetic_demo()

@@ -42,6 +42,7 @@ from moveprobe_parse import (
     parse_moveprobe_perslot_error_logs,
     parse_moveprobe_qwd_event_logs,
     parse_moveprobe_replay_event_logs,
+    parse_moveprobe_s23_event_logs,
 )
 
 
@@ -640,6 +641,42 @@ def summarize_moveprobe_qwd_events(events: list[dict[str, object]]) -> dict[str,
     }
 
 
+def summarize_moveprobe_s23_events(events: list[dict[str, object]]) -> dict[str, object]:
+    players: dict[tuple[int, str], list[dict[str, object]]] = {}
+    for event in events:
+        key = (int(event["ed"]), str(event["name"]))
+        players.setdefault(key, []).append(event)
+
+    player_rows = []
+    for (ed, name), rows in sorted(players.items()):
+        event_counts: dict[str, int] = {}
+        for row in rows:
+            event_name = str(row["event"])
+            event_counts[event_name] = event_counts.get(event_name, 0) + 1
+        player_rows.append(
+            {
+                "ed": ed,
+                "name": name,
+                "count": len(rows),
+                "first_time_s": rows[0]["time_s"],
+                "last_time_s": rows[-1]["time_s"],
+                "event_counts": dict(sorted(event_counts.items())),
+                "attempt_values": compact_unique(int(row["attempt"]) for row in rows),
+                "max_attempt": max(int(row["attempt"]) for row in rows),
+                "min_distance_to_lip_qu": min(round(float(row["distance_to_lip_qu"]), 3) for row in rows),
+                "max_vh_qu_per_s": max(round(float(row["vh_qu_per_s"]), 3) for row in rows),
+                "min_heading_error_deg": min(round(float(row["heading_error_deg"]), 3) for row in rows),
+            }
+        )
+
+    return {
+        "schema": "komodobots.moveprobe_s23_events.v1",
+        "event_count": len(events),
+        "players": player_rows,
+        "events": events,
+    }
+
+
 def summarize_route_states(route_states: list[dict[str, object]]) -> dict[str, object]:
     if not route_states:
         return {"sample_count": 0}
@@ -991,6 +1028,41 @@ def write_moveprobe_assign_logs(local_run_dir: Path) -> dict[str, object]:
     return summary
 
 
+def write_moveprobe_s23_event_logs(local_run_dir: Path) -> dict[str, object]:
+    screen_log = (local_run_dir / "screen.log").read_text(encoding="utf-8", errors="replace")
+    events = parse_moveprobe_s23_event_logs(screen_log)
+    summary = summarize_moveprobe_s23_events(events)
+
+    json_path = local_run_dir / "moveprobe-s23-events.json"
+    md_path = local_run_dir / "moveprobe-s23-events.md"
+    json_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+
+    lines = [
+        "# Moveprobe S23 Event Log",
+        "",
+        f"- Events parsed: `{summary['event_count']}`",
+        "",
+    ]
+    players = summary.get("players", [])
+    if players:
+        lines.extend(["## Players", ""])
+        for player in players:
+            lines.append(
+                f"- `{player['name']}` ed `{player['ed']}`: `{player['count']}` events, "
+                f"time `{fmt_number(player['first_time_s'], 3)}`-`{fmt_number(player['last_time_s'], 3)}`s, "
+                f"events `{player['event_counts']}`, "
+                f"attempts `{player['attempt_values']}`, "
+                f"maxAttempt `{player['max_attempt']}`, "
+                f"minLip `{player['min_distance_to_lip_qu']}` qu, "
+                f"maxVh `{player['max_vh_qu_per_s']}` qu/s, "
+                f"minHerr `{player['min_heading_error_deg']}` deg"
+            )
+    else:
+        lines.append("- No `FBMOVEPROBE_S23` lines found in `screen.log`.")
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return summary
+
+
 def find_bot_entries(screen_log: str) -> list[str]:
     entries = []
     for line in screen_log.splitlines():
@@ -1093,6 +1165,9 @@ def write_summary(
     qwd_event_log_path = local_run_dir / "moveprobe-qwd-events.json"
     qwd_event_log = read_json(qwd_event_log_path) if qwd_event_log_path.exists() else {}
     qwd_event_count = qwd_event_log.get("event_count", 0) if isinstance(qwd_event_log, dict) else 0
+    s23_event_log_path = local_run_dir / "moveprobe-s23-events.json"
+    s23_event_log = read_json(s23_event_log_path) if s23_event_log_path.exists() else {}
+    s23_event_count = s23_event_log.get("event_count", 0) if isinstance(s23_event_log, dict) else 0
 
     lines = [
         f"# {map_name} lab run {run_id}",
@@ -1112,6 +1187,7 @@ def write_summary(
         f"- Movement probe command logging: `enabled={moveprobe['log_commands']} interval={moveprobe['log_interval']}`",
         f"- Movement probe commands parsed: `{command_count}`",
         f"- Movement probe QWD events parsed: `{qwd_event_count}`",
+        f"- Movement probe S23 events parsed: `{s23_event_count}`",
         f"- Remote demo: `{remote_demo}`",
         f"- Local demo: `{local_run_dir / 'demo.mvd'}`",
         f"- Demo size: `{demo_size}` bytes",
@@ -1634,6 +1710,7 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         write_moveprobe_qwd_event_logs(local_run_dir)
         write_moveprobe_replay_event_logs(local_run_dir)
         write_moveprobe_assign_logs(local_run_dir)
+        write_moveprobe_s23_event_logs(local_run_dir)
         write_summary(local_run_dir, args.host, port, run_id, args.map_name, parser_exits)
 
         summary = local_run_dir / "run-summary.md"

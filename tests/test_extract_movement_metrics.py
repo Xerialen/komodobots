@@ -456,6 +456,36 @@ class MovementMetricsTests(unittest.TestCase):
         self.assertEqual(summary["players"][0]["event_counts"], {"activate": 1, "advance": 1})
         self.assertEqual(summary["players"][0]["max_advanced_control_points"], 1)
 
+    def test_parse_moveprobe_s23_event_logs(self) -> None:
+        events = run_frobodm2_lab.parse_moveprobe_s23_event_logs(
+            "\n".join(
+                [
+                    "FBMOVEPROBE_S23 time=42.000 ed=2 name=/ bro event=attempt "
+                    "attempt=1 armed=0 done=0 vh=0.000 herr=999.000 d_lip=168.125 "
+                    "origin=-3516.125,3712.000,-453.125 velocity=0.000,0.000,0.000",
+                    "FBMOVEPROBE_S23 time=43.250 ed=2 name=/ bro event=release "
+                    "attempt=1 armed=0 done=1 vh=475.250 herr=8.750 d_lip=12.000 "
+                    "origin=-3360.000,3700.000,-488.000 velocity=470.000,-70.000,0.000",
+                ]
+            )
+        )
+
+        self.assertEqual(len(events), 2)
+        self.assertEqual(events[0]["event"], "attempt")
+        self.assertEqual(events[0]["attempt"], 1)
+        self.assertFalse(events[0]["armed"])
+        self.assertEqual(events[0]["distance_to_lip_qu"], 168.125)
+        self.assertEqual(events[1]["event"], "release")
+        self.assertTrue(events[1]["done"])
+        self.assertEqual(events[1]["vh_qu_per_s"], 475.25)
+        self.assertEqual(events[1]["velocity"], {"x": 470.0, "y": -70.0, "z": 0.0})
+
+        summary = run_frobodm2_lab.summarize_moveprobe_s23_events(events)
+        self.assertEqual(summary["schema"], "komodobots.moveprobe_s23_events.v1")
+        self.assertEqual(summary["event_count"], 2)
+        self.assertEqual(summary["players"][0]["event_counts"], {"attempt": 1, "release": 1})
+        self.assertEqual(summary["players"][0]["max_vh_qu_per_s"], 475.25)
+
     def test_parse_moveprobe_replay_state_and_events(self) -> None:
         commands = run_frobodm2_lab.parse_moveprobe_command_logs(
             "FBMOVEPROBE_CMD time=13.000 ed=2 name=/ bro mode=10 msec=13 "
