@@ -10,7 +10,8 @@ proven, what's next, and where everything lives" so a fresh agent can resume wit
 - **`main`** tip `e73efc8` — `docs: DM3 4on4 stand-in program (docs/12) + Decision Point Alpha (#172)`.
   PR #172 merged by explicit owner override ahead of the #170 Codex review (recorded on the PR).
 - **ML work** lives in a separate worktree: **`C:\Users\benya\projects\quakeworld\komodobots-ml`**
-  on branch **`ml/dm3-4on4-standin`**. **4 commits ahead of `main`, NOT pushed, NOT #170-reviewed:**
+  on branch **`ml/dm3-4on4-standin`** (pushed to `origin` 2026-06-14; #170 review deferred — see
+  "Pending / open"). Commits beyond `main`:
   - `9bb4a14` stage0: data census, 526-edge probe, 4on4 anchor build (3 spikes)
   - `647de66` stage2-prep: build MOVE BC pool dataset + label-integrity yield
   - `6eb5155` harden: promote 4on4 gate anchor (8 players, v32) + 2x MOVE clean-yield
@@ -65,26 +66,45 @@ proven, what's next, and where everything lives" so a fresh agent can resume wit
 
 ## Pending / open
 
-- **Codex post-hoc review of merged #172** (agent `af92b7b18fb45b83b`) — dispatched, had not
-  reported back as of this checkpoint. If it surfaces a docs/12 factual issue → fix-forward.
-- **#170 review of the 4 ML commits** — not yet done; required before any ML PR to `main`.
-- **Branch not pushed.**
+- **Branch pushed** to `origin/ml/dm3-4on4-standin` (2026-06-14). Consolidation done.
+- **#170 review deferred deliberately** ("too early" — owner call). Not opening a PR to `main`
+  yet, so the #170 gate is not tripped; the cross-model review happens when an ML PR is actually
+  raised, not before. (The Codex #172 post-hoc dispatch is likewise not being waited on.)
 
-## The forward fork (undecided at checkpoint)
+## Progress since checkpoint (2026-06-14)
 
-Per the ~1 s ceiling, further *offline* training has diminishing *validated* returns until
-full-route validation exists. Candidate next moves:
-1. **Consolidate** — push `ml/dm3-4on4-standin` + Codex #170 review of Stage-0→Stage-2.
-2. **Live KTX path** — Stage-1 live bot infra + the deferred Stage-0 spike 2 (live-bridge
-   benchmark: live-load + per-tick-evaluate a quantized policy at 8 slots within budget). Needs the
-   live server (servexeri) + engine work.
-3. **Upgrade pmove_sim** with lift/submodel (+ opponent) collision → extend offline closed-loop
-   validation past ~1 s without the live server.
-4. **Stage 3 — learned AIM head** (target-relative angle-trajectory imitation; inherits the ~1 s
-   sim-validation limit until 2 or 3 is resolved).
+- **Closed-loop ceiling root-caused** (see `experiments/stage2/move-bc-train/
+  closed-loop-ceiling-diagnosis.md`). The `recorded`-human controller itself drifts to 88.9 qu by
+  2 s while the single-player SNG→RL route stays at 0.2 qu over ~9 s — so the ceiling is the sim
+  **omitting physics**, dominated by **opponent-player collision (78.6 % of dataset contamination)**,
+  not brush submodels and not the physics core. Absolute trajectory-match is also chaos-capped
+  long-horizon regardless of collision → the gate metric should migrate to route-completion +
+  speed-band retention (distributional).
+- **Multi-physent trace foundation built** in `scripts/pmove_sim.py`: `player_trace` now iterates
+  world + a physent list (nearest-hit wins); `PhysEnt`, `build_box_hull` (Quake `SV_InitBoxHull`
+  port), `make_player_physent` (Minkowski-expanded opponent box), `Pmove.load_submodels()` (6 dm3
+  brush submodels, at-rest). **Worldmodel-only default is byte-identical to the validated baseline**
+  (full `run_pmove_validation.py` regression: human 0.204/0.121/0.178, bot anchored p95 0.004,
+  edge 529.08 — all unchanged). Tests: `tests/test_physent_collision.py` (regression + swept box
+  block + submodel opt-in), ALL PASS.
 
-Recommendation at checkpoint: (1) consolidate, then (2)/(3) to resolve validation before building
-the next learned tier.
+## The forward fork (corrected build order)
+
+1. ~~Consolidate (push)~~ — DONE.
+2. **Opponent-ghost collision (the 78.6 % piece) — THE NEXT DECISION.** Needs a **POV↔MVD per-tick
+   opponent-position sync** (POV `.qwd` timeline ↔ MVD all-player positions) to inject opponents as
+   box physents. The trace machinery is ready; the sync pipeline is not built. High reuse: it is
+   **also the Stage-3 AIM target-selection prerequisite**. Success metric: the `recorded`-human
+   closed-loop route_err at 2 s drops materially from 88.9 qu.
+3. **Distributional closed-loop gate** — route-segment completion + speed-band retention over many
+   starts (docs/12 G-M1), replacing absolute position-match past ~1 s. Cheap, on-box.
+4. **Moving submodels** (lift timing from KTX QC) — last, lowest yield (submodels are secondary to
+   players).
+5. **Live KTX path** / **Stage 3 learned AIM** — after validation is trustworthy.
+
+Recommendation: (2) the POV↔MVD opponent sync is the real next build (unblocks both honest
+closed-loop validation *and* Stage-3 AIM) — but it is a new data pipeline, so it is the next
+decision to greenlight. (3) can land in parallel cheaply.
 
 ## Reproduce / verify quickly
 
