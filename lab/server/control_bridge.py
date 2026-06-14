@@ -82,7 +82,7 @@ CLIENT_SHIM_RUN_FOR = "2"
 
 # Cvar allowlist: prefix family + explicit safe set. Everything else refused.
 CVAR_ALLOWED_PREFIXES: tuple[str, ...] = ("k_fb_",)
-CVAR_ALLOWED_EXACT: frozenset[str] = frozenset({"timelimit", "fraglimit", "samelevel"})
+CVAR_ALLOWED_EXACT: frozenset[str] = frozenset({"timelimit", "fraglimit", "samelevel", "teamplay"})
 
 # First-class game-control buttons. These intentionally do not widen the raw
 # console allowlist: each action maps to a tiny, source-checked KTX command set.
@@ -125,6 +125,27 @@ STOP_GAME_STEPS: tuple[tuple[str, str], ...] = (
     # dashboard session: mode 24 holds movement and firing at command emit.
     ("client", "break"),
     ("console", f"set k_fb_moveprobe_mode {PRACTICE_IDLE_MODE}"),
+)
+VALIDATION_4V4_STEPS: tuple[tuple[str, str], ...] = (
+    # LD-H3.3 (#179): fixed-roster validation game setup. This intentionally
+    # stays inside the lab-session gate and uses only allowlisted bridge steps.
+    # Team assignment remains verified downstream from KTX stats; if KTX fails
+    # to produce Team A / Team B with four players each the ledger marks the
+    # run invalid.
+    ("client", "break"),
+    ("botcmd", "removeall"),
+    ("client", "4on4"),
+    ("client", "dmm1"),
+    ("console", "set teamplay 2"),
+    ("console", "timelimit 5"),
+    ("console", "fraglimit 0"),
+    ("console", "set k_fb_skill 20"),
+    ("console", "map dm3"),
+    ("console", "set teamplay 2"),
+    ("console", "timelimit 5"),
+    ("console", "fraglimit 0"),
+    ("addbot", "8"),
+    ("client", "ready"),
 )
 ZTRICKS_PERSLOT_PRESET_STEPS: tuple[tuple[str, str], ...] = tuple(
     ("console", line)
@@ -384,6 +405,9 @@ def validate_game_command(action: object, value: object = None) -> list[tuple[st
         # k_prewar=0 means pre-match players may not fire; break returns the
         # running game to prewar first when possible.
         return [("client", "break"), ("console", "set k_prewar 0")]
+
+    if action == "4v4_validation_prepare":
+        return list(VALIDATION_4V4_STEPS)
 
     if action == "bot_respawn":
         if isinstance(value, bool) or not isinstance(value, (int, str)):
@@ -1030,9 +1054,9 @@ class ControlBridge:
                         return self._refuse(req_id, "invalid botcmd game command step"), None
                     self.executor.send_botcmds(port, [line])
                 elif kind == "addbot":
-                    if line != "1":
+                    if not line.isdigit() or not (1 <= int(line) <= 8):
                         return self._refuse(req_id, "invalid addbot game command step"), None
-                    self.executor.add_bots(port, 1)
+                    self.executor.add_bots(port, int(line))
                 else:
                     return self._refuse(req_id, "invalid game command step"), None
             value = request.get("value")

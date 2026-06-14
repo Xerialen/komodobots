@@ -1032,6 +1032,47 @@ python lab/tools/bsp_to_obj.py \
   supersedes them. Visual evidence: `lab/evidence/ld-c2-mesh-*.png`
   (rendered with the committed harness `lab/evidence/ld-c2-meshdev.html`).
 
+## KTX 4v4 match stats and casting feeds
+
+KTX post-game stats are now normalized through `lab/server/ktx_match_stats.py`
+into `komodobots.ktx_match_stats.v1`. The normalizer accepts raw KTX stats JSON
+or analyzer envelopes with `demoInfo`, preserves source metadata, derives team
+score from player frag totals, and maps the KTX 4v4 fields the lab needs:
+frags, deaths, kills, efficiency, team kills, Q/P/R, health pickups, RL
+pickups, damage given/taken, and taken-to-die. A KTX `taken-to-die` value of
+`99999` is treated as "survived without death" and exposed as `null` for the
+computed metric.
+
+The fixed-roster validation ledger is built by
+`lab/server/fourvfour_validation_build.py` as `komodobots.4v4_validation.v1`.
+Each run must include a roster intent file (`komodobots.4v4_roster_intent.v1`)
+beside the KTX stats. A valid BotLab validation game is intentionally narrow:
+DM3, `mode=team` or `4on4`, `dm=1`, `tp=2`, at least 300 seconds, exactly
+eight players, four per team, one Komodobot slot, and seven skill-20 Frogbots.
+Invalid games are excluded from `games` but retained in `invalid_games` and
+`provenance.skipped`. Per-player deltas are keyed by stable roster slot and
+mark whether the comparison is same-version or cross-version.
+
+`lab/server/fourvfour_validation_runner.py` writes dry-run-safe setup artifacts
+for the same contract: a control plan that uses only allowlisted game commands
+and cvars, plus the fixed roster intent that the ledger later validates. The
+runner refuses non-lab ports through the same control-bridge guard used by the
+dashboard.
+
+The casting path deliberately shares KTX stats semantics but not control
+semantics. `lab/server/ktx_casting_ingest.py` emits the same
+`komodobots.ktx_match_stats.v1` document with `source.casting_read_only=true`.
+It is intended for real KTX game stats and commentating workflows, including
+human matches where no BotLab roster intent exists.
+
+Live KTX data remains provisional. `lab/server/ktx_live_observer.py` exposes
+`komodobots.ktx_live_observer.v1` snapshots with only fields that can be safely
+read live: match status/map/time, team scores, and player identity/team/frags/
+deaths/ping. Damage, item pickups, taken-to-die, and efficiency remain
+post-game-only unless a future KTX stream proves those fields are authoritative
+mid-game. Stale or disconnected frames are marked rather than filled with fake
+values.
+
 ## Open questions
 
 - Can/should the current `events.txt` kind `5` position stream remain canonical for first-pass movement metrics?

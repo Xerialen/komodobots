@@ -160,6 +160,35 @@ KTX movement probe patch: `C:\Users\benya\projects\quakeworld\komodobots\experim
 
 A5 live-port overlay/spec: `C:\Users\benya\projects\quakeworld\komodobots\experiments\a5_distance_standstill\a5-live-port-spec.md` and `C:\Users\benya\projects\quakeworld\komodobots\experiments\a5_distance_standstill\a5-live-port-servexeri-overlay.md`
 
+4v4 validation and KTX stats helpers:
+
+- `lab/server/ktx_match_stats.py` normalizes KTX post-game JSON stats into
+  `komodobots.ktx_match_stats.v1` for both BotLab validation and casting.
+- `lab/server/fourvfour_validation_build.py` builds the fixed-roster 4v4
+  validation ledger (`komodobots.4v4_validation.v1`) from KTX stats plus
+  `4v4-roster.json` intent files.
+- `lab/server/fourvfour_validation_runner.py` writes the dry-run-safe control
+  plan and roster intent for the all-bot DM3 4v4 validation setup.
+- `lab/server/ktx_casting_ingest.py` is the read-only KTX casting ingest path;
+  it reuses the same normalizer and does not import or call the control bridge.
+- `lab/server/ktx_live_observer.py` holds the conservative provisional live
+  scoreboard model for KTX event/JSON snapshots.
+- `lab/dashboard/src/FourVFourValidationPanel.tsx` renders the BotLab KPI
+  dock validation panel; `lab/dashboard/src/CastingScoreboard.tsx` renders the
+  control-free `?casting=1` OBS/commentary view.
+- Fixtures live at `lab/dashboard/public/data/4v4-validation.example.json` and
+  `lab/dashboard/public/data/casting-match.example.json`; browser evidence is
+  recorded under `lab/evidence/ld-h3-*`.
+
+Why they matter:
+
+- They give the lab a repeatable eight-player, fixed-roster validation record
+  for comparing the Komodobot slot against unchanged skill-20 Frogbots.
+- They keep public/casting consumption on the same KTX stats semantics without
+  exposing game-control actions.
+- They encode the distinction between authoritative post-game stats and
+  provisional live observer fields.
+
 Why it matters:
 
 - `scripts/run_bot_lab.py` is the preferred one-command lab runner entry point.

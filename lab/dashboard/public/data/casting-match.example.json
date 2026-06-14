@@ -1,0 +1,899 @@
+{
+  "schema": "komodobots.ktx_match_stats.v1",
+  "source": {
+    "kind": "ktxstats",
+    "path": "fixtures/casting/finals-game-1.ktxstats.json",
+    "raw_version": 3,
+    "notes": [
+      "KTX 4v4 is identified by team mode plus dm/tp/player/team shape.",
+      "Optional item/weapon blocks omitted by KTX are normalized as zero.",
+      "Read-only casting ingest; no BotLab fixed-roster fields are required."
+    ],
+    "casting_read_only": true
+  },
+  "match": {
+    "date": "2026-05-01 21:00:00 +0200",
+    "map": "dm2",
+    "hostname": "QW.nu commentary server",
+    "ip": "203.0.113.10",
+    "port": 28501,
+    "matchtag": "finals-game-1",
+    "mode": "team",
+    "timelimit": 20,
+    "fraglimit_reported": null,
+    "deathmatch": 1,
+    "teamplay": 2,
+    "duration": 1200,
+    "demo": "finals-game-1.mvd",
+    "teams_declared": [
+      "The Vipers",
+      "The Rangers"
+    ],
+    "is_ktx_teamplay": true
+  },
+  "players": [
+    {
+      "slot": 1,
+      "id": "01:the_vipers:viper-1",
+      "identity": {
+        "name": "viper-1",
+        "team": "The Vipers",
+        "login": "viper-1",
+        "ping": 25,
+        "top_color": 13,
+        "bottom_color": 4,
+        "is_bot": false,
+        "bot": null
+      },
+      "stats": {
+        "frags": 19,
+        "deaths": 9,
+        "kills": 19,
+        "efficiency": 0.6786,
+        "team_kills": 0,
+        "spawn_frags": 0,
+        "suicides": 0,
+        "damage_done": 2400,
+        "damage_taken": 1080,
+        "team_damage": 0,
+        "self_damage": 0,
+        "team_weapon_damage": 0,
+        "enemy_weapon_damage": 2300,
+        "taken_to_die": 120,
+        "taken_to_die_raw": 120,
+        "survived_without_death": false,
+        "xfer_rl": 0,
+        "xfer_lg": 0,
+        "avg_speed": 325.0,
+        "max_speed": 610.0,
+        "health_pickups": 0,
+        "quad_pickups": 1,
+        "pent_pickups": 0,
+        "ring_pickups": 0,
+        "rl_pickups": 2,
+        "rl_drops": 0,
+        "enemy_rl_kills": 4
+      },
+      "pickups": {
+        "health": {
+          "total": 0,
+          "health_15": 0,
+          "health_25": 0,
+          "health_100": 0
+        },
+        "powerups": {
+          "quad": 1,
+          "pent": 0,
+          "ring": 0
+        }
+      },
+      "weapons": {
+        "rl": {
+          "pickups_taken": 2,
+          "dropped": 0,
+          "enemy_kills": 4
+        },
+        "lg": {
+          "pickups_taken": 0,
+          "dropped": 0,
+          "enemy_kills": 0
+        }
+      },
+      "sources": {
+        "frags": "players[0]['stats']['frags']",
+        "deaths": "players[0]['stats']['deaths']",
+        "kills": "players[0]['stats']['kills']",
+        "efficiency": [
+          "players[0]['stats']['kills']",
+          "players[0]['stats']['deaths']"
+        ],
+        "team_kills": "players[0]['stats']['tk']",
+        "damage_done": "players[0]['dmg']['given']",
+        "damage_taken": "players[0]['dmg']['taken']",
+        "team_damage": "players[0]['dmg']['team']",
+        "self_damage": "players[0]['dmg']['self']",
+        "team_weapon_damage": "players[0]['dmg']['team-weapons']",
+        "enemy_weapon_damage": "players[0]['dmg']['enemy-weapons']",
+        "taken_to_die": "players[0]['dmg']['taken-to-die']",
+        "xfer_rl": "players[0]['xferRL']",
+        "xfer_lg": "players[0]['xferLG']",
+        "avg_speed": "players[0]['speed']['avg']",
+        "max_speed": "players[0]['speed']['max']",
+        "health_pickups": [
+          "players[0]['items']['health_15']['took']",
+          "players[0]['items']['health_25']['took']",
+          "players[0]['items']['health_100']['took']"
+        ],
+        "quad_pickups": "players[0]['items']['q']['took']",
+        "pent_pickups": "players[0]['items']['p']['took']",
+        "ring_pickups": "players[0]['items']['r']['took']",
+        "rl_pickups": "players[0]['weapons']['rl']['pickups']['taken']",
+        "rl_drops": "players[0]['weapons']['rl']['pickups']['dropped']",
+        "enemy_rl_kills": "players[0]['weapons']['rl']['kills']['enemy']"
+      }
+    },
+    {
+      "slot": 2,
+      "id": "02:the_vipers:viper-2",
+      "identity": {
+        "name": "viper-2",
+        "team": "The Vipers",
+        "login": "viper-2",
+        "ping": 25,
+        "top_color": 13,
+        "bottom_color": 4,
+        "is_bot": false,
+        "bot": null
+      },
+      "stats": {
+        "frags": 18,
+        "deaths": 10,
+        "kills": 18,
+        "efficiency": 0.6429,
+        "team_kills": 0,
+        "spawn_frags": 0,
+        "suicides": 0,
+        "damage_done": 2300,
+        "damage_taken": 1200,
+        "team_damage": 0,
+        "self_damage": 0,
+        "team_weapon_damage": 0,
+        "enemy_weapon_damage": 2200,
+        "taken_to_die": 120,
+        "taken_to_die_raw": 120,
+        "survived_without_death": false,
+        "xfer_rl": 0,
+        "xfer_lg": 0,
+        "avg_speed": 325.0,
+        "max_speed": 610.0,
+        "health_pickups": 0,
+        "quad_pickups": 0,
+        "pent_pickups": 0,
+        "ring_pickups": 0,
+        "rl_pickups": 2,
+        "rl_drops": 0,
+        "enemy_rl_kills": 4
+      },
+      "pickups": {
+        "health": {
+          "total": 0,
+          "health_15": 0,
+          "health_25": 0,
+          "health_100": 0
+        },
+        "powerups": {
+          "quad": 0,
+          "pent": 0,
+          "ring": 0
+        }
+      },
+      "weapons": {
+        "rl": {
+          "pickups_taken": 2,
+          "dropped": 0,
+          "enemy_kills": 4
+        },
+        "lg": {
+          "pickups_taken": 0,
+          "dropped": 0,
+          "enemy_kills": 0
+        }
+      },
+      "sources": {
+        "frags": "players[1]['stats']['frags']",
+        "deaths": "players[1]['stats']['deaths']",
+        "kills": "players[1]['stats']['kills']",
+        "efficiency": [
+          "players[1]['stats']['kills']",
+          "players[1]['stats']['deaths']"
+        ],
+        "team_kills": "players[1]['stats']['tk']",
+        "damage_done": "players[1]['dmg']['given']",
+        "damage_taken": "players[1]['dmg']['taken']",
+        "team_damage": "players[1]['dmg']['team']",
+        "self_damage": "players[1]['dmg']['self']",
+        "team_weapon_damage": "players[1]['dmg']['team-weapons']",
+        "enemy_weapon_damage": "players[1]['dmg']['enemy-weapons']",
+        "taken_to_die": "players[1]['dmg']['taken-to-die']",
+        "xfer_rl": "players[1]['xferRL']",
+        "xfer_lg": "players[1]['xferLG']",
+        "avg_speed": "players[1]['speed']['avg']",
+        "max_speed": "players[1]['speed']['max']",
+        "health_pickups": [
+          "players[1]['items']['health_15']['took']",
+          "players[1]['items']['health_25']['took']",
+          "players[1]['items']['health_100']['took']"
+        ],
+        "quad_pickups": "players[1]['items']['q']['took']",
+        "pent_pickups": "players[1]['items']['p']['took']",
+        "ring_pickups": "players[1]['items']['r']['took']",
+        "rl_pickups": "players[1]['weapons']['rl']['pickups']['taken']",
+        "rl_drops": "players[1]['weapons']['rl']['pickups']['dropped']",
+        "enemy_rl_kills": "players[1]['weapons']['rl']['kills']['enemy']"
+      }
+    },
+    {
+      "slot": 3,
+      "id": "03:the_vipers:viper-3",
+      "identity": {
+        "name": "viper-3",
+        "team": "The Vipers",
+        "login": "viper-3",
+        "ping": 25,
+        "top_color": 13,
+        "bottom_color": 4,
+        "is_bot": false,
+        "bot": null
+      },
+      "stats": {
+        "frags": 17,
+        "deaths": 11,
+        "kills": 17,
+        "efficiency": 0.6071,
+        "team_kills": 0,
+        "spawn_frags": 0,
+        "suicides": 0,
+        "damage_done": 2200,
+        "damage_taken": 1320,
+        "team_damage": 0,
+        "self_damage": 0,
+        "team_weapon_damage": 0,
+        "enemy_weapon_damage": 2100,
+        "taken_to_die": 120,
+        "taken_to_die_raw": 120,
+        "survived_without_death": false,
+        "xfer_rl": 0,
+        "xfer_lg": 0,
+        "avg_speed": 325.0,
+        "max_speed": 610.0,
+        "health_pickups": 0,
+        "quad_pickups": 0,
+        "pent_pickups": 0,
+        "ring_pickups": 0,
+        "rl_pickups": 2,
+        "rl_drops": 0,
+        "enemy_rl_kills": 4
+      },
+      "pickups": {
+        "health": {
+          "total": 0,
+          "health_15": 0,
+          "health_25": 0,
+          "health_100": 0
+        },
+        "powerups": {
+          "quad": 0,
+          "pent": 0,
+          "ring": 0
+        }
+      },
+      "weapons": {
+        "rl": {
+          "pickups_taken": 2,
+          "dropped": 0,
+          "enemy_kills": 4
+        },
+        "lg": {
+          "pickups_taken": 0,
+          "dropped": 0,
+          "enemy_kills": 0
+        }
+      },
+      "sources": {
+        "frags": "players[2]['stats']['frags']",
+        "deaths": "players[2]['stats']['deaths']",
+        "kills": "players[2]['stats']['kills']",
+        "efficiency": [
+          "players[2]['stats']['kills']",
+          "players[2]['stats']['deaths']"
+        ],
+        "team_kills": "players[2]['stats']['tk']",
+        "damage_done": "players[2]['dmg']['given']",
+        "damage_taken": "players[2]['dmg']['taken']",
+        "team_damage": "players[2]['dmg']['team']",
+        "self_damage": "players[2]['dmg']['self']",
+        "team_weapon_damage": "players[2]['dmg']['team-weapons']",
+        "enemy_weapon_damage": "players[2]['dmg']['enemy-weapons']",
+        "taken_to_die": "players[2]['dmg']['taken-to-die']",
+        "xfer_rl": "players[2]['xferRL']",
+        "xfer_lg": "players[2]['xferLG']",
+        "avg_speed": "players[2]['speed']['avg']",
+        "max_speed": "players[2]['speed']['max']",
+        "health_pickups": [
+          "players[2]['items']['health_15']['took']",
+          "players[2]['items']['health_25']['took']",
+          "players[2]['items']['health_100']['took']"
+        ],
+        "quad_pickups": "players[2]['items']['q']['took']",
+        "pent_pickups": "players[2]['items']['p']['took']",
+        "ring_pickups": "players[2]['items']['r']['took']",
+        "rl_pickups": "players[2]['weapons']['rl']['pickups']['taken']",
+        "rl_drops": "players[2]['weapons']['rl']['pickups']['dropped']",
+        "enemy_rl_kills": "players[2]['weapons']['rl']['kills']['enemy']"
+      }
+    },
+    {
+      "slot": 4,
+      "id": "04:the_vipers:viper-4",
+      "identity": {
+        "name": "viper-4",
+        "team": "The Vipers",
+        "login": "viper-4",
+        "ping": 25,
+        "top_color": 13,
+        "bottom_color": 4,
+        "is_bot": false,
+        "bot": null
+      },
+      "stats": {
+        "frags": 16,
+        "deaths": 12,
+        "kills": 16,
+        "efficiency": 0.5714,
+        "team_kills": 0,
+        "spawn_frags": 0,
+        "suicides": 0,
+        "damage_done": 2100,
+        "damage_taken": 1440,
+        "team_damage": 0,
+        "self_damage": 0,
+        "team_weapon_damage": 0,
+        "enemy_weapon_damage": 2000,
+        "taken_to_die": 120,
+        "taken_to_die_raw": 120,
+        "survived_without_death": false,
+        "xfer_rl": 0,
+        "xfer_lg": 0,
+        "avg_speed": 325.0,
+        "max_speed": 610.0,
+        "health_pickups": 0,
+        "quad_pickups": 0,
+        "pent_pickups": 0,
+        "ring_pickups": 0,
+        "rl_pickups": 2,
+        "rl_drops": 0,
+        "enemy_rl_kills": 4
+      },
+      "pickups": {
+        "health": {
+          "total": 0,
+          "health_15": 0,
+          "health_25": 0,
+          "health_100": 0
+        },
+        "powerups": {
+          "quad": 0,
+          "pent": 0,
+          "ring": 0
+        }
+      },
+      "weapons": {
+        "rl": {
+          "pickups_taken": 2,
+          "dropped": 0,
+          "enemy_kills": 4
+        },
+        "lg": {
+          "pickups_taken": 0,
+          "dropped": 0,
+          "enemy_kills": 0
+        }
+      },
+      "sources": {
+        "frags": "players[3]['stats']['frags']",
+        "deaths": "players[3]['stats']['deaths']",
+        "kills": "players[3]['stats']['kills']",
+        "efficiency": [
+          "players[3]['stats']['kills']",
+          "players[3]['stats']['deaths']"
+        ],
+        "team_kills": "players[3]['stats']['tk']",
+        "damage_done": "players[3]['dmg']['given']",
+        "damage_taken": "players[3]['dmg']['taken']",
+        "team_damage": "players[3]['dmg']['team']",
+        "self_damage": "players[3]['dmg']['self']",
+        "team_weapon_damage": "players[3]['dmg']['team-weapons']",
+        "enemy_weapon_damage": "players[3]['dmg']['enemy-weapons']",
+        "taken_to_die": "players[3]['dmg']['taken-to-die']",
+        "xfer_rl": "players[3]['xferRL']",
+        "xfer_lg": "players[3]['xferLG']",
+        "avg_speed": "players[3]['speed']['avg']",
+        "max_speed": "players[3]['speed']['max']",
+        "health_pickups": [
+          "players[3]['items']['health_15']['took']",
+          "players[3]['items']['health_25']['took']",
+          "players[3]['items']['health_100']['took']"
+        ],
+        "quad_pickups": "players[3]['items']['q']['took']",
+        "pent_pickups": "players[3]['items']['p']['took']",
+        "ring_pickups": "players[3]['items']['r']['took']",
+        "rl_pickups": "players[3]['weapons']['rl']['pickups']['taken']",
+        "rl_drops": "players[3]['weapons']['rl']['pickups']['dropped']",
+        "enemy_rl_kills": "players[3]['weapons']['rl']['kills']['enemy']"
+      }
+    },
+    {
+      "slot": 5,
+      "id": "05:the_rangers:ranger-1",
+      "identity": {
+        "name": "ranger-1",
+        "team": "The Rangers",
+        "login": "ranger-1",
+        "ping": 25,
+        "top_color": 13,
+        "bottom_color": 4,
+        "is_bot": false,
+        "bot": null
+      },
+      "stats": {
+        "frags": 17,
+        "deaths": 10,
+        "kills": 17,
+        "efficiency": 0.6296,
+        "team_kills": 0,
+        "spawn_frags": 0,
+        "suicides": 0,
+        "damage_done": 2200,
+        "damage_taken": 1200,
+        "team_damage": 0,
+        "self_damage": 0,
+        "team_weapon_damage": 0,
+        "enemy_weapon_damage": 2100,
+        "taken_to_die": 120,
+        "taken_to_die_raw": 120,
+        "survived_without_death": false,
+        "xfer_rl": 0,
+        "xfer_lg": 0,
+        "avg_speed": 325.0,
+        "max_speed": 610.0,
+        "health_pickups": 0,
+        "quad_pickups": 1,
+        "pent_pickups": 0,
+        "ring_pickups": 0,
+        "rl_pickups": 2,
+        "rl_drops": 0,
+        "enemy_rl_kills": 4
+      },
+      "pickups": {
+        "health": {
+          "total": 0,
+          "health_15": 0,
+          "health_25": 0,
+          "health_100": 0
+        },
+        "powerups": {
+          "quad": 1,
+          "pent": 0,
+          "ring": 0
+        }
+      },
+      "weapons": {
+        "rl": {
+          "pickups_taken": 2,
+          "dropped": 0,
+          "enemy_kills": 4
+        },
+        "lg": {
+          "pickups_taken": 0,
+          "dropped": 0,
+          "enemy_kills": 0
+        }
+      },
+      "sources": {
+        "frags": "players[4]['stats']['frags']",
+        "deaths": "players[4]['stats']['deaths']",
+        "kills": "players[4]['stats']['kills']",
+        "efficiency": [
+          "players[4]['stats']['kills']",
+          "players[4]['stats']['deaths']"
+        ],
+        "team_kills": "players[4]['stats']['tk']",
+        "damage_done": "players[4]['dmg']['given']",
+        "damage_taken": "players[4]['dmg']['taken']",
+        "team_damage": "players[4]['dmg']['team']",
+        "self_damage": "players[4]['dmg']['self']",
+        "team_weapon_damage": "players[4]['dmg']['team-weapons']",
+        "enemy_weapon_damage": "players[4]['dmg']['enemy-weapons']",
+        "taken_to_die": "players[4]['dmg']['taken-to-die']",
+        "xfer_rl": "players[4]['xferRL']",
+        "xfer_lg": "players[4]['xferLG']",
+        "avg_speed": "players[4]['speed']['avg']",
+        "max_speed": "players[4]['speed']['max']",
+        "health_pickups": [
+          "players[4]['items']['health_15']['took']",
+          "players[4]['items']['health_25']['took']",
+          "players[4]['items']['health_100']['took']"
+        ],
+        "quad_pickups": "players[4]['items']['q']['took']",
+        "pent_pickups": "players[4]['items']['p']['took']",
+        "ring_pickups": "players[4]['items']['r']['took']",
+        "rl_pickups": "players[4]['weapons']['rl']['pickups']['taken']",
+        "rl_drops": "players[4]['weapons']['rl']['pickups']['dropped']",
+        "enemy_rl_kills": "players[4]['weapons']['rl']['kills']['enemy']"
+      }
+    },
+    {
+      "slot": 6,
+      "id": "06:the_rangers:ranger-2",
+      "identity": {
+        "name": "ranger-2",
+        "team": "The Rangers",
+        "login": "ranger-2",
+        "ping": 25,
+        "top_color": 13,
+        "bottom_color": 4,
+        "is_bot": false,
+        "bot": null
+      },
+      "stats": {
+        "frags": 16,
+        "deaths": 11,
+        "kills": 16,
+        "efficiency": 0.5926,
+        "team_kills": 0,
+        "spawn_frags": 0,
+        "suicides": 0,
+        "damage_done": 2100,
+        "damage_taken": 1320,
+        "team_damage": 0,
+        "self_damage": 0,
+        "team_weapon_damage": 0,
+        "enemy_weapon_damage": 2000,
+        "taken_to_die": 120,
+        "taken_to_die_raw": 120,
+        "survived_without_death": false,
+        "xfer_rl": 0,
+        "xfer_lg": 0,
+        "avg_speed": 325.0,
+        "max_speed": 610.0,
+        "health_pickups": 0,
+        "quad_pickups": 0,
+        "pent_pickups": 0,
+        "ring_pickups": 0,
+        "rl_pickups": 2,
+        "rl_drops": 0,
+        "enemy_rl_kills": 4
+      },
+      "pickups": {
+        "health": {
+          "total": 0,
+          "health_15": 0,
+          "health_25": 0,
+          "health_100": 0
+        },
+        "powerups": {
+          "quad": 0,
+          "pent": 0,
+          "ring": 0
+        }
+      },
+      "weapons": {
+        "rl": {
+          "pickups_taken": 2,
+          "dropped": 0,
+          "enemy_kills": 4
+        },
+        "lg": {
+          "pickups_taken": 0,
+          "dropped": 0,
+          "enemy_kills": 0
+        }
+      },
+      "sources": {
+        "frags": "players[5]['stats']['frags']",
+        "deaths": "players[5]['stats']['deaths']",
+        "kills": "players[5]['stats']['kills']",
+        "efficiency": [
+          "players[5]['stats']['kills']",
+          "players[5]['stats']['deaths']"
+        ],
+        "team_kills": "players[5]['stats']['tk']",
+        "damage_done": "players[5]['dmg']['given']",
+        "damage_taken": "players[5]['dmg']['taken']",
+        "team_damage": "players[5]['dmg']['team']",
+        "self_damage": "players[5]['dmg']['self']",
+        "team_weapon_damage": "players[5]['dmg']['team-weapons']",
+        "enemy_weapon_damage": "players[5]['dmg']['enemy-weapons']",
+        "taken_to_die": "players[5]['dmg']['taken-to-die']",
+        "xfer_rl": "players[5]['xferRL']",
+        "xfer_lg": "players[5]['xferLG']",
+        "avg_speed": "players[5]['speed']['avg']",
+        "max_speed": "players[5]['speed']['max']",
+        "health_pickups": [
+          "players[5]['items']['health_15']['took']",
+          "players[5]['items']['health_25']['took']",
+          "players[5]['items']['health_100']['took']"
+        ],
+        "quad_pickups": "players[5]['items']['q']['took']",
+        "pent_pickups": "players[5]['items']['p']['took']",
+        "ring_pickups": "players[5]['items']['r']['took']",
+        "rl_pickups": "players[5]['weapons']['rl']['pickups']['taken']",
+        "rl_drops": "players[5]['weapons']['rl']['pickups']['dropped']",
+        "enemy_rl_kills": "players[5]['weapons']['rl']['kills']['enemy']"
+      }
+    },
+    {
+      "slot": 7,
+      "id": "07:the_rangers:ranger-3",
+      "identity": {
+        "name": "ranger-3",
+        "team": "The Rangers",
+        "login": "ranger-3",
+        "ping": 25,
+        "top_color": 13,
+        "bottom_color": 4,
+        "is_bot": false,
+        "bot": null
+      },
+      "stats": {
+        "frags": 15,
+        "deaths": 12,
+        "kills": 15,
+        "efficiency": 0.5556,
+        "team_kills": 0,
+        "spawn_frags": 0,
+        "suicides": 0,
+        "damage_done": 2000,
+        "damage_taken": 1440,
+        "team_damage": 0,
+        "self_damage": 0,
+        "team_weapon_damage": 0,
+        "enemy_weapon_damage": 1900,
+        "taken_to_die": 120,
+        "taken_to_die_raw": 120,
+        "survived_without_death": false,
+        "xfer_rl": 0,
+        "xfer_lg": 0,
+        "avg_speed": 325.0,
+        "max_speed": 610.0,
+        "health_pickups": 0,
+        "quad_pickups": 0,
+        "pent_pickups": 0,
+        "ring_pickups": 0,
+        "rl_pickups": 2,
+        "rl_drops": 0,
+        "enemy_rl_kills": 4
+      },
+      "pickups": {
+        "health": {
+          "total": 0,
+          "health_15": 0,
+          "health_25": 0,
+          "health_100": 0
+        },
+        "powerups": {
+          "quad": 0,
+          "pent": 0,
+          "ring": 0
+        }
+      },
+      "weapons": {
+        "rl": {
+          "pickups_taken": 2,
+          "dropped": 0,
+          "enemy_kills": 4
+        },
+        "lg": {
+          "pickups_taken": 0,
+          "dropped": 0,
+          "enemy_kills": 0
+        }
+      },
+      "sources": {
+        "frags": "players[6]['stats']['frags']",
+        "deaths": "players[6]['stats']['deaths']",
+        "kills": "players[6]['stats']['kills']",
+        "efficiency": [
+          "players[6]['stats']['kills']",
+          "players[6]['stats']['deaths']"
+        ],
+        "team_kills": "players[6]['stats']['tk']",
+        "damage_done": "players[6]['dmg']['given']",
+        "damage_taken": "players[6]['dmg']['taken']",
+        "team_damage": "players[6]['dmg']['team']",
+        "self_damage": "players[6]['dmg']['self']",
+        "team_weapon_damage": "players[6]['dmg']['team-weapons']",
+        "enemy_weapon_damage": "players[6]['dmg']['enemy-weapons']",
+        "taken_to_die": "players[6]['dmg']['taken-to-die']",
+        "xfer_rl": "players[6]['xferRL']",
+        "xfer_lg": "players[6]['xferLG']",
+        "avg_speed": "players[6]['speed']['avg']",
+        "max_speed": "players[6]['speed']['max']",
+        "health_pickups": [
+          "players[6]['items']['health_15']['took']",
+          "players[6]['items']['health_25']['took']",
+          "players[6]['items']['health_100']['took']"
+        ],
+        "quad_pickups": "players[6]['items']['q']['took']",
+        "pent_pickups": "players[6]['items']['p']['took']",
+        "ring_pickups": "players[6]['items']['r']['took']",
+        "rl_pickups": "players[6]['weapons']['rl']['pickups']['taken']",
+        "rl_drops": "players[6]['weapons']['rl']['pickups']['dropped']",
+        "enemy_rl_kills": "players[6]['weapons']['rl']['kills']['enemy']"
+      }
+    },
+    {
+      "slot": 8,
+      "id": "08:the_rangers:ranger-4",
+      "identity": {
+        "name": "ranger-4",
+        "team": "The Rangers",
+        "login": "ranger-4",
+        "ping": 25,
+        "top_color": 13,
+        "bottom_color": 4,
+        "is_bot": false,
+        "bot": null
+      },
+      "stats": {
+        "frags": 14,
+        "deaths": 13,
+        "kills": 14,
+        "efficiency": 0.5185,
+        "team_kills": 0,
+        "spawn_frags": 0,
+        "suicides": 0,
+        "damage_done": 1900,
+        "damage_taken": 1560,
+        "team_damage": 0,
+        "self_damage": 0,
+        "team_weapon_damage": 0,
+        "enemy_weapon_damage": 1800,
+        "taken_to_die": 120,
+        "taken_to_die_raw": 120,
+        "survived_without_death": false,
+        "xfer_rl": 0,
+        "xfer_lg": 0,
+        "avg_speed": 325.0,
+        "max_speed": 610.0,
+        "health_pickups": 0,
+        "quad_pickups": 0,
+        "pent_pickups": 0,
+        "ring_pickups": 0,
+        "rl_pickups": 2,
+        "rl_drops": 0,
+        "enemy_rl_kills": 4
+      },
+      "pickups": {
+        "health": {
+          "total": 0,
+          "health_15": 0,
+          "health_25": 0,
+          "health_100": 0
+        },
+        "powerups": {
+          "quad": 0,
+          "pent": 0,
+          "ring": 0
+        }
+      },
+      "weapons": {
+        "rl": {
+          "pickups_taken": 2,
+          "dropped": 0,
+          "enemy_kills": 4
+        },
+        "lg": {
+          "pickups_taken": 0,
+          "dropped": 0,
+          "enemy_kills": 0
+        }
+      },
+      "sources": {
+        "frags": "players[7]['stats']['frags']",
+        "deaths": "players[7]['stats']['deaths']",
+        "kills": "players[7]['stats']['kills']",
+        "efficiency": [
+          "players[7]['stats']['kills']",
+          "players[7]['stats']['deaths']"
+        ],
+        "team_kills": "players[7]['stats']['tk']",
+        "damage_done": "players[7]['dmg']['given']",
+        "damage_taken": "players[7]['dmg']['taken']",
+        "team_damage": "players[7]['dmg']['team']",
+        "self_damage": "players[7]['dmg']['self']",
+        "team_weapon_damage": "players[7]['dmg']['team-weapons']",
+        "enemy_weapon_damage": "players[7]['dmg']['enemy-weapons']",
+        "taken_to_die": "players[7]['dmg']['taken-to-die']",
+        "xfer_rl": "players[7]['xferRL']",
+        "xfer_lg": "players[7]['xferLG']",
+        "avg_speed": "players[7]['speed']['avg']",
+        "max_speed": "players[7]['speed']['max']",
+        "health_pickups": [
+          "players[7]['items']['health_15']['took']",
+          "players[7]['items']['health_25']['took']",
+          "players[7]['items']['health_100']['took']"
+        ],
+        "quad_pickups": "players[7]['items']['q']['took']",
+        "pent_pickups": "players[7]['items']['p']['took']",
+        "ring_pickups": "players[7]['items']['r']['took']",
+        "rl_pickups": "players[7]['weapons']['rl']['pickups']['taken']",
+        "rl_drops": "players[7]['weapons']['rl']['pickups']['dropped']",
+        "enemy_rl_kills": "players[7]['weapons']['rl']['kills']['enemy']"
+      }
+    }
+  ],
+  "teams": [
+    {
+      "name": "The Rangers",
+      "player_count": 4,
+      "score": 62,
+      "player_ids": [
+        "05:the_rangers:ranger-1",
+        "06:the_rangers:ranger-2",
+        "07:the_rangers:ranger-3",
+        "08:the_rangers:ranger-4"
+      ],
+      "totals": {
+        "frags": 62,
+        "deaths": 46,
+        "kills": 62,
+        "team_kills": 0,
+        "damage_done": 8200,
+        "damage_taken": 5520,
+        "enemy_weapon_damage": 7800,
+        "team_weapon_damage": 0,
+        "health_pickups": 0,
+        "quad_pickups": 1,
+        "pent_pickups": 0,
+        "ring_pickups": 0,
+        "rl_pickups": 8,
+        "rl_drops": 0,
+        "enemy_rl_kills": 16,
+        "efficiency": 0.5741
+      },
+      "score_source": "sum(players[].stats.frags) because KTX JSON has no team score block"
+    },
+    {
+      "name": "The Vipers",
+      "player_count": 4,
+      "score": 70,
+      "player_ids": [
+        "01:the_vipers:viper-1",
+        "02:the_vipers:viper-2",
+        "03:the_vipers:viper-3",
+        "04:the_vipers:viper-4"
+      ],
+      "totals": {
+        "frags": 70,
+        "deaths": 42,
+        "kills": 70,
+        "team_kills": 0,
+        "damage_done": 9000,
+        "damage_taken": 5040,
+        "enemy_weapon_damage": 8600,
+        "team_weapon_damage": 0,
+        "health_pickups": 0,
+        "quad_pickups": 1,
+        "pent_pickups": 0,
+        "ring_pickups": 0,
+        "rl_pickups": 8,
+        "rl_drops": 0,
+        "enemy_rl_kills": 16,
+        "efficiency": 0.625
+      },
+      "score_source": "sum(players[].stats.frags) because KTX JSON has no team score block"
+    }
+  ],
+  "warnings": []
+}

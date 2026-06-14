@@ -37,6 +37,7 @@ import {
 // LD-F3 (#105): control side panels
 import { ControlClient } from "./controlClient.ts";
 import { ControlDrawer, CvarConsolePanel } from "./ControlDrawer.tsx";
+import { CastingScoreboard } from "./CastingScoreboard.tsx";
 
 // Re-export openDemo type for LD-E4 (#104) to import.
 export type { OpenDemoParams } from "./DemoPane.tsx";
@@ -129,6 +130,11 @@ function Pane({ id, header, children }: {
 }
 
 export function App() {
+  const castingMode = getParam("casting") === "1";
+  if (castingMode) {
+    return <CastingScoreboard />;
+  }
+
   const wsUrl = useMemo(() => getParam("ws") ?? DEFAULT_TELEMETRY_WS, []);
   const qtvRelay = useMemo(() => getParam("relay") ?? DEFAULT_QTV_RELAY, []);
   const fallbackPort = useMemo(() => {

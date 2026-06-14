@@ -133,6 +133,44 @@ Distinguish these outcomes:
 Do not collapse these into a generic "records unavailable" note when the user
 story depends on reviewing recorded attempts.
 
+### 4v4 validation and casting views
+
+For the fixed-roster 4v4 validation panel, validate both the normal dashboard
+layout and a narrow viewport:
+
+```text
+/botlab/?fixture=4v4&views=game
+```
+
+Record:
+
+- The panel loads `4v4-validation.example.json` or the deployed
+  `/demos/records/4v4-validation.json` feed.
+- Eight bot rows render, four per team.
+- The Komodobot row is visually identified.
+- Delta values fit in the metric cells without horizontal overflow.
+- Missing records remain a feed-status problem and do not crash the dashboard.
+
+For the read-only casting scoreboard, validate the standalone casting URL:
+
+```text
+/botlab/?casting=1&fixture=casting
+```
+
+Record:
+
+- Two teams and eight player rows render from the KTX match stats document.
+- BotLab controls are absent.
+- The final/provisional badge matches the source document.
+- No player-row text overflows at an OBS-style 16:9 viewport.
+
+Current evidence from the 2026-06-14 implementation run is stored at:
+
+- `lab/evidence/ld-h3-4v4-validation-desktop.png`
+- `lab/evidence/ld-h3-4v4-validation-narrow.png`
+- `lab/evidence/ld-h3-casting-scoreboard-1280x720.png`
+- `lab/evidence/ld-h3-4v4-validation-proof-2026-06-14.md`
+
 ## Repeatable automation path
 
 When a manual browser case is repeated often or protects important behavior,

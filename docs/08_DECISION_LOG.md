@@ -3072,3 +3072,48 @@ learned MOVE/AIM-of-elites is abandoned and FantasyQuake-first is reconsidered),
 proves unreachable under a believable approach AND that blocks a credible stand-in, or if learned
 team coordination becomes the primary near-term objective (which needs synchronized multi-POV capture
 that does not exist today).
+---
+
+## 2026-06-14 -- Shared KTX stats contract for 4v4 validation and casting
+
+### Decision
+
+Use one KTX post-game normalizer for both BotLab 4v4 validation and real-game
+casting/commentary. BotLab-specific fixed-roster validation is layered on top
+of the normalized KTX stats with an explicit roster intent file; casting uses
+the same match document read-only. Live observer data stays provisional and
+field-limited until KTX proves richer fields are authoritative mid-game.
+
+### Why
+
+The user-facing request needs two adjacent workflows: repeatable all-bot 4v4
+validation for the Komodobot slot, and a commentator-friendly dashboard that
+also works with real KTX games. A shared post-game contract prevents the two
+surfaces from drifting on KTX semantics, while the separate roster layer keeps
+BotLab assumptions out of public match ingest.
+
+### Consequences
+
+`lab/server/ktx_match_stats.py` is the source for KTX match-stat semantics.
+`fourvfour_validation_build.py` owns fixed-roster validation and deltas.
+`ktx_casting_ingest.py` is read-only and does not expose control actions.
+`ktx_live_observer.py` reports only safe live scoreboard fields; damage, item
+pickup, efficiency, and taken-to-die values remain post-game-only in the UI
+unless a future KTX event stream makes them trustworthy live.
+
+### Evidence
+
+- Focused Python tests cover the normalizer, validation builder, runner,
+  read-only casting ingest, live observer, and dashboard fixture contracts.
+- `npm run build` passes for the dashboard after adding the validation KPI dock
+  panel and `?casting=1` scoreboard view.
+- Browser validation is recorded in
+  `lab/evidence/ld-h3-4v4-validation-proof-2026-06-14.md` with screenshots for
+  the fixed-roster panel and casting scoreboard.
+
+### Revisit Conditions
+
+Revisit if KTX exposes an authenticated live event stream with authoritative
+damage/item counters, if real casting needs write/control actions in a separate
+operator surface, or if BotLab validation expands beyond the fixed DM3
+one-Komodobot/seven-Frogbot roster.

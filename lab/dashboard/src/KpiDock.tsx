@@ -23,6 +23,7 @@ import { LiveMetricsPanel } from "./LiveMetricsPanel.tsx";
 import type { TelemetryClient } from "./telemetryClient.ts";
 import { RecordsPanel } from "./RecordsPanel.tsx";
 import type { ControlClient } from "./controlClient.ts";
+import { FourVFourValidationPanel } from "./FourVFourValidationPanel.tsx";
 
 // ---- Props ------------------------------------------------------------------
 
@@ -184,6 +185,11 @@ export function KpiDock({
         {/* LD-E4 (#104): live records section — replaces the placeholder SectionSlot. */}
         <div className="px-3 py-2 border-t border-slate-800">
           <RecordsPanel context={context} refreshKey={refreshKey} />
+        </div>
+
+        {/* LD-H3.4 (#180): fixed-roster 4v4 validation history. */}
+        <div className="px-3 py-2 border-t border-slate-800">
+          <FourVFourValidationPanel refreshKey={refreshKey} />
         </div>
       </div>
     </aside>
