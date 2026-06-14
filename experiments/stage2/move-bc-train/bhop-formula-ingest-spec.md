@@ -228,3 +228,98 @@ route, not the state-general roles.
 - [ ] Delivered as Format A, B, C, or D (§2).
 - [ ] Domain stated (§3): speed range, map(s), route-specific vs state-general, OOD fallback.
 - [ ] If phase-gated: phase defined as a function of per-tick state (§1.3).
+
+---
+
+# Appendix A — Background & discussion (for reviewers / Codex)
+
+This appendix records the full reasoning behind the spec so it can be read and critiqued
+standalone, without the originating chat. It answers three questions that were raised:
+(1) can the program work with the data we actually have? (2) is the MVD/QWD premise right?
+(3) can the human-cracked bhop be brought into ML, and in what form?
+
+## A.1 The data sources, precisely
+
+- **POV `.qwd`** = a single player's client demo. It is the **only** source of **input
+  commands** (`forwardmove`, `sidemove`, `upmove`, buttons) and the **exact post-mouse
+  view-angle**, written by the client via `CL_WriteDemoCmd`. It also records the *other*
+  players' positions the client received (PVS-culled, at packet rate). It is one player's
+  stream.
+- **MVD** = the server's multi-view demo. It records **all players' positions, items,
+  damage, economy** at server-frame rate, but **no input commands and no true mouse
+  angle**. It is the god's-eye outcome record, not the controls.
+
+**Consequence (confirmed):** bhop speed/velocity is *produced by* inputs through the
+physics. MVD sees only the output (where you ended up), never the inputs (how you moved).
+So a bhop speed/velocity rule can be **solved only from QWDs**. Benjamin's formula, derived
+from QWD-grounded bot tests on ztricks + dm3, is the correct and only kind of artifact that
+can carry this knowledge. (Caveman: MVD = footprints in mud; QWD = watching your own hands.
+A leg-trick can only be learned by watching hands.)
+
+## A.2 Can the program work with the data we have now (massive MVDs + many QWDs, NOT from the same games)?
+
+**Yes — this is the designed-for case, not a compromise.** The 3-tier architecture
+(docs/12) exists precisely because the corpora are abundant-but-unmatched:
+
+| Tier | Learns from | Needs same-game POV+MVD pairs? |
+|---|---|---|
+| MOVE (bhop/strafe micro) | POV `.qwd` input commands — each demo self-contained | No (Stage-2 GO) |
+| AIM-tracking (angle dynamics) | POV `.qwd` view-angle stream | No |
+| AIM target-selection/lead | opponent you shoot is in your own PVS → same `.qwd` | No for fire-frames; MVD only a fidelity upgrade |
+| DECIDE-economy (macro) | MVD all-player positions/items/economy — each self-contained | No (the massive MVDs ARE the corpus) |
+| Gates / anchor | MVD (economy/DDR/positioning) + POV texture | No |
+
+The tiers are joined by an **actuator-agnostic contract** (DECIDE emits
+`target_point + intent`; MOVE/AIM execute it) — i.e. **joined by interface, not by needing
+the same game in two recordings.** So unmatched corpora compose.
+
+**What unmatched data genuinely cannot give** (and is already out-of-scope): *synchronized
+four-player intent* — no QW recording pairs all four players' input commands with the full
+board, so **team coordination stays heuristic (blackboard), not learned.** Also a
+**cross-population offset** to watch: the classic-era POV MOVE corpus (akke/ParadokS…) and
+the modern-era MVD gate anchor (Milton/reppie/…) are different players/eras. Neither blocks
+the **individual** stand-in. Matched POV+MVD pairs would only buy higher-fidelity AIM lead —
+nice-to-have, not a gate.
+
+## A.3 Can the cracked bhop be merged into ML, and how?
+
+**Yes.** Distinguish what is cracked: the **QWD segmentation/interpolation *method*** and the
+**synchronization *principle*** (preserve human mouse/jump/side timing, add phase-gated
+strength) are proven *as method*. The mode-25 *live actuation* is still being tuned — on
+`getandmaintainspeed.qwd` the best profile "still does not beat the human's sustained >900
+time" (docs/02). So the *understanding + measurement method* is cracked; the hand-tuned live
+max-speed execution is not yet at the human ceiling. **This is exactly why ML helps: BC is a
+second path to *execute* the principle, and Stage-2 already beats the hand-mover closed-loop.**
+
+The formula merges at the seam this document specifies. Three concrete merge points:
+
+1. **The segmentation/interpolation method is already the MOVE-BC backbone.**
+   `build_move_bc_pool.py` uses pmove_sim replay + 1 s-segmented divergence + clean-mask
+   (the 2.88M→5.85M clean-yield improvement IS that method on 4on4 data). Already merged.
+2. **The ztricks trick-drill demos are the MOVE pretraining *prior* / teacher / ceiling**
+   (docs/12 data construction): cleanest bhop demonstrations, pretrain before fine-tuning on
+   noisier 4on4 match QWDs.
+3. **The synchronization principle becomes structure**: phase as a policy feature, the
+   analytic air-law prior (`fit_air_law.py`), and the Stage-1 hand-mover baseline the learned
+   MOVE must beat. The **formula** delivered per this spec is the upgraded form of #3 — a
+   better `airlaw_action` usable as prior / teacher / residual base / feature / synthetic-label
+   generator (§4).
+
+**The tension to manage (it is the heart of "max skill first"):** the ztricks demos are
+*optimal-trick* execution; the 4on4 QWDs are *practical Div-1* execution. A believable Milton
+clone bhops like *Milton*, not like the theoretical optimum every jump. So: ztricks/formula =
+the ceiling/teacher; per-player QWD fine-tune = the believable signature; the believability
+gate keeps it recognisably the cloned player; the skill-down knob sets where on that spectrum
+it sits. "Max out first" = lean the prior toward the ceiling, with the believability gate
+stopping it from reading as a trick-bot.
+
+## A.4 Open questions worth Codex's eyes
+
+- Is the **sign+jump action vocabulary (±320)** sufficient to express the formula's power, or
+  does the cracked rule require analog magnitude / sub-tick mouse rate (→ action-space change)?
+- Is **`dlook = wrap180(yaw − vhead)`** the right and complete state coordinate for the rule,
+  or does it need more (e.g. `vz`, a phase term, recent-history)?
+- For a **phase-gated** rule, what per-tick-derivable phase definition best matches the
+  human timing without a script clock?
+- Where the formula lifts the **speed ceiling** but not **route retention** (or vice-versa),
+  how should the two be weighted in the MOVE gate?
