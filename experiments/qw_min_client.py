@@ -23,6 +23,33 @@ CL_STRINGCMD = 4
 SVC_STUFFTEXT = 9
 SVC_SERVERDATA = 11
 S2C_CONNECTION = ord("j")
+USERINFO_VALUE_RE = re.compile(r"^[ -~]{1,32}$")
+
+
+def userinfo_value(value: str, label: str) -> str:
+    if not isinstance(value, str) or not USERINFO_VALUE_RE.match(value):
+        raise ValueError(f"invalid {label}")
+    if "\\" in value or '"' in value:
+        raise ValueError(f"invalid {label}")
+    return value
+
+
+def build_userinfo(name: str, *, team: str | None = None, spectator: bool = False) -> str:
+    pairs = [
+        ("name", userinfo_value(name, "name")),
+        ("rate", "25000"),
+        ("topcolor", "0"),
+        ("bottomcolor", "0"),
+        ("pmodel", "0"),
+        ("emodel", "0"),
+        ("Qizmo", "1"),
+        ("*z_ext", "0"),
+    ]
+    if team:
+        pairs.append(("team", userinfo_value(team, "team")))
+    if spectator:
+        pairs.append(("spectator", "1"))
+    return "".join(f"\\{key}\\{value}" for key, value in pairs)
 
 
 def signon_botcmds(bot_count: int, botcmds: list[str]) -> list[str]:
@@ -44,6 +71,25 @@ def signon_commands(bot_count: int, botcmds: list[str], commands: list[str]) -> 
     return [*signon_botcmds(bot_count, botcmds), *commands]
 
 
+def safe_server_commands_from_stufftext(text: str) -> list[str]:
+    """Return the tiny allowlisted subset of stuffed client commands we execute.
+
+    KTX stuffs `cmd ack infoset`/`cmd ack noinfoset` after sign-on and expects
+    the client to send the `ack ...` server command back. Without this, a
+    spectator shim can remain in a connecting-ish state and be dropped by the
+    server login timeout during long bot-only recordings.
+    """
+    commands: list[str] = []
+    for part in re.split(r"[;\n]+", text):
+        part = part.strip()
+        if not part.startswith("cmd "):
+            continue
+        server_command = part[4:].strip()
+        if server_command in ("ack infoset", "ack noinfoset"):
+            commands.append(server_command)
+    return commands
+
+
 class QWMinClient:
     def __init__(
         self,
@@ -54,6 +100,8 @@ class QWMinClient:
         bot_count: int,
         bot_spacing: float,
         name: str,
+        team: str | None,
+        spectator: bool,
         verbose: bool,
         botcmds: list[str] | None = None,
         commands: list[str] | None = None,
@@ -64,6 +112,8 @@ class QWMinClient:
         self.bot_count = bot_count
         self.bot_spacing = bot_spacing
         self.name = name
+        self.team = team
+        self.spectator = spectator
         self.verbose = verbose
         self.botcmds = list(botcmds or [])
         self.commands = list(commands or [])
@@ -78,6 +128,7 @@ class QWMinClient:
         self.last_server_seq = 0
         self.server_rel = 0
         self.spawncount: int | None = None
+        self.sent_stuff_acks: set[str] = set()
 
     def log(self, message: str) -> None:
         if self.verbose:
@@ -142,6 +193,10 @@ class QWMinClient:
             elif byte == SVC_STUFFTEXT:
                 text, next_i = self.read_cstr(payload, i + 1)
                 self.log(f"svc_stufftext {text!r}")
+                for command in safe_server_commands_from_stufftext(text):
+                    if command not in self.sent_stuff_acks:
+                        self.send_reliable([command])
+                        self.sent_stuff_acks.add(command)
                 i = next_i
             else:
                 i += 1
@@ -183,16 +238,7 @@ class QWMinClient:
 
         challenge = int(match.group(0))
         self.log(f"challenge={challenge}")
-        userinfo = (
-            rf"\name\{self.name}"
-            r"\rate\25000"
-            r"\topcolor\0"
-            r"\bottomcolor\0"
-            r"\pmodel\0"
-            r"\emodel\0"
-            r"\Qizmo\1"
-            r"\*z_ext\0"
-        )
+        userinfo = build_userinfo(self.name, team=self.team, spectator=self.spectator)
         self.send_oob(f'connect 28 {self.qport} {challenge} "{userinfo}"')
         connection_packet = self.recv_until(
             lambda data: data.startswith(b"\xff\xff\xff\xff")
@@ -257,6 +303,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bot-count", type=int, default=2, help="Number of botcmd addbot commands to send. Defaults to 2.")
     parser.add_argument("--bot-spacing", type=float, default=8.0, help="Seconds between addbot commands. Defaults to 8.")
     parser.add_argument("--name", default="KomodoPy", help="Client name. Defaults to KomodoPy.")
+    parser.add_argument("--team", help="Optional team userinfo value, needed for KTX team-mode player connects.")
+    parser.add_argument("--spectator", action="store_true", help="Connect as a spectator so control does not occupy a player slot.")
     parser.add_argument("--quiet", action="store_true", help="Only print the final completion line.")
     parser.add_argument(
         "--botcmd",
@@ -283,6 +331,8 @@ def main() -> None:
         bot_count=args.bot_count,
         bot_spacing=args.bot_spacing,
         name=args.name,
+        team=args.team,
+        spectator=args.spectator,
         verbose=not args.quiet,
         botcmds=args.botcmd,
         commands=args.cmd,

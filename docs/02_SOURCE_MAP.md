@@ -160,11 +160,49 @@ KTX movement probe patch: `C:\Users\benya\projects\quakeworld\komodobots\experim
 
 A5 live-port overlay/spec: `C:\Users\benya\projects\quakeworld\komodobots\experiments\a5_distance_standstill\a5-live-port-spec.md` and `C:\Users\benya\projects\quakeworld\komodobots\experiments\a5_distance_standstill\a5-live-port-servexeri-overlay.md`
 
+4v4 validation and KTX stats helpers:
+
+- `lab/server/ktx_match_stats.py` normalizes KTX post-game JSON stats into
+  `komodobots.ktx_match_stats.v1` for both BotLab validation and casting.
+- `lab/server/fourvfour_validation_build.py` builds the fixed-roster 4v4
+  validation ledger (`komodobots.4v4_validation.v1`) from KTX stats plus
+  `4v4-roster.json` intent files.
+- `lab/server/fourvfour_validation_runner.py` writes the dry-run-safe control
+  plan and roster intent for the all-bot DM3 4v4 validation setup.
+- `scripts/run_4v4_validation_lab.py` runs the lab-only live KTX 4v4 validation
+  loop on allowlisted ports: generated KTX config, spectator shim, eight
+  Frogbots, MVD capture, analyzer output, and ledger rebuild.
+- `lab/server/ktx_casting_ingest.py` is the read-only KTX casting ingest path;
+  it reuses the same normalizer and does not import or call the control bridge.
+- `lab/server/ktx_live_observer.py` holds the conservative provisional live
+  scoreboard model for KTX event/JSON snapshots.
+- `lab/dashboard/src/FourVFourValidationPanel.tsx` renders the BotLab KPI
+  dock validation panel; `lab/dashboard/src/CastingScoreboard.tsx` renders the
+  control-free `?casting=1` OBS/commentary view.
+- Fixtures live at `lab/dashboard/public/data/4v4-validation.example.json` and
+  `lab/dashboard/public/data/casting-match.example.json`; browser evidence is
+  recorded under `lab/evidence/ld-h3-*`.
+
+Why they matter:
+
+- They give the lab a repeatable eight-player, fixed-roster validation record
+  for comparing the Komodobot slot against unchanged skill-20 Frogbots.
+- They keep public/casting consumption on the same KTX stats semantics without
+  exposing game-control actions.
+- They encode the distinction between authoritative post-game stats and
+  provisional live observer fields.
+- Live analyzer output can embed KTX stats under `demoInfo` while putting
+  `deathmatch`, `teamplay`, and `timelimit` in analyzer metadata; the shared
+  normalizer accepts both that shape and raw KTX `tl`/`dm`/`tp` sidecars.
+
 Why it matters:
 
 - `scripts/run_bot_lab.py` is the preferred one-command lab runner entry point.
 - The runner SSHes to `servexeri`, creates a named MVDSV/KTX screen session, loads a selected map, runs the client shim, copies the generated MVD to `artifacts/lab-runs/<run-id>/`, parses it through WSL `qw-analyze-v20`, writes `run-summary.md` plus `movement-metrics.md`, and stops only its owned screen session.
 - `experiments/qw_min_client.py` is the protocol-narrow connected-client control path for KTX commands such as `botcmd addbot`.
+  For spectator control shims it sends incoming userinfo as `spectator=1`
+  and only acknowledges safe KTX `stufftext` handshakes (`cmd ack infoset` /
+  `cmd ack noinfoset`) back to the server.
 - `scripts/extract_movement_metrics.py` derives per-player horizontal speed, distance, speed-threshold time ratios, stationary time, airborne proxy, and jump cadence from `events.txt` kind `5` player origin samples. S7b added an indexed landing-window speed lookup so long 4on4 human traces can produce movement metrics in seconds instead of timing out in repeated full-list scans.
 - `scripts/summarize_moveprobe_plausibility.py` combines per-run `movement-metrics.json` and `moveprobe-commands.json` artifacts into an explicit command-coverage plus stationary/low-speed gate. S7c carries `jump_cadence_per_min` from movement metrics into committed S3g bot summaries.
 - `scripts/run_ztricks_batch.py` keeps one temporary `ztricks` lab server and one MVD recording alive while cycling remove/add/single-bot route attempts through a cvar sweep. It now takes a ztricks route profile (`distance_standstill` or `spawn_left_speedjump`) from the route manifest, so Distance uses the A5 target/lip/release metadata while the safe-floor route uses the real spawn, zero velocity, diagonal lip/target, and rotated Nexus reference curve.

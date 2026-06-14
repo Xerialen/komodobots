@@ -211,6 +211,76 @@ If a failed run exposes stale rows, phantom bots, retry loops, or misleading
 "unavailable" messages, link the run to a bug and keep the test case active until
 the next run proves convergence.
 
+## TC-4V4-001: Fixed-roster validation ledger renders current and previous-game deltas
+
+Preconditions:
+
+- At least two valid KTX DM3 4v4 all-bot stats files exist with matching
+  `4v4-roster.json` intent files.
+- The roster has one Komodobot slot and seven skill-20 Frogbot slots.
+
+Expected result:
+
+- `fourvfour_validation_build.py` emits `komodobots.4v4_validation.v1`.
+- Invalid or non-fixed-roster games are excluded from `games` and recorded in
+  `invalid_games`.
+- The dashboard KPI dock shows four rows per team, highlights the Komodobot,
+  and shows per-metric delta values against the previous valid game.
+
+## TC-CASTING-001: Read-only KTX casting scoreboard renders without BotLab controls
+
+Preconditions:
+
+- A KTX match stats JSON file is available from a real or fixture match.
+
+Expected result:
+
+- `ktx_casting_ingest.py` emits `komodobots.ktx_match_stats.v1` with
+  `source.casting_read_only=true`.
+- `/botlab/?casting=1` renders a scoreboard with two teams and eight player
+  rows from the KTX data.
+- BotLab control panels, lock controls, and experiment launchers are absent.
+
+## Test Run Evidence
+
+Test run: TR-2026-06-14-4V4-KTX-STATS
+PR: pending
+Commit: pending
+Date: 2026-06-14
+Environment: local worktree `4on4-live-stats`, Windows PowerShell, local
+dashboard via Vite, Chrome debug, `servexeri` lab KTX on port `28599`.
+
+### Results
+
+- [x] `TC-4V4-001` passed on committed fixture data.
+- [x] `TC-4V4-001` passed on two live KTX DM3 4v4 lab games:
+  `codex_live_4v4_base_20260614T1935Z` and
+  `codex_live_4v4_dev_20260614T1945Z`.
+- [x] `TC-CASTING-001` passed on committed fixture data.
+- [x] The live ledger rebuilt with two valid games and a Komodobot-slot previous
+  valid game delta (`13 -> 12`, delta `-1` frags).
+
+### Evidence
+
+- `python tests\test_ktx_match_stats.py`
+- `python tests\test_fourvfour_validation_build.py`
+- `python tests\test_fourvfour_validation_runner.py`
+- `python tests\test_control_bridge.py`
+- `python tests\test_run_4v4_validation_lab.py`
+- `python tests\test_fourvfour_validation_panel.py`
+- `python tests\test_ktx_casting_ingest.py`
+- `python tests\test_ktx_live_observer.py`
+- `python tests\test_casting_scoreboard.py`
+- `python scripts\run_4v4_validation_lab.py --run-id codex_live_4v4_base_20260614T1935Z --port 28599 --strict-port --controller-version stock-frogbot-20-baseline`
+- `python scripts\run_4v4_validation_lab.py --run-id codex_live_4v4_dev_20260614T1945Z --port 28599 --strict-port --controller-version komodobot-dev-live-label`
+- `python lab\server\fourvfour_validation_build.py --runs-dir artifacts\4v4-validation-runs --out artifacts\records\4v4-validation.json --summary`
+- `npm run build` in `lab/dashboard`
+- Browser evidence:
+  `lab/evidence/ld-h3-4v4-validation-proof-2026-06-14.md`,
+  `lab/evidence/ld-h3-4v4-validation-desktop.png`,
+  `lab/evidence/ld-h3-4v4-validation-narrow.png`, and
+  `lab/evidence/ld-h3-casting-scoreboard-1280x720.png`.
+
 ## KomodoLab starting cases
 
 Seed these as issues or doc-backed cases as the dashboard work continues:

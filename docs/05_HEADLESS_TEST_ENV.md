@@ -329,6 +329,46 @@ Verified repeatability runs:
 
 In verified runs, `quakestat -qws localhost:28599 -P -nh` reported `DOWN` after cleanup.
 
+## Live 4v4 Validation Lab
+
+`scripts/run_4v4_validation_lab.py` is the dedicated live runner for the fixed
+DM3 4v4 validation ledger. It uses the same lab-port guard as the dashboard
+control bridge: allowed lab ports are `28599-28609`, while production game
+ports `28501-28503` are refused. It also refuses a fresh
+`~/komodobots-lab/lab.lock` so it does not take over a dashboard-owned session.
+
+The runner starts a separate screen session named
+`komodobots_lab_4v4_<port>_<run-id>`, not the dashboard session name. It uses
+`~/nquakesv/mvdsv-lab`, uploads `experiments/qw_min_client.py`, generates
+`4v4-roster.json` and `4v4-plan.json`, records an MVD, runs the WSL analyzer,
+and rebuilds `artifacts/records/4v4-validation.json` from the local artifacts.
+
+Important KTX settings for bot-only 4v4:
+
+- `k_allowed_free_modes 4095` is required before switching to `4on4`; otherwise
+  KTX rejects the mode from the generated config.
+- `maxclients 9` and `k_maxclients 8` are both intentional. The connected
+  spectator shim is the ninth network client, while the KTX match should still
+  have exactly eight bot players.
+- The spectator shim must send incoming userinfo `spectator=1`. Sending only
+  `*spectator=1` makes MVDSV treat it as a player in the status/player shape.
+- `k_lockmap 1` is required for full bot-only matches. Without it, KTX's
+  default-map check can reload the map around the one-minute mark when
+  `player_count == bot_count`.
+- `sv_login 0` is used with `mvdsv-lab`, and the shim acknowledges only safe
+  KTX `stufftext` handshakes (`cmd ack infoset` / `cmd ack noinfoset`).
+
+Verified 2026-06-14 live 4v4 runs:
+
+| Run ID | Port | Local demo size | Parser exits | Ledger result |
+|---|---:|---:|---|---|
+| `codex_live_4v4_base_20260614T1935Z` | `28599` | `2653010` bytes | `json=0`, `md=0`, `events=1` | Valid; red 69, blue 66; first baseline. |
+| `codex_live_4v4_dev_20260614T1945Z` | `28599` | `2527672` bytes | `json=0`, `md=0`, `events=1` | Valid; red 50, blue 42; Komodobot-slot frags `12`, delta `-1`. |
+
+These runs used stock Frogbot behavior for all eight players; the second run
+only changes the roster's controller-version label so the delta path can be
+tested before a real Komodobot movement/controller change exists.
+
 ## Spectating the Lab (QTV)
 
 Status: `scripts/run_lab_qtv.py` added 2026-06-07 and **verified live on

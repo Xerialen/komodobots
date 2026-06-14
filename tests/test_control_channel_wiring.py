@@ -256,6 +256,33 @@ class TestShimBotcmds(unittest.TestCase):
             ["botcmd removeall", "ffa", "ready"],
         )
 
+    def test_build_userinfo_can_request_spectator_and_team(self):
+        userinfo = qmc.build_userinfo("KomodoPy", team="red", spectator=True)
+
+        self.assertIn(r"\name\KomodoPy", userinfo)
+        self.assertIn(r"\team\red", userinfo)
+        self.assertIn(r"\spectator\1", userinfo)
+        self.assertNotIn(r"\*spectator\1", userinfo)
+
+    def test_build_userinfo_rejects_connect_string_delimiters(self):
+        for bad in ("bad\\team", 'bad"name'):
+            with self.assertRaises(ValueError, msg=bad):
+                qmc.build_userinfo(bad)
+
+    def test_stufftext_handler_only_allows_ktx_infoset_acks(self):
+        self.assertEqual(
+            qmc.safe_server_commands_from_stufftext("wait;wait;cmd ack infoset\n"),
+            ["ack infoset"],
+        )
+        self.assertEqual(
+            qmc.safe_server_commands_from_stufftext("cmd ack noinfoset\n"),
+            ["ack noinfoset"],
+        )
+        self.assertEqual(
+            qmc.safe_server_commands_from_stufftext("cmd quit\ncmd rcon password\nplay misc.wav\n"),
+            [],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
