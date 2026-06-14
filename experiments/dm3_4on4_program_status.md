@@ -106,6 +106,16 @@ Recommendation: (2) the POV↔MVD opponent sync is the real next build (unblocks
 closed-loop validation *and* Stage-3 AIM) — but it is a new data pipeline, so it is the next
 decision to greenlight. (3) can land in parallel cheaply.
 
+## Training-data provenance (maintained)
+
+- **Canonical list of every demo the MOVE policy trained on:**
+  `experiments/stage2/move-bc-train/TRAINED_DEMOS.md` (+ per-demo `trained-demos.tsv`).
+  462 demos (393 train / 69 val), 5.85M clean frames, 251 distinct players, tiers A/B/C,
+  each row carrying player, split, frames, and the source `.qwd` sha256. Generated from
+  the training input itself (`~/move_bc_dataset.npz`) — ground truth, not the pool.
+  **Regenerate after every training run:** `python experiments/stage2/move-bc-train/
+  build_trained_demos_manifest.py` (ties the list to the dataset + checkpoint sha256).
+
 ## Reproduce / verify quickly
 
 - Anchor: `python scripts/extract_dm3_4on4_anchors.py` (consumes v32 analysis.json + manifest).

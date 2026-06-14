@@ -1,0 +1,277 @@
+# Trained demos — MOVE-BC policy (maintained provenance record)
+
+Canonical list of every demo the MOVE behavioural-cloning policy was trained on. Generated from the training input itself (`~/move_bc_dataset.npz`) by `build_trained_demos_manifest.py`. Full per-demo rows: [`trained-demos.tsv`](trained-demos.tsv).
+
+**REGENERATE after every training run** that changes the dataset or the checkpoint:
+```
+python experiments/stage2/move-bc-train/build_trained_demos_manifest.py
+```
+
+## Run identity
+
+- dataset: `move_bc_dataset.npz`  sha256 `f32cac754d8f1d55c40d1e9840d25996c22b4c379e3ab2fa871ccb0654a9d307`
+- checkpoint: `move_bc_policy.pt`  sha256 `d5bbfb9b200afa4482dae8598be3d1c94c65400f34c1873f41bb7c1f36d5c31d`
+- split: by demo, seed=0, val_frac=0.15 (verbatim train.py `split_by_demo`)
+
+## Totals
+
+- **demos trained on: 462**  (393 train / 69 val)
+- clean frames: 5,847,254  (5,052,362 train / 794,892 val)
+- tiers: A=169, B=199, C=94
+- distinct players: 251
+
+## Per-player demo count
+
+| player | demos | clean frames |
+|---|---|---|
+| spice | 8 | 190,683 |
+| fs | 6 | 155,115 |
+| para | 5 | 144,234 |
+| reverend | 3 | 105,898 |
+| sfinal | 2 | 103,136 |
+| laker | 3 | 98,754 |
+| crit | 10 | 87,477 |
+| darkone | 6 | 85,110 |
+| effie | 2 | 84,855 |
+| angels | 4 | 81,600 |
+| sassa | 1 | 80,973 |
+| e | 5 | 80,878 |
+| exile | 9 | 78,053 |
+| mrgib | 3 | 75,278 |
+| hixen | 1 | 75,240 |
+| hashie | 4 | 74,834 |
+| vana | 7 | 74,412 |
+| janus | 7 | 71,094 |
+| 4on4 | 3 | 69,612 |
+| goldens | 1 | 67,880 |
+| blind | 5 | 65,873 |
+| clawfinger | 1 | 65,228 |
+| akke | 8 | 62,991 |
+| paradoks | 4 | 62,835 |
+| pietro | 5 | 56,342 |
+| fc | 2 | 55,716 |
+| orion | 2 | 54,997 |
+| ag | 5 | 53,101 |
+| e3 | 4 | 52,346 |
+| jerry | 2 | 50,421 |
+| wang | 1 | 49,509 |
+| hpr | 2 | 49,450 |
+| blt | 1 | 48,502 |
+| daver | 2 | 47,963 |
+| nalle | 3 | 47,409 |
+| max | 2 | 46,067 |
+| fix | 1 | 44,881 |
+| hagge | 1 | 44,428 |
+| hew | 1 | 43,813 |
+| thechosenone | 2 | 42,593 |
+| okkun | 1 | 41,847 |
+| e1m2 | 1 | 40,997 |
+| nevamind | 5 | 40,723 |
+| zodiax | 1 | 39,932 |
+| doomer | 1 | 38,608 |
+| hangtime | 2 | 37,038 |
+| vert | 3 | 36,952 |
+| rat | 4 | 36,763 |
+| slabby | 3 | 35,876 |
+| arnie | 3 | 35,681 |
+| tvs | 1 | 35,656 |
+| blaze | 4 | 35,206 |
+| driz | 5 | 33,969 |
+| sandyman | 1 | 32,984 |
+| babyroo | 1 | 31,962 |
+| aircon | 3 | 31,414 |
+| snakes | 2 | 31,254 |
+| cmf | 4 | 30,392 |
+| fifi | 4 | 29,796 |
+| scenic | 3 | 29,092 |
+| brutal | 3 | 28,745 |
+| nikita | 1 | 28,637 |
+| xxx | 1 | 27,419 |
+| cara | 1 | 26,727 |
+| sd3 | 3 | 26,141 |
+| oddjob | 3 | 25,908 |
+| jac | 4 | 25,890 |
+| luny | 2 | 25,712 |
+| nih | 1 | 25,650 |
+| dag | 3 | 25,556 |
+| myth | 1 | 24,698 |
+| intense | 1 | 24,581 |
+| lice | 1 | 24,563 |
+| anm | 2 | 24,446 |
+| tot | 2 | 23,797 |
+| abc | 1 | 23,489 |
+| dg | 2 | 23,454 |
+| hiks | 1 | 23,439 |
+| reppie | 3 | 23,409 |
+| porto | 3 | 23,152 |
+| hatti | 2 | 22,841 |
+| harlsom | 4 | 22,581 |
+| uther | 2 | 22,336 |
+| povo | 3 | 22,325 |
+| impulse | 2 | 22,254 |
+| tyrone | 2 | 21,469 |
+| peksi | 2 | 21,155 |
+| tav | 2 | 20,825 |
+| swe | 1 | 20,522 |
+| mqb | 1 | 20,469 |
+| matsui | 1 | 19,775 |
+| tr0n | 2 | 19,572 |
+| dark | 2 | 19,428 |
+| juz | 2 | 19,362 |
+| cero | 2 | 19,050 |
+| na | 2 | 19,007 |
+| cougar | 1 | 18,725 |
+| glad | 2 | 18,702 |
+| ff | 2 | 18,572 |
+| psikaar | 1 | 18,442 |
+| f | 1 | 18,412 |
+| qil2 | 1 | 18,365 |
+| vovik | 1 | 18,320 |
+| dare | 2 | 18,260 |
+| telly | 1 | 18,040 |
+| miyagi | 1 | 18,008 |
+| psycho | 2 | 17,700 |
+| gobo | 2 | 17,481 |
+| beasil | 2 | 17,479 |
+| wart | 9 | 16,894 |
+| pace | 2 | 16,755 |
+| forsberg | 1 | 16,317 |
+| adder | 1 | 16,196 |
+| pricide | 1 | 16,081 |
+| sibbit | 2 | 16,077 |
+| 4ng3ls | 2 | 15,960 |
+| akbal | 2 | 15,868 |
+| ? | 1 | 15,677 |
+| goljat | 2 | 15,586 |
+| necro | 3 | 15,253 |
+| sk | 3 | 15,222 |
+| mamba | 1 | 15,170 |
+| fuman | 1 | 14,478 |
+| dude | 2 | 14,326 |
+| mirage | 2 | 14,278 |
+| aero | 2 | 14,200 |
+| gator | 1 | 14,081 |
+| sd2 | 1 | 13,959 |
+| rush | 1 | 13,864 |
+| ritual | 1 | 13,812 |
+| wxo | 1 | 13,812 |
+| xalibur | 1 | 13,734 |
+| mixat | 1 | 13,500 |
+| dakoth | 1 | 13,384 |
+| a | 1 | 13,084 |
+| baby | 1 | 12,935 |
+| von | 1 | 12,810 |
+| yell | 1 | 12,802 |
+| rc | 2 | 12,770 |
+| qand | 1 | 12,769 |
+| greyfuckenseea | 1 | 12,735 |
+| ht | 1 | 12,617 |
+| bm | 2 | 12,398 |
+| interceptor | 1 | 12,376 |
+| def | 2 | 12,166 |
+| eraser | 1 | 11,745 |
+| pd | 2 | 11,700 |
+| astro | 1 | 11,579 |
+| buggy | 1 | 11,173 |
+| jarrex | 2 | 11,028 |
+| st | 1 | 10,806 |
+| delta | 1 | 10,610 |
+| circle | 1 | 10,600 |
+| ana | 1 | 10,456 |
+| space | 1 | 10,175 |
+| fu | 1 | 10,069 |
+| for2 | 1 | 10,053 |
+| dana | 1 | 9,968 |
+| nepra | 1 | 9,943 |
+| round4 | 1 | 9,888 |
+| round1 | 1 | 9,812 |
+| carnage | 1 | 9,658 |
+| torx | 1 | 9,609 |
+| smackdowngame1 | 1 | 9,577 |
+| smackdown | 1 | 9,507 |
+| zommy | 1 | 9,486 |
+| dyn | 1 | 9,473 |
+| saqfacel0d | 1 | 9,365 |
+| uig | 1 | 9,356 |
+| rippie | 1 | 9,329 |
+| white | 1 | 9,258 |
+| z2 | 1 | 9,165 |
+| bulldozer | 1 | 9,112 |
+| band | 1 | 9,082 |
+| gds | 1 | 9,040 |
+| dn | 1 | 8,831 |
+| syco | 2 | 8,821 |
+| milamber | 2 | 8,771 |
+| ace | 1 | 8,716 |
+| lb | 2 | 8,701 |
+| round5 | 1 | 8,514 |
+| ronnie | 1 | 8,144 |
+| skitz | 1 | 8,051 |
+| dyb | 1 | 7,932 |
+| diehard | 2 | 7,795 |
+| zr | 1 | 7,793 |
+| amu | 1 | 7,788 |
+| roscoe | 1 | 7,706 |
+| rags | 1 | 7,186 |
+| ocla | 1 | 7,142 |
+| povohat | 1 | 7,126 |
+| 3x3 | 1 | 7,118 |
+| barre | 1 | 7,111 |
+| smid | 1 | 7,109 |
+| neva | 1 | 6,975 |
+| kwijibo | 1 | 6,961 |
+| ibh | 1 | 6,753 |
+| dedi | 1 | 6,469 |
+| i | 1 | 6,264 |
+| stez | 1 | 6,182 |
+| gq | 2 | 6,083 |
+| miser | 1 | 5,939 |
+| trick | 3 | 5,927 |
+| cg | 1 | 5,840 |
+| haze | 1 | 5,737 |
+| striker | 1 | 5,714 |
+| reign | 1 | 5,521 |
+| fff | 1 | 5,439 |
+| zip | 1 | 5,423 |
+| kang | 1 | 5,379 |
+| blasu | 1 | 5,363 |
+| ihminen | 1 | 5,081 |
+| murdock | 1 | 4,891 |
+| shad | 1 | 4,776 |
+| ziploc | 1 | 4,737 |
+| liech | 1 | 4,479 |
+| arcane | 1 | 4,318 |
+| pentandwater | 1 | 3,858 |
+| m8 | 1 | 3,713 |
+| rb | 1 | 3,627 |
+| czm | 1 | 3,484 |
+| melt | 1 | 3,240 |
+| cleansweep | 1 | 3,187 |
+| lhuk | 1 | 2,447 |
+| cop | 2 | 2,256 |
+| rst | 1 | 1,791 |
+| oc | 1 | 1,735 |
+| zoo | 1 | 1,539 |
+| necrophobia | 1 | 1,481 |
+| joi | 1 | 1,221 |
+| slayer | 1 | 1,048 |
+| ea | 1 | 839 |
+| trick1 | 2 | 833 |
+| raremix3 | 1 | 812 |
+| raremix | 1 | 794 |
+| tiggr | 1 | 681 |
+| trick5 | 1 | 408 |
+| trick2 | 1 | 394 |
+| peppe | 1 | 324 |
+| raremix2 | 1 | 249 |
+| trick4 | 1 | 228 |
+| acrossz | 1 | 218 |
+| across | 1 | 176 |
+| cool3 | 1 | 165 |
+| dm3pentnailclimb | 1 | 151 |
+| jss | 1 | 139 |
+| frag | 1 | 112 |
+| jogada | 1 | 103 |
+| pulorlz | 1 | 86 |
+| remix | 1 | 65 |
+| cool2 | 1 | 63 |
