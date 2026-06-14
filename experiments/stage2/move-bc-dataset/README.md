@@ -102,11 +102,38 @@ mostly-dirty demo are still recoverable.
    **pool for pretraining**, not enough for a single-elite clone — exactly the
    shape `docs/12` §5 and the census `infeasibility_floor` already call for.
 
+## Clean-segment yield improvement (2026-06-14)
+
+The fixed 77-frame window acceptance above **under-counts** clean frames: one
+contaminated frame fails the whole 1 s window. A **frame-level clean mask**
+(keep maximal runs of consecutive frames whose `pmove_sim` error <=4 qu, broken
+at teleport/respawn boundaries, runs >=24 frames) recovers the clean frames
+trapped inside otherwise-failed windows — **2.03x the trainable yield, same 4 qu
+tolerance, same validated sim, no quality loss**:
+
+| Acceptance | clean frames | clean % | hours @72 Hz |
+|---|---|---|---|
+| baseline (fixed-window vote) | 2,883,265 | 7.72% | 11.1 h |
+| **improved (frame-level mask)** | **5,847,254** | **15.66%** | **22.6 h** |
+
+Lost frames are dominated by **player-collision (78.6%)**, then free-run drift
+(14.1%), submodel/lift rides (7.2%), teleport (0.1%) — contamination is intrinsic
+to 4on4 play, not an interpolation artefact (Pearson(coverage, clean%)=0.32;
+a cov>=0.9 hard filter would discard 54% of the clean frames). **Recommended MOVE
+BC set = the improved frame-level clean mask, all coverage tiers, optionally
+weighted by a coverage quality tier (A>=0.9 / B 0.7-0.9 / C<0.7).** Full analysis:
+`clean-yield-improvement.md`; per-demo index: `clean-segment-index.json`;
+results: `clean-yield-results.json`; script: `analyze_clean_yield.py`.
+
 ## Artifacts
 
 | Path | Committed? | What |
 |---|---|---|
 | `manifest.json` | yes (508 KB) | summary + per-demo movement-quality & label-integrity stats, `is_dm3` flag, provenance (per-demo `source_sha256`) |
+| `clean-yield-improvement.md` | yes | clean-segment yield improvement report (2.03x, contamination breakdown, recommended set) |
+| `clean-yield-results.json` | yes (254 KB) | per-demo + aggregate baseline-vs-improved clean-frame counts and contamination classes |
+| `clean-segment-index.json` | yes (92 KB) | compact per-demo improved clean-frame yield + coverage quality tier (the clean-segment index; no per-frame masks — raw shards stay in WSL) |
+| `analyze_clean_yield.py` | yes | shard-based clean-yield analyzer (frame-level mask + boundary-aware runs + contamination classifier) |
 | `build_move_bc_pool.py` | yes | the build wrapper (frames → NDJSON shard → segmented pmove_sim label-integrity) |
 | `aggregate_manifest.py` | yes | rolls per-demo stats up to the pool headline + dm3 filter |
 | `selfpov_4on4_demolist.tsv` | yes | the 472 `player<TAB>filename` self-POV-4on4 rows fed in (from the census TSV) |
