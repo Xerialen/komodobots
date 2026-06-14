@@ -169,6 +169,9 @@ A5 live-port overlay/spec: `C:\Users\benya\projects\quakeworld\komodobots\experi
   `4v4-roster.json` intent files.
 - `lab/server/fourvfour_validation_runner.py` writes the dry-run-safe control
   plan and roster intent for the all-bot DM3 4v4 validation setup.
+- `scripts/run_4v4_validation_lab.py` runs the lab-only live KTX 4v4 validation
+  loop on allowlisted ports: generated KTX config, spectator shim, eight
+  Frogbots, MVD capture, analyzer output, and ledger rebuild.
 - `lab/server/ktx_casting_ingest.py` is the read-only KTX casting ingest path;
   it reuses the same normalizer and does not import or call the control bridge.
 - `lab/server/ktx_live_observer.py` holds the conservative provisional live
@@ -188,12 +191,18 @@ Why they matter:
   exposing game-control actions.
 - They encode the distinction between authoritative post-game stats and
   provisional live observer fields.
+- Live analyzer output can embed KTX stats under `demoInfo` while putting
+  `deathmatch`, `teamplay`, and `timelimit` in analyzer metadata; the shared
+  normalizer accepts both that shape and raw KTX `tl`/`dm`/`tp` sidecars.
 
 Why it matters:
 
 - `scripts/run_bot_lab.py` is the preferred one-command lab runner entry point.
 - The runner SSHes to `servexeri`, creates a named MVDSV/KTX screen session, loads a selected map, runs the client shim, copies the generated MVD to `artifacts/lab-runs/<run-id>/`, parses it through WSL `qw-analyze-v20`, writes `run-summary.md` plus `movement-metrics.md`, and stops only its owned screen session.
 - `experiments/qw_min_client.py` is the protocol-narrow connected-client control path for KTX commands such as `botcmd addbot`.
+  For spectator control shims it sends incoming userinfo as `spectator=1`
+  and only acknowledges safe KTX `stufftext` handshakes (`cmd ack infoset` /
+  `cmd ack noinfoset`) back to the server.
 - `scripts/extract_movement_metrics.py` derives per-player horizontal speed, distance, speed-threshold time ratios, stationary time, airborne proxy, and jump cadence from `events.txt` kind `5` player origin samples. S7b added an indexed landing-window speed lookup so long 4on4 human traces can produce movement metrics in seconds instead of timing out in repeated full-list scans.
 - `scripts/summarize_moveprobe_plausibility.py` combines per-run `movement-metrics.json` and `moveprobe-commands.json` artifacts into an explicit command-coverage plus stationary/low-speed gate. S7c carries `jump_cadence_per_min` from movement metrics into committed S3g bot summaries.
 - `scripts/run_ztricks_batch.py` keeps one temporary `ztricks` lab server and one MVD recording alive while cycling remove/add/single-bot route attempts through a cvar sweep. It now takes a ztricks route profile (`distance_standstill` or `spawn_left_speedjump`) from the route manifest, so Distance uses the A5 target/lip/release metadata while the safe-floor route uses the real spawn, zero velocity, diagonal lip/target, and rotated Nexus reference curve.

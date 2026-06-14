@@ -82,16 +82,17 @@ def ktx_match(run_id: str, *, duration: int = 300, map_name: str = "dm3", komodo
     }
 
 
-def roster(run_id: str, *, controller_version: str = "komodo-v1") -> dict:
+def roster(run_id: str, *, controller_version: str = "komodo-v1", team1: str = "Team A",
+           team2: str = "Team B") -> dict:
     names = [
-        ("komodo-dev", "Team A", "komodobot", "komodobot", controller_version),
-        ("a-control-2", "Team A", "control", "frogbot", "frogbot-20"),
-        ("a-control-3", "Team A", "control", "frogbot", "frogbot-20"),
-        ("a-control-4", "Team A", "control", "frogbot", "frogbot-20"),
-        ("b-control-1", "Team B", "control", "frogbot", "frogbot-20"),
-        ("b-control-2", "Team B", "control", "frogbot", "frogbot-20"),
-        ("b-control-3", "Team B", "control", "frogbot", "frogbot-20"),
-        ("b-control-4", "Team B", "control", "frogbot", "frogbot-20"),
+        ("komodo-dev", team1, "komodobot", "komodobot", controller_version),
+        ("a-control-2", team1, "control", "frogbot", "frogbot-20"),
+        ("a-control-3", team1, "control", "frogbot", "frogbot-20"),
+        ("a-control-4", team1, "control", "frogbot", "frogbot-20"),
+        ("b-control-1", team2, "control", "frogbot", "frogbot-20"),
+        ("b-control-2", team2, "control", "frogbot", "frogbot-20"),
+        ("b-control-3", team2, "control", "frogbot", "frogbot-20"),
+        ("b-control-4", team2, "control", "frogbot", "frogbot-20"),
     ]
     return {
         "schema": "komodobots.4v4_roster_intent.v1",
@@ -190,6 +191,16 @@ class FourVFourValidationBuildTest(unittest.TestCase):
         self.assertEqual(data["provenance"]["skipped"]["missing_roster_intent"], 1)
         self.assertIn("missing_roster_intent", data["invalid_games"][0]["reasons"])
 
+    def test_raw_ktx_sidecar_is_preferred_over_analyzer_json_when_both_exist(self):
+        run = write_run(self.runs, "20260614T200000Z")
+        (run / "analysis.json").write_text(json.dumps({"schemaVersion": 21, "frames": []}), encoding="utf-8")
+        (run / "ktxstats.json").write_text(json.dumps(ktx_match("20260614T200000Z")), encoding="utf-8")
+
+        data = fv.build(self.runs)
+
+        self.assertEqual(data["provenance"]["valid_games"], 1)
+        self.assertTrue(data["games"][0]["stats_artifact"].endswith("ktxstats.json"))
+
     def test_wrong_team_shape_is_invalid_downstream(self):
         run = write_run(self.runs, "20260614T200000Z")
         raw = json.loads((run / "analysis.json").read_text(encoding="utf-8"))
@@ -199,7 +210,64 @@ class FourVFourValidationBuildTest(unittest.TestCase):
         data = fv.build(self.runs)
 
         self.assertEqual(data["games"], [])
-        self.assertIn("teams_not_team_a_team_b_4_each", data["invalid_games"][0]["reasons"])
+        self.assertIn("teams_not_two_teams_4_each", data["invalid_games"][0]["reasons"])
+
+    def test_ktx_native_red_blue_teams_are_valid_when_roster_matches(self):
+        run = write_run(self.runs, "20260614T200000Z")
+        raw = json.loads((run / "analysis.json").read_text(encoding="utf-8"))
+        for idx, player in enumerate(raw["demoInfo"]["players"]):
+            player["team"] = "red" if idx < 4 else "blue"
+        raw["demoInfo"]["teams"] = ["red", "blue"]
+        (run / "analysis.json").write_text(json.dumps(raw), encoding="utf-8")
+        (run / "4v4-roster.json").write_text(
+            json.dumps(roster("20260614T200000Z", team1="red", team2="blue")),
+            encoding="utf-8",
+        )
+
+        data = fv.build(self.runs)
+
+        self.assertEqual(data["provenance"]["valid_games"], 1)
+        self.assertEqual(data["games"][0]["teams"][0]["name"], "blue")
+        self.assertEqual(data["games"][0]["teams"][1]["name"], "red")
+
+    def test_analyzer_demoinfo_uses_metadata_for_mode_settings(self):
+        run = write_run(self.runs, "20260614T200000Z")
+        raw = json.loads((run / "analysis.json").read_text(encoding="utf-8"))
+        raw["demoInfo"]["timelimit"] = raw["demoInfo"].pop("tl")
+        raw["demoInfo"].pop("dm")
+        raw["demoInfo"].pop("tp")
+        raw["metadata"] = {
+            "matchSettings": {
+                "deathmatch": 1,
+                "teamplay": 2,
+                "timelimit": 5,
+            },
+            "serverInfo": {
+                "deathmatch": "1",
+                "teamplay": "2",
+                "timelimit": "5",
+            },
+        }
+        (run / "analysis.json").write_text(json.dumps(raw), encoding="utf-8")
+
+        data = fv.build(self.runs)
+
+        self.assertEqual(data["provenance"]["valid_games"], 1)
+        self.assertEqual(data["games"][0]["match"]["deathmatch"], 1)
+        self.assertEqual(data["games"][0]["match"]["teamplay"], 2)
+        self.assertEqual(data["games"][0]["match"]["timelimit"], 5)
+
+    def test_stats_team_names_must_match_roster_team_names(self):
+        run = write_run(self.runs, "20260614T200000Z")
+        (run / "4v4-roster.json").write_text(
+            json.dumps(roster("20260614T200000Z", team1="red", team2="blue")),
+            encoding="utf-8",
+        )
+
+        data = fv.build(self.runs)
+
+        self.assertEqual(data["games"], [])
+        self.assertIn("teams_do_not_match_roster_teams", data["invalid_games"][0]["reasons"])
 
     def test_missing_optional_ktx_blocks_become_zero_in_valid_game(self):
         write_run(self.runs, "20260614T200000Z")

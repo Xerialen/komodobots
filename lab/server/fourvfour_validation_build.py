@@ -5,7 +5,7 @@
 BotLab-specific contract:
 
 * dm3, KTX team mode, dm=1, tp=2.
-* exactly eight players split as Team A / Team B, four each.
+* exactly eight players split across the two roster-declared teams, four each.
 * one stable Komodobot slot plus seven static skill-20 Frogbot controls,
   recorded before the match in a roster-intent artifact.
 * minimum five-minute completed match.
@@ -28,10 +28,10 @@ DEFAULT_RUNS_DIR = Path("artifacts") / "4v4-validation-runs"
 DEFAULT_OUT = Path("artifacts") / "records" / "4v4-validation.json"
 
 STATS_FILENAMES = (
-    "analysis.json",
     "ktxstats.json",
     "stats.json",
     "match.json",
+    "analysis.json",
 )
 ROSTER_FILENAMES = (
     "4v4-roster.json",
@@ -95,6 +95,24 @@ def _roster_by_slot(roster: dict[str, Any] | None) -> dict[int, dict[str, Any]]:
     return out
 
 
+def _count_teams(players: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for player in players:
+        if not isinstance(player, dict):
+            continue
+        team = str(player.get("team") or "")
+        counts[team] = counts.get(team, 0) + 1
+    return counts
+
+
+def _is_two_teams_four_each(team_counts: dict[str, int]) -> bool:
+    return len(team_counts) == 2 and sorted(team_counts.values()) == [4, 4] and "" not in team_counts
+
+
+def _roster_team_counts(roster: dict[str, Any] | None) -> dict[str, int]:
+    return _count_teams(_roster_players(roster))
+
+
 def _roster_summary(roster: dict[str, Any] | None) -> dict[str, Any] | None:
     if not isinstance(roster, dict):
         return None
@@ -130,16 +148,14 @@ def _validate_roster(roster: dict[str, Any] | None) -> list[str]:
     if sorted(slots) != list(range(1, 9)):
         reasons.append("roster_slots_not_1_through_8")
 
-    team_counts: dict[str, int] = {}
     komodo_count = 0
     control_count = 0
     skill20_controls = 0
+    team_counts = _count_teams(players)
     for p in players:
         if not isinstance(p, dict):
             reasons.append("roster_player_not_object")
             continue
-        team = str(p.get("team") or "")
-        team_counts[team] = team_counts.get(team, 0) + 1
         if p.get("role") == "komodobot":
             komodo_count += 1
         elif p.get("role") == "control":
@@ -147,8 +163,8 @@ def _validate_roster(roster: dict[str, Any] | None) -> list[str]:
             if p.get("bot_kind") == "frogbot" and p.get("bot_skill") == 20:
                 skill20_controls += 1
 
-    if team_counts != {"Team A": 4, "Team B": 4}:
-        reasons.append("roster_not_team_a_team_b_4_each")
+    if not _is_two_teams_four_each(team_counts):
+        reasons.append("roster_not_two_fixed_teams_4_each")
     if komodo_count != 1:
         reasons.append("roster_must_have_one_komodobot")
     if control_count != 7 or skill20_controls != 7:
@@ -178,8 +194,12 @@ def validate_match(normalized: dict[str, Any], roster: dict[str, Any] | None) ->
         reasons.append("player_count_not_8")
 
     team_counts = {team["name"]: team["player_count"] for team in normalized["teams"]}
-    if team_counts != {"Team A": 4, "Team B": 4}:
-        reasons.append("teams_not_team_a_team_b_4_each")
+    if not _is_two_teams_four_each(team_counts):
+        reasons.append("teams_not_two_teams_4_each")
+
+    roster_counts = _roster_team_counts(roster)
+    if roster_counts and team_counts != roster_counts:
+        reasons.append("teams_do_not_match_roster_teams")
 
     reasons.extend(_validate_roster(roster))
     return sorted(set(reasons))

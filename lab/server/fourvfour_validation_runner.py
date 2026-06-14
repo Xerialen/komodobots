@@ -22,6 +22,7 @@ from fourvfour_validation_build import ROSTER_SCHEMA
 PLAN_SCHEMA = "komodobots.4v4_validation_plan.v1"
 DEFAULT_OUT_ROOT = Path("artifacts") / "4v4-validation-runs"
 DEFAULT_CONTROLLER_VERSION = "komodobot-dev"
+DEFAULT_TEAM_NAMES = ("red", "blue")
 
 
 def utc_run_id() -> str:
@@ -35,6 +36,12 @@ def _slot_name(slot: int, komodobot_slot: int) -> str:
     return f"{side}-control-{slot}"
 
 
+def _validate_team_name(name: str) -> str:
+    if not isinstance(name, str) or cb.validate_map_name(name) is None or len(name) > 9:
+        raise ValueError(f"invalid KTX team name: {name!r}")
+    return name
+
+
 def build_roster_intent(
     *,
     run_id: str,
@@ -42,6 +49,7 @@ def build_roster_intent(
     komodobot_slot: int = 1,
     map_name: str = "dm3",
     timelimit: int = 5,
+    team_names: tuple[str, str] = DEFAULT_TEAM_NAMES,
 ) -> dict[str, Any]:
     if not 1 <= komodobot_slot <= 8:
         raise ValueError("komodobot_slot must be in 1..8")
@@ -49,10 +57,13 @@ def build_roster_intent(
         raise ValueError(f"invalid map name: {map_name!r}")
     if not isinstance(timelimit, int) or timelimit < 5:
         raise ValueError("timelimit must be an integer >= 5")
+    team_one, team_two = (_validate_team_name(team_names[0]), _validate_team_name(team_names[1]))
+    if team_one == team_two:
+        raise ValueError("team names must be distinct")
 
     players: list[dict[str, Any]] = []
     for slot in range(1, 9):
-        team = "Team A" if slot <= 4 else "Team B"
+        team = team_one if slot <= 4 else team_two
         is_komodo = slot == komodobot_slot
         players.append(
             {
@@ -123,6 +134,7 @@ def write_run_artifacts(
     komodobot_slot: int = 1,
     map_name: str = "dm3",
     timelimit: int = 5,
+    team_names: tuple[str, str] = DEFAULT_TEAM_NAMES,
 ) -> dict[str, Path]:
     roster = build_roster_intent(
         run_id=run_id,
@@ -130,6 +142,7 @@ def write_run_artifacts(
         komodobot_slot=komodobot_slot,
         map_name=map_name,
         timelimit=timelimit,
+        team_names=team_names,
     )
     plan = build_control_plan(run_id=run_id, port=port, map_name=map_name)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -149,6 +162,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--komodobot-slot", type=int, default=1)
     parser.add_argument("--map", dest="map_name", default="dm3")
     parser.add_argument("--timelimit", type=int, default=5)
+    parser.add_argument("--team1", default=DEFAULT_TEAM_NAMES[0])
+    parser.add_argument("--team2", default=DEFAULT_TEAM_NAMES[1])
     args = parser.parse_args(argv)
 
     out_dir = args.out_root / args.run_id
@@ -160,6 +175,7 @@ def main(argv: list[str] | None = None) -> int:
         komodobot_slot=args.komodobot_slot,
         map_name=args.map_name,
         timelimit=args.timelimit,
+        team_names=(args.team1, args.team2),
     )
     print(f"wrote {paths['roster']}")
     print(f"wrote {paths['plan']}")

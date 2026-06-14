@@ -1039,9 +1039,12 @@ into `komodobots.ktx_match_stats.v1`. The normalizer accepts raw KTX stats JSON
 or analyzer envelopes with `demoInfo`, preserves source metadata, derives team
 score from player frag totals, and maps the KTX 4v4 fields the lab needs:
 frags, deaths, kills, efficiency, team kills, Q/P/R, health pickups, RL
-pickups, damage given/taken, and taken-to-die. A KTX `taken-to-die` value of
-`99999` is treated as "survived without death" and exposed as `null` for the
-computed metric.
+pickups, damage given/taken, enemy-weapon damage, team-weapon damage, and
+taken-to-die. A KTX `taken-to-die` value of `99999` is treated as "survived
+without death" and exposed as `null` for the computed metric. Live analyzer
+output may put `timelimit` in `demoInfo` and `deathmatch`/`teamplay` in
+`metadata.matchSettings` or `metadata.serverInfo`; raw KTX sidecars may use
+`tl`/`dm`/`tp`. Both shapes are accepted.
 
 The fixed-roster validation ledger is built by
 `lab/server/fourvfour_validation_build.py` as `komodobots.4v4_validation.v1`.
@@ -1058,6 +1061,23 @@ for the same contract: a control plan that uses only allowlisted game commands
 and cvars, plus the fixed roster intent that the ledger later validates. The
 runner refuses non-lab ports through the same control-bridge guard used by the
 dashboard.
+
+`scripts/run_4v4_validation_lab.py` is the live lab harness for this contract.
+It starts a dedicated `mvdsv-lab` screen session on an allowlisted lab port,
+uses a spectator `qw_min_client.py` shim to issue `botcmd removeall` and four
+red plus four blue `botcmd addbot 20 ...` commands, waits through a five-minute
+KTX match, copies the generated MVD/analyzer outputs locally, and rebuilds
+`artifacts/records/4v4-validation.json`. The harness deliberately uses
+`maxclients 9` plus `k_maxclients 8` so the spectator control shim does not
+consume one of the eight bot slots. It also sets `k_lockmap 1`; without that,
+KTX's bot-only default-map guard can reload the map when all players are bots.
+
+Live proof on 2026-06-14 produced two valid DM3 KTX teamplay games:
+`codex_live_4v4_base_20260614T1935Z` and
+`codex_live_4v4_dev_20260614T1945Z`. Both were full 300-second matches with
+eight players, four per team, `deathmatch=1`, and `teamplay=2`. The second run
+rebuilt the ledger with `previous_valid_run_id` pointing at the first run and a
+tracked Komodobot-slot frag delta of `-1`.
 
 The casting path deliberately shares KTX stats semantics but not control
 semantics. `lab/server/ktx_casting_ingest.py` emits the same

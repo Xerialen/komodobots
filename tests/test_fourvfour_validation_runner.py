@@ -50,7 +50,7 @@ class FourVFourValidationRunnerTest(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp(prefix="4v4-runner-test-"))
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
 
-    def test_roster_intent_records_fixed_teams_and_komodo_slot(self):
+    def test_roster_intent_records_ktx_native_fixed_teams_and_komodo_slot(self):
         roster = runner.build_roster_intent(
             run_id="20260614T200000Z",
             controller_version="komodo-v2",
@@ -65,17 +65,31 @@ class FourVFourValidationRunnerTest(unittest.TestCase):
         self.assertEqual(roster["timelimit"], 5)
         self.assertEqual(roster["komodobot_slot"], 3)
         self.assertEqual(len(roster["players"]), 8)
-        teams = {team: 0 for team in ("Team A", "Team B")}
+        teams = {team: 0 for team in ("red", "blue")}
         roles = {"komodobot": 0, "control": 0}
         for player in roster["players"]:
             teams[player["team"]] += 1
             roles[player["role"]] += 1
             self.assertEqual(player["bot_skill"], 20)
-        self.assertEqual(teams, {"Team A": 4, "Team B": 4})
+        self.assertEqual(teams, {"red": 4, "blue": 4})
         self.assertEqual(roles, {"komodobot": 1, "control": 7})
         komodo = roster["players"][2]
         self.assertEqual(komodo["role"], "komodobot")
         self.assertEqual(komodo["controller_version"], "komodo-v2")
+
+    def test_roster_intent_allows_explicit_safe_team_names(self):
+        roster = runner.build_roster_intent(
+            run_id="20260614T200000Z",
+            team_names=("alpha", "beta"),
+        )
+
+        self.assertEqual(roster["players"][0]["team"], "alpha")
+        self.assertEqual(roster["players"][7]["team"], "beta")
+
+    def test_roster_intent_rejects_unsafe_or_duplicate_team_names(self):
+        for teams in (("red", "red"), ("red team", "blue"), ("1234567890", "blue")):
+            with self.assertRaises(ValueError, msg=str(teams)):
+                runner.build_roster_intent(run_id="20260614T200000Z", team_names=teams)
 
     def test_control_plan_refuses_production_ports(self):
         for denied in (28501, 28502, 28503, 27500, 28610):
@@ -95,7 +109,14 @@ class FourVFourValidationRunnerTest(unittest.TestCase):
             ],
         )
         self.assertIn({"kind": "console", "line": "set teamplay 2"}, plan["expected_bridge_steps"])
-        self.assertIn({"kind": "addbot", "line": "8"}, plan["expected_bridge_steps"])
+        self.assertEqual(
+            [step for step in plan["expected_bridge_steps"] if step["line"] == "addbot 20 red"],
+            [{"kind": "botcmd", "line": "addbot 20 red"}] * 4,
+        )
+        self.assertEqual(
+            [step for step in plan["expected_bridge_steps"] if step["line"] == "addbot 20 blue"],
+            [{"kind": "botcmd", "line": "addbot 20 blue"}] * 4,
+        )
         self.assertIn(28501, plan["safety"]["denied_ports"])
 
     def test_write_run_artifacts_outputs_roster_and_plan(self):
@@ -124,7 +145,8 @@ class FourVFourValidationRunnerTest(unittest.TestCase):
         self.assertIn(("console", "set teamplay 2"), steps)
         self.assertIn(("console", "set k_fb_skill 20"), steps)
         self.assertIn(("console", "map dm3"), steps)
-        self.assertEqual(steps[-2], ("addbot", "8"))
+        self.assertEqual(steps.count(("botcmd", "addbot 20 red")), 4)
+        self.assertEqual(steps.count(("botcmd", "addbot 20 blue")), 4)
         self.assertEqual(steps[-1], ("client", "ready"))
         self.assertEqual(cb.validate_console_line("set teamplay 2"), "set teamplay 2")
 
@@ -151,7 +173,8 @@ class FourVFourValidationRunnerTest(unittest.TestCase):
         self.assertIn(("send_client_cmds", 28599, ("dmm1",)), executor.calls)
         self.assertIn(("stuff", 28599, "set teamplay 2"), executor.calls)
         self.assertIn(("stuff", 28599, "map dm3"), executor.calls)
-        self.assertIn(("add_bots", 28599, 8), executor.calls)
+        self.assertEqual(executor.calls.count(("send_botcmds", 28599, ("addbot 20 red",))), 4)
+        self.assertEqual(executor.calls.count(("send_botcmds", 28599, ("addbot 20 blue",))), 4)
         self.assertEqual(executor.calls[-1], ("send_client_cmds", 28599, ("ready",)))
 
 

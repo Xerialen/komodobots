@@ -102,6 +102,7 @@ POWERUP_CVARS: tuple[str, ...] = ("k_pow", "k_pow_q", "k_pow_p", "k_pow_r", "k_p
 GAME_BOTCMDS: frozenset[str] = frozenset(
     {"removeall", "weapon 1", "weapon random"}
     | {f"removebot {slot}" for slot in range(32)}
+    | {f"addbot 20 {team}" for team in ("red", "blue")}
 )
 PRACTICE_IDLE_MODE = 24
 PRACTICE_SESSION_BOT_COUNT = 2
@@ -129,9 +130,8 @@ STOP_GAME_STEPS: tuple[tuple[str, str], ...] = (
 VALIDATION_4V4_STEPS: tuple[tuple[str, str], ...] = (
     # LD-H3.3 (#179): fixed-roster validation game setup. This intentionally
     # stays inside the lab-session gate and uses only allowlisted bridge steps.
-    # Team assignment remains verified downstream from KTX stats; if KTX fails
-    # to produce Team A / Team B with four players each the ledger marks the
-    # run invalid.
+    # Team assignment uses KTX-native red/blue arguments and is still verified
+    # downstream from KTX stats against the roster intent.
     ("client", "break"),
     ("botcmd", "removeall"),
     ("client", "4on4"),
@@ -144,7 +144,14 @@ VALIDATION_4V4_STEPS: tuple[tuple[str, str], ...] = (
     ("console", "set teamplay 2"),
     ("console", "timelimit 5"),
     ("console", "fraglimit 0"),
-    ("addbot", "8"),
+    ("botcmd", "addbot 20 red"),
+    ("botcmd", "addbot 20 red"),
+    ("botcmd", "addbot 20 red"),
+    ("botcmd", "addbot 20 red"),
+    ("botcmd", "addbot 20 blue"),
+    ("botcmd", "addbot 20 blue"),
+    ("botcmd", "addbot 20 blue"),
+    ("botcmd", "addbot 20 blue"),
     ("client", "ready"),
 )
 ZTRICKS_PERSLOT_PRESET_STEPS: tuple[tuple[str, str], ...] = tuple(

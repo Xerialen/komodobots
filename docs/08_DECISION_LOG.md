@@ -3117,3 +3117,50 @@ Revisit if KTX exposes an authenticated live event stream with authoritative
 damage/item counters, if real casting needs write/control actions in a separate
 operator surface, or if BotLab validation expands beyond the fixed DM3
 one-Komodobot/seven-Frogbot roster.
+---
+
+## 2026-06-14 -- Live 4v4 validation uses an isolated lab-only KTX runner
+
+### Decision
+
+Run fixed-roster 4v4 validation through `scripts/run_4v4_validation_lab.py`, a
+dedicated lab-only MVDSV/KTX harness on allowlisted lab ports. The runner owns a
+separate `komodobots_lab_4v4_<port>_<run-id>` screen session, refuses dashboard
+locks and production ports, spawns one spectator control shim plus eight KTX
+Frogbots, and rebuilds the fixed-roster ledger from generated MVD/analyzer
+artifacts.
+
+### Why
+
+The validation system needs real KTX match behavior, not only fixture JSON, but
+it must not disrupt the live servers or the dashboard-owned lab session. KTX
+also has bot-only 4v4 edge cases: the spectator control shim consumes a network
+client slot, and KTX can reload bot-only matches through its default-map guard
+unless `k_lockmap 1` is set.
+
+### Consequences
+
+The generated KTX config uses `maxclients 9`, `k_maxclients 8`,
+`k_allowed_free_modes 4095`, `k_lockmap 1`, `sv_login 0`, and a spectator shim
+whose incoming userinfo is `spectator=1`. The shim acknowledges only safe KTX
+`stufftext` handshakes. Live analyzer output is accepted even when `dm`/`tp`
+are not in `demoInfo` because the shared KTX normalizer falls back to analyzer
+metadata.
+
+### Evidence
+
+- `codex_live_4v4_base_20260614T1935Z`: valid 300-second DM3 KTX 4v4 match,
+  red 69, blue 66.
+- `codex_live_4v4_dev_20260614T1945Z`: valid 300-second DM3 KTX 4v4 match,
+  red 50, blue 42, previous valid run set to the baseline, Komodobot-slot
+  frags delta `-1`.
+- `python tests\test_run_4v4_validation_lab.py` covers lab-port refusal,
+  dashboard-lock refusal, eight-bot command generation, KTX config invariants,
+  and argument validation.
+
+### Revisit Conditions
+
+Revisit if a real Komodobot controller needs a different spawn/control method,
+if KTX exposes a safer authenticated control stream, if public commentary needs
+live damage/item counters before post-game stats are available, or if validation
+expands beyond fixed DM3 4v4.

@@ -289,6 +289,13 @@ def _extract_match(raw: dict[str, Any]) -> tuple[dict[str, Any], str]:
     return raw, "ktxstats"
 
 
+def _first_number(*values: int | float | None) -> int | float | None:
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
 def normalize_match(raw: dict[str, Any], *, source_path: str | None = None) -> dict[str, Any]:
     """Return canonical `komodobots.ktx_match_stats.v1`.
 
@@ -310,8 +317,24 @@ def normalize_match(raw: dict[str, Any], *, source_path: str | None = None) -> d
         warnings.append("match has no players array")
 
     mode = _text_at(match, ["mode"], None)
-    dm = _number_at(match, ["dm"], None)
-    tp = _number_at(match, ["tp"], None)
+    timelimit = _first_number(
+        _number_at(match, ["tl"], None),
+        _number_at(match, ["timelimit"], None),
+        _number_at(raw, ["metadata", "matchSettings", "timelimit"], None),
+        _number_at(raw, ["metadata", "serverInfo", "timelimit"], None),
+    )
+    dm = _first_number(
+        _number_at(match, ["dm"], None),
+        _number_at(match, ["deathmatch"], None),
+        _number_at(raw, ["metadata", "matchSettings", "deathmatch"], None),
+        _number_at(raw, ["metadata", "serverInfo", "deathmatch"], None),
+    )
+    tp = _first_number(
+        _number_at(match, ["tp"], None),
+        _number_at(match, ["teamplay"], None),
+        _number_at(raw, ["metadata", "matchSettings", "teamplay"], None),
+        _number_at(raw, ["metadata", "serverInfo", "teamplay"], None),
+    )
     if mode not in ("team", "4on4"):
         warnings.append(f"mode is {mode!r}, not KTX team/4on4")
     if dm != 1:
@@ -350,7 +373,7 @@ def normalize_match(raw: dict[str, Any], *, source_path: str | None = None) -> d
             "port": match.get("port"),
             "matchtag": match.get("matchtag"),
             "mode": mode,
-            "timelimit": _number_at(match, ["tl"], None),
+            "timelimit": timelimit,
             "fraglimit_reported": _number_at(match, ["fl"], None),
             "deathmatch": dm,
             "teamplay": tp,

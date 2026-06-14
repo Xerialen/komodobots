@@ -248,14 +248,17 @@ PR: pending
 Commit: pending
 Date: 2026-06-14
 Environment: local worktree `4on4-live-stats`, Windows PowerShell, local
-dashboard via Vite, Chrome debug.
+dashboard via Vite, Chrome debug, `servexeri` lab KTX on port `28599`.
 
 ### Results
 
 - [x] `TC-4V4-001` passed on committed fixture data.
+- [x] `TC-4V4-001` passed on two live KTX DM3 4v4 lab games:
+  `codex_live_4v4_base_20260614T1935Z` and
+  `codex_live_4v4_dev_20260614T1945Z`.
 - [x] `TC-CASTING-001` passed on committed fixture data.
-- [ ] Live all-stock KTX baseline and live Komodobot-slot proof not run in this
-  PR; offline fixture proof only.
+- [x] The live ledger rebuilt with two valid games and a Komodobot-slot previous
+  valid game delta (`13 -> 12`, delta `-1` frags).
 
 ### Evidence
 
@@ -263,10 +266,14 @@ dashboard via Vite, Chrome debug.
 - `python tests\test_fourvfour_validation_build.py`
 - `python tests\test_fourvfour_validation_runner.py`
 - `python tests\test_control_bridge.py`
+- `python tests\test_run_4v4_validation_lab.py`
 - `python tests\test_fourvfour_validation_panel.py`
 - `python tests\test_ktx_casting_ingest.py`
 - `python tests\test_ktx_live_observer.py`
 - `python tests\test_casting_scoreboard.py`
+- `python scripts\run_4v4_validation_lab.py --run-id codex_live_4v4_base_20260614T1935Z --port 28599 --strict-port --controller-version stock-frogbot-20-baseline`
+- `python scripts\run_4v4_validation_lab.py --run-id codex_live_4v4_dev_20260614T1945Z --port 28599 --strict-port --controller-version komodobot-dev-live-label`
+- `python lab\server\fourvfour_validation_build.py --runs-dir artifacts\4v4-validation-runs --out artifacts\records\4v4-validation.json --summary`
 - `npm run build` in `lab/dashboard`
 - Browser evidence:
   `lab/evidence/ld-h3-4v4-validation-proof-2026-06-14.md`,
