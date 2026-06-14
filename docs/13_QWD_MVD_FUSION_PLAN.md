@@ -34,6 +34,11 @@ channels, each used at a specific, bounded moment:
 
 **The headline win (lift the 88.9 qu ceiling) needs no MVD join at all.**
 
+**Sequencing guardrail (Codex #175):** removing *validation-blindness* — the opponent-collision
+ceiling (Steps 1–2) plus a distributional gate (Step 3) — is the **prerequisite** for ingesting
+the bhop formula/teacher (issue #175). The offline gate must be able to honestly judge a candidate
+before one is fed in; formula ingest waits on Steps 1–3, not the reverse.
+
 ## 1. Discarded (adversarially flagged — do not build)
 
 - **The `suspicious_later_playerinfo_markers` byte-count gate** (`probe_qwd_route_applicability.py:333` = `payload.count(bytes([SVC_PLAYERINFO]))`). `0x2A` collides with arbitrary coordinate bytes — it validates **nothing**. Replaced by a real ground-truth gate (Step 1).
@@ -43,14 +48,23 @@ channels, each used at a specific, bounded moment:
 
 ## 2. Roadmap (cheapest-disconfirming-first; every step has a kill-check)
 
-**STEP 1 — Prove opponents are decodable from ONE QWD.** *(Codex local, or Claude — hours)*
-Extend the QWD record walk to decode `svc_packetentities`/`svc_deltapacketentities` +
-multi-player `svc_playerinfo` (`PF_*`) for ONE demo; dump opponent origin tracks.
-- **Acceptance (real gate):** ~7 other-player tracks; origins inside dm3 BSP bounds;
-  cadence matches network-update rate; **and** the decoded self-player track agrees with
-  the already-validated `probe_qwd_route_applicability.py` self origin within a few qu.
-- **Kill:** if positions aren't sane / self-track disagrees → POV-internal premise dead →
+**STEP 1 — Prove opponents are decodable from ONE QWD.** *(Codex local, or Claude — hours; READ-ONLY)*
+Pick **one named `.qwd`**; extend the QWD record walk to decode
+`svc_packetentities`/`svc_deltapacketentities` + multi-player `svc_playerinfo` (`PF_*`), and
+**dump entity tracks + a QA report only** — decode-and-dump, no scaling, no mutation. Define
+the output schema up front (per entity: `id`, `is_self`, per-tick `[t_ms, origin(x,y,z)]`).
+- **Acceptance (executable, not narrative):**
+  1. **Known-answer self-track regression (the guardrail):** the decoded *self* entity must
+     match the existing `probe_qwd_route_applicability.py` self-state extraction within a small
+     tolerance **on the same time samples** — the test against decoding plausible-but-wrong coords.
+  2. non-self tracks are **clearly separated** from self;
+  3. all origins fall **inside dm3 BSP bounds**;
+  4. update **cadence is reported** (not assumed);
+  5. **track count is reported and sanity-judged — NOT hardcoded** (PVS + segment timing make
+     the live opponent count vary; report it, then judge plausibility — don't pass/fail on "~7").
+- **Kill:** self-track regression fails or coords insane → POV-internal premise dead →
   fall back to matched-pair sync (2b) before scaling anything.
+- **Do NOT scale to the full corpus until Step 2 passes.**
 
 **STEP 2 — Prove the physics payoff on that one demo.** *(Claude)*
 Inject decoded opponent ghosts into `pmove_sim`'s existing `PhysEnt` box-hull path
@@ -62,6 +76,19 @@ check); re-run the `recorded` controller at 2 s.
 - **2b (only if Step 1 killed):** Claude builds the self-trajectory cross-correlation
   aligner (velocity-magnitude xcorr + origin-L2 refine + residual-budget fail-closed lock)
   to source opponents from matched MVD. Contingency, not the plan.
+
+**STEP 2.5 — MOVE action-space capacity audit.** *(Claude; runnable NOW — no decode/formula needed)*
+Per Codex's #175 review: empirically test whether the discrete **sign+jump ±320** action space
+can express elite bhop **before** any formula ingest. On held-out dm3 demos, compare on
+**bhop/sustained-speed + route metrics** (not just clean-frame retention): recorded-exact
+usercmd vs recorded **sign-quantised** vs air-law prior vs current BC (and later the candidate
+formula). Also test **adding yaw-rate / short-history** features to the MOVE state — instantaneous
+`dlook` may be insufficient for a trajectory-driven skill.
+- **Acceptance:** sign-quantised ≈ recorded-exact on speed/route → the ±320 vocabulary suffices
+  and the formula can live inside `state→(fwd,side,jump)`.
+- **Kill / escalate:** if sign-quantisation loses material speed/route → **widen the action space**
+  (analog magnitude / sub-tick) before ingesting the formula — a model-capacity change surfaced
+  now, not discovered late.
 
 **STEP 3 — Scale + migrate the gate.** *(Codex extracts ∥ Claude measures)*
 Codex runs the opponent decoder across all 478 demos. In parallel Claude **migrates the
@@ -107,6 +134,7 @@ Run trained DECIDE→contract→trained MOVE/AIM inside `pmove_sim`/KTX on synth
 |---|---|---|---|
 | Step 1 single-demo opponent decode | **Codex** (local) / Claude fallback | — | tracks → Claude (Step 2) |
 | Step 2 physent injection + 2 s remeasure | **Claude** | — | gates Step 3 |
+| Step 2.5 MOVE capacity audit (sign-quant vs exact; yaw-rate feats) | **Claude** | runnable now | gates formula ingest (#175) |
 | Step 3 corpus-wide opponent decode | **Codex** (local) | Step 3 gate migration | tracks → Claude |
 | Step 3 distributional gate migration | **Claude** | Codex Step 3 extraction | — |
 | Step 4 `mvd_analyzer` v32 extraction | **Codex** (local) | Steps 1–3 | JSON → Claude |
@@ -149,3 +177,14 @@ aren't sanely decodable, the POV-internal spine fails in hours, before any expen
 - `engine/demoparser/src/mvd/messages.rs` — portable `EntityUpdate`/`PacketEntities` primitives (~lines 113-160, 740-790); `parse_playerinfo` at 596 is `DF_*`-only, **NOT** portable.
 - `experiments/stage2/move-bc-train/closed-loop-ceiling-diagnosis.md` — the 88.9 qu metric + Step-2 success criterion.
 - `docs/12_DM3_4ON4_STANDIN_PROGRAM.md` — §5 contract, G-M1 distributional gate, §6 AIM-as-outcome-distribution.
+
+
+## 6. Codex review reconciliation (incorporated 2026-06-14)
+
+This plan was produced independently by the design workflow, then reconciled against Codex's two
+#175 reviews (the different-LLM check):
+
+- **Initial ML-run review** ([#175 comment](https://github.com/Xerialen/komodobots/issues/175#issuecomment-4701411416)) — verdict **GO for learned MOVE**; sourced the **capacity audit** (now Step 2.5), the **yaw-rate/history coupling** point, and reinforced the **parser-role caution** (§1: prefer `build_replay_command_file`'s time-aligned pairing over the probe's row-order pairing for controller truth).
+- **Fusion-plan review** ([#175 comment](https://github.com/Xerialen/komodobots/issues/175#issuecomment-4702015300)) — **endorsed the sequencing**; tightened **Step 1** to executable acceptance (named demo, defined output schema, the **known-answer self-track regression**, read-only, report-don't-hardcode the track count) and added the **validation-before-formula** guardrail (§0).
+
+Where the workflow and Codex independently agreed: POV-internal decode as the primary critical path; matched-pair sync demoted to optional; the `DF_*`-vs-`PF_*` parser trap; opponent-collision (not submodels) as the binding ceiling cause.
