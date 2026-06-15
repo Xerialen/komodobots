@@ -3164,3 +3164,49 @@ Revisit if a real Komodobot controller needs a different spawn/control method,
 if KTX exposes a safer authenticated control stream, if public commentary needs
 live damage/item counters before post-game stats are available, or if validation
 expands beyond fixed DM3 4v4.
+
+---
+
+## 2026-06-15 -- Review gate fails closed after draft promotion
+
+### Decision
+
+After a PR has a GitHub `ready_for_review` timeline event, the deterministic
+merge executor may merge only when both the `gate: ready` label event and the
+structured gate-ready verdict comment for the current head SHA are newer than
+that promotion.
+
+### Why
+
+PR #192 removed `ready_for_review` from the merge workflow trigger, but review
+showed that the schedule and `PR Tests` workflow-run reconcilers could still
+evaluate a just-promoted non-draft PR before `Reset Review Gate` removed a
+stale `gate: ready` label. Because draft promotion does not change the head SHA,
+a SHA-bound verdict from draft/WIP review could still satisfy the old merge
+predicate during that reset window.
+
+### Consequences
+
+The merge gate now reads the issue timeline for each candidate PR. For PRs that
+were ever promoted from draft, stale ready labels or stale ready verdict
+comments are insufficient even if they match the current head SHA. A reviewer
+must leave a fresh non-draft gate-ready verdict and apply a fresh `gate: ready`
+label after the latest draft promotion.
+
+Normal non-draft PRs with no `ready_for_review` timeline event keep the existing
+path: current-head gate verdict, `gate: ready`, green `PR Tests`, no failing
+non-gate checks, open non-draft PR, base `main`, and mergeable state.
+
+### Evidence
+
+- `tests/test_review_gate_merge_workflow.py` locks the trigger split and the
+  timeline freshness predicates.
+- Local validation parsed the merge/reset workflow YAML, ran the gate workflow
+  test, and checked whitespace with `git diff --check`.
+
+### Revisit Conditions
+
+Revisit if timeline API event names change, if GitHub stops exposing
+`ready_for_review` or label events through the issue timeline API, or if the
+10-minute schedule reconciler is removed and the event path alone becomes
+proven reliable.

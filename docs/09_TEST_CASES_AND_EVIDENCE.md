@@ -173,6 +173,7 @@ Good KomodoBots targets:
 - Route manifests and committed route JSON.
 - `records.json` and `verdicts.json` schema.
 - GitHub issue-form YAML.
+- GitHub review-gate workflow trigger and merge predicates.
 - Control bridge request/response envelopes.
 - Telemetry frame shapes used by BotLab.
 
@@ -186,6 +187,25 @@ If a browser or live run finds an artifact-shape bug, add a contract test before
 or with the fix. Examples include GLB bufferViews missing `buffer: 0`, stale
 `maps.json` byte counts, invalid verdict values, or a route missing required
 keys.
+
+## TC-GATE-001: Draft-promotion cannot reuse a stale gate-ready verdict
+
+Area: GitHub review gate
+Type: Automated workflow contract
+Priority: High
+Status: automated
+
+Expected result:
+
+- `Review Gate Merge` does not trigger directly on `ready_for_review`.
+- `Reset Review Gate` still triggers on `ready_for_review`.
+- If a PR has a `ready_for_review` timeline event, the merge executor requires
+  both the `gate: ready` label event and the structured `LABEL: gate: ready`
+  / `HEAD_SHA: ...` verdict comment to be newer than that transition.
+
+Automated coverage:
+
+- `tests/test_review_gate_merge_workflow.py`
 
 ## Live-state reconciliation workflow
 
