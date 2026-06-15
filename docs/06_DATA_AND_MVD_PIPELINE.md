@@ -40,6 +40,14 @@ Current extractor:
 - Validated raw `usercmd_t` size: `24` bytes, including compiler padding after `msec`
 - Output: line-delimited JSON with one header row and one `usercmd` row per `dem_cmd`
 
+Content manifest and corpus gate:
+
+- Tool: `tools/qwd_content_manifest.py`
+- Schema: `komodobots.qwd_content_manifest.v1`
+- Source basis: the QWD network stream, especially `svc_serverdata`, `modellist`, `updateuserinfo`, and `setinfo`.
+- Purpose: determine true map, roster, active-player mode, team counts, recording POV kind, usercmd availability, movement-command fraction, yaw continuity, and self-POV training eligibility before a demo enters movement-learning work.
+- Compressed demos: qizmo `.qwz` and qizmo-disguised `.qwd` files keep compressed and decompressed SHA-256 values. The bundled qizmo executable is Linux-only; Windows/PowerShell runs it through WSL (`wsl.exe --cd /mnt/...`) after resolving `--qizmo-bundle`, `QWD_QIZMO_BUNDLE`, or the local Challenge-TV archive path.
+
 Phase 1 status:
 
 - `dm2_big_to_gl.qwd` parsed cleanly to EOF: `50112` bytes read, `375` command frames, `388` `dem_read` records, no warnings, command rate `77.192` fps.

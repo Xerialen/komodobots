@@ -332,6 +332,68 @@ def _ensure_qizmo(bundle: Path | None) -> Path | None:
     return bundle_dir if qizmo.exists() else None
 
 
+def _running_on_windows() -> bool:
+    return os.name == "nt"
+
+
+def _windows_path_to_wsl(path: str | Path) -> str:
+    """Translate a local Windows drive path to the WSL /mnt/<drive>/ form."""
+    s = str(path)
+    if s.startswith("/"):
+        return s
+    if len(s) >= 2 and s[1] == ":":
+        drive = s[0].lower()
+        rest = s[2:].replace("\\", "/")
+        if not rest.startswith("/"):
+            rest = "/" + rest
+        return f"/mnt/{drive}{rest}"
+    raise ValueError(f"cannot translate non-drive Windows path for WSL: {s}")
+
+
+def _qizmo_invocation(
+    bundle_dir: Path,
+    staged_abs: Path,
+    *,
+    windows: bool | None = None,
+    wsl_exe: str | None = None,
+) -> tuple[list[str] | None, str | None, str, str | None]:
+    """Build the qizmo subprocess invocation.
+
+    Returns (cmd, cwd, runner_label, error). The bundled qizmo is a Linux binary,
+    so Windows sessions must run it through WSL instead of executing the ELF
+    directly.
+    """
+    use_windows = _running_on_windows() if windows is None else windows
+    ld = bundle_dir / "libs" / "ld-linux.so.2"
+    if use_windows:
+        wsl = wsl_exe or shutil.which("wsl.exe")
+        if not wsl:
+            return None, None, "qizmo via WSL", "wsl.exe not found for qizmo decompression"
+        bundle_wsl = _windows_path_to_wsl(bundle_dir)
+        staged_wsl = _windows_path_to_wsl(staged_abs)
+        if ld.exists():
+            cmd = [
+                wsl,
+                "--cd",
+                bundle_wsl,
+                "./libs/ld-linux.so.2",
+                "--library-path",
+                "./libs",
+                "./qizmo",
+                "-D",
+                staged_wsl,
+            ]
+        else:
+            cmd = [wsl, "--cd", bundle_wsl, "./qizmo", "-D", staged_wsl]
+        return cmd, None, "qizmo via WSL", None
+
+    if ld.exists():
+        cmd = [str(ld), "--library-path", "./libs", "./qizmo", "-D", str(staged_abs)]
+    else:
+        cmd = ["./qizmo", "-D", str(staged_abs)]
+    return cmd, str(bundle_dir), "qizmo", None
+
+
 def decompress_qwz(
     src: Path, scratch_dir: Path, bundle: Path | None = None
 ) -> tuple[Path | None, str | None, str | None]:
@@ -350,21 +412,16 @@ def decompress_qwz(
     staged = scratch_dir / (src.stem + ".qwz")
     shutil.copyfile(src, staged)
 
-    ld = bundle_dir / "libs" / "ld-linux.so.2"
-    libs = bundle_dir / "libs"
-    qizmo = bundle_dir / "qizmo"
-    staged_abs = str(staged.resolve())
-    cmd: list[str]
-    if ld.exists():
-        cmd = [str(ld), "--library-path", "./libs", "./qizmo", "-D", staged_abs]
-    else:
-        cmd = ["./qizmo", "-D", staged_abs]
+    staged_abs = staged.resolve()
+    cmd, cwd, runner, inv_err = _qizmo_invocation(bundle_dir, staged_abs)
+    if inv_err:
+        return None, None, inv_err
     try:
         # qizmo loads ``compress.dat`` relative to its working directory, so run
-        # from the bundle dir (matches the verified manual invocation).
+        # from the bundle dir. On Windows, `wsl.exe --cd` provides that cwd.
         proc = subprocess.run(
             cmd,
-            cwd=str(bundle_dir),
+            cwd=cwd,
             stdin=subprocess.DEVNULL,
             capture_output=True,
             timeout=300,
@@ -380,7 +437,7 @@ def decompress_qwz(
     if not out.exists():
         tail = (proc.stderr or proc.stdout or b"").decode("latin1", "replace")[-300:]
         return None, None, f"qizmo produced no .qwd output (rc={proc.returncode}): {tail}"
-    label = f"qizmo (bundle {bundle.name})" if bundle else "qizmo"
+    label = f"{runner} (bundle {bundle.name})" if bundle else runner
     return out, label, None
 
 

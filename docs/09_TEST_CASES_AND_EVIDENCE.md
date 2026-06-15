@@ -51,6 +51,7 @@ Prefer meaningful area prefixes when helpful:
 - `TC-QTV-*` for Live Game / QTV behavior.
 - `TC-LIVE3D-*` for telemetry and Live 3D behavior.
 - `TC-LAB-*` for harness/server behavior.
+- `TC-QWD-*` for QWD/QWZ parser, seam, and corpus-ingest behavior.
 
 ## Test case lifecycle
 
@@ -300,6 +301,51 @@ dashboard via Vite, Chrome debug, `servexeri` lab KTX on port `28599`.
   `lab/evidence/ld-h3-4v4-validation-desktop.png`,
   `lab/evidence/ld-h3-4v4-validation-narrow.png`, and
   `lab/evidence/ld-h3-casting-scoreboard-1280x720.png`.
+
+## TC-QWD-001: qizmo-compressed QWD content manifests parse from Windows
+
+Preconditions:
+
+- Windows PowerShell checkout has WSL available.
+- `qizmo_bundle.tgz` is available through `--qizmo-bundle`,
+  `QWD_QIZMO_BUNDLE`, or the local Challenge-TV archive candidate path.
+- A qizmo-compressed `.qwz` or qizmo-disguised `.qwd` source file is present.
+
+Expected result:
+
+- `tools/qwd_content_manifest.py` identifies the source as compressed.
+- The parser runs the bundled Linux qizmo through WSL rather than executing the
+  ELF directly from Windows.
+- The manifest includes both `compressed_sha256` and `decompressed_sha256`.
+- The manifest then resolves content fields such as `true_map`, `player_count`,
+  `team_counts`, `pov_kind`, and `has_usercmds` without `WinError 193`.
+
+Test run: TR-2026-06-15-QWD-QIZMO-WSL
+PR: pending
+Commit: pending
+Date: 2026-06-15
+Environment: Windows PowerShell worktree `komodobots-qwd-qizmo-fix`, WSL2,
+local Challenge-TV archive qizmo bundle.
+
+### Results
+
+- [x] qizmo-disguised `.qwd` passed:
+  `...\\smackdown\\neu\\group_c\\adt_jod_1_dm2_camper.qwd`.
+- [x] `.qwz` passed:
+  `...\\cottelan\\2on22dm6.qwz`.
+- [x] Both manifests reported
+  `decompressor="qizmo via WSL (bundle qizmo_bundle.tgz)"`.
+- [x] Both manifests had empty `errors`, non-null `decompressed_sha256`, true
+  map, roster, player count, team counts, and usercmd frames.
+
+### Evidence
+
+- `python tools\\qwd_content_manifest.py "...\\adt_jod_1_dm2_camper.qwd" --indent 2`
+  -> `true_map=dm2`, `mode=4on4`, `player_count=8`,
+  `team_counts={"adt":4,"jod":4}`, `frame_count=93281`, `errors=[]`.
+- `python tools\\qwd_content_manifest.py "...\\cottelan\\2on22dm6.qwz" --indent 2`
+  -> `true_map=dm6`, `mode=2on2`, `player_count=4`,
+  `frame_count=48636`, `errors=[]`.
 
 ## KomodoLab starting cases
 
