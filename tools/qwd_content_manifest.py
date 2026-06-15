@@ -37,6 +37,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import shutil
 import struct
 import subprocess
@@ -194,9 +195,31 @@ AUTOTRACK_NAME_TOKENS = ("cam", "commentary", "spec", "flood", "qtv")
 YAW_CONTINUITY_THRESHOLD_DEG = 60.0
 MOVEMENT_CMD_FRACTION_ELIGIBLE = 0.2
 
-QIZMO_BUNDLE_TGZ = Path(
-    "/mnt/c/Users/benya/projects/quakeworld/data/challenge-tv-archive/qizmo_bundle.tgz"
+QIZMO_BUNDLE_ENV = "QWD_QIZMO_BUNDLE"
+# Known qizmo bundle locations across WSL and Windows checkouts; first existing
+# wins. Override with the env var above, the CLI `--qizmo-bundle`, or the
+# `parse_qwd(..., qizmo_bundle=...)` argument.
+QIZMO_BUNDLE_CANDIDATES: tuple[str, ...] = (
+    "/mnt/c/Users/benya/projects/quakeworld/data/challenge-tv-archive/qizmo_bundle.tgz",
+    r"C:\Users\benya\projects\quakeworld\data\challenge-tv-archive\qizmo_bundle.tgz",
 )
+
+
+def _resolve_qizmo_bundle(override: str | Path | None = None) -> Path | None:
+    """Resolve the qizmo bundle ``.tgz``: explicit override > env var > known paths.
+
+    An explicit override or env value that does not exist returns ``None`` (a
+    clear failure) rather than silently falling back to a built-in candidate.
+    """
+    for explicit in (override, os.environ.get(QIZMO_BUNDLE_ENV)):
+        if explicit:
+            p = Path(explicit)
+            return p if p.is_file() else None
+    for cand in QIZMO_BUNDLE_CANDIDATES:
+        p = Path(cand)
+        if p.is_file():
+            return p
+    return None
 
 
 class SvcSizeError(Exception):
@@ -288,19 +311,19 @@ def looks_like_real_qwd(data: bytes) -> bool:
     return records >= 1
 
 
-def _ensure_qizmo() -> Path | None:
+def _ensure_qizmo(bundle: Path | None) -> Path | None:
     """Extract the qizmo bundle into a scratch dir; return the qizmo binary dir."""
+    if bundle is None or not bundle.is_file():
+        return None
     work = Path(tempfile.gettempdir()) / "qwz_work"
     bundle_dir = work / "qizmo_bundle"
     qizmo = bundle_dir / "qizmo"
     if qizmo.exists():
         return bundle_dir
-    if not QIZMO_BUNDLE_TGZ.exists():
-        return None
     work.mkdir(parents=True, exist_ok=True)
     try:
         subprocess.run(
-            ["tar", "xzf", str(QIZMO_BUNDLE_TGZ), "-C", str(work)],
+            ["tar", "xzf", str(bundle), "-C", str(work)],
             check=True,
             capture_output=True,
         )
@@ -309,13 +332,16 @@ def _ensure_qizmo() -> Path | None:
     return bundle_dir if qizmo.exists() else None
 
 
-def decompress_qwz(src: Path, scratch_dir: Path) -> tuple[Path | None, str | None, str | None]:
+def decompress_qwz(
+    src: Path, scratch_dir: Path, bundle: Path | None = None
+) -> tuple[Path | None, str | None, str | None]:
     """Decompress a qizmo container into ``scratch_dir``.
 
+    ``bundle`` is the resolved ``qizmo_bundle.tgz`` (see ``_resolve_qizmo_bundle``).
     Returns (decompressed_path, decompressor_label, error).  Never writes into
     the source corpus.
     """
-    bundle_dir = _ensure_qizmo()
+    bundle_dir = _ensure_qizmo(bundle)
     if bundle_dir is None:
         return None, None, "qizmo decompressor unavailable (bundle missing or extraction failed)"
 
@@ -354,7 +380,7 @@ def decompress_qwz(src: Path, scratch_dir: Path) -> tuple[Path | None, str | Non
     if not out.exists():
         tail = (proc.stderr or proc.stdout or b"").decode("latin1", "replace")[-300:]
         return None, None, f"qizmo produced no .qwd output (rc={proc.returncode}): {tail}"
-    label = f"qizmo (bundle {QIZMO_BUNDLE_TGZ.name})"
+    label = f"qizmo (bundle {bundle.name})" if bundle else "qizmo"
     return out, label, None
 
 
@@ -676,11 +702,46 @@ def _name_is_autotrack(name: str) -> bool:
 # Main content walk
 # ---------------------------------------------------------------------------
 
+def _active_players(userinfo_table: dict[int, str]) -> list[dict]:
+    """Named, non-spectator players present in a ``{slot: userinfo}`` table."""
+    out = []
+    for slot in sorted(userinfo_table):
+        userinfo = userinfo_table[slot]
+        name = _slot_name(userinfo)
+        if not name or _slot_is_spectator(userinfo):
+            continue
+        out.append({"slot": slot, "name": name, "team": _slot_team(userinfo)})
+    return out
+
+
+def _note_concurrency(state: dict, dt: float) -> None:
+    """Accumulate how long each concurrent active-player count is held.
+
+    player_count/mode reflect the count the demo spent the MOST time at (its
+    duration-weighted mode), so brief roster ramp-up, a late disconnect, or a
+    substitution's transient over-count cannot mislabel a real match (#188
+    review). ``dt`` is the demotime of the dem_read block being applied.
+    """
+    active = _active_players(state["userinfo"])
+    n = len(active)
+    state["count_snapshot"].setdefault(n, active)
+    if n > state["max_active_count"]:
+        state["max_active_count"] = n
+    if n == state["cur_active"]:
+        return
+    prev, last = state["cur_active"], state["last_change_dt"]
+    if last is not None and dt > last:
+        state["count_durations"][prev] = state["count_durations"].get(prev, 0.0) + (dt - last)
+    state["cur_active"] = n
+    state["last_change_dt"] = dt
+
+
 def _walk_svc_block(
     body: bytes,
     start: int,
     protover_holder: dict[str, int],
     state: dict,
+    dt: float = 0.0,
 ) -> bool:
     """Walk one dem_read svc stream from ``start``.
 
@@ -718,6 +779,7 @@ def _walk_svc_block(
                 r.long()  # userid
                 userinfo = r.string()
                 state["userinfo"][slot] = userinfo
+                _note_concurrency(state, dt)
             elif cmd == SVC_SETINFO:
                 slot = r.byte()
                 key = r.string()
@@ -725,6 +787,7 @@ def _walk_svc_block(
                 existing = state["userinfo"].get(slot, "")
                 merged = _apply_setinfo(existing, key, value)
                 state["userinfo"][slot] = merged
+                _note_concurrency(state, dt)
             elif cmd == SVC_SERVERINFO:
                 key = r.string()
                 value = r.string()
@@ -976,7 +1039,7 @@ def _classify_mode(active_count: int) -> tuple[str, str | None]:
     return "ambiguous", f"{active_count} active non-spectator players (not 2/4/8)"
 
 
-def parse_qwd(path: str | Path) -> dict:
+def parse_qwd(path: str | Path, *, qizmo_bundle: str | Path | None = None) -> dict:
     """Parse a ``.qwd``/``.qwz`` and return one manifest record (never raises)."""
     path = Path(path)
     errors: list[str] = []
@@ -1033,7 +1096,7 @@ def parse_qwd(path: str | Path) -> dict:
         record["is_compressed"] = True
         record["compressed_sha256"] = record["sha256"]
         scratch = Path(tempfile.mkdtemp(prefix="qwd_content_"))
-        out, label, derr = decompress_qwz(path, scratch)
+        out, label, derr = decompress_qwz(path, scratch, _resolve_qizmo_bundle(qizmo_bundle))
         if out is None:
             errors.append(derr or "decompression failed")
             return record
@@ -1071,13 +1134,18 @@ def parse_qwd(path: str | Path) -> dict:
         "models": {},
         "userinfo": {},
         "serverinfo": {},
+        "cur_active": 0,
+        "last_change_dt": None,
+        "count_durations": {},
+        "count_snapshot": {},
+        "max_active_count": 0,
     }
     protover_holder: dict[str, int] = {}
     blocks_abandoned = 0
     try:
         for _idx, _dt, body in _iter_dem_read_bodies(data):
             start = _choose_svc_start(body)
-            ok = _walk_svc_block(body, start, protover_holder, state)
+            ok = _walk_svc_block(body, start, protover_holder, state, _dt)
             if not ok:
                 blocks_abandoned += 1
     except qwd_usercmd.QwdUsercmdError as exc:
@@ -1115,17 +1183,35 @@ def parse_qwd(path: str | Path) -> dict:
             "Roster reflects userinfo accumulated across all walked dem_read blocks "
             "(latest setinfo/updateuserinfo wins per slot); slots that leave are not "
             "removed. blocks_abandoned indicates dem_read blocks skipped on an "
-            "unsizable opcode, which may undercount late roster changes."
+            "unsizable opcode, which may undercount late roster changes. "
+            "player_count/team_counts/mode reflect the duration-weighted modal "
+            "concurrent active count, not this accumulated union."
         )
 
-    active = [p for p in roster if not p["spectator"] and p["name"]]
-    record["player_count"] = len(active)
+    # player_count / team_counts / mode reflect the duration-weighted MODE of the
+    # concurrent active non-spectator count -- the size the demo spent the most
+    # time at -- so brief roster ramp-up, a late disconnect, or a substitution's
+    # transient over-count do not mislabel a real match (#188 review). `roster`
+    # above is the accumulated union across the whole demo.
+    end_dt = max(record["duration_s"] or 0.0, state["last_change_dt"] or 0.0)
+    if state["last_change_dt"] is not None and end_dt > state["last_change_dt"]:
+        state["count_durations"][state["cur_active"]] = (
+            state["count_durations"].get(state["cur_active"], 0.0)
+            + (end_dt - state["last_change_dt"])
+        )
+    held = {c: d for c, d in state["count_durations"].items() if c > 0 and d > 0}
+    if held:
+        player_count = max(held, key=lambda c: (held[c], c))
+    else:
+        player_count = state["max_active_count"]  # degenerate: nothing held long enough
+    peak_active = state["count_snapshot"].get(player_count, [])
+    record["player_count"] = player_count
     team_counts: dict[str, int] = {}
-    for p in active:
+    for p in peak_active:
         team_counts[p["team"]] = team_counts.get(p["team"], 0) + 1
     record["team_counts"] = team_counts
 
-    mode, reason = _classify_mode(len(active))
+    mode, reason = _classify_mode(player_count)
     record["mode"] = mode
     record["ambiguity_reason"] = reason
 
@@ -1181,9 +1267,14 @@ def _cli(argv: Iterable[str]) -> int:
         "--indent", type=int, default=None,
         help="Pretty-print JSON with this indent (single demo only; default compact JSON lines).",
     )
+    parser.add_argument(
+        "--qizmo-bundle", type=Path, default=None,
+        help="Path to qizmo_bundle.tgz for .qwz decompression "
+             "(overrides $QWD_QIZMO_BUNDLE and the built-in candidate paths).",
+    )
     args = parser.parse_args(list(argv))
 
-    records = [parse_qwd(p) for p in args.demos]
+    records = [parse_qwd(p, qizmo_bundle=args.qizmo_bundle) for p in args.demos]
     if len(records) == 1 and args.indent is not None:
         sys.stdout.write(json.dumps(records[0], indent=args.indent, sort_keys=True) + "\n")
     else:

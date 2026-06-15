@@ -223,6 +223,35 @@ class SyntheticDemoTests(unittest.TestCase):
         self.assertEqual(rec["mode"], "2on2")
         self.assertEqual(rec["team_counts"], {"red": 2, "blue": 2})
 
+    def test_player_count_uses_peak_not_final_roster(self) -> None:
+        # A real 4on4 (8 active) where one slot disconnects (empty updateuserinfo)
+        # in a later block. player_count/mode must reflect the peak (8 / 4on4),
+        # not the final accumulated roster (7 / ambiguous).
+        roster8 = [
+            (0, "r1", "red"), (1, "r2", "red"), (2, "r3", "red"), (3, "r4", "red"),
+            (4, "b1", "blue"), (5, "b2", "blue"), (6, "b3", "blue"), (7, "b4", "blue"),
+        ]
+        signon = _svc_serverdata(playernum_raw=0, levelname="Peak Map")
+        signon += _svc_modellist("maps/dm3.bsp")
+        for slot, name, team in roster8:
+            signon += _svc_updateuserinfo(slot, 1000 + slot, f"\\name\\{name}\\team\\{team}")
+        out = bytearray()
+        out += _dem_read(signon, demotime=0.0)
+        for i in range(40):
+            out += _dem_cmd(0.013 * (i + 1), forward=400, side=0, up=0, yaw=90.0)
+        # late disconnect: slot 7 leaves (empty userinfo) in a later dem_read block
+        out += _dem_read(_svc_updateuserinfo(7, 1007, ""), demotime=1.0)
+        p = self._write(bytes(out), "peak_then_disconnect.qwd")
+
+        rec = qcm.parse_qwd(p)
+        self.assertEqual(rec["errors"], [])
+        self.assertEqual(rec["player_count"], 8)
+        self.assertEqual(rec["mode"], "4on4")
+        self.assertEqual(rec["team_counts"], {"red": 4, "blue": 4})
+        # the final accumulated roster reflects the disconnect (slot 7 gone)
+        final_active = [r for r in rec["roster"] if not r["spectator"] and r["name"]]
+        self.assertEqual(len(final_active), 7)
+
     def test_truncated_returns_error_not_crash(self) -> None:
         full = build_demo(n_cmds=200)
         # Cut inside a later record's body so framing is broken mid-stream.
@@ -334,6 +363,48 @@ class CorpusTests(unittest.TestCase):
         self.assertEqual(rec["player_count"], 8)
         self.assertEqual(rec["mode"], "4on4")
         self.assertEqual(rec["pov_kind"], "self")
+
+
+# ---------------------------------------------------------------------------
+# qizmo bundle resolution (injectable; no real bundle required)
+# ---------------------------------------------------------------------------
+
+class QizmoBundleResolutionTests(unittest.TestCase):
+    def test_explicit_override_wins_and_must_exist(self) -> None:
+        tmp = Path(tempfile.mkdtemp(prefix="qcm_qz_"))
+        bundle = tmp / "qizmo_bundle.tgz"
+        bundle.write_bytes(b"placeholder")  # only existence matters here
+        self.assertEqual(qcm._resolve_qizmo_bundle(bundle), bundle)
+        self.assertIsNone(qcm._resolve_qizmo_bundle(tmp / "missing.tgz"))
+
+    def test_env_var_override(self) -> None:
+        import os
+
+        tmp = Path(tempfile.mkdtemp(prefix="qcm_qz_"))
+        bundle = tmp / "qizmo_bundle.tgz"
+        bundle.write_bytes(b"x")
+        old = os.environ.get(qcm.QIZMO_BUNDLE_ENV)
+        try:
+            os.environ[qcm.QIZMO_BUNDLE_ENV] = str(bundle)
+            self.assertEqual(qcm._resolve_qizmo_bundle(), bundle)
+            os.environ[qcm.QIZMO_BUNDLE_ENV] = str(tmp / "nope.tgz")
+            self.assertIsNone(qcm._resolve_qizmo_bundle())
+        finally:
+            if old is None:
+                os.environ.pop(qcm.QIZMO_BUNDLE_ENV, None)
+            else:
+                os.environ[qcm.QIZMO_BUNDLE_ENV] = old
+
+    def test_qwz_without_bundle_is_graceful_error(self) -> None:
+        # A non-.qwd ("compressed") input with no available bundle -> error
+        # record (never a crash), with the compressed hash still recorded.
+        p = Path(tempfile.mkdtemp(prefix="qcm_qz_")) / "x.qwz"
+        p.write_bytes(b"\x80\x01\xba\x1f\x57\xc1\xff\xf5" * 8)
+        rec = qcm.parse_qwd(p, qizmo_bundle="/definitely/missing/qizmo_bundle.tgz")
+        self.assertTrue(rec["is_compressed"])
+        self.assertIsNotNone(rec["compressed_sha256"])
+        self.assertTrue(rec["errors"])
+        self.assertIsNone(rec["decompressed_sha256"])
 
 
 if __name__ == "__main__":
