@@ -61,6 +61,13 @@ class ReviewGateMergeWorkflowTests(unittest.TestCase):
         # blocks the immediate-merge path while it is still in progress (#195 review).
         self.assertRegex(merge, r"gate_filter='\[[^\]]*\"Gate Draft Guard\"")
 
+    def test_merge_enforces_ready_label_cooldown(self) -> None:
+        merge = _workflow_text(MERGE_WORKFLOW)
+        # A just-applied gate: ready must not merge immediately, so a reviewer who
+        # reverts a transient PASS within the cooldown wins (the #192/#188 race).
+        self.assertIn("ready_cooldown=300", merge)
+        self.assertIn('"$ready_age" -ge "$ready_cooldown"', merge)
+
 
 if __name__ == "__main__":
     unittest.main()
