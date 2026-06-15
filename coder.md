@@ -24,6 +24,11 @@ review.
 - Update docs when source, config, lab behavior, assumptions, or workflow changes.
 - Link or create durable test cases for meaningful user-facing behavior.
 - Log each completed manual test as a test run, not by deleting the test case.
+- Open a PR intended for the review gate as **ready for review (non-draft)**. Use
+  draft only for genuine WIP, early feedback, or an outstanding author-side step
+  before merge. The gate (`gate: reviewing` -> `gate: ready`/`gate: blocked` ->
+  merge) is built for non-draft PRs; a draft receives advisory review only and
+  must never be labeled `gate: ready`.
 
 ## Boundaries
 

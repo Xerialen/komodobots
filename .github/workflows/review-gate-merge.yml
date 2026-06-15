@@ -21,10 +21,17 @@ name: Review Gate Merge
 # A low-frequency schedule reconciles eligible `gate: ready` PRs if a label
 # event is missed. "Not ready yet" is silent (log only); it comments only on an
 # actual merge.
+#
+# `ready_for_review` is intentionally NOT a merge trigger. Promoting a draft to
+# ready is owned by Reset Review Gate (it sets `gate: reviewing`), so a draft that
+# was mistakenly labeled `gate: ready` + given a SHA-bound verdict cannot auto-merge
+# on promotion - otherwise the merge and reset jobs would race on that event at an
+# unchanged head SHA. Merge acts only on explicit `labeled` / CI / schedule of an
+# already-non-draft PR; the `draft == false` check below stays as defense in depth.
 
 on:
   pull_request:
-    types: [labeled, ready_for_review, reopened]
+    types: [labeled, reopened]
   issues:
     types: [labeled]
   workflow_run:

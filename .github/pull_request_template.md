@@ -1,5 +1,9 @@
 # Pull Request
 
+<!-- Open as **ready for review** (non-draft) if you want this gated and merged.
+     Use draft ONLY for genuine WIP - a draft gets advisory review only and is
+     never labeled `gate: ready`. See coder.md. -->
+
 ## Summary
 
 ## Linked work
