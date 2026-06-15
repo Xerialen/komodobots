@@ -342,6 +342,32 @@ The runner starts a separate screen session named
 `~/nquakesv/mvdsv-lab`, uploads `experiments/qw_min_client.py`, generates
 `4v4-roster.json` and `4v4-plan.json`, records an MVD, runs the WSL analyzer,
 and rebuilds `artifacts/records/4v4-validation.json` from the local artifacts.
+When launched from inside WSL/Linux, the runner auto-disables the `wsl.exe`
+bridge and invokes the analyzer directly; `--no-wsl-bridge` forces the same
+path if auto-detection is not sufficient.
+
+Use `--komodobot-replay <cmds>` to make the labelled Komodobot slot actually
+move from a replay rather than remain a label-only Frogbot. The runner uploads
+the `.cmds` to `~/nquakesv/ktx/bots/replay/`, applies per-slot cvars before
+spawning bots, enables sampled moveprobe command logging, and copies parsed
+`moveprobe-assignments.json/md`, `moveprobe-commands.json/md`, and
+`moveprobe-replay-events.json/md` back with the run artifacts. The default
+movement mode for this path is
+`--komodobot-mode 10` (open-loop replay); stock Frogbot firing/combat remains
+unchanged. `--komodobot-slot` remains the fixed roster slot (`1-8`), while the
+generated KTX cvar suffix is shifted by the spectator shim (`slot 1 -> s2`,
+`slot 8 -> s9`) because per-slot moveprobe cvars are keyed by runtime
+client/edict suffixes.
+
+Example WSL command:
+
+```bash
+python3 scripts/run_4v4_validation_lab.py \
+  --map dm3 \
+  --timelimit 5 \
+  --komodobot-slot 1 \
+  --komodobot-replay /path/to/dm3-human-replay.cmds
+```
 
 Important KTX settings for bot-only 4v4:
 

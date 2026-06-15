@@ -173,7 +173,10 @@ A5 live-port overlay/spec: `C:\Users\benya\projects\quakeworld\komodobots\experi
   plan and roster intent for the all-bot DM3 4v4 validation setup.
 - `scripts/run_4v4_validation_lab.py` runs the lab-only live KTX 4v4 validation
   loop on allowlisted ports: generated KTX config, spectator shim, eight
-  Frogbots, MVD capture, analyzer output, and ledger rebuild.
+  Frogbots, MVD capture, analyzer output, and ledger rebuild. It can run from
+  a Windows host through the WSL analyzer bridge or directly from inside WSL,
+  and `--komodobot-replay` binds one fixed roster slot to per-slot moveprobe
+  replay cvars while leaving stock Frogbot firing/combat intact.
 - `lab/server/ktx_casting_ingest.py` is the read-only KTX casting ingest path;
   it reuses the same normalizer and does not import or call the control bridge.
 - `lab/server/ktx_live_observer.py` holds the conservative provisional live

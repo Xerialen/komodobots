@@ -347,6 +347,50 @@ local Challenge-TV archive qizmo bundle.
   -> `true_map=dm6`, `mode=2on2`, `player_count=4`,
   `frame_count=48636`, `errors=[]`.
 
+### 2026-06-15 update for issue #189
+
+`tests\test_run_4v4_validation_lab.py` now also covers the WSL/Linux direct
+analyzer path and the replay-driven Komodobot slot setup. The live acceptance
+command is:
+
+```bash
+python3 scripts/run_4v4_validation_lab.py \
+  --map dm3 \
+  --timelimit 5 \
+  --komodobot-slot 1 \
+  --komodobot-replay /path/to/dm3-human-replay.cmds
+```
+
+Expected artifacts beyond the existing ledger run are
+`moveprobe-assignments.json/md`, `moveprobe-commands.json/md`, and
+`moveprobe-replay-events.json/md` in the run directory. Assignment rows show
+the selected slot resolved `k_fb_moveprobe_mode_s<N>` and
+`k_fb_moveprobe_replay_file_s<N>` from per-slot cvars when the deployed KTX
+build emits them; command/replay-event rows provide sampled movement proof for
+the replay-driven bot.
+Because the spectator shim is connected as client id 1, the fixed roster slot
+maps to KTX suffix `N = slot + 1`; the slot-1 acceptance run should therefore
+show the replay assignment on `s2` / edict `2`.
+
+Evidence from the issue #189 implementation branch:
+
+- Full WSL/direct-analyzer run
+  `codex_issue189_wsl_s2_20260615T0520Z` used `--komodobot-slot 1`
+  plus `--komodobot-replay experiments/nav_doctrine/evidence/replay/dm3_sng_to_rl.cmds`.
+  The remote match completed and cleanup ran; manual local postprocessing was
+  needed because the outer agent command timed out after the match. The run
+  produced a valid ledger entry, parser exits `json=0`, `md=0`, `events=1`,
+  `komodobot-moveprobe.cvars` with `k_fb_moveprobe_mode_s2 10`, and screen log
+  proof that `FBMOVEPROBE_REPLAY` loaded
+  `bots/replay/dm3_sng_to_rl.cmds` for the `/ bro` edict.
+- Short post-patch WSL smoke
+  `codex_issue189_wsl_logs_20260615T0545Z` ran through the runner with
+  `--duration 45 --skip-ledger --skip-analyzer` after sampled moveprobe
+  command logging was enabled. Its run summary reported assignment rows `4`,
+  command rows `384`, replay-event rows `6`, and screen log rows showing
+  `/ bro` on edict `2` in mode `10` with replay active while the other bots
+  stayed in mode `0`.
+
 ## KomodoLab starting cases
 
 Seed these as issues or doc-backed cases as the dashboard work continues:
