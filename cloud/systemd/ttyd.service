@@ -1,0 +1,15 @@
+[Unit]
+Description=ttyd browser terminal (gated by Cloudflare Access / Gmail)
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu
+# Loopback ONLY -> reachable solely through the cloudflared tunnel, never public.
+# Persistent tmux 'komodo': closing the browser tab does not kill the session.
+ExecStart=/usr/bin/ttyd --writable --interface 127.0.0.1 --port 7682 tmux new-session -A -s komodo
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

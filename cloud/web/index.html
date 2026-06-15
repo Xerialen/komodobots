@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Komodo Cloud Hub</title>
+<style>
+  :root { --bg:#0b0e12; --panel:#141a21; --line:#222c38; --fg:#e7eef6; --dim:#8aa0b4;
+          --accent:#46c2ff; --ok:#5fe08a; --off:#5a6b7a; --warn:#ffcf5f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  header { padding:18px 22px; border-bottom:1px solid var(--line); display:flex;
+           align-items:baseline; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; letter-spacing:.5px; }
+  header .sub { color:var(--dim); font-size:12px; }
+  header a { color:var(--accent); text-decoration:none; }
+  main { max-width:1100px; margin:0 auto; padding:18px 22px 60px; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+            margin:16px 0; overflow:hidden; }
+  section > h2 { font-size:13px; text-transform:uppercase; letter-spacing:1px;
+                 color:var(--dim); margin:0; padding:12px 16px; border-bottom:1px solid var(--line);
+                 display:flex; justify-content:space-between; align-items:center; }
+  section > h2 .count { color:var(--fg); }
+  table { width:100%; border-collapse:collapse; }
+  th,td { text-align:left; padding:9px 16px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--dim); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+  tr:last-child td { border-bottom:0; }
+  td.route { white-space:normal; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:11px; }
+  .pill.on { background:rgba(95,224,138,.15); color:var(--ok); }
+  .pill.off { background:rgba(90,107,122,.18); color:var(--off); }
+  .play { color:var(--accent); text-decoration:none; }
+  .play:hover { text-decoration:underline; }
+  .empty { padding:16px; color:var(--dim); }
+  .dim { color:var(--dim); }
+  .right { text-align:right; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🦎 Komodo Cloud Hub</h1>
+  <span class="sub">cloud servers · online demos · successful attempts &nbsp;|&nbsp;
+    <a href="/botlab/" target="_blank">open dashboard ↗</a></span>
+  <span class="sub right" id="clock" style="margin-left:auto"></span>
+</header>
+<main>
+  <section>
+    <h2>Cloud servers <span class="count" id="srv-count"></span></h2>
+    <table><thead><tr><th>Port</th><th>Status</th><th>Map</th><th>Players</th><th>Name</th></tr></thead>
+      <tbody id="servers"><tr><td colspan="5" class="empty">loading…</td></tr></tbody></table>
+  </section>
+
+  <section>
+    <h2>Demos recorded online <span class="count" id="demo-count"></span></h2>
+    <table><thead><tr><th>Recorded</th><th>Map</th><th>Demo</th><th class="right">Size</th><th></th></tr></thead>
+      <tbody id="online"><tr><td colspan="5" class="empty">loading…</td></tr></tbody></table>
+  </section>
+
+  <section>
+    <h2>Successful attempts <span class="dim">(from local hub)</span> <span class="count" id="att-count"></span></h2>
+    <table><thead><tr><th>Map</th><th>Route</th><th>Run</th><th></th></tr></thead>
+      <tbody id="attempts"><tr><td colspan="4" class="empty">loading…</td></tr></tbody></table>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const kb = (n) => n == null ? "" : (n >= 1048576 ? (n/1048576).toFixed(1)+" MB" : Math.max(1,Math.round(n/1024))+" KB");
+const when = (t) => t ? new Date(t*1000).toISOString().replace("T"," ").slice(0,16) : "";
+const play = (url, map) => `/botlab/panes/demo.html?demo=${encodeURIComponent(url)}&map=${encodeURIComponent(map||"dm3")}`;
+
+async function getJSON(u){ const r = await fetch(u, {cache:"no-store"}); if(!r.ok) throw new Error(u+" "+r.status); return r.json(); }
+
+async function loadServers(){
+  try {
+    const rows = await getJSON("/api/servers");
+    $("srv-count").textContent = rows.filter(r=>r.online).length + "/" + rows.length + " up";
+    $("servers").innerHTML = rows.map(r => `<tr>
+      <td>${r.port}</td>
+      <td>${r.online ? '<span class="pill on">online</span>' : '<span class="pill off">offline</span>'}</td>
+      <td>${esc(r.map||"—")}</td>
+      <td>${r.online ? esc((r.players??"?")+"/"+(r.maxplayers??"?")) + (r.spectators ? ` <span class="dim">+${r.spectators} spec</span>`:"") : "—"}</td>
+      <td class="dim">${esc(r.name||"")}</td></tr>`).join("");
+  } catch(e){ $("servers").innerHTML = `<tr><td colspan="5" class="empty">servers unavailable (${esc(e.message)})</td></tr>`; }
+}
+async function loadOnline(){
+  try {
+    const rows = await getJSON("/api/online-demos");
+    $("demo-count").textContent = rows.length;
+    $("online").innerHTML = rows.length ? rows.map(r => `<tr>
+      <td class="dim">${esc(when(r.mtime))}</td><td>${esc(r.map)}</td>
+      <td>${esc(r.name)}</td><td class="right dim">${kb(r.size)}</td>
+      <td><a class="play" target="_blank" href="${play(r.url, r.map)}">▶ play</a></td></tr>`).join("")
+      : `<tr><td colspan="5" class="empty">No demos recorded online yet — they appear here as the cloud servers record matches.</td></tr>`;
+  } catch(e){ $("online").innerHTML = `<tr><td colspan="5" class="empty">unavailable (${esc(e.message)})</td></tr>`; }
+}
+async function loadAttempts(){
+  try {
+    const rows = await getJSON("/api/attempts");
+    $("att-count").textContent = rows.length;
+    $("attempts").innerHTML = rows.length ? rows.map(r => `<tr>
+      <td>${esc(r.map)}</td><td class="route">${esc(r.route)}</td><td class="dim">${esc(r.runid)}</td>
+      <td><a class="play" target="_blank" href="${play(r.url, r.map)}">▶ play</a></td></tr>`).join("")
+      : `<tr><td colspan="4" class="empty">none</td></tr>`;
+  } catch(e){ $("attempts").innerHTML = `<tr><td colspan="4" class="empty">unavailable (${esc(e.message)})</td></tr>`; }
+}
+function tick(){ $("clock").textContent = new Date().toISOString().replace("T"," ").slice(0,19)+" UTC"; }
+
+loadServers(); loadOnline(); loadAttempts(); tick();
+setInterval(loadServers, 10000);   // servers refresh live
+setInterval(tick, 1000);
+</script>
+</body>
+</html>

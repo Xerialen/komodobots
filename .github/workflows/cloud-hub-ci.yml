@@ -1,0 +1,27 @@
+name: cloud-hub CI
+
+on:
+  pull_request:
+    paths:
+      - 'cloud/**'
+      - 'tests/test_cloud_hub.py'
+      - '.github/workflows/cloud-hub-ci.yml'
+
+jobs:
+  cloud-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Byte-compile the cloud hub
+        run: python -m py_compile cloud/cloud_hub.py
+      - name: Shell syntax check
+        run: |
+          for f in cloud/*.sh; do echo "checking $f"; bash -n "$f"; done
+      - name: systemd unit sanity (ExecStart present)
+        run: |
+          for u in cloud/systemd/*.service; do echo "checking $u"; grep -q '^ExecStart=' "$u"; done
+      - name: Cloud hub smoke tests
+        run: python tests/test_cloud_hub.py -v

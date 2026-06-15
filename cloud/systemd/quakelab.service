@@ -1,0 +1,17 @@
+[Unit]
+Description=QuakeWorld lab servers (nQuake mvdsv/KTX + qtv) - auto-start on boot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=ubuntu
+WorkingDirectory=/home/ubuntu/nquakesv
+# start_servers.sh launches the standing mvdsv (UDP 28501-28504) + qtv in detached screens.
+ExecStart=/home/ubuntu/nquakesv/start_servers.sh
+ExecStop=/home/ubuntu/nquakesv/stop_servers.sh
+TimeoutStartSec=90
+
+[Install]
+WantedBy=multi-user.target
