@@ -126,24 +126,44 @@ jobs:
             [ "$has_blocked" = "false" ]   || { echo "skip #$PR: 'gate: blocked' present"; return 0; }
             [ "$mergeable" = "MERGEABLE" ] || { echo "skip #$PR: not mergeable ($mergeable)"; return 0; }
 
-            # `gate: ready` is merge-authorizing only when a top-level gate
-            # verdict comment explicitly binds that decision to the CURRENT head
-            # SHA. This prevents a stale ready label from approving newer code.
-            # Expected reviewer/gate-comment contract:
-            #   DECISION: PASS
-            #   LABEL: gate: ready
+            # `gate: ready` is merge-authorizing only when the LATEST top-level
+            # gate verdict comment bound to the CURRENT head SHA is itself a PASS
+            # (a later BLOCK vetoes an earlier PASS even if the label lags), AND
+            # that verdict post-dates the most recent draft->ready promotion, so a
+            # verdict written while the PR was a draft can never merge it after
+            # promotion. Together these close the draft-promotion stale-verdict
+            # race on EVERY path (labeled, workflow_run, and the schedule
+            # reconciler), not only the event that removed `ready_for_review`.
+            # Reviewer/gate-comment contract:
+            #   DECISION: PASS | BLOCK
+            #   LABEL: gate: ready | gate: blocked
             #   HEAD_SHA: <full current head SHA>
-            local comments_json ready_for_current_head
+            local comments_json latest_verdict verdict_at verdict_pass latest_promo
             comments_json=$(gh api --paginate --slurp "repos/$REPO/issues/$PR/comments")
-            ready_for_current_head=$(jq -r --arg head "$head" '
+            # Newest comment that carries a DECISION line bound to this head SHA.
+            latest_verdict=$(jq -c --arg head "$head" '
               [.[][]
-                | (.body // "") as $body
-                | select($body | test("(^|\\n)DECISION: (PASS|READY)(\\n|$)"))
-                | select($body | contains("LABEL: gate: ready"))
-                | select($body | contains("HEAD_SHA: " + $head))]
-              | length
+                | select((.body // "") | test("(^|\\n)DECISION: "))
+                | select((.body // "") | contains("HEAD_SHA: " + $head))
+                | {created_at, body: (.body // "")}]
+              | sort_by(.created_at) | last // {}
             ' <<<"$comments_json")
-            [ "${ready_for_current_head:-0}" -ge 1 ] || { echo "skip #$PR: no SHA-bound gate-ready verdict for current head $short"; return 0; }
+            verdict_at=$(jq -r '.created_at // ""' <<<"$latest_verdict")
+            verdict_pass=$(jq -r '
+              if ((.body // "")
+                   | (test("(^|\\n)DECISION: (PASS|READY)(\\n|$)")
+                      and contains("LABEL: gate: ready")))
+              then "yes" else "no" end' <<<"$latest_verdict")
+            [ -n "$verdict_at" ]        || { echo "skip #$PR: no SHA-bound gate verdict for current head $short"; return 0; }
+            [ "$verdict_pass" = "yes" ] || { echo "skip #$PR: latest head-bound verdict for $short is not PASS/ready (a later BLOCK vetoes)"; return 0; }
+            # Fail closed if the authorizing verdict predates the latest
+            # draft->ready promotion (a verdict made while draft must not merge).
+            latest_promo=$(gh api --paginate --slurp "repos/$REPO/issues/$PR/timeline" \
+              --jq '[.[][] | select(.event == "ready_for_review") | .created_at] | max // ""')
+            if [[ -n "$latest_promo" && "$verdict_at" < "$latest_promo" ]]; then
+              echo "skip #$PR: gate-ready verdict ($verdict_at) predates latest ready_for_review ($latest_promo); needs a fresh non-draft review"
+              return 0
+            fi
 
             # Exclude this gate's own workflow runs from the rollup count so the
             # merge job can't deadlock on itself; pr-tests and any real CI count.
@@ -170,7 +190,7 @@ jobs:
             [ "${pt_total:-0}" -ge 1 ]        || { echo "skip #$PR: required 'PR Tests' check absent (CI floor missing)"; return 0; }
             [ "${pt_total}" -eq "${pt_ok}" ]  || { echo "skip #$PR: 'PR Tests' not all passing ($pt_ok/$pt_total)"; return 0; }
 
-            echo "merging #$PR @ $short ($n_checks check(s) passing, incl. PR Tests $pt_ok/$pt_total; SHA-bound gate verdict present)"
+            echo "merging #$PR @ $short ($n_checks check(s) passing, incl. PR Tests $pt_ok/$pt_total; latest head-bound PASS verdict, post-promotion)"
             gh pr merge "$PR" -R "$REPO" --squash --delete-branch
             gh pr comment "$PR" -R "$REPO" \
               --body "**Merged** by review-gate executor. Gate: open, non-draft, base \`main\`, mergeable, current-head gate verdict for \`$short\`, $n_checks check(s) passing (incl. \`PR Tests\`), label \`gate: ready\`."
