@@ -42,10 +42,26 @@ Proven recipe for a KTX 4on4 frogbot match that forms teams, fights, and records
   where the cloud hub lists it and it plays in-browser.
 
 ## Start / sleep — `manage.sh`
-`manage.sh {start|stop|status}` starts/stops the box via the AWS CLI (profile `komodo`).
-After `start`, every service returns automatically (tunnel URLs unchanged). `stop` saves
-cost; the EBS root volume (demos, records, repos, configs) persists. **Never stop mid-
-match** — recorded demos on disk are safe, but live in-RAM match state is not.
+`manage.sh {start|stop|status|snapshot|snapshots}` drives the box via the AWS CLI (profile
+`komodo`). After `start`, every service returns automatically (tunnel URLs unchanged).
+`stop` saves cost; the EBS root volume (demos, records, repos, configs) persists. **Never
+stop mid-match** — recorded demos on disk are safe, but live in-RAM match state is not.
+
+## Data durability — don't lose the lab
+The EBS root volume survives stop/start, but a single volume is a single point of failure
+(corruption, accidental delete, region issue). Two layers protect the lab's value:
+- **Committed artifacts live in git.** "Successful attempts" (`tricks/<map>/…mvd`) and all
+  code/config are pushed to GitHub, so they are never box-only.
+- **Whole-disk snapshots** for everything box-local (recorded online demos, generated
+  ledgers, the corpus, configs). `manage.sh snapshot` takes a tagged, point-in-time,
+  incremental EBS snapshot (S3-backed) from which a fresh volume/box can be restored even
+  if the volume is gone; `manage.sh snapshots` lists them. The scoped `komodo` IAM key can
+  create/list snapshots, so this works from any workstation with the profile — no extra
+  IAM. **Run `snapshot` before risky changes and on a periodic cadence.**
+
+> Fully hands-off scheduling (a daily snapshot via AWS Data Lifecycle Manager, or a
+> self-snapshot timer on the box) needs an instance-profile / DLM role — a one-time owner
+> IAM step. Until then, `manage.sh snapshot` is the manual/scripted path and is sufficient.
 
 ## Known gaps / next
 - The **named, policy-driven komodobots** (team `leap`: ScaryM/pietro/hib/Angua) are the
