@@ -430,6 +430,25 @@ class QizmoBundleResolutionTests(unittest.TestCase):
         self.assertTrue(rec["errors"])
         self.assertIsNone(rec["decompressed_sha256"])
 
+    def test_qwz_on_windows_returns_clear_wsl_required_error(self) -> None:
+        # On native Windows Python the Linux qizmo can't exec; decompress must
+        # return a clear "requires WSL" error (not a WinError), and parse_qwd must
+        # still record is_compressed + the compressed hash. Exercises the actual
+        # invocation/fallback path, not just bundle resolution.
+        from unittest.mock import patch
+
+        p = Path(tempfile.mkdtemp(prefix="qcm_qz_")) / "x.qwz"
+        p.write_bytes(b"\x80\x01\xba\x1f\x57\xc1\xff\xf5" * 8)
+        with patch.object(qcm, "_running_on_windows", return_value=True):
+            out, _label, err = qcm.decompress_qwz(p, Path(tempfile.mkdtemp(prefix="qcm_qz_")))
+            self.assertIsNone(out)
+            self.assertIn("WSL", err or "")
+            rec = qcm.parse_qwd(p)
+        self.assertTrue(rec["is_compressed"])
+        self.assertIsNotNone(rec["compressed_sha256"])
+        self.assertTrue(any("WSL" in e for e in rec["errors"]))
+        self.assertIsNone(rec["decompressed_sha256"])
+
 
 if __name__ == "__main__":
     unittest.main()

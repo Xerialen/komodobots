@@ -196,13 +196,17 @@ YAW_CONTINUITY_THRESHOLD_DEG = 60.0
 MOVEMENT_CMD_FRACTION_ELIGIBLE = 0.2
 
 QIZMO_BUNDLE_ENV = "QWD_QIZMO_BUNDLE"
-# Known qizmo bundle locations across WSL and Windows checkouts; first existing
-# wins. Override with the env var above, the CLI `--qizmo-bundle`, or the
-# `parse_qwd(..., qizmo_bundle=...)` argument.
+# The bundled qizmo is a Linux binary, so .qwz decompression runs under Linux/WSL
+# only (see `decompress_qwz`); these are WSL/Linux bundle locations. Override with
+# the env var above, the CLI `--qizmo-bundle`, or `parse_qwd(..., qizmo_bundle=...)`.
 QIZMO_BUNDLE_CANDIDATES: tuple[str, ...] = (
     "/mnt/c/Users/benya/projects/quakeworld/data/challenge-tv-archive/qizmo_bundle.tgz",
-    r"C:\Users\benya\projects\quakeworld\data\challenge-tv-archive\qizmo_bundle.tgz",
 )
+
+
+def _running_on_windows() -> bool:
+    """True on native Windows Python (where the bundled Linux qizmo cannot exec)."""
+    return os.name == "nt"
 
 
 def _resolve_qizmo_bundle(override: str | Path | None = None) -> Path | None:
@@ -340,7 +344,17 @@ def decompress_qwz(
     ``bundle`` is the resolved ``qizmo_bundle.tgz`` (see ``_resolve_qizmo_bundle``).
     Returns (decompressed_path, decompressor_label, error).  Never writes into
     the source corpus.
+
+    The bundled qizmo is a Linux ELF, so this runs under Linux/WSL only; on native
+    Windows Python it returns a clear error instead of failing with a confusing
+    ``WinError 193`` when the Linux loader is invoked. Run the parser from WSL to
+    decompress ``.qwz`` inputs on a Windows checkout.
     """
+    if _running_on_windows():
+        return None, None, (
+            "qwz decompression requires Linux/WSL: the bundled qizmo is a Linux "
+            "binary and cannot run under native Windows Python. Run the parser from WSL."
+        )
     bundle_dir = _ensure_qizmo(bundle)
     if bundle_dir is None:
         return None, None, "qizmo decompressor unavailable (bundle missing or extraction failed)"
