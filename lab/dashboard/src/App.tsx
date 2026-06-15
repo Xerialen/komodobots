@@ -38,6 +38,7 @@ import {
 import { ControlClient } from "./controlClient.ts";
 import { ControlDrawer, CvarConsolePanel } from "./ControlDrawer.tsx";
 import { CastingScoreboard } from "./CastingScoreboard.tsx";
+import { FourVFourEvidence } from "./FourVFourEvidence.tsx";
 
 // Re-export openDemo type for LD-E4 (#104) to import.
 export type { OpenDemoParams } from "./DemoPane.tsx";
@@ -133,6 +134,12 @@ export function App() {
   const castingMode = getParam("casting") === "1";
   if (castingMode) {
     return <CastingScoreboard />;
+  }
+
+  // LD-H3 (#200): full-page 4v4 evidence report (the canonical wireframe).
+  const evidenceMode = getParam("evidence") === "1";
+  if (evidenceMode) {
+    return <FourVFourEvidence />;
   }
 
   const wsUrl = useMemo(() => getParam("ws") ?? DEFAULT_TELEMETRY_WS, []);
