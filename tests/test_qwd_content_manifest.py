@@ -252,6 +252,30 @@ class SyntheticDemoTests(unittest.TestCase):
         final_active = [r for r in rec["roster"] if not r["spectator"] and r["name"]]
         self.assertEqual(len(final_active), 7)
 
+    def test_team_counts_reflect_setinfo_team_changes(self) -> None:
+        # Names arrive first with no team; a later setinfo block assigns teams.
+        # The active count stays 4 throughout, so team_counts must still update
+        # from the team-assigning setinfo (not stay {"": 4}).
+        signon = _svc_serverdata(playernum_raw=0)
+        signon += _svc_modellist("maps/dm3.bsp")
+        for slot, name in [(0, "a"), (1, "b"), (2, "c"), (3, "d")]:
+            signon += _svc_updateuserinfo(slot, 1000 + slot, f"\\name\\{name}")
+        teams = b""
+        for slot, team in [(0, "red"), (1, "red"), (2, "blue"), (3, "blue")]:
+            teams += bytes([qcm.SVC_SETINFO, slot]) + _cstr("team") + _cstr(team)
+        out = bytearray()
+        out += _dem_read(signon, demotime=0.0)
+        for i in range(20):
+            out += _dem_cmd(0.013 * (i + 1), forward=400, side=0, up=0, yaw=90.0)
+        out += _dem_read(teams, demotime=1.0)
+        p = self._write(bytes(out), "setinfo_teams.qwd")
+
+        rec = qcm.parse_qwd(p)
+        self.assertEqual(rec["errors"], [])
+        self.assertEqual(rec["player_count"], 4)
+        self.assertEqual(rec["mode"], "2on2")
+        self.assertEqual(rec["team_counts"], {"red": 2, "blue": 2})
+
     def test_truncated_returns_error_not_crash(self) -> None:
         full = build_demo(n_cmds=200)
         # Cut inside a later record's body so framing is broken mid-stream.

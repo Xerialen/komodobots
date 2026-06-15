@@ -724,7 +724,10 @@ def _note_concurrency(state: dict, dt: float) -> None:
     """
     active = _active_players(state["userinfo"])
     n = len(active)
-    state["count_snapshot"].setdefault(n, active)
+    # Store the LATEST snapshot for this count (not setdefault), so a setinfo
+    # that fills in teams without changing the active count still refreshes the
+    # team_counts source for the modal snapshot (#188 re-review).
+    state["count_snapshot"][n] = active
     if n > state["max_active_count"]:
         state["max_active_count"] = n
     if n == state["cur_active"]:
