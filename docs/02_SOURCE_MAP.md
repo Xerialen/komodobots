@@ -187,6 +187,13 @@ A5 live-port overlay/spec: `C:\Users\benya\projects\quakeworld\komodobots\experi
 - Fixtures live at `lab/dashboard/public/data/4v4-validation.example.json` and
   `lab/dashboard/public/data/casting-match.example.json`; browser evidence is
   recorded under `lab/evidence/ld-h3-*`.
+- The current actual-run 4v4 validation feed is generated from the full issue
+  #189 WSL acceptance run `codex_issue189_full_accept_20260615T1546Z`, not from
+  fixture data. The committed local-dev mirror lives at
+  `lab/dashboard/public/demos/records/4v4-validation.json`; the live records
+  feed was also published to
+  `servexeri:~/local-hub/web/demos/records/4v4-validation.json`, which is served
+  as `/demos/records/4v4-validation.json`.
 
 Why they matter:
 

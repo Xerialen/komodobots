@@ -390,6 +390,37 @@ Evidence from the issue #189 implementation branch:
   command rows `384`, replay-event rows `6`, and screen log rows showing
   `/ bro` on edict `2` in mode `10` with replay active while the other bots
   stayed in mode `0`.
+- Full non-skipped WSL acceptance run
+  `codex_issue189_full_accept_20260615T1546Z` used `--port 28599
+  --strict-port --controller-version komodobot-dev-replay-sng-to-rl
+  --komodobot-slot 1 --komodobot-replay
+  experiments/nav_doctrine/evidence/replay/dm3_sng_to_rl.cmds`, with no
+  `--skip-ledger` and no `--skip-analyzer`. The run completed a 5-minute DM3
+  4v4 match, parser exits were `json=0`, `md=0`, `events=1`, and the rebuilt
+  ledger verdict was `valid` with one Komodobot slot plus seven skill-20
+  Frogbot controls. Moveprobe artifacts reported assignment rows `18`, command
+  rows `3128`, replay-event rows `30`, and per-slot errors `0`. The selected
+  slot resolved to KTX suffix `s2`, `/ bro` / edict `2`, mode `10`,
+  `bots/replay/dm3_sng_to_rl.cmds`; sampled control bots stayed mode `0`.
+- The actual-run dashboard feed for this acceptance is committed at
+  `lab/dashboard/public/demos/records/4v4-validation.json` and published to
+  `servexeri:~/local-hub/web/demos/records/4v4-validation.json` so production
+  can serve it as `/demos/records/4v4-validation.json`. The local Vite dev
+  server serves public assets under `/botlab/`, so the local validation URL was
+  `http://127.0.0.1:5176/botlab/?views=game&validation=/botlab/demos/records/4v4-validation.json`.
+  Browser evidence from Chrome DevTools is stored at
+  `lab/evidence/issue189-dashboard-local-actual-1280x720.png` and
+  `lab/evidence/issue189-dashboard-local-actual-snapshot.txt`; the panel
+  rendered `4V4 VALIDATION`, run
+  `codex_issue189_full_accept_20260615T1546Z`, red/blue teams, eight bot rows,
+  and the tracked Komodo row `komodo-dev` with controller
+  `komodobot-dev-replay-sng-to-rl`.
+- A live dashboard check at `http://192.168.86.33:8095/botlab/?views=game`
+  confirmed the records feed is reachable, but the currently deployed dashboard
+  build has not yet been cut over to a version that renders the 4v4 validation
+  panel. That evidence is stored at
+  `lab/evidence/issue189-dashboard-live-1280x720.png` and
+  `lab/evidence/issue189-dashboard-live-snapshot.txt`.
 
 ## KomodoLab starting cases
 

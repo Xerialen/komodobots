@@ -1,0 +1,1980 @@
+{
+  "schema": "komodobots.4v4_validation.v1",
+  "metrics": [
+    "frags",
+    "deaths",
+    "kills",
+    "efficiency",
+    "team_kills",
+    "damage_done",
+    "damage_taken",
+    "enemy_weapon_damage",
+    "team_weapon_damage",
+    "health_pickups",
+    "quad_pickups",
+    "pent_pickups",
+    "ring_pickups",
+    "rl_pickups",
+    "rl_drops",
+    "enemy_rl_kills",
+    "taken_to_die"
+  ],
+  "games": [
+    {
+      "run_id": "codex_issue189_full_accept_20260615T1546Z",
+      "artifact_dir": "artifacts\\4v4-validation-runs\\codex_issue189_full_accept_20260615T1546Z",
+      "stats_artifact": "artifacts\\4v4-validation-runs\\codex_issue189_full_accept_20260615T1546Z\\analysis.json",
+      "roster_artifact": "artifacts\\4v4-validation-runs\\codex_issue189_full_accept_20260615T1546Z\\4v4-roster.json",
+      "demo": {
+        "name": "4on4_red_vs_blue[dm3]20260615-1508.mvd",
+        "url": "/demos/files/non-games/lab/Komodobots/4v4/4on4_red_vs_blue[dm3]20260615-1508.mvd"
+      },
+      "match": {
+        "date": "2026-06-15 15:13:56 +0000",
+        "map": "dm3",
+        "hostname": "komodobots-4v4:28599",
+        "ip": "127.0.1.1",
+        "port": 28599,
+        "matchtag": null,
+        "mode": "team",
+        "timelimit": 5,
+        "fraglimit_reported": null,
+        "deathmatch": 1,
+        "teamplay": 2,
+        "duration": 300,
+        "demo": "4on4_red_vs_blue[dm3]20260615-1508.mvd",
+        "teams_declared": [
+          "red",
+          "blue"
+        ],
+        "is_ktx_teamplay": true
+      },
+      "teams": [
+        {
+          "name": "blue",
+          "player_count": 4,
+          "score": 44,
+          "player_ids": [
+            "05:blue:/_dizzy",
+            "06:blue:/_daisy",
+            "07:blue:/_denzil",
+            "08:blue:/_dora"
+          ],
+          "totals": {
+            "frags": 44,
+            "deaths": 56,
+            "kills": 47,
+            "team_kills": 2,
+            "damage_done": 7354,
+            "damage_taken": 7707,
+            "enemy_weapon_damage": 2055,
+            "team_weapon_damage": 0,
+            "health_pickups": 10,
+            "quad_pickups": 1,
+            "pent_pickups": 1,
+            "ring_pickups": 1,
+            "rl_pickups": 6,
+            "rl_drops": 3,
+            "enemy_rl_kills": 7,
+            "efficiency": 0.4563
+          },
+          "score_source": "sum(players[].stats.frags) because KTX JSON has no team score block"
+        },
+        {
+          "name": "red",
+          "player_count": 4,
+          "score": 50,
+          "player_ids": [
+            "01:red:/_bro",
+            "02:red:/_goldenboy",
+            "03:red:/_tincan",
+            "04:red:/_grue"
+          ],
+          "totals": {
+            "frags": 50,
+            "deaths": 50,
+            "kills": 53,
+            "team_kills": 2,
+            "damage_done": 7707,
+            "damage_taken": 7354,
+            "enemy_weapon_damage": 949,
+            "team_weapon_damage": 54,
+            "health_pickups": 19,
+            "quad_pickups": 4,
+            "pent_pickups": 0,
+            "ring_pickups": 0,
+            "rl_pickups": 9,
+            "rl_drops": 2,
+            "enemy_rl_kills": 6,
+            "efficiency": 0.5146
+          },
+          "score_source": "sum(players[].stats.frags) because KTX JSON has no team score block"
+        }
+      ],
+      "players": [
+        {
+          "slot": 1,
+          "id": "01:red:/_bro",
+          "identity": {
+            "name": "/ bro",
+            "team": "red",
+            "login": "",
+            "ping": 20,
+            "top_color": null,
+            "bottom_color": null,
+            "is_bot": true,
+            "bot": {
+              "skill": 20,
+              "customised": false
+            }
+          },
+          "stats": {
+            "frags": 10,
+            "deaths": 17,
+            "kills": 11,
+            "efficiency": 0.3929,
+            "team_kills": 1,
+            "spawn_frags": 0,
+            "suicides": 0,
+            "damage_done": 1709,
+            "damage_taken": 1959,
+            "team_damage": 161,
+            "self_damage": 29,
+            "team_weapon_damage": 0,
+            "enemy_weapon_damage": 162,
+            "taken_to_die": 115,
+            "taken_to_die_raw": 115,
+            "survived_without_death": false,
+            "xfer_rl": 0,
+            "xfer_lg": 0,
+            "avg_speed": 264.04483,
+            "max_speed": 707.183472,
+            "health_pickups": 3,
+            "quad_pickups": 1,
+            "pent_pickups": 0,
+            "ring_pickups": 0,
+            "rl_pickups": 2,
+            "rl_drops": 0,
+            "enemy_rl_kills": 2
+          },
+          "pickups": {
+            "health": {
+              "total": 3,
+              "health_15": 1,
+              "health_25": 1,
+              "health_100": 1
+            },
+            "powerups": {
+              "quad": 1,
+              "pent": 0,
+              "ring": 0
+            }
+          },
+          "weapons": {
+            "rl": {
+              "pickups_taken": 2,
+              "dropped": 0,
+              "enemy_kills": 2
+            },
+            "lg": {
+              "pickups_taken": 1,
+              "dropped": 0,
+              "enemy_kills": 2
+            }
+          },
+          "sources": {
+            "frags": "players[0]['stats']['frags']",
+            "deaths": "players[0]['stats']['deaths']",
+            "kills": "players[0]['stats']['kills']",
+            "efficiency": [
+              "players[0]['stats']['kills']",
+              "players[0]['stats']['deaths']"
+            ],
+            "team_kills": "players[0]['stats']['tk']",
+            "damage_done": "players[0]['dmg']['given']",
+            "damage_taken": "players[0]['dmg']['taken']",
+            "team_damage": "players[0]['dmg']['team']",
+            "self_damage": "players[0]['dmg']['self']",
+            "team_weapon_damage": "players[0]['dmg']['team-weapons']",
+            "enemy_weapon_damage": "players[0]['dmg']['enemy-weapons']",
+            "taken_to_die": "players[0]['dmg']['taken-to-die']",
+            "xfer_rl": "players[0]['xferRL']",
+            "xfer_lg": "players[0]['xferLG']",
+            "avg_speed": "players[0]['speed']['avg']",
+            "max_speed": "players[0]['speed']['max']",
+            "health_pickups": [
+              "players[0]['items']['health_15']['took']",
+              "players[0]['items']['health_25']['took']",
+              "players[0]['items']['health_100']['took']"
+            ],
+            "quad_pickups": "players[0]['items']['q']['took']",
+            "pent_pickups": "players[0]['items']['p']['took']",
+            "ring_pickups": "players[0]['items']['r']['took']",
+            "rl_pickups": "players[0]['weapons']['rl']['pickups']['taken']",
+            "rl_drops": "players[0]['weapons']['rl']['pickups']['dropped']",
+            "enemy_rl_kills": "players[0]['weapons']['rl']['kills']['enemy']"
+          },
+          "roster": {
+            "slot": 1,
+            "id": "slot-1",
+            "name": "komodo-dev",
+            "team": "red",
+            "role": "komodobot",
+            "bot_kind": "komodobot",
+            "bot_skill": 20,
+            "controller_version": "komodobot-dev-replay-sng-to-rl",
+            "tracked": true
+          },
+          "deltas": {
+            "frags": {
+              "current": 10,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "deaths": {
+              "current": 17,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "kills": {
+              "current": 11,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "efficiency": {
+              "current": 0.3929,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_kills": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_done": {
+              "current": 1709,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_taken": {
+              "current": 1959,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_weapon_damage": {
+              "current": 162,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_weapon_damage": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "health_pickups": {
+              "current": 3,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "quad_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "pent_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ring_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_pickups": {
+              "current": 2,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_drops": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_rl_kills": {
+              "current": 2,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "taken_to_die": {
+              "current": 115,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            }
+          }
+        },
+        {
+          "slot": 2,
+          "id": "02:red:/_goldenboy",
+          "identity": {
+            "name": "/ goldenboy",
+            "team": "red",
+            "login": "",
+            "ping": 20,
+            "top_color": null,
+            "bottom_color": null,
+            "is_bot": true,
+            "bot": {
+              "skill": 20,
+              "customised": false
+            }
+          },
+          "stats": {
+            "frags": 10,
+            "deaths": 8,
+            "kills": 12,
+            "efficiency": 0.6,
+            "team_kills": 1,
+            "spawn_frags": 0,
+            "suicides": 1,
+            "damage_done": 1703,
+            "damage_taken": 1436,
+            "team_damage": 96,
+            "self_damage": 81,
+            "team_weapon_damage": 0,
+            "enemy_weapon_damage": 36,
+            "taken_to_die": 179,
+            "taken_to_die_raw": 179,
+            "survived_without_death": false,
+            "xfer_rl": 1,
+            "xfer_lg": 0,
+            "avg_speed": 281.575073,
+            "max_speed": 596.046326,
+            "health_pickups": 5,
+            "quad_pickups": 1,
+            "pent_pickups": 0,
+            "ring_pickups": 0,
+            "rl_pickups": 2,
+            "rl_drops": 1,
+            "enemy_rl_kills": 0
+          },
+          "pickups": {
+            "health": {
+              "total": 5,
+              "health_15": 1,
+              "health_25": 3,
+              "health_100": 1
+            },
+            "powerups": {
+              "quad": 1,
+              "pent": 0,
+              "ring": 0
+            }
+          },
+          "weapons": {
+            "rl": {
+              "pickups_taken": 2,
+              "dropped": 1,
+              "enemy_kills": 0
+            },
+            "lg": {
+              "pickups_taken": 1,
+              "dropped": 0,
+              "enemy_kills": 0
+            }
+          },
+          "sources": {
+            "frags": "players[1]['stats']['frags']",
+            "deaths": "players[1]['stats']['deaths']",
+            "kills": "players[1]['stats']['kills']",
+            "efficiency": [
+              "players[1]['stats']['kills']",
+              "players[1]['stats']['deaths']"
+            ],
+            "team_kills": "players[1]['stats']['tk']",
+            "damage_done": "players[1]['dmg']['given']",
+            "damage_taken": "players[1]['dmg']['taken']",
+            "team_damage": "players[1]['dmg']['team']",
+            "self_damage": "players[1]['dmg']['self']",
+            "team_weapon_damage": "players[1]['dmg']['team-weapons']",
+            "enemy_weapon_damage": "players[1]['dmg']['enemy-weapons']",
+            "taken_to_die": "players[1]['dmg']['taken-to-die']",
+            "xfer_rl": "players[1]['xferRL']",
+            "xfer_lg": "players[1]['xferLG']",
+            "avg_speed": "players[1]['speed']['avg']",
+            "max_speed": "players[1]['speed']['max']",
+            "health_pickups": [
+              "players[1]['items']['health_15']['took']",
+              "players[1]['items']['health_25']['took']",
+              "players[1]['items']['health_100']['took']"
+            ],
+            "quad_pickups": "players[1]['items']['q']['took']",
+            "pent_pickups": "players[1]['items']['p']['took']",
+            "ring_pickups": "players[1]['items']['r']['took']",
+            "rl_pickups": "players[1]['weapons']['rl']['pickups']['taken']",
+            "rl_drops": "players[1]['weapons']['rl']['pickups']['dropped']",
+            "enemy_rl_kills": "players[1]['weapons']['rl']['kills']['enemy']"
+          },
+          "roster": {
+            "slot": 2,
+            "id": "slot-2",
+            "name": "a-control-2",
+            "team": "red",
+            "role": "control",
+            "bot_kind": "frogbot",
+            "bot_skill": 20,
+            "controller_version": "frogbot-20",
+            "tracked": false
+          },
+          "deltas": {
+            "frags": {
+              "current": 10,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "deaths": {
+              "current": 8,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "kills": {
+              "current": 12,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "efficiency": {
+              "current": 0.6,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_kills": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_done": {
+              "current": 1703,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_taken": {
+              "current": 1436,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_weapon_damage": {
+              "current": 36,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_weapon_damage": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "health_pickups": {
+              "current": 5,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "quad_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "pent_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ring_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_pickups": {
+              "current": 2,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_drops": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_rl_kills": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "taken_to_die": {
+              "current": 179,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            }
+          }
+        },
+        {
+          "slot": 3,
+          "id": "03:red:/_tincan",
+          "identity": {
+            "name": "/ tincan",
+            "team": "red",
+            "login": "",
+            "ping": 20,
+            "top_color": null,
+            "bottom_color": null,
+            "is_bot": true,
+            "bot": {
+              "skill": 20,
+              "customised": false
+            }
+          },
+          "stats": {
+            "frags": 16,
+            "deaths": 12,
+            "kills": 16,
+            "efficiency": 0.5714,
+            "team_kills": 0,
+            "spawn_frags": 0,
+            "suicides": 0,
+            "damage_done": 2298,
+            "damage_taken": 2023,
+            "team_damage": 58,
+            "self_damage": 0,
+            "team_weapon_damage": 54,
+            "enemy_weapon_damage": 468,
+            "taken_to_die": 168,
+            "taken_to_die_raw": 168,
+            "survived_without_death": false,
+            "xfer_rl": 0,
+            "xfer_lg": 0,
+            "avg_speed": 286.937592,
+            "max_speed": 826.187805,
+            "health_pickups": 5,
+            "quad_pickups": 1,
+            "pent_pickups": 0,
+            "ring_pickups": 0,
+            "rl_pickups": 1,
+            "rl_drops": 0,
+            "enemy_rl_kills": 3
+          },
+          "pickups": {
+            "health": {
+              "total": 5,
+              "health_15": 2,
+              "health_25": 2,
+              "health_100": 1
+            },
+            "powerups": {
+              "quad": 1,
+              "pent": 0,
+              "ring": 0
+            }
+          },
+          "weapons": {
+            "rl": {
+              "pickups_taken": 1,
+              "dropped": 0,
+              "enemy_kills": 3
+            },
+            "lg": {
+              "pickups_taken": 2,
+              "dropped": 1,
+              "enemy_kills": 1
+            }
+          },
+          "sources": {
+            "frags": "players[2]['stats']['frags']",
+            "deaths": "players[2]['stats']['deaths']",
+            "kills": "players[2]['stats']['kills']",
+            "efficiency": [
+              "players[2]['stats']['kills']",
+              "players[2]['stats']['deaths']"
+            ],
+            "team_kills": "players[2]['stats']['tk']",
+            "damage_done": "players[2]['dmg']['given']",
+            "damage_taken": "players[2]['dmg']['taken']",
+            "team_damage": "players[2]['dmg']['team']",
+            "self_damage": "players[2]['dmg']['self']",
+            "team_weapon_damage": "players[2]['dmg']['team-weapons']",
+            "enemy_weapon_damage": "players[2]['dmg']['enemy-weapons']",
+            "taken_to_die": "players[2]['dmg']['taken-to-die']",
+            "xfer_rl": "players[2]['xferRL']",
+            "xfer_lg": "players[2]['xferLG']",
+            "avg_speed": "players[2]['speed']['avg']",
+            "max_speed": "players[2]['speed']['max']",
+            "health_pickups": [
+              "players[2]['items']['health_15']['took']",
+              "players[2]['items']['health_25']['took']",
+              "players[2]['items']['health_100']['took']"
+            ],
+            "quad_pickups": "players[2]['items']['q']['took']",
+            "pent_pickups": "players[2]['items']['p']['took']",
+            "ring_pickups": "players[2]['items']['r']['took']",
+            "rl_pickups": "players[2]['weapons']['rl']['pickups']['taken']",
+            "rl_drops": "players[2]['weapons']['rl']['pickups']['dropped']",
+            "enemy_rl_kills": "players[2]['weapons']['rl']['kills']['enemy']"
+          },
+          "roster": {
+            "slot": 3,
+            "id": "slot-3",
+            "name": "a-control-3",
+            "team": "red",
+            "role": "control",
+            "bot_kind": "frogbot",
+            "bot_skill": 20,
+            "controller_version": "frogbot-20",
+            "tracked": false
+          },
+          "deltas": {
+            "frags": {
+              "current": 16,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "deaths": {
+              "current": 12,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "kills": {
+              "current": 16,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "efficiency": {
+              "current": 0.5714,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_kills": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_done": {
+              "current": 2298,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_taken": {
+              "current": 2023,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_weapon_damage": {
+              "current": 468,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_weapon_damage": {
+              "current": 54,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "health_pickups": {
+              "current": 5,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "quad_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "pent_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ring_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_drops": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_rl_kills": {
+              "current": 3,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "taken_to_die": {
+              "current": 168,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            }
+          }
+        },
+        {
+          "slot": 4,
+          "id": "04:red:/_grue",
+          "identity": {
+            "name": "/ grue",
+            "team": "red",
+            "login": "",
+            "ping": 20,
+            "top_color": null,
+            "bottom_color": null,
+            "is_bot": true,
+            "bot": {
+              "skill": 20,
+              "customised": false
+            }
+          },
+          "stats": {
+            "frags": 14,
+            "deaths": 13,
+            "kills": 14,
+            "efficiency": 0.5185,
+            "team_kills": 0,
+            "spawn_frags": 0,
+            "suicides": 0,
+            "damage_done": 1997,
+            "damage_taken": 1936,
+            "team_damage": 0,
+            "self_damage": 94,
+            "team_weapon_damage": 0,
+            "enemy_weapon_damage": 283,
+            "taken_to_die": 148,
+            "taken_to_die_raw": 148,
+            "survived_without_death": false,
+            "xfer_rl": 1,
+            "xfer_lg": 0,
+            "avg_speed": 303.551453,
+            "max_speed": 591.374329,
+            "health_pickups": 6,
+            "quad_pickups": 1,
+            "pent_pickups": 0,
+            "ring_pickups": 0,
+            "rl_pickups": 4,
+            "rl_drops": 1,
+            "enemy_rl_kills": 1
+          },
+          "pickups": {
+            "health": {
+              "total": 6,
+              "health_15": 1,
+              "health_25": 2,
+              "health_100": 3
+            },
+            "powerups": {
+              "quad": 1,
+              "pent": 0,
+              "ring": 0
+            }
+          },
+          "weapons": {
+            "rl": {
+              "pickups_taken": 4,
+              "dropped": 1,
+              "enemy_kills": 1
+            },
+            "lg": {
+              "pickups_taken": 1,
+              "dropped": 0,
+              "enemy_kills": 2
+            }
+          },
+          "sources": {
+            "frags": "players[3]['stats']['frags']",
+            "deaths": "players[3]['stats']['deaths']",
+            "kills": "players[3]['stats']['kills']",
+            "efficiency": [
+              "players[3]['stats']['kills']",
+              "players[3]['stats']['deaths']"
+            ],
+            "team_kills": "players[3]['stats']['tk']",
+            "damage_done": "players[3]['dmg']['given']",
+            "damage_taken": "players[3]['dmg']['taken']",
+            "team_damage": "players[3]['dmg']['team']",
+            "self_damage": "players[3]['dmg']['self']",
+            "team_weapon_damage": "players[3]['dmg']['team-weapons']",
+            "enemy_weapon_damage": "players[3]['dmg']['enemy-weapons']",
+            "taken_to_die": "players[3]['dmg']['taken-to-die']",
+            "xfer_rl": "players[3]['xferRL']",
+            "xfer_lg": "players[3]['xferLG']",
+            "avg_speed": "players[3]['speed']['avg']",
+            "max_speed": "players[3]['speed']['max']",
+            "health_pickups": [
+              "players[3]['items']['health_15']['took']",
+              "players[3]['items']['health_25']['took']",
+              "players[3]['items']['health_100']['took']"
+            ],
+            "quad_pickups": "players[3]['items']['q']['took']",
+            "pent_pickups": "players[3]['items']['p']['took']",
+            "ring_pickups": "players[3]['items']['r']['took']",
+            "rl_pickups": "players[3]['weapons']['rl']['pickups']['taken']",
+            "rl_drops": "players[3]['weapons']['rl']['pickups']['dropped']",
+            "enemy_rl_kills": "players[3]['weapons']['rl']['kills']['enemy']"
+          },
+          "roster": {
+            "slot": 4,
+            "id": "slot-4",
+            "name": "a-control-4",
+            "team": "red",
+            "role": "control",
+            "bot_kind": "frogbot",
+            "bot_skill": 20,
+            "controller_version": "frogbot-20",
+            "tracked": false
+          },
+          "deltas": {
+            "frags": {
+              "current": 14,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "deaths": {
+              "current": 13,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "kills": {
+              "current": 14,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "efficiency": {
+              "current": 0.5185,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_kills": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_done": {
+              "current": 1997,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_taken": {
+              "current": 1936,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_weapon_damage": {
+              "current": 283,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_weapon_damage": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "health_pickups": {
+              "current": 6,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "quad_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "pent_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ring_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_pickups": {
+              "current": 4,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_drops": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_rl_kills": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "taken_to_die": {
+              "current": 148,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            }
+          }
+        },
+        {
+          "slot": 5,
+          "id": "05:blue:/_dizzy",
+          "identity": {
+            "name": "/ dizzy",
+            "team": "blue",
+            "login": "",
+            "ping": 20,
+            "top_color": null,
+            "bottom_color": null,
+            "is_bot": true,
+            "bot": {
+              "skill": 20,
+              "customised": false
+            }
+          },
+          "stats": {
+            "frags": 15,
+            "deaths": 13,
+            "kills": 17,
+            "efficiency": 0.5667,
+            "team_kills": 1,
+            "spawn_frags": 1,
+            "suicides": 1,
+            "damage_done": 2186,
+            "damage_taken": 1371,
+            "team_damage": 100,
+            "self_damage": 192,
+            "team_weapon_damage": 0,
+            "enemy_weapon_damage": 456,
+            "taken_to_die": 105,
+            "taken_to_die_raw": 105,
+            "survived_without_death": false,
+            "xfer_rl": 0,
+            "xfer_lg": 1,
+            "avg_speed": 293.570068,
+            "max_speed": 1184.947998,
+            "health_pickups": 2,
+            "quad_pickups": 1,
+            "pent_pickups": 0,
+            "ring_pickups": 0,
+            "rl_pickups": 1,
+            "rl_drops": 0,
+            "enemy_rl_kills": 2
+          },
+          "pickups": {
+            "health": {
+              "total": 2,
+              "health_15": 0,
+              "health_25": 0,
+              "health_100": 2
+            },
+            "powerups": {
+              "quad": 1,
+              "pent": 0,
+              "ring": 0
+            }
+          },
+          "weapons": {
+            "rl": {
+              "pickups_taken": 1,
+              "dropped": 0,
+              "enemy_kills": 2
+            },
+            "lg": {
+              "pickups_taken": 4,
+              "dropped": 1,
+              "enemy_kills": 0
+            }
+          },
+          "sources": {
+            "frags": "players[4]['stats']['frags']",
+            "deaths": "players[4]['stats']['deaths']",
+            "kills": "players[4]['stats']['kills']",
+            "efficiency": [
+              "players[4]['stats']['kills']",
+              "players[4]['stats']['deaths']"
+            ],
+            "team_kills": "players[4]['stats']['tk']",
+            "damage_done": "players[4]['dmg']['given']",
+            "damage_taken": "players[4]['dmg']['taken']",
+            "team_damage": "players[4]['dmg']['team']",
+            "self_damage": "players[4]['dmg']['self']",
+            "team_weapon_damage": "players[4]['dmg']['team-weapons']",
+            "enemy_weapon_damage": "players[4]['dmg']['enemy-weapons']",
+            "taken_to_die": "players[4]['dmg']['taken-to-die']",
+            "xfer_rl": "players[4]['xferRL']",
+            "xfer_lg": "players[4]['xferLG']",
+            "avg_speed": "players[4]['speed']['avg']",
+            "max_speed": "players[4]['speed']['max']",
+            "health_pickups": [
+              "players[4]['items']['health_15']['took']",
+              "players[4]['items']['health_25']['took']",
+              "players[4]['items']['health_100']['took']"
+            ],
+            "quad_pickups": "players[4]['items']['q']['took']",
+            "pent_pickups": "players[4]['items']['p']['took']",
+            "ring_pickups": "players[4]['items']['r']['took']",
+            "rl_pickups": "players[4]['weapons']['rl']['pickups']['taken']",
+            "rl_drops": "players[4]['weapons']['rl']['pickups']['dropped']",
+            "enemy_rl_kills": "players[4]['weapons']['rl']['kills']['enemy']"
+          },
+          "roster": {
+            "slot": 5,
+            "id": "slot-5",
+            "name": "b-control-5",
+            "team": "blue",
+            "role": "control",
+            "bot_kind": "frogbot",
+            "bot_skill": 20,
+            "controller_version": "frogbot-20",
+            "tracked": false
+          },
+          "deltas": {
+            "frags": {
+              "current": 15,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "deaths": {
+              "current": 13,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "kills": {
+              "current": 17,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "efficiency": {
+              "current": 0.5667,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_kills": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_done": {
+              "current": 2186,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_taken": {
+              "current": 1371,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_weapon_damage": {
+              "current": 456,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_weapon_damage": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "health_pickups": {
+              "current": 2,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "quad_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "pent_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ring_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_drops": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_rl_kills": {
+              "current": 2,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "taken_to_die": {
+              "current": 105,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            }
+          }
+        },
+        {
+          "slot": 6,
+          "id": "06:blue:/_daisy",
+          "identity": {
+            "name": "/ daisy",
+            "team": "blue",
+            "login": "",
+            "ping": 20,
+            "top_color": null,
+            "bottom_color": null,
+            "is_bot": true,
+            "bot": {
+              "skill": 20,
+              "customised": false
+            }
+          },
+          "stats": {
+            "frags": 11,
+            "deaths": 18,
+            "kills": 11,
+            "efficiency": 0.3793,
+            "team_kills": 0,
+            "spawn_frags": 1,
+            "suicides": 0,
+            "damage_done": 2056,
+            "damage_taken": 2243,
+            "team_damage": 4,
+            "self_damage": 30,
+            "team_weapon_damage": 0,
+            "enemy_weapon_damage": 688,
+            "taken_to_die": 124,
+            "taken_to_die_raw": 124,
+            "survived_without_death": false,
+            "xfer_rl": 1,
+            "xfer_lg": 0,
+            "avg_speed": 312.917847,
+            "max_speed": 809.77002,
+            "health_pickups": 3,
+            "quad_pickups": 0,
+            "pent_pickups": 0,
+            "ring_pickups": 0,
+            "rl_pickups": 2,
+            "rl_drops": 2,
+            "enemy_rl_kills": 2
+          },
+          "pickups": {
+            "health": {
+              "total": 3,
+              "health_15": 0,
+              "health_25": 1,
+              "health_100": 2
+            },
+            "powerups": {
+              "quad": 0,
+              "pent": 0,
+              "ring": 0
+            }
+          },
+          "weapons": {
+            "rl": {
+              "pickups_taken": 2,
+              "dropped": 2,
+              "enemy_kills": 2
+            },
+            "lg": {
+              "pickups_taken": 1,
+              "dropped": 1,
+              "enemy_kills": 2
+            }
+          },
+          "sources": {
+            "frags": "players[5]['stats']['frags']",
+            "deaths": "players[5]['stats']['deaths']",
+            "kills": "players[5]['stats']['kills']",
+            "efficiency": [
+              "players[5]['stats']['kills']",
+              "players[5]['stats']['deaths']"
+            ],
+            "team_kills": "players[5]['stats']['tk']",
+            "damage_done": "players[5]['dmg']['given']",
+            "damage_taken": "players[5]['dmg']['taken']",
+            "team_damage": "players[5]['dmg']['team']",
+            "self_damage": "players[5]['dmg']['self']",
+            "team_weapon_damage": "players[5]['dmg']['team-weapons']",
+            "enemy_weapon_damage": "players[5]['dmg']['enemy-weapons']",
+            "taken_to_die": "players[5]['dmg']['taken-to-die']",
+            "xfer_rl": "players[5]['xferRL']",
+            "xfer_lg": "players[5]['xferLG']",
+            "avg_speed": "players[5]['speed']['avg']",
+            "max_speed": "players[5]['speed']['max']",
+            "health_pickups": [
+              "players[5]['items']['health_15']['took']",
+              "players[5]['items']['health_25']['took']",
+              "players[5]['items']['health_100']['took']"
+            ],
+            "quad_pickups": "players[5]['items']['q']['took']",
+            "pent_pickups": "players[5]['items']['p']['took']",
+            "ring_pickups": "players[5]['items']['r']['took']",
+            "rl_pickups": "players[5]['weapons']['rl']['pickups']['taken']",
+            "rl_drops": "players[5]['weapons']['rl']['pickups']['dropped']",
+            "enemy_rl_kills": "players[5]['weapons']['rl']['kills']['enemy']"
+          },
+          "roster": {
+            "slot": 6,
+            "id": "slot-6",
+            "name": "b-control-6",
+            "team": "blue",
+            "role": "control",
+            "bot_kind": "frogbot",
+            "bot_skill": 20,
+            "controller_version": "frogbot-20",
+            "tracked": false
+          },
+          "deltas": {
+            "frags": {
+              "current": 11,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "deaths": {
+              "current": 18,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "kills": {
+              "current": 11,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "efficiency": {
+              "current": 0.3793,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_kills": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_done": {
+              "current": 2056,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_taken": {
+              "current": 2243,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_weapon_damage": {
+              "current": 688,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_weapon_damage": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "health_pickups": {
+              "current": 3,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "quad_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "pent_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ring_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_pickups": {
+              "current": 2,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_drops": {
+              "current": 2,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_rl_kills": {
+              "current": 2,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "taken_to_die": {
+              "current": 124,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            }
+          }
+        },
+        {
+          "slot": 7,
+          "id": "07:blue:/_denzil",
+          "identity": {
+            "name": "/ denzil",
+            "team": "blue",
+            "login": "",
+            "ping": 20,
+            "top_color": null,
+            "bottom_color": null,
+            "is_bot": true,
+            "bot": {
+              "skill": 20,
+              "customised": false
+            }
+          },
+          "stats": {
+            "frags": 11,
+            "deaths": 12,
+            "kills": 12,
+            "efficiency": 0.5,
+            "team_kills": 1,
+            "spawn_frags": 0,
+            "suicides": 0,
+            "damage_done": 1382,
+            "damage_taken": 1953,
+            "team_damage": 124,
+            "self_damage": 0,
+            "team_weapon_damage": 0,
+            "enemy_weapon_damage": 511,
+            "taken_to_die": 162,
+            "taken_to_die_raw": 162,
+            "survived_without_death": false,
+            "xfer_rl": 0,
+            "xfer_lg": 0,
+            "avg_speed": 279.508728,
+            "max_speed": 668.330322,
+            "health_pickups": 2,
+            "quad_pickups": 0,
+            "pent_pickups": 1,
+            "ring_pickups": 0,
+            "rl_pickups": 3,
+            "rl_drops": 1,
+            "enemy_rl_kills": 3
+          },
+          "pickups": {
+            "health": {
+              "total": 2,
+              "health_15": 0,
+              "health_25": 1,
+              "health_100": 1
+            },
+            "powerups": {
+              "quad": 0,
+              "pent": 1,
+              "ring": 0
+            }
+          },
+          "weapons": {
+            "rl": {
+              "pickups_taken": 3,
+              "dropped": 1,
+              "enemy_kills": 3
+            },
+            "lg": {
+              "pickups_taken": 1,
+              "dropped": 0,
+              "enemy_kills": 1
+            }
+          },
+          "sources": {
+            "frags": "players[6]['stats']['frags']",
+            "deaths": "players[6]['stats']['deaths']",
+            "kills": "players[6]['stats']['kills']",
+            "efficiency": [
+              "players[6]['stats']['kills']",
+              "players[6]['stats']['deaths']"
+            ],
+            "team_kills": "players[6]['stats']['tk']",
+            "damage_done": "players[6]['dmg']['given']",
+            "damage_taken": "players[6]['dmg']['taken']",
+            "team_damage": "players[6]['dmg']['team']",
+            "self_damage": "players[6]['dmg']['self']",
+            "team_weapon_damage": "players[6]['dmg']['team-weapons']",
+            "enemy_weapon_damage": "players[6]['dmg']['enemy-weapons']",
+            "taken_to_die": "players[6]['dmg']['taken-to-die']",
+            "xfer_rl": "players[6]['xferRL']",
+            "xfer_lg": "players[6]['xferLG']",
+            "avg_speed": "players[6]['speed']['avg']",
+            "max_speed": "players[6]['speed']['max']",
+            "health_pickups": [
+              "players[6]['items']['health_15']['took']",
+              "players[6]['items']['health_25']['took']",
+              "players[6]['items']['health_100']['took']"
+            ],
+            "quad_pickups": "players[6]['items']['q']['took']",
+            "pent_pickups": "players[6]['items']['p']['took']",
+            "ring_pickups": "players[6]['items']['r']['took']",
+            "rl_pickups": "players[6]['weapons']['rl']['pickups']['taken']",
+            "rl_drops": "players[6]['weapons']['rl']['pickups']['dropped']",
+            "enemy_rl_kills": "players[6]['weapons']['rl']['kills']['enemy']"
+          },
+          "roster": {
+            "slot": 7,
+            "id": "slot-7",
+            "name": "b-control-7",
+            "team": "blue",
+            "role": "control",
+            "bot_kind": "frogbot",
+            "bot_skill": 20,
+            "controller_version": "frogbot-20",
+            "tracked": false
+          },
+          "deltas": {
+            "frags": {
+              "current": 11,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "deaths": {
+              "current": 12,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "kills": {
+              "current": 12,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "efficiency": {
+              "current": 0.5,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_kills": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_done": {
+              "current": 1382,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_taken": {
+              "current": 1953,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_weapon_damage": {
+              "current": 511,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_weapon_damage": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "health_pickups": {
+              "current": 2,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "quad_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "pent_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ring_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_pickups": {
+              "current": 3,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_drops": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_rl_kills": {
+              "current": 3,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "taken_to_die": {
+              "current": 162,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            }
+          }
+        },
+        {
+          "slot": 8,
+          "id": "08:blue:/_dora",
+          "identity": {
+            "name": "/ dora",
+            "team": "blue",
+            "login": "",
+            "ping": 20,
+            "top_color": null,
+            "bottom_color": null,
+            "is_bot": true,
+            "bot": {
+              "skill": 20,
+              "customised": false
+            }
+          },
+          "stats": {
+            "frags": 7,
+            "deaths": 13,
+            "kills": 7,
+            "efficiency": 0.35,
+            "team_kills": 0,
+            "spawn_frags": 0,
+            "suicides": 0,
+            "damage_done": 1730,
+            "damage_taken": 2140,
+            "team_damage": 44,
+            "self_damage": 0,
+            "team_weapon_damage": 0,
+            "enemy_weapon_damage": 400,
+            "taken_to_die": 164,
+            "taken_to_die_raw": 164,
+            "survived_without_death": false,
+            "xfer_rl": 0,
+            "xfer_lg": 0,
+            "avg_speed": 289.765808,
+            "max_speed": 905.214783,
+            "health_pickups": 3,
+            "quad_pickups": 0,
+            "pent_pickups": 0,
+            "ring_pickups": 1,
+            "rl_pickups": 0,
+            "rl_drops": 0,
+            "enemy_rl_kills": 0
+          },
+          "pickups": {
+            "health": {
+              "total": 3,
+              "health_15": 0,
+              "health_25": 2,
+              "health_100": 1
+            },
+            "powerups": {
+              "quad": 0,
+              "pent": 0,
+              "ring": 1
+            }
+          },
+          "weapons": {
+            "rl": {
+              "pickups_taken": 0,
+              "dropped": 0,
+              "enemy_kills": 0
+            },
+            "lg": {
+              "pickups_taken": 1,
+              "dropped": 0,
+              "enemy_kills": 2
+            }
+          },
+          "sources": {
+            "frags": "players[7]['stats']['frags']",
+            "deaths": "players[7]['stats']['deaths']",
+            "kills": "players[7]['stats']['kills']",
+            "efficiency": [
+              "players[7]['stats']['kills']",
+              "players[7]['stats']['deaths']"
+            ],
+            "team_kills": "players[7]['stats']['tk']",
+            "damage_done": "players[7]['dmg']['given']",
+            "damage_taken": "players[7]['dmg']['taken']",
+            "team_damage": "players[7]['dmg']['team']",
+            "self_damage": "players[7]['dmg']['self']",
+            "team_weapon_damage": "players[7]['dmg']['team-weapons']",
+            "enemy_weapon_damage": "players[7]['dmg']['enemy-weapons']",
+            "taken_to_die": "players[7]['dmg']['taken-to-die']",
+            "xfer_rl": "players[7]['xferRL']",
+            "xfer_lg": "players[7]['xferLG']",
+            "avg_speed": "players[7]['speed']['avg']",
+            "max_speed": "players[7]['speed']['max']",
+            "health_pickups": [
+              "players[7]['items']['health_15']['took']",
+              "players[7]['items']['health_25']['took']",
+              "players[7]['items']['health_100']['took']"
+            ],
+            "quad_pickups": "players[7]['items']['q']['took']",
+            "pent_pickups": "players[7]['items']['p']['took']",
+            "ring_pickups": "players[7]['items']['r']['took']",
+            "rl_pickups": "players[7]['weapons']['rl']['pickups']['taken']",
+            "rl_drops": "players[7]['weapons']['rl']['pickups']['dropped']",
+            "enemy_rl_kills": "players[7]['weapons']['rl']['kills']['enemy']"
+          },
+          "roster": {
+            "slot": 8,
+            "id": "slot-8",
+            "name": "b-control-8",
+            "team": "blue",
+            "role": "control",
+            "bot_kind": "frogbot",
+            "bot_skill": 20,
+            "controller_version": "frogbot-20",
+            "tracked": false
+          },
+          "deltas": {
+            "frags": {
+              "current": 7,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "deaths": {
+              "current": 13,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "kills": {
+              "current": 7,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "efficiency": {
+              "current": 0.35,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_kills": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_done": {
+              "current": 1730,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "damage_taken": {
+              "current": 2140,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_weapon_damage": {
+              "current": 400,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "team_weapon_damage": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "health_pickups": {
+              "current": 3,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "quad_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "pent_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ring_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "rl_drops": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "enemy_rl_kills": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "taken_to_die": {
+              "current": 164,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            }
+          }
+        }
+      ],
+      "roster": {
+        "schema": "komodobots.4v4_roster_intent.v1",
+        "run_id": "codex_issue189_full_accept_20260615T1546Z",
+        "map": "dm3",
+        "mode": "4on4",
+        "deathmatch": 1,
+        "teamplay": 2,
+        "timelimit": 5,
+        "controller_version": "komodobot-dev-replay-sng-to-rl",
+        "komodobot_slot": 1,
+        "players": [
+          {
+            "slot": 1,
+            "id": "slot-1",
+            "name": "komodo-dev",
+            "team": "red",
+            "role": "komodobot",
+            "bot_kind": "komodobot",
+            "bot_skill": 20,
+            "controller_version": "komodobot-dev-replay-sng-to-rl"
+          },
+          {
+            "slot": 2,
+            "id": "slot-2",
+            "name": "a-control-2",
+            "team": "red",
+            "role": "control",
+            "bot_kind": "frogbot",
+            "bot_skill": 20,
+            "controller_version": "frogbot-20"
+          },
+          {
+            "slot": 3,
+            "id": "slot-3",
+            "name": "a-control-3",
+            "team": "red",
+            "role": "control",
+            "bot_kind": "frogbot",
+            "bot_skill": 20,
+            "controller_version": "frogbot-20"
+          },
+          {
+            "slot": 4,
+            "id": "slot-4",
+            "name": "a-control-4",
+            "team": "red",
+            "role": "control",
+            "bot_kind": "frogbot",
+            "bot_skill": 20,
+            "controller_version": "frogbot-20"
+          },
+          {
+            "slot": 5,
+            "id": "slot-5",
+            "name": "b-control-5",
+            "team": "blue",
+            "role": "control",
+            "bot_kind": "frogbot",
+            "bot_skill": 20,
+            "controller_version": "frogbot-20"
+          },
+          {
+            "slot": 6,
+            "id": "slot-6",
+            "name": "b-control-6",
+            "team": "blue",
+            "role": "control",
+            "bot_kind": "frogbot",
+            "bot_skill": 20,
+            "controller_version": "frogbot-20"
+          },
+          {
+            "slot": 7,
+            "id": "slot-7",
+            "name": "b-control-7",
+            "team": "blue",
+            "role": "control",
+            "bot_kind": "frogbot",
+            "bot_skill": 20,
+            "controller_version": "frogbot-20"
+          },
+          {
+            "slot": 8,
+            "id": "slot-8",
+            "name": "b-control-8",
+            "team": "blue",
+            "role": "control",
+            "bot_kind": "frogbot",
+            "bot_skill": 20,
+            "controller_version": "frogbot-20"
+          }
+        ]
+      },
+      "normalizer_warnings": [
+        "players[2] missing required fields: stats.tk",
+        "players[3] missing required fields: stats.tk",
+        "players[5] missing required fields: stats.tk",
+        "players[7] missing required fields: stats.tk"
+      ],
+      "previous_valid_run_id": null
+    }
+  ],
+  "invalid_games": [],
+  "provenance": {
+    "runs_dir": "artifacts\\4v4-validation-runs",
+    "runs_scanned": 1,
+    "valid_games": 1,
+    "skipped": {},
+    "stats_filenames": [
+      "ktxstats.json",
+      "stats.json",
+      "match.json",
+      "analysis.json"
+    ],
+    "roster_filenames": [
+      "4v4-roster.json",
+      "roster.json"
+    ],
+    "source_core": "komodobots.ktx_match_stats.v1"
+  }
+}

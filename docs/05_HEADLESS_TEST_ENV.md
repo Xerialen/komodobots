@@ -384,16 +384,20 @@ Important KTX settings for bot-only 4v4:
 - `sv_login 0` is used with `mvdsv-lab`, and the shim acknowledges only safe
   KTX `stufftext` handshakes (`cmd ack infoset` / `cmd ack noinfoset`).
 
-Verified 2026-06-14 live 4v4 runs:
+Verified live 4v4 runs:
 
 | Run ID | Port | Local demo size | Parser exits | Ledger result |
 |---|---:|---:|---|---|
 | `codex_live_4v4_base_20260614T1935Z` | `28599` | `2653010` bytes | `json=0`, `md=0`, `events=1` | Valid; red 69, blue 66; first baseline. |
 | `codex_live_4v4_dev_20260614T1945Z` | `28599` | `2527672` bytes | `json=0`, `md=0`, `events=1` | Valid; red 50, blue 42; Komodobot-slot frags `12`, delta `-1`. |
+| `codex_issue189_full_accept_20260615T1546Z` | `28599` | `2384638` bytes | `json=0`, `md=0`, `events=1` | Valid; red 50, blue 44; slot 1 (`/ bro`, edict `2`) used mode `10` replay while the seven sampled controls stayed mode `0`. |
 
-These runs used stock Frogbot behavior for all eight players; the second run
-only changes the roster's controller-version label so the delta path can be
-tested before a real Komodobot movement/controller change exists.
+The 2026-06-14 runs used stock Frogbot behavior for all eight players; the
+second run only changes the roster's controller-version label so the delta path
+can be tested before a real Komodobot movement/controller change exists. The
+2026-06-15 issue #189 run is the first full non-skipped acceptance with one
+fixed Komodobot slot bound to the replay/moveprobe path and seven stock
+Frogbot controls in the same 5-minute ledger.
 
 ## Spectating the Lab (QTV)
 

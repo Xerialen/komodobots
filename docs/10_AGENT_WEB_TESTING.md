@@ -171,6 +171,13 @@ Current evidence from the 2026-06-14 implementation run is stored at:
 - `lab/evidence/ld-h3-casting-scoreboard-1280x720.png`
 - `lab/evidence/ld-h3-4v4-validation-proof-2026-06-14.md`
 
+Issue #189 actual-run dashboard evidence from 2026-06-15 is stored at:
+
+- `lab/evidence/issue189-dashboard-local-actual-1280x720.png`
+- `lab/evidence/issue189-dashboard-local-actual-snapshot.txt`
+- `lab/evidence/issue189-dashboard-live-1280x720.png`
+- `lab/evidence/issue189-dashboard-live-snapshot.txt`
+
 ## Repeatable automation path
 
 When a manual browser case is repeated often or protects important behavior,
