@@ -431,5 +431,55 @@ class QizmoBundleResolutionTests(unittest.TestCase):
         self.assertIsNone(rec["decompressed_sha256"])
 
 
+class QizmoInvocationTests(unittest.TestCase):
+    def test_windows_path_to_wsl_drive_path(self) -> None:
+        self.assertEqual(
+            qcm._windows_path_to_wsl(r"C:\Users\benya\AppData\Local\Temp\x.qwz"),
+            "/mnt/c/Users/benya/AppData/Local/Temp/x.qwz",
+        )
+
+    def test_windows_qizmo_invocation_uses_wsl(self) -> None:
+        tmp = Path(tempfile.mkdtemp(prefix="qcm_qz_cmd_"))
+        bundle_dir = tmp / "qizmo_bundle"
+        (bundle_dir / "libs").mkdir(parents=True)
+        (bundle_dir / "libs" / "ld-linux.so.2").write_bytes(b"")
+        staged = Path(r"C:\Users\benya\AppData\Local\Temp\demo.qwz")
+
+        cmd, cwd, runner, err = qcm._qizmo_invocation(
+            bundle_dir,
+            staged,
+            windows=True,
+            wsl_exe="wsl.exe",
+        )
+
+        self.assertIsNone(err)
+        self.assertIsNone(cwd)
+        self.assertEqual(runner, "qizmo via WSL")
+        self.assertEqual(cmd[:3], ["wsl.exe", "--cd", qcm._windows_path_to_wsl(bundle_dir)])
+        self.assertIn("./libs/ld-linux.so.2", cmd)
+        self.assertEqual(cmd[-2:], ["-D", "/mnt/c/Users/benya/AppData/Local/Temp/demo.qwz"])
+
+    def test_non_windows_qizmo_invocation_uses_bundle_cwd(self) -> None:
+        tmp = Path(tempfile.mkdtemp(prefix="qcm_qz_cmd_"))
+        bundle_dir = tmp / "qizmo_bundle"
+        (bundle_dir / "libs").mkdir(parents=True)
+        (bundle_dir / "libs" / "ld-linux.so.2").write_bytes(b"")
+        staged = tmp / "demo.qwz"
+
+        cmd, cwd, runner, err = qcm._qizmo_invocation(bundle_dir, staged, windows=False)
+
+        self.assertIsNone(err)
+        self.assertEqual(cwd, str(bundle_dir))
+        self.assertEqual(runner, "qizmo")
+        self.assertEqual(cmd, [
+            str(bundle_dir / "libs" / "ld-linux.so.2"),
+            "--library-path",
+            "./libs",
+            "./qizmo",
+            "-D",
+            str(staged),
+        ])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -136,6 +136,8 @@ Context-gated probe design helper: `C:\Users\benya\projects\quakeworld\komodobot
 
 QWD POV usercmd extractor: `C:\Users\benya\projects\quakeworld\komodobots\tools\qwd_usercmd\qwd_usercmd.py`
 
+QWD POV content manifest parser: `C:\Users\benya\projects\quakeworld\komodobots\tools\qwd_content_manifest.py`
+
 QWD trajectory route applicability probe: `C:\Users\benya\projects\quakeworld\komodobots\scripts\probe_qwd_route_applicability.py`
 
 QWD-to-Frogbot route mapping helper: `C:\Users\benya\projects\quakeworld\komodobots\scripts\map_qwd_route_to_frogbot.py`
@@ -228,6 +230,7 @@ Why it matters:
 - `scripts/diagnose_s7j_failed_buckets.py` consumes the corrected S7j result plus S7g baseline context and recomputes per-segment command/probe/route context for the failed pre-air, airborne-proxy, and non-airborne buckets before another movement probe.
 - `scripts/design_context_gated_probe.py` consumes the committed S7k diagnosis and writes the S7l design-only context gate for the next probe. It separates clean air-transition candidate slices from route-guardrail/measurement-risk slices and requires future success claims to be made on clean-context buckets rather than all-segment or route-dirty gains.
 - `tools/qwd_usercmd/qwd_usercmd.py` extracts exact first-person `.qwd` POV-demo `usercmd_t` streams into `komodobots.qwd_usercmd.v1` line-delimited JSON. It is the Phase 1 action-label path for human commands, separate from MVD state/evaluation evidence. A QWD provides per-frame absolute view-angle results plus movement commands/buttons; it does not provide raw device mouse deltas.
+- `tools/qwd_content_manifest.py` emits `komodobots.qwd_content_manifest.v1` JSON for `.qwd` and qizmo-compressed `.qwz`/disguised `.qwd` POV demos. It reads `svc_serverdata`, `modellist`, `updateuserinfo`, and `setinfo` from the demo network stream to resolve true map, roster, modal active-player count, team counts, POV kind, usercmd presence, and self-POV eligibility. The qizmo bundle is a Linux binary; Windows PowerShell runs it through `wsl.exe --cd /mnt/...` after resolving `QWD_QIZMO_BUNDLE`, `--qizmo-bundle`, or the local Challenge-TV archive candidate path.
 - `scripts/probe_qwd_route_applicability.py` measures the Phase 2 QWD bridge: exact `dem_cmd` rows paired with anchored self-player `svc_playerinfo` origin/velocity rows, plus continuity splits and waypoint downsampling for route/controller applicability. It is evidence for trajectory extraction, not a Frogbot `.bot` route importer or replay controller.
 - `scripts/map_qwd_route_to_frogbot.py` maps one extracted QWD trajectory onto the existing Frogbot `dm3.bot` marker graph. It measures nearest-marker fit, collapsed marker sequence, direct `.bot` edge coverage, shortest graph paths, and recommends route-following, command-imitation, or a hybrid waypoint/controller probe.
 - `scripts/design_qwd_sng_hybrid_probe.py` consumes the committed `dm3_sng_shortcut.qwd` route-mapping artifact and writes the first design-only contract for a temporary KTX hybrid waypoint/controller probe. It preserves the QWD waypoint string, side-dominant command profile, diagnostics requirements, and stop conditions without changing KTX or Frogbot behavior.

@@ -36,6 +36,56 @@ What should be tested next?
 
 ---
 
+## 2026-06-15 -- QWD qizmo decompression works from Windows via WSL
+
+### Experiment
+
+Fix and re-test the #188 post-merge defect where
+`tools/qwd_content_manifest.py` resolved the local `qizmo_bundle.tgz` on
+Windows but tried to execute the bundled Linux `ld-linux.so.2` / `qizmo`
+directly from PowerShell, producing `WinError 193`.
+
+### Result
+
+The parser now runs the bundled Linux qizmo through `wsl.exe --cd /mnt/...`
+when invoked from Windows. Linux/WSL-native sessions keep the direct qizmo
+invocation.
+
+### Evidence
+
+- `python -m unittest tests.test_qwd_content_manifest -v`: 26 tests passed,
+  5 corpus fixtures skipped.
+- `python -m py_compile tools\qwd_content_manifest.py tests\test_qwd_content_manifest.py`: passed.
+- Real qizmo-disguised `.qwd` smoke:
+  `...\\smackdown\\neu\\group_c\\adt_jod_1_dm2_camper.qwd` -> `true_map=dm2`,
+  `mode=4on4`, `player_count=8`, `frame_count=93281`, `errors=[]`,
+  `decompressor="qizmo via WSL (bundle qizmo_bundle.tgz)"`.
+- Real `.qwz` smoke:
+  `...\\cottelan\\2on22dm6.qwz` -> `true_map=dm6`, `mode=2on2`,
+  `player_count=4`, `frame_count=48636`, `errors=[]`,
+  `decompressor="qizmo via WSL (bundle qizmo_bundle.tgz)"`.
+
+### Interpretation
+
+Compressed Challenge-TV demos can now enter the content-manifest gate from the
+default Windows/PowerShell checkout instead of requiring manual WSL-side
+decompression first. This repairs the concrete post-merge defect found after
+#188 merged.
+
+### Confidence
+
+High for the local Windows + WSL + bundled-qizmo path, because it was proven on
+both a qizmo-disguised `.qwd` and a `.qwz` corpus file. Medium for other Windows
+machines until WSL presence and the qizmo bundle path are checked.
+
+### Follow-up
+
+Run the manifest over the first intentionally selected elite dm2/dm3 corpus
+batch and record skipped/ambiguous demos separately from self-POV-eligible
+movement-training candidates.
+
+---
+
 ## 2026-06-11
 
 ### Experiment
