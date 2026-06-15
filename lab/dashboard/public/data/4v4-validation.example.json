@@ -10,14 +10,21 @@
     "damage_taken",
     "enemy_weapon_damage",
     "team_weapon_damage",
-    "health_pickups",
+    "pill_pickups",
+    "brick_pickups",
+    "mega_pickups",
+    "ya_pickups",
+    "ra_pickups",
     "quad_pickups",
     "pent_pickups",
     "ring_pickups",
     "rl_pickups",
     "rl_drops",
     "enemy_rl_kills",
-    "taken_to_die"
+    "lg_pickups",
+    "taken_to_die",
+    "avg_speed",
+    "max_speed"
   ],
   "games": [
     {
@@ -69,14 +76,23 @@
             "damage_taken": 3000,
             "enemy_weapon_damage": 5010,
             "team_weapon_damage": 0,
-            "health_pickups": 0,
-            "quad_pickups": 0,
-            "pent_pickups": 0,
+            "health_pickups": 31,
+            "pill_pickups": 15,
+            "brick_pickups": 14,
+            "mega_pickups": 2,
+            "ya_pickups": 4,
+            "ra_pickups": 1,
+            "quad_pickups": 1,
+            "pent_pickups": 1,
             "ring_pickups": 0,
-            "rl_pickups": 0,
-            "rl_drops": 0,
-            "enemy_rl_kills": 0,
-            "efficiency": 0.5439
+            "rl_pickups": 11,
+            "rl_drops": 2,
+            "enemy_rl_kills": 5,
+            "lg_pickups": 2,
+            "efficiency": 0.5439,
+            "avg_speed": 253.8,
+            "max_speed": 510,
+            "taken_to_die": 115.5
           },
           "score_source": "sum(players[].stats.frags) because KTX JSON has no team score block"
         },
@@ -99,14 +115,23 @@
             "damage_taken": 3200,
             "enemy_weapon_damage": 4500,
             "team_weapon_damage": 0,
-            "health_pickups": 0,
-            "quad_pickups": 0,
+            "health_pickups": 31,
+            "pill_pickups": 16,
+            "brick_pickups": 14,
+            "mega_pickups": 1,
+            "ya_pickups": 2,
+            "ra_pickups": 1,
+            "quad_pickups": 1,
             "pent_pickups": 0,
-            "ring_pickups": 0,
-            "rl_pickups": 0,
-            "rl_drops": 0,
-            "enemy_rl_kills": 0,
-            "efficiency": 0.5085
+            "ring_pickups": 1,
+            "rl_pickups": 12,
+            "rl_drops": 2,
+            "enemy_rl_kills": 3,
+            "lg_pickups": 1,
+            "efficiency": 0.5085,
+            "avg_speed": 245.0,
+            "max_speed": 490,
+            "taken_to_die": 110.2
           },
           "score_source": "sum(players[].stats.frags) because KTX JSON has no team score block"
         }
@@ -147,37 +172,47 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
-            "quad_pickups": 0,
+            "avg_speed": 280,
+            "max_speed": 510,
+            "health_pickups": 6,
+            "pill_pickups": 3,
+            "brick_pickups": 2,
+            "mega_pickups": 1,
+            "ya_pickups": 2,
+            "ra_pickups": 1,
+            "quad_pickups": 1,
             "pent_pickups": 0,
             "ring_pickups": 0,
-            "rl_pickups": 0,
+            "rl_pickups": 2,
             "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "enemy_rl_kills": 3,
+            "lg_pickups": 1
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
-              "health_100": 0
+              "total": 6,
+              "health_15": 3,
+              "health_25": 2,
+              "health_100": 1
+            },
+            "armor": {
+              "ya": 2,
+              "ra": 1
             },
             "powerups": {
-              "quad": 0,
+              "quad": 1,
               "pent": 0,
               "ring": 0
             }
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
+              "pickups_taken": 2,
               "dropped": 0,
-              "enemy_kills": 0
+              "enemy_kills": 3
             },
             "lg": {
-              "pickups_taken": 0,
+              "pickups_taken": 1,
               "dropped": 0,
               "enemy_kills": 0
             }
@@ -207,12 +242,18 @@
               "players[0]['items']['health_25']['took']",
               "players[0]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[0]['items']['health_15']['took']",
+            "brick_pickups": "players[0]['items']['health_25']['took']",
+            "mega_pickups": "players[0]['items']['health_100']['took']",
+            "ya_pickups": "players[0]['items']['ya']['took']",
+            "ra_pickups": "players[0]['items']['ra']['took']",
             "quad_pickups": "players[0]['items']['q']['took']",
             "pent_pickups": "players[0]['items']['p']['took']",
             "ring_pickups": "players[0]['items']['r']['took']",
             "rl_pickups": "players[0]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[0]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[0]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[0]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[0]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 1,
@@ -280,14 +321,38 @@
               "value": null,
               "scope": "no_previous"
             },
-            "health_pickups": {
-              "current": 0,
+            "pill_pickups": {
+              "current": 3,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "brick_pickups": {
+              "current": 2,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "mega_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ya_pickups": {
+              "current": 2,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ra_pickups": {
+              "current": 1,
               "previous": null,
               "value": null,
               "scope": "no_previous"
             },
             "quad_pickups": {
-              "current": 0,
+              "current": 1,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -305,7 +370,7 @@
               "scope": "no_previous"
             },
             "rl_pickups": {
-              "current": 0,
+              "current": 2,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -317,13 +382,31 @@
               "scope": "no_previous"
             },
             "enemy_rl_kills": {
-              "current": 0,
+              "current": 3,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "lg_pickups": {
+              "current": 1,
               "previous": null,
               "value": null,
               "scope": "no_previous"
             },
             "taken_to_die": {
               "current": 120,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "avg_speed": {
+              "current": 280,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "max_speed": {
+              "current": 510,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -365,22 +448,32 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
+            "avg_speed": 255,
+            "max_speed": 470,
+            "health_pickups": 7,
+            "pill_pickups": 4,
+            "brick_pickups": 3,
+            "mega_pickups": 0,
+            "ya_pickups": 1,
+            "ra_pickups": 0,
             "quad_pickups": 0,
             "pent_pickups": 0,
             "ring_pickups": 0,
-            "rl_pickups": 0,
-            "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "rl_pickups": 3,
+            "rl_drops": 1,
+            "enemy_rl_kills": 1,
+            "lg_pickups": 0
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
+              "total": 7,
+              "health_15": 4,
+              "health_25": 3,
               "health_100": 0
+            },
+            "armor": {
+              "ya": 1,
+              "ra": 0
             },
             "powerups": {
               "quad": 0,
@@ -390,14 +483,14 @@
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
-              "dropped": 0,
-              "enemy_kills": 0
+              "pickups_taken": 3,
+              "dropped": 1,
+              "enemy_kills": 1
             },
             "lg": {
               "pickups_taken": 0,
               "dropped": 0,
-              "enemy_kills": 0
+              "enemy_kills": 1
             }
           },
           "sources": {
@@ -425,12 +518,18 @@
               "players[1]['items']['health_25']['took']",
               "players[1]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[1]['items']['health_15']['took']",
+            "brick_pickups": "players[1]['items']['health_25']['took']",
+            "mega_pickups": "players[1]['items']['health_100']['took']",
+            "ya_pickups": "players[1]['items']['ya']['took']",
+            "ra_pickups": "players[1]['items']['ra']['took']",
             "quad_pickups": "players[1]['items']['q']['took']",
             "pent_pickups": "players[1]['items']['p']['took']",
             "ring_pickups": "players[1]['items']['r']['took']",
             "rl_pickups": "players[1]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[1]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[1]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[1]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[1]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 2,
@@ -498,7 +597,31 @@
               "value": null,
               "scope": "no_previous"
             },
-            "health_pickups": {
+            "pill_pickups": {
+              "current": 4,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "brick_pickups": {
+              "current": 3,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "mega_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ya_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ra_pickups": {
               "current": 0,
               "previous": null,
               "value": null,
@@ -523,18 +646,24 @@
               "scope": "no_previous"
             },
             "rl_pickups": {
-              "current": 0,
+              "current": 3,
               "previous": null,
               "value": null,
               "scope": "no_previous"
             },
             "rl_drops": {
-              "current": 0,
+              "current": 1,
               "previous": null,
               "value": null,
               "scope": "no_previous"
             },
             "enemy_rl_kills": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "lg_pickups": {
               "current": 0,
               "previous": null,
               "value": null,
@@ -542,6 +671,18 @@
             },
             "taken_to_die": {
               "current": 116,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "avg_speed": {
+              "current": 255,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "max_speed": {
+              "current": 470,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -583,37 +724,47 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
+            "avg_speed": 242,
+            "max_speed": 455,
+            "health_pickups": 10,
+            "pill_pickups": 5,
+            "brick_pickups": 4,
+            "mega_pickups": 1,
+            "ya_pickups": 0,
+            "ra_pickups": 0,
             "quad_pickups": 0,
-            "pent_pickups": 0,
+            "pent_pickups": 1,
             "ring_pickups": 0,
-            "rl_pickups": 0,
+            "rl_pickups": 4,
             "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "enemy_rl_kills": 0,
+            "lg_pickups": 1
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
-              "health_100": 0
+              "total": 10,
+              "health_15": 5,
+              "health_25": 4,
+              "health_100": 1
+            },
+            "armor": {
+              "ya": 0,
+              "ra": 0
             },
             "powerups": {
               "quad": 0,
-              "pent": 0,
+              "pent": 1,
               "ring": 0
             }
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
+              "pickups_taken": 4,
               "dropped": 0,
               "enemy_kills": 0
             },
             "lg": {
-              "pickups_taken": 0,
+              "pickups_taken": 1,
               "dropped": 0,
               "enemy_kills": 0
             }
@@ -643,12 +794,18 @@
               "players[2]['items']['health_25']['took']",
               "players[2]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[2]['items']['health_15']['took']",
+            "brick_pickups": "players[2]['items']['health_25']['took']",
+            "mega_pickups": "players[2]['items']['health_100']['took']",
+            "ya_pickups": "players[2]['items']['ya']['took']",
+            "ra_pickups": "players[2]['items']['ra']['took']",
             "quad_pickups": "players[2]['items']['q']['took']",
             "pent_pickups": "players[2]['items']['p']['took']",
             "ring_pickups": "players[2]['items']['r']['took']",
             "rl_pickups": "players[2]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[2]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[2]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[2]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[2]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 3,
@@ -716,7 +873,31 @@
               "value": null,
               "scope": "no_previous"
             },
-            "health_pickups": {
+            "pill_pickups": {
+              "current": 5,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "brick_pickups": {
+              "current": 4,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "mega_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ya_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ra_pickups": {
               "current": 0,
               "previous": null,
               "value": null,
@@ -729,7 +910,7 @@
               "scope": "no_previous"
             },
             "pent_pickups": {
-              "current": 0,
+              "current": 1,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -741,7 +922,7 @@
               "scope": "no_previous"
             },
             "rl_pickups": {
-              "current": 0,
+              "current": 4,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -758,8 +939,26 @@
               "value": null,
               "scope": "no_previous"
             },
+            "lg_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
             "taken_to_die": {
               "current": 114,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "avg_speed": {
+              "current": 242,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "max_speed": {
+              "current": 455,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -801,22 +1000,32 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
+            "avg_speed": 238,
+            "max_speed": 440,
+            "health_pickups": 8,
+            "pill_pickups": 3,
+            "brick_pickups": 5,
+            "mega_pickups": 0,
+            "ya_pickups": 1,
+            "ra_pickups": 0,
             "quad_pickups": 0,
             "pent_pickups": 0,
             "ring_pickups": 0,
-            "rl_pickups": 0,
-            "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "rl_pickups": 2,
+            "rl_drops": 1,
+            "enemy_rl_kills": 1,
+            "lg_pickups": 0
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
+              "total": 8,
+              "health_15": 3,
+              "health_25": 5,
               "health_100": 0
+            },
+            "armor": {
+              "ya": 1,
+              "ra": 0
             },
             "powerups": {
               "quad": 0,
@@ -826,14 +1035,14 @@
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
-              "dropped": 0,
-              "enemy_kills": 0
+              "pickups_taken": 2,
+              "dropped": 1,
+              "enemy_kills": 1
             },
             "lg": {
               "pickups_taken": 0,
               "dropped": 0,
-              "enemy_kills": 0
+              "enemy_kills": 1
             }
           },
           "sources": {
@@ -861,12 +1070,18 @@
               "players[3]['items']['health_25']['took']",
               "players[3]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[3]['items']['health_15']['took']",
+            "brick_pickups": "players[3]['items']['health_25']['took']",
+            "mega_pickups": "players[3]['items']['health_100']['took']",
+            "ya_pickups": "players[3]['items']['ya']['took']",
+            "ra_pickups": "players[3]['items']['ra']['took']",
             "quad_pickups": "players[3]['items']['q']['took']",
             "pent_pickups": "players[3]['items']['p']['took']",
             "ring_pickups": "players[3]['items']['r']['took']",
             "rl_pickups": "players[3]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[3]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[3]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[3]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[3]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 4,
@@ -934,7 +1149,31 @@
               "value": null,
               "scope": "no_previous"
             },
-            "health_pickups": {
+            "pill_pickups": {
+              "current": 3,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "brick_pickups": {
+              "current": 5,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "mega_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ya_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ra_pickups": {
               "current": 0,
               "previous": null,
               "value": null,
@@ -959,18 +1198,24 @@
               "scope": "no_previous"
             },
             "rl_pickups": {
-              "current": 0,
+              "current": 2,
               "previous": null,
               "value": null,
               "scope": "no_previous"
             },
             "rl_drops": {
-              "current": 0,
+              "current": 1,
               "previous": null,
               "value": null,
               "scope": "no_previous"
             },
             "enemy_rl_kills": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "lg_pickups": {
               "current": 0,
               "previous": null,
               "value": null,
@@ -978,6 +1223,18 @@
             },
             "taken_to_die": {
               "current": 112,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "avg_speed": {
+              "current": 238,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "max_speed": {
+              "current": 440,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -1019,34 +1276,44 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
-            "quad_pickups": 0,
+            "avg_speed": 260,
+            "max_speed": 490,
+            "health_pickups": 6,
+            "pill_pickups": 4,
+            "brick_pickups": 2,
+            "mega_pickups": 0,
+            "ya_pickups": 1,
+            "ra_pickups": 0,
+            "quad_pickups": 1,
             "pent_pickups": 0,
             "ring_pickups": 0,
-            "rl_pickups": 0,
+            "rl_pickups": 3,
             "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "enemy_rl_kills": 2,
+            "lg_pickups": 0
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
+              "total": 6,
+              "health_15": 4,
+              "health_25": 2,
               "health_100": 0
             },
+            "armor": {
+              "ya": 1,
+              "ra": 0
+            },
             "powerups": {
-              "quad": 0,
+              "quad": 1,
               "pent": 0,
               "ring": 0
             }
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
+              "pickups_taken": 3,
               "dropped": 0,
-              "enemy_kills": 0
+              "enemy_kills": 2
             },
             "lg": {
               "pickups_taken": 0,
@@ -1079,12 +1346,18 @@
               "players[4]['items']['health_25']['took']",
               "players[4]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[4]['items']['health_15']['took']",
+            "brick_pickups": "players[4]['items']['health_25']['took']",
+            "mega_pickups": "players[4]['items']['health_100']['took']",
+            "ya_pickups": "players[4]['items']['ya']['took']",
+            "ra_pickups": "players[4]['items']['ra']['took']",
             "quad_pickups": "players[4]['items']['q']['took']",
             "pent_pickups": "players[4]['items']['p']['took']",
             "ring_pickups": "players[4]['items']['r']['took']",
             "rl_pickups": "players[4]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[4]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[4]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[4]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[4]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 5,
@@ -1152,14 +1425,38 @@
               "value": null,
               "scope": "no_previous"
             },
-            "health_pickups": {
+            "pill_pickups": {
+              "current": 4,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "brick_pickups": {
+              "current": 2,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "mega_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ya_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ra_pickups": {
               "current": 0,
               "previous": null,
               "value": null,
               "scope": "no_previous"
             },
             "quad_pickups": {
-              "current": 0,
+              "current": 1,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -1177,7 +1474,7 @@
               "scope": "no_previous"
             },
             "rl_pickups": {
-              "current": 0,
+              "current": 3,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -1189,6 +1486,12 @@
               "scope": "no_previous"
             },
             "enemy_rl_kills": {
+              "current": 2,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "lg_pickups": {
               "current": 0,
               "previous": null,
               "value": null,
@@ -1196,6 +1499,18 @@
             },
             "taken_to_die": {
               "current": 121,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "avg_speed": {
+              "current": 260,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "max_speed": {
+              "current": 490,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -1237,39 +1552,49 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
+            "avg_speed": 248,
+            "max_speed": 465,
+            "health_pickups": 9,
+            "pill_pickups": 5,
+            "brick_pickups": 3,
+            "mega_pickups": 1,
+            "ya_pickups": 0,
+            "ra_pickups": 1,
             "quad_pickups": 0,
             "pent_pickups": 0,
-            "ring_pickups": 0,
-            "rl_pickups": 0,
-            "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "ring_pickups": 1,
+            "rl_pickups": 4,
+            "rl_drops": 1,
+            "enemy_rl_kills": 1,
+            "lg_pickups": 1
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
-              "health_100": 0
+              "total": 9,
+              "health_15": 5,
+              "health_25": 3,
+              "health_100": 1
+            },
+            "armor": {
+              "ya": 0,
+              "ra": 1
             },
             "powerups": {
               "quad": 0,
               "pent": 0,
-              "ring": 0
+              "ring": 1
             }
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
-              "dropped": 0,
-              "enemy_kills": 0
+              "pickups_taken": 4,
+              "dropped": 1,
+              "enemy_kills": 1
             },
             "lg": {
-              "pickups_taken": 0,
+              "pickups_taken": 1,
               "dropped": 0,
-              "enemy_kills": 0
+              "enemy_kills": 1
             }
           },
           "sources": {
@@ -1297,12 +1622,18 @@
               "players[5]['items']['health_25']['took']",
               "players[5]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[5]['items']['health_15']['took']",
+            "brick_pickups": "players[5]['items']['health_25']['took']",
+            "mega_pickups": "players[5]['items']['health_100']['took']",
+            "ya_pickups": "players[5]['items']['ya']['took']",
+            "ra_pickups": "players[5]['items']['ra']['took']",
             "quad_pickups": "players[5]['items']['q']['took']",
             "pent_pickups": "players[5]['items']['p']['took']",
             "ring_pickups": "players[5]['items']['r']['took']",
             "rl_pickups": "players[5]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[5]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[5]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[5]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[5]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 6,
@@ -1370,8 +1701,32 @@
               "value": null,
               "scope": "no_previous"
             },
-            "health_pickups": {
+            "pill_pickups": {
+              "current": 5,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "brick_pickups": {
+              "current": 3,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "mega_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ya_pickups": {
               "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ra_pickups": {
+              "current": 1,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -1389,31 +1744,49 @@
               "scope": "no_previous"
             },
             "ring_pickups": {
-              "current": 0,
+              "current": 1,
               "previous": null,
               "value": null,
               "scope": "no_previous"
             },
             "rl_pickups": {
-              "current": 0,
+              "current": 4,
               "previous": null,
               "value": null,
               "scope": "no_previous"
             },
             "rl_drops": {
-              "current": 0,
+              "current": 1,
               "previous": null,
               "value": null,
               "scope": "no_previous"
             },
             "enemy_rl_kills": {
-              "current": 0,
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "lg_pickups": {
+              "current": 1,
               "previous": null,
               "value": null,
               "scope": "no_previous"
             },
             "taken_to_die": {
               "current": 107,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "avg_speed": {
+              "current": 248,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "max_speed": {
+              "current": 465,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -1455,22 +1828,32 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
+            "avg_speed": 240,
+            "max_speed": 452,
+            "health_pickups": 7,
+            "pill_pickups": 3,
+            "brick_pickups": 4,
+            "mega_pickups": 0,
+            "ya_pickups": 1,
+            "ra_pickups": 0,
             "quad_pickups": 0,
             "pent_pickups": 0,
             "ring_pickups": 0,
-            "rl_pickups": 0,
+            "rl_pickups": 2,
             "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "enemy_rl_kills": 0,
+            "lg_pickups": 0
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
+              "total": 7,
+              "health_15": 3,
+              "health_25": 4,
               "health_100": 0
+            },
+            "armor": {
+              "ya": 1,
+              "ra": 0
             },
             "powerups": {
               "quad": 0,
@@ -1480,7 +1863,7 @@
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
+              "pickups_taken": 2,
               "dropped": 0,
               "enemy_kills": 0
             },
@@ -1515,12 +1898,18 @@
               "players[6]['items']['health_25']['took']",
               "players[6]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[6]['items']['health_15']['took']",
+            "brick_pickups": "players[6]['items']['health_25']['took']",
+            "mega_pickups": "players[6]['items']['health_100']['took']",
+            "ya_pickups": "players[6]['items']['ya']['took']",
+            "ra_pickups": "players[6]['items']['ra']['took']",
             "quad_pickups": "players[6]['items']['q']['took']",
             "pent_pickups": "players[6]['items']['p']['took']",
             "ring_pickups": "players[6]['items']['r']['took']",
             "rl_pickups": "players[6]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[6]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[6]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[6]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[6]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 7,
@@ -1588,7 +1977,31 @@
               "value": null,
               "scope": "no_previous"
             },
-            "health_pickups": {
+            "pill_pickups": {
+              "current": 3,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "brick_pickups": {
+              "current": 4,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "mega_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ya_pickups": {
+              "current": 1,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ra_pickups": {
               "current": 0,
               "previous": null,
               "value": null,
@@ -1613,7 +2026,7 @@
               "scope": "no_previous"
             },
             "rl_pickups": {
-              "current": 0,
+              "current": 2,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -1630,8 +2043,26 @@
               "value": null,
               "scope": "no_previous"
             },
+            "lg_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
             "taken_to_die": {
               "current": 107,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "avg_speed": {
+              "current": 240,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "max_speed": {
+              "current": 452,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -1673,22 +2104,32 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
+            "avg_speed": 232,
+            "max_speed": 438,
+            "health_pickups": 9,
+            "pill_pickups": 4,
+            "brick_pickups": 5,
+            "mega_pickups": 0,
+            "ya_pickups": 0,
+            "ra_pickups": 0,
             "quad_pickups": 0,
             "pent_pickups": 0,
             "ring_pickups": 0,
-            "rl_pickups": 0,
-            "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "rl_pickups": 3,
+            "rl_drops": 1,
+            "enemy_rl_kills": 0,
+            "lg_pickups": 0
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
+              "total": 9,
+              "health_15": 4,
+              "health_25": 5,
               "health_100": 0
+            },
+            "armor": {
+              "ya": 0,
+              "ra": 0
             },
             "powerups": {
               "quad": 0,
@@ -1698,14 +2139,14 @@
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
-              "dropped": 0,
+              "pickups_taken": 3,
+              "dropped": 1,
               "enemy_kills": 0
             },
             "lg": {
               "pickups_taken": 0,
               "dropped": 0,
-              "enemy_kills": 0
+              "enemy_kills": 1
             }
           },
           "sources": {
@@ -1733,12 +2174,18 @@
               "players[7]['items']['health_25']['took']",
               "players[7]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[7]['items']['health_15']['took']",
+            "brick_pickups": "players[7]['items']['health_25']['took']",
+            "mega_pickups": "players[7]['items']['health_100']['took']",
+            "ya_pickups": "players[7]['items']['ya']['took']",
+            "ra_pickups": "players[7]['items']['ra']['took']",
             "quad_pickups": "players[7]['items']['q']['took']",
             "pent_pickups": "players[7]['items']['p']['took']",
             "ring_pickups": "players[7]['items']['r']['took']",
             "rl_pickups": "players[7]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[7]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[7]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[7]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[7]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 8,
@@ -1806,7 +2253,31 @@
               "value": null,
               "scope": "no_previous"
             },
-            "health_pickups": {
+            "pill_pickups": {
+              "current": 4,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "brick_pickups": {
+              "current": 5,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "mega_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ya_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "ra_pickups": {
               "current": 0,
               "previous": null,
               "value": null,
@@ -1831,13 +2302,13 @@
               "scope": "no_previous"
             },
             "rl_pickups": {
-              "current": 0,
+              "current": 3,
               "previous": null,
               "value": null,
               "scope": "no_previous"
             },
             "rl_drops": {
-              "current": 0,
+              "current": 1,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -1848,8 +2319,26 @@
               "value": null,
               "scope": "no_previous"
             },
+            "lg_pickups": {
+              "current": 0,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
             "taken_to_die": {
               "current": 106,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "avg_speed": {
+              "current": 232,
+              "previous": null,
+              "value": null,
+              "scope": "no_previous"
+            },
+            "max_speed": {
+              "current": 438,
               "previous": null,
               "value": null,
               "scope": "no_previous"
@@ -2004,14 +2493,23 @@
             "damage_taken": 3000,
             "enemy_weapon_damage": 5014,
             "team_weapon_damage": 0,
-            "health_pickups": 0,
-            "quad_pickups": 0,
-            "pent_pickups": 0,
+            "health_pickups": 34,
+            "pill_pickups": 15,
+            "brick_pickups": 14,
+            "mega_pickups": 5,
+            "ya_pickups": 7,
+            "ra_pickups": 3,
+            "quad_pickups": 1,
+            "pent_pickups": 1,
             "ring_pickups": 0,
-            "rl_pickups": 0,
-            "rl_drops": 0,
-            "enemy_rl_kills": 0,
-            "efficiency": 0.5738
+            "rl_pickups": 11,
+            "rl_drops": 2,
+            "enemy_rl_kills": 9,
+            "lg_pickups": 4,
+            "efficiency": 0.5738,
+            "avg_speed": 270.5,
+            "max_speed": 548,
+            "taken_to_die": 115.5
           },
           "score_source": "sum(players[].stats.frags) because KTX JSON has no team score block"
         },
@@ -2034,14 +2532,23 @@
             "damage_taken": 3200,
             "enemy_weapon_damage": 4500,
             "team_weapon_damage": 0,
-            "health_pickups": 0,
-            "quad_pickups": 0,
+            "health_pickups": 33,
+            "pill_pickups": 16,
+            "brick_pickups": 14,
+            "mega_pickups": 3,
+            "ya_pickups": 3,
+            "ra_pickups": 2,
+            "quad_pickups": 1,
             "pent_pickups": 0,
-            "ring_pickups": 0,
-            "rl_pickups": 0,
-            "rl_drops": 0,
-            "enemy_rl_kills": 0,
-            "efficiency": 0.5085
+            "ring_pickups": 1,
+            "rl_pickups": 12,
+            "rl_drops": 2,
+            "enemy_rl_kills": 5,
+            "lg_pickups": 2,
+            "efficiency": 0.5085,
+            "avg_speed": 252.2,
+            "max_speed": 504,
+            "taken_to_die": 110.2
           },
           "score_source": "sum(players[].stats.frags) because KTX JSON has no team score block"
         }
@@ -2082,37 +2589,47 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
-            "quad_pickups": 0,
+            "avg_speed": 326,
+            "max_speed": 548,
+            "health_pickups": 8,
+            "pill_pickups": 3,
+            "brick_pickups": 2,
+            "mega_pickups": 3,
+            "ya_pickups": 4,
+            "ra_pickups": 2,
+            "quad_pickups": 1,
             "pent_pickups": 0,
             "ring_pickups": 0,
-            "rl_pickups": 0,
+            "rl_pickups": 2,
             "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "enemy_rl_kills": 6,
+            "lg_pickups": 2
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
-              "health_100": 0
+              "total": 8,
+              "health_15": 3,
+              "health_25": 2,
+              "health_100": 3
+            },
+            "armor": {
+              "ya": 4,
+              "ra": 2
             },
             "powerups": {
-              "quad": 0,
+              "quad": 1,
               "pent": 0,
               "ring": 0
             }
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
+              "pickups_taken": 2,
               "dropped": 0,
-              "enemy_kills": 0
+              "enemy_kills": 6
             },
             "lg": {
-              "pickups_taken": 0,
+              "pickups_taken": 2,
               "dropped": 0,
               "enemy_kills": 0
             }
@@ -2142,12 +2659,18 @@
               "players[0]['items']['health_25']['took']",
               "players[0]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[0]['items']['health_15']['took']",
+            "brick_pickups": "players[0]['items']['health_25']['took']",
+            "mega_pickups": "players[0]['items']['health_100']['took']",
+            "ya_pickups": "players[0]['items']['ya']['took']",
+            "ra_pickups": "players[0]['items']['ra']['took']",
             "quad_pickups": "players[0]['items']['q']['took']",
             "pent_pickups": "players[0]['items']['p']['took']",
             "ring_pickups": "players[0]['items']['r']['took']",
             "rl_pickups": "players[0]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[0]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[0]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[0]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[0]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 1,
@@ -2215,15 +2738,39 @@
               "value": 0,
               "scope": "cross-version"
             },
-            "health_pickups": {
-              "current": 0,
-              "previous": 0,
+            "pill_pickups": {
+              "current": 3,
+              "previous": 3,
               "value": 0,
               "scope": "cross-version"
             },
+            "brick_pickups": {
+              "current": 2,
+              "previous": 2,
+              "value": 0,
+              "scope": "cross-version"
+            },
+            "mega_pickups": {
+              "current": 3,
+              "previous": 1,
+              "value": 2,
+              "scope": "cross-version"
+            },
+            "ya_pickups": {
+              "current": 4,
+              "previous": 2,
+              "value": 2,
+              "scope": "cross-version"
+            },
+            "ra_pickups": {
+              "current": 2,
+              "previous": 1,
+              "value": 1,
+              "scope": "cross-version"
+            },
             "quad_pickups": {
-              "current": 0,
-              "previous": 0,
+              "current": 1,
+              "previous": 1,
               "value": 0,
               "scope": "cross-version"
             },
@@ -2240,8 +2787,8 @@
               "scope": "cross-version"
             },
             "rl_pickups": {
-              "current": 0,
-              "previous": 0,
+              "current": 2,
+              "previous": 2,
               "value": 0,
               "scope": "cross-version"
             },
@@ -2252,15 +2799,33 @@
               "scope": "cross-version"
             },
             "enemy_rl_kills": {
-              "current": 0,
-              "previous": 0,
-              "value": 0,
+              "current": 6,
+              "previous": 3,
+              "value": 3,
+              "scope": "cross-version"
+            },
+            "lg_pickups": {
+              "current": 2,
+              "previous": 1,
+              "value": 1,
               "scope": "cross-version"
             },
             "taken_to_die": {
               "current": 120,
               "previous": 120,
               "value": 0,
+              "scope": "cross-version"
+            },
+            "avg_speed": {
+              "current": 326,
+              "previous": 280,
+              "value": 46,
+              "scope": "cross-version"
+            },
+            "max_speed": {
+              "current": 548,
+              "previous": 510,
+              "value": 38,
               "scope": "cross-version"
             }
           }
@@ -2300,22 +2865,32 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
+            "avg_speed": 262,
+            "max_speed": 486,
+            "health_pickups": 8,
+            "pill_pickups": 4,
+            "brick_pickups": 3,
+            "mega_pickups": 1,
+            "ya_pickups": 1,
+            "ra_pickups": 0,
             "quad_pickups": 0,
             "pent_pickups": 0,
             "ring_pickups": 0,
-            "rl_pickups": 0,
-            "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "rl_pickups": 3,
+            "rl_drops": 1,
+            "enemy_rl_kills": 1,
+            "lg_pickups": 1
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
-              "health_100": 0
+              "total": 8,
+              "health_15": 4,
+              "health_25": 3,
+              "health_100": 1
+            },
+            "armor": {
+              "ya": 1,
+              "ra": 0
             },
             "powerups": {
               "quad": 0,
@@ -2325,14 +2900,14 @@
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
-              "dropped": 0,
-              "enemy_kills": 0
+              "pickups_taken": 3,
+              "dropped": 1,
+              "enemy_kills": 1
             },
             "lg": {
-              "pickups_taken": 0,
+              "pickups_taken": 1,
               "dropped": 0,
-              "enemy_kills": 0
+              "enemy_kills": 1
             }
           },
           "sources": {
@@ -2360,12 +2935,18 @@
               "players[1]['items']['health_25']['took']",
               "players[1]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[1]['items']['health_15']['took']",
+            "brick_pickups": "players[1]['items']['health_25']['took']",
+            "mega_pickups": "players[1]['items']['health_100']['took']",
+            "ya_pickups": "players[1]['items']['ya']['took']",
+            "ra_pickups": "players[1]['items']['ra']['took']",
             "quad_pickups": "players[1]['items']['q']['took']",
             "pent_pickups": "players[1]['items']['p']['took']",
             "ring_pickups": "players[1]['items']['r']['took']",
             "rl_pickups": "players[1]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[1]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[1]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[1]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[1]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 2,
@@ -2433,7 +3014,31 @@
               "value": 0,
               "scope": "same-version"
             },
-            "health_pickups": {
+            "pill_pickups": {
+              "current": 4,
+              "previous": 4,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "brick_pickups": {
+              "current": 3,
+              "previous": 3,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "mega_pickups": {
+              "current": 1,
+              "previous": 0,
+              "value": 1,
+              "scope": "same-version"
+            },
+            "ya_pickups": {
+              "current": 1,
+              "previous": 1,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "ra_pickups": {
               "current": 0,
               "previous": 0,
               "value": 0,
@@ -2458,27 +3063,45 @@
               "scope": "same-version"
             },
             "rl_pickups": {
-              "current": 0,
-              "previous": 0,
+              "current": 3,
+              "previous": 3,
               "value": 0,
               "scope": "same-version"
             },
             "rl_drops": {
-              "current": 0,
-              "previous": 0,
+              "current": 1,
+              "previous": 1,
               "value": 0,
               "scope": "same-version"
             },
             "enemy_rl_kills": {
-              "current": 0,
-              "previous": 0,
+              "current": 1,
+              "previous": 1,
               "value": 0,
+              "scope": "same-version"
+            },
+            "lg_pickups": {
+              "current": 1,
+              "previous": 0,
+              "value": 1,
               "scope": "same-version"
             },
             "taken_to_die": {
               "current": 116,
               "previous": 116,
               "value": 0,
+              "scope": "same-version"
+            },
+            "avg_speed": {
+              "current": 262,
+              "previous": 255,
+              "value": 7,
+              "scope": "same-version"
+            },
+            "max_speed": {
+              "current": 486,
+              "previous": 470,
+              "value": 16,
               "scope": "same-version"
             }
           }
@@ -2518,37 +3141,47 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
+            "avg_speed": 250,
+            "max_speed": 468,
+            "health_pickups": 10,
+            "pill_pickups": 5,
+            "brick_pickups": 4,
+            "mega_pickups": 1,
+            "ya_pickups": 1,
+            "ra_pickups": 1,
             "quad_pickups": 0,
-            "pent_pickups": 0,
+            "pent_pickups": 1,
             "ring_pickups": 0,
-            "rl_pickups": 0,
+            "rl_pickups": 4,
             "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "enemy_rl_kills": 1,
+            "lg_pickups": 1
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
-              "health_100": 0
+              "total": 10,
+              "health_15": 5,
+              "health_25": 4,
+              "health_100": 1
+            },
+            "armor": {
+              "ya": 1,
+              "ra": 1
             },
             "powerups": {
               "quad": 0,
-              "pent": 0,
+              "pent": 1,
               "ring": 0
             }
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
+              "pickups_taken": 4,
               "dropped": 0,
-              "enemy_kills": 0
+              "enemy_kills": 1
             },
             "lg": {
-              "pickups_taken": 0,
+              "pickups_taken": 1,
               "dropped": 0,
               "enemy_kills": 0
             }
@@ -2578,12 +3211,18 @@
               "players[2]['items']['health_25']['took']",
               "players[2]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[2]['items']['health_15']['took']",
+            "brick_pickups": "players[2]['items']['health_25']['took']",
+            "mega_pickups": "players[2]['items']['health_100']['took']",
+            "ya_pickups": "players[2]['items']['ya']['took']",
+            "ra_pickups": "players[2]['items']['ra']['took']",
             "quad_pickups": "players[2]['items']['q']['took']",
             "pent_pickups": "players[2]['items']['p']['took']",
             "ring_pickups": "players[2]['items']['r']['took']",
             "rl_pickups": "players[2]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[2]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[2]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[2]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[2]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 3,
@@ -2651,10 +3290,34 @@
               "value": 0,
               "scope": "same-version"
             },
-            "health_pickups": {
-              "current": 0,
-              "previous": 0,
+            "pill_pickups": {
+              "current": 5,
+              "previous": 5,
               "value": 0,
+              "scope": "same-version"
+            },
+            "brick_pickups": {
+              "current": 4,
+              "previous": 4,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "mega_pickups": {
+              "current": 1,
+              "previous": 1,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "ya_pickups": {
+              "current": 1,
+              "previous": 0,
+              "value": 1,
+              "scope": "same-version"
+            },
+            "ra_pickups": {
+              "current": 1,
+              "previous": 0,
+              "value": 1,
               "scope": "same-version"
             },
             "quad_pickups": {
@@ -2664,8 +3327,8 @@
               "scope": "same-version"
             },
             "pent_pickups": {
-              "current": 0,
-              "previous": 0,
+              "current": 1,
+              "previous": 1,
               "value": 0,
               "scope": "same-version"
             },
@@ -2676,8 +3339,8 @@
               "scope": "same-version"
             },
             "rl_pickups": {
-              "current": 0,
-              "previous": 0,
+              "current": 4,
+              "previous": 4,
               "value": 0,
               "scope": "same-version"
             },
@@ -2688,8 +3351,14 @@
               "scope": "same-version"
             },
             "enemy_rl_kills": {
-              "current": 0,
+              "current": 1,
               "previous": 0,
+              "value": 1,
+              "scope": "same-version"
+            },
+            "lg_pickups": {
+              "current": 1,
+              "previous": 1,
               "value": 0,
               "scope": "same-version"
             },
@@ -2697,6 +3366,18 @@
               "current": 114,
               "previous": 114,
               "value": 0,
+              "scope": "same-version"
+            },
+            "avg_speed": {
+              "current": 250,
+              "previous": 242,
+              "value": 8,
+              "scope": "same-version"
+            },
+            "max_speed": {
+              "current": 468,
+              "previous": 455,
+              "value": 13,
               "scope": "same-version"
             }
           }
@@ -2736,22 +3417,32 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
+            "avg_speed": 244,
+            "max_speed": 452,
+            "health_pickups": 8,
+            "pill_pickups": 3,
+            "brick_pickups": 5,
+            "mega_pickups": 0,
+            "ya_pickups": 1,
+            "ra_pickups": 0,
             "quad_pickups": 0,
             "pent_pickups": 0,
             "ring_pickups": 0,
-            "rl_pickups": 0,
-            "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "rl_pickups": 2,
+            "rl_drops": 1,
+            "enemy_rl_kills": 1,
+            "lg_pickups": 0
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
+              "total": 8,
+              "health_15": 3,
+              "health_25": 5,
               "health_100": 0
+            },
+            "armor": {
+              "ya": 1,
+              "ra": 0
             },
             "powerups": {
               "quad": 0,
@@ -2761,14 +3452,14 @@
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
-              "dropped": 0,
-              "enemy_kills": 0
+              "pickups_taken": 2,
+              "dropped": 1,
+              "enemy_kills": 1
             },
             "lg": {
               "pickups_taken": 0,
               "dropped": 0,
-              "enemy_kills": 0
+              "enemy_kills": 1
             }
           },
           "sources": {
@@ -2796,12 +3487,18 @@
               "players[3]['items']['health_25']['took']",
               "players[3]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[3]['items']['health_15']['took']",
+            "brick_pickups": "players[3]['items']['health_25']['took']",
+            "mega_pickups": "players[3]['items']['health_100']['took']",
+            "ya_pickups": "players[3]['items']['ya']['took']",
+            "ra_pickups": "players[3]['items']['ra']['took']",
             "quad_pickups": "players[3]['items']['q']['took']",
             "pent_pickups": "players[3]['items']['p']['took']",
             "ring_pickups": "players[3]['items']['r']['took']",
             "rl_pickups": "players[3]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[3]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[3]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[3]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[3]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 4,
@@ -2869,7 +3566,31 @@
               "value": 0,
               "scope": "same-version"
             },
-            "health_pickups": {
+            "pill_pickups": {
+              "current": 3,
+              "previous": 3,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "brick_pickups": {
+              "current": 5,
+              "previous": 5,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "mega_pickups": {
+              "current": 0,
+              "previous": 0,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "ya_pickups": {
+              "current": 1,
+              "previous": 1,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "ra_pickups": {
               "current": 0,
               "previous": 0,
               "value": 0,
@@ -2894,18 +3615,24 @@
               "scope": "same-version"
             },
             "rl_pickups": {
-              "current": 0,
-              "previous": 0,
+              "current": 2,
+              "previous": 2,
               "value": 0,
               "scope": "same-version"
             },
             "rl_drops": {
-              "current": 0,
-              "previous": 0,
+              "current": 1,
+              "previous": 1,
               "value": 0,
               "scope": "same-version"
             },
             "enemy_rl_kills": {
+              "current": 1,
+              "previous": 1,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "lg_pickups": {
               "current": 0,
               "previous": 0,
               "value": 0,
@@ -2915,6 +3642,18 @@
               "current": 112,
               "previous": 112,
               "value": 0,
+              "scope": "same-version"
+            },
+            "avg_speed": {
+              "current": 244,
+              "previous": 238,
+              "value": 6,
+              "scope": "same-version"
+            },
+            "max_speed": {
+              "current": 452,
+              "previous": 440,
+              "value": 12,
               "scope": "same-version"
             }
           }
@@ -2954,37 +3693,47 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
-            "quad_pickups": 0,
+            "avg_speed": 270,
+            "max_speed": 504,
+            "health_pickups": 7,
+            "pill_pickups": 4,
+            "brick_pickups": 2,
+            "mega_pickups": 1,
+            "ya_pickups": 1,
+            "ra_pickups": 0,
+            "quad_pickups": 1,
             "pent_pickups": 0,
             "ring_pickups": 0,
-            "rl_pickups": 0,
+            "rl_pickups": 3,
             "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "enemy_rl_kills": 3,
+            "lg_pickups": 1
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
-              "health_100": 0
+              "total": 7,
+              "health_15": 4,
+              "health_25": 2,
+              "health_100": 1
+            },
+            "armor": {
+              "ya": 1,
+              "ra": 0
             },
             "powerups": {
-              "quad": 0,
+              "quad": 1,
               "pent": 0,
               "ring": 0
             }
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
+              "pickups_taken": 3,
               "dropped": 0,
-              "enemy_kills": 0
+              "enemy_kills": 3
             },
             "lg": {
-              "pickups_taken": 0,
+              "pickups_taken": 1,
               "dropped": 0,
               "enemy_kills": 0
             }
@@ -3014,12 +3763,18 @@
               "players[4]['items']['health_25']['took']",
               "players[4]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[4]['items']['health_15']['took']",
+            "brick_pickups": "players[4]['items']['health_25']['took']",
+            "mega_pickups": "players[4]['items']['health_100']['took']",
+            "ya_pickups": "players[4]['items']['ya']['took']",
+            "ra_pickups": "players[4]['items']['ra']['took']",
             "quad_pickups": "players[4]['items']['q']['took']",
             "pent_pickups": "players[4]['items']['p']['took']",
             "ring_pickups": "players[4]['items']['r']['took']",
             "rl_pickups": "players[4]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[4]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[4]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[4]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[4]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 5,
@@ -3087,15 +3842,39 @@
               "value": 0,
               "scope": "same-version"
             },
-            "health_pickups": {
+            "pill_pickups": {
+              "current": 4,
+              "previous": 4,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "brick_pickups": {
+              "current": 2,
+              "previous": 2,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "mega_pickups": {
+              "current": 1,
+              "previous": 0,
+              "value": 1,
+              "scope": "same-version"
+            },
+            "ya_pickups": {
+              "current": 1,
+              "previous": 1,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "ra_pickups": {
               "current": 0,
               "previous": 0,
               "value": 0,
               "scope": "same-version"
             },
             "quad_pickups": {
-              "current": 0,
-              "previous": 0,
+              "current": 1,
+              "previous": 1,
               "value": 0,
               "scope": "same-version"
             },
@@ -3112,8 +3891,8 @@
               "scope": "same-version"
             },
             "rl_pickups": {
-              "current": 0,
-              "previous": 0,
+              "current": 3,
+              "previous": 3,
               "value": 0,
               "scope": "same-version"
             },
@@ -3124,15 +3903,33 @@
               "scope": "same-version"
             },
             "enemy_rl_kills": {
-              "current": 0,
+              "current": 3,
+              "previous": 2,
+              "value": 1,
+              "scope": "same-version"
+            },
+            "lg_pickups": {
+              "current": 1,
               "previous": 0,
-              "value": 0,
+              "value": 1,
               "scope": "same-version"
             },
             "taken_to_die": {
               "current": 121,
               "previous": 121,
               "value": 0,
+              "scope": "same-version"
+            },
+            "avg_speed": {
+              "current": 270,
+              "previous": 260,
+              "value": 10,
+              "scope": "same-version"
+            },
+            "max_speed": {
+              "current": 504,
+              "previous": 490,
+              "value": 14,
               "scope": "same-version"
             }
           }
@@ -3172,39 +3969,49 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
+            "avg_speed": 255,
+            "max_speed": 474,
+            "health_pickups": 9,
+            "pill_pickups": 5,
+            "brick_pickups": 3,
+            "mega_pickups": 1,
+            "ya_pickups": 1,
+            "ra_pickups": 1,
             "quad_pickups": 0,
             "pent_pickups": 0,
-            "ring_pickups": 0,
-            "rl_pickups": 0,
-            "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "ring_pickups": 1,
+            "rl_pickups": 4,
+            "rl_drops": 1,
+            "enemy_rl_kills": 1,
+            "lg_pickups": 1
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
-              "health_100": 0
+              "total": 9,
+              "health_15": 5,
+              "health_25": 3,
+              "health_100": 1
+            },
+            "armor": {
+              "ya": 1,
+              "ra": 1
             },
             "powerups": {
               "quad": 0,
               "pent": 0,
-              "ring": 0
+              "ring": 1
             }
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
-              "dropped": 0,
-              "enemy_kills": 0
+              "pickups_taken": 4,
+              "dropped": 1,
+              "enemy_kills": 1
             },
             "lg": {
-              "pickups_taken": 0,
+              "pickups_taken": 1,
               "dropped": 0,
-              "enemy_kills": 0
+              "enemy_kills": 1
             }
           },
           "sources": {
@@ -3232,12 +4039,18 @@
               "players[5]['items']['health_25']['took']",
               "players[5]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[5]['items']['health_15']['took']",
+            "brick_pickups": "players[5]['items']['health_25']['took']",
+            "mega_pickups": "players[5]['items']['health_100']['took']",
+            "ya_pickups": "players[5]['items']['ya']['took']",
+            "ra_pickups": "players[5]['items']['ra']['took']",
             "quad_pickups": "players[5]['items']['q']['took']",
             "pent_pickups": "players[5]['items']['p']['took']",
             "ring_pickups": "players[5]['items']['r']['took']",
             "rl_pickups": "players[5]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[5]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[5]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[5]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[5]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 6,
@@ -3305,9 +4118,33 @@
               "value": 0,
               "scope": "same-version"
             },
-            "health_pickups": {
-              "current": 0,
+            "pill_pickups": {
+              "current": 5,
+              "previous": 5,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "brick_pickups": {
+              "current": 3,
+              "previous": 3,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "mega_pickups": {
+              "current": 1,
+              "previous": 1,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "ya_pickups": {
+              "current": 1,
               "previous": 0,
+              "value": 1,
+              "scope": "same-version"
+            },
+            "ra_pickups": {
+              "current": 1,
+              "previous": 1,
               "value": 0,
               "scope": "same-version"
             },
@@ -3324,26 +4161,32 @@
               "scope": "same-version"
             },
             "ring_pickups": {
-              "current": 0,
-              "previous": 0,
+              "current": 1,
+              "previous": 1,
               "value": 0,
               "scope": "same-version"
             },
             "rl_pickups": {
-              "current": 0,
-              "previous": 0,
+              "current": 4,
+              "previous": 4,
               "value": 0,
               "scope": "same-version"
             },
             "rl_drops": {
-              "current": 0,
-              "previous": 0,
+              "current": 1,
+              "previous": 1,
               "value": 0,
               "scope": "same-version"
             },
             "enemy_rl_kills": {
-              "current": 0,
-              "previous": 0,
+              "current": 1,
+              "previous": 1,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "lg_pickups": {
+              "current": 1,
+              "previous": 1,
               "value": 0,
               "scope": "same-version"
             },
@@ -3351,6 +4194,18 @@
               "current": 107,
               "previous": 107,
               "value": 0,
+              "scope": "same-version"
+            },
+            "avg_speed": {
+              "current": 255,
+              "previous": 248,
+              "value": 7,
+              "scope": "same-version"
+            },
+            "max_speed": {
+              "current": 474,
+              "previous": 465,
+              "value": 9,
               "scope": "same-version"
             }
           }
@@ -3390,22 +4245,32 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
+            "avg_speed": 246,
+            "max_speed": 460,
+            "health_pickups": 7,
+            "pill_pickups": 3,
+            "brick_pickups": 4,
+            "mega_pickups": 0,
+            "ya_pickups": 1,
+            "ra_pickups": 0,
             "quad_pickups": 0,
             "pent_pickups": 0,
             "ring_pickups": 0,
-            "rl_pickups": 0,
+            "rl_pickups": 2,
             "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "enemy_rl_kills": 0,
+            "lg_pickups": 0
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
+              "total": 7,
+              "health_15": 3,
+              "health_25": 4,
               "health_100": 0
+            },
+            "armor": {
+              "ya": 1,
+              "ra": 0
             },
             "powerups": {
               "quad": 0,
@@ -3415,7 +4280,7 @@
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
+              "pickups_taken": 2,
               "dropped": 0,
               "enemy_kills": 0
             },
@@ -3450,12 +4315,18 @@
               "players[6]['items']['health_25']['took']",
               "players[6]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[6]['items']['health_15']['took']",
+            "brick_pickups": "players[6]['items']['health_25']['took']",
+            "mega_pickups": "players[6]['items']['health_100']['took']",
+            "ya_pickups": "players[6]['items']['ya']['took']",
+            "ra_pickups": "players[6]['items']['ra']['took']",
             "quad_pickups": "players[6]['items']['q']['took']",
             "pent_pickups": "players[6]['items']['p']['took']",
             "ring_pickups": "players[6]['items']['r']['took']",
             "rl_pickups": "players[6]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[6]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[6]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[6]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[6]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 7,
@@ -3523,7 +4394,31 @@
               "value": 0,
               "scope": "same-version"
             },
-            "health_pickups": {
+            "pill_pickups": {
+              "current": 3,
+              "previous": 3,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "brick_pickups": {
+              "current": 4,
+              "previous": 4,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "mega_pickups": {
+              "current": 0,
+              "previous": 0,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "ya_pickups": {
+              "current": 1,
+              "previous": 1,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "ra_pickups": {
               "current": 0,
               "previous": 0,
               "value": 0,
@@ -3548,8 +4443,8 @@
               "scope": "same-version"
             },
             "rl_pickups": {
-              "current": 0,
-              "previous": 0,
+              "current": 2,
+              "previous": 2,
               "value": 0,
               "scope": "same-version"
             },
@@ -3565,10 +4460,28 @@
               "value": 0,
               "scope": "same-version"
             },
+            "lg_pickups": {
+              "current": 0,
+              "previous": 0,
+              "value": 0,
+              "scope": "same-version"
+            },
             "taken_to_die": {
               "current": 107,
               "previous": 107,
               "value": 0,
+              "scope": "same-version"
+            },
+            "avg_speed": {
+              "current": 246,
+              "previous": 240,
+              "value": 6,
+              "scope": "same-version"
+            },
+            "max_speed": {
+              "current": 460,
+              "previous": 452,
+              "value": 8,
               "scope": "same-version"
             }
           }
@@ -3608,22 +4521,32 @@
             "survived_without_death": false,
             "xfer_rl": 0,
             "xfer_lg": 0,
-            "avg_speed": 300.0,
-            "max_speed": 500.0,
-            "health_pickups": 0,
+            "avg_speed": 238,
+            "max_speed": 446,
+            "health_pickups": 10,
+            "pill_pickups": 4,
+            "brick_pickups": 5,
+            "mega_pickups": 1,
+            "ya_pickups": 0,
+            "ra_pickups": 1,
             "quad_pickups": 0,
             "pent_pickups": 0,
             "ring_pickups": 0,
-            "rl_pickups": 0,
-            "rl_drops": 0,
-            "enemy_rl_kills": 0
+            "rl_pickups": 3,
+            "rl_drops": 1,
+            "enemy_rl_kills": 1,
+            "lg_pickups": 0
           },
           "pickups": {
             "health": {
-              "total": 0,
-              "health_15": 0,
-              "health_25": 0,
-              "health_100": 0
+              "total": 10,
+              "health_15": 4,
+              "health_25": 5,
+              "health_100": 1
+            },
+            "armor": {
+              "ya": 0,
+              "ra": 1
             },
             "powerups": {
               "quad": 0,
@@ -3633,14 +4556,14 @@
           },
           "weapons": {
             "rl": {
-              "pickups_taken": 0,
-              "dropped": 0,
-              "enemy_kills": 0
+              "pickups_taken": 3,
+              "dropped": 1,
+              "enemy_kills": 1
             },
             "lg": {
               "pickups_taken": 0,
               "dropped": 0,
-              "enemy_kills": 0
+              "enemy_kills": 1
             }
           },
           "sources": {
@@ -3668,12 +4591,18 @@
               "players[7]['items']['health_25']['took']",
               "players[7]['items']['health_100']['took']"
             ],
+            "pill_pickups": "players[7]['items']['health_15']['took']",
+            "brick_pickups": "players[7]['items']['health_25']['took']",
+            "mega_pickups": "players[7]['items']['health_100']['took']",
+            "ya_pickups": "players[7]['items']['ya']['took']",
+            "ra_pickups": "players[7]['items']['ra']['took']",
             "quad_pickups": "players[7]['items']['q']['took']",
             "pent_pickups": "players[7]['items']['p']['took']",
             "ring_pickups": "players[7]['items']['r']['took']",
             "rl_pickups": "players[7]['weapons']['rl']['pickups']['taken']",
             "rl_drops": "players[7]['weapons']['rl']['pickups']['dropped']",
-            "enemy_rl_kills": "players[7]['weapons']['rl']['kills']['enemy']"
+            "enemy_rl_kills": "players[7]['weapons']['rl']['kills']['enemy']",
+            "lg_pickups": "players[7]['weapons']['lg']['pickups']['taken']"
           },
           "roster": {
             "slot": 8,
@@ -3741,10 +4670,34 @@
               "value": 0,
               "scope": "same-version"
             },
-            "health_pickups": {
+            "pill_pickups": {
+              "current": 4,
+              "previous": 4,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "brick_pickups": {
+              "current": 5,
+              "previous": 5,
+              "value": 0,
+              "scope": "same-version"
+            },
+            "mega_pickups": {
+              "current": 1,
+              "previous": 0,
+              "value": 1,
+              "scope": "same-version"
+            },
+            "ya_pickups": {
               "current": 0,
               "previous": 0,
               "value": 0,
+              "scope": "same-version"
+            },
+            "ra_pickups": {
+              "current": 1,
+              "previous": 0,
+              "value": 1,
               "scope": "same-version"
             },
             "quad_pickups": {
@@ -3766,18 +4719,24 @@
               "scope": "same-version"
             },
             "rl_pickups": {
-              "current": 0,
-              "previous": 0,
+              "current": 3,
+              "previous": 3,
               "value": 0,
               "scope": "same-version"
             },
             "rl_drops": {
-              "current": 0,
-              "previous": 0,
+              "current": 1,
+              "previous": 1,
               "value": 0,
               "scope": "same-version"
             },
             "enemy_rl_kills": {
+              "current": 1,
+              "previous": 0,
+              "value": 1,
+              "scope": "same-version"
+            },
+            "lg_pickups": {
               "current": 0,
               "previous": 0,
               "value": 0,
@@ -3787,6 +4746,18 @@
               "current": 106,
               "previous": 106,
               "value": 0,
+              "scope": "same-version"
+            },
+            "avg_speed": {
+              "current": 238,
+              "previous": 232,
+              "value": 6,
+              "scope": "same-version"
+            },
+            "max_speed": {
+              "current": 446,
+              "previous": 438,
+              "value": 8,
               "scope": "same-version"
             }
           }
@@ -3898,10 +4869,10 @@
     "valid_games": 2,
     "skipped": {},
     "stats_filenames": [
-      "analysis.json",
       "ktxstats.json",
       "stats.json",
-      "match.json"
+      "match.json",
+      "analysis.json"
     ],
     "roster_filenames": [
       "4v4-roster.json",

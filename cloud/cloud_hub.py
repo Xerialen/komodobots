@@ -32,6 +32,10 @@ REPO = os.environ.get("KOMODO_REPO", os.path.join(HOME, "projects/komodobots"))
 ONLINE_DEMOS_DIR = os.environ.get("ONLINE_DEMOS_DIR", os.path.join(HOME, "nquakesv/ktx/demos"))
 ATTEMPTS_DIR = os.path.join(REPO, "tricks")
 DASH_DIST = os.path.join(REPO, "lab", "dashboard", "dist")
+# Generated ledgers (4v4 validation, casting) land in the dashboard's public
+# data dir; the hub serves them under /demos/records/ with a fall-back to the
+# committed *.example.json so the dashboard renders before any real run writes one.
+RECORDS_DIR = os.environ.get("RECORDS_DIR", os.path.join(REPO, "lab", "dashboard", "public", "data"))
 MAPS_DIR = os.path.join(HOME, "nquakesv", "qw", "maps")
 SERVER_PORTS = [int(p) for p in os.environ.get("HUB_SERVER_PORTS", "28501,28502,28503,28504").split(",")]
 
@@ -212,6 +216,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if m:
             mapdir = _safe_child(ATTEMPTS_DIR, m.group(1))
             target = _safe_child(mapdir, m.group(2)) if mapdir and os.path.isdir(mapdir) else None
+            return self._file(target)
+        if path.startswith("/demos/records/"):
+            name = path[len("/demos/records/"):]
+            target = _safe_child(RECORDS_DIR, name)
+            if not (target and os.path.isfile(target)) and name.endswith(".json"):
+                # Fall back to the committed example ledger so the dashboard
+                # renders before any real run has written records.
+                target = _safe_child(RECORDS_DIR, name[:-5] + ".example.json")
             return self._file(target)
         if path == "/botlab":
             self.send_response(302)
