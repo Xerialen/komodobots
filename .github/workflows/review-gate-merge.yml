@@ -194,6 +194,20 @@ jobs:
               then "yes" else "no" end' <<<"$latest_verdict")
             [ "$latest_verdict_pass" = "yes" ] || { echo "skip #$PR: latest head-bound verdict for $short is not PASS/ready (a later BLOCK vetoes an earlier PASS)"; return 0; }
 
+            # Cooldown: the gate: ready label must have been stable for at least
+            # READY_COOLDOWN before merging, so a PASS that a reviewer reverts
+            # shortly after cannot be merged on the labeled / workflow_run event
+            # before the revert lands -- the transient-PASS race that merged #192
+            # and #188 (PASS -> merge within seconds -> BLOCK too late). A merge
+            # in the cooldown window is skipped; the schedule reconciler retries
+            # once it elapses, by which point a real revert has cleared the label.
+            local ready_cooldown=300 now_s label_s ready_age
+            now_s=$(date -u +%s)
+            label_s=$(date -u -d "$latest_ready_label_at" +%s 2>/dev/null || echo 0)
+            ready_age=$(( now_s - label_s ))
+            [ "$label_s" -gt 0 ] || { echo "skip #$PR: no parseable 'gate: ready' label time; cannot honor cooldown"; return 0; }
+            [ "$ready_age" -ge "$ready_cooldown" ] || { echo "skip #$PR: 'gate: ready' only ${ready_age}s old (< ${ready_cooldown}s cooldown); reconciler will retry"; return 0; }
+
             # Exclude this gate's own workflow runs from the rollup count so the
             # merge job can't deadlock on itself; pr-tests and any real CI count.
             local n_checks n_bad
