@@ -41,6 +41,20 @@ class ReviewGateMergeWorkflowTests(unittest.TestCase):
             merge,
         )
 
+    def test_merge_requires_latest_head_verdict_to_be_pass(self) -> None:
+        merge = _workflow_text(MERGE_WORKFLOW)
+
+        self.assertIn("latest_verdict_pass", merge)
+        self.assertIn("sort_by(.created_at) | last", merge)
+        self.assertIn("a later BLOCK vetoes an earlier PASS", merge)
+
+    def test_draft_guard_strips_ready_label_from_drafts(self) -> None:
+        guard = _workflow_text(REPO_ROOT / ".github" / "workflows" / "gate-draft-guard.yml")
+
+        self.assertIn("types: [labeled, converted_to_draft]", guard)
+        self.assertIn("issues/$PR/labels/gate:%20ready", guard)
+        self.assertIn("--json isDraft,labels", guard)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -117,6 +117,8 @@ gate: blocked    -> Reviewer Agent found at least one blocking technical merge-s
 
 A pushed commit invalidates any previous decision: `review-gate-reset.yml` clears `gate: ready`/`gate: blocked` and sets `gate: reviewing`, so the gate always reflects the current head. If Codex cannot complete the review, leave `gate: reviewing` in place and say why; do not default to pass.
 
+A **draft** PR is advisory-only: open a PR non-draft when you want it reviewed-and-merged, and never apply `gate: ready` to a draft. The merge executor skips drafts; does not treat `ready_for_review` as a merge trigger (Reset Review Gate owns that event); and authorizes only when the `gate: ready` label, plus the latest head-bound gate verdict, both post-date the most recent draft->ready promotion AND that latest verdict is itself a PASS (a later BLOCK vetoes an earlier PASS even if the `gate: blocked` label write failed). `gate-draft-guard.yml` also strips `gate: ready` and restores `gate: reviewing` if the label is ever applied to a draft.
+
 Per-PR lifecycle:
 
 ```text

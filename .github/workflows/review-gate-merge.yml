@@ -175,6 +175,25 @@ jobs:
             ' <<<"$comments_json")
             [ "${ready_for_current_head:-0}" -ge 1 ] || { echo "skip #$PR: no SHA-bound gate-ready verdict for current head $short"; return 0; }
 
+            # Additionally require the LATEST head-bound gate verdict to be a PASS,
+            # so a later BLOCK vetoes an earlier PASS even when the `gate: blocked`
+            # label write failed to land (this repo's `gh --add-label` can error on
+            # the Projects-classic GraphQL path; the comment is the durable record).
+            local latest_verdict latest_verdict_pass
+            latest_verdict=$(jq -c --arg head "$head" '
+              [.[][]
+                | select((.body // "") | test("(^|\\n)DECISION: "))
+                | select((.body // "") | contains("HEAD_SHA: " + $head))
+                | {created_at, body: (.body // "")}]
+              | sort_by(.created_at) | last // {}
+            ' <<<"$comments_json")
+            latest_verdict_pass=$(jq -r '
+              if ((.body // "")
+                   | (test("(^|\\n)DECISION: (PASS|READY)(\\n|$)")
+                      and contains("LABEL: gate: ready")))
+              then "yes" else "no" end' <<<"$latest_verdict")
+            [ "$latest_verdict_pass" = "yes" ] || { echo "skip #$PR: latest head-bound verdict for $short is not PASS/ready (a later BLOCK vetoes an earlier PASS)"; return 0; }
+
             # Exclude this gate's own workflow runs from the rollup count so the
             # merge job can't deadlock on itself; pr-tests and any real CI count.
             local n_checks n_bad
