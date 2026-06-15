@@ -1,0 +1,14 @@
+[Unit]
+Description=Komodo Cloud Hub (cloud servers + online demos + successful attempts)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/cloud-hub
+ExecStart=/usr/bin/python3 /home/ubuntu/cloud-hub/cloud_hub.py 127.0.0.1 8099
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
