@@ -55,6 +55,12 @@ class ReviewGateMergeWorkflowTests(unittest.TestCase):
         self.assertIn("issues/$PR/labels/gate:%20ready", guard)
         self.assertIn("--json isDraft,labels", guard)
 
+    def test_merge_excludes_draft_guard_from_nongate_checks(self) -> None:
+        merge = _workflow_text(MERGE_WORKFLOW)
+        # The guard's own check must not be counted as a non-gate CI check, or it
+        # blocks the immediate-merge path while it is still in progress (#195 review).
+        self.assertRegex(merge, r"gate_filter='\[[^\]]*\"Gate Draft Guard\"")
+
 
 if __name__ == "__main__":
     unittest.main()

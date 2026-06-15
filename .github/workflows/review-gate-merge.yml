@@ -101,7 +101,7 @@ jobs:
           fi
           [ -n "${PRS:-}" ] || { echo "no PR in event; nothing to do"; exit 0; }
 
-          gate_filter='["Review Gate Merge","Review Gate Labeler","Reset Review Gate"]'
+          gate_filter='["Review Gate Merge","Review Gate Labeler","Reset Review Gate","Gate Draft Guard"]'
 
           # Evaluate one PR; `return 0` = soft skip (log only, no comment).
           eval_and_merge() {
