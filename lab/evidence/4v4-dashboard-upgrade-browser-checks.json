@@ -1,0 +1,308 @@
+{
+  "tool": "Browser in-app runtime with Playwright DOM checks; screenshots captured with Playwright CLI chrome channel",
+  "viewportEvidence": [
+    "1280x720 latest",
+    "1280x720 trends",
+    "390x844 latest"
+  ],
+  "latest": {
+    "hasHealthHeader": false,
+    "hasKomodo": true,
+    "hasRole": false,
+    "hasTTD": false,
+    "hasTeamA": true,
+    "hasTeamB": true,
+    "metricGridCount": 4,
+    "renderedLabels": [
+      "Frg",
+      "Dth",
+      "Eff",
+      "TK",
+      "to-die",
+      "Dmg+",
+      "Dmg-",
+      "RL EK",
+      "AvgSpd",
+      "MaxSpd",
+      "Pills",
+      "Bricks",
+      "Mega",
+      "YA",
+      "RA",
+      "LG",
+      "RL"
+    ],
+    "trackedRows": 2,
+    "url": "http://127.0.0.1:5175/botlab/?fixture=4v4&views=game"
+  },
+  "trends": {
+    "hasValueTable": true,
+    "selectableLabels": [
+      "Frg",
+      "Dth",
+      "Eff",
+      "TK",
+      "to-die",
+      "Dmg+",
+      "Dmg-",
+      "RL EK",
+      "AvgSpd",
+      "MaxSpd",
+      "Pills",
+      "Bricks",
+      "Mega",
+      "YA",
+      "RA",
+      "LG",
+      "RL"
+    ],
+    "selectedGraphCount": 4,
+    "url": "http://127.0.0.1:5175/botlab/?fixture=4v4&views=game&validationView=trends"
+  },
+  "console": {
+    "latest": [
+      {
+        "level": "log",
+        "message": "Engine Version: FTE git-30-0a71790",
+        "timestamp": "2026-06-15T05:35:12.474Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "Setting windowed mode 640*480 SRGB WebGL",
+        "timestamp": "2026-06-15T05:35:12.474Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "GL_VENDOR: WebKit",
+        "timestamp": "2026-06-15T05:35:12.499Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "GL_RENDERER: WebKit WebGL",
+        "timestamp": "2026-06-15T05:35:12.500Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "GL_VERSION: OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))",
+        "timestamp": "2026-06-15T05:35:12.500Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "Initiating qmix: Emscripten OpenAL.",
+        "timestamp": "2026-06-15T05:35:12.556Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "WebGL renderer initialized",
+        "timestamp": "2026-06-15T05:35:12.563Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "------- Quake Initialized -------",
+        "timestamp": "2026-06-15T05:35:12.563Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "execing particles/bubble-trail.cfg",
+        "timestamp": "2026-06-15T05:35:12.608Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "streaming \"tcp:127.0.0.1:28599\" via \"ws://192.168.86.33:27599\"",
+        "timestamp": "2026-06-15T05:35:12.652Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "Welcome to FTEQTV",
+        "timestamp": "2026-06-15T05:35:12.652Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "",
+        "timestamp": "2026-06-15T05:35:13.153Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "",
+        "timestamp": "2026-06-15T05:35:13.153Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "-------------------",
+        "timestamp": "2026-06-15T05:35:13.153Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "",
+        "timestamp": "2026-06-15T05:35:13.153Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "The Abandoned Base",
+        "timestamp": "2026-06-15T05:35:13.153Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "Unable to load progs/s_bubble.spr",
+        "timestamp": "2026-06-15T05:35:13.225Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "Unable to load progs/s_explod.spr",
+        "timestamp": "2026-06-15T05:35:13.225Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "execing particles/bubble-trail.cfg",
+        "timestamp": "2026-06-15T05:35:13.392Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "execing particles/bubble-trail.cfg",
+        "timestamp": "2026-06-15T05:35:13.396Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      }
+    ],
+    "trends": [
+      {
+        "level": "log",
+        "message": "Engine Version: FTE git-30-0a71790",
+        "timestamp": "2026-06-15T05:35:12.474Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "Setting windowed mode 640*480 SRGB WebGL",
+        "timestamp": "2026-06-15T05:35:12.474Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "GL_VENDOR: WebKit",
+        "timestamp": "2026-06-15T05:35:12.499Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "GL_RENDERER: WebKit WebGL",
+        "timestamp": "2026-06-15T05:35:12.500Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "GL_VERSION: OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))",
+        "timestamp": "2026-06-15T05:35:12.500Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "Initiating qmix: Emscripten OpenAL.",
+        "timestamp": "2026-06-15T05:35:12.556Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "WebGL renderer initialized",
+        "timestamp": "2026-06-15T05:35:12.563Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "------- Quake Initialized -------",
+        "timestamp": "2026-06-15T05:35:12.563Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "execing particles/bubble-trail.cfg",
+        "timestamp": "2026-06-15T05:35:12.608Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "streaming \"tcp:127.0.0.1:28599\" via \"ws://192.168.86.33:27599\"",
+        "timestamp": "2026-06-15T05:35:12.652Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "Welcome to FTEQTV",
+        "timestamp": "2026-06-15T05:35:12.652Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "",
+        "timestamp": "2026-06-15T05:35:13.153Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "",
+        "timestamp": "2026-06-15T05:35:13.153Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "-------------------",
+        "timestamp": "2026-06-15T05:35:13.153Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "",
+        "timestamp": "2026-06-15T05:35:13.153Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "The Abandoned Base",
+        "timestamp": "2026-06-15T05:35:13.153Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "Unable to load progs/s_bubble.spr",
+        "timestamp": "2026-06-15T05:35:13.225Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "Unable to load progs/s_explod.spr",
+        "timestamp": "2026-06-15T05:35:13.225Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "execing particles/bubble-trail.cfg",
+        "timestamp": "2026-06-15T05:35:13.392Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      },
+      {
+        "level": "log",
+        "message": "execing particles/bubble-trail.cfg",
+        "timestamp": "2026-06-15T05:35:13.396Z",
+        "url": "https://a.quake.world/fte/versions/004/ftewebgl.js"
+      }
+    ]
+  }
+}

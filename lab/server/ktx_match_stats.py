@@ -27,6 +27,7 @@ from typing import Any
 SCHEMA = "komodobots.ktx_match_stats.v1"
 
 HEALTH_ITEMS = ("health_15", "health_25", "health_100")
+ARMOR_ITEMS = ("ya", "ra")
 POWERUP_ITEMS = {"quad": "q", "pent": "p", "ring": "r"}
 OPTIONAL_ZERO_SOURCE = "absent optional KTX block -> 0"
 
@@ -104,12 +105,18 @@ def _metric_sources(player_index: int) -> dict[str, str | list[str]]:
         "avg_speed": _path(player_index, "speed.avg"),
         "max_speed": _path(player_index, "speed.max"),
         "health_pickups": [_source(player_index, "items", name, "took") for name in HEALTH_ITEMS],
+        "pill_pickups": _source(player_index, "items", "health_15", "took"),
+        "brick_pickups": _source(player_index, "items", "health_25", "took"),
+        "mega_pickups": _source(player_index, "items", "health_100", "took"),
+        "ya_pickups": _source(player_index, "items", "ya", "took"),
+        "ra_pickups": _source(player_index, "items", "ra", "took"),
         "quad_pickups": _source(player_index, "items", "q", "took"),
         "pent_pickups": _source(player_index, "items", "p", "took"),
         "ring_pickups": _source(player_index, "items", "r", "took"),
         "rl_pickups": _source(player_index, "weapons", "rl", "pickups", "taken"),
         "rl_drops": _source(player_index, "weapons", "rl", "pickups", "dropped"),
         "enemy_rl_kills": _source(player_index, "weapons", "rl", "kills", "enemy"),
+        "lg_pickups": _source(player_index, "weapons", "lg", "pickups", "taken"),
     }
 
 
@@ -167,6 +174,10 @@ def _normalize_player(player: dict[str, Any], index: int, warnings: list[str]) -
     taken_to_die = None if survived_without_death else taken_to_die_raw
 
     health_pickups = sum(_item_took(player, item) for item in HEALTH_ITEMS)
+    armor_pickups = {
+        name: _item_took(player, name)
+        for name in ARMOR_ITEMS
+    }
     powerups = {
         label: _item_took(player, source_name)
         for label, source_name in POWERUP_ITEMS.items()
@@ -194,12 +205,18 @@ def _normalize_player(player: dict[str, Any], index: int, warnings: list[str]) -
         "avg_speed": _number_at(player, ["speed", "avg"], None),
         "max_speed": _number_at(player, ["speed", "max"], None),
         "health_pickups": health_pickups,
+        "pill_pickups": _item_took(player, "health_15"),
+        "brick_pickups": _item_took(player, "health_25"),
+        "mega_pickups": _item_took(player, "health_100"),
+        "ya_pickups": armor_pickups["ya"],
+        "ra_pickups": armor_pickups["ra"],
         "quad_pickups": powerups["quad"],
         "pent_pickups": powerups["pent"],
         "ring_pickups": powerups["ring"],
         "rl_pickups": _weapon_stat(player, "rl", "pickups", "taken"),
         "rl_drops": _weapon_stat(player, "rl", "pickups", "dropped"),
         "enemy_rl_kills": _weapon_stat(player, "rl", "kills", "enemy"),
+        "lg_pickups": _weapon_stat(player, "lg", "pickups", "taken"),
     }
 
     bot_info = player.get("bot")
@@ -222,6 +239,7 @@ def _normalize_player(player: dict[str, Any], index: int, warnings: list[str]) -
                 "total": health_pickups,
                 **{item: _item_took(player, item) for item in HEALTH_ITEMS},
             },
+            "armor": armor_pickups,
             "powerups": powerups,
         },
         "weapons": {
@@ -231,7 +249,7 @@ def _normalize_player(player: dict[str, Any], index: int, warnings: list[str]) -
                 "enemy_kills": flat_stats["enemy_rl_kills"],
             },
             "lg": {
-                "pickups_taken": _weapon_stat(player, "lg", "pickups", "taken"),
+                "pickups_taken": flat_stats["lg_pickups"],
                 "dropped": _weapon_stat(player, "lg", "pickups", "dropped"),
                 "enemy_kills": _weapon_stat(player, "lg", "kills", "enemy"),
             },
@@ -260,16 +278,43 @@ def _team_totals(players: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "enemy_weapon_damage",
             "team_weapon_damage",
             "health_pickups",
+            "pill_pickups",
+            "brick_pickups",
+            "mega_pickups",
+            "ya_pickups",
+            "ra_pickups",
             "quad_pickups",
             "pent_pickups",
             "ring_pickups",
             "rl_pickups",
             "rl_drops",
             "enemy_rl_kills",
+            "lg_pickups",
         ):
             totals[key] = sum(int(p["stats"].get(key) or 0) for p in members)
         denom = int(totals["kills"] or 0) + int(totals["deaths"] or 0)
         totals["efficiency"] = round(int(totals["kills"] or 0) / denom, 4) if denom else None
+        avg_speeds = [
+            p["stats"].get("avg_speed")
+            for p in members
+            if isinstance(p["stats"].get("avg_speed"), (int, float))
+            and not isinstance(p["stats"].get("avg_speed"), bool)
+        ]
+        max_speeds = [
+            p["stats"].get("max_speed")
+            for p in members
+            if isinstance(p["stats"].get("max_speed"), (int, float))
+            and not isinstance(p["stats"].get("max_speed"), bool)
+        ]
+        to_die_values = [
+            p["stats"].get("taken_to_die")
+            for p in members
+            if isinstance(p["stats"].get("taken_to_die"), (int, float))
+            and not isinstance(p["stats"].get("taken_to_die"), bool)
+        ]
+        totals["avg_speed"] = round(sum(avg_speeds) / len(avg_speeds), 1) if avg_speeds else None
+        totals["max_speed"] = max(max_speeds) if max_speeds else None
+        totals["taken_to_die"] = round(sum(to_die_values) / len(to_die_values), 1) if to_die_values else None
         teams.append(
             {
                 "name": team_name,

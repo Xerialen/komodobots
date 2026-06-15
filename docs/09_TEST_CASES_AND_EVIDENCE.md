@@ -226,6 +226,14 @@ Expected result:
   `invalid_games`.
 - The dashboard KPI dock shows four rows per team, highlights the Komodobot,
   and shows per-metric delta values against the previous valid game.
+- The latest-game view uses Quake-facing headings instead of a role column:
+  no visible `role`, no `TTD` abbreviation, and no aggregate `health` column.
+  `dmg.taken-to-die` is labelled `to-die`.
+- Player and team metric grids expose frags, efficiency, team kills, to-die,
+  damage done/taken, RL enemies killed, pills, bricks, mega, YA, RA, LG/RL
+  pickups, average speed, and max speed.
+- The trend view allows one to four selected stats and graphs the fixed
+  Komodobot slot across all valid games.
 
 ## TC-CASTING-001: Read-only KTX casting scoreboard renders without BotLab controls
 
@@ -280,6 +288,25 @@ dashboard via Vite, Chrome debug, `servexeri` lab KTX on port `28599`.
   `lab/evidence/ld-h3-4v4-validation-desktop.png`,
   `lab/evidence/ld-h3-4v4-validation-narrow.png`, and
   `lab/evidence/ld-h3-casting-scoreboard-1280x720.png`.
+
+## TC-4V4-001 dashboard upgrade run - 2026-06-15
+
+Environment: branch `codex/4v4-dashboard-stat-upgrade`, Windows PowerShell,
+Vite dashboard fixture at `/botlab/?fixture=4v4&views=game`, Chrome channel
+via Playwright CLI, and Browser in-app runtime DOM checks.
+
+Evidence:
+
+- `python tests\test_ktx_match_stats.py`
+- `python tests\test_fourvfour_validation_build.py`
+- `python tests\test_fourvfour_validation_panel.py`
+- `python -m unittest discover -s tests`
+- `npm run build` in `lab/dashboard`
+- `git diff --check`
+- `lab/evidence/4v4-dashboard-upgrade-browser-checks.json`
+- `lab/evidence/4v4-dashboard-upgrade-latest-1280x720.png`
+- `lab/evidence/4v4-dashboard-upgrade-latest-mobile-390x844.png`
+- `lab/evidence/4v4-dashboard-upgrade-trends-1280x720.png`
 
 ## KomodoLab starting cases
 

@@ -163,10 +163,13 @@ A5 live-port overlay/spec: `C:\Users\benya\projects\quakeworld\komodobots\experi
 4v4 validation and KTX stats helpers:
 
 - `lab/server/ktx_match_stats.py` normalizes KTX post-game JSON stats into
-  `komodobots.ktx_match_stats.v1` for both BotLab validation and casting.
+  `komodobots.ktx_match_stats.v1` for both BotLab validation and casting,
+  including KTX v3 speed, armor, health-item, weapon-pickup, and RL-denial
+  fields.
 - `lab/server/fourvfour_validation_build.py` builds the fixed-roster 4v4
   validation ledger (`komodobots.4v4_validation.v1`) from KTX stats plus
-  `4v4-roster.json` intent files.
+  `4v4-roster.json` intent files, with slot-keyed previous-game deltas for the
+  visible dashboard metric set.
 - `lab/server/fourvfour_validation_runner.py` writes the dry-run-safe control
   plan and roster intent for the all-bot DM3 4v4 validation setup.
 - `scripts/run_4v4_validation_lab.py` runs the lab-only live KTX 4v4 validation
@@ -177,8 +180,10 @@ A5 live-port overlay/spec: `C:\Users\benya\projects\quakeworld\komodobots\experi
 - `lab/server/ktx_live_observer.py` holds the conservative provisional live
   scoreboard model for KTX event/JSON snapshots.
 - `lab/dashboard/src/FourVFourValidationPanel.tsx` renders the BotLab KPI
-  dock validation panel; `lab/dashboard/src/CastingScoreboard.tsx` renders the
-  control-free `?casting=1` OBS/commentary view.
+  dock validation panel, headed team/player stat and pickup metric grids sized
+  for the narrow dock, plus the selected-metric trend view;
+  `lab/dashboard/src/CastingScoreboard.tsx` renders
+  the control-free `?casting=1` OBS/commentary view.
 - Fixtures live at `lab/dashboard/public/data/4v4-validation.example.json` and
   `lab/dashboard/public/data/casting-match.example.json`; browser evidence is
   recorded under `lab/evidence/ld-h3-*`.

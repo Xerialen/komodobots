@@ -47,14 +47,21 @@ VALIDATION_METRICS = (
     "damage_taken",
     "enemy_weapon_damage",
     "team_weapon_damage",
-    "health_pickups",
+    "pill_pickups",
+    "brick_pickups",
+    "mega_pickups",
+    "ya_pickups",
+    "ra_pickups",
     "quad_pickups",
     "pent_pickups",
     "ring_pickups",
     "rl_pickups",
     "rl_drops",
     "enemy_rl_kills",
+    "lg_pickups",
     "taken_to_die",
+    "avg_speed",
+    "max_speed",
 )
 
 

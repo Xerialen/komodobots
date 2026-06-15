@@ -10,8 +10,9 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 FIXTURE = REPO / "lab" / "dashboard" / "public" / "data" / "4v4-validation.example.json"
+PANEL_SOURCE = REPO / "lab" / "dashboard" / "src" / "FourVFourValidationPanel.tsx"
 
-HIGHER_IS_BAD = {"deaths", "team_kills", "damage_taken", "team_weapon_damage"}
+HIGHER_IS_BAD = {"deaths", "team_kills", "damage_taken", "team_weapon_damage", "rl_drops"}
 
 
 def latest_game(ledger: dict) -> dict | None:
@@ -100,6 +101,42 @@ class FourVFourValidationPanelLogicTest(unittest.TestCase):
         self.assertEqual(teams["Team A"]["player_count"], 4)
         self.assertGreater(teams["Team A"]["score"], teams["Team B"]["score"])
         self.assertIn("damage_done", teams["Team A"]["totals"])
+
+    def test_requested_pickups_speed_and_rl_denial_are_available_with_deltas(self):
+        komodo = next(p for p in self.game["players"] if p["roster"]["role"] == "komodobot")
+        for key in (
+            "pill_pickups",
+            "brick_pickups",
+            "mega_pickups",
+            "ya_pickups",
+            "ra_pickups",
+            "lg_pickups",
+            "enemy_rl_kills",
+            "avg_speed",
+            "max_speed",
+        ):
+            with self.subTest(key=key):
+                self.assertIsNotNone(stat_value(komodo, key))
+                self.assertIn(key, komodo["deltas"])
+                self.assertIsNotNone(komodo["deltas"][key]["value"])
+
+        teams = {team["name"]: team for team in self.game["teams"]}
+        self.assertEqual(teams["Team A"]["totals"]["mega_pickups"], 5)
+        self.assertEqual(teams["Team A"]["totals"]["ya_pickups"], 7)
+        self.assertEqual(teams["Team A"]["totals"]["ra_pickups"], 3)
+        self.assertEqual(teams["Team A"]["totals"]["lg_pickups"], 4)
+
+    def test_visible_metric_source_uses_quake_terms_and_no_aggregate_health_column(self):
+        source = PANEL_SOURCE.read_text(encoding="utf-8")
+        self.assertIn('label: "to-die"', source)
+        self.assertIn('label: "RL EK"', source)
+        self.assertIn('label: "AvgSpd"', source)
+        self.assertIn('label: "MaxSpd"', source)
+        self.assertIn('data-validation-table={title}', source)
+        self.assertIn("grid grid-cols-4 gap-1", source)
+        self.assertNotIn('label: "TTD"', source)
+        self.assertNotIn('key: "health_pickups"', source)
+        self.assertNotIn("min-w-[760px]", source)
 
 
 if __name__ == "__main__":

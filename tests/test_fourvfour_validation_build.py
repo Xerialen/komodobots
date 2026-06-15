@@ -157,6 +157,10 @@ class FourVFourValidationBuildTest(unittest.TestCase):
         self.assertEqual(data["provenance"]["valid_games"], 2)
         self.assertEqual(data["invalid_games"], [])
         self.assertIn("frags", data["metrics"])
+        self.assertIn("mega_pickups", data["metrics"])
+        self.assertIn("enemy_rl_kills", data["metrics"])
+        self.assertIn("avg_speed", data["metrics"])
+        self.assertNotIn("health_pickups", data["metrics"])
 
         first, second = data["games"]
         self.assertIsNone(first["previous_valid_run_id"])
@@ -276,8 +280,58 @@ class FourVFourValidationBuildTest(unittest.TestCase):
 
         komodo = data["games"][0]["players"][0]
         self.assertEqual(komodo["stats"]["health_pickups"], 0)
+        self.assertEqual(komodo["stats"]["pill_pickups"], 0)
+        self.assertEqual(komodo["stats"]["brick_pickups"], 0)
+        self.assertEqual(komodo["stats"]["mega_pickups"], 0)
+        self.assertEqual(komodo["stats"]["ya_pickups"], 0)
+        self.assertEqual(komodo["stats"]["ra_pickups"], 0)
+        self.assertEqual(komodo["stats"]["lg_pickups"], 0)
         self.assertEqual(komodo["stats"]["rl_pickups"], 0)
-        self.assertEqual(komodo["deltas"]["health_pickups"]["scope"], "no_previous")
+        self.assertEqual(komodo["deltas"]["mega_pickups"]["scope"], "no_previous")
+        self.assertEqual(komodo["deltas"]["avg_speed"]["current"], 300.0)
+
+    def test_requested_pickup_and_speed_fields_get_deltas_and_team_totals(self):
+        first = write_run(self.runs, "20260614T200000Z")
+        second = write_run(self.runs, "20260614T201000Z", komodo_frags=11)
+        for run_dir, mega, ya, ra, lg, rl_enemy, avg, max_speed in (
+            (first, 1, 2, 1, 1, 3, 280.0, 500.0),
+            (second, 3, 4, 2, 2, 5, 320.0, 540.0),
+        ):
+            raw = json.loads((run_dir / "analysis.json").read_text(encoding="utf-8"))
+            player = raw["demoInfo"]["players"][0]
+            player["items"] = {
+                "health_15": {"took": 7},
+                "health_25": {"took": 6},
+                "health_100": {"took": mega},
+                "ya": {"took": ya},
+                "ra": {"took": ra},
+            }
+            player["weapons"] = {
+                "rl": {"kills": {"enemy": rl_enemy}, "pickups": {"taken": 4, "dropped": 1}},
+                "lg": {"pickups": {"taken": lg}},
+            }
+            player["speed"] = {"avg": avg, "max": max_speed}
+            (run_dir / "analysis.json").write_text(json.dumps(raw), encoding="utf-8")
+
+        data = fv.build(self.runs)
+
+        second_game = data["games"][1]
+        komodo = second_game["players"][0]
+        self.assertEqual(komodo["stats"]["pill_pickups"], 7)
+        self.assertEqual(komodo["stats"]["brick_pickups"], 6)
+        self.assertEqual(komodo["stats"]["mega_pickups"], 3)
+        self.assertEqual(komodo["stats"]["ya_pickups"], 4)
+        self.assertEqual(komodo["stats"]["ra_pickups"], 2)
+        self.assertEqual(komodo["stats"]["lg_pickups"], 2)
+        self.assertEqual(komodo["stats"]["enemy_rl_kills"], 5)
+        self.assertEqual(komodo["deltas"]["mega_pickups"]["value"], 2)
+        self.assertEqual(komodo["deltas"]["enemy_rl_kills"]["value"], 2)
+        self.assertEqual(komodo["deltas"]["avg_speed"]["value"], 40.0)
+        team_a = next(t for t in second_game["teams"] if t["name"] == "Team A")
+        self.assertEqual(team_a["totals"]["mega_pickups"], 3)
+        self.assertEqual(team_a["totals"]["ya_pickups"], 4)
+        self.assertEqual(team_a["totals"]["ra_pickups"], 2)
+        self.assertEqual(team_a["totals"]["lg_pickups"], 2)
 
     def test_cli_writes_ledger(self):
         write_run(self.runs, "20260614T200000Z")

@@ -148,7 +148,15 @@ Record:
   `/demos/records/4v4-validation.json` feed.
 - Eight bot rows render, four per team.
 - The Komodobot row is visually identified.
-- Delta values fit in the metric cells without horizontal overflow.
+- The latest view has explicit metric headings, team grouping, current values,
+  and previous-valid-game deltas for the requested combat, pickup, armor,
+  weapon, and speed stats.
+- No visible `role`, `TTD`, or aggregate `health` column appears; `to-die`
+  is the visible label for KTX `dmg.taken-to-die`.
+- The trend view opens, allows selecting one to four stats, and renders a graph
+  plus recent run value table without crashing.
+- Delta values and metric headings fit in the wrapped dock grids without
+  clipping inside cells.
 - Missing records remain a feed-status problem and do not crash the dashboard.
 
 For the read-only casting scoreboard, validate the standalone casting URL:

@@ -115,12 +115,22 @@ class KtxMatchStatsTest(unittest.TestCase):
         self.assertEqual(first["stats"]["damage_done"], 1100)
         self.assertAlmostEqual(first["stats"]["efficiency"], 11 / 16, places=4)
         self.assertEqual(first["stats"]["health_pickups"], 0)
+        self.assertEqual(first["stats"]["pill_pickups"], 0)
+        self.assertEqual(first["stats"]["brick_pickups"], 0)
+        self.assertEqual(first["stats"]["mega_pickups"], 0)
+        self.assertEqual(first["stats"]["ya_pickups"], 0)
+        self.assertEqual(first["stats"]["ra_pickups"], 0)
+        self.assertEqual(first["stats"]["lg_pickups"], 0)
         self.assertEqual(first["stats"]["rl_pickups"], 0)
         self.assertIn("players[0]", first["sources"]["frags"])
 
         by_team = {t["name"]: t for t in data["teams"]}
         self.assertEqual(by_team["Team A"]["score"], 28)
         self.assertEqual(by_team["Team B"]["score"], 24)
+        self.assertEqual(by_team["Team A"]["totals"]["mega_pickups"], 0)
+        self.assertEqual(by_team["Team A"]["totals"]["lg_pickups"], 0)
+        self.assertEqual(by_team["Team A"]["totals"]["avg_speed"], 310.0)
+        self.assertEqual(by_team["Team A"]["totals"]["max_speed"], 520.0)
         self.assertEqual(by_team["Team A"]["score_source"],
                          "sum(players[].stats.frags) because KTX JSON has no team score block")
 
@@ -133,6 +143,8 @@ class KtxMatchStatsTest(unittest.TestCase):
                     "health_15": {"took": 2},
                     "health_25": {"took": 3},
                     "health_100": {"took": 1},
+                    "ya": {"took": 2},
+                    "ra": {"took": 1},
                     "q": {"took": 4},
                     "p": {"took": 1},
                     "r": {"took": 0},
@@ -167,11 +179,20 @@ class KtxMatchStatsTest(unittest.TestCase):
         self.assertIs(dev["stats"]["survived_without_death"], True)
         self.assertEqual(dev["stats"]["taken_to_die_raw"], 99999)
         self.assertEqual(dev["pickups"]["health"]["total"], 6)
+        self.assertEqual(dev["pickups"]["health"]["health_15"], 2)
+        self.assertEqual(dev["stats"]["pill_pickups"], 2)
+        self.assertEqual(dev["stats"]["brick_pickups"], 3)
+        self.assertEqual(dev["stats"]["mega_pickups"], 1)
+        self.assertEqual(dev["pickups"]["armor"]["ya"], 2)
+        self.assertEqual(dev["pickups"]["armor"]["ra"], 1)
+        self.assertEqual(dev["stats"]["ya_pickups"], 2)
+        self.assertEqual(dev["stats"]["ra_pickups"], 1)
         self.assertEqual(dev["stats"]["quad_pickups"], 4)
         self.assertEqual(dev["stats"]["pent_pickups"], 1)
         self.assertEqual(dev["stats"]["rl_pickups"], 5)
         self.assertEqual(dev["stats"]["rl_drops"], 2)
         self.assertEqual(dev["stats"]["enemy_rl_kills"], 7)
+        self.assertEqual(dev["stats"]["lg_pickups"], 1)
         self.assertEqual(dev["weapons"]["lg"]["pickups_taken"], 1)
         self.assertEqual(dev["stats"]["enemy_weapon_damage"], 1800)
         self.assertEqual(dev["stats"]["avg_speed"], 310.0)
