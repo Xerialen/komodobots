@@ -331,6 +331,50 @@ def leap_roster(run_id: str, *, controller_version: str = "komodo-v1", team1: st
     }
 
 
+def split_leap_roster(run_id: str, *, controller_version: str = "komodo-v1",
+                      team1: str = "Team A", team2: str = "Team B") -> dict:
+    """A malformed roster: the four leap bots are split 2+2 across both teams.
+
+    Each team still holds four players (two leap + two skill-20 frogbot controls),
+    so a pure role-count check would accept it, but no single leap team can be
+    resolved (Codex P2 on PR #227). This must be rejected before scoring.
+    """
+    names = [
+        ("leap-1", team1, "leap", "komodobot", controller_version),
+        ("leap-2", team1, "leap", "komodobot", controller_version),
+        ("a-control-3", team1, "control", "frogbot", "frogbot-20"),
+        ("a-control-4", team1, "control", "frogbot", "frogbot-20"),
+        ("leap-3", team2, "leap", "komodobot", controller_version),
+        ("leap-4", team2, "leap", "komodobot", controller_version),
+        ("b-control-3", team2, "control", "frogbot", "frogbot-20"),
+        ("b-control-4", team2, "control", "frogbot", "frogbot-20"),
+    ]
+    return {
+        "schema": "komodobots.4v4_roster_intent.v1",
+        "run_id": run_id,
+        "map": "dm3",
+        "mode": "4on4",
+        "deathmatch": 1,
+        "teamplay": 2,
+        "timelimit": 5,
+        "controller_version": controller_version,
+        "komodobot_slot": None,
+        "players": [
+            {
+                "slot": slot,
+                "id": f"slot-{slot}",
+                "name": name,
+                "team": team,
+                "role": role,
+                "bot_kind": kind,
+                "bot_skill": 20,
+                "controller_version": version,
+            }
+            for slot, (name, team, role, kind, version) in enumerate(names, start=1)
+        ],
+    }
+
+
 class BenchFragMarginTest(unittest.TestCase):
     """docs/18 T0.1: bench emits leap-frog frag margin + R-T damage.matrix gate."""
 
@@ -368,6 +412,34 @@ class BenchFragMarginTest(unittest.TestCase):
         self.assertEqual(bench["frog_team"], "Team B")
         # Team A leap frags = 12+8+7+6 = 33; Team B frog = 30; margin = +3.
         self.assertEqual(bench["frag_margin"], 3)
+        # The legitimate four-leap-on-one-team shape still emits a green gate.
+        self.assertTrue(data["games"][0]["damage_matrix"]["gate_pass"])
+        self.assertTrue(data["bench"]["damage_matrix_gate_pass"])
+
+    def test_split_leap_roster_is_invalid_and_never_scored_or_gated_green(self):
+        # Regression for Codex P2 on PR #227: four leap bots split 2+2 across two
+        # teams of four pass a pure role-count check but cannot resolve a single
+        # leap team. Such a run must be rejected, not counted as a valid game with
+        # a green damage.matrix gate and no margin.
+        run = write_run(self.runs, "20260614T200000Z")
+        run.joinpath("4v4-roster.json").write_text(
+            json.dumps(split_leap_roster("20260614T200000Z")), encoding="utf-8"
+        )
+        data = fv.build(self.runs)
+
+        # Not counted as valid; recorded as invalid with a clear reason.
+        self.assertEqual(data["games"], [])
+        self.assertEqual(data["provenance"]["valid_games"], 0)
+        self.assertEqual(len(data["invalid_games"]), 1)
+        reasons = data["invalid_games"][0]["reasons"]
+        self.assertIn("roster_leap_roles_split_across_teams", reasons)
+        # Defense in depth: the bench fail-closed check also fires.
+        self.assertIn("bench_could_not_resolve_leap_vs_frog_teams", reasons)
+        # No margin is emitted and the gate is NOT green.
+        bench = data["bench"]
+        self.assertEqual(bench["games_scored"], 0)
+        self.assertIsNone(bench["leap_frag_margin_total"])
+        self.assertFalse(bench["damage_matrix_gate_pass"])
 
     def test_damage_matrix_gate_green_when_enemy_damage_positive_and_no_team_damage(self):
         write_run(self.runs, "20260614T200000Z")
