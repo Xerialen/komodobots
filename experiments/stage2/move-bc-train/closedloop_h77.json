@@ -1,0 +1,51 @@
+{
+ "harness": "closed-loop, simulated-state feedback, human view-yaw replayed (AIM deferred)",
+ "horizon_ticks": 77,
+ "approx_horizon_secs": 1.0,
+ "runs": 160,
+ "demos": 20,
+ "anchor_bands": {
+  "avg_horizontal_speed_qu_per_s_pool": {
+   "min": 252.279,
+   "max": 315.632
+  },
+  "p95_horizontal_speed_qu_per_s_pool": {
+   "min": 461.538,
+   "max": 560.008
+  },
+  "plane": "MVD event-rate finite-difference (~13ms); sim sampled at recorded ~13ms tick (caveat: not identical estimator)"
+ },
+ "recorded_human_closed_loop": {
+  "controller": "recorded",
+  "sustained_avg_speed_mean": 257.17,
+  "sustained_avg_speed_median": 282.3,
+  "sustained_p95_speed_mean": 343.99,
+  "route_err_qu_median": 55.5,
+  "route_err_qu_mean": 114.4,
+  "in_avg_band": true,
+  "in_p95_band": false
+ },
+ "airlaw_prior_closed_loop": {
+  "controller": "airlaw",
+  "sustained_avg_speed_mean": 205.12,
+  "sustained_avg_speed_median": 193.25,
+  "sustained_p95_speed_mean": 270.14,
+  "route_err_qu_median": 184.3,
+  "route_err_qu_mean": 225.5,
+  "in_avg_band": false,
+  "in_p95_band": false
+ },
+ "bc_policy_closed_loop": {
+  "controller": "bc",
+  "sustained_avg_speed_mean": 243.21,
+  "sustained_avg_speed_median": 298.56,
+  "sustained_p95_speed_mean": 312.71,
+  "route_err_qu_median": 183.6,
+  "route_err_qu_mean": 230.9,
+  "in_avg_band": false,
+  "in_p95_band": false
+ },
+ "bc_ge_airlaw_sustained_speed": true,
+ "bc_ge_airlaw_route_retention": true,
+ "wall_clock_secs": 22.6
+}

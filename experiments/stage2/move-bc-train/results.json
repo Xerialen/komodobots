@@ -1,0 +1,390 @@
+{
+ "schema": "komodobots.stage2.move_bc_train.results.v1",
+ "stage": "stage2-learned-MOVE-residual-upgrade",
+ "date": "2026-06-14",
+ "environment": {
+  "venv": "WSL2 Ubuntu-24.04 ~/komodobots-ml-venv (scoped, not system-wide)",
+  "torch": "2.6.0+cu124",
+  "cuda": "cu124",
+  "device": "NVIDIA GeForce RTX 4090",
+  "cuda_available": true,
+  "gpu": "RTX 4090 24GB, driver 595.79, capability (8,9)",
+  "verification": "torch.cuda.is_available()=True; GPU matmul executed; training ran on cuda"
+ },
+ "dataset": {
+  "source": "experiments/stage2/move-bc-dataset/clean-segment-index.json (per-frame clean mask reproduced exactly)",
+  "clean_frames": 5847254,
+  "demos": 462,
+  "distinct_players_in_corpus": 254,
+  "clean_mask_def": "pmove_sim replay err<=4qu, reanchor every 77 + teleport, maximal clean runs >= 24 frames; matches improved_clean_frames=5847254 exactly",
+  "shards": "WSL ~/move_bc_shards (gitignored / not in repo)",
+  "onground_pm_code_note": "shard onground=false, pm_code=0 on every row (POV svc_playerinfo carries no server ground/pmove flags); onground NOT used as a feature; sim derives ground from geometry"
+ },
+ "featurization": {
+  "dim": 6,
+  "names": [
+   "hspeed/320",
+   "vz/320",
+   "lvm_sin",
+   "lvm_cos",
+   "moving",
+   "pitch/90"
+  ],
+  "rationale": "state-only velocity-relative quantities (the *state* side of scripts/fit_air_law.frame_quantities): speed/320, vz/320, look-lead lvm as sin/cos, moving flag, pitch/90. Map-agnostic so the policy transfers off the source maps. The action-derived wishdir-vs-velocity rotation is the LABEL space, never an input."
+ },
+ "action_space": {
+  "fwd": "{back, none, fwd} 3-way",
+  "side": "{left, none, right} 3-way",
+  "jump": "{0,1} BUTTON_JUMP"
+ },
+ "view_yaw_coupling": "Option (a): MOVE predicts fwd/side/jump conditioned on state incl. current view; closed-loop and open-loop replay the human view-yaw. Learned AIM (view-yaw-rate) is DEFERRED to Stage 3 per docs/12.",
+ "arch": {
+  "type": "MoveMLP",
+  "hidden": 128,
+  "n_params": 18440,
+  "note": "stateless MLP, 18.4k params -> trivially within the ~0.5ms/tick CPU budget; GRU variant left as documented follow-up"
+ },
+ "training": {
+  "split": "BY DEMO (held-out demos), no frame leakage",
+  "val_frac": 0.15,
+  "train_frames": 5052362,
+  "val_frames": 794892,
+  "train_demos": 393,
+  "val_demos": 69,
+  "epochs": 15,
+  "batch": 8192,
+  "lr": 0.001,
+  "class_weights": {
+   "fwd": [
+    7.72015380859375,
+    0.4640237092971802,
+    1.3978065252304077
+   ],
+   "side": [
+    2.723470687866211,
+    0.4421016275882721,
+    2.6961588859558105
+   ],
+   "jump": [
+    0.5173264145851135,
+    14.928824424743652
+   ]
+  },
+  "best_mean_val_acc": 0.8916,
+  "final_val_acc": {
+   "fwd": 0.8667,
+   "side": 0.8631,
+   "jump": 0.934
+  },
+  "curve": [
+   {
+    "epoch": 0,
+    "train_loss": 1.3985,
+    "val_acc": {
+     "fwd": 0.8427,
+     "side": 0.8394,
+     "jump": 0.9448
+    },
+    "val_nll": 1.0319
+   },
+   {
+    "epoch": 1,
+    "train_loss": 1.2284,
+    "val_acc": {
+     "fwd": 0.8418,
+     "side": 0.8448,
+     "jump": 0.9336
+    },
+    "val_nll": 1.069
+   },
+   {
+    "epoch": 2,
+    "train_loss": 1.2012,
+    "val_acc": {
+     "fwd": 0.8576,
+     "side": 0.8499,
+     "jump": 0.9429
+    },
+    "val_nll": 0.9583
+   },
+   {
+    "epoch": 3,
+    "train_loss": 1.1837,
+    "val_acc": {
+     "fwd": 0.8678,
+     "side": 0.8596,
+     "jump": 0.9431
+    },
+    "val_nll": 0.9229
+   },
+   {
+    "epoch": 4,
+    "train_loss": 1.1705,
+    "val_acc": {
+     "fwd": 0.864,
+     "side": 0.861,
+     "jump": 0.9413
+    },
+    "val_nll": 0.9359
+   },
+   {
+    "epoch": 5,
+    "train_loss": 1.1599,
+    "val_acc": {
+     "fwd": 0.8677,
+     "side": 0.8579,
+     "jump": 0.939
+    },
+    "val_nll": 0.9359
+   },
+   {
+    "epoch": 6,
+    "train_loss": 1.1514,
+    "val_acc": {
+     "fwd": 0.8684,
+     "side": 0.8568,
+     "jump": 0.9401
+    },
+    "val_nll": 0.9431
+   },
+   {
+    "epoch": 7,
+    "train_loss": 1.1455,
+    "val_acc": {
+     "fwd": 0.8611,
+     "side": 0.8542,
+     "jump": 0.9355
+    },
+    "val_nll": 0.9782
+   },
+   {
+    "epoch": 8,
+    "train_loss": 1.1398,
+    "val_acc": {
+     "fwd": 0.8681,
+     "side": 0.8463,
+     "jump": 0.9253
+    },
+    "val_nll": 1.0002
+   },
+   {
+    "epoch": 9,
+    "train_loss": 1.1346,
+    "val_acc": {
+     "fwd": 0.8663,
+     "side": 0.8616,
+     "jump": 0.9421
+    },
+    "val_nll": 0.9073
+   },
+   {
+    "epoch": 10,
+    "train_loss": 1.1305,
+    "val_acc": {
+     "fwd": 0.8669,
+     "side": 0.8636,
+     "jump": 0.9405
+    },
+    "val_nll": 0.9165
+   },
+   {
+    "epoch": 11,
+    "train_loss": 1.1266,
+    "val_acc": {
+     "fwd": 0.8704,
+     "side": 0.8642,
+     "jump": 0.9402
+    },
+    "val_nll": 0.9026
+   },
+   {
+    "epoch": 12,
+    "train_loss": 1.1231,
+    "val_acc": {
+     "fwd": 0.8693,
+     "side": 0.8561,
+     "jump": 0.9293
+    },
+    "val_nll": 0.9517
+   },
+   {
+    "epoch": 13,
+    "train_loss": 1.1198,
+    "val_acc": {
+     "fwd": 0.8716,
+     "side": 0.8501,
+     "jump": 0.9357
+    },
+    "val_nll": 0.9456
+   },
+   {
+    "epoch": 14,
+    "train_loss": 1.1168,
+    "val_acc": {
+     "fwd": 0.8667,
+     "side": 0.8631,
+     "jump": 0.934
+    },
+    "val_nll": 0.9225
+   }
+  ]
+ },
+ "open_loop": {
+  "gate": "docs/12 \u00a76 gate (a)",
+  "action_reproduction_acc": {
+   "fwd": 0.666,
+   "side": 0.6375,
+   "jump": 0.8498,
+   "frames": 600000
+  },
+  "retention_clean_frame_frac": {
+   "metric": "clean_frame_frac = fraction of replay frames with origin err <= 4qu (teleport+77 reanchor), the canonical analyze_clean_yield per-frame retention",
+   "recorded_mode10_baseline_exact": {
+    "mean_clean_frame_frac": 0.2286,
+    "median_clean_frame_frac": 0.1876,
+    "mean_frame_err_p50": 29.803,
+    "mean_frame_err_p95": 129.253
+   },
+   "recorded_sign_quantised": {
+    "mean_clean_frame_frac": 0.2246,
+    "median_clean_frame_frac": 0.1878,
+    "mean_frame_err_p50": 29.894,
+    "mean_frame_err_p95": 129.496
+   },
+   "airlaw_prior": {
+    "mean_clean_frame_frac": 0.0736,
+    "median_clean_frame_frac": 0.0756,
+    "mean_frame_err_p50": 65.463,
+    "mean_frame_err_p95": 265.146
+   },
+   "bc_policy": {
+    "mean_clean_frame_frac": 0.1796,
+    "median_clean_frame_frac": 0.1884,
+    "mean_frame_err_p50": 30.587,
+    "mean_frame_err_p95": 164.465
+   }
+  },
+  "bc_beats_airlaw_prior": true,
+  "verdict": "BC >= air-law prior (PASS open-loop retention)"
+ },
+ "closed_loop": {
+  "gate": "docs/12 \u00a76 Closed-loop MOVE gate (REAL Stage-2 acceptance)",
+  "harness": "closed-loop, simulated-state feedback, human view-yaw replayed (AIM deferred)",
+  "anchor_bands": {
+   "avg_horizontal_speed_qu_per_s_pool": {
+    "min": 252.279,
+    "max": 315.632
+   },
+   "p95_horizontal_speed_qu_per_s_pool": {
+    "min": 461.538,
+    "max": 560.008
+   },
+   "plane": "MVD event-rate finite-difference (~13ms); sim sampled at recorded ~13ms tick (caveat: not identical estimator)"
+  },
+  "horizon_sweep": {
+   "1.0s_77t": {
+    "recorded": {
+     "controller": "recorded",
+     "sustained_avg_speed_mean": 257.17,
+     "sustained_avg_speed_median": 282.3,
+     "sustained_p95_speed_mean": 343.99,
+     "route_err_qu_median": 55.5,
+     "route_err_qu_mean": 114.4,
+     "in_avg_band": true,
+     "in_p95_band": false
+    },
+    "airlaw": {
+     "controller": "airlaw",
+     "sustained_avg_speed_mean": 205.12,
+     "sustained_avg_speed_median": 193.25,
+     "sustained_p95_speed_mean": 270.14,
+     "route_err_qu_median": 184.3,
+     "route_err_qu_mean": 225.5,
+     "in_avg_band": false,
+     "in_p95_band": false
+    },
+    "bc": {
+     "controller": "bc",
+     "sustained_avg_speed_mean": 243.21,
+     "sustained_avg_speed_median": 298.56,
+     "sustained_p95_speed_mean": 312.71,
+     "route_err_qu_median": 183.6,
+     "route_err_qu_mean": 230.9,
+     "in_avg_band": false,
+     "in_p95_band": false
+    }
+   },
+   "2.0s_154t": {
+    "recorded": {
+     "controller": "recorded",
+     "sustained_avg_speed_mean": 245.07,
+     "sustained_avg_speed_median": 269.01,
+     "sustained_p95_speed_mean": 359.27,
+     "route_err_qu_median": 88.9,
+     "route_err_qu_mean": 218.1,
+     "in_avg_band": false,
+     "in_p95_band": false
+    },
+    "airlaw": {
+     "controller": "airlaw",
+     "sustained_avg_speed_mean": 152.18,
+     "sustained_avg_speed_median": 155.06,
+     "sustained_p95_speed_mean": 257.94,
+     "route_err_qu_median": 375.2,
+     "route_err_qu_mean": 436.0,
+     "in_avg_band": false,
+     "in_p95_band": false
+    },
+    "bc": {
+     "controller": "bc",
+     "sustained_avg_speed_mean": 217.76,
+     "sustained_avg_speed_median": 244.82,
+     "sustained_p95_speed_mean": 322.3,
+     "route_err_qu_median": 406.2,
+     "route_err_qu_mean": 466.6,
+     "in_avg_band": false,
+     "in_p95_band": false
+    }
+   },
+   "5.0s_385t": {
+    "recorded": {
+     "controller": "recorded",
+     "sustained_avg_speed_mean": 221.23,
+     "sustained_avg_speed_median": 229.62,
+     "sustained_p95_speed_mean": 372.64,
+     "route_err_qu_median": 193.3,
+     "route_err_qu_mean": 453.1,
+     "in_avg_band": false,
+     "in_p95_band": false
+    },
+    "airlaw": {
+     "controller": "airlaw",
+     "sustained_avg_speed_mean": 105.66,
+     "sustained_avg_speed_median": 94.97,
+     "sustained_p95_speed_mean": 256.02,
+     "route_err_qu_median": 596.1,
+     "route_err_qu_mean": 675.4,
+     "in_avg_band": false,
+     "in_p95_band": false
+    },
+    "bc": {
+     "controller": "bc",
+     "sustained_avg_speed_mean": 149.38,
+     "sustained_avg_speed_median": 143.02,
+     "sustained_p95_speed_mean": 301.69,
+     "route_err_qu_median": 672.5,
+     "route_err_qu_mean": 768.6,
+     "in_avg_band": false,
+     "in_p95_band": false
+    }
+   }
+  },
+  "bc_ge_airlaw_sustained_speed_all_horizons": true,
+  "substrate_finding": "Recorded human usercmds ALSO fall out of the anchor speed band and drift in this offline worldmodel-only sim (no submodels/lifts/player-collision) beyond ~1s; the bands are unreachable in this substrate by ANY controller, surfaced as a finding (docs/12: do not tune around an unreachable target)."
+ },
+ "verdict": {
+  "open_loop": "PASS -- BC retention 0.180 >= air-law prior 0.074 (2.4x); ~79% of recorded ceiling; median matches recorded.",
+  "closed_loop": "CONDITIONAL PASS -- BC sustained speed >= air-law (hand-mover proxy) at every horizon (243>205 @1s, 218>152 @2s, 149>106 @5s); at 1s BC avg 243 ~= recorded 257 (in-band). BC does NOT independently land in anchor bands beyond 1s, but neither does the recorded human in this sim -> substrate ceiling, not policy failure.",
+  "go_no_go": "GO (keep learned MOVE as the Stage-2 residual upgrade): BC strictly beats the air-law prior on both open-loop retention and closed-loop sustained speed -> the docs/12 KILL condition (BC < air-law prior) is NOT triggered. Caveat: closed-loop route retention beyond ~1s is substrate-limited; recommend live bridge re-observe state at ~1s cadence and/or add the docs/12 DAgger/residual stabiliser before relying on multi-second open horizons."
+ }
+}

@@ -9,8 +9,18 @@ artifacts/pmove-validation/reference-mvdsv-pmove.c.
 Traces run against the real dm3 BSP: hull 1 for the player (swept
 SV_RecursiveHullCheck port returning fraction + plane normal), hull 0 (point
 hull, built from the render nodes like Mod_MakeHull0) for waterlevel /
-point-contents checks. Only the worldmodel is traced — submodels
-(doors/plats/lifts) and other players are NOT collided (known limitation).
+point-contents checks.
+
+By default only the worldmodel is traced (this is the validated baseline —
+byte-identical to the pmove validation report). Additional physents can be
+opted in (`Pmove.physents`): brush submodels (doors/plats/lifts, loaded
+static-at-rest via `Pmove.load_submodels()`) and player boxes (opponent
+collision, `make_player_physent()`), mirroring the engine's PM_PlayerTrace
+physent loop (nearest-hit wins). This is the substrate for extending closed-
+loop validation past the ~1 s worldmodel-only ceiling, whose dominant cause is
+opponent-player collision (see experiments/stage2/move-bc-train/
+closed-loop-ceiling-diagnosis.md). Opponent physents still require per-tick
+opponent positions synced from MVD — that pipeline is the next step.
 
 This is the substrate for en-masse controller parameter sweeps: replay a
 recorded per-frame input stream (human .cmds or bot moveprobe log) through
@@ -125,11 +135,17 @@ class Hull:
 class WorldModel:
     """dm3 worldmodel: hull0 (point) + hull1 (player) against the world brushes."""
 
-    def __init__(self, hull0: Hull, hull1: Hull, world_mins, world_maxs):
+    def __init__(self, hull0: Hull, hull1: Hull, world_mins, world_maxs,
+                 submodels=None):
         self.hull0 = hull0
         self.hull1 = hull1
         self.world_mins = world_mins
         self.world_maxs = world_maxs
+        # brush submodels 1..N (doors/plats/lifts): each is a hull-1 over the
+        # shared planes/clipnodes arrays at its own headnode, plus the BSP
+        # at-rest bbox. Movers store a runtime .origin offset we don't have
+        # (KTX QC), so these are the AT-REST geometry; collide via PhysEnt.
+        self.submodels = submodels or []  # list of dict(hull, mins, maxs, index)
 
     @classmethod
     def load(cls, path):
@@ -153,7 +169,7 @@ class WorldModel:
         lo, ll = lumps[LUMP_LEAFS]
         leaf_contents = [struct.unpack_from("<i", data, lo + k * 28)[0] for k in range(ll // 28)]
 
-        mo, _ = lumps[LUMP_MODELS]             # model 0 = world
+        mo, ml = lumps[LUMP_MODELS]            # model 0 = world; 64 bytes each
         m = struct.unpack_from("<9f7i", data, mo)
         world_mins, world_maxs = (m[0], m[1], m[2]), (m[3], m[4], m[5])
         headnode0, headnode1 = m[9], m[10]
@@ -169,7 +185,19 @@ class WorldModel:
 
         hull0 = Hull(planes, hull0_nodes, headnode0)
         hull1 = Hull(planes, clipnodes, headnode1)
-        return cls(hull0, hull1, world_mins, world_maxs)
+
+        # brush submodels 1..N share the planes + clipnodes arrays; each uses
+        # its own model.headnode[1] as the hull-1 root.
+        submodels = []
+        for k in range(1, ml // 64):
+            sm = struct.unpack_from("<9f7i", data, mo + k * 64)
+            submodels.append({
+                "index": k,
+                "hull": Hull(planes, clipnodes, sm[10]),
+                "mins": (sm[0], sm[1], sm[2]),
+                "maxs": (sm[3], sm[4], sm[5]),
+            })
+        return cls(hull0, hull1, world_mins, world_maxs, submodels)
 
 
 # ── hull queries (pmovetst.c ports) ───────────────────────────────────────────
@@ -287,8 +315,80 @@ def _recursive_hull_check(hull: Hull, num: int, p1f, p2f, p1, p2, trace: Trace) 
     return False
 
 
-def player_trace(world: WorldModel, start, end) -> Trace:
-    """PM_PlayerTrace: swept hull-1 move against the world (physent 0 only)."""
+class PhysEnt:
+    """A non-world collidable: a brush submodel or a player box. `hull` is a
+    Hull whose clipnodes are in the ent's LOCAL space; `origin` is the world
+    offset added to it (0 for at-rest submodels, the opponent's origin for a
+    player box)."""
+    __slots__ = ("hull", "origin", "ent", "info")
+
+    def __init__(self, hull: Hull, origin=(0.0, 0.0, 0.0), ent=1, info=None):
+        self.hull = hull
+        self.origin = (float(origin[0]), float(origin[1]), float(origin[2]))
+        self.ent = ent
+        self.info = info
+
+
+def build_box_hull(mins, maxs) -> Hull:
+    """PM_HullForBox: a 6-plane axial clipnode box for tracing the player hull
+    against another player (or any AABB). The caller passes the box already
+    Minkowski-expanded by the moving player's hull, so the swept trace is a
+    POINT-vs-box check — identical to the engine's box_hull used in
+    PM_TraceModel for physents with no brush model."""
+    # planes: +X,-X,+Y,-Y,+Z,-Z with axial types 0,1,2 (matches box_planes)
+    planes = [
+        (1.0, 0.0, 0.0, maxs[0], 0),
+        (1.0, 0.0, 0.0, mins[0], 0),
+        (0.0, 1.0, 0.0, maxs[1], 1),
+        (0.0, 1.0, 0.0, mins[1], 1),
+        (0.0, 0.0, 1.0, maxs[2], 2),
+        (0.0, 0.0, 1.0, mins[2], 2),
+    ]
+    # Mirror Quake's SV_InitBoxHull box_clipnodes exactly. For plane i,
+    # side = i&1: children[side] = EMPTY (outside on that axis), children[side^1]
+    # = next node (or SOLID at the last plane). child0 is the front (d>=0) side
+    # in _recursive_hull_check, child1 the back (d<0). The +max planes (even i)
+    # are EMPTY in front; the +min planes (odd i) are EMPTY in back.
+    clipnodes = []
+    for i in range(6):
+        other = (i + 1) if i != 5 else CONTENTS_SOLID
+        if i & 1:                       # odd plane: EMPTY on the back (child1)
+            clipnodes.append((i, other, CONTENTS_EMPTY))
+        else:                           # even plane: EMPTY on the front (child0)
+            clipnodes.append((i, CONTENTS_EMPTY, other))
+    return Hull(planes, clipnodes, 0)
+
+
+def make_player_physent(origin, ent=1, info=None,
+                        player_mins=PLAYER_MINS, player_maxs=PLAYER_MAXS) -> PhysEnt:
+    """An opponent player as a box physent, Minkowski-expanded by the moving
+    player's hull so the existing point-vs-box trace is correct. The expanded
+    box is centred on the opponent so `origin` is the opponent world position."""
+    emins = (player_mins[0] - player_maxs[0],
+             player_mins[1] - player_maxs[1],
+             player_mins[2] - player_maxs[2])
+    emaxs = (player_maxs[0] - player_mins[0],
+             player_maxs[1] - player_mins[1],
+             player_maxs[2] - player_mins[2])
+    return PhysEnt(build_box_hull(emins, emaxs), origin=origin, ent=ent, info=info)
+
+
+def _trace_offset(hull: Hull, start, end, offset) -> Trace:
+    """Swept hull-1 check against a physent whose hull is offset by `offset`."""
+    s = [start[0] - offset[0], start[1] - offset[1], start[2] - offset[2]]
+    e = [end[0] - offset[0], end[1] - offset[1], end[2] - offset[2]]
+    sub = Trace(e)
+    _recursive_hull_check(hull, hull.firstclipnode, 0.0, 1.0, s, e, sub)
+    sub.endpos = [sub.endpos[0] + offset[0], sub.endpos[1] + offset[1],
+                  sub.endpos[2] + offset[2]]
+    return sub
+
+
+def player_trace(world: WorldModel, start, end, physents=None) -> Trace:
+    """PM_PlayerTrace: swept hull-1 move. World (physent 0) is always traced;
+    `physents` (brush submodels + player boxes) are traced too, nearest hit
+    wins. With physents None/empty this is byte-identical to the worldmodel-
+    only baseline."""
     tr = Trace(end)
     _recursive_hull_check(world.hull1, world.hull1.firstclipnode, 0.0, 1.0,
                           list(start), list(end), tr)
@@ -297,6 +397,23 @@ def player_trace(world: WorldModel, start, end) -> Trace:
     if tr.startsolid:
         tr.fraction = 0.0
     tr.ent = 0 if tr.fraction < 1.0 else -1
+
+    for pe in physents or ():
+        sub = _trace_offset(pe.hull, start, end, pe.origin)
+        if sub.allsolid:
+            tr.allsolid = True
+            tr.startsolid = True
+        if sub.startsolid:
+            tr.startsolid = True
+            sub.fraction = 0.0
+        if sub.fraction < tr.fraction:
+            tr.fraction = sub.fraction
+            tr.endpos = sub.endpos
+            tr.normal = sub.normal
+            tr.plane_dist = sub.plane_dist
+            tr.ent = pe.ent
+    if tr.startsolid:
+        tr.fraction = 0.0
     return tr
 
 
@@ -374,10 +491,22 @@ class Pmove:
     def __init__(self, world: WorldModel, movevars: MoveVars | None = None):
         self.world = world
         self.mv = movevars or MoveVars()
+        # extra collidables traced alongside the world each frame (brush
+        # submodels, opponent player boxes). Empty by default => worldmodel-only
+        # validated baseline. Submodels/players are appended here per-tick.
+        self.physents = []
         # per-frame scratch
         self._fwd = [1.0, 0.0, 0.0]
         self._right = [0.0, -1.0, 0.0]
         self.frametime = 0.0
+
+    def load_submodels(self):
+        """Add the BSP brush submodels (at-rest geometry) as static physents.
+        Opt-in: changes collision vs the worldmodel-only baseline."""
+        for sm in self.world.submodels:
+            self.physents.append(PhysEnt(sm["hull"], origin=(0.0, 0.0, 0.0),
+                                         ent=sm["index"], info="submodel"))
+        return self
 
     # ── PM_TestPlayerPosition ────────────────────────────────────────────────
     def _test_position(self, pos):
@@ -415,7 +544,7 @@ class Pmove:
             s.onground = False
         else:
             point = (s.origin[0], s.origin[1], s.origin[2] - 1.0)
-            tr = player_trace(self.world, s.origin, point)
+            tr = player_trace(self.world, s.origin, point, self.physents)
             far = tr.fraction == 1.0 or tr.normal[2] < MIN_STEP_NORMAL
             if not far:
                 s.groundnormal = list(tr.normal)
@@ -523,7 +652,7 @@ class Pmove:
                      s.origin[1] + v[1] / speed * 16,
                      s.origin[2] + PLAYER_MINS[2]]
             stop = [start[0], start[1], start[2] - 34.0]
-            tr = player_trace(self.world, start, stop)
+            tr = player_trace(self.world, start, stop, self.physents)
             if tr.fraction == 1.0:
                 friction *= 2.0
             control = self.mv.stopspeed if speed < self.mv.stopspeed else speed
@@ -580,7 +709,7 @@ class Pmove:
 
         for _ in range(numbumps):
             end = [s.origin[i] + time_left * s.velocity[i] for i in range(3)]
-            tr = player_trace(self.world, s.origin, end)
+            tr = player_trace(self.world, s.origin, end, self.physents)
 
             if tr.startsolid or tr.allsolid:
                 s.velocity = [0.0, 0.0, 0.0]
@@ -659,7 +788,7 @@ class Pmove:
                 return blocked
             org = s.origin if originalvel[2] < 0 else original
             dest = [org[0], org[1], org[2] - STEPSIZE]
-            tr = player_trace(self.world, org, dest)
+            tr = player_trace(self.world, org, dest, self.physents)
             if tr.fraction == 1.0 or tr.normal[2] < MIN_STEP_NORMAL:
                 return blocked
             stepsize = STEPSIZE - (org[2] - tr.endpos[2])
@@ -674,7 +803,7 @@ class Pmove:
 
         # move up a stair height
         dest = [s.origin[0], s.origin[1], s.origin[2] + stepsize]
-        tr = player_trace(self.world, s.origin, dest)
+        tr = player_trace(self.world, s.origin, dest, self.physents)
         if not tr.startsolid and not tr.allsolid:
             s.origin[:] = tr.endpos
 
@@ -685,7 +814,7 @@ class Pmove:
 
         # press down the stepheight
         dest = [s.origin[0], s.origin[1], s.origin[2] - stepsize]
-        tr = player_trace(self.world, s.origin, dest)
+        tr = player_trace(self.world, s.origin, dest, self.physents)
         use_down = False
         if tr.fraction != 1.0 and tr.normal[2] < MIN_STEP_NORMAL:
             use_down = True

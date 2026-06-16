@@ -1,0 +1,73 @@
+{
+  "schema": "komodobots.stage0.self_pov_census.v1",
+  "generated": "2026-06-14",
+  "spike": "Stage-0 Spike 3 — data census + self-POV provenance filter (docs/12 §7, risk #1)",
+  "host": "pinnaclewin11 (WSL2 Ubuntu-24.04), qizmo 2.91 bundled 32-bit",
+  "method": {
+    "decompression": "ezQuake cl_demo.c:2988 invocation `qizmo -q -u -3 -D <file.qwz>` via bundled 32-bit qizmo 2.91 + own loader/libs (no i386 multiarch). CWD holds compress.dat.",
+    "parser": "tools/qwd_usercmd/qwd_usercmd.py (ground-truth dem_cmd usercmd_t walk)",
+    "classifier": "experiments/stage0/data-census/classify_self_pov.py — per-demo dem_cmd movement-fraction + view-angle continuity",
+    "decision_rule": "self_pov if move_active_frac>=0.45 AND move_nonzero_frac>=0.55; spectator if move_nonzero_frac<0.20; else ambiguous; too_short if <100 frames",
+    "calibration": "self-POV samples (paradoks, etc) show move_nonzero_frac 0.82-0.86; autotrack/commentary samples show EXACTLY 0.00 — binary separation, no overlap"
+  },
+  "disk_inventory_all_quakeworld": {
+    "qwd_total": 232,
+    "qwz_total": 1743,
+    "mvd_total": 691,
+    "note": "qwz/mvd span many maps/modes; dm3 POV corpus is the staged subset below. MVD = server demo, NO usercmd labels (cannot train MOVE/AIM)."
+  },
+  "dm3_pov_corpus": {
+    "source": "challenge-tv.com demostorage archive (archive.org 17GB TAR), staged flat at data/challenge-tv-archive/stage_dm3/ with manifest.tsv provenance",
+    "total_dm3_pov_demos": 548,
+    "raw_qwd": 70,
+    "qwz_compressed": 478,
+    "qwz_decompressed_ok": 477,
+    "qwz_corrupt": 1,
+    "decompressed_bytes": 5599710749,
+    "decompress_byte_identical_to_servexeri_run": true,
+    "mode_split_filename_heuristic": {"team/4on4": 535, "duel": 12, "ffa": 1}
+  },
+  "classification_results": {
+    "demos_parsed": 547,
+    "parse_fail": 5,
+    "by_class": {"self_pov": 479, "spectator": 43, "ambiguous": 20, "parse_fail": 5},
+    "parse_fail_note": "4 truncated/corrupt + 1 misfiled server demo (named *_mvd / *_CA)",
+    "ambiguous_note": "almost all are short single-author TRICK-DRILL demos (joitrick, headbangdoublejump, jumpatyaquad, dm3-cool) — correctly excluded from match corpus per docs/12 §4",
+    "spectator_note": "the 43 are exactly the Autotrack/Commentary/Commentator broadcast demos — move_nonzero_frac == 0.00 (camera operator idle)"
+  },
+  "self_pov_yield": {
+    "self_pov_demos_total": 479,
+    "self_pov_demos_4on4_match_context": 472,
+    "self_pov_4on4_total_usercmd_frames": 37561151,
+    "self_pov_4on4_frames_median_per_demo": 86810,
+    "self_pov_4on4_frame_rate_hz": "70-77 (cl_maxfps-bound; full ground-truth input streams)",
+    "full_match_length_demos_ge_20k_frames": 443,
+    "distinct_players": 256,
+    "players_with_ge2_demos": 101,
+    "players_with_ge3_demos": 47
+  },
+  "strength_cross_reference": {
+    "rating_source": "fantasyquake/data/individual_ratings.json (rate_individual.py, carry-corrected blended individual+team, openskill PlackettLuce)",
+    "rated_players_in_registry": 108,
+    "registry_era": "2024-2026 modern competitive — does NOT cover most classic-era (2003-2008) challenge-tv names",
+    "self_pov_players_also_modern_rated": 7,
+    "matched": [
+      {"player": "reppie", "div": 1, "rating_blended": 2933.8, "self_pov_demos": 3},
+      {"player": "paradoks", "div": 1, "rating_blended": 2627.8, "self_pov_demos": 4},
+      {"player": "peppe", "div": 1, "rating_blended": 2277.4, "self_pov_demos": 2},
+      {"player": "glad", "div": 1, "rating_blended": 2212.3, "self_pov_demos": 2},
+      {"player": "scenic", "div": 1, "rating_blended": 2182.1, "self_pov_demos": 3},
+      {"player": "blaze", "div": 2, "rating_blended": 2066.6, "self_pov_demos": 4},
+      {"player": "hangtime", "div": 2, "rating_blended": 2014.1, "self_pov_demos": 2}
+    ],
+    "interpretation": "Strength match is REGISTRY-COVERAGE-LIMITED not strength-limited: the corpus is classic-era so most names predate the modern rating window. The matches that DO exist are high-strength Div1 (reppie #3 modern, ParadokS). The corpus's top-count players (crit, exile, wart, akke, spice, vana, janus) were era-elite. To rank classic players by per-skill DM3 signature, rate_individual.py would need to be re-run over the classic SmackDown MVD set (out of spike-3 scope)."
+  },
+  "qwz_decompression_status": "RESOLVED. Bundled 32-bit qizmo 2.91 at ~/qizmo_bundle/ in pinnacle WSL2 decompresses .qwz deterministically (byte-identical to servexeri). 477/478 dm3 qwz decompressed; 1 source corrupt. No gap.",
+  "infeasibility_floor": {
+    "floor_definition_docs12": "if < N self-POV 4on4 demos survive -> abandon learned MOVE/AIM-of-elites, fall back to hand controllers + stock combat",
+    "yield_vs_floor": "472 self-POV 4on4 match demos / 37.56M ground-truth usercmd frames / 256 distinct players / 443 full-match-length",
+    "comparator_MLMove": "MLMove (SIGGRAPH SCA 2024) behaviourally-cloned pro CS team movement from 123h of play. 37.56M frames at ~72Hz ~= 145 hours of self-POV input — same order of magnitude as MLMove's training set, for a SINGLE map.",
+    "recommendation": "FEASIBLE",
+    "rationale": "The feared 'no elite DM3 POV corpus' is decisively false. Self-POV match-demo yield exceeds any reasonable floor by ~2 orders of magnitude (472 vs a plausible N=10-25). Frame volume (~145h) is comparable to the published MLMove BC corpus on one map. Learned MOVE and aim-tracking-dynamics BC are data-feasible. CAVEATS that scope the claim: (1) per-player depth is thin for BC of a SINGLE elite's signature (max 10 demos/player; most have 1-2) — pretraining on the pooled corpus + ztricks prior, then per-player fine-tune, is the realistic shape, not 'clone one player from their demos alone'; (2) AIM target-selection still needs POV x MVD fusion (per-frame opponent positions) which this census does not provide — only aim-tracking DYNAMICS are feasible from POV alone, exactly as docs/12 §5 already states; (3) classic-era strength ranking needs rate_individual.py re-run over SmackDown MVDs to pick clone targets by per-skill signature."
+  }
+}
