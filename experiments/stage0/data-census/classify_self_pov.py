@@ -35,15 +35,22 @@ import statistics
 import sys
 from pathlib import Path
 
-# qwd_usercmd parser (komodobots-ml worktree copy)
-PARSER_DIR = "/mnt/c/Users/benya/projects/quakeworld/komodobots-ml/tools/qwd_usercmd"
+# qwd_usercmd parser — load from THIS repo (tools/qwd_usercmd now lives in-tree
+# after the one-trunk reconcile); fall back to the legacy komodobots-ml worktree
+# only if the in-repo copy is absent, so a normal checkout never ModuleNotFounds.
+ROOT = Path(__file__).resolve().parents[3]
+_PARSER_DIRS = [
+    ROOT / "tools" / "qwd_usercmd",
+    Path("/mnt/c/Users/benya/projects/quakeworld/komodobots-ml/tools/qwd_usercmd"),
+]
+PARSER_DIR = next((str(p) for p in _PARSER_DIRS if p.exists()), str(_PARSER_DIRS[0]))
 sys.path.insert(0, PARSER_DIR)
 import qwd_usercmd as q  # noqa: E402
 
 CTV_DECOMP = Path.home() / "ctv_decomp"           # 477 decompressed .qwd
 RAW_QWD_DIR = Path("/mnt/c/Users/benya/projects/quakeworld/data/challenge-tv-archive/stage_dm3")  # 70 raw .qwd
 MANIFEST = RAW_QWD_DIR / "manifest.tsv"
-OUT_DIR = Path("/mnt/c/Users/benya/projects/quakeworld/komodobots-ml/experiments/stage0/data-census")
+OUT_DIR = ROOT / "experiments" / "stage0" / "data-census"   # in-repo, next to this script
 
 ACTIVE_MOVE = 200          # a deliberate key press (cl_forwardspeed floor)
 YAW_JUMP_DEG = 60.0        # consecutive-frame yaw delta that reads as a camera snap
