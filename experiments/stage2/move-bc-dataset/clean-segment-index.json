@@ -1,0 +1,4200 @@
+{
+ "schema": "komodobots.stage2.move_bc_clean_index.v1",
+ "source_results": "clean-yield-results.json",
+ "method": "frame-level clean mask (replay err<=4qu, reanchor_every=77 + teleport), boundary-aware maximal runs >= 24 frames",
+ "totals": {
+  "demos": 465,
+  "improved_clean_frames": 5847254,
+  "baseline_clean_frames": 2883265,
+  "tierA_frames": 2664030,
+  "tierB_frames": 2480400,
+  "tierC_frames": 702824
+ },
+ "demos": [
+  {
+   "demo": "quakeworld__CHTV_Maniacs-Sweden_Numeric-Europe_Sassa_dm3_QuakeWorld_4v4__sassa_[[0]]_-_[_]_4-4_dm3_.qwd",
+   "cov": 0.993,
+   "frames": 92875,
+   "base_clean": 70532,
+   "imp_clean": 80973,
+   "imp_runs": 245,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Slackers-Europe_Firing_Squad-Europe_]sr[_dm3_QuakeWorld_4v4__ParadokS_]sr[_vs_fs_dm3_sfinal.qwd",
+   "cov": 0.985,
+   "frames": 91048,
+   "base_clean": 63063,
+   "imp_clean": 78800,
+   "imp_runs": 302,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Firing_Squad-Netherlands_Earthquake-Netherlands_razor_dm3_QuakeWorld_4v4__fs-eq-razor.qwd",
+   "cov": 0.991,
+   "frames": 86775,
+   "base_clean": 68453,
+   "imp_clean": 77045,
+   "imp_runs": 210,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__orb_pq_1_dm3_reverend.qwd",
+   "cov": 0.943,
+   "frames": 86016,
+   "base_clean": 58905,
+   "imp_clean": 75705,
+   "imp_runs": 325,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__e-cmf_1_dm3_hixen.qwd",
+   "cov": 0.894,
+   "frames": 87230,
+   "base_clean": 61831,
+   "imp_clean": 75240,
+   "imp_runs": 275,
+   "tier": "B"
+  },
+  {
+   "demo": "paradoks__goldens_e_vs_4x_dm3.qwd",
+   "cov": 0.893,
+   "frames": 86822,
+   "base_clean": 39963,
+   "imp_clean": 67880,
+   "imp_runs": 530,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_451_Quad_ED_1_DM3_clawfinger.qwd",
+   "cov": 0.822,
+   "frames": 212032,
+   "base_clean": 32956,
+   "imp_clean": 65228,
+   "imp_runs": 775,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Nine-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_9_vs_e_dm3_spice.qwd",
+   "cov": 0.923,
+   "frames": 85324,
+   "base_clean": 21098,
+   "imp_clean": 64105,
+   "imp_runs": 837,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_589_OMG__L__1_DM3_Effie.qwd",
+   "cov": 0.919,
+   "frames": 77289,
+   "base_clean": 46354,
+   "imp_clean": 63776,
+   "imp_runs": 340,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Swedish_Chefs-Sweden_Varius-Sweden_Lakerman_Various_QW_4v4__4on4_chefs_vs_tpc_dm3_laker.qwd",
+   "cov": 0.892,
+   "frames": 82307,
+   "base_clean": 37114,
+   "imp_clean": 61729,
+   "imp_runs": 474,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Nine-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_9_vs_uk_dm3_para.qwd",
+   "cov": 0.987,
+   "frames": 69672,
+   "base_clean": 35651,
+   "imp_clean": 57424,
+   "imp_runs": 384,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__chtv-smackdown2-eg-vs-5-wang-dm3.qwd",
+   "cov": 0.894,
+   "frames": 98699,
+   "base_clean": 23947,
+   "imp_clean": 49509,
+   "imp_runs": 585,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Maniacs-Sweden_Blt-Finland_Sassa_dm3_QuakeWorld_4v4__sassa_[[0]]_-_[blt]_4-4_dm3_.qwd",
+   "cov": 0.993,
+   "frames": 94215,
+   "base_clean": 17941,
+   "imp_clean": 48502,
+   "imp_runs": 698,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown5__game_966_cmf_para_2_dm3_fix.qwd",
+   "cov": 0.98,
+   "frames": 94130,
+   "base_clean": 14861,
+   "imp_clean": 44881,
+   "imp_runs": 707,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Camp-Sweden_HGC-Poland_hagge_dm3_QuakeWorld_4v4__hagge_camp_vs_hgc_dm3_3.qwd",
+   "cov": 0.979,
+   "frames": 100837,
+   "base_clean": 13321,
+   "imp_clean": 44428,
+   "imp_runs": 753,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Dunno-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_d_vs_hf_dm3_hew.qwd",
+   "cov": 0.935,
+   "frames": 87021,
+   "base_clean": 16863,
+   "imp_clean": 43813,
+   "imp_runs": 621,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Firing_Squad-Europe_Koff_mix-Europe_blixem_dm3_QW_4v4__4on4_[fs]_vs_koff_dm3_24-11-04_000.qwd",
+   "cov": 0.862,
+   "frames": 92268,
+   "base_clean": 16016,
+   "imp_clean": 43547,
+   "imp_runs": 653,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__rb_fa_1_dm3_spice.qwd",
+   "cov": 0.948,
+   "frames": 86965,
+   "base_clean": 18326,
+   "imp_clean": 42328,
+   "imp_runs": 573,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Nine-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_9_vs_dr_dm3_okkun.qwd",
+   "cov": 0.976,
+   "frames": 97294,
+   "base_clean": 15939,
+   "imp_clean": 41847,
+   "imp_runs": 639,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__60_forsberg_dm3_e1m2.qwd",
+   "cov": 0.901,
+   "frames": 181326,
+   "base_clean": 15939,
+   "imp_clean": 40997,
+   "imp_runs": 643,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Medievel_Spawns-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_mvs_vs_np!_dm3_zodiax.qwd",
+   "cov": 0.94,
+   "frames": 84530,
+   "base_clean": 14014,
+   "imp_clean": 39932,
+   "imp_runs": 601,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__cute_cleaners_1_dm3_mrgib.qwd",
+   "cov": 0.917,
+   "frames": 86654,
+   "base_clean": 11319,
+   "imp_clean": 39341,
+   "imp_runs": 654,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Teddybears-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_tb_vs_e_dm3_doomer.qwd",
+   "cov": 0.834,
+   "frames": 84348,
+   "base_clean": 14014,
+   "imp_clean": 38608,
+   "imp_runs": 569,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown5__game_1013_sr_fs_1_dm3_paradoks.qwd",
+   "cov": 0.995,
+   "frames": 87604,
+   "base_clean": 11704,
+   "imp_clean": 38513,
+   "imp_runs": 642,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Spartacus-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4__s__vs_z_dm3_daver.qwd",
+   "cov": 0.92,
+   "frames": 85607,
+   "base_clean": 10780,
+   "imp_clean": 36627,
+   "imp_runs": 607,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Dunno-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_d_vs__s__dm3_pietro.qwd",
+   "cov": 0.677,
+   "frames": 104796,
+   "base_clean": 15785,
+   "imp_clean": 36378,
+   "imp_runs": 482,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__smackdown_semifinals_tvs_dm3.qwd",
+   "cov": 0.904,
+   "frames": 87561,
+   "base_clean": 10087,
+   "imp_clean": 35656,
+   "imp_runs": 616,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__smackdown_semifinals_tvs_dm3_para.qwd",
+   "cov": 0.904,
+   "frames": 87561,
+   "base_clean": 10087,
+   "imp_clean": 35656,
+   "imp_runs": 616,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Campbusters-Spain_FragShack-Ireland_Eta-Beta_dm3_QuakeWorld_4v4__Eta-bETa_[camp]_-_[fs]_4-4_dm3_.qwd",
+   "cov": 0.956,
+   "frames": 88426,
+   "base_clean": 14322,
+   "imp_clean": 35348,
+   "imp_runs": 506,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_325_SAD_IK_2_DM3_sANDYMAn.qwd",
+   "cov": 0.944,
+   "frames": 86487,
+   "base_clean": 11319,
+   "imp_clean": 32984,
+   "imp_runs": 543,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_4ng3ls-Portugal_TAV-Portugal_all_dm3_QuakeWorld_4v4__11-07-03_trinca-tav-angels_dm3.qwd",
+   "cov": 0.881,
+   "frames": 88649,
+   "base_clean": 14091,
+   "imp_clean": 32436,
+   "imp_runs": 431,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown4__game_658_z___3_dm3_thechosenone.qwd",
+   "cov": 0.932,
+   "frames": 88001,
+   "base_clean": 11165,
+   "imp_clean": 32252,
+   "imp_runs": 509,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__l_tfp_2_dm3_babyroo.qwd",
+   "cov": 0.918,
+   "frames": 86307,
+   "base_clean": 4158,
+   "imp_clean": 31962,
+   "imp_runs": 662,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__FF_OC_1_dm3_Jerry.qwd",
+   "cov": 0.758,
+   "frames": 87977,
+   "base_clean": 10857,
+   "imp_clean": 31655,
+   "imp_runs": 435,
+   "tier": "B"
+  },
+  {
+   "demo": "paradoks__e_vs_bad_dm3.qwd",
+   "cov": 0.916,
+   "frames": 86550,
+   "base_clean": 7469,
+   "imp_clean": 30743,
+   "imp_runs": 539,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__fa_adm_1_dm3_spice.qwd",
+   "cov": 0.932,
+   "frames": 87220,
+   "base_clean": 8085,
+   "imp_clean": 30180,
+   "imp_runs": 560,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__fa_list_1_dm3_spice.qwd",
+   "cov": 0.937,
+   "frames": 86515,
+   "base_clean": 7931,
+   "imp_clean": 30133,
+   "imp_runs": 555,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__game_263_LoW_FULL_1_DM3_FC-Tiger.qwd",
+   "cov": 0.808,
+   "frames": 74615,
+   "base_clean": 11704,
+   "imp_clean": 30052,
+   "imp_runs": 453,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Akademikerna-Sweden_Warriors_of_the_Realm-Sweden_Max_Rebo_DM3_QW_4v4__4on4_aa_vs_wr_dm3_max.qwd",
+   "cov": 0.872,
+   "frames": 87339,
+   "base_clean": 11396,
+   "imp_clean": 29887,
+   "imp_runs": 455,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__thdm_foad_2_dm3_orion.qwd",
+   "cov": 0.925,
+   "frames": 74026,
+   "base_clean": 15323,
+   "imp_clean": 28938,
+   "imp_runs": 326,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Spartacus-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4__s__vs_tot_dm3_nikita.qwd",
+   "cov": 0.712,
+   "frames": 83256,
+   "base_clean": 10472,
+   "imp_clean": 28637,
+   "imp_runs": 430,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_441_OMG_AQ_2_DM3_xxx.qwd",
+   "cov": 0.912,
+   "frames": 89682,
+   "base_clean": 8162,
+   "imp_clean": 27419,
+   "imp_runs": 483,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Swedish_Chefs-Sweden_Varius-Sweden_Lakerman_Various_QW_4v4__4on4_sc_vs_mvs_dm3_laker.qwd",
+   "cov": 0.865,
+   "frames": 80703,
+   "base_clean": 7546,
+   "imp_clean": 27131,
+   "imp_runs": 480,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown5__game_942_re_-ib-_1_dm3_cara.qwd",
+   "cov": 0.987,
+   "frames": 92348,
+   "base_clean": 10010,
+   "imp_clean": 26727,
+   "imp_runs": 419,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__foad_mu_1_dm3_orion.qwd",
+   "cov": 0.95,
+   "frames": 73900,
+   "base_clean": 9240,
+   "imp_clean": 26059,
+   "imp_runs": 400,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_537_List_LOK_2_DM3_arnie.qwd",
+   "cov": 0.805,
+   "frames": 98805,
+   "base_clean": 21175,
+   "imp_clean": 25939,
+   "imp_runs": 115,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__game_263_LoW_FULL_2_DM3_FC-Tiger.qwd",
+   "cov": 0.816,
+   "frames": 78246,
+   "base_clean": 13629,
+   "imp_clean": 25664,
+   "imp_runs": 296,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown5__game_844_jams_amd_1_dm3_nih.qwd",
+   "cov": 0.931,
+   "frames": 93638,
+   "base_clean": 9009,
+   "imp_clean": 25650,
+   "imp_runs": 430,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_FraggersUnited-Finland_FourKings-UK_fragunit-rust_dm3_QuakeWorld_4v4_NQR__4on4_fragunit-rust_[-fu-]_vs_[4k]_dm3__02-9-24_.qwd",
+   "cov": 0.969,
+   "frames": 86388,
+   "base_clean": 8085,
+   "imp_clean": 25384,
+   "imp_runs": 426,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_FiringSquad-Europe_HyvatPahatjaRumat-Finland_Razor_dm3_QuakeWorld_4v4__razor[[fs]]-[hpr]_4-4_dm3_.qwd",
+   "cov": 0.805,
+   "frames": 87135,
+   "base_clean": 8701,
+   "imp_clean": 24725,
+   "imp_runs": 344,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_FS-Netherlands_hpr-Germany_razor_dm3_QuakeWorld_4v4__razor[[fs]]-[hpr]_4-4_dm3_.qwd",
+   "cov": 0.805,
+   "frames": 87135,
+   "base_clean": 8701,
+   "imp_clean": 24725,
+   "imp_runs": 344,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_bulldozer_def_drako_pony-USA_cyan_kovaak_myth_ultimo-USA_def_dm3_QW_4v4__2005_07_17_def_zodiak_drako_bulldozer_[vs]_cyan_ultimo_kovaak_myth_dm3_.qwd",
+   "cov": 0.991,
+   "frames": 93385,
+   "base_clean": 8008,
+   "imp_clean": 24698,
+   "imp_runs": 426,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__dg-vs-gq-dm3-intense.qwd",
+   "cov": 0.884,
+   "frames": 78015,
+   "base_clean": 5929,
+   "imp_clean": 24581,
+   "imp_runs": 445,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_517_4K_Twats_1_DM3_liCE.qwd",
+   "cov": 0.834,
+   "frames": 87041,
+   "base_clean": 5775,
+   "imp_clean": 24563,
+   "imp_runs": 493,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown5__game_870_trash_-tf-_2_dm3_hangtime.qwd",
+   "cov": 0.861,
+   "frames": 93513,
+   "base_clean": 8855,
+   "imp_clean": 24421,
+   "imp_runs": 382,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Slackers-Europe_Firing_Squad-Europe_]sr[_dm3_QuakeWorld_4v4__Gamer_]sr[_vs_fs_dm3_sfinal.qwd",
+   "cov": 0.88,
+   "frames": 93434,
+   "base_clean": 6776,
+   "imp_clean": 24336,
+   "imp_runs": 438,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown5__game_786_gs_d_1_dm3_abc.qwd",
+   "cov": 0.767,
+   "frames": 86397,
+   "base_clean": 10164,
+   "imp_clean": 23489,
+   "imp_runs": 300,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown5__game_875_vm_-tf-_1_dm3_hiks.qwd",
+   "cov": 0.929,
+   "frames": 93015,
+   "base_clean": 8085,
+   "imp_clean": 23439,
+   "imp_runs": 381,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__foad_lies_1_dm3_hashie.qwd",
+   "cov": 0.826,
+   "frames": 87867,
+   "base_clean": 8316,
+   "imp_clean": 23245,
+   "imp_runs": 348,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_559_FOAD_PoC_1_DM3_darkone.qwd",
+   "cov": 0.733,
+   "frames": 85524,
+   "base_clean": 13244,
+   "imp_clean": 22654,
+   "imp_runs": 238,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__foad_mu_1_dm3_hashie.qwd",
+   "cov": 0.776,
+   "frames": 88481,
+   "base_clean": 7546,
+   "imp_clean": 22518,
+   "imp_runs": 365,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_593_ED_OC_2_DM3_Exile.qwd",
+   "cov": 0.768,
+   "frames": 87466,
+   "base_clean": 8008,
+   "imp_clean": 21900,
+   "imp_runs": 347,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_593_ED_OC_2_DM3_Reverend.qwd",
+   "cov": 0.768,
+   "frames": 87466,
+   "base_clean": 8008,
+   "imp_clean": 21900,
+   "imp_runs": 347,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__c_d_1_dm3_mrgib.qwd",
+   "cov": 0.461,
+   "frames": 87099,
+   "base_clean": 10857,
+   "imp_clean": 21502,
+   "imp_runs": 220,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown3__game_597__L__FS_3_DM3_effie.qwd",
+   "cov": 0.957,
+   "frames": 85956,
+   "base_clean": 11473,
+   "imp_clean": 21079,
+   "imp_runs": 255,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__l_hf_dm3_swe.qwd",
+   "cov": 0.851,
+   "frames": 87107,
+   "base_clean": 7546,
+   "imp_clean": 20522,
+   "imp_runs": 311,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_29th-Sweden_mqb-France_belth_dm3_QuakeWorld_4v4__bELTh_[[sc]]_-_[mqb]_4-4_dm3_.qwd",
+   "cov": 0.875,
+   "frames": 86392,
+   "base_clean": 6699,
+   "imp_clean": 20469,
+   "imp_runs": 357,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_326_WR_QH_1_DM3_Matsui.qwd",
+   "cov": 0.758,
+   "frames": 88753,
+   "base_clean": 10780,
+   "imp_clean": 19775,
+   "imp_runs": 230,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__para_smackdown_finals_vs_ff_dm3_2.qwd",
+   "cov": 0.924,
+   "frames": 86034,
+   "base_clean": 5621,
+   "imp_clean": 19734,
+   "imp_runs": 363,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_4ng3ls-Portugal_TAV-Portugal_all_dm3_QuakeWorld_4v4__11-07-03_soul-tav-angels_dm3.qwd",
+   "cov": 0.545,
+   "frames": 85503,
+   "base_clean": 16016,
+   "imp_clean": 19403,
+   "imp_runs": 74,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__para_smackdown_finals_vs_ff_dm3_3.qwd",
+   "cov": 0.935,
+   "frames": 85742,
+   "base_clean": 4543,
+   "imp_clean": 19172,
+   "imp_runs": 374,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__ff_tfp_1_dm3_jerry.qwd",
+   "cov": 0.793,
+   "frames": 87921,
+   "base_clean": 9471,
+   "imp_clean": 18766,
+   "imp_runs": 202,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Antiquad-Finland_DeathTeam-Russia_Cougar_dm3_QuakeWorld_4v4__CB_aq_vs_dt_dm3_cougar.qwd",
+   "cov": 0.876,
+   "frames": 93815,
+   "base_clean": 4312,
+   "imp_clean": 18725,
+   "imp_runs": 380,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__sd3_cano_x_vs_ag_dm3.qwd",
+   "cov": 0.731,
+   "frames": 86510,
+   "base_clean": 8085,
+   "imp_clean": 18598,
+   "imp_runs": 239,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_mm-Australia_soda-Australia_psikaar_dm2_dm3_e1m2_QW_4v4___psikaar_-_[4on4_mm_vs_soda]_-_[dm3]_000.qwd",
+   "cov": 0.667,
+   "frames": 91476,
+   "base_clean": 6006,
+   "imp_clean": 18442,
+   "imp_runs": 292,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_Fired-USA_Fnu-USA_Sassa_dm3_QuakeWorld_4v4__fnu_sassa_[_fnu]_-_[f]_4-4_dm3_.qwd",
+   "cov": 0.445,
+   "frames": 94592,
+   "base_clean": 11011,
+   "imp_clean": 18412,
+   "imp_runs": 196,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_FITH-USA_DM-USA_chief[FITH]_dm3_QW_4v4__qil2-vsdm-chief3.qwd",
+   "cov": 0.669,
+   "frames": 89845,
+   "base_clean": 6776,
+   "imp_clean": 18365,
+   "imp_runs": 307,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__amd_sas_1_dm3_vovik.qwd",
+   "cov": 0.655,
+   "frames": 89425,
+   "base_clean": 10780,
+   "imp_clean": 18320,
+   "imp_runs": 182,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown5__game_844_jams_amd_1_dm3_telly.qwd",
+   "cov": 0.804,
+   "frames": 94215,
+   "base_clean": 7700,
+   "imp_clean": 18040,
+   "imp_runs": 268,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__E_omg_1_dm3_Nalle.qwd",
+   "cov": 0.778,
+   "frames": 86661,
+   "base_clean": 5775,
+   "imp_clean": 18027,
+   "imp_runs": 305,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__list_dx_2_dm3_miyagi.qwd",
+   "cov": 0.791,
+   "frames": 85703,
+   "base_clean": 7700,
+   "imp_clean": 18008,
+   "imp_runs": 254,
+   "tier": "B"
+  },
+  {
+   "demo": "paradoks__e_vs_tdi_dm3.qwd",
+   "cov": 0.827,
+   "frames": 59592,
+   "base_clean": 7315,
+   "imp_clean": 17980,
+   "imp_runs": 260,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__thdm_list_1_dm3_aircon.qwd",
+   "cov": 0.625,
+   "frames": 122415,
+   "base_clean": 11935,
+   "imp_clean": 17948,
+   "imp_runs": 139,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__exile_e3_dm3-2.qwd",
+   "cov": 0.996,
+   "frames": 87036,
+   "base_clean": 10241,
+   "imp_clean": 17432,
+   "imp_runs": 197,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__foad_rb_1_dm3_hashie.qwd",
+   "cov": 0.712,
+   "frames": 87213,
+   "base_clean": 5852,
+   "imp_clean": 17168,
+   "imp_runs": 265,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__foad_aok_2_dm3_darkone.qwd",
+   "cov": 0.691,
+   "frames": 86502,
+   "base_clean": 12089,
+   "imp_clean": 16996,
+   "imp_runs": 117,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__OMG_RC_2_dm3_Nalle.qwd",
+   "cov": 0.905,
+   "frames": 86049,
+   "base_clean": 5852,
+   "imp_clean": 16526,
+   "imp_runs": 279,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_451_Quad_ED_1_DM3_Forsberg.qwd",
+   "cov": 0.887,
+   "frames": 85862,
+   "base_clean": 4466,
+   "imp_clean": 16317,
+   "imp_runs": 315,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown4__game_738_fa_db_2_dm3_blind.qwd",
+   "cov": 0.786,
+   "frames": 90061,
+   "base_clean": 11858,
+   "imp_clean": 16206,
+   "imp_runs": 114,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__rb_fa_1_dm3_adder.qwd",
+   "cov": 0.724,
+   "frames": 89594,
+   "base_clean": 8547,
+   "imp_clean": 16196,
+   "imp_runs": 211,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__oc_tfp_1_dm3_max.qwd",
+   "cov": 0.772,
+   "frames": 86461,
+   "base_clean": 5852,
+   "imp_clean": 16180,
+   "imp_runs": 252,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__azul_lies_1_dm3_pricide.qwd",
+   "cov": 0.882,
+   "frames": 86080,
+   "base_clean": 10626,
+   "imp_clean": 16081,
+   "imp_runs": 132,
+   "tier": "B"
+  },
+  {
+   "demo": "paradoks__e_vs_code_dm3.qwd",
+   "cov": 0.839,
+   "frames": 86667,
+   "base_clean": 3773,
+   "imp_clean": 15811,
+   "imp_runs": 303,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__ag-vs-fith-dm3-1-snakes.qwd",
+   "cov": 0.814,
+   "frames": 80308,
+   "base_clean": 4928,
+   "imp_clean": 15808,
+   "imp_runs": 275,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__fith-vs-5-arcane-dm3__5-1.qwd",
+   "cov": 0.399,
+   "frames": 87730,
+   "base_clean": 10318,
+   "imp_clean": 15677,
+   "imp_runs": 149,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_4ng3ls-Portugal_TAV-Portugal_all_dm3_QuakeWorld_4v4__11-07-03_saddam-tav-angels_dm3.qwd",
+   "cov": 0.773,
+   "frames": 86801,
+   "base_clean": 4158,
+   "imp_clean": 15663,
+   "imp_runs": 279,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__ag-vs-fith-dm3-2-snakes.qwd",
+   "cov": 0.815,
+   "frames": 82062,
+   "base_clean": 7161,
+   "imp_clean": 15446,
+   "imp_runs": 225,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_O_Cla_[6]-Brazil_Animaniacs_[AnM]-Brazil_doob_dm3_QW_4v4__6_VS_anm_100percent_doob_.qwd",
+   "cov": 0.54,
+   "frames": 93483,
+   "base_clean": 8316,
+   "imp_clean": 15244,
+   "imp_runs": 162,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__aw_tdi_3_dm3_mamba.qwd",
+   "cov": 0.762,
+   "frames": 67672,
+   "base_clean": 5621,
+   "imp_clean": 15170,
+   "imp_runs": 247,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_RoT-Portugal_TAV-Portugal_all_dm3_QuakeWorld_4v4__27-06-03_ztranger-rot-tav_dm3.qwd",
+   "cov": 0.674,
+   "frames": 81731,
+   "base_clean": 5005,
+   "imp_clean": 14618,
+   "imp_runs": 233,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__cmf_plg_2_dm3_vert.qwd",
+   "cov": 0.898,
+   "frames": 84403,
+   "base_clean": 10087,
+   "imp_clean": 14597,
+   "imp_runs": 117,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__chtv-smackdown2-ag-vs-5-fuman-dm3.qwd",
+   "cov": 0.907,
+   "frames": 86994,
+   "base_clean": 6083,
+   "imp_clean": 14478,
+   "imp_runs": 213,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__koff_adt_1_dm3_Scenic.qwd",
+   "cov": 0.798,
+   "frames": 95645,
+   "base_clean": 8855,
+   "imp_clean": 14470,
+   "imp_runs": 147,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__game_271_E_CMF_2_DM3_Vana.qwd",
+   "cov": 0.778,
+   "frames": 87581,
+   "base_clean": 9856,
+   "imp_clean": 14435,
+   "imp_runs": 119,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__c_d_2_dm3_mrgib.qwd",
+   "cov": 0.344,
+   "frames": 86703,
+   "base_clean": 9009,
+   "imp_clean": 14435,
+   "imp_runs": 115,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__fs_vs_d_dm3_1.qwd",
+   "cov": 0.979,
+   "frames": 86932,
+   "base_clean": 8932,
+   "imp_clean": 14401,
+   "imp_runs": 137,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_4ng3ls-Portugal_TAV-Portugal_all_dm3_QuakeWorld_4v4__11-07-03_xai-tav-angels_dm3.qwd",
+   "cov": 0.818,
+   "frames": 87317,
+   "base_clean": 3696,
+   "imp_clean": 14098,
+   "imp_runs": 276,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_577_[x]_DAG_1_DM3_gator.qwd",
+   "cov": 0.583,
+   "frames": 87028,
+   "base_clean": 3542,
+   "imp_clean": 14081,
+   "imp_runs": 261,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__Janus_omg_vs_tot_dm3_sd2_7feb01.qwd",
+   "cov": 0.792,
+   "frames": 86955,
+   "base_clean": 9548,
+   "imp_clean": 13959,
+   "imp_runs": 111,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown5__game_870_trash_-tf-_2_dm3_rush.qwd",
+   "cov": 0.776,
+   "frames": 93232,
+   "base_clean": 8547,
+   "imp_clean": 13864,
+   "imp_runs": 141,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__foad_azul_1_dm3_darkone.qwd",
+   "cov": 0.875,
+   "frames": 87084,
+   "base_clean": 8162,
+   "imp_clean": 13827,
+   "imp_runs": 138,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__fs_wxo_2_dm3_ritual.qwd",
+   "cov": 0.98,
+   "frames": 86458,
+   "base_clean": 8316,
+   "imp_clean": 13812,
+   "imp_runs": 141,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__ritual-wxo-dm3.qwd",
+   "cov": 0.98,
+   "frames": 86458,
+   "base_clean": 8316,
+   "imp_clean": 13812,
+   "imp_runs": 141,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__cmf_vs_quad_1_dm3_dare.qwd",
+   "cov": 0.895,
+   "frames": 79192,
+   "base_clean": 8085,
+   "imp_clean": 13784,
+   "imp_runs": 129,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__x_gq_dg_dm3.qwd",
+   "cov": 0.809,
+   "frames": 87652,
+   "base_clean": 6930,
+   "imp_clean": 13751,
+   "imp_runs": 184,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_600_Diva_]SR[_3_DM3_Xalibur.qwd",
+   "cov": 0.971,
+   "frames": 86580,
+   "base_clean": 7700,
+   "imp_clean": 13734,
+   "imp_runs": 190,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Tribe_of_Tjernobyl-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_tot_vs_e_dm3_oddjob.qwd",
+   "cov": 0.991,
+   "frames": 89064,
+   "base_clean": 7392,
+   "imp_clean": 13698,
+   "imp_runs": 166,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__tot_oddjob_tot_vs___e__dm3_2.qwd",
+   "cov": 0.991,
+   "frames": 89064,
+   "base_clean": 7392,
+   "imp_clean": 13698,
+   "imp_runs": 166,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__CMF_OMG_1_dm3_Janus.qwd",
+   "cov": 0.99,
+   "frames": 86520,
+   "base_clean": 7469,
+   "imp_clean": 13670,
+   "imp_runs": 168,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_mix-Cyprus_mix-Cyprus_vreten_dm3_QuakeWorld_4v4__mixat.qwd",
+   "cov": 0.772,
+   "frames": 85910,
+   "base_clean": 6391,
+   "imp_clean": 13500,
+   "imp_runs": 197,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__z_daltons_1_dm3_luny.qwd",
+   "cov": 0.982,
+   "frames": 87792,
+   "base_clean": 7315,
+   "imp_clean": 13486,
+   "imp_runs": 163,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_561_Twats_HPR_1_DM3_dakoth.qwd",
+   "cov": 0.934,
+   "frames": 95098,
+   "base_clean": 8393,
+   "imp_clean": 13384,
+   "imp_runs": 142,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__vana_e_vs_para_dm3.qwd",
+   "cov": 0.915,
+   "frames": 86917,
+   "base_clean": 8393,
+   "imp_clean": 13213,
+   "imp_runs": 124,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_naDaghda-Ireland_ClanAstral-Denmark_Overlord_dm3_QuakeWorld_4v4__A_nD_clanbase_Overlord.qwd",
+   "cov": 0.85,
+   "frames": 87482,
+   "base_clean": 7469,
+   "imp_clean": 13084,
+   "imp_runs": 144,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_535_FA_Dx_1_DM3_blind.qwd",
+   "cov": 0.669,
+   "frames": 86895,
+   "base_clean": 5929,
+   "imp_clean": 12983,
+   "imp_runs": 187,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown3__game_589_OMG__L__1_DM3_baby_roo.qwd",
+   "cov": 0.969,
+   "frames": 86255,
+   "base_clean": 6314,
+   "imp_clean": 12935,
+   "imp_runs": 179,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__chtv-smackdown2-daltons-vs-firingsquad-dm3-2-rat.qwd",
+   "cov": 0.905,
+   "frames": 89265,
+   "base_clean": 7161,
+   "imp_clean": 12924,
+   "imp_runs": 154,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__lkdn_ttr_1_dm3_blind.qwd",
+   "cov": 0.645,
+   "frames": 87028,
+   "base_clean": 9394,
+   "imp_clean": 12911,
+   "imp_runs": 91,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__OMG_HF_1_dm3_Nalle.qwd",
+   "cov": 0.76,
+   "frames": 80461,
+   "base_clean": 5390,
+   "imp_clean": 12856,
+   "imp_runs": 189,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_440_TOT_WR_1_DM3_Slabby_voice_.qwd",
+   "cov": 0.982,
+   "frames": 88814,
+   "base_clean": 7700,
+   "imp_clean": 12854,
+   "imp_runs": 139,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Tribe_of_Tjernobyl-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_tot_vs_wr_dm3_slabby.qwd",
+   "cov": 0.982,
+   "frames": 88814,
+   "base_clean": 7700,
+   "imp_clean": 12854,
+   "imp_runs": 139,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_471_TVS_WR_1_DM3_blAze.qwd",
+   "cov": 0.992,
+   "frames": 86899,
+   "base_clean": 5929,
+   "imp_clean": 12848,
+   "imp_runs": 175,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Dunno-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_d_vs_fu_dm3_von.qwd",
+   "cov": 0.753,
+   "frames": 72593,
+   "base_clean": 8162,
+   "imp_clean": 12810,
+   "imp_runs": 102,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_mix-Sweden_mix-Sweden_Sassa_dm3_QuakeWorld_4v4__2003-12-23_blue_vs_yell_[dm3]_000.qwd",
+   "cov": 0.82,
+   "frames": 92664,
+   "base_clean": 4235,
+   "imp_clean": 12802,
+   "imp_runs": 227,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_FiringSquad-Europe_Qandrane-Europe_fix_dm3_e1m2_QuakeWorld_4v4__qand_vs_[fs]_dm3_03-10-12_000.qwd",
+   "cov": 0.932,
+   "frames": 93145,
+   "base_clean": 3773,
+   "imp_clean": 12769,
+   "imp_runs": 249,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__cmf_plg_1_dm3_vert.qwd",
+   "cov": 0.865,
+   "frames": 85765,
+   "base_clean": 7392,
+   "imp_clean": 12748,
+   "imp_runs": 138,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__GreyFuckenSeea_gds_vs_adm_dm3.qwd",
+   "cov": 0.846,
+   "frames": 82341,
+   "base_clean": 8932,
+   "imp_clean": 12735,
+   "imp_runs": 98,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__vana_e_vs_ff_dm3_2.qwd",
+   "cov": 0.978,
+   "frames": 89554,
+   "base_clean": 7546,
+   "imp_clean": 12714,
+   "imp_runs": 136,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__tr0n_______l0d__lod_vs_5_dm3.qwd",
+   "cov": 0.956,
+   "frames": 83136,
+   "base_clean": 5467,
+   "imp_clean": 12663,
+   "imp_runs": 189,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__exile_e3_dm3-1.qwd",
+   "cov": 0.994,
+   "frames": 87138,
+   "base_clean": 7161,
+   "imp_clean": 12650,
+   "imp_runs": 153,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__DN_RC_1_dm3_Hangtime.qwd",
+   "cov": 0.816,
+   "frames": 88253,
+   "base_clean": 8239,
+   "imp_clean": 12617,
+   "imp_runs": 106,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__dn_v_rc-dm3_ht-_sd2_.qwd",
+   "cov": 0.816,
+   "frames": 88253,
+   "base_clean": 8239,
+   "imp_clean": 12617,
+   "imp_runs": 106,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__ag-vs-sah-skitter-dm3.qwd",
+   "cov": 0.552,
+   "frames": 82604,
+   "base_clean": 4697,
+   "imp_clean": 12597,
+   "imp_runs": 193,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown3__game_563_THDM_FOAD_1_DM3_driz.qwd",
+   "cov": 0.936,
+   "frames": 86963,
+   "base_clean": 8008,
+   "imp_clean": 12542,
+   "imp_runs": 124,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_601_FA_List_2_DM3_blind.qwd",
+   "cov": 0.881,
+   "frames": 88672,
+   "base_clean": 7777,
+   "imp_clean": 12495,
+   "imp_runs": 124,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__gds_adm_2_dm3_uther.qwd",
+   "cov": 0.527,
+   "frames": 76555,
+   "base_clean": 7007,
+   "imp_clean": 12467,
+   "imp_runs": 124,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__foad_aok_2_dm3_interceptor.qwd",
+   "cov": 0.936,
+   "frames": 86624,
+   "base_clean": 7777,
+   "imp_clean": 12376,
+   "imp_runs": 122,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__oc_d_1_dm3_hatti.qwd",
+   "cov": 0.92,
+   "frames": 87963,
+   "base_clean": 7161,
+   "imp_clean": 12317,
+   "imp_runs": 140,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__para_fu_1_dm3_PARA.qwd",
+   "cov": 0.975,
+   "frames": 97917,
+   "base_clean": 7392,
+   "imp_clean": 12248,
+   "imp_runs": 140,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__z_daltons_2_dm3_luny.qwd",
+   "cov": 0.98,
+   "frames": 88619,
+   "base_clean": 6083,
+   "imp_clean": 12226,
+   "imp_runs": 164,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_341_IB_NME_1_DM3_Cero.qwd",
+   "cov": 0.965,
+   "frames": 87536,
+   "base_clean": 7161,
+   "imp_clean": 12079,
+   "imp_runs": 131,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_466_CMF_OC_1_DM3_brutal.qwd",
+   "cov": 0.994,
+   "frames": 87159,
+   "base_clean": 5236,
+   "imp_clean": 12023,
+   "imp_runs": 186,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__na-sd-final-ag-vs-lod-snakes-dm3.qwd",
+   "cov": 0.822,
+   "frames": 79131,
+   "base_clean": 3773,
+   "imp_clean": 11995,
+   "imp_runs": 195,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__foad_aok_2_dm3_hashie.qwd",
+   "cov": 0.74,
+   "frames": 87899,
+   "base_clean": 4620,
+   "imp_clean": 11903,
+   "imp_runs": 176,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__vana_e_vs_ff_dm3_1.qwd",
+   "cov": 0.978,
+   "frames": 86885,
+   "base_clean": 7700,
+   "imp_clean": 11822,
+   "imp_runs": 109,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_407_antx_DS_2_DM3_eraser.qwd",
+   "cov": 0.661,
+   "frames": 87208,
+   "base_clean": 5313,
+   "imp_clean": 11745,
+   "imp_runs": 186,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__fs_oc_3_dm3_crit.qwd",
+   "cov": 0.933,
+   "frames": 87358,
+   "base_clean": 5544,
+   "imp_clean": 11640,
+   "imp_runs": 170,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__OMG_HF_1_dm3_Janus.qwd",
+   "cov": 0.987,
+   "frames": 86723,
+   "base_clean": 6006,
+   "imp_clean": 11614,
+   "imp_runs": 156,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__rb_fa_1_dm3_astro.qwd",
+   "cov": 0.522,
+   "frames": 92781,
+   "base_clean": 6776,
+   "imp_clean": 11579,
+   "imp_runs": 114,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown3__ag_fiend_ag_vs___x__dm3_3.qwd",
+   "cov": 0.72,
+   "frames": 87796,
+   "base_clean": 7392,
+   "imp_clean": 11564,
+   "imp_runs": 106,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Maniacs-Sweden_WH-Sweden_tyrone_dm3_QuakeWorld_4v4__4v4_wh_[vs]_[0]__dm3__tyrone.qwd",
+   "cov": 0.747,
+   "frames": 85750,
+   "base_clean": 3927,
+   "imp_clean": 11539,
+   "imp_runs": 194,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__OMG_AMD_1_dm3_Janus.qwd",
+   "cov": 0.936,
+   "frames": 87891,
+   "base_clean": 6930,
+   "imp_clean": 11347,
+   "imp_runs": 129,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Spartacus-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4__s__vs_cute_dm3_daver.qwd",
+   "cov": 0.684,
+   "frames": 85912,
+   "base_clean": 4004,
+   "imp_clean": 11336,
+   "imp_runs": 192,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__lkdn_ttr_2_dm3_blind.qwd",
+   "cov": 0.75,
+   "frames": 96539,
+   "base_clean": 6930,
+   "imp_clean": 11278,
+   "imp_runs": 112,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__tot_para_1_dm3_psycho_dad.qwd",
+   "cov": 0.899,
+   "frames": 84730,
+   "base_clean": 6776,
+   "imp_clean": 11264,
+   "imp_runs": 111,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_443_DS_OD_1_DM3_buggy.qwd",
+   "cov": 0.737,
+   "frames": 86184,
+   "base_clean": 6083,
+   "imp_clean": 11173,
+   "imp_runs": 123,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__exile_e3_dm3-3.qwd",
+   "cov": 0.997,
+   "frames": 88011,
+   "base_clean": 5544,
+   "imp_clean": 11159,
+   "imp_runs": 156,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Tribe_of_Tjernobyl-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_tot_vs_koff_dm3_impulse.qwd",
+   "cov": 0.979,
+   "frames": 86309,
+   "base_clean": 5698,
+   "imp_clean": 11127,
+   "imp_runs": 150,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__game_239_TOT_KOFF_1_DM3_Impulse.qwd",
+   "cov": 0.979,
+   "frames": 86309,
+   "base_clean": 5698,
+   "imp_clean": 11127,
+   "imp_runs": 150,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__akke_e3_dm3-1.qwd",
+   "cov": 0.991,
+   "frames": 86647,
+   "base_clean": 5313,
+   "imp_clean": 11105,
+   "imp_runs": 168,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__crit__fs__vs_wxo_dm3.qwd",
+   "cov": 0.924,
+   "frames": 87236,
+   "base_clean": 5775,
+   "imp_clean": 11074,
+   "imp_runs": 148,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__chtv-smackdown2-daltons-vs-firingsquad-dm3-rat.qwd",
+   "cov": 0.892,
+   "frames": 88674,
+   "base_clean": 6083,
+   "imp_clean": 11066,
+   "imp_runs": 148,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__fs_vs_d_dm3_2.qwd",
+   "cov": 0.978,
+   "frames": 86599,
+   "base_clean": 4620,
+   "imp_clean": 11043,
+   "imp_runs": 166,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__cmf_adt2_1_dm3_Peksi.qwd",
+   "cov": 0.984,
+   "frames": 86974,
+   "base_clean": 7161,
+   "imp_clean": 10926,
+   "imp_runs": 101,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__chtv-exoduz-rb-vs-st-dm3.qwd",
+   "cov": 0.607,
+   "frames": 87014,
+   "base_clean": 4081,
+   "imp_clean": 10806,
+   "imp_runs": 192,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__foad_mu_1_dm3_darkone.qwd",
+   "cov": 0.695,
+   "frames": 87580,
+   "base_clean": 7007,
+   "imp_clean": 10734,
+   "imp_runs": 95,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__exile_cmf_dm3.qwd",
+   "cov": 0.987,
+   "frames": 87306,
+   "base_clean": 5467,
+   "imp_clean": 10716,
+   "imp_runs": 133,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__ag-vs-xx-daw-dm3.qwd",
+   "cov": 0.592,
+   "frames": 100645,
+   "base_clean": 7931,
+   "imp_clean": 10675,
+   "imp_runs": 68,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown3__game_589_OMG__L__1_DM3_Janus.qwd",
+   "cov": 0.884,
+   "frames": 86444,
+   "base_clean": 6853,
+   "imp_clean": 10644,
+   "imp_runs": 102,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_425_FS_CD_1_DM3_delta.qwd",
+   "cov": 0.968,
+   "frames": 88333,
+   "base_clean": 5698,
+   "imp_clean": 10610,
+   "imp_runs": 125,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__azul_aok_1_dm3_povo.qwd",
+   "cov": 0.75,
+   "frames": 86495,
+   "base_clean": 6083,
+   "imp_clean": 10604,
+   "imp_runs": 104,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_588_Diva_TOT_2_DM3_circle.qwd",
+   "cov": 0.878,
+   "frames": 89032,
+   "base_clean": 5621,
+   "imp_clean": 10600,
+   "imp_runs": 131,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__[E]_n0skill__1_dm3_Vana.qwd",
+   "cov": 0.778,
+   "frames": 90879,
+   "base_clean": 6545,
+   "imp_clean": 10569,
+   "imp_runs": 114,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__foad_lies_1_dm3_darkone.qwd",
+   "cov": 0.722,
+   "frames": 87057,
+   "base_clean": 7161,
+   "imp_clean": 10541,
+   "imp_runs": 83,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__oc_tfp_1_dm3_hatti.qwd",
+   "cov": 0.972,
+   "frames": 87439,
+   "base_clean": 5313,
+   "imp_clean": 10524,
+   "imp_runs": 135,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__akke_cmf_dm3.qwd",
+   "cov": 0.993,
+   "frames": 86740,
+   "base_clean": 5698,
+   "imp_clean": 10517,
+   "imp_runs": 133,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__para_omg_1_dm3_ana.qwd",
+   "cov": 0.894,
+   "frames": 86487,
+   "base_clean": 4928,
+   "imp_clean": 10456,
+   "imp_runs": 147,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_DvL-Portugal_4ng3ls-Portugal_all_dm3_QuakeWorld_4v4__26-06-03_insane-dvl-4ng3ls__dm3.qwd",
+   "cov": 0.627,
+   "frames": 93673,
+   "base_clean": 4235,
+   "imp_clean": 10398,
+   "imp_runs": 147,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_Caps_Lock-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_caps_vs_z_dm3_dark.qwd",
+   "cov": 0.78,
+   "frames": 87295,
+   "base_clean": 3619,
+   "imp_clean": 10383,
+   "imp_runs": 167,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__59_akke_dm3.qwd",
+   "cov": 0.991,
+   "frames": 86764,
+   "base_clean": 5390,
+   "imp_clean": 10381,
+   "imp_runs": 131,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_510_FS_HPR_2_DM3_crit.qwd",
+   "cov": 0.825,
+   "frames": 87337,
+   "base_clean": 5698,
+   "imp_clean": 10367,
+   "imp_runs": 120,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown4__game_724_list_ao_2_dm3_darkone.qwd",
+   "cov": 0.898,
+   "frames": 88338,
+   "base_clean": 6468,
+   "imp_clean": 10358,
+   "imp_runs": 100,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__E_omg_1_dm3_TheChosenOne.qwd",
+   "cov": 0.633,
+   "frames": 86083,
+   "base_clean": 2772,
+   "imp_clean": 10341,
+   "imp_runs": 192,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__game_271_E_CMF_2_DM3_Peksi.qwd",
+   "cov": 0.956,
+   "frames": 87853,
+   "base_clean": 5544,
+   "imp_clean": 10229,
+   "imp_runs": 142,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown4__game_746_hf_la_1_dm3_space.qwd",
+   "cov": 0.978,
+   "frames": 86449,
+   "base_clean": 5698,
+   "imp_clean": 10175,
+   "imp_runs": 118,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_606_THDM_FA_4_DM3_juz.qwd",
+   "cov": 0.825,
+   "frames": 86853,
+   "base_clean": 5775,
+   "imp_clean": 10174,
+   "imp_runs": 122,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__tot_omg_2_dm3_slabby.qwd",
+   "cov": 0.828,
+   "frames": 86165,
+   "base_clean": 5236,
+   "imp_clean": 10168,
+   "imp_runs": 117,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__60_akke_dm3.qwd",
+   "cov": 0.979,
+   "frames": 86527,
+   "base_clean": 5159,
+   "imp_clean": 10144,
+   "imp_runs": 142,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__amd_jod_1_dm3_glad.qwd",
+   "cov": 0.987,
+   "frames": 89425,
+   "base_clean": 5852,
+   "imp_clean": 10112,
+   "imp_runs": 120,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__ff_pietro__ff__vs___E__dm3_2.qwd",
+   "cov": 0.994,
+   "frames": 95678,
+   "base_clean": 3927,
+   "imp_clean": 10099,
+   "imp_runs": 163,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__tot_capcop_tot_vs_cmf_dm3.qwd",
+   "cov": 0.988,
+   "frames": 86836,
+   "base_clean": 4235,
+   "imp_clean": 10099,
+   "imp_runs": 173,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__ibh_fu_2_dm3_123.qwd",
+   "cov": 0.904,
+   "frames": 87654,
+   "base_clean": 5775,
+   "imp_clean": 10069,
+   "imp_runs": 112,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__for2_d_vs_fe_dm3.qwd",
+   "cov": 0.841,
+   "frames": 85908,
+   "base_clean": 7084,
+   "imp_clean": 10053,
+   "imp_runs": 83,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__FF_OC_1_dm3_Dag.qwd",
+   "cov": 0.966,
+   "frames": 88686,
+   "base_clean": 6083,
+   "imp_clean": 10048,
+   "imp_runs": 109,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__dx_ho_1_dm3_dana.qwd",
+   "cov": 0.733,
+   "frames": 85024,
+   "base_clean": 3619,
+   "imp_clean": 9968,
+   "imp_runs": 152,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__HF_FU_1_dm3_Nepra.qwd",
+   "cov": 0.884,
+   "frames": 86620,
+   "base_clean": 6237,
+   "imp_clean": 9943,
+   "imp_runs": 100,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_mix-Europe_mix-Europe_tyrone_dm3_QuakeWorld_4v4__4v4_1_[vs]_4k_dm3_tyrone.qwd",
+   "cov": 0.805,
+   "frames": 62451,
+   "base_clean": 3388,
+   "imp_clean": 9930,
+   "imp_runs": 181,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Swedish_Chefs-Sweden_Varius-Sweden_Lakerman_Various_QW_4v4__4on4_sc_vs_sk_dm3_laker.qwd",
+   "cov": 0.774,
+   "frames": 81412,
+   "base_clean": 4389,
+   "imp_clean": 9894,
+   "imp_runs": 154,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__Goljat_e_vs_ff_dm3_round4.qwd",
+   "cov": 0.921,
+   "frames": 87052,
+   "base_clean": 5082,
+   "imp_clean": 9888,
+   "imp_runs": 136,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__gds_adm_1_dm3_uther.qwd",
+   "cov": 0.536,
+   "frames": 76282,
+   "base_clean": 5313,
+   "imp_clean": 9869,
+   "imp_runs": 110,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__Goljat_e_vs_ff_dm3_round1.qwd",
+   "cov": 0.916,
+   "frames": 89705,
+   "base_clean": 5159,
+   "imp_clean": 9812,
+   "imp_runs": 129,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2___dg_saturn__dg__vs_gq_dm3_2.qwd",
+   "cov": 0.768,
+   "frames": 85704,
+   "base_clean": 5390,
+   "imp_clean": 9703,
+   "imp_runs": 117,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown4__game_743__fs__tot_2_dm3_crit___.qwd",
+   "cov": 0.843,
+   "frames": 89189,
+   "base_clean": 6083,
+   "imp_clean": 9682,
+   "imp_runs": 99,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__st_5_1_dm3_carnage.qwd",
+   "cov": 0.741,
+   "frames": 59018,
+   "base_clean": 3080,
+   "imp_clean": 9658,
+   "imp_runs": 166,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_537_List_LOK_2_DM3_aircon.qwd",
+   "cov": 0.594,
+   "frames": 95577,
+   "base_clean": 6468,
+   "imp_clean": 9630,
+   "imp_runs": 86,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_Tribe_of_Tjernobyl-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_tot_vs_e_dm3_sibbit.qwd",
+   "cov": 0.985,
+   "frames": 86845,
+   "base_clean": 6545,
+   "imp_clean": 9609,
+   "imp_runs": 89,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__game_258_ANTX_defs_4_DM3_torX.qwd",
+   "cov": 0.835,
+   "frames": 76400,
+   "base_clean": 5698,
+   "imp_clean": 9609,
+   "imp_runs": 95,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__cmf_ns_1_dm3_vert.qwd",
+   "cov": 0.979,
+   "frames": 86983,
+   "base_clean": 4158,
+   "imp_clean": 9607,
+   "imp_runs": 141,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__fith_vs_5_dm3_het__smackdowngame1.qwd",
+   "cov": 0.57,
+   "frames": 87004,
+   "base_clean": 3080,
+   "imp_clean": 9577,
+   "imp_runs": 175,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__TVS_RC_2_dm3_Blaze.qwd",
+   "cov": 0.954,
+   "frames": 87168,
+   "base_clean": 4389,
+   "imp_clean": 9541,
+   "imp_runs": 137,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__koff_dn_1_dm3_Scenic.qwd",
+   "cov": 0.923,
+   "frames": 87584,
+   "base_clean": 4466,
+   "imp_clean": 9521,
+   "imp_runs": 129,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__ag-vs-xx-thrope-dm3.qwd",
+   "cov": 0.585,
+   "frames": 87294,
+   "base_clean": 4697,
+   "imp_clean": 9516,
+   "imp_runs": 107,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__e_cmf_dm3_smackdown.qwd",
+   "cov": 0.77,
+   "frames": 86404,
+   "base_clean": 2387,
+   "imp_clean": 9507,
+   "imp_runs": 207,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__4k_dsg_2_dm3_zommy.qwd",
+   "cov": 0.981,
+   "frames": 86625,
+   "base_clean": 4158,
+   "imp_clean": 9486,
+   "imp_runs": 148,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown4__game_674_4k_fe_1_dm3_dyn.qwd",
+   "cov": 0.925,
+   "frames": 87035,
+   "base_clean": 5544,
+   "imp_clean": 9473,
+   "imp_runs": 108,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown4__game_745_fu__l__1_dm3_exile.qwd",
+   "cov": 0.922,
+   "frames": 87051,
+   "base_clean": 5313,
+   "imp_clean": 9465,
+   "imp_runs": 117,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__saqfacel0d_lod_vs_fith_dm3.qwd",
+   "cov": 0.878,
+   "frames": 88324,
+   "base_clean": 3619,
+   "imp_clean": 9365,
+   "imp_runs": 156,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_349_Quad_CRC_2_DM3_uig.qwd",
+   "cov": 0.866,
+   "frames": 86578,
+   "base_clean": 5236,
+   "imp_clean": 9356,
+   "imp_runs": 114,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown5__game_901_cb_fs_1_dm3_rippie.qwd",
+   "cov": 0.837,
+   "frames": 86817,
+   "base_clean": 5621,
+   "imp_clean": 9329,
+   "imp_runs": 97,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_600_Diva_]SR[_3_DM3_Paradoks.qwd",
+   "cov": 0.99,
+   "frames": 86117,
+   "base_clean": 4774,
+   "imp_clean": 9311,
+   "imp_runs": 123,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown4__game_714_tec__l__1_dm3_white.qwd",
+   "cov": 0.984,
+   "frames": 92285,
+   "base_clean": 5159,
+   "imp_clean": 9258,
+   "imp_runs": 118,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__game_265_AnM_FULL_2_DM3_AnM-Yronman.qwd",
+   "cov": 0.452,
+   "frames": 86120,
+   "base_clean": 5544,
+   "imp_clean": 9202,
+   "imp_runs": 88,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown3__game_430_ED_Para_2_DM3_Jac.qwd",
+   "cov": 0.824,
+   "frames": 88833,
+   "base_clean": 5236,
+   "imp_clean": 9200,
+   "imp_runs": 106,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_596_THDM_PoC_2_DM3_Juz.qwd",
+   "cov": 0.677,
+   "frames": 86152,
+   "base_clean": 5467,
+   "imp_clean": 9188,
+   "imp_runs": 93,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__pietro_z2_dm3.qwd",
+   "cov": 0.967,
+   "frames": 87484,
+   "base_clean": 3542,
+   "imp_clean": 9165,
+   "imp_runs": 148,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__game_242_FS_NS_3_DM3_Crit.qwd",
+   "cov": 0.877,
+   "frames": 89693,
+   "base_clean": 4389,
+   "imp_clean": 9130,
+   "imp_runs": 135,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown5__game_776_list_thdm_2_dm3_nevamind.qwd",
+   "cov": 0.87,
+   "frames": 92098,
+   "base_clean": 5236,
+   "imp_clean": 9122,
+   "imp_runs": 118,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__AG_XX_1_dm3_BullDozer.qwd",
+   "cov": 0.834,
+   "frames": 92528,
+   "base_clean": 5236,
+   "imp_clean": 9112,
+   "imp_runs": 96,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__crit__fs__vs_tfp_dm3.qwd",
+   "cov": 0.937,
+   "frames": 87263,
+   "base_clean": 4158,
+   "imp_clean": 9087,
+   "imp_runs": 126,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__amd_para_1_dm3_band.qwd",
+   "cov": 0.736,
+   "frames": 88326,
+   "base_clean": 5775,
+   "imp_clean": 9082,
+   "imp_runs": 87,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__gds_adm_2_dm3_gobo.qwd",
+   "cov": 0.631,
+   "frames": 87628,
+   "base_clean": 5005,
+   "imp_clean": 9059,
+   "imp_runs": 119,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__tdi_fe_1_dm3_dark.qwd",
+   "cov": 0.934,
+   "frames": 88170,
+   "base_clean": 5313,
+   "imp_clean": 9045,
+   "imp_runs": 94,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__fifi_vs_tot_dm3.qwd",
+   "cov": 0.979,
+   "frames": 87847,
+   "base_clean": 3311,
+   "imp_clean": 9042,
+   "imp_runs": 152,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown___GDS__SEER_gds_vs_adm_dm3.qwd",
+   "cov": 0.842,
+   "frames": 82812,
+   "base_clean": 5852,
+   "imp_clean": 9040,
+   "imp_runs": 84,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__FF_OC_1_dm3_Exile.qwd",
+   "cov": 0.923,
+   "frames": 88785,
+   "base_clean": 4697,
+   "imp_clean": 9025,
+   "imp_runs": 113,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_502_4K_FS_1_DM3_reppie_.qwd",
+   "cov": 0.799,
+   "frames": 86964,
+   "base_clean": 5005,
+   "imp_clean": 8983,
+   "imp_runs": 98,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown4__game_721_msr_gs_1_dm3_akbal.qwd",
+   "cov": 0.726,
+   "frames": 86979,
+   "base_clean": 4389,
+   "imp_clean": 8957,
+   "imp_runs": 112,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown4__game_719_fa_gs_1_dm3_beasil.qwd",
+   "cov": 0.812,
+   "frames": 87097,
+   "base_clean": 5621,
+   "imp_clean": 8910,
+   "imp_runs": 91,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__ff_4x_1_dm3_dag.qwd",
+   "cov": 0.942,
+   "frames": 87163,
+   "base_clean": 5621,
+   "imp_clean": 8899,
+   "imp_runs": 88,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__ff_tfp_1_dm3_akke.qwd",
+   "cov": 0.942,
+   "frames": 86543,
+   "base_clean": 4389,
+   "imp_clean": 8836,
+   "imp_runs": 115,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__ibh_dn_1_dm3_123.qwd",
+   "cov": 0.905,
+   "frames": 86695,
+   "base_clean": 4081,
+   "imp_clean": 8831,
+   "imp_runs": 129,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2___fs__crit__fs__vs__d_dm3.qwd",
+   "cov": 0.919,
+   "frames": 86593,
+   "base_clean": 3388,
+   "imp_clean": 8773,
+   "imp_runs": 140,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__chtv-smackdown2-ag_terror_ag_vs_5_dm3.qwd",
+   "cov": 0.964,
+   "frames": 86541,
+   "base_clean": 4774,
+   "imp_clean": 8749,
+   "imp_runs": 101,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__RC_L_1_dm3_ace.qwd",
+   "cov": 0.823,
+   "frames": 87361,
+   "base_clean": 4466,
+   "imp_clean": 8716,
+   "imp_runs": 109,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown4__game_730_db_msr_3_dm3_porto.qwd",
+   "cov": 0.753,
+   "frames": 87794,
+   "base_clean": 5390,
+   "imp_clean": 8694,
+   "imp_runs": 95,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__aok_lies_1_dm3_povo.qwd",
+   "cov": 0.318,
+   "frames": 87483,
+   "base_clean": 5929,
+   "imp_clean": 8688,
+   "imp_runs": 66,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown4__game_726_thdm_if_1_dm3_nevamind.qwd",
+   "cov": 0.9,
+   "frames": 88742,
+   "base_clean": 4312,
+   "imp_clean": 8662,
+   "imp_runs": 123,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_606_THDM_FA_4_DM3_nevamind.qwd",
+   "cov": 0.714,
+   "frames": 86665,
+   "base_clean": 4235,
+   "imp_clean": 8614,
+   "imp_runs": 131,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__amd_adt_2_dm3_glad.qwd",
+   "cov": 0.819,
+   "frames": 86812,
+   "base_clean": 3927,
+   "imp_clean": 8590,
+   "imp_runs": 109,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__fa_poc_1_dm3_beasil.qwd",
+   "cov": 0.839,
+   "frames": 93301,
+   "base_clean": 5775,
+   "imp_clean": 8569,
+   "imp_runs": 74,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__game_271_E_CMF_2_DM3_Goljat.qwd",
+   "cov": 0.79,
+   "frames": 87016,
+   "base_clean": 4620,
+   "imp_clean": 8528,
+   "imp_runs": 107,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__Goljat_e_vs__ff__dm3_round5.qwd",
+   "cov": 0.931,
+   "frames": 87979,
+   "base_clean": 4312,
+   "imp_clean": 8514,
+   "imp_runs": 125,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2___fs__crit__fs__vs__d_dm3_2.qwd",
+   "cov": 0.909,
+   "frames": 85285,
+   "base_clean": 2464,
+   "imp_clean": 8505,
+   "imp_runs": 165,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__ff_pietro__ff__vs___E__dm3.qwd",
+   "cov": 0.993,
+   "frames": 90342,
+   "base_clean": 3696,
+   "imp_clean": 8473,
+   "imp_runs": 124,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_562_THDM_MaC_1_DM3_Pace.qwd",
+   "cov": 0.759,
+   "frames": 79847,
+   "base_clean": 3080,
+   "imp_clean": 8438,
+   "imp_runs": 133,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_579_AG_WaP_1_DM3_def.qwd",
+   "cov": 0.963,
+   "frames": 88366,
+   "base_clean": 5621,
+   "imp_clean": 8436,
+   "imp_runs": 78,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__gds_adm_1_dm3_gobo.qwd",
+   "cov": 0.595,
+   "frames": 87616,
+   "base_clean": 4774,
+   "imp_clean": 8422,
+   "imp_runs": 111,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__paradoks_e_vs_ibh_dm3.qwd",
+   "cov": 0.822,
+   "frames": 86611,
+   "base_clean": 3388,
+   "imp_clean": 8409,
+   "imp_runs": 132,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__cmf_bad_2_dm3_fifi.qwd",
+   "cov": 0.746,
+   "frames": 86182,
+   "base_clean": 5313,
+   "imp_clean": 8399,
+   "imp_runs": 83,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_466_CMF_OC_2_DM3_brutal.qwd",
+   "cov": 0.863,
+   "frames": 88543,
+   "base_clean": 4312,
+   "imp_clean": 8361,
+   "imp_runs": 109,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Orkney-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_oc_vs_cmf_dm3_brutal.qwd",
+   "cov": 0.863,
+   "frames": 88543,
+   "base_clean": 4312,
+   "imp_clean": 8361,
+   "imp_runs": 109,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_536_MaC_PoC_1_DM3_Pace.qwd",
+   "cov": 0.869,
+   "frames": 81835,
+   "base_clean": 3773,
+   "imp_clean": 8317,
+   "imp_runs": 121,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__vana_e_vs_ff_dm3_3__vana_e_vs_ff_dm3.qwd",
+   "cov": 0.974,
+   "frames": 67633,
+   "base_clean": 5236,
+   "imp_clean": 8316,
+   "imp_runs": 90,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_428_ED_DEATH_2_DM3_reverend.qwd",
+   "cov": 0.983,
+   "frames": 87429,
+   "base_clean": 3542,
+   "imp_clean": 8293,
+   "imp_runs": 127,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__pietro_cmf_dm3.qwd",
+   "cov": 0.988,
+   "frames": 88490,
+   "base_clean": 3003,
+   "imp_clean": 8260,
+   "imp_runs": 141,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__E_vs_ns_Goljat_dm3.qwd",
+   "cov": 0.806,
+   "frames": 87998,
+   "base_clean": 4235,
+   "imp_clean": 8238,
+   "imp_runs": 101,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Brutal_Deluxe-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_bd_vs_wr_dm3_ronnie.qwd",
+   "cov": 0.612,
+   "frames": 72381,
+   "base_clean": 5390,
+   "imp_clean": 8144,
+   "imp_runs": 70,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__E_vs_L_Goljat_dm3.qwd",
+   "cov": 0.782,
+   "frames": 86880,
+   "base_clean": 5159,
+   "imp_clean": 8106,
+   "imp_runs": 87,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__D_Icem_2_dm3_Rat.qwd",
+   "cov": 0.823,
+   "frames": 84756,
+   "base_clean": 3927,
+   "imp_clean": 8082,
+   "imp_runs": 105,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__omg_goh_1_dm3_Janus.qwd",
+   "cov": 0.798,
+   "frames": 86993,
+   "base_clean": 4235,
+   "imp_clean": 8057,
+   "imp_runs": 102,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__aok_mu_1_dm3_skitz.qwd",
+   "cov": 0.77,
+   "frames": 86025,
+   "base_clean": 2618,
+   "imp_clean": 8051,
+   "imp_runs": 138,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__E_omg_1_dm3_Janus.qwd",
+   "cov": 0.932,
+   "frames": 86990,
+   "base_clean": 3388,
+   "imp_clean": 8041,
+   "imp_runs": 129,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Orkney-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_oc_vs_omg_dm3_akke.qwd",
+   "cov": 0.922,
+   "frames": 86291,
+   "base_clean": 4697,
+   "imp_clean": 8020,
+   "imp_runs": 83,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_446_OC_OMG_1_DM3_akke.qwd",
+   "cov": 0.922,
+   "frames": 86291,
+   "base_clean": 4697,
+   "imp_clean": 8020,
+   "imp_runs": 83,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__fa_ic_2_dm3_harlsom.qwd",
+   "cov": 0.747,
+   "frames": 86356,
+   "base_clean": 4774,
+   "imp_clean": 7999,
+   "imp_runs": 81,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Maniacs_-Sweden_Dybbuk-Sweden_Sassa_dm3_dm2_e1m2_QuakeWorld_4v4__04-04-04_[0]_vs_dyb_[dm3]_000.qwd",
+   "cov": 0.606,
+   "frames": 91299,
+   "base_clean": 2618,
+   "imp_clean": 7932,
+   "imp_runs": 136,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__ic_poc_1_dm3_dude.qwd",
+   "cov": 0.696,
+   "frames": 84422,
+   "base_clean": 4543,
+   "imp_clean": 7902,
+   "imp_runs": 84,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown5__game_901_cb_fs_1_dm3_crit.qwd",
+   "cov": 0.928,
+   "frames": 86904,
+   "base_clean": 3696,
+   "imp_clean": 7802,
+   "imp_runs": 119,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_FiringSquad-Europe_Zetor-Europe_reppie_dm3_QuakeWorld_4v4__reppie-fs-zr-dm3.qwd",
+   "cov": 0.927,
+   "frames": 87242,
+   "base_clean": 4543,
+   "imp_clean": 7793,
+   "imp_runs": 94,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__cmf_cute_1_dm3_amu.qwd",
+   "cov": 0.865,
+   "frames": 86461,
+   "base_clean": 4312,
+   "imp_clean": 7788,
+   "imp_runs": 96,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_465_AMD_ED_1_DM3_exile.qwd",
+   "cov": 0.824,
+   "frames": 89603,
+   "base_clean": 4774,
+   "imp_clean": 7748,
+   "imp_runs": 83,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__ff_ibh_1_dm3_1_exile.qwd",
+   "cov": 0.683,
+   "frames": 86479,
+   "base_clean": 5159,
+   "imp_clean": 7732,
+   "imp_runs": 64,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__OMG_RC_2_dm3_.qwd",
+   "cov": 0.874,
+   "frames": 87252,
+   "base_clean": 4543,
+   "imp_clean": 7721,
+   "imp_runs": 103,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__OMG_RC_2_dm3_Janus.qwd",
+   "cov": 0.874,
+   "frames": 87252,
+   "base_clean": 4543,
+   "imp_clean": 7721,
+   "imp_runs": 103,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown4__game_750__sr__cmf_1_dm3_fifi.qwd",
+   "cov": 0.99,
+   "frames": 88013,
+   "base_clean": 3080,
+   "imp_clean": 7720,
+   "imp_runs": 135,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__koff_spas_1_dm3_Roscoe.qwd",
+   "cov": 0.921,
+   "frames": 87893,
+   "base_clean": 2772,
+   "imp_clean": 7706,
+   "imp_runs": 138,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__ttr_cyke_1_dm3_bm.qwd",
+   "cov": 0.818,
+   "frames": 71124,
+   "base_clean": 4312,
+   "imp_clean": 7561,
+   "imp_runs": 96,
+   "tier": "B"
+  },
+  {
+   "demo": "laker__sc-sk-dm3__sc-sk-dm3.qwd",
+   "cov": 0.527,
+   "frames": 81412,
+   "base_clean": 3773,
+   "imp_clean": 7468,
+   "imp_runs": 108,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown4__game_650__fs__jams_1_dm3_reppie.qwd",
+   "cov": 0.816,
+   "frames": 81657,
+   "base_clean": 4004,
+   "imp_clean": 7446,
+   "imp_runs": 75,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown4__game_718_sa_msr_2_dm3_porto.qwd",
+   "cov": 0.934,
+   "frames": 86743,
+   "base_clean": 3542,
+   "imp_clean": 7445,
+   "imp_runs": 110,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__nc_sf_dm3_2_aero.qwd",
+   "cov": 0.556,
+   "frames": 86551,
+   "base_clean": 4620,
+   "imp_clean": 7399,
+   "imp_runs": 67,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__fa_thdm_1_dm3_spice.qwd",
+   "cov": 0.845,
+   "frames": 87639,
+   "base_clean": 4466,
+   "imp_clean": 7381,
+   "imp_runs": 74,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_599_CMF_TVS_2_DM3_Blaze.qwd",
+   "cov": 0.988,
+   "frames": 87031,
+   "base_clean": 2310,
+   "imp_clean": 7378,
+   "imp_runs": 148,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_596_THDM_PoC_2_DM3_Nevamind.qwd",
+   "cov": 0.829,
+   "frames": 86499,
+   "base_clean": 2772,
+   "imp_clean": 7305,
+   "imp_runs": 137,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown5__game_1020_thdm_fa_1_dm3_driz.qwd",
+   "cov": 0.619,
+   "frames": 86904,
+   "base_clean": 5005,
+   "imp_clean": 7304,
+   "imp_runs": 68,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown3__game_597__L__FS_3_DM3_crit.qwd",
+   "cov": 0.801,
+   "frames": 87217,
+   "base_clean": 3850,
+   "imp_clean": 7243,
+   "imp_runs": 95,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_599_CMF_TVS_2_DM3_Mirage.qwd",
+   "cov": 0.986,
+   "frames": 86964,
+   "base_clean": 2618,
+   "imp_clean": 7199,
+   "imp_runs": 134,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__dn_v_wfb-dm3_rags-_sd2_.qwd",
+   "cov": 0.984,
+   "frames": 86759,
+   "base_clean": 3311,
+   "imp_clean": 7186,
+   "imp_runs": 112,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_6_-_O_cla-Brazil__Anm_-_Animaniacs-Brazil_memil_dm3_QuakeWorld_4v4__6.memil_-_[4on4_ocla[vs]1]_-_[dm3]_000.qwd",
+   "cov": 0.497,
+   "frames": 94144,
+   "base_clean": 5082,
+   "imp_clean": 7142,
+   "imp_runs": 54,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown5__game_1021_otas_dx_1_dm3_povohat.qwd",
+   "cov": 0.875,
+   "frames": 86784,
+   "base_clean": 3927,
+   "imp_clean": 7126,
+   "imp_runs": 86,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Die-Brazil_Die2-Brazil_Die-Karioka_Dm3_QuakeWorld_3v3__die_karioka_[yell]_-_[blue]_3x3_dm3_.qwd",
+   "cov": 0.541,
+   "frames": 86724,
+   "base_clean": 4928,
+   "imp_clean": 7118,
+   "imp_runs": 59,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_In_Bloom-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_ib_vs_diva_dm3_barre.qwd",
+   "cov": 0.984,
+   "frames": 86806,
+   "base_clean": 2926,
+   "imp_clean": 7111,
+   "imp_runs": 112,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Hard_Guns_Crew-Poland_Clan_Osams-Poland_MVD_DM3_QW_4v4__smid.qwd",
+   "cov": 0.7,
+   "frames": 87371,
+   "base_clean": 4697,
+   "imp_clean": 7109,
+   "imp_runs": 67,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__fa_list_1_dm3_syco.qwd",
+   "cov": 0.217,
+   "frames": 50606,
+   "base_clean": 4697,
+   "imp_clean": 7099,
+   "imp_runs": 85,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown4__game_749__fs__tvs_3_dm3_mirage.qwd",
+   "cov": 0.945,
+   "frames": 87302,
+   "base_clean": 3157,
+   "imp_clean": 7079,
+   "imp_runs": 112,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown4__game_690_wr__sr__1_dm3_goljat.qwd",
+   "cov": 0.954,
+   "frames": 86412,
+   "base_clean": 4235,
+   "imp_clean": 7058,
+   "imp_runs": 82,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_562_THDM_MaC_1_DM3_Nevamind.qwd",
+   "cov": 0.71,
+   "frames": 86757,
+   "base_clean": 3311,
+   "imp_clean": 7020,
+   "imp_runs": 97,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown4__game_721_msr_gs_1_dm3_porto.qwd",
+   "cov": 0.95,
+   "frames": 87096,
+   "base_clean": 3465,
+   "imp_clean": 7013,
+   "imp_runs": 98,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__na-sd-final-ag-vs-lod-haze-dm3.qwd",
+   "cov": 0.906,
+   "frames": 83840,
+   "base_clean": 2387,
+   "imp_clean": 7012,
+   "imp_runs": 122,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown5__game_919_ted_fs_1_dm3_reppie.qwd",
+   "cov": 0.964,
+   "frames": 86634,
+   "base_clean": 3080,
+   "imp_clean": 6980,
+   "imp_runs": 105,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_563_THDM_FOAD_1_DM3_neva.qwd",
+   "cov": 0.69,
+   "frames": 86355,
+   "base_clean": 2772,
+   "imp_clean": 6975,
+   "imp_runs": 122,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown3__game_457_WR_Para_2_DM3_jac.qwd",
+   "cov": 0.747,
+   "frames": 87064,
+   "base_clean": 3696,
+   "imp_clean": 6974,
+   "imp_runs": 82,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__cero_pq_vs_lit_dm3.qwd",
+   "cov": 0.923,
+   "frames": 87671,
+   "base_clean": 2618,
+   "imp_clean": 6971,
+   "imp_runs": 120,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_536_MaC_PoC_1_DM3_Kwijibo.qwd",
+   "cov": 0.857,
+   "frames": 86427,
+   "base_clean": 3465,
+   "imp_clean": 6961,
+   "imp_runs": 101,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown4__game_730_db_msr_3_dm3_akbal.qwd",
+   "cov": 0.763,
+   "frames": 86147,
+   "base_clean": 3311,
+   "imp_clean": 6911,
+   "imp_runs": 91,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__tr0n__L0D__lod_vs_sah_dm3.qwd",
+   "cov": 0.797,
+   "frames": 79649,
+   "base_clean": 3080,
+   "imp_clean": 6909,
+   "imp_runs": 103,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__FF_4K_1_dm3_Pietro.qwd",
+   "cov": 0.904,
+   "frames": 89591,
+   "base_clean": 4081,
+   "imp_clean": 6869,
+   "imp_runs": 74,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__NS_BAD_3_dm3_Jarrex.qwd",
+   "cov": 0.878,
+   "frames": 80778,
+   "base_clean": 2926,
+   "imp_clean": 6837,
+   "imp_runs": 108,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__nc_sf_dm3_1_aero.qwd",
+   "cov": 0.579,
+   "frames": 86722,
+   "base_clean": 4851,
+   "imp_clean": 6801,
+   "imp_runs": 50,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown3__game_591_OC_IBH_1_DM3_123.qwd",
+   "cov": 0.939,
+   "frames": 87663,
+   "base_clean": 2541,
+   "imp_clean": 6753,
+   "imp_runs": 115,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown4__game_749__fs__tvs_3_dm3_crit.qwd",
+   "cov": 0.895,
+   "frames": 87614,
+   "base_clean": 2926,
+   "imp_clean": 6702,
+   "imp_runs": 112,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld2__sk_vs_nine_dm3__sk_vs_nine_dm3.qwd",
+   "cov": 0.711,
+   "frames": 58157,
+   "base_clean": 3080,
+   "imp_clean": 6657,
+   "imp_runs": 86,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__ff_tfp_1_dm3_dag.qwd",
+   "cov": 0.928,
+   "frames": 86722,
+   "base_clean": 3465,
+   "imp_clean": 6609,
+   "imp_runs": 86,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_359_Koff_]SR[_1_DM3_ParadokS.qwd",
+   "cov": 0.965,
+   "frames": 85860,
+   "base_clean": 3157,
+   "imp_clean": 6602,
+   "imp_runs": 94,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__rb_fa_1_dm3_necro.qwd",
+   "cov": 0.717,
+   "frames": 60721,
+   "base_clean": 4158,
+   "imp_clean": 6573,
+   "imp_runs": 60,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_606_THDM_FA_4_DM3_spice.qwd",
+   "cov": 0.756,
+   "frames": 86135,
+   "base_clean": 4158,
+   "imp_clean": 6521,
+   "imp_runs": 58,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__z_nc_1_dm3_dedi.qwd",
+   "cov": 0.859,
+   "frames": 85083,
+   "base_clean": 2464,
+   "imp_clean": 6469,
+   "imp_runs": 110,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Tribe_of_Tjernobyl-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_tot_vs_tvs_dm3_sibbit.qwd",
+   "cov": 0.98,
+   "frames": 86566,
+   "base_clean": 3234,
+   "imp_clean": 6468,
+   "imp_runs": 93,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__ToT_AMD_1_dm3_Psycho_Dad.qwd",
+   "cov": 0.885,
+   "frames": 86807,
+   "base_clean": 3927,
+   "imp_clean": 6436,
+   "imp_runs": 74,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__ic_dx_1_dm3_dude.qwd",
+   "cov": 0.836,
+   "frames": 85952,
+   "base_clean": 3696,
+   "imp_clean": 6424,
+   "imp_runs": 73,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_565_Dx_List_2_DM3_i_have_a_cat_named_cece.qwd",
+   "cov": 0.885,
+   "frames": 85617,
+   "base_clean": 2695,
+   "imp_clean": 6264,
+   "imp_runs": 97,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_RoT-Portugal_TAV-Portugal_all_dm3_QuakeWorld_4v4__27-06-03_nitemare-rot-tav_dm3.qwd",
+   "cov": 0.371,
+   "frames": 90489,
+   "base_clean": 3850,
+   "imp_clean": 6207,
+   "imp_runs": 57,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown3__game_433_Quad_TOT_2_DM3_oddjob.qwd",
+   "cov": 0.859,
+   "frames": 88947,
+   "base_clean": 2233,
+   "imp_clean": 6201,
+   "imp_runs": 105,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__ic_poc_1_dm3_Stez.qwd",
+   "cov": 0.272,
+   "frames": 84007,
+   "base_clean": 4389,
+   "imp_clean": 6182,
+   "imp_runs": 48,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown3__game_428_ED_DEATH_2_DM3_exile.qwd",
+   "cov": 0.884,
+   "frames": 87316,
+   "base_clean": 2233,
+   "imp_clean": 6164,
+   "imp_runs": 101,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_596_THDM_PoC_2_DM3_Spice.qwd",
+   "cov": 0.603,
+   "frames": 90220,
+   "base_clean": 3850,
+   "imp_clean": 6100,
+   "imp_runs": 55,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__list_poc_1_dm3_pd.qwd",
+   "cov": 0.75,
+   "frames": 83347,
+   "base_clean": 3619,
+   "imp_clean": 6074,
+   "imp_runs": 65,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_558_ED_WR_2_DM3_exile.qwd",
+   "cov": 0.775,
+   "frames": 86930,
+   "base_clean": 3465,
+   "imp_clean": 6051,
+   "imp_runs": 66,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__tot_para_1_dm3_oddjob.qwd",
+   "cov": 0.956,
+   "frames": 90194,
+   "base_clean": 2772,
+   "imp_clean": 6009,
+   "imp_runs": 93,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__fa_ao_1_dm3_harlsom.qwd",
+   "cov": 0.736,
+   "frames": 86675,
+   "base_clean": 3696,
+   "imp_clean": 5990,
+   "imp_runs": 58,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__list_dx_2_dm3_lb.qwd",
+   "cov": 0.775,
+   "frames": 87564,
+   "base_clean": 3850,
+   "imp_clean": 5967,
+   "imp_runs": 62,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__rb_aok_2_dm3_necro.qwd",
+   "cov": 0.675,
+   "frames": 87020,
+   "base_clean": 3542,
+   "imp_clean": 5956,
+   "imp_runs": 55,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown4__game_747_koff__sr__2_dm3_miser.qwd",
+   "cov": 0.768,
+   "frames": 87091,
+   "base_clean": 2695,
+   "imp_clean": 5939,
+   "imp_runs": 97,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_591_OC_IBH_1_DM3_aKKe.qwd",
+   "cov": 0.882,
+   "frames": 86581,
+   "base_clean": 2618,
+   "imp_clean": 5914,
+   "imp_runs": 90,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Orkney-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_oc_vs_ibh_dm3_akke.qwd",
+   "cov": 0.882,
+   "frames": 86581,
+   "base_clean": 2618,
+   "imp_clean": 5914,
+   "imp_runs": 90,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__clown_xx_cg_dm3.qwd",
+   "cov": 0.717,
+   "frames": 86862,
+   "base_clean": 3927,
+   "imp_clean": 5840,
+   "imp_runs": 50,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__64_akke_dm3.qwd",
+   "cov": 0.932,
+   "frames": 86735,
+   "base_clean": 2541,
+   "imp_clean": 5762,
+   "imp_runs": 91,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__sah-vs-ag-dm3-haze.qwd",
+   "cov": 0.582,
+   "frames": 85149,
+   "base_clean": 1694,
+   "imp_clean": 5737,
+   "imp_runs": 115,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown4__game_690_wr__sr__1_dm3_striker.qwd",
+   "cov": 0.949,
+   "frames": 91140,
+   "base_clean": 2233,
+   "imp_clean": 5714,
+   "imp_runs": 99,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_475_Quad_Para_1_DM3_Jac.qwd",
+   "cov": 0.875,
+   "frames": 73959,
+   "base_clean": 2618,
+   "imp_clean": 5706,
+   "imp_runs": 72,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__list_adm_1_dm3_pd.qwd",
+   "cov": 0.495,
+   "frames": 73299,
+   "base_clean": 3619,
+   "imp_clean": 5626,
+   "imp_runs": 50,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_DvL-Portugal_4ng3ls-Portugal_all_dm3_QuakeWorld_4v4__26-06-03_padfoot-dvl-4ng3ls__dm3.qwd",
+   "cov": 0.54,
+   "frames": 77365,
+   "base_clean": 3619,
+   "imp_clean": 5562,
+   "imp_runs": 50,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__foad_rb_1_dm3_reign.qwd",
+   "cov": 0.735,
+   "frames": 86741,
+   "base_clean": 2849,
+   "imp_clean": 5521,
+   "imp_runs": 70,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_r3v-USA_vs-USA_diehard-r3v_dm3_QW_4v4__diehard_vs2.qwd",
+   "cov": 0.334,
+   "frames": 91783,
+   "base_clean": 3157,
+   "imp_clean": 5443,
+   "imp_runs": 68,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__chtv-dg_coj_dg_vs_fff_dm3.qwd",
+   "cov": 0.646,
+   "frames": 87332,
+   "base_clean": 3234,
+   "imp_clean": 5439,
+   "imp_runs": 67,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__game_260___1_DM3_Blaze.qwd",
+   "cov": 0.911,
+   "frames": 86926,
+   "base_clean": 1540,
+   "imp_clean": 5439,
+   "imp_runs": 103,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__game_258_ANTX_defs_4_DM3_Zip.qwd",
+   "cov": 0.561,
+   "frames": 59996,
+   "base_clean": 2541,
+   "imp_clean": 5423,
+   "imp_runs": 72,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown3__game_395_antx_TAV_1_DM3_KaNG.qwd",
+   "cov": 0.868,
+   "frames": 80595,
+   "base_clean": 3003,
+   "imp_clean": 5379,
+   "imp_runs": 60,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_558_ED_WR_1_DM3_exile.qwd",
+   "cov": 0.881,
+   "frames": 87120,
+   "base_clean": 2849,
+   "imp_clean": 5373,
+   "imp_runs": 70,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_468_PNC_DS_2_DM3_blasu.qwd",
+   "cov": 0.743,
+   "frames": 87301,
+   "base_clean": 2233,
+   "imp_clean": 5363,
+   "imp_runs": 78,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_606_THDM_FA_4_DM3_driz.qwd",
+   "cov": 0.905,
+   "frames": 87005,
+   "base_clean": 2849,
+   "imp_clean": 5295,
+   "imp_runs": 71,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown5__game_820_koff____1_dm3_scenic.qwd",
+   "cov": 0.79,
+   "frames": 87431,
+   "base_clean": 2849,
+   "imp_clean": 5101,
+   "imp_runs": 63,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_592_TVS_Twats_1_DM3_Ihminen.qwd",
+   "cov": 0.979,
+   "frames": 87890,
+   "base_clean": 2079,
+   "imp_clean": 5081,
+   "imp_runs": 86,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__fa_dx_1_dm3_harlsom.qwd",
+   "cov": 0.649,
+   "frames": 87346,
+   "base_clean": 3465,
+   "imp_clean": 5055,
+   "imp_runs": 42,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__tvs_rc_dm3.qwd",
+   "cov": 0.902,
+   "frames": 86332,
+   "base_clean": 2310,
+   "imp_clean": 5049,
+   "imp_runs": 76,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__d2d_list_1_dm3_arnie.qwd",
+   "cov": 0.814,
+   "frames": 64036,
+   "base_clean": 3003,
+   "imp_clean": 4934,
+   "imp_runs": 48,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__murdock_vs_code_dm3.qwd",
+   "cov": 0.77,
+   "frames": 86824,
+   "base_clean": 2387,
+   "imp_clean": 4891,
+   "imp_runs": 64,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__azul_lies_1_dm3_bm.qwd",
+   "cov": 0.943,
+   "frames": 71273,
+   "base_clean": 1617,
+   "imp_clean": 4837,
+   "imp_runs": 103,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__list_adm_1_dm3_arnie.qwd",
+   "cov": 0.802,
+   "frames": 65950,
+   "base_clean": 2618,
+   "imp_clean": 4808,
+   "imp_runs": 54,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__ic_list_1_dm3_shad.qwd",
+   "cov": 0.872,
+   "frames": 86545,
+   "base_clean": 1848,
+   "imp_clean": 4776,
+   "imp_runs": 79,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown4__game_743__fs__tot_1_dm3_crit___.qwd",
+   "cov": 0.844,
+   "frames": 86337,
+   "base_clean": 1848,
+   "imp_clean": 4750,
+   "imp_runs": 81,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__GQ_DG_1_dm3_ziploc.qwd",
+   "cov": 0.673,
+   "frames": 87045,
+   "base_clean": 3003,
+   "imp_clean": 4737,
+   "imp_runs": 47,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__FF_D_2_dm3_Rat.qwd",
+   "cov": 0.859,
+   "frames": 91158,
+   "base_clean": 1925,
+   "imp_clean": 4691,
+   "imp_runs": 82,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown5__game_1024_thdm_list_1_dm3_driz.qwd",
+   "cov": 0.729,
+   "frames": 86525,
+   "base_clean": 2618,
+   "imp_clean": 4671,
+   "imp_runs": 73,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_429_CMF_PNC_1_DM3_Fifi.qwd",
+   "cov": 0.77,
+   "frames": 87032,
+   "base_clean": 2079,
+   "imp_clean": 4635,
+   "imp_runs": 63,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_472_tFf_ED_1_DM3_exile.qwd",
+   "cov": 0.664,
+   "frames": 87194,
+   "base_clean": 2002,
+   "imp_clean": 4595,
+   "imp_runs": 71,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__rc_koff_1_dm3_Milamber.qwd",
+   "cov": 0.789,
+   "frames": 86601,
+   "base_clean": 1617,
+   "imp_clean": 4500,
+   "imp_runs": 80,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Warriors_of_the_Realm-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_wr_vs_doom_dm3_liech.qwd",
+   "cov": 0.57,
+   "frames": 49500,
+   "base_clean": 3080,
+   "imp_clean": 4479,
+   "imp_runs": 35,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__CMF_ADT2_1_dm3_Dare.qwd",
+   "cov": 0.864,
+   "frames": 84484,
+   "base_clean": 1617,
+   "imp_clean": 4476,
+   "imp_runs": 76,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_590_ED_DIE_2_DM3_pietro.qwd",
+   "cov": 0.867,
+   "frames": 87610,
+   "base_clean": 1694,
+   "imp_clean": 4475,
+   "imp_runs": 78,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Enslaved-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_ed_vs_die_dm3_pietro.qwd",
+   "cov": 0.867,
+   "frames": 87610,
+   "base_clean": 1694,
+   "imp_clean": 4475,
+   "imp_runs": 78,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__azul_aok_1_dm3_wart.qwd",
+   "cov": 0.663,
+   "frames": 85514,
+   "base_clean": 2002,
+   "imp_clean": 4330,
+   "imp_runs": 63,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__sah-vs-fith-dm3-arcane.qwd",
+   "cov": 0.46,
+   "frames": 76546,
+   "base_clean": 2079,
+   "imp_clean": 4318,
+   "imp_runs": 54,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__rc_spas_1_dm3_milamber.qwd",
+   "cov": 0.824,
+   "frames": 86210,
+   "base_clean": 1771,
+   "imp_clean": 4271,
+   "imp_runs": 67,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown4__game_721_msr_gs_1_dm3_wart.qwd",
+   "cov": 0.825,
+   "frames": 87272,
+   "base_clean": 1925,
+   "imp_clean": 4239,
+   "imp_runs": 65,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_441_OMG_AQ_2_DM3_JArreX.qwd",
+   "cov": 0.823,
+   "frames": 86678,
+   "base_clean": 1617,
+   "imp_clean": 4191,
+   "imp_runs": 70,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__thdm_list_1_dm3_driz.qwd",
+   "cov": 0.938,
+   "frames": 84483,
+   "base_clean": 1925,
+   "imp_clean": 4157,
+   "imp_runs": 70,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__FF_4K_2_dm3_Pietro.qwd",
+   "cov": 0.896,
+   "frames": 86966,
+   "base_clean": 1848,
+   "imp_clean": 4145,
+   "imp_runs": 67,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__rb_gds_1_dm3_jac.qwd",
+   "cov": 0.87,
+   "frames": 85282,
+   "base_clean": 1925,
+   "imp_clean": 4010,
+   "imp_runs": 60,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__sd3_bb_x_vs_ag_dm3.qwd",
+   "cov": 0.676,
+   "frames": 87012,
+   "base_clean": 2002,
+   "imp_clean": 3963,
+   "imp_runs": 63,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_kimbo-Sweden_none-None_kimbo_dm3_QuakeWorld_Trick__trick.qwd",
+   "cov": 0.967,
+   "frames": 7340,
+   "base_clean": 1771,
+   "imp_clean": 3951,
+   "imp_runs": 50,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown3__game_562_THDM_MaC_1_DM3_Spice_POV.qwd",
+   "cov": 0.614,
+   "frames": 86681,
+   "base_clean": 2695,
+   "imp_clean": 3935,
+   "imp_runs": 36,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__gq_ziploc__gq_vs__dg__dm3_3.qwd",
+   "cov": 0.866,
+   "frames": 91199,
+   "base_clean": 1463,
+   "imp_clean": 3928,
+   "imp_runs": 63,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV__r_chris-USA_skill200frogbot-Australia__r_chris_dm3_QWCA_Domination__pentandwater.qwd",
+   "cov": 0.948,
+   "frames": 5708,
+   "base_clean": 2849,
+   "imp_clean": 3858,
+   "imp_runs": 30,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown2__list_dx_2_dm3_aircon.qwd",
+   "cov": 0.696,
+   "frames": 82313,
+   "base_clean": 2233,
+   "imp_clean": 3836,
+   "imp_runs": 45,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__AG_[vs]_XX2__dm3__def.qwd",
+   "cov": 0.765,
+   "frames": 87303,
+   "base_clean": 1925,
+   "imp_clean": 3730,
+   "imp_runs": 60,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_DBP-Europe_SK-Europe__dm3_QuakeWorld_4v4__m8.qwd",
+   "cov": 0.675,
+   "frames": 88885,
+   "base_clean": 2541,
+   "imp_clean": 3713,
+   "imp_runs": 34,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__chtv-carnage-st-vs-rb-dm3.qwd",
+   "cov": 0.829,
+   "frames": 40413,
+   "base_clean": 770,
+   "imp_clean": 3627,
+   "imp_runs": 73,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__sd3_clown_x_vs_ag_dm3.qwd",
+   "cov": 0.658,
+   "frames": 86362,
+   "base_clean": 1771,
+   "imp_clean": 3580,
+   "imp_runs": 41,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__fa_poc_1_dm3_harlsom.qwd",
+   "cov": 0.69,
+   "frames": 85642,
+   "base_clean": 1925,
+   "imp_clean": 3537,
+   "imp_runs": 42,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown3__game_538_WaP_OZ_2_DM3_czm.qwd",
+   "cov": 0.924,
+   "frames": 85020,
+   "base_clean": 1309,
+   "imp_clean": 3484,
+   "imp_runs": 60,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__vana_e_vs_ff_dm3_3__vana_e_vs_ff_dm3_12.qwd",
+   "cov": 0.974,
+   "frames": 21696,
+   "base_clean": 2079,
+   "imp_clean": 3343,
+   "imp_runs": 37,
+   "tier": "A"
+  },
+  {
+   "demo": "SmackDown4__game_718_SA_msr_2_DM3_Wart.qwd",
+   "cov": 0.795,
+   "frames": 86360,
+   "base_clean": 924,
+   "imp_clean": 3318,
+   "imp_runs": 63,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__fa_thdm_1_dm3_melt.qwd",
+   "cov": 0.856,
+   "frames": 61020,
+   "base_clean": 2233,
+   "imp_clean": 3240,
+   "imp_runs": 31,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__CG_EG_1_dm3_cleansweep.qwd",
+   "cov": 0.751,
+   "frames": 71088,
+   "base_clean": 1771,
+   "imp_clean": 3187,
+   "imp_runs": 39,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__aok_mu_1_dm3_povo.qwd",
+   "cov": 0.483,
+   "frames": 86226,
+   "base_clean": 1771,
+   "imp_clean": 3033,
+   "imp_runs": 36,
+   "tier": "C"
+  },
+  {
+   "demo": "SmackDown4__game_730_db_msr_3_dm3_wart.qwd",
+   "cov": 0.836,
+   "frames": 87648,
+   "base_clean": 539,
+   "imp_clean": 2744,
+   "imp_runs": 61,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown2__list_poc_1_dm3_lb.qwd",
+   "cov": 0.742,
+   "frames": 87027,
+   "base_clean": 1155,
+   "imp_clean": 2734,
+   "imp_runs": 48,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__rb_adm_1_dm3_necro.qwd",
+   "cov": 0.732,
+   "frames": 60751,
+   "base_clean": 1925,
+   "imp_clean": 2724,
+   "imp_runs": 22,
+   "tier": "B"
+  },
+  {
+   "demo": "SmackDown3__game_398_defs_-sl-_1_DM3_lhuk.qwd",
+   "cov": 0.546,
+   "frames": 60259,
+   "base_clean": 1078,
+   "imp_clean": 2447,
+   "imp_runs": 35,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_r3v-USA_vs-USA_d1eh4rd-r3v_dm3_QW_4v4__diehard_vs1.qwd",
+   "cov": 0.187,
+   "frames": 94340,
+   "base_clean": 2233,
+   "imp_clean": 2352,
+   "imp_runs": 6,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown2__dnex-fff-gq-dm3.qwd",
+   "cov": 0.738,
+   "frames": 90912,
+   "base_clean": 616,
+   "imp_clean": 2155,
+   "imp_runs": 38,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_RST-Brazil_LOW-Brazil_overflow_dm3_QuakeWorld_4v4_1__rst-low-2.qwd",
+   "cov": 0.375,
+   "frames": 88521,
+   "base_clean": 1232,
+   "imp_clean": 1791,
+   "imp_runs": 18,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_O_Cla_[6]-Brazil_Lords_of_War_[LoW]-Brazil_doob_dm3_QW_3v3__2004-09-10_3on3_low_vs_[oc]_dm3_000.qwd",
+   "cov": 0.578,
+   "frames": 93462,
+   "base_clean": 924,
+   "imp_clean": 1735,
+   "imp_runs": 27,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__d2d_list_1_dm3_syco.qwd",
+   "cov": 0.263,
+   "frames": 24516,
+   "base_clean": 1001,
+   "imp_clean": 1722,
+   "imp_runs": 19,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_Maniacs-Sweden_Zoo-Sweden_Sassa_dm3_cmt4_e1m2_QuakeWorld_4v4__04-04-02_[0]_vs_Zoo._[dm3]_000.qwd",
+   "cov": 0.583,
+   "frames": 90942,
+   "base_clean": 924,
+   "imp_clean": 1539,
+   "imp_runs": 22,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_rpickup-Brazil_rpickup-Brazil_Necrophobia_dm3_QW_4v4__necrophobia_-_[4on4_blue_vs_red]_-_[dm3]_000.qwd",
+   "cov": 0.393,
+   "frames": 57629,
+   "base_clean": 693,
+   "imp_clean": 1481,
+   "imp_runs": 17,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_CoP-Sweden_ACE-Sweden_Triplesix_dm3_e2m5_QW_CTF__CoP_ACE2.qwd",
+   "cov": 0.331,
+   "frames": 30425,
+   "base_clean": 1078,
+   "imp_clean": 1437,
+   "imp_runs": 15,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_CAMP-Sweden_NONE-None_ETA-BETA_DM3_QuakeWorld_Trick__dm3_trick.qwd",
+   "cov": 0.884,
+   "frames": 4869,
+   "base_clean": 847,
+   "imp_clean": 1427,
+   "imp_runs": 17,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_joi-Sweden_none-_joi_dm3_QuakeWorld_Trick__joi.qwd",
+   "cov": 0.999,
+   "frames": 1391,
+   "base_clean": 1001,
+   "imp_clean": 1221,
+   "imp_runs": 7,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld2__sk_vs_187_dm3__sk_vs_187_dm3.qwd",
+   "cov": 0.242,
+   "frames": 75094,
+   "base_clean": 616,
+   "imp_clean": 1097,
+   "imp_runs": 16,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_---slayer-None_trick-None_124_fov_-_first_person_dm3_QW_Trick__slayer.qwd",
+   "cov": 0.978,
+   "frames": 1958,
+   "base_clean": 308,
+   "imp_clean": 1048,
+   "imp_runs": 21,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_fspanic-Sweden_cmf-Sweden_panic_DM3_QuakeWorld_4v4__panic_[[fs]]_-_[cmf]_4-4_dm3_.qwd",
+   "cov": 0.25,
+   "frames": 92629,
+   "base_clean": 539,
+   "imp_clean": 899,
+   "imp_runs": 12,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld2__ea_vs_ocr_dm3__ea_vs_ocr_dm3.qwd",
+   "cov": 0.263,
+   "frames": 62717,
+   "base_clean": 693,
+   "imp_clean": 839,
+   "imp_runs": 5,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_CoP-Sweden_ACE-Sweden_Triplesix_dm3_e2m5_QW_CTF__CoP_ACE1.qwd",
+   "cov": 0.257,
+   "frames": 29856,
+   "base_clean": 539,
+   "imp_clean": 819,
+   "imp_runs": 12,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_BogoJoker-USA_KovaakSassaSniperZef-USA_me_various_QuakeWorld_Trick__dm3_raremix3.qwd",
+   "cov": 0.989,
+   "frames": 839,
+   "base_clean": 770,
+   "imp_clean": 812,
+   "imp_runs": 2,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_BogoJoker-USA_KovaakSassaSniperZef-USA_me_various_QuakeWorld_Trick__dm3_raremix.qwd",
+   "cov": 0.989,
+   "frames": 831,
+   "base_clean": 616,
+   "imp_clean": 794,
+   "imp_runs": 5,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_The_Pooh_Clan-Europe_Swedish_Chefs-Europe__DM3_QW_4v4__4on4_tpc_vs_sc[dm3].qwd",
+   "cov": 0.533,
+   "frames": 78690,
+   "base_clean": 462,
+   "imp_clean": 681,
+   "imp_runs": 6,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_The_Pooh_Clan-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_tpc_vs_sc_dm3_tiggr.qwd",
+   "cov": 0.533,
+   "frames": 78690,
+   "base_clean": 462,
+   "imp_clean": 681,
+   "imp_runs": 6,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__rb_adm_1_dm3_wart.qwd",
+   "cov": 0.787,
+   "frames": 28360,
+   "base_clean": 385,
+   "imp_clean": 675,
+   "imp_runs": 10,
+   "tier": "B"
+  },
+  {
+   "demo": "smackdown__gds_adm_1_dm3_wart.qwd",
+   "cov": 0.613,
+   "frames": 28947,
+   "base_clean": 539,
+   "imp_clean": 653,
+   "imp_runs": 4,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_the-interceptor-Sweden_trick-_the-interceptor_various_QuakeWorld_Trick__dm3-trick-02.qwd",
+   "cov": 0.998,
+   "frames": 549,
+   "base_clean": 616,
+   "imp_clean": 549,
+   "imp_runs": 1,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__gds_adm_2_dm3_wart.qwd",
+   "cov": 0.71,
+   "frames": 29118,
+   "base_clean": 308,
+   "imp_clean": 479,
+   "imp_runs": 6,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Newtov-USA_Trick-USA_Newtov_DM3_QuakeWorld_Trick__trick1.qwd",
+   "cov": 0.995,
+   "frames": 1624,
+   "base_clean": 308,
+   "imp_clean": 458,
+   "imp_runs": 7,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Newtov-USA_None-None_Newtov_Various_QuakeWorld_Trick__DM3_trick5.qwd",
+   "cov": 0.987,
+   "frames": 478,
+   "base_clean": 385,
+   "imp_clean": 408,
+   "imp_runs": 3,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Newtov-USA_Trick-USA_Newtov_DM3_QuakeWorld_Trick__trick2.qwd",
+   "cov": 0.994,
+   "frames": 772,
+   "base_clean": 154,
+   "imp_clean": 394,
+   "imp_runs": 8,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_ApoKaLypZe-Sweden_various-Argentina_ApoKaLypZe_various_QuakeWorld_Trick__dm3-trick1.qwd",
+   "cov": 0.998,
+   "frames": 424,
+   "base_clean": 385,
+   "imp_clean": 375,
+   "imp_runs": 2,
+   "tier": "A"
+  },
+  {
+   "demo": "smackdown__list_adm_1_dm3_wart.qwd",
+   "cov": 0.539,
+   "frames": 28134,
+   "base_clean": 308,
+   "imp_clean": 354,
+   "imp_runs": 4,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_peppe-Sweden_NA-Scotland_peppe_dm3_dm6_Quakeworld_Trick__peppe-dm3run.qwd",
+   "cov": 0.978,
+   "frames": 1015,
+   "base_clean": 77,
+   "imp_clean": 324,
+   "imp_runs": 8,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_BogoJoker-USA_KovaakSassaSniperZef-USA_me_various_QuakeWorld_Trick__dm3_raremix2.qwd",
+   "cov": 0.987,
+   "frames": 385,
+   "base_clean": 231,
+   "imp_clean": 249,
+   "imp_runs": 2,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_Newtov-USA_Trick-USA_Newtov_DM3_QuakeWorld_Trick__trick4.qwd",
+   "cov": 0.997,
+   "frames": 706,
+   "base_clean": 154,
+   "imp_clean": 228,
+   "imp_runs": 4,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_fm-phil-USA_trickdemo-USA_fm-phil_DM3_QuakeWorld_Trick__acrossZ.qwd",
+   "cov": 0.688,
+   "frames": 1492,
+   "base_clean": 231,
+   "imp_clean": 218,
+   "imp_runs": 3,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_phil-USA_noone-USA_phil_dm3_QWCA_Trick__across.qwd",
+   "cov": 0.895,
+   "frames": 3232,
+   "base_clean": 77,
+   "imp_clean": 176,
+   "imp_runs": 4,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_BogoJoker-USA_none-USA_BogoJoker_various_QuakeWorld_Trick__dm3-cool3.qwd",
+   "cov": 0.545,
+   "frames": 993,
+   "base_clean": 77,
+   "imp_clean": 165,
+   "imp_runs": 3,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_unnamed-None_none-None_unnamed_dm3_QuakeWorld_Trick__dm3pentnailclimb.qwd",
+   "cov": 0.935,
+   "frames": 351,
+   "base_clean": 154,
+   "imp_clean": 151,
+   "imp_runs": 2,
+   "tier": "A"
+  },
+  {
+   "demo": "quakeworld__CHTV_JSS-Russia_None-Russia_JSS_Trick_pack_QW_Trick__JSS_[dm3]_3.qwd",
+   "cov": 0.646,
+   "frames": 406,
+   "base_clean": 154,
+   "imp_clean": 139,
+   "imp_runs": 2,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_bw-Brazil_the_other_team-Brazil_bw_dm3_dm6_QWCA_HowTo__ca-frag-1.qwd",
+   "cov": 0.259,
+   "frames": 1596,
+   "base_clean": 0,
+   "imp_clean": 112,
+   "imp_runs": 3,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_thief-Brazil_pd-Brazil_thief_dm3_QuakeWorld_Comedy__jogada_pent.qwd",
+   "cov": 0.348,
+   "frames": 2875,
+   "base_clean": 77,
+   "imp_clean": 103,
+   "imp_runs": 4,
+   "tier": "C"
+  },
+  {
+   "demo": "smackdown__fa_adm_1_dm3_wart.qwd",
+   "cov": 0.73,
+   "frames": 28489,
+   "base_clean": 77,
+   "imp_clean": 102,
+   "imp_runs": 2,
+   "tier": "B"
+  },
+  {
+   "demo": "quakeworld__CHTV_Seco-Brazil_-__Dm3_QuakeWorld_Trick__pulorlz.qwd",
+   "cov": 0.483,
+   "frames": 498,
+   "base_clean": 77,
+   "imp_clean": 86,
+   "imp_runs": 2,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_BogoJoker-USA_none-USA_BogoJoker_various_QuakeWorld_Trick__dm3-remix.qwd",
+   "cov": 0.59,
+   "frames": 653,
+   "base_clean": 77,
+   "imp_clean": 65,
+   "imp_runs": 2,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_BogoJoker-USA_none-USA_BogoJoker_various_QuakeWorld_Trick__dm3-cool2.qwd",
+   "cov": 0.542,
+   "frames": 556,
+   "base_clean": 77,
+   "imp_clean": 63,
+   "imp_runs": 2,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_WR-Sweden_Oss-Sweden_Triplesix_dm3_e3m6_QW_CTF__fight1.qwd",
+   "cov": 0.16,
+   "frames": 32584,
+   "base_clean": 0,
+   "imp_clean": 0,
+   "imp_runs": 0,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_WR-Sweden_Oss-Sweden_Triplesix_dm3_e3m6_QW_CTF__fight2.qwd",
+   "cov": 0.201,
+   "frames": 32371,
+   "base_clean": 0,
+   "imp_clean": 0,
+   "imp_runs": 0,
+   "tier": "C"
+  },
+  {
+   "demo": "quakeworld__CHTV_WR-Sweden_Oss-Sweden_Triplesix_dm3_e3m6_QW_CTF__fight3.qwd",
+   "cov": 0.056,
+   "frames": 3932,
+   "base_clean": 0,
+   "imp_clean": 0,
+   "imp_runs": 0,
+   "tier": "C"
+  }
+ ]
+}

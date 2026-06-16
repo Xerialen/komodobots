@@ -1,0 +1,272 @@
+{
+  "required_qu_s": 526.2,
+  "human_edge_qu_s": 528.2,
+  "runup_dist_qu": 2242.0,
+  "teleport_exit_speed_qu_s": 299.8,
+  "frame_dt_s": 0.013,
+  "human_runup_air_frames": 342,
+  "human_runup_ground_frames": 41,
+  "A_free_air_ceiling": {
+    "v0": 299.8,
+    "target": 526.2,
+    "air_frames_to_target": 208,
+    "final_speed": 526.4,
+    "note": "perpendicular strafe (c=0); ignores forward progress"
+  },
+  "B_runup_bounded": {
+    "sweep": {
+      "wob5_hop8": {
+        "edge_speed": 159.9,
+        "frames": 760,
+        "air_frames": 665,
+        "ground_frames": 95,
+        "wobble_deg": 5,
+        "hop_period": 8,
+        "dist": 2244.0
+      },
+      "wob5_hop12": {
+        "edge_speed": 466.1,
+        "frames": 495,
+        "air_frames": 453,
+        "ground_frames": 42,
+        "wobble_deg": 5,
+        "hop_period": 12,
+        "dist": 2246.5
+      },
+      "wob5_hop16": {
+        "edge_speed": 322.1,
+        "frames": 398,
+        "air_frames": 373,
+        "ground_frames": 25,
+        "wobble_deg": 5,
+        "hop_period": 16,
+        "dist": 2242.2
+      },
+      "wob5_hop24": {
+        "edge_speed": 296.6,
+        "frames": 552,
+        "air_frames": 529,
+        "ground_frames": 23,
+        "wobble_deg": 5,
+        "hop_period": 24,
+        "dist": 2243.4
+      },
+      "wob8_hop8": {
+        "edge_speed": 409.0,
+        "frames": 804,
+        "air_frames": 703,
+        "ground_frames": 101,
+        "wobble_deg": 8,
+        "hop_period": 8,
+        "dist": 2245.2
+      },
+      "wob8_hop12": {
+        "edge_speed": 342.5,
+        "frames": 812,
+        "air_frames": 744,
+        "ground_frames": 68,
+        "wobble_deg": 8,
+        "hop_period": 12,
+        "dist": 2243.8
+      },
+      "wob8_hop16": {
+        "edge_speed": 183.0,
+        "frames": 997,
+        "air_frames": 934,
+        "ground_frames": 63,
+        "wobble_deg": 8,
+        "hop_period": 16,
+        "dist": 2244.0
+      },
+      "wob8_hop24": {
+        "edge_speed": 150.6,
+        "frames": 1444,
+        "air_frames": 1383,
+        "ground_frames": 61,
+        "wobble_deg": 8,
+        "hop_period": 24,
+        "dist": 2243.8
+      },
+      "wob10_hop8": {
+        "edge_speed": 52.8,
+        "frames": 3672,
+        "air_frames": 3213,
+        "ground_frames": 459,
+        "wobble_deg": 10,
+        "hop_period": 8,
+        "dist": 2242.0
+      },
+      "wob10_hop12": {
+        "edge_speed": 364.5,
+        "frames": 417,
+        "air_frames": 382,
+        "ground_frames": 35,
+        "wobble_deg": 10,
+        "hop_period": 12,
+        "dist": 2245.0
+      },
+      "wob10_hop16": {
+        "edge_speed": 32.0,
+        "frames": 3332,
+        "air_frames": 3123,
+        "ground_frames": 209,
+        "wobble_deg": 10,
+        "hop_period": 16,
+        "dist": 2242.3
+      },
+      "wob10_hop24": {
+        "edge_speed": 432.5,
+        "frames": 370,
+        "air_frames": 354,
+        "ground_frames": 16,
+        "wobble_deg": 10,
+        "hop_period": 24,
+        "dist": 2246.9
+      },
+      "wob15_hop8": {
+        "edge_speed": 428.6,
+        "frames": 471,
+        "air_frames": 412,
+        "ground_frames": 59,
+        "wobble_deg": 15,
+        "hop_period": 8,
+        "dist": 2245.8
+      },
+      "wob15_hop12": {
+        "edge_speed": 410.6,
+        "frames": 408,
+        "air_frames": 374,
+        "ground_frames": 34,
+        "wobble_deg": 15,
+        "hop_period": 12,
+        "dist": 2242.2
+      },
+      "wob15_hop16": {
+        "edge_speed": 481.7,
+        "frames": 416,
+        "air_frames": 390,
+        "ground_frames": 26,
+        "wobble_deg": 15,
+        "hop_period": 16,
+        "dist": 2243.3
+      },
+      "wob15_hop24": {
+        "edge_speed": 473.6,
+        "frames": 389,
+        "air_frames": 372,
+        "ground_frames": 17,
+        "wobble_deg": 15,
+        "hop_period": 24,
+        "dist": 2243.8
+      },
+      "wob20_hop8": {
+        "edge_speed": 198.7,
+        "frames": 601,
+        "air_frames": 525,
+        "ground_frames": 76,
+        "wobble_deg": 20,
+        "hop_period": 8,
+        "dist": 2244.3
+      },
+      "wob20_hop12": {
+        "edge_speed": 411.0,
+        "frames": 426,
+        "air_frames": 390,
+        "ground_frames": 36,
+        "wobble_deg": 20,
+        "hop_period": 12,
+        "dist": 2242.5
+      },
+      "wob20_hop16": {
+        "edge_speed": 356.9,
+        "frames": 420,
+        "air_frames": 393,
+        "ground_frames": 27,
+        "wobble_deg": 20,
+        "hop_period": 16,
+        "dist": 2246.3
+      },
+      "wob20_hop24": {
+        "edge_speed": 552.8,
+        "frames": 392,
+        "air_frames": 375,
+        "ground_frames": 17,
+        "wobble_deg": 20,
+        "hop_period": 24,
+        "dist": 2245.7
+      }
+    },
+    "best_covering_runup": {
+      "edge_speed": 552.8,
+      "frames": 392,
+      "air_frames": 375,
+      "ground_frames": 17,
+      "wobble_deg": 20,
+      "hop_period": 24,
+      "dist": 2245.7
+    },
+    "note": "perfect serpentine strafe-jump in free air, NET travel along a straight axis for the run-up distance; wishdir perpendicular to velocity (c~0, near-max gain). best = highest edge speed that still covers the 2242 qu run-up. Hop landings cost real ground friction. This is an UPPER BOUND (no walls/lifts/steps)."
+  },
+  "C_onmap_rollout": {
+    "human_replay_edge_speed": 529.1,
+    "human_replay_note": "VALIDATION: reproduces ~528 (port is ground-truth)",
+    "greedy_optimal_edge_speed": 387.3,
+    "greedy_optimal_peak": 477.4,
+    "greedy_note": "per-frame one-step-lookahead optimal yaw steering to the edge -- the mode-20 hand controller, evaluated through the real pmove on the real dm3 BSP.",
+    "fixed_theta_sweep": {
+      "90": {
+        "edge_speed": 130.2,
+        "peak": 378.1
+      },
+      "80": {
+        "edge_speed": 213.2,
+        "peak": 299.8
+      },
+      "70": {
+        "edge_speed": 224.6,
+        "peak": 349.9
+      },
+      "60": {
+        "edge_speed": 417.8,
+        "peak": 428.0
+      },
+      "50": {
+        "edge_speed": 304.0,
+        "peak": 466.5
+      },
+      "45": {
+        "edge_speed": 432.1,
+        "peak": 432.1
+      },
+      "40": {
+        "edge_speed": 404.2,
+        "peak": 404.2
+      },
+      "35": {
+        "edge_speed": 381.8,
+        "peak": 381.8
+      },
+      "30": {
+        "edge_speed": 363.8,
+        "peak": 363.8
+      }
+    },
+    "best_fixed_theta_edge_speed": 432.1,
+    "best_fixed_theta": 45
+  },
+  "verdict": {
+    "reachable_526_under_believable_approach": true,
+    "physics_evidence": {
+      "human_carries_at_edge": 528.2,
+      "human_replay_on_sim": 529.1,
+      "air_frames_needed_perfect_strafe": 208,
+      "air_frames_available_in_runup": 342,
+      "free_air_straight_run_edge_speed": 552.8
+    },
+    "best_synthetic_controller_edge_speed": 432.1,
+    "synthetic_shortfall_vs_526": -94.1,
+    "binding_constraint": "CONTROLLER QUALITY / NAVIGATION, not physics. The substrate permits >= 526 at this edge with margin (human carries 528 on the same sim; air-frame budget 208<342; free-air straight run reaches 552 over the 2242 qu run-up). The synthetic hand controllers fall short only because they fail to bunnyhop the corridor cleanly to the edge -- the SAME navigation-to-the-edge gap the dm3 instrument already flagged, not an accel ceiling.",
+    "is_physics_ceiling_finding_to_surface": false,
+    "surface_note": "NOT a physics-ceiling finding. 526 is reachable under the substrate. What must be surfaced instead is that the blocker is reliable bunnyhop NAVIGATION to the edge (carry speed through the corridor), which Stage-1 hand-mover + Stage-2 learned MOVE must solve -- this retires the 'is 526 even possible' question."
+  }
+}

@@ -1,0 +1,8 @@
+# Model checkpoints, packed datasets, and any large arrays live in WSL ~/ and
+# must never enter git. Guard against stray copies in this dir.
+*.pt
+*.pth
+*.npz
+*.npy
+__pycache__/
+_*.sh
