@@ -22,11 +22,11 @@ Input is a 6-dim **state-only, velocity-relative, map-agnostic** feature vector 
 **Explicitly out of scope (Stage-3+, do not build here):**
 - **Aim / view control.** The policy outputs **move only**. View-yaw enters as an *input feature* (`lvm`) and is **replayed from the human** in both gates and in the live seam (`docs/15_LIVE_VALIDATION_LOOP.md:79-88`). Learned view-yaw is AIM, deferred to Stage 3.
 - **View/aim believability coupling** (DeepFrag's primary bot-detector) — a **Stage-3 acceptance metric, not a v1 gate** (`docs/15:84-88`). It only bites once synthesized view exists.
-- **DECIDE / economy, team coordination, learned multi-bot** (`docs/12` §5, §7 Stages 4–5).
+- **DECIDE / economy, team coordination, learned multi-bot** (`references/12_DM3_4ON4_STANDIN_PROGRAM.md` §5, §7 Stages 4–5).
 - **The cracked bhop formula.** It will later slot into the `airlaw_action` seam; do **not** block on it.
 - **Architecture changes** (GRU variant) — a documented follow-up only if closed-loop later shows the MLP needs phase memory (`train.py:10-12`).
 
-**Kill criterion (carried from docs/12 Stage 2).** If BC open-loop retention `<` the analytic air-law prior, the learned MOVE is abandoned and the hand-mover is kept (`eval_openloop.py:310-312`). The prior pooled run did **not** trip this (BC 0.180 vs air-law 0.074).
+**Kill criterion (carried from `references/12_DM3_4ON4_STANDIN_PROGRAM.md` Stage 2).** If BC open-loop retention `<` the analytic air-law prior, the learned MOVE is abandoned and the hand-mover is kept (`eval_openloop.py:310-312`). The prior pooled run did **not** trip this (BC 0.180 vs air-law 0.074).
 
 ---
 
@@ -135,7 +135,7 @@ $V $P/eval_openloop.py --data ~/move_bc_dataset_dm3_4on4.npz \
     --ckpt ~/move_bc_policy_dm3_4on4.pt --shard-dir ~/move_bc_shards \
     --n-demos 20 --max-frames 30000 --out ~/move_bc_openloop_dm3_4on4.json
 ```
-**Acceptance (`eval_openloop.py:309-312`):** `bc_beats_airlaw_prior = (BC mean clean-frame-frac ≥ air-law prior)`. PASS if true; **KILL per docs/12 if false.** Prior-run targets (expect parity): BC retention **0.180** vs air-law **0.074** (~2.4×); action reproduction fwd 0.67 / side 0.64 / jump 0.85. Best mean val acc ≈ **0.89** (fwd ~0.872, side ~0.864, jump ~0.94). Treat as reference bands; large deviation means the data or class weights changed.
+**Acceptance (`eval_openloop.py:309-312`):** `bc_beats_airlaw_prior = (BC mean clean-frame-frac ≥ air-law prior)`. PASS if true; **KILL per `references/12_DM3_4ON4_STANDIN_PROGRAM.md` if false.** Prior-run targets (expect parity): BC retention **0.180** vs air-law **0.074** (~2.4×); action reproduction fwd 0.67 / side 0.64 / jump 0.85. Best mean val acc ≈ **0.89** (fwd ~0.872, side ~0.864, jump ~0.94). Treat as reference bands; large deviation means the data or class weights changed.
 
 ### (b) Closed-loop MOVE gate — the real Stage-2 acceptance
 `eval_closedloop.py` drives `pmove_sim` with the sim's own state fed back each tick (human view replayed), from random starts × held-out demos.
@@ -165,7 +165,7 @@ python scripts/run_4v4_validation_lab.py \
 2. **In-lab:** the tracked komodobot slot completes a valid 4v4 dm3 match (clean `damage.matrix`: enemy damage present, intra-team ≈ 0 — the R-T team check), survives/laps, is **not bottom-of-lobby on movement**; composite **z ≥ −1** vs the Frogbot baseline; RL/LG accuracy within ~1σ (movement must not corrupt stock aim).
 3. **Believability:** `docs/16` G-MV checks — **G-MV1 (no face-and-run collapse) is the hard fail**: airborne `|wrap180(yaw − atan2(vy,vx))|` must be human-shaped, not ~0. Band-pass is necessary-not-sufficient.
 
-> **HONEST GAP — the learned policy is not yet wired into the live slot.** `run_4v4_validation_lab.py` currently spawns the komodobot slot as a **plain Frogbot** (`addbot 20 <team>`) tagged "komodobot" by label only — it sets **no per-slot moveprobe cvar and loads no learned policy.** Driving the slot from the learned policy is **PR #190 "Drive 4v4 Komodobot slot from WSL" (open)**, and a live per-tick learned-policy bridge is an **unbuilt new capability** (`docs/12:135-136, 238-241`). Until #190 lands and a policy-feeding controller exists, layer (c) can only run as a **mode-10 `.cmds` replay** of the policy's rollout (open-loop) or a labeled-Frogbot smoke check. **State which variant you ran; do not report a Frogbot-in-disguise run as a learned-MOVE validation.**
+> **HONEST GAP — the learned policy is not yet wired into the live slot.** `run_4v4_validation_lab.py` currently spawns the komodobot slot as a **plain Frogbot** (`addbot 20 <team>`) tagged "komodobot" by label only — it sets **no per-slot moveprobe cvar and loads no learned policy.** Driving the slot from the learned policy is **PR #190 "Drive 4v4 Komodobot slot from WSL" (open)**, and a live per-tick learned-policy bridge is an **unbuilt new capability** (`references/12_DM3_4ON4_STANDIN_PROGRAM.md:135-136, 238-241`). Until #190 lands and a policy-feeding controller exists, layer (c) can only run as a **mode-10 `.cmds` replay** of the policy's rollout (open-loop) or a labeled-Frogbot smoke check. **State which variant you ran; do not report a Frogbot-in-disguise run as a learned-MOVE validation.**
 
 ---
 

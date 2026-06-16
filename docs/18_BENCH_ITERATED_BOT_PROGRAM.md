@@ -1,7 +1,7 @@
 # 18 — Bench-iterated human-like DM3 bot program
 
 **Status:** canonical program (greenfield, approved 2026-06-16). Supersedes the staged
-`docs/12_DM3_4ON4_STANDIN_PROGRAM.md`, which is moved to `references/` as background.
+DM3 4on4 stand-in plan, now moved to `references/12_DM3_4ON4_STANDIN_PROGRAM.md` as background.
 Register here is deliberately plain ("caveman") per owner preference; exit criteria and
 tickets are precise and testable.
 
