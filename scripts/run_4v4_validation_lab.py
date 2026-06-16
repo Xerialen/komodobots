@@ -449,10 +449,22 @@ def write_summary(
         f"- Ledger: `{ledger_out}`",
     ]
     if latest_game:
+        bench = latest_game.get("bench", {})
+        gate = latest_game.get("damage_matrix", {})
+        agg = ledger.get("bench", {})
         lines.extend(
             [
                 f"- Ledger verdict: `valid`",
                 f"- Previous valid run: `{latest_game.get('previous_valid_run_id')}`",
+                f"- Leap-frog frag margin (this game): "
+                f"`{bench.get('leap_frags')} - {bench.get('frog_frags')} = {bench.get('frag_margin')}`",
+                f"- R-T damage.matrix gate: "
+                f"`{'green' if gate.get('gate_pass') else 'RED ' + str(gate.get('reasons'))}` "
+                f"(enemy={gate.get('enemy_damage')}, intra-team={gate.get('intra_team_damage')})",
+                f"- Bench best-of-{agg.get('games_scored')}: "
+                f"`leap-frog margin total={agg.get('leap_frag_margin_total')} "
+                f"mean={agg.get('leap_frag_margin_mean')} "
+                f"leap_wins={agg.get('leap_wins')}/{agg.get('games_scored')}`",
                 f"- Teams: `{json.dumps(latest_game.get('teams', []), sort_keys=True)}`",
             ]
         )
@@ -481,6 +493,15 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument("--team2", type=validate_team_name, default=DEFAULT_TEAM_NAMES[1])
     parser.add_argument("--controller-version", default="komodobot-dev")
     parser.add_argument("--komodobot-slot", type=int, default=1)
+    parser.add_argument(
+        "--leap-team",
+        action="store_true",
+        help=(
+            "Score a full frog-vs-leap 4v4: four leap bots (team1) vs four "
+            "skill-20 frogbot controls (team2). The ledger then emits the "
+            "leap-frog frag margin over best-of-N and the R-T damage.matrix gate."
+        ),
+    )
     parser.add_argument("--out-root", type=Path, default=DEFAULT_OUT_ROOT)
     parser.add_argument("--ledger-out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--lab-mvdsv", type=validate_remote_bin_arg, default="mvdsv-lab")
@@ -524,6 +545,7 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             map_name=args.map_name,
             timelimit=args.timelimit,
             team_names=(args.team1, args.team2),
+            leap_team=args.leap_team,
         )
         upload_shim(args.host, run_id)
         run_remote_4v4_lab(

@@ -77,6 +77,27 @@ class FourVFourValidationRunnerTest(unittest.TestCase):
         self.assertEqual(komodo["role"], "komodobot")
         self.assertEqual(komodo["controller_version"], "komodo-v2")
 
+    def test_leap_team_roster_is_four_leap_vs_four_skill20_frogbots(self):
+        roster = runner.build_roster_intent(
+            run_id="20260614T200000Z",
+            controller_version="komodo-v2",
+            leap_team=True,
+        )
+
+        self.assertIsNone(roster["komodobot_slot"])
+        self.assertEqual(roster["leap_team"], "red")
+        teams = {team: 0 for team in ("red", "blue")}
+        roles = {"leap": 0, "control": 0}
+        for player in roster["players"]:
+            teams[player["team"]] += 1
+            roles[player["role"]] += 1
+            self.assertEqual(player["bot_skill"], 20)
+        self.assertEqual(teams, {"red": 4, "blue": 4})
+        self.assertEqual(roles, {"leap": 4, "control": 4})
+        leaps = [p for p in roster["players"] if p["role"] == "leap"]
+        self.assertTrue(all(p["team"] == "red" for p in leaps))
+        self.assertTrue(all(p["controller_version"] == "komodo-v2" for p in leaps))
+
     def test_roster_intent_allows_explicit_safe_team_names(self):
         roster = runner.build_roster_intent(
             run_id="20260614T200000Z",
