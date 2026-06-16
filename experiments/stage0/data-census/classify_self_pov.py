@@ -116,11 +116,27 @@ def load_manifest() -> dict:
 
 
 def main() -> int:
+    import argparse
+    ap = argparse.ArgumentParser(description="dm3 4on4 self-POV classifier")
+    ap.add_argument("--allow-empty", action="store_true",
+                    help="write census outputs even when no input corpus is found "
+                         "(default: fail closed, to protect the committed census)")
+    args = ap.parse_args()
     manifest = load_manifest()
     # gather all .qwd: decompressed + raw
     files = sorted(CTV_DECOMP.glob("*.qwd"))
     raw = sorted(RAW_QWD_DIR.glob("*.qwd"))
     files += raw
+    # Fail closed: a normal checkout without the corpus would otherwise overwrite the
+    # committed census (self_pov_per_demo.tsv / self_pov_summary.json) with an empty
+    # dataset and still exit 0 — silently destroying imported evidence. Refuse to write
+    # unless the operator explicitly opts in with --allow-empty.
+    if not files and not args.allow_empty:
+        sys.stderr.write(
+            f"ERROR: no input .qwd found under {CTV_DECOMP} or {RAW_QWD_DIR}.\n"
+            f"Refusing to overwrite the committed census in {OUT_DIR} with an empty "
+            f"dataset. Provide the corpus, or pass --allow-empty to write anyway.\n")
+        return 2
     rows = []
     parse_fail = 0
     for f in files:
