@@ -47,6 +47,10 @@ for _p in (str(REPO_ROOT), str(REPO_ROOT / "scripts")):
         sys.path.insert(0, _p)
 
 import pmove_sim  # noqa: E402
+# World-view features come from the shared single-source-of-truth module (T0.4),
+# so the open/closed-loop evaluators score MoveMLP on exactly the same feature
+# vector the dataset was built with and the live sidecar will serve.
+import move_world_view  # noqa: E402
 
 SEGMENT = 77
 DIVERGE_THRESH = 4.0
@@ -55,20 +59,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from train import MoveMLP, FEATURE_DIM  # noqa: E402
 
 
-def wrap180(d):
-    return (d + 180.0) % 360.0 - 180.0
-
-
-def state_features(vx, vy, vz, yaw, pitch):
-    hsp = math.hypot(vx, vy)
-    moving = 1.0 if hsp >= 1.0 else 0.0
-    if moving:
-        vhead = math.degrees(math.atan2(vy, vx))
-        lvm = math.radians(wrap180(yaw - vhead))
-        lvm_sin, lvm_cos = math.sin(lvm), math.cos(lvm)
-    else:
-        lvm_sin, lvm_cos = 0.0, 0.0
-    return (hsp / 320.0, vz / 320.0, lvm_sin, lvm_cos, moving, pitch / 90.0)
+# Re-exported from the shared world-view module so this evaluator and the
+# offline dataset builder compute the feature vector from one canonical place
+# (T0.4). eval_closedloop imports state_features/wrap180 from here, so the names
+# stay stable.
+wrap180 = move_world_view.wrap180
+state_features = move_world_view.state_features
 
 
 def airlaw_action(vx, vy, vz, yaw, onground):
