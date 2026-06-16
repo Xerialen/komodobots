@@ -3029,7 +3029,7 @@ A5 proved `zip(cmds, states)` corrupts conclusions when `svc_playerinfo` rows dr
 
 Take `docs/00`'s Decision Point Alpha **toward Megalodon Milton first**: pursue a learned-brain
 **live 4on4 DM3 stand-in bot** (clone the strongest per-skill players, prove on DM3, add a
-skill-down knob later) rather than FantasyQuake-first. The full program is `docs/12_DM3_4ON4_STANDIN_PROGRAM.md`.
+skill-down knob later) rather than FantasyQuake-first. The full program is `references/12_DM3_4ON4_STANDIN_PROGRAM.md`.
 
 ### Why
 

@@ -1000,7 +1000,7 @@ Why it matters:
 
 ## QuakeWorld ecosystem tooling (DM3 4on4 stand-in program)
 
-Registered for the `docs/12_DM3_4ON4_STANDIN_PROGRAM.md` program. All verified on disk under
+Registered for the `references/12_DM3_4ON4_STANDIN_PROGRAM.md` program. All verified on disk under
 `C:\Users\benya\projects\quakeworld\`. Pin commits before relying on behaviour.
 
 - **mvd_analyzer** — `tools/mvd_analyzer` (Go, Schema v32; REST + MCP + `qw-analyze` CLI). Macro /
@@ -1022,7 +1022,7 @@ Registered for the `docs/12_DM3_4ON4_STANDIN_PROGRAM.md` program. All verified o
 
 ### Program & external movement-AI references
 
-- `docs/12_DM3_4ON4_STANDIN_PROGRAM.md` — the DM3 4on4 stand-in program of record (Megalodon Milton).
+- `references/12_DM3_4ON4_STANDIN_PROGRAM.md` — the DM3 4on4 stand-in program of record (Megalodon Milton).
 - External method/validation literature (MLMove, Pearce, Humanoid + one-hop refs) is consolidated in
   `docs/12` §9, folded from the prior `docs/11_EXTERNAL_MOVEMENT_AI_SOURCES.md` (superseded).
 
