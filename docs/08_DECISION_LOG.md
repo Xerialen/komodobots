@@ -3025,11 +3025,17 @@ A5 proved `zip(cmds, states)` corrupts conclusions when `svc_playerinfo` rows dr
 
 ## 2026-06-14 -- Decision Point Alpha taken (provisionally): Megalodon Milton first
 
+> **Superseded 2026-06-16 (greenfield reset).** The program of record is now
+> `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` (a bench-iterated, human-like DM3 bot — movement + aim +
+> decisions learned from human demos, judged on a frog-vs-leap 4on4 bench). The staged plan described
+> below — then called `docs/12`, now moved to `references/12_DM3_4ON4_STANDIN_PROGRAM.md` — is retained
+> as background only. This entry is preserved unchanged as the historical record of the 2026-06-14 call.
+
 ### Decision
 
 Take `docs/00`'s Decision Point Alpha **toward Megalodon Milton first**: pursue a learned-brain
 **live 4on4 DM3 stand-in bot** (clone the strongest per-skill players, prove on DM3, add a
-skill-down knob later) rather than FantasyQuake-first. The full program is `docs/12_DM3_4ON4_STANDIN_PROGRAM.md`.
+skill-down knob later) rather than FantasyQuake-first. The full program is `references/12_DM3_4ON4_STANDIN_PROGRAM.md`.
 
 ### Why
 
