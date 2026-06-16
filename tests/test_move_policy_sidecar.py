@@ -81,6 +81,39 @@ def _ref_policy_decode(lf, ls, lj):
     return _ref_argmax(lf) - 1, _ref_argmax(ls) - 1, _ref_argmax(lj)
 
 
+# ---------------------------------------------------------------------------
+# Multiprocessing worker targets, defined at MODULE scope so they are picklable
+# under a `spawn`/`forkserver` start method (Python >= 3.14 default on some
+# platforms, or any CI/dev that sets it explicitly). A locally-nested target
+# cannot be pickled, so `Process.start()` would raise before the test ran.
+# Args are passed via Process(args=...).
+# ---------------------------------------------------------------------------
+def _torn_read_writer(name, stop_evt, iters):
+    """Hammer slot 1's VIEW: stamp k into BOTH req_seq and feats[0] so a torn
+    pairing is detectable by the reader. Target for the torn-read stress test."""
+    mm = sc.open_region(name)
+    try:
+        for k in range(1, iters + 1):
+            feats = [k / 1000.0, 0.123, -0.456, 0.789, 1.0, 0.5]
+            sc.write_view(mm, 1, k, feats, valid=True)
+    finally:
+        mm.close()
+    stop_evt.set()
+
+
+def _run_sidecar_worker(name, stop_evt):
+    """Run the real serve_loop with a torch-free stub policy until stopped.
+    Target for the live-sidecar round-trip test."""
+    sc.serve_loop(name, _stub_move_const, hz=200.0,
+                  stop_predicate=stop_evt.is_set)
+
+
+def _stub_move_const(_feats):
+    """A constant move decision (1, -1, 1); picklable module-level stub policy.
+    Must be module scope so _run_sidecar_worker can be pickled under spawn."""
+    return (1, -1, 1)
+
+
 # ===========================================================================
 # 1. Transport round-trip over the T0.2 shm seqlock
 # ===========================================================================
@@ -181,30 +214,34 @@ class TestTransportRoundTrip(unittest.TestCase):
     def test_no_torn_read_under_concurrent_writer(self):
         """A separate process hammers a slot's VIEW; reads are never torn.
 
-        The seqlock guarantees every snapshot read is internally consistent: the
-        whole body belongs to a single write. The writer encodes its iteration k
-        BOTH into req_seq AND into feats[0] (== k/1000), so a consistent read
-        must have feats[0]*1000 == req_seq (within f32 rounding). A torn read
-        would pair feats[0] from one write with a req_seq from another -> the
-        assertion would fire. We run many thousands of writes to make the
-        writer/reader interleave aggressively.
+        This is the regression guard for the seqlock write/read protocol. The
+        body is written by a non-atomic cross-process memcpy, so a reader can
+        catch it mid-write; the seqlock must guarantee that any *accepted* read
+        is internally consistent (the whole body belongs to a single write). The
+        writer encodes its iteration k BOTH into req_seq AND into feats[0]
+        (== k/1000), so a consistent read must have feats[0]*1000 == req_seq
+        (within f32 rounding); a torn read pairs feats[0] from one write with a
+        req_seq from another (or the zero seed) -> the assertion fires.
+
+        The earlier writer set only the LEADING guard odd before mutating the
+        body and left the TRAILING guard at its old even value until after the
+        body write. A reader that had already loaded the old (even) leading guard
+        could then read a half-written body and read the trailing guard while it
+        still held the matching old even value -> old_head == old_tail, both even
+        -> a torn snapshot was accepted. With N_ITERS below this test detected
+        that tear on 12/12 runs against the buggy writer (~0.3 s/run on a 16-core
+        box) and passes on every run with the corrected writer (both guards odd
+        before the body). Keep the count high: a low count makes the
+        writer/reader window too rare and the guard goes flaky.
         """
         sc.create_region(self.name)
         stop = Event()
-        n_iters = 20000
+        # High enough that the writer/reader interleave reliably hits the
+        # mid-body window: the pre-fix writer was caught tearing on every run at
+        # this count, so the test is a real regression guard, not a no-op.
+        n_iters = 300000
 
-        def writer(name, stop_evt, iters):
-            mm = sc.open_region(name)
-            try:
-                for k in range(1, iters + 1):
-                    # k stamped into req_seq AND feats[0] so a torn pairing shows
-                    feats = [k / 1000.0, 0.123, -0.456, 0.789, 1.0, 0.5]
-                    sc.write_view(mm, 1, k, feats, valid=True)
-            finally:
-                mm.close()
-            stop_evt.set()
-
-        p = Process(target=writer, args=(self.name, stop, n_iters))
+        p = Process(target=_torn_read_writer, args=(self.name, stop, n_iters))
         p.start()
         try:
             mm = sc.open_region(self.name)
@@ -232,16 +269,13 @@ class TestTransportRoundTrip(unittest.TestCase):
                 p.terminate()
 
     def test_serve_loop_against_live_mock(self):
-        """End-to-end with the real serve_loop running in a background process."""
+        """End-to-end with the real serve_loop running in a background process.
+
+        Uses the module-scope worker + stub policy (picklable under spawn)."""
         sc.create_region(self.name)
         stop = Event()
 
-        def run_sidecar(name, stop_evt):
-            # stub policy: needs no torch; identity-ish decision
-            sc.serve_loop(name, lambda f: (1, -1, 1), hz=200.0,
-                          stop_predicate=stop_evt.is_set)
-
-        p = Process(target=run_sidecar, args=(self.name, stop))
+        p = Process(target=_run_sidecar_worker, args=(self.name, stop))
         p.start()
         try:
             with sc.MockKtxWriter(self.name) as ktx:
