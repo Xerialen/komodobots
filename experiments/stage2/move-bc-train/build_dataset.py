@@ -11,7 +11,10 @@ labels, tagged with a demo index (for demo-level train/val split) and quality
 tier (A/B/C).
 
 FEATURES (state-only -- never derived from the action being predicted, so the
-policy cannot cheat):
+policy cannot cheat). Since T0.4 these are computed by the SHARED world-view
+module scripts/move_world_view.state_features (the single source of truth used
+both offline here and by the live sidecar, so the world-view is built the SAME
+way; see docs/18 wall #2). The 6 features it returns, in order:
   hspeed/320          horizontal speed, maxspeed-normalised
   vz/320              vertical velocity
   lvm_sin, lvm_cos    look-lead = signed angle(view-yaw - velocity-heading),
@@ -49,7 +52,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 import sys
 import time
@@ -64,6 +66,12 @@ for _p in (str(REPO_ROOT), str(REPO_ROOT / "scripts")):
         sys.path.insert(0, _p)
 
 import pmove_sim  # noqa: E402
+# Shared world-view module is the SINGLE SOURCE OF TRUTH for the MoveMLP feature
+# vector (bot-program T0.4). The features below are computed by importing it, not
+# inline, so the offline dataset and the live sidecar (T0.6) build the world-view
+# the SAME way (docs/18 wall #2 "one world-view"; T0.5 golden-vector parity).
+import move_world_view  # noqa: E402
+from move_world_view import state_features  # noqa: E402
 
 SEGMENT = 77
 DIVERGE_THRESH = 4.0
@@ -81,8 +89,8 @@ def _init_worker(bsp_path):
     _WORLD = pmove_sim.WorldModel.load(bsp_path)
 
 
-def wrap180(d):
-    return (d + 180.0) % 360.0 - 180.0
+# Re-exported from the shared world-view module (canonical definition).
+wrap180 = move_world_view.wrap180
 
 
 def _load_shard(path):
@@ -142,24 +150,13 @@ def _features_and_labels(frames, runs):
         for i in range(a, b):
             f = frames[i]
             vx, vy, vz = f["velocity"]
-            hsp = math.hypot(vx, vy)
             yaw = f["angles"][1]
             pitch = f["angles"][0]
-            moving = 1.0 if hsp >= 1.0 else 0.0
-            if moving:
-                vhead = math.degrees(math.atan2(vy, vx))
-                lvm = math.radians(wrap180(yaw - vhead))
-                lvm_sin, lvm_cos = math.sin(lvm), math.cos(lvm)
-            else:
-                lvm_sin, lvm_cos = 0.0, 0.0
-            feats.append((
-                hsp / 320.0,
-                vz / 320.0,
-                lvm_sin,
-                lvm_cos,
-                moving,
-                pitch / 90.0,
-            ))
+            # SINGLE SOURCE OF TRUTH (T0.4): the world-view feature vector is
+            # computed by the shared module, not inline, so offline and live
+            # build it identically. state_features returns FEATURE_NAMES order:
+            # (hspeed/320, vz/320, lvm_sin, lvm_cos, moving, pitch/90).
+            feats.append(state_features(vx, vy, vz, yaw, pitch))
             fwd, side, _up = f["move"]
             buttons = int(f["buttons"])
             fwd_cls = 1 if fwd > 0 else (-1 if fwd < 0 else 0)
