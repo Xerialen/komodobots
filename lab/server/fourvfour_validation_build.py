@@ -168,12 +168,15 @@ def _validate_roster(roster: dict[str, Any] | None) -> list[str]:
     leap_count = 0
     control_count = 0
     skill20_controls = 0
+    leap_role_teams: set[str] = set()
     team_counts = _count_teams(players)
     for p in players:
         if not isinstance(p, dict):
             reasons.append("roster_player_not_object")
             continue
         role = p.get("role")
+        if role in LEAP_ROLES:
+            leap_role_teams.add(str(p.get("team") or ""))
         if role == "komodobot":
             komodo_count += 1
         elif role == "leap":
@@ -185,6 +188,15 @@ def _validate_roster(roster: dict[str, Any] | None) -> list[str]:
 
     if not _is_two_teams_four_each(team_counts):
         reasons.append("roster_not_two_fixed_teams_4_each")
+
+    # The leap slot(s) must all sit on ONE roster team so the bench can resolve a
+    # single leap team and emit a real leap-minus-frog frag margin. Counting roles
+    # alone is not enough: a four-leap roster split 2+2 across both teams of four
+    # still counts as leap_count==4 but leaves the bench with no resolvable leap
+    # team -> zero-scored aggregate behind a green gate (Codex P2 on PR #227).
+    leap_role_teams.discard("")
+    if len(leap_role_teams) > 1:
+        reasons.append("roster_leap_roles_split_across_teams")
 
     # Two supported shapes (docs/18 T0.1): one komodobot + seven skill-20 frogbot
     # controls, OR four leap bots + four skill-20 frogbot controls. Both keep
@@ -229,6 +241,17 @@ def validate_match(normalized: dict[str, Any], roster: dict[str, Any] | None) ->
         reasons.append("teams_do_not_match_roster_teams")
 
     reasons.extend(_validate_roster(roster))
+
+    # Fail closed: if the bench cannot resolve a single leap team from the enriched
+    # players, the game must NOT count as valid. Otherwise the ledger records
+    # valid_games>=1 while the aggregate scores zero and the damage.matrix gate can
+    # still read green -- a malformed run that emits no margin yet looks valid
+    # (Codex P2 on PR #227). This is independent of the roster-count check above so
+    # an unresolvable split is caught even if roster fields are missing/inconsistent.
+    leap_team, frog_team = _leap_frog_teams(players)
+    if leap_team is None or frog_team is None:
+        reasons.append("bench_could_not_resolve_leap_vs_frog_teams")
+
     return sorted(set(reasons))
 
 

@@ -91,6 +91,63 @@ the first real live frog-vs-leap verdict through this same bench path.
 
 ---
 
+## 2026-06-16 -- Bench fix: reject split-leap rosters before scoring (post-#227)
+
+### Experiment
+
+Close a Codex P2 found on PR #227 (T0.1) after it merged to `main`. The
+four-leap roster shape check in `lab/server/fourvfour_validation_build.py`
+validated a roster only by counting roles (`leap_count==4`,
+`control_count==4`), so a roster with the four `leap` bots split 2+2 across
+both teams of four (two leap + two control per team) passed as valid. The bench
+then could not resolve a single leap team, scored zero games, and still emitted
+a green `damage.matrix` gate -- a malformed run that looks valid while emitting
+no frag margin (the bench silently lies).
+
+### Result
+
+Two-part defense-in-depth fix:
+
+1. `_validate_roster` now tracks the team(s) carrying any leap/komodobot role
+   and adds `roster_leap_roles_split_across_teams` when those roles span more
+   than one team. The two legitimate shapes (one komodobot + seven controls;
+   four leap on one team vs four skill-20 frogbots) still validate.
+2. `validate_match` now fails closed: it calls `_leap_frog_teams` on the
+   enriched players and adds `bench_could_not_resolve_leap_vs_frog_teams` when a
+   single leap team cannot be resolved, so an unresolved game is recorded as
+   invalid (never counted in `valid_games`, never scored, never gated green) even
+   if roster fields are missing/inconsistent.
+
+### Evidence
+
+- `python -m unittest discover -s tests -p "test_*.py"`: 1182 tests passed
+  (+1 new regression test).
+- Pre-fix repro on a split-leap fixture: `valid_games=1`, `games_scored=0`,
+  `leap_frag_margin_total=None`, `damage_matrix_gate_pass=True` (green gate, no
+  margin). Post-fix on the same fixture: `valid_games=0`, one invalid game with
+  reasons `['roster_leap_roles_split_across_teams',
+  'bench_could_not_resolve_leap_vs_frog_teams']`, `games_scored=0`,
+  `damage_matrix_gate_pass=False`.
+- Existing positive case `test_full_leap_roster_resolves_team_and_margin`
+  extended to assert the legitimate four-leap-on-one-team shape still scores a
+  +3 margin with a green gate.
+
+### Interpretation
+
+The bench's leap-minus-frog margin can no longer read "valid + green" while
+emitting no margin. A malformed frog-vs-leap roster is now caught at validation
+and at scoring, so the bench verdict stays trustworthy (docs/18 binding rule).
+
+### Confidence
+
+High (unit + targeted repro before/after).
+
+### Follow-up
+
+Unchanged from T0.1: T0.2/T0.3 then T0.7 for the first live verdict.
+
+---
+
 ## 2026-06-15 -- QWD qizmo decompression works from Windows via WSL
 
 ### Experiment
