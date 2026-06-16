@@ -1,0 +1,57 @@
+{
+  "config": {
+    "slots": 4,
+    "hz": 77.0,
+    "seconds": 8.0,
+    "warmup_ticks": 77,
+    "budget_ms_per_tick": 0.5,
+    "action_size_bytes": 32,
+    "python": "3.12.3"
+  },
+  "results": {
+    "action-file": {
+      "per_tick": {
+        "n": 539,
+        "min_us": 59.038,
+        "mean_us": 67.874,
+        "median_us": 62.795,
+        "p95_us": 91.874,
+        "p99_us": 125.634,
+        "p999_us": 164.262,
+        "max_us": 179.542,
+        "per_slot_p99_us": 31.409
+      },
+      "ticks_measured": 539
+    },
+    "shm": {
+      "per_tick": {
+        "n": 539,
+        "min_us": 6.261,
+        "mean_us": 7.434,
+        "median_us": 6.903,
+        "p95_us": 9.529,
+        "p99_us": 13.529,
+        "p999_us": 33.542,
+        "max_us": 36.086,
+        "per_slot_p99_us": 3.382
+      },
+      "ticks_measured": 539
+    },
+    "socket": {
+      "per_tick": {
+        "n": 539,
+        "min_us": 18.043,
+        "mean_us": 21.021,
+        "median_us": 19.085,
+        "p95_us": 26.764,
+        "p99_us": 52.574,
+        "p999_us": 78.006,
+        "max_us": 87.121,
+        "per_slot_p99_us": 13.143
+      },
+      "ticks_measured": 539
+    }
+  },
+  "chosen": "shm",
+  "note": "Host-local microbenchmark only. On-KTX end-to-end p99 must be validated when the pipe is wired into the moveprobe patch (T0.3). No on-server numbers are fabricated here."
+}
