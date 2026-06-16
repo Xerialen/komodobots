@@ -36,6 +36,79 @@ What should be tested next?
 
 ---
 
+## 2026-06-16 -- T0.2 live-transport latency spike (shm chosen)
+
+### Experiment
+
+Bot-program Phase-0 wall #1 ("live brain pipe", ticket #207). Evaluate the
+cheapest per-tick action transports for the moveprobe seam and pick one. The
+per-tick action is exactly the `trap_SetBotCMD` payload at
+`artifacts/ktx-live/bot_movement.c:~6191` (move `direction[3]`, aim
+`desired_angle[3]`, `buttons` = fire/jump, `impulse` = weapon, `cmd_msec`).
+Built a stdlib-only host-local microbenchmark
+(`experiments/ktx_moveprobe/latency_spike.py`) of three candidates: (a) per-tick
+action-file re-read, (b) POSIX shared memory (`mmap` over `/dev/shm` with a
+per-slot seqlock = the `shm_open`+`mmap` mechanism), (c) a unix-domain datagram
+socket = the short, newest-wins action-queue. Load model = a single-threaded
+consumer (the KTX bot frame loop) fetching the freshest action for all slots
+once per tick at the tick rate, with a separate producer process (the brain
+sidecar) writing each slot asynchronously. Identical 32-byte action record for
+all three. Target: p99 < ~0.5 ms/tick for up to 4 slots @ ~77 Hz.
+
+### Result
+
+All three clear the 0.5 ms/tick budget. **shm wins decisively** on latency,
+jitter, and scaling.
+
+4 slots @ 77 Hz, ~539 ticks measured (per-tick p99):
+
+| candidate     | p50 (ms) | p99 (ms) | max (ms) | verdict |
+|---------------|---------:|---------:|---------:|:-------:|
+| action-file   |   0.0627 |   0.1058 |   0.1942 | PASS    |
+| **shm**       |   0.0068 | **0.0124** | 0.0581 | **PASS** |
+| socket        |   0.0193 |   0.0712 |   0.1455 | PASS    |
+
+Stable across 3 repeats (shm per-tick p99 = 0.012 / 0.017 / 0.029 ms; ordering
+shm < socket < action-file holds every run). At 8 slots (2x load) shm holds at
+0.0155 ms p99. shm is ~40x under budget at the required 4-slot load.
+
+### Evidence
+
+- Benchmark: `experiments/ktx_moveprobe/latency_spike.py` (stdlib only;
+  `python3 experiments/ktx_moveprobe/latency_spike.py [--json] [--slots N]`).
+- Report: `experiments/ktx_moveprobe/T0.2_LATENCY_SPIKE.md` (full tables,
+  candidate analysis, suggested T0.3 wiring, env caveat).
+- Machine-readable run: `experiments/ktx_moveprobe/evidence/t0.2-latency-spike-20260616.json`.
+
+### Interpretation
+
+The transport is nowhere near the bottleneck at Phase-0 scale; even the worst
+candidate clears budget. shm has the largest tail-latency margin and no per-tick
+syscall (after a one-time mmap, a read is two struct unpacks against mapped
+memory), so it is the recommended pipe to wire. The socket is a clean fallback
+(simplest native wiring, still under budget); the file path is a low-effort
+debug tap. Decision is recorded against the program's "Live transport: spike
+decides" open fork.
+
+### Confidence
+
+Medium. The transport mechanism itself is proven far inside budget in a faithful
+host-local producer/consumer model. This is a HOST-LOCAL microbenchmark only --
+it does NOT run the real KTX server (no server build/SSH in this sandbox), so it
+does not prove the end-to-end on-server cost (QVM/trap overhead, real frame
+scheduler, real box load). No on-server numbers are fabricated.
+
+### Follow-up
+
+T0.3: wire shm live-mode into
+`experiments/ktx_moveprobe/frogbot-moveprobe-perslot.patch` with the per-slot
+seqlock reader + safe fallback (do not freeze; fall through to stock frogbot when
+the helper stalls), run 1 bot live 5 min, and record the **on-KTX** p99 there to
+close the loop this spike opened. The report's "Suggested wiring for T0.3"
+section gives the record layout and reader/fallback contract.
+
+---
+
 ## 2026-06-16 -- T0.1 bench emits leap-frog frag margin + R-T damage.matrix gate
 
 ### Experiment
