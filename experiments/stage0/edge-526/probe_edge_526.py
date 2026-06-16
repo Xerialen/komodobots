@@ -116,8 +116,10 @@ def runup_straight_freeair(v0=299.8, runup_dist=2242.0, travel_dir=0.0,
             heading += (travel_dir - heading) * 0.5
         else:
             air += 1
-            # wishdir perpendicular to velocity on the strafe side (c=0 optimum)
-            wdir = heading + side_sign * math.radians(90.0)
+            # wishdir perpendicular to velocity on the strafe side (c=0 optimum).
+            # heading is in DEGREES; wdir is consumed by cos/sin as RADIANS (below),
+            # so convert consistently — keep one unit system end to end.
+            wdir = math.radians(heading + side_sign * 90.0)
             c = speed * math.cos(math.radians(90.0))   # = 0 by construction
             addspeed = AIR_WISHCAP - c
             if addspeed > 0:

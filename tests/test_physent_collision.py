@@ -9,13 +9,16 @@ Guards three things:
   3. SUBMODELS — the 6 dm3 brush submodels load, and load_submodels() is opt-in
      (does not perturb the human replay, which never touches them).
 
-Run: python tests/test_physent_collision.py  [--bsp <path>]
+Wrapped in a unittest.TestCase so the CI gate (`python3 -m unittest discover`)
+actually executes these. They need `dm3.bsp` + the SNG->RL replay cmds; when
+those are absent (e.g. the hosted CI runner) the whole case SKIPS cleanly
+rather than erroring. Run locally: `python3 -m unittest tests.test_physent_collision -v`.
 """
 from __future__ import annotations
 
-import argparse
 import math
 import sys
+import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,24 +27,35 @@ sys.setrecursionlimit(20000)
 
 import pmove_sim as P  # noqa: E402
 
+_BSP_CANDIDATES = (r"C:\nQuake\qw\maps\dm3.bsp", "/mnt/c/nQuake/qw/maps/dm3.bsp")
+_CMDS_CANDIDATES = (
+    ROOT / "experiments/dm3_sng_to_rl_observability/evidence/dm3_sng_to_rl.cmds",
+    Path("artifacts/replay/dm3_sng_to_rl.cmds"),
+    ROOT / "artifacts/replay/dm3_sng_to_rl.cmds",
+)
 
-def _human_replay(world, physents_loader=None):
-    cmds = ROOT / "experiments/dm3_sng_to_rl_observability/evidence/dm3_sng_to_rl.cmds"
-    if not cmds.exists():
-        for c in (Path("artifacts/replay/dm3_sng_to_rl.cmds"),
-                  ROOT / "artifacts/replay/dm3_sng_to_rl.cmds"):
-            if c.exists():
-                cmds = c
-                break
+
+def _find_bsp():
+    for p in _BSP_CANDIDATES:
+        if Path(p).exists():
+            return p
+    return None
+
+
+def _find_cmds():
+    for c in _CMDS_CANDIDATES:
+        if Path(c).exists():
+            return c
+    return None
+
+
+def _human_replay(world, cmds, physents_loader=None):
     frames = P.load_cmds_file(str(cmds))
-    tele = P.detect_teleports(frames)
-    # replay() builds its own Pmove; to inject submodels we monkey-patch via a
-    # subclass hook. Simplest: run the loop here mirroring replay()'s core.
+    tele = set(P.detect_teleports(frames))
     pm = P.Pmove(world)
     if physents_loader:
         physents_loader(pm)
     s = P.PlayerState(frames[0]["origin"], frames[0]["velocity"])
-    tele = set(tele)
     max_err = 0.0
     n = len(frames) - 1
     for k in range(n):
@@ -58,16 +72,9 @@ def _human_replay(world, physents_loader=None):
     return max_err
 
 
-def test_regression_worldmodel_only(world):
-    max_err = _human_replay(world)  # default Pmove.physents == []
-    assert max_err < 0.3, f"worldmodel-only human replay regressed: max_err={max_err}"
-    print(f"  [1] regression worldmodel-only: human replay max_err={max_err:.3f} qu  OK")
-
-
-def _open_air_segment(world):
+def _open_air_segment(world, cmds):
     """A guaranteed-clear short horizontal trace, anchored to a real airborne
     replay frame (so start/end are provably open space the human moved through)."""
-    cmds = ROOT / "experiments/dm3_sng_to_rl_observability/evidence/dm3_sng_to_rl.cmds"
     frames = P.load_cmds_file(str(cmds))
     for f in frames:
         vh = math.hypot(f["velocity"][0], f["velocity"][1])
@@ -82,51 +89,47 @@ def _open_air_segment(world):
     raise AssertionError("no clear open-air segment found in replay")
 
 
-def test_box_hull_blocks(world):
-    start, end, (ux, uy) = _open_air_segment(world)
-    clear = P.player_trace(world, start, end)
-    assert clear.fraction == 1.0, f"control trace not clear: {clear.fraction}"
-    # Opponent box ~85 qu ahead (beyond the 32 qu Minkowski half-width, so the
-    # start is NOT solid) => a genuine swept stop with 0 < fraction < 1.
-    ahead = (start[0] + ux * 85.0, start[1] + uy * 85.0, start[2])
-    blocked = P.player_trace(world, start, end, [P.make_player_physent(ahead, ent=7)])
-    assert 0.0 < blocked.fraction < 1.0, (
-        f"box did not produce a swept stop: frac={blocked.fraction}")
-    assert blocked.ent == 7, f"blocked.ent={blocked.ent}, expected opponent ent 7"
-    # A box far to the side does not perturb the clear trace.
-    side = (start[0] - uy * 400.0, start[1] + ux * 400.0, start[2])
-    miss = P.player_trace(world, start, end, [P.make_player_physent(side, ent=8)])
-    assert miss.fraction == 1.0, f"distant box perturbed the trace: {miss.fraction}"
-    print(f"  [2] box hull: clear frac=1.000 -> blocked frac={blocked.fraction:.3f} "
-          f"(ent={blocked.ent}); distant box untouched  OK")
+class PhysentCollisionTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        bsp = _find_bsp()
+        cmds = _find_cmds()
+        if bsp is None or cmds is None:
+            raise unittest.SkipTest(
+                "dm3.bsp and/or the SNG->RL replay cmds not available — "
+                "physent collision tests run only where the QW map + replay exist")
+        cls.world = P.WorldModel.load(bsp)
+        cls.cmds = cmds
 
+    def test_regression_worldmodel_only(self):
+        # default Pmove.physents == [] -> byte-identical to the validated baseline
+        max_err = _human_replay(self.world, self.cmds)
+        self.assertLess(max_err, 0.3, f"worldmodel-only human replay regressed: max_err={max_err}")
 
-def test_submodels_optin(world):
-    assert len(world.submodels) == 6, f"expected 6 dm3 submodels, got {len(world.submodels)}"
-    # opt-in must not perturb the human SNG->RL route (it touches no submodel)
-    max_err = _human_replay(world, physents_loader=lambda pm: pm.load_submodels())
-    assert max_err < 0.3, f"submodels perturbed the human replay: max_err={max_err}"
-    print(f"  [3] submodels: {len(world.submodels)} loaded; human replay with "
-          f"submodels max_err={max_err:.3f} qu (route avoids them)  OK")
+    def test_box_hull_blocks(self):
+        start, end, (ux, uy) = _open_air_segment(self.world, self.cmds)
+        clear = P.player_trace(self.world, start, end)
+        self.assertEqual(clear.fraction, 1.0, f"control trace not clear: {clear.fraction}")
+        # Opponent box ~85 qu ahead (beyond the 32 qu Minkowski half-width, so the
+        # start is NOT solid) => a genuine swept stop with 0 < fraction < 1.
+        ahead = (start[0] + ux * 85.0, start[1] + uy * 85.0, start[2])
+        blocked = P.player_trace(self.world, start, end, [P.make_player_physent(ahead, ent=7)])
+        self.assertTrue(0.0 < blocked.fraction < 1.0,
+                        f"box did not produce a swept stop: frac={blocked.fraction}")
+        self.assertEqual(blocked.ent, 7, f"blocked.ent={blocked.ent}, expected opponent ent 7")
+        # A box far to the side does not perturb the clear trace.
+        side = (start[0] - uy * 400.0, start[1] + ux * 400.0, start[2])
+        miss = P.player_trace(self.world, start, end, [P.make_player_physent(side, ent=8)])
+        self.assertEqual(miss.fraction, 1.0, f"distant box perturbed the trace: {miss.fraction}")
 
-
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--bsp", default=r"C:\nQuake\qw\maps\dm3.bsp")
-    args = ap.parse_args()
-    if not Path(args.bsp).exists():
-        alt = "/mnt/c/nQuake/qw/maps/dm3.bsp"
-        if Path(alt).exists():
-            args.bsp = alt
-        else:
-            raise SystemExit(f"dm3.bsp not found ({args.bsp}); pass --bsp")
-    world = P.WorldModel.load(args.bsp)
-    print("physent-collision tests:")
-    test_regression_worldmodel_only(world)
-    test_box_hull_blocks(world)
-    test_submodels_optin(world)
-    print("ALL PASS")
+    def test_submodels_optin(self):
+        self.assertEqual(len(self.world.submodels), 6,
+                         f"expected 6 dm3 submodels, got {len(self.world.submodels)}")
+        # opt-in must not perturb the human SNG->RL route (it touches no submodel)
+        max_err = _human_replay(self.world, self.cmds,
+                                physents_loader=lambda pm: pm.load_submodels())
+        self.assertLess(max_err, 0.3, f"submodels perturbed the human replay: max_err={max_err}")
 
 
 if __name__ == "__main__":
-    main()
+    unittest.main()
