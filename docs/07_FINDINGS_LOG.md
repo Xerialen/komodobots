@@ -36,6 +36,61 @@ What should be tested next?
 
 ---
 
+## 2026-06-16 -- T0.1 bench emits leap-frog frag margin + R-T damage.matrix gate
+
+### Experiment
+
+docs/18 Phase 0 T0.1 (#206): turn the fixed-roster 4v4 ledger into a bench that
+scores a frog-vs-leap match and writes the leap-minus-frog frag margin over
+best-of-N, with the R-T `damage.matrix` gate. Win = total frags; combat guard =
+damage done (never accuracy).
+
+### Result
+
+The 4v4 validation ledger builder now attaches, per valid game, a `bench` block
+(leap team, frog team, leap/frog frags, `frag_margin`, `leap_won`) and a
+`damage_matrix` gate (enemy damage > 0, intra-team damage within tolerance),
+plus a ledger-level `bench` aggregate (`leap_frag_margin_total`/`mean`,
+`leap_wins`, per-game series, overall gate verdict). The roster builder gained a
+`leap_team` mode (four `leap` bots vs four skill-20 frogbot controls); the
+single-komodobot roster still validates and its komodobot team is treated as the
+leap team. All additions are backward compatible (old ledger consumers unchanged).
+
+### Evidence
+
+- `python -m unittest discover -s tests -p "test_*.py"`: 1181 tests passed
+  (+9 new bench/gate/roster tests).
+- End-to-end CLI on a two-game frog-vs-leap fixture
+  (`fourvfour_validation_build.main --summary`):
+  - per-game margins `34-28=+6` and `36-25=+11`, both `damage.matrix gate=green`
+    (enemy=11600, intra-team=0);
+  - `bench(best-of-2): leap-frog margin total=17 mean=8.5 leap_wins=2/2
+    damage.matrix gate=green`;
+  - margin identical across two consecutive builds (repeatable).
+- Canonical scoring source = Alfhan's mvdanalyzer / ktxstats `dmg.given`
+  (enemy) and `dmg.team` (intra-team); KTX writes its stats JSON to a `.txt`
+  (`k_demotxt_format json`) and the 4v4 runner already derives `ktxstats.json`
+  from the demo `.json` sidecar.
+
+### Interpretation
+
+The bench number ("leap frags minus frog frags over best-of-N") and the R-T
+combat-honesty gate are now first-class ledger fields, so any future brain swap
+is judged by frags with a damage-done guard, exactly as docs/18 requires.
+
+### Confidence
+
+High (offline/unit + CLI evidence). The full live 4v4 server run was not
+executed in this environment (no SSH to servexeri / no WSL analyzer here); the
+scoring path is proven against canonical-shaped fixtures.
+
+### Follow-up
+
+T0.2 (live-transport latency spike) and T0.3 (KTX live mode), then T0.7 drives
+the first real live frog-vs-leap verdict through this same bench path.
+
+---
+
 ## 2026-06-15 -- QWD qizmo decompression works from Windows via WSL
 
 ### Experiment

@@ -291,5 +291,143 @@ class FourVFourValidationBuildTest(unittest.TestCase):
         self.assertEqual(written["provenance"]["valid_games"], 1)
 
 
+def leap_roster(run_id: str, *, controller_version: str = "komodo-v1", team1: str = "Team A",
+                team2: str = "Team B") -> dict:
+    """A full frog-vs-leap roster: four leap bots (team1) vs four skill-20 frogbots (team2)."""
+    names = [
+        ("leap-1", team1, "leap", "komodobot", controller_version),
+        ("leap-2", team1, "leap", "komodobot", controller_version),
+        ("leap-3", team1, "leap", "komodobot", controller_version),
+        ("leap-4", team1, "leap", "komodobot", controller_version),
+        ("frog-control-5", team2, "control", "frogbot", "frogbot-20"),
+        ("frog-control-6", team2, "control", "frogbot", "frogbot-20"),
+        ("frog-control-7", team2, "control", "frogbot", "frogbot-20"),
+        ("frog-control-8", team2, "control", "frogbot", "frogbot-20"),
+    ]
+    return {
+        "schema": "komodobots.4v4_roster_intent.v1",
+        "run_id": run_id,
+        "map": "dm3",
+        "mode": "4on4",
+        "deathmatch": 1,
+        "teamplay": 2,
+        "timelimit": 5,
+        "controller_version": controller_version,
+        "komodobot_slot": None,
+        "leap_team": team1,
+        "players": [
+            {
+                "slot": slot,
+                "id": f"slot-{slot}",
+                "name": name,
+                "team": team,
+                "role": role,
+                "bot_kind": kind,
+                "bot_skill": 20,
+                "controller_version": version,
+            }
+            for slot, (name, team, role, kind, version) in enumerate(names, start=1)
+        ],
+    }
+
+
+class BenchFragMarginTest(unittest.TestCase):
+    """docs/18 T0.1: bench emits leap-frog frag margin + R-T damage.matrix gate."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="4v4-bench-test-"))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self.runs = self.tmp / "runs"
+        self.runs.mkdir()
+
+    def test_komodobot_roster_marks_komodo_team_as_leap(self):
+        # Default roster: komodo-dev (slot 1, Team A) + 7 controls. Team A is leap.
+        write_run(self.runs, "20260614T200000Z", komodo_frags=10)
+        data = fv.build(self.runs)
+        game = data["games"][0]
+        bench = game["bench"]
+        self.assertTrue(bench["resolved"])
+        self.assertEqual(bench["leap_team"], "Team A")
+        self.assertEqual(bench["frog_team"], "Team B")
+        # Team A frags = 10+8+7+6 = 31; Team B = 9+8+7+6 = 30; margin = +1.
+        self.assertEqual(bench["leap_frags"], 31)
+        self.assertEqual(bench["frog_frags"], 30)
+        self.assertEqual(bench["frag_margin"], 1)
+        self.assertTrue(bench["leap_won"])
+
+    def test_full_leap_roster_resolves_team_and_margin(self):
+        run = write_run(self.runs, "20260614T200000Z", komodo_frags=12)
+        run.joinpath("4v4-roster.json").write_text(
+            json.dumps(leap_roster("20260614T200000Z")), encoding="utf-8"
+        )
+        data = fv.build(self.runs)
+        self.assertEqual(data["provenance"]["valid_games"], 1)
+        bench = data["games"][0]["bench"]
+        self.assertTrue(bench["resolved"])
+        self.assertEqual(bench["leap_team"], "Team A")
+        self.assertEqual(bench["frog_team"], "Team B")
+        # Team A leap frags = 12+8+7+6 = 33; Team B frog = 30; margin = +3.
+        self.assertEqual(bench["frag_margin"], 3)
+
+    def test_damage_matrix_gate_green_when_enemy_damage_positive_and_no_team_damage(self):
+        write_run(self.runs, "20260614T200000Z")
+        data = fv.build(self.runs)
+        gate = data["games"][0]["damage_matrix"]
+        self.assertGreater(gate["enemy_damage"], 0)
+        self.assertEqual(gate["intra_team_damage"], 0)
+        self.assertTrue(gate["gate_pass"])
+        self.assertEqual(gate["reasons"], [])
+        self.assertTrue(data["bench"]["damage_matrix_gate_pass"])
+
+    def test_damage_matrix_gate_red_when_intra_team_damage_present(self):
+        run = write_run(self.runs, "20260614T200000Z")
+        raw = json.loads((run / "analysis.json").read_text(encoding="utf-8"))
+        raw["demoInfo"]["players"][1]["dmg"]["team"] = 150  # a teammate took friendly fire
+        (run / "analysis.json").write_text(json.dumps(raw), encoding="utf-8")
+        data = fv.build(self.runs)
+        gate = data["games"][0]["damage_matrix"]
+        self.assertEqual(gate["intra_team_damage"], 150)
+        self.assertFalse(gate["gate_pass"])
+        self.assertIn("intra_team_damage_above_tolerance", gate["reasons"])
+        self.assertFalse(data["bench"]["damage_matrix_gate_pass"])
+
+    def test_damage_matrix_gate_red_when_no_enemy_damage(self):
+        run = write_run(self.runs, "20260614T200000Z")
+        raw = json.loads((run / "analysis.json").read_text(encoding="utf-8"))
+        for player in raw["demoInfo"]["players"]:
+            player["dmg"]["given"] = 0
+        (run / "analysis.json").write_text(json.dumps(raw), encoding="utf-8")
+        data = fv.build(self.runs)
+        gate = data["games"][0]["damage_matrix"]
+        self.assertEqual(gate["enemy_damage"], 0)
+        self.assertFalse(gate["gate_pass"])
+        self.assertIn("no_enemy_damage", gate["reasons"])
+
+    def test_bench_aggregate_is_best_of_n_and_repeatable(self):
+        write_run(self.runs, "20260614T200000Z", komodo_frags=10)  # margin +1
+        write_run(self.runs, "20260614T201000Z", komodo_frags=14)  # margin +5
+        first = fv.build(self.runs)
+        second = fv.build(self.runs)
+        bench = first["bench"]
+        self.assertEqual(bench["schema"], "komodobots.bench_frag_margin.v1")
+        self.assertEqual(bench["games_scored"], 2)
+        self.assertEqual(bench["leap_frag_margin_total"], 6)  # +1 then +5
+        self.assertEqual(bench["leap_frag_margin_mean"], 3.0)
+        self.assertEqual(bench["leap_wins"], 2)
+        self.assertTrue(bench["damage_matrix_gate_pass"])
+        self.assertEqual(len(bench["per_game"]), 2)
+        self.assertEqual([g["frag_margin"] for g in bench["per_game"]], [1, 5])
+        # Repeatable across two runs (docs/18 exit criterion).
+        self.assertEqual(first["bench"], second["bench"])
+
+    def test_bench_aggregate_empty_when_no_valid_games(self):
+        data = fv.build(self.runs)
+        bench = data["bench"]
+        self.assertEqual(bench["games_scored"], 0)
+        self.assertIsNone(bench["leap_frag_margin_total"])
+        self.assertIsNone(bench["leap_frag_margin_mean"])
+        self.assertFalse(bench["damage_matrix_gate_pass"])
+
+
 if __name__ == "__main__":
     unittest.main()

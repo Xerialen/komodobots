@@ -27,6 +27,22 @@ ROSTER_SCHEMA = "komodobots.4v4_roster_intent.v1"
 DEFAULT_RUNS_DIR = Path("artifacts") / "4v4-validation-runs"
 DEFAULT_OUT = Path("artifacts") / "records" / "4v4-validation.json"
 
+# Roster roles that belong to the "leap" team (our bot). Everything else on the
+# eight-player roster is a stock skill-20 Frogbot "control". The leap team is the
+# roster team that contains at least one of these roles; the other team is frog.
+# This keeps the existing one-komodobot validation roster working (its komodobot
+# team is the leap team) while also supporting a full four-leap-vs-four-frog run
+# (docs/18 T0.1: "team leap vs team frog, 4 vs 4").
+LEAP_ROLES = ("leap", "komodobot")
+
+# R-T damage.matrix gate (docs/18 Phase 0, docs/15): a frog-vs-leap 4v4 is only
+# honest when bots actually fight the enemy and almost never their own team.
+# "enemy damage > 0" and "intra-team damage ~= 0". intra-team damage is the
+# canonical mvdanalyzer dmg.team field (damage dealt to a teammate); skill-20
+# Frogbots on teamplay 2 should deal none, so the default tolerance is 0 but is
+# configurable for robustness against rare engine rounding.
+DEFAULT_INTRA_TEAM_DAMAGE_TOLERANCE = 0
+
 STATS_FILENAMES = (
     "ktxstats.json",
     "stats.json",
@@ -149,6 +165,7 @@ def _validate_roster(roster: dict[str, Any] | None) -> list[str]:
         reasons.append("roster_slots_not_1_through_8")
 
     komodo_count = 0
+    leap_count = 0
     control_count = 0
     skill20_controls = 0
     team_counts = _count_teams(players)
@@ -156,19 +173,29 @@ def _validate_roster(roster: dict[str, Any] | None) -> list[str]:
         if not isinstance(p, dict):
             reasons.append("roster_player_not_object")
             continue
-        if p.get("role") == "komodobot":
+        role = p.get("role")
+        if role == "komodobot":
             komodo_count += 1
-        elif p.get("role") == "control":
+        elif role == "leap":
+            leap_count += 1
+        elif role == "control":
             control_count += 1
             if p.get("bot_kind") == "frogbot" and p.get("bot_skill") == 20:
                 skill20_controls += 1
 
     if not _is_two_teams_four_each(team_counts):
         reasons.append("roster_not_two_fixed_teams_4_each")
-    if komodo_count != 1:
-        reasons.append("roster_must_have_one_komodobot")
-    if control_count != 7 or skill20_controls != 7:
-        reasons.append("roster_controls_must_be_seven_skill20_frogbots")
+
+    # Two supported shapes (docs/18 T0.1): one komodobot + seven skill-20 frogbot
+    # controls, OR four leap bots + four skill-20 frogbot controls. Both keep
+    # exactly two fixed teams of four; the leap team is whichever team holds the
+    # komodobot/leap roles.
+    one_komodobot_shape = (komodo_count == 1 and leap_count == 0
+                           and control_count == 7 and skill20_controls == 7)
+    four_leap_shape = (leap_count == 4 and komodo_count == 0
+                       and control_count == 4 and skill20_controls == 4)
+    if not (one_komodobot_shape or four_leap_shape):
+        reasons.append("roster_not_one_komodobot_or_four_leap_vs_four_skill20_frogbots")
     return reasons
 
 
@@ -263,6 +290,157 @@ def _attach_deltas(game: dict[str, Any], previous: dict[str, Any] | None) -> Non
         player["deltas"] = deltas
 
 
+def _player_role(player: dict[str, Any]) -> str:
+    roster = player.get("roster")
+    if isinstance(roster, dict):
+        return str(roster.get("role") or "unknown")
+    return "unknown"
+
+
+def _player_team(player: dict[str, Any]) -> str:
+    roster = player.get("roster")
+    if isinstance(roster, dict) and roster.get("team"):
+        return str(roster["team"])
+    return str(player.get("identity", {}).get("team") or "")
+
+
+def _is_leap_player(player: dict[str, Any]) -> bool:
+    return _player_role(player) in LEAP_ROLES
+
+
+def _leap_frog_teams(players: list[dict[str, Any]]) -> tuple[str | None, str | None]:
+    """Resolve (leap_team, frog_team) from roster roles.
+
+    Leap team = the team that contains any leap/komodobot player. Frog team =
+    the single other team. Returns (None, None) when the split is ambiguous
+    (no leap role found, leap players spread across both teams, or not exactly
+    two teams), so the caller can record a reason instead of a bogus margin.
+    """
+    teams = sorted({_player_team(p) for p in players if _player_team(p)})
+    if len(teams) != 2:
+        return None, None
+    leap_teams = {_player_team(p) for p in players if _is_leap_player(p) and _player_team(p)}
+    if len(leap_teams) != 1:
+        return None, None
+    leap_team = next(iter(leap_teams))
+    frog_team = next(t for t in teams if t != leap_team)
+    return leap_team, frog_team
+
+
+def _team_frags(players: list[dict[str, Any]], team: str) -> int:
+    return sum(
+        int(p["stats"].get("frags") or 0)
+        for p in players
+        if _player_team(p) == team
+    )
+
+
+def _bench_margin(game: dict[str, Any]) -> dict[str, Any]:
+    """Per-game leap-minus-frog frag margin (docs/18 T0.1).
+
+    Win = total frags. The margin is the leap team's total frags minus the frog
+    team's total frags for this single game; positive means leap won this game.
+    """
+    players = game["players"]
+    leap_team, frog_team = _leap_frog_teams(players)
+    if leap_team is None or frog_team is None:
+        return {
+            "resolved": False,
+            "reason": "could_not_resolve_leap_vs_frog_teams",
+            "leap_team": None,
+            "frog_team": None,
+            "leap_frags": None,
+            "frog_frags": None,
+            "frag_margin": None,
+        }
+    leap_frags = _team_frags(players, leap_team)
+    frog_frags = _team_frags(players, frog_team)
+    return {
+        "resolved": True,
+        "leap_team": leap_team,
+        "frog_team": frog_team,
+        "leap_frags": leap_frags,
+        "frog_frags": frog_frags,
+        "frag_margin": leap_frags - frog_frags,
+        "leap_won": leap_frags > frog_frags,
+        "metric": "win=total_frags; margin=leap_team_frags-frog_team_frags",
+    }
+
+
+def _damage_matrix(
+    game: dict[str, Any],
+    *,
+    intra_team_tolerance: int | float = DEFAULT_INTRA_TEAM_DAMAGE_TOLERANCE,
+) -> dict[str, Any]:
+    """R-T damage.matrix gate for one game (docs/18 Phase 0, docs/15).
+
+    Combat guard is damage DONE (canonical mvdanalyzer `dmg.given`), never
+    accuracy. The gate is green when the bots actually fought the enemy
+    (enemy_damage > 0) and almost never their own team (intra_team_damage,
+    i.e. sum of `dmg.team`, within tolerance). `self_damage` is reported for
+    transparency but is not gated on: rocket splash onto oneself is not a
+    teammate-damage event.
+    """
+    players = game["players"]
+    enemy_damage = sum(int(p["stats"].get("damage_done") or 0) for p in players)
+    intra_team_damage = sum(int(p["stats"].get("team_damage") or 0) for p in players)
+    self_damage = sum(int(p["stats"].get("self_damage") or 0) for p in players)
+
+    reasons: list[str] = []
+    if enemy_damage <= 0:
+        reasons.append("no_enemy_damage")
+    if abs(intra_team_damage) > intra_team_tolerance:
+        reasons.append("intra_team_damage_above_tolerance")
+
+    return {
+        "enemy_damage": enemy_damage,
+        "intra_team_damage": intra_team_damage,
+        "self_damage": self_damage,
+        "intra_team_tolerance": intra_team_tolerance,
+        "gate_pass": not reasons,
+        "reasons": reasons,
+        "source": "canonical mvdanalyzer dmg.given (enemy) / dmg.team (intra-team)",
+        "note": "combat guard is damage done, never accuracy",
+    }
+
+
+def _bench_aggregate(games: list[dict[str, Any]]) -> dict[str, Any]:
+    """Best-of-N leap-frog frag margin across all valid games (docs/18 T0.1).
+
+    "Bench prints leap frags minus frog frags over best-of-N." This rolls the
+    per-game margins into the single bench number plus the per-game series and
+    the overall R-T damage.matrix gate verdict.
+    """
+    resolved = [g for g in games if g.get("bench", {}).get("resolved")]
+    margins = [int(g["bench"]["frag_margin"]) for g in resolved]
+    leap_wins = sum(1 for g in resolved if g["bench"].get("leap_won"))
+    gate_games = [g for g in games if "damage_matrix" in g]
+    gate_pass = bool(gate_games) and all(g["damage_matrix"]["gate_pass"] for g in gate_games)
+    n = len(margins)
+    return {
+        "schema": "komodobots.bench_frag_margin.v1",
+        "games_scored": n,
+        "leap_frag_margin_total": sum(margins) if margins else None,
+        "leap_frag_margin_mean": round(sum(margins) / n, 4) if n else None,
+        "leap_wins": leap_wins,
+        "frog_wins": n - leap_wins if n else 0,
+        "per_game": [
+            {
+                "run_id": g["run_id"],
+                "leap_team": g["bench"]["leap_team"],
+                "frog_team": g["bench"]["frog_team"],
+                "leap_frags": g["bench"]["leap_frags"],
+                "frog_frags": g["bench"]["frog_frags"],
+                "frag_margin": g["bench"]["frag_margin"],
+                "damage_matrix_gate_pass": g.get("damage_matrix", {}).get("gate_pass"),
+            }
+            for g in resolved
+        ],
+        "damage_matrix_gate_pass": gate_pass,
+        "metric": "win=total_frags; combat_guard=damage_done; accuracy=report-only",
+    }
+
+
 def _game_from_artifacts(run_dir: Path, stats_path: Path, roster_path: Path | None) -> tuple[dict[str, Any], list[str]]:
     normalized = kms.normalize_match(_read_json(stats_path), source_path=str(stats_path))
     roster = _read_json(roster_path) if roster_path else None
@@ -334,12 +512,15 @@ def build(runs_dir: Path) -> dict[str, Any]:
             })
             continue
         _attach_deltas(game, previous_valid)
+        game["bench"] = _bench_margin(game)
+        game["damage_matrix"] = _damage_matrix(game)
         games.append(game)
         previous_valid = game
 
     return {
         "schema": SCHEMA,
         "metrics": list(VALIDATION_METRICS),
+        "bench": _bench_aggregate(games),
         "games": games,
         "invalid_games": invalid_games,
         "provenance": {
@@ -355,16 +536,29 @@ def build(runs_dir: Path) -> dict[str, Any]:
 
 
 def summarize(data: dict[str, Any]) -> str:
-    lines = ["run_id               | map mode duration | teams | komodo frags delta"]
+    lines = ["run_id               | map mode duration | leap-frog margin | dmg.matrix gate"]
     for game in data["games"]:
-        komodo = next((p for p in game["players"] if p["roster"]["role"] == "komodobot"), None)
-        delta = komodo["deltas"]["frags"]["value"] if komodo else None
+        bench = game.get("bench", {})
+        margin = bench.get("frag_margin")
+        margin_text = (
+            f"{bench.get('leap_frags')}-{bench.get('frog_frags')}={'+' if (margin or 0) > 0 else ''}{margin}"
+            if bench.get("resolved") else "unresolved"
+        )
+        gate = game.get("damage_matrix", {})
+        gate_text = "green" if gate.get("gate_pass") else f"RED {gate.get('reasons')}"
         lines.append(
             f"{game['run_id']:20s} | {game['match'].get('map') or '?':3s} "
             f"{game['match'].get('mode') or '?':4s} {str(game['match'].get('duration')):>8s} | "
-            f"{len(game['teams']):5d} | "
-            f"{komodo['stats']['frags'] if komodo else '-'} {delta if delta is not None else '-'}"
+            f"{margin_text:16s} | {gate_text}"
         )
+    bench = data.get("bench", {})
+    lines.append(
+        f"bench(best-of-{bench.get('games_scored')}): "
+        f"leap-frog margin total={bench.get('leap_frag_margin_total')} "
+        f"mean={bench.get('leap_frag_margin_mean')} "
+        f"leap_wins={bench.get('leap_wins')}/{bench.get('games_scored')} "
+        f"damage.matrix gate={'green' if bench.get('damage_matrix_gate_pass') else 'RED'}"
+    )
     p = data["provenance"]
     lines.append(f"runs: scanned={p['runs_scanned']} valid={p['valid_games']} skipped={p['skipped']}")
     return "\n".join(lines)

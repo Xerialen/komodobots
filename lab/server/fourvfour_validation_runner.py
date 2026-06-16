@@ -36,6 +36,11 @@ def _slot_name(slot: int, komodobot_slot: int) -> str:
     return f"{side}-control-{slot}"
 
 
+def _leap_slot_name(slot: int) -> str:
+    # Slots 1..4 are the leap team, slots 5..8 are the frog controls.
+    return f"leap-{slot}" if slot <= 4 else f"frog-control-{slot}"
+
+
 def _validate_team_name(name: str) -> str:
     if not isinstance(name, str) or cb.validate_map_name(name) is None or len(name) > 9:
         raise ValueError(f"invalid KTX team name: {name!r}")
@@ -50,7 +55,18 @@ def build_roster_intent(
     map_name: str = "dm3",
     timelimit: int = 5,
     team_names: tuple[str, str] = DEFAULT_TEAM_NAMES,
+    leap_team: bool = False,
 ) -> dict[str, Any]:
+    """Build the fixed-roster intent the 4v4 ledger validates.
+
+    Two supported shapes (docs/18 T0.1):
+
+    * default (``leap_team=False``): one ``komodobot`` slot plus seven
+      skill-20 ``control`` Frogbots. The komodobot's team is the leap team.
+    * full frog-vs-leap (``leap_team=True``): slots 1..4 are ``leap`` bots on
+      team one, slots 5..8 are skill-20 frogbot ``control`` bots on team two.
+      ``komodobot_slot`` is ignored here.
+    """
     if not 1 <= komodobot_slot <= 8:
         raise ValueError("komodobot_slot must be in 1..8")
     if cb.validate_map_name(map_name) is None:
@@ -64,19 +80,34 @@ def build_roster_intent(
     players: list[dict[str, Any]] = []
     for slot in range(1, 9):
         team = team_one if slot <= 4 else team_two
-        is_komodo = slot == komodobot_slot
-        players.append(
-            {
-                "slot": slot,
-                "id": f"slot-{slot}",
-                "name": _slot_name(slot, komodobot_slot),
-                "team": team,
-                "role": "komodobot" if is_komodo else "control",
-                "bot_kind": "komodobot" if is_komodo else "frogbot",
-                "bot_skill": 20,
-                "controller_version": controller_version if is_komodo else "frogbot-20",
-            }
-        )
+        if leap_team:
+            is_leap = slot <= 4
+            players.append(
+                {
+                    "slot": slot,
+                    "id": f"slot-{slot}",
+                    "name": _leap_slot_name(slot),
+                    "team": team,
+                    "role": "leap" if is_leap else "control",
+                    "bot_kind": "komodobot" if is_leap else "frogbot",
+                    "bot_skill": 20,
+                    "controller_version": controller_version if is_leap else "frogbot-20",
+                }
+            )
+        else:
+            is_komodo = slot == komodobot_slot
+            players.append(
+                {
+                    "slot": slot,
+                    "id": f"slot-{slot}",
+                    "name": _slot_name(slot, komodobot_slot),
+                    "team": team,
+                    "role": "komodobot" if is_komodo else "control",
+                    "bot_kind": "komodobot" if is_komodo else "frogbot",
+                    "bot_skill": 20,
+                    "controller_version": controller_version if is_komodo else "frogbot-20",
+                }
+            )
 
     return {
         "schema": ROSTER_SCHEMA,
@@ -87,7 +118,8 @@ def build_roster_intent(
         "teamplay": 2,
         "timelimit": timelimit,
         "controller_version": controller_version,
-        "komodobot_slot": komodobot_slot,
+        "komodobot_slot": None if leap_team else komodobot_slot,
+        "leap_team": team_one if leap_team else None,
         "players": players,
     }
 
@@ -135,6 +167,7 @@ def write_run_artifacts(
     map_name: str = "dm3",
     timelimit: int = 5,
     team_names: tuple[str, str] = DEFAULT_TEAM_NAMES,
+    leap_team: bool = False,
 ) -> dict[str, Path]:
     roster = build_roster_intent(
         run_id=run_id,
@@ -143,6 +176,7 @@ def write_run_artifacts(
         map_name=map_name,
         timelimit=timelimit,
         team_names=team_names,
+        leap_team=leap_team,
     )
     plan = build_control_plan(run_id=run_id, port=port, map_name=map_name)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -164,6 +198,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--timelimit", type=int, default=5)
     parser.add_argument("--team1", default=DEFAULT_TEAM_NAMES[0])
     parser.add_argument("--team2", default=DEFAULT_TEAM_NAMES[1])
+    parser.add_argument(
+        "--leap-team",
+        action="store_true",
+        help="Build a four-leap (team1) vs four-skill-20-frogbot (team2) roster instead of one komodobot + seven controls.",
+    )
     args = parser.parse_args(argv)
 
     out_dir = args.out_root / args.run_id
@@ -176,6 +215,7 @@ def main(argv: list[str] | None = None) -> int:
         map_name=args.map_name,
         timelimit=args.timelimit,
         team_names=(args.team1, args.team2),
+        leap_team=args.leap_team,
     )
     print(f"wrote {paths['roster']}")
     print(f"wrote {paths['plan']}")
