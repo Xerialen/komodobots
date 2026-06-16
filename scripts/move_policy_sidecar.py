@@ -133,7 +133,7 @@ def _move_base(slot: int) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Seqlock read/write helpers (lock-free).
+# Seqlock read/write helpers (lock-free, single-writer / multi-reader).
 #
 # Layout per record: guard_a (u32) | body | guard_b (u32) -- the two-guard form
 # the T0.2 report describes. The guard is a DEDICATED monotonic write counter,
@@ -144,21 +144,42 @@ def _move_base(slot: int) -> int:
 # progress. (Conflating the guard with the payload seq -- the spike's shortcut
 # -- can let a fast back-to-back writer present matched guards around a body
 # from the *next* write; a dedicated odd/even counter closes that window.)
+#
+# CRITICAL: the writer must mark BOTH guards in-progress (odd) BEFORE it touches
+# the body, then publish the stable EVEN value to the trailing guard first and
+# the leading guard last. If only the leading guard were set odd before the body
+# (the earlier bug), a reader that had already loaded the old leading guard
+# (even) could read a half-written body and then read the trailing guard while
+# it still held its old, matching even value -- old_head == old_tail, both even
+# -> the reader accepts a torn snapshot. Bumping the trailing guard to odd before
+# the body write guarantees that for the whole duration the body is mutating, the
+# two guards can never be a matching even pair, so the reader (which requires
+# guard_a == guard_b AND even) always retries. A cross-process reader can still
+# catch the writer mid-memcpy of the body, but the odd guards make that an
+# unconditional retry, never an accepted read.
 # ---------------------------------------------------------------------------
 def _seqlock_write(mm: mmap.mmap, base: int, body_fmt: str, body_size: int,
                    *body_values) -> None:
     """Write `body_values` into the slot under the seqlock.
 
-    Bump the guard to ODD (write-in-progress), write the body, then bump it to
-    the next EVEN (stable). A reader that catches us mid-write sees an odd /
-    mismatched guard and retries.
+    Mark BOTH guards ODD (write-in-progress) before mutating the body, write the
+    body, then publish the next EVEN value to the trailing guard and finally the
+    leading guard. A reader that catches us mid-write sees an odd or mismatched
+    guard pair and retries.
     """
     tail = base + 4 + body_size
     g = struct.unpack_from(_SEQ_FMT, mm, base)[0]
     g_odd = (g + 1) | 1                     # next odd value
+    # Mark BOTH guards in-progress before the body, so head==tail can never be a
+    # stale matching even pair while the body is being overwritten.
     struct.pack_into(_SEQ_FMT, mm, base, g_odd)
+    struct.pack_into(_SEQ_FMT, mm, tail, g_odd)
     struct.pack_into(body_fmt, mm, base + 4, *body_values)
     g_even = (g_odd + 1) & _SEQ_MASK        # next even value
+    # Publish the stable value to the trailing guard first, then the leading one,
+    # so a reader that observes an even leading guard will, on its trailing read,
+    # see either the same even value (stable -> accept) or an odd value (a newer
+    # write already in flight -> retry).
     struct.pack_into(_SEQ_FMT, mm, tail, g_even)
     struct.pack_into(_SEQ_FMT, mm, base, g_even)
 
@@ -180,7 +201,7 @@ def _seqlock_read(mm: mmap.mmap, base: int, body_fmt: str, body_size: int,
             continue
         body = struct.unpack_from(body_fmt, mm, base + 4)
         gb = struct.unpack_from(_SEQ_FMT, mm, tail)[0]
-        if ga == gb:
+        if ga == gb:                        # matching even pair -> untorn write
             return True, body
     return False, body
 
