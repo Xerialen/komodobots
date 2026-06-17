@@ -79,5 +79,104 @@ class ArgumentValidationTests(unittest.TestCase):
                 live4v4.validate_remote_bin_arg(bad)
 
 
+class LiveLeapWiringTests(unittest.TestCase):
+    def test_leap_cvar_block_enables_mode30_on_leap_edicts_only(self) -> None:
+        block = live4v4.build_leap_cvar_block("komodo_move_t07", 3)
+        # leap bots seat at edicts 2..5 (slots 1..4) behind the slot-0 spectator
+        for edict in (2, 3, 4, 5):
+            self.assertIn(f"set k_fb_moveprobe_mode_s{edict} 30", block)
+        # the frog edicts must stay stock -- never mode 30
+        for edict in (1, 6, 7, 8, 9):
+            self.assertNotIn(f"set k_fb_moveprobe_mode_s{edict} 30", block)
+        self.assertIn('set k_fb_moveprobe_live_shm_name "komodo_move_t07"', block)
+        self.assertIn("set k_fb_moveprobe_live_stale_ticks 3", block)
+
+    def test_sidecar_command_attaches_without_create(self) -> None:
+        cmd = live4v4.build_sidecar_command(
+            "~/t0.3-venv/bin/python", "~/komodo-t0.3/scripts/move_policy_sidecar.py",
+            "komodo_move_t07", "~/move_bc_policy.pt", 77,
+        )
+        self.assertIn("cd ~/komodo-t0.3/scripts &&", cmd)
+        self.assertIn("--shm-name komodo_move_t07", cmd)
+        self.assertIn("--ckpt ~/move_bc_policy.pt", cmd)
+        self.assertIn("--hz 77", cmd)
+        self.assertNotIn("--create", cmd)  # KTX owns the region; sidecar mirrors
+
+    def test_b64_roundtrips(self) -> None:
+        import base64
+
+        text = 'set a 1\nset b "x"\n'
+        self.assertEqual(base64.b64decode(live4v4._b64(text)).decode("utf-8"), text)
+
+    def test_remote_script_wires_live_leap(self) -> None:
+        script = live4v4.REMOTE_SCRIPT
+        self.assertIn('live_leap="${9:-0}"', script)
+        self.assertIn('shm_name="${10:-}"', script)
+        self.assertIn('leap_cvars_b64="${11:-}"', script)
+        self.assertIn('sidecar_cmd_b64="${12:-}"', script)
+        # cfg gets the leap cvars; sidecar attaches once the region appears
+        self.assertIn("base64 -d >> \"$cfg_path\"", script)
+        self.assertIn('[ -e "/dev/shm/$shm_name" ]', script)
+        self.assertIn('eval "$sidecar_cmd"', script)
+        # and is torn down (cleanup + post-match)
+        self.assertIn("move_policy_sidecar.py --shm-name $shm_name", script)
+
+    def test_main_live_leap_requires_leap_team(self) -> None:
+        rc = live4v4.main(["--live-leap", "--skip-prereq-check"])
+        self.assertEqual(rc, 2)
+
+    def test_run_remote_passes_live_leap_positional_args_in_order(self) -> None:
+        import tempfile
+
+        captured: dict = {}
+
+        class _Proc:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        def fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            return _Proc()
+
+        with tempfile.TemporaryDirectory() as td, patch.object(live4v4, "run", fake_run):
+            live4v4.run_remote_4v4_lab(
+                host="servexeri", run_id="rid", port=28599, duration=5.0,
+                map_name="dm3", timelimit=5, mvdsv_bin="mvdsv-lab",
+                team1="leap", team2="frog", local_run_dir=Path(td),
+                live_leap=True, shm_name="komodo_move_t07",
+                leap_cvars="set k_fb_moveprobe_mode_s2 30\n",
+                sidecar_cmd="cd x && y --shm-name komodo_move_t07",
+            )
+        # last four positional args after team2: live_leap, shm, b64(cvars), b64(cmd)
+        tail = captured["cmd"][-4:]
+        self.assertEqual(tail[0], "1")
+        self.assertEqual(tail[1], "komodo_move_t07")
+        self.assertEqual(live4v4._b64("set k_fb_moveprobe_mode_s2 30\n"), tail[2])
+        self.assertEqual(live4v4._b64("cd x && y --shm-name komodo_move_t07"), tail[3])
+
+    def test_run_remote_off_by_default(self) -> None:
+        import tempfile
+
+        captured: dict = {}
+
+        class _Proc:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        def fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            return _Proc()
+
+        with tempfile.TemporaryDirectory() as td, patch.object(live4v4, "run", fake_run):
+            live4v4.run_remote_4v4_lab(
+                host="servexeri", run_id="rid", port=28599, duration=5.0,
+                map_name="dm3", timelimit=5, mvdsv_bin="mvdsv-lab",
+                team1="leap", team2="frog", local_run_dir=Path(td),
+            )
+        self.assertEqual(captured["cmd"][-4], "0")  # live_leap off
+
+
 if __name__ == "__main__":
     unittest.main()
