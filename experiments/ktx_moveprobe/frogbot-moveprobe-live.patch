@@ -15,7 +15,7 @@ index d21126a..a11978f 100644
  	"${DIR_SRC}/captain.c"
  	"${DIR_SRC}/coach.c"
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index 24d5933..7cd8601 100644
+index 24d5933..75c6ed5 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
 @@ -2,6 +2,10 @@
@@ -29,7 +29,7 @@ index 24d5933..7cd8601 100644
  #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
-@@ -3004,6 +3008,136 @@ static void BotMoveProbeEmitAssignRow(gedict_t *self, int slot, int mode, int mo
+@@ -3004,6 +3008,155 @@ static void BotMoveProbeEmitAssignRow(gedict_t *self, int slot, int mode, int mo
  			 spawn_shown, spawn_from_slot ? "slot" : "global");
  }
  
@@ -89,8 +89,12 @@ index 24d5933..7cd8601 100644
 +	static void	   *region = NULL;
 +	static int		create_failed = 0;
 +	static unsigned	req_counter[MSHM_MAX_SLOTS];
++	static unsigned	resume_req[MSHM_MAX_SLOTS];
++	static float	last_live_time[MSHM_MAX_SLOTS];
++	static int		live_seeded[MSHM_MAX_SLOTS];
 +	char			shm_name[64];
 +	float			feats[MWV_FEATURE_DIM];
++	float			now = g_globalvars.time;
 +	int				stale_ticks;
 +	unsigned		req;
 +	mshm_move_t		mv;
@@ -133,6 +137,20 @@ index 24d5933..7cd8601 100644
 +	// Publish the world-view (KTX writer role).
 +	mwv_state_features(self->s.v.velocity[0], self->s.v.velocity[1], self->s.v.velocity[2],
 +					   self->fb.desired_angle[1], self->fb.desired_angle[0], feats);
++
++	// Re-baseline on a gap: req_counter is monotonic, but if this slot was not
++	// live very recently (respawn, prewar, mode toggle, or a paused sidecar while
++	// the slot was inactive) the MOVE record still holds a pre-gap answer whose
++	// sequence distance can look fresh. Require an answer to a request issued
++	// at/after this resume, so a stale record is rejected (-> stock fallback)
++	// until the sidecar answers anew. 0.1s >> the ~0.013s tick, << any real gap.
++	if (!live_seeded[slot] || ((now - last_live_time[slot]) > 0.1f))
++	{
++		resume_req[slot] = req_counter[slot] + 1;
++	}
++	live_seeded[slot] = 1;
++	last_live_time[slot] = now;
++
 +	req = ++req_counter[slot];
 +	mshm_write_view(region, slot, req, feats, 1);
 +
@@ -140,6 +158,7 @@ index 24d5933..7cd8601 100644
 +	// whose answer is recent enough, else fall back to stock frogbot.
 +	if (mshm_read_move(region, slot, &mv)
 +		&& (mv.ans_seq != 0)
++		&& (mv.ans_seq >= resume_req[slot])
 +		&& ((req - mv.ans_seq) <= (unsigned) stale_ticks))
 +	{
 +		direction[0] = mv.move[0];
@@ -166,7 +185,7 @@ index 24d5933..7cd8601 100644
  static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, qbool *firing, int *impulse, vec3_t direction)
  {
  	int mode = 0;
-@@ -3452,6 +3586,14 @@ static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, qbool *firing, int
+@@ -3452,6 +3605,14 @@ static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, qbool *firing, int
  		BotApplyMoveProbeReplay(self, slot, jumping, firing, impulse, direction, 5);
  	}
  
