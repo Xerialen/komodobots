@@ -60,10 +60,54 @@ interface ValidationGame {
   };
   teams: ValidationTeam[];
   players: ValidationPlayer[];
+  bench?: GameBench;
+  damage_matrix?: DamageMatrixGate;
+}
+
+// docs/18 T0.1 leap-vs-frog bench (win = total frags) + R-T damage.matrix gate.
+interface GameBench {
+  resolved: boolean;
+  leap_team: string | null;
+  frog_team: string | null;
+  leap_frags: number | null;
+  frog_frags: number | null;
+  frag_margin: number | null;
+  leap_won?: boolean;
+}
+
+interface DamageMatrixGate {
+  enemy_damage: number;
+  intra_team_damage: number;
+  self_damage: number;
+  gate_pass: boolean;
+  reasons: string[];
+}
+
+interface BenchPerGame {
+  run_id: string;
+  leap_team: string;
+  frog_team: string;
+  leap_frags: number;
+  frog_frags: number;
+  frag_margin: number;
+  damage_matrix_gate_pass: boolean | null;
+}
+
+// Ledger-level best-of-N aggregate, schema komodobots.bench_frag_margin.v1.
+interface BenchAggregate {
+  schema: string;
+  games_scored: number;
+  leap_frag_margin_total: number | null;
+  leap_frag_margin_mean: number | null;
+  leap_wins: number;
+  frog_wins: number;
+  per_game: BenchPerGame[];
+  damage_matrix_gate_pass: boolean;
 }
 
 interface ValidationLedger {
   schema: string;
+  bench?: BenchAggregate;
   games: ValidationGame[];
   invalid_games: Array<{ run_id: string; reasons: string[] }>;
   provenance: {
@@ -279,6 +323,76 @@ function TeamSection({ game, team }: { game: ValidationGame; team: ValidationTea
   );
 }
 
+function signedMargin(value: number | null): string {
+  if (value == null) return "—";
+  if (value > 0) return `+${fmtValue(value)}`;
+  return fmtValue(value);
+}
+
+function marginLead(total: number | null): string {
+  if (total == null) return "no scored games";
+  if (total > 0) return "leap ahead";
+  if (total < 0) return "leap behind";
+  return "even";
+}
+
+// docs/18 T0.7: the headline leap-vs-frog verdict — best-of-N frag margin + the
+// R-T damage.matrix gate (bots damage the enemy, not their own team). A negative
+// margin is a valid Phase-0 baseline, not an error state.
+function BenchVerdict({ bench }: { bench: BenchAggregate }) {
+  const gate = bench.damage_matrix_gate_pass;
+  return (
+    <div
+      data-section="4v4-bench-verdict"
+      data-bench-gate={gate ? "green" : "red"}
+      className="mx-2 px-2 py-2 rounded border border-slate-700 bg-slate-950/40 flex flex-col gap-y-1"
+    >
+      <div className="flex items-center gap-x-2">
+        <span className="text-[10px] uppercase text-gray-500">Bench · best-of-{bench.games_scored}</span>
+        <span
+          className={`ml-auto text-[9px] uppercase px-1 py-0.5 rounded border font-mono ${
+            gate
+              ? "text-green-300 bg-green-950/50 border-green-800"
+              : "text-red-300 bg-red-950/50 border-red-800"
+          }`}
+          title="R-T damage.matrix gate: leap bots damaged the enemy, not their own team"
+        >
+          R-T gate {gate ? "green" : "RED"}
+        </span>
+      </div>
+      <div className="flex items-baseline gap-x-2">
+        <span data-bench-margin-total className="text-lg leading-none font-mono font-semibold text-sky-200">
+          {signedMargin(bench.leap_frag_margin_total)}
+        </span>
+        <span className="text-[10px] text-gray-500">
+          leap−frog margin · mean {signedMargin(bench.leap_frag_margin_mean)}/game · {marginLead(bench.leap_frag_margin_total)}
+        </span>
+      </div>
+      <div className="text-[10px] font-mono text-gray-500">
+        leap {bench.leap_wins} – {bench.frog_wins} frog (game wins)
+      </div>
+      <div data-bench-series className="flex flex-wrap gap-1">
+        {bench.per_game.map((g) => (
+          <span
+            key={g.run_id}
+            title={`${g.run_id}: leap ${g.leap_frags} – ${g.frog_frags} frog${g.damage_matrix_gate_pass === false ? " · gate RED" : ""}`}
+            className={`text-[9px] font-mono px-1 py-0.5 rounded border ${
+              g.frag_margin > 0
+                ? "text-green-300 bg-green-950/40 border-green-900"
+                : g.frag_margin < 0
+                ? "text-red-300 bg-red-950/40 border-red-900"
+                : "text-gray-400 border-slate-800"
+            }`}
+          >
+            {signedMargin(g.frag_margin)}
+            {g.damage_matrix_gate_pass === false ? " ⚠" : ""}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function FourVFourValidationPanel({ refreshKey = 0 }: { refreshKey?: number }) {
   const shell = useShellActions();
   const [ledger, setLedger] = useState<ValidationLedger | null>(null);
@@ -369,6 +483,8 @@ export function FourVFourValidationPanel({ refreshKey = 0 }: { refreshKey?: numb
         <span className="text-red-300">red regressed</span>
         <span>{ledger.invalid_games.length} invalid hidden</span>
       </div>
+
+      {ledger.bench && ledger.bench.games_scored > 0 && <BenchVerdict bench={ledger.bench} />}
 
       {game.teams.map((team) => (
         <TeamSection key={team.name} game={game} team={team} />

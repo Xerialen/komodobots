@@ -26,6 +26,36 @@
     "avg_speed",
     "max_speed"
   ],
+  "bench": {
+    "schema": "komodobots.bench_frag_margin.v1",
+    "games_scored": 2,
+    "leap_frag_margin_total": 6,
+    "leap_frag_margin_mean": 3.0,
+    "leap_wins": 2,
+    "frog_wins": 0,
+    "per_game": [
+      {
+        "run_id": "20260614T200000Z",
+        "leap_team": "Team A",
+        "frog_team": "Team B",
+        "leap_frags": 31,
+        "frog_frags": 30,
+        "frag_margin": 1,
+        "damage_matrix_gate_pass": true
+      },
+      {
+        "run_id": "20260614T201000Z",
+        "leap_team": "Team A",
+        "frog_team": "Team B",
+        "leap_frags": 35,
+        "frog_frags": 30,
+        "frag_margin": 5,
+        "damage_matrix_gate_pass": true
+      }
+    ],
+    "damage_matrix_gate_pass": true,
+    "metric": "win=total_frags; combat_guard=damage_done; accuracy=report-only"
+  },
   "games": [
     {
       "run_id": "20260614T200000Z",
@@ -2442,7 +2472,27 @@
       "normalizer_warnings": [
         "KTX fl matches tl; treating fl as reported/possibly echoed, not authoritative fraglimit"
       ],
-      "previous_valid_run_id": null
+      "previous_valid_run_id": null,
+      "bench": {
+        "resolved": true,
+        "leap_team": "Team A",
+        "frog_team": "Team B",
+        "leap_frags": 31,
+        "frog_frags": 30,
+        "frag_margin": 1,
+        "leap_won": true,
+        "metric": "win=total_frags; margin=leap_team_frags-frog_team_frags"
+      },
+      "damage_matrix": {
+        "enemy_damage": 9710,
+        "intra_team_damage": 0,
+        "self_damage": 0,
+        "intra_team_tolerance": 0,
+        "gate_pass": true,
+        "reasons": [],
+        "source": "canonical mvdanalyzer dmg.given (enemy) / dmg.team (intra-team)",
+        "note": "combat guard is damage done, never accuracy"
+      }
     },
     {
       "run_id": "20260614T201000Z",
@@ -4859,7 +4909,27 @@
       "normalizer_warnings": [
         "KTX fl matches tl; treating fl as reported/possibly echoed, not authoritative fraglimit"
       ],
-      "previous_valid_run_id": "20260614T200000Z"
+      "previous_valid_run_id": "20260614T200000Z",
+      "bench": {
+        "resolved": true,
+        "leap_team": "Team A",
+        "frog_team": "Team B",
+        "leap_frags": 35,
+        "frog_frags": 30,
+        "frag_margin": 5,
+        "leap_won": true,
+        "metric": "win=total_frags; margin=leap_team_frags-frog_team_frags"
+      },
+      "damage_matrix": {
+        "enemy_damage": 9714,
+        "intra_team_damage": 0,
+        "self_damage": 0,
+        "intra_team_tolerance": 0,
+        "gate_pass": true,
+        "reasons": [],
+        "source": "canonical mvdanalyzer dmg.given (enemy) / dmg.team (intra-team)",
+        "note": "combat guard is damage done, never accuracy"
+      }
     }
   ],
   "invalid_games": [],
