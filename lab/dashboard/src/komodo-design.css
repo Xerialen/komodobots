@@ -1,0 +1,133 @@
+/* ===========================================================================
+   KomodoBots Design System — tokens + base, vendored for the 4v4 evidence view.
+
+   Source: "KomodoBots Design System" handoff bundle (Claude Design export,
+   issue #253). A dark "match telemetry console" palette: charcoal-olive
+   backgrounds, Komodo olive + Quake amber brand accents, red/blue team colors,
+   signed delta colors. Consolidated from the bundle's tokens/*.css so the
+   dashboard ships one file. Fonts load via Google Fonts (Saira Condensed /
+   Saira / JetBrains Mono), flagged in the kit as confirmable placeholders.
+   =========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600&family=Saira+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  /* --- Base neutrals: warm charcoal with an olive undertone --- */
+  --ink-1000: #0B0F0D;
+  --ink-900s: #111613;
+  --ink-850:  #161C18;
+  --ink-800:  #1B221D;
+  --ink-750:  #222A24;
+  --ink-700:  #2C352D;
+  --ink-600:  #3A453B;
+  --ink-500:  #55624F;
+
+  /* --- Foreground / text --- */
+  --paper:      #ECEFE6;
+  --paper-dim:  #AEB6A6;
+  --paper-mut:  #79836F;
+  --paper-faint:#535C4B;
+
+  /* --- Komodo: brand primary (olive scale-green) --- */
+  --komodo-100: #E7EFC9;
+  --komodo-300: #B7CE6E;
+  --komodo-500: #8FB23A;
+  --komodo-600: #74962C;
+  --komodo-700: #56711F;
+  --komodo-900: #2C3D14;
+  --komodo-glow: rgba(143,178,58,0.28);
+
+  /* --- Quake amber: secondary accent --- */
+  --amber-300: #F6C77A;
+  --amber-500: #E8913C;
+  --amber-600: #C9701F;
+  --amber-900: #4A2A0E;
+
+  /* --- Team colors --- */
+  --red-team:     #E2474A;
+  --red-team-dim: #7E2A2C;
+  --red-team-bg:  #2A1416;
+  --blue-team:    #4C8FDC;
+  --blue-team-dim:#2C4E72;
+  --blue-team-bg: #13202E;
+
+  /* --- Signed delta semantics --- */
+  --pos-500: #6FCB57;
+  --pos-bg:  #16270F;
+  --neg-500: #E2474A;
+  --neg-bg:  #2A1416;
+  --flat-500:#79836F;
+
+  /* --- Quad / Pent / Ring powerup glints --- */
+  --quad: #4C8FDC;
+  --pent: #E2474A;
+  --ring: #F6C77A;
+
+  /* ===== Semantic aliases ===== */
+  --bg-app:         var(--ink-900s);
+  --bg-page:        var(--ink-1000);
+  --surface-card:   var(--ink-800);
+  --surface-raised: var(--ink-850);
+  --surface-hover:  var(--ink-750);
+  --surface-inset:  var(--ink-700);
+
+  --text-strong: var(--paper);
+  --text-body:   var(--paper-dim);
+  --text-muted:  var(--paper-mut);
+  --text-faint:  var(--paper-faint);
+
+  --border-hair:  var(--ink-700);
+  --border-line:  var(--ink-600);
+  --border-faint: rgba(236,239,230,0.06);
+
+  --brand:        var(--komodo-500);
+  --brand-strong: var(--komodo-600);
+  --accent:       var(--amber-500);
+  --focus-ring:   var(--komodo-500);
+
+  /* --- Typography --- */
+  --font-display: 'Saira Condensed', 'Oswald', system-ui, sans-serif;
+  --font-ui:      'Saira', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+
+  --w-reg: 400; --w-med: 500; --w-semi: 600; --w-bold: 700;
+
+  --t-stat-xl: 3.25rem;   /* 52px hero scores */
+  --t-stat-lg: 2.25rem;   /* 36px team rollups */
+  --t-stat-md: 1.5rem;    /* 24px tiles */
+  --t-h1:      1.75rem;   /* 28px view title */
+  --t-h2:      1.25rem;   /* 20px section title */
+  --t-h3:      1rem;      /* 16px card title */
+  --t-body:    0.9375rem; /* 15px */
+  --t-sm:      0.8125rem; /* 13px table cells */
+  --t-xs:      0.6875rem; /* 11px column headers */
+  --t-2xs:     0.625rem;  /* 10px micro metadata */
+
+  --lh-tight: 1.05; --lh-snug: 1.25; --lh-normal: 1.5;
+  --ls-label: 0.08em; --ls-display: 0.01em; --ls-tab: 0;
+
+  /* --- Spacing / radius / layout --- */
+  --sp-1: 2px; --sp-2: 4px; --sp-3: 8px; --sp-4: 12px; --sp-5: 16px;
+  --sp-6: 20px; --sp-7: 24px; --sp-8: 32px; --sp-9: 40px; --sp-10: 56px;
+  --r-1: 2px; --r-2: 3px; --r-3: 5px; --r-4: 8px; --r-pill: 999px;
+  --bw-hair: 1px; --bw-accent: 2px;
+  --gutter: 16px; --col-gap: 12px; --view-max: 1240px;
+
+  /* --- Effects --- */
+  --shadow-card: 0 1px 0 rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.2);
+  --shadow-pop:  0 8px 24px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.3);
+  --glow-komodo: 0 0 0 1px var(--komodo-700), 0 0 18px var(--komodo-glow);
+  --glow-live:   0 0 0 1px rgba(232,145,60,0.5), 0 0 16px rgba(232,145,60,0.25);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 90ms; --dur-base: 150ms; --dur-slow: 280ms;
+}
+
+/* Tabular numbers wherever stat data appears */
+.km-tnum { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+
+/* LIVE / status dot pulse (kit Badge). Respects reduced motion. */
+@keyframes km-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .km-live-dot { animation: none !important; } }
+
+/* Scoped reset for the evidence surface so it reads on the dark console theme. */
+[data-evidence-scoreboard] ::selection { background: var(--komodo-700); color: var(--paper); }
