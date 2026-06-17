@@ -256,29 +256,52 @@ function StatCell({
   );
 }
 
-function BotRow({ player }: { player: ValidationPlayer }) {
-  const tracked = player.roster.role === "komodobot";
+interface TeamSide {
+  label: string;
+  border: string;
+  bg: string;
+  chip: string;
+}
+
+// Team is the differentiator: the trained "leap" side (red) vs the "frog"
+// control side (blue). No single bot row is singled out anymore.
+const SIDE_LEAP: TeamSide = {
+  label: "LEAP",
+  border: "border-red-800/70",
+  bg: "bg-red-950/20",
+  chip: "text-red-300 border-red-800 bg-red-950/40",
+};
+const SIDE_FROG: TeamSide = {
+  label: "FROG",
+  border: "border-sky-800/70",
+  bg: "bg-sky-950/20",
+  chip: "text-sky-300 border-sky-800 bg-sky-950/40",
+};
+
+// Resolve which side a team is on, preferring the per-game bench resolution and
+// falling back to the wireframe order (teams[0] = leap / red).
+function sideForTeam(game: ValidationGame, teamName: string, teamIdx: number): TeamSide {
+  const leap = game.bench?.leap_team;
+  const frog = game.bench?.frog_team;
+  if (leap && teamName === leap) return SIDE_LEAP;
+  if (frog && teamName === frog) return SIDE_FROG;
+  return teamIdx === 0 ? SIDE_LEAP : SIDE_FROG;
+}
+
+function BotRow({ player, side }: { player: ValidationPlayer; side: TeamSide }) {
   const frags = metricValue(player, "frags");
   return (
     <div
       data-validation-bot={player.slot}
       data-validation-role={player.roster.role}
-      className={`rounded border px-2 py-1.5 ${
-        tracked
-          ? "border-amber-600/70 bg-amber-950/20"
-          : "border-slate-800 bg-slate-950/30"
-      }`}
+      data-validation-side={side.label}
+      className={`rounded border px-2 py-1.5 ${side.border} ${side.bg}`}
     >
       <div className="flex items-center gap-x-2">
         <span className="text-[10px] text-gray-500 font-mono w-5">#{player.slot}</span>
         <span className="text-xs text-gray-300 truncate flex-1" title={player.roster.name}>
           {player.roster.name}
         </span>
-        {tracked && (
-          <span className="text-[9px] uppercase text-amber-300 border border-amber-700 rounded px-1">
-            dev
-          </span>
-        )}
       </div>
       <div className="flex items-center gap-x-2 mt-1">
         <div className="shrink-0">
@@ -309,17 +332,19 @@ function BotRow({ player }: { player: ValidationPlayer }) {
   );
 }
 
-function TeamSection({ game, team }: { game: ValidationGame; team: ValidationTeam }) {
+function TeamSection({ game, team, teamIdx }: { game: ValidationGame; team: ValidationTeam; teamIdx: number }) {
   const players = playersForTeam(game, team.name);
+  const side = sideForTeam(game, team.name, teamIdx);
   return (
-    <section data-validation-team={team.name} className="flex flex-col gap-y-1">
+    <section data-validation-team={team.name} data-validation-side={side.label} className="flex flex-col gap-y-1">
       <div className="flex items-center gap-x-2 px-1 text-[10px] font-mono text-gray-500">
+        <span className={`uppercase px-1 py-0.5 rounded border ${side.chip}`}>{side.label}</span>
         <span className="text-gray-300">{team.name}</span>
         <span>score {team.score}</span>
         <span>dmg {team.totals.damage_done ?? "—"}</span>
       </div>
       {players.map((player) => (
-        <BotRow key={player.id} player={player} />
+        <BotRow key={player.id} player={player} side={side} />
       ))}
     </section>
   );
@@ -488,8 +513,8 @@ export function FourVFourValidationPanel({ refreshKey = 0 }: { refreshKey?: numb
 
       {ledger.bench && ledger.bench.games_scored > 0 && <BenchVerdict bench={ledger.bench} />}
 
-      {game.teams.map((team) => (
-        <TeamSection key={team.name} game={game} team={team} />
+      {game.teams.map((team, idx) => (
+        <TeamSection key={team.name} game={game} team={team} teamIdx={idx} />
       ))}
     </div>
   );

@@ -171,9 +171,9 @@
           "slot": 1,
           "id": "01:team_a:komodo-dev",
           "identity": {
-            "name": "komodo-dev",
+            "name": "leap-1",
             "team": "Team A",
-            "login": "komodo-dev",
+            "login": "leap-1",
             "ping": 10,
             "top_color": 4,
             "bottom_color": 4,
@@ -288,12 +288,12 @@
           "roster": {
             "slot": 1,
             "id": "slot-1",
-            "name": "komodo-dev",
+            "name": "leap-1",
             "team": "Team A",
-            "role": "komodobot",
-            "bot_kind": "komodobot",
+            "role": "leap",
+            "bot_kind": "leap",
             "bot_skill": 20,
-            "controller_version": "komodo-v1",
+            "controller_version": "komodo-v2",
             "tracked": true
           },
           "deltas": {
@@ -447,9 +447,9 @@
           "slot": 2,
           "id": "02:team_a:a-control-2",
           "identity": {
-            "name": "a-control-2",
+            "name": "leap-2",
             "team": "Team A",
-            "login": "a-control-2",
+            "login": "leap-2",
             "ping": 10,
             "top_color": 4,
             "bottom_color": 4,
@@ -564,13 +564,13 @@
           "roster": {
             "slot": 2,
             "id": "slot-2",
-            "name": "a-control-2",
+            "name": "leap-2",
             "team": "Team A",
-            "role": "control",
-            "bot_kind": "frogbot",
+            "role": "leap",
+            "bot_kind": "leap",
             "bot_skill": 20,
-            "controller_version": "frogbot-20",
-            "tracked": false
+            "controller_version": "komodo-v2",
+            "tracked": true
           },
           "deltas": {
             "frags": {
@@ -723,9 +723,9 @@
           "slot": 3,
           "id": "03:team_a:a-control-3",
           "identity": {
-            "name": "a-control-3",
+            "name": "leap-3",
             "team": "Team A",
-            "login": "a-control-3",
+            "login": "leap-3",
             "ping": 10,
             "top_color": 4,
             "bottom_color": 4,
@@ -840,13 +840,13 @@
           "roster": {
             "slot": 3,
             "id": "slot-3",
-            "name": "a-control-3",
+            "name": "leap-3",
             "team": "Team A",
-            "role": "control",
-            "bot_kind": "frogbot",
+            "role": "leap",
+            "bot_kind": "leap",
             "bot_skill": 20,
-            "controller_version": "frogbot-20",
-            "tracked": false
+            "controller_version": "komodo-v2",
+            "tracked": true
           },
           "deltas": {
             "frags": {
@@ -999,9 +999,9 @@
           "slot": 4,
           "id": "04:team_a:a-control-4",
           "identity": {
-            "name": "a-control-4",
+            "name": "leap-4",
             "team": "Team A",
-            "login": "a-control-4",
+            "login": "leap-4",
             "ping": 10,
             "top_color": 4,
             "bottom_color": 4,
@@ -1116,13 +1116,13 @@
           "roster": {
             "slot": 4,
             "id": "slot-4",
-            "name": "a-control-4",
+            "name": "leap-4",
             "team": "Team A",
-            "role": "control",
-            "bot_kind": "frogbot",
+            "role": "leap",
+            "bot_kind": "leap",
             "bot_skill": 20,
-            "controller_version": "frogbot-20",
-            "tracked": false
+            "controller_version": "komodo-v2",
+            "tracked": true
           },
           "deltas": {
             "frags": {
@@ -1275,9 +1275,9 @@
           "slot": 5,
           "id": "05:team_b:b-control-1",
           "identity": {
-            "name": "b-control-1",
+            "name": "frog-1",
             "team": "Team B",
-            "login": "b-control-1",
+            "login": "frog-1",
             "ping": 10,
             "top_color": 13,
             "bottom_color": 13,
@@ -1392,7 +1392,7 @@
           "roster": {
             "slot": 5,
             "id": "slot-5",
-            "name": "b-control-1",
+            "name": "frog-1",
             "team": "Team B",
             "role": "control",
             "bot_kind": "frogbot",
@@ -1551,9 +1551,9 @@
           "slot": 6,
           "id": "06:team_b:b-control-2",
           "identity": {
-            "name": "b-control-2",
+            "name": "frog-2",
             "team": "Team B",
-            "login": "b-control-2",
+            "login": "frog-2",
             "ping": 10,
             "top_color": 13,
             "bottom_color": 13,
@@ -1668,7 +1668,7 @@
           "roster": {
             "slot": 6,
             "id": "slot-6",
-            "name": "b-control-2",
+            "name": "frog-2",
             "team": "Team B",
             "role": "control",
             "bot_kind": "frogbot",
@@ -1827,9 +1827,9 @@
           "slot": 7,
           "id": "07:team_b:b-control-3",
           "identity": {
-            "name": "b-control-3",
+            "name": "frog-3",
             "team": "Team B",
-            "login": "b-control-3",
+            "login": "frog-3",
             "ping": 10,
             "top_color": 13,
             "bottom_color": 13,
@@ -1944,7 +1944,7 @@
           "roster": {
             "slot": 7,
             "id": "slot-7",
-            "name": "b-control-3",
+            "name": "frog-3",
             "team": "Team B",
             "role": "control",
             "bot_kind": "frogbot",
@@ -2103,9 +2103,9 @@
           "slot": 8,
           "id": "08:team_b:b-control-4",
           "identity": {
-            "name": "b-control-4",
+            "name": "frog-4",
             "team": "Team B",
-            "login": "b-control-4",
+            "login": "frog-4",
             "ping": 10,
             "top_color": 13,
             "bottom_color": 13,
@@ -2220,7 +2220,7 @@
           "roster": {
             "slot": 8,
             "id": "slot-8",
-            "name": "b-control-4",
+            "name": "frog-4",
             "team": "Team B",
             "role": "control",
             "bot_kind": "frogbot",
@@ -2608,9 +2608,9 @@
           "slot": 1,
           "id": "01:team_a:komodo-dev",
           "identity": {
-            "name": "komodo-dev",
+            "name": "leap-1",
             "team": "Team A",
-            "login": "komodo-dev",
+            "login": "leap-1",
             "ping": 10,
             "top_color": 4,
             "bottom_color": 4,
@@ -2725,10 +2725,10 @@
           "roster": {
             "slot": 1,
             "id": "slot-1",
-            "name": "komodo-dev",
+            "name": "leap-1",
             "team": "Team A",
-            "role": "komodobot",
-            "bot_kind": "komodobot",
+            "role": "leap",
+            "bot_kind": "leap",
             "bot_skill": 20,
             "controller_version": "komodo-v2",
             "tracked": true
@@ -2884,9 +2884,9 @@
           "slot": 2,
           "id": "02:team_a:a-control-2",
           "identity": {
-            "name": "a-control-2",
+            "name": "leap-2",
             "team": "Team A",
-            "login": "a-control-2",
+            "login": "leap-2",
             "ping": 10,
             "top_color": 4,
             "bottom_color": 4,
@@ -3001,13 +3001,13 @@
           "roster": {
             "slot": 2,
             "id": "slot-2",
-            "name": "a-control-2",
+            "name": "leap-2",
             "team": "Team A",
-            "role": "control",
-            "bot_kind": "frogbot",
+            "role": "leap",
+            "bot_kind": "leap",
             "bot_skill": 20,
-            "controller_version": "frogbot-20",
-            "tracked": false
+            "controller_version": "komodo-v2",
+            "tracked": true
           },
           "deltas": {
             "frags": {
@@ -3160,9 +3160,9 @@
           "slot": 3,
           "id": "03:team_a:a-control-3",
           "identity": {
-            "name": "a-control-3",
+            "name": "leap-3",
             "team": "Team A",
-            "login": "a-control-3",
+            "login": "leap-3",
             "ping": 10,
             "top_color": 4,
             "bottom_color": 4,
@@ -3277,13 +3277,13 @@
           "roster": {
             "slot": 3,
             "id": "slot-3",
-            "name": "a-control-3",
+            "name": "leap-3",
             "team": "Team A",
-            "role": "control",
-            "bot_kind": "frogbot",
+            "role": "leap",
+            "bot_kind": "leap",
             "bot_skill": 20,
-            "controller_version": "frogbot-20",
-            "tracked": false
+            "controller_version": "komodo-v2",
+            "tracked": true
           },
           "deltas": {
             "frags": {
@@ -3436,9 +3436,9 @@
           "slot": 4,
           "id": "04:team_a:a-control-4",
           "identity": {
-            "name": "a-control-4",
+            "name": "leap-4",
             "team": "Team A",
-            "login": "a-control-4",
+            "login": "leap-4",
             "ping": 10,
             "top_color": 4,
             "bottom_color": 4,
@@ -3553,13 +3553,13 @@
           "roster": {
             "slot": 4,
             "id": "slot-4",
-            "name": "a-control-4",
+            "name": "leap-4",
             "team": "Team A",
-            "role": "control",
-            "bot_kind": "frogbot",
+            "role": "leap",
+            "bot_kind": "leap",
             "bot_skill": 20,
-            "controller_version": "frogbot-20",
-            "tracked": false
+            "controller_version": "komodo-v2",
+            "tracked": true
           },
           "deltas": {
             "frags": {
@@ -3712,9 +3712,9 @@
           "slot": 5,
           "id": "05:team_b:b-control-1",
           "identity": {
-            "name": "b-control-1",
+            "name": "frog-1",
             "team": "Team B",
-            "login": "b-control-1",
+            "login": "frog-1",
             "ping": 10,
             "top_color": 13,
             "bottom_color": 13,
@@ -3829,7 +3829,7 @@
           "roster": {
             "slot": 5,
             "id": "slot-5",
-            "name": "b-control-1",
+            "name": "frog-1",
             "team": "Team B",
             "role": "control",
             "bot_kind": "frogbot",
@@ -3988,9 +3988,9 @@
           "slot": 6,
           "id": "06:team_b:b-control-2",
           "identity": {
-            "name": "b-control-2",
+            "name": "frog-2",
             "team": "Team B",
-            "login": "b-control-2",
+            "login": "frog-2",
             "ping": 10,
             "top_color": 13,
             "bottom_color": 13,
@@ -4105,7 +4105,7 @@
           "roster": {
             "slot": 6,
             "id": "slot-6",
-            "name": "b-control-2",
+            "name": "frog-2",
             "team": "Team B",
             "role": "control",
             "bot_kind": "frogbot",
@@ -4264,9 +4264,9 @@
           "slot": 7,
           "id": "07:team_b:b-control-3",
           "identity": {
-            "name": "b-control-3",
+            "name": "frog-3",
             "team": "Team B",
-            "login": "b-control-3",
+            "login": "frog-3",
             "ping": 10,
             "top_color": 13,
             "bottom_color": 13,
@@ -4381,7 +4381,7 @@
           "roster": {
             "slot": 7,
             "id": "slot-7",
-            "name": "b-control-3",
+            "name": "frog-3",
             "team": "Team B",
             "role": "control",
             "bot_kind": "frogbot",
@@ -4540,9 +4540,9 @@
           "slot": 8,
           "id": "08:team_b:b-control-4",
           "identity": {
-            "name": "b-control-4",
+            "name": "frog-4",
             "team": "Team B",
-            "login": "b-control-4",
+            "login": "frog-4",
             "ping": 10,
             "top_color": 13,
             "bottom_color": 13,
@@ -4657,7 +4657,7 @@
           "roster": {
             "slot": 8,
             "id": "slot-8",
-            "name": "b-control-4",
+            "name": "frog-4",
             "team": "Team B",
             "role": "control",
             "bot_kind": "frogbot",

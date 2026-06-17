@@ -67,14 +67,17 @@ class FourVFourValidationPanelLogicTest(unittest.TestCase):
         self.assertEqual(len(players_for_team(self.game, "Team A")), 4)
         self.assertEqual(len(players_for_team(self.game, "Team B")), 4)
 
-    def test_komodobot_slot_is_pinned(self):
-        komodos = [p for p in self.game["players"] if p["roster"]["role"] == "komodobot"]
-        self.assertEqual(len(komodos), 1)
-        self.assertEqual(komodos[0]["slot"], 1)
-        self.assertTrue(komodos[0]["roster"]["tracked"])
+    def test_leap_team_is_four_bots_no_single_pinned_row(self):
+        # The trained side is a whole team (four leap bots), not one pinned row.
+        leaps = [p for p in self.game["players"] if p["roster"]["role"] == "leap"]
+        self.assertEqual(len(leaps), 4)
+        # All leap bots sit on Team A (the RED / LEAP side).
+        self.assertTrue(all(p["roster"]["team"] == "Team A" for p in leaps))
+        # No legacy single-bot "komodobot" role survives.
+        self.assertEqual([p for p in self.game["players"] if p["roster"]["role"] == "komodobot"], [])
 
     def test_frags_delta_has_strong_positive_label(self):
-        komodo = next(p for p in self.game["players"] if p["roster"]["role"] == "komodobot")
+        komodo = next(p for p in self.game["players"] if p["slot"] == 1)
         self.assertEqual(stat_value(komodo, "frags"), 14)
         delta = komodo["deltas"]["frags"]
         self.assertEqual(delta["previous"], 10)
@@ -179,6 +182,29 @@ class BenchVerdictLogicTest(unittest.TestCase):
         self.assertIn("R-T gate", src)
 
 
+class PanelTeamDistinctionTest(unittest.TestCase):
+    """Team (LEAP vs FROG) is the visual differentiator — no single-bot highlight."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = PANEL_TSX.read_text(encoding="utf-8")
+
+    def test_no_single_bot_komodobot_highlight(self):
+        # The old per-row emphasis is gone: no komodobot role special-case, no
+        # amber "dev" pin, no per-row tracked highlight branch.
+        self.assertNotIn('role === "komodobot"', self.src)
+        self.assertNotIn("amber", self.src.replace("amber-700", ""))  # amber-700 is the error-state text only
+        self.assertNotIn(">\n            dev\n", self.src)
+
+    def test_team_side_is_the_differentiator(self):
+        self.assertIn("sideForTeam", self.src)
+        self.assertIn("LEAP", self.src)
+        self.assertIn("FROG", self.src)
+        self.assertIn("data-validation-side", self.src)
+        # Side resolves from the per-game bench leap/frog team.
+        self.assertIn("game.bench?.leap_team", self.src)
+
+
 EVIDENCE_TSX = REPO / "lab" / "dashboard" / "src" / "FourVFourEvidence.tsx"
 
 
@@ -225,7 +251,7 @@ class SpeedColumnsFixtureTest(unittest.TestCase):
         self.assertIn("Max spd", src)
 
     def test_stat_value_returns_number_for_speed(self):
-        komodo = next(p for p in self.game["players"] if p["roster"]["role"] == "komodobot")
+        komodo = next(p for p in self.game["players"] if p["slot"] == 1)
         self.assertIsNotNone(stat_value(komodo, "avg_speed"))
         self.assertIsNotNone(stat_value(komodo, "max_speed"))
 

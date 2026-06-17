@@ -34,6 +34,12 @@ interface ValidationPlayer {
   stats: Record<string, number | boolean | null>;
 }
 
+// docs/18 T0.1 per-game leap-vs-frog resolution (which team is the trained side).
+interface GameBench {
+  leap_team: string | null;
+  frog_team: string | null;
+}
+
 interface ValidationGame {
   run_id: string;
   previous_valid_run_id: string | null;
@@ -41,6 +47,7 @@ interface ValidationGame {
   match: { map: string; mode: string; duration: number; demo?: string | null };
   teams: ValidationTeam[];
   players: ValidationPlayer[];
+  bench?: GameBench;
 }
 
 // docs/18 T0.1 best-of-N leap-vs-frog bench, schema komodobots.bench_frag_margin.v1.
@@ -82,6 +89,7 @@ interface MetricDef {
 
 interface TeamTone {
   tag: string;
+  side: string;
   text: string;
   chip: string;
   soft: string;
@@ -130,11 +138,24 @@ const TEAM_METRICS: MetricDef[] = [
 
 const POWERUP_KEYS = ["quad_pickups", "pent_pickups", "ring_pickups"];
 
-// teams[0] renders RED, teams[1] BLUE — matching the wireframe.
+// teams[0] renders RED (the LEAP / trained side), teams[1] BLUE (FROG controls) —
+// matching the wireframe and the bench leap_team/frog_team convention. Team is the
+// visual differentiator: a whole side is the trained bots, so no single row is
+// singled out anymore.
 const TEAM_TONES: TeamTone[] = [
-  { tag: "RED", text: "text-red-700", chip: "bg-red-600", soft: "bg-red-50", ring: "border-red-200" },
-  { tag: "BLUE", text: "text-blue-700", chip: "bg-blue-600", soft: "bg-blue-50", ring: "border-blue-200" },
+  { tag: "RED", side: "LEAP", text: "text-red-700", chip: "bg-red-600", soft: "bg-red-50", ring: "border-red-200" },
+  { tag: "BLUE", side: "FROG", text: "text-blue-700", chip: "bg-blue-600", soft: "bg-blue-50", ring: "border-blue-200" },
 ];
+
+// Resolve the LEAP/FROG side per team name, preferring the per-game bench
+// resolution and falling back to the wireframe order (teams[0] = leap).
+function sideForTeam(game: ValidationGame, teamName: string, teamIdx: number): string {
+  const leap = game.bench?.leap_team;
+  const frog = game.bench?.frog_team;
+  if (leap && teamName === leap) return "LEAP";
+  if (frog && teamName === frog) return "FROG";
+  return teamIdx === 0 ? "LEAP" : "FROG";
+}
 
 function dataUrl(): string {
   const params = new URLSearchParams(window.location.search);
@@ -211,14 +232,21 @@ function DeltaSpan({ metricKey, delta, metric }: { metricKey: string; delta: num
   return <span className={`ml-1 text-[11px] font-mono ${deltaToneClass(metricKey, delta)}`}>{text}</span>;
 }
 
-function TeamCard({ team, prev, tone }: { team: ValidationTeam; prev: ValidationTeam | null; tone: TeamTone }) {
+function TeamCard({ team, prev, tone, side }: { team: ValidationTeam; prev: ValidationTeam | null; tone: TeamTone; side: string }) {
   const scoreDelta = prev ? team.score - prev.score : null;
   const powerups = POWERUP_KEYS.map((k) => num(team.totals[k]) ?? 0);
   return (
-    <section className={`rounded-md border ${tone.ring} ${tone.soft} px-4 py-3`} data-evidence-team={team.name}>
+    <section
+      className={`rounded-md border ${tone.ring} ${tone.soft} px-4 py-3`}
+      data-evidence-team={team.name}
+      data-evidence-side={side}
+    >
       <div className="flex items-center justify-between gap-x-3">
         <div className="min-w-0">
           <span className={`text-sm font-bold uppercase tracking-wide ${tone.text}`}>{tone.tag} team</span>
+          <span className={`ml-2 text-[10px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5 text-white ${tone.chip}`}>
+            {side}
+          </span>
           <span className="ml-2 text-xs text-neutral-500">
             {team.name} · {team.player_count} players
           </span>
@@ -274,23 +302,25 @@ function BotTable({ game, prev }: { game: ValidationGame; prev: ValidationGame |
         <tbody>
           {rows.map(({ player, teamIdx }) => {
             const tone = TEAM_TONES[teamIdx] ?? TEAM_TONES[0];
-            const tracked = player.roster.tracked || player.roster.role === "komodobot";
+            const teamName = player.roster.team || player.identity.team;
+            const side = sideForTeam(game, teamName, teamIdx);
             const prevPlayer = prev?.players.find((p) => p.slot === player.slot) ?? null;
             return (
               <tr
                 key={player.id}
                 data-evidence-bot={player.slot}
-                data-evidence-tracked={tracked ? "true" : "false"}
-                className={`border-b border-neutral-100 last:border-b-0 ${tracked ? "bg-amber-50" : ""}`}
+                data-evidence-side={side}
+                className="border-b border-neutral-100 last:border-b-0"
               >
-                <td className="px-2 py-1.5">
+                <td className="px-2 py-1.5 whitespace-nowrap">
                   <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold uppercase text-white ${tone.chip}`}>
                     {tone.tag}
                   </span>
+                  <span className={`ml-1 text-[10px] font-semibold uppercase ${tone.text}`}>{side}</span>
                 </td>
                 <td className="px-2 py-1.5 text-right font-mono text-neutral-500">{player.slot}</td>
                 <td className="px-2 py-1.5">
-                  <div className={`font-semibold ${tracked ? "text-amber-700" : "text-neutral-800"}`}>
+                  <div className="font-semibold text-neutral-800">
                     {player.roster.name || player.identity.name}
                   </div>
                   {player.roster.controller_version && (
@@ -463,7 +493,13 @@ export function FourVFourEvidence() {
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         {game.teams.map((team, idx) => (
-          <TeamCard key={team.name} team={team} prev={prev?.teams.find((t) => t.name === team.name) ?? null} tone={TEAM_TONES[idx] ?? TEAM_TONES[0]} />
+          <TeamCard
+            key={team.name}
+            team={team}
+            prev={prev?.teams.find((t) => t.name === team.name) ?? null}
+            tone={TEAM_TONES[idx] ?? TEAM_TONES[0]}
+            side={sideForTeam(game, team.name, idx)}
+          />
         ))}
       </div>
 
@@ -474,6 +510,8 @@ export function FourVFourEvidence() {
           Headings: TK = team kills · TTD = damage taken per death · RL kills = enemies carrying RL killed ·
           RL drop = rocket launchers dropped · Q/P/R = quad / pent / ring pickups ·
           Avg/Max spd = average / peak speed in qu/s ·
+          <span className="text-red-700"> RED = LEAP (trained)</span> /
+          <span className="text-blue-700"> BLUE = FROG (controls)</span> ·
           <span className="text-green-600"> green improved</span> /
           <span className="text-red-600"> red regressed</span> vs previous valid game.
         </div>
