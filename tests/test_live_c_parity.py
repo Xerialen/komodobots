@@ -29,85 +29,28 @@ Run locally:  python3 -m unittest tests.test_live_c_parity -v
 from __future__ import annotations
 
 import os
-import shutil
 import struct
-import subprocess
 import sys
-import tempfile
 import time
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # tests/ for _live_c_harness
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import move_policy_sidecar as sc  # noqa: E402
 import move_world_view as mwv  # noqa: E402
 
-LIVE_DIR = ROOT / "experiments" / "ktx_moveprobe" / "live"
-C_SOURCES = ["move_world_view.c", "move_shm.c", "selftest_main.c"]
-
-
-# ---------------------------------------------------------------------------
-# Build the harness once at import. _SKIP_REASON is set (and the harness path
-# left None) only when no compiler exists; a present-but-failing compile is a
-# hard error, surfaced by the build assertion test.
-# ---------------------------------------------------------------------------
-_HARNESS = None
-_SKIP_REASON = None
-_BUILD_LOG = ""
-_TMPDIR = None
-
-
-def _build_harness():
-    global _HARNESS, _SKIP_REASON, _BUILD_LOG, _TMPDIR
-    cc = os.environ.get("CC") or shutil.which("cc") or shutil.which("gcc")
-    if not cc:
-        _SKIP_REASON = ("no C compiler (cc/gcc) found; C<->Python parity gate "
-                        "needs one. CI's ubuntu-latest has gcc.")
-        return
-    _TMPDIR = tempfile.mkdtemp(prefix="komodo_t03_parity_")
-    out = os.path.join(_TMPDIR, "live_selftest")
-    cmd = [cc, "-O2", "-std=c11", "-Wall", "-Wextra",
-           "-o", out] + [str(LIVE_DIR / s) for s in C_SOURCES] + ["-lm"]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    _BUILD_LOG = f"$ {' '.join(cmd)}\n{proc.stdout}{proc.stderr}"
-    if proc.returncode == 0 and os.path.exists(out):
-        _HARNESS = out
-    else:
-        # compiler present but build failed -> a real defect, not a skip
-        _SKIP_REASON = None
-        _HARNESS = None
-
-
-_build_harness()
-
-
-def tearDownModule():
-    if _TMPDIR and os.path.isdir(_TMPDIR):
-        shutil.rmtree(_TMPDIR, ignore_errors=True)
-
-
-def _require_harness(case: unittest.TestCase):
-    if _HARNESS is None and _SKIP_REASON is not None:
-        case.skipTest(_SKIP_REASON)
-    if _HARNESS is None:
-        case.fail("C live unit failed to compile (compiler present):\n" + _BUILD_LOG)
-
-
-def _run(*args, stdin: str | None = None) -> str:
-    proc = subprocess.run([_HARNESS, *args], input=stdin,
-                          capture_output=True, text=True, timeout=60)
-    if proc.returncode != 0:
-        raise AssertionError(
-            f"harness {args} rc={proc.returncode}\nstdout={proc.stdout}\n"
-            f"stderr={proc.stderr}")
-    return proc.stdout
-
-
-def _f32_bits(x) -> int:
-    """IEEE-754 bits of x rounded to single precision (the wire precision)."""
-    return struct.unpack("<I", struct.pack("<f", float(x)))[0]
+# The C compile harness + f32-bit helper are shared with
+# tests/test_golden_vector_parity.py so the two world-view parity gates build and
+# invoke the C unit through one contract (no drift). See tests/_live_c_harness.py;
+# it cleans up its build tmpdir via atexit.
+from _live_c_harness import (  # noqa: E402
+    f32_bits as _f32_bits,
+    require_harness as _require_harness,
+    run as _run,
+)
 
 
 def _unique_name(tag: str) -> str:
