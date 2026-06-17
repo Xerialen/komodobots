@@ -18,9 +18,10 @@ name: Review Gate Merge
 # for `PR Tests`; `workflow_run` is the mechanism that does. Both
 # `pull_request:labeled` and `issues:labeled` are handled because PR labels can
 # arrive through either webhook surface depending on which API applies the label.
-# A low-frequency schedule reconciles eligible `gate: ready` PRs if a label
-# event is missed. "Not ready yet" is silent (log only); it comments only on an
-# actual merge.
+# A 5-minute schedule reconciles eligible `gate: ready` PRs if a label event is
+# missed, and is the path that merges a PR once its `gate: ready` label clears
+# the cooldown window below. "Not ready yet" is silent (log only); it comments
+# only on an actual merge.
 #
 # `ready_for_review` is intentionally NOT a merge trigger. Promoting a draft to
 # ready is owned by Reset Review Gate (it sets `gate: reviewing`), so a draft that
@@ -41,7 +42,7 @@ on:
     workflows: ["PR Tests"]
     types: [completed]
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/5 * * * *"
 
 permissions:
   contents: write
