@@ -15,7 +15,7 @@ index d21126a..a11978f 100644
  	"${DIR_SRC}/captain.c"
  	"${DIR_SRC}/coach.c"
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index 24d5933..75c6ed5 100644
+index 24d5933..40bc7b4 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
 @@ -2,6 +2,10 @@
@@ -29,7 +29,7 @@ index 24d5933..75c6ed5 100644
  #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
-@@ -3004,6 +3008,155 @@ static void BotMoveProbeEmitAssignRow(gedict_t *self, int slot, int mode, int mo
+@@ -3004,6 +3008,161 @@ static void BotMoveProbeEmitAssignRow(gedict_t *self, int slot, int mode, int mo
  			 spawn_shown, spawn_from_slot ? "slot" : "global");
  }
  
@@ -138,15 +138,21 @@ index 24d5933..75c6ed5 100644
 +	mwv_state_features(self->s.v.velocity[0], self->s.v.velocity[1], self->s.v.velocity[2],
 +					   self->fb.desired_angle[1], self->fb.desired_angle[0], feats);
 +
-+	// Re-baseline on a gap: req_counter is monotonic, but if this slot was not
-+	// live very recently (respawn, prewar, mode toggle, or a paused sidecar while
-+	// the slot was inactive) the MOVE record still holds a pre-gap answer whose
-+	// sequence distance can look fresh. Require an answer to a request issued
-+	// at/after this resume, so a stale record is rejected (-> stock fallback)
-+	// until the sidecar answers anew. 0.1s >> the ~0.013s tick, << any real gap.
-+	if (!live_seeded[slot] || ((now - last_live_time[slot]) > 0.1f))
++	// Re-baseline on a discontinuity, so a persisted MOVE record from before an
++	// inactive period is never accepted as "fresh" (req_counter is monotonic, and
++	// the shm mapping + statics survive map changes). A gap is any non-continuous
++	// step in EITHER direction: a forward jump (> 0.1s -- respawn, prewar, mode
++	// toggle, or a paused sidecar while the slot was inactive) OR g_globalvars.time
++	// moving backwards (a map/restart resets level time within the same native
++	// module process). Only a normal small forward step (~0.013s tick) keeps the
++	// session continuous; otherwise require an answer to a request issued at/after
++	// this resume (-> stock fallback until the sidecar answers anew).
 +	{
-+		resume_req[slot] = req_counter[slot] + 1;
++		float dt = now - last_live_time[slot];
++		if (!live_seeded[slot] || (dt < 0.0f) || (dt > 0.1f))
++		{
++			resume_req[slot] = req_counter[slot] + 1;
++		}
 +	}
 +	live_seeded[slot] = 1;
 +	last_live_time[slot] = now;
@@ -185,7 +191,7 @@ index 24d5933..75c6ed5 100644
  static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, qbool *firing, int *impulse, vec3_t direction)
  {
  	int mode = 0;
-@@ -3452,6 +3605,14 @@ static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, qbool *firing, int
+@@ -3452,6 +3611,14 @@ static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, qbool *firing, int
  		BotApplyMoveProbeReplay(self, slot, jumping, firing, impulse, direction, 5);
  	}
  
