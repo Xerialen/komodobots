@@ -90,6 +90,8 @@ class LiveLeapWiringTests(unittest.TestCase):
             self.assertNotIn(f"set k_fb_moveprobe_mode_s{edict} 30", block)
         self.assertIn('set k_fb_moveprobe_live_shm_name "komodo_move_t07"', block)
         self.assertIn("set k_fb_moveprobe_live_stale_ticks 3", block)
+        # the freshness gate needs KTX's LIVE/FALLBACK log turned on
+        self.assertIn("set k_fb_moveprobe_live_log 1", block)
 
     def test_sidecar_command_attaches_without_create(self) -> None:
         cmd = live4v4.build_sidecar_command(
@@ -206,6 +208,133 @@ class LiveLeapWiringTests(unittest.TestCase):
                 team1="leap", team2="frog", local_run_dir=Path(td),
             )
         self.assertEqual(captured["cmd"][-4], "0")  # live_leap off
+
+
+def _live_line(slot: int, verb: str) -> str:
+    if verb == "LIVE":
+        return f"[moveprobe-live] slot {slot} LIVE fwd=1 side=-1 jump=0 (req=153 ans=152)"
+    return f"[moveprobe-live] slot {slot} FALLBACK (stock frogbot; req=8830 ans=8593)"
+
+
+def _screen_log(counts: dict) -> str:
+    """counts: {slot: (n_live, n_fallback)} -> interleaved screen.log text."""
+    lines = ["KTX 1.48 starting", "some unrelated server chatter"]
+    for slot, (nl, nf) in counts.items():
+        lines += [_live_line(slot, "LIVE")] * nl
+        lines += [_live_line(slot, "FALLBACK")] * nf
+    return "\n".join(lines) + "\n"
+
+
+class FreshnessGateTests(unittest.TestCase):
+    def _eval(self, counts, **kw):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            rd = Path(td)
+            (rd / "screen.log").write_text(_screen_log(counts), encoding="utf-8")
+            return live4v4.evaluate_live_freshness(rd, **kw)
+
+    def test_all_leap_slots_mostly_live_passes(self) -> None:
+        ok, rep = self._eval({1: (45, 4), 2: (48, 10), 3: (45, 7), 4: (46, 5)})
+        self.assertTrue(ok)
+        self.assertTrue(rep["ok"])
+        self.assertTrue(all(rep["slots"][str(s)]["went_live"] for s in (1, 2, 3, 4)))
+
+    def test_one_leap_slot_all_fallback_fails(self) -> None:
+        ok, rep = self._eval({1: (45, 4), 2: (48, 10), 3: (0, 40), 4: (46, 5)})
+        self.assertFalse(ok)
+        self.assertFalse(rep["slots"]["3"]["ok"])
+        self.assertFalse(rep["slots"]["3"]["went_live"])
+        # the healthy slots are still individually ok
+        self.assertTrue(rep["slots"]["1"]["ok"])
+
+    def test_leap_slot_with_no_loglines_fails(self) -> None:
+        # slot 4 never logged at all -> cannot prove freshness -> fail closed
+        ok, rep = self._eval({1: (45, 4), 2: (48, 10), 3: (45, 7)})
+        self.assertFalse(ok)
+        self.assertEqual(rep["slots"]["4"]["live_loglines"], 0)
+        self.assertEqual(rep["slots"]["4"]["fallback_loglines"], 0)
+        self.assertFalse(rep["slots"]["4"]["ok"])
+
+    def test_transient_minority_fallback_passes(self) -> None:
+        # frequent respawns produce some FALLBACK bursts, but LIVE still dominates
+        ok, rep = self._eval({1: (80, 20), 2: (80, 20), 3: (80, 20), 4: (80, 20)})
+        self.assertTrue(ok)
+        self.assertAlmostEqual(rep["slots"]["1"]["fraction"], 0.8, places=3)
+
+    def test_threshold_boundary_is_inclusive(self) -> None:
+        # exactly at the threshold passes (>=)
+        ok, _ = self._eval({1: (5, 5), 2: (5, 5), 3: (5, 5), 4: (5, 5)}, min_fraction=0.5)
+        self.assertTrue(ok)
+        # just under fails
+        ok2, _ = self._eval({1: (4, 6), 2: (5, 5), 3: (5, 5), 4: (5, 5)}, min_fraction=0.5)
+        self.assertFalse(ok2)
+
+    def test_frog_slots_are_ignored(self) -> None:
+        # frog controls (slots 5..8) are stock and never log mode-30; even if they
+        # somehow appeared as FALLBACK they must not affect the leap verdict
+        ok, rep = self._eval(
+            {1: (45, 4), 2: (48, 10), 3: (45, 7), 4: (46, 5), 5: (0, 99), 6: (0, 99)}
+        )
+        self.assertTrue(ok)
+        self.assertNotIn("5", rep["slots"])
+        self.assertNotIn("6", rep["slots"])
+
+    def test_missing_screen_log_fails_closed(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            ok, rep = live4v4.evaluate_live_freshness(Path(td))
+        self.assertFalse(ok)
+        self.assertIn("reason", rep)
+
+    def test_main_fails_run_when_brain_fell_back(self) -> None:
+        import tempfile
+
+        def fake_scp(host, run_id, local_run_dir):
+            Path(local_run_dir).mkdir(parents=True, exist_ok=True)
+            # all four leap slots FALLBACK -> masked frog-vs-frog -> must fail
+            (Path(local_run_dir) / "screen.log").write_text(
+                _screen_log({1: (0, 30), 2: (0, 30), 3: (0, 30), 4: (0, 30)}),
+                encoding="utf-8",
+            )
+
+        with tempfile.TemporaryDirectory() as td:
+            out_root = Path(td) / "runs"
+            ledger_out = Path(td) / "ledger.json"
+            with patch.object(live4v4, "choose_lab_port", lambda *a, **k: 28599), patch.object(
+                live4v4, "write_run_artifacts", lambda *a, **k: {"roster": "r", "plan": "p"}
+            ), patch.object(live4v4, "upload_shim", lambda *a, **k: None), patch.object(
+                live4v4, "run_remote_4v4_lab", lambda **k: None
+            ), patch.object(
+                live4v4, "scp_from_remote", fake_scp
+            ), patch.object(
+                live4v4, "run_analyzer", lambda *a, **k: {}
+            ):
+                rc = live4v4.main(
+                    [
+                        "--live-leap",
+                        "--leap-team",
+                        "--skip-prereq-check",
+                        "--run-id",
+                        "frtest",
+                        "--out-root",
+                        str(out_root),
+                        "--ledger-out",
+                        str(ledger_out),
+                        "--team1",
+                        "leap",
+                        "--team2",
+                        "frog",
+                    ]
+                )
+            # assert inside the tempdir context -- it is deleted on block exit
+            self.assertEqual(rc, 1)
+            rd = out_root / "frtest"
+            self.assertTrue((rd / "freshness.json").is_file())
+            self.assertTrue((rd / "runner.error.txt").is_file())
+            # the ledger was NOT written as a valid game
+            self.assertFalse(ledger_out.is_file())
 
 
 if __name__ == "__main__":

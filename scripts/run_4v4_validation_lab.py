@@ -408,6 +408,15 @@ DEFAULT_SIDECAR_HZ = 77
 # client slot 0, so the four leap bots take client edicts 2..5 (internal slots
 # 1..4). The mode-30 per-slot cvar suffix is the 1-based edict, not the slot.
 LEAP_EDICTS = (2, 3, 4, 5)
+# KTX's `[moveprobe-live] slot N ...` log uses the INTERNAL slot (= edict - 1),
+# so the leap bots log under slots 1..4. The frog controls (edicts 6..9 / slots
+# 5..8) never run mode 30 and must be ignored by the freshness gate.
+LEAP_SLOTS = tuple(e - 1 for e in LEAP_EDICTS)
+DEFAULT_MIN_LIVE_FRACTION = 0.5
+# KTX emits one throttled line per leap slot on a LIVE<->FALLBACK change or at
+# most ~1/s while steady (k_fb_moveprobe_live_log); the suffix req=/ans= is the
+# request/answer seq pair. We only need the LIVE vs FALLBACK verb per slot.
+_MOVEPROBE_LIVE_RE = re.compile(r"\[moveprobe-live\] slot (\d+) (LIVE|FALLBACK)")
 
 
 def build_leap_cvar_block(shm_name: str, stale_ticks: int, leap_edicts=LEAP_EDICTS) -> str:
@@ -419,7 +428,72 @@ def build_leap_cvar_block(shm_name: str, stale_ticks: int, leap_edicts=LEAP_EDIC
     lines = [f"set k_fb_moveprobe_mode_s{int(e)} 30" for e in leap_edicts]
     lines.append(f'set k_fb_moveprobe_live_shm_name "{shm_name}"')
     lines.append(f"set k_fb_moveprobe_live_stale_ticks {int(stale_ticks)}")
+    # Turn on KTX's throttled LIVE/FALLBACK status log so the freshness gate can
+    # prove the brain was actually USED (not merely running) -- see
+    # evaluate_live_freshness(). One line per slot on a state change / ~1Hz steady,
+    # which is negligible volume even over a full match.
+    lines.append("set k_fb_moveprobe_live_log 1")
     return "\n".join(lines) + "\n"
+
+
+def evaluate_live_freshness(
+    run_dir: Path, leap_slots=LEAP_SLOTS, min_fraction: float = DEFAULT_MIN_LIVE_FRACTION
+) -> tuple[bool, dict]:
+    """Decide whether the live MoveMLP brain actually served the leap bots.
+
+    KTX mode 30 falls back to stock Frogbot PER FRAME on a stale/absent/torn feed,
+    so a sidecar that is alive but too slow/wedged still yields a stock-movement
+    match under a live-leap label. The authoritative signal is KTX's own throttled
+    `[moveprobe-live] slot N LIVE|FALLBACK` log (k_fb_moveprobe_live_log) in
+    `screen.log`: it records which branch KTX *actually took* each frame.
+
+    A leap slot passes iff it went LIVE at least once AND its LIVE share
+    (live / (live + fallback)) is >= `min_fraction`. A leap slot with no log lines
+    at all fails (can't prove freshness -- log off, KTX unpatched, or the bot never
+    seated). Frog slots are ignored. Never raises: a missing/unreadable screen.log
+    returns (False, {...}) so the caller fails closed.
+
+    Returns (all_leap_slots_pass, report) where report is JSON-serialisable.
+    """
+    screen_log = run_dir / "screen.log"
+    leap = sorted(int(s) for s in leap_slots)
+    report: dict = {
+        "min_fraction": float(min_fraction),
+        "leap_slots": leap,
+        "slots": {},
+        "ok": False,
+    }
+    try:
+        text = screen_log.read_text(encoding="utf-8", errors="replace")
+    except (OSError, ValueError):
+        report["reason"] = f"screen.log unreadable at {screen_log}"
+        return False, report
+
+    counts = {s: {"live": 0, "fallback": 0} for s in leap}
+    for m in _MOVEPROBE_LIVE_RE.finditer(text):
+        slot = int(m.group(1))
+        if slot in counts:
+            counts[slot]["live" if m.group(2) == "LIVE" else "fallback"] += 1
+
+    all_pass = True
+    for s in leap:
+        live = counts[s]["live"]
+        fallback = counts[s]["fallback"]
+        total = live + fallback
+        fraction = (live / total) if total else 0.0
+        went_live = live > 0
+        ok = went_live and total > 0 and fraction >= min_fraction
+        report["slots"][str(s)] = {
+            "live_loglines": live,
+            "fallback_loglines": fallback,
+            "fraction": round(fraction, 4),
+            "went_live": went_live,
+            "ok": ok,
+        }
+        all_pass = all_pass and ok
+
+    report["ok"] = all_pass
+    return all_pass, report
 
 
 def build_sidecar_command(
@@ -576,6 +650,7 @@ def write_summary(
     live_leap: bool = False,
     shm_name: str = "",
     stale_ticks: int = DEFAULT_STALE_TICKS,
+    freshness: dict | None = None,
 ) -> None:
     latest_game = next((g for g in ledger.get("games", []) if g.get("run_id") == run_id), None)
     invalid = next((g for g in ledger.get("invalid_games", []) if g.get("run_id") == run_id), None)
@@ -596,6 +671,16 @@ def write_summary(
         f"- Parser exits: `{parser_exits}`",
         f"- Ledger: `{ledger_out}`",
     ]
+    if live_leap and freshness and freshness.get("slots"):
+        per_slot = ", ".join(
+            f"slot {s}: {info.get('fraction')} ({info.get('live_loglines')}L/"
+            f"{info.get('fallback_loglines')}F)"
+            for s, info in sorted(freshness["slots"].items(), key=lambda kv: int(kv[0]))
+        )
+        lines.append(
+            f"- Live-leap freshness: `{'PASS' if freshness.get('ok') else 'FAIL'}` "
+            f"(min {freshness.get('min_fraction')}) -- {per_slot}"
+        )
     if latest_game:
         bench = latest_game.get("bench", {})
         gate = latest_game.get("damage_matrix", {})
@@ -666,6 +751,17 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser.add_argument("--sidecar-script", default=DEFAULT_SIDECAR_SCRIPT)
     parser.add_argument("--sidecar-ckpt", default=DEFAULT_SIDECAR_CKPT)
     parser.add_argument("--sidecar-hz", type=int, default=DEFAULT_SIDECAR_HZ)
+    parser.add_argument(
+        "--min-live-fraction",
+        type=float,
+        default=DEFAULT_MIN_LIVE_FRACTION,
+        help=(
+            "Live-leap freshness gate: each leap slot must have served LIVE (KTX "
+            "actually used the sidecar answer) for at least this share of its "
+            "[moveprobe-live] log lines, else the run FAILS as a masked frog-vs-frog "
+            "match. Healthy runs sit ~0.8-0.95; a wedged sidecar ~0.0. Range 0..1."
+        ),
+    )
     parser.add_argument("--out-root", type=Path, default=DEFAULT_OUT_ROOT)
     parser.add_argument("--ledger-out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--lab-mvdsv", type=validate_remote_bin_arg, default="mvdsv-lab")
@@ -694,6 +790,9 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         return 2
     if args.stale_ticks < 1:
         print("ERROR: --stale-ticks must be >=1", file=sys.stderr)
+        return 2
+    if not 0.0 <= args.min_live_fraction <= 1.0:
+        print("ERROR: --min-live-fraction must be in 0.0..1.0", file=sys.stderr)
         return 2
 
     if args.live_leap:
@@ -752,6 +851,27 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         if not sidecar.is_file() and (local_run_dir / "demo.json").is_file():
             shutil.copyfile(local_run_dir / "demo.json", sidecar)
 
+        # Live-leap freshness gate: prove KTX actually USED the sidecar's answers
+        # (LIVE) rather than silently falling back to stock per frame. Runs before
+        # the ledger is built so a fallback-contaminated run never gets scored as a
+        # valid leap-vs-frog game. The remote bash gate already caught "never served
+        # / died"; this catches "alive but stale/wedged".
+        freshness: dict = {}
+        if args.live_leap:
+            fresh_ok, freshness = evaluate_live_freshness(
+                local_run_dir, min_fraction=args.min_live_fraction
+            )
+            (local_run_dir / "freshness.json").write_text(
+                json.dumps(freshness, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            if not fresh_ok:
+                raise RuntimeError(
+                    "Live-leap freshness gate FAILED -- the brain did not serve the leap "
+                    f"bots (min_live_fraction={args.min_live_fraction}): "
+                    f"{json.dumps(freshness.get('slots', freshness), sort_keys=True)}. "
+                    "This would be a frog-vs-frog match mislabeled as live-leap; not scoring it."
+                )
+
         ledger: dict = {}
         if not args.skip_ledger:
             ledger = build_ledger(args.out_root)
@@ -773,6 +893,7 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             live_leap=args.live_leap,
             shm_name=args.shm_name,
             stale_ticks=args.stale_ticks,
+            freshness=freshness,
         )
 
         print(f"run_id={run_id}")
