@@ -158,8 +158,8 @@ class TestTransportRoundTrip(unittest.TestCase):
         finally:
             mm.close()
 
-    def test_full_4slot_roundtrip_with_stub_policy(self):
-        """Mock writer -> sidecar -> mock reader, all 4 slots, move survives."""
+    def test_full_allslot_roundtrip_with_stub_policy(self):
+        """Mock writer -> sidecar -> mock reader, all MAX_SLOTS slots, move survives."""
         def stub(feats):
             fwd = 1 if feats[0] > 0.3 else (-1 if feats[0] < 0.05 else 0)
             side = 1 if feats[2] > 0.2 else (-1 if feats[2] < -0.2 else 0)
@@ -171,7 +171,7 @@ class TestTransportRoundTrip(unittest.TestCase):
             # publish a distinct world-view per slot
             reqs = {}
             for slot in range(sc.MAX_SLOTS):
-                st = _SAMPLE_STATES[slot]
+                st = _SAMPLE_STATES[slot % len(_SAMPLE_STATES)]
                 reqs[slot] = ktx.publish_state(slot, *st)
 
             # sidecar services every slot once
@@ -186,7 +186,7 @@ class TestTransportRoundTrip(unittest.TestCase):
             for slot in range(sc.MAX_SLOTS):
                 mv = ktx.await_answer(slot, reqs[slot], timeout=0.5)
                 self.assertIsNotNone(mv, f"slot {slot} never answered")
-                exp = stub(mwv.state_features(*_SAMPLE_STATES[slot]))
+                exp = stub(mwv.state_features(*_SAMPLE_STATES[slot % len(_SAMPLE_STATES)]))
                 self.assertEqual((mv["fwd"], mv["side"], mv["jump"]), exp)
                 self.assertEqual(mv["ans_seq"], reqs[slot])
                 # move floats reflect the +/-320 scaling + jump bit
