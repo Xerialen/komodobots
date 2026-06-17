@@ -179,5 +179,56 @@ class BenchVerdictLogicTest(unittest.TestCase):
         self.assertIn("R-T gate", src)
 
 
+EVIDENCE_TSX = REPO / "lab" / "dashboard" / "src" / "FourVFourEvidence.tsx"
+
+
+class SpeedColumnsFixtureTest(unittest.TestCase):
+    """avg_speed / max_speed are carried in the fixture and wired into the TSX columns."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.ledger = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        cls.game = latest_game(cls.ledger)
+
+    def test_fixture_metrics_list_includes_speed_keys(self):
+        self.assertIn("avg_speed", self.ledger["metrics"])
+        self.assertIn("max_speed", self.ledger["metrics"])
+
+    def test_all_players_have_avg_and_max_speed_in_stats(self):
+        for p in self.game["players"]:
+            self.assertIn("avg_speed", p["stats"], f"slot {p['slot']} missing avg_speed")
+            self.assertIn("max_speed", p["stats"], f"slot {p['slot']} missing max_speed")
+            avg = p["stats"]["avg_speed"]
+            mx = p["stats"]["max_speed"]
+            self.assertIsNotNone(avg, f"slot {p['slot']} avg_speed is None")
+            self.assertIsNotNone(mx, f"slot {p['slot']} max_speed is None")
+            self.assertGreater(mx, avg, f"slot {p['slot']}: max_speed {mx} not > avg_speed {avg}")
+
+    def test_all_players_have_speed_deltas_in_latest_game(self):
+        # Second game (latest) must have cross-version deltas for speed.
+        for p in self.game["players"]:
+            self.assertIn("avg_speed", p["deltas"], f"slot {p['slot']} missing avg_speed delta")
+            self.assertIn("max_speed", p["deltas"], f"slot {p['slot']} missing max_speed delta")
+
+    def test_panel_tsx_wires_avg_and_max_speed_columns(self):
+        src = PANEL_TSX.read_text(encoding="utf-8")
+        self.assertIn("avg_speed", src)
+        self.assertIn("max_speed", src)
+        self.assertIn("Avg spd", src)
+        self.assertIn("Max spd", src)
+
+    def test_evidence_tsx_wires_avg_and_max_speed_columns(self):
+        src = EVIDENCE_TSX.read_text(encoding="utf-8")
+        self.assertIn("avg_speed", src)
+        self.assertIn("max_speed", src)
+        self.assertIn("Avg spd", src)
+        self.assertIn("Max spd", src)
+
+    def test_stat_value_returns_number_for_speed(self):
+        komodo = next(p for p in self.game["players"] if p["roster"]["role"] == "komodobot")
+        self.assertIsNotNone(stat_value(komodo, "avg_speed"))
+        self.assertIsNotNone(stat_value(komodo, "max_speed"))
+
+
 if __name__ == "__main__":
     unittest.main()

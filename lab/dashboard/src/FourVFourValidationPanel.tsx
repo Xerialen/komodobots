@@ -132,6 +132,8 @@ const METRICS: Array<{ key: string; label: string; kind?: "percent" | "number" }
   { key: "taken_to_die", label: "TTD" },
   { key: "damage_done", label: "Dmg+" },
   { key: "damage_taken", label: "Dmg-" },
+  { key: "avg_speed", label: "Avg spd" },
+  { key: "max_speed", label: "Max spd" },
 ];
 
 function dataUrl(): string {

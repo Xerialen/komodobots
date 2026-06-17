@@ -116,6 +116,8 @@ const BOT_COLUMNS: MetricDef[] = [
   { key: "taken_to_die", label: "TTD", title: "Damage taken per death", precision: 0 },
   { key: "damage_done", label: "Dmg done", title: "Damage done" },
   { key: "damage_taken", label: "Dmg taken", title: "Damage taken" },
+  { key: "avg_speed", label: "Avg spd", title: "Average speed (qu/s)", precision: 0 },
+  { key: "max_speed", label: "Max spd", title: "Peak speed (qu/s)", precision: 0 },
 ];
 
 // Team summary card metrics (score is handled separately, powerups inline).
@@ -471,6 +473,7 @@ export function FourVFourEvidence() {
         <div>
           Headings: TK = team kills · TTD = damage taken per death · RL kills = enemies carrying RL killed ·
           RL drop = rocket launchers dropped · Q/P/R = quad / pent / ring pickups ·
+          Avg/Max spd = average / peak speed in qu/s ·
           <span className="text-green-600"> green improved</span> /
           <span className="text-red-600"> red regressed</span> vs previous valid game.
         </div>
