@@ -42,9 +42,11 @@ done
 echo "[run_live] scratch gamedir $INSTALL/$GAMEDIR with patched .so"
 rm -rf "$INSTALL/$GAMEDIR"
 cp -r "$INSTALL/ktx" "$INSTALL/$GAMEDIR"
-# qwprogs.so in the gamedir is a symlink to the versioned .so; overwrite the
-# target so the symlink resolves to our patched build (leaves live `ktx` alone).
-cp "$SO" "$INSTALL/$GAMEDIR/$(readlink "$INSTALL/$GAMEDIR/qwprogs.so" 2>/dev/null || echo qwprogs.so)"
+# Replace the gamedir's qwprogs.so (a symlink to a versioned .so) with our patched
+# build as a real file. --remove-destination drops the symlink first, so this is
+# correct whether its target is relative or absolute, and never touches the live
+# `ktx` gamedir (a separate copy).
+cp --remove-destination "$SO" "$INSTALL/$GAMEDIR/qwprogs.so"
 
 cat > "$INSTALL/$GAMEDIR/t03_ffa.cfg" <<CFG
 hostname "komodobots-t0.3:$PORT"
@@ -80,9 +82,14 @@ python3 "$CLIENT" "$PORT" --host 127.0.0.1 --bot-count "$BOTS" --bot-spacing 1 \
 sleep 2
 
 echo "[run_live] start sidecar (KTX created the region; sidecar attaches)"
-screen -dmS t03_sidecar sh -c \
-	"'$VENV/bin/python' '$SIDECAR' --shm-name '$SHM' --ckpt '$CKPT' --hz 77 > '$SIDELOG' 2>&1"
+# Run python directly under screen (screen handles logging via -Logfile), with no
+# wrapper shell, so the sidecar process IS python and its argv is clean -- the
+# pause/resume target below then hits the real sidecar, not a wrapper shell.
+screen -dmS t03_sidecar -L -Logfile "$SIDELOG" \
+	"$VENV/bin/python" "$SIDECAR" --shm-name "$SHM" --ckpt "$CKPT" --hz 77
 
 echo "[run_live] up. watch:  tail -f $RUNLOG | grep moveprobe-live"
-echo "[run_live] pause/resume the brain:  kill -STOP/-CONT \$(pgrep -f $SIDELOG)"
+echo "[run_live] pause/resume the brain (target the python sidecar, not the screen):"
+echo "  PID=\$(pgrep -f move_policy_sidecar.py | while read p; do case \$(ps -p \$p -o comm=) in python*) echo \$p;; esac; done)"
+echo "  kill -STOP \$PID   # KTX falls back to stock frogbot; kill -CONT \$PID resumes LIVE"
 echo "[run_live] stop:  screen -S qw_${PORT}_t03 -X quit; screen -S t03_sidecar -X quit"

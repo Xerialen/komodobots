@@ -94,39 +94,55 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
  // bot-program T0.3 live-brain mode. Throttled status log so screen.log shows
  // LIVE cmds + FALLBACK transitions without per-tick (77 Hz) spam: emit on a
  // state change or at most once per ~second while steady. Gated by the global
-@@ -3073,6 +3159,7 @@
+@@ -3073,6 +3159,8 @@
  	int				stale_ticks;
  	unsigned		req;
  	mshm_move_t		mv;
 +	double			t_start = 0.0;
++	int				live_log = 0;
  
  	(void) firing;	// aim + fire stay stock frogbot in Phase 0
  	(void) impulse;
-@@ -3109,7 +3196,9 @@
+@@ -3109,7 +3197,15 @@
  		stale_ticks = 3;	// ~40 ms at 77 Hz (1-frame pipeline + slack)
  	}
  
 -	// Publish the world-view (KTX writer role).
 +	// Publish the world-view (KTX writer role). Time the live-loop work from here
 +	// (build view) through the apply below for the on-KTX p99 instrumentation.
-+	t_start = moveprobe_now_us();
++	// Gate the timing + recording on the log cvar so default-off costs nothing
++	// (no clock reads, no samples accumulated until logging is turned on).
++	live_log = (int) cvar("k_fb_moveprobe_live_log");
++	if (live_log)
++	{
++		t_start = moveprobe_now_us();
++	}
  	mwv_state_features(self->s.v.velocity[0], self->s.v.velocity[1], self->s.v.velocity[2],
  					   self->fb.desired_angle[1], self->fb.desired_angle[0], feats);
  
-@@ -3146,13 +3235,16 @@
+@@ -3146,13 +3242,25 @@
  		direction[1] = mv.move[1];
  		direction[2] = 0;
  		*jumping = (mv.jump != 0) ? true : false;
-+		moveprobe_p99_record(moveprobe_now_us() - t_start);
++		if (live_log)
++		{
++			moveprobe_p99_record(moveprobe_now_us() - t_start);
++		}
  		BotMoveProbeLiveLog(slot, 1, req, mv.ans_seq, mv.fwd, mv.side, mv.jump);
  	}
  	else
  	{
-+		moveprobe_p99_record(moveprobe_now_us() - t_start);
++		if (live_log)
++		{
++			moveprobe_p99_record(moveprobe_now_us() - t_start);
++		}
  		BotMoveProbeLiveLog(slot, 0, req, mv.ans_seq, 0, 0, 0);
  		// leave the stock-frogbot direction + *jumping untouched
  	}
-+	moveprobe_p99_maybe_report();
++	if (live_log)
++	{
++		moveprobe_p99_maybe_report();
++	}
  }
  #else
  static void BotApplyMoveProbeLive(gedict_t *self, int slot, qbool *jumping,
