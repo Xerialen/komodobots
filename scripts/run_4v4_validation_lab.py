@@ -325,6 +325,9 @@ if [ -n "$sidecar_pid" ]; then
 fi
 if [ "$live_leap" = "1" ] && [ -n "$shm_name" ]; then
   pkill -f "move_policy_sidecar.py --shm-name $shm_name" 2>/dev/null || true
+  # Remove the shm region on the normal path too: the success path clears the
+  # EXIT trap (trap - EXIT) below, so cleanup() would not run to unlink it.
+  rm -f "/dev/shm/$shm_name" 2>/dev/null || true
 fi
 
 send_cmd "status"
@@ -398,7 +401,11 @@ def build_sidecar_command(
     """Shell command that serves the MoveMLP sidecar against the live region.
 
     `cd`s into the script's dir first so its sibling imports resolve, then attaches
-    (no --create: KTX owns the region, the sidecar mirrors it).
+    (no --create: KTX owns the region, the sidecar mirrors it). Paths are left
+    unquoted on purpose: the defaults are ``~/...`` which must tilde-expand on the
+    remote box, and shell-quoting would defeat that. The values are operator-
+    supplied CLI args (not untrusted input); shm_name is already restricted to
+    ``[A-Za-z0-9_.-]`` by validate_remote_bin_arg.
     """
     import posixpath
 

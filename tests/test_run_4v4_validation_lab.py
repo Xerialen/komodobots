@@ -121,6 +121,13 @@ class LiveLeapWiringTests(unittest.TestCase):
         # and is torn down (cleanup + post-match)
         self.assertIn("move_policy_sidecar.py --shm-name $shm_name", script)
 
+    def test_remote_script_unlinks_region_on_normal_path(self) -> None:
+        # The success path clears the EXIT trap (trap - EXIT), so the region must
+        # be removed inline post-match, not only in cleanup().
+        script = live4v4.REMOTE_SCRIPT
+        self.assertIn('rm -f "/dev/shm/$shm_name"', script)
+        self.assertIn("trap - EXIT", script)
+
     def test_main_live_leap_requires_leap_team(self) -> None:
         rc = live4v4.main(["--live-leap", "--skip-prereq-check"])
         self.assertEqual(rc, 2)
