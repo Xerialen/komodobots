@@ -1,0 +1,53 @@
+{
+  "ticket": 210,
+  "stage": "T0.5",
+  "title": "Live world-view golden-vector parity (on-box seam)",
+  "host": "komodo-aws",
+  "date": "2026-06-17",
+  "ktx_commit": "08807da",
+  "patch_stack": [
+    "frogbot-moveprobe-perslot.patch",
+    "frogbot-moveprobe-live.patch",
+    "frogbot-moveprobe-live-p99.patch",
+    "frogbot-moveprobe-live-dump.patch"
+  ],
+  "build": {
+    "toolchain": "gcc 13.3.0 / cmake 3.28.3",
+    "artifact": "qwprogs.so",
+    "bytes": 1580456,
+    "warnings": 0
+  },
+  "run": {
+    "port": 28599,
+    "map": "dm3",
+    "mode": "matchless ffa mode-30 live",
+    "shm_region": "komodo_move_t05",
+    "serve_hz": 77,
+    "checkpoint": "move_bc_policy.pt (hidden=128, cpu)",
+    "live_services_untouched": true
+  },
+  "recompute": "scripts/diff_live_world_view.py over KTX-dumped f32 inputs",
+  "feature_names": [
+    "hspeed/320",
+    "vz/320",
+    "lvm_sin",
+    "lvm_cos",
+    "moving",
+    "pitch/90"
+  ],
+  "ticks": 3971,
+  "slots": [
+    1,
+    2
+  ],
+  "parity": {
+    "scheme": "exact-f32-bit",
+    "recomputed_from": "ktx-dumped inputs",
+    "mismatched_ticks": 0,
+    "max_ulp_diff": 0
+  },
+  "mismatch_samples": [],
+  "not_this_ticket": {
+    "pmove_resim_fidelity": "T0.7 #212 / artifacts/pmove-validation"
+  }
+}

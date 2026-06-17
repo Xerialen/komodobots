@@ -1,0 +1,53 @@
+diff --git a/src/bot_movement.c b/src/bot_movement.c
+index 69890b9..29ae7d0 100644
+--- a/src/bot_movement.c
++++ b/src/bot_movement.c
+@@ -3134,6 +3134,38 @@ static void BotMoveProbeLiveLog(int slot, int live, unsigned req, unsigned ans,
+ 	}
+ }
+ 
++// bot-program T0.5 (#210) PR-B: per-tick live world-view DUMP for the offline
++// golden-parity check (scripts/diff_live_world_view.py). Gated by the global
++// cvar k_fb_moveprobe_live_dump (default off -> inert in normal play). Emits
++// KTX's EXACT f32 inputs to mwv_state_features and the f32 features it computed,
++// both as little-endian 8-hex-digit bit patterns, so the offline recompute is
++// bit-exact and trajectory-independent (formula parity only; pmove resim is T0.7).
++static unsigned mwv_f32bits(float x)
++{
++	union { float f; unsigned u; } c;
++	c.f = x;
++	return c.u;
++}
++
++static void BotMoveProbeLiveDump(int slot, unsigned req,
++								 float vx, float vy, float vz,
++								 float yaw, float pitch,
++								 const float feats[MWV_FEATURE_DIM])
++{
++	if (!cvar("k_fb_moveprobe_live_dump"))
++	{
++		return;
++	}
++	G_bprint(PRINT_HIGH,
++			 "[moveprobe-dump] slot %d req %u in %08x %08x %08x %08x %08x "
++			 "feat %08x %08x %08x %08x %08x %08x\n",
++			 slot, req,
++			 mwv_f32bits(vx), mwv_f32bits(vy), mwv_f32bits(vz),
++			 mwv_f32bits(yaw), mwv_f32bits(pitch),
++			 mwv_f32bits(feats[0]), mwv_f32bits(feats[1]), mwv_f32bits(feats[2]),
++			 mwv_f32bits(feats[3]), mwv_f32bits(feats[4]), mwv_f32bits(feats[5]));
++}
++
+ // Publish this tick's world-view to the shared /dev/shm region the MoveMLP
+ // sidecar (scripts/move_policy_sidecar.py) reads, then apply the freshest MOVE
+ // it has answered. Aim + fire stay stock frogbot (Phase 0). On a missing region,
+@@ -3223,6 +3255,9 @@ static void BotApplyMoveProbeLive(gedict_t *self, int slot, qbool *jumping,
+ 
+ 	req = ++req_counter[slot];
+ 	mshm_write_view(region, slot, req, feats, 1);
++	BotMoveProbeLiveDump(slot, req, self->s.v.velocity[0], self->s.v.velocity[1],
++						 self->s.v.velocity[2], self->fb.desired_angle[1],
++						 self->fb.desired_angle[0], feats);
+ 
+ 	// Apply the sidecar's freshest answer (KTX reader role): only an untorn record
+ 	// whose answer is recent enough, else fall back to stock frogbot.
