@@ -120,5 +120,47 @@ class FourVFourEvidenceLogicTest(unittest.TestCase):
         self.assertIsNone(player_delta(komodo, None, "frags"))
 
 
+# --- docs/18 T0.7 bench verdict banner (mirrors BenchVerdictBanner in the evidence TSX) ---
+
+EVIDENCE_TSX = REPO / "lab" / "dashboard" / "src" / "FourVFourEvidence.tsx"
+
+
+def ev_signed_margin(value) -> str:
+    """Mirror of signedMargin() in FourVFourEvidence.tsx."""
+    if value is None:
+        return "—"
+    v = str(int(value)) if float(value).is_integer() else f"{value:.1f}"
+    return f"+{v}" if value > 0 else v
+
+
+class EvidenceBenchBannerTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.ledger = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        cls.bench = cls.ledger.get("bench")
+
+    def test_fixture_carries_bench(self):
+        self.assertIsNotNone(self.bench)
+        self.assertEqual(self.bench["schema"], "komodobots.bench_frag_margin.v1")
+
+    def test_banner_render_strings(self):
+        self.assertEqual(ev_signed_margin(self.bench["leap_frag_margin_total"]), "+6")
+        self.assertEqual(ev_signed_margin(self.bench["leap_frag_margin_mean"]), "+3")
+        self.assertEqual(
+            f"leap {self.bench['leap_wins']} – {self.bench['frog_wins']} frog",
+            "leap 2 – 0 frog",
+        )
+
+    def test_negative_baseline_renders_signed(self):
+        self.assertEqual(ev_signed_margin(-7), "-7")
+        self.assertEqual(ev_signed_margin(-1.5), "-1.5")
+
+    def test_evidence_source_wires_the_banner(self):
+        src = EVIDENCE_TSX.read_text(encoding="utf-8")
+        self.assertIn("data-evidence-bench", src)
+        self.assertIn("BenchVerdictBanner", src)
+        self.assertIn("ledger.bench", src)
+
+
 if __name__ == "__main__":
     unittest.main()

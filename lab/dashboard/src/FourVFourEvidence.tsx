@@ -43,8 +43,29 @@ interface ValidationGame {
   players: ValidationPlayer[];
 }
 
+// docs/18 T0.1 best-of-N leap-vs-frog bench, schema komodobots.bench_frag_margin.v1.
+interface BenchPerGame {
+  run_id: string;
+  leap_frags: number;
+  frog_frags: number;
+  frag_margin: number;
+  damage_matrix_gate_pass: boolean | null;
+}
+
+interface BenchAggregate {
+  schema: string;
+  games_scored: number;
+  leap_frag_margin_total: number | null;
+  leap_frag_margin_mean: number | null;
+  leap_wins: number;
+  frog_wins: number;
+  per_game: BenchPerGame[];
+  damage_matrix_gate_pass: boolean;
+}
+
 interface ValidationLedger {
   schema: string;
+  bench?: BenchAggregate;
   games: ValidationGame[];
   invalid_games?: Array<{ run_id: string; reasons: string[] }>;
 }
@@ -291,6 +312,74 @@ function BotTable({ game, prev }: { game: ValidationGame; prev: ValidationGame |
   );
 }
 
+function signedMargin(value: number | null): string {
+  if (value == null) return "—";
+  const v = Number.isInteger(value) ? `${value}` : value.toFixed(1);
+  return value > 0 ? `+${v}` : v;
+}
+
+// docs/18 T0.7 headline verdict banner: best-of-N leap-vs-frog frag margin + the
+// R-T damage.matrix gate. A negative margin is a valid Phase-0 baseline.
+function BenchVerdictBanner({ bench }: { bench: BenchAggregate }) {
+  const gate = bench.damage_matrix_gate_pass;
+  const total = bench.leap_frag_margin_total;
+  const lead = total == null ? "no scored games" : total > 0 ? "leap ahead" : total < 0 ? "leap behind" : "even";
+  return (
+    <section
+      data-evidence-bench
+      data-bench-gate={gate ? "green" : "red"}
+      className="mt-4 rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3"
+    >
+      <div className="flex items-center justify-between gap-x-3">
+        <div className="min-w-0">
+          <span className="text-sm font-bold uppercase tracking-wide text-neutral-700">
+            Leap vs Frog — bench (best-of-{bench.games_scored})
+          </span>
+          <span className="ml-2 text-xs text-neutral-500">win = total frags · {lead}</span>
+        </div>
+        <span
+          className={`text-[11px] font-bold uppercase rounded px-2 py-0.5 ${
+            gate ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+          }`}
+          title="R-T damage.matrix gate: bots damage the enemy, not their own team"
+        >
+          R-T gate {gate ? "green" : "RED"}
+        </span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-6 gap-y-1">
+        <div>
+          <span className="text-[10px] uppercase tracking-wide text-neutral-500">Frag margin</span>
+          <span data-bench-margin-total className="ml-2 text-2xl font-bold font-mono text-neutral-900">
+            {signedMargin(total)}
+          </span>
+          <span className="ml-1 text-xs text-neutral-500">mean {signedMargin(bench.leap_frag_margin_mean)}/game</span>
+        </div>
+        <div>
+          <span className="text-[10px] uppercase tracking-wide text-neutral-500">Game wins</span>
+          <span className="ml-2 font-mono text-sm text-neutral-900">leap {bench.leap_wins} – {bench.frog_wins} frog</span>
+        </div>
+        <div data-bench-series className="flex flex-wrap gap-1">
+          {bench.per_game.map((g) => (
+            <span
+              key={g.run_id}
+              title={`${g.run_id}: leap ${g.leap_frags} – ${g.frog_frags} frog`}
+              className={`text-[11px] font-mono rounded px-1.5 py-0.5 border ${
+                g.frag_margin > 0
+                  ? "border-green-200 bg-green-50 text-green-700"
+                  : g.frag_margin < 0
+                  ? "border-red-200 bg-red-50 text-red-700"
+                  : "border-neutral-200 text-neutral-500"
+              }`}
+            >
+              {signedMargin(g.frag_margin)}{g.damage_matrix_gate_pass === false ? " ⚠" : ""}
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function FourVFourEvidence() {
   const [ledger, setLedger] = useState<ValidationLedger | null>(null);
   const [loading, setLoading] = useState(true);
@@ -367,6 +456,8 @@ export function FourVFourEvidence() {
           {game.previous_valid_run_id ?? "none — baseline"})
         </div>
       </header>
+
+      {ledger.bench && ledger.bench.games_scored > 0 && <BenchVerdictBanner bench={ledger.bench} />}
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         {game.teams.map((team, idx) => (
