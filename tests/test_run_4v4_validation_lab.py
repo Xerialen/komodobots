@@ -93,16 +93,30 @@ class LiveLeapWiringTests(unittest.TestCase):
         # the freshness gate needs KTX's LIVE/FALLBACK log turned on
         self.assertIn("set k_fb_moveprobe_live_log 1", block)
 
-    def test_sidecar_command_attaches_without_create(self) -> None:
-        cmd = live4v4.build_sidecar_command(
+    def test_sidecar_fields_is_newline_argv_list(self) -> None:
+        fields = live4v4.build_sidecar_fields(
             "~/t0.3-venv/bin/python", "~/komodo-t0.3/scripts/move_policy_sidecar.py",
-            "komodo_move_t07", "~/move_bc_policy.pt", 77,
+            "~/move_bc_policy.pt", 77,
         )
-        self.assertIn("cd ~/komodo-t0.3/scripts &&", cmd)
-        self.assertIn("--shm-name komodo_move_t07", cmd)
-        self.assertIn("--ckpt ~/move_bc_policy.pt", cmd)
-        self.assertIn("--hz 77", cmd)
-        self.assertNotIn("--create", cmd)  # KTX owns the region; sidecar mirrors
+        parts = fields.strip("\n").split("\n")
+        # exactly python, script, ckpt, hz -- decoded into a bash array remotely
+        self.assertEqual(parts[0], "~/t0.3-venv/bin/python")
+        self.assertEqual(parts[1], "~/komodo-t0.3/scripts/move_policy_sidecar.py")
+        self.assertEqual(parts[2], "~/move_bc_policy.pt")
+        self.assertEqual(parts[3], "77")
+        self.assertNotIn("--create", fields)  # KTX owns the region; sidecar mirrors
+        self.assertNotIn("&&", fields)  # not a shell string anymore -- argv pieces
+
+    def test_sidecar_fields_preserve_paths_with_spaces(self) -> None:
+        fields = live4v4.build_sidecar_fields(
+            "/opt/py venv/bin/python", "/srv/move policy/move_policy_sidecar.py",
+            "/models/move bc.pt", 60,
+        )
+        parts = fields.strip("\n").split("\n")
+        # a space in a path stays a single argv element (was unsafe under the old
+        # eval-on-concatenated-string path)
+        self.assertEqual(parts[0], "/opt/py venv/bin/python")
+        self.assertEqual(parts[2], "/models/move bc.pt")
 
     def test_b64_roundtrips(self) -> None:
         import base64
@@ -115,11 +129,16 @@ class LiveLeapWiringTests(unittest.TestCase):
         self.assertIn('live_leap="${9:-0}"', script)
         self.assertIn('shm_name="${10:-}"', script)
         self.assertIn('leap_cvars_b64="${11:-}"', script)
-        self.assertIn('sidecar_cmd_b64="${12:-}"', script)
+        self.assertIn('sidecar_fields_b64="${12:-}"', script)
         # cfg gets the leap cvars; sidecar attaches once the region appears
         self.assertIn("base64 -d >> \"$cfg_path\"", script)
         self.assertIn('[ -e "/dev/shm/$shm_name" ]', script)
-        self.assertIn('eval "$sidecar_cmd"', script)
+        # P2: NO eval of the sidecar command -- argv decoded into a bash array,
+        # ~ expanded, run as a real argv
+        self.assertNotIn('eval "$sidecar', script)
+        self.assertIn("mapfile -t _sc", script)
+        self.assertIn('sc_py="${sc_py/#\\~/$HOME}"', script)
+        self.assertIn('"$sc_py" "$sc_script" --shm-name "$shm_name" --ckpt "$sc_ckpt" --hz "$sc_hz"', script)
         # and is torn down (cleanup + post-match)
         self.assertIn("move_policy_sidecar.py --shm-name $shm_name", script)
 
@@ -136,7 +155,7 @@ class LiveLeapWiringTests(unittest.TestCase):
         # otherwise a frog-vs-frog match gets scored under a live-leap label.
         script = live4v4.REMOTE_SCRIPT
         self.assertIn('touch "$rundir/sidecar.started"', script)
-        self.assertIn('echo "$?" > "$rundir/sidecar.exitcode"', script)
+        self.assertIn('echo "$rc" > "$rundir/sidecar.exitcode"', script)
         self.assertIn('if [ ! -f "$rundir/sidecar.started" ]; then', script)
         self.assertIn('kill -0 "$sidecar_pid"', script)
         # both integrity failures abort the run before it is scored
@@ -178,14 +197,14 @@ class LiveLeapWiringTests(unittest.TestCase):
                 team1="leap", team2="frog", local_run_dir=Path(td),
                 live_leap=True, shm_name="komodo_move_t07",
                 leap_cvars="set k_fb_moveprobe_mode_s2 30\n",
-                sidecar_cmd="cd x && y --shm-name komodo_move_t07",
+                sidecar_fields="py\nscript\nckpt\n77\n",
             )
-        # last four positional args after team2: live_leap, shm, b64(cvars), b64(cmd)
+        # last four positional args after team2: live_leap, shm, b64(cvars), b64(fields)
         tail = captured["cmd"][-4:]
         self.assertEqual(tail[0], "1")
         self.assertEqual(tail[1], "komodo_move_t07")
         self.assertEqual(live4v4._b64("set k_fb_moveprobe_mode_s2 30\n"), tail[2])
-        self.assertEqual(live4v4._b64("cd x && y --shm-name komodo_move_t07"), tail[3])
+        self.assertEqual(live4v4._b64("py\nscript\nckpt\n77\n"), tail[3])
 
     def test_run_remote_off_by_default(self) -> None:
         import tempfile
@@ -210,18 +229,37 @@ class LiveLeapWiringTests(unittest.TestCase):
         self.assertEqual(captured["cmd"][-4], "0")  # live_leap off
 
 
-def _live_line(slot: int, verb: str) -> str:
+def _cum_line(slot: int, verb: str, live: int, total: int) -> str:
+    """A throttled [moveprobe-live] line carrying the per-slot CUMULATIVE counters."""
+    if verb == "LIVE":
+        return (
+            f"[moveprobe-live] slot {slot} LIVE fwd=1 side=-1 jump=0 "
+            f"(req={total} ans={max(0, total - 1)}) live={live}/{total}"
+        )
+    return f"[moveprobe-live] slot {slot} FALLBACK (stock frogbot; req={total} ans=0) live={live}/{total}"
+
+
+def _old_line(slot: int, verb: str) -> str:
+    """A pre-cumulative line (old KTX build, no `live=L/T`)."""
     if verb == "LIVE":
         return f"[moveprobe-live] slot {slot} LIVE fwd=1 side=-1 jump=0 (req=153 ans=152)"
     return f"[moveprobe-live] slot {slot} FALLBACK (stock frogbot; req=8830 ans=8593)"
 
 
-def _screen_log(counts: dict) -> str:
-    """counts: {slot: (n_live, n_fallback)} -> interleaved screen.log text."""
+def _screen_log(slots: dict) -> str:
+    """slots: {slot: (live_frames, total_frames)} -> screen.log with throttled lines.
+
+    Emits a partial line then the FINAL cumulative line per slot, so the parser's
+    max-total selection (end-of-match cumulative) is exercised.
+    """
     lines = ["KTX 1.48 starting", "some unrelated server chatter"]
-    for slot, (nl, nf) in counts.items():
-        lines += [_live_line(slot, "LIVE")] * nl
-        lines += [_live_line(slot, "FALLBACK")] * nf
+    for slot, (lf, tf) in slots.items():
+        if tf <= 0:
+            continue
+        mid_t = max(1, tf // 2)
+        mid_l = min(lf, mid_t)
+        lines.append(_cum_line(slot, "LIVE" if mid_l * 2 >= mid_t else "FALLBACK", mid_l, mid_t))
+        lines.append(_cum_line(slot, "LIVE" if lf * 2 >= tf else "FALLBACK", lf, tf))
     return "\n".join(lines) + "\n"
 
 
@@ -235,46 +273,83 @@ class FreshnessGateTests(unittest.TestCase):
             return live4v4.evaluate_live_freshness(rd, **kw)
 
     def test_all_leap_slots_mostly_live_passes(self) -> None:
-        ok, rep = self._eval({1: (45, 4), 2: (48, 10), 3: (45, 7), 4: (46, 5)})
+        # (live_frames, total_frames) per leap slot -- true per-frame fractions ~0.9
+        ok, rep = self._eval({1: (900, 1000), 2: (880, 1000), 3: (910, 1000), 4: (920, 1000)})
         self.assertTrue(ok)
         self.assertTrue(rep["ok"])
         self.assertTrue(all(rep["slots"][str(s)]["went_live"] for s in (1, 2, 3, 4)))
+        self.assertAlmostEqual(rep["slots"]["1"]["fraction"], 0.9, places=3)
+        self.assertEqual(rep["slots"]["1"]["total_frames"], 1000)
 
     def test_one_leap_slot_all_fallback_fails(self) -> None:
-        ok, rep = self._eval({1: (45, 4), 2: (48, 10), 3: (0, 40), 4: (46, 5)})
+        # slot 3 served LIVE on 0 of 4000 frames -> gameable line-ratio would miss
+        # this if it flapped, but the cumulative counter catches it
+        ok, rep = self._eval({1: (900, 1000), 2: (880, 1000), 3: (0, 4000), 4: (920, 1000)})
         self.assertFalse(ok)
         self.assertFalse(rep["slots"]["3"]["ok"])
         self.assertFalse(rep["slots"]["3"]["went_live"])
-        # the healthy slots are still individually ok
+        self.assertEqual(rep["slots"]["3"]["fraction"], 0.0)
         self.assertTrue(rep["slots"]["1"]["ok"])
 
-    def test_leap_slot_with_no_loglines_fails(self) -> None:
-        # slot 4 never logged at all -> cannot prove freshness -> fail closed
-        ok, rep = self._eval({1: (45, 4), 2: (48, 10), 3: (45, 7)})
-        self.assertFalse(ok)
-        self.assertEqual(rep["slots"]["4"]["live_loglines"], 0)
-        self.assertEqual(rep["slots"]["4"]["fallback_loglines"], 0)
-        self.assertFalse(rep["slots"]["4"]["ok"])
+    def test_flapping_sidecar_fails_despite_balanced_loglines(self) -> None:
+        # The core P1 case: a sidecar that goes LIVE ~1 frame/s then FALLBACK for
+        # ~76 frames emits ~balanced LOG LINES but served LIVE on ~1.3% of frames.
+        # The cumulative counter must FAIL it even though the line ratio is ~0.5.
+        import tempfile
 
-    def test_transient_minority_fallback_passes(self) -> None:
-        # frequent respawns produce some FALLBACK bursts, but LIVE still dominates
-        ok, rep = self._eval({1: (80, 20), 2: (80, 20), 3: (80, 20), 4: (80, 20)})
-        self.assertTrue(ok)
-        self.assertAlmostEqual(rep["slots"]["1"]["fraction"], 0.8, places=3)
+        flap = (
+            "[moveprobe-live] slot 1 LIVE fwd=1 side=0 jump=0 (req=77 ans=77) live=1/77\n"
+            "[moveprobe-live] slot 1 FALLBACK (stock frogbot; req=153 ans=77) live=1/153\n"
+            "[moveprobe-live] slot 1 LIVE fwd=1 side=0 jump=0 (req=154 ans=154) live=2/154\n"
+            "[moveprobe-live] slot 1 FALLBACK (stock frogbot; req=300 ans=154) live=2/300\n"
+        )
+        with tempfile.TemporaryDirectory() as td:
+            rd = Path(td)
+            (rd / "screen.log").write_text(flap, encoding="utf-8")
+            ok, rep = live4v4.evaluate_live_freshness(rd, leap_slots=(1,))
+        self.assertFalse(ok)
+        s1 = rep["slots"]["1"]
+        # ~equal LIVE/FALLBACK lines, but true fraction is ~2/300
+        self.assertEqual(s1["live_loglines"], 2)
+        self.assertEqual(s1["fallback_loglines"], 2)
+        self.assertLess(s1["fraction"], 0.05)
+
+    def test_leap_slot_with_no_cumulative_fails(self) -> None:
+        # slot 4 logs only OLD-format lines (no live=L/T) -> can't prove the true
+        # per-frame fraction -> fail closed (forces the cumulative-aware KTX build)
+        import tempfile
+
+        text = _screen_log({1: (900, 1000), 2: (880, 1000), 3: (910, 1000)})
+        text += _old_line(4, "LIVE") + "\n" + _old_line(4, "FALLBACK") + "\n"
+        with tempfile.TemporaryDirectory() as td:
+            rd = Path(td)
+            (rd / "screen.log").write_text(text, encoding="utf-8")
+            ok, rep = live4v4.evaluate_live_freshness(rd)
+        self.assertFalse(ok)
+        self.assertFalse(rep["slots"]["4"]["has_cumulative"])
+        self.assertFalse(rep["slots"]["4"]["ok"])
+        self.assertTrue(rep["slots"]["1"]["ok"])
+
+    def test_leap_slot_never_seated_fails(self) -> None:
+        # slot 4 absent entirely -> no cumulative -> fail closed
+        ok, rep = self._eval({1: (900, 1000), 2: (880, 1000), 3: (910, 1000)})
+        self.assertFalse(ok)
+        self.assertEqual(rep["slots"]["4"]["total_frames"], 0)
+        self.assertFalse(rep["slots"]["4"]["ok"])
 
     def test_threshold_boundary_is_inclusive(self) -> None:
         # exactly at the threshold passes (>=)
-        ok, _ = self._eval({1: (5, 5), 2: (5, 5), 3: (5, 5), 4: (5, 5)}, min_fraction=0.5)
+        ok, _ = self._eval({1: (500, 1000), 2: (500, 1000), 3: (500, 1000), 4: (500, 1000)}, min_fraction=0.5)
         self.assertTrue(ok)
         # just under fails
-        ok2, _ = self._eval({1: (4, 6), 2: (5, 5), 3: (5, 5), 4: (5, 5)}, min_fraction=0.5)
+        ok2, _ = self._eval({1: (499, 1000), 2: (500, 1000), 3: (500, 1000), 4: (500, 1000)}, min_fraction=0.5)
         self.assertFalse(ok2)
 
     def test_frog_slots_are_ignored(self) -> None:
         # frog controls (slots 5..8) are stock and never log mode-30; even if they
-        # somehow appeared as FALLBACK they must not affect the leap verdict
+        # somehow appeared they must not affect the leap verdict
         ok, rep = self._eval(
-            {1: (45, 4), 2: (48, 10), 3: (45, 7), 4: (46, 5), 5: (0, 99), 6: (0, 99)}
+            {1: (900, 1000), 2: (880, 1000), 3: (910, 1000), 4: (920, 1000), 5: (0, 9000), 6: (0, 9000)}
         )
         self.assertTrue(ok)
         self.assertNotIn("5", rep["slots"])
@@ -293,9 +368,9 @@ class FreshnessGateTests(unittest.TestCase):
 
         def fake_scp(host, run_id, local_run_dir):
             Path(local_run_dir).mkdir(parents=True, exist_ok=True)
-            # all four leap slots FALLBACK -> masked frog-vs-frog -> must fail
+            # all four leap slots served 0 LIVE frames -> masked frog-vs-frog -> fail
             (Path(local_run_dir) / "screen.log").write_text(
-                _screen_log({1: (0, 30), 2: (0, 30), 3: (0, 30), 4: (0, 30)}),
+                _screen_log({1: (0, 3000), 2: (0, 3000), 3: (0, 3000), 4: (0, 3000)}),
                 encoding="utf-8",
             )
 
