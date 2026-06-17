@@ -105,7 +105,12 @@ cleanup() {
   if [ -n "$sidecar_pid" ]; then
     kill "$sidecar_pid" 2>/dev/null
   fi
-  if [ -n "$shm_name" ]; then
+  # Only ever pkill/unlink the shared-memory region when THIS invocation owns it.
+  # main() always passes the default shm name (even for non-live runs), so without
+  # the live_leap + sidecar_pid guard a losing lock-race invocation would kill the
+  # active run's sidecar and unlink its region. sidecar_pid is set only after we
+  # start the waiter -- well past the lock acquisition -- so a loser never has it.
+  if [ "$live_leap" = "1" ] && [ -n "$sidecar_pid" ] && [ -n "$shm_name" ]; then
     pkill -f "move_policy_sidecar.py --shm-name $shm_name" 2>/dev/null
     rm -f "/dev/shm/$shm_name" 2>/dev/null
   fi
@@ -283,6 +288,7 @@ screen -S "$session" -p 0 -X hardcopy "$rundir/hardcopy.before-client.txt"
 if [ "$live_leap" = "1" ] && [ -n "$sidecar_cmd_b64" ] && [ -n "$shm_name" ]; then
   sidecar_cmd="$(printf '%s\n' "$sidecar_cmd_b64" | base64 -d)"
   rm -f "/dev/shm/$shm_name" 2>/dev/null || true
+  rm -f "$rundir/sidecar.started" "$rundir/sidecar.failed" "$rundir/sidecar.exitcode" 2>/dev/null || true
   (
     for _ in $(seq 1 120); do
       [ -e "/dev/shm/$shm_name" ] && break
@@ -290,9 +296,12 @@ if [ "$live_leap" = "1" ] && [ -n "$sidecar_cmd_b64" ] && [ -n "$shm_name" ]; th
     done
     if [ -e "/dev/shm/$shm_name" ]; then
       echo "[remote] sidecar attaching to /dev/shm/$shm_name"
+      touch "$rundir/sidecar.started"
       eval "$sidecar_cmd"
+      echo "$?" > "$rundir/sidecar.exitcode"
     else
       echo "[remote] WARN: region /dev/shm/$shm_name never appeared; sidecar not started" >&2
+      echo "region-missing" > "$rundir/sidecar.failed"
     fi
   ) > "$rundir/sidecar.log" 2>&1 &
   sidecar_pid=$!
@@ -317,6 +326,24 @@ python3 "$rundir/qw_min_client.py" "$port" \
   --botcmd "addbot 20 $team2" \
   > "$rundir/pyclient.stdout" \
   2> "$rundir/pyclient.stderr"
+
+# Live-leap integrity gate: mode 30 silently falls back to stock Frogbot when the
+# sidecar never serves, so a missing checkpoint / bad sidecar path / region-never-
+# created would otherwise produce a scored frog-vs-frog match mislabeled as a live
+# run. Fail the run instead. Require (a) the region appeared -- which only happens
+# once KTX engages mode 30 for a leap bot and the sidecar attached -- and (b) the
+# waiter is still alive now the match just ended (a dead waiter means the sidecar
+# process exited early). The EXIT trap is still armed here, so cleanup() tears down.
+if [ "$live_leap" = "1" ]; then
+  if [ ! -f "$rundir/sidecar.started" ]; then
+    echo "FATAL: live-leap region /dev/shm/$shm_name never appeared; the leap brain never served (would be a frog-vs-frog match mislabeled as live-leap)" >&2
+    exit 9
+  fi
+  if ! kill -0 "$sidecar_pid" 2>/dev/null; then
+    echo "FATAL: live-leap sidecar exited before match end (rc=$(cat "$rundir/sidecar.exitcode" 2>/dev/null || echo '?')); leap bots fell back to stock movement" >&2
+    exit 9
+  fi
+fi
 
 # Stop the live-leap sidecar now the match is over (lets its log flush before we
 # collect artifacts; cleanup() is the belt-and-braces backstop on any exit path).

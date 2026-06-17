@@ -128,6 +128,29 @@ class LiveLeapWiringTests(unittest.TestCase):
         self.assertIn('rm -f "/dev/shm/$shm_name"', script)
         self.assertIn("trap - EXIT", script)
 
+    def test_remote_script_fails_run_when_live_brain_never_serves(self) -> None:
+        # P1: mode 30 falls back to stock Frogbot silently, so the run MUST fail
+        # (non-zero exit) if the region never appeared or the sidecar died early --
+        # otherwise a frog-vs-frog match gets scored under a live-leap label.
+        script = live4v4.REMOTE_SCRIPT
+        self.assertIn('touch "$rundir/sidecar.started"', script)
+        self.assertIn('echo "$?" > "$rundir/sidecar.exitcode"', script)
+        self.assertIn('if [ ! -f "$rundir/sidecar.started" ]; then', script)
+        self.assertIn('kill -0 "$sidecar_pid"', script)
+        # both integrity failures abort the run before it is scored
+        self.assertEqual(script.count("exit 9"), 2)
+        self.assertIn("mislabeled as live-leap", script)
+
+    def test_remote_script_gates_shm_cleanup_on_live_and_ownership(self) -> None:
+        # P2: cleanup() must not pkill/unlink the shared region unless THIS
+        # invocation is a live run that actually started the sidecar -- else a
+        # losing lock-race invocation stomps the active run's sidecar/region.
+        script = live4v4.REMOTE_SCRIPT
+        self.assertIn(
+            'if [ "$live_leap" = "1" ] && [ -n "$sidecar_pid" ] && [ -n "$shm_name" ]; then',
+            script,
+        )
+
     def test_main_live_leap_requires_leap_team(self) -> None:
         rc = live4v4.main(["--live-leap", "--skip-prereq-check"])
         self.assertEqual(rc, 2)
