@@ -102,11 +102,16 @@ toolchain) is the remaining confirmation, done in PR-C.
 | `k_fb_moveprobe_mode_s<N>` | unset | set to `30` to put bot slot N in live mode |
 | `k_fb_moveprobe_live_shm_name[_s<N>]` | `komodo_move_t06` | shared region name (must match the sidecar's `--shm-name`) |
 | `k_fb_moveprobe_live_stale_ticks` | `3` | freshness window; accept a MOVE answered within this many ticks, else fall back |
-| `k_fb_moveprobe_live_log` | off | `1` → throttled `[moveprobe-live] … LIVE/FALLBACK` lines to the server log |
+| `k_fb_moveprobe_live_log` | off | `1` → throttled `[moveprobe-live] … LIVE/FALLBACK` lines **and** a periodic on-KTX p50/p99/max cost summary (PR-C) to the server log |
 
-## Next (PR-C)
+## PR-C — live loop validated on the box (#209)
 
-PR-C installs CPU torch + the checkpoint on the box, confirms the box build, then
-runs the live 5-minute test (sidecar attached, one leap slot in mode 30): no
-freeze, `LIVE` cmds in the log, `FALLBACK` when the sidecar is paused, and the
-**on-KTX p99** that closes the T0.2 loop.
+PR-C added CPU torch + the checkpoint on the box, the on-KTX cost instrumentation
+(`frogbot-moveprobe-live-p99.patch`), and ran the live loop end to end. Full
+runbook + evidence: **`../T0.3_LIVE_MODE.md`** (machine-readable
+`../evidence/t0.3_live_mode.json`; launcher `../run_live.sh`).
+
+Result: 1+ bot live on dm3, no freeze, `LIVE` cmds in the log, clean `FALLBACK`
+when the sidecar is paused (and `LIVE` on resume), and **on-KTX p99 ≤ 5 µs**
+(max 17–83 µs) vs the 0.5 ms budget — ~100× margin, closing the T0.2 loop on the
+real server.

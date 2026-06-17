@@ -1,0 +1,60 @@
+{
+  "ticket": 209,
+  "stage": "T0.3",
+  "title": "KTX live-brain mode (mode 30) - on-box live loop",
+  "host": "komodo-aws",
+  "date": "2026-06-17",
+  "ktx_commit": "08807da",
+  "patch_stack": [
+    "frogbot-moveprobe-perslot.patch",
+    "frogbot-moveprobe-live.patch",
+    "frogbot-moveprobe-live-p99.patch"
+  ],
+  "build": {
+    "toolchain": "gcc 13.3.0 / cmake 3.28.3",
+    "flags": "-DBOT_SUPPORT=1 -DCMAKE_BUILD_TYPE=Release",
+    "artifact": "qwprogs.so",
+    "bytes": 1580456,
+    "warnings": 0,
+    "errors": 0,
+    "verified_clean_room": "stock 08807da -> baseline -> live -> p99 (git apply --recount) -> cmake"
+  },
+  "run": {
+    "port": 28599,
+    "map": "dm3",
+    "mode": "matchless ffa",
+    "shm_region": "komodo_move_t06",
+    "shm_bytes": 272,
+    "serve_hz": 77,
+    "checkpoint": "move_bc_policy.pt (hidden=128, cpu)",
+    "live_services_untouched": true
+  },
+  "done_when": {
+    "no_freeze": true,
+    "live_cmds": {
+      "observed": true,
+      "example": "slot 1 LIVE fwd=1 side=-1 jump=0 (req=4243 ans=4242)",
+      "pipeline_delay_ticks": 1
+    },
+    "fallback_on_pause": {
+      "observed": true,
+      "method": "SIGSTOP sidecar",
+      "example": "slot 1 FALLBACK (stock frogbot; req=8830 ans=8593)",
+      "server_kept_ticking": true
+    },
+    "resume_to_live": { "observed": true, "method": "SIGCONT sidecar" }
+  },
+  "on_ktx_p99_us": {
+    "measure": "per-tick build-world-view + write VIEW + read MOVE + apply, inside KTX",
+    "budget_us": 500,
+    "p50_us": 5,
+    "p99_us": 5,
+    "max_us_range": [17.5, 82.7],
+    "windows": 11,
+    "verdict": "~100x under budget; closes the T0.2 loop on the real server"
+  },
+  "not_this_ticket": {
+    "frog_vs_leap_verdict": "T0.7 #212",
+    "per_tick_golden_parity": "T0.5 #210"
+  }
+}
