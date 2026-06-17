@@ -1,0 +1,30 @@
+{
+  "schema": "komodobots.live_slot_capacity.v1",
+  "ticket": "T0.7 (#212) PR-B enabler: raise MoveMLP live shm capacity 4 -> 8 slots",
+  "question": "With MSHM_MAX_SLOTS bumped 4->8, do all FOUR leap bots go live end-to-end? The bot-adding spectator always seats at client slot 0 (verified: KTX addbot is a client-only botcmd, no console addbot; the connecting spectator takes the lowest client slot regardless of maxclients/maxspectators), so the four leap bots land on internal slots 1..4. The old cap=4 guard `slot >= MSHM_MAX_SLOTS` early-returned for slot 4, silently dropping the 4th leap bot to a stock frogbot (an unintended 3-leap-vs-4-frog match).",
+  "host": "komodo-aws",
+  "ktx_qwprogs": "qwprogs-1.48-dev-t07cap8.so",
+  "shm_region_size_bytes": 544,
+  "shm_region_size_old_bytes": 272,
+  "max_slots": 8,
+  "max_slots_old": 4,
+  "shm_name": "komodo_move_t07",
+  "sidecar": "move_policy_sidecar.py --shm-name komodo_move_t07 --ckpt ~/move_bc_policy.pt --hz 77 (MAX_SLOTS=8)",
+  "run_id": "capreval_161719",
+  "config": "FFA matchless, dm3, 1 spectator (slot 0) + 4 leap frogbots (edicts 2..5 -> internal slots 1..4), k_fb_moveprobe_mode_s2..s5=30, stale_ticks=3, live_dump=1, live_log=1",
+  "result": "PASS",
+  "discriminator": "The live guard early-returns BEFORE the per-tick dump, so with the old cap=4 build slot 4 emits ZERO dump lines. Observing slot-4 dumps AND slot-4 LIVE answers proves the bump took.",
+  "per_slot": [
+    {"slot": 1, "edict": 2, "dumps": 3629, "live_loglines": 48, "fallback_loglines": 12, "first_live": "req=153 ans=152", "went_live": true},
+    {"slot": 2, "edict": 3, "dumps": 3641, "live_loglines": 48, "fallback_loglines": 10, "first_live": "req=155 ans=154", "went_live": true},
+    {"slot": 3, "edict": 4, "dumps": 3445, "live_loglines": 45, "fallback_loglines": 7, "first_live": "req=164 ans=163", "went_live": true},
+    {"slot": 4, "edict": 5, "dumps": 3576, "live_loglines": 45, "fallback_loglines": 4, "first_live": "req=156 ans=155", "went_live": true}
+  ],
+  "max_slot_that_went_live": 4,
+  "notes": [
+    "All four leap slots (1,2,3,4) advance req every tick (dumps ~3.5k each) and transition to LIVE once the sidecar attaches; the leading FALLBACK lines are the warmup before the sidecar answers and occasional stale ticks (stale_ticks=3).",
+    "The sidecar attached cleanly to the 544-byte region (a 272-vs-544 size mismatch would have errored on attach), confirming KTX and the sidecar agree on the cap=8 layout.",
+    "pmove resim fidelity is out of scope (see artifacts/pmove-validation/); this only proves live-path slot capacity.",
+    "Old qwprogs-1.48-dev-08807d.so retained for instant symlink revert; box snapshot snap-0aa029d704c4bf185 taken before the rebuild."
+  ]
+}

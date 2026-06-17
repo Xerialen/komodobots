@@ -38,7 +38,11 @@
 
 #include "move_world_view.h"
 
-#define MSHM_MAX_SLOTS 4
+/* 8 player slots (0..7). The bot-adding spectator always seats at client slot 0,
+ * so the four leap bots land on slots 1..4 -- serving 8 keeps slot 4 in range.
+ * (Confirmed on box: `addbot` is client-only, and the connecting spectator takes
+ * the lowest slot regardless of maxspectators, T0.7.) */
+#define MSHM_MAX_SLOTS 8
 
 /* Body sizes (struct.calcsize of the sidecar formats). */
 #define MSHM_VIEW_BODY_SIZE 32  /* "<I6fB3x"  : 4 + 24 + 1 + 3 */
@@ -48,9 +52,9 @@
 #define MSHM_VIEW_SLOT_SIZE (4 + MSHM_VIEW_BODY_SIZE + 4)  /* 40 */
 #define MSHM_MOVE_SLOT_SIZE (4 + MSHM_MOVE_BODY_SIZE + 4)  /* 28 */
 
-#define MSHM_VIEW_BLOCK_SIZE (MSHM_MAX_SLOTS * MSHM_VIEW_SLOT_SIZE)  /* 160 */
-#define MSHM_MOVE_BLOCK_SIZE (MSHM_MAX_SLOTS * MSHM_MOVE_SLOT_SIZE)  /* 112 */
-#define MSHM_REGION_SIZE     (MSHM_VIEW_BLOCK_SIZE + MSHM_MOVE_BLOCK_SIZE)  /* 272 */
+#define MSHM_VIEW_BLOCK_SIZE (MSHM_MAX_SLOTS * MSHM_VIEW_SLOT_SIZE)  /* 320 */
+#define MSHM_MOVE_BLOCK_SIZE (MSHM_MAX_SLOTS * MSHM_MOVE_SLOT_SIZE)  /* 224 */
+#define MSHM_REGION_SIZE     (MSHM_VIEW_BLOCK_SIZE + MSHM_MOVE_BLOCK_SIZE)  /* 544 */
 
 /* Decoded MOVE record (the sidecar's answer KTX applies). */
 typedef struct {

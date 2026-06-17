@@ -87,8 +87,10 @@ MOVE_MAG = 320.0
 # pmove_sim.BUTTON_JUMP: the jump bit in the buttons byte.
 BUTTON_JUMP = 2
 
-# Max bot slots we serve. Phase-0 bench is 4v4; the leap team has up to 4 bots.
-MAX_SLOTS = 4
+# Max bot slots we serve. Phase-0 bench is 4v4; the leap team has 4 bots, but the
+# bot-adding spectator seats at client slot 0, pushing the leap bots to slots 1..4
+# (confirmed on box, T0.7). Serve all 8 player slots so slot 4 stays in range.
+MAX_SLOTS = 8
 
 # ---------------------------------------------------------------------------
 # Shared-memory layout (one /dev/shm region; per-slot VIEW + MOVE records, each
