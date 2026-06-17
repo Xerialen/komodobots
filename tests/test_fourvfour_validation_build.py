@@ -290,6 +290,43 @@ class FourVFourValidationBuildTest(unittest.TestCase):
         self.assertEqual(written["schema"], "komodobots.4v4_validation.v1")
         self.assertEqual(written["provenance"]["valid_games"], 1)
 
+    def test_speed_metrics_appear_in_ledger_and_deltas(self):
+        # avg_speed / max_speed flow from the KTX speed block through the built ledger.
+        write_run(self.runs, "20260614T200000Z")
+        write_run(self.runs, "20260614T201000Z", controller_version="komodo-v2")
+
+        data = fv.build(self.runs)
+
+        self.assertIn("avg_speed", data["metrics"])
+        self.assertIn("max_speed", data["metrics"])
+
+        _, second = data["games"]
+        for player in second["players"]:
+            slot = player["slot"]
+            self.assertIn("avg_speed", player["stats"], f"slot {slot} missing avg_speed in stats")
+            self.assertIn("max_speed", player["stats"], f"slot {slot} missing max_speed in stats")
+            self.assertEqual(player["stats"]["avg_speed"], 300.0,
+                             f"slot {slot} unexpected avg_speed")
+            self.assertEqual(player["stats"]["max_speed"], 500.0,
+                             f"slot {slot} unexpected max_speed")
+            self.assertIn("avg_speed", player["deltas"], f"slot {slot} missing avg_speed delta")
+            self.assertIn("max_speed", player["deltas"], f"slot {slot} missing max_speed delta")
+            # Second game has a previous, so delta value must be computed (300-300=0).
+            avg_delta = player["deltas"]["avg_speed"]
+            self.assertEqual(avg_delta["current"], 300.0)
+            self.assertEqual(avg_delta["previous"], 300.0)
+            self.assertEqual(avg_delta["value"], 0.0)
+
+    def test_speed_delta_no_previous_when_single_game(self):
+        write_run(self.runs, "20260614T200000Z")
+
+        data = fv.build(self.runs)
+
+        komodo = data["games"][0]["players"][0]
+        self.assertEqual(komodo["deltas"]["avg_speed"]["scope"], "no_previous")
+        self.assertIsNone(komodo["deltas"]["avg_speed"]["value"])
+        self.assertIsNone(komodo["deltas"]["max_speed"]["value"])
+
 
 def leap_roster(run_id: str, *, controller_version: str = "komodo-v1", team1: str = "Team A",
                 team2: str = "Team B") -> dict:
