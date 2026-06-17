@@ -27,6 +27,12 @@
 #ifndef KOMODO_MOVE_SHM_H
 #define KOMODO_MOVE_SHM_H
 
+/* Native-only: the QVM (Q3_VM) build has no <stdint.h> / mmap, and the live
+ * transport is a native-only feature. Under Q3_VM this header and its TU
+ * collapse to nothing, so a QVM unit may include it harmlessly (live mode is a
+ * no-op there). The standalone parity test compiles with Q3_VM undefined. */
+#ifndef Q3_VM
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -76,5 +82,7 @@ void mshm_write_view(void *region, int slot, uint32_t req_seq,
  * retry caught a write in flight (KTX then treats the slot as stale ->
  * fallback). The application freshness check keys on out->ans_seq. */
 int mshm_read_move(void *region, int slot, mshm_move_t *out);
+
+#endif /* !Q3_VM */
 
 #endif /* KOMODO_MOVE_SHM_H */
