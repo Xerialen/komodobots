@@ -22,6 +22,21 @@ from typing import Any
 
 import ktx_match_stats as kms
 
+# Per-player speed (avg/max, qu/s) is NOT in the KTX server-side stats JSON; KTX
+# never records movement speed. The faithful, source-grounded speed comes from
+# the MVD analyzer's position stream: qw-analyze-v20 -format events emits kind:5
+# player-origin samples, and scripts/extract_movement_metrics derives per-player
+# horizontal speed in Quake units/sec from the position deltas. We reuse that
+# canonical extractor here so the ledger's speed matches the rest of the lab.
+REPO = Path(__file__).resolve().parent.parent.parent
+if str(REPO / "scripts") not in sys.path:
+    sys.path.insert(0, str(REPO / "scripts"))
+
+try:
+    import extract_movement_metrics as emm
+except Exception:  # pragma: no cover - extractor is optional; speed -> null
+    emm = None  # type: ignore[assignment]
+
 SCHEMA = "komodobots.4v4_validation.v1"
 ROSTER_SCHEMA = "komodobots.4v4_roster_intent.v1"
 DEFAULT_RUNS_DIR = Path("artifacts") / "4v4-validation-runs"
@@ -53,6 +68,10 @@ ROSTER_FILENAMES = (
     "4v4-roster.json",
     "roster.json",
 )
+# Run-dir artifacts carrying per-player position/speed. We prefer the
+# pre-computed movement-metrics.json, then fall back to the analyzer events.
+MOVEMENT_METRICS_FILENAME = "movement-metrics.json"
+EVENTS_FILENAME = "events.txt"
 VALIDATION_METRICS = (
     "frags",
     "deaths",
@@ -71,6 +90,8 @@ VALIDATION_METRICS = (
     "rl_drops",
     "enemy_rl_kills",
     "taken_to_die",
+    "avg_speed",
+    "max_speed",
 )
 
 
@@ -274,6 +295,96 @@ def _with_roster_fields(player: dict[str, Any], roster_by_slot: dict[int, dict[s
     return enriched
 
 
+def _coerce_speed(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    fvalue = float(value)
+    if fvalue != fvalue or fvalue in (float("inf"), float("-inf")):  # NaN/inf guard
+        return None
+    return round(fvalue, 1)
+
+
+def _speeds_from_movement_players(players: Any) -> dict[str, dict[str, float | None]]:
+    """Map player name -> {avg_speed, max_speed} from movement-metrics player rows."""
+    out: dict[str, dict[str, float | None]] = {}
+    if not isinstance(players, list):
+        return out
+    for player in players:
+        if not isinstance(player, dict):
+            continue
+        name = player.get("name")
+        if not isinstance(name, str) or not name:
+            continue
+        avg = _coerce_speed(player.get("avg_horizontal_speed_qu_per_s"))
+        mx = _coerce_speed(player.get("max_horizontal_speed_qu_per_s"))
+        if avg is None and mx is None:
+            continue
+        out[name] = {"avg_speed": avg, "max_speed": mx}
+    return out
+
+
+def extract_run_speeds(run_dir: Path) -> dict[str, dict[str, float | None]]:
+    """Per-player {avg_speed, max_speed} in qu/s derived from the MVD analyzer.
+
+    KTX server-side stats carry no movement speed, so speed is sourced from the
+    analyzer position stream. We prefer a pre-computed ``movement-metrics.json``
+    (written by ``scripts/extract_movement_metrics``); failing that we derive the
+    same metrics directly from the analyzer's ``events.txt`` kind:5 origin
+    samples. Returns an empty mapping (never raises) when no usable position
+    artifact exists or it is malformed, so the ledger degrades to null speed
+    rather than crashing.
+    """
+    # 1) Prefer the committed movement-metrics.json sidecar.
+    metrics_path = run_dir / MOVEMENT_METRICS_FILENAME
+    if metrics_path.is_file():
+        try:
+            metrics = _read_json(metrics_path)
+            # Valid JSON that is not an object (e.g. `[]`) is malformed for our
+            # purposes; treat it as no metrics rather than crashing on .get().
+            players = metrics.get("players") if isinstance(metrics, dict) else None
+            speeds = _speeds_from_movement_players(players)
+            if speeds:
+                return speeds
+        except (OSError, json.JSONDecodeError, TypeError, ValueError, AttributeError):
+            pass  # fall through to events.txt
+
+    # 2) Fall back to deriving speed straight from the analyzer events stream.
+    events_path = run_dir / EVENTS_FILENAME
+    if emm is not None and events_path.is_file():
+        try:
+            metrics = emm.compute_movement_metrics(events_path, run_dir=run_dir)
+            players = metrics.get("players") if isinstance(metrics, dict) else None
+            return _speeds_from_movement_players(players)
+        except Exception:  # pragma: no cover - extractor robustness
+            return {}
+    return {}
+
+
+def _attach_speeds(players: list[dict[str, Any]], speeds: dict[str, dict[str, float | None]]) -> None:
+    """Overlay analyzer-derived speed onto per-player stats, matched by name.
+
+    The analyzer position stream is the more faithful speed source, but a KTX stats
+    block can legitimately carry speed.avg/max too (the normalizer surfaces it), so
+    we OVERLAY analyzer speed only when present rather than clearing it -- otherwise
+    a run with no position artifact would wipe valid KTX-provided speed to null.
+    Match is by KTX name, then roster name as a fallback.
+    """
+    if not speeds:
+        return
+    for player in players:
+        candidates = [
+            player.get("identity", {}).get("name"),
+            player.get("roster", {}).get("name"),
+        ]
+        record = next((speeds[name] for name in candidates if isinstance(name, str) and name in speeds), None)
+        if record is None:
+            continue
+        if record.get("avg_speed") is not None:
+            player["stats"]["avg_speed"] = record["avg_speed"]
+        if record.get("max_speed") is not None:
+            player["stats"]["max_speed"] = record["max_speed"]
+
+
 def _version_scope(curr: dict[str, Any], prev: dict[str, Any] | None) -> str:
     if prev is None:
         return "no_previous"
@@ -470,6 +581,9 @@ def _game_from_artifacts(run_dir: Path, stats_path: Path, roster_path: Path | No
     run_id = _run_id(run_dir, roster, normalized["match"])
     roster_by_slot = _roster_by_slot(roster)
     players = [_with_roster_fields(p, roster_by_slot) for p in normalized["players"]]
+    # Overlay real per-player movement speed (qu/s) from the MVD analyzer; KTX
+    # stats carry none. Robust: no/garbled position artifact -> speed unchanged.
+    _attach_speeds(players, extract_run_speeds(run_dir))
     demo_name = normalized["match"].get("demo")
     game = {
         "run_id": run_id,
