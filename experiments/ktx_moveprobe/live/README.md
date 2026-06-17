@@ -59,11 +59,54 @@ cc -O2 -std=c11 -Wall -Wextra -Werror -o /tmp/live_selftest \
    experiments/ktx_moveprobe/live/selftest_main.c -lm
 ```
 
-## Next (PR-B / PR-C)
+## KTX integration (PR-B): `frogbot-moveprobe-live.patch`
 
-PR-B wires this unit into KTX — `frogbot-moveprobe-perslot.patch` gains a new
-moveprobe **mode 30** that, at the `BotApplyMoveProbe` → `trap_SetBotCMD` seam,
-calls `mwv_state_features` on the bot's `self->s.v.velocity` + view angles,
-`mshm_write_view`, then `mshm_read_move` with a freshness/fallback check, mapping
-the result onto `direction` / `*jumping` (aim + fire stay stock). PR-C runs the
-live 5-minute test on the box and records the on-KTX p99.
+PR-B wires this unit into KTX as a **layered** patch
+(`experiments/ktx_moveprobe/frogbot-moveprobe-live.patch`) that applies *on top
+of* the baseline `frogbot-moveprobe-perslot.patch` — the tested baseline is left
+untouched. The live patch:
+
+- adds `src/move_world_view.{c,h}` + `src/move_shm.{c,h}` to the KTX tree (copies
+  of these files; the drift guard `tests/test_live_patch_sync.py` keeps them
+  byte-identical to the canonical unit here);
+- adds those two `.c` to the `CMakeLists.txt` source list;
+- gives `bot_movement.c` a new moveprobe **mode 30** that, at the
+  `BotApplyMoveProbe` → `trap_SetBotCMD` seam, calls `mwv_state_features` on
+  `self->s.v.velocity` + `self->fb.desired_angle` (`[0]`=pitch, `[1]`=yaw),
+  `mshm_write_view`, then `mshm_read_move` with a freshness/fallback check,
+  mapping the result onto `direction` / `*jumping` (aim + fire stay stock). A
+  missing region / torn read / stale answer leaves the stock-frogbot move
+  untouched — the bot never freezes.
+
+**Native-only.** All of the above is `#ifndef Q3_VM`-guarded; the QVM build
+compiles the unit to empty TUs and `BotApplyMoveProbeLive` to a no-op, so the box
+runs it in the native `qwprogs.so` and the QVM target still builds clean.
+
+### Apply + build (both patches; the box uses `--recount`)
+
+```bash
+cd <ktx-checkout-at-08807da>
+git apply --recount experiments/ktx_moveprobe/frogbot-moveprobe-perslot.patch  # baseline
+git apply --recount experiments/ktx_moveprobe/frogbot-moveprobe-live.patch     # live mode
+cmake -DBOT_SUPPORT=1 -DCMAKE_BUILD_TYPE=Release -S . -B build && cmake --build build -j   # -> qwprogs.so
+```
+
+Verified in a sandbox clean-room (stock `QW-Group/ktx@08807da` → baseline → live
+→ native `qwprogs.so`, warning-clean). The box build (in the exact prod
+toolchain) is the remaining confirmation, done in PR-C.
+
+### mode-30 cvars (per-slot via the existing `_s<N>` plumbing)
+
+| cvar | default | meaning |
+|------|---------|---------|
+| `k_fb_moveprobe_mode_s<N>` | unset | set to `30` to put bot slot N in live mode |
+| `k_fb_moveprobe_live_shm_name[_s<N>]` | `komodo_move_t06` | shared region name (must match the sidecar's `--shm-name`) |
+| `k_fb_moveprobe_live_stale_ticks` | `3` | freshness window; accept a MOVE answered within this many ticks, else fall back |
+| `k_fb_moveprobe_live_log` | off | `1` → throttled `[moveprobe-live] … LIVE/FALLBACK` lines to the server log |
+
+## Next (PR-C)
+
+PR-C installs CPU torch + the checkpoint on the box, confirms the box build, then
+runs the live 5-minute test (sidecar attached, one leap slot in mode 30): no
+freeze, `LIVE` cmds in the log, `FALLBACK` when the sidecar is paused, and the
+**on-KTX p99** that closes the T0.2 loop.

@@ -1,0 +1,683 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d21126a..a11978f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -57,6 +57,11 @@ set(SRC_COMMON
+ 	"${DIR_SRC}/bot_movement.c"
+ 	"${DIR_SRC}/bot_routing.c"
+ 	"${DIR_SRC}/bot_world.c"
++	# bot-program T0.3 live-brain mode (native-only; a no-op under QVM via
++	# #ifndef Q3_VM). Canonical source: experiments/ktx_moveprobe/live/ in the
++	# komodobots repo; the CI byte-match gate pins it to the Python contract.
++	"${DIR_SRC}/move_world_view.c"
++	"${DIR_SRC}/move_shm.c"
+ 	"${DIR_SRC}/buttons.c"
+ 	"${DIR_SRC}/captain.c"
+ 	"${DIR_SRC}/coach.c"
+diff --git a/src/bot_movement.c b/src/bot_movement.c
+index 24d5933..40bc7b4 100644
+--- a/src/bot_movement.c
++++ b/src/bot_movement.c
+@@ -2,6 +2,10 @@
+ 
+ #include "g_local.h"
+ 
++// bot-program T0.3 live-brain mode: world-view + POSIX-shm transport to the
++// MoveMLP sidecar. Native-only; move_shm.h self-guards to nothing under Q3_VM.
++#include "move_shm.h"
++
+ #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
+ #define MIN_DEAD_TIME 0.2f
+ #define MAX_DEAD_TIME 1.0f
+@@ -3004,6 +3008,161 @@ static void BotMoveProbeEmitAssignRow(gedict_t *self, int slot, int mode, int mo
+ 			 spawn_shown, spawn_from_slot ? "slot" : "global");
+ }
+ 
++#ifndef Q3_VM
++// bot-program T0.3 live-brain mode. Throttled status log so screen.log shows
++// LIVE cmds + FALLBACK transitions without per-tick (77 Hz) spam: emit on a
++// state change or at most once per ~second while steady. Gated by the global
++// cvar k_fb_moveprobe_live_log.
++static void BotMoveProbeLiveLog(int slot, int live, unsigned req, unsigned ans,
++								int fwd, int side, int jump)
++{
++	static int   last_live[MAX_CLIENTS];
++	static float last_time[MAX_CLIENTS];
++	static int   seeded[MAX_CLIENTS];
++	float now = g_globalvars.time;
++
++	if (!cvar("k_fb_moveprobe_live_log"))
++	{
++		return;
++	}
++	if ((slot < 0) || (slot >= MAX_CLIENTS))
++	{
++		return;
++	}
++	if (seeded[slot] && (live == last_live[slot]) && ((now - last_time[slot]) < 1.0f))
++	{
++		return;
++	}
++	seeded[slot] = 1;
++	last_live[slot] = live;
++	last_time[slot] = now;
++	if (live)
++	{
++		G_bprint(PRINT_HIGH, "[moveprobe-live] slot %d LIVE fwd=%d side=%d jump=%d (req=%u ans=%u)\n",
++				 slot, fwd, side, jump, req, ans);
++	}
++	else
++	{
++		G_bprint(PRINT_HIGH, "[moveprobe-live] slot %d FALLBACK (stock frogbot; req=%u ans=%u)\n",
++				 slot, req, ans);
++	}
++}
++
++// Publish this tick's world-view to the shared /dev/shm region the MoveMLP
++// sidecar (scripts/move_policy_sidecar.py) reads, then apply the freshest MOVE
++// it has answered. Aim + fire stay stock frogbot (Phase 0). On a missing region,
++// a torn read, or a stale answer (sidecar slow/dead) it leaves the stock-frogbot
++// direction/jumping untouched -- it never freezes the bot. The world-view comes
++// from the shared move_world_view unit (byte-matched to the Python offline
++// builder by tests/test_live_c_parity.py), against the view angle the move is
++// applied with: self->fb.desired_angle[0]=PITCH, [1]=YAW. The request/answer
++// pipeline is asynchronous (the sidecar runs in another process), so a few ticks
++// of answer lag is expected and allowed by the freshness window.
++static void BotApplyMoveProbeLive(gedict_t *self, int slot, qbool *jumping,
++								  qbool *firing, int *impulse, vec3_t direction)
++{
++	static void	   *region = NULL;
++	static int		create_failed = 0;
++	static unsigned	req_counter[MSHM_MAX_SLOTS];
++	static unsigned	resume_req[MSHM_MAX_SLOTS];
++	static float	last_live_time[MSHM_MAX_SLOTS];
++	static int		live_seeded[MSHM_MAX_SLOTS];
++	char			shm_name[64];
++	float			feats[MWV_FEATURE_DIM];
++	float			now = g_globalvars.time;
++	int				stale_ticks;
++	unsigned		req;
++	mshm_move_t		mv;
++
++	(void) firing;	// aim + fire stay stock frogbot in Phase 0
++	(void) impulse;
++
++	if ((slot < 0) || (slot >= MSHM_MAX_SLOTS))
++	{
++		return;		// out of range -> stock frogbot
++	}
++
++	// KTX owns region creation; the sidecar attaches. Create once per process.
++	if ((region == NULL) && !create_failed)
++	{
++		shm_name[0] = '\0';
++		BotMoveProbeCvarStringForBot(self, "live_shm_name", shm_name, sizeof(shm_name));
++		if (shm_name[0] == '\0')
++		{
++			strlcpy(shm_name, "komodo_move_t06", sizeof(shm_name));
++		}
++		region = mshm_create(shm_name);
++		if (region == NULL)
++		{
++			create_failed = 1;
++		}
++	}
++	if (region == NULL)
++	{
++		BotMoveProbeLiveLog(slot, 0, 0, 0, 0, 0, 0);
++		return;		// no transport -> stock frogbot
++	}
++
++	stale_ticks = (int) cvar("k_fb_moveprobe_live_stale_ticks");
++	if (stale_ticks <= 0)
++	{
++		stale_ticks = 3;	// ~40 ms at 77 Hz (1-frame pipeline + slack)
++	}
++
++	// Publish the world-view (KTX writer role).
++	mwv_state_features(self->s.v.velocity[0], self->s.v.velocity[1], self->s.v.velocity[2],
++					   self->fb.desired_angle[1], self->fb.desired_angle[0], feats);
++
++	// Re-baseline on a discontinuity, so a persisted MOVE record from before an
++	// inactive period is never accepted as "fresh" (req_counter is monotonic, and
++	// the shm mapping + statics survive map changes). A gap is any non-continuous
++	// step in EITHER direction: a forward jump (> 0.1s -- respawn, prewar, mode
++	// toggle, or a paused sidecar while the slot was inactive) OR g_globalvars.time
++	// moving backwards (a map/restart resets level time within the same native
++	// module process). Only a normal small forward step (~0.013s tick) keeps the
++	// session continuous; otherwise require an answer to a request issued at/after
++	// this resume (-> stock fallback until the sidecar answers anew).
++	{
++		float dt = now - last_live_time[slot];
++		if (!live_seeded[slot] || (dt < 0.0f) || (dt > 0.1f))
++		{
++			resume_req[slot] = req_counter[slot] + 1;
++		}
++	}
++	live_seeded[slot] = 1;
++	last_live_time[slot] = now;
++
++	req = ++req_counter[slot];
++	mshm_write_view(region, slot, req, feats, 1);
++
++	// Apply the sidecar's freshest answer (KTX reader role): only an untorn record
++	// whose answer is recent enough, else fall back to stock frogbot.
++	if (mshm_read_move(region, slot, &mv)
++		&& (mv.ans_seq != 0)
++		&& (mv.ans_seq >= resume_req[slot])
++		&& ((req - mv.ans_seq) <= (unsigned) stale_ticks))
++	{
++		direction[0] = mv.move[0];
++		direction[1] = mv.move[1];
++		direction[2] = 0;
++		*jumping = (mv.jump != 0) ? true : false;
++		BotMoveProbeLiveLog(slot, 1, req, mv.ans_seq, mv.fwd, mv.side, mv.jump);
++	}
++	else
++	{
++		BotMoveProbeLiveLog(slot, 0, req, mv.ans_seq, 0, 0, 0);
++		// leave the stock-frogbot direction + *jumping untouched
++	}
++}
++#else
++static void BotApplyMoveProbeLive(gedict_t *self, int slot, qbool *jumping,
++								  qbool *firing, int *impulse, vec3_t direction)
++{
++	(void) self; (void) slot; (void) jumping; (void) firing; (void) impulse; (void) direction;
++	// QVM build has no shm transport; live mode falls through to stock frogbot.
++}
++#endif
++
+ static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, qbool *firing, int *impulse, vec3_t direction)
+ {
+ 	int mode = 0;
+@@ -3452,6 +3611,14 @@ static void BotApplyMoveProbe(gedict_t *self, qbool *jumping, qbool *firing, int
+ 		BotApplyMoveProbeReplay(self, slot, jumping, firing, impulse, direction, 5);
+ 	}
+ 
++	else if (mode == 30)
++	{
++		// Live-brain mode (bot-program T0.3): fetch this tick's MOVE from the
++		// MoveMLP sidecar over /dev/shm and apply it (aim + fire stay stock);
++		// fall back to stock frogbot on a stale/absent/torn feed.
++		BotApplyMoveProbeLive(self, slot, jumping, firing, impulse, direction);
++	}
++
+ 	else if (mode == 13)
+ 	{
+ 		// Velocity-aware bunnyhop accelerator (no replay). On the GROUND: run
+diff --git a/src/move_shm.c b/src/move_shm.c
+new file mode 100644
+index 0000000..38193fc
+--- /dev/null
++++ b/src/move_shm.c
+@@ -0,0 +1,245 @@
++/* See move_shm.h. Mirrors scripts/move_policy_sidecar.py byte-for-byte. */
++/* Expose POSIX ftruncate/mmap/munmap under strict -std=c11 (glibc hides them
++ * without a feature-test macro -> implicit declaration + a miscompiled 64-bit
++ * off_t arg). Must precede every include. */
++#define _POSIX_C_SOURCE 200809L
++#include "move_shm.h"
++
++/* Native-only (see move_shm.h): the POSIX shm transport does not exist under
++ * the QVM build, so the whole TU is a no-op there. */
++#ifndef Q3_VM
++
++#include <fcntl.h>
++#include <stdio.h>
++#include <string.h>
++#include <sys/mman.h>
++#include <sys/stat.h>
++#include <unistd.h>
++
++/* ------------------------------------------------------------------ *
++ *  Little-endian field access (x86_64 is LE; KTX's box is x86_64).
++ *  memcpy avoids alignment / strict-aliasing pitfalls.
++ * ------------------------------------------------------------------ */
++static void put_u32(uint8_t *p, uint32_t v) { memcpy(p, &v, 4); }
++static uint32_t get_u32(const uint8_t *p) { uint32_t v; memcpy(&v, p, 4); return v; }
++static void put_f32(uint8_t *p, float v) { memcpy(p, &v, 4); }
++static float get_f32(const uint8_t *p) { float v; memcpy(&v, p, 4); return v; }
++
++/* ------------------------------------------------------------------ *
++ *  Guard load/store. SEQ_CST atomics double as full compiler+CPU
++ *  barriers, so the body writes between an odd publish and an even
++ *  publish cannot be reordered across the guards.
++ * ------------------------------------------------------------------ */
++static uint32_t guard_load(const uint8_t *g)
++{
++    uint32_t v;
++    __atomic_load((const uint32_t *) g, &v, __ATOMIC_SEQ_CST);
++    return v;
++}
++static void guard_store(uint8_t *g, uint32_t v)
++{
++    __atomic_store((uint32_t *) g, &v, __ATOMIC_SEQ_CST);
++}
++
++/* ------------------------------------------------------------------ *
++ *  seqlock write/read on a record at `slot_ptr` with the given body
++ *  size. Identical protocol to move_policy_sidecar._seqlock_write /
++ *  _seqlock_read. The body mutation is performed by `fill` (writer) or
++ *  `take` (reader) operating on the body pointer (slot_ptr + 4).
++ * ------------------------------------------------------------------ */
++typedef void (*body_fill_fn)(uint8_t *body, void *ctx);
++typedef void (*body_take_fn)(const uint8_t *body, void *ctx);
++
++static void seqlock_write(uint8_t *slot_ptr, size_t body_size,
++                          body_fill_fn fill, void *ctx)
++{
++    uint8_t *tail = slot_ptr + 4 + body_size;
++    uint32_t g = guard_load(slot_ptr);
++    uint32_t g_odd = (g + 1u) | 1u;       /* next odd value */
++    /* Mark BOTH guards in-progress before the body so head==tail can never be a
++     * stale matching even pair while the body is mutating. */
++    guard_store(slot_ptr, g_odd);
++    guard_store(tail, g_odd);
++    fill(slot_ptr + 4, ctx);
++    uint32_t g_even = g_odd + 1u;          /* next even value */
++    /* Publish to the trailing guard first, the leading guard last. */
++    guard_store(tail, g_even);
++    guard_store(slot_ptr, g_even);
++}
++
++static int seqlock_read(const uint8_t *slot_ptr, size_t body_size,
++                        body_take_fn take, void *ctx, int retries)
++{
++    const uint8_t *tail = slot_ptr + 4 + body_size;
++    int n = retries < 1 ? 1 : retries;
++    int i;
++    for (i = 0; i < n; i++)
++    {
++        uint32_t ga = guard_load(slot_ptr);
++        if (ga & 1u)            /* odd -> writer mid-write, retry */
++        {
++            continue;
++        }
++        take(slot_ptr + 4, ctx);
++        uint32_t gb = guard_load(tail);
++        if (ga == gb)           /* matching even pair -> untorn write */
++        {
++            return 1;
++        }
++    }
++    return 0;
++}
++
++#define SEQLOCK_RETRIES 16
++
++/* ------------------------------------------------------------------ *
++ *  Offsets
++ * ------------------------------------------------------------------ */
++size_t mshm_view_base(int slot) { return (size_t) slot * MSHM_VIEW_SLOT_SIZE; }
++size_t mshm_move_base(int slot)
++{
++    return (size_t) MSHM_VIEW_BLOCK_SIZE + (size_t) slot * MSHM_MOVE_SLOT_SIZE;
++}
++
++/* ------------------------------------------------------------------ *
++ *  VIEW writer (KTX role)
++ * ------------------------------------------------------------------ */
++struct view_ctx {
++    uint32_t req_seq;
++    const float *feats;
++    int valid;
++};
++
++static void view_fill(uint8_t *body, void *vctx)
++{
++    struct view_ctx *c = (struct view_ctx *) vctx;
++    int i;
++    put_u32(body + 0, c->req_seq);
++    for (i = 0; i < MWV_FEATURE_DIM; i++)
++    {
++        put_f32(body + 4 + 4 * i, c->feats[i]);
++    }
++    body[4 + 4 * MWV_FEATURE_DIM] = (uint8_t) (c->valid ? 1 : 0);  /* offset 28 */
++    /* pad bytes 29..31 left as-is (zeroed at create). */
++}
++
++void mshm_write_view(void *region, int slot, uint32_t req_seq,
++                     const float feats[MWV_FEATURE_DIM], int valid)
++{
++    uint8_t *base = (uint8_t *) region + mshm_view_base(slot);
++    struct view_ctx ctx;
++    ctx.req_seq = req_seq;
++    ctx.feats = feats;
++    ctx.valid = valid;
++    seqlock_write(base, MSHM_VIEW_BODY_SIZE, view_fill, &ctx);
++}
++
++/* ------------------------------------------------------------------ *
++ *  MOVE reader (KTX role)
++ * ------------------------------------------------------------------ */
++static void move_take(const uint8_t *body, void *vout)
++{
++    mshm_move_t *out = (mshm_move_t *) vout;
++    out->ans_seq = get_u32(body + 0);
++    out->fwd = (int) (int8_t) body[4];
++    out->side = (int) (int8_t) body[5];
++    out->jump = (int) (uint8_t) body[6];
++    /* body[7] is pad */
++    out->move[0] = get_f32(body + 8);
++    out->move[1] = get_f32(body + 12);
++    out->move[2] = get_f32(body + 16);
++}
++
++int mshm_read_move(void *region, int slot, mshm_move_t *out)
++{
++    const uint8_t *base = (const uint8_t *) region + mshm_move_base(slot);
++    memset(out, 0, sizeof(*out));
++    return seqlock_read(base, MSHM_MOVE_BODY_SIZE, move_take, out, SEQLOCK_RETRIES);
++}
++
++/* ------------------------------------------------------------------ *
++ *  Region lifecycle
++ * ------------------------------------------------------------------ */
++static int shm_path(char *buf, size_t n, const char *name)
++{
++    int w = snprintf(buf, n, "/dev/shm/%s", name);
++    return (w > 0 && (size_t) w < n) ? 0 : -1;
++}
++
++void *mshm_create(const char *name)
++{
++    char path[256];
++    int fd;
++    void *map;
++    int slot;
++    static const float zeros[MWV_FEATURE_DIM] = {0, 0, 0, 0, 0, 0};
++
++    if (shm_path(path, sizeof(path), name) != 0)
++    {
++        return NULL;
++    }
++    fd = open(path, O_CREAT | O_RDWR, 0600);
++    if (fd < 0)
++    {
++        return NULL;
++    }
++    if (ftruncate(fd, MSHM_REGION_SIZE) != 0)
++    {
++        close(fd);
++        return NULL;
++    }
++    map = mmap(NULL, MSHM_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
++    close(fd);
++    if (map == MAP_FAILED)
++    {
++        return NULL;
++    }
++    /* Zero, then seed each VIEW invalid (MOVE records stay all-zero, which reads
++     * back as a clean even-guard ans_seq=0 -> "no answer yet"). Mirrors the
++     * sidecar's create_region clean-start contract. */
++    memset(map, 0, MSHM_REGION_SIZE);
++    for (slot = 0; slot < MSHM_MAX_SLOTS; slot++)
++    {
++        mshm_write_view(map, slot, 0, zeros, 0);
++    }
++    return map;
++}
++
++void *mshm_open(const char *name)
++{
++    char path[256];
++    int fd;
++    void *map;
++
++    if (shm_path(path, sizeof(path), name) != 0)
++    {
++        return NULL;
++    }
++    fd = open(path, O_RDWR);
++    if (fd < 0)
++    {
++        return NULL;
++    }
++    map = mmap(NULL, MSHM_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
++    close(fd);
++    return (map == MAP_FAILED) ? NULL : map;
++}
++
++void mshm_close(void *region)
++{
++    if (region)
++    {
++        munmap(region, MSHM_REGION_SIZE);
++    }
++}
++
++void mshm_unlink(const char *name)
++{
++    char path[256];
++    if (shm_path(path, sizeof(path), name) == 0)
++    {
++        unlink(path);
++    }
++}
++
++#endif /* !Q3_VM */
+diff --git a/src/move_shm.h b/src/move_shm.h
+new file mode 100644
+index 0000000..0962bbc
+--- /dev/null
++++ b/src/move_shm.h
+@@ -0,0 +1,88 @@
++/* POSIX-shm live-brain transport -- C side (bot-program T0.3).
++ *
++ * BYTE-FOR-BYTE parity target: scripts/move_policy_sidecar.py (T0.6), which owns
++ * the canonical layout + the odd/even two-guard seqlock. KTX is the WRITER of the
++ * VIEW record (world-view, KTX -> sidecar) and the READER of the MOVE record
++ * (decision, sidecar -> KTX); the sidecar is the mirror. This unit implements
++ * exactly those two production roles plus region lifecycle. The CI byte-match
++ * gate (tests/test_live_c_parity.py) drives this C side against the Python module
++ * over a shared /dev/shm region in both directions.
++ *
++ * Region (one /dev/shm file, same as the sidecar's open_region): a regular file
++ * under /dev/shm, mmapped -- NOT shm_open, matching the Python which uses
++ * os.open("/dev/shm/<name>"). So no -lrt is needed.
++ *
++ *   layout: [ VIEW[0..MAX-1] ][ MOVE[0..MAX-1] ]
++ *   each record: guard_a(u32) | body | guard_b(u32)   (little-endian)
++ *     VIEW body "<I6fB3x" : req_seq(u32) 6*f32 valid(u8) pad(3)  = 32 bytes
++ *     MOVE body "<IbbBx3f" : ans_seq(u32) fwd(i8) side(i8) jump(u8) pad(1)
++ *                            3*f32                                = 20 bytes
++ *
++ * seqlock: the writer marks BOTH guards odd before mutating the body, then
++ * publishes the next even value to the TRAILING guard first and the LEADING
++ * guard last; the reader retries until guard_a == guard_b AND even. This is the
++ * Codex-reviewed T0.6 fix (sidecar commit 953ad70) -- a single odd-leading-guard
++ * scheme lets a reader accept a torn body, so do not "simplify" it.
++ */
++#ifndef KOMODO_MOVE_SHM_H
++#define KOMODO_MOVE_SHM_H
++
++/* Native-only: the QVM (Q3_VM) build has no <stdint.h> / mmap, and the live
++ * transport is a native-only feature. Under Q3_VM this header and its TU
++ * collapse to nothing, so a QVM unit may include it harmlessly (live mode is a
++ * no-op there). The standalone parity test compiles with Q3_VM undefined. */
++#ifndef Q3_VM
++
++#include <stdint.h>
++#include <stddef.h>
++
++#include "move_world_view.h"
++
++#define MSHM_MAX_SLOTS 4
++
++/* Body sizes (struct.calcsize of the sidecar formats). */
++#define MSHM_VIEW_BODY_SIZE 32  /* "<I6fB3x"  : 4 + 24 + 1 + 3 */
++#define MSHM_MOVE_BODY_SIZE 20  /* "<IbbBx3f" : 4 + 1 + 1 + 1 + 1 + 12 */
++
++/* seqlock framing adds a leading + trailing u32 guard. */
++#define MSHM_VIEW_SLOT_SIZE (4 + MSHM_VIEW_BODY_SIZE + 4)  /* 40 */
++#define MSHM_MOVE_SLOT_SIZE (4 + MSHM_MOVE_BODY_SIZE + 4)  /* 28 */
++
++#define MSHM_VIEW_BLOCK_SIZE (MSHM_MAX_SLOTS * MSHM_VIEW_SLOT_SIZE)  /* 160 */
++#define MSHM_MOVE_BLOCK_SIZE (MSHM_MAX_SLOTS * MSHM_MOVE_SLOT_SIZE)  /* 112 */
++#define MSHM_REGION_SIZE     (MSHM_VIEW_BLOCK_SIZE + MSHM_MOVE_BLOCK_SIZE)  /* 272 */
++
++/* Decoded MOVE record (the sidecar's answer KTX applies). */
++typedef struct {
++    uint32_t ans_seq;   /* the req_seq the sidecar answered (freshness key) */
++    int      fwd;        /* {-1,0,1} forwardmove sign */
++    int      side;       /* {-1,0,1} sidemove sign */
++    int      jump;       /* {0,1} */
++    float    move[3];    /* fwd*320, side*320, 0 (the sidecar's precomputed scale) */
++} mshm_move_t;
++
++/* Region lifecycle. Return NULL on failure (errno set). KTX owns create+zero;
++ * the sidecar attaches via mshm_open. */
++void *mshm_create(const char *name);  /* O_CREAT, ftruncate, zero + seed slots */
++void *mshm_open(const char *name);    /* attach to an existing region */
++void  mshm_close(void *region);
++void  mshm_unlink(const char *name);
++
++/* Byte offset of a slot's record within the region. */
++size_t mshm_view_base(int slot);
++size_t mshm_move_base(int slot);
++
++/* VIEW writer (KTX role): publish a world-view for `slot` under the seqlock.
++ * `feats` is the MWV_FEATURE_DIM f32 vector from mwv_state_features. */
++void mshm_write_view(void *region, int slot, uint32_t req_seq,
++                     const float feats[MWV_FEATURE_DIM], int valid);
++
++/* MOVE reader (KTX role): read the decision for `slot` under the seqlock.
++ * Returns 1 if a consistent (untorn) record was read into *out, 0 if every
++ * retry caught a write in flight (KTX then treats the slot as stale ->
++ * fallback). The application freshness check keys on out->ans_seq. */
++int mshm_read_move(void *region, int slot, mshm_move_t *out);
++
++#endif /* !Q3_VM */
++
++#endif /* KOMODO_MOVE_SHM_H */
+diff --git a/src/move_world_view.c b/src/move_world_view.c
+new file mode 100644
+index 0000000..3378820
+--- /dev/null
++++ b/src/move_world_view.c
+@@ -0,0 +1,71 @@
++/* See move_world_view.h. Transliteration of scripts/move_world_view.py. */
++#include "move_world_view.h"
++
++/* Native-only: QVM has no libm (hypot/atan2/sin/cos), and the live world-view
++ * is a native-only feature. Under Q3_VM this whole TU is a no-op. The parity
++ * test (tests/test_live_c_parity.py) compiles with Q3_VM undefined. */
++#ifndef Q3_VM
++
++#include <math.h>
++
++#ifndef M_PI
++#define M_PI 3.14159265358979323846
++#endif
++
++/* Python's `%` is a FLOORED modulo: a - floor(a/b)*b, so for a positive divisor
++ * the result is always in [0, b). C's fmod takes the sign of the dividend, so
++ * fmod(-20, 360) == -20 while Python's (-20) % 360 == 340. wrap180 feeds on
++ * (yaw - vhead), which is routinely negative, so using fmod here would diverge
++ * from move_world_view.py for any left-of-heading look. Replicate Python's `%`. */
++static double py_mod(double a, double b)
++{
++    double r = fmod(a, b);
++    if (r != 0.0 && ((r < 0.0) != (b < 0.0)))
++    {
++        r += b;
++    }
++    return r;
++}
++
++double mwv_wrap180(double d)
++{
++    /* move_world_view.wrap180: (d + 180.0) % 360.0 - 180.0 */
++    return py_mod(d + 180.0, 360.0) - 180.0;
++}
++
++/* math.degrees / math.radians are a single multiply by a constant in CPython
++ * (x * (180.0 / pi) / x * (pi / 180.0)); M_PI == CPython's Py_MATH_PI, so these
++ * match bit-for-bit. */
++static double deg(double r) { return r * (180.0 / M_PI); }
++static double rad(double d) { return d * (M_PI / 180.0); }
++
++void mwv_state_features(double vx, double vy, double vz,
++                        double yaw, double pitch,
++                        float out[MWV_FEATURE_DIM])
++{
++    double hsp = hypot(vx, vy);
++    double moving = (hsp >= MWV_MOVING_EPS) ? 1.0 : 0.0;
++    double lvm_sin, lvm_cos;
++
++    if (moving != 0.0)
++    {
++        double vhead = deg(atan2(vy, vx));
++        double lvm = rad(mwv_wrap180(yaw - vhead));
++        lvm_sin = sin(lvm);
++        lvm_cos = cos(lvm);
++    }
++    else
++    {
++        lvm_sin = 0.0;
++        lvm_cos = 0.0;
++    }
++
++    out[0] = (float) (hsp / MWV_MAXSPEED);
++    out[1] = (float) (vz / MWV_MAXSPEED);
++    out[2] = (float) lvm_sin;
++    out[3] = (float) lvm_cos;
++    out[4] = (float) moving;
++    out[5] = (float) (pitch / MWV_PITCH_NORM);
++}
++
++#endif /* !Q3_VM */
+diff --git a/src/move_world_view.h b/src/move_world_view.h
+new file mode 100644
+index 0000000..00a50ca
+--- /dev/null
++++ b/src/move_world_view.h
+@@ -0,0 +1,47 @@
++/* Shared world-view feature module -- C port (bot-program T0.3, docs/18 wall #2).
++ *
++ * BYTE-FOR-BYTE parity target: scripts/move_world_view.py:state_features (T0.4),
++ * the single source of truth the offline dataset builder and the live MoveMLP
++ * sidecar (scripts/move_policy_sidecar.py, T0.6) both use. KTX's live mode (T0.3)
++ * writes the world-view from this C code; if it diverges from the Python module
++ * the policy sees train/serve skew and gets confused. The CI byte-match gate
++ * tests/test_live_c_parity.py pins this equality, so this file must stay a
++ * line-for-line transliteration of the Python -- including Python's *floored*
++ * modulo semantics in wrap180 (see move_world_view.c).
++ *
++ * Pure C + libm (hypot/atan2/sin/cos), no engine types, so the same translation
++ * unit compiles standalone for the test harness AND inside the KTX .so (PR-B).
++ */
++#ifndef KOMODO_MOVE_WORLD_VIEW_H
++#define KOMODO_MOVE_WORLD_VIEW_H
++
++/* Feature vector order is load-bearing: it is the column order of the offline X
++ * matrix and MoveMLP's input order (move_world_view.FEATURE_NAMES). */
++#define MWV_FEATURE_DIM 6
++
++/* Constants mirror move_world_view.py exactly. */
++#define MWV_MAXSPEED   320.0  /* maxspeed / full-deflection normaliser (qu/s) */
++#define MWV_MOVING_EPS 1.0    /* below this |v_h| the heading is undefined     */
++#define MWV_PITCH_NORM 90.0   /* view-pitch normaliser (degrees)               */
++
++/* Wrap an angle in degrees to (-180, 180], matching move_world_view.wrap180
++ * (which uses Python's floored `%`, NOT C fmod -- see the .c). */
++double mwv_wrap180(double d);
++
++/* Compute the 6 world-view features for one frame's STATE, in FEATURE_NAMES
++ * order: (hspeed/320, vz/320, lvm_sin, lvm_cos, moving, pitch/90).
++ *
++ * The body is computed in double (matching Python's math module, which operates
++ * on C doubles) and written to `out` as float -- the f32 wire precision the shm
++ * VIEW record stores (struct "<...6f...>"). So C and Python agree at the bits
++ * that actually cross the transport.
++ *
++ *   vx, vy, vz : velocity components (qu/s)
++ *   yaw        : view yaw   (degrees, angles[YAW])
++ *   pitch      : view pitch (degrees, angles[PITCH])
++ */
++void mwv_state_features(double vx, double vy, double vz,
++                        double yaw, double pitch,
++                        float out[MWV_FEATURE_DIM]);
++
++#endif /* KOMODO_MOVE_WORLD_VIEW_H */

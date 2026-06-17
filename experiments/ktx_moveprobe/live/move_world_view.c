@@ -1,6 +1,11 @@
 /* See move_world_view.h. Transliteration of scripts/move_world_view.py. */
 #include "move_world_view.h"
 
+/* Native-only: QVM has no libm (hypot/atan2/sin/cos), and the live world-view
+ * is a native-only feature. Under Q3_VM this whole TU is a no-op. The parity
+ * test (tests/test_live_c_parity.py) compiles with Q3_VM undefined. */
+#ifndef Q3_VM
+
 #include <math.h>
 
 #ifndef M_PI
@@ -62,3 +67,5 @@ void mwv_state_features(double vx, double vy, double vz,
     out[4] = (float) moving;
     out[5] = (float) (pitch / MWV_PITCH_NORM);
 }
+
+#endif /* !Q3_VM */

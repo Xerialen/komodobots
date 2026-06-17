@@ -5,6 +5,10 @@
 #define _POSIX_C_SOURCE 200809L
 #include "move_shm.h"
 
+/* Native-only (see move_shm.h): the POSIX shm transport does not exist under
+ * the QVM build, so the whole TU is a no-op there. */
+#ifndef Q3_VM
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
@@ -237,3 +241,5 @@ void mshm_unlink(const char *name)
         unlink(path);
     }
 }
+
+#endif /* !Q3_VM */
