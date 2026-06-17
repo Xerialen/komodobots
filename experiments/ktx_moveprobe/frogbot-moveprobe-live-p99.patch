@@ -1,0 +1,132 @@
+diff --git a/src/bot_movement.c b/src/bot_movement.c
+--- a/src/bot_movement.c
++++ b/src/bot_movement.c
+@@ -3009,6 +3009,92 @@
+ }
+ 
+ #ifndef Q3_VM
++#include <time.h>
++
++// --- on-KTX cost instrumentation (T0.3 PR-C): time the live-loop work (build
++// world-view + write VIEW + read MOVE + apply) per tick and emit a periodic
++// p50/p99/max summary vs the T0.2 0.5 ms (500 us) budget. Native-only; a coarse
++// fixed-bucket histogram (no qsort, no alloc), gated by k_fb_moveprobe_live_log.
++#define MOVEPROBE_P99_BUCKETS 256
++#define MOVEPROBE_P99_US_PER_BUCKET 5		/* 0..1280 us window, 5 us resolution */
++static unsigned	moveprobe_p99_hist[MOVEPROBE_P99_BUCKETS];
++static unsigned	moveprobe_p99_count = 0;
++static double	moveprobe_p99_max = 0.0;
++static float	moveprobe_p99_last_report = 0.0f;
++
++static double moveprobe_now_us(void)
++{
++	struct timespec ts;
++	clock_gettime(CLOCK_MONOTONIC, &ts);
++	return (double) ts.tv_sec * 1e6 + (double) ts.tv_nsec * 1e-3;
++}
++
++static void moveprobe_p99_record(double us)
++{
++	int b = (int) (us / MOVEPROBE_P99_US_PER_BUCKET);
++	if (b < 0)
++	{
++		b = 0;
++	}
++	if (b >= MOVEPROBE_P99_BUCKETS)
++	{
++		b = MOVEPROBE_P99_BUCKETS - 1;
++	}
++	moveprobe_p99_hist[b]++;
++	moveprobe_p99_count++;
++	if (us > moveprobe_p99_max)
++	{
++		moveprobe_p99_max = us;
++	}
++}
++
++// Upper-edge (us) of the bucket holding the target-th smallest sample.
++static double moveprobe_p99_pct(unsigned target)
++{
++	unsigned cum = 0;
++	int b;
++	for (b = 0; b < MOVEPROBE_P99_BUCKETS; b++)
++	{
++		cum += moveprobe_p99_hist[b];
++		if (cum >= target)
++		{
++			return (double) (b + 1) * MOVEPROBE_P99_US_PER_BUCKET;
++		}
++	}
++	return (double) MOVEPROBE_P99_BUCKETS * MOVEPROBE_P99_US_PER_BUCKET;
++}
++
++// Emit a p50/p99/max summary at most once per ~10 s while live logging is on.
++static void moveprobe_p99_maybe_report(void)
++{
++	float now = g_globalvars.time;
++	int b;
++
++	if (!cvar("k_fb_moveprobe_live_log"))
++	{
++		return;
++	}
++	if (moveprobe_p99_last_report == 0.0f)
++	{
++		moveprobe_p99_last_report = now;
++	}
++	if ((moveprobe_p99_count < 256) || ((now - moveprobe_p99_last_report) < 10.0f))
++	{
++		return;
++	}
++	G_bprint(PRINT_HIGH,
++			 "[moveprobe-live] on-KTX cost over %u ticks: p50<=%.0f us p99<=%.0f us max=%.1f us (budget 500 us)\n",
++			 moveprobe_p99_count, moveprobe_p99_pct(moveprobe_p99_count / 2),
++			 moveprobe_p99_pct((moveprobe_p99_count * 99) / 100), moveprobe_p99_max);
++	for (b = 0; b < MOVEPROBE_P99_BUCKETS; b++)
++	{
++		moveprobe_p99_hist[b] = 0;
++	}
++	moveprobe_p99_count = 0;
++	moveprobe_p99_max = 0.0;
++	moveprobe_p99_last_report = now;
++}
++
+ // bot-program T0.3 live-brain mode. Throttled status log so screen.log shows
+ // LIVE cmds + FALLBACK transitions without per-tick (77 Hz) spam: emit on a
+ // state change or at most once per ~second while steady. Gated by the global
+@@ -3073,6 +3159,7 @@
+ 	int				stale_ticks;
+ 	unsigned		req;
+ 	mshm_move_t		mv;
++	double			t_start = 0.0;
+ 
+ 	(void) firing;	// aim + fire stay stock frogbot in Phase 0
+ 	(void) impulse;
+@@ -3109,7 +3196,9 @@
+ 		stale_ticks = 3;	// ~40 ms at 77 Hz (1-frame pipeline + slack)
+ 	}
+ 
+-	// Publish the world-view (KTX writer role).
++	// Publish the world-view (KTX writer role). Time the live-loop work from here
++	// (build view) through the apply below for the on-KTX p99 instrumentation.
++	t_start = moveprobe_now_us();
+ 	mwv_state_features(self->s.v.velocity[0], self->s.v.velocity[1], self->s.v.velocity[2],
+ 					   self->fb.desired_angle[1], self->fb.desired_angle[0], feats);
+ 
+@@ -3146,13 +3235,16 @@
+ 		direction[1] = mv.move[1];
+ 		direction[2] = 0;
+ 		*jumping = (mv.jump != 0) ? true : false;
++		moveprobe_p99_record(moveprobe_now_us() - t_start);
+ 		BotMoveProbeLiveLog(slot, 1, req, mv.ans_seq, mv.fwd, mv.side, mv.jump);
+ 	}
+ 	else
+ 	{
++		moveprobe_p99_record(moveprobe_now_us() - t_start);
+ 		BotMoveProbeLiveLog(slot, 0, req, mv.ans_seq, 0, 0, 0);
+ 		// leave the stock-frogbot direction + *jumping untouched
+ 	}
++	moveprobe_p99_maybe_report();
+ }
+ #else
+ static void BotApplyMoveProbeLive(gedict_t *self, int slot, qbool *jumping,
