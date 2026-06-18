@@ -67,7 +67,13 @@
     "use strict";
     // ---------------------------------------------------------------- params
     var q = new URLSearchParams(location.search);
-    var DEMO     = q.get("demo");                                 // url/path to .mvd/.qwd (already %-encoded)
+    var DEMO     = q.get("demo");                                 // url/path to .mvd/.qwd
+    // URLSearchParams already %-decoded the value, so a name like
+    // "4on4_red_vs_blue[dm3]...mvd" comes back with literal [ ] which the hub's
+    // static server won't serve (it matches the %-encoded form). Re-encode the
+    // demo-name reserved chars so the HEAD check + the engine download both hit
+    // the same URL the server serves.
+    if (DEMO) DEMO = DEMO.replace(/\[/g, "%5B").replace(/\]/g, "%5D").replace(/ /g, "%20");
     var MAP      = (q.get("map") || "").toLowerCase();
     var NAME     = q.get("name") || DEMO || "";
     var SEEK_T   = q.get("t")     !== null ? parseFloat(q.get("t"))     : null;
