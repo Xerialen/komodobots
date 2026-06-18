@@ -805,7 +805,7 @@ function TeamHead({
           {team.name}
         </span>
       </div>
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--t-2xs)", color: "var(--text-muted)" }}>
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--t-xs)", color: "var(--text-muted)" }}>
         {team.player_count} bots · {tone.side === "LEAP" ? "trained KomodoBots" : "frogbot controls"}
       </span>
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexDirection: right ? "row-reverse" : "row" }}>
@@ -813,7 +813,7 @@ function TeamHead({
           {team.score}
         </span>
         <div style={{ display: "flex", flexDirection: "column", alignItems: right ? "flex-end" : "flex-start" }}>
-          <span style={{ fontFamily: "var(--font-ui)", fontSize: "var(--t-2xs)", letterSpacing: "var(--ls-label)", textTransform: "uppercase", color: "var(--text-muted)" }}>
+          <span style={{ fontFamily: "var(--font-ui)", fontSize: "var(--t-xs)", letterSpacing: "var(--ls-label)", textTransform: "uppercase", color: "var(--text-muted)" }}>
             frags
           </span>
           <DeltaValue value={scoreDelta} magnitude="lg" />
@@ -822,10 +822,10 @@ function TeamHead({
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "6px 18px", width: "100%", direction: right ? "rtl" : "ltr" }}>
         {TEAM_METRICS.map((m) => (
           <div key={m.key} title={m.title} style={{ direction: "ltr", textAlign: right ? "right" : "left" }}>
-            <div style={{ fontFamily: "var(--font-ui)", fontSize: "var(--t-2xs)", letterSpacing: "var(--ls-label)", textTransform: "uppercase", color: "var(--text-muted)" }}>
+            <div style={{ fontFamily: "var(--font-ui)", fontSize: "var(--t-xs)", letterSpacing: "var(--ls-label)", textTransform: "uppercase", color: "var(--text-muted)" }}>
               {m.label}
             </div>
-            <div style={{ display: "flex", gap: 6, alignItems: "baseline", justifyContent: right ? "flex-end" : "flex-start", fontFamily: "var(--font-mono)", fontSize: "var(--t-sm)", color: "var(--text-strong)", fontVariantNumeric: "tabular-nums" }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "baseline", justifyContent: right ? "flex-end" : "flex-start", fontFamily: "var(--font-mono)", fontSize: "var(--t-h3)", color: "var(--text-strong)", fontVariantNumeric: "tabular-nums" }}>
               <span>{fmt(num(team.totals[m.key]), m)}</span>
               <DeltaValue value={teamDelta(team, prev, m.key)} invert={HIGHER_IS_BAD.has(m.key)} />
             </div>
