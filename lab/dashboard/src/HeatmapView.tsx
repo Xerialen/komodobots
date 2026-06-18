@@ -190,9 +190,12 @@ export function HeatmapView({ game }: { game: ValidationGame }) {
     setPicked((prev) => {
       const ids = new Set(pool.map((s) => s.id));
       const kept = prev.filter((id) => ids.has(id));
-      if (kept.length === prev.length) return prev;
-      if (kept.length > 0) return kept;
-      return scope === "team" ? teams.map((t) => t.id) : players.map((p) => p.id);
+      if (kept.length > 0) return kept.length === prev.length ? prev : kept;
+      // No prior picks survived. This includes the case where `prev` was empty
+      // because the pool was empty on first render and only populated on a later
+      // live same-run poll (no heatmap rows -> rows): default to all current
+      // subjects so the newly arrived heatmap renders instead of staying blank.
+      return pool.length ? pool.map((s) => s.id) : prev;
     });
   }, [scope, teams, players, pool, game.run_id]);
 
