@@ -144,15 +144,20 @@ function HeatmapCanvas({
 }
 
 export function HeatmapView({ game }: { game: ValidationGame }) {
-  const { teams, players } = useMemo(() => buildSubjects(game), [game]);
   const heatmap = game.heatmap ?? null;
-  // Memoise the scene data so its identity is STABLE across filter changes — the
-  // HeatmapCanvas setup effect keys on `data`, so a fresh object every render
-  // would tear down and rebuild the WebGL context on every toggle ("too many
-  // active WebGL contexts"). Only a real game change should rebuild the scene.
+  // Memoise the scene data so its identity is STABLE across filter changes AND
+  // across the 15s ledger poll — the HeatmapCanvas setup effect keys on `data`,
+  // so a fresh object would tear down and rebuild the WebGL context ("too many
+  // active WebGL contexts"). The poll replaces `game`/`heatmap` with an
+  // equivalent NEW object for an unchanged run, so we key these memos on the
+  // stable content key `game.run_id` instead of object identity — only a real
+  // game switch (new run_id) rebuilds the scene.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const { teams, players } = useMemo(() => buildSubjects(game), [game.run_id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const data: HeatmapData | null = useMemo(
     () => (heatmap ? { grid: heatmap.grid, players: heatmap.players } : null),
-    [heatmap],
+    [game.run_id],
   );
 
   const [scope, setScope] = useState<Scope>("team");

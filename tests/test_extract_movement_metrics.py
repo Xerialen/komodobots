@@ -670,6 +670,54 @@ class PositionHeatmapTests(unittest.TestCase):
         # Death at t=1000 snaps to the nearest sample (t=1100, origin [1000,100,40]).
         self.assertEqual(row["deaths"], [[1000.0, 100.0, 40.0]])
 
+    def test_position_density_excludes_out_of_match_samples(self) -> None:
+        # Regression: the heatmap must clamp to the SAME in-match window the
+        # speed metrics use. A pre-name sample (t=0) and a post-duration sample
+        # (t=5000) sit in a different grid cell than the in-match samples; only
+        # the in-match (t=600/900) cell may appear in the bins, and the death
+        # snap must use an in-match sample, not the out-of-window ones.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_dir = Path(temp_dir)
+            (run_dir / "run.env").write_text("MAP=dm3\n", encoding="utf-8")
+            (run_dir / "analysis.json").write_text(
+                json.dumps(
+                    {
+                        "match": {"map": "dm3", "duration": 1000},
+                        "frags": {
+                            "totalFrags": 1,
+                            "frags": [{"time": 700, "killer": "/ a", "victim": "/ bot", "weapon": "rl"}],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            events_path = run_dir / "events.txt"
+            events = [
+                {"kind": 0, "time": 0, "data": {"Data": {"MaxSpeed": 320, "LevelName": "dm3"}, "Time": 0}},
+                {"kind": 1, "time": 0, "data": {"Player": {"Slot": 1, "UserID": 2, "Name": "/ bot", "Spectator": False}, "TimeMs": 500}},
+                # Pre-name sample (before first_named_time_ms=500) -> out-of-window cell [41,32].
+                {"kind": 5, "time": 0, "data": {"PlayerNum": 1, "Origin": [1000, 100, 40], "TimeMs": 0}},
+                # Valid in-match samples -> cell [0,0].
+                {"kind": 5, "time": 0.6, "data": {"PlayerNum": 1, "Origin": [-984, -960, 0], "TimeMs": 600}},
+                {"kind": 5, "time": 0.9, "data": {"PlayerNum": 1, "Origin": [-984, -960, 0], "TimeMs": 900}},
+                # Post-duration sample (after match_duration_ms=1000) -> out-of-window cell [41,32].
+                {"kind": 5, "time": 5, "data": {"PlayerNum": 1, "Origin": [1000, 100, 40], "TimeMs": 5000}},
+            ]
+            events_path.write_text("\n".join(json.dumps(e) for e in events), encoding="utf-8")
+
+            metrics = compute_movement_metrics(events_path, run_dir=run_dir)
+
+        density = metrics["position_density"]
+        row = next(p for p in density["players"] if p["slot"] == 1)
+        # Only the in-match (t=600/900) cell survives; both edge samples sit in
+        # cell [41,32], which must be absent.
+        self.assertEqual(row["bins"], [[0, 0, 2]])
+        self.assertNotIn([41, 32, 1], row["bins"])
+        self.assertNotIn([41, 32, 2], row["bins"])
+        # Death at t=700 snaps to the nearest IN-WINDOW sample (t=600, [-984,-960,0]),
+        # never the closer-in-time out-of-window samples.
+        self.assertEqual(row["deaths"], [[-984.0, -960.0, 0.0]])
+
 
 if __name__ == "__main__":
     unittest.main()

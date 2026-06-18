@@ -519,6 +519,27 @@ def _nearest_sample_origin(samples: list[Sample], time_ms: int) -> list[float] |
     return best
 
 
+def filter_samples_to_match_window(
+    samples: list[Sample],
+    *,
+    first_named_time_ms: int | None,
+    match_duration_ms: int | None,
+) -> list[Sample]:
+    """Clamp a slot's origin samples to the valid in-match window.
+
+    Single source of truth for the window rules shared by the per-player speed
+    metrics and the position-density heatmap / death snapping: drop samples
+    before the player was first named (pre-name / pre-match) and after
+    ``match.duration`` (post-match). Mirrors the inline filter previously used
+    only by the speed loop so the heatmap can never bin out-of-match samples.
+    """
+    if first_named_time_ms is not None:
+        samples = [sample for sample in samples if sample["time_ms"] >= first_named_time_ms]
+    if match_duration_ms is not None:
+        samples = [sample for sample in samples if sample["time_ms"] <= match_duration_ms]
+    return samples
+
+
 def derive_deaths(
     analysis: dict,
     samples_by_slot: dict[int, list[Sample]],
@@ -718,10 +739,11 @@ def compute_movement_metrics(
         first_named_time_ms = info.get("first_named_time_ms")
         if not include_empty and not name:
             continue
-        if first_named_time_ms is not None:
-            samples = [sample for sample in samples if sample["time_ms"] >= first_named_time_ms]
-        if match_duration_ms is not None:
-            samples = [sample for sample in samples if sample["time_ms"] <= match_duration_ms]
+        samples = filter_samples_to_match_window(
+            samples,
+            first_named_time_ms=first_named_time_ms,
+            match_duration_ms=match_duration_ms,
+        )
         if not samples:
             continue
 
@@ -738,21 +760,32 @@ def compute_movement_metrics(
         player_metrics.append(metric)
 
     # Coarse XY position-density grid + death markers for the dashboard 3D
-    # heatmap. Derived from the same kind:5 samples; robust by contract (any
-    # failure degrades to an empty heatmap rather than aborting metrics).
+    # heatmap. Derived from the same kind:5 samples, clamped to the SAME valid
+    # in-match window the speed metrics use (drop pre-name / post-duration
+    # samples) so the heatmap and death markers never reflect out-of-match
+    # positions. Robust by contract (any failure degrades to an empty heatmap
+    # rather than aborting metrics).
     grid = _heatmap_grid()
     slot_by_name = {
         str(info.get("name")): slot
         for slot, info in players.items()
         if info.get("name")
     }
+    filtered_samples_by_slot = {
+        slot: filter_samples_to_match_window(
+            samples,
+            first_named_time_ms=players.get(slot, {}).get("first_named_time_ms"),
+            match_duration_ms=match_duration_ms,
+        )
+        for slot, samples in samples_by_slot.items()
+    }
     try:
-        deaths_by_slot = derive_deaths(analysis, samples_by_slot, slot_by_name)
+        deaths_by_slot = derive_deaths(analysis, filtered_samples_by_slot, slot_by_name)
     except Exception:  # pragma: no cover - robustness; never block metrics
         deaths_by_slot = {}
     try:
         position_density = compute_position_density(
-            samples_by_slot, players, deaths_by_slot, grid=grid, include_empty=include_empty
+            filtered_samples_by_slot, players, deaths_by_slot, grid=grid, include_empty=include_empty
         )
     except Exception:  # pragma: no cover - robustness; never block metrics
         position_density = {"schema": "komodobots.position_density.v1", "grid": grid, "players": []}
