@@ -83,10 +83,16 @@ leap bots to go live, but one (or all) play as stock frogbot, or the wrong bots 
 
 **What to do / invariant:** to put the four leap bots (edicts 2..5, internal slots 1..4)
 live, set **`k_fb_moveprobe_mode_s2..s5 = 30`**. Leave `s6..s9` unset — those are the frog
-team and must stay stock. (`run_live.sh` is a *simpler FFA* case: it adds bots with no
-spectator anchor and sets `s0..s3` because in that path the bots take edicts 1..4; the
-4v4-with-spectator-anchor case is `s2..s5`. The rule is mechanical: write the EDICT suffix
-of the bots you want live.)
+team and must stay stock. (`run_live.sh` is the *simpler matchless-FFA* case, but it is **not**
+an exception to the rule: it also adds its bots through the spectator shim
+(`qw_min_client.py --spectator`, `run_live.sh:79-81`), so that spectator still takes client
+slot 0 and the bots still land on slots 1..N / edicts 2..N. It sets `k_fb_moveprobe_mode_s0..s3`
+(`run_live.sh:62-65`) as a **blanket over-cover** for its handful of bots — that range happens
+to key the unused spectator slot 0 *plus* bot slots 1..3, which is harmless because the
+spectator is not a frogbot. Setting `s0..s3` is therefore consistent with — not a counterexample
+to — the EDICT-suffix rule, and you must **not** copy `s0..s3` into the 4v4 case: there it would
+key the spectator + edicts 2..4 and leave edicts 4/5 uncovered, so the 4v4 case needs `s2..s5`.
+The rule is mechanical: write the EDICT suffix of the bots you want live.)
 
 **Evidence:** `frogbot-moveprobe-perslot.patch:28,301,319`;
 `experiments/ktx_moveprobe/T0.3_LIVE_MODE.md:43`; memory `leap-slot-seating-cap8`.
@@ -188,18 +194,32 @@ must be backed by:
 - a pause/resume check: `kill -STOP` the sidecar → `FALLBACK` appears, server keeps ticking;
   `kill -CONT` → `LIVE` resumes (`run_live.sh:92-94`).
 
-**Status of an automated integrity gate:** as of this writing **there is no `sidecar.started`
-marker or waiter-liveness check in the repo** — `grep` for `sidecar.started` / `waiter` /
-`liveness` finds nothing in `scripts/`, `lab/`, `experiments/`, `tests/`. The only
-machine-checkable guard that exists today is the ledger's *leap-vs-frog resolution* gate
-(§6): a match where the two teams cannot be resolved into exactly one leap + one frog team
-is marked invalid (`bench_could_not_resolve_leap_vs_frog_teams`). That stops a frog-vs-frog
-*roster* from being scored as a leap-vs-frog verdict, but it does **not** by itself detect a
-leap roster whose bots silently fell back to stock. Until a sidecar-served integrity check
-lands, **the live tell is the `LIVE` log + the pause/resume probe — do not skip it.** If you
-add such a gate, document it here and supersede this paragraph.
+**Status of an automated integrity gate:** the live runner now has **two machine-checkable
+freshness/integrity guards** (added by #252 + #257) — this is no longer manual-only. When
+`run_4v4_validation_lab.py` is invoked with `--live-leap`:
+1. **`sidecar.started` waiter + liveness gate.** A background waiter touches
+   `$rundir/sidecar.started` once it launches the live MoveMLP sidecar, and writes
+   `sidecar.failed` / `sidecar.exitcode` on crash. After the match the runner FATAL-aborts if
+   `sidecar.started` is missing or the waiter died before match end — *"leap bots fell back to
+   stock movement"* (`scripts/run_4v4_validation_lab.py:286-351`).
+2. **Per-frame freshness gate.** KTX mode 30 falls back to stock Frogbot **per frame** on a
+   stale/torn/absent feed, so a sidecar that is alive but too slow still moves on stock.
+   `evaluate_live_freshness()` reads the engine's cumulative per-frame LIVE counters (not the
+   throttled LIVE/FALLBACK *line* ratio, which a flapping sidecar would game), writes
+   `freshness.json`, and FAILS the run **before scoring** if the live fraction is below
+   `--min-live-fraction` (`scripts/run_4v4_validation_lab.py:431-504,789,889-904`). Live
+   evidence: healthy ≈ 0.986–0.989 PASS vs a throttled `--hz 1` sidecar ≈ 0.037 FAIL.
 
-**Evidence:** `frogbot-moveprobe-live.patch:18-72,131,160-201`; `move_policy_sidecar.py:454-484`;
+The ledger's *leap-vs-frog resolution* gate (§6) still exists as a separate roster guard
+(`bench_could_not_resolve_leap_vs_frog_teams`) — it stops a frog-vs-frog *roster* being scored
+as a leap-vs-frog verdict — but the per-frame freshness gate above is what catches a leap
+roster whose bots silently fell back to stock. **Belt-and-suspenders still applies:** the
+`LIVE` log + the pause/resume probe remain the cheap manual tell; the gates above are the
+automated backstop. If you change either gate, update this paragraph.
+
+**Evidence:** `scripts/run_4v4_validation_lab.py:286-351` (sidecar.started waiter + liveness),
+`:431-504,789,889-904` (per-frame freshness gate + `freshness.json` + `--min-live-fraction`);
+`frogbot-moveprobe-live.patch:18-72,131,160-201`; `move_policy_sidecar.py:454-484`;
 `T0.3_LIVE_MODE.md:65-93`; `fourvfour_validation_build.py` leap/frog resolution gate (§6).
 
 ---
@@ -228,13 +248,19 @@ unquoted**. This is safe *only* because the arguments are operator-set env vars 
 
 ---
 
-## 6. Speed metric source — KTX records no speed; it comes from the MVD analyzer
+## 6. Speed metric source — two different speeds: KTX `speed.avg/max` vs the MVD analyzer
 
-**Symptom / what bites you:** you look for avg/max bot speed in KTX stats (ktxstats.json) and
-it is not there, or you assume the ledger computes speed itself.
+**Symptom / what bites you:** you conflate the two speed numbers, or you assume the validation
+ledger computes/consumes speed itself.
 
-**Why:** KTX records **no movement speed**. Speed is *derived* from the MVD analyzer's
-`events.txt`: `scripts/extract_movement_metrics.py` reads `run_dir/events.txt`
+**Why:** there are **two independent speed sources**, and they are not the same field:
+- **KTX *does* report a coarse per-player speed.** `ktxstats.json` carries `players[*].speed.avg`
+  and `players[*].speed.max`, and `lab/server/ktx_match_stats.py` maps them into each player's
+  normalized `stats` as `avg_speed` / `max_speed` (select-path `:104-105`, normalize `:194-195`;
+  `tests/test_ktx_match_stats.py:177-178` asserts they survive normalization). So speed *is*
+  present in KTX stats — do not assume it is absent.
+- **The fine-grained movement metric is derived separately** from the MVD analyzer's
+  `events.txt`: `scripts/extract_movement_metrics.py` reads `run_dir/events.txt`
 (`:684`), parses `kind == 5` events (player-origin samples: `PlayerNum`, `Origin` `[x,y,z]`,
 `TimeMs`/`Time`) (`:491-505`), and computes horizontal speed as `hypot(dx,dy) / dt`
 (`:312-316`), emitting `avg_horizontal_speed_qu_per_s` / `max_horizontal_speed_qu_per_s` and
@@ -249,7 +275,9 @@ rule is: **only fill speed when present, never clobber a KTX-supplied value.** (
 `fourvfour_validation_build.py:56-74` is frags/deaths/damage-done/efficiency etc., no speed.
 KTX stats are the source of truth for those via `normalize_match`.)
 
-**Evidence:** `scripts/extract_movement_metrics.py:24,312-316,382-387,491-505,684,703`;
+**Evidence:** `lab/server/ktx_match_stats.py:104-105,194-195` (KTX `speed.avg/max` →
+`avg_speed`/`max_speed`), `tests/test_ktx_match_stats.py:177-178` (preserved through normalize);
+`scripts/extract_movement_metrics.py:24,312-316,382-387,491-505,684,703`;
 `lab/server/fourvfour_validation_build.py:56-74`.
 
 ### 6a. Ledger validity rules (`komodobots.4v4_validation.v1`)
