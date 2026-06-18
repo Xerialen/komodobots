@@ -21,6 +21,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { HeatmapView } from "./HeatmapView.tsx";
 
 interface ValidationTeam {
   name: string;
@@ -49,7 +50,26 @@ interface GameBench {
   frog_team: string | null;
 }
 
-interface ValidationGame {
+// Heatmap block (3D heatmap view): coarse XY position-density grid + death
+// markers, built by lab/server/fourvfour_validation_build.py and riding inside
+// the 4v4-validation.json ledger. null/absent when no position artifact exists.
+export interface HeatmapBlock {
+  grid: {
+    nx: number;
+    ny: number;
+    origin: [number, number];
+    extent: [number, number];
+  };
+  players: Array<{
+    slot: number;
+    name: string;
+    team: string;
+    bins: Array<[number, number, number]>;
+    deaths: Array<[number, number, number]>;
+  }>;
+}
+
+export interface ValidationGame {
   run_id: string;
   previous_valid_run_id: string | null;
   demo?: { name: string | null; url: string | null };
@@ -57,6 +77,7 @@ interface ValidationGame {
   teams: ValidationTeam[];
   players: ValidationPlayer[];
   bench?: GameBench;
+  heatmap?: HeatmapBlock | null;
 }
 
 // docs/18 T0.1 best-of-N leap-vs-frog bench, schema komodobots.bench_frag_margin.v1.
@@ -153,7 +174,7 @@ const POWERUP_KEYS = ["quad_pickups", "pent_pickups", "ring_pickups"];
 // B / FROG (frogbot controls) — matching the bench leap_team/frog_team
 // convention. Team is the visual differentiator: a whole side is the trained
 // bots, so no single row is singled out.
-interface SideTone {
+export interface SideTone {
   side: "LEAP" | "FROG";
   tag: string; // RED | BLUE
   accent: string; // team color var
@@ -183,7 +204,7 @@ const SIDE_FROG: SideTone = {
 
 // Resolve which side a team is on, preferring the per-game bench resolution and
 // falling back to the wireframe order (teams[0] = leap).
-function toneForTeam(game: ValidationGame, teamName: string, teamIdx: number): SideTone {
+export function toneForTeam(game: ValidationGame, teamName: string, teamIdx: number): SideTone {
   const leap = game.bench?.leap_team;
   const frog = game.bench?.frog_team;
   if (leap && teamName === leap) return SIDE_LEAP;
@@ -198,17 +219,20 @@ function dataUrl(): string {
   return params.get("fixture") === "4v4" ? FIXTURE_URL : PRIMARY_URL;
 }
 
-type View = "live" | "trends";
+type View = "live" | "trends" | "heatmap";
 
 function initialView(): View {
-  return new URLSearchParams(window.location.search).get("view") === "trends" ? "trends" : "live";
+  const v = new URLSearchParams(window.location.search).get("view");
+  if (v === "trends") return "trends";
+  if (v === "heatmap") return "heatmap";
+  return "live";
 }
 
 // Switch the ?view= param without a reload, so the nav toggle is deep-linkable
 // and keeps ?evidence=1 / ?fixture=4v4 intact.
 function setViewParam(view: View) {
   const url = new URL(window.location.href);
-  if (view === "trends") url.searchParams.set("view", "trends");
+  if (view === "trends" || view === "heatmap") url.searchParams.set("view", view);
   else url.searchParams.delete("view");
   window.history.replaceState(null, "", url.toString());
 }
@@ -313,7 +337,7 @@ function teamIdxForName(game: ValidationGame, teamName: string): number {
 // Bot display name without the redundant "control" role word that the roster
 // bakes in (e.g. "frog-control-5" -> "frog-5"); the squad tag already shows the
 // role, so the name shouldn't repeat it (issue #253).
-function botLabel(raw: string): string {
+export function botLabel(raw: string): string {
   return raw.replace(/control/gi, "").replace(/-{2,}/g, "-").replace(/^-+|-+$/g, "");
 }
 
@@ -412,9 +436,9 @@ function KomodoMark({ size = 28, color }: { size?: number; color?: string }) {
 
 const TEAM_TAG_FG: Record<SideTone["tagTeam"], string> = { red: "#1A0B0C", blue: "#08111C" };
 // LEAP = orange, FROG = green (owner override, issue #253).
-const SQUAD_TAG_COLOR: Record<SideTone["squad"], string> = { leap: "var(--leap)", frog: "var(--frog)" };
+export const SQUAD_TAG_COLOR: Record<SideTone["squad"], string> = { leap: "var(--leap)", frog: "var(--frog)" };
 
-function TeamTag({
+export function TeamTag({
   team,
   label,
   outline = false,
@@ -818,6 +842,9 @@ function TopBar({
         <button data-evidence-tab="trends" style={tabStyle(view === "trends")} onClick={() => onView("trends")}>
           Trends
         </button>
+        <button data-evidence-tab="heatmap" style={tabStyle(view === "heatmap")} onClick={() => onView("heatmap")}>
+          Heatmap
+        </button>
       </nav>
       <div style={{ flex: 1 }} />
       <div
@@ -1210,7 +1237,7 @@ const BTN_VARIANTS: Record<string, { bg: string; fg: string; bd: string }> = {
   ghost: { bg: "transparent", fg: "var(--text-body)", bd: "transparent" },
 };
 
-function Button({
+export function Button({
   variant = "secondary",
   active = false,
   children,
@@ -1885,6 +1912,12 @@ export function FourVFourEvidence() {
     .sort((a, b) => (a.tone.side === b.tone.side ? 0 : a.tone.side === "LEAP" ? -1 : 1));
 
   const isTrends = view === "trends";
+  const isHeatmap = view === "heatmap";
+  const title = isTrends
+    ? "4v4 KTX · Trends"
+    : isHeatmap
+    ? "4v4 KTX · Position Heatmap"
+    : "4v4 KTX · Live Stats Evidence";
 
   return (
     <main data-evidence-scoreboard style={pageStyle}>
@@ -1901,15 +1934,18 @@ export function FourVFourEvidence() {
       >
         <div style={{ display: "flex", alignItems: "baseline", gap: 14, padding: "18px 0 2px", flexWrap: "wrap" }}>
           <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "var(--t-h1)", color: "var(--text-strong)", letterSpacing: "var(--ls-display)", lineHeight: "var(--lh-tight)", margin: 0, whiteSpace: "nowrap" }}>
-            {isTrends ? "4v4 KTX · Trends" : "4v4 KTX · Live Stats Evidence"}
+            {title}
           </h1>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--t-2xs)", color: "var(--text-muted)", letterSpacing: "0.06em" }}>
             {isTrends
               ? `${ledger.games.length} game(s) · oldest → newest`
+              : isHeatmap
+              ? `RUN ${game.run_id} · ${game.match.map} · positions + deaths`
               : `RUN ${game.run_id} · Δ vs ${game.previous_valid_run_id ?? "baseline"}`}
           </span>
-          {/* Game stepper + demo-watch link — live view only, since they are
-              game-scoped (Trends spans the whole ledger). issue #253. */}
+          {/* Game stepper + demo-watch link — game-scoped views only (Trends
+              spans the whole ledger). Heatmap is per-game, so it keeps the
+              stepper too. issue #253 / dashboard-3d-heatmap. */}
           {!isTrends && (
             <div style={{ display: "inline-flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
               {games.length > 1 && (
@@ -1922,6 +1958,8 @@ export function FourVFourEvidence() {
 
         {isTrends ? (
           <TrendsView ledger={ledger} />
+        ) : isHeatmap ? (
+          <HeatmapView game={game} />
         ) : (
           <LiveStats game={game} prev={prev} bench={bench} orderedTeams={orderedTeams} ledger={ledger} url={url} />
         )}

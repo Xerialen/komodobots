@@ -446,6 +446,120 @@ def split_leap_roster(run_id: str, *, controller_version: str = "komodo-v1",
     }
 
 
+def movement_metrics_with_density(*, grid_nx: int = 64, grid_ny: int = 64) -> dict:
+    """A movement-metrics.json sidecar carrying a position_density block.
+
+    Slot 1 (Team A / leap) and slot 5 (Team B / frog) each get a couple of bins
+    and a death, so the builder can join team labels by slot.
+    """
+    return {
+        "schema": "komodobots.movement_metrics.v3",
+        "players": [],
+        "position_density": {
+            "schema": "komodobots.position_density.v1",
+            "grid": {"nx": grid_nx, "ny": grid_ny, "origin": [-984.0, -960.0], "extent": [3032.0, 2096.0]},
+            "players": [
+                {"slot": 1, "name": "komodo-dev", "bins": [[0, 0, 3], [10, 10, 1]], "deaths": [[100.0, 200.0, 24.0]]},
+                {"slot": 5, "name": "b-control-1", "bins": [[63, 63, 5]], "deaths": [[500.0, 600.0, 8.0]]},
+                {"slot": 99, "name": "ghost", "bins": [[1, 1, 1]], "deaths": []},  # no matching player
+            ],
+        },
+    }
+
+
+class HeatmapArtifactTest(unittest.TestCase):
+    """Position-density heatmap rides inside the 4v4 ledger (3D heatmap view)."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="4v4-heatmap-test-"))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self.runs = self.tmp / "runs"
+        self.runs.mkdir()
+
+    def test_heatmap_is_none_when_no_position_artifact(self):
+        # The default run has analysis.json + roster only: no events/metrics, so
+        # the heatmap degrades to None rather than failing the build.
+        write_run(self.runs, "20260614T200000Z")
+        game = fv.build(self.runs)["games"][0]
+        self.assertIsNone(game["heatmap"])
+
+    def test_heatmap_from_committed_metrics_sidecar_joins_team_by_slot(self):
+        run = write_run(self.runs, "20260614T200000Z")
+        (run / fv.MOVEMENT_METRICS_FILENAME).write_text(
+            json.dumps(movement_metrics_with_density()), encoding="utf-8"
+        )
+        game = fv.build(self.runs)["games"][0]
+        heatmap = game["heatmap"]
+        self.assertIsNotNone(heatmap)
+        self.assertEqual(heatmap["grid"]["nx"], 64)
+        rows = {r["slot"]: r for r in heatmap["players"]}
+        # The slot-99 ghost (no matching game player) is dropped.
+        self.assertEqual(set(rows), {1, 5})
+        # Team labels are joined from the roster/identity team by slot.
+        self.assertEqual(rows[1]["team"], "Team A")
+        self.assertEqual(rows[5]["team"], "Team B")
+        self.assertEqual(rows[1]["bins"], [[0, 0, 3], [10, 10, 1]])
+        self.assertEqual(rows[1]["deaths"], [[100.0, 200.0, 24.0]])
+
+    def test_extract_run_heatmap_robust_to_malformed_metrics(self):
+        with tempfile.TemporaryDirectory() as d:
+            run_dir = Path(d)
+            for bad in ("[]", '"nope"', "123", "{}", '{"position_density": 5}'):
+                (run_dir / fv.MOVEMENT_METRICS_FILENAME).write_text(bad)
+                self.assertIsNone(fv.extract_run_heatmap(run_dir))
+            (run_dir / fv.MOVEMENT_METRICS_FILENAME).unlink()
+            self.assertIsNone(fv.extract_run_heatmap(run_dir))
+
+    def test_heatmap_rows_sanitize_malformed_bins_and_deaths(self):
+        # A committed sidecar with a partially malformed position_density row
+        # (bad-length bin, non-numeric count, bad death triple) must NOT reach the
+        # dashboard, where HeatmapScene.aggregate destructures every triple and
+        # would throw. _heatmap_from_metrics drops the bad entries, keeps the good.
+        metrics = {
+            "position_density": {
+                "schema": "komodobots.position_density.v1",
+                "grid": {"nx": 64, "ny": 64, "origin": [0, 0], "extent": [1, 1]},
+                "players": [
+                    {
+                        "slot": 1,
+                        "name": "komodo-dev",
+                        "bins": [[1, 2, 3], [1], [4, 5, "x"], "nope", [6, 7, 8]],
+                        "deaths": [[1.0, 2.0, 3.0], [9, 9], None],
+                    }
+                ],
+            }
+        }
+        heatmap = fv._heatmap_from_metrics(metrics)
+        self.assertIsNotNone(heatmap)
+        row = heatmap["players"][0]
+        self.assertEqual(row["bins"], [[1, 2, 3], [6, 7, 8]])
+        self.assertEqual(row["deaths"], [[1.0, 2.0, 3.0]])
+
+    def test_heatmap_derived_from_events_when_no_sidecar(self):
+        # No movement-metrics.json: derive the density straight from events.txt +
+        # analysis.json death events (the fallback path).
+        run = write_run(self.runs, "20260614T200000Z")
+        raw = json.loads((run / "analysis.json").read_text(encoding="utf-8"))
+        raw["frags"] = {"totalFrags": 1, "frags": [
+            {"time": 1000, "killer": "b-control-1", "victim": "komodo-dev", "weapon": "rl"},
+        ]}
+        (run / "analysis.json").write_text(json.dumps(raw), encoding="utf-8")
+        events = [
+            {"kind": 0, "time": 0, "data": {"Data": {"MaxSpeed": 320, "LevelName": "dm3"}, "Time": 0}},
+            {"kind": 1, "time": 0, "data": {"Player": {"Slot": 1, "UserID": 2, "Name": "komodo-dev", "Spectator": False}, "Time": 0}},
+            {"kind": 5, "time": 0, "data": {"PlayerNum": 1, "Origin": [-984, -960, 0], "TimeMs": 0}},
+            {"kind": 5, "time": 1, "data": {"PlayerNum": 1, "Origin": [1000, 100, 40], "TimeMs": 1100}},
+        ]
+        (run / "events.txt").write_text("\n".join(json.dumps(e) for e in events), encoding="utf-8")
+
+        heatmap = fv.extract_run_heatmap(run)
+        self.assertIsNotNone(heatmap)
+        row = next(r for r in heatmap["players"] if r["slot"] == 1)
+        self.assertTrue(row["bins"])
+        # The single death joins to the victim's nearest sample.
+        self.assertEqual(row["deaths"], [[1000.0, 100.0, 40.0]])
+
+
 class BenchFragMarginTest(unittest.TestCase):
     """docs/18 T0.1: bench emits leap-frog frag margin + R-T damage.matrix gate."""
 
