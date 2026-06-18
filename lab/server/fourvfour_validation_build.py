@@ -360,6 +360,105 @@ def extract_run_speeds(run_dir: Path) -> dict[str, dict[str, float | None]]:
     return {}
 
 
+def _heatmap_from_metrics(metrics: Any) -> dict[str, Any] | None:
+    """Pull the position-density block out of a movement-metrics dict.
+
+    Returns the ``{grid, players}`` heatmap (with the schema field dropped — the
+    ledger carries its own schema) or None when the block is missing/malformed.
+    Player rows are kept slot-keyed; team labels are joined later in the builder
+    where the roster is known (the extractor does not know teams).
+    """
+    if not isinstance(metrics, dict):
+        return None
+    density = metrics.get("position_density")
+    if not isinstance(density, dict):
+        return None
+    grid = density.get("grid")
+    players = density.get("players")
+    if not isinstance(grid, dict) or not isinstance(players, list):
+        return None
+    rows: list[dict[str, Any]] = []
+    for player in players:
+        if not isinstance(player, dict):
+            continue
+        slot = player.get("slot")
+        if not isinstance(slot, int) or isinstance(slot, bool):
+            continue
+        bins = player.get("bins") if isinstance(player.get("bins"), list) else []
+        deaths = player.get("deaths") if isinstance(player.get("deaths"), list) else []
+        rows.append(
+            {
+                "slot": slot,
+                "name": player.get("name"),
+                "bins": bins,
+                "deaths": deaths,
+            }
+        )
+    return {"grid": grid, "players": rows}
+
+
+def extract_run_heatmap(run_dir: Path) -> dict[str, Any] | None:
+    """Coarse XY position-density grid + death markers for the dashboard 3D view.
+
+    Mirrors ``extract_run_speeds``: prefer a committed ``movement-metrics.json``
+    sidecar (which now carries a ``position_density`` block), else derive it from
+    the analyzer ``events.txt`` (kind:5 origins) joined against ``analysis.json``
+    death events. Returns None (never raises) when no usable position artifact
+    exists or it is malformed, so the ledger degrades to "no heatmap" gracefully.
+    """
+    # 1) Prefer the committed movement-metrics.json sidecar.
+    metrics_path = run_dir / MOVEMENT_METRICS_FILENAME
+    if metrics_path.is_file():
+        try:
+            heatmap = _heatmap_from_metrics(_read_json(metrics_path))
+            if heatmap is not None:
+                return heatmap
+        except (OSError, json.JSONDecodeError, TypeError, ValueError, AttributeError):
+            pass  # fall through to events.txt
+
+    # 2) Fall back to deriving straight from the analyzer events stream.
+    events_path = run_dir / EVENTS_FILENAME
+    if emm is not None and events_path.is_file():
+        try:
+            metrics = emm.compute_movement_metrics(events_path, run_dir=run_dir)
+            return _heatmap_from_metrics(metrics)
+        except Exception:  # pragma: no cover - extractor robustness
+            return None
+    return None
+
+
+def _attach_heatmap_teams(game: dict[str, Any]) -> None:
+    """Overlay team labels onto each heatmap player row, matched by slot.
+
+    The extractor's position-density rows are slot-keyed but team-unaware. The
+    dashboard filters by team (LEAP/FROG), so join the roster/identity team from
+    the already-enriched game players. Rows with no matching player are dropped
+    so the heatmap never shows an untagged ghost.
+    """
+    heatmap = game.get("heatmap")
+    if not isinstance(heatmap, dict):
+        return
+    rows = heatmap.get("players")
+    if not isinstance(rows, list):
+        return
+    team_by_slot: dict[int, str] = {}
+    for player in game.get("players", []):
+        try:
+            slot = int(player["slot"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        team_by_slot[slot] = _player_team(player)
+    joined: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        slot = row.get("slot")
+        if not isinstance(slot, int) or slot not in team_by_slot:
+            continue
+        joined.append({**row, "team": team_by_slot[slot]})
+    heatmap["players"] = joined
+
+
 def _attach_speeds(players: list[dict[str, Any]], speeds: dict[str, dict[str, float | None]]) -> None:
     """Overlay analyzer-derived speed onto per-player stats, matched by name.
 
@@ -584,6 +683,10 @@ def _game_from_artifacts(run_dir: Path, stats_path: Path, roster_path: Path | No
     # Overlay real per-player movement speed (qu/s) from the MVD analyzer; KTX
     # stats carry none. Robust: no/garbled position artifact -> speed unchanged.
     _attach_speeds(players, extract_run_speeds(run_dir))
+    # Coarse XY position-density grid + death markers for the dashboard 3D
+    # heatmap. None when no usable position artifact exists (degrades to "no
+    # heatmap" in the UI); team labels are joined below once the game is built.
+    heatmap = extract_run_heatmap(run_dir)
     demo_name = normalized["match"].get("demo")
     game = {
         "run_id": run_id,
@@ -606,7 +709,11 @@ def _game_from_artifacts(run_dir: Path, stats_path: Path, roster_path: Path | No
         "players": players,
         "roster": _roster_summary(roster),
         "normalizer_warnings": normalized["warnings"],
+        "heatmap": heatmap,
     }
+    # Join team labels onto the slot-keyed heatmap rows now that the enriched
+    # players (with roster/identity teams) are on the game.
+    _attach_heatmap_teams(game)
     return game, validate_match({**normalized, "players": players}, roster)
 
 

@@ -21,7 +21,16 @@ from pathlib import Path
 from typing import Iterable, TypedDict
 
 
-SCHEMA = "komodobots.movement_metrics.v2"
+SCHEMA = "komodobots.movement_metrics.v3"
+# dm3 world-space XY bounds (Quake units), from
+# lab/dashboard/public/maps/maps.json dm3.aabb. The heatmap grid is binned over
+# this axis-aligned box so the dashboard can lay density boxes on the 3D map
+# without re-deriving bounds. mins/maxs are [x, y]; Z is carried only on deaths.
+DM3_AABB_MINS_XY = (-984.0, -960.0)
+DM3_AABB_MAXS_XY = (2048.0, 1136.0)
+# Coarse grid resolution: 64x64 keeps the polled ledger small (binned counts,
+# never raw samples) while still showing spawn/route clustering on dm3.
+DEFAULT_HEATMAP_GRID = 64
 DEFAULT_STATIONARY_SPEED = 10.0
 DEFAULT_LOW_SPEED = 100.0
 DEFAULT_HIGH_SPEED = 400.0
@@ -417,6 +426,185 @@ def compute_slot_metrics(
     }
 
 
+def _heatmap_grid(nx: int = DEFAULT_HEATMAP_GRID, ny: int = DEFAULT_HEATMAP_GRID) -> dict:
+    """Grid metadata for the dm3 XY heatmap.
+
+    ``origin`` is the bottom-left corner (Quake x, y); ``extent`` is the box size
+    in Quake units. Cell (ix, iy) covers
+    ``[origin.x + ix*cell.x, origin.x + (ix+1)*cell.x)`` etc. The dashboard maps
+    each bin centre back to world space and places density geometry there.
+    """
+    ox, oy = DM3_AABB_MINS_XY
+    ex = DM3_AABB_MAXS_XY[0] - DM3_AABB_MINS_XY[0]
+    ey = DM3_AABB_MAXS_XY[1] - DM3_AABB_MINS_XY[1]
+    return {
+        "nx": int(nx),
+        "ny": int(ny),
+        "origin": [round_float(ox), round_float(oy)],
+        "extent": [round_float(ex), round_float(ey)],
+    }
+
+
+def _bin_index(value: float, origin: float, extent: float, n: int) -> int | None:
+    """Map a world coordinate to a clamped grid index, or None when extent<=0.
+
+    Coordinates outside the AABB are clamped to the edge cell rather than dropped
+    so a bot that briefly leaves the recorded bounds still contributes a bin.
+    """
+    if extent <= 0 or n <= 0:
+        return None
+    frac = (value - origin) / extent
+    idx = int(frac * n)
+    if idx < 0:
+        idx = 0
+    elif idx >= n:
+        idx = n - 1
+    return idx
+
+
+def bin_samples(samples: list[Sample], grid: dict) -> list[list[int]]:
+    """Bin a slot's kind:5 XY samples into ``[ix, iy, count]`` triples.
+
+    Returns a sparse list (only non-empty cells), sorted by (ix, iy) so output is
+    deterministic and the polled ledger stays small. Never raises on malformed
+    samples; bad rows are skipped.
+    """
+    nx = int(grid.get("nx") or 0)
+    ny = int(grid.get("ny") or 0)
+    origin = grid.get("origin") or [0.0, 0.0]
+    extent = grid.get("extent") or [0.0, 0.0]
+    try:
+        ox, oy = float(origin[0]), float(origin[1])
+        ex, ey = float(extent[0]), float(extent[1])
+    except (TypeError, ValueError, IndexError):
+        return []
+
+    counts: dict[tuple[int, int], int] = {}
+    for sample in samples:
+        origin_xyz = sample.get("origin") if isinstance(sample, dict) else None
+        if not isinstance(origin_xyz, list) or len(origin_xyz) < 2:
+            continue
+        try:
+            x = float(origin_xyz[0])
+            y = float(origin_xyz[1])
+        except (TypeError, ValueError):
+            continue
+        ix = _bin_index(x, ox, ex, nx)
+        iy = _bin_index(y, oy, ey, ny)
+        if ix is None or iy is None:
+            continue
+        counts[(ix, iy)] = counts.get((ix, iy), 0) + 1
+
+    return [[ix, iy, count] for (ix, iy), count in sorted(counts.items())]
+
+
+def _nearest_sample_origin(samples: list[Sample], time_ms: int) -> list[float] | None:
+    """Origin of the sample whose time_ms is closest to ``time_ms`` (or None)."""
+    best: list[float] | None = None
+    best_dt: int | None = None
+    for sample in samples:
+        if not isinstance(sample, dict):
+            continue
+        try:
+            sample_t = int(sample["time_ms"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        origin = sample.get("origin")
+        if not isinstance(origin, list) or len(origin) < 3:
+            continue
+        dt = abs(sample_t - time_ms)
+        if best_dt is None or dt < best_dt:
+            best_dt = dt
+            best = [round_float(float(origin[0])), round_float(float(origin[1])), round_float(float(origin[2]))]
+    return best
+
+
+def derive_deaths(
+    analysis: dict,
+    samples_by_slot: dict[int, list[Sample]],
+    slot_by_name: dict[str, int],
+) -> dict[int, list[dict]]:
+    """Join each death event to the victim's nearest-in-time kind:5 sample.
+
+    The MVD analyzer records deaths at the TOP LEVEL of analysis.json as
+    ``frags.frags = [{time(ms), killer(name), victim(name), weapon}]`` (see
+    scripts/run_frobodm2_lab.py write_summary). Death location is not in that
+    event, so we look up the victim's slot by name and snap to the closest
+    recorded origin sample for that slot. Returns ``{slot: [{t_ms, origin}]}``.
+
+    Robust by contract: any missing/garbled frags block degrades to an empty
+    mapping and never raises (matches extract_run_speeds' "never raises" rule).
+    """
+    if not isinstance(analysis, dict):
+        return {}
+    frags_block = analysis.get("frags")
+    frag_rows = frags_block.get("frags") if isinstance(frags_block, dict) else None
+    if not isinstance(frag_rows, list):
+        return {}
+
+    out: dict[int, list[dict]] = {}
+    for frag in frag_rows:
+        if not isinstance(frag, dict):
+            continue
+        victim = frag.get("victim")
+        if not isinstance(victim, str):
+            continue
+        slot = slot_by_name.get(victim)
+        if slot is None:
+            continue
+        samples = samples_by_slot.get(slot)
+        if not samples:
+            continue
+        try:
+            t_ms = int(round(float(frag.get("time"))))
+        except (TypeError, ValueError):
+            continue
+        origin = _nearest_sample_origin(samples, t_ms)
+        if origin is None:
+            continue
+        out.setdefault(slot, []).append({"t_ms": t_ms, "origin": origin})
+    return out
+
+
+def compute_position_density(
+    samples_by_slot: dict[int, list[Sample]],
+    players: dict[int, dict],
+    deaths_by_slot: dict[int, list[dict]],
+    *,
+    grid: dict,
+    include_empty: bool = False,
+) -> dict:
+    """Per-slot binned XY density + death markers over the dm3 grid.
+
+    Mirrors the named-player filtering used for movement metrics so the control
+    shim slot does not pollute the heatmap. Returns
+    ``{schema, grid, players:[{slot, name, bins:[[ix,iy,count]], deaths:[[x,y,z]]}]}``.
+    """
+    player_rows: list[dict] = []
+    for slot, samples in sorted(samples_by_slot.items()):
+        info = players.get(slot, {})
+        name = str(info.get("name") or "")
+        if not include_empty and not name:
+            continue
+        bins = bin_samples(samples, grid)
+        deaths = [d["origin"] for d in deaths_by_slot.get(slot, [])]
+        if not bins and not deaths and not include_empty:
+            continue
+        player_rows.append(
+            {
+                "slot": slot,
+                "name": name,
+                "bins": bins,
+                "deaths": deaths,
+            }
+        )
+    return {
+        "schema": "komodobots.position_density.v1",
+        "grid": grid,
+        "players": player_rows,
+    }
+
+
 def compute_movement_metrics(
     events_path: Path,
     *,
@@ -549,6 +737,26 @@ def compute_movement_metrics(
         metric["match_duration_clamp_ms"] = match_duration_ms
         player_metrics.append(metric)
 
+    # Coarse XY position-density grid + death markers for the dashboard 3D
+    # heatmap. Derived from the same kind:5 samples; robust by contract (any
+    # failure degrades to an empty heatmap rather than aborting metrics).
+    grid = _heatmap_grid()
+    slot_by_name = {
+        str(info.get("name")): slot
+        for slot, info in players.items()
+        if info.get("name")
+    }
+    try:
+        deaths_by_slot = derive_deaths(analysis, samples_by_slot, slot_by_name)
+    except Exception:  # pragma: no cover - robustness; never block metrics
+        deaths_by_slot = {}
+    try:
+        position_density = compute_position_density(
+            samples_by_slot, players, deaths_by_slot, grid=grid, include_empty=include_empty
+        )
+    except Exception:  # pragma: no cover - robustness; never block metrics
+        position_density = {"schema": "komodobots.position_density.v1", "grid": grid, "players": []}
+
     return {
         "schema": SCHEMA,
         "source": {
@@ -571,6 +779,7 @@ def compute_movement_metrics(
             "notes": "Named player samples are clamped to match.duration when analysis.json provides it.",
         },
         "players": player_metrics,
+        "position_density": position_density,
     }
 
 

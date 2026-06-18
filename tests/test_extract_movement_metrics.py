@@ -14,12 +14,15 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import run_frobodm2_lab
 from extract_movement_metrics import (
+    bin_samples,
     compute_movement_metrics,
     compute_slot_metrics,
+    derive_deaths,
     percentile,
     summarize_airborne_proxy,
     weighted_speed_for_window,
     weighted_speed_for_window_slow,
+    _heatmap_grid,
 )
 
 
@@ -561,6 +564,111 @@ class MovementMetricsTests(unittest.TestCase):
                 run_frobodm2_lab.remote_port_is_down("host", 28599)
         finally:
             run_frobodm2_lab.run = original_run
+
+
+class PositionHeatmapTests(unittest.TestCase):
+    def test_bin_samples_clamps_corners_and_centre(self) -> None:
+        grid = _heatmap_grid(nx=64, ny=64)
+        # mins -> (0,0); maxs -> (63,63); a sample beyond maxs clamps to the edge
+        # cell rather than being dropped.
+        samples = [
+            {"time_ms": 0, "origin": [-984.0, -960.0, 0.0]},
+            {"time_ms": 1, "origin": [2048.0, 1136.0, 0.0]},
+            {"time_ms": 2, "origin": [9999.0, 9999.0, 0.0]},  # out of bounds -> clamped
+            {"time_ms": 3, "origin": [-984.0, -960.0, 0.0]},  # same cell as first
+        ]
+        bins = bin_samples(samples, grid)
+        # Sparse, sorted, summed: (0,0) seen twice, (63,63) twice (maxs + clamp).
+        self.assertEqual(bins, [[0, 0, 2], [63, 63, 2]])
+
+    def test_bin_samples_robust_to_garbled_rows(self) -> None:
+        grid = _heatmap_grid()
+        samples = [
+            {"time_ms": 0, "origin": [0.0, 0.0, 0.0]},
+            {"time_ms": 1, "origin": "nope"},          # bad origin type
+            {"time_ms": 2, "origin": [1.0]},            # too short
+            {"time_ms": 3, "origin": ["x", "y", "z"]},  # non-numeric
+            "not-a-dict",
+        ]
+        bins = bin_samples(samples, grid)
+        # Only the one valid sample bins; the rest are skipped (never raises).
+        self.assertEqual(len(bins), 1)
+        self.assertEqual(bins[0][2], 1)
+
+    def test_derive_deaths_joins_victim_name_to_nearest_sample(self) -> None:
+        analysis = {
+            "frags": {
+                "totalFrags": 2,
+                "frags": [
+                    {"time": 1000, "killer": "/ bot", "victim": "/ bot", "weapon": "rl"},
+                    {"time": 5000, "killer": "/ enemy", "victim": "/ bot", "weapon": "lg"},
+                ],
+            }
+        }
+        samples_by_slot = {
+            1: [
+                {"time_ms": 0, "origin": [10.0, 20.0, 30.0]},
+                {"time_ms": 1100, "origin": [40.0, 50.0, 60.0]},  # nearest to t=1000
+                {"time_ms": 5000, "origin": [70.0, 80.0, 90.0]},  # exact match t=5000
+            ]
+        }
+        deaths = derive_deaths(analysis, samples_by_slot, {"/ bot": 1})
+        self.assertEqual(
+            deaths[1],
+            [
+                {"t_ms": 1000, "origin": [40.0, 50.0, 60.0]},
+                {"t_ms": 5000, "origin": [70.0, 80.0, 90.0]},
+            ],
+        )
+
+    def test_derive_deaths_empty_on_missing_or_garbled_frags(self) -> None:
+        samples = {1: [{"time_ms": 0, "origin": [0.0, 0.0, 0.0]}]}
+        names = {"/ bot": 1}
+        self.assertEqual(derive_deaths({}, samples, names), {})
+        self.assertEqual(derive_deaths({"frags": None}, samples, names), {})
+        self.assertEqual(derive_deaths({"frags": {"frags": "nope"}}, samples, names), {})
+        self.assertEqual(derive_deaths("not-a-dict", samples, names), {})
+        # A death for an unknown victim name contributes nothing.
+        analysis = {"frags": {"frags": [{"time": 1, "victim": "/ ghost", "weapon": "sg"}]}}
+        self.assertEqual(derive_deaths(analysis, samples, names), {})
+
+    def test_compute_movement_metrics_emits_position_density(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_dir = Path(temp_dir)
+            (run_dir / "run.env").write_text("MAP=dm3\n", encoding="utf-8")
+            (run_dir / "analysis.json").write_text(
+                json.dumps(
+                    {
+                        "match": {"map": "dm3", "duration": 10000},
+                        "frags": {
+                            "totalFrags": 1,
+                            "frags": [{"time": 1000, "killer": "/ a", "victim": "/ bot", "weapon": "rl"}],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            events_path = run_dir / "events.txt"
+            events = [
+                {"kind": 0, "time": 0, "data": {"Data": {"MaxSpeed": 320, "LevelName": "dm3"}, "Time": 0}},
+                {"kind": 1, "time": 0, "data": {"Player": {"Slot": 1, "UserID": 2, "Name": "/ bot", "Spectator": False}, "Time": 0}},
+                {"kind": 5, "time": 0, "data": {"PlayerNum": 1, "Origin": [-984, -960, 0], "TimeMs": 0}},
+                {"kind": 5, "time": 1, "data": {"PlayerNum": 1, "Origin": [1000, 100, 40], "TimeMs": 1100}},
+            ]
+            events_path.write_text("\n".join(json.dumps(e) for e in events), encoding="utf-8")
+
+            metrics = compute_movement_metrics(events_path, run_dir=run_dir)
+
+        self.assertEqual(metrics["schema"], "komodobots.movement_metrics.v3")
+        density = metrics["position_density"]
+        self.assertEqual(density["schema"], "komodobots.position_density.v1")
+        self.assertEqual(density["grid"]["nx"], 64)
+        self.assertEqual(density["grid"]["origin"], [-984.0, -960.0])
+        row = next(p for p in density["players"] if p["slot"] == 1)
+        self.assertEqual(row["name"], "/ bot")
+        self.assertEqual(row["bins"], [[0, 0, 1], [41, 32, 1]])
+        # Death at t=1000 snaps to the nearest sample (t=1100, origin [1000,100,40]).
+        self.assertEqual(row["deaths"], [[1000.0, 100.0, 40.0]])
 
 
 if __name__ == "__main__":
