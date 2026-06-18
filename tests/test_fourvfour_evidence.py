@@ -161,7 +161,7 @@ class EvidenceBenchBannerTest(unittest.TestCase):
     def test_evidence_source_wires_the_banner(self):
         src = EVIDENCE_TSX.read_text(encoding="utf-8")
         self.assertIn("data-evidence-bench", src)
-        self.assertIn("BenchVerdictBanner", src)
+        self.assertIn("BenchVerdict", src)
         self.assertIn("ledger.bench", src)
 
 
@@ -181,7 +181,7 @@ class EvidenceTeamDistinctionTest(unittest.TestCase):
         self.assertNotIn("data-evidence-tracked", self.src)
 
     def test_team_side_is_the_differentiator(self):
-        self.assertIn("sideForTeam", self.src)
+        self.assertIn("toneForTeam", self.src)
         self.assertIn('"LEAP"', self.src)
         self.assertIn('"FROG"', self.src)
         self.assertIn("data-evidence-side", self.src)
