@@ -1,15 +1,18 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -3009,6 +3009,92 @@
+@@ -3009,6 +3009,95 @@
  }
  
  #ifndef Q3_VM
 +#include <time.h>
 +
 +// --- on-KTX cost instrumentation (T0.3 PR-C): time the live-loop work (build
-+// world-view + write VIEW + read MOVE + apply) per tick and emit a periodic
-+// p50/p99/max summary vs the T0.2 0.5 ms (500 us) budget. Native-only; a coarse
++// world-view + write VIEW + read MOVE + apply) per slot per tick and emit a
++// periodic p50/p99/max summary. NOTE: this is PER-SLOT latency; the 0.5 ms
++// (500 us) T0.2 budget is per server frame (a frame services up to
++// MSHM_MAX_SLOTS live slots), so the per-frame aggregate is <= live-slots x this.
++// Native-only; a coarse
 +// fixed-bucket histogram (no qsort, no alloc), gated by k_fb_moveprobe_live_log.
 +#define MOVEPROBE_P99_BUCKETS 256
 +#define MOVEPROBE_P99_US_PER_BUCKET 5		/* 0..1280 us window, 5 us resolution */
@@ -79,7 +82,7 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
 +		return;
 +	}
 +	G_bprint(PRINT_HIGH,
-+			 "[moveprobe-live] on-KTX cost over %u ticks: p50<=%.0f us p99<=%.0f us max=%.1f us (budget 500 us)\n",
++			 "[moveprobe-live] on-KTX per-slot cost over %u samples: p50<=%.0f us p99<=%.0f us max=%.1f us (per-slot; frame budget 500 us, <=MSHM_MAX_SLOTS slots/frame)\n",
 +			 moveprobe_p99_count, moveprobe_p99_pct(moveprobe_p99_count / 2),
 +			 moveprobe_p99_pct((moveprobe_p99_count * 99) / 100), moveprobe_p99_max);
 +	for (b = 0; b < MOVEPROBE_P99_BUCKETS; b++)
@@ -94,7 +97,7 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
  // bot-program T0.3 live-brain mode. Throttled status log so screen.log shows
  // LIVE cmds + FALLBACK transitions without per-tick (77 Hz) spam: emit on a
  // state change or at most once per ~second while steady. Gated by the global
-@@ -3073,6 +3159,8 @@
+@@ -3073,6 +3162,8 @@
  	int				stale_ticks;
  	unsigned		req;
  	mshm_move_t		mv;
@@ -103,7 +106,7 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
  
  	(void) firing;	// aim + fire stay stock frogbot in Phase 0
  	(void) impulse;
-@@ -3109,7 +3197,15 @@
+@@ -3109,7 +3200,15 @@
  		stale_ticks = 3;	// ~40 ms at 77 Hz (1-frame pipeline + slack)
  	}
  
@@ -120,7 +123,7 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
  	mwv_state_features(self->s.v.velocity[0], self->s.v.velocity[1], self->s.v.velocity[2],
  					   self->fb.desired_angle[1], self->fb.desired_angle[0], feats);
  
-@@ -3146,13 +3242,25 @@
+@@ -3146,13 +3245,25 @@
  		direction[1] = mv.move[1];
  		direction[2] = 0;
  		*jumping = (mv.jump != 0) ? true : false;

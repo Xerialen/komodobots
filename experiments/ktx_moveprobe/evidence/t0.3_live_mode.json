@@ -45,13 +45,16 @@
     "resume_to_live": { "observed": true, "method": "SIGCONT sidecar" }
   },
   "on_ktx_p99_us": {
-    "measure": "per-tick build-world-view + write VIEW + read MOVE + apply, inside KTX",
-    "budget_us": 500,
-    "p50_us": 5,
-    "p99_us": 5,
-    "max_us_range": [17.5, 82.7],
+    "scope": "per-slot per-tick (one sample per BotApplyMoveProbeLive call)",
+    "measure": "build-world-view + write VIEW + read MOVE + apply, inside KTX",
+    "frame_budget_us": 500,
+    "frame_budget_note": "the 500us T0.2 budget is per server frame; a frame services <= MSHM_MAX_SLOTS (4) live slots. The histogram samples per BotApplyMoveProbeLive call (not frame-grouped sums), so the defensible per-frame bound is the worst case: <= 4x the largest observed per-slot cost ~= 4x 82.7us ~= 331us, under the 500us budget. A typical frame at per-slot p99 <=5us is far lower (~20us).",
+    "per_slot_p50_us": 5,
+    "per_slot_p99_us": 5,
+    "per_slot_max_us_range": [17.5, 82.7],
+    "per_frame_worst_case_bound_us": 331,
     "windows": 11,
-    "verdict": "~100x under budget; closes the T0.2 loop on the real server"
+    "verdict": "per-slot p99 <=5us, per-slot max <=82.7us; conservative per-frame worst-case bound 4x per-slot max ~= 331us < 500us frame budget; closes the T0.2 loop on the real server"
   },
   "not_this_ticket": {
     "frog_vs_leap_verdict": "T0.7 #212",
