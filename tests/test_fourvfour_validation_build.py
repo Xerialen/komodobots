@@ -510,6 +510,31 @@ class HeatmapArtifactTest(unittest.TestCase):
             (run_dir / fv.MOVEMENT_METRICS_FILENAME).unlink()
             self.assertIsNone(fv.extract_run_heatmap(run_dir))
 
+    def test_heatmap_rows_sanitize_malformed_bins_and_deaths(self):
+        # A committed sidecar with a partially malformed position_density row
+        # (bad-length bin, non-numeric count, bad death triple) must NOT reach the
+        # dashboard, where HeatmapScene.aggregate destructures every triple and
+        # would throw. _heatmap_from_metrics drops the bad entries, keeps the good.
+        metrics = {
+            "position_density": {
+                "schema": "komodobots.position_density.v1",
+                "grid": {"nx": 64, "ny": 64, "origin": [0, 0], "extent": [1, 1]},
+                "players": [
+                    {
+                        "slot": 1,
+                        "name": "komodo-dev",
+                        "bins": [[1, 2, 3], [1], [4, 5, "x"], "nope", [6, 7, 8]],
+                        "deaths": [[1.0, 2.0, 3.0], [9, 9], None],
+                    }
+                ],
+            }
+        }
+        heatmap = fv._heatmap_from_metrics(metrics)
+        self.assertIsNotNone(heatmap)
+        row = heatmap["players"][0]
+        self.assertEqual(row["bins"], [[1, 2, 3], [6, 7, 8]])
+        self.assertEqual(row["deaths"], [[1.0, 2.0, 3.0]])
+
     def test_heatmap_derived_from_events_when_no_sidecar(self):
         # No movement-metrics.json: derive the density straight from events.txt +
         # analysis.json death events (the fallback path).

@@ -384,8 +384,20 @@ def _heatmap_from_metrics(metrics: Any) -> dict[str, Any] | None:
         slot = player.get("slot")
         if not isinstance(slot, int) or isinstance(slot, bool):
             continue
-        bins = player.get("bins") if isinstance(player.get("bins"), list) else []
-        deaths = player.get("deaths") if isinstance(player.get("deaths"), list) else []
+        # Sanitize each entry: one malformed bin/death (e.g. [1] or a non-numeric
+        # count) from a committed sidecar must not reach the dashboard, where
+        # HeatmapScene.aggregate destructures every triple and would otherwise throw.
+        def _triples(value: Any) -> list:
+            if not isinstance(value, list):
+                return []
+            return [
+                t for t in value
+                if isinstance(t, (list, tuple)) and len(t) == 3
+                and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in t)
+            ]
+
+        bins = _triples(player.get("bins"))
+        deaths = _triples(player.get("deaths"))
         rows.append(
             {
                 "slot": slot,

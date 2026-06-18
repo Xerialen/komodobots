@@ -145,19 +145,29 @@ function HeatmapCanvas({
 
 export function HeatmapView({ game }: { game: ValidationGame }) {
   const heatmap = game.heatmap ?? null;
-  // Memoise the scene data so its identity is STABLE across filter changes AND
-  // across the 15s ledger poll — the HeatmapCanvas setup effect keys on `data`,
-  // so a fresh object would tear down and rebuild the WebGL context ("too many
-  // active WebGL contexts"). The poll replaces `game`/`heatmap` with an
-  // equivalent NEW object for an unchanged run, so we key these memos on the
-  // stable content key `game.run_id` instead of object identity — only a real
-  // game switch (new run_id) rebuilds the scene.
+  // Content signature for the memos below. The HeatmapCanvas setup effect keys
+  // on `data`, so a fresh object every render/poll would tear down + rebuild the
+  // WebGL context ("too many active WebGL contexts"). The 15s poll replaces
+  // `game`/`heatmap` with a NEW object each time, so we key on a CONTENT string:
+  // identical content for the same run yields an equal `sig` (scene stays put,
+  // no churn), but a same-run update (regenerated movement artifacts) changes
+  // `sig` so the view refreshes instead of going stale. Recomputed only when
+  // `game` identity changes (≈once per poll); the heatmap payload is small/binned.
+  const sig = useMemo(
+    () =>
+      JSON.stringify({
+        run: game.run_id,
+        heatmap: game.heatmap ?? null,
+        roster: (game.players ?? []).map((p) => [p.slot, p.roster?.team ?? null]),
+      }),
+    [game],
+  );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const { teams, players } = useMemo(() => buildSubjects(game), [game.run_id]);
+  const { teams, players } = useMemo(() => buildSubjects(game), [sig]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const data: HeatmapData | null = useMemo(
     () => (heatmap ? { grid: heatmap.grid, players: heatmap.players } : null),
-    [game.run_id],
+    [sig],
   );
 
   const [scope, setScope] = useState<Scope>("team");
