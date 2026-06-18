@@ -592,8 +592,13 @@ def _game_from_artifacts(run_dir: Path, stats_path: Path, roster_path: Path | No
         "roster_artifact": str(roster_path) if roster_path else None,
         "demo": {
             "name": demo_name,
+            # KTX records the validation demo into ONLINE_DEMOS_DIR (~/nquakesv/ktx/demos),
+            # which cloud_hub serves at /demos/online/<name> (verified HTTP 200). The old
+            # /demos/files/non-games/... prefix had no cloud_hub route (404), so the
+            # dashboard "watch demo" link could never resolve. Emit the served route.
+            # An already-absolute path (starts with "/") is passed through unchanged.
             "url": (demo_name if isinstance(demo_name, str) and demo_name.startswith("/")
-                    else f"/demos/files/non-games/lab/Komodobots/4v4/{demo_name}")
+                    else f"/demos/online/{demo_name}")
             if isinstance(demo_name, str) and demo_name else None,
         },
         "match": normalized["match"],
