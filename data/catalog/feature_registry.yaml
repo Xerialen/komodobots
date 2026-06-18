@@ -1,0 +1,857 @@
+# =============================================================================
+# komodobots ML Feature Registry
+# schema tag: komodobots.feature_registry.v1   (v1 features unchanged; v2 adds groups)
+# registry_version: 2
+#
+# Single declarative source for every model input. The SAME `transform` string
+# drives offline mining (gold/features Parquet build) AND the live online encoder
+# -> zero training-serving skew.
+#
+# Each feature traces to:
+#   - a real column in catalog.sql (source) OR a formula over such columns
+#   - a normalization method + a `stats_key` into normalization_stats.template.json
+#
+# leakage_safe: true  => uses only state at tick <= t (PIT-safe).
+#                false => MUST be excluded from observation features (it's a label
+#                         or a future-derived quantity); only used as a target.
+#
+# Normalization methods (see 00-DATA-ARCHITECTURE.md §Normalization):
+#   zscore | minmax | robust | log1p_zscore | sincos | divide_period | identity
+# `group: per_map` => stats keyed by map in normalization_stats; `global` => one set;
+# `none` => transform is parameter-free (sincos, divide_period, identity).
+# =============================================================================
+registry_version: 2
+entity: { name: agent, join_keys: [episode_id, tick] }
+normalization_artifact: norm/normalization_stats.template.json
+catalog: schema/catalog.sql
+defaults: { group: per_map }   # spatial/velocity features normalized per-map by default
+constants:
+  eps: 1.0e-6
+  # dm3 AABB diagonal (qu) from maps.v1: sqrt(3032^2+2096^2+912^2)
+  map_diagonal_dm3: 3797.1
+
+feature_groups:
+
+  # ---------------------------------------------------------------------------
+  position:
+  # ---------------------------------------------------------------------------
+    - name: pos_x_norm
+      dtype: float32
+      source: player_ticks.ox
+      formula: "(ox - x_min) / (x_max - x_min)"     # per-map minmax -> [0,1] (auxiliary)
+      unit: "[0,1]"
+      norm: minmax
+      stats_key: "per_map.<map>.pos_x"
+      group: per_map
+      version: 1
+      leakage_safe: true
+      note: "Absolute position; auxiliary only. Egocentric features generalize across maps better."
+    - name: pos_y_norm
+      dtype: float32
+      source: player_ticks.oy
+      formula: "(oy - y_min) / (y_max - y_min)"
+      unit: "[0,1]"
+      norm: minmax
+      stats_key: "per_map.<map>.pos_y"
+      group: per_map
+      version: 1
+      leakage_safe: true
+    - name: pos_z_norm
+      dtype: float32
+      source: player_ticks.oz
+      formula: "(oz - z_min) / (z_max - z_min)"
+      unit: "[0,1]"
+      norm: minmax
+      stats_key: "per_map.<map>.pos_z"
+      group: per_map
+      version: 1
+      leakage_safe: true
+    - name: nearest_marker_dist_norm
+      dtype: float32
+      source: derived
+      formula: "min_dist(origin, markers.origin) / map_diagonal"
+      unit: "[0,1]"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+      note: "Distance to nearest nav-graph marker (markers table). Already in [0,1] after /diagonal."
+    - name: over_void
+      dtype: float32
+      source: derived
+      formula: "1.0 if no floor below origin else 0.0"   # trace.csv over_void
+      unit: "0/1"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+    - name: height_above_floor_norm
+      dtype: float32
+      source: derived
+      formula: "robust(oz - floor_z)"                  # trace.csv height_above_floor (qu)
+      unit: qu
+      norm: robust
+      stats_key: "per_map.<map>.height_above_floor"
+      group: per_map
+      version: 1
+      leakage_safe: true
+
+  # ---------------------------------------------------------------------------
+  velocity:
+  # ---------------------------------------------------------------------------
+    - name: vel_x_z
+      dtype: float32
+      source: player_ticks.vx
+      formula: "(vx - mean) / std"
+      unit: qu/s
+      norm: zscore
+      stats_key: "per_map.<map>.vel_x"
+      group: per_map
+      version: 1
+      leakage_safe: true
+    - name: vel_y_z
+      dtype: float32
+      source: player_ticks.vy
+      formula: "(vy - mean) / std"
+      unit: qu/s
+      norm: zscore
+      stats_key: "per_map.<map>.vel_y"
+      group: per_map
+      version: 1
+      leakage_safe: true
+    - name: vel_z_z
+      dtype: float32
+      source: player_ticks.vz
+      formula: "(vz - mean) / std"
+      unit: qu/s
+      norm: zscore
+      stats_key: "per_map.<map>.vel_z"
+      group: per_map
+      version: 1
+      leakage_safe: true
+    - name: hspeed_norm
+      dtype: float32
+      source: player_ticks.hspeed
+      formula: "robust(hypot(vx,vy))"                  # movement_metrics.v2 *_horizontal_speed_qu_per_s
+      unit: qu/s
+      norm: robust
+      stats_key: "per_map.<map>.hspeed"
+      group: per_map
+      version: 1
+      leakage_safe: true
+      note: "Supersedes movement_metrics.v2 avg/p50/p95 speed scalars as a per-tick feature."
+    - name: vel_heading_sincos
+      dtype: float32[2]
+      source: derived
+      formula: "[sin(atan2(vy,vx)), cos(atan2(vy,vx))]"   # only meaningful when hspeed>=80 (extract_features 'vhead')
+      unit: "[-1,1]x2"
+      norm: sincos
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+
+  # ---------------------------------------------------------------------------
+  orientation:   # view angles -> sincos (NEVER raw, false wrap discontinuity)
+  # ---------------------------------------------------------------------------
+    - name: yaw_sincos
+      dtype: float32[2]
+      source: player_ticks.yaw
+      formula: "[sin(rad(yaw)), cos(rad(yaw))]"
+      unit: "[-1,1]x2"
+      norm: sincos
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+    - name: pitch_sincos
+      dtype: float32[2]
+      source: player_ticks.pitch
+      formula: "[sin(rad(pitch)), cos(rad(pitch))]"
+      unit: "[-1,1]x2"
+      norm: sincos
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+    - name: look_vs_move_sincos
+      dtype: float32[2]
+      source: derived
+      formula: "lvm=wrap180(yaw - vel_heading_deg); [sin(rad(lvm)),cos(rad(lvm))]"  # extract_features 'lvm'
+      unit: "[-1,1]x2"
+      norm: sincos
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+      note: "Strafe-jump signature axis (look-vs-move angle). Key for player-style/bunnyhop imitation."
+
+  # ---------------------------------------------------------------------------
+  player_resource:   # own health/armor state
+  # ---------------------------------------------------------------------------
+    - name: health_norm
+      dtype: float32
+      source: player_ticks.health
+      formula: "clip(health,0,250)/250.0"
+      unit: "[0,1]"
+      norm: divide_period      # constant denominator, parameter-free at inference
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+    - name: armor_norm
+      dtype: float32
+      source: player_ticks.armor
+      formula: "clip(armor,0,200)/200.0"
+      unit: "[0,1]"
+      norm: divide_period
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+    - name: armor_type_onehot
+      dtype: float32[3]
+      source: player_ticks.armor_type
+      formula: "onehot(armor_type, [GA,YA,RA])"    # absorb 0.3/0.6/0.8
+      unit: onehot
+      norm: identity
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+    - name: weapon_onehot
+      dtype: float32[8]
+      source: player_ticks.weapon
+      formula: "onehot(weapon, [axe,sg,ssg,ng,sng,gl,rl,lg])"   # v2: own active weapon
+      unit: onehot
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+    - name: ammo_per_weapon_norm
+      dtype: float32[4]
+      source: derived
+      formula: "[sh/SH, nl/NL, rk/RK, cl/CL]"   # v2: shells/nails/rockets/cells, divide_period caps
+      unit: "[0,1]x4"
+      norm: divide_period
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+      note: "Self ammo per weapon-class. Periods sh/nl/rk/cl in normalization divide_period."
+    - name: powerup_remaining
+      dtype: float32[3]
+      source: derived
+      formula: "[quad_rem/60, pent_rem/300, ring_rem/60]"   # v2: own powerup remaining time
+      unit: "[0,1]x3"
+      norm: divide_period
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+      note: "Self powerup remaining; reuses quad/pent/ring_remaining divide_period periods."
+
+  # ---------------------------------------------------------------------------
+  item:   # per tracked item TYPE (rl,ra,ya,ga,mh,quad,...); one block, repeated per item
+  #        nearest entity of each type, egocentric polar + respawn timing
+  # ---------------------------------------------------------------------------
+    - name: item_dist_norm
+      dtype: float32
+      per_item: true                                # instantiated as ra_dist_norm, rl_dist_norm, ...
+      source: derived
+      formula: "dist(origin, item.origin) / map_diagonal"
+      unit: "[0,1]"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+    - name: item_bearing_sincos
+      dtype: float32[2]
+      per_item: true
+      source: derived
+      formula: "ego=rotate(item.origin-origin, -yaw); [sin(atan2(ego.y,ego.x)), cos(atan2(ego.y,ego.x))]"
+      unit: "[-1,1]x2"
+      norm: sincos
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+      note: "Egocentric bearing to item, rotated into agent facing frame (translation+rotation invariant)."
+    - name: item_remaining_norm
+      dtype: float32
+      per_item: true
+      source: "item_events + items.respawn_seconds"
+      formula: "clip(respawn_at - t_now, 0, T) / T"   # T = items.respawn_seconds
+      unit: "[0,1]; 0=up now"
+      norm: divide_period
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+      note: "respawn_at derived from last pickup item_event (t_pickup + T). PIT-safe: uses events t<=now only."
+    - name: item_available_now
+      dtype: float32
+      per_item: true
+      source: "item_events + items.respawn_seconds"
+      formula: "1.0 if (respawn_at - t_now) <= 0 else 0.0"
+      unit: "0/1"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+    - name: item_unknown_flag
+      dtype: float32
+      per_item: true
+      source: derived
+      formula: "1.0 if respawn_at is unobserved else 0.0"
+      unit: "0/1"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+      note: "Third state for unobserved timers (do NOT emit a sentinel number into remaining_norm)."
+    - name: item_eta_norm
+      dtype: float32
+      per_item: true
+      source: derived
+      formula: "min(dist_to_item / max(hspeed, eps), CAP) / CAP"   # CAP=10s
+      unit: "[0,1]"
+      norm: divide_period
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+    - name: item_up_on_arrival
+      dtype: float32
+      per_item: true
+      source: derived
+      formula: "1.0 if (dist_to_item/max(hspeed,eps)) >= (respawn_at - t_now) else 0.0"
+      unit: "0/1"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+      note: "The core item-contest decision feature (will_be_up_on_arrival)."
+    - name: item_value_prior
+      dtype: float32
+      per_item: true
+      source: items.static_value
+      formula: "items.static_value"                  # OR item_value.importance_norm when fitted
+      unit: "[0,1]"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+      note: "Static importance prior; replaced by data-derived item_value.importance_norm once fitted (train-only)."
+
+  # ---------------------------------------------------------------------------
+  timing:
+  # ---------------------------------------------------------------------------
+    - name: match_progress
+      dtype: float32
+      source: "player_ticks.t_s / demos.duration_s"
+      formula: "t_elapsed / match_duration"
+      unit: "[0,1]"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+    - name: time_since_pickup_log
+      dtype: float32
+      source: "item_events"
+      formula: "log1p(t_now - t_last_pickup)"
+      unit: log-s
+      norm: log1p_zscore
+      stats_key: "global.time_since_pickup"
+      group: global
+      version: 1
+      leakage_safe: true
+    - name: spawn_phase_sincos
+      dtype: float32[2]
+      per_item: true
+      source: derived
+      formula: "[sin(2*pi*(t_now mod T)/T), cos(2*pi*(t_now mod T)/T)]"   # periodic respawn phase
+      unit: "[-1,1]x2"
+      norm: sincos
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+    - name: time_to_reach_navgraph_norm
+      dtype: float32
+      source: derived
+      formula: "min(navgraph_path_len(cur_marker, goal_marker)/max(hspeed,eps), CAP)/CAP"
+      unit: "[0,1]"
+      norm: divide_period
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+      note: "ETA along nav_edges (graph distance, not straight-line). CAP=10s."
+
+  # ---------------------------------------------------------------------------
+  player_style:   # supersedes player_movement_signatures.v1 + bunnyhop_fingerprint.v1
+  #                episode/player-level context features (constant within an episode)
+  # ---------------------------------------------------------------------------
+    - name: jump_cadence_norm
+      dtype: float32
+      source: derived
+      formula: "robust(jumps_per_active_min)"        # movement_metrics.v2 jump_cadence_per_min
+      unit: jumps/min
+      norm: robust
+      stats_key: "global.jump_cadence"
+      group: global
+      version: 1
+      leakage_safe: true
+      note: "Strongest repeated player-style axis (Milton 44.9, carapace 44.0, yeti 48.6)."
+    - name: stationary_time_ratio
+      dtype: float32
+      source: derived
+      formula: "frac(hspeed < 10)"                    # movement_metrics.v2 stationary_time_ratio
+      unit: "[0,1]"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+    - name: player_id_embed
+      dtype: int32
+      source: episodes.player_id
+      formula: "player_id (embedding lookup in model)"
+      unit: id
+      norm: identity
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: true
+      note: "Categorical; held-out player_ids reserved for style-generalization test split."
+    - name: player_role_soft
+      dtype: float32[2]
+      source: derived
+      formula: "soft_role(episode movement/item stats) -> [runner, anchor]"   # v2: derived role vector
+      unit: "[0,1]x2"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+      note: "Soft (not hard) role vector runner/anchor; episode-level, derived from movement + item-control stats. 4on4 team-role groundwork (00-DATA-ARCHITECTURE §3.7)."
+
+  # ---------------------------------------------------------------------------
+  entity_observation:   # v2: per OTHER actor (opponents + teammates), egocentric.
+  #   Variable-length list pooled by a DeepSets/small-transformer head with a
+  #   PAD-MASK (NOT fixed sorted slots): permutation- and side-invariant. N_max=7
+  #   (4on4 = 7 others); 1v1 is the SAME path with more masking. Each feature is
+  #   one channel of the per-entity vector; live _est fields are ZEROED when the
+  #   entity is invisible (mask bit = entity_is_visible), belief block carries
+  #   memory. Sources are actor_ticks (omniscient world) gated by actor_visibility.
+  # ---------------------------------------------------------------------------
+    - name: entity_rel_dist_norm
+      dtype: float32
+      source: derived
+      formula: "dist(actor_ticks.origin, ego.origin) / map_diagonal"
+      unit: "[0,1]"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+      note: "Egocentric distance to the other actor; identity after /diagonal (like item_dist_norm)."
+    - name: entity_rel_bearing_sincos
+      dtype: float32[2]
+      source: derived
+      formula: "ego=rotate(actor_ticks.origin-ego.origin, -yaw); [sin(atan2(ego.y,ego.x)),cos(atan2(ego.y,ego.x))]"
+      unit: "[-1,1]x2"
+      norm: sincos
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+    - name: entity_rel_pitch_sincos
+      dtype: float32[2]
+      source: derived
+      formula: "[sin(elev_to(actor_ticks.origin)), cos(elev_to(actor_ticks.origin))]"
+      unit: "[-1,1]x2"
+      norm: sincos
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+    - name: entity_rel_vel_x
+      dtype: float32
+      source: actor_ticks.vx
+      formula: "(rotate(actor_ticks.vel,-yaw).x - mean) / std"   # reuse own-vel zscore
+      unit: qu/s
+      norm: zscore
+      stats_key: "per_map.<map>.vel_x"
+      group: per_map
+      version: 2
+      leakage_safe: true
+      note: "Reuses the existing per_map velocity zscore stats (no new fitted key)."
+    - name: entity_rel_vel_y
+      dtype: float32
+      source: actor_ticks.vy
+      formula: "(rotate(actor_ticks.vel,-yaw).y - mean) / std"
+      unit: qu/s
+      norm: zscore
+      stats_key: "per_map.<map>.vel_y"
+      group: per_map
+      version: 2
+      leakage_safe: true
+    - name: entity_rel_vel_z
+      dtype: float32
+      source: actor_ticks.vz
+      formula: "(actor_ticks.vz - mean) / std"
+      unit: qu/s
+      norm: zscore
+      stats_key: "per_map.<map>.vel_z"
+      group: per_map
+      version: 2
+      leakage_safe: true
+    - name: entity_health_est_norm
+      dtype: float32
+      source: actor_ticks.health
+      formula: "clip(health,0,250)/250.0 if is_visible else 0.0"   # ZEROED when invisible
+      unit: "[0,1]"
+      norm: divide_period
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+      note: "Live estimate; zeroed (not sentinel) when entity_is_visible=0."
+    - name: entity_armor_est_norm
+      dtype: float32
+      source: actor_ticks.armor
+      formula: "clip(armor,0,200)/200.0 if is_visible else 0.0"
+      unit: "[0,1]"
+      norm: divide_period
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+    - name: entity_armor_type_onehot
+      dtype: float32[3]
+      source: actor_ticks.armor_type
+      formula: "onehot(armor_type,[GA,YA,RA]) if is_visible else [0,0,0]"
+      unit: onehot
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+    - name: entity_weapon_onehot
+      dtype: float32[8]
+      source: actor_ticks.weapon
+      formula: "onehot(weapon,[axe,sg,ssg,ng,sng,gl,rl,lg]) if is_visible else zeros(8)"
+      unit: onehot
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+    - name: entity_powerup_presence
+      dtype: float32[3]
+      source: derived
+      formula: "[has_quad, has_pent, has_ring] if is_visible else [0,0,0]"
+      unit: onehot
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+    - name: entity_powerup_remaining
+      dtype: float32[3]
+      source: derived
+      formula: "[quad_rem/60, pent_rem/300, ring_rem/60] if is_visible else [0,0,0]"
+      unit: "[0,1]x3"
+      norm: divide_period
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+      note: "Reuses quad_remaining/pent_remaining/ring_remaining divide_period periods (self + entity)."
+    - name: entity_is_teammate
+      dtype: float32
+      source: derived
+      formula: "1.0 if actor_ticks.team_id == ego.team_id else 0.0"   # RELATIVE, never absolute team_id
+      unit: "0/1"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+      note: "Team identity is ALWAYS relative; absolute team_id never enters the observation."
+    - name: entity_is_visible
+      dtype: float32
+      source: actor_visibility.is_visible
+      formula: "1.0 if is_visible else 0.0"          # the mask bit for live _est fields
+      unit: "0/1"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+    - name: entity_seen_ever
+      dtype: float32
+      source: actor_visibility.seen_ever
+      formula: "1.0 if seen_ever else 0.0"
+      unit: "0/1"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+    - name: entity_time_since_seen_log
+      dtype: float32
+      source: actor_visibility.time_since_seen_s
+      formula: "log1p(time_since_seen_s)"
+      unit: log-s
+      norm: log1p_zscore
+      stats_key: "global.time_since_seen"
+      group: global
+      version: 2
+      leakage_safe: true
+    - name: entity_last_seen_rel_dist_norm
+      dtype: float32
+      source: actor_visibility.last_seen_ox
+      formula: "dist(last_seen_origin, ego.origin) / map_diagonal"   # belief block
+      unit: "[0,1]"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+      note: "Last-seen (belief) egocentric distance; carries memory while invisible."
+    - name: entity_last_seen_rel_bearing_sincos
+      dtype: float32[2]
+      source: actor_visibility.last_seen_ox
+      formula: "ego=rotate(last_seen_origin-ego.origin,-yaw); [sin(atan2(ego.y,ego.x)),cos(atan2(ego.y,ego.x))]"
+      unit: "[-1,1]x2"
+      norm: sincos
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+
+  # ---------------------------------------------------------------------------
+  audio:   # v2: per-type spatial audio cue (NOT FOV/LOS-gated). Instantiated per
+  #   src_type {weapon_fire, item_pickup, footstep}. Decayed intensity + direction.
+  # ---------------------------------------------------------------------------
+    - name: audio_intensity_norm
+      dtype: float32
+      per_type: true                                 # audio_weapon_fire_intensity_norm, ...
+      source: "audio_cues.intensity0 + audio_cues.t_emit_s"
+      formula: "robust(intensity0 * exp(-(t_now - t_emit_s)/tau_type))"   # tau_type = per-type decay
+      unit: intensity
+      norm: robust
+      stats_key: "global.audio_intensity"
+      group: global
+      version: 2
+      leakage_safe: true
+      note: "Decayed loudest cue of this type; NOT gated by FOV/LOS (sound bends around corners)."
+    - name: audio_dir_sincos
+      dtype: float32[2]
+      per_type: true
+      source: "audio_cues.src_x + audio_cues.src_y"
+      formula: "ego=rotate(src-ego.origin,-yaw); [sin(atan2(ego.y,ego.x)),cos(atan2(ego.y,ego.x))]"
+      unit: "[-1,1]x2"
+      norm: sincos
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+
+  # ---------------------------------------------------------------------------
+  team:   # v2: team-aggregate context (4on4). All relative/egocentric. Enemy
+  #   aggregates are GATED behind "seen recently" -> zeroed otherwise (no wallhack).
+  # ---------------------------------------------------------------------------
+    - name: team_centroid_rel_dist_norm
+      dtype: float32
+      source: derived
+      formula: "dist(mean(teammate origins), ego.origin) / map_diagonal"
+      unit: "[0,1]"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+      note: "Own-team centroid (always known); egocentric."
+    - name: team_centroid_rel_bearing_sincos
+      dtype: float32[2]
+      source: derived
+      formula: "ego=rotate(mean(teammate origins)-ego.origin,-yaw); [sin(atan2(ego.y,ego.x)),cos(atan2(ego.y,ego.x))]"
+      unit: "[-1,1]x2"
+      norm: sincos
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+    - name: enemy_centroid_rel_dist_norm
+      dtype: float32
+      source: derived
+      formula: "dist(mean(seen-recently enemy origins), ego.origin)/map_diagonal if any_seen_recently else 0.0"
+      unit: "[0,1]"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+      note: "Enemy-team centroid GATED behind seen-recently; zeroed (not sentinel) otherwise."
+    - name: enemy_centroid_rel_bearing_sincos
+      dtype: float32[2]
+      source: derived
+      formula: "ego=rotate(mean(seen enemy origins)-ego.origin,-yaw); [sin,cos] if any_seen_recently else [0,0]"
+      unit: "[-1,1]x2"
+      norm: sincos
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+    - name: team_spread_norm
+      dtype: float32
+      source: derived
+      formula: "robust(mean pairwise teammate distance)"
+      unit: qu
+      norm: robust
+      stats_key: "global.team_spread"
+      group: global
+      version: 2
+      leakage_safe: true
+    - name: region_control_frac
+      dtype: float32
+      source: region_control_timeline.teamA_control
+      formula: "own-side control fraction at t_now (ASOF from region_control_timeline)"
+      unit: "[0,1]"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+    - name: team_rl_control
+      dtype: float32
+      source: item_events.team_id
+      formula: "1.0 if own team holds RL (recent item_events.team_id) else 0.0"
+      unit: "0/1"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+      note: "Team item economy: RL control from item_events.team_id (PIT-safe, t<=now)."
+    - name: team_quad_control
+      dtype: float32
+      source: item_events.team_id
+      formula: "1.0 if own team holds Quad (recent item_events.team_id) else 0.0"
+      unit: "0/1"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 2
+      leakage_safe: true
+
+  # ---------------------------------------------------------------------------
+  action:   # LABELS / targets — NOT observation inputs (leakage_safe: false)
+  # ---------------------------------------------------------------------------
+    - name: forwardmove
+      dtype: float32
+      source: actions.forwardmove
+      formula: "forwardmove / 400.0"                  # bounded to ~[-1,1]
+      unit: "[-1,1]"
+      norm: divide_period
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: false
+      role: target
+    - name: sidemove
+      dtype: float32
+      source: actions.sidemove
+      formula: "sidemove / 400.0"
+      unit: "[-1,1]"
+      norm: divide_period
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: false
+      role: target
+    - name: upmove
+      dtype: float32
+      source: actions.upmove
+      formula: "upmove / 400.0"
+      unit: "[-1,1]"
+      norm: divide_period
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: false
+      role: target
+    - name: jump_button
+      dtype: float32
+      source: actions.buttons
+      formula: "1.0 if (buttons & 2) else 0.0"
+      unit: "0/1"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: false
+      role: target
+    - name: attack_button
+      dtype: float32
+      source: actions.buttons
+      formula: "1.0 if (buttons & 1) else 0.0"
+      unit: "0/1"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: false
+      role: target
+    - name: cmd_delta_yaw_sincos
+      dtype: float32[2]
+      source: actions.cmd_yaw
+      formula: "d=wrap180(cmd_yaw - prev_cmd_yaw); [sin(rad(d)),cos(rad(d))]"   # turn action (mouse delta)
+      unit: "[-1,1]x2"
+      norm: sincos
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: false
+      role: target
+    - name: action_confidence
+      dtype: float32
+      source: actions.confidence
+      formula: "confidence"                            # 1.0 for qwd/sim/moveprobe; <1 for IDM
+      unit: "[0,1]"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 1
+      leakage_safe: false
+      role: weight
+      note: "Loss weight; down-weights low-confidence IDM-recovered labels."
+
+  # ---------------------------------------------------------------------------
+  rtg:   # Decision-Transformer return-to-go (NOT an observation; future-derived)
+  # ---------------------------------------------------------------------------
+    - name: return_to_go
+      dtype: float32
+      source: derived
+      formula: "sum(reward[t..T])"                     # precomputed per step over full episode
+      unit: reward
+      norm: robust
+      stats_key: "global.rtg"
+      group: global
+      version: 1
+      leakage_safe: false
+      role: conditioning
+      note: "DT conditioning token. Future-derived by construction; only legal because DT feeds the TARGET return as a goal, not as an observation of the present."

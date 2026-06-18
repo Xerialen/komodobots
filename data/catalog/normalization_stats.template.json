@@ -1,0 +1,177 @@
+{
+  "schema": "komodobots.normalization_stats.v1",
+  "_doc": "Frozen, versioned normalization artifact. Computed from the TRAIN SPLIT ONLY (episodes.split='train'), streamed via Welford/Chan over shards, then re-applied byte-identically at val/test/inference. A model card pins (git_sha, dvc_dataset_hash, artifact_version, registry_version) to make any run reproducible. Methods: zscore{mean,std} | minmax{min,max} | robust{median,iqr} | log1p_zscore{mean,std after log1p} | sincos{} (parameter-free) | divide_period{period} (parameter-free constant denom) | identity{}. `clip` is applied BEFORE the transform when present.",
+  "artifact_version": "0.2.0-template",
+  "registry_version": 2,
+  "_doc_v2": "v2 (4on4) additions: global.time_since_seen (belief), global.team_spread, global.audio_intensity; sincos adds rel_bearing/rel_pitch/audio_dir; divide_period adds ammo caps sh/nl/rk/cl (entity health/armor reuse the existing /250 //200 divide_period; quad/pent/ring_remaining reused for self AND entities). Schema tag stays komodobots.normalization_stats.v1 (artifact shape unchanged). Entity rel_vel REUSES per_map.<map>.vel_x/y/z; rel_dist is identity-after-/diagonal (no fitted key). dm3 AABB is asymmetric and VERIFIED — do not replace with a blanket +-2048.",
+  "fitted_on": "TEMPLATE — replace with e.g. train_split_2026-06-18",
+  "split_def": "grouped_by_demo_id (held-out players: [milton] reserved for style-generalization test)",
+  "n_samples": 0,
+  "dataset_version": "TEMPLATE — dvc hash of the silver corpus",
+  "git_sha": "TEMPLATE",
+  "computed_with": {
+    "algorithm": "welford_online + chan_parallel_merge",
+    "ddof": 0,
+    "note": "ddof=0 (population std) to match sklearn StandardScaler."
+  },
+
+  "global": {
+    "jump_cadence": {
+      "method": "robust",
+      "median": 44.5,
+      "iqr": 6.2,
+      "computed_from": {"split": "train", "n": 6, "dataset_version": "EXAMPLE — Milton/carapace/yeti dm3 rows"},
+      "clip": [0.0, 120.0],
+      "_example": true,
+      "_note": "Filled from _inventory.md exact-player cadences (44.9/44.0/48.6). Real value needs full train corpus."
+    },
+    "time_since_pickup": {
+      "method": "log1p_zscore",
+      "mean": 1.94,
+      "std": 0.71,
+      "computed_from": {"split": "train", "n": 0, "dataset_version": "TEMPLATE"},
+      "clip": [0.0, 300.0],
+      "_example": true,
+      "_note": "mean/std are of log1p(elapsed_seconds). PLACEHOLDER numbers."
+    },
+    "time_since_seen": {
+      "method": "log1p_zscore",
+      "mean": 1.5,
+      "std": 0.9,
+      "computed_from": {"split": "train", "n": 0, "dataset_version": "TEMPLATE"},
+      "clip": [0.0, 300.0],
+      "_example": true,
+      "_note": "v2 belief feature: mean/std of log1p(seconds since observer last saw target). PLACEHOLDER."
+    },
+    "team_spread": {
+      "method": "robust",
+      "median": 600.0,
+      "iqr": 400.0,
+      "computed_from": {"split": "train", "n": 0, "dataset_version": "TEMPLATE"},
+      "clip": [0.0, 4000.0],
+      "_example": true,
+      "_note": "v2: mean pairwise teammate distance (qu). PLACEHOLDER."
+    },
+    "audio_intensity": {
+      "method": "robust",
+      "median": 0.5,
+      "iqr": 0.4,
+      "computed_from": {"split": "train", "n": 0, "dataset_version": "TEMPLATE"},
+      "clip": [0.0, 1.0],
+      "_example": true,
+      "_note": "v2: decayed audio-cue intensity (already roughly [0,1]). PLACEHOLDER; could also be divide_period if a fixed cap is preferred."
+    },
+    "rtg": {
+      "method": "robust",
+      "median": 0.0,
+      "iqr": 1.0,
+      "computed_from": {"split": "train", "n": 0, "dataset_version": "TEMPLATE"},
+      "clip": null,
+      "_example": false
+    }
+  },
+
+  "per_map": {
+    "dm3": {
+      "_note_v2": "Entity rel_vel REUSES these vel_x/y/z zscore keys (egocentric-rotated velocity, same scale). Entity rel_dist is identity-after-/diagonal (no fitted key here). dm3 AABB below is asymmetric and VERIFIED from maps.v1 — Gemini's blanket +-2048 is WRONG; do not symmetrize.",
+      "pos_x": {
+        "method": "minmax",
+        "min": -984.0,
+        "max": 2048.0,
+        "computed_from": {"split": "train", "n": 0, "dataset_version": "maps.v1 AABB (authoritative bounds)"},
+        "clip": [-984.0, 2048.0],
+        "_example": true,
+        "_note": "min/max ARE the dm3 AABB bounds from maps.v1 — these are real, not placeholders."
+      },
+      "pos_y": {
+        "method": "minmax",
+        "min": -960.0,
+        "max": 1136.0,
+        "computed_from": {"split": "train", "n": 0, "dataset_version": "maps.v1 AABB"},
+        "clip": [-960.0, 1136.0],
+        "_example": true
+      },
+      "pos_z": {
+        "method": "minmax",
+        "min": -416.0,
+        "max": 496.0,
+        "computed_from": {"split": "train", "n": 0, "dataset_version": "maps.v1 AABB"},
+        "clip": [-416.0, 496.0],
+        "_example": true
+      },
+      "vel_x": {
+        "method": "zscore",
+        "mean": 2.1,
+        "std": 310.4,
+        "computed_from": {"split": "train", "n": 0, "dataset_version": "TEMPLATE"},
+        "clip": [-2500.0, 2500.0],
+        "_example": true,
+        "_note": "PLACEHOLDER mean/std (illustrative; ~maxspeed-scale). Compute on train shards."
+      },
+      "vel_y": {
+        "method": "zscore",
+        "mean": -0.4,
+        "std": 305.9,
+        "computed_from": {"split": "train", "n": 0, "dataset_version": "TEMPLATE"},
+        "clip": [-2500.0, 2500.0],
+        "_example": true
+      },
+      "vel_z": {
+        "method": "zscore",
+        "mean": 0.0,
+        "std": 180.0,
+        "computed_from": {"split": "train", "n": 0, "dataset_version": "TEMPLATE"},
+        "clip": [-1000.0, 1000.0],
+        "_example": false
+      },
+      "hspeed": {
+        "method": "robust",
+        "median": 320.0,
+        "iqr": 210.0,
+        "computed_from": {"split": "train", "n": 0, "dataset_version": "TEMPLATE"},
+        "clip": [0.0, 2500.0],
+        "_example": true,
+        "_note": "median near server maxspeed 320; iqr placeholder."
+      },
+      "height_above_floor": {
+        "method": "robust",
+        "median": 0.0,
+        "iqr": 32.0,
+        "computed_from": {"split": "train", "n": 0, "dataset_version": "TEMPLATE"},
+        "clip": [0.0, 1024.0],
+        "_example": false
+      }
+    },
+    "dm2": {
+      "_note": "Same key set as dm3; min/max from maps.v1 dm2 AABB [1152,-2592,-184]..[3008,352,576]. Velocity/speed stats fit on dm2 train shards.",
+      "pos_x": {"method": "minmax", "min": 1152.0, "max": 3008.0, "computed_from": {"split": "train", "n": 0, "dataset_version": "maps.v1 AABB"}, "clip": [1152.0, 3008.0], "_example": true},
+      "pos_y": {"method": "minmax", "min": -2592.0, "max": 352.0, "computed_from": {"split": "train", "n": 0, "dataset_version": "maps.v1 AABB"}, "clip": [-2592.0, 352.0], "_example": true},
+      "pos_z": {"method": "minmax", "min": -184.0, "max": 576.0, "computed_from": {"split": "train", "n": 0, "dataset_version": "maps.v1 AABB"}, "clip": [-184.0, 576.0], "_example": true}
+    }
+  },
+
+  "sincos": ["yaw", "pitch", "vel_heading", "look_vs_move", "item_bearing", "spawn_phase", "cmd_delta_yaw", "rel_bearing", "rel_pitch", "audio_dir"],
+
+  "divide_period": {
+    "health":      250.0,
+    "armor":       200.0,
+    "forwardmove": 400.0,
+    "sidemove":    400.0,
+    "upmove":      400.0,
+    "ra_remaining":   20.0,
+    "ya_remaining":   20.0,
+    "ga_remaining":   20.0,
+    "mh_remaining":   20.0,
+    "rl_remaining":   30.0,
+    "quad_remaining": 60.0,
+    "ring_remaining": 60.0,
+    "pent_remaining": 300.0,
+    "eta_cap":        10.0,
+    "sh":             100.0,
+    "nl":             200.0,
+    "rk":             100.0,
+    "cl":             200.0,
+    "_note": "Item *_remaining periods MIRROR item_catalog.dm3.json respawn_seconds (carry the same _verify caveats). eta_cap is the ETA clamp CAP. These are constants, not fitted.",
+    "_note_v2": "Ammo caps sh/nl/rk/cl (shells/nails/rockets/cells) for ammo_per_weapon_norm — PLACEHOLDER caps, confirm against KTX max ammo. quad/pent/ring_remaining are reused for BOTH self powerup_remaining AND entity_powerup_remaining."
+  }
+}

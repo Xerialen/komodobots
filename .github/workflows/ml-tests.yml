@@ -1,0 +1,41 @@
+# ml-tests.yml — SEPARATE, NON-GATING CI for the out-of-tree ml/ subtree.
+#
+# IMPORTANT: do NOT add this job to the branch-protection "required status checks".
+# The merge gate is pr-tests.yml (stdlib-only). This job installs third-party deps
+# and exercises the deps-heavy feature pipeline; its result is informational and must
+# never block a merge. Keeping it a distinct workflow file (not a job inside
+# pr-tests.yml) is what keeps the gate dependency-free.
+
+name: ML Tests (non-gating)
+
+on:
+  pull_request:
+    paths:
+      - "ml/**"
+      - "scripts/features/**"      # parity: ml/ imports the shared transforms
+      - ".github/workflows/ml-tests.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  ml-tests:
+    name: ml pipeline (informational)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ml test deps (subset, no torch)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ml/requirements-ci.txt
+
+      - name: Run ml/ tests (DuckDB ASOF + Parquet emit + Welford + parity)
+        # The in-tree scripts/ (stdlib loader + shared features) are on the repo
+        # checkout; the tests add them to sys.path themselves.
+        run: python -m unittest discover -s ml/tests -p "test_*.py" -v

@@ -1,0 +1,911 @@
+{
+  "schema": "komodobots.item_catalog.v2",
+  "map": "dm3",
+  "map_title": "The Abandoned Base",
+  "source_bsp": "/home/xerial/mvd-mcp-bundle/bsps/dm3.bsp",
+  "source_bsp_sha256": "e6df9e9fd078b6d02aaa6c0f1ba40428111cb33da66dcf00234ba9ae2500a478",
+  "source_method": "Parsed directly from the dm3.bsp entity lump (BSP v29, LUMP_ENTITIES) \u2014 identical to what mvd-api getMapEntities reads. No demo, no hub. Verified 2026-06-18.",
+  "units": {
+    "origin": "qu (Quake units)",
+    "respawn_seconds": "s",
+    "static_value": "importance prior in [0,1], 1.0 = most map-controlling"
+  },
+  "counts": {
+    "cells": 3,
+    "gl": 1,
+    "health15": 3,
+    "health25": 4,
+    "lg": 1,
+    "mh": 3,
+    "nails": 11,
+    "ng": 1,
+    "pent": 1,
+    "quad": 1,
+    "ra": 1,
+    "ring": 1,
+    "rl": 1,
+    "rockets": 7,
+    "shells": 9,
+    "sng": 1,
+    "ssg": 1,
+    "ya": 1
+  },
+  "_coords_note": "Every origin is the BSP spawn origin (coords_verified=true). This is the authoritative static layout.",
+  "_respawn_note": "respawn_seconds VERIFIED for timed items from real demo getItems phases[]: RA/YA 20s, Quad 60s, Pent/Ring 300s (all clean constants). Megahealth respawn is DYNAMIC (respawn_dynamic=true; observed wall-clock range recorded). Weapon/ammo respawn (30s/varies) NOT yet observed (getItems was filtered to armor/mega/powerup) so those keep respawn_verified=false with QW-convention values.",
+  "_value_note": "static_value is a PRIOR; the data-derived item_value (catalog.sql) is fitted by logistic regression of item-control-time vs round/frag outcome on the TRAIN split and supersedes it.",
+  "_dm3_facts": "dm3 has NO green armor (item_armor1 absent); 1x RA, 1x YA; 3x megahealth; Quad+Pent+Ring all present; weapons RL/LG/GL/SNG/NG/SSG x1 each (players spawn with SG+axe).",
+  "items": [
+    {
+      "local_id": "rl_1",
+      "classname": "weapon_rocketlauncher",
+      "item_type": "rl",
+      "category": "weapon",
+      "origin": [
+        1520.0,
+        496.0,
+        -112.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 30,
+      "respawn_verified": false,
+      "static_value": 1.0
+    },
+    {
+      "local_id": "health25_1",
+      "classname": "item_health",
+      "item_type": "health25",
+      "category": "health",
+      "origin": [
+        1472.0,
+        -912.0,
+        -48.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.22
+    },
+    {
+      "local_id": "mh_1",
+      "classname": "item_health",
+      "item_type": "mh",
+      "category": "health",
+      "origin": [
+        564.0,
+        -48.0,
+        -192.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 2,
+      "respawn_seconds": 20,
+      "respawn_verified": true,
+      "static_value": 0.8,
+      "respawn_dynamic": true,
+      "observed_respawn_ms_range": [
+        27411,
+        59254
+      ],
+      "respawn_verified_source": "getItems phases[] on fixture dm3_milton_211436 (gameId 211436), 2026-06-18",
+      "_mh_note": "Megahealth respawn is DYNAMIC: timer starts after the +100 box decays, not at pickup. respawn_seconds(20) is the post-decay nominal; observed wall-clock interval is the range.",
+      "observed_loc": "hill"
+    },
+    {
+      "local_id": "health25_2",
+      "classname": "item_health",
+      "item_type": "health25",
+      "category": "health",
+      "origin": [
+        -400.0,
+        248.0,
+        -40.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.22
+    },
+    {
+      "local_id": "health15_1",
+      "classname": "item_health",
+      "item_type": "health15",
+      "category": "health",
+      "origin": [
+        -336.0,
+        240.0,
+        -40.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.15
+    },
+    {
+      "local_id": "mh_2",
+      "classname": "item_health",
+      "item_type": "mh",
+      "category": "health",
+      "origin": [
+        -720.0,
+        80.0,
+        160.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 2,
+      "respawn_seconds": 20,
+      "respawn_verified": true,
+      "static_value": 0.8,
+      "respawn_dynamic": true,
+      "observed_respawn_ms_range": [
+        27341,
+        45702
+      ],
+      "respawn_verified_source": "getItems phases[] on fixture dm3_milton_211436 (gameId 211436), 2026-06-18",
+      "_mh_note": "Megahealth respawn is DYNAMIC: timer starts after the +100 box decays, not at pickup. respawn_seconds(20) is the post-decay nominal; observed wall-clock interval is the range.",
+      "observed_loc": "SNG.MH"
+    },
+    {
+      "local_id": "ya_1",
+      "classname": "item_armor2",
+      "item_type": "ya",
+      "category": "armor",
+      "origin": [
+        1232.0,
+        -904.0,
+        -48.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": true,
+      "static_value": 0.78,
+      "observed_respawn_ms": 20000,
+      "respawn_verified_source": "getItems phases[] on fixture dm3_milton_211436 (gameId 211436), 2026-06-18",
+      "observed_loc": "YA.box"
+    },
+    {
+      "local_id": "mh_3",
+      "classname": "item_health",
+      "item_type": "mh",
+      "category": "health",
+      "origin": [
+        1840.0,
+        624.0,
+        -204.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 2,
+      "respawn_seconds": 20,
+      "respawn_verified": true,
+      "static_value": 0.8,
+      "respawn_dynamic": true,
+      "observed_respawn_ms_range": [
+        34950,
+        119332
+      ],
+      "respawn_verified_source": "getItems phases[] on fixture dm3_milton_211436 (gameId 211436), 2026-06-18",
+      "_mh_note": "Megahealth respawn is DYNAMIC: timer starts after the +100 box decays, not at pickup. respawn_seconds(20) is the post-decay nominal; observed wall-clock interval is the range.",
+      "observed_loc": "Pent"
+    },
+    {
+      "local_id": "rockets_1",
+      "classname": "item_rockets",
+      "item_type": "rockets",
+      "category": "ammo",
+      "origin": [
+        -680.0,
+        232.0,
+        -40.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.35,
+      "big_box": true
+    },
+    {
+      "local_id": "rockets_2",
+      "classname": "item_rockets",
+      "item_type": "rockets",
+      "category": "ammo",
+      "origin": [
+        -752.0,
+        464.0,
+        96.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.35,
+      "big_box": true
+    },
+    {
+      "local_id": "nails_1",
+      "classname": "item_spikes",
+      "item_type": "nails",
+      "category": "ammo",
+      "origin": [
+        -352.0,
+        304.0,
+        96.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.2,
+      "big_box": true
+    },
+    {
+      "local_id": "nails_2",
+      "classname": "item_spikes",
+      "item_type": "nails",
+      "category": "ammo",
+      "origin": [
+        -432.0,
+        440.0,
+        -40.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.2
+    },
+    {
+      "local_id": "shells_1",
+      "classname": "item_shells",
+      "item_type": "shells",
+      "category": "ammo",
+      "origin": [
+        -576.0,
+        744.0,
+        -40.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.12
+    },
+    {
+      "local_id": "health25_3",
+      "classname": "item_health",
+      "item_type": "health25",
+      "category": "health",
+      "origin": [
+        -712.0,
+        592.0,
+        -40.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.22
+    },
+    {
+      "local_id": "health15_2",
+      "classname": "item_health",
+      "item_type": "health15",
+      "category": "health",
+      "origin": [
+        -712.0,
+        632.0,
+        -40.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.15
+    },
+    {
+      "local_id": "shells_2",
+      "classname": "item_shells",
+      "item_type": "shells",
+      "category": "ammo",
+      "origin": [
+        -904.0,
+        792.0,
+        96.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.12
+    },
+    {
+      "local_id": "health25_4",
+      "classname": "item_health",
+      "item_type": "health25",
+      "category": "health",
+      "origin": [
+        -624.0,
+        -240.0,
+        -40.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.22
+    },
+    {
+      "local_id": "nails_3",
+      "classname": "item_spikes",
+      "item_type": "nails",
+      "category": "ammo",
+      "origin": [
+        -680.0,
+        -752.0,
+        -40.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.2
+    },
+    {
+      "local_id": "rockets_3",
+      "classname": "item_rockets",
+      "item_type": "rockets",
+      "category": "ammo",
+      "origin": [
+        -360.0,
+        -888.0,
+        -40.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.35
+    },
+    {
+      "local_id": "nails_4",
+      "classname": "item_spikes",
+      "item_type": "nails",
+      "category": "ammo",
+      "origin": [
+        -232.0,
+        -872.0,
+        128.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.2,
+      "big_box": true
+    },
+    {
+      "local_id": "shells_3",
+      "classname": "item_shells",
+      "item_type": "shells",
+      "category": "ammo",
+      "origin": [
+        312.0,
+        -560.0,
+        240.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.12,
+      "big_box": true
+    },
+    {
+      "local_id": "rockets_4",
+      "classname": "item_rockets",
+      "item_type": "rockets",
+      "category": "ammo",
+      "origin": [
+        192.0,
+        -256.0,
+        32.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.35
+    },
+    {
+      "local_id": "shells_4",
+      "classname": "item_shells",
+      "item_type": "shells",
+      "category": "ammo",
+      "origin": [
+        176.0,
+        32.0,
+        32.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.12
+    },
+    {
+      "local_id": "nails_5",
+      "classname": "item_spikes",
+      "item_type": "nails",
+      "category": "ammo",
+      "origin": [
+        336.0,
+        248.0,
+        32.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.2
+    },
+    {
+      "local_id": "nails_6",
+      "classname": "item_spikes",
+      "item_type": "nails",
+      "category": "ammo",
+      "origin": [
+        728.0,
+        248.0,
+        32.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.2
+    },
+    {
+      "local_id": "shells_5",
+      "classname": "item_shells",
+      "item_type": "shells",
+      "category": "ammo",
+      "origin": [
+        920.0,
+        -8.0,
+        32.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.12
+    },
+    {
+      "local_id": "rockets_5",
+      "classname": "item_rockets",
+      "item_type": "rockets",
+      "category": "ammo",
+      "origin": [
+        760.0,
+        -360.0,
+        32.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.35
+    },
+    {
+      "local_id": "shells_6",
+      "classname": "item_shells",
+      "item_type": "shells",
+      "category": "ammo",
+      "origin": [
+        344.0,
+        -720.0,
+        -40.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.12,
+      "big_box": true
+    },
+    {
+      "local_id": "shells_7",
+      "classname": "item_shells",
+      "item_type": "shells",
+      "category": "ammo",
+      "origin": [
+        -192.0,
+        -448.0,
+        -136.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.12
+    },
+    {
+      "local_id": "nails_7",
+      "classname": "item_spikes",
+      "item_type": "nails",
+      "category": "ammo",
+      "origin": [
+        64.0,
+        -208.0,
+        -136.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.2
+    },
+    {
+      "local_id": "shells_8",
+      "classname": "item_shells",
+      "item_type": "shells",
+      "category": "ammo",
+      "origin": [
+        968.0,
+        -776.0,
+        64.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.12,
+      "big_box": true
+    },
+    {
+      "local_id": "health15_3",
+      "classname": "item_health",
+      "item_type": "health15",
+      "category": "health",
+      "origin": [
+        1608.0,
+        -640.0,
+        -48.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.15
+    },
+    {
+      "local_id": "rockets_6",
+      "classname": "item_rockets",
+      "item_type": "rockets",
+      "category": "ammo",
+      "origin": [
+        1848.0,
+        -864.0,
+        -48.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.35
+    },
+    {
+      "local_id": "nails_8",
+      "classname": "item_spikes",
+      "item_type": "nails",
+      "category": "ammo",
+      "origin": [
+        1384.0,
+        -40.0,
+        -192.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.2
+    },
+    {
+      "local_id": "shells_9",
+      "classname": "item_shells",
+      "item_type": "shells",
+      "category": "ammo",
+      "origin": [
+        1368.0,
+        -360.0,
+        -48.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.12,
+      "big_box": true
+    },
+    {
+      "local_id": "rockets_7",
+      "classname": "item_rockets",
+      "item_type": "rockets",
+      "category": "ammo",
+      "origin": [
+        1744.0,
+        -496.0,
+        -416.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.35,
+      "big_box": true
+    },
+    {
+      "local_id": "nails_9",
+      "classname": "item_spikes",
+      "item_type": "nails",
+      "category": "ammo",
+      "origin": [
+        1504.0,
+        320.0,
+        -416.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.2,
+      "big_box": true
+    },
+    {
+      "local_id": "nails_10",
+      "classname": "item_spikes",
+      "item_type": "nails",
+      "category": "ammo",
+      "origin": [
+        1840.0,
+        320.0,
+        -416.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.2,
+      "big_box": true
+    },
+    {
+      "local_id": "nails_11",
+      "classname": "item_spikes",
+      "item_type": "nails",
+      "category": "ammo",
+      "origin": [
+        1600.0,
+        520.0,
+        -112.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.2
+    },
+    {
+      "local_id": "gl_1",
+      "classname": "weapon_grenadelauncher",
+      "item_type": "gl",
+      "category": "weapon",
+      "origin": [
+        1216.0,
+        240.0,
+        -416.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 30,
+      "respawn_verified": false,
+      "static_value": 0.4
+    },
+    {
+      "local_id": "ra_1",
+      "classname": "item_armorInv",
+      "item_type": "ra",
+      "category": "armor",
+      "origin": [
+        256.0,
+        -704.0,
+        304.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": true,
+      "static_value": 0.92,
+      "observed_respawn_ms": 20000,
+      "respawn_verified_source": "getItems phases[] on fixture dm3_milton_211436 (gameId 211436), 2026-06-18",
+      "observed_loc": "RA"
+    },
+    {
+      "local_id": "sng_1",
+      "classname": "weapon_supernailgun",
+      "item_type": "sng",
+      "category": "weapon",
+      "origin": [
+        -512.0,
+        448.0,
+        96.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 30,
+      "respawn_verified": false,
+      "static_value": 0.42
+    },
+    {
+      "local_id": "ng_1",
+      "classname": "weapon_nailgun",
+      "item_type": "ng",
+      "category": "weapon",
+      "origin": [
+        -64.0,
+        -704.0,
+        -40.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 30,
+      "respawn_verified": false,
+      "static_value": 0.2
+    },
+    {
+      "local_id": "ssg_1",
+      "classname": "weapon_supershotgun",
+      "item_type": "ssg",
+      "category": "weapon",
+      "origin": [
+        1776.0,
+        -656.0,
+        -48.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 30,
+      "respawn_verified": false,
+      "static_value": 0.3
+    },
+    {
+      "local_id": "lg_1",
+      "classname": "weapon_lightning",
+      "item_type": "lg",
+      "category": "weapon",
+      "origin": [
+        1544.0,
+        -192.0,
+        -416.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 30,
+      "respawn_verified": false,
+      "static_value": 0.55
+    },
+    {
+      "local_id": "cells_1",
+      "classname": "item_cells",
+      "item_type": "cells",
+      "category": "ammo",
+      "origin": [
+        1088.0,
+        -232.0,
+        -416.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.25
+    },
+    {
+      "local_id": "cells_2",
+      "classname": "item_cells",
+      "item_type": "cells",
+      "category": "ammo",
+      "origin": [
+        1832.0,
+        -424.0,
+        -416.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.25
+    },
+    {
+      "local_id": "cells_3",
+      "classname": "item_cells",
+      "item_type": "cells",
+      "category": "ammo",
+      "origin": [
+        -952.0,
+        -296.0,
+        -40.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 1,
+      "respawn_seconds": 20,
+      "respawn_verified": false,
+      "static_value": 0.25,
+      "big_box": true
+    },
+    {
+      "local_id": "quad_1",
+      "classname": "item_artifact_super_damage",
+      "item_type": "quad",
+      "category": "powerup",
+      "origin": [
+        952.0,
+        296.0,
+        56.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 60,
+      "respawn_verified": true,
+      "static_value": 0.95,
+      "observed_respawn_ms": 60000,
+      "respawn_verified_source": "getItems phases[] on fixture dm3_milton_211436 (gameId 211436), 2026-06-18",
+      "observed_loc": "Quad"
+    },
+    {
+      "local_id": "pent_1",
+      "classname": "item_artifact_invulnerability",
+      "item_type": "pent",
+      "category": "powerup",
+      "origin": [
+        1008.0,
+        800.0,
+        -296.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 300,
+      "respawn_verified": true,
+      "static_value": 0.88,
+      "observed_respawn_ms": 300000,
+      "respawn_verified_source": "getItems phases[] on fixture dm3_milton_211436 (gameId 211436), 2026-06-18",
+      "observed_loc": "Pent"
+    },
+    {
+      "local_id": "ring_1",
+      "classname": "item_artifact_invisibility",
+      "item_type": "ring",
+      "category": "powerup",
+      "origin": [
+        240.0,
+        -32.0,
+        56.0
+      ],
+      "coords_verified": true,
+      "spawnflags": 0,
+      "respawn_seconds": 300,
+      "respawn_verified": true,
+      "static_value": 0.7,
+      "observed_respawn_ms": 300000,
+      "respawn_verified_source": "getItems phases[] on fixture dm3_milton_211436 (gameId 211436), 2026-06-18",
+      "observed_loc": "Ring"
+    }
+  ],
+  "_respawn_fold_in": {
+    "source": "getItems phases[] on fixture dm3_milton_211436 (gameId 211436), 2026-06-18",
+    "items_verified": 8,
+    "note": "B3 of the data-architecture build: observed respawns from the canonical Milton fixture folded into the BSP-derived static catalog. BSP origins matched the demo-observed item positions exactly."
+  }
+}

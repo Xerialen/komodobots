@@ -1,0 +1,115 @@
+# =============================================================================
+# komodobots Training Dataset Specification
+# schema tag: komodobots.dataset_spec.v1
+#
+# Defines how curated per-tick rows (silver) become windowed training tensors
+# (gold/training). Two tracks share one record layout:
+#   - imitation (BC + Decision-Transformer) from MVD/QWD demos
+#   - offline RL from pmove_sim.py rollouts
+# =============================================================================
+dataset_spec_version: 2
+registry_version: 2                 # must match feature_registry.yaml
+normalization_artifact: norm/normalization_stats.template.json
+
+# ---------------------------------------------------------------------------
+tick_rate:
+  server_fps: 77.0                  # confirmed: .cmds headers fps=77.043, msec=13ms/frame
+  msec_per_tick: 13
+  note: "All windows/strides are in TICKS at ~77 fps. 1 s ~= 77 ticks."
+
+# ---------------------------------------------------------------------------
+episode_boundaries:
+  source: catalog.episodes          # one episode = one continuity-safe segment
+  delimited_by:
+    - "continuity splits (qwd_route_probe.v1): break on teleport/respawn jumps >2500 qu/s"
+    - "death / respawn"
+    - "demo end"
+  is_first_flag: true               # RLDS-style boundary flags emitted per step
+  is_last_flag: true
+  is_terminal_flag: true            # true death = terminal; truncation (window cut) is NOT terminal
+  windows_never_cross_episode: true
+
+# ---------------------------------------------------------------------------
+windowing:
+  lookback_K: 64                    # ticks (~0.83 s context); DT context = 3*K tokens (RTG,state,action)
+  stride: 16                        # ticks between window starts (75% overlap)
+  pad_short_windows: true           # trailing window padded to K
+  pad_value: 0.0
+  emit_attention_mask: true         # padded positions masked out of attention AND loss
+  bc_window: 1                      # plain (obs,action) track also emits single-step rows for behavioral cloning
+
+# ---------------------------------------------------------------------------
+record_layout:
+  # one sample = one window. Stored as a WebDataset tar group sharing a basename.
+  keys:
+    obs:    { ext: "obs.npy",  shape: [K, F_obs],  dtype: float32, note: "normalized feature vector per tick (feature_registry obs features). POMDP-masked agent_observation only — NOT omniscient world_state." }
+    act:    { ext: "act.npy",  shape: [K, F_act],  dtype: float32, note: "action targets (feature_registry action group)" }
+    entities: { ext: "entities.npy", shape: [K, N_max, F_ent], dtype: float32, note: "v2: per-other-actor egocentric vectors (entity_observation group). N_max=7." }
+    ent_mask: { ext: "ent_mask.npy", shape: [K, N_max], dtype: float32, note: "v2: 1=real entity slot, 0=pad/absent (pad-mask for DeepSets/transformer pooling)." }
+    audio:  { ext: "audio.npy", shape: [K, F_audio], dtype: float32, note: "v2: per-tick decayed audio-cue features (audio group); NOT LOS-gated." }
+    team:   { ext: "team.npy",  shape: [K, F_team], dtype: float32, note: "v2: team-context features (team group); always relative." }
+    reward: { ext: "rew.npy",  shape: [K],         dtype: float32, note: "per-step reward (RL track; 0 for pure BC)" }
+    rtg:    { ext: "rtg.npy",  shape: [K],         dtype: float32, note: "return-to-go, precomputed over FULL episode before windowing (DT)" }
+    mask:   { ext: "mask.npy", shape: [K],         dtype: float32, note: "1=real step, 0=pad" }
+    weight: { ext: "w.npy",    shape: [K],         dtype: float32, note: "loss weight = actions.confidence (down-weights IDM labels)" }
+    meta:   { ext: "json",     note: "episode_id, demo_id, player_id, map_id, start_tick, label_source, timestep_ids[K]" }
+  F_obs_note: "F_obs is the flattened width of all leakage_safe SELF features in feature_registry.yaml (position+velocity+orientation+player_resource+item+timing+player_style+team). Per-other-actor features live in `entities` (not flattened into obs). Frozen per registry_version."
+  timestep_embedding: "timestep_ids[K] feed the DT timestep embedding added to all 3 tokens of a step."
+
+# ---------------------------------------------------------------------------
+entity_max:
+  N_max: 7                          # 4on4 = 7 other actors; 1v1 = SAME path with more masking
+  note: "Max other-actor slots in `entities`/`ent_mask`. Pooled by a DeepSets/small-transformer head with the pad-mask — permutation- and side-invariant, NOT fixed sorted slots."
+
+# ---------------------------------------------------------------------------
+observation_scope:
+  world_state: "OMNISCIENT all-player state (actor_ticks join) — stored in gold/observations/world_state, NOT trained on."
+  agent_observation: "POMDP-masked per (tick, observer) — the ONLY training input. Feeds obs/entities/audio/team. Invisible entities = mask bit + zeroed live fields + belief block (NOT a sentinel)."
+
+# ---------------------------------------------------------------------------
+reward:
+  # RL track only; imitation track sets reward=0 and trains on actions directly.
+  shaping:
+    - "+ item_value (items.static_value or item_value.importance_norm) on pickup event"
+    - "+ frag reward on outgoing frag (analysis.json frags)"
+    - "- death penalty on terminal"
+    - "optional dense: speed-maintenance / route-progress (route_state_attribution.v2)"
+    - "+ team frag (non-teamkill) — frag_events where killer team == own team (v2, 4on4)"
+    - "- teamkill penalty — frag_events.is_teamkill (v2)"
+    - "+ region-control delta — change in own-side region_control_timeline control (getRegionControl) (v2)"
+    - "+ team item-control — own team holding RL/Quad via item_events.team_id (v2)"
+  credit_assignment: "difference rewards (per-actor marginal contribution to the team-augmented reward) — counterfactual baseline removes other-agent noise. RTG precomputed PER-ACTOR over the team-augmented reward."
+  return_to_go: "rtg[t] = sum(reward[t..T]); precompute per FULL episode PER-ACTOR (team-augmented reward), then window."
+
+# ---------------------------------------------------------------------------
+shards:
+  format: webdataset                # tar of POSIX files; imitation track
+  target_bytes_per_shard: 268435456 # ~256 MB (within 100MB-1GB band)
+  min_shards_factor: 10             # >= 10x reader hosts
+  shuffle:
+    shard_order: true               # cheap on-disk shard shuffle
+    sample_buffer: 1000             # in-memory sample shuffle buffer
+  rl_track_format: hdf5             # Minari-style episode store for offline RL
+  rl_path_note: "gold/training/rl/episodes.hdf5 — group per episode: observations(n+1), actions(n), rewards(n), terminations(n), truncations(n)"
+
+# ---------------------------------------------------------------------------
+split_policy:
+  method: group_by_demo_id          # GroupKFold/GroupShuffleSplit; no demo straddles splits
+  fractions: { train: 0.8, val: 0.1, test: 0.1 }
+  held_out_players: [milton]        # whole-player holdout -> style-generalization test
+  held_out_maps: []                 # optionally hold out a whole map for layout-generalization
+  assigned_in: catalog.episodes.split
+  rationale: "Consecutive ticks of one episode are near-duplicates; splitting by tick leaks. Split by demo, hold out players/maps for generalization (00-DATA-ARCHITECTURE.md §Splits)."
+
+# ---------------------------------------------------------------------------
+storage_paths:
+  bronze_demos:   "bronze/demos/map={map}/dt={dt}/*.mvd"
+  bronze_events:  "bronze/events_raw/map={map}/dt={dt}/*.jsonl"
+  silver_ticks:   "silver/player_ticks/map={map}/dt={dt}/*.parquet"
+  silver_items:   "silver/item_events/map={map}/dt={dt}/*.parquet"
+  gold_features:  "gold/features/agent_features/map={map}/dt={dt}/*.parquet"   # zstd
+  gold_train_bc:  "gold/training/imitation/train/shard-{000000..NNNNNN}.tar"
+  gold_val_bc:    "gold/training/imitation/val/shard-{000000..NNNNNN}.tar"
+  gold_rl:        "gold/training/rl/episodes.hdf5"
+  norm_artifact:  "gold/norm/normalization_stats.json"
+  catalog:        "catalog.duckdb"

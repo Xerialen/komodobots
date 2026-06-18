@@ -1,0 +1,66 @@
+{
+  "schema": "komodobots.region_catalog.v2",
+  "map": "dm3",
+  "_purpose": "Canonical territorial-region definitions for dm3 region-control features. Each region groups locs around a contested resource. Control %/timelines are demo-specific (fixture region_control.sample.json), not here.",
+  "_source": "getRegionControl on fixture dm3_milton_211436",
+  "_region_count": 5,
+  "regions": [
+    {
+      "name": "RA",
+      "centroid": [
+        85.9,
+        -692.4
+      ],
+      "member_locs": [
+        "RA",
+        "RA.entry",
+        "RA.low",
+        "RA.rox"
+      ]
+    },
+    {
+      "name": "QUAD",
+      "centroid": [
+        765.8,
+        -18.6
+      ],
+      "member_locs": [
+        "Quad",
+        "YA.Quad",
+        "window.Quad"
+      ]
+    },
+    {
+      "name": "YA",
+      "centroid": [
+        1532.4,
+        -814.4
+      ],
+      "member_locs": [
+        "YA",
+        "YA.box",
+        "YA.up"
+      ]
+    },
+    {
+      "name": "RL",
+      "centroid": [
+        1862.8,
+        351.0
+      ],
+      "member_locs": [
+        "RL"
+      ]
+    },
+    {
+      "name": "LG",
+      "centroid": [
+        1541.6,
+        -168.3
+      ],
+      "member_locs": [
+        "water.LG"
+      ]
+    }
+  ]
+}

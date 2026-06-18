@@ -3216,3 +3216,51 @@ Revisit if timeline API event names change, if GitHub stops exposing
 `ready_for_review` or label events through the issue timeline API, or if the
 10-minute schedule reconciler is removed and the event path alone becomes
 proven reliable.
+
+## ADR — Adopt the relational data architecture (Strategy A)
+
+**Date:** 2026-06-18 · **Status:** proposed (pending three-agent review) · **Coder:** Claude
+
+### Context
+
+The lab needs a machine-learnable substrate: a stable schema for maps, items, the nav
+graph, demos/episodes, per-tick multi-actor state, and the recovered (state, action)
+labels — feeding a normalized feature pipeline. The blocker is the **stdlib-only merge
+gate** (`pr-tests.yml`, no `pip install`): a DuckDB/Parquet/torch pipeline cannot live
+where the unit suite imports it. 4on4 is the first target (≈740k actor-tick rows and
+≈5.2M visibility rows per demo — genuine Parquet/columnar scale).
+
+### Decision
+
+**Strategy A — split by dependency, not by concern:**
+
+- **In-tree, stdlib-only (CI-gated):** a SQLite catalog (`scripts/catalog_schema.sql`,
+  `catalog_load.py`), a shared pure-stdlib feature-math package (`scripts/features/`,
+  used by *both* the offline build and the live bot), and stdlib validators
+  (`scripts/validate_catalog.py`). 1:1 tests per repo convention.
+- **Out-of-tree (`ml/`, WSL2):** DuckDB/pyarrow/pandera/torch feature build + training,
+  with its own `requirements.txt` and a **separate, non-gating** `ml-tests.yml`.
+
+The merge gate stays dependency-free; the heavy stack never threatens it; the same
+feature transforms run at train and inference time (parity).
+
+### Alternatives rejected
+
+- *Everything in-tree with DuckDB* — breaks the stdlib gate. Non-starter.
+- *Everything out-of-tree* — the live bot still needs the feature math in-tree; a split
+  is unavoidable, so make it clean.
+- *Relax the gate to allow pip* — changes the lab's core governance for one feature. No.
+
+### Evidence
+
+Grounded in a real fixture (`data/fixtures/dm3_milton_211436`, gameId 211436,
+Book 294–3b 80). 24 in-tree stdlib tests pass; catalog round-trips reproduce the
+294–80 score and per-player frags; observed item respawns (RA/YA 20s, Quad 60s,
+Pent/Ring 300s, MH dynamic) are folded into the item catalog; the Frogbot dm3 graph
+(299 markers / 1231 edges) loads. See `WORKED-EXAMPLE.md`.
+
+### Consequences
+
+- New `data/catalog/` + `data/fixtures/` trees; one path constant per in-tree test.
+- A second (informational) CI surface; **must not** be a required check.
+- `bsp_geom.py` (PVS/LOS) remains a separate task; the schema reserves its columns.

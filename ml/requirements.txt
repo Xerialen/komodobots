@@ -1,0 +1,14 @@
+# ml/ subtree dependencies — WSL2 only, NOT installed by the merge-gate CI.
+# The in-tree scripts/ + tests/ never import any of these (stdlib-only hard gate).
+# Pin floors; let the resolver pick compatible patch releases.
+
+duckdb>=1.1,<2          # analytical engine: ASOF point-in-time joins over Parquet
+pyarrow>=17,<19         # Parquet/Arrow IO, WebDataset/HDF5 interchange
+pandera>=0.20,<0.23     # dataframe schema validation (the heavy counterpart to scripts/validate_catalog.py)
+pandas>=2.2,<3          # pandera + frame wrangling
+numpy>=1.26,<3          # vector math for the feature build
+torch>=2.3              # sequence model training (LSTM/transformer over actor_ticks windows)
+
+# optional, uncomment when the emit/target stages land:
+# webdataset>=0.2        # sharded tar dataset for streaming training
+# h5py>=3.11             # HDF5 emit alternative

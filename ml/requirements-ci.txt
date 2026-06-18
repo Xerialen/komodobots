@@ -1,0 +1,7 @@
+# CI subset for ml-tests.yml — only what ml/tests imports (no torch; fast install).
+# Full training stack is requirements.txt.
+duckdb>=1.1,<2
+pyarrow>=17,<19
+pandas>=2.2,<3
+pandera>=0.20,<0.23
+numpy>=1.26,<3

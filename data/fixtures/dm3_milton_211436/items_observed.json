@@ -1,0 +1,54 @@
+{
+  "_source": "getItems (kinds: armor, mega, powerup) on the cached demo — offline",
+  "_purpose": "observed respawn intervals + world positions for the dm3 timed items, to fold into item_catalog.dm3.json (B3)",
+  "_method": "observed_interval = next-phase availableFrom - this-phase takenAt; canonical = mode of clean intervals. ms throughout.",
+  "items": [
+    {
+      "name": "ra", "kind": "ra", "loc": "RA", "entNum": 123, "pos": [256, -704, 304],
+      "pickups": 54, "observed_respawn_ms": 20000, "respawn_verified": true,
+      "note": "Red Armor — clean 20000 ms across all phases. Milton-heavy item (RA control)."
+    },
+    {
+      "name": "ya", "kind": "ya", "loc": "YA.box", "entNum": 79, "pos": [1232, -904, -48],
+      "pickups": 56, "observed_respawn_ms": 20000, "respawn_verified": true,
+      "note": "Yellow Armor — clean 20000 ms."
+    },
+    {
+      "name": "mh_1", "kind": "mh", "loc": "SNG.MH", "entNum": 63, "pos": [-720, 80, 160],
+      "pickups": 17, "observed_respawn_ms_range": [27341, 45702], "observed_respawn_ms_typical": null, "respawn_verified": true,
+      "note": "Megahealth respawn is VARIABLE (rot-then-respawn): the +100 box rots down, respawn timer starts after. Observed 27-46 s. Do NOT model as a constant."
+    },
+    {
+      "name": "mh_2", "kind": "mh", "loc": "hill", "entNum": 53, "pos": [564, -48, -192],
+      "pickups": 25, "observed_respawn_ms_range": [27411, 59254], "respawn_verified": true,
+      "note": "Variable MH respawn (see mh_1)."
+    },
+    {
+      "name": "mh_3", "kind": "mh", "loc": "Pent", "entNum": 80, "pos": [1840, 624, -204],
+      "pickups": 18, "observed_respawn_ms_range": [34950, 119332], "respawn_verified": true,
+      "note": "Variable MH respawn (see mh_1); long gaps reflect contested periods when nobody could take it."
+    },
+    {
+      "name": "quad", "kind": "quad", "loc": "Quad", "entNum": 142, "pos": [952, 296, 56],
+      "pickups": 20, "observed_respawn_ms": 60000, "respawn_verified": true,
+      "note": "Quad Damage — clean 60000 ms. Milton's t=124.853s quad → 8 frags (worked-example moment)."
+    },
+    {
+      "name": "pent", "kind": "pent", "loc": "Pent", "entNum": 143, "pos": [1008, 800, -296],
+      "pickups": 4, "observed_respawn_ms": 300000, "respawn_verified": true,
+      "note": "Pentagram (invulnerability) — clean 300000 ms (5 min)."
+    },
+    {
+      "name": "ring", "kind": "ring", "loc": "Ring", "entNum": 144, "pos": [240, -32, 56],
+      "pickups": 4, "observed_respawn_ms": 300000, "respawn_verified": true,
+      "note": "Ring of Shadows (eyes/invisibility) — clean 300000 ms (5 min)."
+    }
+  ],
+  "_canonical_respawn_ms": {
+    "ra": 20000, "ya": 20000, "ga": 20000,
+    "mh": "variable (~20000 after rot completes; observed 27000-46000)",
+    "quad": 60000, "pent": 300000, "ring": 300000,
+    "weapon": 30000, "ammo": 30000,
+    "_note": "ga/weapon/ammo not in this query (filtered to armor/mega/powerup); ga absent on dm3; weapon/ammo are the QW-standard 30 s constants."
+  }
+}
