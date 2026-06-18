@@ -213,6 +213,48 @@ function setViewParam(view: View) {
   window.history.replaceState(null, "", url.toString());
 }
 
+// ?game=<run_id> deep-links a specific game in the ledger (issue #253 game-nav).
+// run_id is preferred over an index so it stays stable across refreshes and
+// shares, and so the live 15s refresh keeps the user on their chosen game.
+function initialGameParam(): string | null {
+  return new URLSearchParams(window.location.search).get("game");
+}
+
+// Reflect the selected game in the URL without a reload, keeping the other
+// params (view / evidence / fixture / validation) intact. The latest game is
+// the default, so selecting it clears the param.
+function setGameParam(runId: string | null) {
+  const url = new URL(window.location.href);
+  if (runId) url.searchParams.set("game", runId);
+  else url.searchParams.delete("game");
+  window.history.replaceState(null, "", url.toString());
+}
+
+// Build the demo-viewer href for a game (issue #253 @12:13). The viewer pane
+// (public/panes/demo.html) reads the demo via ?demo=<path> — q.get("demo") —
+// HEADs it, then re-encodes [ ] space internally, so the value must be the
+// PLAYABLE path the hub serves, not a bare basename. The builder emits that
+// path in game.demo.url (e.g. /demos/files/.../4on4_red_vs_blue[dm3]...mvd);
+// game.demo.name is only the basename and would resolve relative to
+// /botlab/panes/, so the pane HEAD fails ("demo not found"). We therefore
+// prefer url, fall back to name when url is absent (better than nothing), and
+// hide the link when neither exists. encodeURIComponent keeps the path's "/"
+// separators and %-encodes [ ] etc.; URLSearchParams in the pane decodes it
+// once, then the pane re-encodes the QW reserved chars before the HEAD/load,
+// so the bracketed name round-trips to the exact URL the server serves. Map +
+// duration are passed when known so the pane can resolve the .bsp and show a
+// bounded seek bar. Returns null when the game has no demo (link is hidden).
+function demoViewerHref(game: ValidationGame): string | null {
+  const target = game.demo?.url ?? game.demo?.name;
+  if (!target) return null;
+  let href = `panes/demo.html?demo=${encodeURIComponent(target)}`;
+  const map = game.match?.map;
+  if (map) href += `&map=${encodeURIComponent(map)}`;
+  const duration = num(game.match?.duration);
+  if (duration != null && duration > 0) href += `&duration=${encodeURIComponent(String(Math.round(duration)))}`;
+  return href;
+}
+
 function num(value: number | boolean | null | undefined): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -237,12 +279,6 @@ function findPrevGame(ledger: ValidationLedger, game: ValidationGame): Validatio
   }
   const idx = ledger.games.indexOf(game);
   return idx > 0 ? ledger.games[idx - 1] : null;
-}
-
-function teamDelta(curr: ValidationTeam, prev: ValidationTeam | null, key: string): number | null {
-  const c = num(curr.totals[key]);
-  const p = prev ? num(prev.totals[key]) : null;
-  return c == null || p == null ? null : c - p;
 }
 
 // Δ-vs-previous for a team metric, resolving values through teamMetricValue so
@@ -664,11 +700,15 @@ const COMPARE_ROWS: CompareRow[] = [
 ];
 
 function TeamCompare({
+  game,
+  prevGame,
   left,
   right,
   prevLeft,
   prevRight,
 }: {
+  game: ValidationGame;
+  prevGame: ValidationGame | null;
   left: ValidationTeam;
   right: ValidationTeam;
   prevLeft: ValidationTeam | null;
@@ -697,10 +737,10 @@ function TeamCompare({
           <CompareBar
             key={row.key}
             label={row.label}
-            left={num(left.totals[row.key])}
-            right={num(right.totals[row.key])}
-            leftDelta={teamDelta(left, prevLeft, row.key)}
-            rightDelta={teamDelta(right, prevRight, row.key)}
+            left={teamMetricValue(game, left, row.key)}
+            right={teamMetricValue(game, right, row.key)}
+            leftDelta={teamMetricDelta(game, prevGame, left, prevLeft, row.key)}
+            rightDelta={teamMetricDelta(game, prevGame, right, prevRight, row.key)}
             invert={row.invert}
             format={row.format ?? ((v) => fmt(v, row.metric))}
           />
@@ -1456,9 +1496,27 @@ function TrendsView({ ledger }: { ledger: ValidationLedger }) {
   const [picked, setPicked] = useState<string[]>(teams.map((t) => t.id));
 
   const pool = scope === "team" ? teams : players;
+  // Reset the selection to defaults ONLY when the scope actually changes. The
+  // 15s ledger refresh produces fresh teams/players array identities for the
+  // same logical subjects; on those we reconcile the existing picks against the
+  // new pool (keep picks that still exist, drop those that vanished) instead of
+  // wiping the user's custom selection mid-use (issue #258 Codex P2).
+  const prevScopeRef = useRef(scope);
   useEffect(() => {
-    setPicked(scope === "team" ? teams.map((t) => t.id) : players.slice(0, 2).map((p) => p.id));
-  }, [scope, teams, players]);
+    if (prevScopeRef.current !== scope) {
+      prevScopeRef.current = scope;
+      setPicked(scope === "team" ? teams.map((t) => t.id) : players.slice(0, 2).map((p) => p.id));
+      return;
+    }
+    setPicked((prev) => {
+      const ids = new Set(pool.map((s) => s.id));
+      const kept = prev.filter((id) => ids.has(id));
+      if (kept.length === prev.length) return prev;
+      if (kept.length > 0) return kept;
+      // Every prior pick vanished — fall back to the scope's defaults.
+      return scope === "team" ? teams.map((t) => t.id) : players.slice(0, 2).map((p) => p.id);
+    });
+  }, [scope, teams, players, pool]);
 
   const chosen = pool.filter((s) => picked.includes(s.id));
   const toggle = (id: string) =>
@@ -1585,17 +1643,136 @@ function TrendsView({ ledger }: { ledger: ValidationLedger }) {
   );
 }
 
+// --- demo-watch link + game navigation (issue #253) --------------------------
+
+// Clickable link that opens THIS game's demo in the FTE demo-viewer pane
+// (issue #253 @12:13) — never the raw .mvd download. Hidden when the game
+// carries no demo, so there is no broken link. Opens in a new tab.
+function WatchDemoLink({ game }: { game: ValidationGame }) {
+  const href = demoViewerHref(game);
+  if (!href) return null;
+  return (
+    <a
+      data-evidence-watch-demo
+      href={href}
+      target="_blank"
+      rel="noopener"
+      title={`Watch demo: ${game.demo?.name ?? ""}`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        fontFamily: "var(--font-mono)",
+        fontSize: "var(--t-2xs)",
+        fontWeight: 700,
+        letterSpacing: "var(--ls-label)",
+        textTransform: "uppercase",
+        padding: "3px 9px",
+        borderRadius: "var(--r-2)",
+        whiteSpace: "nowrap",
+        textDecoration: "none",
+        background: "var(--komodo-900)",
+        color: "var(--komodo-300)",
+        border: "1px solid var(--komodo-700)",
+      }}
+    >
+      <span aria-hidden style={{ fontSize: "0.9em" }}>▶</span>
+      Watch demo
+    </a>
+  );
+}
+
+// Prev/next stepper over the ledger's games (issue #253 @12:15). The ledger is
+// oldest→newest, so ▶ next is a more recent game, ◀ prev an earlier one; the
+// arrow at each end is disabled (no wrap). Selecting a game updates everything
+// downstream (scoreboard/team cards/deltas/bench context/demo link) because the
+// parent re-derives all of it from the chosen index.
+function GameNav({
+  index,
+  count,
+  runId,
+  onStep,
+}: {
+  index: number;
+  count: number;
+  runId: string;
+  onStep: (delta: number) => void;
+}) {
+  const atOldest = index <= 0;
+  const atNewest = index >= count - 1;
+  const arrowStyle = (disabled: boolean): CSSProperties => ({
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 28,
+    height: 24,
+    fontFamily: "var(--font-mono)",
+    fontSize: "var(--t-sm)",
+    lineHeight: 1,
+    borderRadius: "var(--r-2)",
+    background: "var(--surface-raised)",
+    color: disabled ? "var(--text-faint)" : "var(--text-strong)",
+    border: "1px solid var(--border-line)",
+    cursor: disabled ? "default" : "pointer",
+    opacity: disabled ? 0.5 : 1,
+  });
+  return (
+    <div data-evidence-game-nav style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <button
+        data-evidence-game-prev
+        aria-label="Previous (earlier) game"
+        title="Earlier game"
+        disabled={atOldest}
+        style={arrowStyle(atOldest)}
+        onClick={() => onStep(-1)}
+      >
+        ◀
+      </button>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "var(--t-2xs)",
+          color: "var(--text-muted)",
+          letterSpacing: "0.06em",
+          whiteSpace: "nowrap",
+        }}
+      >
+        game {index + 1}/{count} · {runId}
+      </span>
+      <button
+        data-evidence-game-next
+        aria-label="Next (more recent) game"
+        title="More recent game"
+        disabled={atNewest}
+        style={arrowStyle(atNewest)}
+        onClick={() => onStep(1)}
+      >
+        ▶
+      </button>
+    </div>
+  );
+}
+
 export function FourVFourEvidence() {
   const [ledger, setLedger] = useState<ValidationLedger | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [view, setView] = useState<View>(initialView);
+  // Selected game by run_id (issue #253 game-nav). null = follow the latest
+  // game (the default). The URL ?game= seeds the initial pick so a refresh /
+  // shared link reopens the same game.
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(initialGameParam);
   const url = useMemo(dataUrl, []);
 
   const onView = (v: View) => {
     setView(v);
     setViewParam(v);
+  };
+
+  const onSelectGame = (runId: string | null) => {
+    setSelectedRunId(runId);
+    setGameParam(runId);
   };
 
   useEffect(() => {
@@ -1626,8 +1803,41 @@ export function FourVFourEvidence() {
     };
   }, [url, refreshKey]);
 
-  const game = useMemo(() => (ledger ? latestGame(ledger) : null), [ledger]);
+  // Resolve the shown game from the selected run_id, falling back to the latest
+  // game when nothing is selected OR the selected game vanished from a refreshed
+  // ledger. This mirrors the Trends pick-reconcile pattern: the live 15s refresh
+  // must NOT yank the user off their chosen game while it still exists.
+  const games = ledger?.games ?? [];
+  const gameIndex = useMemo(() => {
+    if (games.length === 0) return -1;
+    if (selectedRunId) {
+      const idx = games.findIndex((g) => g.run_id === selectedRunId);
+      if (idx >= 0) return idx;
+    }
+    // default / fallback: the latest game (also the fallback when a selected
+    // game vanished from a refreshed ledger).
+    const last = ledger ? latestGame(ledger) : null;
+    return last ? games.indexOf(last) : games.length - 1;
+  }, [games, selectedRunId, ledger]);
+  const game = gameIndex >= 0 ? games[gameIndex] : null;
   const prev = useMemo(() => (ledger && game ? findPrevGame(ledger, game) : null), [ledger, game]);
+
+  // If the selected game disappeared from a refreshed ledger, drop the stale
+  // ?game= param so the URL reflects the latest-game fallback we're showing.
+  useEffect(() => {
+    if (selectedRunId && games.length > 0 && !games.some((g) => g.run_id === selectedRunId)) {
+      setSelectedRunId(null);
+      setGameParam(null);
+    }
+  }, [games, selectedRunId]);
+
+  const onStepGame = (delta: number) => {
+    if (gameIndex < 0) return;
+    const next = gameIndex + delta;
+    if (next < 0 || next >= games.length) return;
+    // Stepping onto the latest game clears the param (latest is the default).
+    onSelectGame(next === games.length - 1 ? null : games[next].run_id);
+  };
 
   const pageStyle: CSSProperties = {
     minHeight: "100vh",
@@ -1698,6 +1908,16 @@ export function FourVFourEvidence() {
               ? `${ledger.games.length} game(s) · oldest → newest`
               : `RUN ${game.run_id} · Δ vs ${game.previous_valid_run_id ?? "baseline"}`}
           </span>
+          {/* Game stepper + demo-watch link — live view only, since they are
+              game-scoped (Trends spans the whole ledger). issue #253. */}
+          {!isTrends && (
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
+              {games.length > 1 && (
+                <GameNav index={gameIndex} count={games.length} runId={game.run_id} onStep={onStepGame} />
+              )}
+              <WatchDemoLink game={game} />
+            </div>
+          )}
         </div>
 
         {isTrends ? (
@@ -1749,6 +1969,8 @@ function LiveStats({
 
         {orderedTeams.length === 2 && (
           <TeamCompare
+            game={game}
+            prevGame={prev}
             left={orderedTeams[0].team}
             right={orderedTeams[1].team}
             prevLeft={prev?.teams.find((t) => t.name === orderedTeams[0].team.name) ?? null}

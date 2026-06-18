@@ -172,6 +172,19 @@ class FourVFourValidationBuildTest(unittest.TestCase):
         control = next(p for p in second["players"] if p["slot"] == 2)
         self.assertEqual(control["deltas"]["frags"]["scope"], "same-version")
 
+    def test_demo_url_points_at_served_online_route(self):
+        # KTX writes the validation demo into ONLINE_DEMOS_DIR, served by cloud_hub
+        # at /demos/online/<name>. The ledger demo.url must use that served route so
+        # the dashboard "watch demo" link resolves; the old /demos/files/... prefix
+        # had no cloud_hub route and 404'd. Regression guard for the #259 demo link.
+        write_run(self.runs, "20260614T200000Z", controller_version="komodo-v1", komodo_frags=10)
+
+        game = fv.build(self.runs)["games"][0]
+
+        self.assertEqual(game["demo"]["name"], "20260614T200000Z.mvd")
+        self.assertEqual(game["demo"]["url"], "/demos/online/20260614T200000Z.mvd")
+        self.assertNotIn("/demos/files/", game["demo"]["url"])
+
     def test_under_five_minutes_is_excluded_but_recorded(self):
         write_run(self.runs, "20260614T200000Z", duration=299)
 

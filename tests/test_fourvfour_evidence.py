@@ -188,5 +188,148 @@ class EvidenceTeamDistinctionTest(unittest.TestCase):
         self.assertIn("game.bench?.leap_team", self.src)
 
 
+class EvidenceTeamCompareAggregationTest(unittest.TestCase):
+    """TeamCompare must resolve bar values through the same client-side
+    aggregation path as the team cards (teamMetricValue / teamMetricDelta), so
+    movement speed — which lives on player stats, not team totals — renders in
+    the compare bars instead of dying as "—" (issue #258 Codex P2)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = EVIDENCE_TSX.read_text(encoding="utf-8")
+
+    def test_teamcompare_takes_game_objects(self):
+        # The compare strip is invoked with the full game / prevGame objects so
+        # it can aggregate from player stats.
+        self.assertIn("<TeamCompare", self.src)
+        compare_call = self.src.split("<TeamCompare", 1)[1].split("/>", 1)[0]
+        self.assertIn("game={game}", compare_call)
+        self.assertIn("prevGame={prev}", compare_call)
+
+    def test_teamcompare_bars_use_team_metric_helpers(self):
+        # Inside TeamCompare's CompareBar, values/deltas route through the
+        # aggregation helpers, NOT raw totals[row.key] (the regression we guard).
+        body = self.src.split("function TeamCompare", 1)[1].split("\nfunction ", 1)[0]
+        self.assertIn("teamMetricValue(game, left, row.key)", body)
+        self.assertIn("teamMetricValue(game, right, row.key)", body)
+        self.assertIn("teamMetricDelta(game, prevGame, left, prevLeft, row.key)", body)
+        self.assertIn("teamMetricDelta(game, prevGame, right, prevRight, row.key)", body)
+        # Regression guard: the old direct-total reads must be gone from the bars.
+        self.assertNotIn("num(left.totals[row.key])", body)
+        self.assertNotIn("num(right.totals[row.key])", body)
+
+
+class EvidenceTrendsPickReconcileTest(unittest.TestCase):
+    """The Trends custom subject selection must survive the 15s ledger refresh:
+    the reset-to-defaults effect fires only on a real scope change; on a refresh
+    (same scope, new array identities) picks are reconciled against the new pool
+    rather than blanket-reset (issue #258 Codex P2)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = EVIDENCE_TSX.read_text(encoding="utf-8")
+        cls.body = cls.src.split("function TrendsView", 1)[1].split("\nfunction ", 1)[0]
+
+    def test_reset_is_gated_on_scope_change(self):
+        # A ref tracks the previous scope; defaults are only applied when scope
+        # actually changes.
+        self.assertIn("prevScopeRef", self.body)
+        self.assertIn("useRef(scope)", self.body)
+        self.assertIn("prevScopeRef.current !== scope", self.body)
+
+    def test_refresh_reconciles_instead_of_resetting(self):
+        # On a same-scope refresh, kept picks are filtered against the new pool.
+        self.assertIn("pool.map((s) => s.id)", self.body)
+        self.assertIn("prev.filter((id) => ids.has(id))", self.body)
+
+
+class EvidenceWatchDemoLinkTest(unittest.TestCase):
+    """Feature 1 (issue #253 @12:13): a clickable link opens THIS game's demo in
+    the FTE demo-viewer pane (panes/demo.html), never the raw .mvd download.
+
+    P1 fix (PR #259): the pane treats ?demo= as a URL/path it HEADs, so the value
+    MUST be the playable path the hub serves (game.demo.url, e.g.
+    /demos/files/.../<name>), not the bare basename (game.demo.name) — a basename
+    resolves relative to /botlab/panes/ and the pane fails with "demo not found".
+    The href must therefore be panes/demo.html?demo=<encodeURIComponent(url)>
+    (the pane reads q.get("demo") and re-encodes [ ] space itself), preferring
+    url with a name fallback, open in a new tab, and be hidden when the game
+    carries neither url nor name."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = EVIDENCE_TSX.read_text(encoding="utf-8")
+        cls.builder = cls.src.split("function demoViewerHref", 1)[1].split("\nfunction ", 1)[0]
+        cls.link = cls.src.split("function WatchDemoLink", 1)[1].split("\nfunction ", 1)[0]
+
+    def test_href_passes_the_playable_path_not_the_basename(self):
+        # The pane path + the ?demo= param name the pane parses (q.get("demo")).
+        self.assertIn("panes/demo.html?demo=", self.builder)
+        # P1: the demo param carries the PLAYABLE path (game.demo.url), preferring
+        # url and only falling back to the basename name when url is absent.
+        self.assertIn("game.demo?.url ?? game.demo?.name", self.builder)
+        # Whatever target we picked is %-encoded for the param (keeps "/" path
+        # separators, encodes [ ] etc.) — never a hand-built demo=<name>.
+        self.assertIn("encodeURIComponent(target)", self.builder)
+        # Regression guard: passing the bare basename as the demo param (the
+        # pre-fix behavior, which 404s on real 4v4 data) must NOT come back.
+        self.assertNotIn("encodeURIComponent(name)", self.builder)
+        self.assertNotIn("demo=${encodeURIComponent(game.demo?.name)}", self.builder)
+
+    def test_link_opens_new_tab_and_is_hidden_without_a_demo(self):
+        self.assertIn('target="_blank"', self.link)
+        self.assertIn('rel="noopener"', self.link)
+        # No demo -> no link (href is null) instead of a broken link.
+        self.assertIn("if (!href) return null;", self.link)
+        self.assertIn("data-evidence-watch-demo", self.link)
+
+    def test_pane_param_name_matches_the_viewer(self):
+        # Guard that the param name we build matches what the viewer pane reads;
+        # if the pane ever renames it, this breaks loudly.
+        pane = (REPO / "lab" / "dashboard" / "public" / "panes" / "demo.html").read_text(encoding="utf-8")
+        self.assertIn('q.get("demo")', pane)
+
+
+class EvidenceGameNavTest(unittest.TestCase):
+    """Feature 2 (issue #253 @12:15): prev/next arrows step through the ledger's
+    games. The selected game is reflected in the URL (?game=<run_id>) so a
+    refresh/share keeps it, and the 15s live-refresh reconciles the selection
+    against the new ledger (keep if it still exists, else fall back to latest)
+    rather than yanking the user off their chosen game."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = EVIDENCE_TSX.read_text(encoding="utf-8")
+        cls.component = cls.src.split("export function FourVFourEvidence", 1)[1]
+
+    def test_url_state_helpers_for_the_selected_game(self):
+        # ?game= is read on load and written on selection, mirroring the existing
+        # initialView/setViewParam URL helpers.
+        self.assertIn("function initialGameParam()", self.src)
+        self.assertIn('.get("game")', self.src)
+        self.assertIn("function setGameParam(", self.src)
+        self.assertIn('url.searchParams.set("game"', self.src)
+        self.assertIn('url.searchParams.delete("game")', self.src)
+        # The component seeds its selection from the URL and writes it on select.
+        self.assertIn("useState<string | null>(initialGameParam)", self.component)
+        self.assertIn("setGameParam(runId)", self.component)
+
+    def test_nav_steps_within_bounds_no_wrap(self):
+        step = self.component.split("const onStepGame", 1)[1].split("\n  const ", 1)[0]
+        self.assertIn("if (next < 0 || next >= games.length) return;", step)
+
+    def test_refresh_reconciles_selection_to_latest_when_game_vanishes(self):
+        # On a refreshed ledger that no longer contains the selected run_id, the
+        # resolver falls back to the latest game (not a blank/empty page) and the
+        # stale ?game= param is dropped — the live-refresh-survival contract.
+        self.assertIn("games.findIndex((g) => g.run_id === selectedRunId)", self.component)
+        self.assertIn("!games.some((g) => g.run_id === selectedRunId)", self.component)
+        self.assertIn("setGameParam(null)", self.component)
+
+    def test_nav_and_demo_link_are_wired_into_the_live_view(self):
+        self.assertIn("<GameNav", self.component)
+        self.assertIn("<WatchDemoLink game={game}", self.component)
+
+
 if __name__ == "__main__":
     unittest.main()
