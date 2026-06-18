@@ -274,6 +274,13 @@ function teamIdxForName(game: ValidationGame, teamName: string): number {
   return idx < 0 ? 0 : idx;
 }
 
+// Bot display name without the redundant "control" role word that the roster
+// bakes in (e.g. "frog-control-5" -> "frog-5"); the squad tag already shows the
+// role, so the name shouldn't repeat it (issue #253).
+function botLabel(raw: string): string {
+  return raw.replace(/control/gi, "").replace(/-{2,}/g, "-").replace(/^-+|-+$/g, "");
+}
+
 function orderedPlayers(game: ValidationGame): Array<{ player: ValidationPlayer; tone: SideTone; teamIdx: number }> {
   return game.players
     .map((player) => {
@@ -1125,7 +1132,7 @@ function Scoreboard({ game, prev }: { game: ValidationGame; prev: ValidationGame
                       <TeamTag team={tone.squad} size="sm" />
                       <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.25 }}>
                         <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--t-sm)", fontWeight: 700, color: "var(--text-strong)" }}>
-                          {player.roster.name || player.identity.name}
+                          {botLabel(player.roster.name || player.identity.name)}
                         </span>
                         <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--t-2xs)", color: "var(--text-faint)" }}>
                           {subLabel}
@@ -1413,7 +1420,7 @@ function buildTrendSubjects(ledger: ValidationLedger): { teams: TrendSubject[]; 
       playerSubjects.push({
         id: `slot-${player.slot}`,
         kind: "player",
-        label: player.roster.name || player.identity.name,
+        label: botLabel(player.roster.name || player.identity.name),
         tag: tone.squad,
         color: palette[ci % palette.length],
         hist,
