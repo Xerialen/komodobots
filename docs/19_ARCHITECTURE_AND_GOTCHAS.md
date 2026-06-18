@@ -86,13 +86,19 @@ live, set **`k_fb_moveprobe_mode_s2..s5 = 30`**. Leave `s6..s9` unset — those 
 team and must stay stock. (`run_live.sh` is the *simpler matchless-FFA* case, but it is **not**
 an exception to the rule: it also adds its bots through the spectator shim
 (`qw_min_client.py --spectator`, `run_live.sh:79-81`), so that spectator still takes client
-slot 0 and the bots still land on slots 1..N / edicts 2..N. It sets `k_fb_moveprobe_mode_s0..s3`
-(`run_live.sh:62-65`) as a **blanket over-cover** for its handful of bots — that range happens
-to key the unused spectator slot 0 *plus* bot slots 1..3, which is harmless because the
-spectator is not a frogbot. Setting `s0..s3` is therefore consistent with — not a counterexample
-to — the EDICT-suffix rule, and you must **not** copy `s0..s3` into the 4v4 case: there it would
-key the spectator + edicts 2..4 and leave edicts 4/5 uncovered, so the 4v4 case needs `s2..s5`.
-The rule is mechanical: write the EDICT suffix of the bots you want live.)
+slot 0 / **edict 1** and the bots still land on slots 1..N / edicts 2..N. It sets
+`k_fb_moveprobe_mode_s0..s3` (`run_live.sh:62-65`), and because the suffix is the EDICT
+(`NUM_FOR_EDICT(self)`, never edict 0) that range maps as: **`s0` is unused** (no edict 0),
+**`s1` addresses the spectator edict** (edict 1, not a frogbot — harmless), and only **`s2`/`s3`
+cover the first two bots** (edicts 2/3). That is exactly enough for `run_live.sh`'s **default
+`BOTS=2`** (`run_live.sh:32`): the two bots are edicts 2/3, both covered. The over-cover of the
+spectator edict is harmless, so setting `s0..s3` here is consistent with — not a counterexample
+to — the EDICT-suffix rule. **The trap:** raise `BOTS` above the default 2 and the extra bots
+take **edicts 4, 5, …**, which the `s0..s3` range does **not** cover — they silently run stock
+frogbot (the partial-live seating trap). And you must **not** copy `s0..s3` into the 4v4 case:
+there the four leap bots are edicts 2..5, so `s0..s3` would cover only edicts 2/3 and leave
+edicts 4/5 uncovered — the 4v4 case needs `s2..s5`.
+The rule is mechanical: write the EDICT suffix of each bot you want live.)
 
 **Evidence:** `frogbot-moveprobe-perslot.patch:28,301,319`;
 `experiments/ktx_moveprobe/T0.3_LIVE_MODE.md:43`; memory `leap-slot-seating-cap8`.
@@ -268,17 +274,26 @@ percentiles into `movement-metrics.json` (schema `komodobots.movement_metrics.v2
 `:24,382-387,703`). It skips unnamed slots by default, so the spectator shim at slot 0 is
 excluded.
 
-**What to do / invariant:** treat movement-metrics as a **separate artifact** from the
-validation ledger; they are produced independently. When an overlay does fold speed in, the
-rule is: **only fill speed when present, never clobber a KTX-supplied value.** (Today the
-4v4 ledger builder does not consume movement-metrics at all — `VALIDATION_METRICS` in
-`fourvfour_validation_build.py:56-74` is frags/deaths/damage-done/efficiency etc., no speed.
-KTX stats are the source of truth for those via `normalize_match`.)
+**What to do / invariant — ledger speed is analyzer-derived, not KTX:** the 4v4 ledger
+builder **does** carry `avg_speed`/`max_speed` (they are in `VALIDATION_METRICS`,
+`fourvfour_validation_build.py:71-94`), and the *ledger* value is **analyzer-derived**:
+`extract_run_speeds()` **prefers `movement-metrics.json`, then falls back to the analyzer's
+`events.txt`** (`:326-386`), and `_attach_speeds()` **overlays** those analyzer-derived values
+onto `player["stats"]` when present (`:584-586`). The KTX `speed.avg/max` surfaced by
+`ktx_match_stats.py` (§6 above) is a **separate, raw** source; for the *ledger* it is only the
+fallback that survives when no position artifact exists (the overlay only fills speed when
+present, never clobbers it). So the precedence for ledger speed is
+**movement-metrics.json → events.txt → (whatever KTX speed the normalizer left in place)**. If
+ledger speed looks wrong, suspect a **stale or mismatched `movement-metrics.json` artifact**
+(or a name-match miss between analyzer and roster) — do **not** assume the ledger is just
+echoing KTX speed.
 
 **Evidence:** `lab/server/ktx_match_stats.py:104-105,194-195` (KTX `speed.avg/max` →
-`avg_speed`/`max_speed`), `tests/test_ktx_match_stats.py:177-178` (preserved through normalize);
-`scripts/extract_movement_metrics.py:24,312-316,382-387,491-505,684,703`;
-`lab/server/fourvfour_validation_build.py:56-74`.
+`avg_speed`/`max_speed`, the *raw* source), `tests/test_ktx_match_stats.py:177-178` (preserved
+through normalize); `scripts/extract_movement_metrics.py:24,312-316,382-387,491-505,684,703`;
+`lab/server/fourvfour_validation_build.py:71-94` (`VALIDATION_METRICS` incl. speed),
+`:326-386` (`extract_run_speeds` movement-metrics → events.txt precedence), `:584-586`
+(`_attach_speeds` overlays analyzer speed onto ledger stats).
 
 ### 6a. Ledger validity rules (`komodobots.4v4_validation.v1`)
 
