@@ -50,6 +50,16 @@
   --blue-team-dim:#2C4E72;
   --blue-team-bg: #13202E;
 
+  /* --- Squad semantics (owner override of the kit, issue #253):
+         LEAP = orange (amber), FROG = green (komodo). The internal
+         red/blue side discriminator is kept but no longer surfaced. --- */
+  --leap:     var(--amber-500);
+  --leap-dim: var(--amber-600);
+  --leap-bg:  var(--amber-900);
+  --frog:     var(--komodo-500);
+  --frog-dim: var(--komodo-700);
+  --frog-bg:  var(--komodo-900);
+
   /* --- Signed delta semantics --- */
   --pos-500: #6FCB57;
   --pos-bg:  #16270F;
