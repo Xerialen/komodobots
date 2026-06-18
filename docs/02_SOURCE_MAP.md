@@ -1024,6 +1024,10 @@ Registered for the `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` program (the earlier
 ### Program & external movement-AI references
 
 - `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` — the program of record (greenfield bench-iterated human-like DM3 bot).
+- `docs/19_ARCHITECTURE_AND_GOTCHAS.md` — the live-loop architecture map plus the hard-won
+  particularities and prior mistakes (slot seating, MSHM capacity + drift guard, the silent
+  fallback trap, remote-shell quoting, speed-metric source, the merge gate + Codex review
+  semantics, the box reachability/do-not-harm rules, the move-only standstill baseline).
 - `references/12_DM3_4ON4_STANDIN_PROGRAM.md` — the earlier staged DM3 4on4 stand-in plan (Megalodon Milton), retained as background.
 - External method/validation literature (MLMove, Pearce, Humanoid + one-hop refs) is consolidated in
   `references/12_DM3_4ON4_STANDIN_PROGRAM.md` §9, folded from the prior `docs/11_EXTERNAL_MOVEMENT_AI_SOURCES.md` (superseded).
