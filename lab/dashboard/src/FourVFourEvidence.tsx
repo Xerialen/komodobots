@@ -602,7 +602,7 @@ function CompareBar({
               style={{
                 width: `${lw}%`,
                 height: "100%",
-                background: "var(--red-team)",
+                background: "var(--leap)",
                 opacity: leftWins ? 1 : 0.55,
                 transition: "width var(--dur-slow) var(--ease-out)",
               }}
@@ -625,7 +625,7 @@ function CompareBar({
               style={{
                 width: `${rw}%`,
                 height: "100%",
-                background: "var(--blue-team)",
+                background: "var(--frog)",
                 opacity: rightWins ? 1 : 0.55,
                 transition: "width var(--dur-slow) var(--ease-out)",
               }}
