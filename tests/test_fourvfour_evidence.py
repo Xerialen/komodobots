@@ -84,11 +84,13 @@ class FourVFourEvidenceLogicTest(unittest.TestCase):
         self.assertEqual([idx for _, idx in rows], [0, 0, 0, 0, 1, 1, 1, 1])
         red_slots = [p["slot"] for p, idx in rows if idx == 0]
         self.assertEqual(red_slots, sorted(red_slots))
-        # The tracked komodobot is slot 1, first row.
+        # Team A (RED) is the LEAP side — a whole team of leap bots, no single
+        # pinned row. The first four rows are all leap; no row is singled out.
         first_player, first_idx = rows[0]
         self.assertEqual(first_idx, 0)
         self.assertEqual(first_player["slot"], 1)
-        self.assertEqual(first_player["roster"]["role"], "komodobot")
+        red_roles = {p["roster"]["role"] for p, idx in rows if idx == 0}
+        self.assertEqual(red_roles, {"leap"})
 
     def test_team_score_and_total_deltas(self):
         team_a = self.game["teams"][0]
@@ -98,8 +100,9 @@ class FourVFourEvidenceLogicTest(unittest.TestCase):
         # damage_done is a totals key with a numeric delta.
         self.assertIsNotNone(team_delta(team_a, prev_a, "damage_done"))
 
-    def test_komodo_frag_delta_is_plus_four(self):
-        komodo = next(p for p in self.game["players"] if p["roster"]["role"] == "komodobot")
+    def test_lead_leap_frag_delta_is_plus_four(self):
+        komodo = next(p for p in self.game["players"] if p["slot"] == 1)
+        self.assertEqual(komodo["roster"]["role"], "leap")
         prev_komodo = next(p for p in self.prev["players"] if p["slot"] == komodo["slot"])
         self.assertEqual(komodo["stats"]["frags"], 14)
         self.assertEqual(prev_komodo["stats"]["frags"], 10)
@@ -116,7 +119,7 @@ class FourVFourEvidenceLogicTest(unittest.TestCase):
         self.assertEqual(delta_tone("frags", 0), "neutral")
 
     def test_missing_previous_player_yields_no_delta(self):
-        komodo = next(p for p in self.game["players"] if p["roster"]["role"] == "komodobot")
+        komodo = next(p for p in self.game["players"] if p["slot"] == 1)
         self.assertIsNone(player_delta(komodo, None, "frags"))
 
 
@@ -158,8 +161,31 @@ class EvidenceBenchBannerTest(unittest.TestCase):
     def test_evidence_source_wires_the_banner(self):
         src = EVIDENCE_TSX.read_text(encoding="utf-8")
         self.assertIn("data-evidence-bench", src)
-        self.assertIn("BenchVerdictBanner", src)
+        self.assertIn("BenchVerdict", src)
         self.assertIn("ledger.bench", src)
+
+
+class EvidenceTeamDistinctionTest(unittest.TestCase):
+    """Team (LEAP vs FROG) carries the distinction — the single-bot highlight is gone."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = EVIDENCE_TSX.read_text(encoding="utf-8")
+
+    def test_no_single_bot_highlight(self):
+        # No more komodobot row special-case, no amber-50 tracked-row highlight,
+        # no per-row tracked emphasis class.
+        self.assertNotIn('role === "komodobot"', self.src)
+        self.assertNotIn("bg-amber-50", self.src)
+        self.assertNotIn("text-amber-700", self.src)
+        self.assertNotIn("data-evidence-tracked", self.src)
+
+    def test_team_side_is_the_differentiator(self):
+        self.assertIn("toneForTeam", self.src)
+        self.assertIn('"LEAP"', self.src)
+        self.assertIn('"FROG"', self.src)
+        self.assertIn("data-evidence-side", self.src)
+        self.assertIn("game.bench?.leap_team", self.src)
 
 
 if __name__ == "__main__":

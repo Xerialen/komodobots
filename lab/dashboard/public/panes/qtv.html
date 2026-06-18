@@ -61,7 +61,7 @@
   </style>
 </head>
 <body>
-  <canvas id="fteCanvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+  <canvas id="fteCanvas" oncontextmenu="event.preventDefault()" tabindex="0"></canvas>
   <div id="status">booting…</div>
 
   <script>
@@ -107,6 +107,78 @@
     function cbuf(cmd) {
       try { window.FTEC.cbufadd(cmd + "\n"); } catch (e) { console.warn("fte cbufadd:", e); }
     }
+
+    // ----------------------------------------------- spectator UX (hub parity)
+    // Ports hub.quakeworld.nu's FtePlayerCanvas key handling + FteController POV
+    // cycling into this standalone embed (the hub does POV switching in JS off
+    // the FTE module's player list — there is no engine-native next/prev-player
+    // command). Refs:
+    //   hub src/pages/games/player/FtePlayerCanvas.tsx  (Tab/Space key handlers)
+    //   hub src/pages/games/fte/fteController.ts          (track / _trackByDelta)
+    //   hub src/pages/games/fte/types.ts                  (ClientState/Player API)
+    var consoleOpen = false;  // mirror of FTE console state (toggled on backquote)
+
+    // Walk the FTE module's client-slot table the way the hub's getPlayers()
+    // does: skip spectators and the ServeMe bot, return active player userids.
+    function spectatablePlayers() {
+      try {
+        var st = window.Module.getClientState();
+        var out = [];
+        for (var i = 0; i < st.allocated_client_slots; i++) {
+          var p = st.getPlayer(i);
+          if (!p) continue;
+          var nm = p.getNamePlain ? p.getNamePlain() : "";
+          if (p.spectator !== 0 || nm === "" || nm === "[ServeMe]") continue;
+          out.push({ userid: p.userid, name: nm });
+        }
+        out.sort(function (a, b) { return a.name.localeCompare(b.name); });
+        return out;
+      } catch (e) { return []; }
+    }
+    function trackedUserid() {
+      try {
+        var p = window.Module.getClientState().getPlayerView(0).getTrackedPlayer();
+        return p ? p.userid : null;
+      } catch (e) { return null; }
+    }
+    function trackByDelta(delta) {
+      var players = spectatablePlayers();
+      if (players.length === 0) return;
+      var ids = players.map(function (p) { return p.userid; });
+      var cur = trackedUserid();
+      var idx = cur === null ? -1 : ids.indexOf(cur);
+      var next = ids[((idx === -1 ? 0 : idx) + delta + ids.length) % ids.length];
+      // disable autotrack so a manual POV pick sticks (hub track() does this)
+      cbuf("cl_autotrack user");
+      cbuf("track " + next);
+    }
+
+    // Keyboard: Tab -> scoreboard (hold), Space/Right -> next POV, Left -> prev.
+    // Backquote toggles the console (so Tab is forwarded to scores, not eaten
+    // while typing). Guarded by consoleOpen exactly like the hub.
+    document.addEventListener("keydown", function (e) {
+      if (e.code === "Backquote") { consoleOpen = !consoleOpen; cbuf("toggleconsole"); e.preventDefault(); return; }
+      if (consoleOpen) return;
+      switch (e.code) {
+        case "Tab":        e.preventDefault(); cbuf("+showscores"); break;
+        case "ArrowLeft":  e.preventDefault(); trackByDelta(-1);   break;
+        case "ArrowRight": e.preventDefault(); trackByDelta(1);    break;
+      }
+    });
+    document.addEventListener("keyup", function (e) {
+      if (consoleOpen) return;
+      switch (e.code) {
+        case "Tab":   e.preventDefault(); cbuf("-showscores"); break;
+        case "Space": e.preventDefault(); trackByDelta(1);     break;
+      }
+    });
+    // Click the canvas to focus it (so key events land here, not the browser)
+    // and to advance POV — mirrors the hub's tap-to-track-next affordance.
+    (function () {
+      var cv = document.getElementById("fteCanvas");
+      cv.addEventListener("mousedown", function () { cv.focus(); });
+      cv.addEventListener("dblclick", function () { trackByDelta(1); });
+    })();
 
     function isQtvConnectedLog(text) {
       return text.indexOf("Welcome to FTEQTV") !== -1 ||
@@ -324,6 +396,7 @@
           clearInterval(poll);
           engineReady = true;
           cbuf("closemenu");
+          try { document.getElementById("fteCanvas").focus(); } catch (e) {}
           // Initial attach: issue qtvplay for the boot-time port.
           setState("retrying");
           attach(currentPort, RELAY, MAP);
