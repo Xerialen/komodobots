@@ -245,10 +245,16 @@ class EvidenceTrendsPickReconcileTest(unittest.TestCase):
 
 class EvidenceWatchDemoLinkTest(unittest.TestCase):
     """Feature 1 (issue #253 @12:13): a clickable link opens THIS game's demo in
-    the FTE demo-viewer pane (panes/demo.html), never the raw .mvd download. The
-    href must be panes/demo.html?demo=<encodeURIComponent(name)> (the pane reads
-    q.get("demo") and re-encodes [ ] space itself), open in a new tab, and be
-    hidden when the game carries no demo name."""
+    the FTE demo-viewer pane (panes/demo.html), never the raw .mvd download.
+
+    P1 fix (PR #259): the pane treats ?demo= as a URL/path it HEADs, so the value
+    MUST be the playable path the hub serves (game.demo.url, e.g.
+    /demos/files/.../<name>), not the bare basename (game.demo.name) — a basename
+    resolves relative to /botlab/panes/ and the pane fails with "demo not found".
+    The href must therefore be panes/demo.html?demo=<encodeURIComponent(url)>
+    (the pane reads q.get("demo") and re-encodes [ ] space itself), preferring
+    url with a name fallback, open in a new tab, and be hidden when the game
+    carries neither url nor name."""
 
     @classmethod
     def setUpClass(cls):
@@ -256,17 +262,21 @@ class EvidenceWatchDemoLinkTest(unittest.TestCase):
         cls.builder = cls.src.split("function demoViewerHref", 1)[1].split("\nfunction ", 1)[0]
         cls.link = cls.src.split("function WatchDemoLink", 1)[1].split("\nfunction ", 1)[0]
 
-    def test_href_targets_the_demo_viewer_pane_not_the_raw_mvd(self):
+    def test_href_passes_the_playable_path_not_the_basename(self):
         # The pane path + the ?demo= param name the pane parses (q.get("demo")).
         self.assertIn("panes/demo.html?demo=", self.builder)
-        # Param value is passed safely through encodeURIComponent.
-        self.assertIn("encodeURIComponent(name)", self.builder)
-        # It builds from the per-game demo name, not the raw .mvd url field.
-        self.assertIn("game.demo?.name", self.builder)
-        self.assertNotIn("game.demo?.url", self.builder)
-        self.assertNotIn("game.demo.url", self.builder)
+        # P1: the demo param carries the PLAYABLE path (game.demo.url), preferring
+        # url and only falling back to the basename name when url is absent.
+        self.assertIn("game.demo?.url ?? game.demo?.name", self.builder)
+        # Whatever target we picked is %-encoded for the param (keeps "/" path
+        # separators, encodes [ ] etc.) — never a hand-built demo=<name>.
+        self.assertIn("encodeURIComponent(target)", self.builder)
+        # Regression guard: passing the bare basename as the demo param (the
+        # pre-fix behavior, which 404s on real 4v4 data) must NOT come back.
+        self.assertNotIn("encodeURIComponent(name)", self.builder)
+        self.assertNotIn("demo=${encodeURIComponent(game.demo?.name)}", self.builder)
 
-    def test_link_opens_new_tab_and_is_hidden_without_a_name(self):
+    def test_link_opens_new_tab_and_is_hidden_without_a_demo(self):
         self.assertIn('target="_blank"', self.link)
         self.assertIn('rel="noopener"', self.link)
         # No demo -> no link (href is null) instead of a broken link.

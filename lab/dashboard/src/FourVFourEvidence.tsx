@@ -231,15 +231,23 @@ function setGameParam(runId: string | null) {
 }
 
 // Build the demo-viewer href for a game (issue #253 @12:13). The viewer pane
-// (public/panes/demo.html) reads the demo via ?demo=<name> — q.get("demo") —
-// and re-encodes [ ] space internally, so we pass the name through
-// encodeURIComponent and let the pane handle QW-name reserved chars. Map +
+// (public/panes/demo.html) reads the demo via ?demo=<path> — q.get("demo") —
+// HEADs it, then re-encodes [ ] space internally, so the value must be the
+// PLAYABLE path the hub serves, not a bare basename. The builder emits that
+// path in game.demo.url (e.g. /demos/files/.../4on4_red_vs_blue[dm3]...mvd);
+// game.demo.name is only the basename and would resolve relative to
+// /botlab/panes/, so the pane HEAD fails ("demo not found"). We therefore
+// prefer url, fall back to name when url is absent (better than nothing), and
+// hide the link when neither exists. encodeURIComponent keeps the path's "/"
+// separators and %-encodes [ ] etc.; URLSearchParams in the pane decodes it
+// once, then the pane re-encodes the QW reserved chars before the HEAD/load,
+// so the bracketed name round-trips to the exact URL the server serves. Map +
 // duration are passed when known so the pane can resolve the .bsp and show a
 // bounded seek bar. Returns null when the game has no demo (link is hidden).
 function demoViewerHref(game: ValidationGame): string | null {
-  const name = game.demo?.name;
-  if (!name) return null;
-  let href = `panes/demo.html?demo=${encodeURIComponent(name)}`;
+  const target = game.demo?.url ?? game.demo?.name;
+  if (!target) return null;
+  let href = `panes/demo.html?demo=${encodeURIComponent(target)}`;
   const map = game.match?.map;
   if (map) href += `&map=${encodeURIComponent(map)}`;
   const duration = num(game.match?.duration);
