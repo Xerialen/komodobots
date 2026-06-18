@@ -50,7 +50,7 @@
   </style>
 </head>
 <body>
-  <canvas id="fteCanvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+  <canvas id="fteCanvas" oncontextmenu="event.preventDefault()" tabindex="0"></canvas>
   <div id="status">booting…</div>
   <div id="error"><div class="box"><h1>demo pane error</h1><div id="errorMsg"></div></div></div>
   <div id="bar">
@@ -123,6 +123,75 @@
     function demoTime() {
       try { return window.Module.getDemoTime(); } catch (e) { return 0; }
     }
+
+    // ----------------------------------------------- spectator UX (hub parity)
+    // Ports hub.quakeworld.nu's FtePlayerCanvas key handling + FteController POV
+    // cycling (the hub switches POV in JS off the FTE module's player list;
+    // there is no engine-native next/prev-player command). Refs:
+    //   hub src/pages/games/player/FtePlayerCanvas.tsx  (Tab/Space key handlers)
+    //   hub src/pages/games/fte/fteController.ts          (track / _trackByDelta)
+    //   hub src/pages/games/fte/types.ts                  (ClientState/Player API)
+    var consoleOpen = false;  // mirror of FTE console state (toggled on backquote)
+
+    function spectatablePlayers() {
+      try {
+        var st = window.Module.getClientState();
+        var out = [];
+        for (var i = 0; i < st.allocated_client_slots; i++) {
+          var p = st.getPlayer(i);
+          if (!p) continue;
+          var nm = p.getNamePlain ? p.getNamePlain() : "";
+          if (p.spectator !== 0 || nm === "" || nm === "[ServeMe]") continue;
+          out.push({ userid: p.userid, name: nm });
+        }
+        out.sort(function (a, b) { return a.name.localeCompare(b.name); });
+        return out;
+      } catch (e) { return []; }
+    }
+    function trackedUserid() {
+      try {
+        var p = window.Module.getClientState().getPlayerView(0).getTrackedPlayer();
+        return p ? p.userid : null;
+      } catch (e) { return null; }
+    }
+    function trackByDelta(delta) {
+      var players = spectatablePlayers();
+      if (players.length === 0) return;
+      var ids = players.map(function (p) { return p.userid; });
+      var cur = trackedUserid();
+      var idx = cur === null ? -1 : ids.indexOf(cur);
+      var next = ids[((idx === -1 ? 0 : idx) + delta + ids.length) % ids.length];
+      cbuf("cl_autotrack user");   // manual pick sticks (hub track() disables autotrack)
+      cbuf("track " + next);
+    }
+
+    // Tab -> scoreboard (hold); Space/Right -> next POV; Left -> prev POV.
+    // Backquote toggles the console; play/pause stays on the on-screen button
+    // (so Space is free for POV, matching how the hub maps demo-mode keys).
+    document.addEventListener("keydown", function (e) {
+      // let the transport controls own typing/focus inside the bar
+      if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "SELECT")) return;
+      if (e.code === "Backquote") { consoleOpen = !consoleOpen; cbuf("toggleconsole"); e.preventDefault(); return; }
+      if (consoleOpen) return;
+      switch (e.code) {
+        case "Tab":        e.preventDefault(); cbuf("+showscores"); break;
+        case "ArrowLeft":  e.preventDefault(); trackByDelta(-1);   break;
+        case "ArrowRight": e.preventDefault(); trackByDelta(1);    break;
+      }
+    });
+    document.addEventListener("keyup", function (e) {
+      if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "SELECT")) return;
+      if (consoleOpen) return;
+      switch (e.code) {
+        case "Tab":   e.preventDefault(); cbuf("-showscores"); break;
+        case "Space": e.preventDefault(); trackByDelta(1);     break;
+      }
+    });
+    (function () {
+      var cv = document.getElementById("fteCanvas");
+      cv.addEventListener("mousedown", function () { cv.focus(); });
+      cv.addEventListener("dblclick", function () { trackByDelta(1); });
+    })();
     function fmtClock(t) {
       t = Math.max(0, Math.floor(t));
       return Math.floor(t / 60) + ":" + ("0" + (t % 60)).slice(-2);
@@ -335,6 +404,7 @@
         if (ready) {
           clearInterval(poll);
           cbuf("closemenu");
+          try { document.getElementById("fteCanvas").focus(); } catch (e) {}
           waitForLoad();
         } else if (tries > 600) {                       // ~2 min
           clearInterval(poll);
