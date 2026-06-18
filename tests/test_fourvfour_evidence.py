@@ -243,5 +243,83 @@ class EvidenceTrendsPickReconcileTest(unittest.TestCase):
         self.assertIn("prev.filter((id) => ids.has(id))", self.body)
 
 
+class EvidenceWatchDemoLinkTest(unittest.TestCase):
+    """Feature 1 (issue #253 @12:13): a clickable link opens THIS game's demo in
+    the FTE demo-viewer pane (panes/demo.html), never the raw .mvd download. The
+    href must be panes/demo.html?demo=<encodeURIComponent(name)> (the pane reads
+    q.get("demo") and re-encodes [ ] space itself), open in a new tab, and be
+    hidden when the game carries no demo name."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = EVIDENCE_TSX.read_text(encoding="utf-8")
+        cls.builder = cls.src.split("function demoViewerHref", 1)[1].split("\nfunction ", 1)[0]
+        cls.link = cls.src.split("function WatchDemoLink", 1)[1].split("\nfunction ", 1)[0]
+
+    def test_href_targets_the_demo_viewer_pane_not_the_raw_mvd(self):
+        # The pane path + the ?demo= param name the pane parses (q.get("demo")).
+        self.assertIn("panes/demo.html?demo=", self.builder)
+        # Param value is passed safely through encodeURIComponent.
+        self.assertIn("encodeURIComponent(name)", self.builder)
+        # It builds from the per-game demo name, not the raw .mvd url field.
+        self.assertIn("game.demo?.name", self.builder)
+        self.assertNotIn("game.demo?.url", self.builder)
+        self.assertNotIn("game.demo.url", self.builder)
+
+    def test_link_opens_new_tab_and_is_hidden_without_a_name(self):
+        self.assertIn('target="_blank"', self.link)
+        self.assertIn('rel="noopener"', self.link)
+        # No demo -> no link (href is null) instead of a broken link.
+        self.assertIn("if (!href) return null;", self.link)
+        self.assertIn("data-evidence-watch-demo", self.link)
+
+    def test_pane_param_name_matches_the_viewer(self):
+        # Guard that the param name we build matches what the viewer pane reads;
+        # if the pane ever renames it, this breaks loudly.
+        pane = (REPO / "lab" / "dashboard" / "public" / "panes" / "demo.html").read_text(encoding="utf-8")
+        self.assertIn('q.get("demo")', pane)
+
+
+class EvidenceGameNavTest(unittest.TestCase):
+    """Feature 2 (issue #253 @12:15): prev/next arrows step through the ledger's
+    games. The selected game is reflected in the URL (?game=<run_id>) so a
+    refresh/share keeps it, and the 15s live-refresh reconciles the selection
+    against the new ledger (keep if it still exists, else fall back to latest)
+    rather than yanking the user off their chosen game."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = EVIDENCE_TSX.read_text(encoding="utf-8")
+        cls.component = cls.src.split("export function FourVFourEvidence", 1)[1]
+
+    def test_url_state_helpers_for_the_selected_game(self):
+        # ?game= is read on load and written on selection, mirroring the existing
+        # initialView/setViewParam URL helpers.
+        self.assertIn("function initialGameParam()", self.src)
+        self.assertIn('.get("game")', self.src)
+        self.assertIn("function setGameParam(", self.src)
+        self.assertIn('url.searchParams.set("game"', self.src)
+        self.assertIn('url.searchParams.delete("game")', self.src)
+        # The component seeds its selection from the URL and writes it on select.
+        self.assertIn("useState<string | null>(initialGameParam)", self.component)
+        self.assertIn("setGameParam(runId)", self.component)
+
+    def test_nav_steps_within_bounds_no_wrap(self):
+        step = self.component.split("const onStepGame", 1)[1].split("\n  const ", 1)[0]
+        self.assertIn("if (next < 0 || next >= games.length) return;", step)
+
+    def test_refresh_reconciles_selection_to_latest_when_game_vanishes(self):
+        # On a refreshed ledger that no longer contains the selected run_id, the
+        # resolver falls back to the latest game (not a blank/empty page) and the
+        # stale ?game= param is dropped — the live-refresh-survival contract.
+        self.assertIn("games.findIndex((g) => g.run_id === selectedRunId)", self.component)
+        self.assertIn("!games.some((g) => g.run_id === selectedRunId)", self.component)
+        self.assertIn("setGameParam(null)", self.component)
+
+    def test_nav_and_demo_link_are_wired_into_the_live_view(self):
+        self.assertIn("<GameNav", self.component)
+        self.assertIn("<WatchDemoLink game={game}", self.component)
+
+
 if __name__ == "__main__":
     unittest.main()
