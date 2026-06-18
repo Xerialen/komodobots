@@ -63,8 +63,15 @@ def best_sample(commands: list[dict], target: tuple[float, float, float], active
 
 def horizontal_speed(row: dict) -> float | None:
     water = row.get("water_state") or {}
-    vx = water.get("velocity_x")
-    vy = water.get("velocity_y")
+    # Real rows from moveprobe_parse.py nest velocity as water_state["velocity"]
+    # {"x","y","z"}; fall back to the legacy flat velocity_x/velocity_y keys.
+    velocity = water.get("velocity")
+    if isinstance(velocity, dict):
+        vx = velocity.get("x")
+        vy = velocity.get("y")
+    else:
+        vx = water.get("velocity_x")
+        vy = water.get("velocity_y")
     if vx is None or vy is None:
         return None
     return round(math.hypot(float(vx), float(vy)), 3)
@@ -89,12 +96,7 @@ def event_summary(run_dir: Path) -> dict:
     }
 
 
-def score_run(targets_path: Path, run_dir: Path) -> dict:
-    targets_doc = load_json(targets_path)
-    commands_doc = load_json(run_dir / "moveprobe-commands.json")
-    commands = commands_doc.get("commands") or []
-    events = event_summary(run_dir)
-
+def score_targets(commands: list[dict], targets_doc: dict) -> list[dict]:
     rows = []
     for target_row in targets_doc.get("targets", []):
         target = point_from_origin(target_row["target"]["origin"])
@@ -128,16 +130,73 @@ def score_run(targets_path: Path, run_dir: Path) -> dict:
             "acquired": acquired,
             "inactive_gate_hit": inactive_gate_hit,
         })
+    return rows
 
-    overall = "PASS" if rows and all(row["acquired"] for row in rows) and events["complete"] else "FAIL"
+
+def score_run(targets_path: Path, run_dir: Path) -> dict:
+    targets_doc = load_json(targets_path)
+    commands_doc = load_json(run_dir / "moveprobe-commands.json")
+    commands = commands_doc.get("commands") or []
+    events = event_summary(run_dir)
+
+    # Group commands by player edict. In multi-bot lab runs each command row is
+    # per player (`ed` = edict, slot = ed-1), so a single player must satisfy
+    # EVERY target AND emit the complete event — otherwise cross-bot acquisitions
+    # (bot A enters target 1, bot B enters target 2, either emits complete) would
+    # falsely PASS and corrupt the acquisition evidence. Untagged rows (no `ed`,
+    # e.g. single-player synthetic runs) collapse to one player.
+    by_player: dict = {}
+    for row in commands:
+        by_player.setdefault(row.get("ed"), []).append(row)
+    if not by_player:
+        by_player = {None: []}
+
+    complete_players = {
+        e.get("ed")
+        for e in (events.get("raw") or [])
+        if e.get("event") == "complete"
+    }
+    # When neither commands nor events carry an edict (legacy single-player), a
+    # bare complete event (ed -> None) gates the lone None-keyed player.
+
+    players = []
+    for ed, cmds in by_player.items():
+        rows = score_targets(cmds, targets_doc)
+        acquired_all = bool(rows) and all(row["acquired"] for row in rows)
+        players.append({
+            "ed": ed,
+            "name": next((c.get("name") for c in cmds if c.get("name")), None),
+            "acquired_all": acquired_all,
+            "completed": ed in complete_players,
+            "acquired_count": sum(1 for row in rows if row["acquired"]),
+            "target_results": rows,
+        })
+
+    passing = [p for p in players if p["acquired_all"] and p["completed"]]
+    # Representative player for the detailed table: a passing player if any,
+    # otherwise the one that acquired the most targets (deterministic tie-break).
+    chosen = (
+        passing[0]
+        if passing
+        else max(players, key=lambda p: (p["acquired_count"], p["ed"] is not None))
+    )
+    overall = "PASS" if passing else "FAIL"
     return {
         "schema": "komodobots.segment_target_acquisition_score.v1",
         "targets": str(targets_path),
         "run_dir": run_dir.name,
         "command_count": len(commands),
+        "player_count": len(players),
         "qwd_events": events,
         "overall": overall,
-        "target_results": rows,
+        "passing_player": (
+            {"ed": chosen["ed"], "name": chosen["name"]} if passing else None
+        ),
+        "players": [
+            {k: p[k] for k in ("ed", "name", "acquired_all", "completed", "acquired_count")}
+            for p in players
+        ],
+        "target_results": chosen["target_results"],
     }
 
 
