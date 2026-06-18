@@ -423,6 +423,188 @@ function DeltaValue({
   );
 }
 
+// Diverging head-to-head bar comparing the two teams on one metric (kit
+// charts/CompareBar). Bars grow from a center line; each side scales to the
+// larger of the two so the leader fills its half. `invert` flips the win/lose
+// emphasis for lower-is-better stats (damage taken, deaths).
+function CompareBar({
+  label,
+  left,
+  right,
+  leftDelta,
+  rightDelta,
+  invert = false,
+  format = (v: number) => `${v}`,
+}: {
+  label: string;
+  left: number | null;
+  right: number | null;
+  leftDelta: number | null;
+  rightDelta: number | null;
+  invert?: boolean;
+  format?: (v: number) => string;
+}) {
+  const l = left ?? 0;
+  const r = right ?? 0;
+  const max = Math.max(l, r) || 1;
+  const lw = (l / max) * 100;
+  const rw = (r / max) * 100;
+  // For lower-is-better metrics the *smaller* value is the winner.
+  const leftWins = invert ? l < r : l > r;
+  const rightWins = invert ? r < l : r > l;
+  const valStyle: CSSProperties = {
+    fontFamily: "var(--font-display)",
+    fontWeight: 700,
+    fontSize: "var(--t-h3)",
+    color: "var(--text-strong)",
+    fontVariantNumeric: "tabular-nums",
+  };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      <div
+        style={{
+          textAlign: "center",
+          fontFamily: "var(--font-ui)",
+          fontSize: "var(--t-2xs)",
+          fontWeight: 600,
+          letterSpacing: "var(--ls-label)",
+          textTransform: "uppercase",
+          color: "var(--text-muted)",
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", alignItems: "center", gap: 2 }}>
+        {/* left side (RED / LEAP) */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+          <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1 }}>
+            <span style={{ ...valStyle, opacity: leftWins ? 1 : 0.7 }}>{left == null ? "—" : format(l)}</span>
+            <DeltaValue value={leftDelta} invert={invert} />
+          </span>
+          <div
+            style={{
+              flex: 1,
+              maxWidth: 130,
+              height: 12,
+              background: "var(--surface-inset)",
+              borderRadius: "2px 0 0 2px",
+              overflow: "hidden",
+              display: "flex",
+              justifyContent: "flex-end",
+            }}
+          >
+            <div
+              style={{
+                width: `${lw}%`,
+                height: "100%",
+                background: "var(--red-team)",
+                opacity: leftWins ? 1 : 0.55,
+                transition: "width var(--dur-slow) var(--ease-out)",
+              }}
+            />
+          </div>
+        </div>
+        {/* right side (BLUE / FROG) */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 8 }}>
+          <div
+            style={{
+              flex: 1,
+              maxWidth: 130,
+              height: 12,
+              background: "var(--surface-inset)",
+              borderRadius: "0 2px 2px 0",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${rw}%`,
+                height: "100%",
+                background: "var(--blue-team)",
+                opacity: rightWins ? 1 : 0.55,
+                transition: "width var(--dur-slow) var(--ease-out)",
+              }}
+            />
+          </div>
+          <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.1 }}>
+            <span style={{ ...valStyle, opacity: rightWins ? 1 : 0.7 }}>{right == null ? "—" : format(r)}</span>
+            <DeltaValue value={rightDelta} invert={invert} />
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Team-comparison strip — lifts the per-bot stats up to the team level via
+// diverging RED-vs-BLUE bars (kit ui_kits/live-stats/TeamCompare). teams[0] is
+// LEAP/RED, teams[1] is FROG/BLUE, matching the page order.
+interface CompareRow {
+  key: string;
+  label: string;
+  metric?: MetricDef;
+  invert?: boolean;
+  format?: (v: number) => string;
+}
+
+const COMPARE_ROWS: CompareRow[] = [
+  { key: "frags", label: "Frags" },
+  { key: "efficiency", label: "Efficiency %", metric: { key: "efficiency", label: "Eff", title: "Efficiency", kind: "percent" } },
+  { key: "avg_speed", label: "Avg Speed (qu/s)", metric: { key: "avg_speed", label: "Avg", title: "Average speed", precision: 0 } },
+  { key: "max_speed", label: "Max Speed (qu/s)", metric: { key: "max_speed", label: "Max", title: "Peak speed", precision: 0 } },
+  { key: "damage_done", label: "Damage Given", format: (v) => Math.round(v).toLocaleString() },
+  { key: "damage_taken", label: "Damage Taken", invert: true, format: (v) => Math.round(v).toLocaleString() },
+  { key: "health_pickups", label: "Health Pickup" },
+  { key: "deaths", label: "Deaths", invert: true },
+];
+
+function TeamCompare({
+  left,
+  right,
+  prevLeft,
+  prevRight,
+}: {
+  left: ValidationTeam;
+  right: ValidationTeam;
+  prevLeft: ValidationTeam | null;
+  prevRight: ValidationTeam | null;
+}) {
+  return (
+    <section
+      data-evidence-compare
+      style={{
+        background: "var(--surface-card)",
+        border: "1px solid var(--border-hair)",
+        borderRadius: "var(--r-3)",
+        padding: "14px 18px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 12 }}>
+        <span style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "var(--t-h3)", letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--text-body)" }}>
+          Team comparison · current game
+        </span>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--t-2xs)", color: "var(--text-faint)" }}>
+          Δ vs previous valid game
+        </span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 36, rowGap: 16 }}>
+        {COMPARE_ROWS.map((row) => (
+          <CompareBar
+            key={row.key}
+            label={row.label}
+            left={num(left.totals[row.key])}
+            right={num(right.totals[row.key])}
+            leftDelta={teamDelta(left, prevLeft, row.key)}
+            rightDelta={teamDelta(right, prevRight, row.key)}
+            invert={row.invert}
+            format={row.format ?? ((v) => fmt(v, row.metric))}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 // --- top bar: logo + slogan + tabs + gate/live badges ---
 
 function TopBar({ game, gateGreen }: { game: ValidationGame; gateGreen: boolean | null }) {
@@ -975,6 +1157,15 @@ export function FourVFourEvidence() {
         </div>
 
         {bench && <BenchVerdict bench={bench} />}
+
+        {orderedTeams.length === 2 && (
+          <TeamCompare
+            left={orderedTeams[0].team}
+            right={orderedTeams[1].team}
+            prevLeft={prev?.teams.find((t) => t.name === orderedTeams[0].team.name) ?? null}
+            prevRight={prev?.teams.find((t) => t.name === orderedTeams[1].team.name) ?? null}
+          />
+        )}
 
         <Scoreboard game={game} prev={prev} />
 
