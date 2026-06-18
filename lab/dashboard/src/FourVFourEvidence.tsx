@@ -239,12 +239,6 @@ function findPrevGame(ledger: ValidationLedger, game: ValidationGame): Validatio
   return idx > 0 ? ledger.games[idx - 1] : null;
 }
 
-function teamDelta(curr: ValidationTeam, prev: ValidationTeam | null, key: string): number | null {
-  const c = num(curr.totals[key]);
-  const p = prev ? num(prev.totals[key]) : null;
-  return c == null || p == null ? null : c - p;
-}
-
 // Δ-vs-previous for a team metric, resolving values through teamMetricValue so
 // client-aggregated stats (speed, team damage) get a delta too.
 function teamMetricDelta(
@@ -664,11 +658,15 @@ const COMPARE_ROWS: CompareRow[] = [
 ];
 
 function TeamCompare({
+  game,
+  prevGame,
   left,
   right,
   prevLeft,
   prevRight,
 }: {
+  game: ValidationGame;
+  prevGame: ValidationGame | null;
   left: ValidationTeam;
   right: ValidationTeam;
   prevLeft: ValidationTeam | null;
@@ -697,10 +695,10 @@ function TeamCompare({
           <CompareBar
             key={row.key}
             label={row.label}
-            left={num(left.totals[row.key])}
-            right={num(right.totals[row.key])}
-            leftDelta={teamDelta(left, prevLeft, row.key)}
-            rightDelta={teamDelta(right, prevRight, row.key)}
+            left={teamMetricValue(game, left, row.key)}
+            right={teamMetricValue(game, right, row.key)}
+            leftDelta={teamMetricDelta(game, prevGame, left, prevLeft, row.key)}
+            rightDelta={teamMetricDelta(game, prevGame, right, prevRight, row.key)}
             invert={row.invert}
             format={row.format ?? ((v) => fmt(v, row.metric))}
           />
@@ -1456,9 +1454,27 @@ function TrendsView({ ledger }: { ledger: ValidationLedger }) {
   const [picked, setPicked] = useState<string[]>(teams.map((t) => t.id));
 
   const pool = scope === "team" ? teams : players;
+  // Reset the selection to defaults ONLY when the scope actually changes. The
+  // 15s ledger refresh produces fresh teams/players array identities for the
+  // same logical subjects; on those we reconcile the existing picks against the
+  // new pool (keep picks that still exist, drop those that vanished) instead of
+  // wiping the user's custom selection mid-use (issue #258 Codex P2).
+  const prevScopeRef = useRef(scope);
   useEffect(() => {
-    setPicked(scope === "team" ? teams.map((t) => t.id) : players.slice(0, 2).map((p) => p.id));
-  }, [scope, teams, players]);
+    if (prevScopeRef.current !== scope) {
+      prevScopeRef.current = scope;
+      setPicked(scope === "team" ? teams.map((t) => t.id) : players.slice(0, 2).map((p) => p.id));
+      return;
+    }
+    setPicked((prev) => {
+      const ids = new Set(pool.map((s) => s.id));
+      const kept = prev.filter((id) => ids.has(id));
+      if (kept.length === prev.length) return prev;
+      if (kept.length > 0) return kept;
+      // Every prior pick vanished — fall back to the scope's defaults.
+      return scope === "team" ? teams.map((t) => t.id) : players.slice(0, 2).map((p) => p.id);
+    });
+  }, [scope, teams, players, pool]);
 
   const chosen = pool.filter((s) => picked.includes(s.id));
   const toggle = (id: string) =>
@@ -1749,6 +1765,8 @@ function LiveStats({
 
         {orderedTeams.length === 2 && (
           <TeamCompare
+            game={game}
+            prevGame={prev}
             left={orderedTeams[0].team}
             right={orderedTeams[1].team}
             prevLeft={prev?.teams.find((t) => t.name === orderedTeams[0].team.name) ?? null}

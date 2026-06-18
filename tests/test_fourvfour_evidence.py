@@ -188,5 +188,60 @@ class EvidenceTeamDistinctionTest(unittest.TestCase):
         self.assertIn("game.bench?.leap_team", self.src)
 
 
+class EvidenceTeamCompareAggregationTest(unittest.TestCase):
+    """TeamCompare must resolve bar values through the same client-side
+    aggregation path as the team cards (teamMetricValue / teamMetricDelta), so
+    movement speed — which lives on player stats, not team totals — renders in
+    the compare bars instead of dying as "—" (issue #258 Codex P2)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = EVIDENCE_TSX.read_text(encoding="utf-8")
+
+    def test_teamcompare_takes_game_objects(self):
+        # The compare strip is invoked with the full game / prevGame objects so
+        # it can aggregate from player stats.
+        self.assertIn("<TeamCompare", self.src)
+        compare_call = self.src.split("<TeamCompare", 1)[1].split("/>", 1)[0]
+        self.assertIn("game={game}", compare_call)
+        self.assertIn("prevGame={prev}", compare_call)
+
+    def test_teamcompare_bars_use_team_metric_helpers(self):
+        # Inside TeamCompare's CompareBar, values/deltas route through the
+        # aggregation helpers, NOT raw totals[row.key] (the regression we guard).
+        body = self.src.split("function TeamCompare", 1)[1].split("\nfunction ", 1)[0]
+        self.assertIn("teamMetricValue(game, left, row.key)", body)
+        self.assertIn("teamMetricValue(game, right, row.key)", body)
+        self.assertIn("teamMetricDelta(game, prevGame, left, prevLeft, row.key)", body)
+        self.assertIn("teamMetricDelta(game, prevGame, right, prevRight, row.key)", body)
+        # Regression guard: the old direct-total reads must be gone from the bars.
+        self.assertNotIn("num(left.totals[row.key])", body)
+        self.assertNotIn("num(right.totals[row.key])", body)
+
+
+class EvidenceTrendsPickReconcileTest(unittest.TestCase):
+    """The Trends custom subject selection must survive the 15s ledger refresh:
+    the reset-to-defaults effect fires only on a real scope change; on a refresh
+    (same scope, new array identities) picks are reconciled against the new pool
+    rather than blanket-reset (issue #258 Codex P2)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = EVIDENCE_TSX.read_text(encoding="utf-8")
+        cls.body = cls.src.split("function TrendsView", 1)[1].split("\nfunction ", 1)[0]
+
+    def test_reset_is_gated_on_scope_change(self):
+        # A ref tracks the previous scope; defaults are only applied when scope
+        # actually changes.
+        self.assertIn("prevScopeRef", self.body)
+        self.assertIn("useRef(scope)", self.body)
+        self.assertIn("prevScopeRef.current !== scope", self.body)
+
+    def test_refresh_reconciles_instead_of_resetting(self):
+        # On a same-scope refresh, kept picks are filtered against the new pool.
+        self.assertIn("pool.map((s) => s.id)", self.body)
+        self.assertIn("prev.filter((id) => ids.has(id))", self.body)
+
+
 if __name__ == "__main__":
     unittest.main()
