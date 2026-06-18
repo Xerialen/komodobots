@@ -1,0 +1,61 @@
+diff --git a/src/bot_movement.c b/src/bot_movement.c
+--- a/src/bot_movement.c
++++ b/src/bot_movement.c
+@@ -3099,6 +3099,16 @@
+ // LIVE cmds + FALLBACK transitions without per-tick (77 Hz) spam: emit on a
+ // state change or at most once per ~second while steady. Gated by the global
+ // cvar k_fb_moveprobe_live_log.
++// bot-program T0.7: true per-frame LIVE accounting. The throttled status log
++// below is sampled (state change / ~1 Hz steady), so counting its LINES is
++// gameable -- a sidecar that flaps LIVE for 1 of ~77 frames still emits ~1 LIVE
++// + ~1 FALLBACK line/s. These cumulative per-slot counters are printed on every
++// status line as `live=<live_frames>/<total_frames>`, so the freshness gate
++// (scripts/run_4v4_validation_lab.py) reads the REAL per-frame LIVE fraction
++// from the highest-total line. Sized MAX_CLIENTS to match the log's slot guard.
++static unsigned moveprobe_live_frames[MAX_CLIENTS];
++static unsigned moveprobe_total_frames[MAX_CLIENTS];
++
+ static void BotMoveProbeLiveLog(int slot, int live, unsigned req, unsigned ans,
+ 								int fwd, int side, int jump)
+ {
+@@ -3124,13 +3134,15 @@
+ 	last_time[slot] = now;
+ 	if (live)
+ 	{
+-		G_bprint(PRINT_HIGH, "[moveprobe-live] slot %d LIVE fwd=%d side=%d jump=%d (req=%u ans=%u)\n",
+-				 slot, fwd, side, jump, req, ans);
++		G_bprint(PRINT_HIGH, "[moveprobe-live] slot %d LIVE fwd=%d side=%d jump=%d (req=%u ans=%u) live=%u/%u\n",
++				 slot, fwd, side, jump, req, ans,
++				 moveprobe_live_frames[slot], moveprobe_total_frames[slot]);
+ 	}
+ 	else
+ 	{
+-		G_bprint(PRINT_HIGH, "[moveprobe-live] slot %d FALLBACK (stock frogbot; req=%u ans=%u)\n",
+-				 slot, req, ans);
++		G_bprint(PRINT_HIGH, "[moveprobe-live] slot %d FALLBACK (stock frogbot; req=%u ans=%u) live=%u/%u\n",
++				 slot, req, ans,
++				 moveprobe_live_frames[slot], moveprobe_total_frames[slot]);
+ 	}
+ }
+ 
+@@ -3201,6 +3213,12 @@
+ 		return;		// out of range -> stock frogbot
+ 	}
+ 
++	// Count every mode-30 frame for this slot (incl. the region-missing path
++	// below, which is a stock-movement frame); live_frames is bumped only when the
++	// sidecar's fresh answer is actually applied. The ratio is the true per-frame
++	// LIVE fraction the freshness gate keys on.
++	moveprobe_total_frames[slot]++;
++
+ 	// KTX owns region creation; the sidecar attaches. Create once per process.
+ 	if ((region == NULL) && !create_failed)
+ 	{
+@@ -3270,6 +3288,7 @@
+ 		direction[1] = mv.move[1];
+ 		direction[2] = 0;
+ 		*jumping = (mv.jump != 0) ? true : false;
++		moveprobe_live_frames[slot]++;
+ 		moveprobe_p99_record(moveprobe_now_us() - t_start);
+ 		BotMoveProbeLiveLog(slot, 1, req, mv.ans_seq, mv.fwd, mv.side, mv.jump);
+ 	}

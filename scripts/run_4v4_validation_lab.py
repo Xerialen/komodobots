@@ -55,6 +55,11 @@ timelimit_min="$5"
 mvdsv_bin="$6"
 team1="$7"
 team2="$8"
+live_leap="${9:-0}"
+shm_name="${10:-}"
+leap_cvars_b64="${11:-}"
+sidecar_fields_b64="${12:-}"
+sidecar_pid=""
 
 session="komodobots_lab_4v4_${port}_${run_id}"
 rundir="$HOME/komodobots-lab/runs/$run_id"
@@ -97,6 +102,18 @@ release_lab_lock() {
 
 cleanup() {
   set +e
+  if [ -n "$sidecar_pid" ]; then
+    kill "$sidecar_pid" 2>/dev/null
+  fi
+  # Only ever pkill/unlink the shared-memory region when THIS invocation owns it.
+  # main() always passes the default shm name (even for non-live runs), so without
+  # the live_leap + sidecar_pid guard a losing lock-race invocation would kill the
+  # active run's sidecar and unlink its region. sidecar_pid is set only after we
+  # start the waiter -- well past the lock acquisition -- so a loser never has it.
+  if [ "$live_leap" = "1" ] && [ -n "$sidecar_pid" ] && [ -n "$shm_name" ]; then
+    pkill -f "move_policy_sidecar.py --shm-name $shm_name" 2>/dev/null
+    rm -f "/dev/shm/$shm_name" 2>/dev/null
+  fi
   if session_exists; then
     send_cmd "status" 0.2
     screen -S "$session" -p 0 -X hardcopy "$rundir/hardcopy.cleanup.txt"
@@ -202,6 +219,13 @@ set qtv_maxstreams 8
 set qtv_password ""
 serverinfo hostname "komodobots-4v4:$port"
 EOF
+
+# Live-leap: append the per-slot mode-30 cvars (leap bots seat at internal slots
+# 1..4 behind the slot-0 spectator; cvar suffix is the 1-based edict). The block
+# is built + base64'd by the Python caller so the exact cvar set is unit-tested.
+if [ "$live_leap" = "1" ] && [ -n "$leap_cvars_b64" ]; then
+  printf '%s\n' "$leap_cvars_b64" | base64 -d >> "$cfg_path"
+fi
 cp "$cfg_path" "$rundir/lab.cfg"
 
 cat > "$rundir/run.env" <<EOF
@@ -258,6 +282,40 @@ send_cmd "sv_demoeasyrecord komodobots_4v4_${run_id}" 1.0
 send_cmd "status"
 screen -S "$session" -p 0 -X hardcopy "$rundir/hardcopy.before-client.txt"
 
+# Live-leap: KTX creates the /dev/shm region only once a leap bot first hits
+# mode 30 (after the shim adds bots). So start a background waiter that attaches
+# the sidecar the moment the region appears, then keeps serving for the match.
+if [ "$live_leap" = "1" ] && [ -n "$sidecar_fields_b64" ] && [ -n "$shm_name" ]; then
+  # Decode the sidecar argv pieces (python, script, ckpt, hz) from a base64'd
+  # newline list into an array, so spaces/metacharacters in any path survive
+  # WITHOUT eval and without word-splitting. A leading ~ is expanded to $HOME
+  # explicitly (tilde-expansion does not fire inside a variable).
+  mapfile -t _sc < <(printf '%s' "$sidecar_fields_b64" | base64 -d)
+  sc_py="${_sc[0]:-}"; sc_script="${_sc[1]:-}"; sc_ckpt="${_sc[2]:-}"; sc_hz="${_sc[3]:-77}"
+  sc_py="${sc_py/#\~/$HOME}"; sc_script="${sc_script/#\~/$HOME}"; sc_ckpt="${sc_ckpt/#\~/$HOME}"
+  sc_dir="$(dirname "$sc_script")"
+  rm -f "/dev/shm/$shm_name" 2>/dev/null || true
+  rm -f "$rundir/sidecar.started" "$rundir/sidecar.failed" "$rundir/sidecar.exitcode" 2>/dev/null || true
+  (
+    for _ in $(seq 1 120); do
+      [ -e "/dev/shm/$shm_name" ] && break
+      sleep 0.5
+    done
+    if [ -e "/dev/shm/$shm_name" ]; then
+      echo "[remote] sidecar attaching to /dev/shm/$shm_name"
+      touch "$rundir/sidecar.started"
+      rc=0
+      ( cd "$sc_dir" && "$sc_py" "$sc_script" --shm-name "$shm_name" --ckpt "$sc_ckpt" --hz "$sc_hz" ) || rc=$?
+      echo "$rc" > "$rundir/sidecar.exitcode"
+    else
+      echo "[remote] WARN: region /dev/shm/$shm_name never appeared; sidecar not started" >&2
+      echo "region-missing" > "$rundir/sidecar.failed"
+    fi
+  ) > "$rundir/sidecar.log" 2>&1 &
+  sidecar_pid=$!
+  log "live-leap sidecar waiter started (pid $sidecar_pid)"
+fi
+
 log "running spectator shim"
 python3 "$rundir/qw_min_client.py" "$port" \
   --host 127.0.0.1 \
@@ -276,6 +334,36 @@ python3 "$rundir/qw_min_client.py" "$port" \
   --botcmd "addbot 20 $team2" \
   > "$rundir/pyclient.stdout" \
   2> "$rundir/pyclient.stderr"
+
+# Live-leap integrity gate: mode 30 silently falls back to stock Frogbot when the
+# sidecar never serves, so a missing checkpoint / bad sidecar path / region-never-
+# created would otherwise produce a scored frog-vs-frog match mislabeled as a live
+# run. Fail the run instead. Require (a) the region appeared -- which only happens
+# once KTX engages mode 30 for a leap bot and the sidecar attached -- and (b) the
+# waiter is still alive now the match just ended (a dead waiter means the sidecar
+# process exited early). The EXIT trap is still armed here, so cleanup() tears down.
+if [ "$live_leap" = "1" ]; then
+  if [ ! -f "$rundir/sidecar.started" ]; then
+    echo "FATAL: live-leap region /dev/shm/$shm_name never appeared; the leap brain never served (would be a frog-vs-frog match mislabeled as live-leap)" >&2
+    exit 9
+  fi
+  if ! kill -0 "$sidecar_pid" 2>/dev/null; then
+    echo "FATAL: live-leap sidecar exited before match end (rc=$(cat "$rundir/sidecar.exitcode" 2>/dev/null || echo '?')); leap bots fell back to stock movement" >&2
+    exit 9
+  fi
+fi
+
+# Stop the live-leap sidecar now the match is over (lets its log flush before we
+# collect artifacts; cleanup() is the belt-and-braces backstop on any exit path).
+if [ -n "$sidecar_pid" ]; then
+  kill "$sidecar_pid" 2>/dev/null || true
+fi
+if [ "$live_leap" = "1" ] && [ -n "$shm_name" ]; then
+  pkill -f "move_policy_sidecar.py --shm-name $shm_name" 2>/dev/null || true
+  # Remove the shm region on the normal path too: the success path clears the
+  # EXIT trap (trap - EXIT) below, so cleanup() would not run to unlink it.
+  rm -f "/dev/shm/$shm_name" 2>/dev/null || true
+fi
 
 send_cmd "status"
 screen -S "$session" -p 0 -X hardcopy "$rundir/hardcopy.after-client.txt"
@@ -316,6 +404,157 @@ END_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 DEMO_REMOTE_PATH=$demo
 EOF
 """
+
+
+DEFAULT_SHM_NAME = "komodo_move_t07"
+DEFAULT_STALE_TICKS = 3
+DEFAULT_SIDECAR_PYTHON = "~/t0.3-venv/bin/python"
+DEFAULT_SIDECAR_SCRIPT = "~/komodo-t0.3/scripts/move_policy_sidecar.py"
+DEFAULT_SIDECAR_CKPT = "~/move_bc_policy.pt"
+DEFAULT_SIDECAR_HZ = 77
+# The leap team is team1, added first; the bot-adding spectator always seats at
+# client slot 0, so the four leap bots take client edicts 2..5 (internal slots
+# 1..4). The mode-30 per-slot cvar suffix is the 1-based edict, not the slot.
+LEAP_EDICTS = (2, 3, 4, 5)
+# KTX's `[moveprobe-live] slot N ...` log uses the INTERNAL slot (= edict - 1),
+# so the leap bots log under slots 1..4. The frog controls (edicts 6..9 / slots
+# 5..8) never run mode 30 and must be ignored by the freshness gate.
+LEAP_SLOTS = tuple(e - 1 for e in LEAP_EDICTS)
+DEFAULT_MIN_LIVE_FRACTION = 0.5
+# KTX emits one throttled line per leap slot on a LIVE<->FALLBACK change or at
+# most ~1/s while steady (k_fb_moveprobe_live_log). Each line carries the per-slot
+# CUMULATIVE per-frame counters `live=<live_frames>/<total_frames>` appended by the
+# engine, so the line with the highest total is the authoritative true per-frame
+# LIVE fraction for the whole match -- robust against the log's throttling (line
+# counts are NOT, since a flapping sidecar logs ~1 LIVE + ~1 FALLBACK line/s while
+# actually serving LIVE on only ~1 of ~77 frames).
+_MOVEPROBE_LIVE_RE = re.compile(r"\[moveprobe-live\] slot (\d+) (LIVE|FALLBACK)\b")
+_MOVEPROBE_CUM_RE = re.compile(r"\blive=(\d+)/(\d+)\b")
+
+
+def build_leap_cvar_block(shm_name: str, stale_ticks: int, leap_edicts=LEAP_EDICTS) -> str:
+    """KTX cfg lines that turn the live MoveMLP brain ON for the leap bots only.
+
+    One `k_fb_moveprobe_mode_s<edict> 30` per leap edict (2..5) -- never the frog
+    edicts (6..9), which must stay stock -- plus the shm name + stale-tick gate.
+    """
+    lines = [f"set k_fb_moveprobe_mode_s{int(e)} 30" for e in leap_edicts]
+    lines.append(f'set k_fb_moveprobe_live_shm_name "{shm_name}"')
+    lines.append(f"set k_fb_moveprobe_live_stale_ticks {int(stale_ticks)}")
+    # Turn on KTX's throttled LIVE/FALLBACK status log so the freshness gate can
+    # prove the brain was actually USED (not merely running) -- see
+    # evaluate_live_freshness(). One line per slot on a state change / ~1Hz steady,
+    # which is negligible volume even over a full match.
+    lines.append("set k_fb_moveprobe_live_log 1")
+    return "\n".join(lines) + "\n"
+
+
+def evaluate_live_freshness(
+    run_dir: Path, leap_slots=LEAP_SLOTS, min_fraction: float = DEFAULT_MIN_LIVE_FRACTION
+) -> tuple[bool, dict]:
+    """Decide whether the live MoveMLP brain actually served the leap bots.
+
+    KTX mode 30 falls back to stock Frogbot PER FRAME on a stale/absent/torn feed,
+    so a sidecar that is alive but too slow/wedged still yields a stock-movement
+    match under a live-leap label. The authoritative signal is the per-slot
+    CUMULATIVE per-frame counters KTX appends to each throttled
+    `[moveprobe-live] slot N ... live=<live_frames>/<total_frames>` line
+    (k_fb_moveprobe_live_log) in `screen.log`. We take, per leap slot, the line
+    with the highest `total_frames` -- the end-of-match cumulative -- and gate on
+    the TRUE per-frame fraction `live_frames / total_frames`.
+
+    Counting log *lines* (the v1 approach) is not robust: the log is throttled to
+    a state change / ~1 Hz, so a sidecar that flaps LIVE for 1 of every ~77 frames
+    still emits ~1 LIVE and ~1 FALLBACK line/s and would pass a line-ratio gate
+    while moving almost entirely on stock Frogbot. The cumulative counters are
+    immune to that.
+
+    A leap slot passes iff it has the cumulative field, served >=1 LIVE frame, and
+    `live_frames / total_frames >= min_fraction`. A leap slot with no cumulative
+    line fails (log off, KTX too old to emit `live=L/T`, or the bot never seated).
+    Frog slots are ignored. Never raises: a missing/unreadable screen.log returns
+    (False, {...}) so the caller fails closed.
+
+    Returns (all_leap_slots_pass, report) where report is JSON-serialisable.
+    """
+    screen_log = run_dir / "screen.log"
+    leap = sorted(int(s) for s in leap_slots)
+    report: dict = {
+        "min_fraction": float(min_fraction),
+        "leap_slots": leap,
+        "slots": {},
+        "ok": False,
+    }
+    try:
+        text = screen_log.read_text(encoding="utf-8", errors="replace")
+    except (OSError, ValueError):
+        report["reason"] = f"screen.log unreadable at {screen_log}"
+        return False, report
+
+    # Per slot: max-total cumulative (live_frames, total_frames); plus the raw
+    # LIVE/FALLBACK line counts for context/diagnostics only.
+    cum = {s: {"live": 0, "total": 0, "has_cum": False} for s in leap}
+    lines_seen = {s: {"live_lines": 0, "fallback_lines": 0} for s in leap}
+    for raw in text.splitlines():
+        m = _MOVEPROBE_LIVE_RE.search(raw)
+        if not m:
+            continue
+        slot = int(m.group(1))
+        if slot not in cum:
+            continue
+        lines_seen[slot]["live_lines" if m.group(2) == "LIVE" else "fallback_lines"] += 1
+        c = _MOVEPROBE_CUM_RE.search(raw)
+        if c:
+            live_f, total_f = int(c.group(1)), int(c.group(2))
+            if total_f >= cum[slot]["total"]:
+                cum[slot]["total"] = total_f
+                cum[slot]["live"] = live_f
+            cum[slot]["has_cum"] = True
+
+    all_pass = True
+    for s in leap:
+        has_cum = cum[s]["has_cum"]
+        live = cum[s]["live"]
+        total = cum[s]["total"]
+        fraction = (live / total) if total else 0.0
+        went_live = live > 0
+        ok = has_cum and total > 0 and went_live and fraction >= min_fraction
+        report["slots"][str(s)] = {
+            "live_frames": live,
+            "total_frames": total,
+            "fraction": round(fraction, 4),
+            "went_live": went_live,
+            "has_cumulative": has_cum,
+            "live_loglines": lines_seen[s]["live_lines"],
+            "fallback_loglines": lines_seen[s]["fallback_lines"],
+            "ok": ok,
+        }
+        all_pass = all_pass and ok
+
+    report["ok"] = all_pass
+    return all_pass, report
+
+
+def build_sidecar_fields(
+    python_path: str, script_path: str, ckpt: str, hz: int = DEFAULT_SIDECAR_HZ
+) -> str:
+    """The sidecar argv pieces as a newline-separated list (python, script, ckpt, hz).
+
+    Returned as one string so the caller can base64 it through SSH; the remote
+    script decodes it into a bash array and runs the sidecar as a real argv -- no
+    `eval`, no shell word-splitting -- and expands a leading ``~`` to ``$HOME``
+    itself. That keeps the proven ``~/...`` defaults working while being safe for
+    paths with spaces or shell metacharacters (the prior string-concat + eval was
+    not). ``--create`` is intentionally omitted: KTX owns the region, the sidecar
+    mirrors it. ``--shm-name`` is added remotely from the validated shm arg.
+    """
+    return "\n".join([python_path, script_path, ckpt, str(int(hz))]) + "\n"
+
+
+def _b64(text: str) -> str:
+    import base64
+
+    return base64.b64encode(text.encode("utf-8")).decode("ascii")
 
 
 def ensure_prereqs(host: str, distro: str, analyzer: str, map_name: str, mvdsv_bin: str) -> None:
@@ -361,6 +600,10 @@ def run_remote_4v4_lab(
     team1: str,
     team2: str,
     local_run_dir: Path,
+    live_leap: bool = False,
+    shm_name: str = "",
+    leap_cvars: str = "",
+    sidecar_fields: str = "",
 ) -> None:
     proc = run(
         [
@@ -377,6 +620,10 @@ def run_remote_4v4_lab(
             mvdsv_bin,
             team1,
             team2,
+            "1" if live_leap else "0",
+            shm_name,
+            _b64(leap_cvars),
+            _b64(sidecar_fields),
         ],
         input_text=REMOTE_SCRIPT,
         check=False,
@@ -434,6 +681,10 @@ def write_summary(
     ledger_out: Path,
     ledger: dict,
     parser_exits: dict[str, int],
+    live_leap: bool = False,
+    shm_name: str = "",
+    stale_ticks: int = DEFAULT_STALE_TICKS,
+    freshness: dict | None = None,
 ) -> None:
     latest_game = next((g for g in ledger.get("games", []) if g.get("run_id") == run_id), None)
     invalid = next((g for g in ledger.get("invalid_games", []) if g.get("run_id") == run_id), None)
@@ -445,9 +696,25 @@ def write_summary(
         f"- Map: `{map_name}`",
         f"- Timelimit: `{timelimit}`",
         f"- Spectator shim duration: `{duration}` seconds",
+        (
+            f"- Live-leap brain: `ON` (shm `{shm_name}`, stale_ticks `{stale_ticks}`, "
+            f"mode-30 on leap edicts {list(LEAP_EDICTS)})"
+            if live_leap
+            else "- Live-leap brain: `OFF` (both teams move as stock frogbots)"
+        ),
         f"- Parser exits: `{parser_exits}`",
         f"- Ledger: `{ledger_out}`",
     ]
+    if live_leap and freshness and freshness.get("slots"):
+        per_slot = ", ".join(
+            f"slot {s}: {info.get('fraction')} ({info.get('live_loglines')}L/"
+            f"{info.get('fallback_loglines')}F)"
+            for s, info in sorted(freshness["slots"].items(), key=lambda kv: int(kv[0]))
+        )
+        lines.append(
+            f"- Live-leap freshness: `{'PASS' if freshness.get('ok') else 'FAIL'}` "
+            f"(min {freshness.get('min_fraction')}) -- {per_slot}"
+        )
     if latest_game:
         bench = latest_game.get("bench", {})
         gate = latest_game.get("damage_matrix", {})
@@ -502,6 +769,33 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
             "leap-frog frag margin over best-of-N and the R-T damage.matrix gate."
         ),
     )
+    parser.add_argument(
+        "--live-leap",
+        action="store_true",
+        help=(
+            "Turn the live MoveMLP brain ON for the four leap bots (KTX mode-30 "
+            "per-slot + the move_policy_sidecar). Requires --leap-team. Without "
+            "this flag --leap-team only tags the roster and both teams move as "
+            "stock frogbots."
+        ),
+    )
+    parser.add_argument("--shm-name", default=DEFAULT_SHM_NAME, type=validate_remote_bin_arg)
+    parser.add_argument("--stale-ticks", type=int, default=DEFAULT_STALE_TICKS)
+    parser.add_argument("--sidecar-python", default=DEFAULT_SIDECAR_PYTHON)
+    parser.add_argument("--sidecar-script", default=DEFAULT_SIDECAR_SCRIPT)
+    parser.add_argument("--sidecar-ckpt", default=DEFAULT_SIDECAR_CKPT)
+    parser.add_argument("--sidecar-hz", type=int, default=DEFAULT_SIDECAR_HZ)
+    parser.add_argument(
+        "--min-live-fraction",
+        type=float,
+        default=DEFAULT_MIN_LIVE_FRACTION,
+        help=(
+            "Live-leap freshness gate: each leap slot must have served LIVE (KTX "
+            "actually used the sidecar answer) for at least this share of its "
+            "[moveprobe-live] log lines, else the run FAILS as a masked frog-vs-frog "
+            "match. Healthy runs sit ~0.8-0.95; a wedged sidecar ~0.0. Range 0..1."
+        ),
+    )
     parser.add_argument("--out-root", type=Path, default=DEFAULT_OUT_ROOT)
     parser.add_argument("--ledger-out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--lab-mvdsv", type=validate_remote_bin_arg, default="mvdsv-lab")
@@ -525,6 +819,24 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
     if not 1 <= args.komodobot_slot <= 8:
         print("ERROR: --komodobot-slot must be in 1..8", file=sys.stderr)
         return 2
+    if args.live_leap and not args.leap_team:
+        print("ERROR: --live-leap requires --leap-team (the live brain serves the leap roster)", file=sys.stderr)
+        return 2
+    if args.stale_ticks < 1:
+        print("ERROR: --stale-ticks must be >=1", file=sys.stderr)
+        return 2
+    if not 0.0 <= args.min_live_fraction <= 1.0:
+        print("ERROR: --min-live-fraction must be in 0.0..1.0", file=sys.stderr)
+        return 2
+
+    if args.live_leap:
+        leap_cvars = build_leap_cvar_block(args.shm_name, args.stale_ticks)
+        sidecar_fields = build_sidecar_fields(
+            args.sidecar_python, args.sidecar_script, args.sidecar_ckpt, args.sidecar_hz
+        )
+    else:
+        leap_cvars = ""
+        sidecar_fields = ""
 
     run_id = args.run_id or utc_run_id()
     duration = float(args.duration if args.duration is not None else args.timelimit * 60 + 90)
@@ -559,6 +871,10 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             team1=args.team1,
             team2=args.team2,
             local_run_dir=local_run_dir,
+            live_leap=args.live_leap,
+            shm_name=args.shm_name,
+            leap_cvars=leap_cvars,
+            sidecar_fields=sidecar_fields,
         )
         scp_from_remote(args.host, run_id, local_run_dir)
         parser_exits: dict[str, int] = {}
@@ -568,6 +884,27 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         sidecar = local_run_dir / "ktxstats.json"
         if not sidecar.is_file() and (local_run_dir / "demo.json").is_file():
             shutil.copyfile(local_run_dir / "demo.json", sidecar)
+
+        # Live-leap freshness gate: prove KTX actually USED the sidecar's answers
+        # (LIVE) rather than silently falling back to stock per frame. Runs before
+        # the ledger is built so a fallback-contaminated run never gets scored as a
+        # valid leap-vs-frog game. The remote bash gate already caught "never served
+        # / died"; this catches "alive but stale/wedged".
+        freshness: dict = {}
+        if args.live_leap:
+            fresh_ok, freshness = evaluate_live_freshness(
+                local_run_dir, min_fraction=args.min_live_fraction
+            )
+            (local_run_dir / "freshness.json").write_text(
+                json.dumps(freshness, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            if not fresh_ok:
+                raise RuntimeError(
+                    "Live-leap freshness gate FAILED -- the brain did not serve the leap "
+                    f"bots (min_live_fraction={args.min_live_fraction}): "
+                    f"{json.dumps(freshness.get('slots', freshness), sort_keys=True)}. "
+                    "This would be a frog-vs-frog match mislabeled as live-leap; not scoring it."
+                )
 
         ledger: dict = {}
         if not args.skip_ledger:
@@ -587,6 +924,10 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             ledger_out=args.ledger_out,
             ledger=ledger,
             parser_exits=parser_exits,
+            live_leap=args.live_leap,
+            shm_name=args.shm_name,
+            stale_ticks=args.stale_ticks,
+            freshness=freshness,
         )
 
         print(f"run_id={run_id}")

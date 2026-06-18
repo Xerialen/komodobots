@@ -339,10 +339,13 @@ def extract_run_speeds(run_dir: Path) -> dict[str, dict[str, float | None]]:
     if metrics_path.is_file():
         try:
             metrics = _read_json(metrics_path)
-            speeds = _speeds_from_movement_players(metrics.get("players"))
+            # Valid JSON that is not an object (e.g. `[]`) is malformed for our
+            # purposes; treat it as no metrics rather than crashing on .get().
+            players = metrics.get("players") if isinstance(metrics, dict) else None
+            speeds = _speeds_from_movement_players(players)
             if speeds:
                 return speeds
-        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        except (OSError, json.JSONDecodeError, TypeError, ValueError, AttributeError):
             pass  # fall through to events.txt
 
     # 2) Fall back to deriving speed straight from the analyzer events stream.
@@ -350,7 +353,8 @@ def extract_run_speeds(run_dir: Path) -> dict[str, dict[str, float | None]]:
     if emm is not None and events_path.is_file():
         try:
             metrics = emm.compute_movement_metrics(events_path, run_dir=run_dir)
-            return _speeds_from_movement_players(metrics.get("players"))
+            players = metrics.get("players") if isinstance(metrics, dict) else None
+            return _speeds_from_movement_players(players)
         except Exception:  # pragma: no cover - extractor robustness
             return {}
     return {}
@@ -359,9 +363,11 @@ def extract_run_speeds(run_dir: Path) -> dict[str, dict[str, float | None]]:
 def _attach_speeds(players: list[dict[str, Any]], speeds: dict[str, dict[str, float | None]]) -> None:
     """Overlay analyzer-derived speed onto per-player stats, matched by name.
 
-    Only overrides when the analyzer actually produced speed for that player, so
-    a run with no position stream keeps whatever the normalizer surfaced (null
-    for real KTX stats). Match is by KTX name, then roster name as a fallback.
+    The analyzer position stream is the more faithful speed source, but a KTX stats
+    block can legitimately carry speed.avg/max too (the normalizer surfaces it), so
+    we OVERLAY analyzer speed only when present rather than clearing it -- otherwise
+    a run with no position artifact would wipe valid KTX-provided speed to null.
+    Match is by KTX name, then roster name as a fallback.
     """
     if not speeds:
         return
