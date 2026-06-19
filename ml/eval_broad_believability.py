@@ -219,13 +219,30 @@ def airborne_moving_mask(onground_seq, hspeed_seq, *,
     return out
 
 
+def _mask_seq(seq, human_valid):
+    """Keep only the entries of `seq` where the aligned `human_valid[i]` is truthy.
+    Used to drop weight==0 human rows (null/interpolated/zero-confidence labels —
+    the trainer's loss-excluded rows) from the HUMAN-side numerator AND denominator
+    so a fabricated 'idle' label can't pollute the human believability stats."""
+    return [s for s, keep in zip(seq, human_valid) if keep]
+
+
 def compute_demo_metrics(pred, human, raw, *,
-                         ticks_per_sec: float = DEFAULT_TICKS_PER_SEC) -> dict:
+                         ticks_per_sec: float = DEFAULT_TICKS_PER_SEC,
+                         human_weight=None) -> dict:
     """All per-demo believability metrics from already-decoded per-tick CLASSES.
 
     `pred` / `human`: dict head_name -> list[int class] (same length, tick-ordered).
         pred  = policy argmax classes; human = catalog-action classes.
     `raw`: {"onground": [...], "hspeed": [...]} the demo's RAW self state per tick.
+    `human_weight`: OPTIONAL per-tick loss weight for the HUMAN label (the trainer's
+        `weight` = action confidence, 0 on a null/interpolated/zero-confidence frame
+        — see ml/pipeline/build_features.py). When given, every HUMAN-side metric
+        (human strafe cadence, human jump/attack rate, human move-class dist, and
+        per-head agreement) is computed ONLY over weight>0 ticks, excluding the
+        fabricated 'idle' rows from both numerator and denominator. The POLICY side
+        is always unmasked (the policy predicts every tick). Default None = no mask
+        (back-compat: every tick counts), so existing callers are unaffected.
 
     Pure python — this is the function the deps-free unit tests exercise and the
     torch CLI calls per demo. Returns policy + human strafe cadence, jump/attack
@@ -239,60 +256,125 @@ def compute_demo_metrics(pred, human, raw, *,
     pred_side_signs = [side_class_to_sign(c) for c in pred["side"]]
     human_side_signs = [side_class_to_sign(c) for c in human["side"]]
 
+    # HUMAN-side validity mask (weight>0). None -> all ticks valid (back-compat).
+    if human_weight is None:
+        human_valid = [True] * n
+    else:
+        human_valid = [float(w) > 0.0 for w in human_weight]
+    # Human strafe cadence is measured on airborne-moving AND human-valid ticks; the
+    # policy keeps the full airborne-moving mask (apples-to-apples on the policy side).
+    human_eligible = [e and v for e, v in zip(eligible, human_valid)]
+
+    def _hmask(seq):
+        return _mask_seq(seq, human_valid)
+
     out = {
         "n_ticks": n,
         "airborne_moving_ticks": sum(1 for e in eligible if e),
         "strafe_cadence_per_min": {
             "policy": strafe_cadence_per_min(pred_side_signs, eligible,
                                              ticks_per_sec=ticks_per_sec),
-            "human": strafe_cadence_per_min(human_side_signs, eligible,
+            "human": strafe_cadence_per_min(human_side_signs, human_eligible,
                                             ticks_per_sec=ticks_per_sec),
         },
         "jump_rate": {"policy": bin_rate(pred["jump"]),
-                      "human": bin_rate(human["jump"])},
+                      "human": bin_rate(_hmask(human["jump"]))},
         "attack_rate": {"policy": bin_rate(pred["attack"]),
-                        "human": bin_rate(human["attack"])},
+                        "human": bin_rate(_hmask(human["attack"]))},
         "move_class_dist": {},
         "head_agreement": {},
     }
     for h in SIGN3_HEADS:
         pdist = class_distribution(pred[h], 3)
-        hdist = class_distribution(human[h], 3)
+        hdist = class_distribution(_hmask(human[h]), 3)
         out["move_class_dist"][h] = {
             "policy": pdist, "human": hdist,
             "tv_distance": total_variation(pdist["fracs"], hdist["fracs"]),
         }
     for h in BIN_HEADS:
         pdist = class_distribution(pred[h], 2)
-        hdist = class_distribution(human[h], 2)
+        hdist = class_distribution(_hmask(human[h]), 2)
         out["move_class_dist"][h] = {
             "policy": pdist, "human": hdist,
             "tv_distance": total_variation(pdist["fracs"], hdist["fracs"]),
         }
     for h in HEAD_NAMES:
-        out["head_agreement"][h] = head_agreement(pred[h], human[h])
+        # agreement over human-valid ticks only (a weight==0 human row is a fabricated
+        # label — counting it as agree/disagree skews the val-acc analog either way).
+        out["head_agreement"][h] = head_agreement(_hmask(pred[h]), _hmask(human[h]))
     return out
 
 
 def aggregate_metrics(per_demo: dict, *,
                       ticks_per_sec: float = DEFAULT_TICKS_PER_SEC) -> dict:
-    """Pool per-demo CLASS streams into corpus-level metrics by CONCATENATION (so a
-    long demo weights proportionally, matching how the human cadence is anchored).
+    """Pool per-demo CLASS streams into corpus-level metrics (so a long demo weights
+    proportionally, matching how the human cadence is anchored).
 
-    `per_demo[demo_id]` = {"pred": {...}, "human": {...}, "raw": {...}} of the same
-    per-tick class lists `compute_demo_metrics` consumes. Pure python.
+    `per_demo[demo_id]` = {"pred": {...}, "human": {...}, "raw": {...}, optional
+    "human_weight": [...]} of the same per-tick class lists `compute_demo_metrics`
+    consumes. Pure python.
+
+    Strafe-cadence FLIP COUNTS are summed PER DEMO, never counted across the pooled
+    stream: a sign-flip is only meaningful WITHIN one demo's continuous tick sequence,
+    so concatenating demos and counting once would inject one spurious flip at every
+    demo boundary (e.g. demo A ending on a right strafe followed by demo B opening on
+    a left strafe is not a real L<->R reversal). Distributions / rates / agreement are
+    plain counts and DO pool by concatenation with no boundary artifact, so those are
+    still computed on the pooled stream (with the same weight>0 human mask).
     """
     pooled_pred = {h: [] for h in HEAD_NAMES}
     pooled_human = {h: [] for h in HEAD_NAMES}
     pooled_raw = {"onground": [], "hspeed": []}
+    pooled_weight = []
+    any_weight = False
+    # per-demo strafe-cadence flips, summed (NOT counted across demo boundaries)
+    pol_flips = hum_flips = 0
+    pol_elig_ticks = hum_elig_ticks = 0
     for _did, d in sorted(per_demo.items()):
+        n_d = len(d["pred"]["side"])
+        hw = d.get("human_weight")
+        if hw is not None:
+            any_weight = True
+            pooled_weight.extend([float(w) for w in hw])
+        else:
+            pooled_weight.extend([1.0] * n_d)
         for h in HEAD_NAMES:
             pooled_pred[h].extend(d["pred"][h])
             pooled_human[h].extend(d["human"][h])
         pooled_raw["onground"].extend(d["raw"].get("onground", []))
         pooled_raw["hspeed"].extend(d["raw"].get("hspeed", []))
-    return compute_demo_metrics(pooled_pred, pooled_human, pooled_raw,
-                                ticks_per_sec=ticks_per_sec)
+        # this demo's OWN strafe cadence (segment-local flip count), then accumulate.
+        dm = compute_demo_metrics(d["pred"], d["human"], d["raw"],
+                                  ticks_per_sec=ticks_per_sec, human_weight=hw)
+        pol_flips += dm["strafe_cadence_per_min"]["policy"]["flips"]
+        hum_flips += dm["strafe_cadence_per_min"]["human"]["flips"]
+        pol_elig_ticks += dm["strafe_cadence_per_min"]["policy"]["eligible_ticks"]
+        hum_elig_ticks += dm["strafe_cadence_per_min"]["human"]["eligible_ticks"]
+
+    out = compute_demo_metrics(
+        pooled_pred, pooled_human, pooled_raw, ticks_per_sec=ticks_per_sec,
+        human_weight=(pooled_weight if any_weight else None))
+    # Overwrite the pooled (boundary-contaminated) flip counts with the per-demo sum.
+    out["strafe_cadence_per_min"]["policy"] = _cadence_from_flips(
+        pol_flips, pol_elig_ticks, ticks_per_sec)
+    out["strafe_cadence_per_min"]["human"] = _cadence_from_flips(
+        hum_flips, hum_elig_ticks, ticks_per_sec)
+    return out
+
+
+def _cadence_from_flips(flips: int, eligible_ticks: int, ticks_per_sec: float) -> dict:
+    """Rebuild a strafe_cadence_per_min block from an ALREADY-SUMMED flip count and
+    eligible-tick count (used by aggregate_metrics, which sums flips per demo rather
+    than re-counting across demo boundaries). Same shape `strafe_cadence_per_min`
+    returns; the rate is flips / eligible_seconds * 60."""
+    elig_seconds = eligible_ticks / ticks_per_sec if ticks_per_sec > 0 else 0.0
+    rate = (flips / elig_seconds * 60.0) if elig_seconds > 0 else 0.0
+    return {
+        "flips": flips,
+        "eligible_ticks": eligible_ticks,
+        "eligible_seconds": round(elig_seconds, 4),
+        "flips_per_min": round(rate, 4),
+    }
 
 
 # =============================================================================
@@ -428,6 +510,20 @@ def _human_action_classes(act_state, schema: SC.ShardSchema) -> dict:
     return {name: int(labels[i]) for i, name in enumerate(HEAD_NAMES)}
 
 
+def _human_action_weight(act_state) -> float:
+    """Per-tick HUMAN loss weight, identical to the trainer's rule in
+    ml/pipeline/build_features.py: a NULL label OR an interpolated frame -> 0.0,
+    else the action `confidence` (default 1.0). A weight==0 tick is one the trainer
+    excludes from the loss, so the believability metrics must exclude it from the
+    human side too (otherwise the fabricated all-idle label inflates the human
+    idle/no-strafe/no-jump rates and corrupts head agreement)."""
+    if act_state is None:
+        return 0.0
+    if act_state.get("is_interp"):
+        return 0.0
+    return float(act_state.get("confidence", 1.0))
+
+
 def run_eval(checkpoint: Path, db: Path, norm_artifact: Path, *,
              split: str = "val", map_name: str = "dm3", n_max: int = 7,
              anchors: Path | None = None, ticks_per_sec: float = DEFAULT_TICKS_PER_SEC,
@@ -472,6 +568,10 @@ def run_eval(checkpoint: Path, db: Path, norm_artifact: Path, *,
             "pred": {h: [] for h in HEAD_NAMES},
             "human": {h: [] for h in HEAD_NAMES},
             "raw": {"onground": [], "hspeed": []},
+            # per-tick HUMAN loss weight (action confidence; 0 on a null/interpolated/
+            # zero-confidence label) — the SAME rule the trainer applies in
+            # build_features.py. Lets the metrics drop fabricated 'idle' human rows.
+            "human_weight": [],
         })
         # batch the whole episode through the model in one forward (open-loop: each
         # tick is independent — no recurrence — so a single batched forward is exact).
@@ -497,9 +597,11 @@ def run_eval(checkpoint: Path, db: Path, norm_artifact: Path, *,
         for j, t in enumerate(ticks):
             for hi, name in enumerate(HEAD_NAMES):
                 bucket["pred"][name].append(int(pred_cls[hi][j]))
-            hc = _human_action_classes(t.get("act"), schema)
+            act_state = t.get("act")
+            hc = _human_action_classes(act_state, schema)
             for name in HEAD_NAMES:
                 bucket["human"][name].append(hc[name])
+            bucket["human_weight"].append(_human_action_weight(act_state))
             self_state = t["self"]
             og = self_state.get("onground")
             hs = self_state.get("hspeed")
@@ -514,7 +616,8 @@ def run_eval(checkpoint: Path, db: Path, norm_artifact: Path, *,
     # per-demo + aggregate believability metrics (pure-python helpers)
     per_demo_metrics = {
         did: compute_demo_metrics(d["pred"], d["human"], d["raw"],
-                                  ticks_per_sec=ticks_per_sec)
+                                  ticks_per_sec=ticks_per_sec,
+                                  human_weight=d.get("human_weight"))
         for did, d in sorted(per_demo.items())
     }
     agg = aggregate_metrics(per_demo, ticks_per_sec=ticks_per_sec)
