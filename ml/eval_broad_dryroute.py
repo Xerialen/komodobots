@@ -198,23 +198,38 @@ def score_rows(rows, route, human_tws, *, reach=None):
 
     `route` must already be loaded via VR.load_route (carries human path H/cum, goal,
     tele_entrances, gap, geom). `human_tws` is the speed% denominator (the human
-    path's own time_weighted_speed). Pure python."""
+    path's own time_weighted_speed). Pure python.
+
+    TELEPORT-CONSISTENCY GUARD: legit_segment() is applied ONCE here, up front, and
+    EVERY metric (route%, speed%, classify, edge_speed) is computed on that SAME
+    truncated `seg` -- exactly as verify_route.main() does. Without it, route% would
+    see the FULL stream (including positions AFTER a STRAY teleporter, which can dump
+    the bot near a late human-path point -> a high route%) while speed% saw only the
+    legit pre-teleport segment time_weighted_speed truncates to (fast -> high speed%),
+    so a run that legitimately covered ~10% then took a stray teleporter to the goal
+    could score a FALSE PASS. Scoring every metric on one legit segment closes that."""
     H, cum, _hmean = route["_human"]
     reach = VR.REACH_RL if reach is None else reach
-    route_pct = VR.route_progress(H, cum, rows)
-    tws = RM.time_weighted_speed(rows, route["tele_entrances"], reach=reach)
+    # Truncate at the first STRAY (non-sanctioned) teleport ONCE, then score EVERY
+    # metric on this SAME segment so route% and speed% can never disagree about which
+    # part of the run is legit (time_weighted_speed re-applies legit_segment internally;
+    # that re-truncation is idempotent on an already-legit segment).
+    seg = VR.legit_segment(rows, route["tele_entrances"])
+    route_pct = VR.route_progress(H, cum, seg)
+    tws = RM.time_weighted_speed(seg, route["tele_entrances"], reach=reach)
     speed_pct = (100.0 * tws / human_tws) if human_tws else 0.0
     passed = (route_pct >= GATE_ROUTE_PCT) and (speed_pct >= GATE_SPEED_PCT)
 
-    # harder diagnostics (reported, not gated)
-    cls, closest_rl, _edge_speed_grounded, vreq = VR.classify(rows, route["geom"])
-    ev = RM.edge_speed(rows, route["gap"], route["tele_entrances"])
+    # harder diagnostics (reported, not gated) -- on the SAME legit segment.
+    cls, closest_rl, _edge_speed_grounded, vreq = VR.classify(seg, route["geom"])
+    ev = RM.edge_speed(seg, route["gap"], route["tele_entrances"])
     return {
         "passed": bool(passed),
         "route_pct": round(route_pct, 3),
         "speed_pct": round(speed_pct, 3),
         "time_weighted_speed_qu_per_s": round(tws, 3),
-        "n_rows": len(rows),
+        "n_rows": len(seg),
+        "n_rows_full": len(rows),
         "gate": {"route_pct_min": GATE_ROUTE_PCT, "speed_pct_min": GATE_SPEED_PCT,
                  "criterion": "route% >= 80 AND speed% >= 80 (time_weighted_speed)"},
         "diagnostics_not_gated": {

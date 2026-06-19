@@ -34,6 +34,7 @@ sys.path.insert(0, str(ML))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import eval_broad_dryroute as DR     # noqa: E402  (deps-free at import time)
+import route_metrics as RM           # noqa: E402  (pure-stdlib sibling; TELEPORT_JUMP)
 
 _HAVE_TORCH = importlib.util.find_spec("torch") is not None
 
@@ -106,6 +107,50 @@ def _stall_rows(route, *, n=60):
     for _ in range(n):
         t += 0.013
         rows.append(DR.make_row(t, (sx, sy, sz), (0.0, 0.0, 0.0),
+                                onground=True, over_void=False, goal=goal))
+    return rows
+
+
+def _stray_teleport_rows(route, *, legit_frac=0.10, late_frac=0.90,
+                         speed=400.0, dt=0.013):
+    """FAKE rows reproducing the teleport-consistency false PASS (Codex P1 on #309):
+
+      (a) LEGIT phase  -- traverse the FIRST `legit_frac` of the straight +x human
+          path at human `speed` (so this leg is fast: speed% ~100), then
+      (b) STRAY teleport -- ONE single-frame origin jump > route_metrics.TELEPORT_JUMP
+          (250 qu) that is NOT at any sanctioned tele_entrance (the synthetic route has
+          tele_entrances=(), so any big jump is stray) landing the bot at the LATE human
+          point `late_frac` along the path (near, but not at, the goal), then a couple
+          of settled rows there.
+
+    With the BUG (route% on the FULL stream) the late post-teleport rows snap to a
+    late human vertex -> route% ~= 100*late_frac (~90), so route 90 + speed ~100 = a
+    FALSE PASS. With the FIX (legit_segment ONCE, then route% on it) the stream is
+    truncated at the stray teleport -> route% ~= 100*legit_frac (~10) -> FAIL. The jump
+    distance (~0.8*cum) is far above 250 qu, and z is held at 0 so the jump is purely
+    the xy hop route_metrics.legit_segment keys on."""
+    H, cum, _ = route["_human"]
+    goal = route["goal"]
+    legit_arc = cum[-1] * legit_frac
+    late_x = cum[-1] * late_frac          # straight +x route: arc == x
+    step_qu = speed * dt
+    rows = []
+    t = 0.0
+    x = 0.0
+    # (a) legit leg: at least 2 rows so the pre-teleport segment has a time span.
+    while True:
+        t += dt
+        rows.append(DR.make_row(t, (x, 0.0, 0.0), (speed, 0.0, 0.0),
+                                onground=True, over_void=False, goal=goal))
+        if x >= legit_arc and len(rows) >= 2:
+            break
+        x += step_qu
+    # (b) ONE stray-teleport frame: origin jumps straight to the late human point.
+    last_legit_x = rows[-1]["x"]
+    assert (late_x - last_legit_x) > RM.TELEPORT_JUMP, "jump must exceed TELEPORT_JUMP"
+    for _ in range(3):                    # land + settle on the late point (not goal)
+        t += dt
+        rows.append(DR.make_row(t, (late_x, 0.0, 0.0), (speed, 0.0, 0.0),
                                 onground=True, over_void=False, goal=goal))
     return rows
 
@@ -292,6 +337,70 @@ class TestScoreRowsGate(unittest.TestCase):
         self.assertAlmostEqual(res["speed_pct"], 100.0, delta=1.0)
         self.assertAlmostEqual(res["time_weighted_speed_qu_per_s"], self.human_tws,
                                delta=1.0)
+
+
+# --------------------------------------------------------------------------- #
+# Regression: teleport-consistency false PASS (Codex P1 on #309).
+#
+# score_rows must apply legit_segment ONCE and score route% AND speed% on the SAME
+# legit segment. The bug computed route% on the FULL stream (which can include
+# positions AFTER a STRAY teleporter near a late human point -> high route%) while
+# time_weighted_speed truncated speed% at the first stray teleport (fast pre-teleport
+# leg -> high speed%): a run that legitimately covered ~10% then stray-teleported to
+# near the goal scored route ~90 / speed ~100 / passed=True -- a FALSE PASS. The fix
+# scores both on the legit segment -> route ~10 -> FAIL. Mirrors verify_route.main().
+# --------------------------------------------------------------------------- #
+class TestStrayTeleportConsistency(unittest.TestCase):
+    def setUp(self):
+        self.route = _straight_route(n=40, step=100.0, with_gap=True)
+        self.human_rows = _rows_along_route(self.route, frac=1.0, speed=400.0)
+        self.human_tws = RM.time_weighted_speed(
+            self.human_rows, self.route["tele_entrances"], reach=DR.VR.REACH_RL)
+
+    def test_stray_teleport_to_late_point_fails_not_false_pass(self):
+        # ~10% legit traversal, then a STRAY teleport to the 90% human point.
+        rows = _stray_teleport_rows(self.route, legit_frac=0.10, late_frac=0.90,
+                                    speed=400.0)
+
+        # The BUG, reproduced: route% on the FULL stream is dominated by the late
+        # post-teleport rows (snap to the ~90% human vertex) -> ~90, and on the SAME
+        # full stream speed% ~100, so the OLD logic would have PASSED. We assert the
+        # buggy inputs themselves to lock in that this stream is a real false-PASS trap.
+        H, cum, _ = self.route["_human"]
+        buggy_route_pct = DR.VR.route_progress(H, cum, rows)        # FULL stream
+        self.assertGreaterEqual(buggy_route_pct, 85.0)             # Codex repro ~90
+        self.assertLess(buggy_route_pct, 100.0)
+
+        # The FIX: score_rows truncates at the stray teleport ONCE, so route% is the
+        # legit ~10% and the gate FAILS (no false PASS).
+        res = DR.score_rows(rows, self.route, self.human_tws)
+        self.assertLessEqual(res["route_pct"], 20.0)              # fixed ~10
+        self.assertFalse(res["passed"])
+        # the legit pre-teleport leg is fast, so the FALSE pass was a route% lie, not a
+        # speed% one: speed% stays high (this is exactly why route%/speed% must agree
+        # on which segment is legit).
+        self.assertGreaterEqual(res["speed_pct"], 80.0)
+
+    def test_scored_metrics_share_one_legit_segment(self):
+        # n_rows is the SCORED (legit) segment, strictly fewer than the full stream,
+        # and the diagnostics (closest_rl) are on that legit segment too -- so they
+        # never see the post-teleport landing near the goal.
+        rows = _stray_teleport_rows(self.route, legit_frac=0.10, late_frac=0.90)
+        res = DR.score_rows(rows, self.route, self.human_tws)
+        self.assertEqual(res["n_rows_full"], len(rows))
+        self.assertLess(res["n_rows"], res["n_rows_full"])        # truncated
+        # closest_rl on the legit (~10%) segment is far from the goal: the stray
+        # teleport landing near the goal must NOT leak into the diagnostics either.
+        self.assertGreater(res["diagnostics_not_gated"]["closest_rl_qu"], 1000.0)
+
+    def test_no_stray_teleport_is_a_noop(self):
+        # control: the human path (no stray teleport) is unaffected by the guard --
+        # legit_segment is a no-op, so route%/speed% PASS exactly as before, and the
+        # scored segment equals the full stream.
+        res = DR.score_rows(self.human_rows, self.route, self.human_tws)
+        self.assertTrue(res["passed"])
+        self.assertGreaterEqual(res["route_pct"], 99.0)
+        self.assertEqual(res["n_rows"], res["n_rows_full"])
 
 
 # --------------------------------------------------------------------------- #
