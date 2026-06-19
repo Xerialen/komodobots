@@ -153,6 +153,93 @@ class TestRouteMetrics(unittest.TestCase):
         self.assertFalse(m["stalled"])
 
 
+class TestAggregateRouteMetrics(unittest.TestCase):
+    """FIX A: aggregating PER-SEGMENT route dicts must NOT inject a teleport distance
+    at segment boundaries, the way running route_metrics on POOLED (concatenated)
+    origins from different segments does."""
+
+    def _segment(self, x0, n=10, step=10.0):
+        # a straight segment starting at x0, stepping +step qu in x for n origins.
+        origins = [(float(x0 + i * step), 0.0) for i in range(n)]
+        speeds = [300.0] * n
+        msecs = [13.0] * n
+        return origins, speeds, msecs
+
+    def test_aggregate_excludes_cross_segment_teleport(self):
+        # Segment A near x=0, Segment B FAR away near x=100000 (the bot was re-seeded to
+        # a new start state -> a huge map jump between segments). Each segment's OWN path
+        # length is 9*10 = 90. Two segments -> the HONEST corpus path length is 180.
+        segA = self._segment(0.0)
+        segB = self._segment(100000.0)
+        routeA = CL.route_metrics(*segA)
+        routeB = CL.route_metrics(*segB)
+        self.assertAlmostEqual(routeA["path_len_qu"], 90.0)
+        self.assertAlmostEqual(routeB["path_len_qu"], 90.0)
+
+        agg = CL.aggregate_route_metrics([routeA, routeB])
+        self.assertAlmostEqual(agg["path_len_qu"], 180.0)     # 90 + 90, no teleport
+        self.assertEqual(agg["n_ticks"], 20)
+        self.assertEqual(agg["n_segments"], 2)
+
+        # the BUGGY path: pool both segments' origins and run route_metrics ONCE. The
+        # A->B boundary (x=90 -> x=100000) adds a ~99910 qu teleport into path_len.
+        pooled_origins = segA[0] + segB[0]
+        pooled_speeds = segA[1] + segB[1]
+        pooled_msecs = segA[2] + segB[2]
+        pooled = CL.route_metrics(pooled_origins, pooled_speeds, pooled_msecs)
+        self.assertGreater(pooled["path_len_qu"], 99000.0)    # teleport contamination
+        # the aggregate must be the clean 180, NOT the ~100090 the pooled path reports.
+        self.assertLess(agg["path_len_qu"], pooled["path_len_qu"] - 99000.0)
+
+    def test_displacement_is_per_segment_sum_not_endpoint_span(self):
+        # pooled displacement would be |last - first| across the teleport (~100090);
+        # the aggregate sums per-segment displacements (90 + 90 = 180).
+        routeA = CL.route_metrics(*self._segment(0.0))
+        routeB = CL.route_metrics(*self._segment(100000.0))
+        agg = CL.aggregate_route_metrics([routeA, routeB])
+        self.assertAlmostEqual(agg["displacement_qu"], 180.0)
+
+    def test_longest_stall_is_max_not_summed(self):
+        # one segment stalls (60 near-zero ticks ~0.78s), one segment moves cleanly.
+        n = 60
+        stalled_route = CL.route_metrics([(0.0, 0.0)] * n, [5.0] * n, [13.0] * n)
+        moving_route = CL.route_metrics(*self._segment(0.0))
+        self.assertTrue(stalled_route["stalled"])
+        self.assertFalse(moving_route["stalled"])
+        agg = CL.aggregate_route_metrics([stalled_route, moving_route])
+        # stalled flag propagates (any segment stalled), longest stall is the MAX
+        # single-segment stall (not a sum across segments).
+        self.assertTrue(agg["stalled"])
+        self.assertAlmostEqual(agg["longest_stall_s"], stalled_route["longest_stall_s"])
+        self.assertEqual(agg["longest_stall_ticks"], stalled_route["longest_stall_ticks"])
+
+    def test_mean_speed_is_duration_weighted(self):
+        # segment A: 10 ticks @ 300; segment B: 30 ticks @ 100. Duration-weighted mean
+        # equals the pooled per-tick mean here (uniform 13ms): (10*300 + 30*100)/40 = 150.
+        routeA = CL.route_metrics([(float(i), 0.0) for i in range(10)], [300.0] * 10, [13.0] * 10)
+        routeB = CL.route_metrics([(float(i), 0.0) for i in range(30)], [100.0] * 30, [13.0] * 30)
+        agg = CL.aggregate_route_metrics([routeA, routeB])
+        self.assertAlmostEqual(agg["mean_speed_qu_per_s"], 150.0, places=2)
+        self.assertEqual(agg["n_ticks"], 40)
+
+    def test_single_segment_matches_route_metrics(self):
+        # one segment in -> the aggregate path/ticks/duration must equal that segment's
+        # own route_metrics (no double counting, no boundary).
+        route = CL.route_metrics(*self._segment(0.0))
+        agg = CL.aggregate_route_metrics([route])
+        self.assertAlmostEqual(agg["path_len_qu"], route["path_len_qu"])
+        self.assertEqual(agg["n_ticks"], route["n_ticks"])
+        self.assertAlmostEqual(agg["duration_s"], route["duration_s"])
+        self.assertAlmostEqual(agg["displacement_qu"], route["displacement_qu"])
+
+    def test_empty_is_safe(self):
+        agg = CL.aggregate_route_metrics([])
+        self.assertEqual(agg["path_len_qu"], 0.0)
+        self.assertEqual(agg["n_ticks"], 0)
+        self.assertEqual(agg["n_segments"], 0)
+        self.assertFalse(agg["stalled"])
+
+
 class TestGmvDiscriminationDepsFree(unittest.TestCase):
     """THE load-bearing control, run FOR REAL on this box (gmv is pure stdlib):
     a known face-and-run sequence FAILS the HARD G-MV1, a human-like sequence PASSES.
@@ -291,7 +378,8 @@ class TestModuleImportsDepsFree(unittest.TestCase):
 
     def test_glue_importable_and_run_eval_present(self):
         for fn in ("move_class_to_mag", "decode_move_heads", "gmv_tick_from_state",
-                   "route_metrics", "score_sequence_gmv", "select_start_segments"):
+                   "route_metrics", "aggregate_route_metrics", "score_sequence_gmv",
+                   "select_start_segments"):
             self.assertTrue(callable(getattr(CL, fn)), fn)
         self.assertTrue(hasattr(CL, "run_eval"))
 

@@ -229,6 +229,77 @@ def route_metrics(origins, speeds, msecs, *,
     }
 
 
+def aggregate_route_metrics(segment_routes, *,
+                            stall_window_s: float = 0.5) -> dict:
+    """Combine PER-SEGMENT route dicts (each from route_metrics on ONE segment's own
+    origins) into a corpus-level route summary WITHOUT re-running route_metrics on a
+    concatenation of segment origins.
+
+    Why this exists: route_metrics sums hypot over CONSECUTIVE origins and takes the
+    first/last origin for displacement. If segment origins are pooled by concatenation,
+    every segment boundary (segment N's last origin -> segment N+1's first origin) is a
+    discontinuous JUMP across the map that injects a bogus TELEPORT distance into both
+    path_len_qu and displacement_qu. Each segment's own route dict is already correct,
+    so we aggregate THOSE instead:
+
+      * path_len_qu, n_ticks, longest_stall_ticks-source, duration_s : SUMMED
+      * mean_speed_qu_per_s : DURATION-WEIGHTED mean of per-segment means (so a long
+        segment weights proportionally — identical to a pooled per-tick mean when the
+        per-tick msec is uniform, which it is here ~13ms)
+      * longest_stall_s / longest_stall_ticks : MAX over segments (a stall is a within-
+        segment run; the longest single contiguous stall is the meaningful figure — a
+        boundary can NOT create or extend a real stall)
+      * stalled : ANY segment stalled (longest single-segment stall >= window)
+      * displacement_qu : NOT summable across discontinuous segments, and net A->B
+        displacement is per-segment by nature -> reported as the SUM of per-segment
+        |displacement| (total straight-line ground covered, segment by segment), which
+        is the honest cross-segment analog and never crosses a teleport boundary.
+
+    Pure python; deps-free unit-test target. Empty input -> a zeroed route dict.
+    """
+    routes = list(segment_routes)
+    if not routes:
+        return {
+            "path_len_qu": 0.0, "n_ticks": 0, "mean_speed_qu_per_s": 0.0,
+            "stalled": False, "longest_stall_s": 0.0, "longest_stall_ticks": 0,
+            "duration_s": 0.0, "displacement_qu": 0.0,
+            "stall_window_s": stall_window_s, "stall_speed_qu_per_s": None,
+            "n_segments": 0,
+        }
+    path_len = sum(float(r.get("path_len_qu", 0.0)) for r in routes)
+    n_ticks = sum(int(r.get("n_ticks", 0)) for r in routes)
+    duration = sum(float(r.get("duration_s", 0.0)) for r in routes)
+    disp = sum(float(r.get("displacement_qu", 0.0)) for r in routes)
+    # duration-weighted mean speed (fall back to tick-count weight if durations are 0)
+    wsum = sum(float(r.get("duration_s", 0.0)) for r in routes)
+    if wsum > 0:
+        mean_speed = sum(float(r.get("mean_speed_qu_per_s", 0.0)) * float(r.get("duration_s", 0.0))
+                         for r in routes) / wsum
+    else:
+        tw = sum(int(r.get("n_ticks", 0)) for r in routes)
+        mean_speed = (sum(float(r.get("mean_speed_qu_per_s", 0.0)) * int(r.get("n_ticks", 0))
+                          for r in routes) / tw) if tw else 0.0
+    # longest SINGLE-segment stall (max, not sum — a stall never spans a boundary)
+    longest_stall_s = max((float(r.get("longest_stall_s", 0.0)) for r in routes), default=0.0)
+    longest_stall_ticks = max((int(r.get("longest_stall_ticks", 0)) for r in routes), default=0)
+    stalled = any(bool(r.get("stalled")) for r in routes)
+    stall_speed = next((r.get("stall_speed_qu_per_s") for r in routes
+                        if r.get("stall_speed_qu_per_s") is not None), None)
+    return {
+        "path_len_qu": round(path_len, 2),
+        "n_ticks": n_ticks,
+        "mean_speed_qu_per_s": round(mean_speed, 3),
+        "stalled": bool(stalled),
+        "longest_stall_s": round(longest_stall_s, 4),
+        "longest_stall_ticks": longest_stall_ticks,
+        "duration_s": round(duration, 3),
+        "displacement_qu": round(disp, 2),
+        "stall_window_s": stall_window_s,
+        "stall_speed_qu_per_s": stall_speed,
+        "n_segments": len(routes),
+    }
+
+
 def score_sequence_gmv(ticks, anchors=None, player_band=None) -> dict:
     """Thin wrapper over the pure-stdlib gmv battery on a built tick list. Returns the
     full `run_battery` result (gates G-MV1 HARD / G-MV3 / G-MV4, `believable`,
@@ -416,11 +487,15 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
     return gmv_ticks, origins, speeds, msecs, attack_classes
 
 
-def _controller_report(pooled_ticks, pooled_origins, pooled_speeds, pooled_msecs,
-                       anchors, player_band, *, attack_pressed=None) -> dict:
-    """Score one controller's POOLED tick stream: gmv battery + route metrics."""
+def _controller_report(pooled_ticks, route, anchors, player_band, *,
+                       attack_pressed=None) -> dict:
+    """Score one controller: gmv battery on the POOLED tick stream + a precomputed
+    `route` summary. The gmv gates are per-tick (velocity/yaw/onground/sidemove) and
+    pool correctly across segments, but route metrics CANNOT — origins concatenated
+    across segments inject a teleport distance at each boundary. So the caller passes
+    the route already aggregated from the per-segment route dicts (aggregate_route_metrics);
+    this function no longer re-runs route_metrics on pooled origins."""
     battery = score_sequence_gmv(pooled_ticks, anchors=anchors, player_band=player_band)
-    route = route_metrics(pooled_origins, pooled_speeds, pooled_msecs)
     rep = {"gmv": battery, "gmv_summary": summarize_gmv(battery), "route": route,
            "n_ticks": len(pooled_ticks)}
     if attack_pressed is not None:
@@ -468,10 +543,13 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
     norm_bundle = {"_AO": AO, "_stats": stats}
 
     per_segment = []
-    # pooled streams per controller (concatenate so a long segment weights more).
+    # pooled TICK streams per controller (gmv gates pool correctly per-tick). Route
+    # data is NOT pooled by concatenation — origins from different segments are
+    # discontinuous, so we keep each segment's OWN route dict and aggregate those
+    # (aggregate_route_metrics) to avoid a teleport distance at every segment boundary.
     pool = {
-        "policy": {"ticks": [], "origins": [], "speeds": [], "msecs": [], "attack": []},
-        "recorded": {"ticks": [], "origins": [], "speeds": [], "msecs": []},
+        "policy": {"ticks": [], "attack": [], "routes": []},
+        "recorded": {"ticks": [], "routes": []},
     }
     for (eid, start, seg) in segments:
         pol = closed_loop_rollout(
@@ -483,15 +561,14 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
 
         p_ticks, p_org, p_spd, p_ms, p_atk = pol
         r_ticks, r_org, r_spd, r_ms, _ = rec
+        # per-segment route dicts (each on ITS OWN origins -> correct, no boundary jump)
+        p_route = route_metrics(p_org, p_spd, p_ms)
+        r_route = route_metrics(r_org, r_spd, r_ms)
         pool["policy"]["ticks"].extend(p_ticks)
-        pool["policy"]["origins"].extend(p_org)
-        pool["policy"]["speeds"].extend(p_spd)
-        pool["policy"]["msecs"].extend(p_ms)
         pool["policy"]["attack"].extend([a for a in p_atk if a is not None])
+        pool["policy"]["routes"].append(p_route)
         pool["recorded"]["ticks"].extend(r_ticks)
-        pool["recorded"]["origins"].extend(r_org)
-        pool["recorded"]["speeds"].extend(r_spd)
-        pool["recorded"]["msecs"].extend(r_ms)
+        pool["recorded"]["routes"].append(r_route)
 
         per_segment.append({
             "episode_id": int(eid),
@@ -501,24 +578,24 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
             "policy": {
                 "gmv_summary": summarize_gmv(
                     score_sequence_gmv(p_ticks, anchors=anchors_obj, player_band=player_band)),
-                "route": route_metrics(p_org, p_spd, p_ms),
+                "route": p_route,
             },
             "recorded": {
                 "gmv_summary": summarize_gmv(
                     score_sequence_gmv(r_ticks, anchors=anchors_obj, player_band=player_band)),
-                "route": route_metrics(r_org, r_spd, r_ms),
+                "route": r_route,
             },
         })
 
-    # aggregate (pooled) controller reports.
+    # aggregate controller reports: gmv on pooled ticks, route from per-segment dicts.
     atk = pool["policy"]["attack"]
     atk_rate = round(sum(1 for a in atk if int(a) == 1) / len(atk), 6) if atk else 0.0
     bot_policy = _controller_report(
-        pool["policy"]["ticks"], pool["policy"]["origins"], pool["policy"]["speeds"],
-        pool["policy"]["msecs"], anchors_obj, player_band, attack_pressed=atk_rate)
+        pool["policy"]["ticks"], aggregate_route_metrics(pool["policy"]["routes"]),
+        anchors_obj, player_band, attack_pressed=atk_rate)
     recorded_human = _controller_report(
-        pool["recorded"]["ticks"], pool["recorded"]["origins"],
-        pool["recorded"]["speeds"], pool["recorded"]["msecs"], anchors_obj, player_band)
+        pool["recorded"]["ticks"], aggregate_route_metrics(pool["recorded"]["routes"]),
+        anchors_obj, player_band)
 
     # synthetic NEGATIVE control — gmv is stdlib so this runs for real anywhere.
     face_run = GMV.synth_face_and_run(n=max(2000, horizon * 4))
