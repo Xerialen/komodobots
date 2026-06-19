@@ -7,3 +7,8 @@ tricks/**/*.mvd
 tricks/**/*.qwd
 # generated relational-catalog SQLite DBs (built by scripts/catalog_*.py; large, regenerable)
 data/catalog/*.sqlite
+# generated feature shards (ml/pipeline/build_features.py shard; regenerable from the catalog)
+data/catalog/shards/
+# data-fitted normalization artifacts (ml/pipeline/normalize_fit.py; refit from the train split).
+# The COMMITTED reference is data/catalog/normalization_stats.template.json (kept tracked).
+data/catalog/norm/

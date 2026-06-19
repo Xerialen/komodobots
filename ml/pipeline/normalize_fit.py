@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass
@@ -71,15 +72,153 @@ def fit_feature(values) -> Welford:
     return w
 
 
+def robust_spec(values, clip=None) -> dict:
+    """Exact median + IQR (q75-q25) of a value stream, for a `robust` feature.
+
+    Streams into a list and sorts — fine for the per-map velocity/speed columns of a
+    bounded catalog slice. A production fit over the full silver corpus would use a
+    streaming quantile sketch (t-digest) in the heavy path; the artifact shape is
+    identical either way.
+    """
+    xs = sorted(float(v) for v in values)
+    n = len(xs)
+
+    def _quantile(q: float) -> float:
+        if n == 0:
+            return 0.0
+        if n == 1:
+            return xs[0]
+        pos = q * (n - 1)
+        lo = int(math.floor(pos))
+        hi = min(lo + 1, n - 1)
+        frac = pos - lo
+        return xs[lo] * (1.0 - frac) + xs[hi] * frac
+
+    median = _quantile(0.5)
+    iqr = _quantile(0.75) - _quantile(0.25)
+    s = {"method": "robust", "median": median, "iqr": iqr, "computed_from": {"n": n}}
+    if clip is not None:
+        s["clip"] = clip
+    return s
+
+
+# --- train-only catalog fit ---------------------------------------------------
+# The per-map velocity zscore keys (vel_x/y/z) are fitted here; the agent_observation
+# transform REUSES them for the egocentric entity_rel_vel_* channels (no separate
+# fitted key — feature_registry.yaml). hspeed is robust. Position is the static map
+# AABB (minmax), not fitted from data, so it is carried from the template/maps.v1.
+_VEL_CLIP = {"vel_x": [-2500.0, 2500.0], "vel_y": [-2500.0, 2500.0], "vel_z": [-1000.0, 1000.0]}
+_HSPEED_CLIP = [0.0, 2500.0]
+
+
+def fit_from_catalog(sqlite_path, split: str = "train", map_name: str = "dm3") -> dict:
+    """Fit per-map velocity (zscore) + hspeed (robust) stats from the catalog,
+    streaming ONLY the rows whose episode is in `split` (default 'train') — the
+    train-only normalization contract. Reads player_ticks (the ego self spine) joined
+    to episodes for the split filter.
+
+    Returns {map_name: {"vel_x":spec, "vel_y":spec, "vel_z":spec, "hspeed":spec}} plus
+    the row count it fitted on. sqlite3 is stdlib; this stays import-light, but lives
+    in ml/ because it is the *fitting* side (the applying side is scripts/features).
+    """
+    import sqlite3
+
+    con = sqlite3.connect(str(sqlite_path))
+    try:
+        rows = con.execute(
+            """SELECT pt.vx, pt.vy, pt.vz, pt.hspeed
+                 FROM player_ticks pt
+                 JOIN episodes e USING(episode_id)
+                WHERE e.split = ?""",
+            (split,),
+        ).fetchall()
+    finally:
+        con.close()
+
+    wx, wy, wz = Welford(), Welford(), Welford()
+    hspeeds = []
+    for vx, vy, vz, hsp in rows:
+        if vx is not None:
+            wx.update(float(vx))
+        if vy is not None:
+            wy.update(float(vy))
+        if vz is not None:
+            wz.update(float(vz))
+        if hsp is not None:
+            hspeeds.append(float(hsp))
+
+    feats = {
+        "vel_x": wx.zscore_spec(clip=_VEL_CLIP["vel_x"]),
+        "vel_y": wy.zscore_spec(clip=_VEL_CLIP["vel_y"]),
+        "vel_z": wz.zscore_spec(clip=_VEL_CLIP["vel_z"]),
+        "hspeed": robust_spec(hspeeds, clip=_HSPEED_CLIP),
+    }
+    return {"map": map_name, "n_rows": len(rows), "feats": feats}
+
+
+# Static map AABB (qu) -> position minmax specs (from maps.v1; NOT fitted from data).
+_POS_AABB = {
+    "dm3": {"pos_x": (-984.0, 2048.0), "pos_y": (-960.0, 1136.0), "pos_z": (-416.0, 496.0)},
+}
+
+
 def write_stats(per_map_fits: dict, out_path, **meta) -> None:
-    """Assemble a normalization_stats.json from fitted Welford accumulators."""
+    """Assemble a normalization_stats.json from fitted Welford accumulators.
+
+    `per_map_fits[map]` is a dict of feature_key -> a fully-formed spec dict (e.g. from
+    Welford.zscore_spec / robust_spec / fit_from_catalog). `computed_from` is stamped
+    onto the doc so the train-only provenance is auditable.
+    """
     doc = {
         "schema": "komodobots.normalization_stats.v1",
         "artifact_version": meta.get("artifact_version", "0.0.0-fit"),
         "registry_version": 2,
+        "computed_from": meta.get("computed_from", "train"),
+        "split_def": meta.get("split_def", "group_by_demo_id"),
         "fitted_on": meta.get("fitted_on", "UNSET"),
+        "git_sha": meta.get("git_sha", "UNSET"),
+        "dataset_version": meta.get("dataset_version", "UNSET"),
         "computed_with": {"algorithm": "welford_online + chan_parallel_merge", "ddof": 0},
+        "constants": {"map_diagonal": meta.get("map_diagonal", {"dm3": 3797.1})},
         "per_map": {m: {k: w for k, w in feats.items()} for m, feats in per_map_fits.items()},
+        "sincos": ["yaw", "pitch", "vel_heading", "rel_bearing", "rel_pitch"],
+        "divide_period": {"health": 250.0, "armor": 200.0},
     }
     from pathlib import Path
-    Path(out_path).write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    Path(out_path).write_text(json.dumps(doc, indent=2, sort_keys=True), encoding="utf-8")
+    return doc
+
+
+def fit_stats_doc(sqlite_path, out_path, split: str = "train", map_name: str = "dm3", **meta) -> dict:
+    """End-to-end train-only fit -> frozen normalization_stats.json. Combines the
+    fitted per-map velocity/hspeed (from the `split` rows) with the static position
+    AABB, then writes the artifact. Returns the written doc."""
+    fit = fit_from_catalog(sqlite_path, split=split, map_name=map_name)
+    feats = dict(fit["feats"])
+    aabb = _POS_AABB.get(map_name, _POS_AABB["dm3"])
+    for key, (lo, hi) in aabb.items():
+        feats[key] = {"method": "minmax", "min": lo, "max": hi,
+                      "computed_from": {"source": "maps.v1 AABB"}, "clip": [lo, hi]}
+    meta.setdefault("computed_from", split)
+    meta.setdefault("fitted_on", f"{split}_split:{Path(str(sqlite_path)).name}")
+    doc = write_stats({map_name: feats}, out_path, **meta)
+    doc["_fit_n_rows"] = fit["n_rows"]
+    return doc
+
+
+if __name__ == "__main__":
+    import argparse
+    from pathlib import Path
+
+    ap = argparse.ArgumentParser(description="Fit train-only normalization_stats.json from a catalog")
+    ap.add_argument("--db", type=Path, required=True, help="catalog .sqlite")
+    ap.add_argument("--out", type=Path, required=True, help="output normalization_stats.json")
+    ap.add_argument("--split", default="train")
+    ap.add_argument("--map", default="dm3")
+    ap.add_argument("--artifact-version", default="0.3.0-p3fit")
+    args = ap.parse_args()
+    d = fit_stats_doc(args.db, args.out, split=args.split, map_name=args.map,
+                      artifact_version=args.artifact_version)
+    print(json.dumps({"out": str(args.out), "computed_from": d["computed_from"],
+                      "n_rows": d["_fit_n_rows"],
+                      "vel_x": d["per_map"][args.map]["vel_x"]}, indent=2))

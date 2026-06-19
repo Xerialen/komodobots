@@ -85,5 +85,155 @@ class TestBuildFeaturesSmoke(unittest.TestCase):
                 self.assertLessEqual(picked_at, t)
 
 
+def _tiny_catalog(path: Path) -> None:
+    """Build a minimal synthetic catalog (stdlib sqlite3) with a TRAIN and a VAL
+    episode, each with self ego rows (player_ticks + actor_ticks) and observed-other
+    actor_ticks rows, so the P3 fit/shard path can be exercised end-to-end without the
+    real corpus."""
+    import sqlite3
+
+    sql = (REPO_ROOT / "data" / "catalog" / "catalog.sql").read_text(encoding="utf-8")
+    con = sqlite3.connect(str(path))
+    con.executescript(sql)
+    con.execute("""INSERT INTO maps
+        (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, diagonal)
+        VALUES (1, 'dm3', -984.0, 2048.0, -960.0, 1136.0, -416.0, 496.0, 3797.1)""")
+    con.execute("""INSERT INTO demos (demo_id, path, source, map_id, sha256)
+                   VALUES (1, 'd.qwd', 'qwd', 1, 'deadbeef')""")
+    for pid in (1, 2, 3):
+        con.execute("INSERT INTO players (player_id, handle, is_bot) VALUES (?, ?, 0)", (pid, f"p{pid}", ))
+    # episode 1 = train (self=p1), episode 2 = val (self=p1)
+    con.execute("""INSERT INTO episodes (episode_id, demo_id, player_id, map_id, start_tick, end_tick, n_steps, split)
+                   VALUES (1,1,1,1,0,99,100,'train')""")
+    con.execute("""INSERT INTO episodes (episode_id, demo_id, player_id, map_id, start_tick, end_tick, n_steps, split)
+                   VALUES (2,1,1,1,0,49,50,'val')""")
+
+    def add(eid, ntk, vx_base):
+        for tk in range(ntk):
+            vx = float(vx_base + tk)
+            con.execute("""INSERT INTO player_ticks
+                (episode_id, tick, t_s, msec, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed, onground)
+                VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?)""",
+                (eid, tk, tk * 0.013, 13, 100.0 + tk, 50.0, -10.0, vx, 20.0, 0.0, 0.0, 45.0, 0.0,
+                 (vx * vx + 400.0) ** 0.5, 1))
+            # self ego in actor_ticks
+            con.execute("""INSERT INTO actor_ticks
+                (episode_id, tick, actor_id, alive, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed)
+                VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?)""",
+                (eid, tk, 1, 1, 100.0 + tk, 50.0, -10.0, vx, 20.0, 0.0, 0.0, 45.0, 0.0, 0.0))
+            # two observed-others at varying offsets
+            con.execute("""INSERT INTO actor_ticks
+                (episode_id, tick, actor_id, alive, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed)
+                VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?)""",
+                (eid, tk, 2, 1, 300.0 + tk, 100.0, 0.0, -50.0, 0.0, 0.0, 0.0, 90.0, 0.0, 50.0))
+            con.execute("""INSERT INTO actor_ticks
+                (episode_id, tick, actor_id, alive, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed)
+                VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?)""",
+                (eid, tk, 3, 1, 500.0, 200.0, 50.0, 0.0, 0.0, 0.0, 0.0, 180.0, 0.0, 0.0))
+    add(1, 100, 100.0)   # train
+    add(2, 50, 900.0)    # val (different vx range -> must NOT affect the train-only fit)
+    con.commit()
+    con.close()
+
+
+class TestP3TrainOnlyFit(unittest.TestCase):
+    """normalize_fit.fit_from_catalog must use ONLY the train split, deterministically."""
+
+    def test_fit_is_train_only_and_deterministic(self):
+        import normalize_fit as NF
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "tiny.sqlite"
+            _tiny_catalog(db)
+            fit = NF.fit_from_catalog(db, split="train", map_name="dm3")
+            # train has 100 player_ticks; val (50) MUST be excluded
+            self.assertEqual(fit["n_rows"], 100)
+            vmean = fit["feats"]["vel_x"]["mean"]
+            # train vx in [100,199] -> mean ~149.5; if val (900+) leaked it would be far higher
+            self.assertLess(vmean, 200.0)
+            self.assertGreater(vmean, 100.0)
+            # deterministic: refit identical
+            fit2 = NF.fit_from_catalog(db, split="train", map_name="dm3")
+            self.assertEqual(fit["feats"]["vel_x"], fit2["feats"]["vel_x"])
+
+    def test_fit_stats_doc_provenance(self):
+        import normalize_fit as NF
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "tiny.sqlite"
+            _tiny_catalog(db)
+            out = Path(d) / "stats.json"
+            doc = NF.fit_stats_doc(db, out, split="train", map_name="dm3", artifact_version="t")
+            self.assertEqual(doc["computed_from"], "train")
+            self.assertEqual(doc["registry_version"], 2)
+            self.assertIn("vel_x", doc["per_map"]["dm3"])
+            self.assertEqual(doc["per_map"]["dm3"]["pos_x"]["method"], "minmax")
+            # writing is byte-stable (sort_keys) -> re-write hashes identical
+            import hashlib
+            h1 = hashlib.sha256(out.read_bytes()).hexdigest()
+            NF.fit_stats_doc(db, out, split="train", map_name="dm3", artifact_version="t")
+            self.assertEqual(h1, hashlib.sha256(out.read_bytes()).hexdigest())
+
+
+@unittest.skipUnless(_HAVE_DUCKDB and _HAVE_PYARROW, "duckdb/pyarrow not installed")
+class TestP3ObservationShard(unittest.TestCase):
+    """build_features.build_observation_shard: observed-others present + non-trivial,
+    no future leakage into pad, deterministic byte-identical rebuild."""
+
+    def test_shard_has_nontrivial_observed_others_and_no_leak(self):
+        import numpy as np
+        import normalize_fit as NF
+        import build_features as BF
+        from features import agent_observation as AO
+
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "tiny.sqlite"
+            _tiny_catalog(db)
+            stats = Path(d) / "stats.json"
+            NF.fit_stats_doc(db, stats, split="train", map_name="dm3", artifact_version="t")
+            norm = json.loads(stats.read_text(encoding="utf-8"))
+
+            out = Path(d) / "shard.parquet"
+            summ = BF.build_observation_shard(db, norm, out, split="train",
+                                              lookback_k=16, stride=8, n_max=7)
+            self.assertGreater(summ["n_windows"], 0)
+            self.assertEqual(summ["self_dim"], AO.SELF_DIM)
+            self.assertEqual(summ["entity_dim"], AO.ENTITY_DIM)
+            # every train tick here has 2 observed-others -> all real steps have one
+            self.assertEqual(summ["observed_other_step_frac"], 1.0)
+            self.assertGreater(summ["mean_abs_entity_feature"], 0.0)
+
+            import pyarrow.parquet as pq
+            t = pq.read_table(out)
+            n = t.num_rows
+            K, Nm, ENT = 16, 7, AO.ENTITY_DIM
+            ent = np.array(t.column("entities").to_pylist(), dtype=np.float32).reshape(n, K, Nm, ENT)
+            em = np.array(t.column("ent_mask").to_pylist(), dtype=np.float32).reshape(n, K, Nm)
+            mk = np.array(t.column("mask").to_pylist(), dtype=np.float32).reshape(n, K)
+            real = em.astype(bool)
+            # exactly 2 real entity slots per real step (the 2 observed-others)
+            self.assertTrue(bool((em.sum(-1)[mk.astype(bool)] == 2).all()))
+            # observed-other features are non-trivial (have variance across real cells)
+            self.assertTrue(bool((ent[real].std(axis=0) > 1e-6).any()))
+            # NO leakage: pad entity cells are zero; padded steps zero everything
+            self.assertTrue(bool(np.all(ent[~real] == 0.0)))
+
+    def test_shard_rebuild_byte_identical(self):
+        import normalize_fit as NF
+        import build_features as BF
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "tiny.sqlite"
+            _tiny_catalog(db)
+            stats = Path(d) / "stats.json"
+            NF.fit_stats_doc(db, stats, split="train", map_name="dm3", artifact_version="t")
+            norm = json.loads(stats.read_text(encoding="utf-8"))
+            a = Path(d) / "a.parquet"
+            b = Path(d) / "b.parquet"
+            BF.build_observation_shard(db, norm, a, split="train", lookback_k=16, stride=8)
+            BF.build_observation_shard(db, norm, b, split="train", lookback_k=16, stride=8)
+            self.assertEqual(hashlib.sha256(a.read_bytes()).hexdigest(),
+                             hashlib.sha256(b.read_bytes()).hexdigest())
+
+
 if __name__ == "__main__":
     unittest.main()

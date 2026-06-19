@@ -17,9 +17,15 @@ from .transforms import (
 from .egocentric import (
     egocentric_xy, egocentric_vec, rel_distance, rel_bearing_deg, rel_pitch_deg,
 )
+from .agent_observation import (
+    encode_observation, self_features, entity_features, feature_columns,
+    SELF_FIELDS, ENTITY_FIELDS, SELF_DIM, ENTITY_DIM, N_MAX_DEFAULT,
+)
 
 __all__ = [
     "apply_clip", "zscore", "minmax", "robust", "log1p_zscore", "divide_period",
     "identity", "sincos", "normalize",
     "egocentric_xy", "egocentric_vec", "rel_distance", "rel_bearing_deg", "rel_pitch_deg",
+    "encode_observation", "self_features", "entity_features", "feature_columns",
+    "SELF_FIELDS", "ENTITY_FIELDS", "SELF_DIM", "ENTITY_DIM", "N_MAX_DEFAULT",
 ]
