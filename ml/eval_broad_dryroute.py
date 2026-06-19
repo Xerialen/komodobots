@@ -168,6 +168,20 @@ def make_row(t, origin, vel, onground, over_void, goal):
     }
 
 
+def auto_seed_from_human(frames, *, min_hspeed=200.0):
+    """Cold-start SUSTAIN diagnostic seed: the WORLD-FRAME velocity [vx,vy,vz] of the
+    FIRST human frame whose horizontal speed hypot(vx,vy) >= `min_hspeed` (qu/s), else
+    None (no frame is fast enough -> fall back to no seed). The human's own velocity is
+    already world-frame AND route-aligned, and the 200 qu/s floor clears the policy's
+    80 qu/s velocity-heading floor (below which agent_observation.self_features emits a
+    degenerate (0,0) heading), so the seed is in-distribution. Pure python."""
+    for f in frames:
+        vx, vy = float(f["velocity"][0]), float(f["velocity"][1])
+        if math.hypot(vx, vy) >= min_hspeed:
+            return list(f["velocity"])
+    return None
+
+
 def human_rows_from_cmds(frames, world, route):
     """POSITIVE control rows: build scorer rows straight from the route .cmds human
     origins/velocities (NOT replayed through the sim — the human path IS the positive
@@ -285,19 +299,29 @@ def stall_rows(frames, world, route):
 
 
 def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
-                       torch_mod, map_name="dm3", n_max=7, device="cpu"):
+                       torch_mod, map_name="dm3", n_max=7, device="cpu",
+                       seed_velocity=None):
     """POLICY rollout: the trained BROAD policy drives pmove_sim closed-loop down the
     route, replaying the human view yaw/pitch per tick. Mirrors
     eval_broad_closedloop.closed_loop_rollout's loop (sim's own evolving state fed
     back each tick), but captures the route-scorer rows (t/x/y/z/vh/onground/over_void/
     dist_goal) instead of gmv ticks. NEEDS torch (caller passes the imported module +
     the encode_observation fn). Returns the scorer rows + the predicted attack classes.
+
+    seed_velocity (the cold-start SUSTAIN diagnostic): when given, the sim is initialized
+    at this WORLD-FRAME velocity (3-vector, qu/s) instead of the human's frame-0 velocity,
+    so the policy rollout STARTS from motion. This splits "can't self-start" (idle from a
+    standstill) from "can't sustain" (given speed, does it keep air-strafing). The sim
+    evolves it from there; the policy reads the POST-frame velocity each tick via
+    CL._self_state_from_sim. Seeds the POLICY rollout ONLY — never the controls.
     """
     goal = route["goal"]
     floor_z = route_void_floor_z(route)
     pm = PM.Pmove(world)
     f0 = frames[0]
-    st = PM.PlayerState(list(f0["origin"]), list(f0["velocity"]))
+    st = PM.PlayerState(list(f0["origin"]),
+                        list(seed_velocity) if seed_velocity is not None
+                        else list(f0["velocity"]))
     rows = []
     attack_classes = []
     t = 0.0
@@ -372,8 +396,14 @@ def load_route_with_human(route_name, world):
 # Report assembly.
 # =============================================================================
 def build_report(route_name, route, *, human_result, stall_result, policy_result,
-                 human_tws, agreement, inputs, provenance) -> dict:
+                 human_tws, agreement, inputs, provenance,
+                 seed=None, seed_mode="none") -> dict:
     bracket = controls_bracket(human_result, stall_result)
+    # the cold-start sustain diagnostic seed (POLICY rollout only) is recorded in inputs
+    # so a report reader can tell a from-standstill run from a from-motion diagnostic.
+    inputs = dict(inputs)
+    inputs["seed_velocity"] = [round(v, 1) for v in seed] if seed else None
+    inputs["seed_mode"] = seed_mode
     report = {
         "schema": "komodobots.eval_broad_dryroute.v1",
         "eval_mode": "dry_route_robustness",
@@ -464,10 +494,20 @@ def run_controls_only(bsp: Path, route_name: str) -> dict:
 
 def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
              norm_artifact: Path | None = None,
-             map_name: str = "dm3", n_max: int = 7, cpu: bool = False) -> dict:
+             map_name: str = "dm3", n_max: int = 7, cpu: bool = False,
+             seed_velocity=None, seed_from_human=False) -> dict:
     """Full dry-route robustness eval: human-path + stall controls AND the real policy
     rollout. NEEDS torch (policy forward) + the BSP world. The encoders/loaders are
-    lazy-imported here (module stays importable on bare stdlib)."""
+    lazy-imported here (module stays importable on bare stdlib).
+
+    seed_velocity / seed_from_human (the cold-start SUSTAIN diagnostic): start the POLICY
+    rollout from MOTION instead of the human's frame-0 velocity, to split "can't
+    self-start" from "can't sustain". `seed_velocity` is an explicit world-frame 3-vector
+    (qu/s); `seed_from_human` instead picks the human's velocity at the first frame with
+    hspeed >= 200 qu/s (auto_seed_from_human). The seed is applied to the POLICY rollout
+    ONLY — the human-path and stall controls keep their recorded/zero start so the
+    controls_bracket gate-validity check stays valid. A seeded run is a DIAGNOSTIC, not
+    the gate; the exit-code behavior (controls must bracket) is unchanged."""
     import torch
     from features import agent_observation as AO
     from eval_broad_believability import _build_policy_from_checkpoint
@@ -486,13 +526,24 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
     world = PM.WorldModel.load(str(Path(bsp).expanduser()))
     route, frames, human_rows, human_tws, agreement = load_route_with_human(route_name, world)
 
+    # resolve the cold-start sustain-diagnostic seed for the POLICY rollout ONLY. The
+    # controls below keep their recorded/zero start (the bracket must stay valid).
+    if seed_velocity is not None:
+        seed, seed_mode = list(seed_velocity), "explicit"
+    elif seed_from_human:
+        seed = auto_seed_from_human(frames)
+        seed_mode = "from_human"
+    else:
+        seed, seed_mode = None, "none"
+
     human_result = score_rows(human_rows, route, human_tws)
     s_rows = stall_rows(frames, world, route)
     stall_result = score_rows(s_rows, route, human_tws)
 
     p_rows, p_atk = run_policy_rollout(
         frames, world, route, model=model, dims=dims, encode_obs=AO.encode_observation,
-        stats=stats, torch_mod=torch, map_name=map_name, n_max=n_max, device=device)
+        stats=stats, torch_mod=torch, map_name=map_name, n_max=n_max, device=device,
+        seed_velocity=seed)
     policy_result = score_rows(p_rows, route, human_tws)
     atk_rate = (round(sum(1 for a in p_atk if int(a) == 1) / len(p_atk), 6)
                 if p_atk else 0.0)
@@ -509,6 +560,7 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
         provenance={"git_sha": _core.git_sha(REPO_ROOT),
                     "torch": getattr(torch, "__version__", None), "device": device,
                     "norm_artifact_version": stats.get("artifact_version", "UNSET")},
+        seed=seed, seed_mode=seed_mode,
     )
 
 
@@ -553,6 +605,13 @@ def main(argv=None) -> int:
     ap.add_argument("--cpu", action="store_true", help="force CPU forward")
     ap.add_argument("--map", default="dm3")
     ap.add_argument("--n-max", type=int, default=7)
+    ap.add_argument("--seed-velocity", type=float, nargs=3, default=None,
+                    metavar=("VX", "VY", "VZ"),
+                    help="explicit world-frame starting velocity qu/s for the cold-start "
+                         "sustain diagnostic")
+    ap.add_argument("--seed-from-human", action="store_true",
+                    help="seed the policy from the human's velocity at the first frame "
+                         "with hspeed>=200 qu/s")
     args = ap.parse_args(argv)
 
     if args.controls_only:
@@ -562,7 +621,9 @@ def main(argv=None) -> int:
             ap.error("--checkpoint is required unless --controls-only")
         report = run_eval(args.checkpoint, args.bsp, args.route,
                           norm_artifact=args.norm_artifact,
-                          map_name=args.map, n_max=args.n_max, cpu=args.cpu)
+                          map_name=args.map, n_max=args.n_max, cpu=args.cpu,
+                          seed_velocity=args.seed_velocity,
+                          seed_from_human=args.seed_from_human)
 
     out = Path(args.out).expanduser()
     out.parent.mkdir(parents=True, exist_ok=True)
