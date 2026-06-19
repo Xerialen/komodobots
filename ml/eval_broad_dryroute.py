@@ -448,6 +448,7 @@ def run_controls_only(bsp: Path, route_name: str) -> dict:
 
 
 def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
+             norm_artifact: Path | None = None,
              map_name: str = "dm3", n_max: int = 7, cpu: bool = False) -> dict:
     """Full dry-route robustness eval: human-path + stall controls AND the real policy
     rollout. NEEDS torch (policy forward) + the BSP world. The encoders/loaders are
@@ -460,11 +461,12 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
     device = "cpu" if cpu else ("cuda" if torch.cuda.is_available() else "cpu")
     ckpt = torch.load(Path(checkpoint).expanduser(), map_location=device)
     model, dims, head_dims = _build_policy_from_checkpoint(ckpt, device)
-    stats = json.loads(
-        # the policy's normalization stats are needed by encode_observation. The
-        # closed-loop eval threads --norm-artifact; dry-route mirrors that but reads
-        # the stats path embedded in the checkpoint when present, else errors clearly.
-        _resolve_norm_path(ckpt).read_text(encoding="utf-8"))
+    # the policy's normalization stats are needed by encode_observation. Prefer the
+    # explicit --norm-artifact (the SAME artifact the closed-loop eval threads and the
+    # trainer used); else fall back to a path embedded in the checkpoint, else the repo
+    # gold artifact. Resolving the WRONG stats would silently de-normalize the obs.
+    norm_path = _resolve_norm_path(ckpt, norm_artifact)
+    stats = json.loads(norm_path.read_text(encoding="utf-8"))
 
     world = PM.WorldModel.load(str(Path(bsp).expanduser()))
     route, frames, human_rows, human_tws, agreement = load_route_with_human(route_name, world)
@@ -488,18 +490,24 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
         inputs={"checkpoint": str(Path(checkpoint).expanduser()),
                 "bsp": str(Path(bsp).expanduser()), "route": route_name,
                 "map": map_name, "n_max": n_max, "controls_only": False,
-                "human_frames": len(frames)},
+                "norm_artifact": str(norm_path), "human_frames": len(frames)},
         provenance={"git_sha": _core.git_sha(REPO_ROOT),
                     "torch": getattr(torch, "__version__", None), "device": device,
                     "norm_artifact_version": stats.get("artifact_version", "UNSET")},
     )
 
 
-def _resolve_norm_path(ckpt) -> Path:
-    """Locate the normalization_stats.json the checkpoint was trained against. The
-    trainer stores its path under a few possible keys; fall back to the repo gold
-    artifact. Raises a clear error if none resolves (so the run never silently uses
-    mismatched stats)."""
+def _resolve_norm_path(ckpt, norm_artifact=None) -> Path:
+    """Locate the normalization_stats.json the policy was trained against. Precedence:
+    an explicit `--norm-artifact` (the SAME artifact the closed-loop eval threads and
+    the trainer used); then a path the checkpoint embeds; then the repo gold artifact.
+    Raises a clear error if none resolves (so the run never silently uses mismatched
+    stats — that would de-normalize every observation)."""
+    if norm_artifact is not None:
+        p = Path(norm_artifact).expanduser()
+        if not p.exists():
+            raise SystemExit("--norm-artifact %s does not exist" % p)
+        return p
     for key in ("norm_artifact", "norm_artifact_path", "normalization_stats_path"):
         p = ckpt.get(key)
         if p and Path(p).expanduser().exists():
@@ -508,9 +516,8 @@ def _resolve_norm_path(ckpt) -> Path:
     if gold.exists():
         return gold
     raise SystemExit(
-        "could not resolve normalization_stats.json: not in checkpoint keys "
-        "(norm_artifact/...) and %s missing — pass a checkpoint that embeds the path "
-        "or place the gold artifact." % gold)
+        "could not resolve normalization_stats.json: pass --norm-artifact, or use a "
+        "checkpoint that embeds the path, or place the gold artifact at %s." % gold)
 
 
 def main(argv=None) -> int:
@@ -523,6 +530,9 @@ def main(argv=None) -> int:
     ap.add_argument("--route", default="sng_to_rl",
                     help="censused dm3 route name (default sng_to_rl)")
     ap.add_argument("--out", type=Path, required=True, help="report.json path")
+    ap.add_argument("--norm-artifact", type=Path, default=None,
+                    help="normalization_stats.json (SAME artifact training used); "
+                         "falls back to a checkpoint-embedded path or the repo gold artifact")
     ap.add_argument("--controls-only", action="store_true",
                     help="run human-path + stall controls WITHOUT torch (gate-validity check)")
     ap.add_argument("--cpu", action="store_true", help="force CPU forward")
@@ -536,6 +546,7 @@ def main(argv=None) -> int:
         if args.checkpoint is None:
             ap.error("--checkpoint is required unless --controls-only")
         report = run_eval(args.checkpoint, args.bsp, args.route,
+                          norm_artifact=args.norm_artifact,
                           map_name=args.map, n_max=args.n_max, cpu=args.cpu)
 
     out = Path(args.out).expanduser()
