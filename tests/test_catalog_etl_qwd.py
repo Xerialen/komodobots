@@ -266,5 +266,183 @@ class TestFixtureRelational(unittest.TestCase):
         self.assertEqual(errs, [], errs)
 
 
+class TestDuplicateSha256(unittest.TestCase):
+    """(A) Two demo-list entries pointing at byte-identical content must NOT crash the
+    batch: the second is skipped (no demos/episodes/player_ticks/actions rows for it) and
+    recorded. Reproduces the live 40-demo-run UNIQUE(sha256) IntegrityError."""
+
+    def setUp(self):
+        self.con = catalog_load.connect()
+        catalog_load.load_maps(self.con, CATALOG_DIR / "maps.seed.json")
+        self.map_id = self.con.execute("SELECT map_id FROM maps WHERE name='dm3'").fetchone()[0]
+
+    def test_insert_demo_skips_duplicate_sha256_no_crash(self):
+        a = _synthetic_demo("a.qwd", 100, 3)
+        b = _synthetic_demo("b.qwd", 100, 4)
+        b["sha256"] = a["sha256"]  # byte-identical content, different filename
+        first = etl.insert_demo(self.con, self.map_id, a, "train")
+        self.assertNotIn("skipped_duplicate", first)
+        # the second must NOT raise (the bug raised sqlite3.IntegrityError here)
+        second = etl.insert_demo(self.con, self.map_id, b, "train")
+        self.assertTrue(second.get("skipped_duplicate"))
+        self.assertEqual(second["duplicate_of"], a["demo"])
+        # exactly one demos row, and NO orphan child rows from the skipped demo:
+        self.assertEqual(self.con.execute("SELECT COUNT(*) FROM demos").fetchone()[0], 1)
+        # every episode/tick/action belongs to the one inserted demo (a.qwd).
+        (a_demo_id,) = self.con.execute(
+            "SELECT demo_id FROM demos WHERE sha256=?", (a["sha256"],)).fetchone()
+        for tbl, col in (("episodes", "demo_id"),):
+            stray = self.con.execute(
+                "SELECT COUNT(*) FROM %s WHERE %s != ?" % (tbl, col), (a_demo_id,)).fetchone()[0]
+            self.assertEqual(stray, 0)
+        # player_ticks/actions reference only episodes of the single demo (no orphans).
+        orphan_pt = self.con.execute(
+            """SELECT COUNT(*) FROM player_ticks pt
+               WHERE NOT EXISTS (SELECT 1 FROM episodes e
+                 WHERE e.episode_id=pt.episode_id AND e.demo_id=?)""", (a_demo_id,)).fetchone()[0]
+        self.assertEqual(orphan_pt, 0)
+
+    def test_build_completes_with_duplicate_in_list(self):
+        # Two demo-list lines pointing at the SAME bytes -> build() must finish (no crash),
+        # load exactly one, and record the other under skipped_duplicate_demos.
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            blob = b"\x01\x02fake-qwd-bytes-not-a-real-demo\x03\x04" * 4
+            f1 = td / "game_one.qwd"
+            f2 = td / "game_two.qwd"  # different name, identical content
+            f1.write_bytes(blob)
+            f2.write_bytes(blob)
+            listing = td / "demos.tsv"
+            listing.write_text("alice\t%s\nalice\t%s\n" % (f1, f2), encoding="utf-8")
+            db = td / "out.sqlite"
+
+            # The two fake .qwd files won't decode, so we monkeypatch extract_demo to return
+            # a valid synthetic record per path WITH THE SAME sha256 (the dup-skip path
+            # triggers at the demos insert, around/after decode -- not inside the parser).
+            real_extract = etl.extract_demo
+
+            def fake_extract(path):
+                rec = _synthetic_demo(Path(path).name, 80, 3)
+                rec["sha256"] = "SHARED-IDENTICAL-CONTENT"
+                return rec
+            etl.extract_demo = fake_extract
+            try:
+                res = etl.build(CATALOG_DIR, listing, str(db), with_fixture=None,
+                                workers=1, limit=0)  # workers=1 keeps the monkeypatch in-proc
+            finally:
+                etl.extract_demo = real_extract
+
+            summ = res["summary"]
+            self.assertEqual(summ["demos_loaded"], 1, summ)
+            self.assertEqual(summ["demos_skipped_duplicate"], 1, summ)
+            self.assertEqual(len(summ["skipped_duplicate_demos"]), 1)
+            skip = summ["skipped_duplicate_demos"][0]
+            self.assertEqual(skip["sha256"], "SHARED-IDENTICAL-CONTENT")
+            # exactly one demos row landed; the skipped demo left no rows behind.
+            (n_demos,) = res["con"].execute("SELECT COUNT(*) FROM demos").fetchone()
+            self.assertEqual(n_demos, 1)
+
+
+class TestEmptyLoadExitCode(unittest.TestCase):
+    """(B) A demo-list whose only entry is a missing path loads ZERO demos. main() must
+    return non-zero (so automation can't accept an episode-less static-only catalog),
+    unless --allow-empty is given."""
+
+    def _list_with_missing_path(self, td):
+        listing = Path(td) / "demos.tsv"
+        missing = Path(td) / "does_not_exist.qwd"
+        listing.write_text("ghost\t%s\n" % missing, encoding="utf-8")
+        return listing
+
+    def test_main_nonzero_when_zero_demos_loaded(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            listing = self._list_with_missing_path(td)
+            db = Path(td) / "out.sqlite"
+            rc = etl.main(["--catalog-dir", str(CATALOG_DIR), "--demo-list", str(listing),
+                           "--db", str(db), "--workers", "1"])
+            self.assertNotEqual(rc, 0, "zero demos loaded must be a non-zero exit")
+
+    def test_main_allow_empty_returns_zero(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            listing = self._list_with_missing_path(td)
+            db = Path(td) / "out.sqlite"
+            rc = etl.main(["--catalog-dir", str(CATALOG_DIR), "--demo-list", str(listing),
+                           "--db", str(db), "--workers", "1", "--allow-empty"])
+            self.assertEqual(rc, 0, "--allow-empty must permit a static-only catalog")
+
+
+class TestPlayerHandleGrouping(unittest.TestCase):
+    """(C) The parsed human handle from the demo-list must be threaded through so the SAME
+    human across multiple demos maps to ONE players.player_id (group/hold-out by player).
+    Empty-player demos must still fall back to the demo+slot handle (no regression)."""
+
+    def setUp(self):
+        self.con = catalog_load.connect()
+        catalog_load.load_maps(self.con, CATALOG_DIR / "maps.seed.json")
+        self.map_id = self.con.execute("SELECT map_id FROM maps WHERE name='dm3'").fetchone()[0]
+
+    def test_same_handle_two_demos_one_player_id(self):
+        # 'Milton' recorded two different games (distinct sha256, distinct playernum).
+        d1 = _synthetic_demo("milton_game1.qwd", 80, 3)
+        d2 = _synthetic_demo("milton_game2.qwd", 80, 7)
+        i1 = etl.insert_demo(self.con, self.map_id, d1, "train", player="Milton")
+        i2 = etl.insert_demo(self.con, self.map_id, d2, "test", player="milton")  # case-insensitive
+        self.assertEqual(i1["player_id"], i2["player_id"], "same human -> one player_id")
+        # exactly one players row for that human; handle keyed by name, not filename.
+        rows = self.con.execute(
+            "SELECT player_id, handle FROM players WHERE handle=?", ("milton",)).fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], "milton")
+        # two demos, both episodes attributed to the single player_id.
+        (n_distinct,) = self.con.execute(
+            "SELECT COUNT(DISTINCT player_id) FROM episodes").fetchone()
+        self.assertEqual(n_distinct, 1)
+
+    def test_empty_player_falls_back_to_demo_slot_handle(self):
+        rec = _synthetic_demo("anon.qwd", 60, 5)
+        ins = etl.insert_demo(self.con, self.map_id, rec, "train", player="")
+        (handle,) = self.con.execute(
+            "SELECT handle FROM players WHERE player_id=?", (ins["player_id"],)).fetchone()
+        self.assertTrue(handle.startswith("qwd:"), handle)
+        self.assertIn("#p5", handle)
+
+    def test_build_threads_player_through(self):
+        # End-to-end: a demo-list giving the same human for two demos -> one player_id.
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            f1, f2 = td / "g1.qwd", td / "g2.qwd"
+            f1.write_bytes(b"a"); f2.write_bytes(b"b")
+            listing = td / "demos.tsv"
+            listing.write_text("Carapace\t%s\nCarapace\t%s\n" % (f1, f2), encoding="utf-8")
+            db = td / "out.sqlite"
+
+            real_extract = etl.extract_demo
+            counter = {"i": 0}
+
+            def fake_extract(path):
+                counter["i"] += 1
+                rec = _synthetic_demo(Path(path).name, 60, counter["i"])
+                rec["sha256"] = "sha-%s" % Path(path).name  # DISTINCT content per demo
+                return rec
+            etl.extract_demo = fake_extract
+            try:
+                res = etl.build(CATALOG_DIR, listing, str(db), with_fixture=None,
+                                workers=1, limit=0)
+            finally:
+                etl.extract_demo = real_extract
+
+            self.assertEqual(res["summary"]["demos_loaded"], 2, res["summary"])
+            (n_players,) = res["con"].execute(
+                "SELECT COUNT(*) FROM players WHERE handle='carapace'").fetchone()
+            self.assertEqual(n_players, 1, "same human across 2 demos -> ONE players row")
+            (n_distinct,) = res["con"].execute(
+                "SELECT COUNT(DISTINCT player_id) FROM episodes").fetchone()
+            self.assertEqual(n_distinct, 1)
+
+
 if __name__ == "__main__":
     unittest.main()
