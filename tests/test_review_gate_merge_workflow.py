@@ -68,6 +68,24 @@ class ReviewGateMergeWorkflowTests(unittest.TestCase):
         self.assertIn("ready_cooldown=300", merge)
         self.assertIn('"$ready_age" -ge "$ready_cooldown"', merge)
 
+    def test_merge_allows_dev_base_and_protects_longlived_head(self) -> None:
+        merge = _workflow_text(MERGE_WORKFLOW)
+        # dev-base PRs (the whole staged-agent ML line) auto-merge too, not just
+        # main — otherwise every dev PR needs a manual "fallback merge".
+        self.assertRegex(merge, r'case "\$base" in main\|dev\)')
+        # A dev->main PR (e.g. the umbrella #263) has head ref `dev`; the merge
+        # must NEVER --delete-branch a long-lived integration branch, or it would
+        # delete `dev`. The head ref is read from headRefName for that guard.
+        self.assertIn("headRefName", merge)
+        self.assertRegex(merge, r'case "\$head_ref" in main\|dev\) del=""')
+
+    def test_merge_binds_to_validated_head_sha(self) -> None:
+        merge = _workflow_text(MERGE_WORKFLOW)
+        # The final merge must be pinned to the SHA the gate just validated, so a
+        # commit pushed between validation and the merge call cannot become the
+        # merged commit (the validate->merge TOCTOU race).
+        self.assertRegex(merge, r'gh pr merge .*--match-head-commit "\$head"')
+
 
 if __name__ == "__main__":
     unittest.main()
