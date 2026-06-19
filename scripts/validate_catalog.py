@@ -124,6 +124,62 @@ def validate_frag_events(con: sqlite3.Connection) -> list[str]:
     return errs
 
 
+def validate_actor_ticks(con: sqlite3.Connection) -> list[str]:
+    """Validate the OMNISCIENT-from-POV world-state layer (actor_ticks, P2).
+
+    Checks that are cheap and catch a mis-decode or a broken join:
+      - every actor_id references a real players row;
+      - every (episode_id, tick) actor row has a matching player_ticks self row
+        (the self ego is always present, so observed-others are anchored to a real tick);
+      - origins lie within the episode's map AABB (a decode/offset bug shows up as
+        out-of-map coordinates) — checked with a small pad for transient edge states.
+    Skips silently if the table is absent (older catalogs) or empty.
+    """
+    errs: list[str] = []
+    try:
+        (total,) = con.execute("SELECT COUNT(*) FROM actor_ticks").fetchone()
+    except sqlite3.OperationalError:
+        return errs  # table not present in this schema
+    if total == 0:
+        return errs  # nothing populated (e.g. self-only / non-proto-28 corpus) — not an error
+
+    (orphan_actor,) = con.execute(
+        """SELECT COUNT(*) FROM actor_ticks a
+           WHERE NOT EXISTS (SELECT 1 FROM players p WHERE p.player_id=a.actor_id)"""
+    ).fetchone()
+    if orphan_actor:
+        errs.append(f"actor_ticks: {orphan_actor} rows reference a missing actor_id (player)")
+
+    (orphan_tick,) = con.execute(
+        """SELECT COUNT(*) FROM actor_ticks a
+           WHERE NOT EXISTS (SELECT 1 FROM player_ticks t
+                             WHERE t.episode_id=a.episode_id AND t.tick=a.tick)"""
+    ).fetchone()
+    if orphan_tick:
+        errs.append(f"actor_ticks: {orphan_tick} rows have no matching player_ticks (episode,tick)")
+
+    # AABB containment (join each actor row to its episode's map). A generous pad allows
+    # the brief out-of-bounds excursions real play produces (e.g. mid-teleport, edge clip).
+    pad = 256.0
+    bad_aabb = con.execute(
+        """SELECT COUNT(*) FROM actor_ticks a
+           JOIN episodes e ON e.episode_id=a.episode_id
+           JOIN maps    m ON m.map_id=e.map_id
+           WHERE a.ox < m.x_min-? OR a.ox > m.x_max+?
+              OR a.oy < m.y_min-? OR a.oy > m.y_max+?
+              OR a.oz < m.z_min-? OR a.oz > m.z_max+?""",
+        (pad, pad, pad, pad, pad, pad),
+    ).fetchone()[0]
+    if bad_aabb:
+        frac = bad_aabb / total
+        # A handful of edge rows is fine; a large fraction means a decode/offset bug.
+        if frac > 0.01:
+            errs.append(
+                f"actor_ticks: {bad_aabb}/{total} ({frac:.1%}) rows are outside the map "
+                f"AABB (+/-{pad:.0f} qu) — likely an entity-stream decode/offset error")
+    return errs
+
+
 def validate_normalization_stats(path: Path) -> list[str]:
     """Validate the frozen normalization artifact's method specs."""
     errs: list[str] = []
@@ -165,6 +221,7 @@ def validate(con: sqlite3.Connection, stats_path: Path | None = None,
     errs += validate_markers(con)
     errs += validate_nav_edges(con)
     errs += validate_frag_events(con)
+    errs += validate_actor_ticks(con)
     if stats_path is not None:
         errs += validate_normalization_stats(stats_path)
     if errs and raise_on_error:
