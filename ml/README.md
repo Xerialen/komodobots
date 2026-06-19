@@ -127,11 +127,18 @@ never an absolute team id; 0 when team unknown) · `entity_is_visible` (0/1 obse
   — NOT fitted, so they do not enter the norm artifact.
 
 > .qwd provenance note: the self-POV `.qwd` catalog (P1/P2) carries kinematics + alive
-> for observed-others but NOT their health/armor/weapon or team — so
-> `entity_health_est_norm`/`entity_armor_est_norm` are 0 and `entity_is_teammate` is 0
-> (team unknown) in a `.qwd`-only shard. The columns are present at full width; they
-> populate once the `.mvd`/`actor_visibility` omniscient path lands. `entity_is_visible`
-> is 1.0 for every present row (a received in-PVS sample IS an observation).
+> for observed-others but NOT their health/armor/weapon — so
+> `entity_health_est_norm`/`entity_armor_est_norm` are 0 in a `.qwd`-only shard. The
+> columns are present at full width; they populate once the `.mvd`/`actor_visibility`
+> omniscient path lands. `entity_is_teammate` is RELATIVE: the shard builder carries the
+> ego's `actor_ticks.team_id` into `self_state`, so when the catalog has team data a
+> teammate encodes `1.0` (and an opponent `0.0`); it is `0` only when team is genuinely
+> absent (e.g. an FFA/team-less `.qwd` catalog). `entity_is_visible` is 1.0 for every
+> present row because the `.qwd` ETL only writes an `actor_ticks` row for a player the
+> client was RECEIVING (in PVS) — a present row already IS a PVS-observed sample, so this
+> builder needs no visibility gate. The `actor_visibility` (PVS/FOV/LOS) join is the
+> DEFERRED `.mvd` omniscient-path concern (an `.mvd` catalog records all players every
+> tick and MUST gate them); it is intentionally not implemented in the QWD builder.
 
 ## Parity guarantee
 

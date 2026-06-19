@@ -135,6 +135,18 @@ class TestEntityFeatures(unittest.TestCase):
         e2 = AO.entity_features(foe, ego, STATS)
         self.assertEqual(e2[AO.ENTITY_FIELDS.index("entity_is_teammate")], 0.0)
 
+    def test_ego_team_must_be_present_for_teammate_one(self):
+        # mirrors the shard-builder bug: if the EGO team is missing (None) the teammate
+        # channel can NEVER be 1.0 even when the other actor's team is populated. This is
+        # exactly why build_features must carry the ego actor_ticks.team_id into
+        # self_state (instead of hard-coding None).
+        i = AO.ENTITY_FIELDS.index("entity_is_teammate")
+        mate = dict(ZEPP, team_id=10)
+        ego_noteam = dict(MILTON)                 # team_id absent -> None
+        self.assertEqual(AO.entity_features(mate, ego_noteam, STATS)[i], 0.0)
+        ego_team = dict(MILTON, team_id=10)       # ego team present + matching -> 1.0
+        self.assertEqual(AO.entity_features(mate, ego_team, STATS)[i], 1.0)
+
 
 class TestEncodeObservation(unittest.TestCase):
     def test_empty_observed_all_padded(self):

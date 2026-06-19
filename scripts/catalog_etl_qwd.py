@@ -221,9 +221,25 @@ def _pack_episode(seg, start_tick: int) -> dict:
     return {"start": start_tick, "end": start_tick + len(seg) - 1, "n": len(seg), "frames": rows}
 
 
-def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str) -> dict:
+def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str,
+                player: str = "") -> dict:
     """Insert one extracted demo's demos/players/episodes/player_ticks/actions rows.
-    `split` is the train/val/test label for ALL of this demo's episodes (group-by-demo)."""
+    `split` is the train/val/test label for ALL of this demo's episodes (group-by-demo).
+    `player` is the parsed human handle from the demo-list (empty if the list had none).
+
+    (A) The `demos` table has UNIQUE(sha256). The corpus DOES contain byte-identical .qwd
+    files under different names; a plain INSERT of a second identical sha256 raises
+    sqlite3.IntegrityError and crashes the whole batch. So we pre-check by sha256 and, if
+    that content was already loaded this run, SKIP the demo entirely (insert NO
+    demos/episodes/player_ticks/actions rows -> no orphan children) and report it."""
+    dup = con.execute(
+        "SELECT demo_id, path FROM demos WHERE sha256=?", (rec["sha256"],)
+    ).fetchone()
+    if dup is not None:
+        # Already-loaded identical content. Return a sentinel and touch nothing else.
+        return {"skipped_duplicate": True, "demo": rec["demo"],
+                "sha256": rec["sha256"], "duplicate_of": dup[1], "duplicate_of_id": dup[0]}
+
     cur = con.execute(
         """INSERT INTO demos
            (path, source, map_id, demo_kind, duration_s, server_fps, sha256, parser_commit)
@@ -234,8 +250,15 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str) -> 
     )
     demo_id = cur.lastrowid
 
-    # POV player handle: .qwd carries a playernum, not a name, so key by demo+slot.
-    handle = "qwd:%s#p%s" % (Path(rec["demo"]).stem[:48], rec.get("playernum"))
+    # POV player handle. (C) Prefer the parsed human handle from the demo-list so the same
+    # human across multiple demos maps to ONE player_id (catalog consumers group/hold-out by
+    # players.player_id). Match catalog_load.load_fixture's convention (lowercased name).
+    # Fall back to the demo+slot key when the list carried no player (don't regress that case).
+    player = (player or "").strip()
+    if player:
+        handle = player.lower()
+    else:
+        handle = "qwd:%s#p%s" % (Path(rec["demo"]).stem[:48], rec.get("playernum"))
     con.execute("INSERT OR IGNORE INTO players (handle, is_bot) VALUES (?,0)", (handle,))
     player_id = con.execute("SELECT player_id FROM players WHERE handle=?", (handle,)).fetchone()[0]
 
@@ -335,19 +358,35 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str) -> 
 def _nearest_observed(samp: dict, t: float, max_staleness_s: float):
     """Return the OTHER-player sample most recently received at-or-before time `t`
     (the state the client currently had for that player), or None if the latest such
-    sample is staler than `max_staleness_s` (player not currently observed). Binary
-    search over the per-player time array; falls back to the nearest forward sample
-    only inside the window (covers a tick landing a hair before the first sample)."""
+    sample is staler than `max_staleness_s` (player not currently observed, i.e. out
+    of PVS / gone stale). Binary search over the per-player time array.
+
+    CAUSALITY: the join is strictly at-or-before. `actor_ticks` is the observed-other
+    state the recording client HAD AT THAT TICK, so a behavioural-cloning policy must
+    only ever see state it could have received by then. We must NOT pull a `times[j] > t`
+    sample forward into the unobserved gap before the player re-enters PVS (e.g. samples
+    at 100.0 and 101.0 must not let a tick at 100.6 read the 101.0 state) — that leaks
+    future visibility into the training input. The lone forward pick we keep is the
+    PRE-FIRST-SAMPLE alignment case (`i < 0`: no sample exists at-or-before `t` at all),
+    where the tick lands a hair before the player's very first received sample; that is a
+    sub-staleness clock offset between the demo's first frame time and the first svc_play-
+    erinfo, not a gap re-entry, so it cannot leak mid-stream future state."""
     times = samp["t"]
     if not times:
         return None
     i = bisect.bisect_right(times, t) - 1
-    if i >= 0 and (t - times[i]) <= max_staleness_s:
-        return samp["rows"][i]
-    # tick just before this player's first/next sample — accept if within the window
-    j = i + 1
-    if j < len(times) and (times[j] - t) <= max_staleness_s:
-        return samp["rows"][j]
+    if i >= 0:
+        # strictly at-or-before: accept only if not staler than the window.
+        if (t - times[i]) <= max_staleness_s:
+            return samp["rows"][i]
+        # an at-or-before sample exists but is stale -> player not currently observed.
+        # Do NOT reach forward to times[i+1]; that would leak a not-yet-received future
+        # sample into the unobserved gap (the causality violation above).
+        return None
+    # i < 0: no sample at-or-before t. Pre-first-sample alignment only -> accept the
+    # very first sample if the tick is within the window just ahead of it.
+    if (times[0] - t) <= max_staleness_s:
+        return samp["rows"][0]
     return None
 
 
@@ -534,12 +573,27 @@ def build(catalog_dir: Path, demo_list: Path, db_path: str,
     extracted.sort(key=lambda r: r["demo"])
     splits = assign_splits(len(extracted))
 
+    # map each extracted demo name back to the path the demo-list gave (for the parsed
+    # human handle); first match wins (same filename -> same intended player handle).
+    path_by_name = {}
+    for p in paths:
+        path_by_name.setdefault(Path(p).name, p)
+
     per_demo = []
+    skipped_dups = []
     for rec, split in zip(extracted, splits):
-        ins = insert_demo(con, map_id, rec, split)
-        ins.update(demo=rec["demo"], player=player_by_path.get(
-            next((p for p in paths if Path(p).name == rec["demo"]), ""), ""),
-            split=split, coverage=rec.get("coverage"), n_frames=rec.get("n_frames"))
+        src_path = path_by_name.get(rec["demo"], "")
+        player = player_by_path.get(src_path, "")
+        ins = insert_demo(con, map_id, rec, split, player=player)
+        if ins.get("skipped_duplicate"):
+            # (A) byte-identical content already loaded this run: recorded, not inserted.
+            ins.update(player=player, n_frames=rec.get("n_frames"))
+            skipped_dups.append(ins)
+            print("  SKIP duplicate sha256: %s (== %s)" % (
+                rec["demo"], ins.get("duplicate_of")), flush=True)
+            continue
+        ins.update(demo=rec["demo"], player=player,
+                   split=split, coverage=rec.get("coverage"), n_frames=rec.get("n_frames"))
         per_demo.append(ins)
 
     fixture_summary = None
@@ -553,13 +607,17 @@ def build(catalog_dir: Path, demo_list: Path, db_path: str,
         "catalog_dir": str(catalog_dir),
         "static_spine": base,
         "demos_attempted": len(paths),
-        "demos_loaded": len(extracted),
+        # (A) only demos that actually produced rows count as loaded; byte-identical
+        # duplicates are skipped (no rows) and reported separately, not counted here.
+        "demos_loaded": len(per_demo),
         "demos_failed": len(errors),
+        "demos_skipped_duplicate": len(skipped_dups),
         "extract_secs": round(time.time() - t0, 1),
         "split_counts": _split_counts(per_demo),
         "table_counts": counts,
         "observed_others": _observed_summary(con, per_demo),
         "per_demo": per_demo,
+        "skipped_duplicate_demos": skipped_dups,
         "fixture": fixture_summary,
         "errors": [{"demo": e["demo"], "error": e["error"]} for e in errors],
     }
@@ -624,6 +682,10 @@ def main(argv=None) -> int:
                     help="optional dm3_milton_211436 fixture dir to fold team-layer rows")
     ap.add_argument("--workers", type=int, default=2)
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--allow-empty", action="store_true",
+                    help="exit 0 even when NO requested .qwd demos loaded (static-only "
+                         "catalog). Default: a zero-demo load is an error (non-zero exit) so "
+                         "automation that keys off exit status can't accept an empty catalog.")
     args = ap.parse_args(argv)
 
     # fresh DB each run (the schema CREATEs are not IF NOT EXISTS).
@@ -635,6 +697,15 @@ def main(argv=None) -> int:
     res = build(args.catalog_dir, args.demo_list, args.db,
                 with_fixture=args.with_fixture, workers=args.workers, limit=args.limit)
     print(json.dumps(res["summary"], indent=2, default=str))
+
+    # (B) A catalog with zero loaded .qwd demos has no real episodes/player_ticks/actions
+    # (only the static spine + optional fixture). Returning 0 here lets automation that
+    # keys off exit status silently accept that empty catalog. Fail unless --allow-empty.
+    if res["summary"]["demos_loaded"] == 0 and not args.allow_empty:
+        print("ERROR: no .qwd demos loaded (0 episodes/player_ticks/actions from real "
+              "demos); failing. Pass --allow-empty to accept a static-only catalog.",
+              file=sys.stderr)
+        return 2
     return 0
 
 
