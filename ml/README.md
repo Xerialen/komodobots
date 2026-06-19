@@ -74,16 +74,29 @@ python ml/pipeline/build_features.py shard --db data/catalog/dm3_4on4.sqlite \
 `N_max=7`; windows never cross an episode; trailing window padded + attention-masked).
 Array columns are stored **flattened row-major** as `list<float32>` and the trainer
 reshapes by the shapes below (constants: `S = SELF_DIM = 16`, `ENT = ENTITY_DIM = 13`,
-`K = lookback_k`, `Nm = n_max`):
+`A = ACT_DIM = 5`, `K = lookback_k`, `Nm = n_max`). The per-window shape constants are
+also stamped in the Parquet **table-level metadata** (`komodobots.shard.*`) so the
+trainer's `_read_parquet_shard` reshape is unambiguous and width-agnostic:
 
 | column | dtype | flat len | reshape to | meaning |
 |---|---|---|---|---|
 | `episode_id` | int64 | — | scalar | source episode (window never spans two) |
+| `demo_id` | int64 | — | scalar | **group-by-demo split key** (one Parquet file packs many demos) |
 | `start_tick` | int64 | — | scalar | tick index of the window's first step |
 | `obs` | list\<float32\> | `K*S` | `[K, S]` | normalized **SELF** feature vector / step |
 | `entities` | list\<float32\> | `K*Nm*ENT` | `[K, Nm, ENT]` | per-observed-other **egocentric** vectors |
 | `ent_mask` | list\<float32\> | `K*Nm` | `[K, Nm]` | 1.0 = real entity slot, 0.0 = pad/absent |
+| `act` | list\<float32\> | `K*A` | `[K, A]` | broad usercmd **TARGET** (fwd/side/up move + jump + attack) |
 | `mask` | list\<float32\> | `K` | `[K]` | 1.0 = real step, 0.0 = pad (mask in loss+attn) |
+| `weight` | list\<float32\> | `K` | `[K]` | action confidence; 0.0 on pad / interpolated frame |
+
+**`act` channel order** (`agent_observation.ACT_FIELDS`, len 5 — the cloned heads;
+`feature_registry` `action` group): `forwardmove, sidemove, upmove` (each `usercmd/400`
+→ ~`[-1,1]`) · `jump_button` (`1.0 if buttons&2`) · `attack_button` (`1.0 if buttons&1`).
+The reserved continuous turn columns (`cmd_delta_yaw_sin/cos`) are **not** cloned yet
+(future AIM head), so the shard omits them; the trainer indexes `act` by name, so width 5
+binds the 5 heads. `audio`/`team` columns are **absent** (`.qwd` has no audio; team is
+folded into the entity `is_teammate` flag) — the trainer treats them as optional.
 
 **`obs` channel order** (`agent_observation.SELF_FIELDS`, len 16):
 `pos_x_norm, pos_y_norm, pos_z_norm` (per-map minmax) · `vel_x_z, vel_y_z, vel_z_z`
@@ -104,11 +117,14 @@ never an absolute team id; 0 when team unknown) · `entity_is_visible` (0/1 obse
   by `actor_id` → byte-identical layout regardless of input row order. Pool with a
   DeepSets/transformer head using `ent_mask` (permutation-/side-invariant).
 - **No future leakage:** a step reads only `actor_ticks`/`player_ticks` rows AT that tick;
-  windows never span episodes. Padded steps zero `obs` AND `entities`; pad entity slots
-  (`ent_mask==0`) are all-zero.
+  the `act`/`weight` label is the `actions` row joined on the SAME `(episode,tick)` PK
+  (equal-tick, never tick+1); windows never span episodes. Padded steps zero `obs` AND
+  `entities`; pad entity slots (`ent_mask==0`) are all-zero.
 - **Train-only normalization:** the stats artifact is fit on `episodes.split='train'`
   rows only (`computed_from="train"`, `registry_version=2`); identical refit hashes
-  byte-for-byte; the shard rebuild is byte-identical (deterministic).
+  byte-for-byte; the shard rebuild is byte-identical (deterministic). The `act` labels are
+  raw usercmd (`forwardmove/sidemove/upmove ÷ 400`, `jump=buttons&2`, `attack=buttons&1`)
+  — NOT fitted, so they do not enter the norm artifact.
 
 > .qwd provenance note: the self-POV `.qwd` catalog (P1/P2) carries kinematics + alive
 > for observed-others but NOT their health/armor/weapon — so

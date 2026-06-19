@@ -109,7 +109,7 @@ def rows_to_tensors(shard_paths, schema, device):
     for p in shard_paths:
         shard = core.read_shard(p)
         meta = shard.get(SC.KEY_META, {})
-        demo_id = meta.get("demo_id", "?")
+        default_demo = meta.get("demo_id", "?")
         # Reject stale/future shards: a shard whose registry_version differs from
         # the version the model card pins (EXPECTS_REGISTRY_VERSION) is misbound —
         # the obs/entities/act column meanings may have changed. Fail BEFORE the
@@ -119,7 +119,7 @@ def rows_to_tensors(shard_paths, schema, device):
         if rv is not None and int(rv) != SC.EXPECTS_REGISTRY_VERSION:
             raise ValueError(
                 f"shard registry_version {rv} != expected "
-                f"{SC.EXPECTS_REGISTRY_VERSION} (shard={p}, demo_id={demo_id}); "
+                f"{SC.EXPECTS_REGISTRY_VERSION} (shard={p}, demo_id={default_demo}); "
                 f"refusing to train on a mismatched FEAT shard")
         obs = shard[SC.KEY_OBS]
         ent = shard.get(SC.KEY_ENTITIES)
@@ -128,6 +128,8 @@ def rows_to_tensors(shard_paths, schema, device):
         team = shard.get(SC.KEY_TEAM)
         act = shard[SC.KEY_ACT]
         mask = shard.get(SC.KEY_MASK)
+        # per-window demo id (Parquet); .npz falls back to the single meta.demo_id.
+        demo_ids = shard.get(SC.KEY_DEMO_IDS)
         weight = shard.get(SC.KEY_WEIGHT)
         for wi in range(len(obs)):
             wmask = mask[wi] if mask is not None else [1.0] * len(obs[wi])
@@ -145,7 +147,7 @@ def rows_to_tensors(shard_paths, schema, device):
                 aux_row += [float(v) for v in team[wi][ti]]
             AUX.append(aux_row)
             Y.append(SC.encode_action_row(act[wi][ti], schema))
-            DEMO.append(demo_id)
+            DEMO.append(demo_ids[wi] if demo_ids is not None else default_demo)
             # per-step shard loss weight (action confidence): 0 for pad / interp /
             # missing-label rows. The smoke's deps-free path already honors this;
             # carry it so the torch CE below can mask/weight per-sample (a weight=0
@@ -213,7 +215,8 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--shards", nargs="+", required=True,
-                    help="FEAT gold shard files (.npz) or a glob expanded by the shell")
+                    help="FEAT gold shard files (.parquet — the real build — or .npz), "
+                         "or a glob expanded by the shell")
     ap.add_argument("--out", type=Path, default=Path("~/broad_bc_policy.pt").expanduser())
     ap.add_argument("--metrics-out", type=Path, default=None)
     ap.add_argument("--model-card-out", type=Path, default=None)

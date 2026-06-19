@@ -121,12 +121,17 @@ def pit_join_demo(con_sqlite, fixture_dir: Path) -> list[tuple]:
 # list, and a window NEVER spans two episodes, so no cross-trajectory leakage either.
 
 def _load_episode_ticks(sqlite_path: Path, split: str = "train"):
-    """Return {episode_id: [tick_obs, ...]} for the `split`, tick-ascending.
+    """Return ({episode_id: [tick_obs, ...]}, {episode_id: demo_id}) for the `split`,
+    tick-ascending.
 
-    Each tick_obs = {"self": <self_state dict>, "others": [<other_state dict>, ...]}.
-    The ego self row in actor_ticks (actor_id == episodes.player_id) is split out as
-    `self`; the remaining same-tick actor rows are the observed-others. self resource
-    (health/armor) comes from player_ticks. DuckDB reads the SQLite directly.
+    Each tick_obs = {"tick", "self": <self_state dict>, "others": [<other_state>...],
+    "act": <action_state dict | None>}. The ego self row in actor_ticks
+    (actor_id == episodes.player_id) is split out as `self`; the remaining same-tick
+    actor rows are the observed-others; self resource (health/armor) comes from
+    player_ticks; the broad usercmd label comes from the `actions` table (PK
+    (episode,tick), so an exact equal-tick join — no future leakage). The
+    episode->demo_id map drives the trainer's group-by-demo split. DuckDB reads the
+    SQLite directly.
 
     SOURCE LIMITATION (QWD observed-only catalogs): this builder treats EVERY non-self
     actor_ticks row at a tick as an observed/visible entity (entity_is_visible=1). That
@@ -169,7 +174,33 @@ def _load_episode_ticks(sqlite_path: Path, split: str = "train"):
         """,
         [split],
     ).fetchall()
+    # recovered broad-usercmd LABELS per (episode,tick) — equal-tick PK join (PIT-safe).
+    action_rows = d.execute(
+        """
+        SELECT a.episode_id, a.tick,
+               a.forwardmove, a.sidemove, a.upmove, a.buttons,
+               a.confidence, a.is_interp
+          FROM cat.actions a
+          JOIN cat.episodes e USING(episode_id)
+         WHERE e.split = ?
+        """,
+        [split],
+    ).fetchall()
+    # episode -> demo_id (group-by-demo split key carried per window into the shard)
+    ep_demo = dict(d.execute(
+        "SELECT episode_id, demo_id FROM cat.episodes WHERE split = ?", [split],
+    ).fetchall())
     d.close()
+
+    # index the action label by (episode,tick)
+    actions: dict[tuple, dict] = {}
+    for (eid, tick, fwd, side, up, buttons, conf, is_interp) in action_rows:
+        actions[(eid, tick)] = {
+            "forwardmove": fwd, "sidemove": side, "upmove": up,
+            "buttons": buttons,
+            "confidence": 1.0 if conf is None else float(conf),
+            "is_interp": bool(is_interp) if is_interp is not None else False,
+        }
 
     # index observed-OTHERS by (episode,tick): every actor row whose actor_id != self.
     # The ego's OWN actor row is split off here too — not as an entity, but to recover
@@ -203,9 +234,11 @@ def _load_episode_ticks(sqlite_path: Path, split: str = "train"):
             "team_id": self_team_by_kt.get((eid, tick)),
         }
         episodes.setdefault(eid, []).append(
-            {"tick": tick, "self": self_state, "others": others.get((eid, tick), [])}
+            {"tick": tick, "self": self_state,
+             "others": others.get((eid, tick), []),
+             "act": actions.get((eid, tick))}
         )
-    return episodes
+    return episodes, ep_demo
 
 
 def build_observation_shard(
@@ -222,42 +255,75 @@ def build_observation_shard(
     """Build a windowed agent_observation Parquet shard from the catalog.
 
     Each row = one window: obs [K, SELF_DIM], entities [K, N_max, ENTITY_DIM],
-    ent_mask [K, N_max], mask [K] (1=real step, 0=pad). Stored as flattened
-    fixed-width list<float32> columns (parquet-friendly; the trainer reshapes via the
-    documented schema). Returns a summary (shapes + observed-other coverage)."""
+    ent_mask [K, N_max], act [K, ACT_DIM] (broad usercmd label), mask [K] (1=real
+    step, 0=pad), weight [K] (action confidence; 0 on pad/interp). Stored as
+    flattened fixed-width list<float32> columns (parquet-friendly; the trainer
+    reshapes via the documented schema + table-level metadata). A per-window
+    `demo_id` column carries the group-by-demo split key. Returns a summary
+    (shapes + observed-other coverage + per-head action-label counts)."""
     import numpy as np
 
-    episodes = _load_episode_ticks(sqlite_path, split=split)
-    K, S, ENT = lookback_k, AO.SELF_DIM, AO.ENTITY_DIM
+    episodes, ep_demo = _load_episode_ticks(sqlite_path, split=split)
+    K, S, ENT, A = lookback_k, AO.SELF_DIM, AO.ENTITY_DIM, AO.ACT_DIM
 
     obs_col, ent_col, entmask_col, mask_col = [], [], [], []
+    act_col, weight_col, demo_col = [], [], []
     meta_eid, meta_start = [], []
     n_windows = 0
     n_real_steps = 0
     n_steps_with_other = 0
+    n_steps_with_label = 0
     entity_abs_sum = 0.0
     entity_real_cells = 0
+    # per-head label histogram over REAL (mask==1) steps, for the non-triviality proof.
+    # heads: fwd(3) side(3) up(3) jump(2) attack(2) — sign3 buckets for moves, bin for buttons.
+    head_counts = {
+        "fwd": [0, 0, 0], "side": [0, 0, 0], "up": [0, 0, 0],
+        "jump": [0, 0], "attack": [0, 0],
+    }
+
+    def _sign3(v: float) -> int:
+        return 2 if v > 1e-3 else (0 if v < -1e-3 else 1)
 
     for eid in sorted(episodes):
         ticks = episodes[eid]                       # already tick-ascending
         n = len(ticks)
         if n == 0:
             continue
+        demo_id = int(ep_demo.get(eid, -1))
         # window starts every `stride`; pad the trailing window to K (pad_short_windows)
         start = 0
         while start < n:
             window = ticks[start:start + K]
-            real = len(window)
             obs_w = np.zeros((K, S), dtype=np.float32)
             ent_w = np.zeros((K, n_max, ENT), dtype=np.float32)
             entmask_w = np.zeros((K, n_max), dtype=np.float32)
+            act_w = np.zeros((K, A), dtype=np.float32)
             mask_w = np.zeros((K,), dtype=np.float32)
+            weight_w = np.zeros((K,), dtype=np.float32)
             for j, t in enumerate(window):
                 enc = AO.encode_observation(t["self"], t["others"], norm, map_name, n_max)
                 obs_w[j] = np.asarray(enc["self"], dtype=np.float32)
                 ent_w[j] = np.asarray(enc["ents"], dtype=np.float32)
                 entmask_w[j] = np.asarray(enc["mask"], dtype=np.float32)
+                act_vec = AO.encode_action(t.get("act"))
+                act_w[j] = np.asarray(act_vec, dtype=np.float32)
                 mask_w[j] = 1.0
+                # weight = action confidence, but a NULL label or an interpolated/
+                # anomalous frame (dataset_spec: exclude from training) -> weight 0 so
+                # it is loss-down-weighted while keeping the window contiguous/masked.
+                act_state = t.get("act")
+                if act_state is None:
+                    weight_w[j] = 0.0
+                else:
+                    conf = float(act_state.get("confidence", 1.0))
+                    weight_w[j] = 0.0 if act_state.get("is_interp") else conf
+                    n_steps_with_label += 1
+                    head_counts["fwd"][_sign3(act_vec[0])] += 1
+                    head_counts["side"][_sign3(act_vec[1])] += 1
+                    head_counts["up"][_sign3(act_vec[2])] += 1
+                    head_counts["jump"][1 if act_vec[3] >= 0.5 else 0] += 1
+                    head_counts["attack"][1 if act_vec[4] >= 0.5 else 0] += 1
                 n_real_steps += 1
                 if enc["n_obs"] > 0:
                     n_steps_with_other += 1
@@ -270,7 +336,10 @@ def build_observation_shard(
             obs_col.append(obs_w.reshape(-1).tolist())
             ent_col.append(ent_w.reshape(-1).tolist())
             entmask_col.append(entmask_w.reshape(-1).tolist())
+            act_col.append(act_w.reshape(-1).tolist())
             mask_col.append(mask_w.tolist())
+            weight_col.append(weight_w.tolist())
+            demo_col.append(demo_id)
             meta_eid.append(int(eid))
             meta_start.append(int(window[0]["tick"]))
             n_windows += 1
@@ -281,14 +350,38 @@ def build_observation_shard(
         if max_windows is not None and n_windows >= max_windows:
             break
 
-    table = pa.table({
-        "episode_id": pa.array(meta_eid, type=pa.int64()),
-        "start_tick": pa.array(meta_start, type=pa.int64()),
-        "obs": pa.array(obs_col, type=pa.list_(pa.float32())),          # [K*S]
-        "entities": pa.array(ent_col, type=pa.list_(pa.float32())),     # [K*N_max*ENT]
-        "ent_mask": pa.array(entmask_col, type=pa.list_(pa.float32())), # [K*N_max]
-        "mask": pa.array(mask_col, type=pa.list_(pa.float32())),        # [K]
-    })
+    # table-level metadata so the trainer can reshape the flattened columns + bind the
+    # contract WITHOUT a sidecar (read via pq.read_table(...).schema.metadata).
+    norm_ver = str(norm.get("artifact_version", "UNSET"))
+    schema_meta = {
+        b"komodobots.shard.contract": b"broad_bc.shard_contract.v1",
+        b"komodobots.shard.registry_version": str(norm.get("registry_version", 2)).encode(),
+        b"komodobots.shard.K": str(K).encode(),
+        b"komodobots.shard.n_max": str(n_max).encode(),
+        b"komodobots.shard.obs_dim": str(S).encode(),
+        b"komodobots.shard.ent_dim": str(ENT).encode(),
+        b"komodobots.shard.act_dim": str(A).encode(),
+        b"komodobots.shard.act_cols": ",".join(AO.ACT_FIELDS).encode(),
+        b"komodobots.shard.map": map_name.encode(),
+        b"komodobots.shard.split": split.encode(),
+        b"komodobots.shard.norm_artifact_version": norm_ver.encode(),
+        b"komodobots.shard.has_audio": b"false",
+        b"komodobots.shard.has_team": b"false",
+    }
+    table = pa.table(
+        {
+            "episode_id": pa.array(meta_eid, type=pa.int64()),
+            "demo_id": pa.array(demo_col, type=pa.int64()),
+            "start_tick": pa.array(meta_start, type=pa.int64()),
+            "obs": pa.array(obs_col, type=pa.list_(pa.float32())),          # [K*S]
+            "entities": pa.array(ent_col, type=pa.list_(pa.float32())),     # [K*N_max*ENT]
+            "ent_mask": pa.array(entmask_col, type=pa.list_(pa.float32())), # [K*N_max]
+            "act": pa.array(act_col, type=pa.list_(pa.float32())),          # [K*ACT_DIM]
+            "mask": pa.array(mask_col, type=pa.list_(pa.float32())),        # [K]
+            "weight": pa.array(weight_col, type=pa.list_(pa.float32())),    # [K]
+        },
+        metadata=schema_meta,
+    )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     pq.write_table(table, out_path, compression="zstd")
 
@@ -297,13 +390,20 @@ def build_observation_shard(
         "out": str(out_path),
         "split": split,
         "n_windows": n_windows,
-        "window_shape": {"obs": [K, S], "entities": [K, n_max, ENT], "ent_mask": [K, n_max], "mask": [K]},
+        "n_demos": len({d for d in demo_col}),
+        "window_shape": {"obs": [K, S], "entities": [K, n_max, ENT],
+                         "ent_mask": [K, n_max], "act": [K, A],
+                         "mask": [K], "weight": [K]},
         "K": K, "stride": stride, "N_max": n_max,
-        "self_dim": S, "entity_dim": ENT,
+        "self_dim": S, "entity_dim": ENT, "act_dim": A,
+        "act_cols": list(AO.ACT_FIELDS),
         "real_steps": n_real_steps,
+        "steps_with_label": n_steps_with_label,
+        "label_coverage": round(n_steps_with_label / n_real_steps, 4) if n_real_steps else 0.0,
         "steps_with_observed_other": n_steps_with_other,
         "observed_other_step_frac": round(n_steps_with_other / n_real_steps, 4) if n_real_steps else 0.0,
         "mean_abs_entity_feature": round(mean_entity_abs, 6),
+        "action_head_counts": head_counts,
         "bytes": out_path.stat().st_size,
     }
 

@@ -14,6 +14,8 @@ shard_contract.resolved.json
 
 # datasets / shards (FEAT gold tensors + synthetic smoke corpora live off-tree)
 *.npz
+*.parquet              # FEAT's real windowed (obs,act) gold shards
 *.shard.json.gz
 synth_corpus/
 gold/
+shards/
