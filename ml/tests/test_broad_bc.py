@@ -33,7 +33,12 @@ _HAVE_PYARROW = importlib.util.find_spec("pyarrow") is not None
 
 class TestShardContract(unittest.TestCase):
     def test_heads_and_registry(self):
-        self.assertEqual(SC.EXPECTS_REGISTRY_VERSION, 2)
+        # v3: the SELF vector gained the two appended turn-direction features, so the
+        # contract now EXPECTS registry_version 3 and an 18-wide SELF vector.
+        self.assertEqual(SC.EXPECTS_REGISTRY_VERSION, 3)
+        self.assertEqual(SC.EXPECTS_SELF_DIM, 18)
+        self.assertEqual(SC.EXPECTS_SELF_DIM, AO.SELF_DIM)   # contract == transform
+        self.assertEqual(SC.REQUIRED_NORM_KEYS, ("yaw_rate",))
         self.assertEqual(SC.head_names(), ["fwd", "side", "up", "jump", "attack"])
 
     def test_sign3_and_bin_encoding(self):
@@ -70,7 +75,9 @@ class TestShardContract(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p = SC.write_contract_doc(Path(d) / "c.json")
             doc = json.loads(p.read_text())
-            self.assertEqual(doc["expects_registry_version"], 2)
+            self.assertEqual(doc["expects_registry_version"], 3)
+            self.assertEqual(doc["expects_self_dim"], 18)
+            self.assertEqual(doc["required_norm_keys"], ["yaw_rate"])
             self.assertIn("entities", doc["array_keys"])
             self.assertEqual(len(doc["action_heads"]), 5)
 
@@ -171,11 +178,11 @@ class TestModelCard(unittest.TestCase):
             run_kind="cpu_smoke", schema=schema, in_dim=37, hidden=24,
             head_specs=[("fwd", 3)], metrics={}, history=[], seed=5,
             repo_root=REPO_ROOT, norm_artifact_version="X-1",
-            registry_version=2, dataset_version="ds-1")
+            registry_version=3, dataset_version="ds-1")
         for key in ("git_sha", "registry_version", "norm_artifact_version", "seed"):
             self.assertIn(key, card)
         self.assertEqual(card["seed"], 5)
-        self.assertEqual(card["registry_version"], 2)
+        self.assertEqual(card["registry_version"], 3)
         self.assertTrue(card["input_is_broad"])
         self.assertTrue(card["input_includes_observed_others"])
         self.assertFalse(card["move_only"])
@@ -230,11 +237,14 @@ class TestRegistryVersionGuard(unittest.TestCase):
     def test_matching_registry_version_is_accepted(self):
         TB = self._import_trainer()
         schema = SC.ShardSchema()
+        # a CORRECT v3 shard: registry_version == EXPECTS and the SELF width == the v3
+        # 18-channel layout (EXPECTS_SELF_DIM), so it must be ACCEPTED by both guards.
         good = synth_shard.make_synthetic_shard(
-            n_windows=3, obs_dim=8, ent_dim=6, seed=2)
+            n_windows=3, obs_dim=SC.EXPECTS_SELF_DIM, ent_dim=6, seed=2)
         # synth shards already set registry_version == EXPECTS_REGISTRY_VERSION
         self.assertEqual(good[SC.KEY_META]["registry_version"],
                          SC.EXPECTS_REGISTRY_VERSION)
+        self.assertEqual(good[SC.KEY_META]["obs_dim"], SC.EXPECTS_SELF_DIM)
         orig = core.read_shard
         core.read_shard = lambda _p: good
         try:
@@ -244,6 +254,91 @@ class TestRegistryVersionGuard(unittest.TestCase):
         # tensors built; per-sample weight vector present and aligned to rows
         self.assertIn("w", t)
         self.assertEqual(t["w"].shape[0], t["obs"].shape[0])
+        self.assertEqual(dims["f_obs"], SC.EXPECTS_SELF_DIM)
+
+    def test_v3_labelled_but_16_channel_shard_is_rejected_on_obs_dim(self):
+        """The hand-edited-label attack Codex called out: a shard whose
+        registry_version was set to 3 but whose SELF width is still 16 (the pre-append
+        layout) MUST be rejected by the explicit channel-count guard — the equality
+        guard alone would pass it. rows_to_tensors rejects BEFORE the tensor build."""
+        TB = self._import_trainer()
+        schema = SC.ShardSchema()
+        bad = synth_shard.make_synthetic_shard(
+            n_windows=2, obs_dim=16, ent_dim=6, seed=4)   # 16-channel SELF (pre-v3)
+        # registry_version already == EXPECTS (3) — only obs_dim is wrong, so the
+        # equality guard would NOT catch it; the obs_dim guard must.
+        self.assertEqual(bad[SC.KEY_META]["registry_version"],
+                         SC.EXPECTS_REGISTRY_VERSION)
+        self.assertEqual(bad[SC.KEY_META]["obs_dim"], 16)
+        orig = core.read_shard
+        core.read_shard = lambda _p: bad
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                TB.rows_to_tensors(["dummy-path"], schema, "cpu")
+            self.assertIn("obs_dim", str(ctx.exception))
+            self.assertIn(str(SC.EXPECTS_SELF_DIM), str(ctx.exception))
+        finally:
+            core.read_shard = orig
+
+
+class TestShardMetaCheckDepsFree(unittest.TestCase):
+    """The shared reject guard SC.check_shard_meta / SC.check_norm_artifact, exercised
+    WITHOUT torch (deps-free) so the v2-rejection contract is covered on a stdlib box.
+    These are the SAME functions train_broad_bc.rows_to_tensors and eval_broad_dryroute
+    call, so testing them here pins the reject rule independent of the GPU stack."""
+
+    def test_stale_v2_registry_version_rejected(self):
+        # a stale v2 (16-channel) shard meta must NOT bind to the v3 18-channel layout.
+        with self.assertRaises(ValueError) as ctx:
+            SC.check_shard_meta({"registry_version": 2, "obs_dim": 16})
+        self.assertIn("registry_version", str(ctx.exception))
+
+    def test_v3_labelled_16_channel_meta_rejected_on_obs_dim(self):
+        with self.assertRaises(ValueError) as ctx:
+            SC.check_shard_meta(
+                {"registry_version": SC.EXPECTS_REGISTRY_VERSION, "obs_dim": 16})
+        self.assertIn("obs_dim", str(ctx.exception))
+
+    def test_correct_v3_18_channel_meta_accepted(self):
+        # correct v3 meta: registry_version 3 + obs_dim 18 -> no raise.
+        SC.check_shard_meta(
+            {"registry_version": SC.EXPECTS_REGISTRY_VERSION,
+             "obs_dim": SC.EXPECTS_SELF_DIM})
+
+    def test_meta_omitting_fields_is_treated_as_matching(self):
+        # a minimal/legacy shard that omits registry_version/obs_dim is not rejected
+        # (we only reject on a PRESENT, mismatched value).
+        SC.check_shard_meta({})
+        SC.check_shard_meta({"obs_dim": SC.EXPECTS_SELF_DIM})  # no registry_version
+
+    def test_norm_artifact_missing_yaw_rate_key_rejected(self):
+        # a v2-shaped stats artifact (no per_map yaw_rate) must be rejected, not
+        # silently zero-filled — it would de-normalize the appended yaw_rate_z feature.
+        stats_v2 = {"per_map": {"dm3": {"vel_x": {"method": "zscore"}}}}
+        with self.assertRaises(ValueError) as ctx:
+            SC.check_norm_artifact(stats_v2, "dm3")
+        self.assertIn("yaw_rate", str(ctx.exception))
+
+    def test_norm_artifact_with_yaw_rate_key_accepted(self):
+        stats_v3 = {"registry_version": SC.EXPECTS_REGISTRY_VERSION,
+                    "per_map": {"dm3": {"yaw_rate": {"method": "zscore"}}}}
+        SC.check_norm_artifact(stats_v3, "dm3")          # no raise
+
+    def test_norm_artifact_stale_registry_version_rejected(self):
+        stats = {"registry_version": 2,
+                 "per_map": {"dm3": {"yaw_rate": {"method": "zscore"}}}}
+        with self.assertRaises(ValueError) as ctx:
+            SC.check_norm_artifact(stats, "dm3")
+        self.assertIn("registry_version", str(ctx.exception))
+
+    def test_template_artifact_passes_norm_check(self):
+        # the committed v3 template carries the yaw_rate key + registry_version 3, so the
+        # SHIPPED normalization artifact must pass the guard (regression vs. a stale bump).
+        tmpl = json.loads(
+            (REPO_ROOT / "data" / "catalog" / "normalization_stats.template.json")
+            .read_text(encoding="utf-8"))
+        self.assertEqual(tmpl["registry_version"], SC.EXPECTS_REGISTRY_VERSION)
+        SC.check_norm_artifact(tmpl, "dm3")              # no raise
 
 
 @unittest.skipUnless(_HAVE_TORCH and _HAVE_NUMPY, "torch/numpy not installed")

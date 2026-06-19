@@ -91,6 +91,9 @@ if str(SCRIPTS) not in sys.path:
 # pure-python glue import on bare stdlib python (the unit tests verify this).
 from broad_bc import shard_contract as SC        # noqa: E402  (deps-free)
 import gmv_believability as GMV                   # noqa: E402  (pure stdlib)
+# the SHARED turn-direction helper (pure stdlib, no torch) — the SAME yaw_rate the
+# offline build computes, so the closed-loop policy obs is parity-identical per tick.
+from features.agent_observation import yaw_rate_degps as _yaw_rate_degps  # noqa: E402
 
 
 # =============================================================================
@@ -533,10 +536,14 @@ def select_start_segments(episodes, *, horizon: int, n_segments: int,
 # TORCH + NUMPY + DUCKDB PATH — the only part that needs the heavy deps (pinnacle).
 # Everything above is pure python and unit-tested without torch/numpy/duckdb.
 # =============================================================================
-def _self_state_from_sim(st, yaw, pitch) -> dict:
+def _self_state_from_sim(st, yaw, pitch, yaw_rate=0.0) -> dict:
     """agent_observation self_state for the CURRENT sim state + the REPLAYED human
     view. Keys match what agent_observation.self_features reads. health/armor/team
-    are unknown in solo-roam -> left out (encoder zero-fills them)."""
+    are unknown in solo-roam -> left out (encoder zero-fills them).
+
+    yaw_rate (deg/s) is the turn-direction signal for THIS tick — the caller tracks the
+    PREVIOUS replayed view yaw and computes it via the SHARED _yaw_rate_degps so it
+    matches the offline build byte-for-byte. Defaults to 0.0 (first tick / no prev yaw)."""
     vx, vy, vz = st.velocity[0], st.velocity[1], st.velocity[2]
     return {
         "ox": st.origin[0], "oy": st.origin[1], "oz": st.origin[2],
@@ -544,6 +551,7 @@ def _self_state_from_sim(st, yaw, pitch) -> dict:
         "yaw": float(yaw), "pitch": float(pitch),
         "hspeed": math.hypot(vx, vy),
         "onground": bool(st.onground),
+        "yaw_rate": float(yaw_rate),
     }
 
 
@@ -588,6 +596,7 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
     # segment[k]'s view onto the bot's own state); the +1 tick in the segment is the
     # post-frame anchor headroom only.
     n = len(segment) - 1
+    prev_yaw = None   # previous replayed view yaw (for the turn-direction signal)
     for k in range(n):
         rec_self = segment[k]["self"]
         yaw = float(rec_self.get("yaw", 0.0) or 0.0)
@@ -597,9 +606,12 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
         msec = 13
         if rec_act and rec_act.get("msec"):
             msec = rec_act["msec"]
+        # turn-rate from the PREVIOUS replayed view yaw + this tick's dt (the SAME shared
+        # helper the offline build calls -> parity). prev_yaw None on tick 0 -> rate 0.0.
+        yaw_rate = _yaw_rate_degps(yaw, prev_yaw, float(msec) / 1000.0)
 
         if controller == "policy":
-            self_state = _self_state_from_sim(st, yaw, pitch)
+            self_state = _self_state_from_sim(st, yaw, pitch, yaw_rate=yaw_rate)
             enc = norm["_AO"].encode_observation(self_state, [], norm["_stats"], map_name, n_max)
             obs_t = torch_mod.tensor([enc["self"]], dtype=torch_mod.float32, device=device)
             f_ent = dims["f_ent"]
@@ -630,6 +642,7 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
         origins.append((tick["_ox"], tick["_oy"]))
         speeds.append(tick["hspeed"])
         msecs.append(float(msec))
+        prev_yaw = yaw   # this tick's view yaw is the next tick's previous yaw
 
     return gmv_ticks, origins, speeds, msecs, attack_classes
 

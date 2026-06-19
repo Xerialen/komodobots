@@ -58,7 +58,8 @@ pip install -r requirements.txt
 (`player_ticks` self + `actor_ticks` self+observed-others) and emits a **windowed
 `agent_observation` Parquet shard** via the SHARED
 `scripts/features.agent_observation` transform (train/serve parity). This is the
-contract the **TRAINER** consumes — frozen per `registry_version=2`.
+contract the **TRAINER** consumes — frozen per `registry_version=3` (the turn-direction
+SELF features `yaw_rate_z` + `face_vel_angle_norm` are appended, so `SELF_DIM=18`).
 
 **Build:**
 ```bash
@@ -73,7 +74,7 @@ python ml/pipeline/build_features.py shard --db data/catalog/dm3_4on4.sqlite \
 **One Parquet row = one window** (`dataset_spec.yaml`: `lookback_K=64`, `stride=16`,
 `N_max=7`; windows never cross an episode; trailing window padded + attention-masked).
 Array columns are stored **flattened row-major** as `list<float32>` and the trainer
-reshapes by the shapes below (constants: `S = SELF_DIM = 16`, `ENT = ENTITY_DIM = 13`,
+reshapes by the shapes below (constants: `S = SELF_DIM = 18`, `ENT = ENTITY_DIM = 13`,
 `A = ACT_DIM = 5`, `K = lookback_k`, `Nm = n_max`). The per-window shape constants are
 also stamped in the Parquet **table-level metadata** (`komodobots.shard.*`) so the
 trainer's `_read_parquet_shard` reshape is unambiguous and width-agnostic:
@@ -121,7 +122,7 @@ never an absolute team id; 0 when team unknown) · `entity_is_visible` (0/1 obse
   (equal-tick, never tick+1); windows never span episodes. Padded steps zero `obs` AND
   `entities`; pad entity slots (`ent_mask==0`) are all-zero.
 - **Train-only normalization:** the stats artifact is fit on `episodes.split='train'`
-  rows only (`computed_from="train"`, `registry_version=2`); identical refit hashes
+  rows only (`computed_from="train"`, `registry_version=3`); identical refit hashes
   byte-for-byte; the shard rebuild is byte-identical (deterministic). The `act` labels are
   raw usercmd (`forwardmove/sidemove/upmove ÷ 400`, `jump=buttons&2`, `attack=buttons&1`)
   — NOT fitted, so they do not enter the norm artifact.
