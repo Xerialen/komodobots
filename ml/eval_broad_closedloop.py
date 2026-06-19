@@ -319,22 +319,53 @@ def score_sequence_gmv(ticks, anchors=None, player_band=None) -> dict:
 # and overwrite the boundary-contaminated pooled G-MV3 statistic. Pure python.
 # =============================================================================
 def cadence_from_flip_sums(flips: int, eligible_ticks: int, active_s: float, *,
-                           thr=None) -> dict:
+                           nonzero_strafe_ticks: int | None = None, thr=None) -> dict:
     """Rebuild a G-MV3 cadence sub-result from ALREADY-SUMMED per-segment flips +
     eligible ticks + active seconds. Returns the SAME shape `gate_mv3` reports
     (passed/status/n_strafe_ticks/statistic/margin/thresholds), so it can replace
     the pooled (boundary-contaminated) G-MV3 gate verbatim. The pooled rate is
-    flips / active_s * 60 (active_s = summed sidemove-carrying wall time). Pure."""
+    flips / active_s * 60 (active_s = summed sidemove-carrying wall time — the FULL
+    cadence denominator, INCLUDING sidemove==0 active ticks; it is NOT the nonzero
+    count). Pure.
+
+    `nonzero_strafe_ticks` is the POOLED count of NONZERO-strafe ticks across all
+    summed segments (the same quantity `gate_mv3` floors on per-segment). When given
+    and below `thr["mv3_min_strafe_ticks"]`, the pooled cadence is reported
+    INSUFFICIENT (passed=None) — mirroring `gate_mv3`'s own floor, but decided on the
+    TOTAL nonzero base, not per-segment. When None (legacy callers), no pooled floor
+    is applied and a band verdict is always returned (back-compat)."""
     thr = thr or GMV.DEFAULT_THRESHOLDS
     lo = thr["mv3_min_flips_per_min"]
     hi = thr["mv3_max_flips_per_min"]
     flips_per_min = (flips / active_s * 60.0) if active_s > 0 else 0.0
+    insufficient = (nonzero_strafe_ticks is not None
+                    and int(nonzero_strafe_ticks) < thr["mv3_min_strafe_ticks"])
+    if insufficient:
+        return {
+            "gate": "G-MV3", "hard": False, "passed": None, "status": "insufficient",
+            "reason": "pooled %d nonzero-strafe ticks (< %d required)"
+                      % (int(nonzero_strafe_ticks), thr["mv3_min_strafe_ticks"]),
+            "n_strafe_ticks": int(nonzero_strafe_ticks),
+            "statistic": {
+                "flips": int(flips),
+                "eligible_ticks": int(eligible_ticks),
+                "active_s": round(float(active_s), 3),
+                "flips_per_min": round(flips_per_min, 3),
+                "boundary_safe": True,  # summed per-segment, no cross-boundary flip
+                "insufficient": True,
+            },
+            "margin": None,
+            "thresholds": {"min_flips_per_min": lo, "max_flips_per_min": hi},
+        }
     in_band = lo <= flips_per_min <= hi
     margin = min(flips_per_min - lo, hi - flips_per_min)
     return {
         "gate": "G-MV3", "hard": False, "passed": in_band,
         "status": "pass" if in_band else "fail",
-        "n_strafe_ticks": int(eligible_ticks),
+        # n_strafe_ticks reports the pooled NONZERO-strafe count when known (the
+        # quantity the floor keys on), else falls back to eligible_ticks.
+        "n_strafe_ticks": int(nonzero_strafe_ticks if nonzero_strafe_ticks is not None
+                              else eligible_ticks),
         "statistic": {
             "flips": int(flips),
             "eligible_ticks": int(eligible_ticks),
@@ -349,16 +380,30 @@ def cadence_from_flip_sums(flips: int, eligible_ticks: int, active_s: float, *,
 
 def aggregate_mv3_from_segments(segment_mv3_gates, *, thr=None) -> dict | None:
     """Sum a list of PER-SEGMENT `gate_mv3` results into one boundary-safe pooled
-    G-MV3 gate (flips/eligible_ticks/active_s summed, cadence recomputed). Segments
-    whose own G-MV3 was `insufficient` (passed is None, statistic is None) contribute
-    ZERO flips/ticks/seconds but are NOT dropped from the denominator decision: their
-    sidemove-carrying ticks were below the per-SEGMENT min-strafe floor, so they carry
-    no measurable cadence — pooling their (zero) flips is correct and never invents a
-    boundary flip. Returns None if NO segment carried any eligible strafe tick (so the
-    caller keeps the pooled gate's own insufficient verdict). Pure python."""
+    G-MV3 gate (flips/eligible_ticks/active_s summed, cadence recomputed from the
+    pooled flips / pooled active_s).
+
+    EVERY segment that carried ANY sidemove-bearing tick contributes its flips +
+    eligible_ticks + active_s to the pooled sums — INCLUDING segments whose own
+    per-segment G-MV3 was `insufficient` (too few NONZERO-strafe ticks to judge ON
+    THEIR OWN). This is the P1 fix: an insufficient segment still has a real
+    active_s (its sidemove-carrying wall time, which counts sidemove==0 ticks) that
+    is part of the cadence DENOMINATOR. Dropping it would strip that time base from
+    the pool and INFLATE the pooled flips_per_min (a long zero-sidemove segment
+    pooled with a short real-flip segment would read far too high — the opposite of
+    the de-biasing intent). Its (typically zero) flips pool correctly and never
+    invent a cross-boundary flip.
+
+    Pooled SUFFICIENCY is decided on the TOTAL NONZERO-strafe count across all
+    segments (`n_strafe_ticks` summed) vs `thr["mv3_min_strafe_ticks"]`, NOT
+    per-segment: many individually-thin segments can be jointly sufficient. Returns
+    None only when NO segment carried any sidemove-bearing tick at all (eligible
+    sum 0 -> the pool has no cadence base, so the caller keeps the pooled gate's own
+    insufficient verdict). Pure python."""
     thr = thr or GMV.DEFAULT_THRESHOLDS
     flips = 0
     eligible = 0
+    nonzero = 0
     active_s = 0.0
     saw_any = False
     for g in segment_mv3_gates:
@@ -366,14 +411,25 @@ def aggregate_mv3_from_segments(segment_mv3_gates, *, thr=None) -> dict | None:
             continue
         st = g.get("statistic")
         if not st:
+            # No statistic at all (genuinely empty / legacy None) -> no cadence base
+            # from this segment; skip it. (Post-fix gate_mv3 ALWAYS emits a statistic
+            # for any sidemove-bearing segment, incl. insufficient ones.)
+            continue
+        eligible_ticks = int(st.get("eligible_ticks", 0) or 0)
+        if eligible_ticks <= 0:
+            # carried no sidemove tick -> contributes nothing to the pooled denom.
             continue
         saw_any = True
         flips += int(st.get("flips", 0) or 0)
-        eligible += int(st.get("eligible_ticks", 0) or 0)
+        eligible += eligible_ticks
         active_s += float(st.get("active_s", 0.0) or 0.0)
+        # pooled NONZERO-strafe base (the floor's domain). gate_mv3 reports the
+        # nonzero count at top-level `n_strafe_ticks` in BOTH branches.
+        nonzero += int(g.get("n_strafe_ticks", 0) or 0)
     if not saw_any:
         return None
-    return cadence_from_flip_sums(flips, eligible, active_s, thr=thr)
+    return cadence_from_flip_sums(flips, eligible, active_s,
+                                  nonzero_strafe_ticks=nonzero, thr=thr)
 
 
 def overwrite_pooled_mv3(battery: dict, segment_mv3_gates, *, thr=None) -> dict:
