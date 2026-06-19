@@ -110,6 +110,17 @@ def rows_to_tensors(shard_paths, schema, device):
         shard = core.read_shard(p)
         meta = shard.get(SC.KEY_META, {})
         demo_id = meta.get("demo_id", "?")
+        # Reject stale/future shards: a shard whose registry_version differs from
+        # the version the model card pins (EXPECTS_REGISTRY_VERSION) is misbound —
+        # the obs/entities/act column meanings may have changed. Fail BEFORE the
+        # GPU run rather than silently train on misaligned inputs/labels. A shard
+        # that omits registry_version (e.g. legacy) is treated as matching.
+        rv = meta.get("registry_version")
+        if rv is not None and int(rv) != SC.EXPECTS_REGISTRY_VERSION:
+            raise ValueError(
+                f"shard registry_version {rv} != expected "
+                f"{SC.EXPECTS_REGISTRY_VERSION} (shard={p}, demo_id={demo_id}); "
+                f"refusing to train on a mismatched FEAT shard")
         obs = shard[SC.KEY_OBS]
         ent = shard.get(SC.KEY_ENTITIES)
         em = shard.get(SC.KEY_ENT_MASK)
@@ -117,6 +128,7 @@ def rows_to_tensors(shard_paths, schema, device):
         team = shard.get(SC.KEY_TEAM)
         act = shard[SC.KEY_ACT]
         mask = shard.get(SC.KEY_MASK)
+        weight = shard.get(SC.KEY_WEIGHT)
         for wi in range(len(obs)):
             wmask = mask[wi] if mask is not None else [1.0] * len(obs[wi])
             ti = core._last_real_tick(wmask)
@@ -134,6 +146,11 @@ def rows_to_tensors(shard_paths, schema, device):
             AUX.append(aux_row)
             Y.append(SC.encode_action_row(act[wi][ti], schema))
             DEMO.append(demo_id)
+            # per-step shard loss weight (action confidence): 0 for pad / interp /
+            # missing-label rows. The smoke's deps-free path already honors this;
+            # carry it so the torch CE below can mask/weight per-sample (a weight=0
+            # row must not move the loss or gradients). Default 1.0 if absent.
+            W.append(float(weight[wi][ti]) if weight is not None else 1.0)
     f_obs = len(OBS[0])
     if ENT:
         n_max = len(ENT[0]); f_ent = len(ENT[0][0])
@@ -149,6 +166,7 @@ def rows_to_tensors(shard_paths, schema, device):
         "aux": (torch.tensor(AUX, dtype=torch.float32, device=device)
                 if f_aux > 0 else torch.zeros((len(OBS), 0), device=device)),
         "y": torch.tensor(Y, dtype=torch.long, device=device),
+        "w": torch.tensor(W, dtype=torch.float32, device=device),
         "demo": DEMO,
     }
     return t, {"f_obs": f_obs, "f_ent": f_ent, "n_max": n_max, "f_aux": f_aux}
@@ -235,13 +253,16 @@ def main(argv=None) -> int:
     n_params = sum(p.numel() for p in model.parameters())
     print(f"BroadBCPolicy params={n_params}", flush=True)
 
-    # class-weighted CE per head (inverse frequency; broad heads imbalanced)
+    # class-weighted CE per head (inverse frequency; broad heads imbalanced).
+    # reduction='none' so we get PER-SAMPLE loss and can additionally apply the
+    # per-step shard weight below (the `weight=` arg is the per-CLASS imbalance
+    # weight, which we keep; the per-SAMPLE shard weight is a separate factor).
     ce = []
     for h, (_name, k) in enumerate(head_specs):
         cnts = torch.bincount(t["y"][tr_idx, h], minlength=k).float()
         cnts[cnts == 0] = 1.0
         w = cnts.sum() / (k * cnts)
-        ce.append(nn.CrossEntropyLoss(weight=w.to(device)))
+        ce.append(nn.CrossEntropyLoss(weight=w.to(device), reduction="none"))
 
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     tr_idx_t = torch.tensor(tr_idx, dtype=torch.long, device=device)
@@ -258,7 +279,18 @@ def main(argv=None) -> int:
             sl = perm[i:i + args.batch]
             logits = model(t["obs"][sl], t["ent"][sl], t["emask"][sl], t["aux"][sl])
             y = t["y"][sl]
-            loss = sum(ce[h](logits[h], y[:, h]) for h in range(len(head_specs)))
+            sw = t["w"][sl]                                  # [B] per-sample weight
+            # per-sample CE summed over heads (each ce[h] is reduction='none' -> [B])
+            per_sample = sum(ce[h](logits[h], y[:, h])
+                             for h in range(len(head_specs)))   # [B]
+            wsum = sw.sum()
+            if float(wsum) > 0.0:
+                # weighted mean: zero-weight rows contribute nothing to loss/grad
+                loss = (per_sample * sw).sum() / wsum
+            else:
+                # whole batch zero-weighted -> skip (no signal); keep grads clean
+                opt.zero_grad()
+                continue
             opt.zero_grad(); loss.backward(); opt.step()
             run += loss.item(); nb += 1
         val = evaluate(model, t, va_idx, head_specs)

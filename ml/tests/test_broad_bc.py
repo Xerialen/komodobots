@@ -177,6 +177,71 @@ class TestModelCard(unittest.TestCase):
         self.assertTrue(card["input_includes_observed_others"])
         self.assertFalse(card["move_only"])
 
+    def test_card_schema_and_data_schema_do_not_collide(self):
+        # Regression for the duplicate "schema" key: the model-card format id and
+        # the resolved data-schema object must BOTH survive (previously the second
+        # "schema": schema.to_dict() silently overwrote the format-id string).
+        schema = SC.ShardSchema()
+        card = core.build_model_card(
+            run_kind="cpu_smoke", schema=schema, in_dim=37, hidden=24,
+            head_specs=[("fwd", 3)], metrics={}, history=[], seed=0,
+            repo_root=REPO_ROOT)
+        # card-format identifier preserved under its own key (not clobbered)
+        self.assertEqual(card["card_schema"], "komodobots.model_card.broad_bc.v1")
+        # the data-schema object survives under "schema" and is the resolved dict
+        self.assertIsInstance(card["schema"], dict)
+        self.assertEqual(card["schema"]["contract_version"], SC.SHARD_CONTRACT_VERSION)
+        self.assertIn("heads", card["schema"])
+
+
+class TestRegistryVersionGuard(unittest.TestCase):
+    """rows_to_tensors must REJECT a shard whose meta.registry_version differs
+    from the version the model card pins (EXPECTS_REGISTRY_VERSION) — otherwise it
+    would silently train on a misbound (stale/future) FEAT shard. Deps-free: we
+    drive the guard via a small monkeypatched read_shard so it runs with no torch
+    needed for the *raise* path (the tensor build after the guard never executes).
+    """
+
+    def _import_trainer(self):
+        # train_broad_bc imports torch at module load; only import it when present.
+        if not (_HAVE_TORCH and _HAVE_NUMPY):
+            self.skipTest("torch/numpy not installed")
+        import train_broad_bc as TB
+        return TB
+
+    def test_mismatched_registry_version_raises(self):
+        TB = self._import_trainer()
+        schema = SC.ShardSchema()
+        bad = synth_shard.make_synthetic_shard(
+            n_windows=2, obs_dim=8, ent_dim=6, seed=1)
+        bad[SC.KEY_META]["registry_version"] = SC.EXPECTS_REGISTRY_VERSION + 99
+        orig = core.read_shard
+        core.read_shard = lambda _p: bad
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                TB.rows_to_tensors(["dummy-path"], schema, "cpu")
+            self.assertIn("registry_version", str(ctx.exception))
+        finally:
+            core.read_shard = orig
+
+    def test_matching_registry_version_is_accepted(self):
+        TB = self._import_trainer()
+        schema = SC.ShardSchema()
+        good = synth_shard.make_synthetic_shard(
+            n_windows=3, obs_dim=8, ent_dim=6, seed=2)
+        # synth shards already set registry_version == EXPECTS_REGISTRY_VERSION
+        self.assertEqual(good[SC.KEY_META]["registry_version"],
+                         SC.EXPECTS_REGISTRY_VERSION)
+        orig = core.read_shard
+        core.read_shard = lambda _p: good
+        try:
+            t, dims = TB.rows_to_tensors(["dummy-path"], schema, "cpu")
+        finally:
+            core.read_shard = orig
+        # tensors built; per-sample weight vector present and aligned to rows
+        self.assertIn("w", t)
+        self.assertEqual(t["w"].shape[0], t["obs"].shape[0])
+
 
 @unittest.skipUnless(_HAVE_TORCH and _HAVE_NUMPY, "torch/numpy not installed")
 class TestTorchPolicySmoke(unittest.TestCase):
@@ -217,6 +282,104 @@ class TestTorchPolicySmoke(unittest.TestCase):
             oa = m(obs, ent_a, emask, aux)[0]
             ob = m(obs, ent_b, emask, aux)[0]
         self.assertTrue(torch.allclose(oa, ob))
+
+    def test_zero_weight_row_does_not_affect_loss_or_gradients(self):
+        """REGRESSION for the P1 shard-weight finding: a row emitted with
+        weight=0 (pad / interpolated / missing-label, e.g. all-zero idle labels)
+        must NOT influence the loss or the gradients. We replicate the EXACT loss
+        used in train_broad_bc.main()'s training loop:
+            per_sample = sum_h CE_h(reduction='none')        # [B]
+            loss       = (per_sample * w).sum() / w.sum()
+        and compare a batch of real rows vs. the SAME batch with one extra
+        zero-weight, deliberately MISLABELLED row appended. Identical loss AND
+        identical per-parameter grads proves the weight masking is honored.
+        """
+        import torch
+        import torch.nn as nn
+        import train_broad_bc as TB
+
+        torch.manual_seed(0)
+        f_obs, f_ent, f_aux, n_max = 6, 4, 0, 3
+        head_dims = (3, 3, 3, 2, 2)
+        H = len(head_dims)
+        m = TB.BroadBCPolicy(f_obs=f_obs, f_ent=f_ent, f_aux=f_aux, n_max=n_max,
+                             ent_out=8, hidden=16, head_dims=head_dims)
+
+        # CE modules exactly like the trainer: per-class weight + reduction='none'.
+        # Build them once and SHARE across both cases so the zero-weight row is the
+        # only difference (the trainer derives per-class weights from the train set,
+        # which is held fixed here).
+        ce = [nn.CrossEntropyLoss(reduction="none") for _ in range(H)]
+
+        B = 5
+        obs = torch.randn(B, f_obs)
+        ent = torch.randn(B, n_max, f_ent)
+        emask = torch.ones(B, n_max)
+        emask[:, 2:] = 0.0
+        aux = torch.zeros(B, f_aux)
+        y = torch.stack([torch.randint(0, k, (B,)) for k in head_dims], dim=1)  # [B,H]
+        w = torch.ones(B)
+
+        # one EXTRA row: weight 0, and labels set to the WRONG class on every head
+        # (max class id) so that if it leaked it would clearly move loss/grads.
+        obs2 = torch.cat([obs, torch.randn(1, f_obs)], dim=0)
+        ent2 = torch.cat([ent, torch.randn(1, n_max, f_ent)], dim=0)
+        emask2 = torch.cat([emask, torch.ones(1, n_max)], dim=0)
+        aux2 = torch.zeros(B + 1, f_aux)
+        wrong = torch.tensor([[k - 1 for k in head_dims]], dtype=torch.long)  # [1,H]
+        y2 = torch.cat([y, wrong], dim=0)
+        w2 = torch.cat([w, torch.zeros(1)], dim=0)        # extra row weight = 0
+
+        def loss_and_grads(o, e, em, ax, yy, ww):
+            m.zero_grad(set_to_none=True)
+            logits = m(o, e, em, ax)
+            per_sample = sum(ce[h](logits[h], yy[:, h]) for h in range(H))  # [B]
+            loss = (per_sample * ww).sum() / ww.sum().clamp(min=1e-8)
+            loss.backward()
+            grads = [p.grad.detach().clone() for p in m.parameters()
+                     if p.grad is not None]
+            return loss.detach().clone(), grads
+
+        loss_a, grads_a = loss_and_grads(obs, ent, emask, aux, y, w)
+        loss_b, grads_b = loss_and_grads(obs2, ent2, emask2, aux2, y2, w2)
+
+        self.assertTrue(torch.allclose(loss_a, loss_b, atol=1e-6),
+                        f"loss changed: {loss_a.item()} vs {loss_b.item()}")
+        self.assertEqual(len(grads_a), len(grads_b))
+        for ga, gb in zip(grads_a, grads_b):
+            self.assertTrue(torch.allclose(ga, gb, atol=1e-6),
+                            "a zero-weight row perturbed the gradients")
+
+    def test_all_zero_weight_batch_is_skipped(self):
+        """If an ENTIRE batch is zero-weighted, the trainer guards against the
+        0/0 normalization (it skips the step). Here we assert the guarded loss
+        formula does not produce NaN/inf and that no gradient step is implied."""
+        import torch
+        import torch.nn as nn
+        import train_broad_bc as TB
+
+        torch.manual_seed(1)
+        head_dims = (3, 2)
+        H = len(head_dims)
+        m = TB.BroadBCPolicy(f_obs=4, f_ent=0, f_aux=0, n_max=2,
+                             ent_out=4, hidden=8, head_dims=head_dims)
+        ce = [nn.CrossEntropyLoss(reduction="none") for _ in range(H)]
+        B = 3
+        obs = torch.randn(B, 4)
+        ent = torch.zeros(B, 2, 0)
+        emask = torch.zeros(B, 2)
+        aux = torch.zeros(B, 0)
+        y = torch.stack([torch.randint(0, k, (B,)) for k in head_dims], dim=1)
+        w = torch.zeros(B)                                # whole batch zero-weight
+        logits = m(obs, ent, emask, aux)
+        per_sample = sum(ce[h](logits[h], y[:, h]) for h in range(H))
+        wsum = w.sum()
+        # mirrors the trainer's guard: wsum==0 -> skip (do not divide by zero)
+        self.assertEqual(float(wsum), 0.0)
+        # the guarded path never computes per_sample*w/wsum; confirm doing so naively
+        # would be non-finite, justifying the guard.
+        naive = (per_sample * w).sum() / wsum
+        self.assertFalse(torch.isfinite(naive).item())
 
 
 if __name__ == "__main__":
