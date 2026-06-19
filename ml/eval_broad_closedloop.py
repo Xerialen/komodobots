@@ -307,6 +307,153 @@ def score_sequence_gmv(ticks, anchors=None, player_band=None) -> dict:
     return GMV.run_battery(ticks, anchors=anchors, player_band=player_band)
 
 
+# =============================================================================
+# G-MV3 boundary fix (mirrors eval_broad_believability.py d4bcff3 for the OPEN-loop
+# eval). G-MV1/G-MV4 are per-tick and pool correctly across segments, but G-MV3
+# strafe cadence COUNTS L<->R sidemove sign-flips between CONSECUTIVE ticks. On the
+# POOLED multi-segment tick stream, each of the ~N segment boundaries (segment k's
+# last strafe sign vs segment k+1's first) injects one spurious flip — exactly the
+# bug d4bcff3 fixed for the per-demo open-loop eval. Fix: sum each SEGMENT's own
+# G-MV3 flips + eligible ticks + active seconds (a flip is only meaningful within
+# one segment's continuous tick sequence), recompute the cadence from those sums,
+# and overwrite the boundary-contaminated pooled G-MV3 statistic. Pure python.
+# =============================================================================
+def cadence_from_flip_sums(flips: int, eligible_ticks: int, active_s: float, *,
+                           nonzero_strafe_ticks: int | None = None, thr=None) -> dict:
+    """Rebuild a G-MV3 cadence sub-result from ALREADY-SUMMED per-segment flips +
+    eligible ticks + active seconds. Returns the SAME shape `gate_mv3` reports
+    (passed/status/n_strafe_ticks/statistic/margin/thresholds), so it can replace
+    the pooled (boundary-contaminated) G-MV3 gate verbatim. The pooled rate is
+    flips / active_s * 60 (active_s = summed sidemove-carrying wall time — the FULL
+    cadence denominator, INCLUDING sidemove==0 active ticks; it is NOT the nonzero
+    count). Pure.
+
+    `nonzero_strafe_ticks` is the POOLED count of NONZERO-strafe ticks across all
+    summed segments (the same quantity `gate_mv3` floors on per-segment). When given
+    and below `thr["mv3_min_strafe_ticks"]`, the pooled cadence is reported
+    INSUFFICIENT (passed=None) — mirroring `gate_mv3`'s own floor, but decided on the
+    TOTAL nonzero base, not per-segment. When None (legacy callers), no pooled floor
+    is applied and a band verdict is always returned (back-compat)."""
+    thr = thr or GMV.DEFAULT_THRESHOLDS
+    lo = thr["mv3_min_flips_per_min"]
+    hi = thr["mv3_max_flips_per_min"]
+    flips_per_min = (flips / active_s * 60.0) if active_s > 0 else 0.0
+    insufficient = (nonzero_strafe_ticks is not None
+                    and int(nonzero_strafe_ticks) < thr["mv3_min_strafe_ticks"])
+    if insufficient:
+        return {
+            "gate": "G-MV3", "hard": False, "passed": None, "status": "insufficient",
+            "reason": "pooled %d nonzero-strafe ticks (< %d required)"
+                      % (int(nonzero_strafe_ticks), thr["mv3_min_strafe_ticks"]),
+            "n_strafe_ticks": int(nonzero_strafe_ticks),
+            "statistic": {
+                "flips": int(flips),
+                "eligible_ticks": int(eligible_ticks),
+                "active_s": round(float(active_s), 3),
+                "flips_per_min": round(flips_per_min, 3),
+                "boundary_safe": True,  # summed per-segment, no cross-boundary flip
+                "insufficient": True,
+            },
+            "margin": None,
+            "thresholds": {"min_flips_per_min": lo, "max_flips_per_min": hi},
+        }
+    in_band = lo <= flips_per_min <= hi
+    margin = min(flips_per_min - lo, hi - flips_per_min)
+    return {
+        "gate": "G-MV3", "hard": False, "passed": in_band,
+        "status": "pass" if in_band else "fail",
+        # n_strafe_ticks reports the pooled NONZERO-strafe count when known (the
+        # quantity the floor keys on), else falls back to eligible_ticks.
+        "n_strafe_ticks": int(nonzero_strafe_ticks if nonzero_strafe_ticks is not None
+                              else eligible_ticks),
+        "statistic": {
+            "flips": int(flips),
+            "eligible_ticks": int(eligible_ticks),
+            "active_s": round(float(active_s), 3),
+            "flips_per_min": round(flips_per_min, 3),
+            "boundary_safe": True,  # summed per-segment, no cross-boundary flip
+        },
+        "margin": {"flips_per_min_to_nearer_edge": round(margin, 3)},
+        "thresholds": {"min_flips_per_min": lo, "max_flips_per_min": hi},
+    }
+
+
+def aggregate_mv3_from_segments(segment_mv3_gates, *, thr=None) -> dict | None:
+    """Sum a list of PER-SEGMENT `gate_mv3` results into one boundary-safe pooled
+    G-MV3 gate (flips/eligible_ticks/active_s summed, cadence recomputed from the
+    pooled flips / pooled active_s).
+
+    EVERY segment that carried ANY sidemove-bearing tick contributes its flips +
+    eligible_ticks + active_s to the pooled sums — INCLUDING segments whose own
+    per-segment G-MV3 was `insufficient` (too few NONZERO-strafe ticks to judge ON
+    THEIR OWN). This is the P1 fix: an insufficient segment still has a real
+    active_s (its sidemove-carrying wall time, which counts sidemove==0 ticks) that
+    is part of the cadence DENOMINATOR. Dropping it would strip that time base from
+    the pool and INFLATE the pooled flips_per_min (a long zero-sidemove segment
+    pooled with a short real-flip segment would read far too high — the opposite of
+    the de-biasing intent). Its (typically zero) flips pool correctly and never
+    invent a cross-boundary flip.
+
+    Pooled SUFFICIENCY is decided on the TOTAL NONZERO-strafe count across all
+    segments (`n_strafe_ticks` summed) vs `thr["mv3_min_strafe_ticks"]`, NOT
+    per-segment: many individually-thin segments can be jointly sufficient. Returns
+    None only when NO segment carried any sidemove-bearing tick at all (eligible
+    sum 0 -> the pool has no cadence base, so the caller keeps the pooled gate's own
+    insufficient verdict). Pure python."""
+    thr = thr or GMV.DEFAULT_THRESHOLDS
+    flips = 0
+    eligible = 0
+    nonzero = 0
+    active_s = 0.0
+    saw_any = False
+    for g in segment_mv3_gates:
+        if not g:
+            continue
+        st = g.get("statistic")
+        if not st:
+            # No statistic at all (genuinely empty / legacy None) -> no cadence base
+            # from this segment; skip it. (Post-fix gate_mv3 ALWAYS emits a statistic
+            # for any sidemove-bearing segment, incl. insufficient ones.)
+            continue
+        eligible_ticks = int(st.get("eligible_ticks", 0) or 0)
+        if eligible_ticks <= 0:
+            # carried no sidemove tick -> contributes nothing to the pooled denom.
+            continue
+        saw_any = True
+        flips += int(st.get("flips", 0) or 0)
+        eligible += eligible_ticks
+        active_s += float(st.get("active_s", 0.0) or 0.0)
+        # pooled NONZERO-strafe base (the floor's domain). gate_mv3 reports the
+        # nonzero count at top-level `n_strafe_ticks` in BOTH branches.
+        nonzero += int(g.get("n_strafe_ticks", 0) or 0)
+    if not saw_any:
+        return None
+    return cadence_from_flip_sums(flips, eligible, active_s,
+                                  nonzero_strafe_ticks=nonzero, thr=thr)
+
+
+def overwrite_pooled_mv3(battery: dict, segment_mv3_gates, *, thr=None) -> dict:
+    """Replace `battery`'s pooled (boundary-contaminated) G-MV3 gate with the
+    boundary-safe per-segment sum, IN PLACE, and return the battery. No-op when the
+    battery has no G-MV3 gate or no segment carried a measurable cadence (then the
+    pooled gate — typically `insufficient` — is left untouched). G-MV1/G-MV4 and the
+    `believable`/`all_gates_passed` flags are left as-is: `believable` is gated on
+    G-MV1 (unaffected), and `all_gates_passed` already required every gate True, so a
+    corrected G-MV3 pass/fail keeps that flag honest (recomputed below to stay
+    consistent with the overwritten gate). Pure python."""
+    gates = battery.get("gates")
+    if not gates or "G-MV3" not in gates:
+        return battery
+    agg = aggregate_mv3_from_segments(segment_mv3_gates, thr=thr)
+    if agg is None:
+        return battery
+    gates["G-MV3"] = agg
+    # keep all_gates_passed consistent with the corrected gate (believable is G-MV1).
+    battery["all_gates_passed"] = bool(gates) and all(
+        g.get("passed") is True for g in gates.values())
+    return battery
+
+
 def summarize_gmv(battery: dict) -> dict:
     """Compact, report-friendly view of a battery result: per-gate pass + the headline
     statistic, so the printed control table stays small. Pure python."""
@@ -548,8 +695,8 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
     # discontinuous, so we keep each segment's OWN route dict and aggregate those
     # (aggregate_route_metrics) to avoid a teleport distance at every segment boundary.
     pool = {
-        "policy": {"ticks": [], "attack": [], "routes": []},
-        "recorded": {"ticks": [], "routes": []},
+        "policy": {"ticks": [], "attack": [], "routes": [], "mv3_gates": []},
+        "recorded": {"ticks": [], "routes": [], "mv3_gates": []},
     }
     for (eid, start, seg) in segments:
         pol = closed_loop_rollout(
@@ -564,38 +711,45 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
         # per-segment route dicts (each on ITS OWN origins -> correct, no boundary jump)
         p_route = route_metrics(p_org, p_spd, p_ms)
         r_route = route_metrics(r_org, r_spd, r_ms)
+        # per-segment gmv batteries (scored ONCE here): the summary feeds per_segment[]
+        # AND each segment's own G-MV3 gate is kept so the pooled cadence can be summed
+        # from PER-SEGMENT flips (no cross-boundary L<->R flip — see overwrite_pooled_mv3).
+        p_batt = score_sequence_gmv(p_ticks, anchors=anchors_obj, player_band=player_band)
+        r_batt = score_sequence_gmv(r_ticks, anchors=anchors_obj, player_band=player_band)
         pool["policy"]["ticks"].extend(p_ticks)
         pool["policy"]["attack"].extend([a for a in p_atk if a is not None])
         pool["policy"]["routes"].append(p_route)
+        pool["policy"]["mv3_gates"].append(p_batt.get("gates", {}).get("G-MV3"))
         pool["recorded"]["ticks"].extend(r_ticks)
         pool["recorded"]["routes"].append(r_route)
+        pool["recorded"]["mv3_gates"].append(r_batt.get("gates", {}).get("G-MV3"))
 
         per_segment.append({
             "episode_id": int(eid),
             "demo_id": str(ep_demo.get(eid, eid)),
             "start_index": int(start),
             "n_ticks": len(p_ticks),
-            "policy": {
-                "gmv_summary": summarize_gmv(
-                    score_sequence_gmv(p_ticks, anchors=anchors_obj, player_band=player_band)),
-                "route": p_route,
-            },
-            "recorded": {
-                "gmv_summary": summarize_gmv(
-                    score_sequence_gmv(r_ticks, anchors=anchors_obj, player_band=player_band)),
-                "route": r_route,
-            },
+            "policy": {"gmv_summary": summarize_gmv(p_batt), "route": p_route},
+            "recorded": {"gmv_summary": summarize_gmv(r_batt), "route": r_route},
         })
 
     # aggregate controller reports: gmv on pooled ticks, route from per-segment dicts.
+    # The pooled gmv battery's G-MV3 is then OVERWRITTEN with the boundary-safe
+    # per-segment flip sum (overwrite_pooled_mv3): pooling tick streams across the
+    # ~N segments would otherwise count one spurious strafe flip at each boundary
+    # (the same bug class fixed for the open-loop eval in d4bcff3).
     atk = pool["policy"]["attack"]
     atk_rate = round(sum(1 for a in atk if int(a) == 1) / len(atk), 6) if atk else 0.0
     bot_policy = _controller_report(
         pool["policy"]["ticks"], aggregate_route_metrics(pool["policy"]["routes"]),
         anchors_obj, player_band, attack_pressed=atk_rate)
+    overwrite_pooled_mv3(bot_policy["gmv"], pool["policy"]["mv3_gates"])
+    bot_policy["gmv_summary"] = summarize_gmv(bot_policy["gmv"])
     recorded_human = _controller_report(
         pool["recorded"]["ticks"], aggregate_route_metrics(pool["recorded"]["routes"]),
         anchors_obj, player_band)
+    overwrite_pooled_mv3(recorded_human["gmv"], pool["recorded"]["mv3_gates"])
+    recorded_human["gmv_summary"] = summarize_gmv(recorded_human["gmv"])
 
     # synthetic NEGATIVE control — gmv is stdlib so this runs for real anywhere.
     face_run = GMV.synth_face_and_run(n=max(2000, horizon * 4))

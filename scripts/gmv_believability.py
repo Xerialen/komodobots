@@ -309,14 +309,18 @@ def gate_mv3(ticks, thr=None) -> dict:
     have_side = [t for t in ticks if t["sidemove"] is not None]
     nonzero = [t for t in have_side if _strafe_sign(t["sidemove"]) != 0]
     n_strafe = len(nonzero)
-    if n_strafe < thr["mv3_min_strafe_ticks"]:
-        return {
-            "gate": "G-MV3", "hard": False, "passed": None, "status": "insufficient",
-            "reason": "only %d nonzero-strafe ticks (< %d required)" % (n_strafe, thr["mv3_min_strafe_ticks"]),
-            "n_strafe_ticks": n_strafe, "statistic": None, "margin": None,
-            "thresholds": {"min_flips_per_min": thr["mv3_min_flips_per_min"],
-                           "max_flips_per_min": thr["mv3_max_flips_per_min"]},
-        }
+
+    # Compute the cadence ingredients UP FRONT — flips (over the continuous
+    # have_side sequence) and active_s (= the FULL sidemove-carrying wall time,
+    # which includes sidemove==0.0 ticks; this is the cadence DENOMINATOR). These
+    # are exposed in the statistic in BOTH the sufficient AND the insufficient
+    # branches: a multi-segment caller (eval_broad_closedloop.aggregate_mv3_from_segments)
+    # must be able to sum every segment's flips + eligible_ticks + active_s and
+    # recompute a POOLED cadence. If an insufficient segment's (zero, but real)
+    # active_s were hidden (statistic None), dropping it would strip its time base
+    # from the pooled denominator and INFLATE the pooled flips_per_min — the exact
+    # bug this exposes the ingredients to prevent. The status/passed semantics are
+    # unchanged: still "insufficient"/None when nonzero-strafe < the floor.
     flips = 0
     prev = 0
     for t in have_side:
@@ -327,6 +331,27 @@ def gate_mv3(ticks, thr=None) -> dict:
             flips += 1
         prev = s
     active_s = sum(t["msec"] for t in have_side) / 1000.0
+
+    if n_strafe < thr["mv3_min_strafe_ticks"]:
+        return {
+            "gate": "G-MV3", "hard": False, "passed": None, "status": "insufficient",
+            "reason": "only %d nonzero-strafe ticks (< %d required)" % (n_strafe, thr["mv3_min_strafe_ticks"]),
+            "n_strafe_ticks": n_strafe,
+            # statistic is exposed even when insufficient (additive, back-compat):
+            # flips_per_min here is the SEGMENT-LOCAL rate (NOT used for a verdict —
+            # passed is None), but flips/eligible_ticks/active_s are the pooled
+            # cadence ingredients a multi-segment aggregator must sum.
+            "statistic": {
+                "flips": flips,
+                "eligible_ticks": len(have_side),
+                "active_s": round(active_s, 3),
+                "flips_per_min": round((flips / active_s * 60.0) if active_s > 0 else 0.0, 3),
+                "insufficient": True,
+            },
+            "margin": None,
+            "thresholds": {"min_flips_per_min": thr["mv3_min_flips_per_min"],
+                           "max_flips_per_min": thr["mv3_max_flips_per_min"]},
+        }
     flips_per_min = (flips / active_s * 60.0) if active_s > 0 else 0.0
     in_band = thr["mv3_min_flips_per_min"] <= flips_per_min <= thr["mv3_max_flips_per_min"]
     # margin to the nearer band edge (positive == inside, with room).
@@ -338,6 +363,13 @@ def gate_mv3(ticks, thr=None) -> dict:
         "n_strafe_ticks": n_strafe,
         "statistic": {
             "flips": flips,
+            # eligible_ticks = the sidemove-carrying ticks that form BOTH the flip
+            # count's domain and active_s's wall-time base. Exposed (additive,
+            # back-compat) so a multi-segment caller can sum per-segment flips +
+            # eligible_ticks + active_s and recompute a pooled cadence WITHOUT
+            # counting a spurious L<->R flip across each segment boundary (the same
+            # boundary-flip bug class fixed for the open-loop eval in d4bcff3).
+            "eligible_ticks": len(have_side),
             "active_s": round(active_s, 3),
             "flips_per_min": round(flips_per_min, 3),
         },
