@@ -36,10 +36,16 @@ from . import shard_contract as SC
 # Shard reading  (tolerant: .npz via numpy if present, else stdlib .json.gz)
 # =============================================================================
 def read_shard(path) -> dict:
-    """Read one shard into a dict of nested python lists + meta. Works on both the
-    real `.npz` FEAT emits and the stdlib `.json.gz` the offline smoke writes."""
+    """Read one shard into a dict of nested python lists + meta. Works on:
+      * `.parquet` — FEAT's REAL gold shard (one file = many windows from many
+        episodes/demos; array columns stored FLATTENED, reshaped here via the
+        table-level metadata FEAT stamps);
+      * `.npz`     — the np.savez layout (one demo per file, arrays already shaped);
+      * `.json.gz` / `.json` — the stdlib offline-smoke layout."""
     path = Path(path)
     name = path.name
+    if name.endswith(".parquet"):
+        return _read_parquet_shard(path)
     if name.endswith(".npz"):
         import numpy as np  # only when actually reading an npz
         z = np.load(path, allow_pickle=False)
@@ -57,6 +63,83 @@ def read_shard(path) -> dict:
     if name.endswith(".json"):
         return json.loads(path.read_text(encoding="utf-8"))
     raise ValueError(f"unrecognized shard extension: {path}")
+
+
+def _read_parquet_shard(path) -> dict:
+    """Read FEAT's REAL Parquet gold shard and reshape the FLATTENED list<float32>
+    columns back to the nested [n_windows][K][...] arrays the loader consumes.
+
+    FEAT packs MANY windows (and many demos) into one Parquet file and stores the
+    per-window arrays row-major-flattened; the per-window shape (K, n_max, obs/ent/
+    act dims) is stamped in the table-level metadata so the reshape is unambiguous
+    and the loader still NEVER hard-codes a width. Per-window `demo_id` is returned
+    as `demo_ids` so the group-by-demo split keys off the real demo (the .npz path
+    carried a single demo_id per file; here many demos share a file)."""
+    import pyarrow.parquet as pq  # ml dep; only imported when a .parquet is read
+
+    t = pq.read_table(path)
+    meta_kv = t.schema.metadata or {}
+
+    def _m(key: str, default):
+        v = meta_kv.get(("komodobots.shard." + key).encode())
+        return v.decode() if v is not None else default
+
+    K = int(_m("K", 1))
+    n_max = int(_m("n_max", SC.DEFAULT_N_MAX))
+    obs_dim = int(_m("obs_dim", 0))
+    ent_dim = int(_m("ent_dim", 0))
+    act_dim = int(_m("act_dim", 0))
+    cols = {n: t.column(n).to_pylist() for n in t.schema.names}
+    n_rows = t.num_rows
+
+    def _reshape(flat_rows, *inner):
+        """[n_rows][prod(inner)] flat -> [n_rows][inner...] nested lists."""
+        out = []
+        for flat in flat_rows:
+            it = iter(flat)
+            if len(inner) == 1:
+                out.append([float(next(it)) for _ in range(inner[0])])
+            elif len(inner) == 2:
+                a, b = inner
+                out.append([[float(next(it)) for _ in range(b)] for _ in range(a)])
+            else:  # 3 dims: [a][b][c]
+                a, b, c = inner
+                out.append([[[float(next(it)) for _ in range(c)]
+                             for _ in range(b)] for _ in range(a)])
+        return out
+
+    out: dict = {}
+    if SC.KEY_OBS in cols and obs_dim:
+        out[SC.KEY_OBS] = _reshape(cols[SC.KEY_OBS], K, obs_dim)          # [n][K][S]
+    if SC.KEY_ENTITIES in cols and ent_dim:
+        out[SC.KEY_ENTITIES] = _reshape(cols[SC.KEY_ENTITIES], K, n_max, ent_dim)
+        out[SC.KEY_ENT_MASK] = _reshape(cols[SC.KEY_ENT_MASK], K, n_max)  # [n][K][Nm]
+    if SC.KEY_ACT in cols and act_dim:
+        out[SC.KEY_ACT] = _reshape(cols[SC.KEY_ACT], K, act_dim)          # [n][K][A]
+    if SC.KEY_MASK in cols:
+        out[SC.KEY_MASK] = _reshape(cols[SC.KEY_MASK], K)                 # [n][K]
+    if SC.KEY_WEIGHT in cols:
+        out[SC.KEY_WEIGHT] = _reshape(cols[SC.KEY_WEIGHT], K)             # [n][K]
+    # audio/team are absent in a .qwd FEAT shard (folded/deferred) — leave them out;
+    # the loader zero-fills.
+    if "demo_id" in cols:
+        out[SC.KEY_DEMO_IDS] = [str(d) for d in cols["demo_id"]]
+    if "episode_id" in cols:
+        out[SC.KEY_EPISODE_IDS] = [int(e) for e in cols["episode_id"]]
+
+    out[SC.KEY_META] = {
+        "demo_id": (out.get(SC.KEY_DEMO_IDS, ["?"])[0] if n_rows else "?"),
+        "n_windows": n_rows,
+        "K": K, "n_max": n_max,
+        "obs_dim": obs_dim, "ent_dim": ent_dim, "act_dim": act_dim,
+        "registry_version": int(_m("registry_version", SC.EXPECTS_REGISTRY_VERSION)),
+        "norm_artifact_version": _m("norm_artifact_version", "UNSET"),
+        "map_id": _m("map", "UNSET"),
+        "contract_version": _m("contract", SC.SHARD_CONTRACT_VERSION),
+        "has_audio": _m("has_audio", "false") == "true",
+        "has_team": _m("has_team", "false") == "true",
+    }
+    return out
 
 
 def _last_real_tick(window_mask) -> int:
@@ -99,7 +182,7 @@ def shard_to_rows(shard: dict, schema: SC.ShardSchema):
     i.e. it INCLUDES the observed-other / enemy-team channel (pooled_entities) —
     this is what makes the trainer broad, not move-only."""
     meta = shard.get(SC.KEY_META, {})
-    demo_id = meta.get("demo_id", "?")
+    default_demo = meta.get("demo_id", "?")
     n_max = meta.get("n_max", schema.n_max)
 
     obs = shard[SC.KEY_OBS]
@@ -110,6 +193,9 @@ def shard_to_rows(shard: dict, schema: SC.ShardSchema):
     act = shard[SC.KEY_ACT]
     mask = shard.get(SC.KEY_MASK)
     weight = shard.get(SC.KEY_WEIGHT)
+    # Parquet shards carry a per-WINDOW demo id (many demos per file); the .npz path
+    # has one demo per file, so fall back to meta.demo_id.
+    demo_ids = shard.get(SC.KEY_DEMO_IDS)
 
     n_windows = len(obs)
     for wi in range(n_windows):
@@ -117,6 +203,7 @@ def shard_to_rows(shard: dict, schema: SC.ShardSchema):
         ti = _last_real_tick(wmask)
         if float(wmask[ti]) < 0.5:
             continue  # all-pad window
+        demo_id = demo_ids[wi] if demo_ids is not None else default_demo
         x = list(map(float, obs[wi][ti]))             # self obs
         if ents is not None and ems is not None:
             pooled, n_vis = _pool_entities(ents[wi][ti], ems[wi][ti])

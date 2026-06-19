@@ -9,31 +9,47 @@ THE CONTRACT (what FEAT emits / what this trainer consumes)
 Authoritative source: `data/catalog/dataset_spec.yaml` (komodobots.dataset_spec.v1,
 registry_version 2) + `data/catalog/feature_registry.yaml`. One *sample* = one
 window of K ticks. FEAT (the parallel feature coder) materializes the windowed
-gold tensors; this trainer reads them. Per dataset_spec `record_layout` a sample
-is a group of NumPy arrays sharing a basename (WebDataset tar member or an .npz):
+gold tensors; this trainer reads them.
 
-  key        ext            shape            dtype     meaning
-  ---------  -------------  ---------------  --------  ------------------------------
-  obs        obs.npy        [K, F_obs]       float32   normalized SELF features
-                                                       (position+velocity+orientation+
-                                                        player_resource+item+timing+
-                                                        player_style + self team scalars)
-  entities   entities.npy   [K, N_max, F_ent] float32  per OBSERVED-OTHER actor egocentric
-                                                       vector (enemies + teammates) — the
-                                                       enemy/team-aware channel
-  ent_mask   ent_mask.npy   [K, N_max]       float32   1 = real other-actor slot, 0 = pad/absent
-  audio      audio.npy      [K, F_audio]     float32   decayed spatial audio cues (optional)
-  team       team.npy       [K, F_team]      float32   team-aggregate context (optional)
-  act        act.npy        [K, F_act]       float32   ACTION TARGETS (the human usercmd)
-  mask       mask.npy       [K]              float32   1 = real step, 0 = pad (loss-masked)
-  weight     w.npy          [K]              float32   per-step loss weight = action confidence
-  meta       json           -                -         {episode_id, demo_id, player_id, map_id,
-                                                        start_tick, label_source, registry_version,
-                                                        norm_artifact_version}
+FEAT's REAL build (`ml/pipeline/build_features.py shard`) emits ONE **Parquet**
+file holding MANY windows (and many demos), array columns stored row-major-
+FLATTENED as `list<float32>`; `core._read_parquet_shard` reshapes them back via
+the table-level shape metadata FEAT stamps (so the loader still never hard-codes a
+width). The `.npz` / `.json.gz` layouts (one demo per file, arrays pre-shaped) are
+also supported — the smoke uses them. Per dataset_spec `record_layout` a sample is
+this set of arrays:
+
+  key        shape            dtype     meaning
+  ---------  ---------------  --------  ------------------------------------------
+  obs        [K, F_obs]       float32   normalized SELF features (position+velocity+
+                                        orientation+player_resource; F_obs=16 today)
+  entities   [K, N_max, F_ent] float32  per OBSERVED-OTHER actor egocentric vector
+                                        (enemies + teammates; F_ent=13). The
+                                        enemy/team-aware channel; team is FOLDED IN
+                                        as the per-entity `is_teammate` flag.
+  ent_mask   [K, N_max]       float32   1 = real other-actor slot, 0 = pad/absent
+  act        [K, F_act]       float32   ACTION TARGETS (human usercmd); F_act=5 =
+                                        fwd/side/up move + jump + attack (the cloned
+                                        heads). Indexed BY NAME, so width 5 binds.
+  mask       [K]              float32   1 = real step, 0 = pad (loss-masked)
+  weight     [K]              float32   per-step loss weight = action confidence
+                                        (0 on pad / interpolated frames)
+  demo_ids   [n_windows]      (str)     per-WINDOW demo id — group-by-demo split key
+                                        (Parquet packs many demos per file)
+  meta       dict             -         {demo_id, n_windows, K, n_max, obs_dim,
+                                        ent_dim, act_dim, registry_version,
+                                        norm_artifact_version, map_id, has_audio,
+                                        has_team}
+
+OPTIONAL / ABSENT in a .qwd FEAT shard:
+  audio  [K, F_audio]  — .qwd carries NO audio cues -> DEFERRED (shard omits it).
+  team   [K, F_team]   — team is folded into entity `is_teammate` -> shard omits it.
+The loader treats audio/team as optional and zero-fills (F_aux = 0 for a .qwd shard).
 
 N_max = 7 (4on4 => 7 other actors; 1v1 is the SAME path, more masking).
-The model INPUT is the concatenation [obs | pooled(entities, ent_mask) | audio | team]
-=> the policy sees self + enemy + teammate context (BROAD), not movement-only.
+The model INPUT is [obs | pooled(entities, ent_mask) | audio | team] (audio/team
+width 0 when absent) => the policy sees self + enemy + teammate context (BROAD),
+not movement-only.
 
 This trainer is BC-only: it consumes single-step windows (bc_window=1 in
 dataset_spec) by default — K can be >1 and we read the LAST real tick per window —
@@ -92,8 +108,17 @@ KEY_ACT = "act"
 KEY_MASK = "mask"
 KEY_WEIGHT = "weight"
 KEY_META = "meta"
+# Per-WINDOW demo id (Parquet shards pack many demos in one file, unlike the .npz
+# one-demo-per-file layout). When present, the loader groups the split by THIS
+# (so no demo straddles train/val) instead of the single meta.demo_id.
+KEY_DEMO_IDS = "demo_ids"
+# Per-window episode id (provenance; not required by the loader).
+KEY_EPISODE_IDS = "episode_ids"
 
-# Optional channels: a shard MAY omit these (1v1 / ablation); the loader zero-fills.
+# Optional channels: a shard MAY omit these and the loader zero-fills / falls back.
+#   audio, team  — .qwd has no audio cues and folds team into entity is_teammate
+#                  (FEAT's ACTUAL schema), so a real .qwd shard omits BOTH.
+#   weight       — defaults to 1.0 per step if absent.
 OPTIONAL_KEYS = (KEY_AUDIO, KEY_TEAM, KEY_WEIGHT)
 
 # --- default geometry (from dataset_spec.yaml) ------------------------------
@@ -102,6 +127,11 @@ DEFAULT_N_MAX = 7                     # entity_max.N_max (4on4 = 7 other actors)
 # Reference action-column order inside `act` (feature_registry `action` group,
 # leakage_safe:false targets). Used to build synthetic shards and as the DEFAULT
 # binding; override via ShardSchema.act_cols when FEAT pins a different order.
+# NB: FEAT's REAL .qwd shard emits ONLY the first 5 (the cloned heads) — the two
+# reserved continuous turn columns (indices 5,6) are NOT cloned yet, and since the
+# loader indexes act columns BY NAME via ShardSchema.act_index, a width-5 `act`
+# binds the fwd/side/up/jump/attack heads correctly with no rebind. ACT_COLS keeps
+# all 7 so the synthetic smoke can also exercise the (future) turn columns.
 ACT_COLS = (
     "forwardmove",        # [-1,1]  (= raw/400)
     "sidemove",           # [-1,1]

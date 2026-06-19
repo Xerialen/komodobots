@@ -78,6 +78,52 @@ N_MAX_DEFAULT = 7
 _HEALTH_CAP = 250.0
 _ARMOR_CAP = 200.0
 
+# --- ACTION (label) vector — feature_registry `action` group ----------------
+# This is the broad usercmd TARGET the BC trainer clones (NOT an observation
+# input; leakage_safe:false). The order MUST match the trainer's cloned heads
+# (ml/broad_bc/shard_contract.ACTION_HEADS): fwd/side/up move + jump + attack.
+# The two reserved continuous turn columns (cmd_delta_yaw_sin/cos) are NOT cloned
+# yet (reserved for a future AIM head), so the shard emits only these 5 — the
+# trainer indexes act columns BY NAME, so a width-5 `act` binds correctly.
+ACT_FIELDS: tuple[str, ...] = (
+    "forwardmove",     # actions.forwardmove / 400  -> ~[-1,1]
+    "sidemove",        # actions.sidemove    / 400
+    "upmove",          # actions.upmove      / 400
+    "jump_button",     # 1.0 if (buttons & 2) else 0.0
+    "attack_button",   # 1.0 if (buttons & 1) else 0.0
+)
+ACT_DIM = len(ACT_FIELDS)
+
+# usercmd move shorts are bounded ~[-400,400]; /400 maps to ~[-1,1] (registry).
+_MOVE_SCALE = 400.0
+_BTN_JUMP = 2      # buttons & 2  -> jump
+_BTN_ATTACK = 1    # buttons & 1  -> attack
+
+
+def encode_action(action_state: dict | None) -> list[float]:
+    """Encode one (episode,tick) `actions` row -> the broad usercmd TARGET vector
+    (length ACT_DIM), in ACT_FIELDS order. Pure stdlib; the SINGLE action encoder
+    shared by the offline shard build and (eventually) any online label check, so
+    the move/jump/attack target matches feature_registry exactly.
+
+    `action_state` keys (any missing treated as 0 / no-press):
+        forwardmove, sidemove, upmove (usercmd shorts), buttons (bitfield).
+    A None / absent action (no label this tick) encodes as all-zero (idle).
+    """
+    if not action_state:
+        return [0.0] * ACT_DIM
+    fwd = float(action_state.get("forwardmove", 0.0) or 0.0) / _MOVE_SCALE
+    side = float(action_state.get("sidemove", 0.0) or 0.0) / _MOVE_SCALE
+    up = float(action_state.get("upmove", 0.0) or 0.0) / _MOVE_SCALE
+    # clamp to [-1,1] (a few demos carry shorts slightly beyond +-400)
+    fwd = max(-1.0, min(1.0, fwd))
+    side = max(-1.0, min(1.0, side))
+    up = max(-1.0, min(1.0, up))
+    buttons = int(action_state.get("buttons", 0) or 0)
+    jump = 1.0 if (buttons & _BTN_JUMP) else 0.0
+    attack = 1.0 if (buttons & _BTN_ATTACK) else 0.0
+    return [fwd, side, up, jump, attack]
+
 
 def self_features(self_state: dict, stats: dict, map_name: str = "dm3") -> list[float]:
     """Normalized SELF feature vector (length SELF_DIM) for one ego tick.

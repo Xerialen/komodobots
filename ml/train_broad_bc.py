@@ -109,7 +109,7 @@ def rows_to_tensors(shard_paths, schema, device):
     for p in shard_paths:
         shard = core.read_shard(p)
         meta = shard.get(SC.KEY_META, {})
-        demo_id = meta.get("demo_id", "?")
+        default_demo = meta.get("demo_id", "?")
         obs = shard[SC.KEY_OBS]
         ent = shard.get(SC.KEY_ENTITIES)
         em = shard.get(SC.KEY_ENT_MASK)
@@ -117,6 +117,8 @@ def rows_to_tensors(shard_paths, schema, device):
         team = shard.get(SC.KEY_TEAM)
         act = shard[SC.KEY_ACT]
         mask = shard.get(SC.KEY_MASK)
+        # per-window demo id (Parquet); .npz falls back to the single meta.demo_id.
+        demo_ids = shard.get(SC.KEY_DEMO_IDS)
         for wi in range(len(obs)):
             wmask = mask[wi] if mask is not None else [1.0] * len(obs[wi])
             ti = core._last_real_tick(wmask)
@@ -133,7 +135,7 @@ def rows_to_tensors(shard_paths, schema, device):
                 aux_row += [float(v) for v in team[wi][ti]]
             AUX.append(aux_row)
             Y.append(SC.encode_action_row(act[wi][ti], schema))
-            DEMO.append(demo_id)
+            DEMO.append(demo_ids[wi] if demo_ids is not None else default_demo)
     f_obs = len(OBS[0])
     if ENT:
         n_max = len(ENT[0]); f_ent = len(ENT[0][0])
@@ -183,7 +185,8 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--shards", nargs="+", required=True,
-                    help="FEAT gold shard files (.npz) or a glob expanded by the shell")
+                    help="FEAT gold shard files (.parquet — the real build — or .npz), "
+                         "or a glob expanded by the shell")
     ap.add_argument("--out", type=Path, default=Path("~/broad_bc_policy.pt").expanduser())
     ap.add_argument("--metrics-out", type=Path, default=None)
     ap.add_argument("--model-card-out", type=Path, default=None)

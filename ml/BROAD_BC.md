@@ -38,29 +38,39 @@ so the deps-free smoke exercises the *real* contract.
 
 Authoritative source: `data/catalog/dataset_spec.yaml` (`komodobots.dataset_spec.v1`,
 `registry_version: 2`) + `data/catalog/feature_registry.yaml`. One **sample = one window
-of K ticks**, stored as arrays sharing a basename (a WebDataset tar group, or an `.npz`).
-The loader reads `obs_dim` / `ent_dim` / `n_max` **from the arrays** — never hard-coded —
-which is what makes it tolerant to FEAT's final widths.
+of K ticks**. FEAT's REAL build (`ml/pipeline/build_features.py shard`) emits **one
+Parquet file** holding MANY windows (and many demos) with the per-window arrays stored
+row-major-**flattened** as `list<float32>`; the loader (`core._read_parquet_shard`)
+reshapes them via the table-level shape metadata FEAT stamps. (`.npz` / `.json.gz` — one
+demo per file, pre-shaped — are also read; the smoke uses them.) The loader reads
+`obs_dim` / `ent_dim` / `act_dim` / `n_max` **from the shard** — never hard-coded — so it
+is tolerant to FEAT's final widths.
 
-| key | ext | shape | dtype | meaning |
-|---|---|---|---|---|
-| `obs` | `obs.npy` | `[K, F_obs]` | float32 | normalized **self** features (position+velocity+orientation+player_resource+item+timing+player_style + self team scalars) |
-| `entities` | `entities.npy` | `[K, N_max, F_ent]` | float32 | per **observed-other** actor egocentric vector (enemies + teammates) — the enemy/team-aware channel |
-| `ent_mask` | `ent_mask.npy` | `[K, N_max]` | float32 | `1`=real other-actor slot, `0`=pad/absent |
-| `audio` | `audio.npy` | `[K, F_audio]` | float32 | optional decayed spatial audio cues |
-| `team` | `team.npy` | `[K, F_team]` | float32 | optional team-aggregate context |
-| `act` | `act.npy` | `[K, F_act]` | float32 | **action targets** (the human usercmd) |
-| `mask` | `mask.npy` | `[K]` | float32 | `1`=real step, `0`=pad (loss-masked) |
-| `weight` | `w.npy` | `[K]` | float32 | per-step loss weight = action confidence |
-| `meta` | json | — | — | `episode_id, demo_id, player_id, map_id, start_tick, label_source, registry_version, norm_artifact_version, n_max, obs_dim, ent_dim` |
+| key | shape | dtype | meaning |
+|---|---|---|---|
+| `obs` | `[K, F_obs]` | float32 | normalized **self** features (position+velocity+orientation+player_resource; `F_obs=16`) |
+| `entities` | `[K, N_max, F_ent]` | float32 | per **observed-other** actor egocentric vector (enemies + teammates; `F_ent=13`). Team is **folded in** as the per-entity `is_teammate` flag. |
+| `ent_mask` | `[K, N_max]` | float32 | `1`=real other-actor slot, `0`=pad/absent |
+| `act` | `[K, F_act]` | float32 | **action targets** (human usercmd); `F_act=5` = fwd/side/up move + jump + attack (the cloned heads) |
+| `mask` | `[K]` | float32 | `1`=real step, `0`=pad (loss-masked) |
+| `weight` | `[K]` | float32 | per-step loss weight = action confidence (`0` on pad / interpolated frames) |
+| `demo_id` | per-window int | — | **group-by-demo split key** (Parquet packs many demos per file → split keys off this, not one id/file) |
+| `episode_id` / `start_tick` | per-window int | — | provenance (window never spans two episodes) |
+| _`audio`_ | _`[K, F_audio]`_ | float32 | **ABSENT** in a `.qwd` shard — `.qwd` carries no audio cues (deferred). Optional; loader zero-fills. |
+| _`team`_ | _`[K, F_team]`_ | float32 | **ABSENT** — team is folded into entity `is_teammate`. Optional; loader zero-fills. |
 
 - `N_max = 7` (4on4 ⇒ 7 other actors; 1v1 is the **same** path with more masking).
-- **Model input** = `[obs | masked_pool(entities, ent_mask) | audio | team]` ⇒ self +
+- **Model input** = `[obs | masked_pool(entities, ent_mask) | audio | team]`; `audio`/`team`
+  are width 0 in a `.qwd` shard, so the input is `[obs | masked_pool(entities)]` ⇒ self +
   enemy + teammate context ⇒ **BROAD, not move-only**.
 - BC-only: by default the loader takes the **last real tick** of each window, so it works
   whether FEAT emits single-step BC rows (`bc_window=1`) or `K=64` sequence windows.
 - Pad entity slots are **zeroed** (contract); invisible-but-known actors carry the belief
   block in their live fields per `feature_registry.yaml` `entity_observation`.
+- **`.qwd` provenance:** the self-POV `.qwd` corpus carries observed-others' kinematics +
+  alive but NOT their health/armor/team, so `entity_health_est/armor_est` are 0 and
+  `entity_is_teammate` is 0 (team unknown) in a `.qwd`-only shard; those populate once the
+  `.mvd`/omniscient path lands. The columns are present at full width regardless.
 
 ### Action heads (broad usercmd, discretized)
 
@@ -80,16 +90,20 @@ The commanded view turn (`cmd_delta_yaw`) is carried in `act` but **not cloned y
 is reserved for a continuous AIM head (next wave). The `jump`+`attack` heads are what make
 this trainer broad rather than move-only.
 
-### Rebinding to FEAT's actual schema at review-time
+### Binding to FEAT's actual schema (reconciled)
 
-The only thing that can need pinning is the **`act` column order** if FEAT diverges from
-`shard_contract.ACT_COLS`. That is a one-object change — pass a `ShardSchema(act_cols=...)`
-(see `test_rebind_schema_with_reordered_act_cols`). `obs`/`entities`/`audio`/`team` widths
-and `N_max` are discovered from the shard, so no code change is needed for them.
+FEAT's real schema is now bound directly: `act_cols = (forwardmove, sidemove, upmove,
+jump_button, attack_button)` (the shard emits exactly these 5; the loader indexes by name
+so the width-5 `act` resolves the 5 cloned heads with no rebind). `obs` (16), `entities`
+(13), `act_dim` (5) and `N_max` (7) are discovered from the shard arrays / its table
+metadata; `audio` and `team` are **absent** (`.qwd` has no audio; team is folded into the
+entity `is_teammate` flag) and the loader zero-fills them, so `F_aux = 0`.
 
 `shard_contract.SHARD_CONTRACT_VERSION = "broad_bc.shard_contract.v1"` and
 `EXPECTS_REGISTRY_VERSION = 2`. If FEAT's `meta.registry_version` differs from 2, that is a
-hard mismatch to resolve before training.
+hard mismatch to resolve before training. (Should FEAT ever reorder `act`, pass a
+`ShardSchema(act_cols=...)` — a one-object change; see
+`test_rebind_schema_with_reordered_act_cols`.)
 
 ---
 
@@ -129,14 +143,23 @@ scaffold unit is **build + CPU-smoke only** — the real run is the next wave. R
 # on pinnacle, WSL2 Ubuntu (per host policy: WSL2 only, so `wsl --shutdown` frees VRAM):
 cd <repo>/ml
 python3 -m venv .venv-ml && source .venv-ml/bin/activate
-pip install -r requirements.txt          # torch + numpy (system change — owner OK per CLAUDE.md)
+pip install -r requirements.txt          # duckdb + pyarrow + numpy + torch (owner OK)
 
-# 1. FEAT must have emitted gold shards (the SHARD CONTRACT above) and a frozen
-#    normalization_stats.json. Point the trainer at them:
-SHARDS="$HOME/komodobots-gold/broad/shard-*.npz"
-NORM="$HOME/komodobots-gold/norm/normalization_stats.json"
+# 0. Build the catalog slice (or reuse data/catalog/dm3_4on4.sqlite). Then fit the
+#    train-only norm and build the real (obs,act) Parquet shards (the SHARD CONTRACT):
+DB=data/catalog/dm3_4on4.sqlite
+python3 pipeline/normalize_fit.py --db "$DB" --out gold/norm/normalization_stats.json \
+    --split train --map dm3
+python3 pipeline/build_features.py shard --db "$DB" \
+    --stats gold/norm/normalization_stats.json \
+    --out gold/shards/dm3_4on4_train.parquet --split train --lookback-k 64 --stride 16 --n-max 7
+# (repeat for --split val if you want a held-out demo metric)
 
-# 2. Train (CUDA auto-detected; fixed seed; checkpoint + metrics + model card emitted):
+SHARDS="gold/shards/dm3_4on4_train.parquet"   # .parquet (real) — globs to many also OK
+NORM="gold/norm/normalization_stats.json"
+
+# 1+2. Train (CUDA auto-detected; fixed seed; checkpoint + metrics + model card emitted).
+#      The loader discovers obs/ent/act dims from the shard; split is by demo_id.
 python3 train_broad_bc.py \
     --shards $SHARDS \
     --norm-artifact "$NORM" \

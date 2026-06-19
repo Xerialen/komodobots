@@ -19,13 +19,16 @@ HERE = Path(__file__).resolve().parent
 ML = HERE.parent
 REPO_ROOT = ML.parent
 sys.path.insert(0, str(ML))
+sys.path.insert(0, str(REPO_ROOT / "scripts"))   # in-tree shared transform
 
 from broad_bc import shard_contract as SC   # noqa: E402
 from broad_bc import synth_shard            # noqa: E402
 from broad_bc import core                   # noqa: E402
+from features import agent_observation as AO  # noqa: E402  (shared obs+action encoder)
 
 _HAVE_TORCH = importlib.util.find_spec("torch") is not None
 _HAVE_NUMPY = importlib.util.find_spec("numpy") is not None
+_HAVE_PYARROW = importlib.util.find_spec("pyarrow") is not None
 
 
 class TestShardContract(unittest.TestCase):
@@ -219,5 +222,141 @@ class TestTorchPolicySmoke(unittest.TestCase):
         self.assertTrue(torch.allclose(oa, ob))
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestActionEncoderMatchesContract(unittest.TestCase):
+    """FEAT's shared action encoder (scripts/features.agent_observation.encode_action)
+    must produce the columns the trainer's ACT_COLS/heads consume — the FEAT<->TRAINER
+    action contract. Stdlib-only (deps-free)."""
+
+    def test_act_fields_align_with_trainer_heads(self):
+        # the 5 cloned heads' source columns, in order, are exactly ACT_FIELDS.
+        head_src = [c for (_n, _k, c, _kind) in
+                    [(n, k, c, kd) for (n, k, c, kd) in SC.ACTION_HEADS]]
+        self.assertEqual(list(AO.ACT_FIELDS), head_src)
+        self.assertEqual(AO.ACT_DIM, 5)
+        # and they are a prefix of the trainer's full ACT_COLS (so width-5 binds by name)
+        self.assertEqual(tuple(AO.ACT_FIELDS), SC.ACT_COLS[:5])
+
+    def test_encode_action_normalizes_and_decodes_buttons(self):
+        act = {"forwardmove": 400, "sidemove": -200, "upmove": 0,
+               "buttons": 3}              # buttons 3 = jump(2) | attack(1)
+        vec = AO.encode_action(act)
+        self.assertEqual(len(vec), AO.ACT_DIM)
+        self.assertAlmostEqual(vec[0], 1.0)       # 400/400
+        self.assertAlmostEqual(vec[1], -0.5)      # -200/400
+        self.assertAlmostEqual(vec[2], 0.0)
+        self.assertEqual(vec[3], 1.0)             # jump bit
+        self.assertEqual(vec[4], 1.0)             # attack bit
+        # and the trainer's label encoder turns it into the expected head classes
+        labels = SC.encode_action_row(vec, SC.ShardSchema())
+        self.assertEqual(labels, [2, 0, 1, 1, 1])  # fwd+ side- up_none jump attack
+
+    def test_encode_action_clamps_and_handles_none(self):
+        self.assertEqual(AO.encode_action(None), [0.0] * AO.ACT_DIM)
+        over = AO.encode_action({"forwardmove": 800, "sidemove": -800, "buttons": 0})
+        self.assertEqual(over[0], 1.0)            # clamped to +1
+        self.assertEqual(over[1], -1.0)           # clamped to -1
+        self.assertEqual(over[3], 0.0)
+        self.assertEqual(over[4], 0.0)
+
+
+_HAVE_DUCKDB = importlib.util.find_spec("duckdb") is not None
+
+
+def _load_build_features():
+    """Import ml/pipeline/build_features.py by path (it adds scripts/ to sys.path)."""
+    spec = importlib.util.spec_from_file_location(
+        "build_features_recon", ML / "pipeline" / "build_features.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@unittest.skipUnless(_HAVE_PYARROW and _HAVE_NUMPY and _HAVE_DUCKDB,
+                     "pyarrow/numpy/duckdb not installed")
+class TestParquetShardBridge(unittest.TestCase):
+    """The reconciliation bridge: FEAT writes ONE flattened-column Parquet with many
+    windows + per-window demo_id + act/weight; core.read_shard reshapes it back to the
+    nested arrays + per-window demo_ids the trainer consumes. Builds a tiny REAL shard
+    via the FEAT builder over a 2-demo in-memory catalog."""
+
+    def _make_catalog(self, db_path):
+        import sqlite3
+        ddl = (REPO_ROOT / "scripts" / "catalog_schema.sql").read_text()
+        con = sqlite3.connect(str(db_path))
+        con.executescript(ddl)
+        # one map row (dm3) so the join works
+        con.execute("INSERT INTO maps (map_id,name,x_min,x_max,y_min,y_max,z_min,z_max,"
+                    "diagonal) VALUES (1,'dm3',-984,2048,-960,1136,-416,496,3797.1)")
+        # the observed-other actor (FK target for actor_ticks.actor_id)
+        con.execute("INSERT INTO players (player_id,handle) VALUES (99,'other')")
+        # 2 demos -> 2 episodes (one each), both 'train', a handful of ticks each
+        for demo_id, eid, pid in ((1, 1, 1), (2, 2, 2)):
+            con.execute("INSERT INTO demos (demo_id,path,source,map_id,sha256) "
+                        "VALUES (?,?,?,1,?)", (demo_id, f"d{demo_id}.qwd", "qwd", f"sha{demo_id}"))
+            con.execute("INSERT INTO players (player_id,handle) VALUES (?,?)",
+                        (pid, f"p{pid}"))
+            con.execute("INSERT INTO episodes (episode_id,demo_id,player_id,map_id,"
+                        "start_tick,end_tick,n_steps,split) VALUES (?,?,?,1,0,7,8,'train')",
+                        (eid, demo_id, pid))
+            for tick in range(8):
+                con.execute("INSERT INTO player_ticks (episode_id,tick,t_s,ox,oy,oz,"
+                            "vx,vy,vz,yaw,pitch,hspeed,onground,health,armor) "
+                            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                            (eid, tick, tick * 0.013, 100.0 + tick, 50.0, 24.0,
+                             200.0, 0.0, 0.0, 90.0, 0.0, 200.0, 1, 100, 50))
+                # an observed-other actor row (so entities are non-trivial)
+                con.execute("INSERT INTO actor_ticks (episode_id,tick,actor_id,alive,"
+                            "ox,oy,oz,vx,vy,vz,yaw,hspeed) "
+                            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                            (eid, tick, 99, 1, 300.0, 80.0, 24.0, -150.0, 10.0, 0.0, 45.0, 150.0))
+                con.execute("INSERT INTO actions (episode_id,tick,forwardmove,sidemove,"
+                            "upmove,buttons,label_source,confidence,is_interp) "
+                            "VALUES (?,?,?,?,?,?,?,?,?)",
+                            (eid, tick, 400.0, -200.0, 0.0, 2 if tick % 2 else 0,
+                             "qwd_usercmd", 1.0, 0))
+        con.commit()
+        con.close()
+
+    def test_build_and_read_roundtrip(self):
+        bf = _load_build_features()
+        norm = json.loads(
+            (REPO_ROOT / "data" / "catalog" / "normalization_stats.template.json")
+            .read_text())
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "mini.sqlite"
+            self._make_catalog(db)
+            out = Path(d) / "shard.parquet"
+            summ = bf.build_observation_shard(
+                db, norm, out, split="train", map_name="dm3",
+                lookback_k=4, stride=2, n_max=7)
+            # the build emitted act + per-head label counts + non-trivial entities
+            self.assertEqual(summ["act_dim"], 5)
+            self.assertEqual(summ["label_coverage"], 1.0)
+            self.assertEqual(summ["n_demos"], 2)
+            self.assertGreater(summ["observed_other_step_frac"], 0.0)
+            self.assertGreater(summ["mean_abs_entity_feature"], 0.0)
+
+            # --- the BRIDGE: read the flattened Parquet back to nested arrays --------
+            shard = core.read_shard(out)
+            self.assertIn(SC.KEY_ACT, shard)
+            self.assertIn(SC.KEY_DEMO_IDS, shard)
+            self.assertEqual(len(set(shard[SC.KEY_DEMO_IDS])), 2)   # 2 demos in one file
+            n_win = len(shard[SC.KEY_OBS])
+            self.assertEqual(len(shard[SC.KEY_OBS][0]), 4)          # K=4 ticks
+            self.assertEqual(len(shard[SC.KEY_OBS][0][0]), AO.SELF_DIM)     # obs width
+            self.assertEqual(len(shard[SC.KEY_ENTITIES][0][0]), 7)         # N_max slots
+            self.assertEqual(len(shard[SC.KEY_ENTITIES][0][0][0]), AO.ENTITY_DIM)
+            self.assertEqual(len(shard[SC.KEY_ACT][0][0]), AO.ACT_DIM)
+            self.assertFalse(shard[SC.KEY_META]["has_audio"])
+            self.assertFalse(shard[SC.KEY_META]["has_team"])
+
+            # --- the loader turns it into BC rows with the per-window demo split key --
+            schema = SC.ShardSchema()
+            rows = list(core.shard_to_rows(shard, schema))
+            self.assertGreater(len(rows), 0)
+            self.assertEqual(len({r["demo_id"] for r in rows}), 2)
+            # act label decodes: forwardmove=400 -> fwd head class 2 (+)
+            self.assertEqual(rows[0]["y"][0], 2)
+            # input width = obs(16) + pooled_ent(13) + n_vis_frac(1); no audio/team
+            self.assertEqual(len(rows[0]["x"]), AO.SELF_DIM + AO.ENTITY_DIM + 1)
+
