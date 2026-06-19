@@ -338,6 +338,13 @@ def gate_mv3(ticks, thr=None) -> dict:
         "n_strafe_ticks": n_strafe,
         "statistic": {
             "flips": flips,
+            # eligible_ticks = the sidemove-carrying ticks that form BOTH the flip
+            # count's domain and active_s's wall-time base. Exposed (additive,
+            # back-compat) so a multi-segment caller can sum per-segment flips +
+            # eligible_ticks + active_s and recompute a pooled cadence WITHOUT
+            # counting a spurious L<->R flip across each segment boundary (the same
+            # boundary-flip bug class fixed for the open-loop eval in d4bcff3).
+            "eligible_ticks": len(have_side),
             "active_s": round(active_s, 3),
             "flips_per_min": round(flips_per_min, 3),
         },

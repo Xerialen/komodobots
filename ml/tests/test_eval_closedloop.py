@@ -240,6 +240,113 @@ class TestAggregateRouteMetrics(unittest.TestCase):
         self.assertFalse(agg["stalled"])
 
 
+class TestMv3BoundaryFix(unittest.TestCase):
+    """FIX (mirrors d4bcff3 for the OPEN-loop eval): G-MV3 strafe cadence on a POOLED
+    multi-segment tick stream counts one spurious L<->R flip at each segment boundary.
+    The boundary-safe aggregate sums PER-SEGMENT flips, so a 2-segment pooled cadence
+    equals the per-segment flip SUM, not the boundary-inflated count."""
+
+    def _seg_ticks(self, *, first_sign, last_sign, n=80, msec=13.0):
+        """A segment of n airborne nonzero-strafe ticks. The FIRST tick strafes
+        `first_sign` and the LAST strafes `last_sign`; the interior alternates so the
+        segment carries a known, measurable in-segment flip count. Velocity/yaw are
+        set human-ish (irrelevant to G-MV3, which keys only on sidemove)."""
+        import math
+        ticks = []
+        for i in range(n):
+            if i == 0:
+                s = first_sign
+            elif i == n - 1:
+                s = last_sign
+            else:
+                s = 1 if (i % 2 == 0) else -1
+            heading = i * 5.0
+            rad = math.radians(heading)
+            vx, vy = 360.0 * math.cos(rad), 360.0 * math.sin(rad)
+            ticks.append(CL.gmv_tick_from_state(
+                (0.0, 0.0, 0.0), (vx, vy, 0.0), onground=False,
+                yaw=heading + 40.0, side_mag=400.0 * s, msec=msec))
+        return ticks
+
+    def test_pooled_stream_overcounts_by_one_flip_per_boundary(self):
+        # segment A ends on +1 (right); segment B starts on -1 (left). On the POOLED
+        # stream that A_last(+1) -> B_first(-1) transition is counted as a real flip,
+        # but it spans the segment boundary and is NOT a real L<->R reversal.
+        segA = self._seg_ticks(first_sign=+1, last_sign=+1)
+        segB = self._seg_ticks(first_sign=-1, last_sign=-1)
+        gA = GMV.gate_mv3(GMV.normalize_sequence(segA))
+        gB = GMV.gate_mv3(GMV.normalize_sequence(segB))
+        pooled = GMV.gate_mv3(GMV.normalize_sequence(segA + segB))
+        flips_sum = gA["statistic"]["flips"] + gB["statistic"]["flips"]
+        # the pooled flip count is exactly ONE more than the per-segment sum (the
+        # single spurious boundary flip).
+        self.assertEqual(pooled["statistic"]["flips"], flips_sum + 1)
+
+    def test_aggregate_equals_per_segment_flip_sum(self):
+        segA = self._seg_ticks(first_sign=+1, last_sign=+1)
+        segB = self._seg_ticks(first_sign=-1, last_sign=-1)
+        gA = GMV.gate_mv3(GMV.normalize_sequence(segA))
+        gB = GMV.gate_mv3(GMV.normalize_sequence(segB))
+        agg = CL.aggregate_mv3_from_segments([gA, gB])
+        # boundary-safe: summed flips, NOT the pooled (boundary-inflated) count.
+        self.assertEqual(agg["statistic"]["flips"],
+                         gA["statistic"]["flips"] + gB["statistic"]["flips"])
+        self.assertEqual(agg["statistic"]["eligible_ticks"],
+                         gA["statistic"]["eligible_ticks"] + gB["statistic"]["eligible_ticks"])
+        self.assertTrue(agg["statistic"]["boundary_safe"])
+        # and strictly fewer than the pooled count (the spurious boundary flip is gone).
+        pooled = GMV.gate_mv3(GMV.normalize_sequence(segA + segB))
+        self.assertEqual(agg["statistic"]["flips"], pooled["statistic"]["flips"] - 1)
+
+    def test_overwrite_pooled_mv3_replaces_boundary_gate(self):
+        # build the pooled battery (boundary-contaminated G-MV3), then overwrite with
+        # the per-segment sum. G-MV1 and the believable flag must be untouched.
+        segA = self._seg_ticks(first_sign=+1, last_sign=+1)
+        segB = self._seg_ticks(first_sign=-1, last_sign=-1)
+        battery = CL.score_sequence_gmv(segA + segB)
+        pooled_flips = battery["gates"]["G-MV3"]["statistic"]["flips"]
+        gA = GMV.gate_mv3(GMV.normalize_sequence(segA))
+        gB = GMV.gate_mv3(GMV.normalize_sequence(segB))
+        believable_before = battery["believable"]
+        mv1_before = battery["gates"]["G-MV1"]["passed"]
+        CL.overwrite_pooled_mv3(battery, [gA, gB])
+        self.assertEqual(battery["gates"]["G-MV3"]["statistic"]["flips"], pooled_flips - 1)
+        self.assertTrue(battery["gates"]["G-MV3"]["statistic"]["boundary_safe"])
+        # G-MV1 (the HARD gate) and believable are NOT altered by the G-MV3 fix.
+        self.assertEqual(battery["believable"], believable_before)
+        self.assertEqual(battery["gates"]["G-MV1"]["passed"], mv1_before)
+
+    def test_aggregate_skips_insufficient_segments(self):
+        # a segment with too few strafe ticks reports G-MV3 insufficient (statistic
+        # None); it contributes nothing and must not crash the sum. One real segment
+        # plus one insufficient -> aggregate equals the real segment's flips.
+        good = self._seg_ticks(first_sign=+1, last_sign=-1)
+        g_good = GMV.gate_mv3(GMV.normalize_sequence(good))
+        thin = self._seg_ticks(first_sign=+1, last_sign=+1, n=4)  # < min_strafe_ticks
+        g_thin = GMV.gate_mv3(GMV.normalize_sequence(thin))
+        self.assertIsNone(g_thin["statistic"])                    # insufficient
+        agg = CL.aggregate_mv3_from_segments([g_good, g_thin])
+        self.assertEqual(agg["statistic"]["flips"], g_good["statistic"]["flips"])
+
+    def test_aggregate_all_insufficient_returns_none(self):
+        thin = self._seg_ticks(first_sign=+1, last_sign=+1, n=4)
+        g_thin = GMV.gate_mv3(GMV.normalize_sequence(thin))
+        self.assertIsNone(CL.aggregate_mv3_from_segments([g_thin, g_thin]))
+        # overwrite is then a no-op (pooled gate kept as-is).
+        battery = CL.score_sequence_gmv(thin + thin)
+        before = battery["gates"]["G-MV3"]
+        CL.overwrite_pooled_mv3(battery, [g_thin, g_thin])
+        self.assertIs(battery["gates"]["G-MV3"], before)
+
+    def test_gate_mv3_exposes_eligible_ticks(self):
+        # the shared gate must now expose eligible_ticks in its statistic (additive,
+        # back-compat) so the aggregator can sum the per-segment denominator.
+        seg = self._seg_ticks(first_sign=+1, last_sign=-1, n=80)
+        g = GMV.gate_mv3(GMV.normalize_sequence(seg))
+        self.assertIn("eligible_ticks", g["statistic"])
+        self.assertEqual(g["statistic"]["eligible_ticks"], 80)
+
+
 class TestGmvDiscriminationDepsFree(unittest.TestCase):
     """THE load-bearing control, run FOR REAL on this box (gmv is pure stdlib):
     a known face-and-run sequence FAILS the HARD G-MV1, a human-like sequence PASSES.
@@ -379,7 +486,8 @@ class TestModuleImportsDepsFree(unittest.TestCase):
     def test_glue_importable_and_run_eval_present(self):
         for fn in ("move_class_to_mag", "decode_move_heads", "gmv_tick_from_state",
                    "route_metrics", "aggregate_route_metrics", "score_sequence_gmv",
-                   "select_start_segments"):
+                   "select_start_segments", "cadence_from_flip_sums",
+                   "aggregate_mv3_from_segments", "overwrite_pooled_mv3"):
             self.assertTrue(callable(getattr(CL, fn)), fn)
         self.assertTrue(hasattr(CL, "run_eval"))
 
