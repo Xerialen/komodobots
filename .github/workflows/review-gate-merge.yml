@@ -244,7 +244,11 @@ jobs:
             case "$head_ref" in main|dev) del="" ;; esac
 
             echo "merging #$PR @ $short into '$base' ($n_checks check(s) passing, incl. PR Tests $pt_ok/$pt_total; SHA-bound gate verdict present)"
-            gh pr merge "$PR" -R "$REPO" --squash $del
+            # Bind the merge to the exact head we just validated: if a commit landed
+            # after the gate checks above but before this merge, --match-head-commit
+            # aborts instead of merging unreviewed code (closes the validate->merge
+            # TOCTOU race that Reset Review Gate would otherwise only catch afterward).
+            gh pr merge "$PR" -R "$REPO" --squash --match-head-commit "$head" $del
             gh pr comment "$PR" -R "$REPO" \
               --body "**Merged** by review-gate executor. Gate: open, non-draft, base \`$base\`, mergeable, current-head gate verdict for \`$short\`, $n_checks check(s) passing (incl. \`PR Tests\`), label \`gate: ready\`."
           }

@@ -79,6 +79,13 @@ class ReviewGateMergeWorkflowTests(unittest.TestCase):
         self.assertIn("headRefName", merge)
         self.assertRegex(merge, r'case "\$head_ref" in main\|dev\) del=""')
 
+    def test_merge_binds_to_validated_head_sha(self) -> None:
+        merge = _workflow_text(MERGE_WORKFLOW)
+        # The final merge must be pinned to the SHA the gate just validated, so a
+        # commit pushed between validation and the merge call cannot become the
+        # merged commit (the validate->merge TOCTOU race).
+        self.assertRegex(merge, r'gh pr merge .*--match-head-commit "\$head"')
+
 
 if __name__ == "__main__":
     unittest.main()
