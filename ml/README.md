@@ -52,6 +52,78 @@ pip install -r requirements.txt
    for the SHARD CONTRACT it consumes, the deps-free CPU smoke (`smoke_broad_bc.py`),
    and the `pinnacle` GPU run command.
 
+## Shard schema contract (P3 — `build_observation_shard`)
+
+`pipeline/build_features.py shard` consumes the relational catalog
+(`player_ticks` self + `actor_ticks` self+observed-others) and emits a **windowed
+`agent_observation` Parquet shard** via the SHARED
+`scripts/features.agent_observation` transform (train/serve parity). This is the
+contract the **TRAINER** consumes — frozen per `registry_version=2`.
+
+**Build:**
+```bash
+python ml/pipeline/normalize_fit.py  --db data/catalog/dm3_4on4.sqlite \
+    --out data/catalog/norm/normalization_stats.dm3_4on4.json --split train --map dm3
+python ml/pipeline/build_features.py shard --db data/catalog/dm3_4on4.sqlite \
+    --stats data/catalog/norm/normalization_stats.dm3_4on4.json \
+    --out data/catalog/shards/dm3_4on4_train_p3.parquet \
+    --split train --lookback-k 64 --stride 16 --n-max 7
+```
+
+**One Parquet row = one window** (`dataset_spec.yaml`: `lookback_K=64`, `stride=16`,
+`N_max=7`; windows never cross an episode; trailing window padded + attention-masked).
+Array columns are stored **flattened row-major** as `list<float32>` and the trainer
+reshapes by the shapes below (constants: `S = SELF_DIM = 16`, `ENT = ENTITY_DIM = 13`,
+`K = lookback_k`, `Nm = n_max`):
+
+| column | dtype | flat len | reshape to | meaning |
+|---|---|---|---|---|
+| `episode_id` | int64 | — | scalar | source episode (window never spans two) |
+| `start_tick` | int64 | — | scalar | tick index of the window's first step |
+| `obs` | list\<float32\> | `K*S` | `[K, S]` | normalized **SELF** feature vector / step |
+| `entities` | list\<float32\> | `K*Nm*ENT` | `[K, Nm, ENT]` | per-observed-other **egocentric** vectors |
+| `ent_mask` | list\<float32\> | `K*Nm` | `[K, Nm]` | 1.0 = real entity slot, 0.0 = pad/absent |
+| `mask` | list\<float32\> | `K` | `[K]` | 1.0 = real step, 0.0 = pad (mask in loss+attn) |
+
+**`obs` channel order** (`agent_observation.SELF_FIELDS`, len 16):
+`pos_x_norm, pos_y_norm, pos_z_norm` (per-map minmax) · `vel_x_z, vel_y_z, vel_z_z`
+(per-map zscore, world frame) · `hspeed_norm` (per-map robust) · `vel_heading_sin,
+vel_heading_cos` (sincos; 0,0 when hspeed<80) · `yaw_sin, yaw_cos, pitch_sin,
+pitch_cos` (sincos) · `onground` (0/1) · `health_norm, armor_norm` (/250, /200).
+
+**`entities` channel order** (`agent_observation.ENTITY_FIELDS`, len 13, innermost dim):
+`entity_rel_dist_norm` (/diagonal) · `entity_rel_bearing_sin, entity_rel_bearing_cos`
+(sincos) · `entity_rel_pitch_sin, entity_rel_pitch_cos` (sincos) · `entity_rel_vel_x,
+entity_rel_vel_y, entity_rel_vel_z` (egocentric-rotated, per-map vel zscore — reuses the
+SELF vel keys) · `entity_health_est_norm, entity_armor_est_norm` (/250, /200, **ZEROED**
+when not observed) · `entity_alive` (0/1) · `entity_is_teammate` (0/1, **relative** —
+never an absolute team id; 0 when team unknown) · `entity_is_visible` (0/1 observed gate).
+
+**Invariants the trainer can rely on** (all asserted in `ml/tests/test_pipeline.py`):
+- Kept entities are the **N nearest** by egocentric distance, **nearest-first**, tie-broken
+  by `actor_id` → byte-identical layout regardless of input row order. Pool with a
+  DeepSets/transformer head using `ent_mask` (permutation-/side-invariant).
+- **No future leakage:** a step reads only `actor_ticks`/`player_ticks` rows AT that tick;
+  windows never span episodes. Padded steps zero `obs` AND `entities`; pad entity slots
+  (`ent_mask==0`) are all-zero.
+- **Train-only normalization:** the stats artifact is fit on `episodes.split='train'`
+  rows only (`computed_from="train"`, `registry_version=2`); identical refit hashes
+  byte-for-byte; the shard rebuild is byte-identical (deterministic).
+
+> .qwd provenance note: the self-POV `.qwd` catalog (P1/P2) carries kinematics + alive
+> for observed-others but NOT their health/armor/weapon — so
+> `entity_health_est_norm`/`entity_armor_est_norm` are 0 in a `.qwd`-only shard. The
+> columns are present at full width; they populate once the `.mvd`/`actor_visibility`
+> omniscient path lands. `entity_is_teammate` is RELATIVE: the shard builder carries the
+> ego's `actor_ticks.team_id` into `self_state`, so when the catalog has team data a
+> teammate encodes `1.0` (and an opponent `0.0`); it is `0` only when team is genuinely
+> absent (e.g. an FFA/team-less `.qwd` catalog). `entity_is_visible` is 1.0 for every
+> present row because the `.qwd` ETL only writes an `actor_ticks` row for a player the
+> client was RECEIVING (in PVS) — a present row already IS a PVS-observed sample, so this
+> builder needs no visibility gate. The `actor_visibility` (PVS/FOV/LOS) join is the
+> DEFERRED `.mvd` omniscient-path concern (an `.mvd` catalog records all players every
+> tick and MUST gate them); it is intentionally not implemented in the QWD builder.
+
 ## Parity guarantee
 
 `ml/` imports the **same** `scripts/features` transforms the live bot uses. The

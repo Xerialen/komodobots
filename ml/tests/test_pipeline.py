@@ -85,5 +85,304 @@ class TestBuildFeaturesSmoke(unittest.TestCase):
                 self.assertLessEqual(picked_at, t)
 
 
+def _tiny_catalog(path: Path) -> None:
+    """Build a minimal synthetic catalog (stdlib sqlite3) with a TRAIN and a VAL
+    episode, each with self ego rows (player_ticks + actor_ticks) and observed-other
+    actor_ticks rows, so the P3 fit/shard path can be exercised end-to-end without the
+    real corpus."""
+    import sqlite3
+
+    sql = (REPO_ROOT / "data" / "catalog" / "catalog.sql").read_text(encoding="utf-8")
+    con = sqlite3.connect(str(path))
+    con.executescript(sql)
+    con.execute("""INSERT INTO maps
+        (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, diagonal)
+        VALUES (1, 'dm3', -984.0, 2048.0, -960.0, 1136.0, -416.0, 496.0, 3797.1)""")
+    con.execute("""INSERT INTO demos (demo_id, path, source, map_id, sha256)
+                   VALUES (1, 'd.qwd', 'qwd', 1, 'deadbeef')""")
+    for pid in (1, 2, 3):
+        con.execute("INSERT INTO players (player_id, handle, is_bot) VALUES (?, ?, 0)", (pid, f"p{pid}", ))
+    # episode 1 = train (self=p1), episode 2 = val (self=p1)
+    con.execute("""INSERT INTO episodes (episode_id, demo_id, player_id, map_id, start_tick, end_tick, n_steps, split)
+                   VALUES (1,1,1,1,0,99,100,'train')""")
+    con.execute("""INSERT INTO episodes (episode_id, demo_id, player_id, map_id, start_tick, end_tick, n_steps, split)
+                   VALUES (2,1,1,1,0,49,50,'val')""")
+
+    def add(eid, ntk, vx_base):
+        for tk in range(ntk):
+            vx = float(vx_base + tk)
+            con.execute("""INSERT INTO player_ticks
+                (episode_id, tick, t_s, msec, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed, onground)
+                VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?)""",
+                (eid, tk, tk * 0.013, 13, 100.0 + tk, 50.0, -10.0, vx, 20.0, 0.0, 0.0, 45.0, 0.0,
+                 (vx * vx + 400.0) ** 0.5, 1))
+            # self ego in actor_ticks
+            con.execute("""INSERT INTO actor_ticks
+                (episode_id, tick, actor_id, alive, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed)
+                VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?)""",
+                (eid, tk, 1, 1, 100.0 + tk, 50.0, -10.0, vx, 20.0, 0.0, 0.0, 45.0, 0.0, 0.0))
+            # two observed-others at varying offsets
+            con.execute("""INSERT INTO actor_ticks
+                (episode_id, tick, actor_id, alive, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed)
+                VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?)""",
+                (eid, tk, 2, 1, 300.0 + tk, 100.0, 0.0, -50.0, 0.0, 0.0, 0.0, 90.0, 0.0, 50.0))
+            con.execute("""INSERT INTO actor_ticks
+                (episode_id, tick, actor_id, alive, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed)
+                VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?)""",
+                (eid, tk, 3, 1, 500.0, 200.0, 50.0, 0.0, 0.0, 0.0, 0.0, 180.0, 0.0, 0.0))
+    add(1, 100, 100.0)   # train
+    add(2, 50, 900.0)    # val (different vx range -> must NOT affect the train-only fit)
+    con.commit()
+    con.close()
+
+
+def _tiny_catalog_teamed(path: Path) -> None:
+    """Like _tiny_catalog but POPULATES actor_ticks.team_id: ego p1 + teammate p2 on
+    team 10, opponent p3 on team 20. Used to prove the shard builder carries the ego's
+    team into self_state so entity_features encodes is_teammate=1.0 for the teammate
+    (and 0.0 for the opponent). One TRAIN episode is enough.
+
+    The teammate (p2) is placed NEARER the ego than the opponent (p3) at every tick, so
+    the nearest-first entity layout is deterministic: slot 0 = teammate, slot 1 = opponent.
+    """
+    import sqlite3
+
+    sql = (REPO_ROOT / "data" / "catalog" / "catalog.sql").read_text(encoding="utf-8")
+    con = sqlite3.connect(str(path))
+    con.executescript(sql)
+    con.execute("""INSERT INTO maps
+        (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, diagonal)
+        VALUES (1, 'dm3', -984.0, 2048.0, -960.0, 1136.0, -416.0, 496.0, 3797.1)""")
+    con.execute("""INSERT INTO demos (demo_id, path, source, map_id, sha256)
+                   VALUES (1, 'd.qwd', 'qwd', 1, 'deadbeef')""")
+    for pid in (1, 2, 3):
+        con.execute("INSERT INTO players (player_id, handle, is_bot) VALUES (?, ?, 0)", (pid, f"p{pid}", ))
+    # two teams: ego+teammate on 10, opponent on 20
+    con.execute("INSERT INTO teams (team_id, demo_id, name, side) VALUES (10, 1, 'red', 'A')")
+    con.execute("INSERT INTO teams (team_id, demo_id, name, side) VALUES (20, 1, 'blue', 'B')")
+    con.execute("""INSERT INTO episodes (episode_id, demo_id, player_id, map_id, start_tick, end_tick, n_steps, split)
+                   VALUES (1,1,1,1,0,39,40,'train')""")
+
+    TEAM_OF = {1: 10, 2: 10, 3: 20}   # p1 ego + p2 teammate -> 10 ; p3 opponent -> 20
+    for tk in range(40):
+        vx = float(100.0 + tk)
+        con.execute("""INSERT INTO player_ticks
+            (episode_id, tick, t_s, msec, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed, onground)
+            VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?)""",
+            (1, tk, tk * 0.013, 13, 100.0, 50.0, -10.0, vx, 20.0, 0.0, 0.0, 0.0, 0.0,
+             (vx * vx + 400.0) ** 0.5, 1))
+        # self ego row in actor_ticks WITH team_id (the only place team lives)
+        con.execute("""INSERT INTO actor_ticks
+            (episode_id, tick, actor_id, team_id, alive, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed)
+            VALUES (?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?)""",
+            (1, tk, 1, TEAM_OF[1], 1, 100.0, 50.0, -10.0, vx, 20.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+        # teammate p2 — NEARER (200 qu in x) -> sorts to slot 0
+        con.execute("""INSERT INTO actor_ticks
+            (episode_id, tick, actor_id, team_id, alive, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed)
+            VALUES (?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?)""",
+            (1, tk, 2, TEAM_OF[2], 1, 300.0, 50.0, -10.0, -50.0, 0.0, 0.0, 0.0, 90.0, 0.0, 50.0))
+        # opponent p3 — FARTHER (700 qu in x) -> sorts to slot 1
+        con.execute("""INSERT INTO actor_ticks
+            (episode_id, tick, actor_id, team_id, alive, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed)
+            VALUES (?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?)""",
+            (1, tk, 3, TEAM_OF[3], 1, 800.0, 50.0, -10.0, 0.0, 0.0, 0.0, 0.0, 180.0, 0.0, 0.0))
+    con.commit()
+    con.close()
+
+
+class TestP3TrainOnlyFit(unittest.TestCase):
+    """normalize_fit.fit_from_catalog must use ONLY the train split, deterministically."""
+
+    def test_fit_is_train_only_and_deterministic(self):
+        import normalize_fit as NF
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "tiny.sqlite"
+            _tiny_catalog(db)
+            fit = NF.fit_from_catalog(db, split="train", map_name="dm3")
+            # train has 100 player_ticks; val (50) MUST be excluded
+            self.assertEqual(fit["n_rows"], 100)
+            vmean = fit["feats"]["vel_x"]["mean"]
+            # train vx in [100,199] -> mean ~149.5; if val (900+) leaked it would be far higher
+            self.assertLess(vmean, 200.0)
+            self.assertGreater(vmean, 100.0)
+            # deterministic: refit identical
+            fit2 = NF.fit_from_catalog(db, split="train", map_name="dm3")
+            self.assertEqual(fit["feats"]["vel_x"], fit2["feats"]["vel_x"])
+
+    def test_fit_stats_doc_provenance(self):
+        import normalize_fit as NF
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "tiny.sqlite"
+            _tiny_catalog(db)
+            out = Path(d) / "stats.json"
+            doc = NF.fit_stats_doc(db, out, split="train", map_name="dm3", artifact_version="t")
+            self.assertEqual(doc["computed_from"], "train")
+            self.assertEqual(doc["registry_version"], 2)
+            self.assertIn("vel_x", doc["per_map"]["dm3"])
+            self.assertEqual(doc["per_map"]["dm3"]["pos_x"]["method"], "minmax")
+            # writing is byte-stable (sort_keys) -> re-write hashes identical
+            import hashlib
+            h1 = hashlib.sha256(out.read_bytes()).hexdigest()
+            NF.fit_stats_doc(db, out, split="train", map_name="dm3", artifact_version="t")
+            self.assertEqual(h1, hashlib.sha256(out.read_bytes()).hexdigest())
+
+
+@unittest.skipUnless(_HAVE_DUCKDB and _HAVE_PYARROW, "duckdb/pyarrow not installed")
+class TestP3ObservationShard(unittest.TestCase):
+    """build_features.build_observation_shard: observed-others present + non-trivial,
+    no future leakage into pad, deterministic byte-identical rebuild."""
+
+    def test_shard_has_nontrivial_observed_others_and_no_leak(self):
+        import numpy as np
+        import normalize_fit as NF
+        import build_features as BF
+        from features import agent_observation as AO
+
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "tiny.sqlite"
+            _tiny_catalog(db)
+            stats = Path(d) / "stats.json"
+            NF.fit_stats_doc(db, stats, split="train", map_name="dm3", artifact_version="t")
+            norm = json.loads(stats.read_text(encoding="utf-8"))
+
+            out = Path(d) / "shard.parquet"
+            summ = BF.build_observation_shard(db, norm, out, split="train",
+                                              lookback_k=16, stride=8, n_max=7)
+            self.assertGreater(summ["n_windows"], 0)
+            self.assertEqual(summ["self_dim"], AO.SELF_DIM)
+            self.assertEqual(summ["entity_dim"], AO.ENTITY_DIM)
+            # every train tick here has 2 observed-others -> all real steps have one
+            self.assertEqual(summ["observed_other_step_frac"], 1.0)
+            self.assertGreater(summ["mean_abs_entity_feature"], 0.0)
+
+            import pyarrow.parquet as pq
+            t = pq.read_table(out)
+            n = t.num_rows
+            K, Nm, ENT = 16, 7, AO.ENTITY_DIM
+            ent = np.array(t.column("entities").to_pylist(), dtype=np.float32).reshape(n, K, Nm, ENT)
+            em = np.array(t.column("ent_mask").to_pylist(), dtype=np.float32).reshape(n, K, Nm)
+            mk = np.array(t.column("mask").to_pylist(), dtype=np.float32).reshape(n, K)
+            real = em.astype(bool)
+            # exactly 2 real entity slots per real step (the 2 observed-others)
+            self.assertTrue(bool((em.sum(-1)[mk.astype(bool)] == 2).all()))
+            # observed-other features are non-trivial (have variance across real cells)
+            self.assertTrue(bool((ent[real].std(axis=0) > 1e-6).any()))
+            # NO leakage: pad entity cells are zero; padded steps zero everything
+            self.assertTrue(bool(np.all(ent[~real] == 0.0)))
+
+    def test_shard_rebuild_byte_identical(self):
+        import normalize_fit as NF
+        import build_features as BF
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "tiny.sqlite"
+            _tiny_catalog(db)
+            stats = Path(d) / "stats.json"
+            NF.fit_stats_doc(db, stats, split="train", map_name="dm3", artifact_version="t")
+            norm = json.loads(stats.read_text(encoding="utf-8"))
+            a = Path(d) / "a.parquet"
+            b = Path(d) / "b.parquet"
+            BF.build_observation_shard(db, norm, a, split="train", lookback_k=16, stride=8)
+            BF.build_observation_shard(db, norm, b, split="train", lookback_k=16, stride=8)
+            self.assertEqual(hashlib.sha256(a.read_bytes()).hexdigest(),
+                             hashlib.sha256(b.read_bytes()).hexdigest())
+
+
+@unittest.skipUnless(_HAVE_DUCKDB and _HAVE_PYARROW, "duckdb/pyarrow not installed")
+class TestP3EgoTeamCarried(unittest.TestCase):
+    """Regression for the BLOCKING finding: the shard builder MUST carry the ego actor's
+    team_id into self_state so entity_features encodes entity_is_teammate=1.0 for a
+    teammate (and 0.0 for an opponent). Previously self_state['team_id'] was hard-coded
+    None, which silently trained the teammate/opponent channel as all-zero whenever the
+    catalog had a populated actor_ticks.team_id."""
+
+    def test_teammate_channel_encodes_one_when_team_present(self):
+        import numpy as np
+        import normalize_fit as NF
+        import build_features as BF
+        from features import agent_observation as AO
+
+        tm_idx = AO.ENTITY_FIELDS.index("entity_is_teammate")
+        dist_idx = AO.ENTITY_FIELDS.index("entity_rel_dist_norm")
+
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "teamed.sqlite"
+            _tiny_catalog_teamed(db)
+            stats = Path(d) / "stats.json"
+            NF.fit_stats_doc(db, stats, split="train", map_name="dm3", artifact_version="t")
+            norm = json.loads(stats.read_text(encoding="utf-8"))
+
+            out = Path(d) / "shard.parquet"
+            BF.build_observation_shard(db, norm, out, split="train",
+                                       lookback_k=16, stride=8, n_max=7)
+
+            import pyarrow.parquet as pq
+            t = pq.read_table(out)
+            n = t.num_rows
+            K, Nm, ENT = 16, 7, AO.ENTITY_DIM
+            ent = np.array(t.column("entities").to_pylist(),
+                           dtype=np.float32).reshape(n, K, Nm, ENT)
+            em = np.array(t.column("ent_mask").to_pylist(),
+                          dtype=np.float32).reshape(n, K, Nm)
+            mk = np.array(t.column("mask").to_pylist(),
+                          dtype=np.float32).reshape(n, K)
+
+            real_step = mk.astype(bool)
+            # exactly two observed others (teammate p2 + opponent p3) per real step
+            self.assertTrue(bool((em.sum(-1)[real_step] == 2).all()))
+
+            # teammate p2 is placed nearer -> slot 0; opponent p3 farther -> slot 1.
+            # (assert the layout, then read the is_teammate channel per slot)
+            steps = em[real_step].astype(bool)            # [R, Nm]
+            ent_steps = ent[real_step]                    # [R, Nm, ENT]
+            self.assertEqual(ent_steps.shape[0], int(real_step.sum()))
+            # slot 0 nearer than slot 1 across all real steps
+            self.assertTrue(bool((ent_steps[:, 0, dist_idx] < ent_steps[:, 1, dist_idx]).all()))
+            # THE FIX: nearer teammate slot encodes is_teammate == 1.0 ...
+            self.assertTrue(bool((ent_steps[:, 0, tm_idx] == 1.0).all()))
+            # ... and the farther opponent slot encodes is_teammate == 0.0
+            self.assertTrue(bool((ent_steps[:, 1, tm_idx] == 0.0).all()))
+            # exactly one teammate per real step over the real slots (sanity)
+            tm_over_real = np.where(steps, ent_steps[:, :, tm_idx], 0.0)
+            self.assertTrue(bool((tm_over_real.sum(-1) == 1.0).all()))
+
+
+@unittest.skipUnless(_HAVE_DUCKDB and _HAVE_PYARROW, "duckdb/pyarrow not installed")
+class TestCliBackCompat(unittest.TestCase):
+    """Regression for the BLOCKING CLI finding: the documented legacy invocation
+    `build_features.py --catalog-dir ... --fixture-dir ... --stats ... --out ...`
+    (NO `fixture` subcommand) must still parse and run, AND the explicit `fixture`
+    subcommand must work too."""
+
+    def _args(self, extra):
+        return ["--catalog-dir", str(CATALOG_DIR),
+                "--fixture-dir", str(FIXTURE_DIR),
+                "--stats", str(STATS)] + extra
+
+    def test_documented_legacy_form_runs(self):
+        import build_features as BF
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "shard.parquet"
+            # the exact form INTEGRATION.md / ml/README.md document (no subcommand)
+            rc = BF.main(self._args(["--out", str(out)]))
+            self.assertEqual(rc, 0)
+            self.assertTrue(out.exists())
+
+    def test_explicit_fixture_subcommand_runs(self):
+        import build_features as BF
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "shard.parquet"
+            rc = BF.main(["fixture"] + self._args(["--out", str(out)]))
+            self.assertEqual(rc, 0)
+            self.assertTrue(out.exists())
+
+    def test_missing_required_fixture_args_errors_cleanly(self):
+        import build_features as BF
+        # no --catalog-dir etc. and no subcommand -> helpful non-zero, not a traceback
+        rc = BF.main([])
+        self.assertEqual(rc, 2)
+
+
 if __name__ == "__main__":
     unittest.main()
