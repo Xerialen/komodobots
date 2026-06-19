@@ -15,6 +15,7 @@ without the heavy deps — decode_move_heads / route_metrics / score_sequence_gm
 exact functions the pinnacle run calls.
 """
 import importlib.util
+import math
 import sys
 import unittest
 from pathlib import Path
@@ -648,6 +649,137 @@ class TestModuleImportsDepsFree(unittest.TestCase):
                    "aggregate_mv3_from_segments", "overwrite_pooled_mv3"):
             self.assertTrue(callable(getattr(CL, fn)), fn)
         self.assertTrue(hasattr(CL, "run_eval"))
+
+
+# =============================================================================
+# TRAIN/INFERENCE PARITY for the turn-direction features (the important test).
+#
+# The yaw_rate signal needs the PREVIOUS tick's view yaw, so the offline build and EVERY
+# inference call-site must compute + inject it identically. This asserts that, for one
+# shared (yaw, prev_yaw, dt, sim-state) fixture, the SELF feature vector is byte-identical
+# whether built via:
+#   * the TRAINING path's self_state construction (mirrors build_features._load_episode_ticks
+#     exactly — see the pinned comment; build_features itself can't be imported here because
+#     it pulls duckdb at module load, so the per-tick dict is reproduced and kept in lockstep),
+#   * the INFERENCE path's CL._self_state_from_sim (the real closed-loop / dry-route builder).
+# Both feed the SAME AO.yaw_rate_degps and the SAME AO.encode_observation, so a divergence
+# (different dt convention, different prev-yaw seeding, a dropped key) fails here.
+# =============================================================================
+from features import agent_observation as AO   # noqa: E402  (pure stdlib)
+
+# the per-map stats the encoder needs (incl. the yaw_rate zscore key). Mirrors the
+# template/test_agent_observation fixture shape.
+_PARITY_STATS = {
+    "per_map": {
+        "dm3": {
+            "pos_x": {"method": "minmax", "min": -984.0, "max": 2048.0, "clip": [-984.0, 2048.0]},
+            "pos_y": {"method": "minmax", "min": -960.0, "max": 1136.0, "clip": [-960.0, 1136.0]},
+            "pos_z": {"method": "minmax", "min": -416.0, "max": 496.0, "clip": [-416.0, 496.0]},
+            "vel_x": {"method": "zscore", "mean": 0.0, "std": 310.0, "clip": [-2500.0, 2500.0]},
+            "vel_y": {"method": "zscore", "mean": 0.0, "std": 310.0, "clip": [-2500.0, 2500.0]},
+            "vel_z": {"method": "zscore", "mean": 0.0, "std": 180.0, "clip": [-1000.0, 1000.0]},
+            "hspeed": {"method": "robust", "median": 320.0, "iqr": 210.0, "clip": [0.0, 2500.0]},
+            "yaw_rate": {"method": "zscore", "mean": 0.0, "std": 220.0, "clip": [-1500.0, 1500.0]},
+        }
+    }
+}
+
+
+class _FakeSimState:
+    """pmove_sim.PlayerState stand-in for CL._self_state_from_sim: just the .origin /
+    .velocity / .onground attributes the builder reads."""
+    def __init__(self, origin, velocity, onground):
+        self.origin = list(origin)
+        self.velocity = list(velocity)
+        self.onground = onground
+
+
+class TestTurnDirectionTrainInferenceParity(unittest.TestCase):
+    # ONE shared kinematic fixture (qu / qu/s / deg) used to drive BOTH paths.
+    OX, OY, OZ = 1499.0, -176.0, -78.0
+    VX, VY, VZ = 300.0, 120.0, -40.0
+    YAW, PITCH = 33.0, 7.0
+    PREV_YAW = 12.0
+    DT_S = 0.013
+    ONGROUND = False
+
+    def _yaw_rate(self):
+        # the SINGLE shared helper both paths call (byte-identical for identical inputs).
+        return AO.yaw_rate_degps(self.YAW, self.PREV_YAW, self.DT_S)
+
+    def _training_self_vec(self):
+        """SELF vector via the TRAINING path. self_state mirrors build_features.
+        _load_episode_ticks EXACTLY (keep in lockstep): the kinematic keys + yaw_rate from
+        AO.yaw_rate_degps(yaw, prev_yaw, dt). health/armor/team_id are None here so they
+        encode as 0 — isolating the comparison to the kinematic + turn-direction channels
+        (the inference builder omits those resource keys; absent and None both encode 0)."""
+        self_state = {
+            "ox": self.OX, "oy": self.OY, "oz": self.OZ,
+            "vx": self.VX, "vy": self.VY, "vz": self.VZ,
+            "yaw": self.YAW, "pitch": self.PITCH,
+            "hspeed": math.hypot(self.VX, self.VY),
+            "onground": self.ONGROUND,
+            "health": None, "armor": None,
+            "yaw_rate": self._yaw_rate(),
+            "team_id": None,
+        }
+        return AO.encode_observation(self_state, [], _PARITY_STATS, "dm3", 7)["self"]
+
+    def _inference_self_vec(self):
+        """SELF vector via the INFERENCE path: the REAL CL._self_state_from_sim with the
+        yaw_rate the rollout loop injects (AO.yaw_rate_degps on the replayed view yaw +
+        previous yaw + this tick's dt). Same encoder, same stats."""
+        st = _FakeSimState((self.OX, self.OY, self.OZ),
+                           (self.VX, self.VY, self.VZ), self.ONGROUND)
+        self_state = CL._self_state_from_sim(st, self.YAW, self.PITCH,
+                                             yaw_rate=self._yaw_rate())
+        return AO.encode_observation(self_state, [], _PARITY_STATS, "dm3", 7)["self"]
+
+    def test_self_vectors_are_byte_identical(self):
+        train_vec = self._training_self_vec()
+        infer_vec = self._inference_self_vec()
+        self.assertEqual(len(train_vec), AO.SELF_DIM)
+        self.assertEqual(len(infer_vec), AO.SELF_DIM)
+        self.assertEqual(train_vec, infer_vec)        # exact equality (no float tolerance)
+
+    def test_yaw_rate_channel_nonzero_and_shared(self):
+        # the channel the fix adds is actually populated (not a silent 0) AND matches in
+        # both paths — proving the previous-yaw value reached the obs identically.
+        i = AO.SELF_FIELDS.index("yaw_rate_z")
+        self.assertNotAlmostEqual(self._training_self_vec()[i], 0.0)
+        self.assertEqual(self._training_self_vec()[i], self._inference_self_vec()[i])
+
+    def test_inference_builder_carries_yaw_rate_key(self):
+        # _self_state_from_sim must surface yaw_rate so encode_observation can read it.
+        st = _FakeSimState((0.0, 0.0, 0.0), (300.0, 0.0, 0.0), False)
+        ss = CL._self_state_from_sim(st, 33.0, 7.0, yaw_rate=812.5)
+        self.assertEqual(ss["yaw_rate"], 812.5)
+        # default (no yaw_rate passed) is 0.0, NOT a missing key — so the first-tick / no-prev
+        # case is an explicit 0 rather than relying on encode's absent-key fallback.
+        ss0 = CL._self_state_from_sim(st, 33.0, 7.0)
+        self.assertEqual(ss0["yaw_rate"], 0.0)
+
+    def test_first_tick_parity_rate_zero(self):
+        # the build's first tick (prev None) and a rollout's first tick (prev_yaw seeded to
+        # the same yaw so delta 0) BOTH yield yaw_rate 0 -> identical self vectors.
+        i = AO.SELF_FIELDS.index("yaw_rate_z")
+        build_first = AO.yaw_rate_degps(self.YAW, None, self.DT_S)               # build first tick
+        rollout_first = AO.yaw_rate_degps(self.YAW, self.YAW, self.DT_S)         # rollout tick 0
+        self.assertEqual(build_first, 0.0)
+        self.assertEqual(rollout_first, 0.0)
+        st = _FakeSimState((self.OX, self.OY, self.OZ),
+                           (self.VX, self.VY, self.VZ), self.ONGROUND)
+        v_build = AO.encode_observation(
+            {"ox": self.OX, "oy": self.OY, "oz": self.OZ, "vx": self.VX, "vy": self.VY,
+             "vz": self.VZ, "yaw": self.YAW, "pitch": self.PITCH,
+             "hspeed": math.hypot(self.VX, self.VY), "onground": self.ONGROUND,
+             "health": None, "armor": None, "yaw_rate": build_first, "team_id": None},
+            [], _PARITY_STATS, "dm3", 7)["self"]
+        v_roll = AO.encode_observation(
+            CL._self_state_from_sim(st, self.YAW, self.PITCH, yaw_rate=rollout_first),
+            [], _PARITY_STATS, "dm3", 7)["self"]
+        self.assertEqual(v_build, v_roll)
+        self.assertEqual(v_build[i], 0.0)
 
 
 if __name__ == "__main__":

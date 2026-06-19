@@ -113,9 +113,23 @@ import route_metrics as RM                       # noqa: E402  (pure stdlib)
 # usercmd magnitude + sign convention the closed-loop gate uses. The heavy torch
 # path is reached only through run_policy_rollout, which lazy-imports torch itself.
 import eval_broad_closedloop as CL               # noqa: E402  (deps-free glue)
+# the SHARED turn-direction helpers (pure stdlib) — the SAME wrap180 / yaw_rate the
+# offline build and the closed-loop eval use, so the dry-route policy obs AND the
+# action-trace columns are parity-identical (no second copy of the angle math).
+from features.agent_observation import (                                    # noqa: E402
+    yaw_rate_degps as AO_yaw_rate_degps,
+    wrap180 as AO_wrap180,
+)
 
 GATE_ROUTE_PCT = 80.0
 GATE_SPEED_PCT = 80.0
+# ACTION-TRACE CSV header (the per-tick policy-vs-human row order). Kept as a module
+# const so the writer, the analyzer's CSV reader, and the tests agree on ONE order.
+TRACE_COLUMNS = [
+    "t", "onground", "yaw", "yaw_rate", "vh", "vel_heading", "face_vel_angle",
+    "pol_fwd", "pol_side", "pol_up", "pol_jump",
+    "hum_fwd", "hum_side", "hum_jump", "hum_vh",
+]
 # down-trace target margin below the censused void floor (qu): far enough that a real
 # floor is always caught above it, so "trace reached the bottom" cleanly means void.
 VOID_TRACE_MARGIN = 32.0
@@ -165,6 +179,189 @@ def make_row(t, origin, vel, onground, over_void, goal):
         "onground": 1 if onground else 0,
         "over_void": 1 if over_void else 0,
         "dist_goal": math.sqrt((ox - gx) ** 2 + (oy - gy) ** 2 + (oz - gz) ** 2),
+    }
+
+
+# =============================================================================
+# ACTION-TRACE (the per-tick POLICY-vs-HUMAN diagnostic). Pure python; OFF the
+# normal path (only emitted when --trace-actions is set). Compares what the policy
+# DID each tick to what the human actually did on the SAME route + SAME replayed
+# yaw, so we can tell UNDER-PRODUCTION (low side/jump/fwd vs human) from WRONG-SIGN
+# (strafes as often as the human but the wrong way) — see analyze_action_trace.
+# =============================================================================
+# the action-trace's wrap is THE shared agent_observation.wrap180 (single source of
+# truth) so the trace's yaw_rate / face_vel_angle columns match the OBS feature math
+# byte-for-byte (no second, drift-prone copy). Kept under the module-local name the
+# trace builders + tests already use.
+_wrap180 = AO_wrap180
+
+
+def make_trace_row(t, *, onground, yaw, yaw_prev, msec, vx, vy,
+                   pol_fwd, pol_side, pol_up, pol_jump,
+                   hum_fwd, hum_side, hum_jump, hum_vh):
+    """Build ONE action-trace row (dict, TRACE_COLUMNS order) from a per-tick policy
+    state + the human usercmd that tick. Pure python.
+
+      * yaw_rate     = _wrap180(yaw - yaw_prev) / (msec/1000) -> deg/s view-yaw turn
+        rate (yaw_prev is the PREVIOUS tick's replayed view yaw; 0.0 for the first row
+        so its rate is 0 by convention).
+      * vh           = hypot(vx, vy) — the POST-frame horizontal speed (the outcome).
+      * vel_heading  = atan2(vy, vx) in DEGREES — the direction the bot is actually
+        moving (undefined at vh==0 -> reported as the yaw so face_vel_angle is 0).
+      * face_vel_angle = _wrap180(yaw - vel_heading) — how far the bot's facing is off
+        its travel direction (the air-strafe geometry: a good strafe holds a small,
+        consistent offset).
+
+    pol_* are the decoded policy usercmd (fwd_mag/side_mag/up_mag in +-MOVE_MAG/0,
+    jump_bit in {0, BUTTON_JUMP}). hum_* are the human usercmd that tick (raw
+    forwardmove/sidemove ints and the human jump bit (buttons & BUTTON_JUMP)). hum_vh
+    is the human's RECORDED horizontal speed that tick (hypot of the human velocity) —
+    the believable reference outcome the policy's vh is compared against."""
+    vxf, vyf = float(vx), float(vy)
+    vh = math.hypot(vxf, vyf)
+    yaw_f = float(yaw)
+    vel_heading = math.degrees(math.atan2(vyf, vxf)) if vh > 0.0 else yaw_f
+    dt = float(msec) / 1000.0
+    yaw_rate = (_wrap180(yaw_f - float(yaw_prev)) / dt) if dt > 0.0 else 0.0
+    return {
+        "t": float(t),
+        "onground": 1 if onground else 0,
+        "yaw": yaw_f,
+        "yaw_rate": yaw_rate,
+        "vh": vh,
+        "vel_heading": vel_heading,
+        "face_vel_angle": _wrap180(yaw_f - vel_heading),
+        "pol_fwd": float(pol_fwd),
+        "pol_side": float(pol_side),
+        "pol_up": float(pol_up),
+        "pol_jump": 1 if pol_jump else 0,
+        "hum_fwd": float(hum_fwd),
+        "hum_side": float(hum_side),
+        "hum_jump": 1 if hum_jump else 0,
+        "hum_vh": float(hum_vh),
+    }
+
+
+def write_trace_csv(rows, path) -> None:
+    """Write action-trace rows to a CSV at `path` (TRACE_COLUMNS order). stdlib csv;
+    floats are written as-is (DictWriter str()s them). Pure I/O — only called when
+    --trace-actions is set, so the normal gate path writes no CSV."""
+    import csv
+    p = Path(path).expanduser()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=TRACE_COLUMNS)
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: r[k] for k in TRACE_COLUMNS})
+
+
+def load_trace_csv(path):
+    """Load an action-trace CSV back into rows (numbers coerced to float). The inverse
+    of write_trace_csv, so analyze_action_trace can be run on a CSV the runner produced
+    on pinnacle. Pure stdlib."""
+    import csv
+    rows = []
+    with Path(path).expanduser().open("r", newline="", encoding="utf-8") as fh:
+        for d in csv.DictReader(fh):
+            rows.append({k: float(d[k]) for k in TRACE_COLUMNS})
+    return rows
+
+
+def _sign(x: float) -> int:
+    """-1 / 0 / +1 sign of x (0 for exactly 0). Pure."""
+    if x > 0.0:
+        return 1
+    if x < 0.0:
+        return -1
+    return 0
+
+
+def analyze_action_trace(rows) -> dict:
+    """Compare what the POLICY did to what the HUMAN did, over an action trace — the
+    diagnostic that separates UNDER-PRODUCTION from WRONG-SIGN. Pure python; takes the
+    rows make_trace_row/load_trace_csv produce. Returns a dict of fractions + cadences,
+    computed BOTH over all ticks and (the air-strafe question) over AIRBORNE-only ticks.
+
+    The key reads (see each field's note in the returned dict):
+      * side_sign_match_vs_human — of the AIRBORNE ticks where the human strafed
+        (hum_side != 0), the fraction where sign(pol_side) == sign(hum_side). This is
+        CONVENTION-FREE (sign only): it answers "when the human air-strafed, did the
+        policy strafe the SAME way?" A low value with HIGH pol_side_active_frac =>
+        WRONG-SIGN (the policy strafes a lot but the wrong direction — a deeper problem
+        than a reweight can fix). Near 1.0 => the policy strafes the right way and any
+        speed gap is UNDER-PRODUCTION, not mis-direction.
+      * pol_jump_per_s vs hum_jump_per_s — jump cadence (re-jumps/s). The bunnyhop needs
+        a jump every time it lands; LOW pol vs hum => it is not re-jumping (it coasts).
+      * pol_fwd_press_frac vs hum_fwd_press_frac — fraction of ticks with fwd > 0.
+      * pol_side_active_frac vs hum_side_active_frac — fraction with side != 0 (is it
+        strafing at ALL). LOW vs human (with side_sign_match high on what it DOES do) is
+        the UNDER-PRODUCTION signature a reweight lever targets.
+      * mean_airborne_vh_pol vs mean_airborne_vh_hum — the OUTCOME (mean airborne
+        horizontal speed). The gap this whole trace explains.
+
+    Empty / all-grounded inputs return zeros (and the airborne denominators are 0), so
+    a caller can always read the dict without guarding for division."""
+    rows = list(rows)
+    n = len(rows)
+    air = [r for r in rows if int(r["onground"]) == 0]
+    n_air = len(air)
+
+    def _frac(seq, pred):
+        s = list(seq)
+        return (sum(1 for r in s if pred(r)) / len(s)) if s else 0.0
+
+    def _per_s(seq, key):
+        """jump cadence over a row subset: total jump presses / total wall time. Uses
+        the trace's own dt (no msec column -> fall back to the t deltas)."""
+        s = list(seq)
+        if len(s) < 2:
+            return 0.0
+        dur = float(s[-1]["t"]) - float(s[0]["t"])
+        presses = sum(1 for r in s if int(r[key]) == 1)
+        return (presses / dur) if dur > 0.0 else 0.0
+
+    def _mean(seq, key):
+        s = list(seq)
+        return (sum(float(r[key]) for r in s) / len(s)) if s else 0.0
+
+    # side-sign agreement, AIRBORNE + human-strafing only (the believability question).
+    air_hum_strafe = [r for r in air if _sign(r["hum_side"]) != 0]
+    side_match = (
+        sum(1 for r in air_hum_strafe
+            if _sign(r["pol_side"]) == _sign(r["hum_side"])) / len(air_hum_strafe)
+        if air_hum_strafe else 0.0)
+
+    return {
+        "n_ticks": n,
+        "n_airborne_ticks": n_air,
+        "n_airborne_human_strafe_ticks": len(air_hum_strafe),
+        # --- the headline: same-way air-strafe agreement (sign only, convention-free) -
+        "side_sign_match_vs_human": round(side_match, 6),
+        # --- production fractions: is the policy doing the inputs AT ALL vs the human --
+        "pol_side_active_frac": round(_frac(rows, lambda r: _sign(r["pol_side"]) != 0), 6),
+        "hum_side_active_frac": round(_frac(rows, lambda r: _sign(r["hum_side"]) != 0), 6),
+        "pol_side_active_frac_air": round(_frac(air, lambda r: _sign(r["pol_side"]) != 0), 6),
+        "hum_side_active_frac_air": round(_frac(air, lambda r: _sign(r["hum_side"]) != 0), 6),
+        "pol_fwd_press_frac": round(_frac(rows, lambda r: float(r["pol_fwd"]) > 0.0), 6),
+        "hum_fwd_press_frac": round(_frac(rows, lambda r: float(r["hum_fwd"]) > 0.0), 6),
+        "pol_fwd_press_frac_air": round(_frac(air, lambda r: float(r["pol_fwd"]) > 0.0), 6),
+        "hum_fwd_press_frac_air": round(_frac(air, lambda r: float(r["hum_fwd"]) > 0.0), 6),
+        # --- jump cadence (re-jumps/s): is the policy re-jumping like the human? -------
+        "pol_jump_per_s": round(_per_s(rows, "pol_jump"), 6),
+        "hum_jump_per_s": round(_per_s(rows, "hum_jump"), 6),
+        "pol_jump_press_frac": round(_frac(rows, lambda r: int(r["pol_jump"]) == 1), 6),
+        "hum_jump_press_frac": round(_frac(rows, lambda r: int(r["hum_jump"]) == 1), 6),
+        # --- the outcome the whole trace explains: airborne horizontal speed ----------
+        # pol = the bot's own post-frame speed on AIRBORNE ticks; hum = the human's
+        # RECORDED speed (hum_vh) on those SAME airborne ticks (the believable target).
+        "mean_airborne_vh_pol": round(_mean(air, "vh"), 6),
+        "mean_airborne_vh_hum": round(_mean(air, "hum_vh"), 6),
+        "mean_face_vel_angle_air": round(_mean(air, "face_vel_angle"), 6),
+        "interpretation": (
+            "LOW pol_side_active/jump/fwd vs human => UNDER-PRODUCTION (reweight lever). "
+            "HIGH pol_side_active_frac_air but LOW side_sign_match_vs_human => WRONG-SIGN "
+            "(strafes as much as the human but the wrong way — deeper than a reweight)."),
     }
 
 
@@ -300,7 +497,7 @@ def stall_rows(frames, world, route):
 
 def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
                        torch_mod, map_name="dm3", n_max=7, device="cpu",
-                       seed_velocity=None):
+                       seed_velocity=None, trace_out=None):
     """POLICY rollout: the trained BROAD policy drives pmove_sim closed-loop down the
     route, replaying the human view yaw/pitch per tick. Mirrors
     eval_broad_closedloop.closed_loop_rollout's loop (sim's own evolving state fed
@@ -314,6 +511,12 @@ def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
     standstill) from "can't sustain" (given speed, does it keep air-strafing). The sim
     evolves it from there; the policy reads the POST-frame velocity each tick via
     CL._self_state_from_sim. Seeds the POLICY rollout ONLY — never the controls.
+
+    trace_out (the per-tick ACTION-TRACE diagnostic): when a list is passed, ONE
+    make_trace_row per tick is appended — what the POLICY did (decoded fwd/side/up/jump
+    + the resulting onground/yaw/vh/headings) alongside what the HUMAN did that tick
+    (frames[k] move/buttons/velocity). OFF the normal path (the gate/scorer rows + exit
+    behavior are unchanged whether or not trace_out is given). Used by --trace-actions.
     """
     goal = route["goal"]
     floor_z = route_void_floor_z(route)
@@ -325,6 +528,10 @@ def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
     rows = []
     attack_classes = []
     t = 0.0
+    # previous replayed view yaw — the SINGLE source for both the OBS turn-direction
+    # signal (yaw_rate in the self_state) AND the action-trace yaw_rate column. Seeded to
+    # frame-0 yaw so the first tick's delta is 0 (== the build's first-tick=0 convention).
+    yaw_prev = float(f0["angles"][1])
     f_ent = dims["f_ent"]
     n = len(frames) - 1
     for k in range(n):
@@ -332,8 +539,13 @@ def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
         yaw = float(f["angles"][1])
         pitch = float(f["angles"][0])
         angles = [pitch, yaw, 0.0]
-        # SAME self_state + obs encode the closed-loop gmv eval uses (solo-roam: [] ).
-        self_state = CL._self_state_from_sim(st, yaw, pitch)
+        # turn-rate from the previous replayed yaw + this tick's dt, via the SAME shared
+        # helper the offline build + closed-loop eval call (parity). On tick 0 yaw_prev==yaw
+        # so the delta is 0 — byte-identical to the build's first-tick=0.0.
+        yaw_rate = AO_yaw_rate_degps(yaw, yaw_prev, float(f["msec"]) / 1000.0)
+        # SAME self_state + obs encode the closed-loop gmv eval uses (solo-roam: [] ), now
+        # carrying yaw_rate so the appended turn-direction feature is populated at inference.
+        self_state = CL._self_state_from_sim(st, yaw, pitch, yaw_rate=yaw_rate)
         enc = encode_obs(self_state, [], stats, map_name, n_max)
         obs_t = torch_mod.tensor([enc["self"]], dtype=torch_mod.float32, device=device)
         if f_ent > 0:
@@ -354,6 +566,19 @@ def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
         t += float(f["msec"]) / 1000.0
         ov = over_void_at(world, st.origin, floor_z)
         rows.append(make_row(t, st.origin, st.velocity, st.onground, ov, goal))
+        if trace_out is not None:
+            # ACTION-TRACE: the POST-frame policy outcome (st.velocity/onground, this
+            # tick's replayed yaw) vs the HUMAN usercmd + recorded speed for frame[k].
+            hf = frames[k]
+            hum_v = hf["velocity"]
+            trace_out.append(make_trace_row(
+                t, onground=st.onground, yaw=yaw, yaw_prev=yaw_prev,
+                msec=int(f["msec"]), vx=st.velocity[0], vy=st.velocity[1],
+                pol_fwd=fwd_mag, pol_side=side_mag, pol_up=up_mag, pol_jump=jump_bit,
+                hum_fwd=hf["move"][0], hum_side=hf["move"][1],
+                hum_jump=bool(int(hf["buttons"]) & CL.BUTTON_JUMP),
+                hum_vh=math.hypot(float(hum_v[0]), float(hum_v[1]))))
+        yaw_prev = yaw
     return rows, attack_classes
 
 
@@ -495,7 +720,7 @@ def run_controls_only(bsp: Path, route_name: str) -> dict:
 def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
              norm_artifact: Path | None = None,
              map_name: str = "dm3", n_max: int = 7, cpu: bool = False,
-             seed_velocity=None, seed_from_human=False) -> dict:
+             seed_velocity=None, seed_from_human=False, trace_actions=None) -> dict:
     """Full dry-route robustness eval: human-path + stall controls AND the real policy
     rollout. NEEDS torch (policy forward) + the BSP world. The encoders/loaders are
     lazy-imported here (module stays importable on bare stdlib).
@@ -507,7 +732,13 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
     hspeed >= 200 qu/s (auto_seed_from_human). The seed is applied to the POLICY rollout
     ONLY — the human-path and stall controls keep their recorded/zero start so the
     controls_bracket gate-validity check stays valid. A seeded run is a DIAGNOSTIC, not
-    the gate; the exit-code behavior (controls must bracket) is unchanged."""
+    the gate; the exit-code behavior (controls must bracket) is unchanged.
+
+    trace_actions (the per-tick ACTION-TRACE diagnostic): when a path is given, capture a
+    per-tick policy-vs-human row over the POLICY rollout, write it as a CSV at that path,
+    and attach analyze_action_trace(rows) to the policy result under "action_trace". OFF
+    the normal path (no CSV/analysis unless set); the gate verdict + exit code are
+    unchanged."""
     import torch
     from features import agent_observation as AO
     from eval_broad_believability import _build_policy_from_checkpoint
@@ -540,14 +771,25 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
     s_rows = stall_rows(frames, world, route)
     stall_result = score_rows(s_rows, route, human_tws)
 
+    # ACTION-TRACE: only collect per-tick policy-vs-human rows when --trace-actions is
+    # set, so the normal gate path is unchanged (no CSV, no extra report field).
+    trace_rows = [] if trace_actions is not None else None
     p_rows, p_atk = run_policy_rollout(
         frames, world, route, model=model, dims=dims, encode_obs=AO.encode_observation,
         stats=stats, torch_mod=torch, map_name=map_name, n_max=n_max, device=device,
-        seed_velocity=seed)
+        seed_velocity=seed, trace_out=trace_rows)
     policy_result = score_rows(p_rows, route, human_tws)
     atk_rate = (round(sum(1 for a in p_atk if int(a) == 1) / len(p_atk), 6)
                 if p_atk else 0.0)
     policy_result["predicted_attack_rate"] = atk_rate
+    if trace_rows is not None:
+        trace_path = Path(trace_actions).expanduser()
+        write_trace_csv(trace_rows, trace_path)
+        policy_result["action_trace"] = {
+            "csv": str(trace_path),
+            "columns": list(TRACE_COLUMNS),
+            "analysis": analyze_action_trace(trace_rows),
+        }
 
     return build_report(
         route_name, route,
@@ -556,7 +798,9 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
         inputs={"checkpoint": str(Path(checkpoint).expanduser()),
                 "bsp": str(Path(bsp).expanduser()), "route": route_name,
                 "map": map_name, "n_max": n_max, "controls_only": False,
-                "norm_artifact": str(norm_path), "human_frames": len(frames)},
+                "norm_artifact": str(norm_path), "human_frames": len(frames),
+                "trace_actions": (str(Path(trace_actions).expanduser())
+                                  if trace_actions is not None else None)},
         provenance={"git_sha": _core.git_sha(REPO_ROOT),
                     "torch": getattr(torch, "__version__", None), "device": device,
                     "norm_artifact_version": stats.get("artifact_version", "UNSET")},
@@ -587,6 +831,59 @@ def _resolve_norm_path(ckpt, norm_artifact=None) -> Path:
         "checkpoint that embeds the path, or place the gold artifact at %s." % gold)
 
 
+def print_action_trace_summary(a, *, indent="") -> None:
+    """Pretty-print analyze_action_trace's dict so the policy-vs-human comparison is
+    readable in a run log. Pure I/O. `indent` prefixes each line. Shows the headline
+    same-way air-strafe agreement, then the production fractions + jump cadence + the
+    speed outcome, side by side (pol vs hum) so the reader can tell UNDER-PRODUCTION
+    from WRONG-SIGN at a glance."""
+    p = indent
+    print("%saction-trace (policy vs human, %d ticks / %d airborne):"
+          % (p, a["n_ticks"], a["n_airborne_ticks"]), flush=True)
+    print("%s  side_sign_match_vs_human (air, hum-strafing) = %.3f  [over %d ticks]"
+          % (p, a["side_sign_match_vs_human"], a["n_airborne_human_strafe_ticks"]),
+          flush=True)
+    print("%s  side_active_frac   pol=%.3f hum=%.3f  (air: pol=%.3f hum=%.3f)"
+          % (p, a["pol_side_active_frac"], a["hum_side_active_frac"],
+             a["pol_side_active_frac_air"], a["hum_side_active_frac_air"]), flush=True)
+    print("%s  fwd_press_frac     pol=%.3f hum=%.3f  (air: pol=%.3f hum=%.3f)"
+          % (p, a["pol_fwd_press_frac"], a["hum_fwd_press_frac"],
+             a["pol_fwd_press_frac_air"], a["hum_fwd_press_frac_air"]), flush=True)
+    print("%s  jump_per_s         pol=%.3f hum=%.3f  (press_frac pol=%.3f hum=%.3f)"
+          % (p, a["pol_jump_per_s"], a["hum_jump_per_s"],
+             a["pol_jump_press_frac"], a["hum_jump_press_frac"]), flush=True)
+    print("%s  mean_airborne_vh   pol=%.1f hum=%.1f qu/s  (mean face_vel_angle air=%.1f deg)"
+          % (p, a["mean_airborne_vh_pol"], a["mean_airborne_vh_hum"],
+             a["mean_face_vel_angle_air"]), flush=True)
+    print("%s  read: %s" % (p, a["interpretation"]), flush=True)
+
+
+def main_analyze(argv=None) -> int:
+    """Standalone CLI: load an action-trace CSV (written by --trace-actions) and print
+    analyze_action_trace on it (and optionally dump the JSON). Lets the runner analyze a
+    CSV on pinnacle without re-running the policy:
+
+        python -m ml.eval_broad_dryroute analyze TRACE.csv [--json OUT.json]
+    """
+    ap = argparse.ArgumentParser(
+        prog="eval_broad_dryroute analyze",
+        description="analyze a per-tick action-trace CSV (policy vs human)")
+    ap.add_argument("csv", type=Path, help="action-trace CSV from --trace-actions")
+    ap.add_argument("--json", type=Path, default=None,
+                    help="also write the analysis dict as JSON here")
+    args = ap.parse_args(argv)
+    rows = load_trace_csv(args.csv)
+    analysis = analyze_action_trace(rows)
+    print("loaded %d trace rows from %s" % (len(rows), args.csv), flush=True)
+    print_action_trace_summary(analysis)
+    if args.json is not None:
+        outp = Path(args.json).expanduser()
+        outp.parent.mkdir(parents=True, exist_ok=True)
+        outp.write_text(json.dumps(analysis, indent=2), encoding="utf-8")
+        print("wrote %s" % outp, flush=True)
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -612,9 +909,15 @@ def main(argv=None) -> int:
     ap.add_argument("--seed-from-human", action="store_true",
                     help="seed the policy from the human's velocity at the first frame "
                          "with hspeed>=200 qu/s")
+    ap.add_argument("--trace-actions", type=Path, default=None, metavar="PATH",
+                    help="write a per-tick POLICY-vs-HUMAN action-trace CSV to PATH and "
+                         "attach analyze_action_trace to the report (diagnostic; needs "
+                         "the policy rollout, so not valid with --controls-only)")
     args = ap.parse_args(argv)
 
     if args.controls_only:
+        if args.trace_actions is not None:
+            ap.error("--trace-actions needs the policy rollout; not valid with --controls-only")
         report = run_controls_only(args.bsp, args.route)
     else:
         if args.checkpoint is None:
@@ -623,7 +926,8 @@ def main(argv=None) -> int:
                           norm_artifact=args.norm_artifact,
                           map_name=args.map, n_max=args.n_max, cpu=args.cpu,
                           seed_velocity=args.seed_velocity,
-                          seed_from_human=args.seed_from_human)
+                          seed_from_human=args.seed_from_human,
+                          trace_actions=args.trace_actions)
 
     out = Path(args.out).expanduser()
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -654,6 +958,10 @@ def main(argv=None) -> int:
               % (d["classify"], d["closest_rl_qu"],
                  d["launch_edge_speed_qu_per_s"], d["launch_required_speed_qu_per_s"],
                  d["cleared_launch"]), flush=True)
+        at = pol.get("action_trace")
+        if at:
+            print("    wrote action-trace CSV %s" % at["csv"], flush=True)
+            print_action_trace_summary(at["analysis"], indent="    ")
     else:
         print("  POLICY: (skipped; --controls-only)", flush=True)
     print("  GATE = route%% >= %g AND speed%% >= %g (time_weighted_speed); REACHED_RL is a harder diagnostic."
@@ -672,4 +980,8 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     sys.setrecursionlimit(20000)
+    # `analyze TRACE.csv` is a deps-free subcommand that runs analyze_action_trace on an
+    # existing action-trace CSV (no torch / BSP); anything else is the normal eval.
+    if len(sys.argv) > 1 and sys.argv[1] == "analyze":
+        raise SystemExit(main_analyze(sys.argv[2:]))
     raise SystemExit(main())

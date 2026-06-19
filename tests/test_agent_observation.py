@@ -19,6 +19,9 @@ from features import agent_observation as AO   # noqa: E402
 from features import egocentric as E           # noqa: E402
 
 # A minimal, self-contained normalization stats dict (the shape build_features loads).
+# yaw_rate is the per-map zscore key the appended turn-direction feature normalizes
+# against (mean 0, std 220 deg/s — the template placeholder). The unit tests assert the
+# (x-mean)/std relationship, not a fitted number, so the placeholder value is fine.
 STATS = {
     "per_map": {
         "dm3": {
@@ -29,6 +32,7 @@ STATS = {
             "vel_y": {"method": "zscore", "mean": 0.0, "std": 310.0, "clip": [-2500.0, 2500.0]},
             "vel_z": {"method": "zscore", "mean": 0.0, "std": 180.0, "clip": [-1000.0, 1000.0]},
             "hspeed": {"method": "robust", "median": 320.0, "iqr": 210.0, "clip": [0.0, 2500.0]},
+            "yaw_rate": {"method": "zscore", "mean": 0.0, "std": 220.0, "clip": [-1500.0, 1500.0]},
         }
     }
 }
@@ -205,6 +209,171 @@ class TestEncodeObservation(unittest.TestCase):
         self.assertEqual(obs["mask"][:2], [1.0, 1.0])
 
 
+# =============================================================================
+# TURN-DIRECTION features (the fix): wrap180 + yaw_rate_degps shared helpers, the
+# appended yaw_rate_z / face_vel_angle_norm SELF channels, and SELF_DIM growth.
+# =============================================================================
+class TestWrap180(unittest.TestCase):
+    """The shared angle-wrap: maps any degree value into (-180, 180] so a turn across
+    the +-180 seam is a small signed delta (the parity-critical math for yaw_rate AND
+    face_vel_angle)."""
+
+    def test_in_range_unchanged(self):
+        self.assertAlmostEqual(AO.wrap180(0.0), 0.0)
+        self.assertAlmostEqual(AO.wrap180(45.0), 45.0)
+        self.assertAlmostEqual(AO.wrap180(-179.0), -179.0)
+
+    def test_wrap_just_over_180(self):
+        self.assertAlmostEqual(AO.wrap180(190.0), -170.0)
+        self.assertAlmostEqual(AO.wrap180(-190.0), 170.0)
+
+    def test_endpoints_map_to_positive_180(self):
+        # boundary convention: both +180 and -180 land on +180 (range is (-180,180]).
+        self.assertAlmostEqual(AO.wrap180(180.0), 180.0)
+        self.assertAlmostEqual(AO.wrap180(-180.0), 180.0)
+
+    def test_multi_turn_reduction(self):
+        self.assertAlmostEqual(AO.wrap180(360.0 + 30.0), 30.0)
+        self.assertAlmostEqual(AO.wrap180(-720.0 - 10.0), -10.0)
+
+    def test_seam_delta_is_small_not_360(self):
+        # the WHOLE point: 170 -> -170 is a +20deg turn (wrap of the raw -340), not -340.
+        self.assertAlmostEqual(AO.wrap180(-170.0 - 170.0), 20.0)
+
+
+class TestYawRateDegps(unittest.TestCase):
+    """The signed view-yaw turn rate (deg/s) — THE air-strafe direction signal. Same
+    helper offline + inference, so identical inputs give identical output (parity)."""
+
+    def test_first_tick_is_zero(self):
+        # prev_yaw None (episode/rollout start) -> 0.0 by convention (no turn info yet).
+        self.assertEqual(AO.yaw_rate_degps(45.0, None, 0.013), 0.0)
+
+    def test_basic_positive_turn(self):
+        # +13 deg over 13 ms -> +1000 deg/s.
+        self.assertAlmostEqual(AO.yaw_rate_degps(58.0, 45.0, 0.013), 1000.0, places=6)
+
+    def test_sign_is_turn_direction(self):
+        # turning the other way flips the sign (the direction the rule keys on).
+        self.assertLess(AO.yaw_rate_degps(45.0, 58.0, 0.013), 0.0)
+        self.assertGreater(AO.yaw_rate_degps(58.0, 45.0, 0.013), 0.0)
+
+    def test_dt_scaling(self):
+        # same delta over twice the time -> half the rate.
+        r1 = AO.yaw_rate_degps(55.0, 45.0, 0.013)
+        r2 = AO.yaw_rate_degps(55.0, 45.0, 0.026)
+        self.assertAlmostEqual(r1, 2.0 * r2, places=6)
+
+    def test_wrap_across_seam(self):
+        # 179 -> -179 is a +2 deg turn (NOT -358); /0.01s -> +200 deg/s.
+        self.assertAlmostEqual(AO.yaw_rate_degps(-179.0, 179.0, 0.01), 200.0, places=6)
+
+    def test_nonpositive_dt_is_zero(self):
+        self.assertEqual(AO.yaw_rate_degps(58.0, 45.0, 0.0), 0.0)
+        self.assertEqual(AO.yaw_rate_degps(58.0, 45.0, -0.013), 0.0)
+
+
+class TestSelfDimAppended(unittest.TestCase):
+    """SELF_DIM grew by exactly 2 (yaw_rate_z, face_vel_angle_norm APPENDED after the
+    frozen 16) and encode_observation's self width matches SELF_DIM."""
+
+    def test_self_dim_is_18_and_order(self):
+        self.assertEqual(AO.SELF_DIM, 18)
+        self.assertEqual(len(AO.SELF_FIELDS), 18)
+        # the frozen-16 prefix is unchanged; the new two are appended IN THIS ORDER.
+        self.assertEqual(AO.SELF_FIELDS[16], "yaw_rate_z")
+        self.assertEqual(AO.SELF_FIELDS[17], "face_vel_angle_norm")
+        # prefix still ends with the resource pair (nothing reordered).
+        self.assertEqual(AO.SELF_FIELDS[14], "health_norm")
+        self.assertEqual(AO.SELF_FIELDS[15], "armor_norm")
+
+    def test_encode_self_width_matches_self_dim(self):
+        obs = AO.encode_observation(MILTON, [], STATS, n_max=7)
+        self.assertEqual(len(obs["self"]), AO.SELF_DIM)
+
+
+class TestYawRateChannel(unittest.TestCase):
+    """The appended yaw_rate_z channel: zscored from the RAW self_state['yaw_rate']."""
+
+    def test_yaw_rate_zscored_from_raw(self):
+        i = AO.SELF_FIELDS.index("yaw_rate_z")
+        moving = dict(MILTON, yaw_rate=220.0)             # == std -> z == 1.0
+        v = AO.self_features(moving, STATS)
+        self.assertAlmostEqual(v[i], 1.0, places=6)
+        neg = dict(MILTON, yaw_rate=-110.0)               # -0.5 std
+        self.assertAlmostEqual(AO.self_features(neg, STATS)[i], -0.5, places=6)
+
+    def test_missing_yaw_rate_is_zero(self):
+        # absent key -> 0.0 raw -> z 0.0 (mean 0). First tick / a caller with no prev yaw.
+        i = AO.SELF_FIELDS.index("yaw_rate_z")
+        self.assertEqual(AO.self_features(MILTON, STATS)[i], 0.0)
+
+    def test_yaw_rate_clip_applied(self):
+        # raw beyond the +-1500 clip is clamped before the zscore: 3000 -> 1500 -> z.
+        i = AO.SELF_FIELDS.index("yaw_rate_z")
+        v = AO.self_features(dict(MILTON, yaw_rate=3000.0), STATS)
+        self.assertAlmostEqual(v[i], 1500.0 / 220.0, places=6)
+
+
+class TestFaceVelAngleChannel(unittest.TestCase):
+    """The appended face_vel_angle_norm channel: signed (yaw - vel_heading)/180, SIGN
+    preserved, 0 below the 80 qu/s velocity-heading floor."""
+
+    def test_zero_below_speed_floor(self):
+        # hspeed 0 < 80 -> heading undefined -> face_vel_angle 0 (same guard as vh).
+        i = AO.SELF_FIELDS.index("face_vel_angle_norm")
+        self.assertEqual(AO.self_features(MILTON, STATS)[i], 0.0)
+
+    def test_sign_positive_when_facing_left_of_travel(self):
+        # moving +x (heading 0) but facing +90 yaw -> wrap180(90-0)/180 = +0.5 (SIGN +).
+        i = AO.SELF_FIELDS.index("face_vel_angle_norm")
+        st = dict(MILTON, vx=300.0, vy=0.0, hspeed=300.0, yaw=90.0)
+        self.assertAlmostEqual(AO.self_features(st, STATS)[i], 0.5, places=6)
+
+    def test_sign_negative_when_facing_right_of_travel(self):
+        # facing -90 (i.e. 270) while moving +x -> wrap180(-90)/180 = -0.5 (SIGN -). The
+        # near-0 sign is what the strafe rule needs to survive normalization.
+        i = AO.SELF_FIELDS.index("face_vel_angle_norm")
+        st = dict(MILTON, vx=300.0, vy=0.0, hspeed=300.0, yaw=-90.0)
+        self.assertAlmostEqual(AO.self_features(st, STATS)[i], -0.5, places=6)
+
+    def test_zero_when_facing_equals_travel(self):
+        i = AO.SELF_FIELDS.index("face_vel_angle_norm")
+        st = dict(MILTON, vx=300.0, vy=0.0, hspeed=300.0, yaw=0.0)
+        self.assertAlmostEqual(AO.self_features(st, STATS)[i], 0.0, places=6)
+
+    def test_seam_offset_small_signed(self):
+        # heading ~+180 (moving -x), facing ~-179 -> a small +deg offset, not ~360.
+        i = AO.SELF_FIELDS.index("face_vel_angle_norm")
+        st = dict(MILTON, vx=-300.0, vy=0.0, hspeed=300.0, yaw=-179.0)
+        # vel_heading = 180; wrap180(-179 - 180) = wrap180(-359) = +1 deg -> +1/180.
+        self.assertAlmostEqual(AO.self_features(st, STATS)[i], 1.0 / 180.0, places=6)
+
+
+class TestFrozen16Unchanged(unittest.TestCase):
+    """Appending the two features must NOT perturb any of the original 16 channels."""
+
+    def test_prefix_identical_to_legacy_compute(self):
+        st = dict(MILTON, vx=300.0, vy=120.0, hspeed=math.hypot(300.0, 120.0),
+                  yaw=30.0, pitch=10.0, health=200, armor=150, yaw_rate=180.0)
+        v = AO.self_features(st, STATS)
+        # recompute the legacy 16 directly and compare the prefix byte-for-byte.
+        pm = STATS["per_map"]["dm3"]
+        from features.transforms import normalize as N
+        legacy = [
+            N(st["ox"], pm["pos_x"]), N(st["oy"], pm["pos_y"]), N(st["oz"], pm["pos_z"]),
+            N(st["vx"], pm["vel_x"]), N(st["vy"], pm["vel_y"]), N(st["vz"], pm["vel_z"]),
+            N(st["hspeed"], pm["hspeed"]),
+        ]
+        vh_sin, vh_cos = N(math.degrees(math.atan2(st["vy"], st["vx"])), {"method": "sincos"})
+        ys, yc = N(st["yaw"], {"method": "sincos"})
+        ps, pc = N(st["pitch"], {"method": "sincos"})
+        legacy += [vh_sin, vh_cos, ys, yc, ps, pc, 1.0, 200.0 / 250.0, 150.0 / 200.0]
+        for k in range(16):
+            self.assertAlmostEqual(v[k], legacy[k], places=9,
+                                   msg=f"frozen channel {k} ({AO.SELF_FIELDS[k]}) changed")
+
+
 class TestFeatureColumns(unittest.TestCase):
     def test_flat_column_count(self):
         cols = AO.feature_columns(n_max=7)
@@ -213,6 +382,9 @@ class TestFeatureColumns(unittest.TestCase):
         self.assertEqual(cols["flat"][0], "self.pos_x_norm")
         self.assertIn("ent0.entity_rel_dist_norm", cols["flat"])
         self.assertIn("ent6.mask", cols["flat"])
+        # the appended turn-direction columns are present in the flat schema.
+        self.assertIn("self.yaw_rate_z", cols["flat"])
+        self.assertIn("self.face_vel_angle_norm", cols["flat"])
 
 
 if __name__ == "__main__":

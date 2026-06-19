@@ -677,6 +677,340 @@ class TestBuildReportSeed(unittest.TestCase):
         self.assertEqual(rep["controls"]["stall_negative"], self.stall)
 
 
+# --------------------------------------------------------------------------- #
+# ACTION-TRACE — the per-tick POLICY-vs-HUMAN diagnostic (pure glue).
+#
+#   * _wrap180 / make_trace_row — the per-tick row + its angle derivations
+#     (yaw_rate across the +-180 seam, vel_heading, face_vel_angle).
+#   * analyze_action_trace      — UNDER-PRODUCTION vs WRONG-SIGN separation: side-sign
+#     agreement (airborne, human-strafing only), production fractions, jump cadence,
+#     and the airborne-speed outcome. Driven by hand-built synthetic traces.
+#   * write/load_trace_csv       — CSV round-trip preserves the analysis (so the runner
+#     can analyze a CSV produced on pinnacle).
+# --------------------------------------------------------------------------- #
+def _trace_row(*, onground=False, yaw=0.0, yaw_prev=0.0, msec=13, vx=0.0, vy=0.0,
+               pol_fwd=0.0, pol_side=0.0, pol_up=0.0, pol_jump=0,
+               hum_fwd=0.0, hum_side=0.0, hum_jump=0, hum_vh=0.0, t=0.0):
+    """Thin keyword wrapper over DR.make_trace_row for terse synthetic traces."""
+    return DR.make_trace_row(
+        t, onground=onground, yaw=yaw, yaw_prev=yaw_prev, msec=msec, vx=vx, vy=vy,
+        pol_fwd=pol_fwd, pol_side=pol_side, pol_up=pol_up, pol_jump=pol_jump,
+        hum_fwd=hum_fwd, hum_side=hum_side, hum_jump=hum_jump, hum_vh=hum_vh)
+
+
+class TestWrap180(unittest.TestCase):
+    def test_wraps_into_half_open_180(self):
+        self.assertAlmostEqual(DR._wrap180(190.0), -170.0)
+        self.assertAlmostEqual(DR._wrap180(-190.0), 170.0)
+        self.assertAlmostEqual(DR._wrap180(0.0), 0.0)
+        self.assertAlmostEqual(DR._wrap180(45.0), 45.0)
+
+    def test_boundary_180_maps_to_positive_180(self):
+        # convention: the half-open wrap keeps +-180 as +180 (not -180).
+        self.assertAlmostEqual(DR._wrap180(180.0), 180.0)
+        self.assertAlmostEqual(DR._wrap180(-180.0), 180.0)
+
+    def test_large_multiples_wrap(self):
+        self.assertAlmostEqual(DR._wrap180(360.0 + 30.0), 30.0)
+        self.assertAlmostEqual(DR._wrap180(-720.0 - 10.0), -10.0)
+
+
+class TestMakeTraceRow(unittest.TestCase):
+    def test_columns_and_basic_values(self):
+        r = _trace_row(onground=True, yaw=10.0, yaw_prev=10.0, vx=300.0, vy=400.0,
+                       pol_fwd=400.0, pol_side=-400.0, pol_up=0.0, pol_jump=2,
+                       hum_fwd=508, hum_side=-508, hum_jump=1, hum_vh=520.0)
+        # every TRACE_COLUMNS key present, in the row.
+        for k in DR.TRACE_COLUMNS:
+            self.assertIn(k, r)
+        self.assertEqual(r["onground"], 1)
+        self.assertAlmostEqual(r["vh"], 500.0)            # hypot(300,400)
+        self.assertEqual(r["pol_jump"], 1)                # nonzero jump bit -> 1
+        self.assertEqual(r["hum_jump"], 1)
+        self.assertAlmostEqual(r["hum_vh"], 520.0)
+        self.assertAlmostEqual(r["pol_side"], -400.0)
+        self.assertAlmostEqual(r["hum_side"], -508.0)
+
+    def test_yaw_rate_wraps_across_seam(self):
+        # yaw 350 -> 10 over 10 ms is a +20 deg turn (not -340): +20/0.01 = 2000 deg/s.
+        r = _trace_row(yaw=10.0, yaw_prev=350.0, msec=10)
+        self.assertAlmostEqual(r["yaw_rate"], 2000.0)
+
+    def test_first_row_yaw_rate_zero_by_convention(self):
+        # yaw_prev == yaw (caller seeds yaw_prev = frame0 yaw for tick 0) -> rate 0.
+        r = _trace_row(yaw=42.0, yaw_prev=42.0, msec=13)
+        self.assertAlmostEqual(r["yaw_rate"], 0.0)
+
+    def test_face_vel_angle_is_yaw_minus_velocity_heading(self):
+        # facing yaw 90, moving +x (heading 0) -> 90 deg off travel.
+        r = _trace_row(yaw=90.0, yaw_prev=90.0, vx=300.0, vy=0.0)
+        self.assertAlmostEqual(r["vel_heading"], 0.0)
+        self.assertAlmostEqual(r["face_vel_angle"], 90.0)
+
+    def test_zero_velocity_heading_defaults_to_yaw(self):
+        # vh == 0 -> vel_heading defined as yaw so face_vel_angle is 0 (not a NaN/atan2(0,0)).
+        r = _trace_row(yaw=45.0, yaw_prev=45.0, vx=0.0, vy=0.0)
+        self.assertAlmostEqual(r["vel_heading"], 45.0)
+        self.assertAlmostEqual(r["face_vel_angle"], 0.0)
+
+
+class TestAnalyzeActionTrace(unittest.TestCase):
+    def _matched_air_trace(self, n=12, jump_every=3):
+        # AIRBORNE trace where the policy strafes the SAME way as the human (+side),
+        # holds forward, and re-jumps on the same cadence. pol speed 300 < hum 500.
+        rows = []
+        t = 0.0
+        for i in range(n):
+            t += 0.013
+            j = 1 if (i % jump_every == 0) else 0
+            rows.append(_trace_row(
+                t=t, onground=False, yaw=10.0, yaw_prev=10.0, msec=13, vx=300.0, vy=0.0,
+                pol_fwd=400.0, pol_side=400.0, pol_up=0.0, pol_jump=(2 if j else 0),
+                hum_fwd=508, hum_side=508, hum_jump=j, hum_vh=500.0))
+        return rows
+
+    def test_perfect_match_scores_side_sign_one(self):
+        a = DR.analyze_action_trace(self._matched_air_trace())
+        self.assertAlmostEqual(a["side_sign_match_vs_human"], 1.0)
+        self.assertEqual(a["n_airborne_ticks"], a["n_ticks"])         # all airborne
+        self.assertGreater(a["n_airborne_human_strafe_ticks"], 0)
+
+    def test_outcome_speed_pol_vs_hum_distinct(self):
+        # the OUTCOME the trace explains: pol airborne speed (300) below human (500).
+        a = DR.analyze_action_trace(self._matched_air_trace())
+        self.assertAlmostEqual(a["mean_airborne_vh_pol"], 300.0)
+        self.assertAlmostEqual(a["mean_airborne_vh_hum"], 500.0)
+
+    def test_production_fractions_full_when_policy_active(self):
+        a = DR.analyze_action_trace(self._matched_air_trace())
+        self.assertAlmostEqual(a["pol_side_active_frac"], 1.0)
+        self.assertAlmostEqual(a["hum_side_active_frac"], 1.0)
+        self.assertAlmostEqual(a["pol_fwd_press_frac"], 1.0)
+        self.assertAlmostEqual(a["hum_fwd_press_frac"], 1.0)
+
+    def test_jump_cadence_matches_human(self):
+        # same jump pattern on both sides -> equal per-second cadence and press fraction.
+        a = DR.analyze_action_trace(self._matched_air_trace(n=12, jump_every=3))
+        self.assertGreater(a["pol_jump_per_s"], 0.0)
+        self.assertAlmostEqual(a["pol_jump_per_s"], a["hum_jump_per_s"])
+        self.assertAlmostEqual(a["pol_jump_press_frac"], a["hum_jump_press_frac"])
+
+    def test_all_idle_policy_scores_low_production(self):
+        # the UNDER-PRODUCTION signature: policy presses NOTHING while the human strafes,
+        # holds forward and jumps every tick. Fractions/cadence collapse to 0; and with
+        # zero policy strafing the side-sign match is 0 (no agreeing ticks).
+        rows = []
+        t = 0.0
+        for _ in range(10):
+            t += 0.013
+            rows.append(_trace_row(
+                t=t, onground=False, yaw=10.0, yaw_prev=10.0, msec=13, vx=120.0, vy=0.0,
+                pol_fwd=0.0, pol_side=0.0, pol_up=0.0, pol_jump=0,
+                hum_fwd=508, hum_side=508, hum_jump=1, hum_vh=500.0))
+        a = DR.analyze_action_trace(rows)
+        self.assertAlmostEqual(a["pol_side_active_frac"], 0.0)
+        self.assertAlmostEqual(a["pol_fwd_press_frac"], 0.0)
+        self.assertAlmostEqual(a["pol_jump_per_s"], 0.0)
+        self.assertAlmostEqual(a["side_sign_match_vs_human"], 0.0)
+        # the human side is the reference: it WAS strafing the whole time.
+        self.assertAlmostEqual(a["hum_side_active_frac"], 1.0)
+
+    def test_wrong_sign_distinct_from_under_production(self):
+        # the WRONG-SIGN signature: policy strafes EVERY tick (high active frac) but
+        # always the OPPOSITE way to the human -> side_sign_match 0 with active frac 1.0.
+        # This must be distinguishable from the all-idle case (active frac 0).
+        rows = []
+        t = 0.0
+        for _ in range(10):
+            t += 0.013
+            rows.append(_trace_row(
+                t=t, onground=False, yaw=10.0, yaw_prev=10.0, msec=13, vx=200.0, vy=0.0,
+                pol_fwd=400.0, pol_side=-400.0, pol_up=0.0, pol_jump=0,   # opposite sign
+                hum_fwd=508, hum_side=508, hum_jump=0, hum_vh=500.0))
+        a = DR.analyze_action_trace(rows)
+        self.assertAlmostEqual(a["pol_side_active_frac"], 1.0)            # strafing a lot
+        self.assertAlmostEqual(a["side_sign_match_vs_human"], 0.0)       # but wrong way
+        self.assertAlmostEqual(a["pol_side_active_frac_air"], 1.0)
+
+    def test_side_sign_match_is_airborne_and_human_strafing_only(self):
+        # GROUNDED ticks and ticks where the human did NOT strafe are excluded from the
+        # side-sign denominator. Build: 2 grounded (ignored), 2 airborne hum-not-strafing
+        # (ignored), 2 airborne hum-strafing with pol matching (the only counted ticks).
+        rows = [
+            _trace_row(onground=True, hum_side=508, pol_side=-400.0),     # grounded: skip
+            _trace_row(onground=True, hum_side=508, pol_side=-400.0),     # grounded: skip
+            _trace_row(onground=False, hum_side=0, pol_side=400.0),       # hum not strafing
+            _trace_row(onground=False, hum_side=0, pol_side=-400.0),      # hum not strafing
+            _trace_row(onground=False, hum_side=508, pol_side=400.0),     # counted: match
+            _trace_row(onground=False, hum_side=508, pol_side=400.0),     # counted: match
+        ]
+        a = DR.analyze_action_trace(rows)
+        self.assertEqual(a["n_airborne_human_strafe_ticks"], 2)          # only the last 2
+        self.assertAlmostEqual(a["side_sign_match_vs_human"], 1.0)       # both matched
+
+    def test_partial_side_sign_match_fraction(self):
+        # 4 airborne human-strafing ticks, policy matches 3 of 4 -> 0.75.
+        rows = [
+            _trace_row(onground=False, hum_side=508, pol_side=400.0),     # match
+            _trace_row(onground=False, hum_side=508, pol_side=400.0),     # match
+            _trace_row(onground=False, hum_side=508, pol_side=400.0),     # match
+            _trace_row(onground=False, hum_side=508, pol_side=-400.0),    # mismatch
+        ]
+        a = DR.analyze_action_trace(rows)
+        self.assertAlmostEqual(a["side_sign_match_vs_human"], 0.75)
+
+    def test_empty_trace_is_all_zero(self):
+        # deps-free safety: an empty trace returns zeros (no division by zero).
+        a = DR.analyze_action_trace([])
+        self.assertEqual(a["n_ticks"], 0)
+        self.assertEqual(a["n_airborne_ticks"], 0)
+        self.assertEqual(a["side_sign_match_vs_human"], 0.0)
+        self.assertEqual(a["pol_jump_per_s"], 0.0)
+        self.assertEqual(a["mean_airborne_vh_pol"], 0.0)
+
+    def test_all_grounded_airborne_means_zero(self):
+        # no airborne ticks -> airborne denominators 0, side-sign 0, but grounded
+        # production fractions still computed over ALL ticks.
+        rows = [_trace_row(onground=True, hum_side=508, pol_side=400.0, pol_fwd=400.0)
+                for _ in range(5)]
+        a = DR.analyze_action_trace(rows)
+        self.assertEqual(a["n_airborne_ticks"], 0)
+        self.assertEqual(a["mean_airborne_vh_pol"], 0.0)
+        self.assertEqual(a["side_sign_match_vs_human"], 0.0)
+        self.assertAlmostEqual(a["pol_fwd_press_frac"], 1.0)             # over all ticks
+
+
+class TestTraceCsvRoundTrip(unittest.TestCase):
+    def _trace(self, n=8):
+        rows = []
+        t = 0.0
+        for i in range(n):
+            t += 0.013
+            rows.append(_trace_row(
+                t=t, onground=(i % 2 == 0), yaw=10.0 + i, yaw_prev=10.0 + i, msec=13,
+                vx=300.0, vy=40.0, pol_fwd=400.0, pol_side=(400.0 if i % 2 else -400.0),
+                pol_up=0.0, pol_jump=(2 if i % 3 == 0 else 0),
+                hum_fwd=508, hum_side=508, hum_jump=(1 if i % 3 == 0 else 0), hum_vh=480.0))
+        return rows
+
+    def test_write_then_load_preserves_analysis(self):
+        import tempfile
+        rows = self._trace()
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "trace.csv"
+            DR.write_trace_csv(rows, p)
+            self.assertTrue(p.exists())
+            back = DR.load_trace_csv(p)
+        self.assertEqual(len(back), len(rows))
+        # the analysis on the reloaded CSV equals the analysis on the in-memory rows.
+        self.assertEqual(DR.analyze_action_trace(back), DR.analyze_action_trace(rows))
+
+    def test_csv_header_is_trace_columns(self):
+        import csv as _csv
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "trace.csv"
+            DR.write_trace_csv(self._trace(3), p)
+            with p.open() as fh:
+                header = next(_csv.reader(fh))
+        self.assertEqual(header, DR.TRACE_COLUMNS)
+
+
+class TestPolicyRolloutTraceOut(unittest.TestCase):
+    """run_policy_rollout's trace_out seam: when a list is passed, one trace row per tick
+    is appended (policy decode + human usercmd from frames[k]); when None, the rollout is
+    unchanged (no trace). Deps-free (stub torch + recording fake sim)."""
+
+    def setUp(self):
+        self._orig_trace = DR.PM.player_trace
+        self._orig_pmove = DR.PM.Pmove
+        self._orig_ps = DR.PM.PlayerState
+        DR.PM.player_trace = lambda world, start, end: _FakeTrace(0.0)  # grounded
+
+        class _FakePlayerState:
+            def __init__(self, origin, velocity):
+                self.origin = list(origin)
+                self.velocity = list(velocity)
+                self.onground = True
+
+        class _FakePmove:
+            def __init__(self, world):
+                self.world = world
+
+            def run_frame(self, st, cmd):
+                # set a deterministic post-frame velocity from the commanded move so the
+                # trace's vh column is the policy's outcome.
+                st.origin[0] += 5.0
+                st.velocity = [float(cmd.move[0]), float(cmd.move[1]), 0.0]
+                st.onground = False                         # airborne so trace counts it
+
+        DR.PM.Pmove = _FakePmove
+        DR.PM.PlayerState = _FakePlayerState
+
+    def tearDown(self):
+        DR.PM.player_trace = self._orig_trace
+        DR.PM.Pmove = self._orig_pmove
+        DR.PM.PlayerState = self._orig_ps
+
+    def _frames(self, n=10):
+        # human strafes +side (508), holds forward, jumps (buttons & BUTTON_JUMP == 2),
+        # and has a recorded speed; angles carry the replayed yaw.
+        return [{"msec": 13, "origin": [0.0, 0.0, 0.0], "velocity": [300.0, 0.0, 0.0],
+                 "angles": [0.0, 10.0, 0.0], "move": [508, 508, 0], "buttons": 2}
+                for _ in range(n)]
+
+    def _run(self, trace_out):
+        route = _straight_route()
+        dims = {"f_ent": 0, "f_aux": 4, "n_max": 7}
+        # policy decode: fwd>0(2) side>0(2) up none(1) jump yes(1) attack no(0).
+        model = _StubModel([2, 2, 1, 1, 0])
+        enc = {"self": [0.0], "ents": [], "mask": []}
+        return DR.run_policy_rollout(
+            self._frames(10), _FakeWorld(), route, model=model, dims=dims,
+            encode_obs=lambda *a, **k: enc, stats={}, torch_mod=_StubTorch(),
+            map_name="dm3", n_max=7, device="cpu", trace_out=trace_out)
+
+    def test_trace_out_collects_one_row_per_tick(self):
+        trace = []
+        rows, _atk = self._run(trace)
+        # one fewer than frames (frame[k] view onto bot state) — matches the scorer rows.
+        self.assertEqual(len(trace), len(rows))
+        self.assertEqual(len(trace), 9)
+        for r in trace:
+            for k in DR.TRACE_COLUMNS:
+                self.assertIn(k, r)
+
+    def test_trace_captures_policy_decode_and_human_usercmd(self):
+        trace = []
+        self._run(trace)
+        r = trace[0]
+        # policy decoded fwd>0 and side>0 to +MOVE_MAG, jump head 1 -> jump bit set.
+        self.assertAlmostEqual(r["pol_fwd"], DR.CL.MOVE_MAG)
+        self.assertAlmostEqual(r["pol_side"], DR.CL.MOVE_MAG)
+        self.assertEqual(r["pol_jump"], 1)
+        # human usercmd straight from frames[k]: side 508, jump bit (buttons&2 -> 1).
+        self.assertAlmostEqual(r["hum_fwd"], 508.0)
+        self.assertAlmostEqual(r["hum_side"], 508.0)
+        self.assertEqual(r["hum_jump"], 1)
+        self.assertAlmostEqual(r["hum_vh"], 300.0)         # hypot(300,0) recorded speed
+
+    def test_trace_analysis_sees_matching_strafe(self):
+        # policy strafes +side, human strafes +side, both airborne -> side_sign_match 1.0.
+        trace = []
+        self._run(trace)
+        a = DR.analyze_action_trace(trace)
+        self.assertAlmostEqual(a["side_sign_match_vs_human"], 1.0)
+        self.assertEqual(a["n_airborne_ticks"], len(trace))    # fake sim is airborne
+        self.assertAlmostEqual(a["pol_jump_press_frac"], 1.0)  # jump head 1 every tick
+
+    def test_none_trace_out_is_noop(self):
+        # the default (no trace_out) leaves the rollout unchanged: rows + attack only,
+        # and nothing raised for the missing collector.
+        rows, atk = self._run(None)
+        self.assertEqual(len(rows), 9)
+        self.assertEqual(len(atk), 9)
+
+
 @unittest.skipUnless(_HAVE_TORCH, "run_eval needs torch + a real BSP (pinnacle GPU host)")
 class TestRunEvalGated(unittest.TestCase):
     """End-to-end is exercised on pinnacle with a real checkpoint + dm3.bsp; here only
@@ -694,6 +1028,8 @@ class TestModuleImportsDepsFree(unittest.TestCase):
         for fn in ("make_row", "score_rows", "over_void_at", "route_void_floor_z",
                    "controls_bracket", "stall_rows", "human_rows_from_cmds",
                    "auto_seed_from_human",
+                   "make_trace_row", "analyze_action_trace", "write_trace_csv",
+                   "load_trace_csv", "print_action_trace_summary", "main_analyze",
                    "run_policy_rollout", "run_controls_only", "run_eval",
                    "load_route_with_human", "build_report"):
             self.assertTrue(callable(getattr(DR, fn)), fn)

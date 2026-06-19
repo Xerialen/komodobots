@@ -348,6 +348,103 @@ class TestP3EgoTeamCarried(unittest.TestCase):
             self.assertTrue(bool((tm_over_real.sum(-1) == 1.0).all()))
 
 
+def _tiny_catalog_turning(path: Path) -> None:
+    """A minimal TRAIN-only catalog whose ego view yaw TURNS tick-to-tick (so yaw_rate is
+    non-trivially nonzero) — for the build-vs-inference turn-direction parity test. Each
+    tick advances yaw by +10 deg and moves at a real horizontal speed (so the velocity
+    heading / face_vel_angle are defined, above the 80 qu/s floor)."""
+    import sqlite3
+
+    sql = (REPO_ROOT / "data" / "catalog" / "catalog.sql").read_text(encoding="utf-8")
+    con = sqlite3.connect(str(path))
+    con.executescript(sql)
+    con.execute("""INSERT INTO maps
+        (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, diagonal)
+        VALUES (1, 'dm3', -984.0, 2048.0, -960.0, 1136.0, -416.0, 496.0, 3797.1)""")
+    con.execute("""INSERT INTO demos (demo_id, path, source, map_id, sha256)
+                   VALUES (1, 'd.qwd', 'qwd', 1, 'feedface')""")
+    con.execute("INSERT INTO players (player_id, handle, is_bot) VALUES (1, 'p1', 0)")
+    con.execute("""INSERT INTO episodes (episode_id, demo_id, player_id, map_id, start_tick, end_tick, n_steps, split)
+                   VALUES (1,1,1,1,0,7,8,'train')""")
+    for tk in range(8):
+        yaw = 10.0 * tk                       # turning +10 deg/tick (+~769 deg/s @ 13ms)
+        vx, vy, vz = 250.0, 90.0, -20.0       # real motion -> hspeed ~266 > 80 floor
+        hsp = (vx * vx + vy * vy) ** 0.5
+        con.execute("""INSERT INTO player_ticks
+            (episode_id, tick, t_s, msec, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed, onground)
+            VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?)""",
+            (1, tk, tk * 0.013, 13, 100.0 + tk, 50.0, -10.0, vx, vy, vz, 5.0, yaw, 0.0, hsp, 0))
+        con.execute("""INSERT INTO actor_ticks
+            (episode_id, tick, actor_id, alive, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed)
+            VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?)""",
+            (1, tk, 1, 1, 100.0 + tk, 50.0, -10.0, vx, vy, vz, 5.0, yaw, 0.0, hsp))
+    con.commit()
+    con.close()
+
+
+@unittest.skipUnless(_HAVE_DUCKDB and _HAVE_PYARROW, "duckdb/pyarrow not installed")
+class TestTurnDirectionBuildInferenceParity(unittest.TestCase):
+    """TRAIN/INFERENCE PARITY for the turn-direction features, via the REAL build path.
+
+    The deps-free counterpart (ml/tests/test_eval_closedloop.TestTurnDirectionTrainInference
+    Parity) reproduces the build's per-tick self_state; THIS one runs the actual
+    build_features._load_episode_ticks over a tiny catalog so the real query + yaw_rate
+    computation are exercised, then asserts the build's encoded SELF vector equals the
+    inference builder's (CL._self_state_from_sim) for the SAME tick — proving the offline
+    yaw_rate matches what the closed-loop / dry-route rollouts feed the model."""
+
+    def test_build_self_vec_matches_inference_self_vec(self):
+        import normalize_fit as NF
+        import build_features as BF
+        import eval_broad_closedloop as CL
+        from features import agent_observation as AO
+
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "turning.sqlite"
+            _tiny_catalog_turning(db)
+            stats = Path(d) / "stats.json"
+            NF.fit_stats_doc(db, stats, split="train", map_name="dm3", artifact_version="t")
+            norm = json.loads(stats.read_text(encoding="utf-8"))
+            # the fit must have emitted a yaw_rate zscore key (the new normalization field).
+            self.assertIn("yaw_rate", norm["per_map"]["dm3"])
+            self.assertEqual(norm["per_map"]["dm3"]["yaw_rate"]["method"], "zscore")
+
+            episodes, _ = BF._load_episode_ticks(db, split="train")
+            ticks = episodes[1]
+            self.assertGreaterEqual(len(ticks), 3)
+
+            # pick tick index 3 (a mid-episode tick with a real previous yaw -> nonzero rate).
+            j = 3
+            t = ticks[j]
+            build_self = t["self"]
+            # the build computed yaw_rate from the PREVIOUS tick's yaw: assert it is the
+            # nonzero turn rate we constructed (+10 deg over 13 ms ~= +769.23 deg/s).
+            self.assertAlmostEqual(build_self["yaw_rate"], 10.0 / 0.013, places=3)
+
+            build_vec = AO.encode_observation(build_self, [], norm, "dm3", 7)["self"]
+
+            # INFERENCE path: rebuild the SAME tick's self_state from a sim state at the
+            # build's kinematics + the yaw_rate the rollout would compute (shared helper on
+            # this tick's yaw, the PREVIOUS tick's yaw, this tick's dt).
+            class _S:
+                def __init__(s, st):
+                    s.origin = [float(st["ox"]), float(st["oy"]), float(st["oz"])]
+                    s.velocity = [float(st["vx"]), float(st["vy"]), float(st["vz"])]
+                    s.onground = bool(st["onground"])
+            prev_yaw = float(ticks[j - 1]["self"]["yaw"])
+            yaw_rate = AO.yaw_rate_degps(float(build_self["yaw"]), prev_yaw, 0.013)
+            infer_self = CL._self_state_from_sim(
+                _S(build_self), float(build_self["yaw"]), float(build_self["pitch"]),
+                yaw_rate=yaw_rate)
+            infer_vec = AO.encode_observation(infer_self, [], norm, "dm3", 7)["self"]
+
+            # the build + inference yaw_rate are identical (same helper, same inputs) ...
+            self.assertAlmostEqual(yaw_rate, build_self["yaw_rate"], places=9)
+            # ... so the full SELF vectors are byte-identical (the parity guarantee).
+            self.assertEqual(build_vec, infer_vec)
+            self.assertEqual(len(build_vec), AO.SELF_DIM)
+
+
 @unittest.skipUnless(_HAVE_DUCKDB and _HAVE_PYARROW, "duckdb/pyarrow not installed")
 class TestCliBackCompat(unittest.TestCase):
     """Regression for the BLOCKING CLI finding: the documented legacy invocation

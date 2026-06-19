@@ -34,6 +34,10 @@ import duckdb                             # noqa: E402  (ml dep)
 import pyarrow as pa                      # noqa: E402
 import pyarrow.parquet as pq              # noqa: E402
 
+# fallback per-tick frame time (ms) for yaw_rate when a player_ticks row carries no
+# msec (~13ms = the recorded QW tick cadence the closed-loop/dry-route evals also use).
+FRAME_DT_MS = 13.0
+
 
 def load_norm(stats_path: Path) -> dict:
     return json.loads(stats_path.read_text(encoding="utf-8"))
@@ -152,7 +156,8 @@ def _load_episode_ticks(sqlite_path: Path, split: str = "train"):
         """
         SELECT e.episode_id, pt.tick, e.player_id,
                pt.ox, pt.oy, pt.oz, pt.vx, pt.vy, pt.vz,
-               pt.yaw, pt.pitch, pt.hspeed, pt.onground, pt.health, pt.armor
+               pt.yaw, pt.pitch, pt.hspeed, pt.onground, pt.health, pt.armor,
+               pt.msec
           FROM cat.player_ticks pt
           JOIN cat.episodes e USING(episode_id)
          WHERE e.split = ?
@@ -221,12 +226,27 @@ def _load_episode_ticks(sqlite_path: Path, split: str = "train"):
         })
 
     episodes: dict[int, list] = {}
-    for (eid, tick, self_pid, ox, oy, oz, vx, vy, vz, yaw, pitch, hspeed, onground, health, armor) in self_rows:
+    # yaw_rate (the turn-direction signal) is computed from the PREVIOUS tick's view yaw
+    # IN THE SAME EPISODE: yaw_rate[t] = wrap180(yaw[t]-yaw[t-1]) / (msec[t]/1000), via the
+    # SHARED AO.yaw_rate_degps so it is byte-identical to the inference call-sites. self_rows
+    # is ordered by (episode_id, tick), so we track prev_yaw per episode and reset at each
+    # new episode (first tick -> prev None -> rate 0.0, the helper's convention). msec is the
+    # per-tick frame time (qwd dense path); fall back to the fixed FRAME_DT_MS when null.
+    prev_yaw_by_ep: dict[int, float] = {}
+    for (eid, tick, self_pid, ox, oy, oz, vx, vy, vz, yaw, pitch, hspeed, onground, health, armor, msec) in self_rows:
+        prev_yaw = prev_yaw_by_ep.get(eid)   # None on the episode's first tick
+        dt_s = (float(msec) if msec else FRAME_DT_MS) / 1000.0
+        yaw_rate = AO.yaw_rate_degps(yaw, prev_yaw, dt_s) if yaw is not None else 0.0
+        if yaw is not None:
+            prev_yaw_by_ep[eid] = float(yaw)
         self_state = {
             "ox": ox, "oy": oy, "oz": oz, "vx": vx, "vy": vy, "vz": vz,
             "yaw": yaw, "pitch": pitch, "hspeed": hspeed,
             "onground": bool(onground) if onground is not None else False,
             "health": health, "armor": armor,
+            # turn-direction signal (RAW deg/s); self_features z-scores it per-map. The
+            # SAME AO.yaw_rate_degps runs at inference, so train/serve are parity-identical.
+            "yaw_rate": yaw_rate,
             # ego absolute team from the ego's actor_ticks row (NOT player_ticks, which
             # has no team col). Stays None for a .qwd-only catalog with no team data —
             # then entity_features keeps is_teammate=0; when team IS populated, teammates

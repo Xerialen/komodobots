@@ -187,6 +187,30 @@ feature_groups:
       version: 1
       leakage_safe: true
       note: "Strafe-jump signature axis (look-vs-move angle). Key for player-style/bunnyhop imitation."
+    # --- TURN-DIRECTION SELF features (the actual agent_observation.SELF_FIELDS variant;
+    # APPENDED after the frozen-16, normalization unchanged for the existing features) ---
+    - name: yaw_rate_z
+      dtype: float32
+      source: derived
+      formula: "wrap180(yaw[t] - yaw[t-1]) / dt_s  (deg/s); zscore"   # agent_observation.yaw_rate_degps
+      unit: deg/s
+      norm: zscore
+      stats_key: "per_map.<map>.yaw_rate"
+      group: per_map
+      version: 3
+      leakage_safe: true
+      note: "THE air-strafe direction signal. sign(sidemove) == -sign(yaw_rate) (88-94%, the QW air-accel rule). First tick of an episode/rollout => 0.0. Computed by the SHARED agent_observation.yaw_rate_degps in BOTH the offline build and every inference call-site (train/serve parity)."
+    - name: face_vel_angle_norm
+      dtype: float32
+      source: derived
+      formula: "wrap180(yaw - vel_heading_deg) / 180.0"   # SIGNED scalar variant of look_vs_move
+      unit: "[-1,1]"
+      norm: identity      # parameter-free signed /180; SIGN preserved, no fitted key
+      stats_key: null
+      group: none
+      version: 3
+      leakage_safe: true
+      note: "Signed look-vs-move angle as a single scalar (SIGN survives; near-0 sign matters for strafe). 0 below the 80 qu/s velocity-heading floor (heading undefined), same guard as vel_heading. Scalar complement to look_vs_move_sincos."
 
   # ---------------------------------------------------------------------------
   player_resource:   # own health/armor state

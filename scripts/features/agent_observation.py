@@ -39,6 +39,15 @@ from .egocentric import egocentric_vec, rel_distance, rel_bearing_deg, rel_pitch
 #   yaw_sin, yaw_cos, pitch_sin, pitch_cos                  (4)  sincos
 #   onground                                                (1)  0/1
 #   health_norm, armor_norm                                 (2)  /250, /200
+#   --- TURN-DIRECTION features (APPENDED after the frozen 16) ------------------
+#   yaw_rate_z                                              (1)  zscore/map (signed deg/s)
+#   face_vel_angle_norm                                     (1)  signed (yaw-vel_heading)/180
+# yaw_rate is THE air-strafe direction signal: the human's strafe sign is a clean
+# function of turn direction (sign(sidemove) == -sign(yaw_rate), 88-94% — the QW
+# air-accel rule). Without yaw-rate / a signed look-vs-move angle in the SELF vector
+# the policy structurally cannot learn the correct strafe direction (its single tick
+# saw only ABSOLUTE yaw sincos + velocity heading). Both are APPENDED (never reordered)
+# so the frozen-16 layout above is byte-stable; the model retrains anyway.
 SELF_FIELDS: tuple[str, ...] = (
     "pos_x_norm", "pos_y_norm", "pos_z_norm",
     "vel_x_z", "vel_y_z", "vel_z_z",
@@ -47,8 +56,20 @@ SELF_FIELDS: tuple[str, ...] = (
     "yaw_sin", "yaw_cos", "pitch_sin", "pitch_cos",
     "onground",
     "health_norm", "armor_norm",
+    "yaw_rate_z",
+    "face_vel_angle_norm",
 )
 SELF_DIM = len(SELF_FIELDS)
+
+# the stats_key under per_map[<map>] that yaw_rate_z z-scores against (fitted by
+# ml/pipeline/normalize_fit.py from consecutive-tick view-yaw deltas, same spec shape
+# as the vel_* zscore keys). face_vel_angle_norm is a parameter-free signed /180 scalar
+# (no fitted key — like the sincos/divide_period features), so its SIGN survives.
+_YAW_RATE_STATS_KEY = "yaw_rate"
+_FACE_VEL_ANGLE_SCALE = 180.0   # signed angle (deg) -> ~[-1,1]; SIGN preserved
+# below this horizontal-speed floor (qu/s) the velocity heading is undefined, so BOTH
+# vel_heading_sincos AND face_vel_angle emit 0 (registry note; matches extract_features).
+_VEL_HEADING_FLOOR = 80.0
 
 # Per-OTHER-actor vector (entities.npy innermost width), in registry order:
 #   entity_rel_dist_norm                                    (1)  /diagonal
@@ -100,6 +121,38 @@ _BTN_JUMP = 2      # buttons & 2  -> jump
 _BTN_ATTACK = 1    # buttons & 1  -> attack
 
 
+# --- turn-direction shared math (THE parity guarantee) -----------------------
+# wrap180 + yaw_rate_degps are the SINGLE source of truth for the turn-direction
+# signal, so the offline build (ml/pipeline/build_features.py) and every inference
+# call-site (eval_broad_dryroute / eval_broad_closedloop) are byte-identical for the
+# same (yaw, prev_yaw, dt). They live HERE (not duplicated in each caller) precisely
+# so train and serve cannot drift.
+def wrap180(deg: float) -> float:
+    """Wrap an angle (degrees) into (-180, 180]. Pure stdlib. A turn across the +-180
+    seam is a SMALL signed delta, not ~360 — so yaw_rate and face_vel_angle stay
+    continuous (e.g. 170 -> -170 is a +20 deg turn, not -340)."""
+    d = math.fmod(float(deg) + 180.0, 360.0)
+    if d <= 0.0:
+        d += 360.0
+    return d - 180.0
+
+
+def yaw_rate_degps(yaw: float, prev_yaw: float | None, dt_s: float) -> float:
+    """Signed view-yaw turn rate (deg/s): wrap180(yaw - prev_yaw) / dt_s.
+
+    THE air-strafe direction signal. `prev_yaw` is the PREVIOUS tick's view yaw; on the
+    first tick of an episode/rollout (prev_yaw is None) OR a non-positive dt the rate is
+    0.0 by convention (no turn information yet). The SAME helper is called by the offline
+    feature build and by every inference rollout, so the value is identical for identical
+    inputs (the parity contract). Pure stdlib."""
+    if prev_yaw is None:
+        return 0.0
+    dt = float(dt_s)
+    if dt <= 0.0:
+        return 0.0
+    return wrap180(float(yaw) - float(prev_yaw)) / dt
+
+
 def encode_action(action_state: dict | None) -> list[float]:
     """Encode one (episode,tick) `actions` row -> the broad usercmd TARGET vector
     (length ACT_DIM), in ACT_FIELDS order. Pure stdlib; the SINGLE action encoder
@@ -129,8 +182,15 @@ def self_features(self_state: dict, stats: dict, map_name: str = "dm3") -> list[
     """Normalized SELF feature vector (length SELF_DIM) for one ego tick.
 
     `self_state` keys (qu / qu/s / deg), any missing one treated as 0 / unknown:
-        ox, oy, oz, vx, vy, vz, yaw, pitch, hspeed, onground, health, armor
-    `stats` = a normalization_stats.json dict (per_map[map] holds pos_*/vel_*/hspeed).
+        ox, oy, oz, vx, vy, vz, yaw, pitch, hspeed, onground, health, armor, yaw_rate
+    `stats` = a normalization_stats.json dict (per_map[map] holds pos_*/vel_*/hspeed,
+    plus `yaw_rate` for the appended turn-rate feature).
+
+    yaw_rate: the RAW signed turn rate (deg/s) for THIS tick, precomputed by the caller
+    via yaw_rate_degps(yaw, prev_yaw, dt) and passed in self_state["yaw_rate"] (the SAME
+    helper offline + inference call, so the value is parity-identical). Absent/None ->
+    0.0 (first tick, or a caller with no previous yaw). face_vel_angle is derived INSIDE
+    here from yaw + vx/vy (no new self_state key), with the SAME velocity-heading floor.
     """
     pm = stats["per_map"][map_name]
     ox = float(self_state.get("ox", 0.0))
@@ -152,12 +212,18 @@ def self_features(self_state: dict, stats: dict, map_name: str = "dm3") -> list[
     vel_z = normalize(vz, pm["vel_z"])
     hsp = normalize(hspeed, pm["hspeed"])
 
-    # velocity heading (sincos) — only meaningful when actually moving; below the
-    # 80 qu/s floor (registry note) the heading is undefined, so emit (0,0).
-    if hspeed >= 80.0:
-        vh_sin, vh_cos = normalize(math.degrees(math.atan2(vy, vx)), {"method": "sincos"})
+    # velocity heading (deg) — only meaningful when actually moving; below the 80 qu/s
+    # floor (registry note) the heading is undefined, so vel_heading sincos AND the
+    # signed face_vel_angle both emit 0.
+    if hspeed >= _VEL_HEADING_FLOOR:
+        vel_heading = math.degrees(math.atan2(vy, vx))
+        vh_sin, vh_cos = normalize(vel_heading, {"method": "sincos"})
+        # signed offset of FACING from travel direction (the air-strafe geometry).
+        # SIGN must survive: a normalized signed scalar in ~[-1,1] (wrap180 then /180).
+        face_vel_angle_n = wrap180(yaw - vel_heading) / _FACE_VEL_ANGLE_SCALE
     else:
         vh_sin, vh_cos = 0.0, 0.0
+        face_vel_angle_n = 0.0
 
     yaw_sin, yaw_cos = normalize(yaw, {"method": "sincos"})
     pitch_sin, pitch_cos = normalize(pitch, {"method": "sincos"})
@@ -168,6 +234,13 @@ def self_features(self_state: dict, stats: dict, map_name: str = "dm3") -> list[
     health_n = (min(max(float(health), 0.0), _HEALTH_CAP) / _HEALTH_CAP) if health is not None else 0.0
     armor_n = (min(max(float(armor), 0.0), _ARMOR_CAP) / _ARMOR_CAP) if armor is not None else 0.0
 
+    # yaw_rate: RAW deg/s from the caller (yaw_rate_degps); z-scored per-map like vel_*.
+    # None/absent -> 0.0 (first tick / no previous yaw). normalize() applies the spec's
+    # clip then (x-mean)/std, so the same fitted stats run offline and at inference.
+    yaw_rate_raw = self_state.get("yaw_rate")
+    yaw_rate_raw = 0.0 if yaw_rate_raw is None else float(yaw_rate_raw)
+    yaw_rate_z = normalize(yaw_rate_raw, pm[_YAW_RATE_STATS_KEY])
+
     return [
         pos_x, pos_y, pos_z,
         vel_x, vel_y, vel_z,
@@ -176,6 +249,8 @@ def self_features(self_state: dict, stats: dict, map_name: str = "dm3") -> list[
         yaw_sin, yaw_cos, pitch_sin, pitch_cos,
         onground,
         health_n, armor_n,
+        yaw_rate_z,
+        face_vel_angle_n,
     ]
 
 

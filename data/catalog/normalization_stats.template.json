@@ -140,6 +140,15 @@
         "computed_from": {"split": "train", "n": 0, "dataset_version": "TEMPLATE"},
         "clip": [0.0, 1024.0],
         "_example": false
+      },
+      "yaw_rate": {
+        "method": "zscore",
+        "mean": 0.0,
+        "std": 220.0,
+        "computed_from": {"split": "train", "n": 0, "dataset_version": "TEMPLATE"},
+        "clip": [-1500.0, 1500.0],
+        "_example": true,
+        "_note": "Turn-direction signal: signed view-yaw rate (deg/s) = wrap180(yaw[t]-yaw[t-1])/dt, fitted from consecutive-tick deltas via the SHARED agent_observation.yaw_rate_degps. SELF feature yaw_rate_z z-scores against this. face_vel_angle_norm needs NO fitted key (parameter-free signed /180 scalar). std placeholder; fit on train shards."
       }
     },
     "dm2": {

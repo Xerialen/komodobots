@@ -107,20 +107,44 @@ def robust_spec(values, clip=None) -> dict:
 # transform REUSES them for the egocentric entity_rel_vel_* channels (no separate
 # fitted key — feature_registry.yaml). hspeed is robust. Position is the static map
 # AABB (minmax), not fitted from data, so it is carried from the template/maps.v1.
+# yaw_rate (the turn-direction signal) is zscore, fitted from consecutive-tick view-yaw
+# deltas using the SAME AO.yaw_rate_degps the build + inference call (so the fitted
+# mean/std match the exact values self_features later z-scores).
 _VEL_CLIP = {"vel_x": [-2500.0, 2500.0], "vel_y": [-2500.0, 2500.0], "vel_z": [-1000.0, 1000.0]}
 _HSPEED_CLIP = [0.0, 2500.0]
+# yaw_rate clip (deg/s): a single ~13ms frame rarely turns more than ~half a circle, so
+# +-1500 deg/s bounds physical mouse turns while clipping the rare wrap/teleport spike.
+_YAW_RATE_CLIP = [-1500.0, 1500.0]
+# fallback per-tick frame time (ms) for yaw_rate when a player_ticks row has no msec —
+# mirrors build_features.FRAME_DT_MS (the recorded ~13ms QW tick cadence).
+_FRAME_DT_MS = 13.0
+
+
+def _yaw_rate_helper():
+    """Resolve the SHARED agent_observation.yaw_rate_degps (the build + inference helper)
+    so the fit computes yaw_rate identically. Adds the in-tree scripts/ dir to sys.path
+    (the same shared package build_features imports). Lazy so the module stays import-light
+    and degrades gracefully if the layout is unusual."""
+    import sys
+    from pathlib import Path
+    scripts = Path(__file__).resolve().parents[2] / "scripts"
+    if str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    from features.agent_observation import yaw_rate_degps  # noqa: E402  (shared, stdlib)
+    return yaw_rate_degps
 
 
 def fit_from_catalog(sqlite_path, split: str = "train", map_name: str = "dm3") -> dict:
-    """Fit per-map velocity (zscore) + hspeed (robust) stats from the catalog,
-    streaming ONLY the rows whose episode is in `split` (default 'train') — the
-    train-only normalization contract. Reads player_ticks (the ego self spine) joined
-    to episodes for the split filter.
+    """Fit per-map velocity (zscore) + hspeed (robust) + yaw_rate (zscore) stats from the
+    catalog, streaming ONLY the rows whose episode is in `split` (default 'train') — the
+    train-only normalization contract. Reads player_ticks (the ego self spine) joined to
+    episodes for the split filter.
 
-    Returns {map_name: {"vel_x":spec, "vel_y":spec, "vel_z":spec, "hspeed":spec}} plus
-    the row count it fitted on. sqlite3 is stdlib; this stays import-light, but lives
-    in ml/ because it is the *fitting* side (the applying side is scripts/features).
-    """
+    Returns {map_name: {"vel_x":spec, "vel_y":spec, "vel_z":spec, "hspeed":spec,
+    "yaw_rate":spec}} plus the row count it fitted on. sqlite3 is stdlib; this stays
+    import-light, but lives in ml/ because it is the *fitting* side (the applying side
+    is scripts/features). yaw_rate is computed per-episode from CONSECUTIVE-tick yaw via
+    the shared helper, so its fitted mean/std match what self_features normalizes."""
     import sqlite3
 
     con = sqlite3.connect(str(sqlite_path))
@@ -130,6 +154,16 @@ def fit_from_catalog(sqlite_path, split: str = "train", map_name: str = "dm3") -
                  FROM player_ticks pt
                  JOIN episodes e USING(episode_id)
                 WHERE e.split = ?""",
+            (split,),
+        ).fetchall()
+        # yaw_rate spine: episode-ordered (episode, tick) so consecutive rows of one
+        # episode are adjacent — the SAME ordering build_features._load_episode_ticks uses.
+        yaw_rows = con.execute(
+            """SELECT e.episode_id, pt.tick, pt.yaw, pt.msec
+                 FROM player_ticks pt
+                 JOIN episodes e USING(episode_id)
+                WHERE e.split = ?
+                ORDER BY e.episode_id, pt.tick""",
             (split,),
         ).fetchall()
     finally:
@@ -147,11 +181,30 @@ def fit_from_catalog(sqlite_path, split: str = "train", map_name: str = "dm3") -
         if hsp is not None:
             hspeeds.append(float(hsp))
 
+    # yaw_rate (zscore): per-episode consecutive-tick turn rate via the SHARED helper.
+    # prev_yaw resets at each new episode (first tick -> rate 0.0, the build's convention);
+    # the first-tick zeros ARE fed (every tick the build emits is normalized) so the fit
+    # distribution matches inference exactly.
+    yrd = _yaw_rate_helper()
+    wyr = Welford()
+    prev_yaw = None
+    prev_eid = None
+    for eid, _tick, yaw, msec in yaw_rows:
+        if eid != prev_eid:
+            prev_yaw = None             # new episode -> no previous yaw
+            prev_eid = eid
+        if yaw is None:
+            continue
+        dt_s = (float(msec) if msec else _FRAME_DT_MS) / 1000.0
+        wyr.update(yrd(float(yaw), prev_yaw, dt_s))
+        prev_yaw = float(yaw)
+
     feats = {
         "vel_x": wx.zscore_spec(clip=_VEL_CLIP["vel_x"]),
         "vel_y": wy.zscore_spec(clip=_VEL_CLIP["vel_y"]),
         "vel_z": wz.zscore_spec(clip=_VEL_CLIP["vel_z"]),
         "hspeed": robust_spec(hspeeds, clip=_HSPEED_CLIP),
+        "yaw_rate": wyr.zscore_spec(clip=_YAW_RATE_CLIP),
     }
     return {"map": map_name, "n_rows": len(rows), "feats": feats}
 
