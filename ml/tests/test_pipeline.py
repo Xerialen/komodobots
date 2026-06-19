@@ -217,7 +217,7 @@ class TestP3TrainOnlyFit(unittest.TestCase):
             out = Path(d) / "stats.json"
             doc = NF.fit_stats_doc(db, out, split="train", map_name="dm3", artifact_version="t")
             self.assertEqual(doc["computed_from"], "train")
-            self.assertEqual(doc["registry_version"], 2)
+            self.assertEqual(doc["registry_version"], 3)
             self.assertIn("vel_x", doc["per_map"]["dm3"])
             self.assertEqual(doc["per_map"]["dm3"]["pos_x"]["method"], "minmax")
             # writing is byte-stable (sort_keys) -> re-write hashes identical

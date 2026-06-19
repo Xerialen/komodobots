@@ -119,6 +119,7 @@ import eval_broad_closedloop as CL               # noqa: E402  (deps-free glue)
 from features.agent_observation import (                                    # noqa: E402
     yaw_rate_degps as AO_yaw_rate_degps,
     wrap180 as AO_wrap180,
+    _VEL_HEADING_FLOOR as AO_VEL_HEADING_FLOOR,
 )
 
 GATE_ROUTE_PCT = 80.0
@@ -194,6 +195,13 @@ def make_row(t, origin, vel, onground, over_void, goal):
 # byte-for-byte (no second, drift-prone copy). Kept under the module-local name the
 # trace builders + tests already use.
 _wrap180 = AO_wrap180
+# THE shared 80 qu/s velocity-heading floor from agent_observation.self_features. The
+# trace's vel_heading / face_vel_angle columns MUST mirror it exactly: below this
+# horizontal-speed floor the velocity heading is undefined, so self_features emits a
+# ZEROED heading (vel_heading sincos = 0) AND face_vel_angle_norm = 0. Reusing the SAME
+# constant (not a re-hardcoded 80.0) guarantees train/trace parity in the low-speed
+# cold-start/bleed band the action-trace exists to diagnose — they cannot drift.
+_VEL_HEADING_FLOOR = AO_VEL_HEADING_FLOOR
 
 
 def make_trace_row(t, *, onground, yaw, yaw_prev, msec, vx, vy,
@@ -207,10 +215,13 @@ def make_trace_row(t, *, onground, yaw, yaw_prev, msec, vx, vy,
         so its rate is 0 by convention).
       * vh           = hypot(vx, vy) — the POST-frame horizontal speed (the outcome).
       * vel_heading  = atan2(vy, vx) in DEGREES — the direction the bot is actually
-        moving (undefined at vh==0 -> reported as the yaw so face_vel_angle is 0).
+        moving. BELOW the shared 80 qu/s velocity-heading floor (_VEL_HEADING_FLOOR, the
+        SAME guard agent_observation.self_features applies) the heading is undefined, so
+        BOTH vel_heading AND face_vel_angle read 0 — exactly what the OBS saw, so the
+        trace does not mis-explain the slow cold-start/bleed ticks it exists to diagnose.
       * face_vel_angle = _wrap180(yaw - vel_heading) — how far the bot's facing is off
         its travel direction (the air-strafe geometry: a good strafe holds a small,
-        consistent offset).
+        consistent offset). 0 below the floor (mirrors self_features.face_vel_angle_norm).
 
     pol_* are the decoded policy usercmd (fwd_mag/side_mag/up_mag in +-MOVE_MAG/0,
     jump_bit in {0, BUTTON_JUMP}). hum_* are the human usercmd that tick (raw
@@ -220,7 +231,18 @@ def make_trace_row(t, *, onground, yaw, yaw_prev, msec, vx, vy,
     vxf, vyf = float(vx), float(vy)
     vh = math.hypot(vxf, vyf)
     yaw_f = float(yaw)
-    vel_heading = math.degrees(math.atan2(vyf, vxf)) if vh > 0.0 else yaw_f
+    # SAME 80 qu/s velocity-heading floor as agent_observation.self_features: below it the
+    # heading is undefined, so vel_heading AND the derived face_vel_angle BOTH read 0 (the
+    # obs emitted a zeroed heading + face_vel_angle_norm=0 there). At/above the floor it is
+    # atan2(vy,vx) in degrees and face_vel_angle = wrap180(yaw - vel_heading). This mirrors
+    # the exact threshold + semantics so the trace cannot report a nonzero look-vs-move
+    # angle on a low-speed tick the real observation scored as zero (train/trace parity).
+    if vh >= _VEL_HEADING_FLOOR:
+        vel_heading = math.degrees(math.atan2(vyf, vxf))
+        face_vel_angle = _wrap180(yaw_f - vel_heading)
+    else:
+        vel_heading = 0.0
+        face_vel_angle = 0.0
     dt = float(msec) / 1000.0
     yaw_rate = (_wrap180(yaw_f - float(yaw_prev)) / dt) if dt > 0.0 else 0.0
     return {
@@ -230,7 +252,7 @@ def make_trace_row(t, *, onground, yaw, yaw_prev, msec, vx, vy,
         "yaw_rate": yaw_rate,
         "vh": vh,
         "vel_heading": vel_heading,
-        "face_vel_angle": _wrap180(yaw_f - vel_heading),
+        "face_vel_angle": face_vel_angle,
         "pol_fwd": float(pol_fwd),
         "pol_side": float(pol_side),
         "pol_up": float(pol_up),
@@ -753,6 +775,13 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
     # gold artifact. Resolving the WRONG stats would silently de-normalize the obs.
     norm_path = _resolve_norm_path(ckpt, norm_artifact)
     stats = json.loads(norm_path.read_text(encoding="utf-8"))
+    # Reject a stale/mismatched normalization artifact BEFORE the rollout: the v3 SELF
+    # path z-scores yaw_rate_z against per_map[<map>].yaw_rate, so a v2 stats artifact
+    # (no yaw_rate, or a registry_version != EXPECTS) would silently de-normalize the
+    # appended turn-rate feature. The SAME shared check_norm_artifact the trainer side
+    # uses (no drift); raises ValueError loudly if the key is missing.
+    from broad_bc import shard_contract as _SC
+    _SC.check_norm_artifact(stats, map_name, where=f"norm_artifact={norm_path}")
 
     world = PM.WorldModel.load(str(Path(bsp).expanduser()))
     route, frames, human_rows, human_tws, agreement = load_route_with_human(route_name, world)

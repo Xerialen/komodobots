@@ -1,7 +1,8 @@
 # =============================================================================
 # komodobots ML Feature Registry
-# schema tag: komodobots.feature_registry.v1   (v1 features unchanged; v2 adds groups)
-# registry_version: 2
+# schema tag: komodobots.feature_registry.v1   (v1 features unchanged; v2 adds groups;
+#             v3 APPENDS the turn-direction SELF features yaw_rate_z + face_vel_angle_norm)
+# registry_version: 3
 #
 # Single declarative source for every model input. The SAME `transform` string
 # drives offline mining (gold/features Parquet build) AND the live online encoder
@@ -20,7 +21,7 @@
 # `group: per_map` => stats keyed by map in normalization_stats; `global` => one set;
 # `none` => transform is parameter-free (sincos, divide_period, identity).
 # =============================================================================
-registry_version: 2
+registry_version: 3
 entity: { name: agent, join_keys: [episode_id, tick] }
 normalization_artifact: norm/normalization_stats.template.json
 catalog: schema/catalog.sql

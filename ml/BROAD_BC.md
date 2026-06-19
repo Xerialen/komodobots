@@ -37,7 +37,7 @@ so the deps-free smoke exercises the *real* contract.
 ## SHARD CONTRACT (what FEAT emits / what the loader consumes)
 
 Authoritative source: `data/catalog/dataset_spec.yaml` (`komodobots.dataset_spec.v1`,
-`registry_version: 2`) + `data/catalog/feature_registry.yaml`. One **sample = one window
+`registry_version: 3`) + `data/catalog/feature_registry.yaml`. One **sample = one window
 of K ticks**. FEAT's REAL build (`ml/pipeline/build_features.py shard`) emits **one
 Parquet file** holding MANY windows (and many demos) with the per-window arrays stored
 row-major-**flattened** as `list<float32>`; the loader (`core._read_parquet_shard`)
@@ -48,7 +48,7 @@ is tolerant to FEAT's final widths.
 
 | key | shape | dtype | meaning |
 |---|---|---|---|
-| `obs` | `[K, F_obs]` | float32 | normalized **self** features (position+velocity+orientation+player_resource; `F_obs=16`) |
+| `obs` | `[K, F_obs]` | float32 | normalized **self** features (position+velocity+orientation+player_resource + the two appended turn-direction features `yaw_rate_z` + `face_vel_angle_norm`; `F_obs=18` at `registry_version 3` = `SELF_DIM` / `EXPECTS_SELF_DIM`) |
 | `entities` | `[K, N_max, F_ent]` | float32 | per **observed-other** actor egocentric vector (enemies + teammates; `F_ent=13`). Team is **folded in** as the per-entity `is_teammate` flag. |
 | `ent_mask` | `[K, N_max]` | float32 | `1`=real other-actor slot, `0`=pad/absent |
 | `act` | `[K, F_act]` | float32 | **action targets** (human usercmd); `F_act=5` = fwd/side/up move + jump + attack (the cloned heads) |
@@ -100,8 +100,13 @@ metadata; `audio` and `team` are **absent** (`.qwd` has no audio; team is folded
 entity `is_teammate` flag) and the loader zero-fills them, so `F_aux = 0`.
 
 `shard_contract.SHARD_CONTRACT_VERSION = "broad_bc.shard_contract.v1"` and
-`EXPECTS_REGISTRY_VERSION = 2`. If FEAT's `meta.registry_version` differs from 2, that is a
-hard mismatch to resolve before training. (Should FEAT ever reorder `act`, pass a
+`EXPECTS_REGISTRY_VERSION = 3` (`EXPECTS_SELF_DIM = 18`, `REQUIRED_NORM_KEYS = ("yaw_rate",)`).
+The loader REJECTS a stale/mislabelled shard before training via `SC.check_shard_meta`:
+if `meta.registry_version` differs from 3 (a stale v2 16-channel SELF shard) **or**
+`meta.obs_dim` differs from 18 (a hand-edited v3-labelled-but-16-channel artifact), it
+raises. The normalization artifact is likewise checked (`SC.check_norm_artifact`): a v2
+stats artifact missing the `per_map.<map>.yaw_rate` key is rejected (not zero-filled),
+since `yaw_rate_z` z-scores against it. (Should FEAT ever reorder `act`, pass a
 `ShardSchema(act_cols=...)` — a one-object change; see
 `test_rebind_schema_with_reordered_act_cols`.)
 

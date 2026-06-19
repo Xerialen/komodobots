@@ -35,8 +35,24 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import eval_broad_dryroute as DR     # noqa: E402  (deps-free at import time)
 import route_metrics as RM           # noqa: E402  (pure-stdlib sibling; TELEPORT_JUMP)
+from features import agent_observation as AO   # noqa: E402  (shared SELF transform; floor parity)
 
 _HAVE_TORCH = importlib.util.find_spec("torch") is not None
+
+
+def _floor_parity_stats():
+    """Minimal normalization_stats dict for AO.self_features in the floor-parity test.
+    self_features reads per_map[map] keys (pos/vel/hspeed/yaw_rate); identity-ish specs
+    are enough — the floor branch zeroes the heading regardless of the fitted values, so
+    these only need to be present and well-formed. Pure stdlib."""
+    z = {"method": "zscore", "mean": 0.0, "std": 1.0}
+    mm = {"method": "minmax", "min": -1.0, "max": 1.0}
+    rb = {"method": "robust", "median": 0.0, "iqr": 1.0}
+    return {"per_map": {"dm3": {
+        "pos_x": mm, "pos_y": mm, "pos_z": mm,
+        "vel_x": z, "vel_y": z, "vel_z": z,
+        "hspeed": rb, "yaw_rate": z,
+    }}}
 
 
 # --------------------------------------------------------------------------- #
@@ -742,16 +758,63 @@ class TestMakeTraceRow(unittest.TestCase):
         self.assertAlmostEqual(r["yaw_rate"], 0.0)
 
     def test_face_vel_angle_is_yaw_minus_velocity_heading(self):
-        # facing yaw 90, moving +x (heading 0) -> 90 deg off travel.
+        # facing yaw 90, moving +x (heading 0) at 300 qu/s (>= 80 floor) -> 90 deg off.
         r = _trace_row(yaw=90.0, yaw_prev=90.0, vx=300.0, vy=0.0)
         self.assertAlmostEqual(r["vel_heading"], 0.0)
         self.assertAlmostEqual(r["face_vel_angle"], 90.0)
 
-    def test_zero_velocity_heading_defaults_to_yaw(self):
-        # vh == 0 -> vel_heading defined as yaw so face_vel_angle is 0 (not a NaN/atan2(0,0)).
+    def test_zero_velocity_heading_and_face_angle_zero_below_floor(self):
+        # vh == 0 is below the 80 qu/s floor -> vel_heading AND face_vel_angle both 0
+        # (mirrors agent_observation.self_features: zeroed heading sincos + face angle 0;
+        # no NaN/atan2(0,0)). NOTE the v3 floor semantics: below the floor vel_heading
+        # reads 0 (not the yaw) so the trace matches what the obs scored.
         r = _trace_row(yaw=45.0, yaw_prev=45.0, vx=0.0, vy=0.0)
-        self.assertAlmostEqual(r["vel_heading"], 45.0)
+        self.assertAlmostEqual(r["vel_heading"], 0.0)
         self.assertAlmostEqual(r["face_vel_angle"], 0.0)
+
+    def test_velocity_heading_floor_matches_agent_observation(self):
+        # the trace's floor MUST be the SAME constant agent_observation.self_features
+        # uses (reused, not re-hardcoded) so train and trace cannot drift.
+        self.assertEqual(DR._VEL_HEADING_FLOOR, AO._VEL_HEADING_FLOOR)
+        self.assertEqual(DR._VEL_HEADING_FLOOR, 80.0)
+
+    def test_slow_band_below_floor_zeroes_heading_and_face_angle(self):
+        """REGRESSION for the P2 floor-mismatch finding: in the 0 < vh < 80 cold-start/
+        bleed band, make_trace_row's vel_heading AND face_vel_angle must read 0 — exactly
+        what agent_observation.self_features emits there (vel_heading sincos = 0,
+        face_vel_angle_norm = 0). Before the fix the trace reported a NONZERO look-vs-move
+        angle on these slow ticks, mis-explaining the very low-speed behavior it diagnoses.
+        We assert BOTH directly and against what self_features would produce on the SAME
+        kinematics, so the parity is checked end-to-end (not just to a magic number)."""
+        # a tick squarely inside the band: hspeed = hypot(40, 30) = 50 qu/s (< 80), and
+        # the facing (yaw 90) is well off the travel direction (heading atan2(30,40)~36.9).
+        vx, vy, yaw = 40.0, 30.0, 90.0
+        self.assertLess(math.hypot(vx, vy), DR._VEL_HEADING_FLOOR)
+        r = _trace_row(yaw=yaw, yaw_prev=yaw, vx=vx, vy=vy)
+        self.assertAlmostEqual(r["vel_heading"], 0.0)
+        self.assertAlmostEqual(r["face_vel_angle"], 0.0)
+        self.assertAlmostEqual(r["vh"], 50.0)            # vh itself still reported
+
+        # PARITY: self_features on the SAME kinematics emits a zeroed velocity-heading
+        # sincos AND face_vel_angle_norm = 0 (the last appended SELF channel). The trace
+        # must agree with that, which is the whole point of mirroring the floor.
+        stats = _floor_parity_stats()
+        sf = AO.self_features(
+            {"ox": 0.0, "oy": 0.0, "oz": 0.0, "vx": vx, "vy": vy, "vz": 0.0,
+             "yaw": yaw, "pitch": 0.0, "onground": False, "health": 100, "armor": 0,
+             "yaw_rate": 0.0}, stats, "dm3")
+        # SELF layout: ... vh_sin(7) vh_cos(8) ... face_vel_angle_norm(17, last)
+        self.assertAlmostEqual(sf[7], 0.0)               # vel_heading_sin zeroed
+        self.assertAlmostEqual(sf[8], 0.0)               # vel_heading_cos zeroed
+        self.assertAlmostEqual(sf[AO.SELF_DIM - 1], 0.0)  # face_vel_angle_norm zeroed
+
+    def test_at_floor_is_active_band(self):
+        # exactly AT the floor (vh == 80) the heading IS defined (>= floor, mirroring
+        # self_features' `hspeed >= _VEL_HEADING_FLOOR`), so face_vel_angle is nonzero.
+        r = _trace_row(yaw=90.0, yaw_prev=90.0, vx=80.0, vy=0.0)
+        self.assertAlmostEqual(r["vh"], 80.0)
+        self.assertAlmostEqual(r["vel_heading"], 0.0)    # moving +x
+        self.assertAlmostEqual(r["face_vel_angle"], 90.0)  # defined at the floor
 
 
 class TestAnalyzeActionTrace(unittest.TestCase):

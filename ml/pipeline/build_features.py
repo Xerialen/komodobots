@@ -375,7 +375,10 @@ def build_observation_shard(
     norm_ver = str(norm.get("artifact_version", "UNSET"))
     schema_meta = {
         b"komodobots.shard.contract": b"broad_bc.shard_contract.v1",
-        b"komodobots.shard.registry_version": str(norm.get("registry_version", 2)).encode(),
+        # stamp the registry_version from the (v3) norm artifact; fall back to 3 — the
+        # current EXPECTS_REGISTRY_VERSION — so a shard is never mislabelled as stale v2
+        # (the SELF vector this build emits is 18-wide: agent_observation.SELF_DIM).
+        b"komodobots.shard.registry_version": str(norm.get("registry_version", 3)).encode(),
         b"komodobots.shard.K": str(K).encode(),
         b"komodobots.shard.n_max": str(n_max).encode(),
         b"komodobots.shard.obs_dim": str(S).encode(),

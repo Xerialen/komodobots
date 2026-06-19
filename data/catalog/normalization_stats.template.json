@@ -1,9 +1,10 @@
 {
   "schema": "komodobots.normalization_stats.v1",
   "_doc": "Frozen, versioned normalization artifact. Computed from the TRAIN SPLIT ONLY (episodes.split='train'), streamed via Welford/Chan over shards, then re-applied byte-identically at val/test/inference. A model card pins (git_sha, dvc_dataset_hash, artifact_version, registry_version) to make any run reproducible. Methods: zscore{mean,std} | minmax{min,max} | robust{median,iqr} | log1p_zscore{mean,std after log1p} | sincos{} (parameter-free) | divide_period{period} (parameter-free constant denom) | identity{}. `clip` is applied BEFORE the transform when present.",
-  "artifact_version": "0.2.0-template",
-  "registry_version": 2,
+  "artifact_version": "0.3.0-template",
+  "registry_version": 3,
   "_doc_v2": "v2 (4on4) additions: global.time_since_seen (belief), global.team_spread, global.audio_intensity; sincos adds rel_bearing/rel_pitch/audio_dir; divide_period adds ammo caps sh/nl/rk/cl (entity health/armor reuse the existing /250 //200 divide_period; quad/pent/ring_remaining reused for self AND entities). Schema tag stays komodobots.normalization_stats.v1 (artifact shape unchanged). Entity rel_vel REUSES per_map.<map>.vel_x/y/z; rel_dist is identity-after-/diagonal (no fitted key). dm3 AABB is asymmetric and VERIFIED — do not replace with a blanket +-2048.",
+  "_doc_v3": "v3 (turn-direction) addition: per_map.<map>.yaw_rate (zscore) — the REQUIRED key the appended SELF feature yaw_rate_z z-scores against (shard_contract.REQUIRED_NORM_KEYS). face_vel_angle_norm is parameter-free (signed /180) and needs NO fitted key. SELF vector is now 18-wide (the frozen-16 + yaw_rate_z + face_vel_angle_norm). A v2 stats artifact (no yaw_rate) is REJECTED by shard_contract.check_norm_artifact.",
   "fitted_on": "TEMPLATE — replace with e.g. train_split_2026-06-18",
   "split_def": "grouped_by_demo_id (held-out players: [milton] reserved for style-generalization test)",
   "n_samples": 0,

@@ -110,17 +110,16 @@ def rows_to_tensors(shard_paths, schema, device):
         shard = core.read_shard(p)
         meta = shard.get(SC.KEY_META, {})
         default_demo = meta.get("demo_id", "?")
-        # Reject stale/future shards: a shard whose registry_version differs from
-        # the version the model card pins (EXPECTS_REGISTRY_VERSION) is misbound —
-        # the obs/entities/act column meanings may have changed. Fail BEFORE the
-        # GPU run rather than silently train on misaligned inputs/labels. A shard
-        # that omits registry_version (e.g. legacy) is treated as matching.
-        rv = meta.get("registry_version")
-        if rv is not None and int(rv) != SC.EXPECTS_REGISTRY_VERSION:
-            raise ValueError(
-                f"shard registry_version {rv} != expected "
-                f"{SC.EXPECTS_REGISTRY_VERSION} (shard={p}, demo_id={default_demo}); "
-                f"refusing to train on a mismatched FEAT shard")
+        # Reject stale/future/mislabelled shards BEFORE the GPU run rather than silently
+        # training on misaligned inputs/labels. The shared SC.check_shard_meta enforces
+        # BOTH guards (so the rule cannot drift between trainer and eval):
+        #   * registry_version present and != EXPECTS_REGISTRY_VERSION (the stale-v2
+        #     equality guard — a v2 16-channel SELF shard must not bind to v3's 18-channel
+        #     layout), AND
+        #   * obs_dim present and != EXPECTS_SELF_DIM (catches a hand-edited
+        #     v3-LABELLED-but-16-channel artifact whose SELF width never grew).
+        # A shard that OMITS a field is treated as matching (legacy / minimal smoke).
+        SC.check_shard_meta(meta, where=f"shard={p}, demo_id={default_demo}")
         obs = shard[SC.KEY_OBS]
         ent = shard.get(SC.KEY_ENTITIES)
         em = shard.get(SC.KEY_ENT_MASK)

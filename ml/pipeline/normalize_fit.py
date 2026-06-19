@@ -225,7 +225,11 @@ def write_stats(per_map_fits: dict, out_path, **meta) -> None:
     doc = {
         "schema": "komodobots.normalization_stats.v1",
         "artifact_version": meta.get("artifact_version", "0.0.0-fit"),
-        "registry_version": 2,
+        # registry_version 3: the fit emits the per_map yaw_rate key the v3 SELF path
+        # requires (REQUIRED_NORM_KEYS), so the artifact this writer produces IS a v3
+        # artifact — stamp it so shard_contract.check_norm_artifact accepts it (and a
+        # stale v2 stamp would be rejected loudly).
+        "registry_version": 3,
         "computed_from": meta.get("computed_from", "train"),
         "split_def": meta.get("split_def", "group_by_demo_id"),
         "fitted_on": meta.get("fitted_on", "UNSET"),
@@ -268,7 +272,7 @@ if __name__ == "__main__":
     ap.add_argument("--out", type=Path, required=True, help="output normalization_stats.json")
     ap.add_argument("--split", default="train")
     ap.add_argument("--map", default="dm3")
-    ap.add_argument("--artifact-version", default="0.3.0-p3fit")
+    ap.add_argument("--artifact-version", default="0.3.0-v3fit")
     args = ap.parse_args()
     d = fit_stats_doc(args.db, args.out, split=args.split, map_name=args.map,
                       artifact_version=args.artifact_version)
