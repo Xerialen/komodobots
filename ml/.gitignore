@@ -1,0 +1,19 @@
+# ml/ training artifacts — generated, never committed (large/host-specific).
+.venv-ml/
+__pycache__/
+*.pyc
+
+# trainer outputs
+*.pt
+*.ckpt.json
+broad_bc_policy*.json
+broad_bc_smoke*/
+metrics.json
+model_card.json
+shard_contract.resolved.json
+
+# datasets / shards (FEAT gold tensors + synthetic smoke corpora live off-tree)
+*.npz
+*.shard.json.gz
+synth_corpus/
+gold/

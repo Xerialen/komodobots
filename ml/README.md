@@ -44,8 +44,13 @@ pip install -r requirements.txt
 2. **`pipeline/normalize_fit.py`** — stream the TRAIN split with Welford/Chan to
    produce a frozen `normalization_stats.json` (the artifact `scripts/features`
    reads at train *and* inference).
-3. **training** (later) — sequence model over `actor_ticks` windows with the
-   `agent_observation` masking from `00-DATA-ARCHITECTURE.md` §2.8.
+3. **training — `train_broad_bc.py`** (+ the `broad_bc/` package): the **BROAD**,
+   enemy/team-aware behavioral-cloning trainer. Its input is the full POMDP
+   `agent_observation` (self `obs` + per-observed-other `entities` + `team`/`audio`,
+   `00-DATA-ARCHITECTURE.md` §2.8), pooled with a masked DeepSets head, cloning the
+   broad usercmd (move + jump + attack) — **not** movement-only. See **`BROAD_BC.md`**
+   for the SHARD CONTRACT it consumes, the deps-free CPU smoke (`smoke_broad_bc.py`),
+   and the `pinnacle` GPU run command.
 
 ## Shard schema contract (P3 — `build_observation_shard`)
 
