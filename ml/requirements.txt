@@ -7,8 +7,9 @@ pyarrow>=17,<19         # Parquet/Arrow IO, WebDataset/HDF5 interchange
 pandera>=0.20,<0.23     # dataframe schema validation (the heavy counterpart to scripts/validate_catalog.py)
 pandas>=2.2,<3          # pandera + frame wrangling
 numpy>=1.26,<3          # vector math for the feature build
-torch>=2.3              # sequence model training (LSTM/transformer over actor_ticks windows)
+torch>=2.3              # model training: train_broad_bc.py (broad BC, masked DeepSets over the
+                        # observed-other entity set) + later sequence models over actor_ticks windows
 
 # optional, uncomment when the emit/target stages land:
-# webdataset>=0.2        # sharded tar dataset for streaming training
+# webdataset>=0.2        # sharded tar dataset for streaming training (broad-BC SHARD CONTRACT)
 # h5py>=3.11             # HDF5 emit alternative
