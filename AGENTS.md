@@ -57,10 +57,10 @@ Two gates must both pass to merge, and they are deliberately layered per best pr
 1. **Deterministic CI floor** - `.github/workflows/pr-tests.yml` runs the stdlib unit suite on a hosted runner for every PR. This is the hard, machine-checked gate.
 2. **Reviewer filter** - a neutral PR label applied after a technical merge-safety review. The terminal labels are `gate: ready` or `gate: blocked`.
 
-The deterministic merge executor (`.github/workflows/review-gate-merge.yml`, no LLM, no API tokens) merges only when `gate: ready` is present, `gate: blocked` is absent, the PR is mergeable, and **every non-gate check (including `PR Tests`) is passing**. It re-evaluates on `gate: ready` label events from both PR and issue-label webhook surfaces, `PR Tests` completion events, and a 10-minute reconciler for already-ready PRs, so the PR merges as soon as the last of {tests green, `gate: ready`} is observed. Branch protection would normally enforce this natively, but it requires GitHub Pro/public; the executor provides the same gate on the free private plan. **Gemini** is an **on-demand second opinion only** (`/gemini review`) - it does not auto-review and never merges.
+The deterministic merge executor (`.github/workflows/review-gate-merge.yml`, no LLM, no API tokens) merges only when `gate: ready` is present, `gate: blocked` is absent, the PR's base is **`main` or `dev`**, the PR is mergeable, and **every non-gate check (including `PR Tests`) is passing**. Both bases auto-merge so the staged-agent line (which targets `dev`) lands without a manual "fallback merge"; a `dev`->`main` PR whose head is a long-lived branch is never `--delete-branch`'d. It re-evaluates on `gate: ready` label events from both PR and issue-label webhook surfaces, `PR Tests` completion events, and a best-effort 5-minute reconciler for already-ready PRs. Label/CI events that arrive inside the 300-second ready-label cooldown sleep once, then re-read GitHub state and re-run the full gate, so merge does not depend on cron firing exactly on time. Branch protection would normally enforce this natively, but it requires GitHub Pro/public; the executor provides the same gate on the free private plan. **Gemini** is an **on-demand second opinion only** (`/gemini review`) - it does not auto-review and never merges.
 
 ```text
-Coder Agent implements -> reset sets `gate: reviewing` -> Reviewer Agent reviews and applies `gate: ready` or `gate: blocked` -> deterministic Action merges on `gate: ready` if `PR Tests` and all other non-gate checks pass -> a Coder Agent starts the next stage from updated main
+Coder Agent implements -> reset sets `gate: reviewing` -> Reviewer Agent reviews and applies `gate: ready` or `gate: blocked` -> deterministic Action merges on `gate: ready` if `PR Tests` and all other non-gate checks pass -> a Coder Agent starts the next stage from the updated base (`dev` for stage work; promoted to `main` via an umbrella `dev`->`main` PR)
 ```
 
 Role boundaries are mandatory:
@@ -122,7 +122,7 @@ A **draft** PR is advisory-only: open a PR non-draft when you want it reviewed-a
 Per-PR lifecycle:
 
 ```text
-push/open PR -> reset to `gate: reviewing` -> Reviewer Agent reviews current head SHA and applies `gate: ready` or `gate: blocked` -> deterministic Action merges on `gate: ready` plus green `PR Tests` and no failing non-gate checks, either from the event path or the 10-minute reconciler
+push/open PR -> reset to `gate: reviewing` -> Reviewer Agent reviews current head SHA and applies `gate: ready` or `gate: blocked` -> deterministic Action waits out the ready-label cooldown when needed, revalidates current GitHub state, then merges on `gate: ready` plus green `PR Tests` and no failing non-gate checks; the 5-minute reconciler is a best-effort backup
 ```
 
 ## Review guidelines
@@ -159,7 +159,7 @@ The merge executor may merge only when all are true:
 
 - Target repository and PR are unambiguous.
 - PR is open and non-draft.
-- PR targets the correct base branch, normally `main`.
+- PR targets the correct base branch — `dev` for stage work, or `main` (both auto-merge).
 - PR is mergeable.
 - `PR Tests` is present and all its runs pass.
 - No other non-gate check is failing.

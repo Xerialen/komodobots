@@ -3338,3 +3338,90 @@ at 0°).
   merge with that line.
 - If parallel-wave coordination (shard contracts, stacked PRs) costs more than it saves, revert to a
   serial loop.
+
+---
+
+## Auto-merge base `dev`, not just `main`
+
+### Date
+
+2026-06-19
+
+### Decision
+
+Extend the deterministic merge executor (`.github/workflows/review-gate-merge.yml`) to
+auto-merge PRs whose base is **`dev`** as well as `main`, and never `--delete-branch` a head
+that is a long-lived integration branch (`dev`/`main`).
+
+### Alternatives Considered
+
+- Keep `main`-only auto-merge and continue merging every `dev` PR by hand ("fallback merge") —
+  rejected: it defeats the staged-agent loop's autonomy and is the status-quo pain.
+- Auto-promote `dev`->`main` as part of the same change — rejected: `main` must stay reachable
+  only via an explicit, separately-gated umbrella PR (e.g. #263). Each PR still merges into its
+  single declared base; nothing fans out to two branches.
+- Add a "Review Gate Labeler" workflow to auto-apply `gate: ready` — rejected as unnecessary:
+  Codex applies the label reliably, and automating it would blur Coder/Reviewer separation.
+
+### Evidence
+
+- The whole ML line targets `dev`; the executor's `base == main` guard soft-skipped them, so
+  #308 needed a manual "fallback merge" and #309 sat fully green + `gate: ready` unmerged.
+- `pr-tests.yml` (the CI floor) has no branch filter, so `dev` PRs receive it; `main`/`dev` are
+  unprotected (protection API -> 404) and Actions `default_workflow_permissions = write`, so the
+  `GITHUB_TOKEN` merge works for either base. No other branch assumption blocks `dev`.
+- `tests/test_review_gate_merge_workflow.py` locks the new behavior (base `main|dev`, head-ref
+  delete-branch guard). YAML parses; the embedded step passes `bash -n`.
+
+### Consequences
+
+A `gate: ready` PR based on `dev` now auto-merges with no human step. `main` is still reached
+only through an explicitly-gated `dev`->`main` umbrella PR. The change must live on the default
+branch (`main`) for the `schedule` / `workflow_run` reconcilers to honor it.
+
+### Revisit Conditions
+
+Revisit if the branch model changes (e.g. `dev` is retired), if branch protection is enabled
+(GitHub Pro/public) and supersedes the executor, or if a third long-lived base is introduced.
+
+---
+
+## Make the review-gate cooldown event-driven, with cron as backup
+
+### Date
+
+2026-06-19
+
+### Decision
+
+The merge executor still requires the `gate: ready` label to be stable for 300 seconds, but a
+label/CI event that arrives inside that cooldown now sleeps once, then re-reads GitHub state and
+re-runs the full gate for the same PR. The 5-minute cron remains as best-effort reconciliation
+for missed events, but it is no longer the only mechanism that can merge after cooldown.
+
+Keep the same executor fix on both `main` and `dev`: `schedule` and `workflow_run` use the default
+branch copy, while `pull_request:labeled` for `dev` PRs can use the `dev` workflow copy.
+
+### Evidence
+
+- During the PR-flow monitor on 2026-06-19, #310 and #311 both reached `gate: ready` with green
+  checks, but their ready-label event runs skipped inside the 300-second cooldown and no cron run
+  arrived before manual fallback was required.
+- `gh run list --workflow "Review Gate Merge" --event schedule` showed scheduled runs arriving
+  hours apart despite `cron: "*/5 * * * *"`; GitHub schedule is best-effort in practice.
+- #311's ready-label run used the stale `dev` workflow copy and soft-skipped `base is 'dev'`,
+  proving the dev-base label path is not fixed by merging the executor change only to `main`.
+
+### Consequences
+
+Future `gate: ready` label events can carry themselves through the cooldown without waiting for
+an unreliable cron tick. The post-sleep recursive evaluation re-fetches PR state, labels, comments,
+timeline, checks, and head SHA before merging, preserving the existing stale-SHA and later-BLOCK
+protections. The job timeout increases to 10 minutes to cover the maximum 300-second sleep plus
+revalidation work.
+
+### Revisit Conditions
+
+Revisit if GitHub starts delivering cron with strict 5-minute reliability, if the sleep makes the
+Actions queue noisy, or if the branch model changes so `pull_request` events no longer need a `dev`
+copy of the workflow.

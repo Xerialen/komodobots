@@ -7,7 +7,10 @@ name: Review Gate Merge
 #   - `gate: ready` label present; `gate: blocked` absent
 #   - a top-level gate verdict comment says `LABEL: gate: ready` for the current
 #     PR head SHA, so a stale ready label cannot authorize a newer commit
-#   - PR open, non-draft, on `main`, mergeable
+#   - PR open, non-draft, base `main` or `dev`, mergeable (the `dev` integration
+#     branch auto-merges too, so the staged agent loop lands without a manual
+#     "fallback merge"; a `dev`->`main` PR whose head is a long-lived branch is
+#     never `--delete-branch`'d)
 #   - every non-gate status check passing (this is where `pr-tests` — the
 #     deterministic CI floor — is enforced)
 #
@@ -18,16 +21,16 @@ name: Review Gate Merge
 # for `PR Tests`; `workflow_run` is the mechanism that does. Both
 # `pull_request:labeled` and `issues:labeled` are handled because PR labels can
 # arrive through either webhook surface depending on which API applies the label.
-# A 5-minute schedule reconciles eligible `gate: ready` PRs if a label event is
-# missed, and is the path that merges a PR once its `gate: ready` label clears
-# the cooldown window below. "Not ready yet" is silent (log only); it comments
-# only on an actual merge.
+# Label/CI events that arrive inside the cooldown sleep once, then re-read GitHub
+# state and re-evaluate the same PR. The schedule remains a best-effort backup for
+# missed events, not the only path that can clear the cooldown. "Not ready yet" is
+# silent (log only); it comments only on an actual merge.
 #
 # `ready_for_review` is intentionally NOT a merge trigger. Promoting a draft to
 # ready is owned by Reset Review Gate (it sets `gate: reviewing`), so a draft that
 # was mistakenly labeled `gate: ready` + given a SHA-bound verdict cannot auto-merge
 # on promotion - otherwise the merge and reset jobs would race on that event at
-# an unchanged head SHA. The schedule / PR Tests reconciler is also fail-closed:
+# an unchanged head SHA. The event/schedule / PR Tests reconciler is also fail-closed:
 # after a ready_for_review timeline event, both the gate-ready label event and
 # the structured gate-ready verdict comment must be newer than that promotion.
 # Merge acts only on explicit `labeled` / CI / schedule of an already-non-draft
@@ -59,7 +62,7 @@ concurrency:
 jobs:
   merge:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Evaluate review gate and merge
         env:
@@ -108,15 +111,16 @@ jobs:
           eval_and_merge() {
             local PR="$1"
 
-            local data state draft base mergeable head short
+            local data state draft base mergeable head head_ref short
             data=$(gh pr view "$PR" -R "$REPO" \
-              --json state,isDraft,baseRefName,mergeable,headRefOid,statusCheckRollup,labels)
+              --json state,isDraft,baseRefName,mergeable,headRefOid,headRefName,statusCheckRollup,labels)
 
             state=$(jq -r '.state' <<<"$data")
             draft=$(jq -r '.isDraft' <<<"$data")
             base=$(jq -r '.baseRefName' <<<"$data")
             mergeable=$(jq -r '.mergeable' <<<"$data")
             head=$(jq -r '.headRefOid' <<<"$data")
+            head_ref=$(jq -r '.headRefName' <<<"$data")
             short=${head:0:7}
 
             local has_ready has_blocked
@@ -125,7 +129,7 @@ jobs:
 
             [ "$state" = "OPEN" ]          || { echo "skip #$PR: not open (state=$state)"; return 0; }
             [ "$draft" = "false" ]         || { echo "skip #$PR: draft"; return 0; }
-            [ "$base" = "main" ]           || { echo "skip #$PR: base is '$base'"; return 0; }
+            case "$base" in main|dev) ;; *) echo "skip #$PR: base is '$base' (only main/dev auto-merge)"; return 0 ;; esac
             [ "$has_ready" = "true" ]      || { echo "skip #$PR: no 'gate: ready'"; return 0; }
             [ "$has_blocked" = "false" ]   || { echo "skip #$PR: 'gate: blocked' present"; return 0; }
             [ "$mergeable" = "MERGEABLE" ] || { echo "skip #$PR: not mergeable ($mergeable)"; return 0; }
@@ -200,14 +204,30 @@ jobs:
             # shortly after cannot be merged on the labeled / workflow_run event
             # before the revert lands -- the transient-PASS race that merged #192
             # and #188 (PASS -> merge within seconds -> BLOCK too late). A merge
-            # in the cooldown window is skipped; the schedule reconciler retries
-            # once it elapses, by which point a real revert has cleared the label.
+            # in the cooldown window waits once on label/CI events, then re-reads
+            # GitHub state and re-runs the full gate from scratch. Schedule events
+            # still soft-skip here so a broad scheduled reconciliation cannot sleep
+            # for many PRs.
             local ready_cooldown=300 now_s label_s ready_age
             now_s=$(date -u +%s)
             label_s=$(date -u -d "$latest_ready_label_at" +%s 2>/dev/null || echo 0)
             ready_age=$(( now_s - label_s ))
             [ "$label_s" -gt 0 ] || { echo "skip #$PR: no parseable 'gate: ready' label time; cannot honor cooldown"; return 0; }
-            [ "$ready_age" -ge "$ready_cooldown" ] || { echo "skip #$PR: 'gate: ready' only ${ready_age}s old (< ${ready_cooldown}s cooldown); reconciler will retry"; return 0; }
+            if [ "$ready_age" -lt "$ready_cooldown" ]; then
+              case "$EVENT" in
+                pull_request|issues|workflow_run)
+                  if [ "${KBOT_WAITED_COOLDOWN:-0}" != "1" ]; then
+                    sleep_s=$(( ready_cooldown - ready_age + 5 ))
+                    echo "wait #$PR: 'gate: ready' only ${ready_age}s old (< ${ready_cooldown}s cooldown); sleeping ${sleep_s}s, then re-reading current state"
+                    sleep "$sleep_s"
+                    KBOT_WAITED_COOLDOWN=1 eval_and_merge "$PR"
+                    return 0
+                  fi
+                  ;;
+              esac
+              echo "skip #$PR: 'gate: ready' only ${ready_age}s old (< ${ready_cooldown}s cooldown); reconciler will retry"
+              return 0
+            fi
 
             # Exclude this gate's own workflow runs from the rollup count so the
             # merge job can't deadlock on itself; pr-tests and any real CI count.
@@ -234,10 +254,19 @@ jobs:
             [ "${pt_total:-0}" -ge 1 ]        || { echo "skip #$PR: required 'PR Tests' check absent (CI floor missing)"; return 0; }
             [ "${pt_total}" -eq "${pt_ok}" ]  || { echo "skip #$PR: 'PR Tests' not all passing ($pt_ok/$pt_total)"; return 0; }
 
-            echo "merging #$PR @ $short ($n_checks check(s) passing, incl. PR Tests $pt_ok/$pt_total; SHA-bound gate verdict present)"
-            gh pr merge "$PR" -R "$REPO" --squash --delete-branch
+            # Clean up disposable feature branches, but NEVER delete a long-lived
+            # integration branch — e.g. a `dev`->`main` PR whose head ref is `dev`.
+            local del="--delete-branch"
+            case "$head_ref" in main|dev) del="" ;; esac
+
+            echo "merging #$PR @ $short into '$base' ($n_checks check(s) passing, incl. PR Tests $pt_ok/$pt_total; SHA-bound gate verdict present)"
+            # Bind the merge to the exact head we just validated: if a commit landed
+            # after the gate checks above but before this merge, --match-head-commit
+            # aborts instead of merging unreviewed code (closes the validate->merge
+            # TOCTOU race that Reset Review Gate would otherwise only catch afterward).
+            gh pr merge "$PR" -R "$REPO" --squash --match-head-commit "$head" $del
             gh pr comment "$PR" -R "$REPO" \
-              --body "**Merged** by review-gate executor. Gate: open, non-draft, base \`main\`, mergeable, current-head gate verdict for \`$short\`, $n_checks check(s) passing (incl. \`PR Tests\`), label \`gate: ready\`."
+              --body "**Merged** by review-gate executor. Gate: open, non-draft, base \`$base\`, mergeable, current-head gate verdict for \`$short\`, $n_checks check(s) passing (incl. \`PR Tests\`), label \`gate: ready\`."
           }
 
           for PR in $PRS; do
