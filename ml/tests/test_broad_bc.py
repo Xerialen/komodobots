@@ -353,6 +353,58 @@ class TestTorchPolicySmoke(unittest.TestCase):
             self.assertTrue(torch.allclose(ga, gb, atol=1e-6),
                             "a zero-weight row perturbed the gradients")
 
+    def test_zero_weight_row_does_not_change_class_weights_or_loss(self):
+        """REGRESSION (class-weight DERIVATION): the per-CLASS imbalance weights are
+        derived via TB._class_weights from EFFECTIVE (shard-weighted) counts, so a
+        weight=0 row (pad/interp/missing) must not shift them — and therefore must
+        not shift the loss/grads built from them. Unlike
+        test_zero_weight_row_does_not_affect_loss_or_gradients (which holds class
+        weights FIXED), this drives the REAL derivation that main() uses."""
+        import torch
+        import torch.nn as nn
+        import train_broad_bc as TB
+
+        torch.manual_seed(0)
+        head_dims = (3, 3, 3, 2, 2)
+        head_specs = [("h%d" % i, k) for i, k in enumerate(head_dims)]
+        H = len(head_dims)
+        B = 6
+        y = torch.stack([torch.randint(0, k, (B,)) for k in head_dims], dim=1)  # [B,H]
+        w = torch.ones(B)
+        cw = TB._class_weights(y, w, list(range(B)), head_specs)
+
+        # append ONE weight=0 row with the WRONG (max) class on every head
+        wrong = torch.tensor([[k - 1 for k in head_dims]], dtype=torch.long)
+        y2 = torch.cat([y, wrong], dim=0)
+        w2 = torch.cat([w, torch.zeros(1)], dim=0)
+        cw2 = TB._class_weights(y2, w2, list(range(B + 1)), head_specs)
+
+        # (a) derived class weights identical
+        for a, b in zip(cw, cw2):
+            self.assertTrue(torch.allclose(a, b), "zero-weight row shifted class weights")
+
+        # (b) loss + grads built FROM the derived weights identical on a fixed batch
+        f_obs, f_ent, f_aux, n_max = 6, 4, 0, 3
+        m = TB.BroadBCPolicy(f_obs=f_obs, f_ent=f_ent, f_aux=f_aux, n_max=n_max,
+                             ent_out=8, hidden=16, head_dims=head_dims)
+        obs = torch.randn(B, f_obs); ent = torch.randn(B, n_max, f_ent)
+        emask = torch.ones(B, n_max); aux = torch.zeros(B, f_aux); sw = torch.ones(B)
+
+        def loss_grads(class_weights):
+            ce = [nn.CrossEntropyLoss(weight=c, reduction="none") for c in class_weights]
+            m.zero_grad()
+            logits = m(obs, ent, emask, aux)
+            per_sample = sum(ce[h](logits[h], y[:, h]) for h in range(H))
+            loss = (per_sample * sw).sum() / sw.sum()
+            loss.backward()
+            g = torch.cat([p.grad.flatten() for p in m.parameters() if p.grad is not None])
+            return float(loss), g
+
+        l1, g1 = loss_grads(cw)
+        l2, g2 = loss_grads(cw2)
+        self.assertAlmostEqual(l1, l2, places=6)
+        self.assertTrue(torch.allclose(g1, g2, atol=1e-6))
+
     def test_all_zero_weight_batch_is_skipped(self):
         """If an ENTIRE batch is zero-weighted, the trainer guards against the
         0/0 normalization (it skips the step). Here we assert the guarded loss
