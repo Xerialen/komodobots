@@ -3264,3 +3264,77 @@ Pent/Ring 300s, MH dynamic) are folded into the item catalog; the Frogbot dm3 gr
 - New `data/catalog/` + `data/fixtures/` trees; one path constant per in-tree test.
 - A second (informational) CI surface; **must not** be a required check.
 - `bsp_geom.py` (PVS/LOS) remains a separate task; the schema reserves its columns.
+
+---
+
+## Decision
+
+Broad dm3 behavioral-cloning track on `dev` (enemy/team-aware), distinct from `main`'s move-only line.
+
+### Date
+
+2026-06-19
+
+### Decision
+
+Pursue a **broad, enemy/team-aware** dm3 4on4 behavioral-cloning bot on `dev`, built on the
+Strategy-A relational catalog — full behavior, not movement-only. `main` (remote origin) already
+ships a **move-only** learned-MOVE program (a MoveMLP over a 6-feature self world-view, served live
+through a C "mode 30" KTX patch + a `/dev/shm` policy sidecar, `--live-leap` on the leap bots, with a
+golden-vector train/serve parity gate — the `docs/18` bench-iterated program). That line is **left
+untouched**; this is a separate, broader track.
+
+The policy input is the POMDP **agent_observation**: a `.qwd` client demo records `svc_playerinfo`
+for every player in the recorder's PVS — the other players the human actually saw — which is the
+masked view the human acted on, and therefore the correct behavioral-cloning input. The omniscient
+all-player **world_state** (from `.mvd` via `mvd_analyzer`) is deferred as a critic/RL source, as are
+PVS/LOS masking (`bsp_geom`) and audio cues.
+
+Execution is **parallel agent waves**: each unit is a worktree-isolated background coder; the
+orchestrator (Claude) first-peer-reviews — re-running the checks, not trusting the report — and opens
+a PR against `dev`; an independent cross-model `gate: ready` merges (Claude never self-merges). Live
+game-server runs stay human-gated; GPU training on host `pinnacle` is autonomous.
+
+### Alternatives Considered
+
+- Continue the move-only umbrella #264 plan as written — rejected: it was authored largely unaware of
+  `main`'s already-built program, so most of its tickets were done or obsolete on their own terms.
+- Reconstruct omniscient state by joining multiple `.qwd` POVs of one match — impossible: the corpus
+  has only one POV per match (owner-confirmed).
+- Train on `.mvd` omniscient world_state directly — no human dm3 4on4 `.mvd` exists; the available
+  `.mvd` are bot-generated / other matches, which would teach bot behavior, not human believability.
+- Train on self-POV only (movement + buttons) — rejected as effectively move-only, which `main`
+  already has.
+- Keep the serial one-coder-at-a-time loop — superseded by parallel agent waves at the owner's request.
+
+### Evidence
+
+Foundation landed and first-peer-reviewed (orchestrator re-ran the ETLs/tests, not just trusting the
+coder reports): P1 `.qwd`→catalog self-state (PR #295); P2 observed-others→`actor_ticks` =
+agent_observation (PR #296; verified 124,823 `actor_ticks` on a 2-demo slice, ~8 in-PVS others, 79% of
+steps carry ≥1 observed other). Wave 1: FEAT agent_observation features + train-only normalization
+(PR #298; 18 transform tests, byte-identical refit on exactly the train split); TRAINER broad
+enemy-aware BC trainer in `ml/` (PR #297; masked-DeepSets pool over observed-others, 5 discrete heads
+incl. jump/attack, CPU smoke reproducible and beats baseline); GMV believability battery (PR #299;
+G-MV1 discriminates — real humans pass at ~51° median yaw-vs-velocity, a synthetic face-and-run fails
+at 0°).
+
+### Expected Consequences
+
+- The Strategy-A catalog/`ml` pipeline is the **foundation** of this track, not obsolete.
+- Stacked PRs on `dev` (#295→#296→FEAT→RECONCILE; TRAINER and GMV branch off `dev`).
+- A FEAT↔TRAINER shard-schema contract (the RECONCILE bridge joins catalog `actions`→`act` labels and
+  trains a real `(obs, act)` shard end-to-end) gates the first `pinnacle` GPU training run.
+- Acceptance still routes through the existing gates: docs/16 G-MV believability, docs/12 M/E/A/P/T
+  competence, docs/15 live ladder R2–R5 (human-gated).
+- Orchestration state is durable outside the repo: `~/.claude/ml-loop-runbook.md`,
+  `~/.claude/ml-loop-state.json`, and the `broad-dm3-training-program` memory.
+
+### Revisit Conditions
+
+- If a human dm3 4on4 `.mvd` corpus appears, revisit adding the omniscient world_state for a critic/RL
+  stage.
+- If the broad policy cannot beat `main`'s move-only line on believability/competence, fall back to or
+  merge with that line.
+- If parallel-wave coordination (shard contracts, stacked PRs) costs more than it saves, revert to a
+  serial loop.
