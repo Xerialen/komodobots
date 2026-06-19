@@ -3216,3 +3216,46 @@ Revisit if timeline API event names change, if GitHub stops exposing
 `ready_for_review` or label events through the issue timeline API, or if the
 10-minute schedule reconciler is removed and the event path alone becomes
 proven reliable.
+
+## Auto-merge base `dev`, not just `main`
+
+### Date
+
+2026-06-19
+
+### Decision
+
+Extend the deterministic merge executor (`.github/workflows/review-gate-merge.yml`) to
+auto-merge PRs whose base is **`dev`** as well as `main`, and never `--delete-branch` a head
+that is a long-lived integration branch (`dev`/`main`).
+
+### Alternatives Considered
+
+- Keep `main`-only auto-merge and continue merging every `dev` PR by hand ("fallback merge") —
+  rejected: it defeats the staged-agent loop's autonomy and is the status-quo pain.
+- Auto-promote `dev`->`main` as part of the same change — rejected: `main` must stay reachable
+  only via an explicit, separately-gated umbrella PR (e.g. #263). Each PR still merges into its
+  single declared base; nothing fans out to two branches.
+- Add a "Review Gate Labeler" workflow to auto-apply `gate: ready` — rejected as unnecessary:
+  Codex applies the label reliably, and automating it would blur Coder/Reviewer separation.
+
+### Evidence
+
+- The whole ML line targets `dev`; the executor's `base == main` guard soft-skipped them, so
+  #308 needed a manual "fallback merge" and #309 sat fully green + `gate: ready` unmerged.
+- `pr-tests.yml` (the CI floor) has no branch filter, so `dev` PRs receive it; `main`/`dev` are
+  unprotected (protection API -> 404) and Actions `default_workflow_permissions = write`, so the
+  `GITHUB_TOKEN` merge works for either base. No other branch assumption blocks `dev`.
+- `tests/test_review_gate_merge_workflow.py` locks the new behavior (base `main|dev`, head-ref
+  delete-branch guard). YAML parses; the embedded step passes `bash -n`.
+
+### Consequences
+
+A `gate: ready` PR based on `dev` now auto-merges with no human step. `main` is still reached
+only through an explicitly-gated `dev`->`main` umbrella PR. The change must live on the default
+branch (`main`) for the `schedule` / `workflow_run` reconcilers to honor it.
+
+### Revisit Conditions
+
+Revisit if the branch model changes (e.g. `dev` is retired), if branch protection is enabled
+(GitHub Pro/public) and supersedes the executor, or if a third long-lived base is introduced.
