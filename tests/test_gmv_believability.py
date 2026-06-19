@@ -290,6 +290,33 @@ class TestBatteryAndCLI(unittest.TestCase):
         rc = g.main(["--sequence-json", str(FIXTURE), "--anchors", str(ANCHORS)])
         self.assertEqual(rc, 0)
 
+    def test_cli_insufficient_hard_gate_is_nonzero(self):
+        # An UNSCORED hard gate (too few airborne-moving ticks -> G-MV1.passed is
+        # None) must NOT exit 0: CI/batch consumers must not accept an unscored
+        # rollout as passing. --n 10 is far below mv1_min_ticks (200).
+        rc = g.main(["--synthetic", "human_like", "--n", "10", "--anchors", str(ANCHORS)])
+        self.assertNotEqual(rc, 0)
+        self.assertEqual(rc, 3)  # 3 == insufficient (distinct from 2 == outright fail)
+        # and the gate it gated on really is insufficient (not a clear pass/fail)
+        res = g.run_battery(g.synth_human_like(n=10))
+        self.assertIsNone(res["gates"]["G-MV1"]["passed"])
+        self.assertEqual(res["gates"]["G-MV1"]["status"], "insufficient")
+        self.assertFalse(res["believable"])
+
+    def test_all_gates_passed_false_when_soft_gate_insufficient(self):
+        # G-MV1 passes (yaw held ~40 deg off velocity) but G-MV3 is INSUFFICIENT
+        # (zero sidemove the whole time -> no nonzero-strafe ticks to judge). An
+        # included-but-unscored soft gate must NOT be silently dropped: it must
+        # make all_gates_passed False (fail-closed).
+        seq = airborne_seq(lambda i: 40.0 * (1 if (i // 30) % 2 == 0 else -1), n=200)
+        for t in seq:
+            t["sidemove"] = 0
+        res = g.run_battery(seq)
+        self.assertTrue(res["gates"]["G-MV1"]["passed"])         # hard gate passed
+        self.assertIsNone(res["gates"]["G-MV3"]["passed"])       # soft gate unscored
+        self.assertEqual(res["gates"]["G-MV3"]["status"], "insufficient")
+        self.assertFalse(res["all_gates_passed"])  # unscored gate -> not all-passed
+
 
 if __name__ == "__main__":
     unittest.main()

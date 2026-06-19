@@ -428,9 +428,12 @@ def run_battery(ticks, anchors=None, player_band=None, thr=None) -> dict:
 
     Overall ``believable`` is gated on G-MV1 (the HARD gate) PASSING; G-MV3/G-MV4
     are reported and contribute to ``all_gates_passed`` but, per docs/16,
-    band-pass is necessary-not-sufficient while G-MV1 is the hard fail. An
-    INSUFFICIENT gate (passed=None) neither passes nor fails overall;
-    ``believable`` requires G-MV1 to have actually passed (not be insufficient)."""
+    band-pass is necessary-not-sufficient while G-MV1 is the hard fail.
+    ``all_gates_passed`` is True only when EVERY included gate affirmatively
+    passed (``passed is True``): an included-but-unscored gate (``passed is
+    None`` / insufficient) makes it False (fail-closed), it is not dropped.
+    ``believable`` likewise requires G-MV1 to have actually passed (not be
+    insufficient)."""
     thr = thr or DEFAULT_THRESHOLDS
     ticks = normalize_sequence(ticks)
     mv1 = gate_mv1(ticks, thr)
@@ -439,8 +442,11 @@ def run_battery(ticks, anchors=None, player_band=None, thr=None) -> dict:
     if anchors is not None:
         gates["G-MV4"] = gate_mv4(ticks, anchors, player_band, thr)
 
-    decided = [g for g in gates.values() if g["passed"] is not None]
-    all_passed = bool(decided) and all(g["passed"] for g in decided)
+    # Every INCLUDED gate counts toward "all passed" only when it affirmatively
+    # passed. An included-but-unscored gate (passed is None / insufficient) is NOT
+    # dropped: it makes all_gates_passed False (fail-closed), so an unscored soft
+    # gate can never be reported as all-passed.
+    all_passed = bool(gates) and all(g["passed"] is True for g in gates.values())
     believable = (mv1["passed"] is True)  # HARD gate must affirmatively pass
     return {
         "schema": SCHEMA,
@@ -702,8 +708,14 @@ def main(argv=None) -> int:
     result = run_battery(ticks, anchors=anchors, player_band=args.player_band)
     result["source"] = source
     print(json.dumps(result, indent=2))
-    # exit non-zero iff the HARD gate (G-MV1) actually failed (not insufficient).
-    return 0 if result["gates"]["G-MV1"]["passed"] is not False else 2
+    # CLI success (exit 0) requires the HARD gate (G-MV1) to AFFIRMATIVELY pass.
+    # Fail closed for CI/batch consumers: an outright G-MV1 fail -> exit 2; an
+    # insufficient/unscored G-MV1 (passed is None) -> exit 3 (distinct from a
+    # clear fail, but still non-zero so an unscored rollout is never "passing").
+    mv1_passed = result["gates"]["G-MV1"]["passed"]
+    if mv1_passed is True:
+        return 0
+    return 2 if mv1_passed is False else 3
 
 
 if __name__ == "__main__":
