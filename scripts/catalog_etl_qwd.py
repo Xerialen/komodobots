@@ -56,6 +56,7 @@ Repo destination: scripts/catalog_etl_qwd.py
 from __future__ import annotations
 
 import argparse
+import bisect
 import json
 import math
 import sqlite3
@@ -73,6 +74,8 @@ for _p in (str(REPO_ROOT), str(HERE)):
 import catalog_load  # noqa: E402  (stdlib-only sibling)
 import build_replay_command_file as brc  # noqa: E402  (stdlib-only; .qwd extractor)
 import pmove_sim  # noqa: E402  (stdlib-only; detect_teleports for episode boundaries)
+import qwd_observed_others as obs  # noqa: E402  (stdlib-only; observed-OTHERS decoder, P2)
+from tools.qwd_usercmd import qwd_usercmd  # noqa: E402  (stdlib-only; absolute command times)
 
 BUTTON_JUMP = pmove_sim.BUTTON_JUMP  # 2
 
@@ -82,6 +85,16 @@ BUTTON_JUMP = pmove_sim.BUTTON_JUMP  # 2
 # enormous one (matches the continuity-split intent of the `episodes` table).
 MAX_EPISODE_FRAMES = 2048
 MIN_EPISODE_FRAMES = 24  # drop slivers (consistent with the MOVE-BC clean-run floor)
+
+# Observed-OTHER alignment (P2 / agent_observation): each self episode-tick samples,
+# per OTHER player, that player's most recently-RECEIVED svc_playerinfo state. We attach
+# an observed-other to a tick only if its latest sample is within this staleness window;
+# beyond it the other is treated as not-currently-observed (it has left PVS / gone stale).
+# 0.5 s ≈ several server frames at 77 fps — generous enough to bridge a single dropped/
+# choked update, tight enough that a long-gone player does not linger in the omniscient
+# table. (The carried-forward BELIEF/memory of stale players is the DEFERRED
+# actor_visibility layer, not actor_ticks.)
+OBSERVED_MAX_STALENESS_S = 0.5
 
 
 def _hspeed(v) -> float:
@@ -99,11 +112,27 @@ def extract_demo(demo_path: str) -> dict:
     """
     demo = Path(demo_path)
     try:
+        data = demo.read_bytes()
         frames, meta = brc.build_replay_frames(demo, alignment="time")
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "demo": demo.name, "error": f"build:{type(e).__name__}: {e}"}
     if not frames:
         return {"ok": False, "demo": demo.name, "error": "no frames"}
+
+    # Absolute QWD demo-time per self frame. build_replay_frames emits exactly one frame
+    # per outgoing usercmd (1:1, in order), so the command stream's time_s aligns by index.
+    # actor_ticks is sampled on this absolute clock, so we must carry it onto each tick.
+    try:
+        cmd_times = [c.time_s for c in qwd_usercmd.parse_qwd_bytes(data, source_path=demo).commands]
+    except Exception:  # noqa: BLE001
+        cmd_times = []
+    for i, f in enumerate(frames):
+        f["abs_t_s"] = cmd_times[i] if i < len(cmd_times) else None
+
+    # Observed-OTHER players (the in-PVS agent_observation layer). Decode is best-effort:
+    # a demo that is not protocol-28 / is FTE just yields no observed-others (reported),
+    # the self movement layer is unaffected.
+    observed = _decode_observed_for_demo(data)
 
     # episode boundaries: teleport/respawn discontinuities + a hard length cap.
     tele = set(pmove_sim.detect_teleports(frames))  # index k => break between k and k+1
@@ -129,6 +158,40 @@ def extract_demo(demo_path: str) -> dict:
         "duration_s": meta.get("total_duration_s"),
         "server_fps": meta.get("command_rate_fps"),
         "episodes": episodes,
+        "observed": observed,
+    }
+
+
+def _decode_observed_for_demo(data: bytes) -> dict:
+    """Decode observed-OTHER players and return a JSON-serializable per-player timeline
+    (sorted by received time) so it crosses the ProcessPool boundary cleanly.
+
+        {ok, self_playernum, n_playerinfo, bodies, bodies_clean, stop_reasons,
+         others: {pnum_str: [[t_s, ox,oy,oz, vx,vy,vz, pitch,yaw,roll,
+                              alive(0/1), onground(0/1), solid(0/1), pm_code], ...]}}
+    """
+    res = obs.decode_qwd_observed(data)
+    if not res.get("ok"):
+        return {"ok": False, "error": res.get("error"), "others": {}}
+    others_packed = {}
+    for pnum, rows in res["others_by_pnum"].items():
+        rows_sorted = sorted(rows, key=lambda a: a.time_s)
+        others_packed[str(pnum)] = [
+            [round(a.time_s, 4),
+             round(a.origin[0], 3), round(a.origin[1], 3), round(a.origin[2], 3),
+             a.velocity[0], a.velocity[1], a.velocity[2],
+             round(a.pitch, 4), round(a.yaw, 4), round(a.roll, 4),
+             1 if a.alive else 0, 1 if a.onground else 0, 1 if a.solid else 0, a.pm_code]
+            for a in rows_sorted
+        ]
+    return {
+        "ok": True,
+        "self_playernum": res["self_playernum"],
+        "n_playerinfo": res["n_playerinfo"],
+        "bodies": res["n_bodies"],
+        "bodies_clean": res["bodies_clean"],
+        "stop_reasons": res["stop_reasons"],
+        "others": others_packed,
     }
 
 
@@ -142,6 +205,7 @@ def _pack_episode(seg, start_tick: int) -> dict:
         rows.append({
             "tick": i,
             "t_s": round(t_s, 4),
+            "abs_t_s": f.get("abs_t_s"),  # absolute QWD demo-time (for actor_ticks join)
             "msec": msec,
             "ox": o[0], "oy": o[1], "oz": o[2],
             "vx": v[0], "vy": v[1], "vz": v[2],
@@ -175,7 +239,25 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str) -> 
     con.execute("INSERT OR IGNORE INTO players (handle, is_bot) VALUES (?,0)", (handle,))
     player_id = con.execute("SELECT player_id FROM players WHERE handle=?", (handle,)).fetchone()[0]
 
-    n_ep = n_tick = n_act = 0
+    # Register each OBSERVED-OTHER player as a players row and build a time-sorted
+    # sample array per other (for the per-tick nearest-sample join). Keyed by demo+slot
+    # like the POV handle, so the same person across demos stays distinct (no false
+    # cross-demo identity — .qwd carries no name for others).
+    obs_rec = rec.get("observed") or {}
+    others = obs_rec.get("others") or {}
+    other_pid: dict[int, int] = {}        # playernum -> players.player_id
+    other_samples: dict[int, dict] = {}   # playernum -> {"t":[...], "rows":[...]}
+    for pnum_str, rows in others.items():
+        pnum = int(pnum_str)
+        oh = "qwd:%s#o%s" % (Path(rec["demo"]).stem[:48], pnum)
+        con.execute("INSERT OR IGNORE INTO players (handle, is_bot) VALUES (?,0)", (oh,))
+        other_pid[pnum] = con.execute(
+            "SELECT player_id FROM players WHERE handle=?", (oh,)).fetchone()[0]
+        # rows already sorted by t_s in _decode_observed_for_demo; split the time key out
+        # so a single bisect locates the most-recent sample at-or-before a tick time.
+        other_samples[pnum] = {"t": [r[0] for r in rows], "rows": rows}
+
+    n_ep = n_tick = n_act = n_actor = 0
     for ep in rec["episodes"]:
         c = con.execute(
             """INSERT INTO episodes
@@ -206,8 +288,67 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str) -> 
                  r["yaw"], r["pitch"], r["roll"], "qwd_usercmd", 1.0, r["interp"]),
             )
             n_act += 1
+
+            # actor_ticks (OMNISCIENT-from-POV world state). Self ego appears here too
+            # (schema: "EVERY player"); its row reuses the already-validated self state.
+            con.execute(
+                """INSERT OR IGNORE INTO actor_ticks
+                   (episode_id, tick, actor_id, team_id, alive, ox, oy, oz, vx, vy, vz,
+                    pitch, yaw, roll, hspeed, onground, onground_is_proxy)
+                   VALUES (?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?)""",
+                (episode_id, r["tick"], player_id, None, True,
+                 r["ox"], r["oy"], r["oz"], r["vx"], r["vy"], r["vz"],
+                 r["pitch"], r["yaw"], r["roll"], r["hspeed"], r["onground"], False),
+            )
+            n_actor += 1
+
+            # Each OTHER player the client was RECEIVING at (nearest-at-or-before) this
+            # absolute tick time, within the staleness window. abs_t_s may be None for a
+            # rare unmatched/interpolated self frame; skip the join there (others stay
+            # absent that tick rather than being mis-timed).
+            abs_t = r.get("abs_t_s")
+            if abs_t is None:
+                continue
+            for pnum, samp in other_samples.items():
+                row = _nearest_observed(samp, abs_t, OBSERVED_MAX_STALENESS_S)
+                if row is None:
+                    continue
+                # row = [t, ox,oy,oz, vx,vy,vz, pitch,yaw,roll, alive, ong, solid, pm]
+                vx, vy, vz = row[4], row[5], row[6]
+                con.execute(
+                    """INSERT OR IGNORE INTO actor_ticks
+                       (episode_id, tick, actor_id, team_id, alive, ox, oy, oz, vx, vy, vz,
+                        pitch, yaw, roll, hspeed, onground, onground_is_proxy)
+                       VALUES (?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?)""",
+                    (episode_id, r["tick"], other_pid[pnum], None, bool(row[10]),
+                     row[1], row[2], row[3], vx, vy, vz,
+                     row[7], row[8], row[9], round(math.hypot(vx, vy), 3),
+                     bool(row[11]), False),
+                )
+                n_actor += 1
     return {"demo_id": demo_id, "player_id": player_id,
-            "episodes": n_ep, "player_ticks": n_tick, "actions": n_act}
+            "episodes": n_ep, "player_ticks": n_tick, "actions": n_act,
+            "actor_ticks": n_actor, "observed_others": len(other_pid),
+            "observed_ok": obs_rec.get("ok", False)}
+
+
+def _nearest_observed(samp: dict, t: float, max_staleness_s: float):
+    """Return the OTHER-player sample most recently received at-or-before time `t`
+    (the state the client currently had for that player), or None if the latest such
+    sample is staler than `max_staleness_s` (player not currently observed). Binary
+    search over the per-player time array; falls back to the nearest forward sample
+    only inside the window (covers a tick landing a hair before the first sample)."""
+    times = samp["t"]
+    if not times:
+        return None
+    i = bisect.bisect_right(times, t) - 1
+    if i >= 0 and (t - times[i]) <= max_staleness_s:
+        return samp["rows"][i]
+    # tick just before this player's first/next sample — accept if within the window
+    j = i + 1
+    if j < len(times) and (times[j] - t) <= max_staleness_s:
+        return samp["rows"][j]
+    return None
 
 
 def load_fixture_relational(con: sqlite3.Connection, fixture_dir: Path, map_id: int) -> dict:
@@ -417,11 +558,37 @@ def build(catalog_dir: Path, demo_list: Path, db_path: str,
         "extract_secs": round(time.time() - t0, 1),
         "split_counts": _split_counts(per_demo),
         "table_counts": counts,
+        "observed_others": _observed_summary(con, per_demo),
         "per_demo": per_demo,
         "fixture": fixture_summary,
         "errors": [{"demo": e["demo"], "error": e["error"]} for e in errors],
     }
     return {"con": con, "summary": summary}
+
+
+def _observed_summary(con: sqlite3.Connection, per_demo) -> dict:
+    """Aggregate the agent_observation layer: actor_ticks rows, demos that yielded
+    observed-others, and the observed-OTHERS-per-tick distribution (how many other
+    actors are present at a tick — i.e. how rich the masked POMDP view is)."""
+    demos_with_obs = sum(1 for d in per_demo if d.get("observed_others"))
+    total_others = sum(d.get("observed_others", 0) for d in per_demo)
+    # others-per-tick = actor_ticks rows per (episode_id,tick) minus the 1 self ego row.
+    dist: dict[int, int] = {}
+    try:
+        dist_rows = con.execute(
+            "SELECT others, COUNT(*) FROM ("
+            "  SELECT episode_id, tick, COUNT(*)-1 AS others FROM actor_ticks"
+            "  GROUP BY episode_id, tick) GROUP BY others ORDER BY others"
+        ).fetchall()
+        dist = {int(o): int(n) for o, n in dist_rows}
+    except sqlite3.OperationalError:
+        dist = {}
+    return {
+        "demos_with_observed_others": demos_with_obs,
+        "distinct_other_actors_total": total_others,
+        "actor_ticks_rows": con.execute("SELECT COUNT(*) FROM actor_ticks").fetchone()[0],
+        "observed_others_per_tick_distribution": dist,
+    }
 
 
 def _split_counts(per_demo) -> dict:
