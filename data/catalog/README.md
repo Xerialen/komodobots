@@ -45,3 +45,10 @@ can never deploy together.
 Status: schemas are **design templates**. The catalog, item table, and item
 events are NEW (the mvd-mcp item endpoints are not yet wired). See
 `00-DATA-ARCHITECTURE.md` §Build order for the incremental stand-up plan.
+
+**Populating (P1):** `scripts/catalog_load.py` loads the static spine + one fixture's
+identity/team/frag rows; `scripts/catalog_etl_qwd.py` populates the per-tick trajectory
+tables (`episodes`/`player_ticks`/`actions`) from real self-POV `.qwd` demos and can fold
+the fixture team layer. The omniscient `actor_ticks`/`actor_visibility`/`audio_cues` +
+demo-wide item/region timelines need the `.mvd`/mvd_analyzer path (deferred). See
+`docs/20_ML_DATA_ARCHITECTURE.md` §Populating the catalog from real demos.

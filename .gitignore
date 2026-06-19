@@ -5,3 +5,5 @@ artifacts/
 # lab demo recordings (large binaries; the metrics live in artifacts/ which is also ignored)
 tricks/**/*.mvd
 tricks/**/*.qwd
+# generated relational-catalog SQLite DBs (built by scripts/catalog_*.py; large, regenerable)
+data/catalog/*.sqlite
