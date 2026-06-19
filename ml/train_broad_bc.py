@@ -197,6 +197,18 @@ def evaluate(model, t, idx, head_specs, bs=8192):
             for h, (name, _k) in enumerate(head_specs)}
 
 
+def _class_weights(y, w, tr_idx, head_specs):
+    """Per-head inverse-frequency CE class weights from EFFECTIVE (shard-weighted)
+    counts, so a weight=0 row (pad / interpolated / missing label) cannot shift the
+    class balance and thus cannot bias the loss/gradients for the real rows."""
+    out = []
+    for h, (_name, k) in enumerate(head_specs):
+        cnts = torch.bincount(y[tr_idx, h], weights=w[tr_idx], minlength=k).clone()
+        cnts[cnts == 0] = 1.0
+        out.append(cnts.sum() / (k * cnts))
+    return out
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -257,12 +269,8 @@ def main(argv=None) -> int:
     # reduction='none' so we get PER-SAMPLE loss and can additionally apply the
     # per-step shard weight below (the `weight=` arg is the per-CLASS imbalance
     # weight, which we keep; the per-SAMPLE shard weight is a separate factor).
-    ce = []
-    for h, (_name, k) in enumerate(head_specs):
-        cnts = torch.bincount(t["y"][tr_idx, h], minlength=k).float()
-        cnts[cnts == 0] = 1.0
-        w = cnts.sum() / (k * cnts)
-        ce.append(nn.CrossEntropyLoss(weight=w.to(device), reduction="none"))
+    ce = [nn.CrossEntropyLoss(weight=cw.to(device), reduction="none")
+          for cw in _class_weights(t["y"], t["w"], tr_idx, head_specs)]
 
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     tr_idx_t = torch.tensor(tr_idx, dtype=torch.long, device=device)
