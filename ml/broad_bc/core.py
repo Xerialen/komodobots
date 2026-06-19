@@ -89,43 +89,49 @@ def _read_parquet_shard(path) -> dict:
     obs_dim = int(_m("obs_dim", 0))
     ent_dim = int(_m("ent_dim", 0))
     act_dim = int(_m("act_dim", 0))
-    cols = {n: t.column(n).to_pylist() for n in t.schema.names}
     n_rows = t.num_rows
+    names = set(t.schema.names)
 
-    def _reshape(flat_rows, *inner):
-        """[n_rows][prod(inner)] flat -> [n_rows][inner...] nested lists."""
-        out = []
-        for flat in flat_rows:
-            it = iter(flat)
-            if len(inner) == 1:
-                out.append([float(next(it)) for _ in range(inner[0])])
-            elif len(inner) == 2:
-                a, b = inner
-                out.append([[float(next(it)) for _ in range(b)] for _ in range(a)])
-            else:  # 3 dims: [a][b][c]
-                a, b, c = inner
-                out.append([[[float(next(it)) for _ in range(c)]
-                             for _ in range(b)] for _ in range(a)])
-        return out
+    # Vectorized reshape: pull each FLATTENED list<float32> column straight into a
+    # contiguous numpy array, then reshape to [n_windows, K, ...]. The original
+    # pure-Python rebuild (`to_pylist()` + per-element `float(next(it))`) was
+    # O(elements) and OOM'd / hung on a real shard (~0.9 B entity floats for a
+    # 28-demo split); this is a couple of C-level passes. numpy is always present on
+    # the .parquet path (the torch-trainer host); the deps-free smoke reads .json.gz.
+    import numpy as np  # ml dep; parquet path only
+
+    def _flat_f32(col_name):
+        """Flattened float32 values of a FEAT list<float32> column — no Python-object
+        intermediate (the killer was to_pylist on the ~0.9 B-float entity column)."""
+        col = t.column(col_name)
+        if col.null_count:
+            raise ValueError(f"shard column {col_name!r} has nulls; contract is dense")
+        parts = [ch.flatten().to_numpy(zero_copy_only=False) for ch in col.chunks]
+        flat = np.concatenate(parts) if parts else np.zeros(0, dtype=np.float32)
+        return np.ascontiguousarray(flat, dtype=np.float32)
+
+    def _reshape(col_name, *inner):
+        """FLATTENED list<float32> column -> ndarray [n_rows, *inner] (row-major)."""
+        return _flat_f32(col_name).reshape((n_rows,) + tuple(inner))
 
     out: dict = {}
-    if SC.KEY_OBS in cols and obs_dim:
-        out[SC.KEY_OBS] = _reshape(cols[SC.KEY_OBS], K, obs_dim)          # [n][K][S]
-    if SC.KEY_ENTITIES in cols and ent_dim:
-        out[SC.KEY_ENTITIES] = _reshape(cols[SC.KEY_ENTITIES], K, n_max, ent_dim)
-        out[SC.KEY_ENT_MASK] = _reshape(cols[SC.KEY_ENT_MASK], K, n_max)  # [n][K][Nm]
-    if SC.KEY_ACT in cols and act_dim:
-        out[SC.KEY_ACT] = _reshape(cols[SC.KEY_ACT], K, act_dim)          # [n][K][A]
-    if SC.KEY_MASK in cols:
-        out[SC.KEY_MASK] = _reshape(cols[SC.KEY_MASK], K)                 # [n][K]
-    if SC.KEY_WEIGHT in cols:
-        out[SC.KEY_WEIGHT] = _reshape(cols[SC.KEY_WEIGHT], K)             # [n][K]
+    if SC.KEY_OBS in names and obs_dim:
+        out[SC.KEY_OBS] = _reshape(SC.KEY_OBS, K, obs_dim)               # [n][K][S]
+    if SC.KEY_ENTITIES in names and ent_dim:
+        out[SC.KEY_ENTITIES] = _reshape(SC.KEY_ENTITIES, K, n_max, ent_dim)
+        out[SC.KEY_ENT_MASK] = _reshape(SC.KEY_ENT_MASK, K, n_max)       # [n][K][Nm]
+    if SC.KEY_ACT in names and act_dim:
+        out[SC.KEY_ACT] = _reshape(SC.KEY_ACT, K, act_dim)              # [n][K][A]
+    if SC.KEY_MASK in names:
+        out[SC.KEY_MASK] = _reshape(SC.KEY_MASK, K)                     # [n][K]
+    if SC.KEY_WEIGHT in names:
+        out[SC.KEY_WEIGHT] = _reshape(SC.KEY_WEIGHT, K)                 # [n][K]
     # audio/team are absent in a .qwd FEAT shard (folded/deferred) — leave them out;
     # the loader zero-fills.
-    if "demo_id" in cols:
-        out[SC.KEY_DEMO_IDS] = [str(d) for d in cols["demo_id"]]
-    if "episode_id" in cols:
-        out[SC.KEY_EPISODE_IDS] = [int(e) for e in cols["episode_id"]]
+    if "demo_id" in names:
+        out[SC.KEY_DEMO_IDS] = [str(d) for d in t.column("demo_id").to_pylist()]
+    if "episode_id" in names:
+        out[SC.KEY_EPISODE_IDS] = [int(e) for e in t.column("episode_id").to_pylist()]
 
     out[SC.KEY_META] = {
         "demo_id": (out.get(SC.KEY_DEMO_IDS, ["?"])[0] if n_rows else "?"),
@@ -157,7 +163,9 @@ def _pool_entities(ent_window_tick, em_window_tick) -> tuple:
     Returns (pooled_vector, n_visible). Mean over mask==1 rows (DeepSets-style
     permutation-invariant pooling, the contract's pooling op). When nothing is
     visible the pooled vector is zeros (belief/zeroed contract)."""
-    if not ent_window_tick:
+    # len()-based guard (not truthiness): ent_window_tick may be a numpy row now
+    # that the parquet loader returns ndarrays — `if not ndarray` raises.
+    if ent_window_tick is None or len(ent_window_tick) == 0:
         return [], 0
     ent_dim = len(ent_window_tick[0])
     pooled = [0.0] * ent_dim
