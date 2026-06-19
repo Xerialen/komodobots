@@ -66,7 +66,10 @@ class ReviewGateMergeWorkflowTests(unittest.TestCase):
         # A just-applied gate: ready must not merge immediately, so a reviewer who
         # reverts a transient PASS within the cooldown wins (the #192/#188 race).
         self.assertIn("ready_cooldown=300", merge)
-        self.assertIn('"$ready_age" -ge "$ready_cooldown"', merge)
+        self.assertIn('if [ "$ready_age" -lt "$ready_cooldown" ]; then', merge)
+        self.assertIn("sleep_s=$(( ready_cooldown - ready_age + 5 ))", merge)
+        self.assertIn('KBOT_WAITED_COOLDOWN=1 eval_and_merge "$PR"', merge)
+        self.assertIn("then re-reading current state", merge)
 
     def test_merge_allows_dev_base_and_protects_longlived_head(self) -> None:
         merge = _workflow_text(MERGE_WORKFLOW)

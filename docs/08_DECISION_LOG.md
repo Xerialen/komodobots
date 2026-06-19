@@ -3383,3 +3383,45 @@ branch (`main`) for the `schedule` / `workflow_run` reconcilers to honor it.
 
 Revisit if the branch model changes (e.g. `dev` is retired), if branch protection is enabled
 (GitHub Pro/public) and supersedes the executor, or if a third long-lived base is introduced.
+
+---
+
+## Make the review-gate cooldown event-driven, with cron as backup
+
+### Date
+
+2026-06-19
+
+### Decision
+
+The merge executor still requires the `gate: ready` label to be stable for 300 seconds, but a
+label/CI event that arrives inside that cooldown now sleeps once, then re-reads GitHub state and
+re-runs the full gate for the same PR. The 5-minute cron remains as best-effort reconciliation
+for missed events, but it is no longer the only mechanism that can merge after cooldown.
+
+Keep the same executor fix on both `main` and `dev`: `schedule` and `workflow_run` use the default
+branch copy, while `pull_request:labeled` for `dev` PRs can use the `dev` workflow copy.
+
+### Evidence
+
+- During the PR-flow monitor on 2026-06-19, #310 and #311 both reached `gate: ready` with green
+  checks, but their ready-label event runs skipped inside the 300-second cooldown and no cron run
+  arrived before manual fallback was required.
+- `gh run list --workflow "Review Gate Merge" --event schedule` showed scheduled runs arriving
+  hours apart despite `cron: "*/5 * * * *"`; GitHub schedule is best-effort in practice.
+- #311's ready-label run used the stale `dev` workflow copy and soft-skipped `base is 'dev'`,
+  proving the dev-base label path is not fixed by merging the executor change only to `main`.
+
+### Consequences
+
+Future `gate: ready` label events can carry themselves through the cooldown without waiting for
+an unreliable cron tick. The post-sleep recursive evaluation re-fetches PR state, labels, comments,
+timeline, checks, and head SHA before merging, preserving the existing stale-SHA and later-BLOCK
+protections. The job timeout increases to 10 minutes to cover the maximum 300-second sleep plus
+revalidation work.
+
+### Revisit Conditions
+
+Revisit if GitHub starts delivering cron with strict 5-minute reliability, if the sleep makes the
+Actions queue noisy, or if the branch model changes so `pull_request` events no longer need a `dev`
+copy of the workflow.
