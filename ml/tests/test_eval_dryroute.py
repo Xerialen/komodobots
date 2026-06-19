@@ -506,6 +506,177 @@ class TestPolicyRolloutGlueFake(unittest.TestCase):
             self.assertEqual(r["over_void"], 0)            # fake trace -> grounded
 
 
+# --------------------------------------------------------------------------- #
+# auto_seed_from_human — the cold-start sustain-diagnostic seed picker (pure)
+# --------------------------------------------------------------------------- #
+class TestAutoSeedFromHuman(unittest.TestCase):
+    @staticmethod
+    def _frame(vx, vy, vz=0.0):
+        return {"msec": 13, "origin": [0.0, 0.0, 0.0], "velocity": [vx, vy, vz],
+                "angles": [0.0, 0.0, 0.0], "move": [0, 0, 0], "buttons": 0}
+
+    def test_returns_first_fast_frame_velocity(self):
+        # frames ramp up; the FIRST with hspeed >= 200 is the one whose velocity is
+        # returned (world-frame 3-vector, unrotated).
+        frames = [self._frame(0.0, 0.0), self._frame(100.0, 0.0),   # hspeed 0, 100 < 200
+                  self._frame(300.0, 400.0, 5.0),                    # hspeed 500 -> picked
+                  self._frame(600.0, 0.0)]
+        seed = DR.auto_seed_from_human(frames)
+        self.assertEqual(seed, [300.0, 400.0, 5.0])
+        self.assertIsInstance(seed, list)
+
+    def test_threshold_is_horizontal_only(self):
+        # a big vertical (vz) with slow horizontal does NOT qualify; the next frame's
+        # horizontal speed crossing 200 does.
+        frames = [self._frame(10.0, 10.0, 900.0),                   # hspeed ~14 < 200
+                  self._frame(0.0, 250.0)]                          # hspeed 250 -> picked
+        self.assertEqual(DR.auto_seed_from_human(frames), [0.0, 250.0, 0.0])
+
+    def test_respects_min_hspeed_override(self):
+        frames = [self._frame(150.0, 0.0), self._frame(220.0, 0.0)]
+        # default 200 picks the 220 frame; a 100 floor picks the 150 frame.
+        self.assertEqual(DR.auto_seed_from_human(frames), [220.0, 0.0, 0.0])
+        self.assertEqual(DR.auto_seed_from_human(frames, min_hspeed=100.0),
+                         [150.0, 0.0, 0.0])
+
+    def test_none_when_all_frames_slow(self):
+        # every frame below the floor -> None (caller falls back to no seed).
+        frames = [self._frame(0.0, 0.0), self._frame(100.0, 100.0)]  # hspeed ~141 < 200
+        self.assertIsNone(DR.auto_seed_from_human(frames))
+
+    def test_first_frame_at_exact_threshold_qualifies(self):
+        # hypot(200,0) == 200 == min_hspeed -> qualifies (>=).
+        frames = [self._frame(200.0, 0.0)]
+        self.assertEqual(DR.auto_seed_from_human(frames), [200.0, 0.0, 0.0])
+
+
+# --------------------------------------------------------------------------- #
+# seed_velocity seam — run_policy_rollout initializes the sim at the seed (tick 0)
+# --------------------------------------------------------------------------- #
+class TestSeedVelocitySeam(unittest.TestCase):
+    """The cold-start sustain diagnostic seeds the POLICY rollout's PlayerState with a
+    world-frame velocity at tick 0 (instead of the human frame-0 velocity). We capture
+    the velocity PlayerState is constructed with — the unrotated seed must reach the sim
+    init before any frame is stepped. Deps-free (stub torch + a recording fake sim)."""
+
+    def setUp(self):
+        self._orig_trace = DR.PM.player_trace
+        self._orig_pmove = DR.PM.Pmove
+        self._orig_ps = DR.PM.PlayerState
+        DR.PM.player_trace = lambda world, start, end: _FakeTrace(0.0)  # grounded
+        rec = self
+        self.init_velocities = []
+
+        class _RecordingPlayerState:
+            def __init__(self, origin, velocity):
+                self.origin = list(origin)
+                self.velocity = list(velocity)
+                self.onground = True
+                rec.init_velocities.append(list(velocity))   # capture the seed at init
+
+        class _NoMutateVelPmove:
+            # advances origin +x but LEAVES st.velocity untouched, so the captured
+            # rows[0] velocity is the init (seed) velocity, pre-policy-mutation.
+            def __init__(self, world):
+                self.world = world
+
+            def run_frame(self, st, cmd):
+                st.origin[0] += 5.0
+
+        DR.PM.Pmove = _NoMutateVelPmove
+        DR.PM.PlayerState = _RecordingPlayerState
+
+    def tearDown(self):
+        DR.PM.player_trace = self._orig_trace
+        DR.PM.Pmove = self._orig_pmove
+        DR.PM.PlayerState = self._orig_ps
+
+    def _frames(self, n=8):
+        # human frame-0 velocity is a DISTINCT marker (1,2,3) so a seed override is
+        # unambiguous vs the no-seed fallback.
+        return [{"msec": 13, "origin": [0.0, 0.0, 0.0], "velocity": [1.0, 2.0, 3.0],
+                 "angles": [0.0, 0.0, 0.0], "move": [0, 0, 0], "buttons": 0}
+                for _ in range(n)]
+
+    def _run(self, seed):
+        route = _straight_route()
+        dims = {"f_ent": 0, "f_aux": 4, "n_max": 7}
+        model = _StubModel([2, 1, 1, 0, 0])     # fwd>0, no jump, no attack
+        enc = {"self": [0.0], "ents": [], "mask": []}
+        return DR.run_policy_rollout(
+            self._frames(8), _FakeWorld(), route, model=model, dims=dims,
+            encode_obs=lambda *a, **k: enc, stats={}, torch_mod=_StubTorch(),
+            map_name="dm3", n_max=7, device="cpu", seed_velocity=seed)
+
+    def test_seed_velocity_sets_player_state_at_tick0(self):
+        rows, _ = self._run([300.0, 400.0, 0.0])
+        # the PlayerState was constructed with the SEED, not the human frame-0 velocity.
+        self.assertEqual(self.init_velocities[0], [300.0, 400.0, 0.0])
+        # and (since the fake sim does not mutate velocity) the first captured row's
+        # horizontal speed reflects the seed at tick 0.
+        self.assertAlmostEqual(rows[0]["vh"], math.hypot(300.0, 400.0))   # 500
+
+    def test_seed_velocity_world_frame_not_rotated(self):
+        # the seed is passed through verbatim (world-frame); no yaw rotation is applied.
+        self._run([-123.0, 456.0, 7.0])
+        self.assertEqual(self.init_velocities[0], [-123.0, 456.0, 7.0])
+
+    def test_no_seed_falls_back_to_human_frame0_velocity(self):
+        # seed_velocity=None (default) -> PlayerState keeps the human frame-0 velocity.
+        rows, _ = self._run(None)
+        self.assertEqual(self.init_velocities[0], [1.0, 2.0, 3.0])
+
+    def test_seed_does_not_touch_stall_or_human_controls(self):
+        # the stall + human-path control row builders take NO seed argument (the gate
+        # controls must keep their recorded/zero start). Guard the signatures so a future
+        # edit can't accidentally thread a seed into a control.
+        import inspect
+        for fn in (DR.stall_rows, DR.human_rows_from_cmds):
+            params = set(inspect.signature(fn).parameters)
+            self.assertNotIn("seed_velocity", params, fn.__name__)
+
+
+# --------------------------------------------------------------------------- #
+# build_report — records the cold-start seed + mode in inputs (change #5)
+# --------------------------------------------------------------------------- #
+class TestBuildReportSeed(unittest.TestCase):
+    def setUp(self):
+        self.route = _straight_route()
+        self.human = {"passed": True}
+        self.stall = {"passed": False}
+        self.base_inputs = {"route": "synthetic", "controls_only": False}
+
+    def _report(self, **kw):
+        return DR.build_report(
+            "synthetic", self.route, human_result=self.human, stall_result=self.stall,
+            policy_result={"passed": False}, human_tws=400.0, agreement={},
+            inputs=dict(self.base_inputs), provenance={}, **kw)
+
+    def test_explicit_seed_recorded_rounded(self):
+        rep = self._report(seed=[300.04, 400.06, 0.0], seed_mode="explicit")
+        self.assertEqual(rep["inputs"]["seed_velocity"], [300.0, 400.1, 0.0])
+        self.assertEqual(rep["inputs"]["seed_mode"], "explicit")
+
+    def test_no_seed_defaults_to_none_mode(self):
+        # default (controls-only / unseeded) -> seed_velocity None, seed_mode "none".
+        rep = self._report()
+        self.assertIsNone(rep["inputs"]["seed_velocity"])
+        self.assertEqual(rep["inputs"]["seed_mode"], "none")
+
+    def test_from_human_mode_recorded(self):
+        rep = self._report(seed=[0.0, 250.0, 0.0], seed_mode="from_human")
+        self.assertEqual(rep["inputs"]["seed_velocity"], [0.0, 250.0, 0.0])
+        self.assertEqual(rep["inputs"]["seed_mode"], "from_human")
+
+    def test_seed_plumbing_does_not_disturb_controls_bracket(self):
+        # the seed only annotates inputs; the bracket verdict is still human PASS ^ stall
+        # FAIL, independent of seeding.
+        rep = self._report(seed=[300.0, 400.0, 0.0], seed_mode="explicit")
+        self.assertTrue(rep["controls"]["bracket_valid"])
+        self.assertEqual(rep["controls"]["human_path_positive"], self.human)
+        self.assertEqual(rep["controls"]["stall_negative"], self.stall)
+
+
 @unittest.skipUnless(_HAVE_TORCH, "run_eval needs torch + a real BSP (pinnacle GPU host)")
 class TestRunEvalGated(unittest.TestCase):
     """End-to-end is exercised on pinnacle with a real checkpoint + dm3.bsp; here only
@@ -522,6 +693,7 @@ class TestModuleImportsDepsFree(unittest.TestCase):
     def test_glue_importable(self):
         for fn in ("make_row", "score_rows", "over_void_at", "route_void_floor_z",
                    "controls_bracket", "stall_rows", "human_rows_from_cmds",
+                   "auto_seed_from_human",
                    "run_policy_rollout", "run_controls_only", "run_eval",
                    "load_route_with_human", "build_report"):
             self.assertTrue(callable(getattr(DR, fn)), fn)
