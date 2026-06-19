@@ -7,7 +7,10 @@ name: Review Gate Merge
 #   - `gate: ready` label present; `gate: blocked` absent
 #   - a top-level gate verdict comment says `LABEL: gate: ready` for the current
 #     PR head SHA, so a stale ready label cannot authorize a newer commit
-#   - PR open, non-draft, on `main`, mergeable
+#   - PR open, non-draft, base `main` or `dev`, mergeable (the `dev` integration
+#     branch auto-merges too, so the staged agent loop lands without a manual
+#     "fallback merge"; a `dev`->`main` PR whose head is a long-lived branch is
+#     never `--delete-branch`'d)
 #   - every non-gate status check passing (this is where `pr-tests` — the
 #     deterministic CI floor — is enforced)
 #
@@ -108,15 +111,16 @@ jobs:
           eval_and_merge() {
             local PR="$1"
 
-            local data state draft base mergeable head short
+            local data state draft base mergeable head head_ref short
             data=$(gh pr view "$PR" -R "$REPO" \
-              --json state,isDraft,baseRefName,mergeable,headRefOid,statusCheckRollup,labels)
+              --json state,isDraft,baseRefName,mergeable,headRefOid,headRefName,statusCheckRollup,labels)
 
             state=$(jq -r '.state' <<<"$data")
             draft=$(jq -r '.isDraft' <<<"$data")
             base=$(jq -r '.baseRefName' <<<"$data")
             mergeable=$(jq -r '.mergeable' <<<"$data")
             head=$(jq -r '.headRefOid' <<<"$data")
+            head_ref=$(jq -r '.headRefName' <<<"$data")
             short=${head:0:7}
 
             local has_ready has_blocked
@@ -125,7 +129,7 @@ jobs:
 
             [ "$state" = "OPEN" ]          || { echo "skip #$PR: not open (state=$state)"; return 0; }
             [ "$draft" = "false" ]         || { echo "skip #$PR: draft"; return 0; }
-            [ "$base" = "main" ]           || { echo "skip #$PR: base is '$base'"; return 0; }
+            case "$base" in main|dev) ;; *) echo "skip #$PR: base is '$base' (only main/dev auto-merge)"; return 0 ;; esac
             [ "$has_ready" = "true" ]      || { echo "skip #$PR: no 'gate: ready'"; return 0; }
             [ "$has_blocked" = "false" ]   || { echo "skip #$PR: 'gate: blocked' present"; return 0; }
             [ "$mergeable" = "MERGEABLE" ] || { echo "skip #$PR: not mergeable ($mergeable)"; return 0; }
@@ -234,10 +238,15 @@ jobs:
             [ "${pt_total:-0}" -ge 1 ]        || { echo "skip #$PR: required 'PR Tests' check absent (CI floor missing)"; return 0; }
             [ "${pt_total}" -eq "${pt_ok}" ]  || { echo "skip #$PR: 'PR Tests' not all passing ($pt_ok/$pt_total)"; return 0; }
 
-            echo "merging #$PR @ $short ($n_checks check(s) passing, incl. PR Tests $pt_ok/$pt_total; SHA-bound gate verdict present)"
-            gh pr merge "$PR" -R "$REPO" --squash --delete-branch
+            # Clean up disposable feature branches, but NEVER delete a long-lived
+            # integration branch — e.g. a `dev`->`main` PR whose head ref is `dev`.
+            local del="--delete-branch"
+            case "$head_ref" in main|dev) del="" ;; esac
+
+            echo "merging #$PR @ $short into '$base' ($n_checks check(s) passing, incl. PR Tests $pt_ok/$pt_total; SHA-bound gate verdict present)"
+            gh pr merge "$PR" -R "$REPO" --squash $del
             gh pr comment "$PR" -R "$REPO" \
-              --body "**Merged** by review-gate executor. Gate: open, non-draft, base \`main\`, mergeable, current-head gate verdict for \`$short\`, $n_checks check(s) passing (incl. \`PR Tests\`), label \`gate: ready\`."
+              --body "**Merged** by review-gate executor. Gate: open, non-draft, base \`$base\`, mergeable, current-head gate verdict for \`$short\`, $n_checks check(s) passing (incl. \`PR Tests\`), label \`gate: ready\`."
           }
 
           for PR in $PRS; do
