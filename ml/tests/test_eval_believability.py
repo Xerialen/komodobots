@@ -243,9 +243,92 @@ class TestComputeDemoMetrics(unittest.TestCase):
             m["strafe_cadence_per_min"]["human"]["flips"], 0)
 
 
+class TestHumanWeightMasking(unittest.TestCase):
+    """FIX B(2): weight==0 human rows (null/interpolated/zero-confidence labels — the
+    trainer's loss-excluded frames, build_features.py) must be dropped from the HUMAN
+    side numerator AND denominator. The fabricated all-idle label they carry otherwise
+    inflates human idle/no-jump rates and corrupts head agreement. Policy stays unmasked."""
+
+    def _stream(self):
+        # 4 ticks. The LAST TWO are weight==0: their HUMAN labels are fabricated 'idle'
+        # (jump not pressed, side none). The human ACTUALLY jumped on both valid ticks.
+        pred = {"fwd": [2, 2, 2, 2], "side": [2, 0, 2, 0], "up": [1, 1, 1, 1],
+                "jump": [1, 1, 1, 1], "attack": [0, 0, 0, 0]}
+        human = {"fwd": [2, 2, 1, 1], "side": [2, 0, 1, 1], "up": [1, 1, 1, 1],
+                 "jump": [1, 1, 0, 0], "attack": [0, 0, 0, 0]}   # last 2 = fabricated idle
+        raw = {"onground": [False] * 4, "hspeed": [500.0] * 4}
+        weight = [1.0, 1.0, 0.0, 0.0]
+        return pred, human, raw, weight
+
+    def test_human_jump_rate_excludes_zero_weight(self):
+        pred, human, raw, weight = self._stream()
+        # WITHOUT the mask: human jump = 2/4 = 0.5 (the fabricated idle rows drag it down)
+        m_unmasked = EV.compute_demo_metrics(pred, human, raw, ticks_per_sec=10.0)
+        self.assertAlmostEqual(m_unmasked["jump_rate"]["human"]["rate"], 0.5)
+        # WITH the mask: only the 2 valid ticks count, both jump=1 -> 1.0
+        m = EV.compute_demo_metrics(pred, human, raw, ticks_per_sec=10.0,
+                                    human_weight=weight)
+        self.assertAlmostEqual(m["jump_rate"]["human"]["rate"], 1.0)
+        self.assertEqual(m["jump_rate"]["human"]["n"], 2)
+        # policy jump rate is UNMASKED: 4/4 -> 1.0 over all 4 ticks
+        self.assertAlmostEqual(m["jump_rate"]["policy"]["rate"], 1.0)
+        self.assertEqual(m["jump_rate"]["policy"]["n"], 4)
+
+    def test_human_move_class_dist_excludes_zero_weight(self):
+        pred, human, raw, weight = self._stream()
+        m = EV.compute_demo_metrics(pred, human, raw, ticks_per_sec=10.0,
+                                    human_weight=weight)
+        # human 'side' over valid ticks only = [2,0] -> classes {0:1, 2:1}, none(1)=0.
+        # the two fabricated 'none' rows are excluded, so frac[1] (none) is 0.0.
+        hdist = m["move_class_dist"]["side"]["human"]
+        self.assertEqual(hdist["n"], 2)
+        self.assertEqual(hdist["counts"], [1, 0, 1])
+
+    def test_human_strafe_cadence_excludes_zero_weight(self):
+        pred, human, raw, weight = self._stream()
+        m = EV.compute_demo_metrics(pred, human, raw, ticks_per_sec=10.0,
+                                    human_weight=weight)
+        # human eligible+valid side stream = [2,0] (R,L) -> exactly 1 flip; the two
+        # fabricated 'none' rows neither add eligible ticks nor flips.
+        hc = m["strafe_cadence_per_min"]["human"]
+        self.assertEqual(hc["flips"], 1)
+        self.assertEqual(hc["eligible_ticks"], 2)
+        # policy eligible side = [2,0,2,0] over all 4 ticks -> 3 flips
+        self.assertEqual(m["strafe_cadence_per_min"]["policy"]["flips"], 3)
+        self.assertEqual(m["strafe_cadence_per_min"]["policy"]["eligible_ticks"], 4)
+
+    def test_head_agreement_excludes_zero_weight(self):
+        pred, human, raw, weight = self._stream()
+        # jump head: pred all 1; human valid = [1,1] -> agreement 1.0 over 2 ticks.
+        # WITHOUT mask the fabricated [0,0] human rows would drop agreement to 0.5.
+        m = EV.compute_demo_metrics(pred, human, raw, ticks_per_sec=10.0,
+                                    human_weight=weight)
+        self.assertAlmostEqual(m["head_agreement"]["jump"]["agreement"], 1.0)
+        self.assertEqual(m["head_agreement"]["jump"]["n"], 2)
+        m_unmasked = EV.compute_demo_metrics(pred, human, raw, ticks_per_sec=10.0)
+        self.assertAlmostEqual(m_unmasked["head_agreement"]["jump"]["agreement"], 0.5)
+
+    def test_default_none_is_backcompat(self):
+        # human_weight=None (default) must behave EXACTLY as before (no masking).
+        pred, human, raw, _ = self._stream()
+        a = EV.compute_demo_metrics(pred, human, raw, ticks_per_sec=10.0)
+        b = EV.compute_demo_metrics(pred, human, raw, ticks_per_sec=10.0,
+                                    human_weight=None)
+        self.assertEqual(a, b)
+
+
 class TestAggregateMetrics(unittest.TestCase):
-    def test_pools_by_concatenation(self):
-        # two demos; aggregate flip count == sum of per-demo flips on the pooled stream
+    def test_flips_summed_per_demo_not_across_boundary(self):
+        # REGRESSION (cross-demo teleport flip): demoA ENDS on +1 (right) and demoB
+        # OPENS on -1 (left). Concatenating the streams and counting sign-flips ONCE
+        # would see a +1 -> -1 reversal AT THE DEMO BOUNDARY and report 3 flips, but
+        # that reversal never happened within either demo. The correct corpus flip
+        # count is the SUM of each demo's own flips: demoA [.. +1 .. ] has its flips,
+        # demoB [-1 ..] has its flips, and the boundary contributes NOTHING.
+        #
+        #   demoA side signs: [-1, +1]  -> 1 flip  (-1 -> +1)
+        #   demoB side signs: [-1, +1]  -> 1 flip  (-1 -> +1)
+        #   correct total = 2.   pooled-and-counted-once = 3 (the +1->-1 boundary).
         d = {
             "demoA": {
                 "pred": {"fwd": [2, 2], "side": [0, 2], "up": [1, 1],
@@ -255,17 +338,77 @@ class TestAggregateMetrics(unittest.TestCase):
                 "raw": {"onground": [False, False], "hspeed": [500.0, 500.0]},
             },
             "demoB": {
-                "pred": {"fwd": [2, 2], "side": [2, 0], "up": [1, 1],
+                "pred": {"fwd": [2, 2], "side": [0, 2], "up": [1, 1],
                          "jump": [0, 0], "attack": [1, 0]},
-                "human": {"fwd": [2, 2], "side": [2, 0], "up": [1, 1],
+                "human": {"fwd": [2, 2], "side": [0, 2], "up": [1, 1],
                           "jump": [0, 0], "attack": [1, 0]},
                 "raw": {"onground": [False, False], "hspeed": [500.0, 500.0]},
             },
         }
         agg = EV.aggregate_metrics(d, ticks_per_sec=10.0)
         self.assertEqual(agg["n_ticks"], 4)
-        # pooled side = [0,2, 2,0] -> flips: 0->2 (1), 2->2 (0), 2->0 (1) = 2
+        # sum of per-demo flips = 1 + 1 = 2 (NOT 3 from the spurious +1->-1 boundary)
         self.assertEqual(agg["strafe_cadence_per_min"]["policy"]["flips"], 2)
+        self.assertEqual(agg["strafe_cadence_per_min"]["human"]["flips"], 2)
+        # eligible-tick count still pools across both demos (4 airborne-moving ticks),
+        # so the rate uses the full corpus duration, only the flip COUNT is per-demo.
+        self.assertEqual(agg["strafe_cadence_per_min"]["policy"]["eligible_ticks"], 4)
+        # sanity: had it pooled-and-counted-once it would be 3 -> assert it is not.
+        self.assertNotEqual(agg["strafe_cadence_per_min"]["policy"]["flips"], 3)
+
+    def test_count_based_metrics_still_pool(self):
+        # distributions / rates / agreement are plain counts and DO pool by
+        # concatenation (no boundary artifact). Two demos, 2 ticks each.
+        d = {
+            "demoA": {
+                "pred": {"fwd": [2, 2], "side": [1, 1], "up": [1, 1],
+                         "jump": [1, 1], "attack": [0, 0]},
+                "human": {"fwd": [2, 2], "side": [1, 1], "up": [1, 1],
+                          "jump": [1, 1], "attack": [0, 0]},
+                "raw": {"onground": [False, False], "hspeed": [500.0, 500.0]},
+            },
+            "demoB": {
+                "pred": {"fwd": [2, 2], "side": [1, 1], "up": [1, 1],
+                         "jump": [0, 0], "attack": [0, 0]},
+                "human": {"fwd": [2, 2], "side": [1, 1], "up": [1, 1],
+                          "jump": [0, 0], "attack": [0, 0]},
+                "raw": {"onground": [False, False], "hspeed": [500.0, 500.0]},
+            },
+        }
+        agg = EV.aggregate_metrics(d, ticks_per_sec=10.0)
+        # jump pressed on 2 of 4 pooled ticks -> 0.5
+        self.assertAlmostEqual(agg["jump_rate"]["policy"]["rate"], 0.5)
+
+    def test_aggregate_masks_zero_weight_human_rows(self):
+        # demoB's two ticks are weight==0 (e.g. interpolated frames the trainer drops).
+        # Their HUMAN labels are fabricated 'idle' (side none / jump pressed-looking),
+        # and must NOT count toward the pooled HUMAN jump rate. Only demoA's 2 valid
+        # human ticks (both jump=1) count -> human jump rate 1.0, NOT 0.5.
+        d = {
+            "demoA": {
+                "pred": {"fwd": [2, 2], "side": [1, 1], "up": [1, 1],
+                         "jump": [1, 1], "attack": [0, 0]},
+                "human": {"fwd": [2, 2], "side": [1, 1], "up": [1, 1],
+                          "jump": [1, 1], "attack": [0, 0]},
+                "raw": {"onground": [False, False], "hspeed": [500.0, 500.0]},
+                "human_weight": [1.0, 1.0],
+            },
+            "demoB": {
+                "pred": {"fwd": [2, 2], "side": [1, 1], "up": [1, 1],
+                         "jump": [0, 0], "attack": [0, 0]},
+                "human": {"fwd": [1, 1], "side": [1, 1], "up": [1, 1],
+                          "jump": [0, 0], "attack": [0, 0]},
+                "raw": {"onground": [False, False], "hspeed": [500.0, 500.0]},
+                "human_weight": [0.0, 0.0],
+            },
+        }
+        agg = EV.aggregate_metrics(d, ticks_per_sec=10.0)
+        # human side: only demoA's 2 ticks valid, both jump=1 -> rate 1.0
+        self.assertAlmostEqual(agg["jump_rate"]["human"]["rate"], 1.0)
+        self.assertEqual(agg["jump_rate"]["human"]["n"], 2)
+        # policy side is UNMASKED: jump pressed 2 of 4 pooled ticks -> 0.5
+        self.assertAlmostEqual(agg["jump_rate"]["policy"]["rate"], 0.5)
+        self.assertEqual(agg["jump_rate"]["policy"]["n"], 4)
 
 
 class TestAnchorResolution(unittest.TestCase):
