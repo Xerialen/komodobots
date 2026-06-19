@@ -358,19 +358,35 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str,
 def _nearest_observed(samp: dict, t: float, max_staleness_s: float):
     """Return the OTHER-player sample most recently received at-or-before time `t`
     (the state the client currently had for that player), or None if the latest such
-    sample is staler than `max_staleness_s` (player not currently observed). Binary
-    search over the per-player time array; falls back to the nearest forward sample
-    only inside the window (covers a tick landing a hair before the first sample)."""
+    sample is staler than `max_staleness_s` (player not currently observed, i.e. out
+    of PVS / gone stale). Binary search over the per-player time array.
+
+    CAUSALITY: the join is strictly at-or-before. `actor_ticks` is the observed-other
+    state the recording client HAD AT THAT TICK, so a behavioural-cloning policy must
+    only ever see state it could have received by then. We must NOT pull a `times[j] > t`
+    sample forward into the unobserved gap before the player re-enters PVS (e.g. samples
+    at 100.0 and 101.0 must not let a tick at 100.6 read the 101.0 state) — that leaks
+    future visibility into the training input. The lone forward pick we keep is the
+    PRE-FIRST-SAMPLE alignment case (`i < 0`: no sample exists at-or-before `t` at all),
+    where the tick lands a hair before the player's very first received sample; that is a
+    sub-staleness clock offset between the demo's first frame time and the first svc_play-
+    erinfo, not a gap re-entry, so it cannot leak mid-stream future state."""
     times = samp["t"]
     if not times:
         return None
     i = bisect.bisect_right(times, t) - 1
-    if i >= 0 and (t - times[i]) <= max_staleness_s:
-        return samp["rows"][i]
-    # tick just before this player's first/next sample — accept if within the window
-    j = i + 1
-    if j < len(times) and (times[j] - t) <= max_staleness_s:
-        return samp["rows"][j]
+    if i >= 0:
+        # strictly at-or-before: accept only if not staler than the window.
+        if (t - times[i]) <= max_staleness_s:
+            return samp["rows"][i]
+        # an at-or-before sample exists but is stale -> player not currently observed.
+        # Do NOT reach forward to times[i+1]; that would leak a not-yet-received future
+        # sample into the unobserved gap (the causality violation above).
+        return None
+    # i < 0: no sample at-or-before t. Pre-first-sample alignment only -> accept the
+    # very first sample if the tick is within the window just ahead of it.
+    if (times[0] - t) <= max_staleness_s:
+        return samp["rows"][0]
     return None
 
 

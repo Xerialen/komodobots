@@ -181,6 +181,26 @@ class TestObservedOthersActorTicks(unittest.TestCase):
         # far before the first sample -> None
         self.assertIsNone(etl._nearest_observed(samp, 90.0, 0.5))
 
+    def test_nearest_observed_no_future_leak_across_gap(self):
+        # CAUSALITY regression (PR #296): in an unobserved gap, a not-yet-received
+        # forward sample must never be pulled back into actor_ticks. Reviewer's example:
+        # samples at 100.0 and 101.0, tick at 100.6.
+        samp = {"t": [100.0, 101.0], "rows": [["old"], ["future"]]}
+        # window keeps 100.0 fresh (0.6 <= 0.7) -> at-or-before 100.0, NOT future 101.0.
+        r = etl._nearest_observed(samp, 100.6, 0.7)
+        self.assertIsNotNone(r)
+        self.assertEqual(r[0], "old")
+        # window makes 100.0 stale (0.6 > 0.5) AND would have admitted forward 101.0
+        # (0.4 <= 0.5): must be None (player not observed), never the future sample.
+        self.assertIsNone(etl._nearest_observed(samp, 100.6, 0.5))
+        # an at-or-before sample exists but is stale, with a much closer future sample
+        # just ahead inside the window -> still None (no forward reach across the gap).
+        samp2 = {"t": [100.0, 100.65], "rows": [["old"], ["future"]]}
+        self.assertIsNone(etl._nearest_observed(samp2, 100.6, 0.5))
+        # the ONE permitted forward pick survives: pre-first-sample alignment (no
+        # at-or-before sample exists at all) still returns the first sample in-window.
+        self.assertEqual(etl._nearest_observed(samp, 99.9, 0.5)[0], "old")
+
     def test_actor_ticks_self_and_others(self):
         rec = _synthetic_demo_with_observed()
         ins = etl.insert_demo(self.con, self.map_id, rec, "train")
