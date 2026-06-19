@@ -457,7 +457,9 @@ def build_model_card(*, run_kind, schema: SC.ShardSchema, in_dim, hidden,
     (git_sha, registry_version, norm artifact_version, seed) per the
     normalization_stats template's model-card requirement."""
     card = {
-        "schema": "komodobots.model_card.broad_bc.v1",
+        # identifies the MODEL-CARD format itself (distinct from the data `schema`
+        # object below); renamed from "schema" to avoid the two keys colliding.
+        "card_schema": "komodobots.model_card.broad_bc.v1",
         "run_kind": run_kind,                      # "cpu_smoke" | "gpu_train"
         "task": "broad behavioral cloning (dm3 4on4 stand-in; enemy/team-aware)",
         "input_is_broad": True,
