@@ -232,6 +232,7 @@ class TestDuplicateSha256(unittest.TestCase):
             # exactly one demos row landed; the skipped demo left no rows behind.
             (n_demos,) = res["con"].execute("SELECT COUNT(*) FROM demos").fetchone()
             self.assertEqual(n_demos, 1)
+            res["con"].close()   # close before the temp dir is removed (Windows WinError 32)
 
 
 class TestEmptyLoadExitCode(unittest.TestCase):
@@ -332,6 +333,7 @@ class TestPlayerHandleGrouping(unittest.TestCase):
             (n_distinct,) = res["con"].execute(
                 "SELECT COUNT(DISTINCT player_id) FROM episodes").fetchone()
             self.assertEqual(n_distinct, 1)
+            res["con"].close()   # close before the temp dir is removed (Windows WinError 32)
 
 
 if __name__ == "__main__":

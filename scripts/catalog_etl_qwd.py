@@ -513,17 +513,24 @@ def main(argv=None) -> int:
 
     res = build(args.catalog_dir, args.demo_list, args.db,
                 with_fixture=args.with_fixture, workers=args.workers, limit=args.limit)
-    print(json.dumps(res["summary"], indent=2, default=str))
+    try:
+        print(json.dumps(res["summary"], indent=2, default=str))
 
-    # (B) A catalog with zero loaded .qwd demos has no real episodes/player_ticks/actions
-    # (only the static spine + optional fixture). Returning 0 here lets automation that
-    # keys off exit status silently accept that empty catalog. Fail unless --allow-empty.
-    if res["summary"]["demos_loaded"] == 0 and not args.allow_empty:
-        print("ERROR: no .qwd demos loaded (0 episodes/player_ticks/actions from real "
-              "demos); failing. Pass --allow-empty to accept a static-only catalog.",
-              file=sys.stderr)
-        return 2
-    return 0
+        # (B) A catalog with zero loaded .qwd demos has no real episodes/player_ticks/actions
+        # (only the static spine + optional fixture). Returning 0 here lets automation that
+        # keys off exit status silently accept that empty catalog. Fail unless --allow-empty.
+        if res["summary"]["demos_loaded"] == 0 and not args.allow_empty:
+            print("ERROR: no .qwd demos loaded (0 episodes/player_ticks/actions from real "
+                  "demos); failing. Pass --allow-empty to accept a static-only catalog.",
+                  file=sys.stderr)
+            return 2
+        return 0
+    finally:
+        # close build()'s sqlite connection on every path so the .sqlite file can be
+        # deleted afterward (Windows blocks unlinking an open handle — WinError 32).
+        con = res.get("con")
+        if con is not None:
+            con.close()
 
 
 if __name__ == "__main__":
