@@ -40,6 +40,18 @@ Binary, per the owner's real-play call (overrides the ballistic-margin proxy): *
 ## Phased program (issues)
 - Phase 0 data foundation: #315 ETL all-player kinematics->actor_ticks, #316 real airborne signal (replace all-zero onground), #317 landmark region polygons.
 - Phase 1: #318 (this doc), #319 leg segmenter, #320 POV command extractor.
+
+### Control regions (#317, landed)
+The named control points above are realized as NON-OVERLAPPING regions in
+`lab/dashboard/public/data/map_regions/dm3.json` (loader `scripts/map_regions.py`:
+`assign_region(x,y,z)`; deterministic nearest-region-with-cap, 3D). Each region MERGES an
+item's sub-points (RA absorbs RA.low/RA.rox; YA absorbs YA.box/YA.up; SNG absorbs
+MH/low/ledge/lifts) so the #315 phantom intra-area shuffles (RA.low<->RA, YA.box<->YA)
+collapse into one region; RA.tunnel/bridge/SNG.tele are kept as their own regions. The
+**#319 leg segmenter consumes this layer** (a leg = a transition between two DISTINCT
+region visits). Coverage over ~878k actor_ticks: 69.9% assigned (>= 60% #317 criterion).
+Region granularity (which sub-points merge where) is tunable in the region file alone.
+
 - Phase 2: #321 route-conditioned BC (Tier-1), #322 inverse-pmove non-POV command inference, #323 Tier-2.
 - Phase 3 shortcuts: #324 easy, #325 hard. Phase 4 enablers: #326 easy, #327 hard (rockets; needs attack-button head).
 
