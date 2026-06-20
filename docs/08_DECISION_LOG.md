@@ -3425,3 +3425,13 @@ revalidation work.
 Revisit if GitHub starts delivering cron with strict 5-minute reliability, if the sleep makes the
 Actions queue noisy, or if the branch model changes so `pull_request` events no longer need a `dev`
 copy of the workflow.
+
+## Adopt the dm3 route taxonomy + 5-phase route-segmented BC program
+
+### Date
+
+2026-06-20
+
+### Decision
+
+2026-06-20: Adopted the dm3 route taxonomy + 5-phase route-segmented BC program (issues #315-327). See docs/notes/dm3-route-taxonomy.md.
