@@ -969,6 +969,45 @@ build artifact, not a committed source. Its per-tick world-state layers are:
   (commit `4756c0d`): the SELF ego row for every tick **plus** each OBSERVED-OTHER
   player the recording client was receiving at that tick.
 
+### Geometric `onground` derivation (#316)
+
+The POV `.qwd` `svc_playerinfo` stream does **not** carry a usable server-side
+`FL_ONGROUND` flag: the `PF_ONGROUND` bit (`1<<14`) is **never set** in the recovered
+flags, so the raw `onground` parsed from the demo is `False` for **every** tick — for
+both the ego-self spine and every observed-other. (Diagnosed empirically on a real dm3
+demo: the raw `onground` distribution from the probe, *before* any interpolation, is
+`{False: 44979}` — literally all-zero; `pm_code` is likewise always 0. This matches the
+long-standing note in `scripts/move_world_view.py`.) The interpolation step in
+`build_replay_command_file.py` was *also* mashing the flag toward `False` with a
+conservative `prev AND next` carry, but that was a latent bug, **not** the cause — the
+input was already all-`False`.
+
+So the catalog **derives `onground` geometrically** instead of trusting the flag. For
+each recovered `(origin, velocity)` we run `pmove_sim.derive_onground` — the floor branch
+of mvdsv `PM_CategorizePosition`: trace the player hull straight **down 1 qu** against the
+real **dm3 BSP** (`/home/ubuntu/nquakesv/qw/maps/dm3.bsp`, overridable via
+`$KOMODO_DM3_BSP`) and report on-ground iff that trace hits a surface (`fraction < 1`)
+whose normal points up enough to stand on (`normal.z >= 0.7 = MIN_STEP_NORMAL`); a
+strongly-rising player (`vz > 180`) short-circuits to airborne (the "just left the
+ground" case the engine already models). This is the **gold** signal — fully local,
+deterministic, and identical to what a full `pmove_sim` replay computes at the start of
+each frame (verified to agree exactly on 4000 real dm3 states).
+
+Rows carrying the derived value are flagged **`onground_is_proxy = TRUE`** (the schema
+column already reserved for "derived, not raw server ground-truth"). The derivation is
+**dm3-only and guarded by the recovered level name** (`"The Abandoned Base"`): a demo
+that is not dm3 — even a `*_dm3_*`-named file that is actually another map, e.g. one
+corpus demo that is really "Castle of the Damned" — is **not** derived (its origins would
+be traced against the wrong geometry), and its `onground` stays `NULL`. If the dm3 BSP is
+absent the derivation is skipped (`onground` `NULL`) rather than crashing the ETL.
+
+On the dm3 slice this turns the all-`False`/all-`NULL` column into a sensible mixed
+signal: ego-self ≈ **67% grounded**, observed-others ≈ **69% grounded**, with essentially
+no "on-ground while the jump button is pressed and the player is ascending" (the bad
+case): only ~0.8% of jump-pressed frames, all at the single takeoff tick. See PR #316 and
+`tests/test_derive_onground.py` (BSP-free: a synthetic flat-floor world + the
+interpolation-carry fix).
+
 **Rebuild command** (the P1 8-demo self-POV dm3 4on4 slice):
 
 ```text

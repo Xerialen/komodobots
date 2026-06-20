@@ -456,6 +456,53 @@ def clip_velocity(vin, normal, overbounce):
     return out
 
 
+def derive_onground(world: "WorldModel", origin, velocity, physents=None) -> bool:
+    """Geometric ground test: is a player at (origin, velocity) standing on the floor?
+
+    This is the floor half of PM_CategorizePosition (mvdsv pmove.c), factored out so
+    it can be evaluated for a single recovered state WITHOUT stepping a full Pmove
+    frame. It uses the same constants and the same down-trace as the onground branch
+    of `Pmove._categorize`, so for a given (world, origin, velocity) the result equals
+    the onground state `run_frame` would compute at the START of that frame (a unit
+    test pins this equivalence on real dm3 states).
+
+    The rule (verbatim from the engine):
+      * velocity[2] > 180 (MAXGROUNDSPEED_DEFAULT) -> airborne. This is the "just left
+        the ground" / ascending case: a strongly-rising player is never on-ground even
+        if the hull still overlaps the floor for one tick. (This is the only place vz
+        legitimately assists the decision; it is part of pmove, not a vz-threshold
+        bolt-on.)
+      * otherwise trace the player hull straight down 1 qu. On-ground iff that trace
+        HITS a surface (fraction < 1) whose normal points up enough to stand on
+        (normal.z >= 0.7 = MIN_STEP_NORMAL). A miss, or a too-steep face, is airborne.
+
+    Use this as the GOLD per-tick onground signal when the source stream (e.g. a POV
+    .qwd) does not carry a trustworthy server-side FL_ONGROUND flag. It is fully local
+    and deterministic: it only needs the loaded `world` BSP and the recovered state.
+
+    CALLER CONTRACT: `world` MUST be the BSP for the map this state was recorded on.
+    Tracing a state from one map against another map's geometry yields garbage (the
+    origin can even land inside solid). The catalog ETL guards this by deriving only
+    for demos whose level matches the loaded map.
+
+    Args:
+        world:    loaded WorldModel (the map's BSP).
+        origin:   (x, y, z) player origin, qu.
+        velocity: (vx, vy, vz) player velocity, qu/s (only vz is used).
+        physents: optional extra collidables (brush submodels / player boxes), as for
+                  player_trace. None => worldmodel-only (the validated baseline).
+
+    Returns:
+        True if on the ground, else False.
+    """
+    if velocity[2] > MAXGROUNDSPEED_DEFAULT:
+        return False
+    point = (origin[0], origin[1], origin[2] - 1.0)
+    tr = player_trace(world, origin, point, physents)
+    far = tr.fraction == 1.0 or tr.normal[2] < MIN_STEP_NORMAL
+    return not far
+
+
 # ── pmove state ───────────────────────────────────────────────────────────────
 class Cmd:
     __slots__ = ("msec", "angles", "move", "buttons")

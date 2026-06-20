@@ -59,6 +59,7 @@ import argparse
 import bisect
 import json
 import math
+import os
 import sqlite3
 import sys
 import time
@@ -96,6 +97,93 @@ MIN_EPISODE_FRAMES = 24  # drop slivers (consistent with the MOVE-BC clean-run f
 # actor_visibility layer, not actor_ticks.)
 OBSERVED_MAX_STALENESS_S = 0.5
 
+# ── geometric onground (#316) ────────────────────────────────────────────────
+# The POV .qwd svc_playerinfo stream does NOT carry a usable server-side FL_ONGROUND
+# flag: the PF_ONGROUND bit is never set, so the raw `onground` is all-False for both
+# the ego-self spine AND every observed-other (diagnosed empirically — see PR #316 and
+# docs/06). We therefore DERIVE onground geometrically: trace the player hull straight
+# down against the real map BSP at each recovered origin (pmove_sim.derive_onground,
+# i.e. the floor branch of mvdsv PM_CategorizePosition). This is the gold per-tick
+# signal and is fully local. Rows carrying it are flagged onground_is_proxy=TRUE.
+#
+# This stage is dm3-only (the only map the corpus + this catalog cover) and is GUARDED
+# by the recovered level name: a demo whose svc_serverdata level is not dm3's "The
+# Abandoned Base" is NOT derived (its origins would be traced against the wrong
+# geometry — even a "dm3"-named file can actually be another map, e.g. one corpus demo
+# named *_dm3_* is really "Castle of the Damned"). Un-derived rows keep onground=NULL.
+DM3_BSP_PATH = Path(
+    os.environ.get("KOMODO_DM3_BSP", "/home/ubuntu/nquakesv/qw/maps/dm3.bsp")
+)
+# dm3 svc_serverdata level_name (BSP "message"); the recovered serverdata must match
+# this for the geometric derivation to be valid against DM3_BSP_PATH.
+DM3_LEVEL_NAME = "The Abandoned Base"
+
+# Per-worker WorldModel cache (separate processes each load dm3 once). Keyed by the
+# resolved BSP path string; value is the loaded WorldModel, or False if the BSP is
+# absent/unloadable (so we don't retry and we fall back to onground=NULL).
+_WORLD_CACHE: dict = {}
+
+
+class Dm3BspUnavailable(RuntimeError):
+    """A genuine dm3 demo was loaded but the dm3 BSP could not be loaded, so geometric
+    onground (#316) could NOT be derived. This is a HARD ERROR — not a silent NULL.
+
+    Why hard-fail: without the BSP every dm3 tick gets onground=NULL, and downstream
+    `ml/pipeline/build_features.py` maps NULL onground -> airborne. A dm3 catalog rebuilt
+    on a host without `$KOMODO_DM3_BSP` / the default dm3.bsp would therefore become an
+    ALL-AIRBORNE training/eval input instead of failing — re-introducing the exact
+    bad-data class #316 exists to remove. So we refuse to write NULL onground for dm3 and
+    fail the build loudly (non-zero exit) instead."""
+
+
+def _dm3_world():
+    """Return the loaded dm3 WorldModel (cached per process), or None if the BSP is
+    missing/unloadable. Never raises here: callers decide what a None means. (For dm3
+    demos that is a hard error — see `_require_dm3_onground` — but the per-state
+    derivation helper still treats None as "can't derive" so non-dm3 stays NULL.)"""
+    key = str(DM3_BSP_PATH)
+    cached = _WORLD_CACHE.get(key, "miss")
+    if cached != "miss":
+        return cached or None
+    world = None
+    try:
+        if DM3_BSP_PATH.exists():
+            world = pmove_sim.WorldModel.load(str(DM3_BSP_PATH))
+    except Exception:  # noqa: BLE001  (corrupt/foreign BSP -> disable derivation)
+        world = None
+    _WORLD_CACHE[key] = world if world is not None else False
+    return world
+
+
+def _require_dm3_onground(level_name, demo_name) -> None:
+    """Hard-fail guard (#316): if this demo IS dm3 ("The Abandoned Base") but the dm3
+    BSP cannot be loaded, raise Dm3BspUnavailable so the ETL exits non-zero rather than
+    silently writing onground=NULL for every dm3 tick (which downstream reads as
+    all-airborne). NON-dm3 demos are unaffected — they have no geometric derivation
+    defined and legitimately keep onground=NULL, so this guard is a no-op for them."""
+    if level_name != DM3_LEVEL_NAME:
+        return
+    if _dm3_world() is None:
+        raise Dm3BspUnavailable(
+            "dm3 demo %r requires the dm3 BSP to derive geometric onground (#316), but "
+            "it could not be loaded. Set $KOMODO_DM3_BSP or place dm3.bsp at %s, or "
+            "exclude dm3 demos. Refusing to write onground=NULL for dm3 (it would become "
+            "an all-airborne training/eval input)." % (demo_name, DM3_BSP_PATH)
+        )
+
+
+def _derive_onground_dm3(level_name, origin, velocity):
+    """Geometric onground for ONE recovered dm3 state, or None if it can't be derived
+    (non-dm3 level, or the dm3 BSP is unavailable). Used for both the ego-self spine
+    and observed-others so every onground in the catalog comes from the same gold
+    source."""
+    if level_name != DM3_LEVEL_NAME:
+        return None
+    world = _dm3_world()
+    if world is None:
+        return None
+    return pmove_sim.derive_onground(world, origin, velocity)
+
 
 def _hspeed(v) -> float:
     return math.hypot(float(v[0]), float(v[1]))
@@ -108,7 +196,11 @@ def extract_demo(demo_path: str) -> dict:
         {ok, demo, sha256, map_level, playernum, n_frames, coverage,
          episodes:[{start,end,n,frames:[...]}]}  on success
         {ok:False, demo, error}                  on failure
-    Never raises into the pool — a bad demo is recorded and skipped.
+    A bad/undecodable demo is recorded and skipped (ok:False), NOT raised. The ONE
+    deliberate exception is a genuine dm3 demo whose dm3 BSP is missing/unloadable: that
+    raises Dm3BspUnavailable (which propagates out of the pool and fails the build),
+    because silently writing onground=NULL for dm3 would re-introduce the all-airborne
+    bad-data class #316 removes.
     """
     demo = Path(demo_path)
     try:
@@ -129,10 +221,26 @@ def extract_demo(demo_path: str) -> dict:
     for i, f in enumerate(frames):
         f["abs_t_s"] = cmd_times[i] if i < len(cmd_times) else None
 
+    # GEOMETRIC onground (#316): the .qwd carries no usable FL_ONGROUND, so re-derive it
+    # for the ego-self spine by tracing the player hull against the dm3 BSP at each
+    # recovered origin. Guarded by the recovered level name + BSP availability; when it
+    # can't be derived (non-dm3 / no BSP) we set onground=None and proxy=False so the
+    # column is NULL (honest "unknown") rather than a misleading all-False.
+    level_name = meta.get("map_level")
+    # HARD-FAIL (#316): for a genuine dm3 demo we MUST be able to derive onground. If the
+    # BSP is missing/unloadable this raises (the ETL exits non-zero) rather than silently
+    # writing onground=NULL for every dm3 tick — which downstream reads as all-airborne.
+    # Non-dm3 demos are unaffected (no derivation defined; they keep onground=NULL).
+    _require_dm3_onground(level_name, demo.name)
+    for f in frames:
+        ong = _derive_onground_dm3(level_name, f["origin"], f["velocity"])
+        f["onground"] = ong
+        f["onground_is_proxy"] = ong is not None
+
     # Observed-OTHER players (the in-PVS agent_observation layer). Decode is best-effort:
     # a demo that is not protocol-28 / is FTE just yields no observed-others (reported),
-    # the self movement layer is unaffected.
-    observed = _decode_observed_for_demo(data)
+    # the self movement layer is unaffected. Their onground is re-derived the same way.
+    observed = _decode_observed_for_demo(data, level_name)
 
     # episode boundaries: teleport/respawn discontinuities + a hard length cap.
     tele = set(pmove_sim.detect_teleports(frames))  # index k => break between k and k+1
@@ -162,13 +270,19 @@ def extract_demo(demo_path: str) -> dict:
     }
 
 
-def _decode_observed_for_demo(data: bytes) -> dict:
+def _decode_observed_for_demo(data: bytes, level_name=None) -> dict:
     """Decode observed-OTHER players and return a JSON-serializable per-player timeline
     (sorted by received time) so it crosses the ProcessPool boundary cleanly.
 
         {ok, self_playernum, n_playerinfo, bodies, bodies_clean, stop_reasons,
          others: {pnum_str: [[t_s, ox,oy,oz, vx,vy,vz, pitch,yaw,roll,
-                              alive(0/1), onground(0/1), solid(0/1), pm_code], ...]}}
+                              alive(0/1), onground(0/1 or None), solid(0/1), pm_code,
+                              onground_is_proxy(0/1)], ...]}}
+
+    onground (index 11) is the GEOMETRIC value (#316): the decoded svc_playerinfo
+    PF_ONGROUND flag is unusable (always clear), so we re-derive it by tracing each
+    observed origin against the dm3 BSP, exactly as for the ego-self. It is None when
+    not derivable (non-dm3 / no BSP); index 14 (onground_is_proxy) is then 0.
     """
     res = obs.decode_qwd_observed(data)
     if not res.get("ok"):
@@ -176,14 +290,19 @@ def _decode_observed_for_demo(data: bytes) -> dict:
     others_packed = {}
     for pnum, rows in res["others_by_pnum"].items():
         rows_sorted = sorted(rows, key=lambda a: a.time_s)
-        others_packed[str(pnum)] = [
-            [round(a.time_s, 4),
-             round(a.origin[0], 3), round(a.origin[1], 3), round(a.origin[2], 3),
-             a.velocity[0], a.velocity[1], a.velocity[2],
-             round(a.pitch, 4), round(a.yaw, 4), round(a.roll, 4),
-             1 if a.alive else 0, 1 if a.onground else 0, 1 if a.solid else 0, a.pm_code]
-            for a in rows_sorted
-        ]
+        packed = []
+        for a in rows_sorted:
+            ong = _derive_onground_dm3(level_name, a.origin, a.velocity)
+            packed.append(
+                [round(a.time_s, 4),
+                 round(a.origin[0], 3), round(a.origin[1], 3), round(a.origin[2], 3),
+                 a.velocity[0], a.velocity[1], a.velocity[2],
+                 round(a.pitch, 4), round(a.yaw, 4), round(a.roll, 4),
+                 1 if a.alive else 0,
+                 None if ong is None else (1 if ong else 0),
+                 1 if a.solid else 0, a.pm_code,
+                 1 if ong is not None else 0])
+        others_packed[str(pnum)] = packed
     return {
         "ok": True,
         "self_playernum": res["self_playernum"],
@@ -211,7 +330,9 @@ def _pack_episode(seg, start_tick: int) -> dict:
             "vx": v[0], "vy": v[1], "vz": v[2],
             "pitch": a[0], "yaw": a[1], "roll": a[2],
             "hspeed": round(_hspeed(v), 3),
-            "onground": bool(f["onground"]),
+            # onground is the GEOMETRIC value (#316); None when not derivable (kept NULL).
+            "onground": None if f.get("onground") is None else bool(f["onground"]),
+            "onground_is_proxy": bool(f.get("onground_is_proxy")),
             "pm_code": int(f["pm_code"]) if f.get("pm_code") is not None else None,
             "fwd": int(f["move"][0]), "side": int(f["move"][1]), "up": int(f["move"][2]),
             "buttons": int(f["buttons"]),
@@ -299,7 +420,7 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str,
                 (episode_id, r["tick"], r["t_s"], r["msec"],
                  r["ox"], r["oy"], r["oz"], r["vx"], r["vy"], r["vz"],
                  r["pitch"], r["yaw"], r["roll"], r["hspeed"],
-                 r["onground"], False, None),
+                 r["onground"], r["onground_is_proxy"], None),
             )
             n_tick += 1
             con.execute(
@@ -321,7 +442,8 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str,
                    VALUES (?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?)""",
                 (episode_id, r["tick"], player_id, None, True,
                  r["ox"], r["oy"], r["oz"], r["vx"], r["vy"], r["vz"],
-                 r["pitch"], r["yaw"], r["roll"], r["hspeed"], r["onground"], False),
+                 r["pitch"], r["yaw"], r["roll"], r["hspeed"],
+                 r["onground"], r["onground_is_proxy"]),
             )
             n_actor += 1
 
@@ -336,7 +458,9 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str,
                 row = _nearest_observed(samp, abs_t, OBSERVED_MAX_STALENESS_S)
                 if row is None:
                     continue
-                # row = [t, ox,oy,oz, vx,vy,vz, pitch,yaw,roll, alive, ong, solid, pm]
+                # row = [t, ox,oy,oz, vx,vy,vz, pitch,yaw,roll, alive, ong, solid, pm, proxy]
+                # ong (row[11]) is the GEOMETRIC value (0/1) or None (kept NULL); proxy
+                # (row[14]) marks whether it was derived.
                 vx, vy, vz = row[4], row[5], row[6]
                 con.execute(
                     """INSERT OR IGNORE INTO actor_ticks
@@ -346,7 +470,7 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str,
                     (episode_id, r["tick"], other_pid[pnum], None, bool(row[10]),
                      row[1], row[2], row[3], vx, vy, vz,
                      row[7], row[8], row[9], round(math.hypot(vx, vy), 3),
-                     bool(row[11]), False),
+                     row[11], bool(row[14])),
                 )
                 n_actor += 1
     return {"demo_id": demo_id, "player_id": player_id,
@@ -546,6 +670,25 @@ def build(catalog_dir: Path, demo_list: Path, db_path: str,
 
     # static spine first (maps/items/markers/nav) via the existing loader.
     con, base = catalog_load.build(catalog_dir, fixture_dir=None, db_path=db_path)
+    # From here on `con` is an OPEN sqlite handle. Any exception below (notably the dm3
+    # missing-BSP hard-fail Dm3BspUnavailable raised out of extract_demo) must close it
+    # before propagating, or the .sqlite file leaks an open handle. On Windows that open
+    # handle blocks unlinking out.sqlite during TemporaryDirectory cleanup (WinError 32);
+    # main()'s own finally only runs on the SUCCESS path (it needs res["con"]), so the
+    # exceptional close has to live here, at the source that opened the connection.
+    try:
+        return _build_body(con, base, db_path, catalog_dir, paths,
+                           player_by_path, with_fixture, workers)
+    except BaseException:
+        con.close()
+        raise
+
+
+def _build_body(con, base, db_path, catalog_dir, paths,
+                player_by_path, with_fixture, workers) -> dict:
+    """Extraction/insertion body of build(). Split out so build() can wrap it in a
+    try/except that closes `con` on any failure path before the exception escapes (the
+    success path leaves `con` open for main() to use + close)."""
     map_id = con.execute("SELECT map_id FROM maps WHERE name='dm3'").fetchone()[0]
 
     # extract demos in parallel (CPU-bound .qwd parse), insert serially (sqlite writer).
@@ -694,8 +837,16 @@ def main(argv=None) -> int:
         dbp.unlink()
     dbp.parent.mkdir(parents=True, exist_ok=True)
 
-    res = build(args.catalog_dir, args.demo_list, args.db,
-                with_fixture=args.with_fixture, workers=args.workers, limit=args.limit)
+    # HARD-FAIL (#316): a genuine dm3 demo with no loadable dm3 BSP raises out of build()
+    # (geometric onground could not be derived). Surface it as a clean, actionable stderr
+    # message + dedicated non-zero exit code rather than a raw traceback, so a dm3 catalog
+    # is NEVER built with silent all-NULL (== all-airborne downstream) onground.
+    try:
+        res = build(args.catalog_dir, args.demo_list, args.db,
+                    with_fixture=args.with_fixture, workers=args.workers, limit=args.limit)
+    except Dm3BspUnavailable as e:
+        print("ERROR: " + str(e), file=sys.stderr)
+        return 4
     try:
         print(json.dumps(res["summary"], indent=2, default=str))
 
