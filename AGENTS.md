@@ -194,6 +194,8 @@ After implementing, run the validation again. If validation fails, fix the issue
 
 Record terminal output, logs, metrics, screenshots, MVD-analysis output, or other evidence in the relevant doc or PR comment.
 
+**Eval integrity (mandatory on every data evaluation).** Before stating any conclusion, headline, or recommendation from a metric, gate, benchmark, eval, training run, or measurement — positive OR negative — apply the `eval-integrity` skill (`.claude/skills/eval-integrity/SKILL.md`): validate the metric's MEANING not just its value (open the caveats / `diagnostics_not_gated` fields and state what a pass does NOT prove); tag every number's provenance (run / seed / split / checkpoint) and never carry a number from one run into a claim about another; inspect the ground-truth artifact (the trajectory, the raw rows, the actual output) not just the summary score; interrogate a PASS as hard as a FAIL; and keep wording within the evidence (a passing proxy is not "the goal" / "human-level"). Every eval report must include a one-line "What this does NOT prove:". This rule exists because a passing gate was once reported as "human-level" when the underlying behavior failed — see the skill.
+
 For test-case driven work, keep the durable test case and log each execution as
 a test run. See `docs/09_TEST_CASES_AND_EVIDENCE.md`.
 
