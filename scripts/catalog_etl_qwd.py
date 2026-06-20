@@ -59,6 +59,7 @@ import argparse
 import bisect
 import json
 import math
+import os
 import sqlite3
 import sys
 import time
@@ -96,6 +97,63 @@ MIN_EPISODE_FRAMES = 24  # drop slivers (consistent with the MOVE-BC clean-run f
 # actor_visibility layer, not actor_ticks.)
 OBSERVED_MAX_STALENESS_S = 0.5
 
+# ── geometric onground (#316) ────────────────────────────────────────────────
+# The POV .qwd svc_playerinfo stream does NOT carry a usable server-side FL_ONGROUND
+# flag: the PF_ONGROUND bit is never set, so the raw `onground` is all-False for both
+# the ego-self spine AND every observed-other (diagnosed empirically — see PR #316 and
+# docs/06). We therefore DERIVE onground geometrically: trace the player hull straight
+# down against the real map BSP at each recovered origin (pmove_sim.derive_onground,
+# i.e. the floor branch of mvdsv PM_CategorizePosition). This is the gold per-tick
+# signal and is fully local. Rows carrying it are flagged onground_is_proxy=TRUE.
+#
+# This stage is dm3-only (the only map the corpus + this catalog cover) and is GUARDED
+# by the recovered level name: a demo whose svc_serverdata level is not dm3's "The
+# Abandoned Base" is NOT derived (its origins would be traced against the wrong
+# geometry — even a "dm3"-named file can actually be another map, e.g. one corpus demo
+# named *_dm3_* is really "Castle of the Damned"). Un-derived rows keep onground=NULL.
+DM3_BSP_PATH = Path(
+    os.environ.get("KOMODO_DM3_BSP", "/home/ubuntu/nquakesv/qw/maps/dm3.bsp")
+)
+# dm3 svc_serverdata level_name (BSP "message"); the recovered serverdata must match
+# this for the geometric derivation to be valid against DM3_BSP_PATH.
+DM3_LEVEL_NAME = "The Abandoned Base"
+
+# Per-worker WorldModel cache (separate processes each load dm3 once). Keyed by the
+# resolved BSP path string; value is the loaded WorldModel, or False if the BSP is
+# absent/unloadable (so we don't retry and we fall back to onground=NULL).
+_WORLD_CACHE: dict = {}
+
+
+def _dm3_world():
+    """Return the loaded dm3 WorldModel (cached per process), or None if the BSP is
+    missing/unloadable. Never raises: a missing BSP just disables geometric onground
+    (rows keep onground=NULL) rather than crashing the ETL."""
+    key = str(DM3_BSP_PATH)
+    cached = _WORLD_CACHE.get(key, "miss")
+    if cached != "miss":
+        return cached or None
+    world = None
+    try:
+        if DM3_BSP_PATH.exists():
+            world = pmove_sim.WorldModel.load(str(DM3_BSP_PATH))
+    except Exception:  # noqa: BLE001  (corrupt/foreign BSP -> disable derivation)
+        world = None
+    _WORLD_CACHE[key] = world if world is not None else False
+    return world
+
+
+def _derive_onground_dm3(level_name, origin, velocity):
+    """Geometric onground for ONE recovered dm3 state, or None if it can't be derived
+    (non-dm3 level, or the dm3 BSP is unavailable). Used for both the ego-self spine
+    and observed-others so every onground in the catalog comes from the same gold
+    source."""
+    if level_name != DM3_LEVEL_NAME:
+        return None
+    world = _dm3_world()
+    if world is None:
+        return None
+    return pmove_sim.derive_onground(world, origin, velocity)
+
 
 def _hspeed(v) -> float:
     return math.hypot(float(v[0]), float(v[1]))
@@ -129,10 +187,21 @@ def extract_demo(demo_path: str) -> dict:
     for i, f in enumerate(frames):
         f["abs_t_s"] = cmd_times[i] if i < len(cmd_times) else None
 
+    # GEOMETRIC onground (#316): the .qwd carries no usable FL_ONGROUND, so re-derive it
+    # for the ego-self spine by tracing the player hull against the dm3 BSP at each
+    # recovered origin. Guarded by the recovered level name + BSP availability; when it
+    # can't be derived (non-dm3 / no BSP) we set onground=None and proxy=False so the
+    # column is NULL (honest "unknown") rather than a misleading all-False.
+    level_name = meta.get("map_level")
+    for f in frames:
+        ong = _derive_onground_dm3(level_name, f["origin"], f["velocity"])
+        f["onground"] = ong
+        f["onground_is_proxy"] = ong is not None
+
     # Observed-OTHER players (the in-PVS agent_observation layer). Decode is best-effort:
     # a demo that is not protocol-28 / is FTE just yields no observed-others (reported),
-    # the self movement layer is unaffected.
-    observed = _decode_observed_for_demo(data)
+    # the self movement layer is unaffected. Their onground is re-derived the same way.
+    observed = _decode_observed_for_demo(data, level_name)
 
     # episode boundaries: teleport/respawn discontinuities + a hard length cap.
     tele = set(pmove_sim.detect_teleports(frames))  # index k => break between k and k+1
@@ -162,13 +231,19 @@ def extract_demo(demo_path: str) -> dict:
     }
 
 
-def _decode_observed_for_demo(data: bytes) -> dict:
+def _decode_observed_for_demo(data: bytes, level_name=None) -> dict:
     """Decode observed-OTHER players and return a JSON-serializable per-player timeline
     (sorted by received time) so it crosses the ProcessPool boundary cleanly.
 
         {ok, self_playernum, n_playerinfo, bodies, bodies_clean, stop_reasons,
          others: {pnum_str: [[t_s, ox,oy,oz, vx,vy,vz, pitch,yaw,roll,
-                              alive(0/1), onground(0/1), solid(0/1), pm_code], ...]}}
+                              alive(0/1), onground(0/1 or None), solid(0/1), pm_code,
+                              onground_is_proxy(0/1)], ...]}}
+
+    onground (index 11) is the GEOMETRIC value (#316): the decoded svc_playerinfo
+    PF_ONGROUND flag is unusable (always clear), so we re-derive it by tracing each
+    observed origin against the dm3 BSP, exactly as for the ego-self. It is None when
+    not derivable (non-dm3 / no BSP); index 14 (onground_is_proxy) is then 0.
     """
     res = obs.decode_qwd_observed(data)
     if not res.get("ok"):
@@ -176,14 +251,19 @@ def _decode_observed_for_demo(data: bytes) -> dict:
     others_packed = {}
     for pnum, rows in res["others_by_pnum"].items():
         rows_sorted = sorted(rows, key=lambda a: a.time_s)
-        others_packed[str(pnum)] = [
-            [round(a.time_s, 4),
-             round(a.origin[0], 3), round(a.origin[1], 3), round(a.origin[2], 3),
-             a.velocity[0], a.velocity[1], a.velocity[2],
-             round(a.pitch, 4), round(a.yaw, 4), round(a.roll, 4),
-             1 if a.alive else 0, 1 if a.onground else 0, 1 if a.solid else 0, a.pm_code]
-            for a in rows_sorted
-        ]
+        packed = []
+        for a in rows_sorted:
+            ong = _derive_onground_dm3(level_name, a.origin, a.velocity)
+            packed.append(
+                [round(a.time_s, 4),
+                 round(a.origin[0], 3), round(a.origin[1], 3), round(a.origin[2], 3),
+                 a.velocity[0], a.velocity[1], a.velocity[2],
+                 round(a.pitch, 4), round(a.yaw, 4), round(a.roll, 4),
+                 1 if a.alive else 0,
+                 None if ong is None else (1 if ong else 0),
+                 1 if a.solid else 0, a.pm_code,
+                 1 if ong is not None else 0])
+        others_packed[str(pnum)] = packed
     return {
         "ok": True,
         "self_playernum": res["self_playernum"],
@@ -211,7 +291,9 @@ def _pack_episode(seg, start_tick: int) -> dict:
             "vx": v[0], "vy": v[1], "vz": v[2],
             "pitch": a[0], "yaw": a[1], "roll": a[2],
             "hspeed": round(_hspeed(v), 3),
-            "onground": bool(f["onground"]),
+            # onground is the GEOMETRIC value (#316); None when not derivable (kept NULL).
+            "onground": None if f.get("onground") is None else bool(f["onground"]),
+            "onground_is_proxy": bool(f.get("onground_is_proxy")),
             "pm_code": int(f["pm_code"]) if f.get("pm_code") is not None else None,
             "fwd": int(f["move"][0]), "side": int(f["move"][1]), "up": int(f["move"][2]),
             "buttons": int(f["buttons"]),
@@ -299,7 +381,7 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str,
                 (episode_id, r["tick"], r["t_s"], r["msec"],
                  r["ox"], r["oy"], r["oz"], r["vx"], r["vy"], r["vz"],
                  r["pitch"], r["yaw"], r["roll"], r["hspeed"],
-                 r["onground"], False, None),
+                 r["onground"], r["onground_is_proxy"], None),
             )
             n_tick += 1
             con.execute(
@@ -321,7 +403,8 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str,
                    VALUES (?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?)""",
                 (episode_id, r["tick"], player_id, None, True,
                  r["ox"], r["oy"], r["oz"], r["vx"], r["vy"], r["vz"],
-                 r["pitch"], r["yaw"], r["roll"], r["hspeed"], r["onground"], False),
+                 r["pitch"], r["yaw"], r["roll"], r["hspeed"],
+                 r["onground"], r["onground_is_proxy"]),
             )
             n_actor += 1
 
@@ -336,7 +419,9 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str,
                 row = _nearest_observed(samp, abs_t, OBSERVED_MAX_STALENESS_S)
                 if row is None:
                     continue
-                # row = [t, ox,oy,oz, vx,vy,vz, pitch,yaw,roll, alive, ong, solid, pm]
+                # row = [t, ox,oy,oz, vx,vy,vz, pitch,yaw,roll, alive, ong, solid, pm, proxy]
+                # ong (row[11]) is the GEOMETRIC value (0/1) or None (kept NULL); proxy
+                # (row[14]) marks whether it was derived.
                 vx, vy, vz = row[4], row[5], row[6]
                 con.execute(
                     """INSERT OR IGNORE INTO actor_ticks
@@ -346,7 +431,7 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str,
                     (episode_id, r["tick"], other_pid[pnum], None, bool(row[10]),
                      row[1], row[2], row[3], vx, vy, vz,
                      row[7], row[8], row[9], round(math.hypot(vx, vy), 3),
-                     bool(row[11]), False),
+                     row[11], bool(row[14])),
                 )
                 n_actor += 1
     return {"demo_id": demo_id, "player_id": player_id,

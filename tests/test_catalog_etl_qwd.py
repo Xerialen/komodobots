@@ -143,16 +143,17 @@ def _synthetic_demo_with_observed():
         })
     ep = etl._pack_episode(seg, 0)
     # Other player slot 7: received samples spanning the whole episode (well inside dm3
-    # AABB). One row per [t, ox,oy,oz, vx,vy,vz, pitch,yaw,roll, alive, ong, solid, pm].
-    # Last sample (dead) is at-or-before the final ticks, so late ticks carry alive=0.
+    # AABB). One row per [t, ox,oy,oz, vx,vy,vz, pitch,yaw,roll, alive, ong, solid, pm,
+    # onground_is_proxy]. ong is the GEOMETRIC value (#316); the trailing proxy flag marks
+    # it as derived. Last sample (dead) is at-or-before the final ticks (late ticks alive=0).
     other7 = [
-        [100.00, 200.0, -100.0, 0.0, 100, 0, 0, 0.0, 45.0, 0.0, 1, 1, 1, 0],
-        [100.30, 240.0, -120.0, 0.0, 120, 0, 0, 0.0, 50.0, 0.0, 1, 0, 1, 0],
-        [100.60, 260.0, -130.0, 0.0, 0, 0, 0, 0.0, 60.0, 0.0, 0, 0, 1, 0],  # dead, t<=last tick
+        [100.00, 200.0, -100.0, 0.0, 100, 0, 0, 0.0, 45.0, 0.0, 1, 1, 1, 0, 1],
+        [100.30, 240.0, -120.0, 0.0, 120, 0, 0, 0.0, 50.0, 0.0, 1, 0, 1, 0, 1],
+        [100.60, 260.0, -130.0, 0.0, 0, 0, 0, 0.0, 60.0, 0.0, 0, 0, 1, 0, 1],  # dead, t<=last tick
     ]
     # Other player slot 9: a SINGLE early sample, then silence — must go stale and drop
     # out of the late ticks (final tick 100.767 is >0.5 s past 100.00).
-    other9 = [[100.00, -500.0, 800.0, 0.0, 0, 0, 0, 0.0, 10.0, 0.0, 1, 1, 1, 0]]
+    other9 = [[100.00, -500.0, 800.0, 0.0, 0, 0, 0, 0.0, 10.0, 0.0, 1, 1, 1, 0, 1]]
     return {
         "ok": True, "demo": "obs.qwd", "sha256": "feedface", "map_level": "The Abandoned Base",
         "playernum": 3, "n_frames": n, "coverage": 1.0, "duration_s": n * 0.013, "server_fps": 77.0,
