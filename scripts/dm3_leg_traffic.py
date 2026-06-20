@@ -65,6 +65,19 @@ def load_landmarks(path: Path) -> list[tuple[str, float, float, float]]:
     return out
 
 
+def resolve_max_snap(max_snap_qu: float | None) -> float | None:
+    """Resolve the --max-snap-qu CLI value to the `nearest_landmark` cutoff.
+
+    `0` (or any non-positive value) is the DOCUMENTED "disable the cutoff" sentinel and
+    must map to None. The check is EXPLICIT (`is not None and <= 0`) because `0.0` is
+    falsey: a plain `if max_snap_qu` would let 0.0 fall through as a 0-radius cutoff,
+    which silently rejects every position not sitting exactly on a landmark.
+    """
+    if max_snap_qu is not None and max_snap_qu <= 0:
+        return None
+    return max_snap_qu
+
+
 def nearest_landmark(ox: float, oy: float, oz: float,
                      landmarks: list[tuple[str, float, float, float]],
                      max_snap_qu: float | None) -> str | None:
@@ -187,7 +200,7 @@ def main(argv=None) -> int:
     ap.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     args = ap.parse_args(argv)
 
-    max_snap = None if args.max_snap_qu and args.max_snap_qu <= 0 else args.max_snap_qu
+    max_snap = resolve_max_snap(args.max_snap_qu)
     landmarks = load_landmarks(args.landmarks)
     if not landmarks:
         print("ERROR: no landmarks loaded from %s" % args.landmarks)
