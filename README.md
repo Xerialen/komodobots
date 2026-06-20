@@ -32,3 +32,30 @@ Codex and human contributors should read these first:
 KTX/Frogbots may already provide the hard engine-native substrate: server physics, collision, combat, KTX rules, and MVD recording. If we can replace or enhance only the movement controller, we may avoid rebuilding a complete QuakeWorld simulation stack.
 
 This hypothesis is unproven. The first lab must prove or disprove it.
+
+## Mapping routes & movement signatures
+
+Believable movement is trained and graded **per route**. Two pieces of tooling produce that ground truth from real play, and they sit at a specific point in the pipeline:
+
+```
+parsed MVD demos
+   └─ route_observatory ─────────────► resource→route canon   (WHERE humans go)
+         └─ route-signature skill ───► per-route movement      (HOW humans move)
+                                        signature
+              └─ route-conditioned BC training (GPU)           (target to imitate)
+                    └─ bot trajectory vs the human envelope     (believability score)
+```
+
+- **`experiments/route_observatory/`** extracts the **route canon** — *a route is the path between two
+  resources* — from parsed demos, co-canonical with the qwd named routes (see its
+  [`README`](experiments/route_observatory/README.md)).
+- The **`route-signature`** skill ([`.claude/skills/route-signature/SKILL.md`](.claude/skills/route-signature/SKILL.md))
+  turns a route leg into its **human movement signature** (speed profile, jump cadence, look-vs-move)
+  and a **fused POV+route view** you validate by eye. Use it whenever defining a route's BC target or
+  its believability rubric, or fusing a POV recording against demo state. How it works: `pov_fuse_extract.py`
+  slices the leg + computes the signature → `pov_fuse_render.py` builds the fused contact sheet →
+  `pov_fuse_shot.js` screenshots it, which is then **read back and checked against the POV pixels**
+  (eval-integrity). Worked example: [`evidence/pov_fuse_megaRL.png`](experiments/route_observatory/evidence/pov_fuse_megaRL.png).
+
+This is **Megalodon Milton** groundwork (movement first), and the route signatures are the targets the
+movement controller is trained and scored against.
