@@ -958,6 +958,68 @@ python lab/tools/build_routes_manifest.py
   a fresh build byte-for-byte, so a census/replay change that is not followed
   by a rebuild fails CI.
 
+## Relational catalog rebuild and freshness guard (#296, #315)
+
+The relational catalog `data/catalog/*.sqlite` (built by `scripts/catalog_etl_qwd.py`)
+is **gitignored and regenerable** (`data/catalog/*.sqlite` in `.gitignore`) — it is a
+build artifact, not a committed source. Its per-tick world-state layers are:
+
+- `player_ticks` / `actions` — the self-POV state+action rows (the BC labels);
+- `actor_ticks` — the **all-player / agent_observation** layer added in PR #296
+  (commit `4756c0d`): the SELF ego row for every tick **plus** each OBSERVED-OTHER
+  player the recording client was receiving at that tick.
+
+**Rebuild command** (the P1 8-demo self-POV dm3 4on4 slice):
+
+```text
+python3 scripts/catalog_etl_qwd.py \
+    --catalog-dir data/catalog \
+    --demo-list   experiments/stage2/move-bc-dataset/p1_catalog_slice.tsv \
+    --db          data/catalog/dm3_4on4.sqlite \
+    --workers 4
+```
+
+On the 8-demo slice this yields ~349.9k `player_ticks` and ~878.9k `actor_ticks`
+(~528.9k of them observed-other rows; 63 distinct actors). Because the ETL inserts the
+self ego row into `actor_ticks` for **every** `player_ticks` row, any fresh build with
+`player_ticks > 0` necessarily has `actor_ticks > 0`.
+
+### Staleness incident and lesson (#315)
+
+The on-disk catalog had been built **before** the PR-#296 actor_ticks code landed, so it
+shipped with `player_ticks` full but `actor_ticks` **empty** — silently breaking every
+all-player analysis (the agent_observation layer simply was not there). The ETL/schema
+code was correct and unit-tested; the **artifact** was stale.
+
+**Lesson: regenerate the catalog after any ETL/schema change — and the guard now enforces
+it.** `scripts/validate_catalog.py::validate_freshness` (run inside the standard
+`validate()` aggregate, and at the end of `catalog_etl_qwd.main()`) **fails loudly** when a
+catalog has `player_ticks > 0` but `actor_ticks == 0`, which is exactly the pre-#296
+stale signature. It does **not** flag a legitimately empty static-only/spine catalog
+(`player_ticks == 0`) nor an older schema with no `actor_ticks` table. Covered by
+`tests/test_catalog_freshness.py` (fresh build populates `actor_ticks`; a synthetically
+emptied `actor_ticks` is flagged).
+
+### Coverage caveat (honest scope of `actor_ticks`)
+
+`actor_ticks` holds **OBSERVED-OTHERS** — other players that were in the recording
+client's PVS, with occlusion gaps and a 0.5 s staleness window (per-demo other-coverage
+is partial, ~0.26 on the sample demo). It is **not** a true omniscient 8-player view: it
+is enough to make all-player landmark traffic measurable, but a perfectly clean 8-player
+view needs the Go `mvd_analyzer` or multi-POV `.qwd` fusion (see docs/13) later.
+
+### End-criterion demo: all-player leg traffic
+
+`scripts/dm3_leg_traffic.py` proves the rebuilt all-player layer is usable: given the
+catalog + the `dm3.json` landmark set, it counts directed landmark→landmark "legs" across
+**every** actor (self + observed others) by nearest-landmark snapping. It is a deliberately
+lightweight aggregate (a coarse traffic proxy), **not** the Phase-1 route segmenter (#319) —
+no PVS/BSP awareness, no teleporters, no route canonicalisation. On the rebuilt slice it
+snaps 99.1% of 878.9k actor ticks across 26 landmarks (328 distinct legs); the busiest
+legs are the expected dm3 patterns (`RA.low`↔`RA`, `YA`↔`YA.box`, `Ring`→`Quad`,
+`Pent`↔`RL`). The observed-others layer roughly triples the measurable traffic versus the
+self-only baseline (`--self-only`: 3,875 legs vs 11,318 all-player).
+
 ## Map entity corpus
 
 BotLab's static map context lives in the committed

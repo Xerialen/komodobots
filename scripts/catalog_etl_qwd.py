@@ -707,6 +707,16 @@ def main(argv=None) -> int:
                   "demos); failing. Pass --allow-empty to accept a static-only catalog.",
                   file=sys.stderr)
             return 2
+
+        # FRESHNESS guard (#315): a build that loaded real demos but left actor_ticks
+        # EMPTY is the pre-#296 staleness signature (the all-player/agent_observation
+        # layer never populated). Fail the build loudly at the source so a stale,
+        # gitignored artifact can never silently ship again.
+        import validate_catalog  # local import: only main() needs it
+        fresh_errs = validate_catalog.validate_freshness(res["con"])
+        if fresh_errs:
+            print("ERROR: " + "\n       ".join(fresh_errs), file=sys.stderr)
+            return 3
         return 0
     finally:
         # close build()'s sqlite connection on every path so the .sqlite file can be

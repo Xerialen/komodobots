@@ -180,6 +180,43 @@ def validate_actor_ticks(con: sqlite3.Connection) -> list[str]:
     return errs
 
 
+def validate_freshness(con: sqlite3.Connection) -> list[str]:
+    """Anti-recurrence guard: flag a STALE regenerable catalog (pre-#296 build).
+
+    The relational catalog (`data/catalog/*.sqlite`) is gitignored and regenerable.
+    A stale on-disk copy — one built BEFORE the actor_ticks-population code landed
+    (commit 4756c0d / PR #296) — silently shipped and broke the all-player
+    (agent_observation) analysis: `actor_ticks` was empty even though `player_ticks`
+    was full. The code was correct; the ARTIFACT was stale. This check makes that
+    state fail loudly so the only fix is to regenerate.
+
+    Signal: the ETL inserts the SELF ego row into `actor_ticks` for EVERY
+    `player_ticks` row (catalog_etl_qwd.insert_demo), so any FRESH build with
+    player_ticks>0 necessarily has actor_ticks>=player_ticks>0. The ONLY way to
+    observe player_ticks>0 AND actor_ticks==0 is a pre-#296 stale build. We do NOT
+    flag the legitimately-empty case (player_ticks==0, a static-only/spine catalog)
+    nor a missing `actor_ticks` table (older schema): those are not staleness.
+    """
+    errs: list[str] = []
+    try:
+        (n_actor,) = con.execute("SELECT COUNT(*) FROM actor_ticks").fetchone()
+    except sqlite3.OperationalError:
+        return errs  # table not present in this schema — not a freshness signal
+    try:
+        (n_pt,) = con.execute("SELECT COUNT(*) FROM player_ticks").fetchone()
+    except sqlite3.OperationalError:
+        return errs  # no per-tick layer at all — static-only catalog
+    if n_pt > 0 and n_actor == 0:
+        errs.append(
+            f"freshness: actor_ticks is EMPTY but player_ticks={n_pt} (>0) — this catalog "
+            f"was built BEFORE the actor_ticks-population code (PR #296) and is STALE. "
+            f"The all-player/agent_observation layer is missing. Regenerate it: "
+            f"python3 scripts/catalog_etl_qwd.py --catalog-dir data/catalog "
+            f"--demo-list experiments/stage2/move-bc-dataset/p1_catalog_slice.tsv "
+            f"--db <out>.sqlite --workers 4")
+    return errs
+
+
 def validate_normalization_stats(path: Path) -> list[str]:
     """Validate the frozen normalization artifact's method specs."""
     errs: list[str] = []
@@ -222,6 +259,7 @@ def validate(con: sqlite3.Connection, stats_path: Path | None = None,
     errs += validate_nav_edges(con)
     errs += validate_frag_events(con)
     errs += validate_actor_ticks(con)
+    errs += validate_freshness(con)
     if stats_path is not None:
         errs += validate_normalization_stats(stats_path)
     if errs and raise_on_error:
