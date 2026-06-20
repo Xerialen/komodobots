@@ -607,6 +607,57 @@ class TestDm3MissingBspHardFail(unittest.TestCase):
                              and _has_player_ticks(db),
                              "no dm3 catalog should be written when onground can't be derived")
 
+    def test_main_dm3_without_bsp_closes_connection(self):
+        """The hard-fail path must NOT leak build()'s sqlite handle. Regression for the
+        WinError 32 leak: when build() raised Dm3BspUnavailable it returned BEFORE
+        main()'s success-path finally ran, so the con it opened stayed open. On Windows
+        that blocked unlinking out.sqlite during TemporaryDirectory cleanup; on POSIX an
+        open handle doesn't block unlink so CI never caught it. We prove the release
+        cross-platform two ways: (1) spy on the exact connection build() opens and assert
+        it is CLOSED after main() returns, and (2) assert the .sqlite file can be removed
+        (the Windows-visible symptom). Both fail if the connection leaks."""
+        import os
+        import sqlite3
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            demo = td / "real_dm3.qwd"
+            demo.write_bytes(b"not-a-real-qwd-but-readable")
+            listing = td / "demos.tsv"
+            listing.write_text("milton\t%s\n" % demo, encoding="utf-8")
+            db = td / "out.sqlite"
+
+            # Spy on the connection build() opens via catalog_load.build so we can check,
+            # after main() returns non-zero, that the hard-fail path actually closed it.
+            opened = []
+            real_cl_build = etl.catalog_load.build
+
+            def spy_build(*a, **kw):
+                con, summary = real_cl_build(*a, **kw)
+                opened.append(con)
+                return con, summary
+
+            etl.catalog_load.build = spy_build
+            restore = self._patch(self.DM3, world=None)
+            try:
+                rc = etl.main(["--catalog-dir", str(CATALOG_DIR), "--demo-list",
+                               str(listing), "--db", str(db), "--workers", "1"])
+            finally:
+                restore()
+                etl.catalog_load.build = real_cl_build
+
+            self.assertNotEqual(rc, 0, "dm3 demo with no BSP must still fail (non-zero)")
+            self.assertEqual(len(opened), 1, "build() should have opened exactly one con")
+            # (1) cross-platform: the spied connection must be closed. Operating on a
+            # closed sqlite3 connection raises ProgrammingError; an open (leaked) handle
+            # would not — so this assertion catches the leak on POSIX too, not only Windows.
+            with self.assertRaises(sqlite3.ProgrammingError):
+                opened[0].execute("SELECT 1")
+            # (2) the Windows-visible symptom: with no leaked handle the file can be removed.
+            if db.exists():
+                os.remove(str(db))  # must not raise PermissionError (WinError 32)
+            self.assertFalse(db.exists())
+
 
 def _has_player_ticks(db_path) -> bool:
     """True if the sqlite at db_path has any player_ticks rows (i.e. a real catalog got

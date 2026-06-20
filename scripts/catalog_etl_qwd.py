@@ -670,6 +670,25 @@ def build(catalog_dir: Path, demo_list: Path, db_path: str,
 
     # static spine first (maps/items/markers/nav) via the existing loader.
     con, base = catalog_load.build(catalog_dir, fixture_dir=None, db_path=db_path)
+    # From here on `con` is an OPEN sqlite handle. Any exception below (notably the dm3
+    # missing-BSP hard-fail Dm3BspUnavailable raised out of extract_demo) must close it
+    # before propagating, or the .sqlite file leaks an open handle. On Windows that open
+    # handle blocks unlinking out.sqlite during TemporaryDirectory cleanup (WinError 32);
+    # main()'s own finally only runs on the SUCCESS path (it needs res["con"]), so the
+    # exceptional close has to live here, at the source that opened the connection.
+    try:
+        return _build_body(con, base, db_path, catalog_dir, paths,
+                           player_by_path, with_fixture, workers)
+    except BaseException:
+        con.close()
+        raise
+
+
+def _build_body(con, base, db_path, catalog_dir, paths,
+                player_by_path, with_fixture, workers) -> dict:
+    """Extraction/insertion body of build(). Split out so build() can wrap it in a
+    try/except that closes `con` on any failure path before the exception escapes (the
+    success path leaves `con` open for main() to use + close)."""
     map_id = con.execute("SELECT map_id FROM maps WHERE name='dm3'").fetchone()[0]
 
     # extract demos in parallel (CPU-bound .qwd parse), insert serially (sqlite writer).
