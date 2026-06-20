@@ -467,5 +467,161 @@ class TestPlayerHandleGrouping(unittest.TestCase):
             res["con"].close()   # close before the temp dir is removed (Windows WinError 32)
 
 
+class TestDm3MissingBspHardFail(unittest.TestCase):
+    """(#316 P1) A genuine dm3 demo whose dm3 BSP cannot be loaded must HARD-FAIL the
+    ETL, not silently write onground=NULL for every dm3 tick. Without this guard a
+    catalog rebuilt on a host without `$KOMODO_DM3_BSP` / the default dm3.bsp gets
+    onground=NULL everywhere, which `ml/pipeline/build_features.py` maps to airborne —
+    an all-airborne training/eval input, the exact bad-data class #316 removes.
+
+    NON-dm3 demos have no geometric derivation defined and legitimately keep
+    onground=NULL: that case must STILL load fine (the guard is a no-op for it).
+
+    No real .qwd / .bsp dependency: `_dm3_world` is forced to None (the unavailable-BSP
+    condition) and `build_replay_frames` is faked to return synthetic frames + meta so
+    the REAL extract_demo / build / main code path is exercised on bare Python.
+    """
+
+    DM3 = etl.DM3_LEVEL_NAME           # "The Abandoned Base"
+    NOT_DM3 = "Castle of the Damned"   # a non-dm3 level name (kept NULL onground)
+
+    @staticmethod
+    def _fake_frames(level_name, n=40):
+        """A minimal (frames, meta) pair matching build_replay_frames' contract closely
+        enough for extract_demo (origin/velocity/angles/move/buttons/msec per frame)."""
+        frames = []
+        for i in range(n):
+            frames.append({
+                "msec": 13, "origin": [100.0 + i, 50.0, 0.0],
+                "velocity": [300.0, 0.0, 0.0], "angles": [0.0, 90.0, 0.0],
+                "move": [400, 0, 0], "buttons": 2, "pm_code": 0,
+                "reference_interpolated": False,
+            })
+        meta = {"map_level": level_name, "source_sha256": "fake-" + level_name,
+                "playernum": 3, "paired_coverage": 1.0, "total_duration_s": n * 0.013,
+                "command_rate_fps": 77.0}
+        return frames, meta
+
+    def _patch(self, level_name, world):
+        """Force _dm3_world -> `world` and build_replay_frames -> synthetic `level_name`
+        frames for the duration of a test; returns the restore callable. The observed-
+        OTHERS decode is also stubbed to an empty result so the synthetic (non-.qwd)
+        bytes don't trip the protocol parser — this test is about the onground column,
+        not the agent_observation layer."""
+        real_world = etl._dm3_world
+        real_brc = etl.brc.build_replay_frames
+        real_obs = etl._decode_observed_for_demo
+        etl._dm3_world = lambda: world
+        etl.brc.build_replay_frames = lambda demo, **kw: self._fake_frames(level_name)
+        etl._decode_observed_for_demo = lambda data, level=None: {"ok": False, "others": {}}
+
+        def restore():
+            etl._dm3_world = real_world
+            etl.brc.build_replay_frames = real_brc
+            etl._decode_observed_for_demo = real_obs
+        return restore
+
+    # ---- the guard helper itself --------------------------------------------------
+    def test_guard_raises_for_dm3_without_bsp(self):
+        real_world = etl._dm3_world
+        etl._dm3_world = lambda: None
+        try:
+            with self.assertRaises(etl.Dm3BspUnavailable) as cm:
+                etl._require_dm3_onground(self.DM3, "dm3_game.qwd")
+            msg = str(cm.exception)
+            self.assertIn("dm3_game.qwd", msg)
+            # actionable: tells the operator how to fix it
+            self.assertIn("KOMODO_DM3_BSP", msg)
+        finally:
+            etl._dm3_world = real_world
+
+    def test_guard_noop_for_non_dm3_without_bsp(self):
+        # non-dm3 level -> no derivation defined -> guard must NOT raise even with no BSP.
+        real_world = etl._dm3_world
+        etl._dm3_world = lambda: None
+        try:
+            etl._require_dm3_onground(self.NOT_DM3, "other_map.qwd")  # must not raise
+        finally:
+            etl._dm3_world = real_world
+
+    def test_guard_noop_for_dm3_with_bsp(self):
+        # BSP available (any non-None world) -> guard passes for dm3 too.
+        real_world = etl._dm3_world
+        etl._dm3_world = lambda: object()  # sentinel "loaded" world
+        try:
+            etl._require_dm3_onground(self.DM3, "dm3_game.qwd")  # must not raise
+        finally:
+            etl._dm3_world = real_world
+
+    # ---- the guard wired into the real extract_demo load path ---------------------
+    def test_extract_demo_dm3_raises_when_bsp_missing(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            demo = Path(td) / "real_dm3.qwd"
+            demo.write_bytes(b"not-a-real-qwd-but-readable")  # extract_demo reads bytes
+            restore = self._patch(self.DM3, world=None)
+            try:
+                with self.assertRaises(etl.Dm3BspUnavailable):
+                    etl.extract_demo(str(demo))
+            finally:
+                restore()
+
+    def test_extract_demo_non_dm3_loads_with_null_onground(self):
+        # PRESERVED case: a non-dm3 demo loads fine; every tick keeps onground=NULL and
+        # onground_is_proxy=False even though no BSP is available.
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            demo = Path(td) / "real_other.qwd"
+            demo.write_bytes(b"not-a-real-qwd-but-readable")
+            restore = self._patch(self.NOT_DM3, world=None)
+            try:
+                rec = etl.extract_demo(str(demo))
+            finally:
+                restore()
+            self.assertTrue(rec.get("ok"), rec)
+            self.assertGreater(len(rec["episodes"]), 0)
+            for ep in rec["episodes"]:
+                for r in ep["frames"]:
+                    self.assertIsNone(r["onground"], "non-dm3 onground must stay NULL")
+                    self.assertFalse(r["onground_is_proxy"])
+
+    # ---- end-to-end: main() exits non-zero (build fails loudly) -------------------
+    def test_main_nonzero_for_dm3_without_bsp(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            demo = td / "real_dm3.qwd"
+            demo.write_bytes(b"not-a-real-qwd-but-readable")
+            listing = td / "demos.tsv"
+            listing.write_text("milton\t%s\n" % demo, encoding="utf-8")
+            db = td / "out.sqlite"
+            restore = self._patch(self.DM3, world=None)
+            try:
+                rc = etl.main(["--catalog-dir", str(CATALOG_DIR), "--demo-list",
+                               str(listing), "--db", str(db), "--workers", "1"])
+            finally:
+                restore()
+            self.assertNotEqual(rc, 0, "dm3 demo with no BSP must fail the build (non-zero)")
+            # the build must NOT have produced a (silently all-NULL) catalog.
+            self.assertFalse(db.exists() and db.stat().st_size > 0
+                             and _has_player_ticks(db),
+                             "no dm3 catalog should be written when onground can't be derived")
+
+
+def _has_player_ticks(db_path) -> bool:
+    """True if the sqlite at db_path has any player_ticks rows (i.e. a real catalog got
+    written). Used to assert the dm3-no-BSP path wrote no trajectory rows."""
+    import sqlite3
+    try:
+        con = sqlite3.connect(str(db_path))
+        try:
+            n = con.execute("SELECT COUNT(*) FROM player_ticks").fetchone()[0]
+        finally:
+            con.close()
+        return n > 0
+    except sqlite3.Error:
+        return False
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -124,10 +124,23 @@ DM3_LEVEL_NAME = "The Abandoned Base"
 _WORLD_CACHE: dict = {}
 
 
+class Dm3BspUnavailable(RuntimeError):
+    """A genuine dm3 demo was loaded but the dm3 BSP could not be loaded, so geometric
+    onground (#316) could NOT be derived. This is a HARD ERROR — not a silent NULL.
+
+    Why hard-fail: without the BSP every dm3 tick gets onground=NULL, and downstream
+    `ml/pipeline/build_features.py` maps NULL onground -> airborne. A dm3 catalog rebuilt
+    on a host without `$KOMODO_DM3_BSP` / the default dm3.bsp would therefore become an
+    ALL-AIRBORNE training/eval input instead of failing — re-introducing the exact
+    bad-data class #316 exists to remove. So we refuse to write NULL onground for dm3 and
+    fail the build loudly (non-zero exit) instead."""
+
+
 def _dm3_world():
     """Return the loaded dm3 WorldModel (cached per process), or None if the BSP is
-    missing/unloadable. Never raises: a missing BSP just disables geometric onground
-    (rows keep onground=NULL) rather than crashing the ETL."""
+    missing/unloadable. Never raises here: callers decide what a None means. (For dm3
+    demos that is a hard error — see `_require_dm3_onground` — but the per-state
+    derivation helper still treats None as "can't derive" so non-dm3 stays NULL.)"""
     key = str(DM3_BSP_PATH)
     cached = _WORLD_CACHE.get(key, "miss")
     if cached != "miss":
@@ -140,6 +153,23 @@ def _dm3_world():
         world = None
     _WORLD_CACHE[key] = world if world is not None else False
     return world
+
+
+def _require_dm3_onground(level_name, demo_name) -> None:
+    """Hard-fail guard (#316): if this demo IS dm3 ("The Abandoned Base") but the dm3
+    BSP cannot be loaded, raise Dm3BspUnavailable so the ETL exits non-zero rather than
+    silently writing onground=NULL for every dm3 tick (which downstream reads as
+    all-airborne). NON-dm3 demos are unaffected — they have no geometric derivation
+    defined and legitimately keep onground=NULL, so this guard is a no-op for them."""
+    if level_name != DM3_LEVEL_NAME:
+        return
+    if _dm3_world() is None:
+        raise Dm3BspUnavailable(
+            "dm3 demo %r requires the dm3 BSP to derive geometric onground (#316), but "
+            "it could not be loaded. Set $KOMODO_DM3_BSP or place dm3.bsp at %s, or "
+            "exclude dm3 demos. Refusing to write onground=NULL for dm3 (it would become "
+            "an all-airborne training/eval input)." % (demo_name, DM3_BSP_PATH)
+        )
 
 
 def _derive_onground_dm3(level_name, origin, velocity):
@@ -166,7 +196,11 @@ def extract_demo(demo_path: str) -> dict:
         {ok, demo, sha256, map_level, playernum, n_frames, coverage,
          episodes:[{start,end,n,frames:[...]}]}  on success
         {ok:False, demo, error}                  on failure
-    Never raises into the pool — a bad demo is recorded and skipped.
+    A bad/undecodable demo is recorded and skipped (ok:False), NOT raised. The ONE
+    deliberate exception is a genuine dm3 demo whose dm3 BSP is missing/unloadable: that
+    raises Dm3BspUnavailable (which propagates out of the pool and fails the build),
+    because silently writing onground=NULL for dm3 would re-introduce the all-airborne
+    bad-data class #316 removes.
     """
     demo = Path(demo_path)
     try:
@@ -193,6 +227,11 @@ def extract_demo(demo_path: str) -> dict:
     # can't be derived (non-dm3 / no BSP) we set onground=None and proxy=False so the
     # column is NULL (honest "unknown") rather than a misleading all-False.
     level_name = meta.get("map_level")
+    # HARD-FAIL (#316): for a genuine dm3 demo we MUST be able to derive onground. If the
+    # BSP is missing/unloadable this raises (the ETL exits non-zero) rather than silently
+    # writing onground=NULL for every dm3 tick — which downstream reads as all-airborne.
+    # Non-dm3 demos are unaffected (no derivation defined; they keep onground=NULL).
+    _require_dm3_onground(level_name, demo.name)
     for f in frames:
         ong = _derive_onground_dm3(level_name, f["origin"], f["velocity"])
         f["onground"] = ong
@@ -779,8 +818,16 @@ def main(argv=None) -> int:
         dbp.unlink()
     dbp.parent.mkdir(parents=True, exist_ok=True)
 
-    res = build(args.catalog_dir, args.demo_list, args.db,
-                with_fixture=args.with_fixture, workers=args.workers, limit=args.limit)
+    # HARD-FAIL (#316): a genuine dm3 demo with no loadable dm3 BSP raises out of build()
+    # (geometric onground could not be derived). Surface it as a clean, actionable stderr
+    # message + dedicated non-zero exit code rather than a raw traceback, so a dm3 catalog
+    # is NEVER built with silent all-NULL (== all-airborne downstream) onground.
+    try:
+        res = build(args.catalog_dir, args.demo_list, args.db,
+                    with_fixture=args.with_fixture, workers=args.workers, limit=args.limit)
+    except Dm3BspUnavailable as e:
+        print("ERROR: " + str(e), file=sys.stderr)
+        return 4
     try:
         print(json.dumps(res["summary"], indent=2, default=str))
 
