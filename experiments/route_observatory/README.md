@@ -32,10 +32,15 @@ route set extracted here is **co-canonical with the qwd named routes** and cover
   resource visits and emits the ranked resource→resource route table for one demo.
 - `build_canonical.py` — `<routes1.json> [routes2.json ...]`: merges per-demo tables, writes the catalog
   artifact, and prints the `loc_catalog` + qwd reconciliation.
+- `pov_fuse_extract.py` — `<analysis.json> <player> <t0_s> <t1_s> <frames_dir> <out.json>`: slices one
+  route leg and computes its **movement signature** (`komodobots.route_leg.v1`). See below.
+- `pov_fuse_render.py` — `<leg.json> <frames_dir> <out.html>`: the fused POV+route contact sheet.
+- `pov_fuse_shot.js` — `<html> <out.png> [--rows <dir>]`: headless screenshot for self-validation.
 - `evidence/dm3_resource_routes.png` — the route map (resources as nodes, routes as traffic-weighted edges).
 - `evidence/dm3_spawn_flowchart.webp`, `evidence/dm3_spawn_tactics.md` — the tactical (layer-3) source.
+- `evidence/pov_fuse_megaRL.png` — worked example: Milton's mega→RL leg, POV fused with the route plot.
 
-## Regenerate
+## Regenerate the route canon
 
 ```sh
 QW=qw-analyze-v20         # mvd_analyzer CLI
@@ -43,6 +48,26 @@ $QW <demo.mvd> > /tmp/a.json
 python experiments/route_observatory/route_extract.py /tmp/a.json /tmp/routes.json
 python experiments/route_observatory/build_canonical.py /tmp/routes.json [/tmp/routes2.json ...]
 ```
+
+## Movement signatures (the `route-signature` skill)
+
+The canon above says **where** humans go. The `pov_fuse_*` tools add **how** they move along a leg —
+the per-route **movement signature** (speed profile, jump cadence, look-vs-move, straightness) that is
+both the route-conditioned **BC target** and the **believability rubric**. The fused contact sheet
+(`[POV frame] [top-down route plot with view + velocity arrows] [HUD]`) is validated by reading the
+render back and checking the plotted state against the POV pixels (eval-integrity — the fused state
+must match what is on screen).
+
+```sh
+FR=<frames_dir>          # 1fps POV JPGs (tNNNNNN.jpg); match_ms = (video_t − offset)*1000
+python experiments/route_observatory/pov_fuse_extract.py /tmp/a.json Milton 266 273.5 "$FR" /tmp/leg.json
+python experiments/route_observatory/pov_fuse_render.py  /tmp/leg.json "$FR" /tmp/sheet.html
+node   experiments/route_observatory/pov_fuse_shot.js    /tmp/sheet.html /tmp/sheet.png --rows /tmp/rows
+```
+
+Full procedure, data-shape conventions (`pos` is struct-of-arrays; `pos.li` flickers — use x/y +
+teamsay), leg-selection by straightness, and the mandatory self-validation gate are in the skill:
+`.claude/skills/route-signature/SKILL.md`.
 
 ## Reconciliation with the qwd canon (v1 / book-vs-mix)
 
