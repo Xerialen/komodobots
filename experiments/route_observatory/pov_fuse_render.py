@@ -14,6 +14,19 @@ import json
 import sys
 import base64
 import os
+import html
+
+
+def js_embed(obj):
+    """Serialize obj to JSON safe to drop inside an HTML <script> block.
+
+    Escapes the characters that could close the script element or that JS
+    treats as line terminators inside string literals, so demo/CLI-derived
+    text cannot break out of the <script> context.
+    """
+    s = json.dumps(obj)
+    return (s.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+             .replace(" ", "\\u2028").replace(" ", "\\u2029"))
 
 leg_path = sys.argv[1] if len(sys.argv) > 1 else "leg.json"
 frames_dir = sys.argv[2] if len(sys.argv) > 2 else "."
@@ -105,12 +118,19 @@ D.rows.forEach(r=>{
   const im=document.createElement('img'); im.src=r.uri;
   const cv=document.createElement('canvas'); cv.width=CW; cv.height=CH; cv.style.border='1px solid #30363d';
   const hud=document.createElement('div'); hud.className='hud';
-  hud.innerHTML=`<div class=t>match_t ${r.s}s &nbsp;<span class=lbl>${r.file}</span></div>`+
-    `<div class=say>"${r.teamsay}"</div>`+
+  // numeric fields come from parsed-demo math; r.file and r.teamsay are demo/CLI-derived
+  // strings, so they are inserted as text nodes (textContent) and never as markup.
+  const tDiv=document.createElement('div'); tDiv.className='t';
+  tDiv.append('match_t '+String(r.s)+'s ');
+  const fileSpan=document.createElement('span'); fileSpan.className='lbl'; fileSpan.textContent=r.file;
+  tDiv.appendChild(fileSpan);
+  const sayDiv=document.createElement('div'); sayDiv.className='say'; sayDiv.textContent='"'+r.teamsay+'"';
+  hud.appendChild(tDiv); hud.appendChild(sayDiv);
+  hud.insertAdjacentHTML('beforeend',
     `<div class=spd>hspeed <b>${c.hs}</b> qu/s &nbsp; vz ${c.vz}</div>`+
     `<div><span class=lbl>look-vs-move</span> ${lookmove(c)} deg</div>`+
     `<div><span class=lbl>pos</span> ${Math.round(c.x)}, ${Math.round(c.y)}, ${Math.round(c.z)}</div>`+
-    `<div><span class=lbl>view yaw</span> ${Math.round(c.yaw)} deg</div>`;
+    `<div><span class=lbl>view yaw</span> ${Math.round(c.yaw)} deg</div>`);
   row.appendChild(im); row.appendChild(cv); row.appendChild(hud); app.appendChild(row);
   plot(cv, r.ni);
 });
@@ -120,8 +140,12 @@ document.title='READY';
 sigtxt = (f"{sig['dur_s']}s · hspeed {sig['hs_min']}/{sig['hs_mean']}/{sig['hs_max']} (min/mean/max qu/s) · "
           f"{sig['jumps']} jumps · look-vs-move mean {sig['lookmove_mean_deg']} deg · "
           f"path {sig['path_qu']}qu straightness {sig['straightness']}")
-html = (HTML.replace("__DATA__", json.dumps(payload))
-            .replace("__LABEL__", L["label"]).replace("__PLAYER__", str(L["player"]))
-            .replace("__DEMO__", str(L["demo"])).replace("__SIGTXT__", sigtxt))
-open(out_html, "w").write(html)
-print(f"WROTE {out_html}  ({len(rows)} fused rows, {len(html) // 1024} KB)")
+# Substitute the header/sig placeholders first, then __DATA__ last, so a demo/CLI
+# string that happens to contain a placeholder token cannot collide with the replaces.
+doc = (HTML.replace("__LABEL__", html.escape(str(L["label"])))
+           .replace("__PLAYER__", html.escape(str(L["player"])))
+           .replace("__DEMO__", html.escape(str(L["demo"])))
+           .replace("__SIGTXT__", html.escape(sigtxt))
+           .replace("__DATA__", js_embed(payload)))
+open(out_html, "w").write(doc)
+print(f"WROTE {out_html}  ({len(rows)} fused rows, {len(doc) // 1024} KB)")
