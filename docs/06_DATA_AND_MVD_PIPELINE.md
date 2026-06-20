@@ -1163,6 +1163,38 @@ post-game-only unless a future KTX stream proves those fields are authoritative
 mid-game. Stale or disconnected frames are marked rather than filled with fake
 values.
 
+## Named control regions (dm3) — the route-segmentation assignment layer
+
+Phase 0.3 (#317) adds a principled, NON-OVERLAPPING set of named strategic CONTROL
+REGIONS for dm3, replacing the #315 demo's coarse blanket nearest-landmark snap
+(`scripts/dm3_leg_traffic.py`: a 600 qu radius over 26 raw landmarks), which produced
+phantom intra-area "legs" like RA.low<->RA and YA.box<->YA.
+
+- Region file: `lab/dashboard/public/data/map_regions/dm3.json` (schema
+  `komodobots.map_regions.v1`) — 13 named regions, each a sphere `center` [x,y,z] +
+  `radius_qu`. Each region MERGES an item's sub-points/fixtures into ONE named area
+  (RA absorbs RA + RA.low + RA.rox; YA absorbs YA + YA.box + YA.up; SNG absorbs the
+  nest + SNG.MH/low/ledge/lifts), so the phantom shuffles collapse into a single region.
+  Genuine connectors (RA.tunnel, bridge) and the functionally-distinct SNG.tele pocket
+  are their own regions. Region granularity (which sub-points merge where, notably
+  YA<->YA.box) is a tunable design choice editable in that file alone.
+- Loader: `scripts/map_regions.py` — `load_regions()` + `assign_region(x, y, z) -> name |
+  None`. Assignment is DETERMINISTIC NEAREST-REGION-WITH-CAP using 3D distance (dm3 is
+  multi-level: water z=-416, hill/bridge, RL/window, Quad/Ring, RA), so a point is claimed
+  by exactly one region (nearest wins) or None when outside all caps. Pure stdlib.
+- Tests: `tests/test_map_regions.py` (stdlib `unittest`, no catalog dependency) — asserts
+  deterministic non-overlap, primary-control-point spot-checks (RA coord -> "RA", ...),
+  sub-point collapse (RA.low -> "RA", YA.box -> "YA"), and far-point -> None.
+- Coverage (over a locally-rebuilt `data/catalog/dm3_4on4.sqlite`, ~878k `actor_ticks`):
+  **69.9%** of actor-ticks assign to a region (>= 60% #317 end-criterion). Before/after on
+  the #315 raw-landmark traffic: the `RA.low<->RA` (815) and `YA.box<->YA` (775) phantom
+  legs are GONE under regions (those sub-points become one region), dropping distinct legs
+  from 328 to 126 inter-area-only legs.
+
+The **#319 leg segmenter consumes this region layer**: a leg becomes a transition between
+two DISTINCT region visits (not raw-landmark snaps), so segmented routes are built from
+strategic control points rather than phantom intra-area shuffles.
+
 ## Open questions
 
 - Can/should the current `events.txt` kind `5` position stream remain canonical for first-pass movement metrics?

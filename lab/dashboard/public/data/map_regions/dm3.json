@@ -1,0 +1,133 @@
+{
+  "map": "dm3",
+  "version": 1,
+  "schema": "komodobots.map_regions.v1",
+  "doc": [
+    "Named, NON-OVERLAPPING strategic CONTROL REGIONS for dm3 ('The Abandoned Base').",
+    "These replace the #315 demo's coarse blanket nearest-landmark snap (a 600 qu radius",
+    "over 26 raw landmarks), which produced phantom intra-area 'legs' like RA.low<->RA and",
+    "YA.box<->YA. Each region MERGES an item's sub-points / adjacent fixtures into ONE named",
+    "area (e.g. RA absorbs RA + RA.low + RA.rox; YA absorbs YA + YA.box + YA.up; SNG absorbs",
+    "the SNG nest + SNG.MH + SNG.low + SNG.ledge + SNG.lifts), so those phantom shuffles",
+    "collapse into a single region. This is the assignment layer the #319 route segmenter",
+    "consumes (a leg = a transition between two DISTINCT region visits).",
+    "",
+    "GEOMETRY MODEL: each region is a SPHERE = center (x,y,z in quake units) + radius_qu.",
+    "Assignment (scripts/map_regions.py:assign_region) is DETERMINISTIC NEAREST-REGION-WITH-CAP:",
+    "a position is assigned to the region whose 3D-Euclidean center is NEAREST, but only if",
+    "that nearest distance is <= that region's radius_qu; otherwise None (a mid-corridor /",
+    "transition position is not forced onto a region). Because assignment is nearest-wins,",
+    "regions can NEVER double-assign a point (a point belongs to exactly one region or None),",
+    "so the radii are membership CAPS, not hard partitions, and may visually overlap without",
+    "ambiguity. 3D distance is used deliberately: dm3 is heavily multi-level (water floor",
+    "z=-416, hill/bridge z~=-192/-120, RL/window z~=-104/44, Quad/Ring z~=40, RA z~=130-304),",
+    "so the Z term cleanly separates stacked areas (e.g. GL/LG water level under the bridge;",
+    "Pent pocket under RL) that 2D circles would conflate.",
+    "",
+    "Centers are anchored on each area's PRIMARY strategic item (the named control point in",
+    "docs/notes/dm3-route-taxonomy.md), nudged toward the cluster body; radii are tuned to",
+    "absorb that area's own sub-points/fixtures while leaving genuine connecting corridors",
+    "(RA.tunnel, bridge) as their own small regions. Wide ambient edge-pickups (a far rocket",
+    "or shell box at an area boundary) may fall outside all caps and read as None; that is",
+    "intended -- they are transition zones, not control points.",
+    "",
+    "GRANULARITY IS A TUNABLE DESIGN CHOICE: which sub-points merge into which named region",
+    "(notably YA<->YA.box, which the taxonomy lists as a real ~598 qu MED leg but is merged",
+    "here to kill the phantom shuffle; and SNG vs SNG.tele, kept SPLIT because the teleporter",
+    "pocket is functionally distinct in openings) is open to reviewer/owner adjustment. Edit",
+    "this file (center/radius/membership) without touching the loader or its tests."
+  ],
+  "regions": [
+    {
+      "name": "RA",
+      "center": [180, -720, 130],
+      "radius_qu": 520,
+      "absorbs": ["RA", "RA.low", "RA.rox"],
+      "note": "Red Armor — the economy. Merges the RA armor, RA.low (NG) and RA.rox boxes. RA.tunnel (the lower corridor toward Ring) is a SEPARATE region."
+    },
+    {
+      "name": "RA.tunnel",
+      "center": [40, -320, -150],
+      "radius_qu": 300,
+      "absorbs": ["RA.tunnel"],
+      "note": "Lower tunnel/spawn corridor connecting RA<->Ring. Kept separate so RA<->Ring legs are not swallowed into RA."
+    },
+    {
+      "name": "Quad",
+      "center": [850, 60, 40],
+      "radius_qu": 400,
+      "absorbs": ["Quad"],
+      "note": "Quad Damage nest (artifact + nails/shells/rockets cluster)."
+    },
+    {
+      "name": "Ring",
+      "center": [240, -60, 45],
+      "radius_qu": 340,
+      "absorbs": ["Ring"],
+      "note": "Ring of Shadows (invis) — busiest central corridor hub; artifact + nails/shells/rockets + t2 teleport destination."
+    },
+    {
+      "name": "mega",
+      "center": [564, -48, -192],
+      "radius_qu": 340,
+      "absorbs": ["hill"],
+      "note": "Central Megahealth on the 'hill', below Quad/Ring. Anchored exactly on the mh entity."
+    },
+    {
+      "name": "RL",
+      "center": [1520, 490, -100],
+      "radius_qu": 340,
+      "absorbs": ["RL"],
+      "note": "Rocket Launcher (firepower unit) + co-located nails + spawn. window teleport-dst sits just inside its cap."
+    },
+    {
+      "name": "YA",
+      "center": [1480, -820, -30],
+      "radius_qu": 540,
+      "absorbs": ["YA", "YA.box", "YA.up"],
+      "note": "Yellow Armor pocket — MERGED: the YA.box armor + the YA ledge (SSG/rockets) + YA.up. The taxonomy lists YA<->YA.box as a real ~598 qu MED leg; merged here to kill the phantom shuffle (granularity is tunable)."
+    },
+    {
+      "name": "Pent",
+      "center": [1100, 760, -280],
+      "radius_qu": 420,
+      "absorbs": ["Pent"],
+      "note": "Pentagram (invuln) pocket, low in the SE. Anchored on the artifact; the far 'Pent' Megahealth (~850 qu east) is NOT in this region (it falls to None)."
+    },
+    {
+      "name": "SNG",
+      "center": [-560, 400, 30],
+      "radius_qu": 560,
+      "absorbs": ["SNG", "SNG.MH", "SNG.low", "SNG.ledge", "SNG.lifts"],
+      "note": "Super Nailgun nest — MERGED: SNG gun + SNG.MH (mega) + SNG.low + SNG.ledge + SNG.lifts. SNG.tele is a SEPARATE region."
+    },
+    {
+      "name": "SNG.tele",
+      "center": [-700, -440, -25],
+      "radius_qu": 360,
+      "absorbs": ["SNG.tele"],
+      "note": "SNG teleporter source pocket (NW), functionally distinct from the SNG nest in opening rotations (SNG-tele->Ring->RA)."
+    },
+    {
+      "name": "LG",
+      "center": [1650, -300, -416],
+      "radius_qu": 360,
+      "absorbs": ["water.LG", "water.rox"],
+      "note": "Lightning Gun on the east water shelf (z=-416). Absorbs the east water rockets/cells. Separated from GL by the Z floor + distance."
+    },
+    {
+      "name": "GL",
+      "center": [1350, 260, -416],
+      "radius_qu": 420,
+      "absorbs": ["water.GL", "water"],
+      "note": "Grenade Launcher + west/central water floor (z=-416). The far far-west/east ambient water cells at the basin edges may read None."
+    },
+    {
+      "name": "bridge",
+      "center": [1376, -250, -120],
+      "radius_qu": 240,
+      "absorbs": ["bridge.high", "bridge.low"],
+      "note": "The bridge connector spanning the chasm above the water level, between RL/YA and the basin."
+    }
+  ]
+}
