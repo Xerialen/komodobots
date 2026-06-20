@@ -37,7 +37,7 @@ def render(leg):
         f.write(b"\xff\xd8\xff\xd9")
     leg_path = os.path.join(d, "leg.json")
     out_html = os.path.join(d, "out.html")
-    with open(leg_path, "w") as f:
+    with open(leg_path, "w", encoding="utf-8") as f:
         json.dump(leg, f)
     r = subprocess.run([sys.executable, str(RENDER), leg_path, frames_dir, out_html],
                        capture_output=True, text=True)

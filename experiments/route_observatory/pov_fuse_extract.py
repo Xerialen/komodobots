@@ -172,9 +172,9 @@ def main(argv):
     if len(args) < 6:
         raise SystemExit(__doc__)
     analysis, who, t0, t1, frames_dir, out = args[:6]
-    d = json.load(open(analysis))
+    d = json.load(open(analysis, encoding="utf-8"))
     leg = build_leg(d, who, float(t0), float(t1), frames_dir, offset, label)
-    json.dump(leg, open(out, 'w'))
+    json.dump(leg, open(out, 'w', encoding="utf-8"))
     s = leg['signature']
     print(f"WROTE {out}: {len(leg['ticks'])} ticks, "
           f"{sum(f['exists'] for f in leg['frames'])} frames, {len(leg['teamsay'])} binds")

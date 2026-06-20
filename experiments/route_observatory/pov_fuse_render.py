@@ -32,7 +32,7 @@ leg_path = sys.argv[1] if len(sys.argv) > 1 else "leg.json"
 frames_dir = sys.argv[2] if len(sys.argv) > 2 else "."
 out_html = sys.argv[3] if len(sys.argv) > 3 else "pov_fuse.html"
 
-L = json.load(open(leg_path))
+L = json.load(open(leg_path, encoding="utf-8"))
 ticks, markers, teamsay, frames, sig = L["ticks"], L["markers"], L["teamsay"], L["frames"], L["signature"]
 
 
@@ -147,5 +147,5 @@ doc = (HTML.replace("__LABEL__", html.escape(str(L["label"])))
            .replace("__DEMO__", html.escape(str(L["demo"])))
            .replace("__SIGTXT__", html.escape(sigtxt))
            .replace("__DATA__", js_embed(payload)))
-open(out_html, "w").write(doc)
+open(out_html, "w", encoding="utf-8").write(doc)
 print(f"WROTE {out_html}  ({len(rows)} fused rows, {len(doc) // 1024} KB)")
