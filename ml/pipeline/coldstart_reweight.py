@@ -26,8 +26,8 @@ block) inverted through the norm artifact's robust median/IQR spec (clipped) -> 
 so the threshold is in real game units. Zero-weight ticks (pad/interp/missing label) are
 left at 0 (boost*0 == 0) -- we never resurrect an unlabeled frame.
 
-Usage (pinnacle, ml venv):
-  python -m ml.pipeline.coldstart_reweight \
+Usage (from <repo>/ml; pinnacle, ml venv — see ml/BROAD_BC.md):
+  python3 pipeline/coldstart_reweight.py \
       --in  gold/shards/dm3_4on4_train.parquet \
       --out gold/shards/dm3_4on4_train_cs.parquet \
       --norm gold/norm/normalization_stats.json \

@@ -19,8 +19,8 @@ Method (every number from the shard the trainer actually consumes):
   * report low-speed tick counts at several thresholds + how many are episode-starts +
     the existing per-(last-tick) weight stats.
 
-Usage:
-  python -m ml.pipeline.coldstart_inspect --shard gold/shards/dm3_4on4_train.parquet \
+Usage (from <repo>/ml — see ml/BROAD_BC.md):
+  python3 pipeline/coldstart_inspect.py --shard gold/shards/dm3_4on4_train.parquet \
       --norm gold/norm/normalization_stats.json [--map dm3]
 """
 from __future__ import annotations

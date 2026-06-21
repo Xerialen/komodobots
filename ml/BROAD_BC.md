@@ -217,17 +217,17 @@ last-real-tick weight cells change; every other array + the table metadata is co
 
 ```bash
 # inspect the cold-start coverage (read-only):
-python3 -m ml.pipeline.coldstart_inspect --shard gold/shards/dm3_4on4_train.parquet \
+python3 pipeline/coldstart_inspect.py --shard gold/shards/dm3_4on4_train.parquet \
     --norm gold/norm/normalization_stats.json
 
 # upweight launch-from-low-speed frames (boost 10, episode-starts 16):
-python3 -m ml.pipeline.coldstart_reweight \
+python3 pipeline/coldstart_reweight.py \
     --in gold/shards/dm3_4on4_train.parquet --out gold/shards/dm3_4on4_train_cs.parquet \
     --norm gold/norm/normalization_stats.json --hspeed-max 80 --boost 10 --epstart-boost 16
 # (boost-10 lifts the launch frames from 5.69% -> ~38% of the training signal)
 
 # retrain on the reweighted shard, saving EVERY epoch for behavioral selection:
-python3 -m ml.train_broad_bc --shards gold/shards/dm3_4on4_train_cs.parquet \
+python3 train_broad_bc.py --shards gold/shards/dm3_4on4_train_cs.parquet \
     --norm-artifact "$NORM" --out cs_best.pt --save-every-epoch cs_epochs --save-last cs_last.pt \
     --epochs 20 --batch 4096 --lr 1e-3 --hidden 256 --ent-out 64 --val-frac 0.1 --seed 0
 ```
