@@ -195,3 +195,50 @@ Notes:
 - **Live game-server runs stay human-gated** — this trainer never touches the server; it
   only reads shards and writes a checkpoint.
 ```
+
+## COLD-START AUGMENTATION (rest -> launch coverage; the dead-stop fix)
+
+A v5 BC checkpoint can learn a near-human bunnyhop yet **dead-stop in closed loop**: the
+8-demo corpus is always-moving (hspeed median 321 qu/s), so velocity ~= 0 (a post-spawn
+standing-start) is off-manifold — the move heads emit "none" -> zero thrust -> an absorbing
+state. Diagnostic measurement on the train shard: only **5.69%** of the trainer's per-sample
+weight sits on low-speed (`hspeed < 80 qu/s`) frames where the human is actually producing
+thrust (the rest->launch demonstrations); most low-speed frames are the human coasting/aiming
+with `forwardmove == none`. So the policy faithfully learns "at rest, do nothing."
+
+The BC-only fix is a **data re-weighting** (no synthetic labels, no RL/DAgger): upweight the
+per-sample loss WEIGHT of the REAL human frames that demonstrate launch-from-low-speed, so
+rest->accelerate is in-distribution. `pipeline/coldstart_reweight.py` boosts a window's
+last-real-tick weight (the only cell the trainer reads) iff that tick's raw hspeed (recovered
+from `self_history[-SELF_DIM:][6]` inverted through the norm artifact's robust median/IQR) is
+below `--hspeed-max` AND (default) the human is producing thrust there (`forwardmove > 0` OR
+jump OR `sidemove != 0`); a larger `--epstart-boost` hits true episode-start windows. Only
+last-real-tick weight cells change; every other array + the table metadata is copied verbatim.
+
+```bash
+# inspect the cold-start coverage (read-only):
+python3 -m ml.pipeline.coldstart_inspect --shard gold/shards/dm3_4on4_train.parquet \
+    --norm gold/norm/normalization_stats.json
+
+# upweight launch-from-low-speed frames (boost 10, episode-starts 16):
+python3 -m ml.pipeline.coldstart_reweight \
+    --in gold/shards/dm3_4on4_train.parquet --out gold/shards/dm3_4on4_train_cs.parquet \
+    --norm gold/norm/normalization_stats.json --hspeed-max 80 --boost 10 --epstart-boost 16
+# (boost-10 lifts the launch frames from 5.69% -> ~38% of the training signal)
+
+# retrain on the reweighted shard, saving EVERY epoch for behavioral selection:
+python3 -m ml.train_broad_bc --shards gold/shards/dm3_4on4_train_cs.parquet \
+    --norm-artifact "$NORM" --out cs_best.pt --save-every-epoch cs_epochs --save-last cs_last.pt \
+    --epochs 20 --batch 4096 --lr 1e-3 --hidden 256 --ent-out 64 --val-frac 0.1 --seed 0
+```
+
+**Checkpoint selection is BEHAVIORAL, not best-mean-val.** On this thin corpus best-mean-val
+picks a pre-movement epoch (ep3), so select the epoch whose UNSEEDED dry-route best
+cold-starts (launches from rest) and keeps a human-like pace/cadence — `--save-every-epoch`
+dumps each epoch's `.pt` so a closed-loop sweep can score them (the eval is never imported
+into the trainer). Result: the launch-targeted boost makes the policy self-launch on 11/11
+dm3 routes (was 6/11, mostly dead), clears the 80/80 gate from a cold start on `ra_jumps` +
+`sng_shortcut2`, and stops stalling (G-MV1 face-and-run stays believable) — its residual is
+over-pressing forward (`fwd_press ~0.99` vs human ~0.27), i.e. it bulldozes rather than
+finesses. Boosting ALL low-speed frames (`--all-low`) instead of just launch frames is worse
+(over-jumps ~2x, destabilizes harder routes), confirming the lever is the THRUST frames.

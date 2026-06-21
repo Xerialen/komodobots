@@ -25,6 +25,8 @@ from broad_bc import shard_contract as SC   # noqa: E402
 from broad_bc import synth_shard            # noqa: E402
 from broad_bc import core                   # noqa: E402
 from features import agent_observation as AO  # noqa: E402  (shared obs+action encoder)
+sys.path.insert(0, str(ML / "pipeline"))
+import coldstart_reweight as CSR            # noqa: E402  (the cold-start reweight DATA op)
 
 _HAVE_TORCH = importlib.util.find_spec("torch") is not None
 _HAVE_NUMPY = importlib.util.find_spec("numpy") is not None
@@ -1061,4 +1063,34 @@ class TestParquetShardBridge(unittest.TestCase):
             self.assertEqual(rows[0]["y"][0], 2)
             # input width = self_history(336) + pooled_ent(13) + n_vis_frac(1); no audio/team
             self.assertEqual(len(rows[0]["x"]), AO.SELF_HISTORY_DIM + AO.ENTITY_DIM + 1)
+
+
+class TestColdStartReweight(unittest.TestCase):
+    """The cold-start reweight DATA op: the two pure decision helpers. invert_robust must
+    invert the `robust` (median/IQR) hspeed normalization back to raw qu/s (clipped), and
+    is_launch must flag a frame where the human produces THRUST (fwd>0 OR jump OR side!=0) —
+    the launch-from-low-speed frames the op upweights. These are the rules that decide which
+    REAL frames get boosted, so they are the load-bearing contract of the fix."""
+
+    def test_invert_robust_roundtrips_and_clips(self):
+        spec = {"method": "robust", "median": 321.0, "iqr": 230.0, "clip": [0.0, 2500.0]}
+        # a normalized value of 0 -> the median; 1 -> median+iqr.
+        self.assertAlmostEqual(CSR.invert_robust(0.0, spec), 321.0, places=6)
+        self.assertAlmostEqual(CSR.invert_robust(1.0, spec), 551.0, places=6)
+        # below-range inverts then CLAMPS to the clip floor (never negative speed).
+        self.assertEqual(CSR.invert_robust(-100.0, spec), 0.0)
+        # far above range clamps to the clip ceiling.
+        self.assertEqual(CSR.invert_robust(1000.0, spec), 2500.0)
+
+    def test_is_launch_flags_thrust_only(self):
+        # act cols: forwardmove(0) sidemove(1) upmove(2) jump_button(3) attack(4)
+        self.assertTrue(CSR.is_launch([1.0, 0.0, 0.0, 0.0, 0.0]))   # fwd press
+        self.assertTrue(CSR.is_launch([0.0, -0.9, 0.0, 0.0, 0.0]))  # strafe
+        self.assertTrue(CSR.is_launch([0.0, 0.0, 0.0, 1.0, 0.0]))   # jump
+        # at-rest with NO thrust (the "human coasting/aiming" frame) is NOT a launch:
+        self.assertFalse(CSR.is_launch([0.0, 0.0, 0.0, 0.0, 0.0]))
+        # backpedal alone (fwd<0, no jump/strafe) is not a forward launch.
+        self.assertFalse(CSR.is_launch([-1.0, 0.0, 0.0, 0.0, 0.0]))
+        # attack alone is not movement thrust.
+        self.assertFalse(CSR.is_launch([0.0, 0.0, 0.0, 0.0, 1.0]))
 

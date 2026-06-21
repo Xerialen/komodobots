@@ -303,6 +303,13 @@ def main(argv=None) -> int:
     ap.add_argument("--ent-out", type=int, default=64)
     ap.add_argument("--val-frac", type=float, default=0.1)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--save-every-epoch", type=Path, default=None, metavar="DIR",
+                    help="also save each epoch's checkpoint as DIR/ep<NN>.pt (for "
+                         "BEHAVIORAL checkpoint selection — best-mean-val alone picks a "
+                         "pre-movement epoch on the thin corpus). Off by default.")
+    ap.add_argument("--save-last", type=Path, default=None, metavar="PATH",
+                    help="also save the FINAL (last-epoch) checkpoint to PATH, regardless "
+                         "of mean-val (the best-val .pt may be an early under-moving epoch).")
     ap.add_argument("--cpu", action="store_true", help="force CPU (tiny debug only)")
     args = ap.parse_args(argv)
 
@@ -386,9 +393,11 @@ def main(argv=None) -> int:
         history.append(rec)
         print(f"ep{ep:02d} loss={rec['train_loss']:.4f} mean_val={mean_val:.4f} "
               f"({time.time()-t0:.0f}s)", flush=True)
-        if mean_val > best:
-            best = mean_val
-            torch.save({
+        # ONE checkpoint dict builder reused by the best-val save, the per-epoch dump,
+        # and the final last-epoch save, so the reload contract can never drift between
+        # them (the eval loader keys off arch/dims/self_dim/gru_hidden/head_dims).
+        def _ckpt(epoch_i, val_i):
+            return {
                 "state_dict": model.state_dict(),
                 "dims": dims, "head_dims": head_dims,
                 "head_names": SC.head_names(),
@@ -398,10 +407,27 @@ def main(argv=None) -> int:
                 # stays the flat SELF INPUT width (336) — the model input contract is
                 # unchanged; these only describe the internal temporal encoder.
                 "self_dim": model.self_dim, "gru_hidden": model.gru_hidden,
-                "arch": "BroadBCPolicy", "epoch": ep, "val_acc": val,
+                "arch": "BroadBCPolicy", "epoch": epoch_i, "val_acc": val_i,
                 "contract_version": SC.SHARD_CONTRACT_VERSION,
                 "seed": args.seed,
-            }, Path(args.out).expanduser())
+            }
+        if mean_val > best:
+            best = mean_val
+            torch.save(_ckpt(ep, val), Path(args.out).expanduser())
+        # Per-epoch dump for BEHAVIORAL checkpoint selection: best-mean-val picked a
+        # pre-movement epoch (ep3) on this corpus, so the cold-start retrain selects the
+        # checkpoint by a closed-loop dry-route signal instead. Saving every epoch's .pt
+        # (off by default) lets a separate selection step score each WITHOUT importing the
+        # eval into the trainer. The final epoch is ALSO the "last" checkpoint below.
+        if args.save_every_epoch is not None:
+            ep_dir = Path(args.save_every_epoch).expanduser()
+            ep_dir.mkdir(parents=True, exist_ok=True)
+            torch.save(_ckpt(ep, val), ep_dir / f"ep{ep:02d}.pt")
+        # the FINAL epoch's checkpoint (the "last", as opposed to the best-mean-val "best").
+        if args.save_last is not None and ep == args.epochs - 1:
+            last_p = Path(args.save_last).expanduser()
+            last_p.parent.mkdir(parents=True, exist_ok=True)
+            torch.save(_ckpt(ep, val), last_p)
 
     # --- norm artifact version (for the card) -------------------------------
     norm_ver = "UNSET"
