@@ -625,7 +625,7 @@ def _recorded_usercmd(act_state):
 def closed_loop_rollout(pm_module, world, segment, controller, *,
                         model=None, dims=None, norm=None, map_name="dm3",
                         n_max=7, device="cpu", torch_mod=None,
-                        goal_mode="conditioned"):
+                        goal_mode="conditioned", aim_mode="replayed"):
     """Drive `pmove_sim` closed-loop over one recorded segment, mirroring the Stage-2
     `eval_closedloop.closed_loop_run` skeleton but with the BROAD obs + heads.
 
@@ -661,12 +661,20 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
     speeds = []
     msecs = []
     attack_classes = []
+    fwd_press_n = 0          # policy ticks with fwd head == press-forward (class 2)
+    policy_ticks = 0
 
     # one fewer step than len(segment) so segment[k+1] is never needed (we replay
     # segment[k]'s view onto the bot's own state); the +1 tick in the segment is the
     # post-frame anchor headroom only.
     n = len(segment) - 1
-    prev_yaw = None   # previous replayed view yaw (for the turn-direction signal)
+    prev_yaw = None   # previous EXECUTED view yaw (for the turn-direction signal)
+    # aim_mode="policy" (RL): the policy owns its view yaw. policy_yaw is the running
+    # executed yaw the policy integrates from its per-tick turn DELTA (the yaw head); it
+    # drives BOTH the obs (yaw_sin/cos, face_vel_angle, yaw_rate) AND the pmove wishdir =
+    # the air-strafe SPEED mechanism. Seeded at the segment's first human yaw so the bot
+    # starts pointed down the route. (replayed/optimal leave it unused.)
+    policy_yaw = float(segment[0]["self"].get("yaw", 0.0) or 0.0)
     # v5 SEQUENCE history: a rolling buffer of the last SELF_HISTORY SELF feature-vectors,
     # OLDEST -> NEWEST. RESET here at rollout start (so the first tick left-pad-repeats the
     # only available SELF, exactly like the offline build's first window tick). Each policy
@@ -677,14 +685,19 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
     self_hist = deque(maxlen=_SELF_HISTORY)
     for k in range(n):
         rec_self = segment[k]["self"]
-        yaw = float(rec_self.get("yaw", 0.0) or 0.0)
         pitch = float(rec_self.get("pitch", 0.0) or 0.0)
+        # the OBS/EXECUTED view yaw: the policy's own running yaw under aim_mode="policy"
+        # (self-yaw), else the replayed human yaw. The obs is built from THIS yaw, then the
+        # yaw head (policy mode) produces the turn delta that updates policy_yaw for the
+        # executed cmd + the next tick (causally correct: see what you face -> decide the turn).
+        yaw = policy_yaw if (controller == "policy" and aim_mode == "policy") \
+            else float(rec_self.get("yaw", 0.0) or 0.0)
         angles = [pitch, yaw, 0.0]
         rec_act = segment[k].get("act")
         msec = 13
         if rec_act and rec_act.get("msec"):
             msec = rec_act["msec"]
-        # turn-rate from the PREVIOUS replayed view yaw + this tick's dt (the SAME shared
+        # turn-rate from the PREVIOUS executed view yaw + this tick's dt (the SAME shared
         # helper the offline build calls -> parity). prev_yaw None on tick 0 -> rate 0.0.
         yaw_rate = _yaw_rate_degps(yaw, prev_yaw, float(msec) / 1000.0)
 
@@ -713,10 +726,29 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
                 em_t = torch_mod.zeros((1, n_max), device=device)
             aux_t = torch_mod.zeros((1, dims["f_aux"]), device=device)
             with torch_mod.no_grad():
-                logits = model(obs_t, ent_t, em_t, aux_t)
+                if aim_mode == "policy":
+                    # SELF-YAW: the policy's yaw head proposes a per-tick turn DELTA (sincos);
+                    # integrate it onto policy_yaw and execute that. The bot OWNS its aim — the
+                    # speed mechanism (RL). Requires a yaw-head ckpt (forward_with_yaw).
+                    logits, yaw2 = model.forward_with_yaw(obs_t, ent_t, em_t, aux_t)
+                    yd = float(torch_mod.atan2(yaw2[0, 0], yaw2[0, 1]).item()) * (180.0 / math.pi)
+                    yd = max(-90.0, min(90.0, yd))
+                    policy_yaw = yaw + yd            # integrate the turn onto the obs yaw
+                    angles = [pitch, policy_yaw, 0.0]
+                else:
+                    logits = model(obs_t, ent_t, em_t, aux_t)
             pred_cls = [int(lg.argmax(dim=1).item()) for lg in logits]
             fwd_mag, side_mag, up_mag, jump_bit = decode_move_heads(pred_cls)
             attack_classes.append(pred_cls[4])
+            policy_ticks += 1
+            if int(pred_cls[0]) == 2:    # fwd head class 2 == press +forward (over-press metric)
+                fwd_press_n += 1
+            if aim_mode == "optimal":
+                # greedy speed-optimal air-strafe yaw from the bot's OWN pre-frame velocity +
+                # chosen move keys (the RL STEP-0 ceiling diagnostic; obs used replayed yaw).
+                exec_yaw = optimal_strafe_yaw(st.velocity[0], st.velocity[1],
+                                              fwd_mag, side_mag, yaw)
+                angles = [pitch, exec_yaw, 0.0]
         else:  # "recorded" positive control
             fwd_mag, side_mag, up_mag, jump_bit = _recorded_usercmd(rec_act)
             attack_classes.append(None)
@@ -724,17 +756,20 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
         cmd = pm_module.Cmd(msec, angles, [fwd_mag, side_mag, up_mag], jump_bit)
         pm.run_frame(st, cmd)
 
-        # capture the gmv tick from the POST-frame sim state + replayed yaw + the
-        # predicted strafe intent (so cadence sees the bot's own side magnitude).
-        tick = gmv_tick_from_state(st.origin, st.velocity, st.onground, yaw,
+        # capture the gmv tick from the POST-frame sim state + the EXECUTED view yaw
+        # (angles[1] = the replayed / policy-self / optimal yaw actually sent to pmove, so
+        # G-MV1 measures the real face-vs-velocity) + the predicted strafe intent.
+        exec_view_yaw = float(angles[1])
+        tick = gmv_tick_from_state(st.origin, st.velocity, st.onground, exec_view_yaw,
                                    side_mag, msec=msec)
         gmv_ticks.append(tick)
         origins.append((tick["_ox"], tick["_oy"]))
         speeds.append(tick["hspeed"])
         msecs.append(float(msec))
-        prev_yaw = yaw   # this tick's view yaw is the next tick's previous yaw
+        prev_yaw = exec_view_yaw   # this tick's executed view yaw is next tick's previous
 
-    return gmv_ticks, origins, speeds, msecs, attack_classes
+    fwd_press_frac = (fwd_press_n / policy_ticks) if policy_ticks else None
+    return gmv_ticks, origins, speeds, msecs, attack_classes, fwd_press_frac
 
 
 def _controller_report(pooled_ticks, route, anchors, player_band, *,
@@ -758,7 +793,8 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
              anchors: Path | None = None, player_band: str | None = None,
              map_name: str = "dm3", n_max: int = 7, cpu: bool = False,
              goal_mode: str = "conditioned",
-             resource_coords_path: Path | None = None) -> dict:
+             resource_coords_path: Path | None = None,
+             aim_mode: str = "replayed") -> dict:
     """Closed-loop believability eval. NEEDS torch (policy forward) + numpy (parity) +
     duckdb (catalog start states) + the BSP world. Flow:
 
@@ -825,19 +861,21 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
     # discontinuous, so we keep each segment's OWN route dict and aggregate those
     # (aggregate_route_metrics) to avoid a teleport distance at every segment boundary.
     pool = {
-        "policy": {"ticks": [], "attack": [], "routes": [], "mv3_gates": []},
+        "policy": {"ticks": [], "attack": [], "routes": [], "mv3_gates": [], "fwd_press": []},
         "recorded": {"ticks": [], "routes": [], "mv3_gates": []},
     }
     for (eid, start, seg) in segments:
         pol = closed_loop_rollout(
             pmove_sim, world, seg, "policy", model=model, dims=dims,
             norm=norm_bundle, map_name=map_name, n_max=n_max, device=device,
-            torch_mod=torch, goal_mode=goal_mode)
+            torch_mod=torch, goal_mode=goal_mode, aim_mode=aim_mode)
         rec = closed_loop_rollout(
             pmove_sim, world, seg, "recorded", map_name=map_name, n_max=n_max)
 
-        p_ticks, p_org, p_spd, p_ms, p_atk = pol
-        r_ticks, r_org, r_spd, r_ms, _ = rec
+        p_ticks, p_org, p_spd, p_ms, p_atk, p_fwd_press = pol
+        r_ticks, r_org, r_spd, r_ms, _, _ = rec
+        if p_fwd_press is not None:
+            pool["policy"]["fwd_press"].append((p_fwd_press, len(p_ticks)))
         # per-segment route dicts (each on ITS OWN origins -> correct, no boundary jump)
         p_route = route_metrics(p_org, p_spd, p_ms)
         r_route = route_metrics(r_org, r_spd, r_ms)
@@ -875,6 +913,13 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
         anchors_obj, player_band, attack_pressed=atk_rate)
     overwrite_pooled_mv3(bot_policy["gmv"], pool["policy"]["mv3_gates"])
     bot_policy["gmv_summary"] = summarize_gmv(bot_policy["gmv"])
+    # tick-weighted forward-press fraction across segments (the over-press metric; the bar
+    # this whole RL line targets is fwd-press into the human band ~0.07-0.50). M3 source.
+    _fp = pool["policy"]["fwd_press"]
+    _fp_tot = sum(nn for _, nn in _fp)
+    bot_policy["fwd_press_frac"] = (round(sum(f * nn for f, nn in _fp) / _fp_tot, 6)
+                                    if _fp_tot else None)
+    bot_policy["aim_mode"] = aim_mode
     recorded_human = _controller_report(
         pool["recorded"]["ticks"], aggregate_route_metrics(pool["recorded"]["routes"]),
         anchors_obj, player_band)
@@ -1036,6 +1081,11 @@ def main(argv=None) -> int:
     ap.add_argument("--resource-coords", type=Path, default=None,
                     help="resource_coords.<map>.json for the goal label (defaults to the "
                          "committed dm3 artifact for map=dm3; ignored with --goal-mode blind)")
+    ap.add_argument("--aim", choices=("replayed", "optimal", "policy"), default="replayed",
+                    help="executed view yaw: 'replayed' human (default), 'optimal' greedy "
+                         "speed-optimal air-strafe (RL STEP-0 ceiling), or 'policy' = the "
+                         "policy's OWN yaw head (self-yaw; the RL movement-v5 mechanism). "
+                         "'policy' needs a yaw-head ckpt (forward_with_yaw).")
     args = ap.parse_args(argv)
 
     report = run_eval(
@@ -1044,6 +1094,7 @@ def main(argv=None) -> int:
         anchors=args.anchors, player_band=args.player_band,
         map_name=args.map, n_max=args.n_max, cpu=args.cpu,
         goal_mode=args.goal_mode, resource_coords_path=args.resource_coords,
+        aim_mode=args.aim,
     )
     out = Path(args.out).expanduser()
     out.parent.mkdir(parents=True, exist_ok=True)

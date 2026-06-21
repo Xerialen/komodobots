@@ -97,10 +97,20 @@ class BroadBCPolicy(nn.Module):
 
     def __init__(self, f_obs, f_ent, f_aux, n_max, *, ent_hidden=64, ent_out=64,
                  hidden=256, head_dims=(3, 3, 3, 2, 2),
-                 self_dim=SC.EXPECTS_SELF_DIM, gru_hidden=GRU_HIDDEN):
+                 self_dim=SC.EXPECTS_SELF_DIM, gru_hidden=GRU_HIDDEN,
+                 yaw_head=False):
         super().__init__()
         self.n_max = n_max
         self.f_ent = f_ent
+        # OPTIONAL continuous AIM head (RL warm-start, prep/rl-yawhead). Default OFF, so a
+        # model built without it is byte-identical to the discrete-only v5 policy and reloads
+        # any existing checkpoint (cs10) strict. When ON, a Linear(hidden,2) regresses the
+        # registry cmd_delta_yaw_sincos target (the per-tick turn as a unit sin/cos). It is
+        # an EXTRA module — the discrete `heads` ModuleList is unchanged, so forward() (the
+        # discrete eval path) is undisturbed; forward_with_yaw() additionally returns the
+        # yaw output. Created at the END of __init__ so the discrete state_dict keys keep
+        # their indices (heads.0..N) and only `yaw_head.*` is added.
+        self.has_yaw_head = bool(yaw_head)
         # SELF temporal encoder: the flat F_obs SELF input is reshaped to a
         # [B, f_obs//self_dim, self_dim] sequence (TIME-MAJOR, oldest->newest) and run
         # through a 1-layer GRU; the last hidden state is the SELF summary. f_obs MUST be a
@@ -128,8 +138,12 @@ class BroadBCPolicy(nn.Module):
             nn.Linear(hidden, hidden), nn.ReLU(),
         )
         self.heads = nn.ModuleList([nn.Linear(hidden, k) for k in head_dims])
+        # continuous AIM head LAST (so discrete head indices are unchanged): regresses the
+        # 2-D cmd_delta_yaw_sincos target off the SAME shared trunk feature the discrete
+        # heads use. Only present when yaw_head=True (else the state_dict has no yaw_head.*).
+        self.yaw_head = nn.Linear(hidden, 2) if self.has_yaw_head else None
 
-    def forward(self, obs, ent, emask, aux):
+    def _trunk_feat(self, obs, ent, emask, aux):
         # SELF: reshape the flat [B, T*self_dim] history to [B, T, self_dim] (TIME-MAJOR:
         # dim1 = tick oldest->newest, dim2 = the self_dim channels — matches
         # assemble_self_history's row-major flatten), run the GRU, take the LAST timestep
@@ -150,8 +164,20 @@ class BroadBCPolicy(nn.Module):
             parts.append(pooled)
         if aux is not None and aux.shape[-1] > 0:
             parts.append(aux)
-        h = self.trunk(torch.cat(parts, dim=-1))
+        return self.trunk(torch.cat(parts, dim=-1))
+
+    def forward(self, obs, ent, emask, aux):
+        # discrete-head path (UNCHANGED contract): returns the list of per-head logits.
+        h = self._trunk_feat(obs, ent, emask, aux)
         return [head(h) for head in self.heads]
+
+    def forward_with_yaw(self, obs, ent, emask, aux):
+        # discrete logits + the continuous yaw output [B,2] (raw sin/cos regression). Used by
+        # the yaw-head pretrain + the RL policy. Requires yaw_head=True.
+        h = self._trunk_feat(obs, ent, emask, aux)
+        logits = [head(h) for head in self.heads]
+        yaw = self.yaw_head(h) if self.yaw_head is not None else None
+        return logits, yaw
 
 
 # =============================================================================

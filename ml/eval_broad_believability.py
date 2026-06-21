@@ -509,10 +509,16 @@ def _build_policy_from_checkpoint(ckpt, device):
     # describe the internal temporal encoder so the reconstructed GRU matches the weights.
     self_dim = int(ckpt.get("self_dim", SC.EXPECTS_SELF_DIM))
     gru_hidden = int(ckpt.get("gru_hidden", GRU_HIDDEN))
+    # OPTIONAL continuous AIM head (prep/rl-yawhead warm-start). A checkpoint that stamped
+    # yaw_head=True carries the yaw_head.* weights, so the rebuilt model must include the
+    # head or the strict load mismatches; a normal (discrete-only) checkpoint omits the key
+    # -> yaw_head=False -> byte-identical to before. Reconstructed from the checkpoint, never
+    # hard-coded, so both shapes reload through this SINGLE loader strict.
+    yaw_head = bool(ckpt.get("yaw_head", False))
     model = BroadBCPolicy(
         dims["f_obs"], dims["f_ent"], dims["f_aux"], dims["n_max"],
         ent_out=ent_out, hidden=hidden, head_dims=tuple(head_dims),
-        self_dim=self_dim, gru_hidden=gru_hidden,
+        self_dim=self_dim, gru_hidden=gru_hidden, yaw_head=yaw_head,
     ).to(device)
     model.load_state_dict(ckpt["state_dict"])
     model.eval()
