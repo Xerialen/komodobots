@@ -41,11 +41,12 @@ def _logistic(x: float) -> float:
 def make_synthetic_shard(
     *,
     n_windows: int,
-    obs_dim: int = 16,
+    obs_dim: int = SC.EXPECTS_SELF_DIM,
     ent_dim: int = 10,
     n_max: int = SC.DEFAULT_N_MAX,
     audio_dim: int = 4,
     team_dim: int = 6,
+    self_history: int = SC.EXPECTS_SELF_HISTORY,
     demo_id: str = "synthA",
     player_id: str = "synthP",
     map_id: str = "dm3",
@@ -57,16 +58,29 @@ def make_synthetic_shard(
     Returns the in-memory shard dict (lists). The action labels are a learnable
     function of self obs AND the entity channel, so fitting it REQUIRES the broad
     input.
+
+    v5: also emits the `self_history` field [self_history*obs_dim] = ONE FLAT history PER
+    WINDOW (the last-real-tick history — matching the real build, which stores only that one
+    tick the trainer/loader read, not a per-tick [k, HD]). For the default single-step (k=1)
+    synth rows there is exactly one tick, so the history is the current SELF tiled
+    `self_history` times (the build's left-pad-repeat-first when one tick is available),
+    keeping the last obs_dim block == that tick's obs. This is the SELF input the
+    trainer/smoke consume; per-window it is [obs_dim*self_history], one vector per row.
     """
     rng = random.Random(seed)
     F_act = len(SC.ACT_COLS)
+    hist_dim = self_history * obs_dim
 
-    obs, ents, ent_mask, audio, team, act, mask, weight = [], [], [], [], [], [], [], []
+    obs, self_hist, ents, ent_mask, audio, team, act, mask, weight = \
+        [], [], [], [], [], [], [], [], []
 
     for _w in range(n_windows):
-        w_obs, w_ent, w_em, w_au, w_tm, w_act, w_mask, w_w = [], [], [], [], [], [], [], []
+        w_obs, w_ent, w_em, w_au, w_tm, w_act, w_mask, w_w = \
+            [], [], [], [], [], [], [], []
+        last_o = None                      # last real tick's SELF -> the window's history
         for _t in range(k):
             o = [rng.gauss(0.0, 1.0) for _ in range(obs_dim)]
+            last_o = o
             # number of visible others this tick (1..n_max), rest padded
             n_vis = rng.randint(1, n_max)
             ent_rows, em_row = [], []
@@ -120,7 +134,12 @@ def make_synthetic_shard(
             w_obs.append(o); w_ent.append(ent_rows); w_em.append(em_row)
             w_au.append(au); w_tm.append(tm); w_act.append(a)
             w_mask.append(1.0); w_w.append(1.0)
-        obs.append(w_obs); ents.append(w_ent); ent_mask.append(w_em)
+        # ONE flat self_history per window: the last real tick's SELF tiled `self_history`
+        # times (k=1 synth has a single tick; for k>1 this is the last-real-tick history,
+        # matching the real build, which stores only that tick). last block == last obs.
+        sh = list(last_o) * self_history
+        obs.append(w_obs); self_hist.append(sh)
+        ents.append(w_ent); ent_mask.append(w_em)
         audio.append(w_au); team.append(w_tm); act.append(w_act)
         mask.append(w_mask); weight.append(w_w)
 
@@ -136,6 +155,8 @@ def make_synthetic_shard(
         "k": k,
         "n_windows": n_windows,
         "obs_dim": obs_dim,
+        "self_history": self_history,
+        "self_history_dim": hist_dim,
         "ent_dim": ent_dim,
         "n_max": n_max,
         "audio_dim": audio_dim,
@@ -143,7 +164,8 @@ def make_synthetic_shard(
         "contract_version": SC.SHARD_CONTRACT_VERSION,
     }
     return {
-        SC.KEY_OBS: obs, SC.KEY_ENTITIES: ents, SC.KEY_ENT_MASK: ent_mask,
+        SC.KEY_OBS: obs, SC.KEY_SELF_HISTORY: self_hist,
+        SC.KEY_ENTITIES: ents, SC.KEY_ENT_MASK: ent_mask,
         SC.KEY_AUDIO: audio, SC.KEY_TEAM: team, SC.KEY_ACT: act,
         SC.KEY_MASK: mask, SC.KEY_WEIGHT: weight, SC.KEY_META: meta,
     }
@@ -165,7 +187,8 @@ def write_shard(shard: dict, out_path: Path) -> Path:
         p = out_path.with_suffix(".npz")
         arrays = {
             k: np.asarray(shard[k], dtype=np.float32)
-            for k in (SC.KEY_OBS, SC.KEY_ENTITIES, SC.KEY_ENT_MASK, SC.KEY_AUDIO,
+            for k in (SC.KEY_OBS, SC.KEY_SELF_HISTORY, SC.KEY_ENTITIES, SC.KEY_ENT_MASK,
+                      SC.KEY_AUDIO,
                       SC.KEY_TEAM, SC.KEY_ACT, SC.KEY_MASK, SC.KEY_WEIGHT)
         }
         np.savez(p, meta=json.dumps(meta), **arrays)
