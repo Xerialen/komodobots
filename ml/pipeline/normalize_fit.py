@@ -225,11 +225,12 @@ def write_stats(per_map_fits: dict, out_path, **meta) -> None:
     doc = {
         "schema": "komodobots.normalization_stats.v1",
         "artifact_version": meta.get("artifact_version", "0.0.0-fit"),
-        # registry_version 3: the fit emits the per_map yaw_rate key the v3 SELF path
-        # requires (REQUIRED_NORM_KEYS), so the artifact this writer produces IS a v3
-        # artifact — stamp it so shard_contract.check_norm_artifact accepts it (and a
-        # stale v2 stamp would be rejected loudly).
-        "registry_version": 3,
+        # registry_version 4: the fit emits the per_map yaw_rate key the SELF path requires
+        # (REQUIRED_NORM_KEYS, unchanged at v4 — the v4 route-conditioning goal features are
+        # parameter-free, no fitted key), so the artifact this writer produces IS a v4
+        # artifact — stamp it so shard_contract.check_norm_artifact accepts it (and a stale
+        # v2/v3 stamp would be rejected loudly).
+        "registry_version": 4,
         "computed_from": meta.get("computed_from", "train"),
         "split_def": meta.get("split_def", "group_by_demo_id"),
         "fitted_on": meta.get("fitted_on", "UNSET"),

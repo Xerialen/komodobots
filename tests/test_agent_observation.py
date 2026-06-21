@@ -274,15 +274,21 @@ class TestYawRateDegps(unittest.TestCase):
 
 
 class TestSelfDimAppended(unittest.TestCase):
-    """SELF_DIM grew by exactly 2 (yaw_rate_z, face_vel_angle_norm APPENDED after the
-    frozen 16) and encode_observation's self width matches SELF_DIM."""
+    """SELF_DIM = 21 at v4: the frozen-16 prefix + the v3 turn-direction pair (yaw_rate_z,
+    face_vel_angle_norm) + the v4 route-conditioning triple (goal_heading_sin/cos,
+    goal_dist_norm) — all APPENDED, never reordered — and encode_observation's self width
+    matches SELF_DIM."""
 
-    def test_self_dim_is_18_and_order(self):
-        self.assertEqual(AO.SELF_DIM, 18)
-        self.assertEqual(len(AO.SELF_FIELDS), 18)
-        # the frozen-16 prefix is unchanged; the new two are appended IN THIS ORDER.
+    def test_self_dim_is_21_and_order(self):
+        self.assertEqual(AO.SELF_DIM, 21)
+        self.assertEqual(len(AO.SELF_FIELDS), 21)
+        # v3 turn-direction pair keeps its indices (appended after the frozen 16) ...
         self.assertEqual(AO.SELF_FIELDS[16], "yaw_rate_z")
         self.assertEqual(AO.SELF_FIELDS[17], "face_vel_angle_norm")
+        # ... then the v4 route-conditioning triple is APPENDED after it, IN THIS ORDER.
+        self.assertEqual(AO.SELF_FIELDS[18], "goal_heading_sin")
+        self.assertEqual(AO.SELF_FIELDS[19], "goal_heading_cos")
+        self.assertEqual(AO.SELF_FIELDS[20], "goal_dist_norm")
         # prefix still ends with the resource pair (nothing reordered).
         self.assertEqual(AO.SELF_FIELDS[14], "health_norm")
         self.assertEqual(AO.SELF_FIELDS[15], "armor_norm")
@@ -290,6 +296,49 @@ class TestSelfDimAppended(unittest.TestCase):
     def test_encode_self_width_matches_self_dim(self):
         obs = AO.encode_observation(MILTON, [], STATS, n_max=7)
         self.assertEqual(len(obs["self"]), AO.SELF_DIM)
+
+
+class TestGoalConditioning(unittest.TestCase):
+    """The v4 route-conditioning goal channels (goal_heading_sin/cos, goal_dist_norm),
+    from the caller-supplied self_state['goal'] via the SHARED goal_vector (parity)."""
+
+    def test_goal_vector_points_at_goal_map_frame(self):
+        # goal due +y of origin -> heading sin=1, cos=0 (MAP frame, NOT egocentric).
+        gv = AO.goal_vector(0.0, 0.0, (0.0, 100.0), 3797.1)
+        self.assertAlmostEqual(gv[0], 1.0, places=6)
+        self.assertAlmostEqual(gv[1], 0.0, places=6)
+        # goal due +x -> sin=0, cos=1.
+        gv2 = AO.goal_vector(0.0, 0.0, (100.0, 0.0), 3797.1)
+        self.assertAlmostEqual(gv2[0], 0.0, places=6)
+        self.assertAlmostEqual(gv2[1], 1.0, places=6)
+
+    def test_goal_dist_normalized_and_clamped(self):
+        gv = AO.goal_vector(0.0, 0.0, (100.0, 0.0), 3797.1)
+        self.assertAlmostEqual(gv[2], 100.0 / 3797.1, places=6)
+        far = AO.goal_vector(0.0, 0.0, (99999.0, 0.0), 3797.1)
+        self.assertEqual(far[2], 1.0)   # clamped to the map diagonal
+
+    def test_free_roam_default_when_no_goal(self):
+        # goal None -> [0,0,1]: heading undefined (0,0) + max normalized distance (1.0).
+        self.assertEqual(AO.goal_vector(123.0, 45.0, None, 3797.1), [0.0, 0.0, 1.0])
+
+    def test_self_features_free_roam_without_goal(self):
+        # MILTON carries no 'goal' -> the 3 appended channels are the free-roam default.
+        v = AO.self_features(MILTON, STATS)
+        si = AO.SELF_FIELDS.index("goal_heading_sin")
+        self.assertEqual(v[si:si + 3], [0.0, 0.0, 1.0])
+
+    def test_self_features_goal_channels_when_set(self):
+        # a goal 45deg NE of MILTON -> heading (sin,cos)=(.707,.707), distance in (0,1),
+        # and EXACTLY the shared goal_vector for the same inputs (train/serve parity).
+        st = dict(MILTON, goal=(MILTON["ox"] + 300.0, MILTON["oy"] + 300.0))
+        v = AO.self_features(st, STATS)
+        si = AO.SELF_FIELDS.index("goal_heading_sin")
+        triple = v[si:si + 3]
+        self.assertAlmostEqual(triple[0], math.sin(math.radians(45.0)), places=6)
+        self.assertAlmostEqual(triple[1], math.cos(math.radians(45.0)), places=6)
+        self.assertTrue(0.0 < triple[2] < 1.0)
+        self.assertEqual(triple, AO.goal_vector(MILTON["ox"], MILTON["oy"], st["goal"], 3797.1))
 
 
 class TestYawRateChannel(unittest.TestCase):

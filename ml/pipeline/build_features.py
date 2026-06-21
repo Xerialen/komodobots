@@ -23,9 +23,12 @@ from pathlib import Path
 # staging layout: <deliverable>/integration/scripts and <deliverable>/integration/ml/pipeline
 REPO_ROOT = Path(__file__).resolve().parents[2]   # integration/  (or repo root)
 SCRIPTS = REPO_ROOT / "scripts"
+HERE = Path(__file__).resolve().parent            # ml/pipeline (sibling in-tree modules)
 sys.path.insert(0, str(SCRIPTS))
+sys.path.insert(0, str(HERE))
 
 import catalog_load                       # noqa: E402  (in-tree, stdlib)
+import route_goals as RG                  # noqa: E402  (in-tree, stdlib; v4 goal labelling)
 from features import transforms as T      # noqa: E402  (SHARED math)
 from features import egocentric as E      # noqa: E402
 from features import agent_observation as AO   # noqa: E402  (SHARED POMDP obs transform, P3)
@@ -37,6 +40,15 @@ import pyarrow.parquet as pq              # noqa: E402
 # fallback per-tick frame time (ms) for yaw_rate when a player_ticks row carries no
 # msec (~13ms = the recorded QW tick cadence the closed-loop/dry-route evals also use).
 FRAME_DT_MS = 13.0
+
+# --- route-conditioning v4: hindsight GOAL labelling (offline) ----------------------
+# The v4 SELF feature needs a per-tick GOAL = where the player is heading. OFFLINE that is
+# the HINDSIGHT next-resource the player reached (GCSL), labelled by route_goals (stdlib,
+# position-based + flicker-immune); at INFERENCE the tactical/spawn layer supplies it. The
+# goal MATH is the SHARED AO.goal_vector (parity). dm3 coords default to the committed
+# data/catalog/resource_coords.dm3.json (the catalog-side mirror of the SAME route nodes
+# experiments/route_observatory/route_legs.resource_coords reads from a parsed demo).
+_DEFAULT_RESOURCE_COORDS = REPO_ROOT / "data" / "catalog" / "resource_coords.dm3.json"
 
 
 def load_norm(stats_path: Path) -> dict:
@@ -124,7 +136,8 @@ def pit_join_demo(con_sqlite, fixture_dir: Path) -> list[tuple]:
 # never references tick+1..end. Windows are built by slicing a per-episode tick-ordered
 # list, and a window NEVER spans two episodes, so no cross-trajectory leakage either.
 
-def _load_episode_ticks(sqlite_path: Path, split: str = "train"):
+def _load_episode_ticks(sqlite_path: Path, split: str = "train",
+                        resource_coords: dict | None = None, goal_rho: float = RG.GOAL_RHO):
     """Return ({episode_id: [tick_obs, ...]}, {episode_id: demo_id}) for the `split`,
     tick-ascending.
 
@@ -258,6 +271,17 @@ def _load_episode_ticks(sqlite_path: Path, split: str = "train"):
              "others": others.get((eid, tick), []),
              "act": actions.get((eid, tick))}
         )
+
+    # route-conditioning v4: stamp each tick's hindsight GOAL (the next resource reached on
+    # its leg) into self_state["goal"]; AO.self_features turns it into the 3 goal channels
+    # (free-roam [0,0,1] when None). PER-EPISODE so a leg never crosses an episode boundary.
+    # No coords (non-dm3 / artifact absent) -> no "goal" key -> every tick is free-roam.
+    if resource_coords:
+        for _eid, eticks in episodes.items():
+            positions = [(t["self"].get("ox"), t["self"].get("oy")) for t in eticks]
+            goals = RG.label_episode_goals(positions, resource_coords, goal_rho)
+            for t, g in zip(eticks, goals):
+                t["self"]["goal"] = g
     return episodes, ep_demo
 
 
@@ -271,8 +295,15 @@ def build_observation_shard(
     stride: int = 16,
     n_max: int = AO.N_MAX_DEFAULT,
     max_windows: int | None = None,
+    resource_coords_path: Path | None = None,
+    goal_rho: float = RG.GOAL_RHO,
 ) -> dict:
     """Build a windowed agent_observation Parquet shard from the catalog.
+
+    Route-conditioning v4: each tick is stamped with a hindsight GOAL (the next resource
+    the player reaches on its leg) from resource_coords.<map>.json — dm3 defaults to the
+    committed data/catalog/resource_coords.dm3.json; AO.self_features turns it into the
+    3 appended goal channels (free-roam when a tick has no leg / no coords are configured).
 
     Each row = one window: obs [K, SELF_DIM], entities [K, N_max, ENTITY_DIM],
     ent_mask [K, N_max], act [K, ACT_DIM] (broad usercmd label), mask [K] (1=real
@@ -283,7 +314,17 @@ def build_observation_shard(
     (shapes + observed-other coverage + per-head action-label counts)."""
     import numpy as np
 
-    episodes, ep_demo = _load_episode_ticks(sqlite_path, split=split)
+    # route-conditioning v4 goal coords: explicit --resource-coords wins; else dm3 defaults
+    # to the committed artifact; any other map with no coords -> every tick free-roam.
+    coords = {}
+    if resource_coords_path is not None:
+        coords = RG.load_resource_coords(resource_coords_path)
+    elif map_name == "dm3":
+        coords = RG.load_resource_coords(_DEFAULT_RESOURCE_COORDS)
+    episodes, ep_demo = _load_episode_ticks(
+        sqlite_path, split=split, resource_coords=coords, goal_rho=goal_rho)
+    n_goal_ticks = sum(1 for et in episodes.values() for t in et if t["self"].get("goal") is not None)
+    n_all_ticks = sum(len(et) for et in episodes.values())
     K, S, ENT, A = lookback_k, AO.SELF_DIM, AO.ENTITY_DIM, AO.ACT_DIM
 
     obs_col, ent_col, entmask_col, mask_col = [], [], [], []
@@ -375,10 +416,10 @@ def build_observation_shard(
     norm_ver = str(norm.get("artifact_version", "UNSET"))
     schema_meta = {
         b"komodobots.shard.contract": b"broad_bc.shard_contract.v1",
-        # stamp the registry_version from the (v3) norm artifact; fall back to 3 — the
-        # current EXPECTS_REGISTRY_VERSION — so a shard is never mislabelled as stale v2
-        # (the SELF vector this build emits is 18-wide: agent_observation.SELF_DIM).
-        b"komodobots.shard.registry_version": str(norm.get("registry_version", 3)).encode(),
+        # stamp the registry_version from the norm artifact; fall back to 4 — the current
+        # EXPECTS_REGISTRY_VERSION — so a shard is never mislabelled as a stale version
+        # (the SELF vector this build emits is 21-wide: agent_observation.SELF_DIM).
+        b"komodobots.shard.registry_version": str(norm.get("registry_version", 4)).encode(),
         b"komodobots.shard.K": str(K).encode(),
         b"komodobots.shard.n_max": str(n_max).encode(),
         b"komodobots.shard.obs_dim": str(S).encode(),
@@ -420,6 +461,11 @@ def build_observation_shard(
         "K": K, "stride": stride, "N_max": n_max,
         "self_dim": S, "entity_dim": ENT, "act_dim": A,
         "act_cols": list(AO.ACT_FIELDS),
+        "route_conditioning": {
+            "n_resources": len(coords),
+            "goal_labeled_ticks": n_goal_ticks,
+            "goal_coverage": round(n_goal_ticks / n_all_ticks, 4) if n_all_ticks else 0.0,
+        },
         "real_steps": n_real_steps,
         "steps_with_label": n_steps_with_label,
         "label_coverage": round(n_steps_with_label / n_real_steps, 4) if n_real_steps else 0.0,
@@ -480,6 +526,11 @@ def main(argv=None) -> int:
     apw.add_argument("--stride", type=int, default=16)
     apw.add_argument("--n-max", type=int, default=AO.N_MAX_DEFAULT)
     apw.add_argument("--max-windows", type=int, default=None)
+    apw.add_argument("--resource-coords", type=Path, default=None,
+                     help="route-conditioning v4 goal coords (resource_coords.<map>.json); "
+                          "dm3 defaults to the committed data/catalog artifact")
+    apw.add_argument("--goal-rho", type=float, default=RG.GOAL_RHO,
+                     help="resource-visit radius (qu) for the hindsight goal label")
 
     args = ap.parse_args(argv)
 
@@ -489,6 +540,7 @@ def main(argv=None) -> int:
             args.db, norm, args.out, split=args.split, map_name=args.map,
             lookback_k=args.lookback_k, stride=args.stride, n_max=args.n_max,
             max_windows=args.max_windows,
+            resource_coords_path=args.resource_coords, goal_rho=args.goal_rho,
         )
         print(json.dumps(summ, indent=2))
         return 0

@@ -803,10 +803,12 @@ class TestMakeTraceRow(unittest.TestCase):
             {"ox": 0.0, "oy": 0.0, "oz": 0.0, "vx": vx, "vy": vy, "vz": 0.0,
              "yaw": yaw, "pitch": 0.0, "onground": False, "health": 100, "armor": 0,
              "yaw_rate": 0.0}, stats, "dm3")
-        # SELF layout: ... vh_sin(7) vh_cos(8) ... face_vel_angle_norm(17, last)
+        # SELF layout: ... vh_sin(7) vh_cos(8) ... face_vel_angle_norm(17), then v4 goal(18-20)
         self.assertAlmostEqual(sf[7], 0.0)               # vel_heading_sin zeroed
         self.assertAlmostEqual(sf[8], 0.0)               # vel_heading_cos zeroed
-        self.assertAlmostEqual(sf[AO.SELF_DIM - 1], 0.0)  # face_vel_angle_norm zeroed
+        # face_vel_angle_norm is no longer the LAST channel (v4 appended the goal triple),
+        # so index it by name; below the velocity-heading floor it is still zeroed.
+        self.assertAlmostEqual(sf[AO.SELF_FIELDS.index("face_vel_angle_norm")], 0.0)
 
     def test_at_floor_is_active_band(self):
         # exactly AT the floor (vh == 80) the heading IS defined (>= floor, mirroring

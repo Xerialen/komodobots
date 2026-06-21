@@ -33,10 +33,10 @@ _HAVE_PYARROW = importlib.util.find_spec("pyarrow") is not None
 
 class TestShardContract(unittest.TestCase):
     def test_heads_and_registry(self):
-        # v3: the SELF vector gained the two appended turn-direction features, so the
-        # contract now EXPECTS registry_version 3 and an 18-wide SELF vector.
-        self.assertEqual(SC.EXPECTS_REGISTRY_VERSION, 3)
-        self.assertEqual(SC.EXPECTS_SELF_DIM, 18)
+        # v4: the SELF vector gained the three appended route-conditioning goal features,
+        # so the contract now EXPECTS registry_version 4 and a 21-wide SELF vector.
+        self.assertEqual(SC.EXPECTS_REGISTRY_VERSION, 4)
+        self.assertEqual(SC.EXPECTS_SELF_DIM, 21)
         self.assertEqual(SC.EXPECTS_SELF_DIM, AO.SELF_DIM)   # contract == transform
         self.assertEqual(SC.REQUIRED_NORM_KEYS, ("yaw_rate",))
         self.assertEqual(SC.head_names(), ["fwd", "side", "up", "jump", "attack"])
@@ -75,8 +75,8 @@ class TestShardContract(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p = SC.write_contract_doc(Path(d) / "c.json")
             doc = json.loads(p.read_text())
-            self.assertEqual(doc["expects_registry_version"], 3)
-            self.assertEqual(doc["expects_self_dim"], 18)
+            self.assertEqual(doc["expects_registry_version"], 4)
+            self.assertEqual(doc["expects_self_dim"], 21)
             self.assertEqual(doc["required_norm_keys"], ["yaw_rate"])
             self.assertIn("entities", doc["array_keys"])
             self.assertEqual(len(doc["action_heads"]), 5)
@@ -238,7 +238,7 @@ class TestRegistryVersionGuard(unittest.TestCase):
         TB = self._import_trainer()
         schema = SC.ShardSchema()
         # a CORRECT v3 shard: registry_version == EXPECTS and the SELF width == the v3
-        # 18-channel layout (EXPECTS_SELF_DIM), so it must be ACCEPTED by both guards.
+        # 21-channel layout (EXPECTS_SELF_DIM), so it must be ACCEPTED by both guards.
         good = synth_shard.make_synthetic_shard(
             n_windows=3, obs_dim=SC.EXPECTS_SELF_DIM, ent_dim=6, seed=2)
         # synth shards already set registry_version == EXPECTS_REGISTRY_VERSION
@@ -288,7 +288,7 @@ class TestShardMetaCheckDepsFree(unittest.TestCase):
     call, so testing them here pins the reject rule independent of the GPU stack."""
 
     def test_stale_v2_registry_version_rejected(self):
-        # a stale v2 (16-channel) shard meta must NOT bind to the v3 18-channel layout.
+        # a stale v2 (16-channel) shard meta must NOT bind to the v4 21-channel layout.
         with self.assertRaises(ValueError) as ctx:
             SC.check_shard_meta({"registry_version": 2, "obs_dim": 16})
         self.assertIn("registry_version", str(ctx.exception))
@@ -300,7 +300,7 @@ class TestShardMetaCheckDepsFree(unittest.TestCase):
         self.assertIn("obs_dim", str(ctx.exception))
 
     def test_correct_v3_18_channel_meta_accepted(self):
-        # correct v3 meta: registry_version 3 + obs_dim 18 -> no raise.
+        # correct meta: registry_version + obs_dim both == EXPECTS (v4: 4 + 21) -> no raise.
         SC.check_shard_meta(
             {"registry_version": SC.EXPECTS_REGISTRY_VERSION,
              "obs_dim": SC.EXPECTS_SELF_DIM})
