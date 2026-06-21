@@ -190,7 +190,8 @@ def save_rl_ckpt(out_path: Path, rl: RLPolicy, src_ckpt: dict, dims, head_dims,
 # =============================================================================
 class PmoveEnv:
     def __init__(self, world, stats, segments, *, n_max=7, map_name="dm3",
-                 horizon=385, band_lo=252.0, band_hi=316.0, seed=0):
+                 horizon=385, band_lo=252.0, band_hi=316.0, seed=0,
+                 cad_hold_min=14, cad_hold_max=230, cad_hold_late=460):
         self.world = world
         self.stats = stats
         self.segments = segments                 # list of (eid, start, seg) human segments
@@ -198,6 +199,14 @@ class PmoveEnv:
         self.map_name = map_name
         self.horizon = horizon
         self.band_lo, self.band_hi = band_lo, band_hi
+        # G-MV3 cadence target (round-2 M6 recovery): a strafe sign-flip is rewarded only
+        # when the prior hold was a HUMAN-plausible length (cad_hold_min..cad_hold_max ticks
+        # ~= 360..16 flips/min), and a steady penalty kicks in once one strafe sign is held
+        # PAST cad_hold_late ticks (< ~8 flips/min, the low band edge) so the policy can't
+        # park on one strafe direction (the round-1 M6=0 failure). Fast jitter is NOT
+        # rewarded (would tank speed + trip p_hack); this only un-sticks held strafe.
+        self.cad_hold_min, self.cad_hold_max, self.cad_hold_late = (
+            cad_hold_min, cad_hold_max, cad_hold_late)
         self.rng = np.random.RandomState(seed)
         self.pm = PM.Pmove(world)
         self._reset_state()
@@ -219,6 +228,9 @@ class PmoveEnv:
         self.prev_yaw = None
         self.self_hist = deque(maxlen=SELF_HISTORY)
         self.prev_hspeed = math.hypot(self.st.velocity[0], self.st.velocity[1])
+        # strafe-cadence tracking (G-MV3 mirror): last NONZERO sidemove sign + ticks held.
+        self.prev_strafe_sign = 0
+        self.strafe_hold = 0
         # goal of the FINAL recorded tick of this segment = the route target (for progress).
         self._final_goal = self._segment_goal(min(len(self.seg) - 1, self.horizon))
 
@@ -291,7 +303,28 @@ class PmoveEnv:
         disp = hspeed * dt
         p_hack = 1.0 if (yaw_rate > 600.0 and disp < 1.0) else 0.0
 
-        reward = (1.0 * r_speed + 0.5 * r_phi + 0.5 * r_prog - 1.0 * p_hack)
+        # r_cad: G-MV3 strafe-cadence shaping (round-2 M6 recovery). Mirror the gate's flip
+        # semantics on side_mag: a flip = a transition between nonzero +side and nonzero
+        # -side (zero-strafe runs DON'T reset the comparison). Reward a flip whose prior
+        # hold was human-plausible (cad_hold_min..cad_hold_max ticks); penalize parking on
+        # one nonzero strafe sign past cad_hold_late ticks (drives flips/min up into band).
+        cur_sign = 1 if side_mag > 0 else (-1 if side_mag < 0 else 0)
+        r_cad = 0.0
+        if cur_sign != 0:
+            if self.prev_strafe_sign != 0 and cur_sign != self.prev_strafe_sign:
+                # a real L<->R flip. Reward only if the prior hold was in the human window.
+                if self.cad_hold_min <= self.strafe_hold <= self.cad_hold_max:
+                    r_cad += 1.0
+                self.strafe_hold = 0
+            else:
+                self.strafe_hold += 1
+            self.prev_strafe_sign = cur_sign
+            if self.strafe_hold > self.cad_hold_late:   # held one sign too long (< ~8 fpm)
+                r_cad -= 0.5
+        # (zero-strafe ticks neither flip nor reset the held sign; hold counter pauses.)
+
+        reward = (1.5 * r_speed + 0.5 * r_phi + 0.5 * r_prog
+                  + 0.3 * r_cad - 1.0 * p_hack)
 
         self.prev_hspeed = hspeed
         self.k += 1
@@ -300,7 +333,8 @@ class PmoveEnv:
         if not (math.isfinite(self.st.origin[0]) and math.isfinite(self.st.origin[1])):
             done = True
         info = {"hspeed": hspeed, "onground": onground, "fwd_press": int(fwd_cls == 2),
-                "r_speed": r_speed, "r_phi": r_phi, "r_prog": r_prog, "p_hack": p_hack}
+                "r_speed": r_speed, "r_phi": r_phi, "r_prog": r_prog, "p_hack": p_hack,
+                "r_cad": r_cad, "strafe_sign": cur_sign}
         if done:
             obs = self._build_obs()  # terminal obs (unused for bootstrap if done)
         else:
@@ -320,7 +354,7 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
     act_buf = {"fwd": [], "side": [], "up": [], "jump": []}
     logp_buf, yaw_buf, yawlogp_buf = [], [], []
     val_buf, rew_buf, done_buf = [], [], []
-    hsp_log, fwdpress_log = [], []
+    hsp_log, fwdpress_log, rcad_log = [], [], []
 
     # current obs per env
     cur = [e._cur_obs if hasattr(e, "_cur_obs") else e.reset() for e in envs]
@@ -359,6 +393,7 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
                                      int(acts[3][i]), float(yaw[i]), msec)
             rews[i] = r; dones[i] = 1.0 if d else 0.0
             hsp_log.append(info["hspeed"]); fwdpress_log.append(info["fwd_press"])
+            rcad_log.append(info["r_cad"])
             if d:
                 obs = e.reset()
             new_cur.append(obs)
@@ -378,7 +413,7 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
         "obs": obs_buf, "ent": ent_buf, "em": em_buf, "act": act_buf,
         "logp": logp_buf, "yaw": yaw_buf, "yawlogp": yawlogp_buf,
         "val": val_buf, "rew": rew_buf, "done": done_buf, "last_val": last_val,
-        "hsp_log": hsp_log, "fwdpress_log": fwdpress_log,
+        "hsp_log": hsp_log, "fwdpress_log": fwdpress_log, "rcad_log": rcad_log,
     }
 
 
@@ -520,11 +555,16 @@ def train(args, device):
                          ent_coef=args.ent_coef, kl_coef=args.kl_coef, opt=opt)
         mean_hsp = float(np.mean(roll["hsp_log"])) if roll["hsp_log"] else 0.0
         fwd_press = float(np.mean(roll["fwdpress_log"])) if roll["fwdpress_log"] else 0.0
+        # cadence proxy: fraction of ticks that scored a flip-reward (r_cad>0) -> rough
+        # flips/min = flip_frac * (60000/13) so I can watch M6 recover during training.
+        rcad = roll["rcad_log"]
+        flip_frac = (float(np.mean([1.0 if x > 0 else 0.0 for x in rcad])) if rcad else 0.0)
+        fpm_est = flip_frac * (60000.0 / 13.0)
         dt = time.time() - t0
         sps = steps_per_iter / dt if dt > 0 else 0.0
         print(f"[it {it:03d}] env_steps={env_steps} mean_hspeed={mean_hsp:6.1f} "
-              f"fwd_press={fwd_press:.3f} pg={upd['pg']:+.4f} vf={upd['vf']:.4f} "
-              f"ent={upd['ent']:.3f} kl_anchor={upd['kl_anchor']:.4f} "
+              f"fwd_press={fwd_press:.3f} fpm~{fpm_est:5.0f} pg={upd['pg']:+.4f} "
+              f"vf={upd['vf']:.4f} ent={upd['ent']:.3f} kl_anchor={upd['kl_anchor']:.4f} "
               f"approx_kl={upd['approx_kl']:+.4f} yaw_std={float(rl.yaw_log_std.exp()):.2f} "
               f"({sps:,.0f} env-steps/s, {dt:.1f}s)", flush=True)
         # KL guard: if the policy is drifting hard from the anchor, the run is leaving the
