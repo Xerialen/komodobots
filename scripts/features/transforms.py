@@ -10,8 +10,11 @@ scale term so a degenerate (constant) feature maps to its centered value, never 
 """
 from __future__ import annotations
 
+import logging
 import math
 
+
+LOGGER = logging.getLogger(__name__)
 _EPS = 1e-12
 
 

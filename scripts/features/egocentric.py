@@ -12,9 +12,12 @@ pitch geometry below is computed from positions, independent of that convention.
 """
 from __future__ import annotations
 
+import logging
 import math
 
 
+
+LOGGER = logging.getLogger(__name__)
 def egocentric_xy(target_xy, observer_xy, observer_yaw_deg: float) -> tuple[float, float]:
     """Rotate the world XY offset (target - observer) into the observer frame.
 

@@ -19,11 +19,14 @@ Usage:  python rung1_geometry.py [--out geometry.json]
 
 from __future__ import annotations
 
+import logging
 import argparse
 import math
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 EXP = Path(__file__).resolve().parent
 sys.path.insert(0, str(EXP))
 

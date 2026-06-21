@@ -24,6 +24,7 @@ WSL path).
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import time
@@ -34,6 +35,8 @@ import torch
 import torch.nn as nn
 
 
+
+LOGGER = logging.getLogger(__name__)
 FEATURE_NAMES = ["hspeed/320", "vz/320", "lvm_sin", "lvm_cos", "moving", "pitch/90"]
 FEATURE_DIM = 6
 

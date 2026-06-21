@@ -49,8 +49,11 @@ callers import from here.
 """
 from __future__ import annotations
 
+import logging
 import math
 
+
+LOGGER = logging.getLogger(__name__)
 # Ordered names of the world-view features this module produces. The order is
 # load-bearing: it is the column order of the offline dataset X matrix and the
 # input order MoveMLP was trained on. Do not reorder without retraining.

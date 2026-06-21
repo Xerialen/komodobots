@@ -13,9 +13,12 @@ tactics, not movement).
 
 Usage: route_legs_qwd.py <catalog.sqlite> <mvd_envelopes.json> <out_dir> [rho=200]
 """
+import logging
 import sys, json, os, math, sqlite3
 from collections import defaultdict
 
+
+LOGGER = logging.getLogger(__name__)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from route_legs import (resource_visits, route_env, pctl, band,  # noqa: E402
                         compute_signature, move_dir_deg, hspeed, DEFAULT_RHO)

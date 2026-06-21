@@ -177,6 +177,8 @@ Good KomodoBots targets:
 - GitHub review-gate workflow trigger and merge predicates.
 - Control bridge request/response envelopes.
 - Telemetry frame shapes used by BotLab.
+- Logging coverage across lab runners, server-side tools, ML/experiment scripts,
+  and dashboard browser error paths.
 
 A good contract test has three parts:
 
@@ -188,6 +190,59 @@ If a browser or live run finds an artifact-shape bug, add a contract test before
 or with the fix. Examples include GLB bufferViews missing `buffer: 0`, stale
 `maps.json` byte counts, invalid verdict values, or a route missing required
 keys.
+
+## TC-LOGGING-001: Application logging coverage stays complete
+
+Area: Observability / engineering hygiene
+Type: Automated contract
+Priority: High
+Status: automated
+
+Expected result:
+
+- Every production Python module under `scripts/`, `lab/`, `tools/`,
+  `experiments/`, `ml/`, and `cloud/` imports `logging` and declares
+  `LOGGER = logging.getLogger(__name__)`.
+- High-risk runtime paths emit real log records, not only logger declarations:
+  lab runners, the telemetry sidecar, the dashboard deploy script, and the
+  control bridge.
+- Every dashboard `catch` block logs through `lab/dashboard/src/logger.ts`
+  before falling back to UI state or default data.
+
+Automated coverage:
+
+- `tests/test_logging_coverage.py`
+
+## Test Run Evidence
+
+Test run: TR-2026-06-21-LOGGING-COVERAGE
+PR: this PR
+Commit: this PR branch head
+Date: 2026-06-21
+Environment: local Windows PowerShell worktree `komodobots-logging-coverage`.
+
+### Results
+
+- [x] `TC-LOGGING-001` baseline proved the gap: `checked=152`, `missing=152`
+  production Python modules lacked module logger coverage.
+- [x] `TC-LOGGING-001` passed after the change: `checked=152`, `missing=0`.
+- [x] Dashboard catch-path scan passed after adding `logger.ts` and wiring all
+  catch blocks.
+- [x] Python production sources compiled successfully.
+- [x] Dashboard TypeScript/Vite production build passed.
+- [ ] Full local `unittest discover` remained blocked on Windows-only shared
+  memory setup: seven existing `test_move_policy_sidecar.py` tests attempted
+  to create `/dev/shm/komodo_*` and failed because `/dev/shm` is unavailable
+  in this Windows PowerShell environment.
+
+### Evidence
+
+- `python -m unittest tests.test_logging_coverage -v` -> 3 tests passed.
+- `python -m compileall -q scripts lab tools experiments ml cloud` -> passed.
+- `npm ci` under `lab/dashboard` -> dependency install passed.
+- `npm run build` under `lab/dashboard` -> `tsc && vite build` passed.
+- `python -m unittest discover -s tests -p "test_*.py" -v` -> 1520 tests ran,
+  1490 passed, 23 skipped, 7 errored on missing `/dev/shm` test setup.
 
 ## TC-GATE-001: Draft-promotion cannot reuse a stale gate-ready verdict
 

@@ -28,6 +28,7 @@
 // layout state; applies them to the mapScene via setOpacity / setWireframe.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { logWarn } from "./logger.ts";
 import * as THREE from "three";
 import { setFromQuake } from "./quakeCoords.ts";
 import { createMapScene, fetchMapCenter } from "./mapScene.ts";
@@ -394,7 +395,10 @@ export function MockupPane({
           : Promise.reject(new Error(`HTTP ${r.status}`)),
       )
       .then(setManifest)
-      .catch(() => setManifest(null))
+      .catch((err: unknown) => {
+        logWarn("route manifest fetch failed in mockup pane", { map: activeMap, error: err });
+        setManifest(null);
+      })
       .finally(() => setLoadingManifest(false));
   }, [activeMap]);
 
@@ -408,7 +412,10 @@ export function MockupPane({
           : Promise.reject(new Error(`HTTP ${r.status}`)),
       )
       .then(setEntityManifest)
-      .catch(() => setEntityManifest(null))
+      .catch((err: unknown) => {
+        logWarn("map entities fetch failed in mockup pane", { map: activeMap, error: err });
+        setEntityManifest(null);
+      })
       .finally(() => setLoadingEntities(false));
   }, [activeMap]);
 

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -14,6 +15,8 @@ from analyze_human_mvd import format_comparison_value
 from summarize_reference_aggregate import portable_path
 
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.air_transition_probe_design.v1"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_S7G = REPO_ROOT / "experiments" / "human_comparison" / "evidence" / "land-speed-gap-s7g-dm3.json"

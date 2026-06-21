@@ -12,6 +12,7 @@ the control client shim does not pollute bot movement numbers.
 
 from __future__ import annotations
 
+import logging
 import argparse
 from bisect import bisect_right
 import json
@@ -21,6 +22,8 @@ from pathlib import Path
 from typing import Iterable, TypedDict
 
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.movement_metrics.v3"
 # dm3 world-space XY bounds (Quake units), from
 # lab/dashboard/public/maps/maps.json dm3.aabb. The heatmap grid is binned over

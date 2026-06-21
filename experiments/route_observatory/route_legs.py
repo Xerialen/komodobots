@@ -18,9 +18,12 @@ Memory-safe: full game (8 players x ~87k ticks) = 42 MB JSON / ~280 MB RAM.
 Outputs: <out_dir>/legs.jsonl  +  <out_dir>/envelopes.json
 Usage: route_legs.py <analysis.json> <out_dir> [rho_qu=200]
 """
+import logging
 import sys, json, os, math
 from collections import defaultdict
 
+
+LOGGER = logging.getLogger(__name__)
 # pov_fuse_extract lives in this same directory (experiments/route_observatory).
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pov_fuse_extract import (hspeed, yaw_deg, move_dir_deg, compute_signature,  # noqa: E402

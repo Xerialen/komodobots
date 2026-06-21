@@ -13,14 +13,18 @@ The runner is intentionally narrow:
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
+import os
 import re
 import shutil
 import sys
 from pathlib import Path
 from typing import Iterable
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_DIR = REPO_ROOT / "scripts"
 LAB_SERVER_DIR = REPO_ROOT / "lab" / "server"
@@ -42,6 +46,15 @@ from run_frobodm2_lab import (
     scp_from_remote,
     upload_shim,
 )
+
+
+def configure_logging() -> None:
+    level_name = os.environ.get("KOMODOBOTS_LOG_LEVEL", "WARNING").upper()
+    level = getattr(logging, level_name, logging.WARNING)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
 
 
 REMOTE_SCRIPT = r"""#!/usr/bin/env bash
@@ -810,22 +823,29 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
 
 def main(argv: Iterable[str] = sys.argv[1:]) -> int:
     args = parse_args(argv)
+    configure_logging()
     if args.timelimit < 5:
+        LOGGER.error("invalid fixed-roster validation timelimit: %s", args.timelimit)
         print("ERROR: --timelimit must be >=5 for fixed-roster validation", file=sys.stderr)
         return 2
     if args.team1 == args.team2:
+        LOGGER.error("invalid fixed-roster validation teams: team1 and team2 both %s", args.team1)
         print("ERROR: --team1 and --team2 must differ", file=sys.stderr)
         return 2
     if not 1 <= args.komodobot_slot <= 8:
+        LOGGER.error("invalid komodobot slot: %s", args.komodobot_slot)
         print("ERROR: --komodobot-slot must be in 1..8", file=sys.stderr)
         return 2
     if args.live_leap and not args.leap_team:
+        LOGGER.error("--live-leap requested without --leap-team")
         print("ERROR: --live-leap requires --leap-team (the live brain serves the leap roster)", file=sys.stderr)
         return 2
     if args.stale_ticks < 1:
+        LOGGER.error("invalid stale tick budget: %s", args.stale_ticks)
         print("ERROR: --stale-ticks must be >=1", file=sys.stderr)
         return 2
     if not 0.0 <= args.min_live_fraction <= 1.0:
+        LOGGER.error("invalid live freshness fraction: %s", args.min_live_fraction)
         print("ERROR: --min-live-fraction must be in 0.0..1.0", file=sys.stderr)
         return 2
 
@@ -842,6 +862,15 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
     duration = float(args.duration if args.duration is not None else args.timelimit * 60 + 90)
     local_run_dir = args.out_root / run_id
     local_run_dir.mkdir(parents=True, exist_ok=True)
+    LOGGER.info(
+        "starting 4v4 validation run_id=%s map=%s host=%s requested_port=%s team1=%s team2=%s",
+        run_id,
+        args.map_name,
+        args.host,
+        args.port,
+        args.team1,
+        args.team2,
+    )
 
     try:
         if not args.skip_prereq_check:
@@ -936,6 +965,7 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         print(f"roster={paths['roster']}")
         print(f"plan={paths['plan']}")
         print(f"summary={local_run_dir / 'run-summary.md'}")
+        LOGGER.info("completed 4v4 validation run_id=%s port=%s artifacts=%s", run_id, port, local_run_dir)
         return 0
     except Exception as exc:
         try:
@@ -943,6 +973,7 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         except Exception:
             pass
         (local_run_dir / "runner.error.txt").write_text(f"{type(exc).__name__}: {exc}\n", encoding="utf-8")
+        LOGGER.exception("4v4 validation failed run_id=%s artifacts=%s", run_id, local_run_dir)
         print(f"ERROR: {exc}", file=sys.stderr)
         print(f"artifacts={powershell_safe_path(local_run_dir)}", file=sys.stderr)
         return 1

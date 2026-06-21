@@ -10,8 +10,11 @@ Outputs (to the same dir):
   <name>_summary.json   per-facet aggregations (A yaw-rate/speed, B strafe-switch,
                         C jump cadence, D straight/turn segments, E look-vs-move)
 """
+import logging
 import json, math, os, sys
 
+
+LOGGER = logging.getLogger(__name__)
 JUMP_BIT = 2
 
 def load(path):

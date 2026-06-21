@@ -21,6 +21,7 @@ Contents:
 """
 from __future__ import annotations
 
+import logging
 import gzip
 import json
 import math
@@ -32,6 +33,8 @@ from pathlib import Path
 from . import shard_contract as SC
 
 
+
+LOGGER = logging.getLogger(__name__)
 # =============================================================================
 # Shard reading  (tolerant: .npz via numpy if present, else stdlib .json.gz)
 # =============================================================================

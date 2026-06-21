@@ -20,11 +20,14 @@ Repo destination: scripts/catalog_load.py
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import sqlite3
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 HERE = Path(__file__).resolve().parent
 SCHEMA_SQL = HERE / "catalog_schema.sql"
 

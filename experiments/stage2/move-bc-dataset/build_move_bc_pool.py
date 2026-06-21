@@ -33,6 +33,7 @@ WSL-local demo corpus (machine hosting policy: heavy compute in WSL2).
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -42,6 +43,8 @@ import time
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[3]
 for _p in (str(REPO_ROOT), str(REPO_ROOT / "scripts")):
     if _p not in sys.path:

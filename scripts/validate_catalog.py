@@ -11,11 +11,14 @@ Repo destination: scripts/validate_catalog.py
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import sqlite3
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 # canonical item_type vocabulary (catalog.sql items.item_type comment)
 ITEM_TYPES = {
     "rl", "ra", "ya", "ga", "mh", "quad", "pent", "ring", "ssg", "ng", "sng",

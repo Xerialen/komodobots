@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import argparse
 import bisect
 import json
@@ -24,6 +25,8 @@ from inspect_airborne_proxy_segments import (
 from summarize_reference_aggregate import portable_path
 
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.land_speed_gap.v1"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = REPO_ROOT / "experiments" / "human_comparison" / "evidence" / "airborne-segments-s7f-dm3.json"

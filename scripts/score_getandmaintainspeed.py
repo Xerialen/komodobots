@@ -8,6 +8,7 @@ explicit so repeated live attempts can be compared without hand scoring.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -18,6 +19,8 @@ from typing import Iterable
 from extract_movement_metrics import coerce_origin, coerce_time_ms, percentile
 
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
 DEFAULT_REFERENCE = REPO_ROOT / "artifacts" / "qwd-getandmaintainspeed" / "mouse-analysis.json"

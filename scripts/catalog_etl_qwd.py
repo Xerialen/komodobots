@@ -55,6 +55,7 @@ Repo destination: scripts/catalog_etl_qwd.py
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import bisect
 import json
@@ -66,6 +67,8 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
 for _p in (str(REPO_ROOT), str(HERE)):

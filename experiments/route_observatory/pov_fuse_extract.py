@@ -17,12 +17,15 @@ Usage:
   pov_fuse_extract.py <analysis.json> <player> <t0_s> <t1_s> <frames_dir> <out.json>
                       [--offset 1695] [--label "Milton — mega -> RL"]
 """
+import logging
 import sys
 import json
 import math
 import re
 import os
 
+
+LOGGER = logging.getLogger(__name__)
 # Resources = locs holding a major item; matches route_extract.py (anchor to demo entities).
 RES_KINDS = {'ra', 'ya', 'rl', 'sng', 'gl', 'lg', 'quad', 'pent', 'ring', 'mh'}
 

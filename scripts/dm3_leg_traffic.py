@@ -33,6 +33,7 @@ Pure stdlib (sqlite3 + json + math). Usage:
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -40,6 +41,8 @@ import sqlite3
 from collections import Counter
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
 DEFAULT_LANDMARKS = (REPO_ROOT / "lab" / "dashboard" / "public" / "data"

@@ -30,6 +30,7 @@ import {
 } from "react";
 import type { ControlClient, ControlEvent, ControlResponse, LockState } from "./controlClient.ts";
 import type { TelemetryAssign, TelemetryClient, TelemetryFrame } from "./telemetryClient.ts";
+import { logError } from "./logger.ts";
 
 // ---- Types ------------------------------------------------------------------
 
@@ -644,6 +645,7 @@ export function ControlDrawer({
       control = routeMeta.control;
     } catch (err) {
       // Manifest fetch failed — abort rather than send a partial assignment.
+      logError("route manifest unavailable during assignment", err, { map: sessionMap, route, slot });
       addPanelMessage(`route manifest unavailable for ${sessionMap} - assignment aborted (${String(err)})`);
       setBots((prev) =>
         prev.map((b) => (b.slot === slot ? { ...b, pendingRoute: null } : b)),

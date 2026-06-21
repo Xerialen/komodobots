@@ -33,12 +33,15 @@ pct_onground) from artifacts/lab-runs/<run_id>/{trace.csv,trace_summary.json}.
 
 from __future__ import annotations
 
+import logging
 import csv
 import json
 import math
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from route_metrics import TELEPORT_JUMP, time_weighted_speed  # noqa: E402
 

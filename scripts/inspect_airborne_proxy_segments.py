@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -32,6 +33,8 @@ from extract_movement_metrics import (
 from summarize_reference_aggregate import portable_path
 
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.airborne_proxy_segments.v1"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REFERENCE_AGGREGATE = (

@@ -12,9 +12,12 @@ Usage: build_canonical.py <routes1.json> [routes2.json ...]
   -> writes data/catalog/resource_routes.dm3.json (merged + schema'd) and prints the
      loc_catalog + qwd reconciliation.
 """
+import logging
 import json, os, sys
 from collections import defaultdict
 
+
+LOGGER = logging.getLogger(__name__)
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 CATALOG = os.path.join(REPO, "data", "catalog")

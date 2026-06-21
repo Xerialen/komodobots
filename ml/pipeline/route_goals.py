@@ -16,10 +16,13 @@ testable with no duckdb/numpy, unlike build_features.py (which consumes these).
 """
 from __future__ import annotations
 
+import logging
 import json
 import math
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 # qu resource-visit radius (== experiments/route_observatory/route_legs.DEFAULT_RHO; dm3
 # resources are spaced > 2*rho apart, so the nearest-within-rho resource is unambiguous).
 GOAL_RHO = 200.0

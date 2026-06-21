@@ -10,6 +10,7 @@ render, then READ the PNG back and confirm coherence before reporting.
 
 Usage: pov_fuse_render.py <leg.json> <frames_dir> <out.html>
 """
+import logging
 import json
 import sys
 import base64
@@ -17,6 +18,8 @@ import os
 import html
 
 
+
+LOGGER = logging.getLogger(__name__)
 def js_embed(obj):
     """Serialize obj to JSON safe to drop inside an HTML <script> block.
 

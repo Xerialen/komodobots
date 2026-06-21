@@ -9,6 +9,7 @@ hybrid waypoint/controller target.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -20,6 +21,8 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_ROOT = REPO_ROOT / "scripts"
 if str(SCRIPTS_ROOT) not in sys.path:

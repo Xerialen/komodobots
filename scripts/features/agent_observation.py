@@ -25,11 +25,14 @@ NO third-party imports — runs on bare Python 3.12.
 """
 from __future__ import annotations
 
+import logging
 import math
 
 from .transforms import normalize
 from .egocentric import egocentric_vec, rel_distance, rel_bearing_deg, rel_pitch_deg
 
+
+LOGGER = logging.getLogger(__name__)
 # --- fixed widths (frozen per registry_version) ------------------------------
 # SELF feature vector (obs.npy inner width), in registry order:
 #   pos_x_norm, pos_y_norm, pos_z_norm                      (3)  position minmax/map

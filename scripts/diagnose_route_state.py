@@ -9,6 +9,7 @@ and to record whether route node/segment state is actually present.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -26,6 +27,8 @@ from extract_movement_metrics import (
 )
 
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.route_state_diagnosis.v1"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ARTIFACT_ROOT = REPO_ROOT / "artifacts" / "lab-runs"

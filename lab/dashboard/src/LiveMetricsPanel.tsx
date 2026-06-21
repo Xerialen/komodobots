@@ -24,6 +24,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { TelemetryClient, TelemetryFrame } from "./telemetryClient.ts";
 import type { KpiContext } from "./contextStore.ts";
+import { logWarn } from "./logger.ts";
 
 // ---------------------------------------------------------------------------
 // Manifest types (subset of komodobots.routes.v1 needed here)
@@ -383,8 +384,9 @@ function useRouteData(
           humanActiveMeanSpeed: found.human.active_mean_speed,
         });
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (cancelled) return;
+        logWarn("live route manifest fetch failed", { map, route, error: err });
         setData(null);
       });
     return () => {

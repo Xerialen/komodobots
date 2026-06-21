@@ -46,6 +46,7 @@ Usage:  python rung1_jump_sim.py [--out jump-sim.json]
 
 from __future__ import annotations
 
+import logging
 import argparse
 import csv
 import json
@@ -55,6 +56,8 @@ from collections import Counter
 from pathlib import Path
 from statistics import median
 
+
+LOGGER = logging.getLogger(__name__)
 EXP = Path(__file__).resolve().parent
 sys.path.insert(0, str(EXP))
 

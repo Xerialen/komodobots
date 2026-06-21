@@ -96,12 +96,15 @@ Exit codes: 0 ok; 2 usage.
 
 from __future__ import annotations
 
+import logging
 import hashlib
 import json
 import math
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.routes.v1"
 SCHEMA_V = 1
 MAPS = ("dm3", "dm2", "frobodm2", "trick", "ztricks")   # dashboard map set

@@ -8,12 +8,15 @@ buttons, and vertical phase.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 from pathlib import Path
 from typing import Any
 
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.moveprobe_target_state_cvars.v1"
 NONE = -99999.0
 

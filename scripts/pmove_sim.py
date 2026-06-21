@@ -57,6 +57,7 @@ CLI:
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -64,6 +65,8 @@ import struct
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 # ── constants (mvdsv pmove.c / bspfile.h) ────────────────────────────────────
 CONTENTS_EMPTY = -1
 CONTENTS_SOLID = -2
