@@ -51,6 +51,20 @@ FRAME_DT_MS = 13.0
 _DEFAULT_RESOURCE_COORDS = REPO_ROOT / "data" / "catalog" / "resource_coords.dm3.json"
 
 
+def _last_real_tick(window_mask) -> int:
+    """Index of the last real (mask>=0.5) tick in a window; 0 if all pad.
+
+    MIRRORS broad_bc.core._last_real_tick byte-for-byte (kept local so build_features —
+    in ml/pipeline/, which only puts scripts/ on sys.path — needs no cross-package import).
+    The trainer/loader extract the SELF history at EXACTLY this index, so the build stores
+    EXACTLY this tick's history (no drift between the producer and the two consumers)."""
+    idx = 0
+    for i, m in enumerate(window_mask):
+        if float(m) >= 0.5:
+            idx = i
+    return idx
+
+
 def load_norm(stats_path: Path) -> dict:
     return json.loads(stats_path.read_text(encoding="utf-8"))
 
@@ -305,13 +319,29 @@ def build_observation_shard(
     committed data/catalog/resource_coords.dm3.json; AO.self_features turns it into the
     3 appended goal channels (free-roam when a tick has no leg / no coords are configured).
 
-    Each row = one window: obs [K, SELF_DIM], entities [K, N_max, ENTITY_DIM],
+    Each row = one window: obs [K, SELF_DIM], self_history [SELF_HISTORY*SELF_DIM]
+    (the v5 sequence input — a SINGLE FLAT last-SELF_HISTORY-tick SELF history for the
+    window's LAST REAL tick, oldest->newest, left-pad-repeat-first at the window start;
+    each SELF row is the 21-wide goal-conditioned vector), entities [K, N_max, ENTITY_DIM],
     ent_mask [K, N_max], act [K, ACT_DIM] (broad usercmd label), mask [K] (1=real
     step, 0=pad), weight [K] (action confidence; 0 on pad/interp). Stored as
     flattened fixed-width list<float32> columns (parquet-friendly; the trainer
     reshapes via the documented schema + table-level metadata). A per-window
     `demo_id` column carries the group-by-demo split key. Returns a summary
-    (shapes + observed-other coverage + per-head action-label counts)."""
+    (shapes + observed-other coverage + per-head action-label counts).
+
+    self_history MEMORY NOTE: the trainer/loader consume the SELF history of ONLY the
+    window's LAST REAL tick (core.shard_to_rows / train_broad_bc.rows_to_tensors both read
+    self_in[wi] at that one tick). Storing a [K, HD] per-tick history was therefore 64x
+    redundant (and OOM-killed pa.table() on a ~72GB box: K=64 * HD=336 = 21,504 floats/row).
+    So we store the SINGLE [HD] last-real-tick history per row. This is BYTE-IDENTICAL
+    training data — the stored vector == what the old [K, HD][last_real_tick] extraction
+    yielded — only the storage shrank. The history is assembled by the SHARED
+    AO.assemble_self_history helper over the window's own per-tick SELF vectors up to AND
+    INCLUDING the last real tick (oldest->newest), with the SAME left-pad-repeat-first rule
+    the inference rolling-deque path uses — so the flat history is byte-identical between
+    this offline build and the closed-loop / dry-route rollouts (the v5 train/serve parity
+    contract)."""
     import numpy as np
 
     # route-conditioning v4 goal coords: explicit --resource-coords wins; else dm3 defaults
@@ -326,8 +356,10 @@ def build_observation_shard(
     n_goal_ticks = sum(1 for et in episodes.values() for t in et if t["self"].get("goal") is not None)
     n_all_ticks = sum(len(et) for et in episodes.values())
     K, S, ENT, A = lookback_k, AO.SELF_DIM, AO.ENTITY_DIM, AO.ACT_DIM
+    H = AO.SELF_HISTORY
+    HD = AO.SELF_HISTORY_DIM                          # = H * S (flat history width)
 
-    obs_col, ent_col, entmask_col, mask_col = [], [], [], []
+    obs_col, selfhist_col, ent_col, entmask_col, mask_col = [], [], [], [], []
     act_col, weight_col, demo_col = [], [], []
     meta_eid, meta_start = [], []
     n_windows = 0
@@ -362,9 +394,18 @@ def build_observation_shard(
             act_w = np.zeros((K, A), dtype=np.float32)
             mask_w = np.zeros((K,), dtype=np.float32)
             weight_w = np.zeros((K,), dtype=np.float32)
+            # per-tick SELF vectors of this window, OLDEST -> NEWEST, accumulated as we go.
+            # Only the LAST REAL tick's history is stored (the trainer/loader read just that
+            # tick); we still accumulate every tick's SELF so the shared helper can assemble
+            # that last-tick history from window_selves[:last_real+1] — i.e. the SELF vectors
+            # up to AND INCLUDING the last real tick, left-pad-repeat-first when fewer than H
+            # exist. That is exactly what an inference rolling deque started at this window's
+            # first tick yields at its last tick, so train == serve.
+            window_selves: list[list[float]] = []
             for j, t in enumerate(window):
                 enc = AO.encode_observation(t["self"], t["others"], norm, map_name, n_max)
                 obs_w[j] = np.asarray(enc["self"], dtype=np.float32)
+                window_selves.append(enc["self"])
                 ent_w[j] = np.asarray(enc["ents"], dtype=np.float32)
                 entmask_w[j] = np.asarray(enc["mask"], dtype=np.float32)
                 act_vec = AO.encode_action(t.get("act"))
@@ -395,6 +436,16 @@ def build_observation_shard(
                     entity_real_cells += int(em.sum()) * ENT
 
             obs_col.append(obs_w.reshape(-1).tolist())
+            # v5 self_history: store ONLY the LAST REAL tick's flat [HD] history (the trainer
+            # and loader consume the SELF history of just that tick — core.shard_to_rows /
+            # train_broad_bc.rows_to_tensors read self_in[wi] at _last_real_tick). `ti` is that
+            # tick index via the SAME _last_real_tick logic the consumer uses; window_selves[
+            # :ti+1] is precisely the SELF sequence the old [K, HD] column held at row ti, so
+            # AO.assemble_self_history over it is BYTE-IDENTICAL to the old [K, HD][ti] value —
+            # only the per-tick redundancy (64x) is dropped to fit the build in memory.
+            ti = _last_real_tick(mask_w)
+            selfhist_col.append(
+                AO.assemble_self_history(window_selves[:ti + 1], H))
             ent_col.append(ent_w.reshape(-1).tolist())
             entmask_col.append(entmask_w.reshape(-1).tolist())
             act_col.append(act_w.reshape(-1).tolist())
@@ -416,13 +467,20 @@ def build_observation_shard(
     norm_ver = str(norm.get("artifact_version", "UNSET"))
     schema_meta = {
         b"komodobots.shard.contract": b"broad_bc.shard_contract.v1",
-        # stamp the registry_version from the norm artifact; fall back to 4 — the current
-        # EXPECTS_REGISTRY_VERSION — so a shard is never mislabelled as a stale version
-        # (the SELF vector this build emits is 21-wide: agent_observation.SELF_DIM).
-        b"komodobots.shard.registry_version": str(norm.get("registry_version", 4)).encode(),
+        # stamp the registry_version from the (v5) norm artifact; fall back to 5 — the
+        # current EXPECTS_REGISTRY_VERSION — so a shard is never mislabelled as a stale
+        # pre-v5 version (this build emits the v5 self_history field, and the SELF channels
+        # are the 21-wide goal-conditioned layout: agent_observation.SELF_DIM).
+        b"komodobots.shard.registry_version": str(norm.get("registry_version", 5)).encode(),
         b"komodobots.shard.K": str(K).encode(),
         b"komodobots.shard.n_max": str(n_max).encode(),
         b"komodobots.shard.obs_dim": str(S).encode(),
+        # v5: the flat self-history width (= SELF_HISTORY * SELF_DIM). self_history is now
+        # stored as ONE [HD] vector PER ROW (the last-real-tick history), so the loader
+        # reshapes the column to [n_windows, HD]; the reject guard verifies a row's width
+        # HD == EXPECTS_SELF_HISTORY_DIM.
+        b"komodobots.shard.self_history": str(H).encode(),
+        b"komodobots.shard.self_history_dim": str(HD).encode(),
         b"komodobots.shard.ent_dim": str(ENT).encode(),
         b"komodobots.shard.act_dim": str(A).encode(),
         b"komodobots.shard.act_cols": ",".join(AO.ACT_FIELDS).encode(),
@@ -438,6 +496,7 @@ def build_observation_shard(
             "demo_id": pa.array(demo_col, type=pa.int64()),
             "start_tick": pa.array(meta_start, type=pa.int64()),
             "obs": pa.array(obs_col, type=pa.list_(pa.float32())),          # [K*S]
+            "self_history": pa.array(selfhist_col, type=pa.list_(pa.float32())),  # [HD] (last real tick)
             "entities": pa.array(ent_col, type=pa.list_(pa.float32())),     # [K*N_max*ENT]
             "ent_mask": pa.array(entmask_col, type=pa.list_(pa.float32())), # [K*N_max]
             "act": pa.array(act_col, type=pa.list_(pa.float32())),          # [K*ACT_DIM]
@@ -455,11 +514,13 @@ def build_observation_shard(
         "split": split,
         "n_windows": n_windows,
         "n_demos": len({d for d in demo_col}),
-        "window_shape": {"obs": [K, S], "entities": [K, n_max, ENT],
+        "window_shape": {"obs": [K, S], "self_history": [HD],
+                         "entities": [K, n_max, ENT],
                          "ent_mask": [K, n_max], "act": [K, A],
                          "mask": [K], "weight": [K]},
         "K": K, "stride": stride, "N_max": n_max,
-        "self_dim": S, "entity_dim": ENT, "act_dim": A,
+        "self_dim": S, "self_history": H, "self_history_dim": HD,
+        "entity_dim": ENT, "act_dim": A,
         "act_cols": list(AO.ACT_FIELDS),
         "route_conditioning": {
             "n_resources": len(coords),
