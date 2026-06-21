@@ -47,33 +47,79 @@ from broad_bc import shard_contract as SC      # noqa: E402
 from broad_bc import core                      # noqa: E402
 
 
+# GRU hidden width of the SELF temporal encoder (the v5-seqaware brain). The policy reads
+# the SAME flat [SELF_HISTORY*SELF_DIM] SELF input the flatten model did, but encodes it as
+# a 16-step sequence with this-wide recurrent state so it learns the bunnyhop RHYTHM rather
+# than "jump a lot" (the flatten model overshot in closed loop). Named constant so the
+# checkpoint can record it and the loader reconstruct it.
+GRU_HIDDEN = 64
+
+
 # =============================================================================
-# Model: per-entity encoder + masked mean-pool (DeepSets) + trunk + multi-head
+# Model: SELF temporal encoder (GRU) + per-entity encoder + masked mean-pool
+#        (DeepSets) + trunk + multi-head
 # =============================================================================
 class BroadBCPolicy(nn.Module):
-    """BROAD policy.
+    """BROAD policy (v5 SEQUENCE-AWARE, GRU SELF encoder).
 
-    Inputs (already normalized by FEAT):
-      obs   : [B, F_obs]            self features
+    Inputs (already normalized by FEAT — UNCHANGED from the flatten model):
+      obs   : [B, F_obs]            self input — the FLAT last-SELF_HISTORY-tick SELF
+                                    history (F_obs = SELF_HISTORY*SELF_DIM = 336 at v5),
+                                    OR the single-tick SELF (F_obs = SELF_DIM = 21) on a
+                                    legacy shard. The caller passes the SAME flat F_obs
+                                    SELF vector it always did (shard / inference / norm
+                                    unchanged); this module reshapes it INTERNALLY to a
+                                    [B, T, SELF_DIM] sequence (T = F_obs // SELF_DIM).
       ent   : [B, N_max, F_ent]     per observed-other egocentric vectors
       emask : [B, N_max]            1=real other-actor, 0=pad
       aux   : [B, F_aux]            concat(audio, team)  (may be width 0)
 
-    The entity set is encoded per-slot then mean-pooled over the MASK (permutation-
-    and count-invariant; pad slots contribute nothing) -> a fixed entity summary.
-    [obs | entity_summary | aux] -> shared trunk -> one linear head per action head.
+    SELF ENCODER (the ONLY change vs. the flatten model): instead of feeding the flat
+    336 straight into the trunk, the policy reshapes the (already-normalized) flat SELF
+    history to [B, T, SELF_DIM] — TIME-MAJOR (dim1 = tick OLDEST->NEWEST, dim2 = the
+    SELF_DIM channels), which matches assemble_self_history's row-major oldest->newest
+    flatten (tick t's SELF_DIM channels live at flat[t*SELF_DIM:(t+1)*SELF_DIM]) — and
+    runs a small 1-layer GRU (hidden GRU_HIDDEN) over the T-step sequence. The LAST
+    timestep hidden state [B, GRU_HIDDEN] is the SELF representation. This lets the policy
+    learn the bunnyhop CADENCE/rhythm (a temporal pattern) rather than overshooting on a
+    flattened "jump a lot" feature. The entity encoder, the masked DeepSets pool, the
+    trunk, and the 5 heads are UNCHANGED — only the SELF input path (flatten -> GRU) and
+    the trunk's SELF-side input width (F_obs -> GRU_HIDDEN) differ. Each per-tick SELF row
+    is the 21-wide goal-conditioned vector, so the goal signal flows through the GRU too.
+
+    The model still RECEIVES a flat F_obs SELF vector: the 336-dim input contract, the v5
+    shard, the normalization and the inference deque are all reused byte-for-byte; the
+    reshape + GRU are purely internal.
     """
 
     def __init__(self, f_obs, f_ent, f_aux, n_max, *, ent_hidden=64, ent_out=64,
-                 hidden=256, head_dims=(3, 3, 3, 2, 2)):
+                 hidden=256, head_dims=(3, 3, 3, 2, 2),
+                 self_dim=SC.EXPECTS_SELF_DIM, gru_hidden=GRU_HIDDEN):
         super().__init__()
         self.n_max = n_max
         self.f_ent = f_ent
+        # SELF temporal encoder: the flat F_obs SELF input is reshaped to a
+        # [B, f_obs//self_dim, self_dim] sequence (TIME-MAJOR, oldest->newest) and run
+        # through a 1-layer GRU; the last hidden state is the SELF summary. f_obs MUST be a
+        # whole multiple of self_dim (336 = 16*21 at v5; 21 = 1*21 on a legacy single-tick
+        # shard -> a 1-step sequence). self_dim/gru_hidden are stored so the checkpoint can
+        # record them and _build_policy_from_checkpoint can reconstruct the GRU.
+        if f_obs % self_dim != 0:
+            raise ValueError(
+                f"f_obs {f_obs} is not a whole multiple of self_dim {self_dim}; the SELF "
+                f"input must be a flat [T*self_dim] history so it can reshape to "
+                f"[B, T, self_dim] for the GRU")
+        self.self_dim = self_dim
+        self.gru_hidden = gru_hidden
+        self.self_steps = f_obs // self_dim          # T (16 at v5; 1 legacy single-tick)
+        self.self_gru = nn.GRU(input_size=self_dim, hidden_size=gru_hidden,
+                               num_layers=1, batch_first=True)
         self.ent_enc = nn.Sequential(
             nn.Linear(f_ent, ent_hidden), nn.ReLU(),
             nn.Linear(ent_hidden, ent_out), nn.ReLU(),
         ) if f_ent > 0 else None
-        trunk_in = f_obs + (ent_out if f_ent > 0 else 0) + f_aux
+        # the SELF side of the trunk is now the GRU hidden width (was f_obs).
+        trunk_in = gru_hidden + (ent_out if f_ent > 0 else 0) + f_aux
         self.trunk = nn.Sequential(
             nn.Linear(trunk_in, hidden), nn.ReLU(),
             nn.Linear(hidden, hidden), nn.ReLU(),
@@ -81,7 +127,16 @@ class BroadBCPolicy(nn.Module):
         self.heads = nn.ModuleList([nn.Linear(hidden, k) for k in head_dims])
 
     def forward(self, obs, ent, emask, aux):
-        parts = [obs]
+        # SELF: reshape the flat [B, T*self_dim] history to [B, T, self_dim] (TIME-MAJOR:
+        # dim1 = tick oldest->newest, dim2 = the self_dim channels — matches
+        # assemble_self_history's row-major flatten), run the GRU, take the LAST timestep
+        # hidden state as the SELF representation. (.reshape is safe across contiguous /
+        # non-contiguous obs and this is exactly the assemble_self_history memory layout.)
+        B = obs.shape[0]
+        seq = obs.reshape(B, self.self_steps, self.self_dim)  # [B, T, self_dim]
+        _out, h_n = self.self_gru(seq)                        # h_n: [1, B, gru_hidden]
+        self_repr = h_n[-1]                                   # last layer's final hidden [B, H]
+        parts = [self_repr]
         if self.ent_enc is not None and self.f_ent > 0:
             B, N, F = ent.shape
             enc = self.ent_enc(ent.reshape(B * N, F)).reshape(B, N, -1)
@@ -120,7 +175,14 @@ def rows_to_tensors(shard_paths, schema, device):
         #     v3-LABELLED-but-16-channel artifact whose SELF width never grew).
         # A shard that OMITS a field is treated as matching (legacy / minimal smoke).
         SC.check_shard_meta(meta, where=f"shard={p}, demo_id={default_demo}")
+        # v5 SEQUENCE input: the policy SELF input is the FLAT last-SELF_HISTORY-tick
+        # history (self_history), NOT the single-tick `obs`. self_history is now ONE [HD]
+        # history PER WINDOW (the build stores only the last-real-tick history — the single
+        # tick this trainer reads — so it is indexed [wi], NOT [wi][ti]). Legacy/pre-v5
+        # shards omit it -> fall back to the single-tick obs[wi][ti] (then f_obs == SELF_DIM,
+        # the v4 behavior). The single-tick `obs` is still read for the reject guard.
         obs = shard[SC.KEY_OBS]
+        self_history = shard.get(SC.KEY_SELF_HISTORY)
         ent = shard.get(SC.KEY_ENTITIES)
         em = shard.get(SC.KEY_ENT_MASK)
         audio = shard.get(SC.KEY_AUDIO)
@@ -135,7 +197,11 @@ def rows_to_tensors(shard_paths, schema, device):
             ti = core._last_real_tick(wmask)
             if float(wmask[ti]) < 0.5:
                 continue
-            OBS.append([float(v) for v in obs[wi][ti]])
+            # the SELF input: the flat last-real-tick self_history[wi] (v5, [HD], one per
+            # window) when present, else the single-tick obs[wi][ti] (legacy). Its width sets
+            # f_obs (336 with history, SELF_DIM without). OBS/ent/act stay indexed by `ti`.
+            self_vec = self_history[wi] if self_history is not None else obs[wi][ti]
+            OBS.append([float(v) for v in self_vec])
             if ent is not None and em is not None:
                 ENT.append([[float(v) for v in slot] for slot in ent[wi][ti]])
                 EM.append([float(v) for v in em[wi][ti]])
@@ -318,6 +384,11 @@ def main(argv=None) -> int:
                 "dims": dims, "head_dims": head_dims,
                 "head_names": SC.head_names(),
                 "hidden": args.hidden, "ent_out": args.ent_out,
+                # SELF GRU encoder config (v5-seqaware): the loader reconstructs the GRU
+                # from these (input=self_dim per tick, hidden=gru_hidden). f_obs (dims)
+                # stays the flat SELF INPUT width (336) — the model input contract is
+                # unchanged; these only describe the internal temporal encoder.
+                "self_dim": model.self_dim, "gru_hidden": model.gru_hidden,
                 "arch": "BroadBCPolicy", "epoch": ep, "val_acc": val,
                 "contract_version": SC.SHARD_CONTRACT_VERSION,
                 "seed": args.seed,
