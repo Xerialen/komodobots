@@ -782,5 +782,120 @@ class TestTurnDirectionTrainInferenceParity(unittest.TestCase):
         self.assertEqual(v_build[i], 0.0)
 
 
+# =============================================================================
+# v5 SEQUENCE-HISTORY TRAIN/INFERENCE PARITY (the #1 correctness risk of the redesign).
+#
+# The policy now consumes a FLAT last-SELF_HISTORY-tick SELF history. Training builds it
+# per window-tick (build_features inner loop, reproduced here in lockstep — build_features
+# pulls duckdb at module load so it can't be imported deps-free); inference builds it from
+# a rolling deque(maxlen=H) reset at rollout start. BOTH call the SAME shared
+# AO.assemble_self_history over the SAME per-tick SELF vectors, so the flat history MUST be
+# byte-identical at every tick. This asserts exactly that over a synthetic trajectory,
+# including the left-pad-repeat-first window-start ticks and the sliding-window late ticks.
+# A divergence (different pad rule, wrong order, off-by-one deque seeding, a second copy of
+# the assembly) fails here.
+# =============================================================================
+from collections import deque                  # noqa: E402
+
+
+class TestSelfHistoryTrainInferenceParity(unittest.TestCase):
+    H = AO.SELF_HISTORY
+
+    def _trajectory(self, n):
+        """A synthetic per-tick (sim-state, yaw, pitch) trajectory. Distinct per tick so a
+        mis-ordered/mis-padded history would show. Mirrors the closed-loop rollout's state
+        feed (a moving player whose velocity + view evolve each tick)."""
+        traj = []
+        for t in range(n):
+            ox, oy, oz = 100.0 + 13.0 * t, -50.0 + 5.0 * t, -78.0
+            vx, vy, vz = 300.0 + 2.0 * t, 120.0 - 1.5 * t, 0.0
+            yaw = 30.0 + 1.7 * t
+            pitch = 3.0 + 0.1 * t
+            traj.append((ox, oy, oz, vx, vy, vz, yaw, pitch))
+        return traj
+
+    def _self_vec_at(self, tick, prev_yaw):
+        """ONE per-tick SELF vector via the INFERENCE builder (CL._self_state_from_sim +
+        AO.encode_observation) — the same construction both rollouts use. prev_yaw drives
+        the shared turn-direction signal (None/first-tick convention via yaw_rate_degps)."""
+        ox, oy, oz, vx, vy, vz, yaw, pitch = tick
+        yaw_rate = AO.yaw_rate_degps(yaw, prev_yaw, 0.013)
+        st = _FakeSimState((ox, oy, oz), (vx, vy, vz), False)
+        self_state = CL._self_state_from_sim(st, yaw, pitch, yaw_rate=yaw_rate)
+        return AO.encode_observation(self_state, [], _PARITY_STATS, "dm3", 7)["self"]
+
+    def _build_path_histories(self, traj):
+        """TRAIN path: reproduce build_features.build_observation_shard's inner loop — for a
+        window over `traj`, accumulate per-tick SELF into window_selves and assemble each
+        tick's flat history from window_selves[:j+1] via the SHARED helper. The build seeds
+        the per-episode prev_yaw across ticks (None on the first), so within one window tick
+        j uses tick j-1's yaw as prev (and j=0 uses None)."""
+        hist = []
+        window_selves = []
+        prev_yaw = None
+        for tk in traj:
+            sv = self._self_vec_at(tk, prev_yaw)
+            window_selves.append(sv)
+            hist.append(AO.assemble_self_history(window_selves, self.H))
+            prev_yaw = tk[6]                       # this tick's yaw -> next tick's prev
+        return hist
+
+    def _inference_path_histories(self, traj):
+        """INFERENCE path: the EXACT rolling-deque idiom the closed-loop / dry-route rollout
+        loops use — deque(maxlen=H) reset at start, append this tick's SELF, assemble the
+        flat history via the SHARED helper. prev_yaw is seeded to None on tick 0 here so the
+        first-tick turn-direction signal matches the build (the real rollouts seed prev_yaw
+        to frame-0 yaw, which makes the first delta 0 — the SAME value as None, asserted by
+        test_first_tick_parity_rate_zero)."""
+        hist = []
+        dq = deque(maxlen=self.H)
+        prev_yaw = None
+        for tk in traj:
+            sv = self._self_vec_at(tk, prev_yaw)
+            dq.append(sv)
+            hist.append(AO.assemble_self_history(dq, self.H))
+            prev_yaw = tk[6]
+        return hist
+
+    def test_self_history_train_vs_inference_byte_identical(self):
+        # 25 ticks > H, so the first H-1 ticks exercise the left-pad-repeat-first window
+        # start AND the later ticks exercise the full sliding window — the whole range.
+        traj = self._trajectory(25)
+        build_hist = self._build_path_histories(traj)
+        infer_hist = self._inference_path_histories(traj)
+        self.assertEqual(len(build_hist), len(infer_hist))
+        for j, (b, i) in enumerate(zip(build_hist, infer_hist)):
+            self.assertEqual(len(b), self.H * AO.SELF_DIM)
+            self.assertEqual(b, i, msg=f"history diverged at tick {j} (train vs inference)")
+
+    def test_history_newest_block_is_current_single_tick_self(self):
+        # the newest SELF_DIM block of the flat history is EXACTLY the current single-tick
+        # SELF (so nothing the v3 single-tick policy saw is lost — only context is added).
+        traj = self._trajectory(20)
+        build_hist = self._build_path_histories(traj)
+        prev_yaw = None
+        for j, tk in enumerate(traj):
+            cur = self._self_vec_at(tk, prev_yaw)
+            self.assertEqual(build_hist[j][-AO.SELF_DIM:], cur)
+            prev_yaw = tk[6]
+
+    def test_window_start_left_pads_by_repeating_first_tick(self):
+        # at the window start (tick 0), with only 1 SELF available, the history is that
+        # SELF repeated H times (the left-pad-repeat-first rule, on the REAL encoder output).
+        traj = self._trajectory(1)
+        h0 = self._build_path_histories(traj)[0]
+        cur = self._self_vec_at(traj[0], None)
+        self.assertEqual(h0, cur * self.H)
+        # and a 3-tick window left-pads the earliest tick (H-3) times then the 3 real ones.
+        traj3 = self._trajectory(3)
+        h2 = self._build_path_histories(traj3)[2]           # the last tick's history
+        prev = None
+        svs = []
+        for tk in traj3:
+            svs.append(self._self_vec_at(tk, prev)); prev = tk[6]
+        expected = [svs[0]] * (self.H - 3) + svs
+        self.assertEqual(h2, [x for v in expected for x in v])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -217,7 +217,9 @@ class TestP3TrainOnlyFit(unittest.TestCase):
             out = Path(d) / "stats.json"
             doc = NF.fit_stats_doc(db, out, split="train", map_name="dm3", artifact_version="t")
             self.assertEqual(doc["computed_from"], "train")
-            self.assertEqual(doc["registry_version"], 4)  # tracks shard_contract.EXPECTS_REGISTRY_VERSION (v4)
+            # v5 (sequence-aware): the fit stamps registry_version 5 (SELF channels + keys
+            # unchanged from v4; only the obs contract moved to the flat self_history).
+            self.assertEqual(doc["registry_version"], 5)  # tracks shard_contract.EXPECTS_REGISTRY_VERSION (v5)
             self.assertIn("vel_x", doc["per_map"]["dm3"])
             self.assertEqual(doc["per_map"]["dm3"]["pos_x"]["method"], "minmax")
             # writing is byte-stable (sort_keys) -> re-write hashes identical
@@ -269,6 +271,54 @@ class TestP3ObservationShard(unittest.TestCase):
             self.assertTrue(bool((ent[real].std(axis=0) > 1e-6).any()))
             # NO leakage: pad entity cells are zero; padded steps zero everything
             self.assertTrue(bool(np.all(ent[~real] == 0.0)))
+
+    def test_self_history_stored_once_per_window_at_last_real_tick(self):
+        """v5 storage-shrink (OOM fix): build_observation_shard stores self_history as ONE
+        flat [HD] vector PER WINDOW (the last-real-tick history) — NOT a per-tick [K, HD].
+        Asserts (a) the column is [n, HD] (so width==HD, the 64x collapse) and (b) the stored
+        vector is BYTE-IDENTICAL to AO.assemble_self_history over the window's per-tick SELF
+        (the `obs` column) up to the last real tick — i.e. exactly what the old [K, HD][ti]
+        extraction yielded. Proves training data is unchanged; only storage shrank."""
+        import numpy as np
+        import normalize_fit as NF
+        import build_features as BF
+        from features import agent_observation as AO
+        from broad_bc import core as BC, shard_contract as SC
+
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "tiny.sqlite"
+            _tiny_catalog(db)
+            stats = Path(d) / "stats.json"
+            NF.fit_stats_doc(db, stats, split="train", map_name="dm3", artifact_version="t")
+            norm = json.loads(stats.read_text(encoding="utf-8"))
+            out = Path(d) / "shard.parquet"
+            K, H, S, HD = 16, AO.SELF_HISTORY, AO.SELF_DIM, AO.SELF_HISTORY_DIM
+            BF.build_observation_shard(db, norm, out, split="train",
+                                       lookback_k=K, stride=8, n_max=7)
+
+            import pyarrow.parquet as pq
+            t = pq.read_table(out)
+            n = t.num_rows
+            # (a) the FLAT self_history column has EXACTLY HD floats per row (one history per
+            # window). The OLD per-tick storage would have K*HD = 16*336 per row -> reshape
+            # to (n, HD) would FAIL. So a clean (n, HD) reshape IS the storage-shrink proof.
+            sh = np.array(t.column("self_history").to_pylist(),
+                          dtype=np.float32).reshape(n, HD)
+            self.assertEqual(sh.shape, (n, HD))
+            self.assertEqual(HD, H * S)                           # 336 = 16 * 21
+            obs = np.array(t.column("obs").to_pylist(),
+                           dtype=np.float32).reshape(n, K, S)
+            mk = np.array(t.column("mask").to_pylist(),
+                          dtype=np.float32).reshape(n, K)
+            # (b) training-equivalence: stored history == assemble_self_history over the
+            # per-tick obs up to the last real tick (the old [K, HD][ti] value).
+            for wi in range(n):
+                ti = BC._last_real_tick(mk[wi].tolist())
+                window_selves = [obs[wi][j].tolist() for j in range(ti + 1)]
+                expected = AO.assemble_self_history(window_selves[:ti + 1], H)
+                np.testing.assert_array_equal(sh[wi], np.asarray(expected, dtype=np.float32))
+                # newest SELF_DIM block == the last real tick's obs (closed invariant)
+                np.testing.assert_array_equal(sh[wi][-S:], obs[wi][ti])
 
     def test_shard_rebuild_byte_identical(self):
         import normalize_fit as NF
