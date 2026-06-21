@@ -93,7 +93,14 @@ from broad_bc import shard_contract as SC        # noqa: E402  (deps-free)
 import gmv_believability as GMV                   # noqa: E402  (pure stdlib)
 # the SHARED turn-direction helper (pure stdlib, no torch) — the SAME yaw_rate the
 # offline build computes, so the closed-loop policy obs is parity-identical per tick.
-from features.agent_observation import yaw_rate_degps as _yaw_rate_degps  # noqa: E402
+# assemble_self_history + SELF_HISTORY are the SHARED v5 sequence-history helpers — the
+# SAME flat-history assembly (oldest->newest, left-pad-repeat-first) the offline build
+# uses, so the policy's SELF input is byte-identical between train and this rollout.
+from features.agent_observation import (                                    # noqa: E402
+    yaw_rate_degps as _yaw_rate_degps,
+    assemble_self_history as _assemble_self_history,
+    SELF_HISTORY as _SELF_HISTORY,
+)
 
 
 # =============================================================================
@@ -145,6 +152,38 @@ def decode_move_heads(pred_classes, mag: float = MOVE_MAG):
     up_mag = move_class_to_mag(pc[2], mag)
     jump_bit = BUTTON_JUMP if int(pc[3]) == 1 else 0
     return fwd_mag, side_mag, up_mag, jump_bit
+
+
+def optimal_strafe_yaw(vx, vy, fwd_mag, side_mag, fallback_yaw, *, min_hspeed=1.0):
+    """View yaw (degrees) orienting the air-strafe wishdir PERPENDICULAR to the
+    horizontal velocity -- the per-tick speed-optimal air-strafe aim in THIS engine.
+
+    Verified vs the exact pmove_sim._air_accelerate (scripts/.. + ml/tests/
+    test_optimal_aim): because accelspeed = accel*wishspeed*frametime (~41.6) EXCEEDS
+    the wishspd cap (30), the air accel is always addspeed-capped, so post-tick
+    |v'_h|^2 = s^2 + 900 - (v_h . wishdir)^2 -- maximal at wishdir _|_ v_h, at EVERY
+    speed (the folk "angle narrows with speed" rule does NOT hold here).
+
+    Given the usercmd move magnitudes (fwd_mag = cmd.move[0], side_mag = cmd.move[1]),
+    the perpendicular condition wishvel . v = 0 reduces to A*cos(y) + B*sin(y) = 0 with
+    A = fwd_mag*vx - side_mag*vy and B = side_mag*vx + fwd_mag*vy  =>  y = atan2(-A, B).
+    The two perpendicular branches (y, y+180) give the SAME speed gain but opposite turn
+    side; pick the one nearest `fallback_yaw` so the bot keeps following the route's
+    direction. Falls back to `fallback_yaw` when stopped (|v_h| < min_hspeed) or no move
+    key is pressed (wishdir undefined). Pure float math -- no sim/torch dependency.
+    """
+    if (fwd_mag == 0.0 and side_mag == 0.0) or math.hypot(vx, vy) < min_hspeed:
+        return float(fallback_yaw)
+    a = fwd_mag * vx - side_mag * vy
+    b = side_mag * vx + fwd_mag * vy
+    y0 = math.degrees(math.atan2(-a, b))
+    y1 = y0 + 180.0
+
+    def _adist(p, q):
+        d = (p - q) % 360.0
+        return min(d, 360.0 - d)
+
+    return float(y0 if _adist(y0, fallback_yaw) <= _adist(y1, fallback_yaw) else y1)
 
 
 def gmv_tick_from_state(origin, vel, onground, yaw, side_mag, msec: float = 13.0) -> dict:
@@ -597,6 +636,14 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
     # post-frame anchor headroom only.
     n = len(segment) - 1
     prev_yaw = None   # previous replayed view yaw (for the turn-direction signal)
+    # v5 SEQUENCE history: a rolling buffer of the last SELF_HISTORY SELF feature-vectors,
+    # OLDEST -> NEWEST. RESET here at rollout start (so the first tick left-pad-repeats the
+    # only available SELF, exactly like the offline build's first window tick). Each policy
+    # tick appends this tick's enc["self"] and the flat history is assembled by the SHARED
+    # AO.assemble_self_history -> byte-identical to training. (Only the policy controller
+    # needs it; the recorded control drives the sim from the human usercmd directly.)
+    from collections import deque
+    self_hist = deque(maxlen=_SELF_HISTORY)
     for k in range(n):
         rec_self = segment[k]["self"]
         yaw = float(rec_self.get("yaw", 0.0) or 0.0)
@@ -613,7 +660,12 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
         if controller == "policy":
             self_state = _self_state_from_sim(st, yaw, pitch, yaw_rate=yaw_rate)
             enc = norm["_AO"].encode_observation(self_state, [], norm["_stats"], map_name, n_max)
-            obs_t = torch_mod.tensor([enc["self"]], dtype=torch_mod.float32, device=device)
+            # push this tick's SELF into the rolling history, then assemble the FLAT
+            # [SELF_HISTORY*SELF_DIM] vector via the SHARED helper (same oldest->newest order
+            # + same left-pad-repeat-first as the build) -> the v5 model SELF input.
+            self_hist.append(enc["self"])
+            self_in = _assemble_self_history(self_hist, _SELF_HISTORY)
+            obs_t = torch_mod.tensor([self_in], dtype=torch_mod.float32, device=device)
             f_ent = dims["f_ent"]
             if f_ent > 0:
                 ent_t = torch_mod.tensor([enc["ents"]], dtype=torch_mod.float32, device=device)

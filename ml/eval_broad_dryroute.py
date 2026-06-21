@@ -120,6 +120,10 @@ from features.agent_observation import (                                    # no
     yaw_rate_degps as AO_yaw_rate_degps,
     wrap180 as AO_wrap180,
     _VEL_HEADING_FLOOR as AO_VEL_HEADING_FLOOR,
+    # v5 sequence-history: the SHARED flat-history assembly + length, so the dry-route
+    # policy SELF input is byte-identical to the offline build + the closed-loop eval.
+    assemble_self_history as AO_assemble_self_history,
+    SELF_HISTORY as AO_SELF_HISTORY,
 )
 
 GATE_ROUTE_PCT = 80.0
@@ -519,7 +523,8 @@ def stall_rows(frames, world, route):
 
 def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
                        torch_mod, map_name="dm3", n_max=7, device="cpu",
-                       seed_velocity=None, trace_out=None):
+                       seed_velocity=None, trace_out=None, aim_mode="replayed",
+                       jump_mode="policy"):
     """POLICY rollout: the trained BROAD policy drives pmove_sim closed-loop down the
     route, replaying the human view yaw/pitch per tick. Mirrors
     eval_broad_closedloop.closed_loop_rollout's loop (sim's own evolving state fed
@@ -554,6 +559,12 @@ def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
     # signal (yaw_rate in the self_state) AND the action-trace yaw_rate column. Seeded to
     # frame-0 yaw so the first tick's delta is 0 (== the build's first-tick=0 convention).
     yaw_prev = float(f0["angles"][1])
+    # v5 SEQUENCE history: rolling buffer of the last SELF_HISTORY SELF feature-vectors,
+    # OLDEST -> NEWEST, RESET here at rollout start. Each tick appends enc["self"] and the
+    # flat [SELF_HISTORY*SELF_DIM] history is assembled by the SHARED helper (same order +
+    # left-pad-repeat-first as the offline build / closed-loop eval) -> train==serve parity.
+    from collections import deque
+    self_hist = deque(maxlen=AO_SELF_HISTORY)
     f_ent = dims["f_ent"]
     n = len(frames) - 1
     for k in range(n):
@@ -569,7 +580,12 @@ def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
         # carrying yaw_rate so the appended turn-direction feature is populated at inference.
         self_state = CL._self_state_from_sim(st, yaw, pitch, yaw_rate=yaw_rate)
         enc = encode_obs(self_state, [], stats, map_name, n_max)
-        obs_t = torch_mod.tensor([enc["self"]], dtype=torch_mod.float32, device=device)
+        # push this tick's SELF, then assemble the FLAT [SELF_HISTORY*SELF_DIM] history via
+        # the SHARED helper (same oldest->newest order + left-pad-repeat-first as the build)
+        # -> the v5 model SELF input, byte-identical to training.
+        self_hist.append(enc["self"])
+        self_in = AO_assemble_self_history(self_hist, AO_SELF_HISTORY)
+        obs_t = torch_mod.tensor([self_in], dtype=torch_mod.float32, device=device)
         if f_ent > 0:
             ent_t = torch_mod.tensor([enc["ents"]], dtype=torch_mod.float32, device=device)
             em_t = torch_mod.tensor([enc["mask"]], dtype=torch_mod.float32, device=device)
@@ -582,6 +598,26 @@ def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
         pred_cls = [int(lg.argmax(dim=1).item()) for lg in logits]
         fwd_mag, side_mag, up_mag, jump_bit = CL.decode_move_heads(pred_cls)
         attack_classes.append(pred_cls[4])
+
+        # AIM OVERRIDE (perfect-aim diagnostic). aim_mode="optimal" replaces the EXECUTED
+        # view yaw with the speed-optimal (wishdir _|_ horizontal velocity) angle computed
+        # from the bot's OWN pre-frame velocity + the policy's chosen move keys. The obs
+        # above already used the REPLAYED yaw (trained distribution), and yaw_prev below keeps
+        # tracking the replayed yaw -> the ONLY manipulated variable is the executed aim, so
+        # this isolates "does fixing aim alone sustain speed / reach goal?". No effect when
+        # aim_mode="replayed" (the default == the unchanged baseline path).
+        if aim_mode == "optimal":
+            exec_yaw = CL.optimal_strafe_yaw(st.velocity[0], st.velocity[1],
+                                             fwd_mag, side_mag, yaw)
+            angles = [pitch, exec_yaw, 0.0]
+
+        # JUMP OVERRIDE (jump-cadence diagnostic). jump_mode="hold" forces the jump button
+        # EVERY tick so the engine auto-hops on landing (pm_ktjump: pressed-while-airborne ->
+        # auto-jump on land = the continuous bunnyhop cadence). Tests whether the bottleneck is
+        # jump-cadence regulation (the policy under/over-jumps). "policy" = unchanged baseline
+        # (the jump head decides). Only the jump button is touched; moves/aim are unchanged.
+        if jump_mode == "hold":
+            jump_bit = CL.BUTTON_JUMP
 
         cmd = PM.Cmd(int(f["msec"]), angles, [fwd_mag, side_mag, up_mag], jump_bit)
         pm.run_frame(st, cmd)
@@ -742,7 +778,8 @@ def run_controls_only(bsp: Path, route_name: str) -> dict:
 def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
              norm_artifact: Path | None = None,
              map_name: str = "dm3", n_max: int = 7, cpu: bool = False,
-             seed_velocity=None, seed_from_human=False, trace_actions=None) -> dict:
+             seed_velocity=None, seed_from_human=False, trace_actions=None,
+             aim_mode="replayed", jump_mode="policy") -> dict:
     """Full dry-route robustness eval: human-path + stall controls AND the real policy
     rollout. NEEDS torch (policy forward) + the BSP world. The encoders/loaders are
     lazy-imported here (module stays importable on bare stdlib).
@@ -806,7 +843,7 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
     p_rows, p_atk = run_policy_rollout(
         frames, world, route, model=model, dims=dims, encode_obs=AO.encode_observation,
         stats=stats, torch_mod=torch, map_name=map_name, n_max=n_max, device=device,
-        seed_velocity=seed, trace_out=trace_rows)
+        seed_velocity=seed, trace_out=trace_rows, aim_mode=aim_mode, jump_mode=jump_mode)
     policy_result = score_rows(p_rows, route, human_tws)
     atk_rate = (round(sum(1 for a in p_atk if int(a) == 1) / len(p_atk), 6)
                 if p_atk else 0.0)
@@ -826,6 +863,7 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
         human_tws=human_tws, agreement=agreement,
         inputs={"checkpoint": str(Path(checkpoint).expanduser()),
                 "bsp": str(Path(bsp).expanduser()), "route": route_name,
+                "aim_mode": aim_mode, "jump_mode": jump_mode,
                 "map": map_name, "n_max": n_max, "controls_only": False,
                 "norm_artifact": str(norm_path), "human_frames": len(frames),
                 "trace_actions": (str(Path(trace_actions).expanduser())
@@ -942,11 +980,24 @@ def main(argv=None) -> int:
                     help="write a per-tick POLICY-vs-HUMAN action-trace CSV to PATH and "
                          "attach analyze_action_trace to the report (diagnostic; needs "
                          "the policy rollout, so not valid with --controls-only)")
+    ap.add_argument("--aim", choices=("replayed", "optimal"), default="replayed",
+                    help="executed view aim for the POLICY rollout: 'replayed' = human yaw "
+                         "(the baseline); 'optimal' = wishdir _|_ velocity (the perfect-aim "
+                         "diagnostic). The obs still sees the replayed yaw, so ONLY the "
+                         "executed aim changes. Not valid with --controls-only.")
+    ap.add_argument("--jump", choices=("policy", "hold"), default="policy",
+                    help="jump button for the POLICY rollout: 'policy' = the jump head decides "
+                         "(baseline); 'hold' = force jump every tick so the engine auto-hops on "
+                         "landing (the bunnyhop-cadence diagnostic). Not valid with --controls-only.")
     args = ap.parse_args(argv)
 
     if args.controls_only:
         if args.trace_actions is not None:
             ap.error("--trace-actions needs the policy rollout; not valid with --controls-only")
+        if args.aim != "replayed":
+            ap.error("--aim optimal needs the policy rollout; not valid with --controls-only")
+        if args.jump != "policy":
+            ap.error("--jump hold needs the policy rollout; not valid with --controls-only")
         report = run_controls_only(args.bsp, args.route)
     else:
         if args.checkpoint is None:
@@ -956,7 +1007,8 @@ def main(argv=None) -> int:
                           map_name=args.map, n_max=args.n_max, cpu=args.cpu,
                           seed_velocity=args.seed_velocity,
                           seed_from_human=args.seed_from_human,
-                          trace_actions=args.trace_actions)
+                          trace_actions=args.trace_actions,
+                          aim_mode=args.aim, jump_mode=args.jump)
 
     out = Path(args.out).expanduser()
     out.parent.mkdir(parents=True, exist_ok=True)

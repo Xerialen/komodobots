@@ -54,6 +54,10 @@ from .egocentric import egocentric_vec, rel_distance, rel_bearing_deg, rel_pitch
 # policy stops memorising one trajectory per route and compounding error on hard geometry
 # (goal=None => free-roam default [0,0,1]). All are APPENDED (never reordered) so the
 # frozen-16 prefix stays byte-stable; the model retrains anyway.
+# v5 (sequence-aware) keeps this 21-wide goal-conditioned SELF as the PER-TICK vector but
+# the POLICY now consumes the FLAT last-SELF_HISTORY-tick history of it (assemble_self_
+# history below, width SELF_HISTORY*SELF_DIM=336) so it can express the bunnyhop CADENCE
+# (a temporal pattern); the single-tick SELF is the newest block of that history.
 SELF_FIELDS: tuple[str, ...] = (
     "pos_x_norm", "pos_y_norm", "pos_z_norm",
     "vel_x_z", "vel_y_z", "vel_z_z",
@@ -69,6 +73,27 @@ SELF_FIELDS: tuple[str, ...] = (
     "goal_dist_norm",
 )
 SELF_DIM = len(SELF_FIELDS)
+
+# --- SELF HISTORY (sequence-aware redesign, registry_version 5) ---------------
+# The single-tick MLP cannot produce bunnyhop jump cadence (jump-on-landing is a
+# TEMPORAL pattern), so the policy now consumes a SHORT HISTORY of the last
+# SELF_HISTORY SELF ticks, flattened to a FLAT [SELF_HISTORY * SELF_DIM] vector
+# (row-major, OLDEST -> NEWEST). The SELF channels themselves are UNCHANGED (still the
+# 21-wide v4 goal-conditioned vector — the frozen-16 + the v3 turn-direction pair + the
+# v4 route-conditioning goal triple), so the per-channel normalization (incl. the v3
+# yaw_rate zscore) is reused verbatim on EACH history row — no new norm fit, only the
+# shape. v5 = "GRU over a goal-conditioned short history": the SEQUENCE machinery of the
+# self-aim line, but over the 21-wide goal-conditioned SELF (NOT the 18-wide no-goal one).
+#
+# SELF_HISTORY is the ONE source of truth for the window length (easy to sweep). The
+# flat history dim is SELF_HISTORY * SELF_DIM = 336 at v5. history[-1] (the newest
+# SELF_DIM block) is EXACTLY the current single-tick SELF, so nothing is lost — only
+# recent context is added. assemble_self_history() below is the SINGLE shared helper
+# BOTH the offline feature build (ml/pipeline/build_features.py) AND every inference
+# rollout (eval_broad_closedloop / eval_broad_dryroute) call, so the flattened history
+# is byte-identical between train and serve (the #1 correctness risk of this redesign).
+SELF_HISTORY = 16
+SELF_HISTORY_DIM = SELF_HISTORY * SELF_DIM
 
 # the stats_key under per_map[<map>] that yaw_rate_z z-scores against (fitted by
 # ml/pipeline/normalize_fit.py from consecutive-tick view-yaw deltas, same spec shape
@@ -419,6 +444,40 @@ def encode_observation(
         mask.append(0.0)
 
     return {"self": self_vec, "ents": ents, "mask": mask, "n_obs": len(kept)}
+
+
+def assemble_self_history(self_vecs, h: int = SELF_HISTORY) -> list[float]:
+    """THE shared self-history assembly (the train/serve parity linchpin).
+
+    `self_vecs` is a sequence of already-built SELF feature vectors (each length
+    SELF_DIM), OLDEST -> NEWEST, ending at the CURRENT tick (so self_vecs[-1] is the
+    current single-tick SELF). Returns a FLAT list of length `h * SELF_DIM`, row-major,
+    OLDEST -> NEWEST: [tick_{-h+1} ... tick_{-1} tick_0], each contributing its full
+    SELF_DIM block in order.
+
+    LEFT-PAD rule: when fewer than `h` ticks are available (start of an episode/rollout),
+    the EARLIEST available tick is REPEATED to fill the missing oldest slots. With at
+    least one tick this never short-pads; with zero ticks it returns an all-zero history
+    (a degenerate caller — every real caller has at least the current tick).
+
+    The SAME function is called by BOTH:
+      * the offline build (build_features, over a window's per-tick SELF vectors), and
+      * every inference rollout (a rolling deque of the last `h` SELF vectors),
+    so the flattened history is byte-identical between training and serving — there is
+    NO second copy of the pad/order logic to drift. Pure stdlib.
+    """
+    vecs = list(self_vecs)
+    if not vecs:
+        return [0.0] * (h * SELF_DIM)
+    # left-pad by repeating the EARLIEST available tick, then keep the last h.
+    if len(vecs) < h:
+        vecs = [vecs[0]] * (h - len(vecs)) + vecs
+    else:
+        vecs = vecs[-h:]
+    flat: list[float] = []
+    for v in vecs:                       # oldest -> newest
+        flat.extend(float(x) for x in v)
+    return flat
 
 
 def feature_columns(n_max: int = N_MAX_DEFAULT) -> dict:

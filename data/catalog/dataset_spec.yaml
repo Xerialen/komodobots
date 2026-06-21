@@ -7,11 +7,13 @@
 #   - imitation (BC + Decision-Transformer) from MVD/QWD demos
 #   - offline RL from pmove_sim.py rollouts
 # =============================================================================
-dataset_spec_version: 4
-registry_version: 4                 # must match feature_registry.yaml (v3 appends the
+dataset_spec_version: 5
+registry_version: 5                 # must match feature_registry.yaml (v3 appended the
                                     # turn-direction SELF features yaw_rate_z + face_vel_angle_norm;
-                                    # v4 appends the route-conditioning goal features
-                                    # goal_heading_sincos + goal_dist_norm)
+                                    # v4 appended the route-conditioning goal features
+                                    # goal_heading_sincos + goal_dist_norm; v5 SEQUENCE-AWARE adds
+                                    # the flat self_history field — the last SELF_HISTORY=16 SELF
+                                    # ticks (16*21=336) the policy now consumes)
 normalization_artifact: norm/normalization_stats.template.json
 
 # ---------------------------------------------------------------------------
@@ -45,7 +47,8 @@ windowing:
 record_layout:
   # one sample = one window. Stored as a WebDataset tar group sharing a basename.
   keys:
-    obs:    { ext: "obs.npy",  shape: [K, F_obs],  dtype: float32, note: "normalized feature vector per tick (feature_registry obs features). POMDP-masked agent_observation only — NOT omniscient world_state." }
+    obs:    { ext: "obs.npy",  shape: [K, F_obs],  dtype: float32, note: "normalized single-tick SELF feature vector per tick (feature_registry obs features). POMDP-masked agent_observation only — NOT omniscient world_state. v5: carried for provenance / the reject guard; self_history[...][-F_obs:] equals this." }
+    self_history: { ext: "self_history.npy", shape: ["SELF_HISTORY*F_obs"], dtype: float32, note: "v5 SEQUENCE input: ONE FLAT last-SELF_HISTORY-tick SELF history PER WINDOW — for the window's LAST REAL tick (SELF_HISTORY=16, oldest->newest, EPISODE-continuous, left-pad-repeat-first only at the EPISODE start). SELF_HISTORY*F_obs = 336 (each SELF row is the 21-wide goal-conditioned vector). Stored as ONE [SELF_HISTORY*F_obs] vector per window (NOT a per-tick [K, SELF_HISTORY*F_obs]) — the OOM fix: the trainer/loader only ever read the last-real-tick history, so the per-tick copy was 64x redundant; the stored vector is byte-identical to the old [K, HD][last_real_tick]. THIS is the SELF input the v5 policy (GRU) consumes in place of the single tick (jump cadence is a TEMPORAL pattern); machine-consistent with broad_bc/shard_contract.py (EXPECTS_SELF_HISTORY_DIM)." }
     act:    { ext: "act.npy",  shape: [K, F_act],  dtype: float32, note: "action targets (feature_registry action group)" }
     entities: { ext: "entities.npy", shape: [K, N_max, F_ent], dtype: float32, note: "v2: per-other-actor egocentric vectors (entity_observation group). N_max=7." }
     ent_mask: { ext: "ent_mask.npy", shape: [K, N_max], dtype: float32, note: "v2: 1=real entity slot, 0=pad/absent (pad-mask for DeepSets/transformer pooling)." }
@@ -56,7 +59,7 @@ record_layout:
     mask:   { ext: "mask.npy", shape: [K],         dtype: float32, note: "1=real step, 0=pad" }
     weight: { ext: "w.npy",    shape: [K],         dtype: float32, note: "loss weight = actions.confidence (down-weights IDM labels)" }
     meta:   { ext: "json",     note: "episode_id, demo_id, player_id, map_id, start_tick, label_source, timestep_ids[K]" }
-  F_obs_note: "F_obs is the flattened width of all leakage_safe SELF features in feature_registry.yaml (position+velocity+orientation+player_resource+item+timing+player_style+team). Per-other-actor features live in `entities` (not flattened into obs). Frozen per registry_version. v3 APPENDS the two turn-direction SELF features (yaw_rate_z + face_vel_angle_norm) after the frozen-16 orientation block, so the agent_observation SELF vector is 18-wide at v3. v4 APPENDS the three route-conditioning channels (goal_heading_sincos[2] + goal_dist_norm) after that, so the SELF vector is 21-wide at v4 (agent_observation.SELF_DIM / shard_contract.EXPECTS_SELF_DIM)."
+  F_obs_note: "F_obs is the flattened width of all leakage_safe SELF features in feature_registry.yaml (position+velocity+orientation+player_resource+item+timing+player_style+team). Per-other-actor features live in `entities` (not flattened into obs). Frozen per registry_version. v3 APPENDS the two turn-direction SELF features (yaw_rate_z + face_vel_angle_norm) after the frozen-16 orientation block, so the agent_observation SELF vector is 18-wide at v3. v4 APPENDS the three route-conditioning channels (goal_heading_sincos[2] + goal_dist_norm) after that, so the SELF vector is 21-wide at v4 (agent_observation.SELF_DIM / shard_contract.EXPECTS_SELF_DIM). v5 leaves F_obs at 21 (the goal-conditioned SELF) but the policy SELF input is the `self_history` field — the FLAT last-SELF_HISTORY(16)-tick SELF history, width SELF_HISTORY*F_obs = 336 (agent_observation.SELF_HISTORY_DIM / shard_contract.EXPECTS_SELF_HISTORY_DIM)."
   timestep_embedding: "timestep_ids[K] feed the DT timestep embedding added to all 3 tokens of a step."
 
 # ---------------------------------------------------------------------------

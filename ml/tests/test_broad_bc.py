@@ -33,11 +33,17 @@ _HAVE_PYARROW = importlib.util.find_spec("pyarrow") is not None
 
 class TestShardContract(unittest.TestCase):
     def test_heads_and_registry(self):
-        # v4: the SELF vector gained the three appended route-conditioning goal features,
-        # so the contract now EXPECTS registry_version 4 and a 21-wide SELF vector.
-        self.assertEqual(SC.EXPECTS_REGISTRY_VERSION, 4)
+        # v5 (GRU over a goal-conditioned short history): the SELF channels stay the 21-wide
+        # v4 goal-conditioned vector, but the policy now consumes the FLAT last-SELF_HISTORY-
+        # tick history, so the contract EXPECTS registry_version 5 + a SELF_HISTORY of 16 + a
+        # 336-wide flat history. The per-tick SELF channel count + required norm key are kept.
+        self.assertEqual(SC.EXPECTS_REGISTRY_VERSION, 5)
         self.assertEqual(SC.EXPECTS_SELF_DIM, 21)
         self.assertEqual(SC.EXPECTS_SELF_DIM, AO.SELF_DIM)   # contract == transform
+        self.assertEqual(SC.EXPECTS_SELF_HISTORY, 16)
+        self.assertEqual(SC.EXPECTS_SELF_HISTORY, AO.SELF_HISTORY)   # contract == transform
+        self.assertEqual(SC.EXPECTS_SELF_HISTORY_DIM, 16 * 21)
+        self.assertEqual(SC.EXPECTS_SELF_HISTORY_DIM, AO.SELF_HISTORY_DIM)
         self.assertEqual(SC.REQUIRED_NORM_KEYS, ("yaw_rate",))
         self.assertEqual(SC.head_names(), ["fwd", "side", "up", "jump", "attack"])
 
@@ -75,11 +81,46 @@ class TestShardContract(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p = SC.write_contract_doc(Path(d) / "c.json")
             doc = json.loads(p.read_text())
-            self.assertEqual(doc["expects_registry_version"], 4)
+            self.assertEqual(doc["expects_registry_version"], 5)
             self.assertEqual(doc["expects_self_dim"], 21)
+            self.assertEqual(doc["expects_self_history"], 16)
+            self.assertEqual(doc["expects_self_history_dim"], 16 * 21)
             self.assertEqual(doc["required_norm_keys"], ["yaw_rate"])
             self.assertIn("entities", doc["array_keys"])
+            self.assertIn("self_history", doc["array_keys"])
             self.assertEqual(len(doc["action_heads"]), 5)
+
+
+class TestSelfHistoryFlattenLayout(unittest.TestCase):
+    """DEPS-FREE half of the GRU reshape-order proof: the flat self-history layout the
+    model's [B, SELF_HISTORY, SELF_DIM] reshape depends on. assemble_self_history places
+    tick t's SELF_DIM channels CONTIGUOUSLY at flat[t*SELF_DIM:(t+1)*SELF_DIM], OLDEST->
+    NEWEST. So a row-major reshape to [SELF_HISTORY, SELF_DIM] yields ticks in TIME order
+    (the torch model-side reshape is asserted in TestTorchPolicySmoke). Pure stdlib."""
+
+    def test_assemble_self_history_is_tick_contiguous_oldest_to_newest(self):
+        H, D = SC.EXPECTS_SELF_HISTORY, SC.EXPECTS_SELF_DIM        # 16, 21
+        selves = [[float(t * 100 + c) for c in range(D)] for t in range(H)]  # distinct
+        flat = AO.assemble_self_history(selves, H)
+        self.assertEqual(len(flat), H * D)                        # == 336
+        # tick t's 21 channels live at flat[t*D:(t+1)*D], in order, oldest->newest.
+        for t in range(H):
+            self.assertEqual(flat[t * D:(t + 1) * D], selves[t])
+        # newest block is the current single-tick SELF (the assemble invariant).
+        self.assertEqual(flat[-D:], selves[-1])
+
+    def test_left_pad_repeats_earliest_then_time_order_holds(self):
+        # with fewer than H ticks the EARLIEST is repeated into the oldest slots, and the
+        # per-tick contiguity + oldest->newest order still hold (so the reshape stays
+        # time-major at an episode/rollout start).
+        H, D = SC.EXPECTS_SELF_HISTORY, SC.EXPECTS_SELF_DIM
+        selves = [[float(10 + c) for c in range(D)],             # earliest real
+                  [float(20 + c) for c in range(D)]]             # newest real
+        flat = AO.assemble_self_history(selves, H)
+        self.assertEqual(len(flat), H * D)
+        for t in range(H - 1):                                    # padded oldest slots
+            self.assertEqual(flat[t * D:(t + 1) * D], selves[0])  # repeat earliest
+        self.assertEqual(flat[(H - 1) * D:H * D], selves[1])      # newest is the real last
 
 
 class TestSyntheticShardAndLoader(unittest.TestCase):
@@ -89,12 +130,48 @@ class TestSyntheticShardAndLoader(unittest.TestCase):
             n_windows=5, obs_dim=16, ent_dim=10, audio_dim=4, team_dim=6, seed=3)
         rows = list(core.shard_to_rows(sh, schema))
         self.assertEqual(len(rows), 5)
-        # input dim = obs(16) + pooled_ent(10) + n_vis_frac(1) + audio(4) + team(6)
-        self.assertEqual(len(rows[0]["x"]), 16 + 10 + 1 + 4 + 6)
+        # v5: the SELF input is the FLAT self-history (obs_dim * SELF_HISTORY), NOT the
+        # single-tick obs. input dim = self_history(16*16) + pooled_ent(10) + n_vis_frac(1)
+        # + audio(4) + team(6). (synth obs_dim=16 here is an arbitrary synth width, decoupled
+        # from the real 21-wide SELF; the history is obs_dim tiled SELF_HISTORY times.)
+        self.assertEqual(len(rows[0]["x"]), 16 * SC.EXPECTS_SELF_HISTORY + 10 + 1 + 4 + 6)
         # every label is a valid class id for its head
         for r in rows:
             for (hidx, (_n, k, _c, _kind)) in enumerate(schema.heads()):
                 self.assertTrue(0 <= r["y"][hidx] < k)
+
+    def test_synth_shard_emits_self_history_field(self):
+        # v5: the synthetic shard must carry the self_history field at the right flat width
+        # (self_history * obs_dim) and meta, so the offline smoke exercises the v5 contract.
+        sh = synth_shard.make_synthetic_shard(
+            n_windows=4, obs_dim=SC.EXPECTS_SELF_DIM, ent_dim=8, seed=1)
+        self.assertIn(SC.KEY_SELF_HISTORY, sh)
+        self.assertEqual(sh[SC.KEY_META]["self_history"], SC.EXPECTS_SELF_HISTORY)
+        self.assertEqual(sh[SC.KEY_META]["self_history_dim"], SC.EXPECTS_SELF_HISTORY_DIM)
+        # v5 storage shrink: self_history is ONE [HD] flat history PER WINDOW (the last-real-
+        # tick history), NOT a per-tick [K, HD]. So it indexes [wi] (a flat list), and its
+        # length == SELF_HISTORY * SELF_DIM, with the newest SELF_DIM block == the window's
+        # LAST-real-tick single-tick obs (the build invariant; k=1 synth -> the only tick).
+        self.assertEqual(len(sh[SC.KEY_SELF_HISTORY]), len(sh[SC.KEY_OBS]))   # one per window
+        for wi in range(len(sh[SC.KEY_OBS])):
+            hist = sh[SC.KEY_SELF_HISTORY][wi]
+            # flat [HD], not nested per-tick: a float list of width HD (no inner [K] axis)
+            self.assertEqual(len(hist), SC.EXPECTS_SELF_HISTORY_DIM)
+            self.assertNotIsInstance(hist[0], list)
+            last_obs = sh[SC.KEY_OBS][wi][-1]                # window's last real tick obs
+            self.assertEqual(hist[-SC.EXPECTS_SELF_DIM:], last_obs)
+
+    def test_loader_uses_self_history_as_self_input(self):
+        # the deps-free loader (shard_to_rows) must read self_history (not the single-tick
+        # obs) as the SELF input x, so x starts with the flat history width.
+        schema = SC.ShardSchema()
+        sh = synth_shard.make_synthetic_shard(
+            n_windows=3, obs_dim=SC.EXPECTS_SELF_DIM, ent_dim=8, audio_dim=0, team_dim=0,
+            seed=2)
+        rows = list(core.shard_to_rows(sh, schema))
+        self.assertGreater(len(rows), 0)
+        # x = self_history(336) + pooled_ent(8) + n_vis_frac(1); no audio/team here.
+        self.assertEqual(len(rows[0]["x"]), SC.EXPECTS_SELF_HISTORY_DIM + 8 + 1)
 
     def test_pool_entities_masked_mean(self):
         ent = [[2.0, 0.0], [4.0, 0.0], [99.0, 99.0]]   # 3rd slot is pad
@@ -112,8 +189,9 @@ class TestSyntheticShardAndLoader(unittest.TestCase):
                 obs_dim=8, ent_dim=6)
             rows, in_dim = core.iter_corpus(paths, schema)
             self.assertGreater(len(rows), 0)
-            # obs(8) + pooled_ent(6) + n_vis_frac(1) + audio(4 default) + team(6 default)
-            self.assertEqual(in_dim, 8 + 6 + 1 + 4 + 6)
+            # v5: SELF input = flat self-history(8 * SELF_HISTORY) + pooled_ent(6) +
+            # n_vis_frac(1) + audio(4 default) + team(6 default)
+            self.assertEqual(in_dim, 8 * SC.EXPECTS_SELF_HISTORY + 6 + 1 + 4 + 6)
 
 
 class TestSplitByDemo(unittest.TestCase):
@@ -237,8 +315,8 @@ class TestRegistryVersionGuard(unittest.TestCase):
     def test_matching_registry_version_is_accepted(self):
         TB = self._import_trainer()
         schema = SC.ShardSchema()
-        # a CORRECT v3 shard: registry_version == EXPECTS and the SELF width == the v3
-        # 21-channel layout (EXPECTS_SELF_DIM), so it must be ACCEPTED by both guards.
+        # a CORRECT v5 shard: registry_version == EXPECTS and the SELF width == the v5
+        # 21-channel goal-conditioned layout (EXPECTS_SELF_DIM), so it must be ACCEPTED.
         good = synth_shard.make_synthetic_shard(
             n_windows=3, obs_dim=SC.EXPECTS_SELF_DIM, ent_dim=6, seed=2)
         # synth shards already set registry_version == EXPECTS_REGISTRY_VERSION
@@ -288,10 +366,74 @@ class TestShardMetaCheckDepsFree(unittest.TestCase):
     call, so testing them here pins the reject rule independent of the GPU stack."""
 
     def test_stale_v2_registry_version_rejected(self):
-        # a stale v2 (16-channel) shard meta must NOT bind to the v4 21-channel layout.
+        # a stale v2 (16-channel) shard meta must NOT bind to the current layout.
         with self.assertRaises(ValueError) as ctx:
             SC.check_shard_meta({"registry_version": 2, "obs_dim": 16})
         self.assertIn("registry_version", str(ctx.exception))
+
+    def test_pre_v5_single_tick_shard_rejected_on_registry_version(self):
+        # a v4 single-tick-SELF shard (no self_history field) MUST be rejected by the
+        # registry-version guard — it can no longer bind to the v5 sequence-aware layout.
+        with self.assertRaises(ValueError) as ctx:
+            SC.check_shard_meta({"registry_version": 4, "obs_dim": SC.EXPECTS_SELF_DIM})
+        self.assertIn("registry_version", str(ctx.exception))
+
+    def test_v5_labelled_but_wrong_self_history_dim_rejected(self):
+        # the v5 reject-guard idiom (mirrors the #313 obs_dim guard): a shard whose
+        # registry_version was set to 5 and whose obs_dim is the correct 21, but whose
+        # self_history flat width is NOT SELF_HISTORY*SELF_DIM (e.g. a wrong history
+        # length or a hand-edited label on a single-tick shard), MUST be rejected — the
+        # registry + obs_dim guards alone would pass it.
+        bad_hist = SC.EXPECTS_SELF_HISTORY_DIM - SC.EXPECTS_SELF_DIM   # one tick short
+        with self.assertRaises(ValueError) as ctx:
+            SC.check_shard_meta({
+                "registry_version": SC.EXPECTS_REGISTRY_VERSION,
+                "obs_dim": SC.EXPECTS_SELF_DIM,
+                "self_history_dim": bad_hist})
+        self.assertIn("self_history_dim", str(ctx.exception))
+        self.assertIn(str(SC.EXPECTS_SELF_HISTORY_DIM), str(ctx.exception))
+
+    def test_old_per_tick_k_times_hd_self_history_dim_rejected(self):
+        # the storage-shrink reject: a shard whose self_history_dim is the OLD per-tick
+        # K*HD width (the pre-shrink [K, HD] storage, e.g. K=64 -> 64*336=21504) must be
+        # rejected — v5 now stores ONE [HD] history per window, so a row HD != 336 (here a
+        # 64x-too-wide value) is not the v5 layout even with registry_version=5 + obs_dim=21.
+        K = 64
+        old_wide = K * SC.EXPECTS_SELF_HISTORY_DIM            # the old [K*HD] per-row width
+        self.assertNotEqual(old_wide, SC.EXPECTS_SELF_HISTORY_DIM)
+        with self.assertRaises(ValueError) as ctx:
+            SC.check_shard_meta({
+                "registry_version": SC.EXPECTS_REGISTRY_VERSION,
+                "obs_dim": SC.EXPECTS_SELF_DIM,
+                "self_history_dim": old_wide})
+        self.assertIn("self_history_dim", str(ctx.exception))
+        self.assertIn(str(SC.EXPECTS_SELF_HISTORY_DIM), str(ctx.exception))
+
+    def test_correct_v5_self_history_dim_accepted(self):
+        # correct v5 meta: registry_version 5 + obs_dim 21 + self_history_dim 336 -> no raise.
+        SC.check_shard_meta({
+            "registry_version": SC.EXPECTS_REGISTRY_VERSION,
+            "obs_dim": SC.EXPECTS_SELF_DIM,
+            "self_history_dim": SC.EXPECTS_SELF_HISTORY_DIM})
+
+    def test_v5_meta_omitting_self_history_dim_is_REJECTED(self):
+        # Blocker-2: a shard LABELLED registry_version==5 (EXPECTS) but OMITTING
+        # self_history_dim must now be REJECTED — without it the loader would silently fall
+        # back to the 21-wide single-tick obs (x_len=21) instead of the required 336. The
+        # omit==match leniency is ONLY for pre-v5 fields; v5 makes the self_history contract
+        # mandatory (see test_pre_v5_meta_omitting_self_history_dim_is_allowed below for the
+        # rv<5 path that still passes).
+        with self.assertRaises(ValueError) as ctx:
+            SC.check_shard_meta({"registry_version": SC.EXPECTS_REGISTRY_VERSION,
+                                 "obs_dim": SC.EXPECTS_SELF_DIM})
+        self.assertIn("self_history_dim", str(ctx.exception))
+
+    def test_pre_v5_meta_omitting_self_history_dim_is_allowed(self):
+        # a shard with NO registry_version (or rv<5) that omits self_history_dim is NOT
+        # rejected on it — the v5 self_history requirement only applies to v5+ labels, and
+        # a registry_version mismatch (e.g. 4) is caught by the registry-version guard first,
+        # never reaching the self_history requirement.
+        SC.check_shard_meta({"obs_dim": SC.EXPECTS_SELF_DIM})   # no registry_version -> ok
 
     def test_v3_labelled_16_channel_meta_rejected_on_obs_dim(self):
         with self.assertRaises(ValueError) as ctx:
@@ -299,11 +441,14 @@ class TestShardMetaCheckDepsFree(unittest.TestCase):
                 {"registry_version": SC.EXPECTS_REGISTRY_VERSION, "obs_dim": 16})
         self.assertIn("obs_dim", str(ctx.exception))
 
-    def test_correct_v3_18_channel_meta_accepted(self):
-        # correct meta: registry_version + obs_dim both == EXPECTS (v4: 4 + 21) -> no raise.
+    def test_correct_v5_full_meta_accepted(self):
+        # correct v5 meta: registry_version 5 + obs_dim 21 + self_history_dim 336 -> no raise.
+        # (v5 requires self_history_dim be PRESENT — a v5 label with obs_dim but no
+        # self_history_dim is rejected; see test_v5_meta_omitting_self_history_dim_is_REJECTED.)
         SC.check_shard_meta(
             {"registry_version": SC.EXPECTS_REGISTRY_VERSION,
-             "obs_dim": SC.EXPECTS_SELF_DIM})
+             "obs_dim": SC.EXPECTS_SELF_DIM,
+             "self_history_dim": SC.EXPECTS_SELF_HISTORY_DIM})
 
     def test_meta_omitting_fields_is_treated_as_matching(self):
         # a minimal/legacy shard that omits registry_version/obs_dim is not rejected
@@ -341,13 +486,65 @@ class TestShardMetaCheckDepsFree(unittest.TestCase):
         SC.check_norm_artifact(tmpl, "dm3")              # no raise
 
 
+class TestSelfHistoryArrayRequiredV5(unittest.TestCase):
+    """Blocker-2: a v5-LABELLED shard that LACKS the actual `self_history` ARRAY must raise at
+    row-build time (the loader must NOT silently fall back to the 21-wide single-tick obs).
+    DEPS-FREE — drives the deps-free loader core.shard_to_rows directly (no torch). The SAME
+    SC.require_self_history_present guard runs in train_broad_bc.rows_to_tensors (torch path)."""
+
+    def _v5_shard_without_self_history(self):
+        # a real v5 synth shard, then DROP the self_history array (keep registry_version==5).
+        sh = synth_shard.make_synthetic_shard(
+            n_windows=3, obs_dim=SC.EXPECTS_SELF_DIM, ent_dim=8, audio_dim=0, team_dim=0,
+            seed=7)
+        self.assertEqual(sh[SC.KEY_META]["registry_version"], SC.EXPECTS_REGISTRY_VERSION)
+        del sh[SC.KEY_SELF_HISTORY]                       # the contract violation
+        sh[SC.KEY_META].pop("self_history_dim", None)     # and its meta width
+        return sh
+
+    def test_shard_to_rows_v5_without_self_history_raises_not_xlen21(self):
+        schema = SC.ShardSchema()
+        sh = self._v5_shard_without_self_history()
+        with self.assertRaises(ValueError) as ctx:
+            list(core.shard_to_rows(sh, schema))          # must NOT yield x_len=21 rows
+        msg = str(ctx.exception)
+        self.assertIn("self_history", msg)
+        self.assertIn(str(SC.EXPECTS_REGISTRY_VERSION), msg)
+
+    def test_require_self_history_present_direct(self):
+        # the shared guard in isolation: v5 + no array -> raise; v5 + array -> ok.
+        with self.assertRaises(ValueError):
+            SC.require_self_history_present(
+                {"registry_version": SC.EXPECTS_REGISTRY_VERSION}, False)
+        SC.require_self_history_present(
+            {"registry_version": SC.EXPECTS_REGISTRY_VERSION}, True)   # array present -> ok
+
+    def test_pre_v5_shard_without_self_history_falls_back(self):
+        # a genuinely pre-v5 shard (registry_version 4) with no self_history array is NOT
+        # rejected by the array guard (the single-tick fallback is correct for legacy) — only
+        # v5+ labels require the array. shard_to_rows then yields the single-tick obs width.
+        schema = SC.ShardSchema()
+        sh = synth_shard.make_synthetic_shard(
+            n_windows=2, obs_dim=SC.EXPECTS_SELF_DIM, ent_dim=8, audio_dim=0, team_dim=0,
+            seed=8)
+        del sh[SC.KEY_SELF_HISTORY]
+        sh[SC.KEY_META]["registry_version"] = SC.EXPECTS_REGISTRY_VERSION - 1   # pre-v5
+        sh[SC.KEY_META].pop("self_history_dim", None)
+        rows = list(core.shard_to_rows(sh, schema))        # no raise -> legacy fallback
+        # fallback SELF input is the single-tick obs (SELF_DIM), not the 336-wide history.
+        self.assertEqual(len(rows[0]["x"]), SC.EXPECTS_SELF_DIM + 8 + 1)
+
+
 @unittest.skipUnless(_HAVE_TORCH and _HAVE_NUMPY, "torch/numpy not installed")
 class TestTorchPolicySmoke(unittest.TestCase):
     def test_forward_and_one_step(self):
         import torch
         import train_broad_bc as TB
+        # self_dim=f_obs => the GRU runs over a 1-step sequence (this smoke exercises the
+        # heads/pool, not the temporal structure; the f_obs here is not a 21-multiple).
         m = TB.BroadBCPolicy(f_obs=12, f_ent=8, f_aux=10, n_max=7,
-                             ent_out=16, hidden=32, head_dims=(3, 3, 3, 2, 2))
+                             ent_out=16, hidden=32, head_dims=(3, 3, 3, 2, 2),
+                             self_dim=12)
         B = 4
         obs = torch.randn(B, 12)
         ent = torch.randn(B, 7, 8)
@@ -365,11 +562,173 @@ class TestTorchPolicySmoke(unittest.TestCase):
         loss.backward()
         self.assertTrue(any(p.grad is not None for p in m.parameters()))
 
+    def test_v5_self_history_input_forward_shape(self):
+        """v5 SEQUENCE model (GRU SELF encoder): the SELF input is the FLAT self-history
+        (SELF_HISTORY*SELF_DIM = 336), not the single-tick 21 — the model RECEIVES the same
+        336-wide flat input it always did. Internally it reshapes to [B,16,21] and runs a
+        1-layer GRU (hidden GRU_HIDDEN); the trunk's SELF side is now the GRU hidden width
+        (GRU_HIDDEN), NOT the flat 336 — the entity encoder, the pool, the trunk body and
+        the 5 heads are otherwise unchanged. Assert a forward over a 336-wide SELF input +
+        the real entity channel emits the 5 head logits at the right dims (3/3/3/2/2) and one
+        backward step reaches the GRU."""
+        import torch
+        import train_broad_bc as TB
+        f_obs = SC.EXPECTS_SELF_HISTORY_DIM                # 336 = 16 * 21
+        self.assertEqual(f_obs, 336)
+        f_ent = AO.ENTITY_DIM                              # the real entity width (13)
+        m = TB.BroadBCPolicy(f_obs=f_obs, f_ent=f_ent, f_aux=0, n_max=7,
+                             ent_out=64, hidden=128, head_dims=(3, 3, 3, 2, 2))
+        # the SELF path now reshapes the flat 336 to 16 steps of SELF_DIM (21); the GRU
+        # consumes SELF_DIM per tick and the trunk's first Linear accepts GRU_HIDDEN +
+        # ent_out (NOT the flat f_obs).
+        self.assertEqual(m.self_steps, SC.EXPECTS_SELF_HISTORY)     # 16
+        self.assertEqual(m.self_dim, SC.EXPECTS_SELF_DIM)           # 21
+        self.assertEqual(m.self_gru.input_size, SC.EXPECTS_SELF_DIM)
+        self.assertEqual(m.self_gru.hidden_size, TB.GRU_HIDDEN)     # 64
+        self.assertEqual(m.trunk[0].in_features, TB.GRU_HIDDEN + 64)
+        B = 4
+        obs = torch.randn(B, f_obs)                        # the flat self-history input
+        ent = torch.randn(B, 7, f_ent)
+        emask = torch.ones(B, 7); emask[:, 3:] = 0.0
+        aux = torch.zeros(B, 0)
+        logits = m(obs, ent, emask, aux)
+        self.assertEqual(len(logits), 5)                  # fwd/side/up/jump/attack
+        self.assertEqual([lg.shape[1] for lg in logits], [3, 3, 3, 2, 2])
+        for lg in logits:
+            self.assertEqual(lg.shape[0], B)
+        y = torch.zeros(B, 5, dtype=torch.long)
+        loss = sum(torch.nn.functional.cross_entropy(logits[h], y[:, h]) for h in range(5))
+        loss.backward()
+        self.assertTrue(any(p.grad is not None for p in m.parameters()))
+        # the gradient must reach the GRU (proves the SELF history actually flows through it)
+        self.assertTrue(any(p.grad is not None and p.grad.abs().sum() > 0
+                            for p in m.self_gru.parameters()))
+
+    def test_self_history_reshape_is_time_major(self):
+        """RESHAPE-ORDER (the main correctness risk of the GRU refactor): the flat
+        [SELF_HISTORY*SELF_DIM] SELF input the model receives must reshape to
+        [B, SELF_HISTORY, SELF_DIM] in TIME ORDER — tick t's SELF_DIM channels at
+        flat[t*SELF_DIM:(t+1)*SELF_DIM], so seq[:, t, :] is tick t (oldest->newest), NOT
+        scrambled (a [SELF_DIM, SELF_HISTORY] reshape would silently transpose time and
+        channel and feed the GRU garbage). We assert this on the EXACT op the model uses
+        (obs.reshape(B, self_steps, self_dim)) and tie it back to the SHARED
+        AO.assemble_self_history flatten so the data-side and model-side agree end to end.
+        """
+        import torch
+        import train_broad_bc as TB
+        H, D = SC.EXPECTS_SELF_HISTORY, SC.EXPECTS_SELF_DIM   # 16, 21
+        # 16 DISTINCT per-tick SELF vectors, oldest->newest: tick t channel c == t*100 + c
+        # (every (t,c) value unique so any time/channel swap is detectable).
+        selves = [[float(t * 100 + c) for c in range(D)] for t in range(H)]
+        flat = AO.assemble_self_history(selves, H)            # the SHARED data-side flatten
+        self.assertEqual(len(flat), H * D)
+        # the model's exact reshape op (see BroadBCPolicy.forward).
+        seq = torch.tensor([flat], dtype=torch.float32).reshape(1, H, D)
+        self.assertEqual(tuple(seq.shape), (1, H, D))
+        for t in range(H):
+            for c in range(D):
+                # seq[0, t, c] is tick t channel c == the original oldest->newest input.
+                self.assertEqual(float(seq[0, t, c]), t * 100 + c)
+            # whole row t equals the t-th input SELF vector (time-major rows).
+            self.assertEqual([float(v) for v in seq[0, t]], selves[t])
+        # row 0 is the OLDEST tick, row H-1 the NEWEST (== the current single-tick SELF =
+        # the last SELF_DIM block of the flat history, the assemble_self_history invariant).
+        self.assertEqual([float(v) for v in seq[0, 0]], selves[0])
+        self.assertEqual([float(v) for v in seq[0, H - 1]], selves[-1])
+        self.assertEqual([float(v) for v in seq[0, H - 1]],
+                         [float(v) for v in flat[-D:]])
+        # the WRONG reshape ([D, H]) would NOT recover the per-tick rows -> guards the risk.
+        wrong = torch.tensor([flat], dtype=torch.float32).reshape(1, D, H)
+        self.assertNotEqual([float(v) for v in wrong[0, 1]], selves[1])
+
+    def test_checkpoint_roundtrip_reconstructs_gru(self):
+        """CHECKPOINT ROUND-TRIP: saving the policy (with its stored self_dim/gru_hidden)
+        and rebuilding via the SHARED inference loader (_build_policy_from_checkpoint)
+        reconstructs the SAME GRU arch and yields byte-identical forward outputs. Proves the
+        v5-seqaware encoder survives the save/load the eval paths use — no inference drift.
+        """
+        import tempfile as _tf
+        import torch
+        import train_broad_bc as TB
+        from eval_broad_believability import _build_policy_from_checkpoint
+
+        f_obs = SC.EXPECTS_SELF_HISTORY_DIM                  # 336
+        f_ent, f_aux, n_max = AO.ENTITY_DIM, 0, 7
+        head_dims = [k for (_n, k, _c, _kd) in SC.ShardSchema().heads()]
+        torch.manual_seed(0)
+        m = TB.BroadBCPolicy(f_obs=f_obs, f_ent=f_ent, f_aux=f_aux, n_max=n_max,
+                             ent_out=64, hidden=128, head_dims=tuple(head_dims))
+        m.eval()
+        dims = {"f_obs": f_obs, "f_ent": f_ent, "f_aux": f_aux, "n_max": n_max}
+        # the EXACT keys train_broad_bc.main() saves (incl. the new GRU config).
+        ckpt = {
+            "state_dict": m.state_dict(),
+            "dims": dims, "head_dims": head_dims, "head_names": SC.head_names(),
+            "hidden": 128, "ent_out": 64,
+            "self_dim": m.self_dim, "gru_hidden": m.gru_hidden,
+            "arch": "BroadBCPolicy", "contract_version": SC.SHARD_CONTRACT_VERSION,
+            "seed": 0,
+        }
+        B = 5
+        obs = torch.randn(B, f_obs)
+        ent = torch.randn(B, n_max, f_ent)
+        emask = torch.ones(B, n_max); emask[:, 4:] = 0.0
+        aux = torch.zeros(B, f_aux)
+        with torch.no_grad():
+            before = m(obs, ent, emask, aux)
+        with _tf.TemporaryDirectory() as d:
+            p = Path(d) / "ckpt.pt"
+            torch.save(ckpt, p)
+            loaded = torch.load(p, map_location="cpu")
+            m2, dims2, head_dims2 = _build_policy_from_checkpoint(loaded, "cpu")
+        # the rebuilt GRU matches the saved config (input=self_dim per tick, hidden=gru_hidden)
+        self.assertEqual(m2.self_dim, m.self_dim)
+        self.assertEqual(m2.gru_hidden, m.gru_hidden)
+        self.assertEqual(m2.self_steps, m.self_steps)
+        self.assertEqual(m2.self_gru.input_size, SC.EXPECTS_SELF_DIM)
+        self.assertEqual(m2.self_gru.hidden_size, TB.GRU_HIDDEN)
+        self.assertEqual(dims2["f_obs"], f_obs)              # input contract preserved (336)
+        self.assertEqual(list(head_dims2), head_dims)
+        # byte-identical forward after the save/load (same weights AND same wiring).
+        with torch.no_grad():
+            after = m2(obs, ent, emask, aux)
+        for b, a in zip(before, after):
+            self.assertTrue(torch.allclose(b, a, atol=1e-6))
+
+    def test_checkpoint_without_gru_config_defaults_to_seqaware(self):
+        """ROBUSTNESS: a checkpoint that omits the GRU config (e.g. one saved before the
+        config was stamped) must still rebuild — the loader defaults self_dim to the 21-wide
+        SELF and gru_hidden to GRU_HIDDEN, which is exactly the v5-seqaware arch, so a real
+        336-input checkpoint loads to the right 16-step GRU with no stored config."""
+        import tempfile as _tf
+        import torch
+        import train_broad_bc as TB
+        from eval_broad_believability import _build_policy_from_checkpoint
+
+        f_obs = SC.EXPECTS_SELF_HISTORY_DIM                  # 336
+        head_dims = [k for (_n, k, _c, _kd) in SC.ShardSchema().heads()]
+        m = TB.BroadBCPolicy(f_obs=f_obs, f_ent=AO.ENTITY_DIM, f_aux=0, n_max=7,
+                             ent_out=64, hidden=128, head_dims=tuple(head_dims))
+        ckpt = {
+            "state_dict": m.state_dict(),
+            "dims": {"f_obs": f_obs, "f_ent": AO.ENTITY_DIM, "f_aux": 0, "n_max": 7},
+            "head_dims": head_dims, "hidden": 128, "ent_out": 64,
+            # NB: NO self_dim / gru_hidden keys here.
+        }
+        with _tf.TemporaryDirectory() as d:
+            p = Path(d) / "ckpt.pt"
+            torch.save(ckpt, p)
+            m2, _dims2, _hd2 = _build_policy_from_checkpoint(
+                torch.load(p, map_location="cpu"), "cpu")
+        self.assertEqual(m2.self_dim, SC.EXPECTS_SELF_DIM)   # defaulted to 21
+        self.assertEqual(m2.gru_hidden, TB.GRU_HIDDEN)       # defaulted to 64
+        self.assertEqual(m2.self_steps, SC.EXPECTS_SELF_HISTORY)   # => 16 steps over 336
+
     def test_pool_ignores_pad_slots(self):
         import torch
         import train_broad_bc as TB
         m = TB.BroadBCPolicy(f_obs=4, f_ent=4, f_aux=0, n_max=3,
-                             ent_out=8, hidden=8, head_dims=(2,))
+                             ent_out=8, hidden=8, head_dims=(2,), self_dim=4)
         # identical real slot, different pad slots -> identical output (pad ignored)
         obs = torch.zeros(1, 4)
         ent_a = torch.tensor([[[1.0, 2, 3, 4], [9, 9, 9, 9], [0, 0, 0, 0]]])
@@ -401,7 +760,7 @@ class TestTorchPolicySmoke(unittest.TestCase):
         head_dims = (3, 3, 3, 2, 2)
         H = len(head_dims)
         m = TB.BroadBCPolicy(f_obs=f_obs, f_ent=f_ent, f_aux=f_aux, n_max=n_max,
-                             ent_out=8, hidden=16, head_dims=head_dims)
+                             ent_out=8, hidden=16, head_dims=head_dims, self_dim=f_obs)
 
         # CE modules exactly like the trainer: per-class weight + reduction='none'.
         # Build them once and SHARE across both cases so the zero-weight row is the
@@ -481,7 +840,7 @@ class TestTorchPolicySmoke(unittest.TestCase):
         # (b) loss + grads built FROM the derived weights identical on a fixed batch
         f_obs, f_ent, f_aux, n_max = 6, 4, 0, 3
         m = TB.BroadBCPolicy(f_obs=f_obs, f_ent=f_ent, f_aux=f_aux, n_max=n_max,
-                             ent_out=8, hidden=16, head_dims=head_dims)
+                             ent_out=8, hidden=16, head_dims=head_dims, self_dim=f_obs)
         obs = torch.randn(B, f_obs); ent = torch.randn(B, n_max, f_ent)
         emask = torch.ones(B, n_max); aux = torch.zeros(B, f_aux); sw = torch.ones(B)
 
@@ -512,7 +871,7 @@ class TestTorchPolicySmoke(unittest.TestCase):
         head_dims = (3, 2)
         H = len(head_dims)
         m = TB.BroadBCPolicy(f_obs=4, f_ent=0, f_aux=0, n_max=2,
-                             ent_out=4, hidden=8, head_dims=head_dims)
+                             ent_out=4, hidden=8, head_dims=head_dims, self_dim=4)
         ce = [nn.CrossEntropyLoss(reduction="none") for _ in range(H)]
         B = 3
         obs = torch.randn(B, 4)
@@ -660,6 +1019,39 @@ class TestParquetShardBridge(unittest.TestCase):
             self.assertFalse(shard[SC.KEY_META]["has_audio"])
             self.assertFalse(shard[SC.KEY_META]["has_team"])
 
+            # --- v5 self_history STORAGE SHRINK: ONE [HD] history PER WINDOW (last real
+            # tick), reshaped [n_windows, HD] — NOT the old per-tick [n][K][HD]. -----------
+            self.assertIn(SC.KEY_SELF_HISTORY, shard)
+            sh_col = shard[SC.KEY_SELF_HISTORY]
+            self.assertEqual(len(sh_col), n_win)                   # one row per window
+            self.assertEqual(len(sh_col[0]), SC.EXPECTS_SELF_HISTORY_DIM)   # flat HD per row
+            # the inner element is a scalar (flat [HD]), NOT a per-tick list ([K][HD] would
+            # make sh_col[0][0] itself a length-HD list) — proves the 64x shape collapse.
+            self.assertFalse(hasattr(sh_col[0][0], "__len__"))
+            self.assertEqual(shard[SC.KEY_META]["self_history_dim"],
+                             SC.EXPECTS_SELF_HISTORY_DIM)
+
+            # --- CLOSED INVARIANT (all windows): newest SELF_DIM block == last real tick's obs.
+            # FULL-HISTORY EQUIVALENCE: when a window holds >= SELF_HISTORY real ticks, the
+            # episode-continuous stored history (Blocker-1) equals the window-local assembly,
+            # because the last H ticks are all inside the window. Mid-episode windows with < H
+            # real ticks reach back PAST the window per the episode-continuous fix and cannot be
+            # reconstructed from the window's own `obs` column — those are covered by
+            # test_self_history_is_episode_continuous_for_midepisode_window.
+            H = AO.SELF_HISTORY
+            mask = shard[SC.KEY_MASK]
+            for wi in range(n_win):
+                ti = core._last_real_tick(mask[wi])
+                got = list(map(float, sh_col[wi]))
+                # newest SELF_DIM block == last real tick's obs (always holds)
+                self.assertEqual(got[-AO.SELF_DIM:],
+                                 list(map(float, shard[SC.KEY_OBS][wi][ti])))
+                if ti + 1 >= H:
+                    window_selves = [list(map(float, shard[SC.KEY_OBS][wi][j]))
+                                     for j in range(ti + 1)]
+                    expected = AO.assemble_self_history(window_selves[:ti + 1], H)
+                    self.assertEqual(got, expected)
+
             # --- the loader turns it into BC rows with the per-window demo split key --
             schema = SC.ShardSchema()
             rows = list(core.shard_to_rows(shard, schema))
@@ -667,6 +1059,6 @@ class TestParquetShardBridge(unittest.TestCase):
             self.assertEqual(len({r["demo_id"] for r in rows}), 2)
             # act label decodes: forwardmove=400 -> fwd head class 2 (+)
             self.assertEqual(rows[0]["y"][0], 2)
-            # input width = obs(16) + pooled_ent(13) + n_vis_frac(1); no audio/team
-            self.assertEqual(len(rows[0]["x"]), AO.SELF_DIM + AO.ENTITY_DIM + 1)
+            # input width = self_history(336) + pooled_ent(13) + n_vis_frac(1); no audio/team
+            self.assertEqual(len(rows[0]["x"]), AO.SELF_HISTORY_DIM + AO.ENTITY_DIM + 1)
 

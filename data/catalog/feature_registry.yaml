@@ -2,8 +2,11 @@
 # komodobots ML Feature Registry
 # schema tag: komodobots.feature_registry.v1   (v1 features unchanged; v2 adds groups;
 #             v3 APPENDS the turn-direction SELF features yaw_rate_z + face_vel_angle_norm;
-#             v4 APPENDS the route-conditioning SELF features goal_heading_sincos + goal_dist_norm)
-# registry_version: 4
+#             v4 APPENDS the route-conditioning SELF features goal_heading_sincos + goal_dist_norm;
+#             v5 SEQUENCE-AWARE: SELF channels unchanged (still 21, goal-conditioned) but the
+#             policy now consumes a FLAT last-16-tick SELF history (self_history field, width
+#             16*21=336) — a shape/contract change, not a new per-tick feature)
+# registry_version: 5
 #
 # Single declarative source for every model input. The SAME `transform` string
 # drives offline mining (gold/features Parquet build) AND the live online encoder
@@ -22,7 +25,7 @@
 # `group: per_map` => stats keyed by map in normalization_stats; `global` => one set;
 # `none` => transform is parameter-free (sincos, divide_period, identity).
 # =============================================================================
-registry_version: 4
+registry_version: 5
 entity: { name: agent, join_keys: [episode_id, tick] }
 normalization_artifact: norm/normalization_stats.template.json
 catalog: schema/catalog.sql

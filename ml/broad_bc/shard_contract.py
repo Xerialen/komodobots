@@ -7,7 +7,7 @@ stdlib smoke import this so they agree on exactly one schema.
 THE CONTRACT (what FEAT emits / what this trainer consumes)
 =============================================================================
 Authoritative source: `data/catalog/dataset_spec.yaml` (komodobots.dataset_spec.v1,
-registry_version 4) + `data/catalog/feature_registry.yaml`. One *sample* = one
+registry_version 5) + `data/catalog/feature_registry.yaml`. One *sample* = one
 window of K ticks. FEAT (the parallel feature coder) materializes the windowed
 gold tensors; this trainer reads them.
 
@@ -19,12 +19,24 @@ width). The `.npz` / `.json.gz` layouts (one demo per file, arrays pre-shaped) a
 also supported — the smoke uses them. Per dataset_spec `record_layout` a sample is
 this set of arrays:
 
-  key        shape            dtype     meaning
-  ---------  ---------------  --------  ------------------------------------------
-  obs        [K, F_obs]       float32   normalized SELF features (position+velocity+
-                                        orientation+player_resource + the appended
-                                        turn-direction (v3) + route-conditioning goal
-                                        (v4) features; F_obs=21 at v4 — EXPECTS_SELF_DIM)
+  key          shape              dtype    meaning
+  -----------  -----------------  -------  ----------------------------------------
+  obs          [K, F_obs]         float32  normalized single-tick SELF features (position+
+                                          velocity+orientation+player_resource + the appended
+                                          turn-direction (v3) + route-conditioning goal (v4)
+                                          features; F_obs=21 — EXPECTS_SELF_DIM. Carried per-
+                                          tick for provenance / the reject guard;
+                                          self_history[...][-F_obs:] equals this tick's obs.)
+  self_history [H*F_obs]          float32  v5 SEQUENCE input: ONE FLAT last-H-tick SELF
+                                          history PER WINDOW — for the window's LAST REAL tick
+                                          (H=SELF_HISTORY=16, oldest->newest, left-pad-repeat-
+                                          first at window start). H*F_obs=336 =
+                                          EXPECTS_SELF_HISTORY_DIM. THIS is what the v5 policy
+                                          (GRU) consumes in place of the single-tick SELF. The
+                                          trainer/loader only ever read the last-real-tick
+                                          history, so the build stores JUST it (not a per-tick
+                                          [K, H*F_obs]) — 64x less memory, identical training
+                                          data; the loader reshapes the column to [n, H*F_obs].
   entities   [K, N_max, F_ent] float32  per OBSERVED-OTHER actor egocentric vector
                                         (enemies + teammates; F_ent=13). The
                                         enemy/team-aware channel; team is FOLDED IN
@@ -49,9 +61,12 @@ OPTIONAL / ABSENT in a .qwd FEAT shard:
 The loader treats audio/team as optional and zero-fills (F_aux = 0 for a .qwd shard).
 
 N_max = 7 (4on4 => 7 other actors; 1v1 is the SAME path, more masking).
-The model INPUT is [obs | pooled(entities, ent_mask) | audio | team] (audio/team
-width 0 when absent) => the policy sees self + enemy + teammate context (BROAD),
-not movement-only.
+The model INPUT is [self_history | pooled(entities, ent_mask) | audio | team] (audio/team
+width 0 when absent) => the policy sees a SHORT SELF HISTORY (sequence-aware, so it can
+express temporal patterns like the bunnyhop jump-on-landing cadence) + enemy + teammate
+context (BROAD), not movement-only and not single-tick. self_history[...][-SELF_DIM:] is
+the current single-tick (goal-conditioned) SELF, so the broad/enemy-aware + goal signal
+is preserved.
 
 This trainer is BC-only: it consumes single-step windows (bc_window=1 in
 dataset_spec) by default — K can be >1 and we read the LAST real tick per window —
@@ -98,26 +113,51 @@ from pathlib import Path
 
 # --- contract version (bump if the key set / head set changes) --------------
 SHARD_CONTRACT_VERSION = "broad_bc.shard_contract.v1"
-# registry_version 4: the SELF vector gained the three APPENDED route-conditioning
-# features (goal_heading_sincos[2] + goal_dist_norm), so SELF_DIM went 18 -> 21. (v3 had
-# earlier grown 16 -> 18 with yaw_rate_z + face_vel_angle_norm and still requires a
-# `yaw_rate` normalization key.) A stale v2/v3 artifact MUST be rejected loudly — the
-# equality guard below (rv != EXPECTS) does that; the explicit channel-count / norm-key
-# checks catch a hand-edited mislabelled one. The v4 goal features are sincos + /diagonal
-# identity, so they add NO new required norm key.
-EXPECTS_REGISTRY_VERSION = 4          # must match feature_registry.yaml / dataset_spec.yaml
-# expected SELF (obs) channel count for registry_version 4 — agent_observation.SELF_DIM.
-# Pinned HERE (deps-free) so the loader can reject a shard whose declared obs_dim does
-# not match the v4 SELF layout even if its registry_version label was hand-edited to 4.
+# registry_version 5 (GRU over a goal-conditioned short history): the SELF channels stay
+# the 21-wide v4 goal-conditioned vector (the frozen-16 + the v3 turn-direction pair
+# yaw_rate_z + face_vel_angle_norm + the v4 route-conditioning goal triple
+# goal_heading_sincos[2] + goal_dist_norm), but a NEW per-tick `self_history` field carries
+# the FLAT [SELF_HISTORY * SELF_DIM] short history (the last SELF_HISTORY SELF ticks,
+# oldest->newest) the policy now consumes in place of the single-tick SELF (jump cadence is
+# a TEMPORAL pattern the single tick could not express). v5 unifies dev's #335
+# goal-conditioning (SELF_DIM 21) with the self-aim sequence/GRU line (the history). A
+# pre-v5 shard (no self_history field, a wrong flat-dim, or the 18-wide no-goal SELF) MUST
+# be rejected loudly — the registry-version equality guard + the explicit self-history
+# flat-dim guard + the obs_dim channel-count guard below do that. The v4 goal features are
+# sincos + /diagonal identity, so they add NO new required norm key.
+EXPECTS_REGISTRY_VERSION = 5          # must match feature_registry.yaml / dataset_spec.yaml
+# expected SELF (obs) channel count — agent_observation.SELF_DIM. 21-wide goal-conditioned
+# v4 layout (frozen-16 + turn-direction pair + route-conditioning goal triple); the per-tick
+# `obs` column carries it and each of the SELF_HISTORY history rows is one such 21-wide SELF
+# vector. Pinned HERE (deps-free) so the loader can reject a shard whose declared obs_dim
+# does not match the SELF layout even if its registry_version label was hand-edited to 5.
 EXPECTS_SELF_DIM = 21
+# the short-history length the v5 sequence-aware policy consumes (== agent_observation.
+# SELF_HISTORY). The model input replaces the single-tick SELF with the FLAT history of
+# these many ticks; the flattened width is EXPECTS_SELF_HISTORY * EXPECTS_SELF_DIM.
+EXPECTS_SELF_HISTORY = 16
+# expected FLAT self-history width PER ROW = EXPECTS_SELF_HISTORY * EXPECTS_SELF_DIM (336).
+# self_history is stored as ONE [HD] history per window (the last-real-tick history), so a
+# row's self_history length must be EXACTLY this HD. Pinned (deps-free) so the loader can
+# reject a shard whose `self_history` width does not match the v5 layout — both a too-narrow
+# (wrong history length, or a 16-wide-SELF history) AND a too-wide (the OLD per-tick [K*HD]
+# storage, or a hand-edited registry_version=5 on a single-tick shard) — even if its
+# registry_version label says 5.
+EXPECTS_SELF_HISTORY_DIM = EXPECTS_SELF_HISTORY * EXPECTS_SELF_DIM
 # normalization keys the SELF path REQUIRES under per_map[<map>]. yaw_rate_z (v3) z-scores
 # against `yaw_rate`; a stats artifact missing it would silently de-normalize the appended
 # turn-rate feature, so its absence is a hard reject (not a zero-fill). The v4 goal features
-# need NO fitted key (sincos + identity), so REQUIRED_NORM_KEYS is unchanged at v4.
+# need NO fitted key (sincos + identity), and v5 adds no channel, so REQUIRED_NORM_KEYS is
+# unchanged (each history row z-scores yaw_rate_z against the SAME `yaw_rate` key).
 REQUIRED_NORM_KEYS = ("yaw_rate",)
 
 # --- array keys (dataset_spec record_layout) --------------------------------
 KEY_OBS = "obs"
+# v5: the FLAT self-history field [SELF_HISTORY*SELF_DIM] = ONE history per window (the
+# last-real-tick history, oldest->newest). This is what the v5 policy consumes as its SELF
+# input (the single-tick `obs` stays per-tick for provenance / the reject guard;
+# self_history[-SELF_DIM:] == the last-real-tick obs).
+KEY_SELF_HISTORY = "self_history"
 KEY_ENTITIES = "entities"
 KEY_ENT_MASK = "ent_mask"
 KEY_AUDIO = "audio"
@@ -214,25 +254,39 @@ class ShardSchema:
 
 
 def check_shard_meta(meta: dict, *, where: str = "shard") -> None:
-    """Reject a stale / mislabelled FEAT shard BEFORE it binds to the v3 layout.
+    """Reject a stale / mislabelled FEAT shard BEFORE it binds to the v5 layout.
 
     Raises ValueError if, for the registry_version this contract EXPECTS:
-      * meta.registry_version is present and != EXPECTS_REGISTRY_VERSION (the stale guard
-        — a v2/v3 shard can no longer pass as the 21-channel v4 layout), OR
-      * meta.obs_dim is present and != EXPECTS_SELF_DIM (catches a hand-edited artifact
-        whose registry_version label matches but whose SELF width never grew to the v4
-        21-channel layout — e.g. a v3 18-channel shard relabelled v4).
+      * meta.registry_version is present and != EXPECTS_REGISTRY_VERSION (the stale-shard
+        guard — a pre-v5 shard, e.g. a v4 single-tick-SELF shard with no self_history
+        field, can no longer pass as the v5 sequence-aware layout), OR
+      * meta.obs_dim is present and != EXPECTS_SELF_DIM (catches an artifact whose SELF
+        channel count is not the 21-wide goal-conditioned layout — e.g. an 18-wide no-goal
+        SELF, or a 16-channel pre-turn-direction one), OR
+      * meta.self_history_dim is present and != EXPECTS_SELF_HISTORY_DIM (catches a
+        v5-LABELLED shard whose PER-ROW flat self-history width is not SELF_HISTORY*SELF_DIM
+        — a wrong history length, a hand-edited registry_version=5 on a single-tick shard,
+        OR the OLD per-tick [K*SELF_HISTORY*SELF_DIM] storage). This is the #313-style
+        explicit reject for the v5 sequence field, OR
+      * meta.registry_version >= EXPECTS_REGISTRY_VERSION (a v5+ shard) but self_history_dim
+        is OMITTED. For pre-v5 fields the "omit == match" leniency below holds, but a shard
+        LABELLED v5 MUST carry the self_history contract — without self_history_dim the loader
+        would silently fall back to the 21-wide single-tick `obs` (x_len=21) and a v5-labelled
+        shard would masquerade as the pre-v5 width. So v5 makes self_history_dim REQUIRED, not
+        optional. (The matching `self_history` ARRAY presence is enforced at row-build time by
+        require_self_history_present, which both the trainer and the deps-free loader call.)
 
-    A shard that OMITS a field is treated as matching (legacy / minimal smoke shards):
-    we only reject on a PRESENT, MISMATCHED value. Pure stdlib (no torch); the trainer
-    and any eval call the SAME function so the reject rule cannot drift. `where` is woven
-    into the message for provenance (the shard path / demo id)."""
+    A pre-v5 (registry_version < 5 or absent) shard that OMITS a field is treated as matching
+    (legacy / minimal smoke shards): there we only reject on a PRESENT, MISMATCHED value. Pure
+    stdlib (no torch); the trainer and any eval call the SAME function so the reject rule cannot
+    drift. `where` is woven into the message for provenance (the shard path / demo id)."""
     rv = meta.get("registry_version")
     if rv is not None and int(rv) != EXPECTS_REGISTRY_VERSION:
         raise ValueError(
             f"shard registry_version {rv} != expected {EXPECTS_REGISTRY_VERSION} "
             f"({where}); refusing to train on a mismatched FEAT shard "
-            f"(a stale v2/v3 SELF shard must not bind to the v4 21-channel layout)")
+            f"(a pre-v5 single-tick-SELF shard must not bind to the v5 sequence-aware "
+            f"self_history layout)")
     od = meta.get("obs_dim")
     if od is not None and int(od) != EXPECTS_SELF_DIM:
         raise ValueError(
@@ -241,6 +295,47 @@ def check_shard_meta(meta: dict, *, where: str = "shard") -> None:
             f"21-wide (v3 turn-direction yaw_rate_z + face_vel_angle_norm, then the v4 "
             f"route-conditioning goal_heading_sincos + goal_dist_norm) — refusing a "
             f"{od}-channel SELF artifact")
+    shd = meta.get("self_history_dim")
+    if shd is not None and int(shd) != EXPECTS_SELF_HISTORY_DIM:
+        raise ValueError(
+            f"shard self_history_dim {shd} != expected {EXPECTS_SELF_HISTORY_DIM} "
+            f"(= SELF_HISTORY {EXPECTS_SELF_HISTORY} * SELF_DIM {EXPECTS_SELF_DIM}) "
+            f"({where}); the registry_version {EXPECTS_REGISTRY_VERSION} policy consumes "
+            f"the FLAT last-{EXPECTS_SELF_HISTORY}-tick SELF history (ONE {EXPECTS_SELF_HISTORY_DIM}"
+            f"-wide vector per window) — refusing a {shd}-wide self_history artifact "
+            f"(a wrong history length, or the old per-tick K*HD storage)")
+    # v5 makes the self_history CONTRACT mandatory: a shard whose registry_version says v5+
+    # MUST declare self_history_dim (== HD), else the loader would silently degrade to the
+    # 21-wide single-tick obs. Pre-v5 shards keep the omit==match leniency above.
+    if rv is not None and int(rv) >= EXPECTS_REGISTRY_VERSION and shd is None:
+        raise ValueError(
+            f"shard registry_version {rv} (v{EXPECTS_REGISTRY_VERSION}+) is MISSING "
+            f"self_history_dim ({where}); a v{EXPECTS_REGISTRY_VERSION} shard MUST declare the "
+            f"FLAT self-history width {EXPECTS_SELF_HISTORY_DIM} (= SELF_HISTORY "
+            f"{EXPECTS_SELF_HISTORY} * SELF_DIM {EXPECTS_SELF_DIM}) — refusing to fall back to "
+            f"the {EXPECTS_SELF_DIM}-wide single-tick obs (a v{EXPECTS_REGISTRY_VERSION}-labelled "
+            f"shard must not masquerade as the pre-v{EXPECTS_REGISTRY_VERSION} width)")
+
+
+def require_self_history_present(meta: dict, has_self_history: bool, *,
+                                 where: str = "shard") -> None:
+    """Enforce, at ROW-BUILD time, that a v5+ shard actually carries the `self_history`
+    ARRAY (not just the meta width). For registry_version >= EXPECTS_REGISTRY_VERSION the
+    policy SELF input IS the flat self_history; if the array is absent the row builders would
+    silently fall back to the single-tick `obs` (x_len == EXPECTS_SELF_DIM == 21) instead of
+    the required EXPECTS_SELF_HISTORY_DIM (336). So a v5-labelled shard lacking the array is a
+    hard contract error, NOT a fallback. Pre-v5 (or unlabelled) shards keep the single-tick
+    fallback. Pure stdlib; BOTH the deps-free loader (core.shard_to_rows) and the torch trainer
+    (train_broad_bc.rows_to_tensors) call this so the rule cannot drift."""
+    rv = meta.get("registry_version")
+    if rv is not None and int(rv) >= EXPECTS_REGISTRY_VERSION and not has_self_history:
+        raise ValueError(
+            f"shard registry_version {rv} (v{EXPECTS_REGISTRY_VERSION}+) is MISSING the "
+            f"`{KEY_SELF_HISTORY}` array ({where}); the v{EXPECTS_REGISTRY_VERSION} policy "
+            f"SELF input is the FLAT last-{EXPECTS_SELF_HISTORY}-tick history "
+            f"({EXPECTS_SELF_HISTORY_DIM}-wide) — refusing to fall back to the "
+            f"{EXPECTS_SELF_DIM}-wide single-tick obs (a v{EXPECTS_REGISTRY_VERSION}-labelled "
+            f"shard must never train at x_len={EXPECTS_SELF_DIM})")
 
 
 def check_norm_artifact(stats: dict, map_name: str = "dm3", *, where: str = "norm") -> None:
@@ -322,9 +417,12 @@ def write_contract_doc(out_path: Path, schema: ShardSchema | None = None) -> Pat
         "authoritative_source": "data/catalog/dataset_spec.yaml + data/catalog/feature_registry.yaml",
         "expects_registry_version": EXPECTS_REGISTRY_VERSION,
         "expects_self_dim": EXPECTS_SELF_DIM,
+        "expects_self_history": EXPECTS_SELF_HISTORY,
+        "expects_self_history_dim": EXPECTS_SELF_HISTORY_DIM,
         "required_norm_keys": list(REQUIRED_NORM_KEYS),
         "array_keys": {
-            "obs": "[K, F_obs] float32 — normalized SELF features",
+            "obs": "[K, F_obs] float32 — normalized single-tick SELF features (provenance)",
+            "self_history": "[SELF_HISTORY*F_obs] float32 — v5 flat last-H-tick SELF history for the window's last real tick (one per window; the policy SELF input)",
             "entities": "[K, N_max, F_ent] float32 — per observed-other egocentric vector (enemy+teammate)",
             "ent_mask": "[K, N_max] float32 — 1=real other-actor, 0=pad",
             "audio": "[K, F_audio] float32 — optional decayed audio cues",
@@ -341,8 +439,9 @@ def write_contract_doc(out_path: Path, schema: ShardSchema | None = None) -> Pat
             {"name": n, "classes": k, "act_col": col, "kind": kind}
             for (n, k, col, kind) in ACTION_HEADS
         ],
-        "model_input": "[obs | pooled(entities, ent_mask) | audio | team] "
-                       "=> BROAD (self + enemy + teammate), NOT move-only",
+        "model_input": "[self_history | pooled(entities, ent_mask) | audio | team] "
+                       "=> SEQUENCE-AWARE BROAD (short self-history + enemy + teammate), "
+                       "NOT move-only and NOT single-tick",
         "schema": schema.to_dict(),
     }
     Path(out_path).write_text(json.dumps(doc, indent=2), encoding="utf-8")

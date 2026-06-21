@@ -436,5 +436,74 @@ class TestFeatureColumns(unittest.TestCase):
         self.assertIn("self.face_vel_angle_norm", cols["flat"])
 
 
+class TestSelfHistoryAssembly(unittest.TestCase):
+    """The v5 SHARED self-history assembly helper (assemble_self_history) — the
+    train/serve parity linchpin. Pure stdlib; tests the order (oldest->newest), the flat
+    width (SELF_HISTORY*SELF_DIM = 16*21 = 336), the left-pad-repeat-first rule, and the
+    invariant that history[-1] (the newest SELF_DIM block) is the current single-tick SELF."""
+
+    H = AO.SELF_HISTORY
+    S = AO.SELF_DIM
+
+    def _vec(self, t):
+        # a distinct, recognizable SELF vector per tick: value t*100 + channel index.
+        return [float(t * 100 + j) for j in range(self.S)]
+
+    def test_constants(self):
+        self.assertEqual(AO.SELF_HISTORY, 16)
+        self.assertEqual(AO.SELF_HISTORY_DIM, AO.SELF_HISTORY * AO.SELF_DIM)
+        # v5: the SELF is the 21-wide goal-conditioned vector, so the flat history is 336.
+        self.assertEqual(AO.SELF_HISTORY_DIM, 336)
+
+    def test_flat_width_and_newest_is_current(self):
+        seq = [self._vec(t) for t in range(self.H)]   # exactly H ticks
+        flat = AO.assemble_self_history(seq, self.H)
+        self.assertEqual(len(flat), self.H * self.S)
+        # newest SELF_DIM block (the tail) == the current (last) single-tick SELF.
+        self.assertEqual(flat[-self.S:], seq[-1])
+        # oldest block (the head) == the earliest tick.
+        self.assertEqual(flat[:self.S], seq[0])
+
+    def test_oldest_to_newest_order(self):
+        seq = [self._vec(t) for t in range(self.H)]
+        flat = AO.assemble_self_history(seq, self.H)
+        # reconstruct the per-tick blocks and confirm strict oldest->newest order.
+        blocks = [flat[i * self.S:(i + 1) * self.S] for i in range(self.H)]
+        self.assertEqual(blocks, seq)
+
+    def test_left_pad_repeats_first_when_fewer_than_h(self):
+        # THE padding test: a window with < H real ticks left-pads by REPEATING the
+        # earliest available tick (not zeros), so the newest block is still the current.
+        seq = [self._vec(0), self._vec(1), self._vec(2)]   # only 3 < H ticks
+        flat = AO.assemble_self_history(seq, self.H)
+        self.assertEqual(len(flat), self.H * self.S)
+        blocks = [flat[i * self.S:(i + 1) * self.S] for i in range(self.H)]
+        # first (H-3) blocks are the EARLIEST tick repeated; then the 3 real ticks.
+        expected = [seq[0]] * (self.H - 3) + seq
+        self.assertEqual(blocks, expected)
+        self.assertEqual(flat[-self.S:], seq[-1])          # newest == current
+
+    def test_single_tick_tiles_to_full_history(self):
+        # one tick -> the whole history is that tick repeated H times (newest==current).
+        v = self._vec(7)
+        flat = AO.assemble_self_history([v], self.H)
+        self.assertEqual(flat, v * self.H)
+
+    def test_more_than_h_keeps_last_h(self):
+        # > H ticks -> only the LAST H are kept (sliding window), oldest dropped.
+        seq = [self._vec(t) for t in range(self.H + 9)]
+        flat = AO.assemble_self_history(seq, self.H)
+        blocks = [flat[i * self.S:(i + 1) * self.S] for i in range(self.H)]
+        self.assertEqual(blocks, seq[-self.H:])
+        self.assertEqual(flat[:self.S], seq[-self.H])      # oldest kept == H-ago tick
+        self.assertEqual(flat[-self.S:], seq[-1])          # newest == current
+
+    def test_empty_is_zero_history(self):
+        # degenerate (no ticks) -> all-zero history of the right width (no real caller
+        # hits this; every rollout/window has at least the current tick).
+        flat = AO.assemble_self_history([], self.H)
+        self.assertEqual(flat, [0.0] * (self.H * self.S))
+
+
 if __name__ == "__main__":
     unittest.main()

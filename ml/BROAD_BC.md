@@ -37,8 +37,9 @@ so the deps-free smoke exercises the *real* contract.
 ## SHARD CONTRACT (what FEAT emits / what the loader consumes)
 
 Authoritative source: `data/catalog/dataset_spec.yaml` (`komodobots.dataset_spec.v1`,
-`registry_version: 3`) + `data/catalog/feature_registry.yaml`. One **sample = one window
-of K ticks**. FEAT's REAL build (`ml/pipeline/build_features.py shard`) emits **one
+`registry_version: 5`) + `data/catalog/feature_registry.yaml`. One **sample = one window
+of K ticks**. (v5 is **sequence-aware**: the policy SELF input is the FLAT last-`SELF_HISTORY=16`-tick
+goal-conditioned SELF history, the `self_history` field — see below.) FEAT's REAL build (`ml/pipeline/build_features.py shard`) emits **one
 Parquet file** holding MANY windows (and many demos) with the per-window arrays stored
 row-major-**flattened** as `list<float32>`; the loader (`core._read_parquet_shard`)
 reshapes them via the table-level shape metadata FEAT stamps. (`.npz` / `.json.gz` — one
@@ -48,7 +49,8 @@ is tolerant to FEAT's final widths.
 
 | key | shape | dtype | meaning |
 |---|---|---|---|
-| `obs` | `[K, F_obs]` | float32 | normalized **self** features (position+velocity+orientation+player_resource + the two appended turn-direction features `yaw_rate_z` + `face_vel_angle_norm`; `F_obs=18` at `registry_version 3` = `SELF_DIM` / `EXPECTS_SELF_DIM`) |
+| `obs` | `[K, F_obs]` | float32 | normalized single-tick **self** features (position+velocity+orientation+player_resource + the two appended turn-direction features `yaw_rate_z` + `face_vel_angle_norm` + the route-conditioning goal features `goal_heading_sincos` + `goal_dist_norm`; `F_obs=21` = `SELF_DIM` / `EXPECTS_SELF_DIM`). v5: carried for provenance / the reject guard; `self_history[...][-F_obs:]` equals this. |
+| `self_history` | `[SELF_HISTORY*F_obs]` | float32 | **v5 SEQUENCE input**: ONE FLAT last-`SELF_HISTORY=16`-tick goal-conditioned SELF history **per window** — for the window's **last real tick** (oldest→newest, EPISODE-continuous, left-pad-repeat-first only at the **episode** start). `SELF_HISTORY*F_obs = 336` = `EXPECTS_SELF_HISTORY_DIM`. Stored as **one** `[SELF_HISTORY*F_obs]` vector per window (NOT a per-tick `[K, SELF_HISTORY*F_obs]`) — the OOM fix: the trainer/loader only ever read the last-real-tick history, so the stored vector is byte-identical to the old `[K, HD][last_real_tick]`. **This** is the SELF input the v5 policy (a GRU over the 16-step sequence) consumes (jump cadence is a temporal pattern). |
 | `entities` | `[K, N_max, F_ent]` | float32 | per **observed-other** actor egocentric vector (enemies + teammates; `F_ent=13`). Team is **folded in** as the per-entity `is_teammate` flag. |
 | `ent_mask` | `[K, N_max]` | float32 | `1`=real other-actor slot, `0`=pad/absent |
 | `act` | `[K, F_act]` | float32 | **action targets** (human usercmd); `F_act=5` = fwd/side/up move + jump + attack (the cloned heads) |
@@ -100,13 +102,20 @@ metadata; `audio` and `team` are **absent** (`.qwd` has no audio; team is folded
 entity `is_teammate` flag) and the loader zero-fills them, so `F_aux = 0`.
 
 `shard_contract.SHARD_CONTRACT_VERSION = "broad_bc.shard_contract.v1"` and
-`EXPECTS_REGISTRY_VERSION = 3` (`EXPECTS_SELF_DIM = 18`, `REQUIRED_NORM_KEYS = ("yaw_rate",)`).
-The loader REJECTS a stale/mislabelled shard before training via `SC.check_shard_meta`:
-if `meta.registry_version` differs from 3 (a stale v2 16-channel SELF shard) **or**
-`meta.obs_dim` differs from 18 (a hand-edited v3-labelled-but-16-channel artifact), it
-raises. The normalization artifact is likewise checked (`SC.check_norm_artifact`): a v2
-stats artifact missing the `per_map.<map>.yaw_rate` key is rejected (not zero-filled),
-since `yaw_rate_z` z-scores against it. (Should FEAT ever reorder `act`, pass a
+`EXPECTS_REGISTRY_VERSION = 5` (`EXPECTS_SELF_DIM = 21`, `EXPECTS_SELF_HISTORY = 16`,
+`EXPECTS_SELF_HISTORY_DIM = 336`, `REQUIRED_NORM_KEYS = ("yaw_rate",)`). The loader REJECTS
+a stale/mislabelled shard before training via `SC.check_shard_meta`: if
+`meta.registry_version` differs from 5 (a pre-v5 single-tick-SELF shard) **or** `meta.obs_dim`
+differs from 21 **or** `meta.self_history_dim` differs from 336 (a v5-labelled shard whose
+flat history width is wrong — e.g. a wrong history length, or the old per-tick K×HD storage)
+**or** a v5+ shard **omits** `self_history_dim` entirely (the v5 self_history contract is
+mandatory — without it the loader would silently degrade to the 21-wide single-tick `obs`),
+it raises. At row-build time `SC.require_self_history_present` (called by BOTH the deps-free
+loader and the torch trainer) additionally rejects a v5+ shard that lacks the actual
+`self_history` **array** — a v5-labelled shard must never train at `x_len = 21`. The normalization artifact is likewise checked (`SC.check_norm_artifact`): a pre-v5
+stats artifact missing the `per_map.<map>.yaw_rate` key (or stamped at a pre-v5
+`registry_version`) is rejected (not zero-filled), since `yaw_rate_z` z-scores against it.
+(Should FEAT ever reorder `act`, pass a
 `ShardSchema(act_cols=...)` — a one-object change; see
 `test_rebind_schema_with_reordered_act_cols`.)
 

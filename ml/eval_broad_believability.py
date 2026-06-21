@@ -8,7 +8,9 @@ This harness scores whether the trained BROAD behavioral-cloning policy
 HELD-OUT human demos. It is an **open-loop** eval:
 
   * we feed the policy the REAL held-out human `agent_observation` per tick (the
-    SAME shared encoder training used — `scripts/features/agent_observation.py`),
+    SAME shared encoder training used — `scripts/features/agent_observation.py`;
+    v5: the SELF input is the FLAT last-SELF_HISTORY-tick history assembled by the
+    shared AO.assemble_self_history, identical to the build + closed-loop paths),
   * read its predicted usercmd (argmax per head -> fwd/side/up/jump/attack),
   * and compare the PREDICTED action stream against the HUMAN's own action stream
     on those same demos.
@@ -483,17 +485,31 @@ def build_caveats(strafe_anchor: dict) -> dict:
 def _build_policy_from_checkpoint(ckpt, device):
     """Rebuild BroadBCPolicy from the checkpoint's STORED dims/head_dims (never
     hard-coded). Mirrors how train_broad_bc.py saved it (state_dict + dims +
-    head_dims + hidden + ent_out). torch is imported by the caller."""
+    head_dims + hidden + ent_out + the SELF GRU config). torch is imported by the
+    caller.
+
+    The SELF input fed at inference is UNCHANGED — still the flat F_obs (=dims["f_obs"])
+    last-SELF_HISTORY-tick history the rollouts/open-loop build via
+    AO.assemble_self_history; the GRU reshapes it internally. We reconstruct the GRU's
+    per-tick input width (self_dim) and hidden width (gru_hidden) from the checkpoint so
+    the rebuilt module matches the saved state_dict exactly (defaults cover a checkpoint
+    saved before the config was stamped: self_dim = the 21-wide SELF, hidden = GRU_HIDDEN).
+    """
     import torch  # noqa: F401  (ensure torch present; tensors built by caller)
-    from train_broad_bc import BroadBCPolicy
+    from train_broad_bc import BroadBCPolicy, GRU_HIDDEN
 
     dims = ckpt["dims"]
     head_dims = ckpt["head_dims"]
     hidden = int(ckpt.get("hidden", 256))
     ent_out = int(ckpt.get("ent_out", 64))
+    # SELF GRU encoder config — the model INPUT contract (f_obs) is unchanged; these only
+    # describe the internal temporal encoder so the reconstructed GRU matches the weights.
+    self_dim = int(ckpt.get("self_dim", SC.EXPECTS_SELF_DIM))
+    gru_hidden = int(ckpt.get("gru_hidden", GRU_HIDDEN))
     model = BroadBCPolicy(
         dims["f_obs"], dims["f_ent"], dims["f_aux"], dims["n_max"],
         ent_out=ent_out, hidden=hidden, head_dims=tuple(head_dims),
+        self_dim=self_dim, gru_hidden=gru_hidden,
     ).to(device)
     model.load_state_dict(ckpt["state_dict"])
     model.eval()
@@ -573,12 +589,20 @@ def run_eval(checkpoint: Path, db: Path, norm_artifact: Path, *,
             # build_features.py. Lets the metrics drop fabricated 'idle' human rows.
             "human_weight": [],
         })
-        # batch the whole episode through the model in one forward (open-loop: each
-        # tick is independent — no recurrence — so a single batched forward is exact).
+        # batch the whole episode through the model in one forward. The v5 policy SELF
+        # input is the FLAT last-SELF_HISTORY-tick history (not the single-tick SELF); each
+        # tick's history is assembled by the SHARED AO.assemble_self_history over the SELF
+        # vectors UP TO that tick in this episode (left-pad-repeat-first at the episode
+        # start) — byte-identical to the offline build (the SAME window-tick assembly) and
+        # the closed-loop / dry-route rollouts (the SAME shared helper). Open-loop is still
+        # exact: each tick's history is a function only of state at/<= that tick (no future
+        # leak), so a single batched forward over the precomputed per-tick histories holds.
         OBS, ENT, EM = [], [], []
+        window_selves: list = []
         for t in ticks:
             enc = AO.encode_observation(t["self"], t["others"], norm, map_name, n_max)
-            OBS.append(enc["self"])
+            window_selves.append(enc["self"])
+            OBS.append(AO.assemble_self_history(window_selves, AO.SELF_HISTORY))
             ENT.append(enc["ents"])
             EM.append(enc["mask"])
         obs_t = torch.tensor(OBS, dtype=torch.float32, device=device)

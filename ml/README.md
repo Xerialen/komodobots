@@ -58,8 +58,13 @@ pip install -r requirements.txt
 (`player_ticks` self + `actor_ticks` self+observed-others) and emits a **windowed
 `agent_observation` Parquet shard** via the SHARED
 `scripts/features.agent_observation` transform (train/serve parity). This is the
-contract the **TRAINER** consumes — frozen per `registry_version=3` (the turn-direction
-SELF features `yaw_rate_z` + `face_vel_angle_norm` are appended, so `SELF_DIM=18`).
+contract the **TRAINER** consumes — frozen per `registry_version=5`. The SELF channels
+are the v4 goal-conditioned layout (the turn-direction features `yaw_rate_z` +
+`face_vel_angle_norm` then the route-conditioning goal features `goal_heading_sincos` +
+`goal_dist_norm` appended, so `SELF_DIM=21`), and v5 adds the **sequence-aware**
+`self_history` field: the FLAT last-`SELF_HISTORY=16`-tick SELF history
+(`SELF_HISTORY*SELF_DIM = 336`) the policy now consumes (via a GRU) in place of the single
+tick — jump cadence is a TEMPORAL pattern the single tick could not express.
 
 **Build:**
 ```bash
@@ -74,7 +79,8 @@ python ml/pipeline/build_features.py shard --db data/catalog/dm3_4on4.sqlite \
 **One Parquet row = one window** (`dataset_spec.yaml`: `lookback_K=64`, `stride=16`,
 `N_max=7`; windows never cross an episode; trailing window padded + attention-masked).
 Array columns are stored **flattened row-major** as `list<float32>` and the trainer
-reshapes by the shapes below (constants: `S = SELF_DIM = 18`, `ENT = ENTITY_DIM = 13`,
+reshapes by the shapes below (constants: `S = SELF_DIM = 21`, `HD = SELF_HISTORY*SELF_DIM
+= 336` (the v5 flat `self_history` width per window), `ENT = ENTITY_DIM = 13`,
 `A = ACT_DIM = 5`, `K = lookback_k`, `Nm = n_max`). The per-window shape constants are
 also stamped in the Parquet **table-level metadata** (`komodobots.shard.*`) so the
 trainer's `_read_parquet_shard` reshape is unambiguous and width-agnostic:
@@ -122,8 +128,10 @@ never an absolute team id; 0 when team unknown) · `entity_is_visible` (0/1 obse
   (equal-tick, never tick+1); windows never span episodes. Padded steps zero `obs` AND
   `entities`; pad entity slots (`ent_mask==0`) are all-zero.
 - **Train-only normalization:** the stats artifact is fit on `episodes.split='train'`
-  rows only (`computed_from="train"`, `registry_version=3`); identical refit hashes
-  byte-for-byte; the shard rebuild is byte-identical (deterministic). The `act` labels are
+  rows only (`computed_from="train"`, `registry_version=5`); the SELF channels (and so the
+  per-channel stats) are unchanged from v4, so the SAME stats apply to each of the
+  `SELF_HISTORY` history rows — v5 adds no new norm key. Identical refit hashes byte-for-byte;
+  the shard rebuild is byte-identical (deterministic). The `act` labels are
   raw usercmd (`forwardmove/sidemove/upmove ÷ 400`, `jump=buttons&2`, `attack=buttons&1`)
   — NOT fitted, so they do not enter the norm artifact.
 

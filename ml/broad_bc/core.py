@@ -51,8 +51,8 @@ def read_shard(path) -> dict:
         z = np.load(path, allow_pickle=False)
         meta = json.loads(str(z["meta"])) if "meta" in z.files else {}
         out = {SC.KEY_META: meta}
-        for k in (SC.KEY_OBS, SC.KEY_ENTITIES, SC.KEY_ENT_MASK, SC.KEY_AUDIO,
-                  SC.KEY_TEAM, SC.KEY_ACT, SC.KEY_MASK, SC.KEY_WEIGHT):
+        for k in (SC.KEY_OBS, SC.KEY_SELF_HISTORY, SC.KEY_ENTITIES, SC.KEY_ENT_MASK,
+                  SC.KEY_AUDIO, SC.KEY_TEAM, SC.KEY_ACT, SC.KEY_MASK, SC.KEY_WEIGHT):
             if k in z.files:
                 out[k] = z[k].tolist()
         return out
@@ -87,6 +87,9 @@ def _read_parquet_shard(path) -> dict:
     K = int(_m("K", 1))
     n_max = int(_m("n_max", SC.DEFAULT_N_MAX))
     obs_dim = int(_m("obs_dim", 0))
+    # v5 flat self-history width (= SELF_HISTORY*SELF_DIM); 0 on a pre-v5 shard that has
+    # no self_history field (the loader then carries no history column).
+    self_history_dim = int(_m("self_history_dim", 0))
     ent_dim = int(_m("ent_dim", 0))
     act_dim = int(_m("act_dim", 0))
     n_rows = t.num_rows
@@ -117,6 +120,12 @@ def _read_parquet_shard(path) -> dict:
     out: dict = {}
     if SC.KEY_OBS in names and obs_dim:
         out[SC.KEY_OBS] = _reshape(SC.KEY_OBS, K, obs_dim)               # [n][K][S]
+    if SC.KEY_SELF_HISTORY in names and self_history_dim:
+        # v5: self_history is ONE [HD] flat history PER WINDOW (the last-real-tick history),
+        # NOT a per-tick [K, HD] — the trainer/loader only ever consumed that one tick, so
+        # the build stores just it (64x less memory, byte-identical training data). Reshape
+        # the flat column to [n_windows, HD]; shard_to_rows reads self_in[wi] directly.
+        out[SC.KEY_SELF_HISTORY] = _reshape(SC.KEY_SELF_HISTORY, self_history_dim)  # [n][HD]
     if SC.KEY_ENTITIES in names and ent_dim:
         out[SC.KEY_ENTITIES] = _reshape(SC.KEY_ENTITIES, K, n_max, ent_dim)
         out[SC.KEY_ENT_MASK] = _reshape(SC.KEY_ENT_MASK, K, n_max)       # [n][K][Nm]
@@ -137,7 +146,8 @@ def _read_parquet_shard(path) -> dict:
         "demo_id": (out.get(SC.KEY_DEMO_IDS, ["?"])[0] if n_rows else "?"),
         "n_windows": n_rows,
         "K": K, "n_max": n_max,
-        "obs_dim": obs_dim, "ent_dim": ent_dim, "act_dim": act_dim,
+        "obs_dim": obs_dim, "self_history_dim": self_history_dim,
+        "ent_dim": ent_dim, "act_dim": act_dim,
         "registry_version": int(_m("registry_version", SC.EXPECTS_REGISTRY_VERSION)),
         "norm_artifact_version": _m("norm_artifact_version", "UNSET"),
         "map_id": _m("map", "UNSET"),
@@ -194,6 +204,20 @@ def shard_to_rows(shard: dict, schema: SC.ShardSchema):
     n_max = meta.get("n_max", schema.n_max)
 
     obs = shard[SC.KEY_OBS]
+    # v5 SELF input: the FLAT self_history when present (the policy SELF input — width
+    # SELF_HISTORY*SELF_DIM). The window count + the last-real-tick logic key off `obs`
+    # (always present, per-tick [K][S]). self_history is now ONE [HD] history PER WINDOW
+    # (the build stores only the last-real-tick history — the only tick we read), so it is
+    # indexed [wi] (NOT [wi][ti]). Legacy/pre-v5 shards omit it -> fall back to the single-
+    # tick obs[wi][ti] (then x is the SELF_DIM single tick). self_history[-SELF_DIM:] is
+    # still that last tick's obs.
+    self_history = shard.get(SC.KEY_SELF_HISTORY)
+    # v5 contract: a shard LABELLED registry_version>=5 MUST carry the self_history array — if
+    # it doesn't, the single-tick fallback below would silently train at x_len=SELF_DIM (21)
+    # instead of the required HD (336). require_self_history_present raises for that case;
+    # genuinely pre-v5 shards (rv<5 or absent) keep the fallback. SAME guard the trainer calls.
+    SC.require_self_history_present(
+        meta, self_history is not None, where=f"demo_id={default_demo}")
     ents = shard.get(SC.KEY_ENTITIES)
     ems = shard.get(SC.KEY_ENT_MASK)
     audio = shard.get(SC.KEY_AUDIO)
@@ -212,7 +236,10 @@ def shard_to_rows(shard: dict, schema: SC.ShardSchema):
         if float(wmask[ti]) < 0.5:
             continue  # all-pad window
         demo_id = demo_ids[wi] if demo_ids is not None else default_demo
-        x = list(map(float, obs[wi][ti]))             # self obs
+        # SELF input: v5 flat last-real-tick history self_history[wi] ([HD], one per window),
+        # else the legacy single-tick obs[wi][ti] ([S]). OBS/ents/act stay indexed by `ti`.
+        self_vec = self_history[wi] if self_history is not None else obs[wi][ti]
+        x = list(map(float, self_vec))
         if ents is not None and ems is not None:
             pooled, n_vis = _pool_entities(ents[wi][ti], ems[wi][ti])
             x += pooled                                # observed-other channel
