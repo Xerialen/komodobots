@@ -183,6 +183,12 @@ def rows_to_tensors(shard_paths, schema, device):
         # the v4 behavior). The single-tick `obs` is still read for the reject guard.
         obs = shard[SC.KEY_OBS]
         self_history = shard.get(SC.KEY_SELF_HISTORY)
+        # v5 contract: a registry_version>=5 shard MUST carry the self_history array, else the
+        # single-tick fallback below would silently train the GRU at x_len=SELF_DIM (21) instead
+        # of the required HD (336). The SAME shared guard the deps-free loader calls — raises for
+        # a v5-labelled shard that omits the array; pre-v5 shards keep the fallback.
+        SC.require_self_history_present(
+            meta, self_history is not None, where=f"shard={p}, demo_id={default_demo}")
         ent = shard.get(SC.KEY_ENTITIES)
         em = shard.get(SC.KEY_ENT_MASK)
         audio = shard.get(SC.KEY_AUDIO)

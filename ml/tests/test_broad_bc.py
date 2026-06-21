@@ -416,11 +416,24 @@ class TestShardMetaCheckDepsFree(unittest.TestCase):
             "obs_dim": SC.EXPECTS_SELF_DIM,
             "self_history_dim": SC.EXPECTS_SELF_HISTORY_DIM})
 
-    def test_meta_omitting_self_history_dim_is_treated_as_matching(self):
-        # a minimal shard that omits self_history_dim is not rejected on it (we only
-        # reject on a PRESENT, mismatched value — same omit-is-matching rule as obs_dim).
-        SC.check_shard_meta({"registry_version": SC.EXPECTS_REGISTRY_VERSION,
-                             "obs_dim": SC.EXPECTS_SELF_DIM})
+    def test_v5_meta_omitting_self_history_dim_is_REJECTED(self):
+        # Blocker-2: a shard LABELLED registry_version==5 (EXPECTS) but OMITTING
+        # self_history_dim must now be REJECTED — without it the loader would silently fall
+        # back to the 21-wide single-tick obs (x_len=21) instead of the required 336. The
+        # omit==match leniency is ONLY for pre-v5 fields; v5 makes the self_history contract
+        # mandatory (see test_pre_v5_meta_omitting_self_history_dim_is_allowed below for the
+        # rv<5 path that still passes).
+        with self.assertRaises(ValueError) as ctx:
+            SC.check_shard_meta({"registry_version": SC.EXPECTS_REGISTRY_VERSION,
+                                 "obs_dim": SC.EXPECTS_SELF_DIM})
+        self.assertIn("self_history_dim", str(ctx.exception))
+
+    def test_pre_v5_meta_omitting_self_history_dim_is_allowed(self):
+        # a shard with NO registry_version (or rv<5) that omits self_history_dim is NOT
+        # rejected on it — the v5 self_history requirement only applies to v5+ labels, and
+        # a registry_version mismatch (e.g. 4) is caught by the registry-version guard first,
+        # never reaching the self_history requirement.
+        SC.check_shard_meta({"obs_dim": SC.EXPECTS_SELF_DIM})   # no registry_version -> ok
 
     def test_v3_labelled_16_channel_meta_rejected_on_obs_dim(self):
         with self.assertRaises(ValueError) as ctx:
@@ -428,11 +441,14 @@ class TestShardMetaCheckDepsFree(unittest.TestCase):
                 {"registry_version": SC.EXPECTS_REGISTRY_VERSION, "obs_dim": 16})
         self.assertIn("obs_dim", str(ctx.exception))
 
-    def test_correct_v3_18_channel_meta_accepted(self):
-        # correct meta: registry_version + obs_dim both == EXPECTS (v5: 5 + 21) -> no raise.
+    def test_correct_v5_full_meta_accepted(self):
+        # correct v5 meta: registry_version 5 + obs_dim 21 + self_history_dim 336 -> no raise.
+        # (v5 requires self_history_dim be PRESENT — a v5 label with obs_dim but no
+        # self_history_dim is rejected; see test_v5_meta_omitting_self_history_dim_is_REJECTED.)
         SC.check_shard_meta(
             {"registry_version": SC.EXPECTS_REGISTRY_VERSION,
-             "obs_dim": SC.EXPECTS_SELF_DIM})
+             "obs_dim": SC.EXPECTS_SELF_DIM,
+             "self_history_dim": SC.EXPECTS_SELF_HISTORY_DIM})
 
     def test_meta_omitting_fields_is_treated_as_matching(self):
         # a minimal/legacy shard that omits registry_version/obs_dim is not rejected
@@ -468,6 +484,55 @@ class TestShardMetaCheckDepsFree(unittest.TestCase):
             .read_text(encoding="utf-8"))
         self.assertEqual(tmpl["registry_version"], SC.EXPECTS_REGISTRY_VERSION)
         SC.check_norm_artifact(tmpl, "dm3")              # no raise
+
+
+class TestSelfHistoryArrayRequiredV5(unittest.TestCase):
+    """Blocker-2: a v5-LABELLED shard that LACKS the actual `self_history` ARRAY must raise at
+    row-build time (the loader must NOT silently fall back to the 21-wide single-tick obs).
+    DEPS-FREE — drives the deps-free loader core.shard_to_rows directly (no torch). The SAME
+    SC.require_self_history_present guard runs in train_broad_bc.rows_to_tensors (torch path)."""
+
+    def _v5_shard_without_self_history(self):
+        # a real v5 synth shard, then DROP the self_history array (keep registry_version==5).
+        sh = synth_shard.make_synthetic_shard(
+            n_windows=3, obs_dim=SC.EXPECTS_SELF_DIM, ent_dim=8, audio_dim=0, team_dim=0,
+            seed=7)
+        self.assertEqual(sh[SC.KEY_META]["registry_version"], SC.EXPECTS_REGISTRY_VERSION)
+        del sh[SC.KEY_SELF_HISTORY]                       # the contract violation
+        sh[SC.KEY_META].pop("self_history_dim", None)     # and its meta width
+        return sh
+
+    def test_shard_to_rows_v5_without_self_history_raises_not_xlen21(self):
+        schema = SC.ShardSchema()
+        sh = self._v5_shard_without_self_history()
+        with self.assertRaises(ValueError) as ctx:
+            list(core.shard_to_rows(sh, schema))          # must NOT yield x_len=21 rows
+        msg = str(ctx.exception)
+        self.assertIn("self_history", msg)
+        self.assertIn(str(SC.EXPECTS_REGISTRY_VERSION), msg)
+
+    def test_require_self_history_present_direct(self):
+        # the shared guard in isolation: v5 + no array -> raise; v5 + array -> ok.
+        with self.assertRaises(ValueError):
+            SC.require_self_history_present(
+                {"registry_version": SC.EXPECTS_REGISTRY_VERSION}, False)
+        SC.require_self_history_present(
+            {"registry_version": SC.EXPECTS_REGISTRY_VERSION}, True)   # array present -> ok
+
+    def test_pre_v5_shard_without_self_history_falls_back(self):
+        # a genuinely pre-v5 shard (registry_version 4) with no self_history array is NOT
+        # rejected by the array guard (the single-tick fallback is correct for legacy) — only
+        # v5+ labels require the array. shard_to_rows then yields the single-tick obs width.
+        schema = SC.ShardSchema()
+        sh = synth_shard.make_synthetic_shard(
+            n_windows=2, obs_dim=SC.EXPECTS_SELF_DIM, ent_dim=8, audio_dim=0, team_dim=0,
+            seed=8)
+        del sh[SC.KEY_SELF_HISTORY]
+        sh[SC.KEY_META]["registry_version"] = SC.EXPECTS_REGISTRY_VERSION - 1   # pre-v5
+        sh[SC.KEY_META].pop("self_history_dim", None)
+        rows = list(core.shard_to_rows(sh, schema))        # no raise -> legacy fallback
+        # fallback SELF input is the single-tick obs (SELF_DIM), not the 336-wide history.
+        self.assertEqual(len(rows[0]["x"]), SC.EXPECTS_SELF_DIM + 8 + 1)
 
 
 @unittest.skipUnless(_HAVE_TORCH and _HAVE_NUMPY, "torch/numpy not installed")

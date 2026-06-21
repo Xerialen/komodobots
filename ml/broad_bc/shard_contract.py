@@ -267,12 +267,19 @@ def check_shard_meta(meta: dict, *, where: str = "shard") -> None:
         v5-LABELLED shard whose PER-ROW flat self-history width is not SELF_HISTORY*SELF_DIM
         — a wrong history length, a hand-edited registry_version=5 on a single-tick shard,
         OR the OLD per-tick [K*SELF_HISTORY*SELF_DIM] storage). This is the #313-style
-        explicit reject for the v5 sequence field.
+        explicit reject for the v5 sequence field, OR
+      * meta.registry_version >= EXPECTS_REGISTRY_VERSION (a v5+ shard) but self_history_dim
+        is OMITTED. For pre-v5 fields the "omit == match" leniency below holds, but a shard
+        LABELLED v5 MUST carry the self_history contract — without self_history_dim the loader
+        would silently fall back to the 21-wide single-tick `obs` (x_len=21) and a v5-labelled
+        shard would masquerade as the pre-v5 width. So v5 makes self_history_dim REQUIRED, not
+        optional. (The matching `self_history` ARRAY presence is enforced at row-build time by
+        require_self_history_present, which both the trainer and the deps-free loader call.)
 
-    A shard that OMITS a field is treated as matching (legacy / minimal smoke shards):
-    we only reject on a PRESENT, MISMATCHED value. Pure stdlib (no torch); the trainer
-    and any eval call the SAME function so the reject rule cannot drift. `where` is woven
-    into the message for provenance (the shard path / demo id)."""
+    A pre-v5 (registry_version < 5 or absent) shard that OMITS a field is treated as matching
+    (legacy / minimal smoke shards): there we only reject on a PRESENT, MISMATCHED value. Pure
+    stdlib (no torch); the trainer and any eval call the SAME function so the reject rule cannot
+    drift. `where` is woven into the message for provenance (the shard path / demo id)."""
     rv = meta.get("registry_version")
     if rv is not None and int(rv) != EXPECTS_REGISTRY_VERSION:
         raise ValueError(
@@ -297,6 +304,38 @@ def check_shard_meta(meta: dict, *, where: str = "shard") -> None:
             f"the FLAT last-{EXPECTS_SELF_HISTORY}-tick SELF history (ONE {EXPECTS_SELF_HISTORY_DIM}"
             f"-wide vector per window) — refusing a {shd}-wide self_history artifact "
             f"(a wrong history length, or the old per-tick K*HD storage)")
+    # v5 makes the self_history CONTRACT mandatory: a shard whose registry_version says v5+
+    # MUST declare self_history_dim (== HD), else the loader would silently degrade to the
+    # 21-wide single-tick obs. Pre-v5 shards keep the omit==match leniency above.
+    if rv is not None and int(rv) >= EXPECTS_REGISTRY_VERSION and shd is None:
+        raise ValueError(
+            f"shard registry_version {rv} (v{EXPECTS_REGISTRY_VERSION}+) is MISSING "
+            f"self_history_dim ({where}); a v{EXPECTS_REGISTRY_VERSION} shard MUST declare the "
+            f"FLAT self-history width {EXPECTS_SELF_HISTORY_DIM} (= SELF_HISTORY "
+            f"{EXPECTS_SELF_HISTORY} * SELF_DIM {EXPECTS_SELF_DIM}) — refusing to fall back to "
+            f"the {EXPECTS_SELF_DIM}-wide single-tick obs (a v{EXPECTS_REGISTRY_VERSION}-labelled "
+            f"shard must not masquerade as the pre-v{EXPECTS_REGISTRY_VERSION} width)")
+
+
+def require_self_history_present(meta: dict, has_self_history: bool, *,
+                                 where: str = "shard") -> None:
+    """Enforce, at ROW-BUILD time, that a v5+ shard actually carries the `self_history`
+    ARRAY (not just the meta width). For registry_version >= EXPECTS_REGISTRY_VERSION the
+    policy SELF input IS the flat self_history; if the array is absent the row builders would
+    silently fall back to the single-tick `obs` (x_len == EXPECTS_SELF_DIM == 21) instead of
+    the required EXPECTS_SELF_HISTORY_DIM (336). So a v5-labelled shard lacking the array is a
+    hard contract error, NOT a fallback. Pre-v5 (or unlabelled) shards keep the single-tick
+    fallback. Pure stdlib; BOTH the deps-free loader (core.shard_to_rows) and the torch trainer
+    (train_broad_bc.rows_to_tensors) call this so the rule cannot drift."""
+    rv = meta.get("registry_version")
+    if rv is not None and int(rv) >= EXPECTS_REGISTRY_VERSION and not has_self_history:
+        raise ValueError(
+            f"shard registry_version {rv} (v{EXPECTS_REGISTRY_VERSION}+) is MISSING the "
+            f"`{KEY_SELF_HISTORY}` array ({where}); the v{EXPECTS_REGISTRY_VERSION} policy "
+            f"SELF input is the FLAT last-{EXPECTS_SELF_HISTORY}-tick history "
+            f"({EXPECTS_SELF_HISTORY_DIM}-wide) — refusing to fall back to the "
+            f"{EXPECTS_SELF_DIM}-wide single-tick obs (a v{EXPECTS_REGISTRY_VERSION}-labelled "
+            f"shard must never train at x_len={EXPECTS_SELF_DIM})")
 
 
 def check_norm_artifact(stats: dict, map_name: str = "dm3", *, where: str = "norm") -> None:

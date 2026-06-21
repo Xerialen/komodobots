@@ -212,6 +212,12 @@ def shard_to_rows(shard: dict, schema: SC.ShardSchema):
     # tick obs[wi][ti] (then x is the SELF_DIM single tick). self_history[-SELF_DIM:] is
     # still that last tick's obs.
     self_history = shard.get(SC.KEY_SELF_HISTORY)
+    # v5 contract: a shard LABELLED registry_version>=5 MUST carry the self_history array — if
+    # it doesn't, the single-tick fallback below would silently train at x_len=SELF_DIM (21)
+    # instead of the required HD (336). require_self_history_present raises for that case;
+    # genuinely pre-v5 shards (rv<5 or absent) keep the fallback. SAME guard the trainer calls.
+    SC.require_self_history_present(
+        meta, self_history is not None, where=f"demo_id={default_demo}")
     ents = shard.get(SC.KEY_ENTITIES)
     ems = shard.get(SC.KEY_ENT_MASK)
     audio = shard.get(SC.KEY_AUDIO)
