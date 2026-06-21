@@ -27,6 +27,7 @@ from broad_bc import core                   # noqa: E402
 from features import agent_observation as AO  # noqa: E402  (shared obs+action encoder)
 sys.path.insert(0, str(ML / "pipeline"))
 import coldstart_reweight as CSR            # noqa: E402  (the cold-start reweight DATA op)
+import coldstart_inspect as CSI             # noqa: E402  (the cold-start coverage DIAGNOSTIC)
 
 _HAVE_TORCH = importlib.util.find_spec("torch") is not None
 _HAVE_NUMPY = importlib.util.find_spec("numpy") is not None
@@ -1093,4 +1094,245 @@ class TestColdStartReweight(unittest.TestCase):
         self.assertFalse(CSR.is_launch([-1.0, 0.0, 0.0, 0.0, 0.0]))
         # attack alone is not movement thrust.
         self.assertFalse(CSR.is_launch([0.0, 0.0, 0.0, 0.0, 1.0]))
+
+
+@unittest.skipUnless(_HAVE_PYARROW and _HAVE_NUMPY and _HAVE_DUCKDB,
+                     "pyarrow/numpy/duckdb not installed")
+class TestColdStartReweightIntegration(unittest.TestCase):
+    """INTEGRATION regression for the cold-start reweight DATA op's core Parquet-rewrite
+    path (coldstart_reweight.main) — the part the helper-only tests (invert_robust /
+    is_launch) do NOT cover. A bug in the rewrite could silently corrupt the training
+    artifact while CI stays green, so this builds a TINY REAL v5 Parquet shard (via the
+    same FEAT builder TestParquetShardBridge uses), runs main() on it with the committed
+    norm artifact, reads the OUTPUT back through core.read_shard, and asserts:
+      * ONLY eligible last-real-tick weight cells (low-speed AND launch AND nonzero-weight)
+        are multiplied by the right factor — zero-weight / unmatched (high-speed or non-
+        launch) cells are byte-identical;
+      * every NON-weight array (obs, self_history, entities, ent_mask, act, mask) and the
+        table-level schema metadata survive unchanged (the op copies them verbatim);
+      * coldstart_inspect.main() then reads the OUTPUT shard without error.
+
+    The shard is purpose-built so the read-back provably contains every category (boosted
+    launch, boosted episode-start, low-speed-NOT-launch unchanged, high-speed unchanged,
+    zero-weight low-launch skipped). The expected boost factor is RE-DERIVED from the
+    loaded arrays with the op's own decision rule and compared cell-by-cell to what main()
+    actually wrote — so the test exercises the real rewrite, not a tautology against it."""
+
+    HSPEED_MAX = 80.0      # boost band ceiling (qu/s)
+    BOOST = 7.0            # non-epstart factor
+    EPSTART_BOOST = 13.0   # episode-start factor (distinct so we can tell them apart)
+    LOOKBACK_K = 4
+    STRIDE = 2
+    N_TICKS = 8            # ticks 0..7 per episode
+
+    def _norm(self):
+        # the committed template carries per_map.dm3.hspeed as a `robust` spec
+        # (median 320 / iqr 210 / clip [0,2500]) — exactly what main()/inspect require,
+        # and the forward hspeed_norm transform is its exact inverse inside the clip range,
+        # so a catalog hspeed inside [0,2500] round-trips through invert_robust.
+        norm = json.loads(
+            (REPO_ROOT / "data" / "catalog" / "normalization_stats.template.json")
+            .read_text())
+        self.assertEqual(norm["per_map"]["dm3"]["hspeed"]["method"], "robust")
+        return norm
+
+    def _make_catalog(self, db_path):
+        """2 demos / 2 episodes, 8 ticks each, with per-tick (hspeed, buttons, confidence,
+        is_interp) chosen so the windows' GOVERNING last-real ticks span every branch.
+
+        For lookback_k=4 / stride=2 over ticks 0..7 the governing catalog tick per window is
+        W0->t3, W1->t5, W2->t7, W3->t7 (W3 is the trailing K=4-padded short window). The
+        episode-start window (min start_tick) is W0 (start_tick==0). We therefore drive:
+          ep1: t0 LOW + jump (episode-start window W0 -> EPSTART boost via its gov tick t3 we
+               also set LOW+jump so W0 boosts; t5 LOW+jump -> W1 boost; t7 HIGH -> W2/W3
+               unchanged) — gives boosted + epstart cells.
+          ep2: t3 HIGH (W0 unchanged), t5 LOW + NO-thrust (W1 unchanged: low-speed but not a
+               launch), t7 LOW + jump but confidence=0 (W2/W3 zero-weight -> skipped,
+               unchanged) — gives the not-launch, high-speed, and zero-weight cases.
+        Every catalog hspeed is inside the clip range so invert_robust round-trips it."""
+        import sqlite3
+        ddl = (REPO_ROOT / "scripts" / "catalog_schema.sql").read_text()
+        con = sqlite3.connect(str(db_path))
+        con.executescript(ddl)
+        con.execute("INSERT INTO maps (map_id,name,x_min,x_max,y_min,y_max,z_min,z_max,"
+                    "diagonal) VALUES (1,'dm3',-984,2048,-960,1136,-416,496,3797.1)")
+        con.execute("INSERT INTO players (player_id,handle) VALUES (99,'other')")
+
+        LOW, HIGH = 30.0, 600.0    # both inside clip [0,2500]; 30<80<=600 (band split)
+        JUMP, NONE = 2, 0          # buttons: bit 2 == jump (is_launch true on jump)
+        # per-episode per-tick plan: tick -> (hspeed, buttons, confidence)
+        plans = {
+            1: {  # ep1: make W0(gov t3)+W1(gov t5) boost; W0 is also episode-start
+                0: (LOW, JUMP, 1.0),   # episode-start window's start tick (low+jump)
+                3: (LOW, JUMP, 1.0),   # W0 governing tick -> low-speed launch -> BOOST(epstart)
+                5: (LOW, JUMP, 1.0),   # W1 governing tick -> low-speed launch -> BOOST
+                7: (HIGH, NONE, 1.0),  # W2/W3 governing tick -> high-speed -> UNCHANGED
+            },
+            2: {  # ep2: not-launch + high-speed + zero-weight cases
+                3: (HIGH, JUMP, 1.0),  # W0 governing tick -> high-speed -> UNCHANGED
+                5: (LOW, NONE, 1.0),   # W1 governing tick -> low-speed but NO thrust -> UNCHANGED
+                7: (LOW, JUMP, 0.0),   # W2/W3 governing tick -> low+launch but weight 0 -> SKIP
+            },
+        }
+        for demo_id, eid, pid in ((1, 1, 1), (2, 2, 2)):
+            con.execute("INSERT INTO demos (demo_id,path,source,map_id,sha256) "
+                        "VALUES (?,?,?,1,?)", (demo_id, f"d{demo_id}.qwd", "qwd",
+                                               f"sha{demo_id}"))
+            con.execute("INSERT INTO players (player_id,handle) VALUES (?,?)",
+                        (pid, f"p{pid}"))
+            con.execute("INSERT INTO episodes (episode_id,demo_id,player_id,map_id,"
+                        "start_tick,end_tick,n_steps,split) "
+                        "VALUES (?,?,?,1,0,?,?,'train')",
+                        (eid, demo_id, pid, self.N_TICKS - 1, self.N_TICKS))
+            plan = plans[demo_id]
+            for tick in range(self.N_TICKS):
+                hspeed, buttons, conf = plan.get(tick, (HIGH, NONE, 1.0))
+                con.execute("INSERT INTO player_ticks (episode_id,tick,t_s,ox,oy,oz,"
+                            "vx,vy,vz,yaw,pitch,hspeed,onground,health,armor) "
+                            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                            (eid, tick, tick * 0.013, 100.0 + tick, 50.0, 24.0,
+                             hspeed, 0.0, 0.0, 90.0, 0.0, hspeed, 1, 100, 50))
+                con.execute("INSERT INTO actor_ticks (episode_id,tick,actor_id,alive,"
+                            "ox,oy,oz,vx,vy,vz,yaw,hspeed) "
+                            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                            (eid, tick, 99, 1, 300.0, 80.0, 24.0, -150.0, 10.0, 0.0,
+                             45.0, 150.0))
+                con.execute("INSERT INTO actions (episode_id,tick,forwardmove,sidemove,"
+                            "upmove,buttons,label_source,confidence,is_interp) "
+                            "VALUES (?,?,?,?,?,?,?,?,?)",
+                            (eid, tick, 0.0, 0.0, 0.0, buttons,
+                             "qwd_usercmd", conf, 0))
+        con.commit()
+        con.close()
+
+    def _expected_factor(self, shard, start_ticks, wi, ti):
+        """Re-derive the op's boost factor for window wi at its last-real tick ti from the
+        LOADED arrays (the same decision main() makes): 1.0 unless the tick is low-speed
+        (raw hspeed < HSPEED_MAX) AND is_launch(act) AND its weight>0; episode-start windows
+        (min start_tick per episode_id) use EPSTART_BOOST, others BOOST. Returns the factor
+        main() should have multiplied that cell by (1.0 = unchanged)."""
+        hspec = self._norm()["per_map"]["dm3"]["hspeed"]
+        sd = SC.EXPECTS_SELF_DIM
+        hist = shard[SC.KEY_SELF_HISTORY]
+        act = shard[SC.KEY_ACT]
+        win = shard[SC.KEY_WEIGHT]
+        eids = shard[SC.KEY_EPISODE_IDS]
+        ep_min = {}
+        for j in range(len(start_ticks)):
+            e = eids[j]
+            st = int(start_ticks[j])
+            if e not in ep_min or st < ep_min[e]:
+                ep_min[e] = st
+        w0 = float(win[wi][ti])
+        if w0 <= 0.0:
+            return 1.0                                   # zero-weight -> never resurrected
+        hs = CSR.invert_robust(float(hist[wi][-sd:][CSR.HSPEED_IDX]), hspec)
+        if hs >= self.HSPEED_MAX:
+            return 1.0                                   # high-speed -> unchanged
+        if not CSR.is_launch(act[wi][ti]):
+            return 1.0                                   # low-speed but no thrust -> unchanged
+        is_epstart = int(start_ticks[wi]) == ep_min[eids[wi]]
+        return self.EPSTART_BOOST if is_epstart else self.BOOST
+
+    def test_reweight_main_only_boosts_eligible_and_preserves_rest(self):
+        import pyarrow.parquet as pq
+        norm = self._norm()
+        bf = _load_build_features()
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "mini.sqlite"
+            self._make_catalog(db)
+            src = Path(d) / "shard.parquet"
+            bf.build_observation_shard(
+                db, norm, src, split="train", map_name="dm3",
+                lookback_k=self.LOOKBACK_K, stride=self.STRIDE, n_max=7)
+            norm_path = Path(d) / "norm.json"
+            norm_path.write_text(json.dumps(norm))
+
+            # read the INPUT shard + raw weight column BEFORE the op
+            in_shard = core.read_shard(src)
+            n_win = len(in_shard[SC.KEY_OBS])
+            self.assertGreater(n_win, 0)
+            in_w = [[float(c) for c in row] for row in in_shard[SC.KEY_WEIGHT]]
+            in_start = pq.read_table(src, columns=["start_tick"]).column(
+                "start_tick").to_pylist()
+
+            # --- run the CORE Parquet-rewrite path under test ----------------------------
+            out = Path(d) / "shard_cs.parquet"
+            rc = CSR.main(["--in", str(src), "--out", str(out),
+                           "--norm", str(norm_path), "--map", "dm3",
+                           "--hspeed-max", str(self.HSPEED_MAX),
+                           "--boost", str(self.BOOST),
+                           "--epstart-boost", str(self.EPSTART_BOOST)])
+            self.assertEqual(rc, 0)
+            self.assertTrue(out.exists())
+
+            out_shard = core.read_shard(out)
+            out_w = [[float(c) for c in row] for row in out_shard[SC.KEY_WEIGHT]]
+            self.assertEqual(len(out_w), n_win)
+
+            # --- CELL-BY-CELL: every weight cell == input * expected_factor --------------
+            n_boost = n_epstart = n_zero_unchanged = n_unmatched_unchanged = 0
+            for wi in range(n_win):
+                ti = core._last_real_tick(out_shard[SC.KEY_MASK][wi])
+                factor = self._expected_factor(in_shard, in_start, wi, ti)
+                K = len(out_w[wi])
+                for k in range(K):
+                    exp = in_w[wi][k] * (factor if k == ti else 1.0)
+                    self.assertAlmostEqual(
+                        out_w[wi][k], exp, places=4,
+                        msg=f"weight[{wi}][{k}] changed unexpectedly "
+                            f"(in={in_w[wi][k]} factor={factor if k == ti else 1.0})")
+                # classify the last-real-tick cell for coverage accounting
+                if factor > 1.0:
+                    n_boost += 1
+                    if int(in_start[wi]) == min(
+                            int(in_start[j]) for j in range(n_win)
+                            if in_shard[SC.KEY_EPISODE_IDS][j]
+                            == in_shard[SC.KEY_EPISODE_IDS][wi]):
+                        if factor == self.EPSTART_BOOST:
+                            n_epstart += 1
+                elif float(in_w[wi][ti]) <= 0.0:
+                    n_zero_unchanged += 1
+                else:
+                    n_unmatched_unchanged += 1
+
+            # --- the fixture must actually EXERCISE every branch (non-vacuous) -----------
+            self.assertGreater(n_boost, 0, "no window was boosted — fixture did not "
+                                           "exercise the boost path")
+            self.assertGreater(n_epstart, 0, "no episode-start window boosted — the "
+                                             "epstart factor path was not exercised")
+            self.assertGreater(n_zero_unchanged, 0, "no zero-weight low-launch window — "
+                                                    "the never-resurrect path was not "
+                                                    "exercised")
+            self.assertGreater(n_unmatched_unchanged, 0, "no unmatched (high-speed / "
+                                                         "non-launch) window — the "
+                                                         "leave-unchanged path was not "
+                                                         "exercised")
+            # at least one EPSTART boost must differ from the plain BOOST factor, proving
+            # the two factors are applied distinctly (not collapsed).
+            self.assertNotEqual(self.BOOST, self.EPSTART_BOOST)
+
+            # --- NON-WEIGHT ARRAYS unchanged (the op copies them verbatim) ---------------
+            for key in (SC.KEY_OBS, SC.KEY_SELF_HISTORY, SC.KEY_ENTITIES,
+                        SC.KEY_ENT_MASK, SC.KEY_ACT, SC.KEY_MASK):
+                self.assertIn(key, out_shard)
+                self.assertEqual(out_shard[key], in_shard[key],
+                                 f"non-weight array {key} was modified by the reweight")
+            self.assertEqual(out_shard[SC.KEY_DEMO_IDS], in_shard[SC.KEY_DEMO_IDS])
+            self.assertEqual(out_shard[SC.KEY_EPISODE_IDS], in_shard[SC.KEY_EPISODE_IDS])
+
+            # --- TABLE SCHEMA METADATA preserved verbatim (loader reshapes identically) --
+            in_meta = pq.read_table(src).schema.metadata or {}
+            out_meta = pq.read_table(out).schema.metadata or {}
+            self.assertEqual(out_meta, in_meta,
+                             "schema-level shard metadata changed (loader would reshape "
+                             "differently)")
+            # start_tick / episode_id raw columns survive unchanged
+            self.assertEqual(
+                pq.read_table(out, columns=["start_tick"]).column(
+                    "start_tick").to_pylist(), in_start)
+
+            # --- coldstart_inspect.main() reads the OUTPUT shard without error -----------
+            irc = CSI.main(["--shard", str(out), "--norm", str(norm_path), "--map", "dm3"])
+            self.assertEqual(irc, 0)
 
