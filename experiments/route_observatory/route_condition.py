@@ -27,10 +27,13 @@ feature lands in the registry (no-merge guardrail: this stages the proposal + pr
 
 Usage: route_condition.py <analysis.json> <out_dir>
 """
+import logging
 import sys, json, os, math
 import statistics as S
 from collections import defaultdict
 
+
+LOGGER = logging.getLogger(__name__)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from route_legs import (player_ticks, resource_visits, resource_coords,  # noqa: E402
                         MAP_DIAGONAL_DM3)

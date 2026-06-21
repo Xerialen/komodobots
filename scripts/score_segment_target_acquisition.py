@@ -9,6 +9,7 @@ target's horizontal/vertical gate.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -17,6 +18,8 @@ from pathlib import Path
 from typing import Iterable
 
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
 

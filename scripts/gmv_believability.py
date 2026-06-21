@@ -86,6 +86,7 @@ Repo destination: scripts/gmv_believability.py
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -94,6 +95,8 @@ import statistics
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.gmv_believability.v1"
 
 # ----------------------------------------------------------------------------- #

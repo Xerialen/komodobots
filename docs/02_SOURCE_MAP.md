@@ -967,6 +967,7 @@ Local files:
 
 - `docs/09_TEST_CASES_AND_EVIDENCE.md`
 - `docs/10_AGENT_WEB_TESTING.md`
+- `tests/test_logging_coverage.py`
 - `.github/pull_request_template.md`
 - `.github/ISSUE_TEMPLATE/user_story.yml`
 - `.github/ISSUE_TEMPLATE/bug_report.yml`
@@ -979,6 +980,11 @@ Why they matter:
 - Web/UI changes require real-browser validation by an agent before completion.
 - GitHub templates make the workflow usable from issues and PRs instead of
   living only in chat memory.
+- The logging coverage contract requires every production Python module under
+  `scripts/`, `lab/`, `tools/`, `experiments/`, `ml/`, and `cloud/` to declare a
+  module logger, requires high-risk runtime paths to emit real `LOGGER.*`
+  records, and requires dashboard `catch` blocks to log through
+  `lab/dashboard/src/logger.ts`.
 
 ### Meag KTX/Frogbots blog/discussion
 

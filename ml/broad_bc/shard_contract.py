@@ -106,11 +106,14 @@ The loader NEVER assumes a fixed obs/ent width: it reads it from the shard.
 """
 from __future__ import annotations
 
+import logging
 import json
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
 
+
+LOGGER = logging.getLogger(__name__)
 # --- contract version (bump if the key set / head set changes) --------------
 SHARD_CONTRACT_VERSION = "broad_bc.shard_contract.v1"
 # registry_version 5 (GRU over a goal-conditioned short history): the SELF channels stay

@@ -12,6 +12,7 @@ The post-run pipeline writes the usual lab artifacts plus
 
 from __future__ import annotations
 
+import logging
 import argparse
 import base64
 import itertools
@@ -44,6 +45,8 @@ from run_frobodm2_lab import (
 from score_ztricks_batch import render_markdown, score_run_dir, write_outputs
 
 
+
+LOGGER = logging.getLogger(__name__)
 REMOTE_BATCH_SCRIPT = r"""#!/usr/bin/env bash
 set -euo pipefail
 

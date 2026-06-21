@@ -3,8 +3,11 @@
 return-to-start (near the frame-0 origin and slow), and summarize each attempt's
 run-up + jump + outcome. Stdlib only.
 cols: msec ox oy oz vx vy vz pitch yaw roll fwd side up buttons (fps77)"""
+import logging
 import math, sys
 
+
+LOGGER = logging.getLogger(__name__)
 JUMP = 2
 
 def load(path):

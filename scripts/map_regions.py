@@ -42,11 +42,14 @@ Usage (CLI, smoke):
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
 DEFAULT_REGIONS = (REPO_ROOT / "lab" / "dashboard" / "public" / "data"

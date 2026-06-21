@@ -9,8 +9,11 @@ swapped over legs_qwd.jsonl on success (so the prior corpus stays valid during t
 
 Usage: run_qwd_corpus.py <demo_list.tsv> [out_dir=/tmp/route_qwd] [batch=6]
 """
+import logging
 import sys, os, json, math, sqlite3, subprocess
 
+
+LOGGER = logging.getLogger(__name__)
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import route_legs_qwd as RLQ

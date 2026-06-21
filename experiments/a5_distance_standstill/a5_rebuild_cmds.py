@@ -23,6 +23,7 @@ Usage: python a5_rebuild_cmds.py [--demo <getspeed.qwd>]
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import hashlib
 import json
@@ -30,6 +31,8 @@ import statistics
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
 for p in (str(REPO), str(REPO / "scripts")):

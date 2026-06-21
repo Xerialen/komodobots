@@ -9,9 +9,12 @@ confirmed the coordinate frames match, so the legs are directly poolable.
 
 Usage: merge_envelopes.py <mvd_legs.jsonl> <qwd_legs.jsonl> <out.json>
 """
+import logging
 import sys, os, json
 from collections import defaultdict
 
+
+LOGGER = logging.getLogger(__name__)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from route_legs import route_env, pctl  # noqa: E402
 

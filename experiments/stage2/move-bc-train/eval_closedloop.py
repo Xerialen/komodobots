@@ -28,6 +28,7 @@ Pure numpy + torch. WSL2.
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -38,6 +39,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[3]
 for _p in (str(REPO_ROOT), str(REPO_ROOT / "scripts")):
     if _p not in sys.path:

@@ -12,12 +12,15 @@ Run it on the same host as MVDSV, or point `--host` at a reachable server:
 
 from __future__ import annotations
 
+import logging
 import argparse
 import re
 import socket
 import struct
 import time
 
+
+LOGGER = logging.getLogger(__name__)
 CL_NOP = 1
 CL_STRINGCMD = 4
 SVC_STUFFTEXT = 9

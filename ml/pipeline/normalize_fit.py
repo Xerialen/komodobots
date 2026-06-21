@@ -10,12 +10,15 @@ Welford core below is dependency-free so the unit-style smoke test can exercise 
 """
 from __future__ import annotations
 
+import logging
 import json
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
 
+
+LOGGER = logging.getLogger(__name__)
 @dataclass
 class Welford:
     """Online mean/variance (Welford). Mergeable via Chan's parallel algorithm."""

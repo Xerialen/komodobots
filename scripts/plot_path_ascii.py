@@ -10,10 +10,13 @@ compare a bot run's trajectory against the human's.
 """
 from __future__ import annotations
 
+import logging
 import argparse
 from pathlib import Path
 
 
+
+LOGGER = logging.getLogger(__name__)
 def _load_cmds(path: Path):
     pts = []
     for line in path.read_text(encoding="utf-8").splitlines():

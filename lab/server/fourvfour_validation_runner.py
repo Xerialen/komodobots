@@ -9,6 +9,7 @@ to create the lab-only validation lobby. The actual mutation still goes through
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import sys
@@ -19,6 +20,8 @@ from typing import Any
 import control_bridge as cb
 from fourvfour_validation_build import ROSTER_SCHEMA
 
+
+LOGGER = logging.getLogger(__name__)
 PLAN_SCHEMA = "komodobots.4v4_validation_plan.v1"
 DEFAULT_OUT_ROOT = Path("artifacts") / "4v4-validation-runs"
 DEFAULT_CONTROLLER_VERSION = "komodobot-dev"

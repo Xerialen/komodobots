@@ -21,6 +21,7 @@ ones are generated on demand and never committed.
 """
 from __future__ import annotations
 
+import logging
 import gzip
 import json
 import math
@@ -30,6 +31,8 @@ from pathlib import Path
 from . import shard_contract as SC
 
 
+
+LOGGER = logging.getLogger(__name__)
 def _logistic(x: float) -> float:
     if x < -60:
         return 0.0

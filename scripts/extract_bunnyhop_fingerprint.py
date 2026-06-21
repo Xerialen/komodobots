@@ -30,12 +30,15 @@ Usage:
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
 import statistics
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.bunnyhop_fingerprint.v1"
 
 # QW usercmd jump is button bit 1 (value 2); upmove is unused for +jump.

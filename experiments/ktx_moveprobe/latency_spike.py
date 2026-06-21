@@ -69,6 +69,7 @@ Stdlib only (mmap / socket / struct / os / time / multiprocessing). No deps.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -82,6 +83,8 @@ import tempfile
 import time
 from multiprocessing import Process, Event
 
+
+LOGGER = logging.getLogger(__name__)
 # --- Action record (mirrors the trap_SetBotCMD payload) ----------------------
 # seq (u32) | cmd_msec (u16) | buttons (u8) | impulse (u8)
 #   | aim.x aim.y aim.z (3x f32)  | move.x move.y move.z (3x f32)

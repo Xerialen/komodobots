@@ -37,12 +37,15 @@ SCOPE / LIMITS (reported, not silently assumed):
 """
 from __future__ import annotations
 
+import logging
 import struct
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
+
+LOGGER = logging.getLogger(__name__)
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
 for _p in (str(REPO_ROOT), str(HERE)):

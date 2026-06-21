@@ -30,6 +30,7 @@ Stdlib only (mirrors the CI gate); imports the sibling move_world_view module.
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import re
@@ -37,6 +38,8 @@ import struct
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import move_world_view as mwv  # noqa: E402
 

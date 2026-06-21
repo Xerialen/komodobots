@@ -22,6 +22,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { setFromQuake } from "./quakeCoords.ts";
+import { logWarn } from "./logger.ts";
 
 // Default opacity for the map mesh — "quite transparent" per SPEC §6.3 / #99.
 const FILL_OPACITY = 0.3;
@@ -348,7 +349,8 @@ export async function fetchMapCenter(
       return [center[0], center[1], center[2]];
     }
     return DM3_DEFAULT;
-  } catch {
+  } catch (err: unknown) {
+    logWarn("map center lookup failed; using dm3 default", err);
     return DM3_DEFAULT;
   }
 }

@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
+import logging
 # Extract canonical resource->resource routes from a parsed demo (qw-analyze full JSON).
 # A route = the path a player takes between two consecutive RESOURCE visits.
 # Usage: route_extract.py <analysis.json> [out.json]
 import sys, json
 from collections import defaultdict
 
+
+LOGGER = logging.getLogger(__name__)
 src = sys.argv[1]
 d = json.load(open(src))
 locnames = [l['name'] for l in d['locGraph']['locs']]

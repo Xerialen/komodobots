@@ -24,6 +24,7 @@ import * as THREE from "three";
 import { setFromQuake } from "./quakeCoords.ts";
 import { createMapScene } from "./mapScene.ts";
 import type { TelemetryClient, TelemetryFrame } from "./telemetryClient.ts";
+import { logWarn } from "./logger.ts";
 
 // Per-bot budget: 100 Hz × 2 min (enough for one attempt per bot without
 // sharing a fixed pool).  Four bots = 48 000 Float32 positions = 576 kB —
@@ -417,7 +418,9 @@ export function BotLab3D({
           referenceLineRef.current = line;
           scene.add(line);
         })
-        .catch(() => undefined);
+        .catch((err: unknown) => {
+          logWarn("reference path failed to load", { url: referencePathUrl, error: err });
+        });
     }
 
     // ── Cleanup ───────────────────────────────────────────────────────────

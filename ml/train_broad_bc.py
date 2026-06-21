@@ -28,6 +28,7 @@ Run on pinnacle (offline):  see ml/BROAD_BC.md "PINNACLE GPU RUN".
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import sys
@@ -38,6 +39,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+
+LOGGER = logging.getLogger(__name__)
 HERE = Path(__file__).resolve().parent          # ml/
 REPO_ROOT = HERE.parent
 if str(HERE) not in sys.path:

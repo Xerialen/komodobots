@@ -23,12 +23,15 @@ Run (offline, from repo root, bare python3 — no venv needed):
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import sys
 import tempfile
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 HERE = Path(__file__).resolve().parent          # ml/
 REPO_ROOT = HERE.parent
 if str(HERE) not in sys.path:

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -20,6 +21,8 @@ from analyze_human_mvd import (
 )
 
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.reference_aggregate.v1"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BOT_SUMMARY = REPO_ROOT / "experiments" / "ktx_moveprobe" / "evidence" / "moveprobe-s3g-summary.json"

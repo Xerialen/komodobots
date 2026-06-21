@@ -14,6 +14,7 @@ BotLab-specific contract:
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import sys
@@ -22,6 +23,8 @@ from typing import Any
 
 import ktx_match_stats as kms
 
+
+LOGGER = logging.getLogger(__name__)
 # Per-player speed (avg/max, qu/s) is NOT in the KTX server-side stats JSON; KTX
 # never records movement speed. The faithful, source-grounded speed comes from
 # the MVD analyzer's position stream: qw-analyze-v20 -format events emits kind:5

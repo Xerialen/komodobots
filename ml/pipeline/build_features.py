@@ -13,11 +13,14 @@ in-tree package — that shared import is the parity guarantee.
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 # --- locate the in-tree stdlib code (shared math + loader) -------------------
 # repo layout: <repo>/scripts/...  and  <repo>/ml/pipeline/this_file
 # staging layout: <deliverable>/integration/scripts and <deliverable>/integration/ml/pipeline

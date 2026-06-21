@@ -33,8 +33,11 @@ route goal) is required by the arrival-truncation options.
 
 from __future__ import annotations
 
+import logging
 import math
 
+
+LOGGER = logging.getLogger(__name__)
 # Single-frame origin jump beyond this = a teleport (same constant as the
 # original verify_route.py scorer; covers every dm3 teleporter throw).
 TELEPORT_JUMP = 250.0

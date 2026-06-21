@@ -10,6 +10,8 @@
 // LD-C5 (#99): mapOpacity (0.05–1.0, default 0.3 "quite transparent") and
 // wireframe (default false) are shared across both 3D views (SPEC §6.3).
 
+import { logWarn } from "./logger.ts";
+
 export const VIEW_ORDER = ["demo", "mockup", "live3d", "game"] as const;
 
 export type ViewId = (typeof VIEW_ORDER)[number];
@@ -71,7 +73,8 @@ function readStoredLayout(): Partial<LayoutState> | null {
   let raw: string | null = null;
   try {
     raw = window.localStorage.getItem(STORAGE_KEY);
-  } catch {
+  } catch (err: unknown) {
+    logWarn("layout localStorage read failed", err);
     return null; // storage disabled — fall back to defaults
   }
   if (!raw) {
@@ -80,7 +83,8 @@ function readStoredLayout(): Partial<LayoutState> | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
-  } catch {
+  } catch (err: unknown) {
+    logWarn("stored layout JSON parse failed", err);
     return null;
   }
   if (typeof parsed !== "object" || parsed === null) {
@@ -155,7 +159,8 @@ export function persistLayout(state: LayoutState): void {
         wireframe: state.wireframe,
       }),
     );
-  } catch {
+  } catch (err: unknown) {
+    logWarn("layout localStorage persist failed", err);
     // storage disabled — the URL still carries the layout
   }
   const url = new URL(window.location.href);
