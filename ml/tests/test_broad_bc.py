@@ -1031,23 +1031,26 @@ class TestParquetShardBridge(unittest.TestCase):
             self.assertEqual(shard[SC.KEY_META]["self_history_dim"],
                              SC.EXPECTS_SELF_HISTORY_DIM)
 
-            # --- TRAINING-EQUIVALENCE: the stored last-tick history == exactly what the OLD
-            # per-tick [K, HD] column held at its last-real-tick index. We reconstruct the
-            # window's per-tick SELF sequence from the (still per-tick) `obs` column and
-            # assert self_history[wi] == AO.assemble_self_history(window_selves[:ti+1]) — the
-            # value the old [K, HD][ti] extraction would have yielded. Byte-identical data.
+            # --- CLOSED INVARIANT (all windows): newest SELF_DIM block == last real tick's obs.
+            # FULL-HISTORY EQUIVALENCE: when a window holds >= SELF_HISTORY real ticks, the
+            # episode-continuous stored history (Blocker-1) equals the window-local assembly,
+            # because the last H ticks are all inside the window. Mid-episode windows with < H
+            # real ticks reach back PAST the window per the episode-continuous fix and cannot be
+            # reconstructed from the window's own `obs` column — those are covered by
+            # test_self_history_is_episode_continuous_for_midepisode_window.
             H = AO.SELF_HISTORY
             mask = shard[SC.KEY_MASK]
             for wi in range(n_win):
                 ti = core._last_real_tick(mask[wi])
-                window_selves = [list(map(float, shard[SC.KEY_OBS][wi][j]))
-                                 for j in range(ti + 1)]
-                expected = AO.assemble_self_history(window_selves[:ti + 1], H)
                 got = list(map(float, sh_col[wi]))
-                self.assertEqual(got, expected)
-                # and the closed invariant: newest SELF_DIM block == last real tick's obs
+                # newest SELF_DIM block == last real tick's obs (always holds)
                 self.assertEqual(got[-AO.SELF_DIM:],
                                  list(map(float, shard[SC.KEY_OBS][wi][ti])))
+                if ti + 1 >= H:
+                    window_selves = [list(map(float, shard[SC.KEY_OBS][wi][j]))
+                                     for j in range(ti + 1)]
+                    expected = AO.assemble_self_history(window_selves[:ti + 1], H)
+                    self.assertEqual(got, expected)
 
             # --- the loader turns it into BC rows with the per-window demo split key --
             schema = SC.ShardSchema()
