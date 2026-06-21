@@ -276,9 +276,12 @@ class TestP3ObservationShard(unittest.TestCase):
         """v5 storage-shrink (OOM fix): build_observation_shard stores self_history as ONE
         flat [HD] vector PER WINDOW (the last-real-tick history) — NOT a per-tick [K, HD].
         Asserts (a) the column is [n, HD] (so width==HD, the 64x collapse) and (b) the stored
-        vector is BYTE-IDENTICAL to AO.assemble_self_history over the window's per-tick SELF
-        (the `obs` column) up to the last real tick — i.e. exactly what the old [K, HD][ti]
-        extraction yielded. Proves training data is unchanged; only storage shrank."""
+        vector is BYTE-IDENTICAL to AO.assemble_self_history over the EPISODE-continuous SELF
+        sequence (the concatenated `obs` of every window's real ticks, by absolute episode tick)
+        up to the window's last real tick — i.e. what an inference deque (maxlen=H over the whole
+        episode) yields. Proves training data is unchanged and episode-continuous; only storage
+        shrank. (The episode-continuous slice — not the window slice — is what makes a mid-episode
+        window left-pad from the true preceding ticks; see Blocker-1 regression test below.)"""
         import numpy as np
         import normalize_fit as NF
         import build_features as BF
@@ -310,15 +313,120 @@ class TestP3ObservationShard(unittest.TestCase):
                            dtype=np.float32).reshape(n, K, S)
             mk = np.array(t.column("mask").to_pylist(),
                           dtype=np.float32).reshape(n, K)
-            # (b) training-equivalence: stored history == assemble_self_history over the
-            # per-tick obs up to the last real tick (the old [K, HD][ti] value).
+            start = np.array(t.column("start_tick").to_pylist(), dtype=np.int64)
+            # Reconstruct the EPISODE-continuous SELF sequence from the per-window obs: each
+            # window's real ticks are obs[wi][:ti+1], placed at absolute episode ticks
+            # start[wi]+j. (One demo / one train episode here, so every window shares it.)
+            ep_selves: dict[int, list[float]] = {}
             for wi in range(n):
                 ti = BC._last_real_tick(mk[wi].tolist())
-                window_selves = [obs[wi][j].tolist() for j in range(ti + 1)]
-                expected = AO.assemble_self_history(window_selves[:ti + 1], H)
+                for j in range(ti + 1):
+                    ep_selves[int(start[wi]) + j] = obs[wi][j].tolist()
+            ep_seq = [ep_selves[k] for k in sorted(ep_selves)]
+            # (b) training-equivalence: stored history == assemble_self_history over the
+            # EPISODE-continuous SELF up to the window's ABSOLUTE last real tick.
+            for wi in range(n):
+                ti = BC._last_real_tick(mk[wi].tolist())
+                abs_last = int(start[wi]) + ti
+                expected = AO.assemble_self_history(ep_seq[:abs_last + 1], H)
                 np.testing.assert_array_equal(sh[wi], np.asarray(expected, dtype=np.float32))
                 # newest SELF_DIM block == the last real tick's obs (closed invariant)
                 np.testing.assert_array_equal(sh[wi][-S:], obs[wi][ti])
+
+    def test_self_history_is_episode_continuous_for_midepisode_window(self):
+        """Blocker-1 regression: a window that starts mid-episode (start>0) AND holds fewer
+        than SELF_HISTORY real ticks before its last real tick MUST store the EPISODE-continuous
+        history (left-padded from the TRUE preceding episode ticks), NOT a history that resets to
+        the window's first tick. This is the v5 train/serve byte-parity fix — inference runs a
+        single rolling deque (maxlen=H) over the WHOLE episode and never resets at a window edge.
+
+        Codex repro: episode ticks 0..19, K=16, stride=8 -> the LAST window starts at 16 and
+        covers ticks 16..19 (4 real ticks, ti=3). The BUGGY window-slice history's first SELF
+        channel would be [16,16,16,16,16,16,16,16,16,16,16,16,16,17,18,19] (repeat-pad tick 16);
+        the CORRECT episode-continuous history is [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19].
+        We make a SELF channel that strictly tracks the episode tick (pos_x = 100+tick, minmax-
+        normalized -> strictly monotone) so the two histories are byte-distinguishable, then
+        assert the stored vector equals the episode-continuous one and NOT the window-local one.
+        """
+        import numpy as np
+        import sqlite3
+        import normalize_fit as NF
+        import build_features as BF
+        from features import agent_observation as AO
+
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "tiny20.sqlite"
+            # one TRAIN episode, ticks 0..19 (the Codex repro length). pos_x = 100+tick is a
+            # strictly-monotone SELF channel so each tick's SELF vector is unique.
+            sql = (REPO_ROOT / "data" / "catalog" / "catalog.sql").read_text(encoding="utf-8")
+            con = sqlite3.connect(str(db))
+            con.executescript(sql)
+            con.execute("""INSERT INTO maps
+                (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, diagonal)
+                VALUES (1, 'dm3', -984.0, 2048.0, -960.0, 1136.0, -416.0, 496.0, 3797.1)""")
+            con.execute("""INSERT INTO demos (demo_id, path, source, map_id, sha256)
+                           VALUES (1, 'd.qwd', 'qwd', 1, 'deadbeef')""")
+            con.execute("INSERT INTO players (player_id, handle, is_bot) VALUES (1, 'p1', 0)")
+            con.execute("""INSERT INTO episodes
+                (episode_id, demo_id, player_id, map_id, start_tick, end_tick, n_steps, split)
+                VALUES (1,1,1,1,0,19,20,'train')""")
+            for tk in range(20):
+                vx = float(100.0 + tk)
+                con.execute("""INSERT INTO player_ticks
+                    (episode_id, tick, t_s, msec, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed, onground)
+                    VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?)""",
+                    (1, tk, tk * 0.013, 13, 100.0 + tk, 50.0, -10.0, vx, 20.0, 0.0, 0.0, 45.0, 0.0,
+                     (vx * vx + 400.0) ** 0.5, 1))
+                con.execute("""INSERT INTO actor_ticks
+                    (episode_id, tick, actor_id, alive, ox, oy, oz, vx, vy, vz, pitch, yaw, roll, hspeed)
+                    VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?)""",
+                    (1, tk, 1, 1, 100.0 + tk, 50.0, -10.0, vx, 20.0, 0.0, 0.0, 45.0, 0.0, 0.0))
+            con.commit()
+            con.close()
+
+            stats = Path(d) / "stats.json"
+            NF.fit_stats_doc(db, stats, split="train", map_name="dm3", artifact_version="t")
+            norm = json.loads(stats.read_text(encoding="utf-8"))
+            out = Path(d) / "shard.parquet"
+            K, H, S, HD = 16, AO.SELF_HISTORY, AO.SELF_DIM, AO.SELF_HISTORY_DIM
+            BF.build_observation_shard(db, norm, out, split="train",
+                                       lookback_k=K, stride=8, n_max=7)
+
+            import pyarrow.parquet as pq
+            t = pq.read_table(out)
+            n = t.num_rows
+            sh = np.array(t.column("self_history").to_pylist(),
+                          dtype=np.float32).reshape(n, HD)
+            start = np.array(t.column("start_tick").to_pylist(), dtype=np.int64)
+
+            # the per-tick SELF vector for absolute episode tick k (the build's own encoder).
+            ep_seq = [AO.self_features(
+                {"ox": 100.0 + k, "oy": 50.0, "oz": -10.0, "vx": 100.0 + k, "vy": 20.0,
+                 "vz": 0.0, "pitch": 0.0, "yaw": 45.0, "hspeed": ((100.0 + k) ** 2 + 400.0) ** 0.5,
+                 "onground": 1}, norm, "dm3") for k in range(20)]
+
+            # locate the mid-episode short window: start=16, last real tick ti=3 (covers 16..19).
+            wi = int(np.where(start == 16)[0][0])
+            ti = 3
+            abs_last = 16 + ti                                       # == 19
+            self.assertLess(abs_last - 0 + 1, n * K)                 # sanity: real episode
+            # CORRECT episode-continuous history = assemble over ep ticks [4..19] (last H).
+            expected_episode = np.asarray(
+                AO.assemble_self_history(ep_seq[:abs_last + 1], H), dtype=np.float32)
+            # BUGGY window-local history = assemble over window ticks [16..19] only (repeat-pad 16).
+            wrong_window = np.asarray(
+                AO.assemble_self_history(ep_seq[16:abs_last + 1], H), dtype=np.float32)
+            np.testing.assert_array_equal(sh[wi], expected_episode)
+            self.assertFalse(np.array_equal(sh[wi], wrong_window))   # the bug is gone
+            # concretely match the Codex repro on the FIRST SELF channel (pos_x, monotone):
+            first_ch = sh[wi].reshape(H, S)[:, 0]
+            np.testing.assert_array_equal(
+                first_ch, np.asarray([ep_seq[k][0] for k in range(4, 20)], dtype=np.float32))
+            # and it is NOT the window-reset shape [t16 x13, t17, t18, t19] on channel 0.
+            buggy_first = np.asarray(
+                [ep_seq[16][0]] * (H - 4) + [ep_seq[k][0] for k in range(16, 20)],
+                dtype=np.float32)
+            self.assertFalse(np.array_equal(first_ch, buggy_first))
 
     def test_shard_rebuild_byte_identical(self):
         import normalize_fit as NF

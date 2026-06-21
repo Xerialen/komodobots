@@ -384,6 +384,17 @@ def build_observation_shard(
         if n == 0:
             continue
         demo_id = int(ep_demo.get(eid, -1))
+        # EPISODE-continuous SELF sequence (oldest->newest over the WHOLE episode), encoded
+        # once via the SHARED AO.self_features (byte-identical to the per-tick obs the window
+        # loop builds below). The stored last-real-tick self_history is assembled from THIS
+        # episode list sliced to the ABSOLUTE episode tick — NOT the window slice — so a window
+        # that starts mid-episode left-pads from the true preceding episode ticks, exactly like
+        # the inference rolling deque (which runs maxlen=H over the whole episode, never reset
+        # per window). Slicing the window only would left-pad-repeat the window's FIRST tick,
+        # breaking the v5 train/serve byte-parity for any window with < H real ticks before ti.
+        episode_selves: list[list[float]] = [
+            AO.self_features(t["self"], norm, map_name) for t in ticks
+        ]
         # window starts every `stride`; pad the trailing window to K (pad_short_windows)
         start = 0
         while start < n:
@@ -394,18 +405,13 @@ def build_observation_shard(
             act_w = np.zeros((K, A), dtype=np.float32)
             mask_w = np.zeros((K,), dtype=np.float32)
             weight_w = np.zeros((K,), dtype=np.float32)
-            # per-tick SELF vectors of this window, OLDEST -> NEWEST, accumulated as we go.
-            # Only the LAST REAL tick's history is stored (the trainer/loader read just that
-            # tick); we still accumulate every tick's SELF so the shared helper can assemble
-            # that last-tick history from window_selves[:last_real+1] — i.e. the SELF vectors
-            # up to AND INCLUDING the last real tick, left-pad-repeat-first when fewer than H
-            # exist. That is exactly what an inference rolling deque started at this window's
-            # first tick yields at its last tick, so train == serve.
-            window_selves: list[list[float]] = []
+            # Only the LAST REAL tick's SELF history is stored, and it is assembled from the
+            # EPISODE-continuous episode_selves (built above), so the window loop no longer
+            # accumulates its own per-window SELF list — obs_w still carries every tick's SELF
+            # for provenance via the SAME AO.self_features values episode_selves holds.
             for j, t in enumerate(window):
                 enc = AO.encode_observation(t["self"], t["others"], norm, map_name, n_max)
                 obs_w[j] = np.asarray(enc["self"], dtype=np.float32)
-                window_selves.append(enc["self"])
                 ent_w[j] = np.asarray(enc["ents"], dtype=np.float32)
                 entmask_w[j] = np.asarray(enc["mask"], dtype=np.float32)
                 act_vec = AO.encode_action(t.get("act"))
@@ -439,13 +445,16 @@ def build_observation_shard(
             # v5 self_history: store ONLY the LAST REAL tick's flat [HD] history (the trainer
             # and loader consume the SELF history of just that tick — core.shard_to_rows /
             # train_broad_bc.rows_to_tensors read self_in[wi] at _last_real_tick). `ti` is that
-            # tick index via the SAME _last_real_tick logic the consumer uses; window_selves[
-            # :ti+1] is precisely the SELF sequence the old [K, HD] column held at row ti, so
-            # AO.assemble_self_history over it is BYTE-IDENTICAL to the old [K, HD][ti] value —
-            # only the per-tick redundancy (64x) is dropped to fit the build in memory.
+            # tick index via the SAME _last_real_tick logic the consumer uses; the absolute
+            # episode index of that tick is `start + ti`, so episode_selves[:start+ti+1] is the
+            # EPISODE-continuous SELF sequence ending at it (oldest->newest). Feeding the helper
+            # the EPISODE slice (not window_selves[:ti+1]) makes the left-pad-repeat-first use
+            # the true preceding EPISODE ticks for a mid-episode window — byte-identical to the
+            # inference deque (maxlen=H over the whole episode) and so to the v5 train/serve
+            # parity contract.
             ti = _last_real_tick(mask_w)
             selfhist_col.append(
-                AO.assemble_self_history(window_selves[:ti + 1], H))
+                AO.assemble_self_history(episode_selves[:start + ti + 1], H))
             ent_col.append(ent_w.reshape(-1).tolist())
             entmask_col.append(entmask_w.reshape(-1).tolist())
             act_col.append(act_w.reshape(-1).tolist())
