@@ -37,8 +37,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
+
+LOGGER = logging.getLogger(__name__)
 
 HERE = Path(__file__).resolve().parent
 ML = HERE.parent
