@@ -69,6 +69,32 @@ Full procedure, data-shape conventions (`pos` is struct-of-arrays; `pos.li` flic
 teamsay), leg-selection by straightness, and the mandatory self-validation gate are in the skill:
 `.claude/skills/route-signature/SKILL.md`.
 
+## Route legs → signature envelopes (the segmenter, #319)
+
+Where `pov_fuse_*` fuses **one** leg for visual validation, `route_legs.py` segments **every** leg of a
+game and aggregates the signature per route into a believability **envelope**. Item visits are detected by
+**position** (within `rho=200 qu` of an item entity), never by `pos.li`: `li` flickers at speed, which made
+the committed canon's per-leg geometry wrong (li `mega→RL` legs started *closer* to RL than they ended,
+goal_dist decreased in 0/36). Position legs are flicker-immune — every leg terminates at its destination
+item (`end_dist` median 198 qu) and the goal vector approaches the goal in 89/89 routes.
+
+```sh
+QW=qw-analyze-v20
+$QW <demo.mvd> -view full -include positions,view,velocity > /tmp/full.json
+python experiments/route_observatory/route_legs.py      /tmp/full.json /tmp/legs   # legs.jsonl + envelopes.json
+python experiments/route_observatory/route_condition.py /tmp/full.json /tmp/cond   # per-tick v4 goal vector (+ validation)
+
+# .qwd corpus (elite 1v1 POV, ground-truth usercmds) — memory-safe on a 2 GB box:
+python experiments/route_observatory/run_qwd_corpus.py <demo_list.tsv> /tmp/route_qwd        # -> legs_qwd.jsonl
+python experiments/route_observatory/merge_envelopes.py /tmp/legs/legs.jsonl \
+       /tmp/route_qwd/legs_qwd.jsonl signatures/envelopes_merged.json                         # pool both corpora
+```
+
+Produced envelopes are committed under `signatures/`: `envelopes_mvd_4on4.json` (2005 legs / 89 routes),
+`envelopes_qwd.json` (the 97-demo corpus, 16,125 legs / 75 routes), and the pooled `envelopes_merged.json`
+(**18,130 legs / 93 routes**, per-source counts). Raw `legs.jsonl` are regenerable and kept out of git.
+Method, the v4 route-conditioning feature spec, and the train-ready join are in **`ROUTE_SIGNATURE_PIPELINE.md`**.
+
 ## Reconciliation with the qwd canon (v1 / book-vs-mix)
 
 The qwd resource-routes are all **present** in the demo route set: `sng_to_rl` SNG↔RL **64×**,
