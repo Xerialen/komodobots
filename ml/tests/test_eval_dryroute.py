@@ -1102,5 +1102,81 @@ class TestModuleImportsDepsFree(unittest.TestCase):
         self.assertEqual(DR.GATE_SPEED_PCT, 80.0)
 
 
+# --------------------------------------------------------------------------- #
+# DEPS-LIGHT DEFAULT RESOURCE-COORDS PATH (the goal-injection dependency-boundary
+# regression). The dry-route policy evaluator resolves the default goal-coords path
+# from the PURE-STDLIB route_goals.DEFAULT_RESOURCE_COORDS — it must NOT import
+# build_features (which pulls in duckdb/pyarrow at module load and would crash an
+# otherwise-valid torch+BSP host, even for --goal-mode blind). These tests lock that:
+# the module + its default path resolve with duckdb absent, and the path is unchanged
+# (still data/catalog/resource_coords.dm3.json, == build_features's old constant).
+# --------------------------------------------------------------------------- #
+_HAVE_DUCKDB = importlib.util.find_spec("duckdb") is not None
+_HAVE_PYARROW = importlib.util.find_spec("pyarrow") is not None
+
+
+class TestDefaultResourceCoordsDepsLight(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # route_goals lives in ml/pipeline (a sibling the eval's run_eval adds to sys.path
+        # at call time); add it here so these tests import it the SAME deps-light way.
+        sys.path.insert(0, str(REPO_ROOT / "ml" / "pipeline"))
+
+    def test_route_goals_default_is_committed_dm3_artifact(self):
+        # the deps-light default path points at the committed catalog artifact (the SAME
+        # file build_features's old REPO_ROOT/data/catalog/resource_coords.dm3.json was).
+        import route_goals as RG
+        self.assertEqual(RG.DEFAULT_RESOURCE_COORDS.name, "resource_coords.dm3.json")
+        self.assertEqual(RG.DEFAULT_RESOURCE_COORDS.parent.name, "catalog")
+        self.assertEqual(RG.DEFAULT_RESOURCE_COORDS,
+                         REPO_ROOT / "data" / "catalog" / "resource_coords.dm3.json")
+        self.assertTrue(RG.DEFAULT_RESOURCE_COORDS.exists(),
+                        "committed resource_coords.dm3.json must exist")
+
+    def test_route_goals_imports_without_duckdb_or_pyarrow(self):
+        # route_goals (the home of the default-coords path) is pure stdlib: importing it
+        # must NOT require the heavy ml deps, so the deps-light evaluator can resolve the
+        # default path on a torch+BSP host that has neither.
+        import route_goals as RG  # noqa: F401  (the import itself is the assertion)
+        if not _HAVE_DUCKDB:
+            self.assertNotIn("duckdb", sys.modules)
+        if not _HAVE_PYARROW:
+            self.assertNotIn("pyarrow", sys.modules)
+
+    def test_resolving_default_path_does_not_import_build_features(self):
+        # resolving the dry-route default goal-coords path must not pull in build_features
+        # (which imports duckdb/pyarrow at module load). With duckdb genuinely absent here,
+        # any such import would raise ModuleNotFoundError — so a clean resolve + the absence
+        # of build_features in sys.modules proves the dependency boundary is intact.
+        sys.modules.pop("build_features", None)
+        import route_goals as RG
+        _ = RG.DEFAULT_RESOURCE_COORDS
+        coords = RG.load_resource_coords(RG.DEFAULT_RESOURCE_COORDS)
+        self.assertIsInstance(coords, dict)         # real committed file -> non-empty map
+        self.assertGreater(len(coords), 0)
+        self.assertNotIn("build_features", sys.modules,
+                         "resolving the default path must not import build_features")
+
+    def test_dryroute_module_imports_with_duckdb_absent(self):
+        # the whole point: eval_broad_dryroute is importable on a deps-light host. DR was
+        # imported at module top (so this passes by construction here, where duckdb is
+        # absent), but assert it explicitly so a regression that adds a top-level
+        # build_features/duckdb import to the dry-route module is caught.
+        self.assertTrue(callable(DR.run_eval))
+        if not _HAVE_DUCKDB:
+            self.assertNotIn("duckdb", sys.modules)
+            self.assertNotIn("build_features", sys.modules)
+
+    @unittest.skipUnless(_HAVE_DUCKDB and _HAVE_PYARROW,
+                         "build_features needs duckdb+pyarrow")
+    def test_build_features_reexports_same_path(self):
+        # when the heavy deps ARE present, build_features re-exports the SAME constant
+        # (one source of truth) so the offline build's default is unchanged.
+        sys.path.insert(0, str(REPO_ROOT / "ml" / "pipeline"))
+        import build_features as BF
+        import route_goals as RG
+        self.assertEqual(BF._DEFAULT_RESOURCE_COORDS, RG.DEFAULT_RESOURCE_COORDS)
+
+
 if __name__ == "__main__":
     unittest.main()

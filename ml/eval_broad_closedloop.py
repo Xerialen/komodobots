@@ -578,16 +578,24 @@ def select_start_segments(episodes, *, horizon: int, n_segments: int,
 # TORCH + NUMPY + DUCKDB PATH — the only part that needs the heavy deps (pinnacle).
 # Everything above is pure python and unit-tested without torch/numpy/duckdb.
 # =============================================================================
-def _self_state_from_sim(st, yaw, pitch, yaw_rate=0.0) -> dict:
+def _self_state_from_sim(st, yaw, pitch, yaw_rate=0.0, goal=None) -> dict:
     """agent_observation self_state for the CURRENT sim state + the REPLAYED human
     view. Keys match what agent_observation.self_features reads. health/armor/team
     are unknown in solo-roam -> left out (encoder zero-fills them).
 
     yaw_rate (deg/s) is the turn-direction signal for THIS tick — the caller tracks the
     PREVIOUS replayed view yaw and computes it via the SHARED _yaw_rate_degps so it
-    matches the offline build byte-for-byte. Defaults to 0.0 (first tick / no prev yaw)."""
+    matches the offline build byte-for-byte. Defaults to 0.0 (first tick / no prev yaw).
+
+    goal (gx, gy) | None is the v4/v5 route-conditioning target for THIS tick — the SAME
+    hindsight next-resource goal the OFFLINE build stamps (build_features._load_episode_ticks
+    -> route_goals.label_episode_goals). AO.self_features turns it into the 3 appended goal
+    channels via the SHARED goal_vector (parity). None (free-roam / the goal-BLIND control)
+    -> the encoder's [0,0,1] default; a (gx,gy) tuple -> the real goal channels. The key is
+    ONLY set when a goal is supplied, so the goal-blind path is byte-identical to the prior
+    (pre-fix) behaviour."""
     vx, vy, vz = st.velocity[0], st.velocity[1], st.velocity[2]
-    return {
+    ss = {
         "ox": st.origin[0], "oy": st.origin[1], "oz": st.origin[2],
         "vx": vx, "vy": vy, "vz": vz,
         "yaw": float(yaw), "pitch": float(pitch),
@@ -595,6 +603,9 @@ def _self_state_from_sim(st, yaw, pitch, yaw_rate=0.0) -> dict:
         "onground": bool(st.onground),
         "yaw_rate": float(yaw_rate),
     }
+    if goal is not None:
+        ss["goal"] = (float(goal[0]), float(goal[1]))
+    return ss
 
 
 def _recorded_usercmd(act_state):
@@ -613,13 +624,30 @@ def _recorded_usercmd(act_state):
 
 def closed_loop_rollout(pm_module, world, segment, controller, *,
                         model=None, dims=None, norm=None, map_name="dm3",
-                        n_max=7, device="cpu", torch_mod=None):
+                        n_max=7, device="cpu", torch_mod=None,
+                        goal_mode="conditioned"):
     """Drive `pmove_sim` closed-loop over one recorded segment, mirroring the Stage-2
     `eval_closedloop.closed_loop_run` skeleton but with the BROAD obs + heads.
 
     controller in {"policy","recorded"}. Returns (gmv_ticks, origins, speeds, msecs,
     predicted_attack_classes). The gmv tick is captured from the POST-frame sim state
     so the gates see the bot's own resulting motion.
+
+    goal_mode (the v4/v5 goal-conditioning A/B, policy controller only):
+      * "conditioned" (default, the FIX): feed the policy the per-tick hindsight goal the
+        OFFLINE build stamped onto segment[k]["self"]["goal"] (via _load_episode_ticks ->
+        route_goals.label_episode_goals over THIS episode's recorded positions), so the
+        goal-conditioned SELF channels match training byte-for-byte instead of the
+        free-roam [0,0,1] default.
+      * "blind": pass NO goal (the prior, pre-fix behaviour) -> the encoder's [0,0,1]
+        free-roam default every tick. This is the controlled-A/B baseline: same checkpoint,
+        same segment, same seed/yaw — ONLY the goal channels differ — so the run isolates
+        the goal-conditioning effect.
+    A segment tick with no leg (goal absent/None even when conditioned) stays free-roam,
+    exactly as in training (goal_coverage < 1.0). The goal is taken from the RECORDED
+    self row (segment[k]["self"]) — the SAME hindsight label the build used — NOT from the
+    sim's evolving position, mirroring the build's hindsight-over-recorded-positions
+    definition.
     """
     pm = pm_module.Pmove(world)
     t0 = segment[0]["self"]
@@ -661,7 +689,14 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
         yaw_rate = _yaw_rate_degps(yaw, prev_yaw, float(msec) / 1000.0)
 
         if controller == "policy":
-            self_state = _self_state_from_sim(st, yaw, pitch, yaw_rate=yaw_rate)
+            # per-tick route-conditioning goal: the hindsight next-resource the OFFLINE
+            # build stamped onto this recorded tick (segment[k]["self"]["goal"]). In
+            # goal_mode="blind" we deliberately pass None -> [0,0,1] (the controlled-A/B
+            # baseline == the prior behaviour); in "conditioned" we feed the real goal.
+            tick_goal = (segment[k]["self"].get("goal")
+                         if goal_mode == "conditioned" else None)
+            self_state = _self_state_from_sim(st, yaw, pitch, yaw_rate=yaw_rate,
+                                              goal=tick_goal)
             enc = norm["_AO"].encode_observation(self_state, [], norm["_stats"], map_name, n_max)
             # push this tick's SELF into the rolling history, then assemble the FLAT
             # [SELF_HISTORY*SELF_DIM] vector via the SHARED helper (same oldest->newest order
@@ -721,7 +756,9 @@ def _controller_report(pooled_ticks, route, anchors, player_band, *,
 def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
              split: str = "val", horizon: int = 385, n_segments: int = 12,
              anchors: Path | None = None, player_band: str | None = None,
-             map_name: str = "dm3", n_max: int = 7, cpu: bool = False) -> dict:
+             map_name: str = "dm3", n_max: int = 7, cpu: bool = False,
+             goal_mode: str = "conditioned",
+             resource_coords_path: Path | None = None) -> dict:
     """Closed-loop believability eval. NEEDS torch (policy forward) + numpy (parity) +
     duckdb (catalog start states) + the BSP world. Flow:
 
@@ -739,6 +776,9 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
     from features import agent_observation as AO
     sys.path.insert(0, str(REPO_ROOT / "ml" / "pipeline"))
     from build_features import _load_episode_ticks
+    import route_goals as RG
+    # default coords path from the deps-light route_goals (== build_features._DEFAULT_RESOURCE_COORDS)
+    _DEFAULT_RESOURCE_COORDS = RG.DEFAULT_RESOURCE_COORDS
     from eval_broad_believability import _build_policy_from_checkpoint
     import pmove_sim
     from broad_bc import core as _core
@@ -751,7 +791,29 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
     anchors_obj = (json.loads(Path(anchors).expanduser().read_text(encoding="utf-8"))
                    if anchors else None)
 
-    episodes, ep_demo = _load_episode_ticks(Path(db).expanduser(), split=split)
+    # route-conditioning v4/v5 GOAL coords — resolved EXACTLY as build_observation_shard
+    # does (explicit path wins; else dm3 defaults to the committed artifact), so the per-tick
+    # hindsight goal _load_episode_ticks stamps here is byte-identical to the training label.
+    # In goal_mode="blind" we deliberately load NO coords (every tick free-roam [0,0,1]) so the
+    # controlled A/B baseline reproduces the prior (pre-fix) goal-blind behaviour exactly.
+    if goal_mode == "conditioned":
+        if resource_coords_path is not None:
+            coords = RG.load_resource_coords(Path(resource_coords_path).expanduser())
+        elif map_name == "dm3":
+            coords = RG.load_resource_coords(_DEFAULT_RESOURCE_COORDS)
+        else:
+            coords = {}
+    else:
+        coords = {}
+
+    # SAME loader the feature build uses, NOW passing resource_coords so each tick's
+    # self_state carries the hindsight "goal" key (the build's parity). With coords={} (blind
+    # or non-dm3) no goal key is stamped -> free-roam, identical to the prior call.
+    episodes, ep_demo = _load_episode_ticks(
+        Path(db).expanduser(), split=split, resource_coords=coords)
+    n_goal_ticks = sum(1 for et in episodes.values()
+                       for t in et if t["self"].get("goal") is not None)
+    n_all_ticks = sum(len(et) for et in episodes.values())
     segments = select_start_segments(episodes, horizon=horizon, n_segments=n_segments)
 
     # carry the encoder + stats through the rollout without re-importing per tick.
@@ -770,7 +832,7 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
         pol = closed_loop_rollout(
             pmove_sim, world, seg, "policy", model=model, dims=dims,
             norm=norm_bundle, map_name=map_name, n_max=n_max, device=device,
-            torch_mod=torch)
+            torch_mod=torch, goal_mode=goal_mode)
         rec = closed_loop_rollout(
             pmove_sim, world, seg, "recorded", map_name=map_name, n_max=n_max)
 
@@ -839,6 +901,24 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
             "map": map_name, "n_max": n_max,
             "anchors": str(anchors) if anchors else None,
             "player_band": player_band or "pool",
+        },
+        "goal_conditioning": {
+            "goal_mode": goal_mode,
+            "note": ("'conditioned' = the policy sees the per-tick hindsight next-resource "
+                     "GOAL the offline build stamped (route_goals.label_episode_goals via "
+                     "_load_episode_ticks; the SAME resource_coords); 'blind' = no goal -> "
+                     "encoder [0,0,1] free-roam every tick (the prior pre-fix behaviour, the "
+                     "controlled-A/B baseline). Goal taken from the recorded self row, NOT "
+                     "the route endpoint."),
+            "resource_coords": (str(Path(resource_coords_path).expanduser())
+                                if resource_coords_path is not None
+                                else (str(_DEFAULT_RESOURCE_COORDS)
+                                      if (goal_mode == "conditioned" and map_name == "dm3")
+                                      else None)),
+            "n_resources": len(coords),
+            "goal_labeled_ticks": n_goal_ticks,
+            "all_ticks": n_all_ticks,
+            "goal_coverage": (round(n_goal_ticks / n_all_ticks, 4) if n_all_ticks else 0.0),
         },
         "checkpoint_meta": {
             "arch": ckpt.get("arch"), "dims": dims, "head_dims": head_dims,
@@ -948,6 +1028,14 @@ def main(argv=None) -> int:
     ap.add_argument("--map", default="dm3")
     ap.add_argument("--n-max", type=int, default=7)
     ap.add_argument("--cpu", action="store_true", help="force CPU forward")
+    ap.add_argument("--goal-mode", choices=("conditioned", "blind"), default="conditioned",
+                    help="route-conditioning for the POLICY: 'conditioned' (default) feeds "
+                         "the per-tick hindsight next-resource GOAL the offline build stamped "
+                         "(train/serve parity); 'blind' passes no goal -> [0,0,1] free-roam "
+                         "every tick (the prior pre-fix behaviour; the controlled-A/B baseline).")
+    ap.add_argument("--resource-coords", type=Path, default=None,
+                    help="resource_coords.<map>.json for the goal label (defaults to the "
+                         "committed dm3 artifact for map=dm3; ignored with --goal-mode blind)")
     args = ap.parse_args(argv)
 
     report = run_eval(
@@ -955,6 +1043,7 @@ def main(argv=None) -> int:
         split=args.split, horizon=args.horizon, n_segments=args.n_segments,
         anchors=args.anchors, player_band=args.player_band,
         map_name=args.map, n_max=args.n_max, cpu=args.cpu,
+        goal_mode=args.goal_mode, resource_coords_path=args.resource_coords,
     )
     out = Path(args.out).expanduser()
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -964,6 +1053,10 @@ def main(argv=None) -> int:
     rec = report["recorded_human"]["gmv_summary"]
     far = report["face_and_run_synthetic"]["gmv_summary"]
     print(f"wrote {out}", flush=True)
+    gc = report["goal_conditioning"]
+    print("  goal_mode = %s  (goal_labeled_ticks=%s/%s coverage=%s, n_resources=%s)"
+          % (gc["goal_mode"], gc["goal_labeled_ticks"], gc["all_ticks"],
+             gc["goal_coverage"], gc["n_resources"]), flush=True)
     print(f"  segments used = {report['inputs']['n_segments_used']} "
           f"horizon = {report['inputs']['horizon_ticks']} ticks", flush=True)
     print("  G-MV1 (face-and-run, HARD)   bot=%s  recorded=%s  face_and_run=%s"
