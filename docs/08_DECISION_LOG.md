@@ -3435,3 +3435,70 @@ copy of the workflow.
 ### Decision
 
 2026-06-20: Adopted the dm3 route taxonomy + 5-phase route-segmented BC program (issues #315-327). See docs/notes/dm3-route-taxonomy.md.
+
+---
+
+## Rule out analytic DAgger as a movement-fix path for the v5 over-press / closed-loop speed problem
+
+### Date
+
+2026-06-21
+
+### Decision
+
+Analytic DAgger is **ruled out** as a path to fix the v5 policy's closed-loop over-press /
+G-MV4 speed-band failure. This is **settled** (evidence in issue #353): do not run more
+analytic DAgger rounds. The `ml/dagger/` package (expert + validation harness +
+`dagger_loop.py` driver + the obs-capture hook) is retained as **evidence/lab tooling from
+this bounded negative experiment**, not as an endorsed next step or a proven movement fix.
+
+The **forward direction** (RL-on-speed, or expanding the 4on4 corpus) is the *candidate*
+next lever and is currently in an **owner-gated PLANNING pass — NOT yet decided or
+launched**. Nothing here approves or starts RL; that decision stays owner-RESERVED.
+
+### Alternatives Considered
+
+- Run additional analytic DAgger rounds (K-round aggregation) — rejected: the D-2 single
+  bounded round showed the over-press attractor held and speed collapsed, so more rounds of
+  the same analytic relabel are not justified.
+- Adopt the analytic expert as the v5 movement controller / a standalone speed source —
+  rejected: validated standalone it under-speeds (G-MV4 p95 ~159 vs band-min 252) and
+  collapses the policy's speed when cloned.
+- Declare the movement pillar done on the cold-start + hard-route clears — rejected: the
+  closed-loop speed-band failure on the harder geometries is real and unsolved.
+- Launch RL-on-speed now — out of scope here: RL remains owner-RESERVED and is only in a
+  planning pass, not an approved decision.
+
+### Evidence
+
+Issue **#353** (orchestrator-validated, all controls bracket-valid) and the
+`docs/07_FINDINGS_LOG.md` 2026-06-21 DAgger entry. Summary:
+
+- **D-1** strict-perpendicular analytic oracle is per-tick speed-optimal but **CIRCLES**
+  (G-MV4 ~99 qu/s vs band 252-316, G-MV3 flips/min 0) — trajectory-divergent, UNSOUND.
+- **D-1.5** blended expert (forward component ~58° off velocity + L/R weave) **fixed the
+  orbit** (G-MV1/G-MV3 PASS, mega/ra ~100% route) but **G-MV4 SPEED still FAILS** (pooled
+  avg ~69.6 qu/s, p95 ~159 vs human 462-560), a structural ceiling no blend/weave/jump-cadence
+  setting escaped — UNSOUND on speed (sound only as a per-state over-press corrector, 0.96).
+- **D-2** ONE bounded DAgger round left fwd-press ~0.82 (NOT toward the human 0.07-0.50 band)
+  AND collapsed G-MV4 to ~88 qu/s (below the expert's own 159 ceiling, below cs10's ~235),
+  regressing `ra_jumps` PASS->FAIL (routes passing 1/11 -> 0/11). Only gain: over-jump driven
+  to ~1.0× near-human. **ANALYTIC DAGGER DEAD.**
+
+Root cause: supervised per-state cloning cannot manufacture the long-horizon emergent
+bunnyhop-speed skill, so the whole supervised/BC family (BC / reweight / GRU-sequence /
+DAgger D-1/D-1.5/D-2) is exhausted on closed-loop speed.
+
+### Expected Consequences
+
+Future agents stop re-entering the analytic DAgger path and do not treat `dagger_loop.py`
+as a working speed lever. The next genuine lever is owner-gated: RL-on-speed (or corpus
+expansion) under a planning pass that the owner must approve before any launch. The
+`ml/dagger/` code stays in-tree as reusable rollout/obs-capture/relabel infrastructure for
+that future work, clearly labeled as negative-experiment tooling.
+
+### Revisit Conditions
+
+Revisit if the owner approves the RL-on-speed plan (a separate, owner-gated decision), if a
+non-analytic speed source (e.g. an RL-optimized or human-trajectory-conditioned oracle) makes
+closed-loop relabel viable again, or if the closed-loop speed-band requirement itself changes.

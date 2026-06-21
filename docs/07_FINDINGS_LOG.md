@@ -5832,3 +5832,87 @@ not a hardcoded GUI trick preset.
 Close #157 after this PR lands. The next smallest useful experiment is #158:
 fix the Live Game/QTV rendering path so the primary watch-live story no longer
 depends on Live 3D alone.
+
+---
+
+## 2026-06-21 -- DAgger D-1 / D-1.5 / D-2 -- analytic DAgger is DEAD for the v5 over-press / closed-loop speed problem (NEGATIVE)
+
+### Experiment
+
+Test whether closed-loop relabel (DAgger) can fix the v5 BC policy's residual
+**over-press bulldoze** (closed-loop air fwd-press ~0.99 vs human 0.07-0.50 ->
+G-MV4 speed-band fails) — the gap BC / reweight / GRU-sequence could not close,
+diagnosed as a closed-loop covariate-shift attractor (issue #353, owner-authorized,
+supervised not RL, offline on pinnacle). The oracle is an **analytic** optimal
+air-strafe expert (no human-in-the-loop), reusing the sim-proven
+`optimal_strafe_yaw` seam. Three sub-steps, each a check-in gate:
+
+- **D-1** — build + validate the strict-perpendicular expert through a 3-check harness
+  (human-agreement / expert-alone believability / fixes-over-press), no GPU.
+- **D-1.5** — blend the expert toward human (forward component + L/R weave) after D-1's
+  result, re-validate through the same harness.
+- **D-2** — ONE bounded DAgger round (rollout-capture cs10 -> relabel with the D-1.5
+  expert -> aggregate with the v5 cold-start shards -> retrain -> eval), then STOP.
+
+### Result
+
+NEGATIVE at every step; the failure mode sharpened but never resolved.
+
+- **D-1 (strict-perpendicular expert) — UNSOUND (it CIRCLES).** A wishdir held strictly
+  perpendicular to velocity with a fixed side key only ROTATES the velocity — it never
+  aligns to a goal, so the bot ORBITS (trajectory-divergent). Expert-alone closed-loop:
+  G-MV4 pooled avg **~99 qu/s** (band 252-316, FAIL on all 11 routes), G-MV3 flips/min
+  **0** on every route, route% ~12.8-58.4 (band >=80). Human-agreement showed elites
+  deliberately sub-optimize per-tick: median human air wishdir is **~58.9° off velocity**
+  (NOT 90°), side-key sign agreement 89.4%, human air fwd-press rate 54.4%.
+- **D-1.5 (blended expert: ~58° diagonal aim + L/R weave) — orbit FIXED, but speed
+  still FAILS (a structural ceiling).** The weave + diagonal killed the orbit: G-MV1 PASS
+  (median yaw-vs-vel 30.6°), G-MV3 PASS (250.8 flips/min), mega_to_rl & ra_jumps now
+  traverse ~100% route (vs orbiting). But **G-MV4 still FAILS — pooled avg ~69.6 qu/s,
+  p95 ~159** (human p95 462-560). No setting reached the band: a forward_blend × weave
+  sweep plateaued at ~99.5 qu/s, a far-goal steelman topped 167, and feeding the human's
+  exact jump cadence still only reached ~142. A greedy analytic per-tick oracle **cannot
+  build/sustain bunnyhop speed** as a standalone controller (it does pass check-c
+  over-press-fix at 0.96 — it is a sound per-state over-press *corrector*, just not a
+  speed source).
+- **D-2 (ONE bounded DAgger round) — ANALYTIC DAGGER DEAD.** Rollout captured 7542 visited
+  states (88.0% over-press), relabeled with the D-1.5 expert, aggregated with cs10's shards
+  (26390 rows; all relabel rows in train, val = held-out human demo), retrained 20 epochs,
+  behavioral selection -> ep10. Decisive eval vs cs10 (all bracket-valid): fwd-press
+  **0.882 -> 0.822** (NOT toward the 0.07-0.50 band, -0.06 only) AND G-MV4 closed-loop avg
+  **234.9 -> 88.4** (COLLAPSED — went BELOW the expert's own 159 standalone ceiling), p95
+  378.5 -> 186.4, dry-route mean tws 220 -> 110 (halved). HOLD-guard regressed: **ra_jumps
+  PASS -> FAIL** (route 100/speed 97.6 -> route 60.1/speed 42.7); routes passing the gate
+  **1/11 -> 0/11**. The one genuine gain: early-epoch over-jump (7-10×) driven back to
+  ~1.0× near-human (over-jump 0.68× -> 0.96×). 11/11 unseeded launch held.
+
+### Evidence
+
+Issue **#353** (orchestrator-validated; every number above is from a command actually run,
+eval-integrity). Branch `feat/dagger-expert`: D-1 `e4edc0b`, D-1.5 `940300e`, D-2 driver
+`a9830fe`. Deliverables: `ml/dagger/expert.py`, `ml/dagger/validate_expert.py`,
+`ml/dagger/dagger_loop.py`, the obs-capture hook in `ml/eval_broad_dryroute.py`, and the
+math/loop gates `ml/tests/test_dagger_expert.py` + `ml/tests/test_dagger_loop.py`.
+Stdlib floor `python -m unittest discover -s tests` = 1517 OK throughout; ml-tests 252 OK.
+The retrained ckpt + shards stay on pinnacle (not committed), as specified. Full plan:
+`.claude/plans/dagger-plan.md`.
+
+### Interpretation
+
+Supervised per-state cloning cannot manufacture the long-horizon **emergent** bunnyhop-speed
+skill: humans build speed over many led-aim hops, so a per-tick analytic oracle caps — and
+under D-2 collapses — the policy's speed. This exhausts the whole supervised/BC family
+(BC / reweight / GRU-sequence / DAgger D-1/D-1.5/D-2) on the closed-loop speed problem. The
+analytic expert remains useful only as a per-state over-press *corrector*, not a speed lever.
+
+### Confidence
+
+High (negative result; one bounded round was the right test per the plan's bounded-test
+mandate, and the controls bracket-valid).
+
+### Follow-up
+
+Do NOT run more analytic DAgger rounds (the attractor held). The candidate next lever is the
+owner-RESERVED RL-on-speed line (or expanding the 4on4 corpus); per the decision boundary it
+is in an **owner-gated PLANNING pass, not yet decided or launched** — see
+`docs/08_DECISION_LOG.md`.
