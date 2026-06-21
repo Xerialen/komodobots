@@ -527,7 +527,7 @@ def stall_rows(frames, world, route):
 def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
                        torch_mod, map_name="dm3", n_max=7, device="cpu",
                        seed_velocity=None, trace_out=None, aim_mode="replayed",
-                       jump_mode="policy"):
+                       jump_mode="policy", obs_capture=None):
     """POLICY rollout: the trained BROAD policy drives pmove_sim closed-loop down the
     route, replaying the human view yaw/pitch per tick. Mirrors
     eval_broad_closedloop.closed_loop_rollout's loop (sim's own evolving state fed
@@ -601,6 +601,32 @@ def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
         pred_cls = [int(lg.argmax(dim=1).item()) for lg in logits]
         fwd_mag, side_mag, up_mag, jump_bit = CL.decode_move_heads(pred_cls)
         attack_classes.append(pred_cls[4])
+
+        # DAgger OBS-CAPTURE (off the normal path; only when obs_capture is a list). Records
+        # the FULL v5 model input THIS tick (self_in[336] + entities + ent_mask) PAIRED with
+        # the PRE-frame visited state (st.origin/st.velocity, onground — the state the obs
+        # encodes) + the route goal + the policy's OWN decoded action. The DAgger relabeler
+        # (ml/dagger/dagger_loop.py) keeps the obs and overwrites ONLY the action target with
+        # the expert's answer for this exact velocity/onground/goal — the closed-loop covariate
+        # the policy visits but BC never had a correct label for. pre-frame velocity is the
+        # SAME velocity self_state encoded (CL._self_state_from_sim read st.velocity above), so
+        # the captured obs and the relabel state are consistent.
+        if obs_capture is not None:
+            obs_capture.append({
+                "tick": k,
+                "self_in": list(self_in),                 # the v5 SELF history (336) model input
+                "ents": [list(r) for r in enc["ents"]],   # [n_max][ENT] observed-other vectors
+                "mask": list(enc["mask"]),                # [n_max] real/pad
+                "ox": float(st.origin[0]), "oy": float(st.origin[1]),
+                "oz": float(st.origin[2]),
+                "vx": float(st.velocity[0]), "vy": float(st.velocity[1]),
+                "vz": float(st.velocity[2]),
+                "onground": bool(st.onground),
+                "goal": [float(goal[0]), float(goal[1]), float(goal[2])],
+                # policy's OWN decoded action this state (for off-manifold/over-press flagging)
+                "pol_fwd": float(fwd_mag), "pol_side": float(side_mag),
+                "pol_up": float(up_mag), "pol_jump": int(jump_bit),
+            })
 
         # AIM OVERRIDE (perfect-aim diagnostic). aim_mode="optimal" replaces the EXECUTED
         # view yaw with the speed-optimal (wishdir _|_ horizontal velocity) angle computed
@@ -782,7 +808,7 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
              norm_artifact: Path | None = None,
              map_name: str = "dm3", n_max: int = 7, cpu: bool = False,
              seed_velocity=None, seed_from_human=False, trace_actions=None,
-             aim_mode="replayed", jump_mode="policy") -> dict:
+             aim_mode="replayed", jump_mode="policy", obs_capture=None) -> dict:
     """Full dry-route robustness eval: human-path + stall controls AND the real policy
     rollout. NEEDS torch (policy forward) + the BSP world. The encoders/loaders are
     lazy-imported here (module stays importable on bare stdlib).
@@ -846,7 +872,8 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
     p_rows, p_atk = run_policy_rollout(
         frames, world, route, model=model, dims=dims, encode_obs=AO.encode_observation,
         stats=stats, torch_mod=torch, map_name=map_name, n_max=n_max, device=device,
-        seed_velocity=seed, trace_out=trace_rows, aim_mode=aim_mode, jump_mode=jump_mode)
+        seed_velocity=seed, trace_out=trace_rows, aim_mode=aim_mode, jump_mode=jump_mode,
+        obs_capture=obs_capture)
     policy_result = score_rows(p_rows, route, human_tws)
     atk_rate = (round(sum(1 for a in p_atk if int(a) == 1) / len(p_atk), 6)
                 if p_atk else 0.0)
