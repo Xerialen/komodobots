@@ -991,6 +991,6 @@ class TestParquetShardBridge(unittest.TestCase):
             self.assertEqual(len({r["demo_id"] for r in rows}), 2)
             # act label decodes: forwardmove=400 -> fwd head class 2 (+)
             self.assertEqual(rows[0]["y"][0], 2)
-            # input width = obs(16) + pooled_ent(13) + n_vis_frac(1); no audio/team
-            self.assertEqual(len(rows[0]["x"]), AO.SELF_DIM + AO.ENTITY_DIM + 1)
+            # input width = self_history(336) + pooled_ent(13) + n_vis_frac(1); no audio/team
+            self.assertEqual(len(rows[0]["x"]), AO.SELF_HISTORY_DIM + AO.ENTITY_DIM + 1)
 
