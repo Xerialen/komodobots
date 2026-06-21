@@ -1235,6 +1235,7 @@ class TestColdStartReweightIntegration(unittest.TestCase):
         return self.EPSTART_BOOST if is_epstart else self.BOOST
 
     def test_reweight_main_only_boosts_eligible_and_preserves_rest(self):
+        import numpy as np
         import pyarrow.parquet as pq
         norm = self._norm()
         bf = _load_build_features()
@@ -1313,11 +1314,13 @@ class TestColdStartReweightIntegration(unittest.TestCase):
             self.assertNotEqual(self.BOOST, self.EPSTART_BOOST)
 
             # --- NON-WEIGHT ARRAYS unchanged (the op copies them verbatim) ---------------
+            # read_shard returns these as numpy ndarrays on the .parquet path, so compare
+            # with array_equal (exact, byte-verbatim) rather than == (ambiguous on ndarray).
             for key in (SC.KEY_OBS, SC.KEY_SELF_HISTORY, SC.KEY_ENTITIES,
                         SC.KEY_ENT_MASK, SC.KEY_ACT, SC.KEY_MASK):
                 self.assertIn(key, out_shard)
-                self.assertEqual(out_shard[key], in_shard[key],
-                                 f"non-weight array {key} was modified by the reweight")
+                self.assertTrue(np.array_equal(out_shard[key], in_shard[key]),
+                                f"non-weight array {key} was modified by the reweight")
             self.assertEqual(out_shard[SC.KEY_DEMO_IDS], in_shard[SC.KEY_DEMO_IDS])
             self.assertEqual(out_shard[SC.KEY_EPISODE_IDS], in_shard[SC.KEY_EPISODE_IDS])
 
