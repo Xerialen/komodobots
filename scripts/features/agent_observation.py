@@ -39,15 +39,21 @@ from .egocentric import egocentric_vec, rel_distance, rel_bearing_deg, rel_pitch
 #   yaw_sin, yaw_cos, pitch_sin, pitch_cos                  (4)  sincos
 #   onground                                                (1)  0/1
 #   health_norm, armor_norm                                 (2)  /250, /200
-#   --- TURN-DIRECTION features (APPENDED after the frozen 16) ------------------
+#   --- TURN-DIRECTION features (v3 append, after the frozen 16) ----------------
 #   yaw_rate_z                                              (1)  zscore/map (signed deg/s)
 #   face_vel_angle_norm                                     (1)  signed (yaw-vel_heading)/180
+#   --- ROUTE-CONDITIONING features (v4 append; goal-conditioned imitation) -----
+#   goal_heading_sin, goal_heading_cos                      (2)  sincos, map-frame -> goal
+#   goal_dist_norm                                          (1)  min(dist/diagonal,1); 1=free-roam
 # yaw_rate is THE air-strafe direction signal: the human's strafe sign is a clean
 # function of turn direction (sign(sidemove) == -sign(yaw_rate), 88-94% — the QW
 # air-accel rule). Without yaw-rate / a signed look-vs-move angle in the SELF vector
 # the policy structurally cannot learn the correct strafe direction (its single tick
-# saw only ABSOLUTE yaw sincos + velocity heading). Both are APPENDED (never reordered)
-# so the frozen-16 layout above is byte-stable; the model retrains anyway.
+# saw only ABSOLUTE yaw sincos + velocity heading). The route-conditioning goal vector
+# (v4) is THE navigation signal open-loop BC lacked: where the next resource IS, so the
+# policy stops memorising one trajectory per route and compounding error on hard geometry
+# (goal=None => free-roam default [0,0,1]). All are APPENDED (never reordered) so the
+# frozen-16 prefix stays byte-stable; the model retrains anyway.
 SELF_FIELDS: tuple[str, ...] = (
     "pos_x_norm", "pos_y_norm", "pos_z_norm",
     "vel_x_z", "vel_y_z", "vel_z_z",
@@ -58,6 +64,9 @@ SELF_FIELDS: tuple[str, ...] = (
     "health_norm", "armor_norm",
     "yaw_rate_z",
     "face_vel_angle_norm",
+    # --- ROUTE-CONDITIONING (v4 append; goal-conditioned imitation, GCSL) ---
+    "goal_heading_sin", "goal_heading_cos",
+    "goal_dist_norm",
 )
 SELF_DIM = len(SELF_FIELDS)
 
@@ -98,6 +107,10 @@ N_MAX_DEFAULT = 7
 # constant denominators (mirror feature_registry constants / divide_period)
 _HEALTH_CAP = 250.0
 _ARMOR_CAP = 200.0
+
+# AABB diagonal (qu) per map — SINGLE source for goal_dist_norm (self route-conditioning)
+# AND entity_rel_dist_norm (entities); mirrors feature_registry constants.map_diagonal_dm3.
+_MAP_DIAGONAL = {"dm3": 3797.1}
 
 # --- ACTION (label) vector — feature_registry `action` group ----------------
 # This is the broad usercmd TARGET the BC trainer clones (NOT an observation
@@ -153,6 +166,29 @@ def yaw_rate_degps(yaw: float, prev_yaw: float | None, dt_s: float) -> float:
     return wrap180(float(yaw) - float(prev_yaw)) / dt
 
 
+# --- route-conditioning shared math (the v4 parity guarantee) -----------------
+# The goal vector is computed identically OFFLINE (build_features, from the hindsight
+# next-resource on the leg) and at INFERENCE (the tactical/spawn layer supplies the
+# goal), so the two never drift — exactly like yaw_rate_degps for the turn-direction
+# signal. It lives HERE (not duplicated in each caller) precisely so train and serve
+# cannot diverge. Map-frame heading (like vel_heading_sincos / yaw_sincos, NOT
+# egocentric-rotated). Reference impl: experiments/route_observatory/route_condition.py.
+def goal_vector(ox: float, oy: float, goal, map_diagonal: float) -> list[float]:
+    """[goal_heading_sin, goal_heading_cos, goal_dist_norm] toward `goal` (gx, gy) | None.
+
+    Heading is the map-frame angle from the ego origin to the goal; distance is
+    normalized by the map diagonal and clamped to [0, 1]. `goal is None` (no goal
+    assigned / free-roam) -> [0.0, 0.0, 1.0]: heading undefined (0, 0) and max
+    normalized distance (1.0). Pure stdlib; the SINGLE source of truth shared by the
+    offline build and every inference rollout (parity)."""
+    if goal is None:
+        return [0.0, 0.0, 1.0]
+    gx, gy = float(goal[0]), float(goal[1])
+    h = math.atan2(gy - oy, gx - ox)
+    dist = math.hypot(gx - ox, gy - oy)
+    return [math.sin(h), math.cos(h), min(dist / map_diagonal, 1.0)]
+
+
 def encode_action(action_state: dict | None) -> list[float]:
     """Encode one (episode,tick) `actions` row -> the broad usercmd TARGET vector
     (length ACT_DIM), in ACT_FIELDS order. Pure stdlib; the SINGLE action encoder
@@ -182,9 +218,14 @@ def self_features(self_state: dict, stats: dict, map_name: str = "dm3") -> list[
     """Normalized SELF feature vector (length SELF_DIM) for one ego tick.
 
     `self_state` keys (qu / qu/s / deg), any missing one treated as 0 / unknown:
-        ox, oy, oz, vx, vy, vz, yaw, pitch, hspeed, onground, health, armor, yaw_rate
+        ox, oy, oz, vx, vy, vz, yaw, pitch, hspeed, onground, health, armor, yaw_rate, goal
     `stats` = a normalization_stats.json dict (per_map[map] holds pos_*/vel_*/hspeed,
-    plus `yaw_rate` for the appended turn-rate feature).
+    plus `yaw_rate` for the appended turn-rate feature). The v4 goal features need NO
+    fitted stats (sincos + /diagonal identity).
+
+    goal: the route-conditioning target as a (goal_x, goal_y) MAP-frame tuple, or None
+    for free-roam (no goal assigned). Computed into the 3 appended channels by the SHARED
+    goal_vector helper (parity offline + inference). None -> [0,0,1] free-roam default.
 
     yaw_rate: the RAW signed turn rate (deg/s) for THIS tick, precomputed by the caller
     via yaw_rate_degps(yaw, prev_yaw, dt) and passed in self_state["yaw_rate"] (the SAME
@@ -241,6 +282,13 @@ def self_features(self_state: dict, stats: dict, map_name: str = "dm3") -> list[
     yaw_rate_raw = 0.0 if yaw_rate_raw is None else float(yaw_rate_raw)
     yaw_rate_z = normalize(yaw_rate_raw, pm[_YAW_RATE_STATS_KEY])
 
+    # route-conditioning goal vector (v4): map-frame heading + normalized distance to the
+    # NEXT-resource goal. self_state["goal"]=(gx,gy) is supplied by the caller — OFFLINE
+    # the hindsight next item on the leg (build_features), LIVE the tactical/spawn layer —
+    # via the SHARED goal_vector (parity). Absent/None => free-roam default [0,0,1].
+    g_sin, g_cos, g_dist = goal_vector(
+        ox, oy, self_state.get("goal"), _MAP_DIAGONAL.get(map_name, _MAP_DIAGONAL["dm3"]))
+
     return [
         pos_x, pos_y, pos_z,
         vel_x, vel_y, vel_z,
@@ -251,6 +299,7 @@ def self_features(self_state: dict, stats: dict, map_name: str = "dm3") -> list[
         health_n, armor_n,
         yaw_rate_z,
         face_vel_angle_n,
+        g_sin, g_cos, g_dist,
     ]
 
 
@@ -317,10 +366,6 @@ def entity_features(other: dict, self_state: dict, stats: dict, map_name: str = 
         is_teammate,
         is_visible,
     ]
-
-
-# AABB diagonals (qu) used for entity_rel_dist_norm — mirror feature_registry constants.
-_MAP_DIAGONAL = {"dm3": 3797.1}
 
 
 def encode_observation(

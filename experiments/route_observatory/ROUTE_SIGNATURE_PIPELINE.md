@@ -75,7 +75,7 @@ Per route, two bands of the signature features (`dur_s`, `hs_mean/max`, `jumps_p
 Example (mega→RL core, position-segmented sub-legs): tight ~0.3–0.4 s jump-interval bunnyhop
 cadence at sustained speed — a usable, gradeable target instead of one scripted example.
 
-## `route-conditioning` — proposed `feature_registry` v4 (the navigation signal BC lacked)
+## `route-conditioning` — `feature_registry` v4 (the navigation signal BC lacked) — LANDED
 
 The diagnosed divergence root cause was open-loop BC memorising one trajectory per route and
 compounding error on hard geometry. The fix is **goal-conditioned imitation**: tell the policy
@@ -122,8 +122,12 @@ The broad-BC pipeline is **catalog SQLite → `normalize_fit` → `build_feature
 2. **per-route envelope** (`envelopes.json`) → the believability eval target consumed by the
    closed-loop scorer (bot leg vs human p10–p90), and the curriculum signal (difficult routes).
 
-Once the v4 feature lands in `feature_registry.yaml`, `build_features.py` materialises the goal
-columns catalog-wide; this stages the proposal + proves the signal (no-merge guardrail).
+The v4 feature is now LANDED in `feature_registry.yaml` (registry_version 4): the SELF vector
+is appended in the SHARED `scripts/features/agent_observation.goal_vector` (train/serve parity),
+`shard_contract` EXPECTS_SELF_DIM 21, and `build_features.py` materialises the goal columns
+catalog-wide via `ml/pipeline/route_goals.py` (hindsight next-resource label, GCSL; dm3 coords
+in `data/catalog/resource_coords.dm3.json`). `route_condition.py` here remains the validated
+reference. Training on the v4 shard is the separate (owner-gated) next step.
 
 ## Scaling the corpus — the `.qwd` path (elite human variation)
 

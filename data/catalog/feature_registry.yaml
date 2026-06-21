@@ -1,8 +1,9 @@
 # =============================================================================
 # komodobots ML Feature Registry
 # schema tag: komodobots.feature_registry.v1   (v1 features unchanged; v2 adds groups;
-#             v3 APPENDS the turn-direction SELF features yaw_rate_z + face_vel_angle_norm)
-# registry_version: 3
+#             v3 APPENDS the turn-direction SELF features yaw_rate_z + face_vel_angle_norm;
+#             v4 APPENDS the route-conditioning SELF features goal_heading_sincos + goal_dist_norm)
+# registry_version: 4
 #
 # Single declarative source for every model input. The SAME `transform` string
 # drives offline mining (gold/features Parquet build) AND the live online encoder
@@ -21,7 +22,7 @@
 # `group: per_map` => stats keyed by map in normalization_stats; `global` => one set;
 # `none` => transform is parameter-free (sincos, divide_period, identity).
 # =============================================================================
-registry_version: 3
+registry_version: 4
 entity: { name: agent, join_keys: [episode_id, tick] }
 normalization_artifact: norm/normalization_stats.template.json
 catalog: schema/catalog.sql
@@ -212,6 +213,36 @@ feature_groups:
       version: 3
       leakage_safe: true
       note: "Signed look-vs-move angle as a single scalar (SIGN survives; near-0 sign matters for strafe). 0 below the 80 qu/s velocity-heading floor (heading undefined), same guard as vel_heading. Scalar complement to look_vs_move_sincos."
+    # --- ROUTE-CONDITIONING SELF features (v4 append; goal-conditioned imitation, GCSL).
+    # THE navigation signal open-loop BC lacked. APPENDED after the v3 turn-direction block;
+    # existing-feature normalization unchanged (SELF_DIM 18 -> 21 at v4). The goal is set by
+    # the tactical/spawn layer at inference; in training it is the hindsight next-resource the
+    # player reached (build_features._label_episode_goals = GCSL). Both depend only on pos[t] +
+    # the goal INPUT (never future STATE) -> leakage_safe. Computed by the SHARED
+    # agent_observation.goal_vector offline + at inference (parity). Reference impl +
+    # 89/89-route validation: experiments/route_observatory/route_condition.py.
+    - name: goal_heading_sincos
+      dtype: float32[2]
+      source: derived
+      formula: "[sin(atan2(goal_y-oy, goal_x-ox)), cos(atan2(goal_y-oy, goal_x-ox))]"  # map-frame, like vel_heading_sincos
+      unit: "[-1,1]x2"
+      norm: sincos
+      stats_key: null
+      group: none
+      version: 4
+      leakage_safe: true
+      note: "Egocentric heading to the next-resource GOAL on the current route. goal=None (no goal assigned) => [0,0] (free-roam). THE navigation signal open-loop BC lacked: tells the policy where it is headed so it stops memorising one trajectory per route."
+    - name: goal_dist_norm
+      dtype: float32
+      source: derived
+      formula: "min(dist(origin, goal) / map_diagonal_dm3, 1.0)"   # same family as nearest_marker_dist_norm
+      unit: "[0,1]"
+      norm: identity
+      stats_key: null
+      group: none
+      version: 4
+      leakage_safe: true
+      note: "Normalized distance to the next-resource goal. 1.0 when no goal is assigned (free-roam); heading is then [0,0]. Parameter-free (/diagonal), no fitted key."
 
   # ---------------------------------------------------------------------------
   player_resource:   # own health/armor state

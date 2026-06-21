@@ -7,9 +7,11 @@
 #   - imitation (BC + Decision-Transformer) from MVD/QWD demos
 #   - offline RL from pmove_sim.py rollouts
 # =============================================================================
-dataset_spec_version: 3
-registry_version: 3                 # must match feature_registry.yaml (v3 appends the
-                                    # turn-direction SELF features yaw_rate_z + face_vel_angle_norm)
+dataset_spec_version: 4
+registry_version: 4                 # must match feature_registry.yaml (v3 appends the
+                                    # turn-direction SELF features yaw_rate_z + face_vel_angle_norm;
+                                    # v4 appends the route-conditioning goal features
+                                    # goal_heading_sincos + goal_dist_norm)
 normalization_artifact: norm/normalization_stats.template.json
 
 # ---------------------------------------------------------------------------
@@ -54,7 +56,7 @@ record_layout:
     mask:   { ext: "mask.npy", shape: [K],         dtype: float32, note: "1=real step, 0=pad" }
     weight: { ext: "w.npy",    shape: [K],         dtype: float32, note: "loss weight = actions.confidence (down-weights IDM labels)" }
     meta:   { ext: "json",     note: "episode_id, demo_id, player_id, map_id, start_tick, label_source, timestep_ids[K]" }
-  F_obs_note: "F_obs is the flattened width of all leakage_safe SELF features in feature_registry.yaml (position+velocity+orientation+player_resource+item+timing+player_style+team). Per-other-actor features live in `entities` (not flattened into obs). Frozen per registry_version. v3 APPENDS the two turn-direction SELF features (yaw_rate_z + face_vel_angle_norm) after the frozen-16 orientation block, so the agent_observation SELF vector is 18-wide (agent_observation.SELF_DIM / shard_contract.EXPECTS_SELF_DIM)."
+  F_obs_note: "F_obs is the flattened width of all leakage_safe SELF features in feature_registry.yaml (position+velocity+orientation+player_resource+item+timing+player_style+team). Per-other-actor features live in `entities` (not flattened into obs). Frozen per registry_version. v3 APPENDS the two turn-direction SELF features (yaw_rate_z + face_vel_angle_norm) after the frozen-16 orientation block, so the agent_observation SELF vector is 18-wide at v3. v4 APPENDS the three route-conditioning channels (goal_heading_sincos[2] + goal_dist_norm) after that, so the SELF vector is 21-wide at v4 (agent_observation.SELF_DIM / shard_contract.EXPECTS_SELF_DIM)."
   timestep_embedding: "timestep_ids[K] feed the DT timestep embedding added to all 3 tokens of a step."
 
 # ---------------------------------------------------------------------------

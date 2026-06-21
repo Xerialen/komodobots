@@ -7,7 +7,7 @@ stdlib smoke import this so they agree on exactly one schema.
 THE CONTRACT (what FEAT emits / what this trainer consumes)
 =============================================================================
 Authoritative source: `data/catalog/dataset_spec.yaml` (komodobots.dataset_spec.v1,
-registry_version 3) + `data/catalog/feature_registry.yaml`. One *sample* = one
+registry_version 4) + `data/catalog/feature_registry.yaml`. One *sample* = one
 window of K ticks. FEAT (the parallel feature coder) materializes the windowed
 gold tensors; this trainer reads them.
 
@@ -22,9 +22,9 @@ this set of arrays:
   key        shape            dtype     meaning
   ---------  ---------------  --------  ------------------------------------------
   obs        [K, F_obs]       float32   normalized SELF features (position+velocity+
-                                        orientation+player_resource + the two appended
-                                        turn-direction features; F_obs=18 at v3 —
-                                        EXPECTS_SELF_DIM)
+                                        orientation+player_resource + the appended
+                                        turn-direction (v3) + route-conditioning goal
+                                        (v4) features; F_obs=21 at v4 — EXPECTS_SELF_DIM)
   entities   [K, N_max, F_ent] float32  per OBSERVED-OTHER actor egocentric vector
                                         (enemies + teammates; F_ent=13). The
                                         enemy/team-aware channel; team is FOLDED IN
@@ -98,19 +98,22 @@ from pathlib import Path
 
 # --- contract version (bump if the key set / head set changes) --------------
 SHARD_CONTRACT_VERSION = "broad_bc.shard_contract.v1"
-# registry_version 3: the SELF vector gained the two APPENDED turn-direction features
-# (yaw_rate_z + face_vel_angle_norm), so SELF_DIM went 16 -> 18 and a `yaw_rate`
-# normalization key is now required. A v2 (16-channel, no yaw_rate) artifact MUST be
-# rejected loudly — the equality guard below (rv != EXPECTS) does that; the explicit
-# channel-count / norm-key checks catch a hand-edited v3-labelled-but-16-channel one.
-EXPECTS_REGISTRY_VERSION = 3          # must match feature_registry.yaml / dataset_spec.yaml
-# expected SELF (obs) channel count for registry_version 3 — agent_observation.SELF_DIM.
+# registry_version 4: the SELF vector gained the three APPENDED route-conditioning
+# features (goal_heading_sincos[2] + goal_dist_norm), so SELF_DIM went 18 -> 21. (v3 had
+# earlier grown 16 -> 18 with yaw_rate_z + face_vel_angle_norm and still requires a
+# `yaw_rate` normalization key.) A stale v2/v3 artifact MUST be rejected loudly — the
+# equality guard below (rv != EXPECTS) does that; the explicit channel-count / norm-key
+# checks catch a hand-edited mislabelled one. The v4 goal features are sincos + /diagonal
+# identity, so they add NO new required norm key.
+EXPECTS_REGISTRY_VERSION = 4          # must match feature_registry.yaml / dataset_spec.yaml
+# expected SELF (obs) channel count for registry_version 4 — agent_observation.SELF_DIM.
 # Pinned HERE (deps-free) so the loader can reject a shard whose declared obs_dim does
-# not match the v3 SELF layout even if its registry_version label was hand-edited to 3.
-EXPECTS_SELF_DIM = 18
-# normalization keys the v3 SELF path REQUIRES under per_map[<map>]. yaw_rate_z z-scores
-# against `yaw_rate`; a stats artifact missing it would silently de-normalize the
-# appended turn-rate feature, so its absence is a hard reject (not a zero-fill).
+# not match the v4 SELF layout even if its registry_version label was hand-edited to 4.
+EXPECTS_SELF_DIM = 21
+# normalization keys the SELF path REQUIRES under per_map[<map>]. yaw_rate_z (v3) z-scores
+# against `yaw_rate`; a stats artifact missing it would silently de-normalize the appended
+# turn-rate feature, so its absence is a hard reject (not a zero-fill). The v4 goal features
+# need NO fitted key (sincos + identity), so REQUIRED_NORM_KEYS is unchanged at v4.
 REQUIRED_NORM_KEYS = ("yaw_rate",)
 
 # --- array keys (dataset_spec record_layout) --------------------------------
@@ -214,11 +217,11 @@ def check_shard_meta(meta: dict, *, where: str = "shard") -> None:
     """Reject a stale / mislabelled FEAT shard BEFORE it binds to the v3 layout.
 
     Raises ValueError if, for the registry_version this contract EXPECTS:
-      * meta.registry_version is present and != EXPECTS_REGISTRY_VERSION (the stale-v2
-        guard — a v2 16-channel shard can no longer pass as the 18-channel v3 layout), OR
-      * meta.obs_dim is present and != EXPECTS_SELF_DIM (catches a hand-edited
-        v3-LABELLED-but-16-channel artifact whose registry_version says 3 but whose SELF
-        width never grew to include the two appended turn-direction features).
+      * meta.registry_version is present and != EXPECTS_REGISTRY_VERSION (the stale guard
+        — a v2/v3 shard can no longer pass as the 21-channel v4 layout), OR
+      * meta.obs_dim is present and != EXPECTS_SELF_DIM (catches a hand-edited artifact
+        whose registry_version label matches but whose SELF width never grew to the v4
+        21-channel layout — e.g. a v3 18-channel shard relabelled v4).
 
     A shard that OMITS a field is treated as matching (legacy / minimal smoke shards):
     we only reject on a PRESENT, MISMATCHED value. Pure stdlib (no torch); the trainer
@@ -229,14 +232,15 @@ def check_shard_meta(meta: dict, *, where: str = "shard") -> None:
         raise ValueError(
             f"shard registry_version {rv} != expected {EXPECTS_REGISTRY_VERSION} "
             f"({where}); refusing to train on a mismatched FEAT shard "
-            f"(a stale v2 16-channel SELF shard must not bind to the v3 18-channel layout)")
+            f"(a stale v2/v3 SELF shard must not bind to the v4 21-channel layout)")
     od = meta.get("obs_dim")
     if od is not None and int(od) != EXPECTS_SELF_DIM:
         raise ValueError(
             f"shard obs_dim {od} != expected SELF channel count {EXPECTS_SELF_DIM} "
             f"({where}); the registry_version {EXPECTS_REGISTRY_VERSION} SELF vector is "
-            f"18-wide (the two appended turn-direction features yaw_rate_z + "
-            f"face_vel_angle_norm) — refusing a {od}-channel SELF artifact")
+            f"21-wide (v3 turn-direction yaw_rate_z + face_vel_angle_norm, then the v4 "
+            f"route-conditioning goal_heading_sincos + goal_dist_norm) — refusing a "
+            f"{od}-channel SELF artifact")
 
 
 def check_norm_artifact(stats: dict, map_name: str = "dm3", *, where: str = "norm") -> None:
