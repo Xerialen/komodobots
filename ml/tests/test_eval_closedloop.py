@@ -897,5 +897,104 @@ class TestSelfHistoryTrainInferenceParity(unittest.TestCase):
         self.assertEqual(h2, [x for v in expected for x in v])
 
 
+# =============================================================================
+# v4/v5 GOAL-CONDITIONING TRAIN/INFERENCE PARITY (the eval goal-injection FIX).
+#
+# The v5 policy is GOAL-CONDITIONED: the last 3 SELF channels (goal_heading_sin/cos,
+# goal_dist_norm) carry the per-tick route goal. The OFFLINE build stamps a per-tick
+# hindsight next-resource goal (route_goals.label_episode_goals) onto self_state["goal"];
+# AO.self_features turns it into those 3 channels via the SHARED goal_vector. BEFORE this
+# fix the closed-loop / dry-route evals built self_state via CL._self_state_from_sim with
+# NO "goal" key, so every eval tick defaulted to free-roam [0,0,1] — goal-conditioning was
+# INERT at eval time (a train/serve mismatch). This asserts that, post-fix:
+#   * a goal threaded through CL._self_state_from_sim reaches the encoded SELF goal channels
+#     EXACTLY as AO.goal_vector computes them (and is NOT the free-roam [0,0,1]);
+#   * the goal-BLIND path (no goal) is byte-identical to the prior free-roam [0,0,1] default
+#     (so the controlled-A/B baseline is exactly the pre-fix behaviour);
+#   * the build's self_state["goal"] dict path and the inference _self_state_from_sim(goal=)
+#     path yield byte-identical SELF (the parity contract);
+#   * the newest SELF_DIM block of the FLAT self-history (what the v5 policy actually reads)
+#     carries the live goal channels.
+# A regression (dropped goal key, wrong channel order, a second goal_vector copy, a goal-
+# blind path that is no longer [0,0,1]) fails here.
+# =============================================================================
+class TestGoalConditioningTrainInferenceParity(unittest.TestCase):
+    OX, OY, OZ = 100.0, 200.0, -78.0
+    VX, VY, VZ = 300.0, 120.0, -40.0
+    YAW, PITCH = 33.0, 7.0
+    GOAL = (1520.0, 496.0)            # dm3 RL node (a real resource coord)
+    # the 3 goal channels live at the END of the 21-wide SELF (SELF_FIELDS order).
+    GI0 = AO.SELF_FIELDS.index("goal_heading_sin")
+    GI1 = AO.SELF_FIELDS.index("goal_heading_cos")
+    GI2 = AO.SELF_FIELDS.index("goal_dist_norm")
+    DIAG = AO._MAP_DIAGONAL["dm3"]
+
+    def _inf_self(self, goal):
+        """SELF vector via the REAL inference builder CL._self_state_from_sim(goal=...)."""
+        st = _FakeSimState((self.OX, self.OY, self.OZ),
+                           (self.VX, self.VY, self.VZ), False)
+        ss = CL._self_state_from_sim(st, self.YAW, self.PITCH, yaw_rate=0.0, goal=goal)
+        return AO.encode_observation(ss, [], _PARITY_STATS, "dm3", 7)["self"]
+
+    def test_goal_channels_match_goal_vector_and_are_not_free_roam(self):
+        # the FIX's core assertion: the encoded goal channels EQUAL AO.goal_vector(...) for a
+        # NON-null goal, and are NOT the free-roam [0,0,1] default the eval used to emit.
+        sv = self._inf_self(self.GOAL)
+        g_sin, g_cos, g_dist = AO.goal_vector(self.OX, self.OY, self.GOAL, self.DIAG)
+        self.assertEqual(sv[self.GI0], g_sin)
+        self.assertEqual(sv[self.GI1], g_cos)
+        self.assertEqual(sv[self.GI2], g_dist)
+        # explicitly NOT free-roam (the bug signature): heading is a real (sin,cos), and the
+        # RL node is well inside the map so the normalized distance is < 1.0.
+        self.assertNotEqual((sv[self.GI0], sv[self.GI1], sv[self.GI2]), (0.0, 0.0, 1.0))
+        self.assertLess(sv[self.GI2], 1.0)
+        self.assertTrue(abs(sv[self.GI0]) > 1e-9 or abs(sv[self.GI1]) > 1e-9)
+
+    def test_goal_blind_is_free_roam_default(self):
+        # the controlled-A/B baseline: NO goal -> exactly [0,0,1] (byte-identical to the prior
+        # pre-fix behaviour), so goal-blind is the clean control against goal-conditioned.
+        sv = self._inf_self(None)
+        self.assertEqual((sv[self.GI0], sv[self.GI1], sv[self.GI2]), (0.0, 0.0, 1.0))
+
+    def test_self_state_sets_goal_key_only_when_supplied(self):
+        # _self_state_from_sim must carry the goal as a (gx,gy) tuple when given, and OMIT
+        # the key entirely when None (so the encoder's absent-key free-roam path is used —
+        # the goal-blind path is then truly identical to the old no-key behaviour).
+        st = _FakeSimState((0.0, 0.0, 0.0), (300.0, 0.0, 0.0), False)
+        ss_g = CL._self_state_from_sim(st, 33.0, 7.0, goal=(1520.0, 496.0))
+        self.assertEqual(ss_g["goal"], (1520.0, 496.0))
+        ss_none = CL._self_state_from_sim(st, 33.0, 7.0)
+        self.assertNotIn("goal", ss_none)
+
+    def test_build_and_inference_goal_paths_byte_identical(self):
+        # train/serve parity: the BUILD path (self_state dict carrying "goal", as
+        # build_features._load_episode_ticks stamps it) and the INFERENCE path
+        # (_self_state_from_sim(goal=...)) produce a byte-identical SELF for the same goal.
+        build_ss = {
+            "ox": self.OX, "oy": self.OY, "oz": self.OZ,
+            "vx": self.VX, "vy": self.VY, "vz": self.VZ,
+            "yaw": self.YAW, "pitch": self.PITCH,
+            "hspeed": math.hypot(self.VX, self.VY),
+            "onground": False, "health": None, "armor": None,
+            "yaw_rate": 0.0, "team_id": None, "goal": self.GOAL,
+        }
+        build_vec = AO.encode_observation(build_ss, [], _PARITY_STATS, "dm3", 7)["self"]
+        infer_vec = self._inf_self(self.GOAL)
+        self.assertEqual(build_vec, infer_vec)
+
+    def test_flat_history_newest_block_carries_goal(self):
+        # the v5 policy reads the FLAT self-history; its NEWEST SELF_DIM block is the current
+        # single-tick SELF, so the live goal channels must appear at the tail of the history.
+        sv = self._inf_self(self.GOAL)
+        flat = AO.assemble_self_history([sv], AO.SELF_HISTORY)
+        newest = flat[-AO.SELF_DIM:]
+        g_sin, g_cos, g_dist = AO.goal_vector(self.OX, self.OY, self.GOAL, self.DIAG)
+        self.assertEqual(newest[self.GI0], g_sin)
+        self.assertEqual(newest[self.GI1], g_cos)
+        self.assertEqual(newest[self.GI2], g_dist)
+        self.assertNotEqual((newest[self.GI0], newest[self.GI1], newest[self.GI2]),
+                            (0.0, 0.0, 1.0))
+
+
 if __name__ == "__main__":
     unittest.main()

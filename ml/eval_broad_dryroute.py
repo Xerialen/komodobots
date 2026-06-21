@@ -527,7 +527,7 @@ def stall_rows(frames, world, route):
 def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
                        torch_mod, map_name="dm3", n_max=7, device="cpu",
                        seed_velocity=None, trace_out=None, aim_mode="replayed",
-                       jump_mode="policy"):
+                       jump_mode="policy", tick_goals=None):
     """POLICY rollout: the trained BROAD policy drives pmove_sim closed-loop down the
     route, replaying the human view yaw/pitch per tick. Mirrors
     eval_broad_closedloop.closed_loop_rollout's loop (sim's own evolving state fed
@@ -547,6 +547,17 @@ def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
     + the resulting onground/yaw/vh/headings) alongside what the HUMAN did that tick
     (frames[k] move/buttons/velocity). OFF the normal path (the gate/scorer rows + exit
     behavior are unchanged whether or not trace_out is given). Used by --trace-actions.
+
+    tick_goals (the v4/v5 route-conditioning GOAL fed to the POLICY obs): an optional
+    per-tick list (len == n steps) of (gx, gy) | None, the SAME hindsight next-resource
+    goal the OFFLINE build stamps (route_goals.label_episode_goals over the recorded
+    positions; computed by the caller from THESE frames' origins + the SAME resource_coords
+    -> train/serve parity). When given, self_state["goal"]=tick_goals[k] each tick so
+    AO.self_features emits the real goal channels. When None (the goal-BLIND control) the
+    goal key is never set -> the encoder's [0,0,1] free-roam default (the prior pre-fix
+    behaviour). NOTE: this is the per-tick hindsight RESOURCE goal, NOT route["goal"] (the
+    3-D route endpoint) — route["goal"] still drives make_row's dist_goal / the scorer, but
+    the policy OBS sees the build's resource-leg goal so the conditioning matches training.
     """
     goal = route["goal"]
     floor_z = route_void_floor_z(route)
@@ -579,9 +590,15 @@ def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
         # helper the offline build + closed-loop eval call (parity). On tick 0 yaw_prev==yaw
         # so the delta is 0 — byte-identical to the build's first-tick=0.0.
         yaw_rate = AO_yaw_rate_degps(yaw, yaw_prev, float(f["msec"]) / 1000.0)
+        # per-tick route-conditioning goal (the build's hindsight next-resource, supplied by
+        # the caller from these frames' origins + the SAME resource_coords). None -> free-roam
+        # [0,0,1] (the goal-blind control). NOT route["goal"] (the route endpoint) — see the
+        # docstring: the policy obs must see the build's resource-leg goal for train parity.
+        tick_goal = tick_goals[k] if tick_goals is not None else None
         # SAME self_state + obs encode the closed-loop gmv eval uses (solo-roam: [] ), now
-        # carrying yaw_rate so the appended turn-direction feature is populated at inference.
-        self_state = CL._self_state_from_sim(st, yaw, pitch, yaw_rate=yaw_rate)
+        # carrying yaw_rate (turn-direction) AND the per-tick goal (route-conditioning) so the
+        # appended v3/v4 features are populated at inference exactly as in training.
+        self_state = CL._self_state_from_sim(st, yaw, pitch, yaw_rate=yaw_rate, goal=tick_goal)
         enc = encode_obs(self_state, [], stats, map_name, n_max)
         # push this tick's SELF, then assemble the FLAT [SELF_HISTORY*SELF_DIM] history via
         # the SHARED helper (same oldest->newest order + left-pad-repeat-first as the build)
@@ -782,7 +799,8 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
              norm_artifact: Path | None = None,
              map_name: str = "dm3", n_max: int = 7, cpu: bool = False,
              seed_velocity=None, seed_from_human=False, trace_actions=None,
-             aim_mode="replayed", jump_mode="policy") -> dict:
+             aim_mode="replayed", jump_mode="policy",
+             goal_mode="conditioned", resource_coords_path: Path | None = None) -> dict:
     """Full dry-route robustness eval: human-path + stall controls AND the real policy
     rollout. NEEDS torch (policy forward) + the BSP world. The encoders/loaders are
     lazy-imported here (module stays importable on bare stdlib).
@@ -826,6 +844,30 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
     world = PM.WorldModel.load(str(Path(bsp).expanduser()))
     route, frames, human_rows, human_tws, agreement = load_route_with_human(route_name, world)
 
+    # route-conditioning v4/v5 GOAL for the POLICY obs: compute the per-tick hindsight
+    # next-resource goal the SAME way the OFFLINE build does — route_goals.label_episode_goals
+    # over the recorded positions (HERE: the route's human .cmds origins) using the SAME
+    # resource_coords artifact (committed dm3 default unless overridden). This is the
+    # train/serve parity match: the build labels goals over an episode's recorded human
+    # positions, and a censused route's frames ARE such a recorded trajectory, so labelling
+    # over frames reproduces the exact training goal signal for this route. goal_mode="blind"
+    # passes NO goals (every tick free-roam [0,0,1]) = the controlled-A/B baseline.
+    sys.path.insert(0, str(REPO_ROOT / "ml" / "pipeline"))
+    import route_goals as RG
+    from build_features import _DEFAULT_RESOURCE_COORDS
+    tick_goals = None
+    goal_coords = {}
+    if goal_mode == "conditioned":
+        if resource_coords_path is not None:
+            goal_coords = RG.load_resource_coords(Path(resource_coords_path).expanduser())
+        elif map_name == "dm3":
+            goal_coords = RG.load_resource_coords(_DEFAULT_RESOURCE_COORDS)
+        if goal_coords:
+            positions = [(float(f["origin"][0]), float(f["origin"][1])) for f in frames]
+            tick_goals = RG.label_episode_goals(positions, goal_coords, RG.GOAL_RHO)
+    n_goal_frames = (sum(1 for g in tick_goals if g is not None)
+                     if tick_goals is not None else 0)
+
     # resolve the cold-start sustain-diagnostic seed for the POLICY rollout ONLY. The
     # controls below keep their recorded/zero start (the bracket must stay valid).
     if seed_velocity is not None:
@@ -846,7 +888,8 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
     p_rows, p_atk = run_policy_rollout(
         frames, world, route, model=model, dims=dims, encode_obs=AO.encode_observation,
         stats=stats, torch_mod=torch, map_name=map_name, n_max=n_max, device=device,
-        seed_velocity=seed, trace_out=trace_rows, aim_mode=aim_mode, jump_mode=jump_mode)
+        seed_velocity=seed, trace_out=trace_rows, aim_mode=aim_mode, jump_mode=jump_mode,
+        tick_goals=tick_goals)
     policy_result = score_rows(p_rows, route, human_tws)
     atk_rate = (round(sum(1 for a in p_atk if int(a) == 1) / len(p_atk), 6)
                 if p_atk else 0.0)
@@ -869,6 +912,15 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
                 "aim_mode": aim_mode, "jump_mode": jump_mode,
                 "map": map_name, "n_max": n_max, "controls_only": False,
                 "norm_artifact": str(norm_path), "human_frames": len(frames),
+                "goal_mode": goal_mode,
+                "goal_resource_coords": (
+                    str(Path(resource_coords_path).expanduser())
+                    if resource_coords_path is not None
+                    else (str(_DEFAULT_RESOURCE_COORDS)
+                          if (goal_mode == "conditioned" and map_name == "dm3") else None)),
+                "goal_n_resources": len(goal_coords),
+                "goal_labeled_frames": n_goal_frames,
+                "goal_coverage": (round(n_goal_frames / len(frames), 4) if frames else 0.0),
                 "trace_actions": (str(Path(trace_actions).expanduser())
                                   if trace_actions is not None else None)},
         provenance={"git_sha": _core.git_sha(REPO_ROOT),
@@ -992,6 +1044,16 @@ def main(argv=None) -> int:
                     help="jump button for the POLICY rollout: 'policy' = the jump head decides "
                          "(baseline); 'hold' = force jump every tick so the engine auto-hops on "
                          "landing (the bunnyhop-cadence diagnostic). Not valid with --controls-only.")
+    ap.add_argument("--goal-mode", choices=("conditioned", "blind"), default="conditioned",
+                    help="route-conditioning for the POLICY obs: 'conditioned' (default) feeds "
+                         "the per-tick hindsight next-resource GOAL the offline build stamps "
+                         "(route_goals.label_episode_goals over the route frames + the SAME "
+                         "resource_coords; train/serve parity); 'blind' passes no goal -> "
+                         "[0,0,1] free-roam every tick (the prior pre-fix behaviour; the "
+                         "controlled-A/B baseline). Not valid with --controls-only.")
+    ap.add_argument("--resource-coords", type=Path, default=None,
+                    help="resource_coords.<map>.json for the goal label (defaults to the "
+                         "committed dm3 artifact for map=dm3; ignored with --goal-mode blind)")
     args = ap.parse_args(argv)
 
     if args.controls_only:
@@ -1001,6 +1063,8 @@ def main(argv=None) -> int:
             ap.error("--aim optimal needs the policy rollout; not valid with --controls-only")
         if args.jump != "policy":
             ap.error("--jump hold needs the policy rollout; not valid with --controls-only")
+        if args.goal_mode != "conditioned":
+            ap.error("--goal-mode needs the policy rollout; not valid with --controls-only")
         report = run_controls_only(args.bsp, args.route)
     else:
         if args.checkpoint is None:
@@ -1011,7 +1075,9 @@ def main(argv=None) -> int:
                           seed_velocity=args.seed_velocity,
                           seed_from_human=args.seed_from_human,
                           trace_actions=args.trace_actions,
-                          aim_mode=args.aim, jump_mode=args.jump)
+                          aim_mode=args.aim, jump_mode=args.jump,
+                          goal_mode=args.goal_mode,
+                          resource_coords_path=args.resource_coords)
 
     out = Path(args.out).expanduser()
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -1025,6 +1091,13 @@ def main(argv=None) -> int:
           f"{report['human_baseline']['route_arc_length_qu']} qu  "
           f"human_tws = {report['human_baseline']['human_time_weighted_speed_qu_per_s']} qu/s",
           flush=True)
+    _gm = report["inputs"].get("goal_mode")
+    if _gm is not None:
+        print("  goal_mode = %s  (goal_labeled_frames=%s/%s coverage=%s, n_resources=%s)"
+              % (_gm, report["inputs"].get("goal_labeled_frames"),
+                 report["inputs"].get("human_frames"),
+                 report["inputs"].get("goal_coverage"),
+                 report["inputs"].get("goal_n_resources")), flush=True)
     print("  CONTROL human-path : route%%=%.1f speed%%=%.1f -> %s (expect PASS)"
           % (hr["route_pct"], hr["speed_pct"], "PASS" if hr["passed"] else "FAIL"),
           flush=True)
