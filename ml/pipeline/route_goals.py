@@ -27,6 +27,14 @@ LOGGER = logging.getLogger(__name__)
 # resources are spaced > 2*rho apart, so the nearest-within-rho resource is unambiguous).
 GOAL_RHO = 200.0
 
+# The committed dm3 resource-coords artifact, the default goal-coord source for map=dm3.
+# Lives HERE (the pure-stdlib labelling module) so deps-light callers — the dry-route
+# policy evaluator + the closed-loop eval — can resolve the default path WITHOUT importing
+# build_features (which pulls in duckdb/pyarrow at module load). build_features re-exports
+# this as _DEFAULT_RESOURCE_COORDS, so the path stays one source of truth.
+DEFAULT_RESOURCE_COORDS = (
+    Path(__file__).resolve().parents[2] / "data" / "catalog" / "resource_coords.dm3.json")
+
 
 def load_resource_coords(path) -> dict:
     """{resource_name: (x, y)} from a resource_coords.<map>.json artifact ({} if absent)."""

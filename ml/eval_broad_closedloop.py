@@ -775,8 +775,10 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
     import numpy as np  # noqa: F401  (parity w/ the trainer tensor-build path)
     from features import agent_observation as AO
     sys.path.insert(0, str(REPO_ROOT / "ml" / "pipeline"))
-    from build_features import _load_episode_ticks, _DEFAULT_RESOURCE_COORDS
+    from build_features import _load_episode_ticks
     import route_goals as RG
+    # default coords path from the deps-light route_goals (== build_features._DEFAULT_RESOURCE_COORDS)
+    _DEFAULT_RESOURCE_COORDS = RG.DEFAULT_RESOURCE_COORDS
     from eval_broad_believability import _build_policy_from_checkpoint
     import pmove_sim
     from broad_bc import core as _core

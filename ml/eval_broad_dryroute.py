@@ -852,16 +852,22 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
     # positions, and a censused route's frames ARE such a recorded trajectory, so labelling
     # over frames reproduces the exact training goal signal for this route. goal_mode="blind"
     # passes NO goals (every tick free-roam [0,0,1]) = the controlled-A/B baseline.
-    sys.path.insert(0, str(REPO_ROOT / "ml" / "pipeline"))
-    import route_goals as RG
-    from build_features import _DEFAULT_RESOURCE_COORDS
+    # route_goals is pure stdlib (no duckdb/pyarrow), and the default coords path is its
+    # own DEFAULT_RESOURCE_COORDS — so we resolve it WITHOUT importing build_features (which
+    # would pull in duckdb at module load and crash this deps-light torch+BSP evaluator).
+    # goal_mode="blind" never enters this block, so blind never touches resource coords.
     tick_goals = None
     goal_coords = {}
+    goal_coords_path = None          # the resolved coords path, for the report provenance
     if goal_mode == "conditioned":
+        sys.path.insert(0, str(REPO_ROOT / "ml" / "pipeline"))
+        import route_goals as RG
         if resource_coords_path is not None:
-            goal_coords = RG.load_resource_coords(Path(resource_coords_path).expanduser())
+            goal_coords_path = Path(resource_coords_path).expanduser()
+            goal_coords = RG.load_resource_coords(goal_coords_path)
         elif map_name == "dm3":
-            goal_coords = RG.load_resource_coords(_DEFAULT_RESOURCE_COORDS)
+            goal_coords_path = RG.DEFAULT_RESOURCE_COORDS
+            goal_coords = RG.load_resource_coords(goal_coords_path)
         if goal_coords:
             positions = [(float(f["origin"][0]), float(f["origin"][1])) for f in frames]
             tick_goals = RG.label_episode_goals(positions, goal_coords, RG.GOAL_RHO)
@@ -913,11 +919,8 @@ def run_eval(checkpoint: Path, bsp: Path, route_name: str, *,
                 "map": map_name, "n_max": n_max, "controls_only": False,
                 "norm_artifact": str(norm_path), "human_frames": len(frames),
                 "goal_mode": goal_mode,
-                "goal_resource_coords": (
-                    str(Path(resource_coords_path).expanduser())
-                    if resource_coords_path is not None
-                    else (str(_DEFAULT_RESOURCE_COORDS)
-                          if (goal_mode == "conditioned" and map_name == "dm3") else None)),
+                "goal_resource_coords": (str(goal_coords_path)
+                                         if goal_coords_path is not None else None),
                 "goal_n_resources": len(goal_coords),
                 "goal_labeled_frames": n_goal_frames,
                 "goal_coverage": (round(n_goal_frames / len(frames), 4) if frames else 0.0),

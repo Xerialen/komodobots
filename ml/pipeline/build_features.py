@@ -51,7 +51,10 @@ FRAME_DT_MS = 13.0
 # goal MATH is the SHARED AO.goal_vector (parity). dm3 coords default to the committed
 # data/catalog/resource_coords.dm3.json (the catalog-side mirror of the SAME route nodes
 # experiments/route_observatory/route_legs.resource_coords reads from a parsed demo).
-_DEFAULT_RESOURCE_COORDS = REPO_ROOT / "data" / "catalog" / "resource_coords.dm3.json"
+# the committed dm3 artifact — defined ONCE in the deps-light route_goals (so torch+BSP
+# evaluators can resolve the default path without importing this duckdb/pyarrow module);
+# re-exported here unchanged (== REPO_ROOT/data/catalog/resource_coords.dm3.json).
+_DEFAULT_RESOURCE_COORDS = RG.DEFAULT_RESOURCE_COORDS
 
 
 def _last_real_tick(window_mask) -> int:
