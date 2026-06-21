@@ -140,8 +140,9 @@ def check_a(catalog: str, *, min_hspeed: float = MIN_HSPEED, limit: int | None =
     n_side_press = 0
     side_agree = 0
     in_strafe_regime = 0
-    wishdir_err = []          # |human_wishdir - expert_optimal_wishdir| deg
+    wishdir_err = []          # |human_wishdir - D-1.5 expert_wishdir| deg
     human_sep = []            # |angle(human_wishdir, velocity)| deg
+    expert_sep = []           # |angle(D-1.5 expert_wishdir, velocity)| deg ("(a) improves")
     fwd_press = 0
     for vx, vy, yaw, hspeed, fwd, side in rows:
         if vx is None or vy is None or yaw is None:
@@ -169,23 +170,32 @@ def check_a(catalog: str, *, min_hspeed: float = MIN_HSPEED, limit: int | None =
         else:
             in_strafe_regime_frame = False
 
-        # the expert's optimal wishdir for the human's pressed side-key sign: take the
-        # perpendicular to v nearest the human's wishdir, but on the side the human's SIDE
-        # KEY implies. We get the expert yaw, derive its wishdir, and compare leans.
+        # the D-1.5 EXPERT's wishdir for the human's pressed side-key sign. The expert leans
+        # its perpendicular reference toward the GOAL heading; on a route the goal ~ where the
+        # player is travelling, so the natural per-frame goal proxy here is the human's own
+        # VELOCITY heading (observed, NOT their aim choice -> non-circular). This yields the
+        # expert's diagonal wishdir; we compare its lean side + its angle to the human's.
         if side != 0:
             n_side_press += 1
             if in_strafe_regime_frame:
                 in_strafe_regime += 1
             side_sign_h = 1 if side > 0 else -1
-            exp_yaw = CL.optimal_strafe_yaw(vx, vy, 0.0, side_sign_h * MOVE_MAG, yaw)
-            ew = _wishdir_xy(exp_yaw, 0.0, side_sign_h * MOVE_MAG)
+            vel_yaw = math.degrees(math.atan2(vy, vx))   # goal proxy = direction of travel
+            exp_st = {"vx": vx, "vy": vy, "onground": False, "goal_dir_yaw": vel_yaw}
+            efwd, eside, _, _, exp_yaw = EX.expert_action(exp_st, side_sign=side_sign_h)
+            ew = _wishdir_xy(exp_yaw, efwd, eside)
             if ew is not None:
                 exp_cross = vxn * ew[1] - vyn * ew[0]
                 if (exp_cross > 0) == (cross > 0):
                     side_agree += 1
-                # wishdir error = angle between human wishdir and expert optimal wishdir
+                # wishdir error = angle between human wishdir and the D-1.5 expert's wishdir
                 edot = hw[0] * ew[0] + hw[1] * ew[1]
                 wishdir_err.append(abs(math.degrees(math.acos(max(-1.0, min(1.0, edot))))))
+                # the expert's own wishdir-vs-velocity separation (should now sit at the
+                # human diagonal ~59 deg, NOT 90 -- the D-1.5 "(a) improves" signal)
+                edot_v = ew[0] * vxn + ew[1] * vyn
+                ecross_v = vxn * ew[1] - vyn * ew[0]
+                expert_sep.append(abs(math.degrees(math.atan2(ecross_v, edot_v))))
 
     def pct(a, b):
         return round(100.0 * a / b, 2) if b else None
@@ -204,6 +214,7 @@ def check_a(catalog: str, *, min_hspeed: float = MIN_HSPEED, limit: int | None =
         "wishdir_err_p90_deg": round(_pctl(wishdir_err, 0.90), 3) if wishdir_err else None,
         "human_fwd_press_rate": round(fwd_press / n, 4) if n else None,
         "human_wishdir_vs_vel_median_deg": round(statistics.median(human_sep), 3) if human_sep else None,
+        "expert_wishdir_vs_vel_median_deg": round(statistics.median(expert_sep), 3) if expert_sep else None,
         "perp_band_deg": PERP_BAND,
         "targets": {"side_sign_agreement_pct": 75.0, "wishdir_strafe_regime_pct": 75.0},
         "note": ("wishdir-level comparison: side-only keys put wishdir 90deg off the view "
@@ -260,12 +271,14 @@ def _expert_rollout_route(route, world, *, seed_from_human=True, max_ticks=6000)
         gdir = math.degrees(math.atan2(gy - st.origin[1], gx - st.origin[0]))
         state = {"vx": st.velocity[0], "vy": st.velocity[1],
                  "onground": bool(st.onground), "goal_dir_yaw": gdir}
-        fwd, side, up, jump, view_yaw = EX.expert_action(state)
+        # tick=k drives the L/R weave (the D-1.5 orbit-killer); the expert leans the aim
+        # toward gdir by its default forward_blend (the diagonal cap).
+        fwd, side, up, jump, view_yaw = EX.expert_action(state, tick=k)
         cmd = PM.Cmd(msec, [0.0, view_yaw, 0.0], [fwd, side, up], int(jump))
         pm.run_frame(st, cmd)
         t += msec / 1000.0
         # gmv tick: sidemove = the expert's strafe intent so G-MV3 cadence sees the bot's
-        # OWN side key (constant +-MAX -> exposes the no-L/R-alternation, an honest finding).
+        # OWN side key (the +-MAX L/R weave -> a real flip cadence, not a constant side).
         gmv_ticks.append(CL.gmv_tick_from_state(st.origin, st.velocity, st.onground,
                                                 view_yaw, side, msec=msec))
         ov = DR.over_void_at(world, st.origin, floor_z)
@@ -327,11 +340,18 @@ def check_b(route_names, *, bsp_path: str, anchors_path: str,
 # =============================================================================
 # CHECK (c) -- the expert fixes cs10's over-press states
 # =============================================================================
-def check_c(states_path: str, *, human_fwd_band_hi: float = 0.50) -> dict:
-    """On cs10's closed-loop over-press states (air, fwd>=~0.9), fraction where the expert
-    says fwd<=human-band AND side!=0. States = a JSONL/JSON list of {vx,vy,onground,...}.
-    The expert always emits air fwd=0 (<=band) + side=MOVE_MAG (!=0), so this measures how
-    many captured states are genuine AIR over-press states the expert corrects."""
+def check_c(states_path: str, *, strafe_sep_deg: float = 30.0) -> dict:
+    """On cs10's closed-loop over-press states (air, fwd>=~0.9), the fraction where the
+    expert's action is a real STRAFE rather than a bulldoze. States = a JSONL/JSON list of
+    {vx,vy,onground,...}.
+
+    CONTRACT (D-1.5): the over-press FAILURE is the bulldoze -- a wishdir ~ALIGNED with
+    velocity (separation ~0) so air-accel gains ~0 speed. The FIX is a wishdir in the strafe
+    REGIME (separated from velocity by >= strafe_sep_deg) AND a pressed side key. This is
+    contract-faithful for BOTH the D-1 strict-perp expert (sep ~90) and the D-1.5 diagonal
+    expert (sep ~59 with fwd>0): the over-press fix is "not aligned with velocity", NOT
+    "fwd==0" (the D-1.5 expert deliberately presses a forward component). The separation is
+    computed from the expert's realized wishdir via the SAME _wishdir_xy the engine uses."""
     p = Path(states_path)
     raw = p.read_text().strip()
     if raw.startswith("["):
@@ -342,22 +362,30 @@ def check_c(states_path: str, *, human_fwd_band_hi: float = 0.50) -> dict:
     n = 0
     fixed = 0
     air_overpress = 0
-    for s in states:
+    for i, s in enumerate(states):
         n += 1
         st = {"vx": s["vx"], "vy": s["vy"], "onground": bool(s.get("onground", False)),
               "goal_dir_yaw": s.get("goal_dir_yaw", 0.0)}
-        fwd, side, up, jump, yaw = EX.expert_action(st)
-        # the over-press state is AIR + the policy pressing forward; the expert's fix is
-        # fwd<=human band (fwd=0 in air) AND a real strafe (side!=0).
+        fwd, side, up, jump, yaw = EX.expert_action(st, tick=i)
         if not st["onground"]:
             air_overpress += 1
-            if fwd <= human_fwd_band_hi * MOVE_MAG and side != 0:
+            sp = math.hypot(st["vx"], st["vy"])
+            wd = _wishdir_xy(yaw, fwd, side)
+            if wd is None or sp < 1.0:
+                continue
+            vxn, vyn = st["vx"] / sp, st["vy"] / sp
+            dot = wd[0] * vxn + wd[1] * vyn
+            cross = vxn * wd[1] - vyn * wd[0]
+            sep = abs(math.degrees(math.atan2(cross, dot)))  # |angle(wishdir, v)|
+            # a real strafe (off-aligned) with a pressed side key = the over-press fix
+            if sep >= float(strafe_sep_deg) and side != 0:
                 fixed += 1
     return {
         "check": "c_fixes_over_press",
         "states_path": states_path,
         "n_states": n,
         "n_air_states": air_overpress,
+        "strafe_sep_deg": strafe_sep_deg,
         "overpress_fix_fraction": round(fixed / air_overpress, 4) if air_overpress else None,
         "target": 0.90,
     }
@@ -381,7 +409,7 @@ def main(argv=None):
 
     c = sub.add_parser("check-c", help="fixes cs10 over-press states")
     c.add_argument("--states", required=True)
-    c.add_argument("--fwd-band-hi", type=float, default=0.50)
+    c.add_argument("--strafe-sep-deg", type=float, default=30.0)
 
     args = ap.parse_args(argv)
     if args.cmd == "check-a":
@@ -390,7 +418,7 @@ def main(argv=None):
         out = check_b(args.routes, bsp_path=args.bsp, anchors_path=args.anchors,
                       seed_from_human=not args.unseeded)
     elif args.cmd == "check-c":
-        out = check_c(args.states, human_fwd_band_hi=args.fwd_band_hi)
+        out = check_c(args.states, strafe_sep_deg=args.strafe_sep_deg)
     print(json.dumps(out, indent=2))
     return out
 

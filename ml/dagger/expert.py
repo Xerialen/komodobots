@@ -1,62 +1,56 @@
-"""ml/dagger/expert.py -- the analytic optimal air-strafe EXPERT (DAgger oracle, D-1).
+"""ml/dagger/expert.py -- the analytic air-strafe EXPERT (DAgger oracle, D-1.5).
 
 The DAgger relabeler answers "what is the RIGHT action in THIS visited state?". Ours is
-analytic (no human-in-the-loop, fully offline): the per-tick speed-optimal air-strafe
-controller for THIS engine. It is a thin wrapper over the sim-proven
-`eval_broad_closedloop.optimal_strafe_yaw` seam (wishdir _|_ horizontal velocity; proven
-maximal vs the exact `pmove_sim._air_accelerate` by ml/tests/test_optimal_aim) -- it does
-NOT reimplement the air-accel math. It only ADDS the move-key override that the policy's
-over-press attractor gets wrong:
+analytic (no human-in-the-loop, fully offline): a goal-tracking, believability-capped
+air-strafe controller for THIS engine. It REUSES the sim-proven
+`eval_broad_closedloop.optimal_strafe_yaw` seam (the perpendicular-optimal reference yaw,
+proven maximal vs the exact `pmove_sim._air_accelerate` by ml/tests/test_optimal_aim) --
+it does NOT reimplement the air-accel math. On top of that reference it applies the two
+D-1.5 corrections the D-1 validation proved necessary (orbit-killer + diagonal-aim):
 
-    AIR  (the load-bearing action): fwd=0, side=+-MOVE_MAG (full strafe), up=0, jump=0,
-         view_yaw = optimal_strafe_yaw(vx, vy, 0.0, side, fallback=goal_dir_yaw).
+    AIR  (the load-bearing action): fwd=+MOVE_MAG, side=+-MOVE_MAG (full diagonal press),
+         up=0, jump=0. view_yaw = the seam's perpendicular-optimal yaw INTERPOLATED toward
+         the goal heading by `forward_blend` (the believability cap -> wishdir ~59 deg off
+         velocity, the human median, NOT 90). The side key ALTERNATES L/R on a weave period
+         (the orbit-killer -> G-MV3 cadence).
     GROUND: jump=BUTTON_JUMP (auto-hop on land = the continuous bunnyhop), and -- only when
-         nearly stopped -- a small forward to regain launch ground-speed (the cold-start
-         launch convention). fwd=0 once moving so the expert never bulldozes.
+         nearly stopped -- forward to regain launch ground-speed (the cold-start launch
+         convention). fwd is the launch push when stopped, else +MOVE_MAG diagonal as in air.
 
-WHY fwd=0 in the air: the diagnosed v5 failure is the over-press bulldoze (closed-loop
-fwd-press ~0.99 -> wishdir ~aligned with velocity -> ~0 speed gain -> 162 qu/s; G-MV4
-FAILS). Air-strafe wants the wishdir PERPENDICULAR to velocity, which (in this engine,
-with the move keys fed through the view yaw) is achieved by side-only + the optimal yaw.
+WHY D-1.5 changed the AIR action from D-1's `fwd=0` strict-perpendicular fixed-side:
+the D-1 validation PROVED that controller UNSOUND -- per-tick speed-optimal but it ORBITS
+(a wishdir held strictly perpendicular to velocity only ROTATES velocity, never aligns it
+to a goal; a fixed side key then circles -> G-MV4 ~99 qu/s on ALL routes, G-MV3 flips=0,
+route% ~13%). The evidence-backed fix (this module):
+  1. ALTERNATE the side key L/R every `weave_period` ticks. The L/R weave nets straight
+     goal-progress where a fixed side curves into a circle. (Geometric probe: straightness
+     0.018 -> 0.918 just from alternating -- the dominant orbit fix.) Lands G-MV3 flips in
+     the human band [8,360]/min (weave_period 18 ticks @ ~13ms -> ~256 flips/min, mid-band).
+  2. LEAN the aim toward the goal (`forward_blend`) so the realized wishdir is the human
+     DIAGONAL (~45-60 deg off velocity), NOT strict-perpendicular. Check (a) measured the
+     human median wishdir-vs-velocity at 58.9 deg with fwd pressed on 54% of air frames ->
+     elite humans deliberately sub-optimize per-tick for directionality. The diagonal also
+     CAPS speed near the human band (strict-perp 90deg compounds to ~3x band; the diagonal
+     tracks the goal instead). Default `forward_blend=0.7` lands ~59 deg (probe-confirmed).
+
+KEY GEOMETRY (why fwd>0 alone is NOT enough -- the blend is a YAW lean, not a key trick):
+`optimal_strafe_yaw` ALWAYS returns the yaw that makes the wishdir perpendicular to v,
+*whatever* fwd/side magnitudes it is given (that is its contract: wishvel . v = 0). So
+passing fwd>0 INTO the seam does not bend the wishdir below 90 -- the seam re-aims to keep
+it perpendicular. To get the human diagonal we therefore take the seam's perpendicular yaw
+as the REFERENCE and INTERPOLATE the executed view-yaw toward the goal heading; the seam is
+still the (reused, not reimplemented) perpendicular anchor. We pass the SAME fwd/side into
+the seam AND the usercmd so the perpendicular reference is computed for the real key set.
 
 SIGN CONVENTION (matched to the live `--aim optimal` path, ml/eval_broad_dryroute.py:613,
-NOT guessed): the SAME `side_mag` is passed both INTO optimal_strafe_yaw (which picks the
-perpendicular yaw branch that, with this side key, makes wishdir _|_ v AND bends toward
-`fallback`) AND into the engine usercmd `cmd.move[1]`. So whichever sign we pick for
-`side`, the yaw adapts to keep it perpendicular-optimal; the sign only flips WHICH side
-the bot leans, and the branch-nearest-fallback already turns the chosen perpendicular
-toward the route goal. We pick +MOVE_MAG by convention (see expert_action's `side` doc).
+NOT guessed): the same `side_mag`/`fwd_mag` go both INTO optimal_strafe_yaw and INTO the
+engine usercmd `cmd.move[0..1]`, so the seam's reference is correct for the executed keys.
+The side SIGN alternates over the weave; the goal-heading interpolation keeps net progress
+toward the route goal regardless of which side the bot currently leans.
 
 Pure: stdlib `math` only. Imports `optimal_strafe_yaw`, `MOVE_MAG`, `BUTTON_JUMP` from
 eval_broad_closedloop, which is itself torch/numpy/duckdb-free at import time (torch is
 imported lazily inside its torch CLI, not at module scope). No torch here.
-
-=============================================================================
-D-1 VALIDATION VERDICT (2026-06-21, ml/dagger/validate_expert.py on pinnacle) -- UNSOUND
-as a closed-loop DAgger oracle AS SPECCED. Keep this module as the faithful realization of
-the spec'd expert (so the validation measures what was specified); DO NOT teach D-2 from it
-unmodified. Evidence (every number from a real run):
-  * check (a) human-agreement (64,503 real human air frames): the human strafes the optimal
-    DIRECTION (side-key sign agreement 89.4%, >=75% target PASS) BUT at a DIAGONAL wishdir
-    (median human wishdir-vs-velocity 58.9 deg, NOT 90; only 46% within +-30 of perp), with
-    forward pressed on 54.4% of air frames. => elite humans deliberately sub-optimize
-    per-tick (mix fwd+side) for DIRECTIONALITY; the strict-perp expert is MORE extreme.
-  * check (b) expert-alone closed-loop (11 routes): pure expert FAILS G-MV4 on ALL routes
-    (pooled avg 99 qu/s vs band 252-316) and G-MV3 flips/min=0 (constant side, no L/R weave).
-    ROOT CAUSE (proven geometrically, /tmp/probe_circle.py): a wishdir held STRICTLY
-    perpendicular to velocity only ROTATES velocity -- it never aligns it to a goal -- so a
-    fixed side key makes the bot ORBIT (velang -> 90 deg off the goal, then circles). It is
-    per-tick speed-optimal but TRAJECTORY-DIVERGENT: it stalls at ~80 qu/s and ~13% route.
-  * check (c) fixes-over-press (875 cs10 air over-press states, pol_fwd>=360 on 97.8% of
-    cs10 air frames): expert emits fwd<=human-band AND side!=0 on 100% -- but this is the
-    air-strafe ACTION SHAPE only; (b) shows that shape circles. Not a rescue.
-THE FIX (the concrete blend-toward-human rec for D-1.5 / D-2, grounded in (a)'s numbers):
-the oracle must (1) allow a FORWARD component (humans press fwd ~54% of air frames; target
-wishdir ~45-60 deg off velocity, not 90) to get net progress toward the goal, and (2)
-ALTERNATE the side key L/R to WEAVE along the route (the G-MV3 cadence humans show, flips
-in [8,360]/min) instead of holding one side. I.e. a goal-tracking, believability-capped
-near-optimal strafe -- NOT the strict per-tick maximum. This is the owner CHECK-IN decision.
-=============================================================================
 """
 from __future__ import annotations
 
@@ -81,11 +75,37 @@ import eval_broad_closedloop as CL  # noqa: E402  (the proven seam: optimal_stra
 MOVE_MAG = CL.MOVE_MAG          # 400.0 -- the usercmd full-press magnitude the sim consumes
 BUTTON_JUMP = CL.BUTTON_JUMP    # 2    -- pmove jump button bit
 
-# Below this horizontal ground-speed the bot is treated as "needs a launch push" and the
-# GROUND action issues forward to regain speed before the next hop (the cold-start launch
-# convention). At/above it the ground action is fwd=0 (already moving -> don't bulldoze).
-# A pure launch heuristic; the AIR action is the load-bearing one for the over-press fix.
-GROUND_LAUNCH_SPEED_QU = 100.0
+# D-1.5 believability cap: fraction by which the executed view-yaw is leaned FROM the seam's
+# perpendicular-optimal yaw TOWARD the goal heading. 0.0 == pure seam (strict perpendicular,
+# the D-1 orbiter); 1.0 == aim straight at the goal. Default 0.7 lands the realized wishdir
+# ~59 deg off velocity (the human median from check (a); probe_blend2 confirmed 0.7 -> 58.5
+# deg). This is the diagonal-aim correction.
+FORWARD_BLEND = 0.7
+
+# D-1.5 orbit-killer: the side key alternates L/R every WEAVE_PERIOD_TICKS visited ticks.
+# A flip is a +side <-> -side transition; at ~13 ms/tick a period of 18 ticks gives
+# ~60000/(18*13) ~= 256 flips/min, mid-band in the G-MV3 human window [8,360]/min (8 ->
+# need period <=~577; 360 -> need period >=~13). The weave nets straight goal-progress where
+# a fixed side curves into a circle (geometric probe: straightness 0.018 -> 0.918).
+WEAVE_PERIOD_TICKS = 18
+
+
+def _angle_lerp(a: float, b: float, t: float) -> float:
+    """Interpolate view-yaw a->b (degrees) along the SHORTEST arc by fraction t in [0,1].
+    Used to lean the seam's perpendicular yaw toward the goal heading (the diagonal cap).
+    t=0 -> a (perpendicular), t=1 -> b (goal heading). Pure float math."""
+    d = ((float(b) - float(a) + 180.0) % 360.0) - 180.0
+    return float(a) + float(t) * d
+
+
+def weave_side_sign(tick: int, *, weave_period: int = WEAVE_PERIOD_TICKS) -> int:
+    """The L/R strafe sign for visited tick `tick` under the weave: +1 for the first
+    `weave_period` ticks, then -1 for the next, alternating. Deterministic in `tick` so the
+    expert stays a pure function of its inputs (the DAgger relabeler passes the visited
+    tick). `weave_period<=0` -> no weave (constant +1, the D-1 fixed-side behavior)."""
+    if weave_period is None or int(weave_period) <= 0:
+        return +1
+    return +1 if (int(tick) // int(weave_period)) % 2 == 0 else -1
 
 
 def goal_dir_yaw(ox: float, oy: float, goal) -> float:
@@ -101,14 +121,15 @@ def goal_dir_yaw(ox: float, oy: float, goal) -> float:
     return math.degrees(math.atan2(gy - oy, gx - ox))
 
 
-def expert_action(state: dict, *, side_sign: int = +1,
-                  ground_launch_speed: float = GROUND_LAUNCH_SPEED_QU) -> tuple:
-    """Optimal air-strafe expert action for one visited sim state.
+def expert_action(state: dict, *, side_sign: int | None = None, tick: int = 0,
+                  forward_blend: float = FORWARD_BLEND,
+                  weave_period: int = WEAVE_PERIOD_TICKS) -> tuple:
+    """Goal-tracking air-strafe expert action for one visited sim state (D-1.5).
 
     Returns (fwd, side, up, jump, view_yaw) -- the SAME shape the rollout feeds the
     engine: fwd/side/up are usercmd magnitudes (+-MOVE_MAG / 0 = cmd.move[0..2]), jump is
     the BUTTON_JUMP bit (0 = released), view_yaw is the engine view yaw in DEGREES (the
-    angles[1] passed to PM.Cmd). Pure float math.
+    angles[1] passed to PM.Cmd). Pure float math, deterministic in its inputs.
 
     `state` keys (the visited pmove_sim state + the v5 goal):
         vx, vy      : world-frame horizontal velocity (qu/s).            REQUIRED.
@@ -116,22 +137,27 @@ def expert_action(state: dict, *, side_sign: int = +1,
         goal        : (gx, gy) route goal in world coords, or None.      optional.
         origin/ox,oy: ego position for the goal heading.                 optional.
         goal_dir_yaw: precomputed fallback yaw (deg); overrides goal/origin if given.
+        tick        : visited-tick index (drives the L/R weave); state value used if the
+                      `tick` kwarg is left default and the state carries one.
 
-    `side_sign` (+-1): which way the bot strafes. Perpendicular-optimal at EITHER sign
-    (the yaw adapts -- see module docstring); +1 by convention. The DAgger loop may flip
-    it per-state if a turn direction is preferred, but speed-gain is identical.
+    `side_sign` (+-1 or None): force a strafe side, or None (default) to DERIVE the side
+    from the weave at `tick` (the orbit-killer L/R alternation). The DAgger loop may force
+    a side per-state if a turn direction is preferred.
+    `forward_blend` in [0,1]: lean the executed view-yaw from the seam's perpendicular
+    reference toward the goal heading (the diagonal cap; see module docstring + FORWARD_BLEND).
+    `weave_period` ticks: L/R alternation period (see WEAVE_PERIOD_TICKS).
 
-    AIR  : fwd=0, side=side_sign*MOVE_MAG, up=0, jump=0, view_yaw=optimal_strafe_yaw(...).
-    GROUND: jump=BUTTON_JUMP (auto-hop on land); fwd=MOVE_MAG ONLY when |v_h| <
-            ground_launch_speed (regain launch speed), else fwd=0; side as in AIR so the
-            launch already leans into the strafe; view_yaw=optimal yaw (fallback when
-            stopped -> goal heading).
+    AIR  : fwd=MOVE_MAG, side=sign*MOVE_MAG, up=0, jump=0; view_yaw = the seam's
+           perpendicular-optimal yaw leaned toward the goal heading by forward_blend.
+    GROUND: jump=BUTTON_JUMP (auto-hop on land); fwd=MOVE_MAG (launch push -- the seam falls
+            back to the goal heading when nearly stopped), side as in air, view_yaw as in air.
     """
     vx = float(state["vx"])
     vy = float(state["vy"])
     onground = bool(state["onground"])
 
-    # fallback view yaw = the v5 goal heading (so the perpendicular branch bends to goal)
+    # fallback view yaw = the v5 goal heading (the seam's perpendicular branch bends to it,
+    # and it is the lean target for the diagonal cap)
     if "goal_dir_yaw" in state and state["goal_dir_yaw"] is not None:
         fb_yaw = float(state["goal_dir_yaw"])
     else:
@@ -143,18 +169,27 @@ def expert_action(state: dict, *, side_sign: int = +1,
             oy = float(state.get("oy", 0.0))
         fb_yaw = goal_dir_yaw(ox, oy, goal)
 
-    side = float(side_sign) * MOVE_MAG
+    # the weave: alternate L/R unless the caller forces a side. Default the tick to the
+    # state's own tick when the kwarg is left at 0 and the state supplies one.
+    eff_tick = int(tick) if tick else int(state.get("tick", 0) or 0)
+    sign = int(side_sign) if side_sign is not None else weave_side_sign(
+        eff_tick, weave_period=weave_period)
+    side = float(sign) * MOVE_MAG
 
     if onground:
-        hspeed = math.hypot(vx, vy)
-        fwd = MOVE_MAG if hspeed < float(ground_launch_speed) else 0.0
+        # auto-hop for sustain; forward is the launch push (the seam falls back to the goal
+        # heading when nearly stopped, so this drives toward the goal off the ground)
+        fwd = MOVE_MAG
         jump = BUTTON_JUMP
     else:
-        fwd = 0.0          # the over-press fix: NO forward in the air
+        fwd = MOVE_MAG     # D-1.5: a forward component (humans press fwd ~54% of air frames)
         jump = 0
 
     up = 0.0
-    # SAME `side` magnitude into the seam AND (by the caller) into the usercmd -> the yaw
-    # is the perpendicular-optimal aim FOR THIS key set (matches --aim optimal at :613).
-    view_yaw = CL.optimal_strafe_yaw(vx, vy, fwd, side, fb_yaw)
+    # REUSE the seam for the perpendicular-optimal REFERENCE yaw (same fwd/side as the
+    # usercmd, matching --aim optimal at :613), then LEAN it toward the goal heading by
+    # forward_blend so the realized wishdir is the human diagonal, not strict-perpendicular
+    # (the seam alone always returns the perpendicular yaw -- see module KEY GEOMETRY).
+    perp_yaw = CL.optimal_strafe_yaw(vx, vy, fwd, side, fb_yaw)
+    view_yaw = _angle_lerp(perp_yaw, fb_yaw, forward_blend)
     return (fwd, side, up, jump, view_yaw)
