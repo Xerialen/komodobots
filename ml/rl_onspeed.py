@@ -191,7 +191,7 @@ def save_rl_ckpt(out_path: Path, rl: RLPolicy, src_ckpt: dict, dims, head_dims,
 class PmoveEnv:
     def __init__(self, world, stats, segments, *, n_max=7, map_name="dm3",
                  horizon=385, band_lo=252.0, band_hi=316.0, seed=0,
-                 cad_hold_min=14, cad_hold_max=230, cad_hold_late=460):
+                 cad_hold_min=14, cad_hold_max=230, cad_hold_late=240):
         self.world = world
         self.stats = stats
         self.segments = segments                 # list of (eid, start, seg) human segments
@@ -336,21 +336,33 @@ class PmoveEnv:
             else:
                 self.strafe_hold += 1
             self.prev_strafe_sign = cur_sign
-            if self.strafe_hold > self.cad_hold_late:   # held one sign too long (< ~8 fpm)
-                r_cad -= 0.5
+            if self.strafe_hold > self.cad_hold_late:
+                # RAMPING park penalty (round-3b): the calib showed a flat, late (460-tick)
+                # park penalty never fired before the policy committed to parking the strafe
+                # argmax for straight-line speed (fpm collapsed 86->0, press climbed to 1.0).
+                # A penalty that GROWS with the hold past cad_hold_late (240 ~= the 16-fpm low
+                # edge) makes parking progressively net-negative, so the policy keeps flipping.
+                over = self.strafe_hold - self.cad_hold_late
+                r_cad -= min(2.0, 0.5 + 0.01 * over)
         # (zero-strafe ticks neither flip nor reset the held sign; hold counter pauses.)
 
         # r_press: explicit fwd-press penalty (ROUND-3, lever 2). fwd_press_frac counts ticks
         # where the fwd-head ARGMAX == class 2 (press-forward); the closed-loop failure is
         # over-pressing (0.57 air vs human top 0.50). A DIRECT penalty on the argmax press
         # (NOT KL/entropy looseness — round 2 proved looseness RAISES press) pulls fwd_press
-        # toward the human band. Penalize only the argmax press tick; 0 otherwise.
+        # toward the human band. Round-3b: weight 0.8 (the calib showed -0.4 lost the tug-of-
+        # war with r_speed and press climbed back to 1.0); strong enough that pressing only
+        # pays when it yields near-max in-band speed (the human "press selectively" tradeoff).
         r_press = 1.0 if fwd_am == 2 else 0.0
 
         # ROUND-3 reward = round-1's known-good base (r_speed weight reverted 1.5->1.0) + the
-        # two matched argmax-targeted believability terms (cadence up, press down).
+        # two matched argmax-targeted believability terms, REBALANCED (round-3b) so they win
+        # the tug-of-war with r_speed that the first calib lost: cadence 0.3->0.5 + ramping
+        # park penalty, press penalty 0.4->0.8. True bunnyhop speed comes from AIR-STRAFING
+        # (alternating strafe + turn), not forward press — so strong cadence + press penalty
+        # are coherent: they push the policy to the air-strafe speed mechanism, not bulldozing.
         reward = (1.0 * r_speed + 0.5 * r_phi + 0.5 * r_prog
-                  + 0.3 * r_cad - 0.4 * r_press - 1.0 * p_hack)
+                  + 0.5 * r_cad - 0.8 * r_press - 1.0 * p_hack)
 
         self.prev_hspeed = hspeed
         self.k += 1
