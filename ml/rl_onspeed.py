@@ -603,6 +603,14 @@ def train(args, device):
     # ckpt by construction and never re-saves a regression.
     import copy as _copy
     best = {"score": -1e9, "sd": None, "it": -1, "press": None, "fpm": None, "hsp": None}
+    # ROUND-4: keep the top-K believable snapshots (not just the single best) so a post-hoc
+    # EVAL-PRESS selection pass can pick the one whose CLOSED-LOOP eval press is lowest. The
+    # round-3 paradox: the best snapshot had in-rollout argmax press 0.114 but eval press
+    # 0.799 — the in-rollout press signal did NOT transfer to the eval distribution. So the
+    # selection criterion is changed from in-rollout press to EVAL press (the metric the gate
+    # actually reads). Each candidate stores its base state_dict + the in-rollout diagnostics.
+    topk = []  # list of dicts {score, sd, it, press, fpm, hsp, kl_anchor}; trimmed to K
+    K = max(1, int(getattr(args, "topk_snapshots", 6)))
     kl_ceiling = args.kl_anchor_ceiling
     stopped_early = None
     env_steps = 0
@@ -643,8 +651,16 @@ def train(args, device):
         press_ok = fwd_press <= args.press_ceiling
         if it >= 1 and on_manifold and press_ok:
             score = mean_hsp - 200.0 * max(0.0, fwd_press - 0.30) + 0.5 * min(fpm_est, 120.0)
+            cand = {"score": score, "sd": _copy.deepcopy(rl.base.state_dict()), "it": it,
+                    "press": fwd_press, "fpm": fpm_est, "hsp": mean_hsp,
+                    "kl_anchor": float(upd["kl_anchor"])}
+            # top-K by in-rollout score (ROUND-4): retain the K best believable snapshots for
+            # the post-hoc eval-press selection; keep `best` as the single-best for logging.
+            topk.append(cand)
+            topk.sort(key=lambda c: c["score"], reverse=True)
+            del topk[K:]
             if score > best["score"]:
-                best.update(score=score, sd=_copy.deepcopy(rl.base.state_dict()), it=it,
+                best.update(score=score, sd=cand["sd"], it=it,
                             press=fwd_press, fpm=fpm_est, hsp=mean_hsp)
                 print(f"[rl] * new best-believable @it{it}: score={score:.1f} "
                       f"press={fwd_press:.3f} fpm~{fpm_est:.0f} hspeed={mean_hsp:.1f} "
@@ -657,9 +673,60 @@ def train(args, device):
                   flush=True)
             break
 
-    # restore the BEST-believable params for saving (NOT the final/collapsed policy). If no
-    # eligible iter was found (degenerate run), fall back to the final params with a warning.
-    if best["sd"] is not None:
+    # --- ROUND-4 eval-press selection: pick the candidate by CLOSED-LOOP EVAL press --------
+    # The round-3 paradox was that in-rollout argmax press (0.114) did not transfer to the
+    # eval closed-loop distribution (0.799). So instead of saving the top-IN-ROLLOUT-score
+    # snapshot, we eval each of the top-K snapshots on the SAME goal-conditioned closed-loop
+    # the gate uses (cheap: closed-loop only, NO dryroutes) and KEEP the candidate whose EVAL
+    # fwd_press_frac < --eval-press-ceiling AND that holds M1 (avg hspeed) >= band_lo AND M6
+    # cadence in-band. If none fully qualifies, fall back to the lowest-eval-press candidate
+    # that still holds M1 in band (materially-below the 0.799 basin). This persists the params
+    # the FULL metric vector will then confirm.
+    sel = None       # the chosen candidate dict
+    sel_reason = None
+    eval_probe = []  # per-candidate eval diagnostics for the meta
+    if getattr(args, "select_by_eval_press", False) and topk:
+        print(f"[rl] EVAL-PRESS SELECTION over {len(topk)} top-K snapshots "
+              f"(ceiling press<{args.eval_press_ceiling}, M1>={band_lo:.0f}, M6 in-band)",
+              flush=True)
+        import tempfile
+        qualified, in_band = [], []
+        for ci, c in enumerate(topk):
+            rl.base.load_state_dict(c["sd"])
+            ep, em1, em6 = _eval_press_screen(rl, src_ckpt, dims, head_dims, args, device,
+                                              tmptag=f"sel{ci}")
+            c_diag = {"it": c["it"], "inroll_press": c["press"], "inroll_hsp": c["hsp"],
+                      "inroll_fpm": c["fpm"], "eval_press": ep, "eval_m1": em1, "eval_m6": em6}
+            eval_probe.append(c_diag)
+            m1_ok = (em1 is not None and em1 >= band_lo)
+            m6_ok = (em6 is not None and em6 >= 0.0)
+            press_lt = (ep is not None and ep < args.eval_press_ceiling)
+            print(f"[rl]   cand @it{c['it']}: eval_press={ep} eval_M1={em1} eval_M6={em6} "
+                  f"-> press_ok={press_lt} M1_ok={m1_ok} M6_ok={m6_ok}", flush=True)
+            if press_lt and m1_ok and m6_ok:
+                qualified.append((ep, c))
+            if m1_ok and ep is not None:
+                in_band.append((ep, c))
+        if qualified:
+            qualified.sort(key=lambda x: x[0])           # lowest eval press among fully-qualified
+            sel = qualified[0][1]; sel_reason = "eval_press<ceiling & M1 in band & M6 in band"
+        elif in_band:
+            in_band.sort(key=lambda x: x[0])             # materially-below fallback: lowest press, M1 held
+            sel = in_band[0][1]; sel_reason = "fallback: lowest eval press holding M1 in band (no full-qualify)"
+        else:
+            print("[rl] WARN eval-press selection: NO candidate held M1 in band — "
+                  "falling back to in-rollout best", flush=True)
+
+    # restore the SELECTED (eval-press) or BEST-believable (in-rollout) params for saving (NOT
+    # the final/collapsed policy). If no eligible iter was found (degenerate run), fall back to
+    # the final params with a warning.
+    if sel is not None:
+        rl.base.load_state_dict(sel["sd"])
+        ed = next((d for d in eval_probe if d["it"] == sel["it"]), {})
+        print(f"[rl] saving EVAL-PRESS-SELECTED ckpt @it{sel['it']} "
+              f"(eval_press={ed.get('eval_press')} eval_M1={ed.get('eval_m1')} "
+              f"eval_M6={ed.get('eval_m6')}; reason={sel_reason})", flush=True)
+    elif best["sd"] is not None:
         rl.base.load_state_dict(best["sd"])
         print(f"[rl] saving BEST-believable ckpt @it{best['it']} "
               f"(press={best['press']:.3f} fpm~{best['fpm']:.0f} hspeed={best['hsp']:.1f})",
@@ -680,12 +747,56 @@ def train(args, device):
         "best_hspeed": best["hsp"], "best_score": best["score"],
         "stopped_early_it": stopped_early, "kl_anchor_ceiling": kl_ceiling,
         "press_ceiling": args.press_ceiling,
-        "saved_params": ("best_believable" if best["sd"] is not None else "final_fallback"),
+        "select_by_eval_press": bool(getattr(args, "select_by_eval_press", False)),
+        "eval_press_ceiling": float(getattr(args, "eval_press_ceiling", 0.50)),
+        "topk_snapshots": K,
+        "eval_press_probe": eval_probe,
+        "selected_it": (sel["it"] if sel is not None else best["it"]),
+        "selected_reason": sel_reason,
+        "saved_params": ("eval_press_selected" if sel is not None
+                         else ("best_believable" if best["sd"] is not None else "final_fallback")),
     }
     save_rl_ckpt(args.out_ckpt, rl, src_ckpt, dims, head_dims, args.round, meta)
     print(json.dumps({"saved": str(Path(args.out_ckpt).resolve()), "rl_meta": meta}, indent=2),
           flush=True)
     return meta
+
+
+def _eval_press_screen(rl, src_ckpt, dims, head_dims, args, device, tmptag="sel"):
+    """ROUND-4 candidate screen: persist `rl`'s CURRENT base params to a temp ckpt, run the
+    SAME goal-conditioned closed-loop eval the gate uses (CLOSED-LOOP ONLY — skip the 3
+    dryroutes, which are the expensive part of the full vector), and return
+    (eval_fwd_press_frac, eval_M1_avg_hspeed, eval_M6_cadence_margin). Self-yaw, conditioned
+    goal — byte-parity with eval_metric_vector's closed-loop call, just fewer segments."""
+    import tempfile
+    rc = args.resource_coords
+    nseg = int(getattr(args, "select_eval_segments", args.eval_segments))
+    with tempfile.NamedTemporaryFile(suffix=f"_{tmptag}.pt", delete=False) as tf:
+        tmp = Path(tf.name)
+    try:
+        save_rl_ckpt(tmp, rl, src_ckpt, dims, head_dims, args.round, {"screen": tmptag})
+        rep = EV.run_eval(
+            tmp, Path(args.bsp), Path(args.db), Path(args.norm_artifact),
+            split=args.split, horizon=args.ep_horizon, n_segments=nseg,
+            anchors=Path(args.anchors), player_band=None, map_name=args.map,
+            n_max=args.n_max, cpu=(device == "cpu"),
+            goal_mode="conditioned", resource_coords_path=(Path(rc) if rc else None),
+            aim_mode="policy",
+        )
+        bp = rep["bot_policy"]
+        g = bp["gmv"]["gates"]
+        m1 = g.get("G-MV4", {}).get("statistic", {}).get("avg_hspeed_qu_per_s")
+        m6 = g.get("G-MV3", {}).get("margin", {}).get("flips_per_min_to_nearer_edge")
+        ep = bp.get("fwd_press_frac")
+        return (ep, m1, m6)
+    except Exception as e:
+        print(f"[rl]   screen {tmptag} FAILED: {str(e)[:160]}", flush=True)
+        return (None, None, None)
+    finally:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
 
 
 def eval_metric_vector(args, device):
@@ -828,6 +939,22 @@ def main(argv=None):
     ap.add_argument("--press-ceiling", type=float, default=0.50,
                     help="best-ckpt eligibility: max in-rollout argmax fwd_press (human top "
                          "0.50). Iters above this are over-pressing -> not eligible as best.")
+    # ROUND-4 eval-press selection (the targeted fix for the round-3 in-rollout/eval mismatch)
+    ap.add_argument("--select-by-eval-press", action="store_true",
+                    help="ROUND-4: after training, eval each of the top-K believable snapshots "
+                         "on the goal-conditioned closed-loop and SAVE the one whose EVAL press "
+                         "< --eval-press-ceiling while holding M1 in band + M6 in-band (else "
+                         "the lowest-eval-press candidate that holds M1). Fixes round-3 where "
+                         "in-rollout press did not transfer to the eval distribution.")
+    ap.add_argument("--topk-snapshots", type=int, default=6,
+                    help="how many top-in-rollout-score believable snapshots to retain for the "
+                         "eval-press selection pass (--select-by-eval-press).")
+    ap.add_argument("--eval-press-ceiling", type=float, default=0.50,
+                    help="eval-press selection: a candidate fully qualifies iff its CLOSED-LOOP "
+                         "eval fwd_press_frac is below this (human top 0.50).")
+    ap.add_argument("--select-eval-segments", type=int, default=8,
+                    help="closed-loop segments for the per-candidate eval-press screen "
+                         "(cheaper than the full --eval-segments; the winner gets the full vector).")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--cpu", action="store_true")
     # eval
