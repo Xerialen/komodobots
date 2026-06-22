@@ -6,8 +6,11 @@ Exercises the recovery logic on small synthetic pos-streams:
   * sidemove SIGN = -sign(yaw_rate) flips with the turn direction, gated to the bhop regime,
   * jump emitted on a geometric onground TRUE->FALSE transition, NOT on single-tick flicker,
   * the schema-version guard hard-fails on a schema-21-shaped dict,
-  * the manifest reader keeps only classification=='TRAIN' entries.
+  * the manifest reader keeps only EXPLICIT class=='TRAIN' rows and carries their content lock,
+  * a sha256 mismatch against the manifest is flagged (provenance verify), and
+  * every idm row is held out of training (is_interp=True) until per-head weights exist.
 """
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -81,8 +84,8 @@ class StrafeSignTest(unittest.TestCase):
         turning = [r for r in rows if r["side"] != 0.0]
         self.assertTrue(turning, "expected at least one strafing tick")
         for r in turning:
-            self.assertLess(r["side"], 0.0)  # +yaw_rate -> -sidemove
-            self.assertFalse(r["is_interp"])  # above gate + confident turn -> kept
+            self.assertLess(r["side"], 0.0)  # +yaw_rate -> -sidemove (sign still recovered)
+            self.assertTrue(r["is_interp"])   # interim hold-out: idm rows excluded until per-head weights
             self.assertAlmostEqual(r["confidence"], etl.STRAFE_CONF)
             self.assertEqual(abs(r["side"]), etl.SIDEMOVE_MAG)  # full-magnitude prior
 
@@ -198,23 +201,65 @@ class SchemaGuardTest(unittest.TestCase):
 
 
 class ManifestTest(unittest.TestCase):
-    def test_train_only_filter(self):
+    def _load(self, manifest):
         import json
         import tempfile
-        manifest = {"schema": "v2", "demos": [
-            {"path": "/a/train1.mvd", "classification": "TRAIN"},
-            {"path": "/a/holdout.mvd", "classification": "HOLDOUT"},
-            {"path": "/a/train2.mvd", "classification": "TRAIN"},
-            {"abspath": "/a/train3.mvd"},  # no classification -> kept (defaults to TRAIN)
-        ]}
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
             json.dump(manifest, fh)
             p = Path(fh.name)
         try:
-            paths = etl.load_manifest(p)
+            return etl.load_manifest(p)
         finally:
             p.unlink()
-        self.assertEqual(paths, ["/a/train1.mvd", "/a/train2.mvd", "/a/train3.mvd"])
+
+    def test_explicit_train_only_and_carries_content_lock(self):
+        sha = "a" * 64
+        manifest = {"schema": "v3", "demos": [
+            {"path": "/a/train1.mvd", "class": "TRAIN", "sha256": sha, "size_bytes": 10},
+            {"path": "/a/holdout.mvd", "class": "HOLDOUT", "sha256": sha, "size_bytes": 10},
+            {"path": "/a/train2.mvd", "classification": "TRAIN", "sha256": sha.upper(), "size_bytes": 20},
+        ]}
+        out = self._load(manifest)
+        self.assertEqual([e["path"] for e in out], ["/a/train1.mvd", "/a/train2.mvd"])
+        self.assertEqual(out[0]["sha256"], sha)            # carried
+        self.assertEqual(out[1]["sha256"], sha)            # normalized to lowercase
+        self.assertEqual(out[0]["size_bytes"], 10)
+
+    def test_missing_class_is_rejected_not_defaulted_to_train(self):
+        # the old bug: a row with no class was silently treated as TRAIN. It must now be REJECTED.
+        out = self._load({"demos": [{"abspath": "/a/noclass.mvd", "sha256": "b" * 64, "size_bytes": 5}]})
+        self.assertEqual(out, [])
+
+
+class ProvenanceVerifyTest(unittest.TestCase):
+    def test_extract_demo_flags_sha_mismatch(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile("wb", suffix=".mvd", delete=False) as fh:
+            fh.write(b"not a real demo")
+            p = fh.name
+        try:
+            r = etl.extract_demo(p, "/nonexistent-qwa", "/nonexistent-bsp", expected_sha256="f" * 64)
+        finally:
+            os.unlink(p)
+        self.assertFalse(r["ok"])
+        self.assertTrue(r.get("sha_mismatch"))
+        self.assertIn("SHA_MISMATCH", r["error"])
+
+
+class HoldoutInvariantTest(unittest.TestCase):
+    """Anti-poisoning: until per-head weights exist, EVERY idm row is held out of training."""
+
+    def _seg(self, yaws_deg, hspeed):
+        v = [hspeed, 0.0, 0.0]
+        return [{"origin": [float(i), 0.0, -88.0], "velocity": list(v),
+                 "yaw": float(y), "pitch": 0.0, "msec": 13} for i, y in enumerate(yaws_deg)]
+
+    def test_all_rows_held_out_regardless_of_gate(self):
+        for hspeed in (200.0, 500.0):  # below and above the strafe-sign gate
+            seg = self._seg([0.0, 5.0, 10.0, 15.0], hspeed)
+            ep = etl._pack_episode(seg, [False] * len(seg), [False] * len(seg), 0)
+            self.assertTrue(all(r["is_interp"] for r in ep["frames"]),
+                            "every idm row must be is_interp=True (no move head trains)")
 
 
 class SplitTest(unittest.TestCase):

@@ -316,16 +316,20 @@ def _pack_episode(seg, seg_onground, seg_jump, start_tick: int) -> dict:
         buttons = BUTTON_JUMP if jump else 0
         upmove = SIDEMOVE_MAG if jump else 0.0
 
-        # row confidence + is_interp: an above-gate confident-turn strafe row is the
-        # believability-critical label (STRAFE_CONF, kept). A below-gate / no-turn row carries
-        # only the low-confidence forward/aim priors -> mark is_interp so training can exclude
-        # the unreliable strafe-sign (per the de-risk: below-gate sign reliability drops).
+        # per-signal reliability (kept for the per-head-weight phase): an above-gate confident
+        # turn is the believability-critical strafe-sign label (STRAFE_CONF); below the gate the
+        # sign is unreliable (BELOW_GATE_CONF) or absent (FORWARD_CONF).
         if above_gate and confident_turn:
             confidence = STRAFE_CONF
-            is_interp = False
         else:
             confidence = BELOW_GATE_CONF if confident_turn else FORWARD_CONF
-            is_interp = True
+        # INTERIM HOLD-OUT (anti-poisoning): the trainer scales the WHOLE action vector by ONE
+        # row weight, and forwardmove here is a fabricated prior (FORWARDMOVE_PRIOR), so any
+        # trainable idm row would clone "no forward" at high confidence (label poisoning, not
+        # mere low confidence). Until per-head weights exist (the [K,H] shard/trainer change),
+        # EVERY idm row is is_interp=TRUE so NO move head trains on it. side/jump/confidence are
+        # still emitted so the per-head phase can re-enable them without re-extracting 1537 demos.
+        is_interp = True
 
         rows.append({
             "tick": i,
@@ -346,17 +350,25 @@ def _pack_episode(seg, seg_onground, seg_jump, start_tick: int) -> dict:
     return {"start": start_tick, "end": start_tick + len(seg) - 1, "n": len(seg), "frames": rows}
 
 
-def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str) -> dict:
+def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
+                 expected_sha256: str | None = None) -> dict:
     """Worker: parse one .mvd into per-player per-tick STATE + recovered ACTION rows.
 
     Returns a JSON-serializable dict (crosses the ProcessPool boundary cleanly):
         {ok, demo, sha256, n_players, players:[{name, team, n_frames,
             episodes:[{start,end,n,frames:[...]}]}], ...}  on success
         {ok:False, demo, error}                            on failure
-    Never raises into the pool — a bad demo is recorded and skipped."""
+        {ok:False, demo, error, sha_mismatch:True}         on content-lock mismatch (FATAL)
+    Never raises into the pool — a bad demo is recorded and skipped. A sha_mismatch is a
+    provenance failure (the file on disk is not the bytes the manifest classified) and build()
+    aborts the whole run on it."""
     demo = Path(demo_path)
     try:
         sha = _sha256_file(demo)
+        if expected_sha256 and sha != expected_sha256:
+            return {"ok": False, "demo": demo.name, "sha_mismatch": True,
+                    "error": "SHA_MISMATCH manifest=%s on-disk=%s (file replaced/truncated/"
+                             "repaired since classification?)" % (expected_sha256, sha)}
         proc = subprocess.run(
             [qw_analyze, "-view", "full", "-include", "positions,view,velocity", str(demo)],
             capture_output=True, check=True,
@@ -483,27 +495,35 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str) -> 
             "player_ticks": n_tick, "actions": n_act}
 
 
-def load_manifest(manifest_path: Path) -> list[str]:
-    """Load the corpus manifest (schema v2) and return the abspaths of TRAIN demos.
+def load_manifest(manifest_path: Path) -> list[dict]:
+    """Load the corpus manifest (schema v3) and return the TRAIN demos WITH their content lock.
 
-    Tolerates a couple of shapes: a top-level `demos`/`entries` list of objects each with a
-    `classification` and a path (`path`/`abspath`/`file`), or a bare list of the same. Only
-    classification=='TRAIN' entries are processed (the believable-BC train list)."""
+    Each entry: {"path", "sha256", "size_bytes"}. Selection is EXPLICIT — only rows whose class
+    is exactly 'TRAIN' are loaded; a row with a missing/blank class is REJECTED (never silently
+    treated as TRAIN), so a malformed manifest can't leak an unlabeled demo into training. The
+    sha256/size_bytes are the content lock the extractor verifies before trusting the bytes on
+    disk (see extract_demo / build)."""
     raw = json.loads(manifest_path.read_text(encoding="utf-8"))
-    entries = raw.get("demos") or raw.get("entries") or raw if isinstance(raw, (list,)) else \
-        (raw.get("demos") or raw.get("entries") or [])
-    if isinstance(raw, dict) and not isinstance(entries, list):
+    if isinstance(raw, list):
+        entries = raw
+    elif isinstance(raw, dict):
+        entries = raw.get("demos") or raw.get("entries") or []
+    else:
         entries = []
     out = []
     for e in entries:
         if not isinstance(e, dict):
             continue
-        cls = (e.get("classification") or e.get("class") or "").upper()
-        if cls and cls != "TRAIN":
+        cls = (e.get("classification") or e.get("class") or "").strip().upper()
+        if cls != "TRAIN":  # explicit-TRAIN-only: missing/blank/other class is NOT training data
             continue
         path = e.get("path") or e.get("abspath") or e.get("file") or e.get("demo")
-        if path:
-            out.append(str(path))
+        if not path:
+            continue
+        sha = (e.get("sha256") or "").strip().lower() or None
+        size = e.get("size_bytes")
+        out.append({"path": str(path), "sha256": sha,
+                    "size_bytes": int(size) if isinstance(size, int) else None})
     return out
 
 
@@ -527,30 +547,46 @@ def assign_splits(n_demos: int, ratios=(0.7, 0.15, 0.15)) -> list[str]:
 def build(catalog_dir: Path, manifest: Path, db_path: str, bsp_path: str,
           qw_analyze: str, workers: int = 2, limit: int = 0) -> dict:
     """Build a populated MOVE catalog: static spine + per-tick rows recovered from .mvd demos."""
-    paths = load_manifest(manifest)
+    entries = load_manifest(manifest)
     if limit:
-        paths = paths[:limit]
+        entries = entries[:limit]
+
+    # provenance gate (req): every TRAIN row must carry a content lock, and each file's bytes
+    # must match it before we trust them. A missing lock or a mismatch is FATAL — fail loud.
+    missing_lock = [e["path"] for e in entries if not e["sha256"]]
+    if missing_lock:
+        raise RuntimeError(
+            "manifest provenance: %d TRAIN rows lack a sha256 content lock (need a schema-v3 "
+            "manifest); first: %s" % (len(missing_lock), missing_lock[:3]))
 
     con, base = catalog_load.build(catalog_dir, fixture_dir=None, db_path=db_path)
     map_id = con.execute("SELECT map_id FROM maps WHERE name='dm3'").fetchone()[0]
 
     t0 = time.time()
     extracted, errors = [], []
-    LOGGER.info("MVD ETL: extracting %d demos with %d workers ...", len(paths), workers)
-    if workers > 1 and len(paths) > 1:
+    LOGGER.info("MVD ETL: extracting %d demos with %d workers ...", len(entries), workers)
+    if workers > 1 and len(entries) > 1:
         with ProcessPoolExecutor(max_workers=workers) as ex:
-            futs = {ex.submit(extract_demo, p, qw_analyze, bsp_path): p for p in paths}
+            futs = {ex.submit(extract_demo, e["path"], qw_analyze, bsp_path, e["sha256"]): e["path"]
+                    for e in entries}
             for fut in as_completed(futs):
                 r = fut.result()
                 (extracted if r.get("ok") else errors).append(r)
                 done = len(extracted) + len(errors)
-                LOGGER.info("  %d/%d  %s  (%s)", done, len(paths), r.get("demo"),
+                LOGGER.info("  %d/%d  %s  (%s)", done, len(entries), r.get("demo"),
                             ("%d players" % r.get("n_players", 0)) if r.get("ok")
                             else "ERR: " + r.get("error", ""))
     else:
-        for p in paths:
-            r = extract_demo(p, qw_analyze, bsp_path)
+        for e in entries:
+            r = extract_demo(e["path"], qw_analyze, bsp_path, e["sha256"])
             (extracted if r.get("ok") else errors).append(r)
+
+    mismatches = [e for e in errors if e.get("sha_mismatch")]
+    if mismatches:
+        raise RuntimeError(
+            "manifest provenance: %d demo(s) failed sha256 verification (corpus corruption — the "
+            "bytes on disk are not what was classified); first: %s"
+            % (len(mismatches), mismatches[0]["error"]))
 
     extracted.sort(key=lambda r: r["demo"])
     splits = assign_splits(len(extracted))
@@ -571,7 +607,7 @@ def build(catalog_dir: Path, manifest: Path, db_path: str, bsp_path: str,
         "db": db_path,
         "catalog_dir": str(catalog_dir),
         "static_spine": base,
-        "demos_attempted": len(paths),
+        "demos_attempted": len(entries),
         "demos_loaded": len(per_demo),
         "demos_failed": len(errors),
         "demos_skipped_duplicate": len(skipped_dups),
@@ -603,16 +639,25 @@ def _onground_distinct(con: sqlite3.Connection) -> list:
 
 
 def _strafe_label_stats(con: sqlite3.Connection) -> dict:
-    """Report the recovered-label health: how many confident (non-interp, source=idm) strafe
-    rows landed in the >=gate bunnyhop regime, and the jump-press rate."""
+    """Report the recovered-label health AND the interim hold-out state.
+
+    `above_gate_strafe_sign_rows` is the RECOVERABLE signal — bhop-regime confident-turn rows
+    whose strafe sign is good (these become trainable once per-head weights land). `trainable_*`
+    is what trains TODAY: currently 0, because every idm row is held out (is_interp=1) to avoid
+    the forwardmove poisoning until per-head weights exist. The two differing is expected."""
     try:
-        confident = con.execute(
-            "SELECT COUNT(*) FROM actions WHERE label_source='idm' AND is_interp=0 "
-            "AND sidemove != 0").fetchone()[0]
+        above_gate = con.execute(
+            "SELECT COUNT(*) FROM actions WHERE label_source='idm' AND sidemove != 0 "
+            "AND confidence >= ?", (STRAFE_CONF,)).fetchone()[0]
+        trainable = con.execute(
+            "SELECT COUNT(*) FROM actions WHERE is_interp=0 AND sidemove != 0").fetchone()[0]
         total_actions = con.execute("SELECT COUNT(*) FROM actions").fetchone()[0]
+        held_out = con.execute("SELECT COUNT(*) FROM actions WHERE is_interp=1").fetchone()[0]
         jump_rows = con.execute("SELECT COUNT(*) FROM actions WHERE (buttons & 2) != 0").fetchone()[0]
         return {
-            "confident_strafe_sign_rows": confident,
+            "above_gate_strafe_sign_rows": above_gate,   # recoverable bhop-regime sign signal
+            "trainable_strafe_sign_rows": trainable,     # trains today (0 during the hold-out)
+            "held_out_action_rows": held_out,            # == total during the interim hold-out
             "total_action_rows": total_actions,
             "jump_press_rows": jump_rows,
             "jump_press_rate": round(jump_rows / total_actions, 5) if total_actions else None,
@@ -641,7 +686,8 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Populate the MOVE catalog from human 4on4 dm3 .mvd demos")
     ap.add_argument("--catalog-dir", type=Path, required=True)
     ap.add_argument("--manifest", type=Path, required=True,
-                    help="corpus manifest (schema v2); only classification=='TRAIN' entries are loaded")
+                    help="corpus manifest (schema v3); only rows with an explicit class=='TRAIN' "
+                         "are loaded, and each must carry a sha256 content lock")
     ap.add_argument("--db", required=True, help="output .sqlite path")
     ap.add_argument("--bsp", default=DEFAULT_BSP, help="dm3 BSP for geometric onground floor-trace")
     ap.add_argument("--qw-analyze", default=DEFAULT_QW_ANALYZE,
@@ -667,13 +713,25 @@ def main(argv=None) -> int:
         dbp.unlink()
     dbp.parent.mkdir(parents=True, exist_ok=True)
 
-    res = build(args.catalog_dir, args.manifest, args.db, bsp_path, qw_analyze,
-                workers=args.workers, limit=args.limit)
+    try:
+        res = build(args.catalog_dir, args.manifest, args.db, bsp_path, qw_analyze,
+                    workers=args.workers, limit=args.limit)
+    except RuntimeError as e:
+        LOGGER.error("FATAL provenance/build error: %s", e)
+        return 3
     try:
         print(json.dumps(res["summary"], indent=2, default=str))
-        if res["summary"]["demos_loaded"] == 0 and not args.allow_empty:
-            LOGGER.error("no .mvd demos loaded (0 episodes/player_ticks/actions from real demos); "
-                         "failing. Pass --allow-empty to accept a static-only catalog.")
+        # non-empty hard gate: a run that loaded demos but produced NO rows (analyzer export too
+        # short/malformed after the schema guard, every demo zero-episode) must FAIL, not exit 0
+        # with an empty catalog. Require player_ticks>0 AND actions>0 for a non-empty run.
+        tc = res["summary"].get("table_counts") or {}
+        empty = (res["summary"]["demos_loaded"] == 0
+                 or not tc.get("player_ticks") or not tc.get("actions"))
+        if empty and not args.allow_empty:
+            LOGGER.error("empty load: demos_loaded=%s player_ticks=%s actions=%s — a non-empty run "
+                         "requires player_ticks>0 AND actions>0. Pass --allow-empty for a "
+                         "static-only catalog.", res["summary"]["demos_loaded"],
+                         tc.get("player_ticks"), tc.get("actions"))
             return 2
         return 0
     finally:
