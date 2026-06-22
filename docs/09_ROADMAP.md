@@ -36,7 +36,9 @@ flowchart TD
 
 Current active stage:
 
-`QWD-DM3-SNG - event-level activation/advance instrumentation and event-aware scoring are ready for review; next diagnostic is an unchanged-projection live rerun plus active-window movement scoring`
+`ML-MOVEMENT-BRAIN (movement-v5) - the supervised behavioral-cloning family is exhausted on closed-loop bunnyhop SPEED, and RL-on-speed (PPO over the offline pmove sim, self-yaw, mechanism-gated reward) has cracked the closed-loop forward over-press DIRECTIONALLY; the overnight 8-round magnitudes are INDICATIVE pending a Phase-1 re-validation under fixed eval code (three Codex-found train/eval bugs, fixed in #356); the strafe-cadence residual + an owner A/B/C forward fork are next. See "ML Movement-Brain Track" below.`
+
+The parallel KTX/Frogbot-shell line remains the prior `QWD-DM3-SNG` diagnostic: event-level activation/advance instrumentation and event-aware scoring are ready for review; its next diagnostic is an unchanged-projection live rerun plus active-window movement scoring (S0-S7 ladder + Stage Status Table below).
 
 ## Stage Status Table
 
@@ -51,6 +53,7 @@ Current active stage:
 | S6 Route Primitives | Closed for now | S6f found `276->59` is explicit and reciprocal, but marker `276` lacks static geometry, so no tiny route-data fix is justified from `dm3.bot` alone |
 | S7 Player Specific | Paused behind QWD decision track | S7l found enough clean air-transition evidence for one narrower Frogbots probe, but the QWD action/trajectory bridge is now the faster Frogbots-vs-from-scratch decision path |
 | QWD DM3 Route Transfer | Active but blocked from expansion | Event-level mode-9 QWD logging/parser support and scorer consumption are ready for review; next evidence must come from an unchanged-projection live SNG rerun with `moveprobe-qwd-events.*`, then active-window movement-quality scoring before projection changes or other DM3 QWD moves |
+| ML Movement-Brain (movement-v5) | RL-on-speed cracked over-press directionally; magnitudes pending Phase-1 re-validation | Supervised family (BC -> reweight -> GRU-sequence -> DAgger) exhausted on closed-loop SPEED; `ml/rl_onspeed.py` (PPO, self-yaw, mechanism-gated reward) landed the over-press in the human band (best ckpt `rl_round6_r4init.pt`) but the 8-round numbers are INDICATIVE pending a clean re-eval under the three Codex-found train/eval fixes (#356); strafe-cadence (G-MV3) co-occurring with launch+speed is the residual, then an owner A/B/C forward fork |
 
 ## Roadmap Rule
 
@@ -58,6 +61,45 @@ Whenever a stage changes, update this file and record supporting evidence in:
 
 - docs/07_FINDINGS_LOG.md
 - docs/08_DECISION_LOG.md
+
+## ML Movement-Brain Track (movement-v5)
+
+This is the current frontier toward `B[Movement Realism]`: a learned movement brain
+trained from the dm3 catalog (`ml/train_broad_bc.py` + the goal-conditioned gate evals),
+run inside the KTX/Frogbot shell. It is parallel to the S0-S7 KTX-moveprobe ladder above,
+not a replacement for it. Sequence, with evidence in `docs/07_FINDINGS_LOG.md` and
+`docs/08_DECISION_LOG.md` (2026-06-22) and the per-round record in
+`docs/notes/rl-onspeed-results.md`:
+
+- The **supervised behavioral-cloning family is exhausted** on closed-loop bunnyhop SPEED.
+  Behavior cloning, then sample reweighting, then a GRU sequence model, then DAgger
+  (analytic expert, rounds D-1 / D-1.5 / D-2) all converged to the same closed-loop
+  **over-press** attractor: the policy presses forward ~0.83-1.0 (human air band ~0.07-0.50),
+  which kills air-strafe acceleration so the G-MV4 speed band fails. Per-state cloning cannot
+  produce the long-horizon emergent bunnyhop-speed skill.
+- **RL-on-speed cracked the over-press DIRECTIONALLY.** `ml/rl_onspeed.py` (PPO over the
+  offline pmove sim, a self-yaw action head = the speed mechanism, a mechanism-gated reward
+  that credits speed only via perpendicular air-strafe rather than forward bulldozing,
+  warm-started from a believable-aim BC checkpoint and KL-anchored to it). The best checkpoint
+  (`rl_round6_r4init.pt`, on pinnacle, not in git) reached human-band forward-press (~0.24)
+  and in-band speed by air-strafing while launching and staying believable (G-MV1). Round 5
+  showed the over-press was a **reward artifact**, not fundamental.
+- **Caveat - magnitudes are INDICATIVE, not settled.** The overnight 8-round numbers predate
+  three train/eval bugs the cross-model reviewer (Codex) found and that are now fixed+merged
+  (#356): a PPO log-prob head mismatch, a closed-loop eval feeding yaw-rate = 0 after tick 0,
+  and an uninitialized reset goal-distance. A clean **Phase-1 re-validation** (re-eval the
+  checkpoint field under the fixed code; optionally re-train) is the agreed prerequisite before
+  the numbers are treated as final. The directional result (RL moves over-press where the
+  supervised family could not) is unlikely to be a pure artifact.
+- **Residual: cadence.** The L/R strafe-flip rhythm (G-MV3) cannot yet co-occur with
+  launch + speed in a single snapshot - a real tension (the cadence side-flip steals the
+  sustained air-strafe that launch and the speed floor need), not tuning. Candidate next
+  mechanism: a trajectory/multi-tick cadence credit, or AMP (adversarial motion priors).
+- **Forward fork (owner decision, NOT yet chosen).** After the Phase-1 re-validation:
+  (A) chase cadence via a new RL mechanism; (B) productionize/ship the best checkpoint
+  (gated on the re-validation + live-server sign-off); or (C) broaden the thin corpus.
+- The DAgger expert branch / evidence tooling (#354) is parked (`gate: blocked`, conflicting)
+  and slated to be **closed**: DAgger is a ruled-out negative result, not an active line.
 
 ## Route-Yaw Scaffold Stop Condition
 

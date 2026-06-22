@@ -39,6 +39,17 @@ reusable PPO-on-speed RL loop (`--init-ckpt/--steps/--out-ckpt/--eval`, offline 
 GPU) that optimizes downstream closed-loop SPEED with self-yaw — the matched lever for the
 bunnyhop-speed skill the supervised family could not produce. See `docs/02_SOURCE_MAP.md`.
 
+Status (2026-06-22, movement-v5): the **supervised family is exhausted** on closed-loop
+bunnyhop SPEED — behavioral cloning, sample reweighting, the GRU sequence model, and DAgger
+all hit the same closed-loop forward **over-press** attractor (per-state cloning cannot make
+the long-horizon emergent skill). **RL-on-speed is now the active lever**, and it cracked the
+over-press **directionally** (best checkpoint lands forward-press in the human band with
+in-band speed by air-strafing, while launching and staying believable). The overnight 8-round
+**magnitudes are INDICATIVE pending a Phase-1 re-validation** under fixed eval code (three
+Codex-found train/eval bugs, fixed in #356); the strafe-cadence rhythm co-occurring with
+launch+speed is the residual, then an owner A/B/C forward fork. Full status:
+`docs/09_ROADMAP.md`, `docs/07_FINDINGS_LOG.md`, `docs/08_DECISION_LOG.md` (2026-06-22).
+
 ## Agent roles and autonomous loop
 
 This repository uses tool-agnostic roles. Benjamin may assign any capable agent
