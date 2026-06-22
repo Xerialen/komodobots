@@ -40,6 +40,21 @@ def sha256_size(path):
     return h.hexdigest(), os.path.getsize(path)
 
 
+def qwa_parser_id(qwa):
+    """Identity of the qw-analyze binary that produced the parse fields (gate item 2: parser
+    version). Hash the binary so the manifest records WHICH parser read map/teams/active_players.
+    NB: this SELECTION parse is parser-version-robust (map/teams/active-player counts are stable
+    across schema revisions); the per-tick MOVE extraction in the ETL separately REQUIRES the
+    schema-33 binary (per-tick view-yaw/velocity), which is a different, load-bearing concern."""
+    path = os.path.expanduser(qwa)
+    try:
+        sha, size = sha256_size(path)
+    except OSError as e:  # noqa: BLE001
+        return {"path": qwa, "sha256": None, "size_bytes": None,
+                "error": "%s: %s" % (type(e).__name__, e)}
+    return {"path": qwa, "sha256": sha, "size_bytes": size}
+
+
 def parse_corpus_tsv(text):
     """Parse the servexeri 4on4-corpus manifest.tsv: `sha256<TAB>size<TAB>basename<TAB>source`.
 
@@ -67,6 +82,29 @@ def merge_provenance(rows, prov):
         hit = prov.get(r["demo"])
         if hit:
             r["sha256"], r["size_bytes"] = hit
+
+
+def dedupe_train_by_sha(rows):
+    """Canonicalize duplicate-content TRAIN rows. Identical bytes (same sha256) under different
+    names — e.g. a demo and its content-hash-renamed twin — are a split-by-demo train/eval
+    LEAKAGE risk and let stale parse metadata ride on one alias. Keep exactly ONE canonical
+    TRAIN row per sha256 (the lexicographically-first `demo`, deterministic); demote the rest to
+    EXCLUDED. Returns the number demoted. (EXCLUDED aliases are already out of the train set.)"""
+    groups = {}
+    for r in rows:
+        if r["class"] == "TRAIN" and r.get("sha256"):
+            groups.setdefault(r["sha256"], []).append(r)
+    demoted = 0
+    for _sha, rs in groups.items():
+        if len(rs) < 2:
+            continue
+        rs.sort(key=lambda r: r["demo"])
+        canonical = rs[0]["demo"]
+        for r in rs[1:]:
+            r["class"] = "EXCLUDED"
+            r["reason"] = "duplicate_content_sha (== %s)" % canonical
+            demoted += 1
+    return demoted
 
 
 def validate_provenance(rows):
@@ -170,8 +208,12 @@ def main():
         LOGGER.info("provenance: loaded %d content-lock entries from %d TSV(s)", len(prov), len(a.manifest_tsv))
 
     t0 = time.time()
+    parser_meta = None
     if a.reclassify:
         prev = json.load(open(a.reclassify))
+        # carry the parser identity forward (reclassify does NOT re-parse, so it must not claim a
+        # parser it did not run; it inherits the one that produced the recorded parse fields).
+        parser_meta = (prev.get("provenance") or {}).get("parser")
         rows = []
         for r in prev["demos"]:
             r.setdefault("sha256", None)
@@ -179,6 +221,9 @@ def main():
             rows.append(classify_row(r, a.team_min))
         LOGGER.info("reclassify: re-applied classify_row to %d recorded demos (team_min=%d)", len(rows), a.team_min)
     else:
+        parser_meta = qwa_parser_id(a.qwa)
+        LOGGER.info("parser: qw-analyze %s sha=%s", parser_meta.get("path"),
+                    (parser_meta.get("sha256") or "?")[:12])
         sub = a.name_contains.lower()
         names = sorted(n for n in os.listdir(a.demo_dir)
                        if n.lower().endswith(".mvd") and sub in n.lower())
@@ -200,6 +245,11 @@ def main():
         merge_provenance(rows, prov)
     rows.sort(key=lambda r: r["demo"])
 
+    # canonicalize duplicate-content TRAIN rows (same bytes, different names) -> one per sha256.
+    n_dedup = dedupe_train_by_sha(rows)
+    if n_dedup:
+        LOGGER.info("dedup: demoted %d duplicate-content TRAIN alias(es) to EXCLUDED", n_dedup)
+
     # content-lock gate: a TRAIN row without a pinned (sha256, size_bytes) cannot be a training
     # foundation (a later run would silently trust replaced/truncated bytes). Fail loud.
     bad = validate_provenance(rows)
@@ -211,6 +261,7 @@ def main():
 
     train = [r for r in rows if r["class"] == "TRAIN"]
     bot_excluded = sum(1 for r in rows if (r.get("reason") or "").startswith("bot_lab_default_teams"))
+    dup_excluded = sum(1 for r in rows if (r.get("reason") or "").startswith("duplicate_content_sha"))
     ap_hist = Counter(r["active_players"] for r in rows if r["ok"])
     nt_hist = Counter(len(r["teams"] or []) for r in rows if r["ok"])
     map_hist = Counter(r["map"] for r in rows if r["ok"])
@@ -220,14 +271,20 @@ def main():
         "ticket": "#358 / F-DATA-1 (.mvd via qw-analyze active-player read + bot-lab default-team exclusion)",
         "provenance": {
             "content_lock": "every row carries sha256+size_bytes; every TRAIN row is hard-gated to have it",
-            "source": "servexeri:/mnt/usb-ssd/4on4-corpus/manifest.tsv (sha256<TAB>size<TAB>basename<TAB>source); "
-                      "demos added after that manifest were hashed directly on servexeri",
+            "source": "--demo-dir mode hashes each file's own bytes during parse (analyze_one); "
+                      "--reclassify mode merges sha256/size by basename from servexeri:"
+                      "/mnt/usb-ssd/4on4-corpus/manifest.tsv via --manifest-tsv",
+            "parser": parser_meta,
+            "parser_note": "the binary above parsed the SELECTION fields (map/teams/active_players), "
+                           "which are parser-version-robust; the per-tick MOVE extraction (ETL) "
+                           "separately REQUIRES the schema-33 qw-analyze binary",
             "rows_with_lock": have_lock,
         },
         "team_min": a.team_min,
         "counts": {"scanned": len(rows), "train": len(train),
                    "excluded": len(rows) - len(train),
                    "bot_lab_default_teams_excluded": bot_excluded,
+                   "duplicate_content_sha_excluded": dup_excluded,
                    "parse_ok": sum(1 for r in rows if r["ok"]),
                    "active_player_hist": dict(sorted(ap_hist.items())),
                    "teams_count_hist": dict(sorted(nt_hist.items())),

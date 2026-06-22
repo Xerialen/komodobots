@@ -32,12 +32,23 @@ recorded parse; the feature-extraction ticket runs where the demos live.
 `path` is only a locator — the **identity** of each demo is its `sha256` + `size_bytes`.
 Every row carries them and **every TRAIN row is hard-gated** to have a valid 64-hex sha256 +
 positive size (`validate_provenance` → exit 3 otherwise), so a later extraction run cannot
-silently trust a replaced/truncated/repaired file at the same path. The hashes are sourced from
-the archive's authoritative content lock `servexeri:/mnt/usb-ssd/4on4-corpus/manifest.tsv`
-(`sha256<TAB>size<TAB>basename<TAB>source`); 4 demos added after that manifest was written were
-hashed directly on servexeri (their basenames are content-named — the filename prefix equals the
-sha256 prefix, so they are self-verifying). The downstream MVD ETL re-hashes each file before
-extraction and fails loud on any mismatch against this lock.
+silently trust a replaced/truncated/repaired file at the same path. The committed manifest is
+built with `--demo-dir`, which hashes **each file's own bytes during the parse** (`analyze_one`)
+— so every lock is computed independently and is self-consistent with that file's parse. The
+downstream MVD ETL re-hashes each file before extraction and fails loud on any mismatch.
+
+A safety net guards the foundational invariant that **no two TRAIN rows share bytes**
+(`dedupe_train_by_sha` demotes any duplicate-content alias to EXCLUDED; a CI test asserts TRAIN
+shas are unique). On the current corpus it fires 0× — all 1537 TRAIN demos are distinct content.
+(NB: an earlier draft attached hashes by basename from a separate TSV and mis-paired two
+*different* demos under similar names — `…free_vs_sr` exists as two distinct recordings, sha
+`3b77719a…`/4881765 and `fa148b56…`/5091202; hashing each file's own bytes is what fixes that.)
+
+**Parser provenance** (gate item 2): `provenance.parser` records the qw-analyze binary that
+produced the selection fields (servexeri `qw-analyze-v20`, sha `3bc388bb…`). The map/teams/
+active-player reads are parser-version-robust; the **per-tick MOVE extraction (ETL) separately
+REQUIRES the schema-33 binary** (sha `6954ffb6…`, per-tick view-yaw/velocity) — a distinct,
+load-bearing concern, not this manifest's.
 
 ## Discriminator (authoritative — `mvd_analyzer` / `qw-analyze`)
 A demo is **TRAIN** iff, by qw-analyze's `match` read:

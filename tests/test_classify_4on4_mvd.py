@@ -102,6 +102,19 @@ class ProvenanceHelperTest(unittest.TestCase):
         rows[0]["sha256"], rows[0]["size_bytes"] = "abc", 10  # too-short sha
         self.assertEqual(set(c.validate_provenance(rows)), {"t.mvd", "z.mvd"})
 
+    def test_dedupe_keeps_one_canonical_train_per_sha(self):
+        # same bytes under two names -> keep the lexicographically-first, demote the rest
+        rows = [_row(demo="b_twin.mvd", sha256=SHA_A), _row(demo="a_orig.mvd", sha256=SHA_A),
+                _row(demo="c_unique.mvd", sha256=SHA_B)]
+        for r in rows:
+            r["class"] = "TRAIN"
+        n = c.dedupe_train_by_sha(rows)
+        self.assertEqual(n, 1)
+        kept = sorted(r["demo"] for r in rows if r["class"] == "TRAIN")
+        self.assertEqual(kept, ["a_orig.mvd", "c_unique.mvd"])  # a_orig canonical
+        demoted = next(r for r in rows if r["class"] == "EXCLUDED")
+        self.assertIn("duplicate_content_sha (== a_orig.mvd)", demoted["reason"])
+
 
 class CommittedManifestInvariantTest(unittest.TestCase):
     """The committed manifest is the training foundation; lock its safety invariants."""
@@ -123,6 +136,12 @@ class CommittedManifestInvariantTest(unittest.TestCase):
         unlocked = [r["demo"] for r in self.rows if not r.get("sha256")]
         self.assertEqual(unlocked, [], "rows missing a content lock")
         self.assertEqual(self.man["provenance"]["rows_with_lock"], len(self.rows))
+
+    def test_provenance_records_the_parser_binary(self):
+        # gate item 2: provenance must record the parser that produced the selection fields.
+        parser = self.man["provenance"].get("parser")
+        self.assertIsInstance(parser, dict, "provenance.parser missing")
+        self.assertRegex(parser.get("sha256") or "", r"^[0-9a-f]{64}$")
 
     def test_train_rows_are_real_4on4_dm3_with_valid_lock(self):
         tm = self.man["team_min"]
@@ -148,11 +167,17 @@ class CommittedManifestInvariantTest(unittest.TestCase):
         self.assertEqual(len(demos), len(set(demos)), "duplicate demo basenames")
         self.assertEqual(len(paths), len(set(paths)), "duplicate paths")
 
+    def test_train_content_hashes_are_unique(self):
+        # the foundational invariant: no two TRAIN rows share bytes (split-by-demo leakage guard)
+        shas = [r["sha256"] for r in self.train]
+        self.assertEqual(len(shas), len(set(shas)), "duplicate sha256 across TRAIN rows")
+
     def test_reclassify_reproduces_committed_labels(self):
-        # the rule is a pure function of the recorded parse fields -> stable under re-application
-        for r in self.rows:
-            got = c.classify_row(dict(r), self.man["team_min"])["class"]
-            self.assertEqual(got, r["class"], r["demo"])
+        # the full selection (classify_row + dedupe) is a stable function of the recorded fields
+        rebuilt = [c.classify_row(dict(r), self.man["team_min"]) for r in self.rows]
+        c.dedupe_train_by_sha(rebuilt)
+        for orig, got in zip(self.rows, rebuilt):
+            self.assertEqual(got["class"], orig["class"], orig["demo"])
 
 
 if __name__ == "__main__":
