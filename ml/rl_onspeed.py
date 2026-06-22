@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import math
 import sys
 import time
@@ -74,6 +75,8 @@ import eval_broad_closedloop as EV                              # noqa: E402
 from eval_broad_believability import _build_policy_from_checkpoint  # noqa: E402
 from build_features import _load_episode_ticks                  # noqa: E402
 import route_goals as RG                                        # noqa: E402
+
+LOGGER = logging.getLogger(__name__)
 
 # ---- reward physics (REUSE reward_dryrun constants verbatim) ---------------------------
 WISHSPD_CAP = 30.0

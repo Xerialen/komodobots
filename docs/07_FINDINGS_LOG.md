@@ -5832,3 +5832,90 @@ not a hardcoded GUI trick preset.
 Close #157 after this PR lands. The next smallest useful experiment is #158:
 fix the Live Game/QTV rendering path so the primary watch-live story no longer
 depends on Live 3D alone.
+
+---
+
+## 2026-06-22 -- RL-on-speed cracks closed-loop over-press (movement-v5); cadence the residual
+
+### Experiment
+
+Solve the closed-loop bunnyhop-SPEED skill the supervised family could not make.
+`ml/train_broad_bc.py`-trained cs10 (and every supervised successor: reweight,
+GRU-sequence, DAgger D-1/D-1.5/D-2 — exhausted per #353) over-presses forward
+~0.83-0.96 in closed loop (human air band 0.07-0.50), so air-strafe accel dies and
+the G-MV4 speed band (avg 252.279-315.632; p95 461.538-560.008) fails. Ran `ml/rl_onspeed.py`
+(PPO-on-speed, movement-v5): the BC trunk + a self-yaw action head (policy owns its
+movement yaw = the speed mechanism), warm-started from the BC-pretrained believable-aim
+ckpt and KL-anchored to a frozen copy of it for believability, reset from catalog val
+segments, evaluated by the SAME goal-conditioned gate harness
+(`ml/eval_broad_closedloop.py` + `ml/eval_broad_dryroute.py`, post-#355 goal-injection
+fix). 8 rounds, each raw-validated.
+
+### Result
+
+**The over-press is SOLVED, and it was a REWARD ARTIFACT — not fundamental.** Round 4
+proved over-press and speed were ANTI-CORRELATED under a "speed-however-achieved" reward
+(every in-band-speed snapshot bulldozed at press >= 0.80; the only low-press snapshot was
+too slow at M1 163.5). Round 5 changed the reward to credit speed ONLY via the air-strafe
+mechanism (`perp_frac = 1 - (v_hat . wishdir)^2`) plus a hard air press-barrier — the
+anti-correlation BROKE (M1 257 in-band at press 0.0). Round 6 softened the barrier to land
+in the human band: best ckpt **`rl_round6_r4init.pt`** is fast (M1 273.22, in the 252-316
+band) by air-strafing at human-level forward-press (0.243, in the human 0.07-0.50 band — NOT
+bulldozing), launching (ra_jumps PASS, launch 1/3), and believable (G-MV1). One residual:
+**M6 G-MV3 strafe cadence** (the L<->R flip rhythm, in-band margin band 8-360) co-occurring
+with launch + speed in a single snapshot — best ckpt is at -8 (out of band).
+
+### Evidence
+
+- `python -m unittest discover -s tests`: floor PASS (count reported in PR), incl. the
+  logging-coverage guard for the new `ml/rl_onspeed.py` (#351).
+- Per-round metric vectors (raw-validated, source `/home/ubuntu/.claude/overnight-rl-state.json`
+  `runs[]`), all from the goal-conditioned gate harness:
+  - R1 basin-escape: over-press 0.906 -> 0.571 while G-MV1 held (the supervised family never
+    moved it off ~0.83-1.0); M5 hard-route speed% 22 -> 71; launch 0 -> 1/3.
+  - R2 regression + launch-guard break (tuning misstep; eval is deterministic-argmax, so
+    behavior rewards must move the ARGMAX, not just sampling) — discarded.
+  - R3 first M1 in-band (267.576 >= 252) + M6 cadence fixed; over-press regressed to 0.799
+    (eval-vs-rollout press selection bug).
+  - R4 net-best on aggregate (M1 280.088) + the decisive press<->speed anti-correlation
+    diagnostic = a reward problem, not selection.
+  - R5 REWARD BREAKTHROUGH: M1 257.066 in-band at press 0.0 (relief maxed 0.5); over-flipped
+    to press 0 + cadence/launch broke (not promoted).
+  - R6 OVER-PRESS SOLVED IN-BAND: `rl_round6_r4init.pt` M1 273.22 / press 0.243074 / M5 80.845
+    / launch 1/3 / G-MV1 (best); companion `rl_round6.pt` (r5init) M6 in-band +26.97 but press
+    just-under 0.026.
+  - R7 broke the press<->cadence tension (first unified candidate @it12) but over-flipped
+    (281 fpm) -> M1 1.16 under floor + launch broke (not promoted).
+  - R8 (final) 4/5 guard-safe (M1 255.826, press 0.485 in-band, launch 1/3, G-MV1) with M6
+    cadence -8 the residual; an 8-candidate launch-aware screen + a seed sweep reproduced
+    the tension.
+- Checkpoints live on pinnacle `/home/xerial/rl-onspeed/ckpts/rl_round{1..8}*.pt` (NOT in
+  git); best = `rl_round6_r4init.pt`.
+
+### Interpretation
+
+RL is the matched lever for the closed-loop bunnyhop-speed skill: it cracked the central
+failure (over-press / bulldozing) that defeated the entire supervised family, and the
+round-5 mechanism-gated reward proved that failure was an artifact of crediting
+speed-however-achieved, not an intrinsic property of the manifold. The bot can be fast by
+air-strafing at human press, launch, and stay believable. The unsolved M6 cadence is a REAL
+tension, not under-tuning: the argmax side-flip that creates cadence steals the sustained
+perpendicular air-strafe that launch and the speed floor depend on (they compete for the
+same yaw control), reproduced across 8 candidates + a seed sweep.
+
+What this does NOT prove: the cadence rhythm is NOT solved in-band with launch+speed; the
+checkpoints are not productionized (no live-server validation, no deployment); and the
+result is the offline goal-conditioned gate harness, not live play.
+
+### Confidence
+
+High (8 raw-validated rounds from the same gate harness; the anti-correlation and its break
+were each demonstrated; the residual was reproduced across candidates + a seed sweep).
+
+### Follow-up
+
+The cadence residual needs a DIFFERENT mechanism than a per-tick flip reward: a
+trajectory/multi-tick cadence credit (reward the L<->R rhythm without shortening the
+strafe-hold that feeds launch) OR AMP (adversarial believability discriminator on the real
+human yaw-rhythm distribution). Owner-gated. See `docs/notes/rl-onspeed-results.md` and
+`docs/08_DECISION_LOG.md`.

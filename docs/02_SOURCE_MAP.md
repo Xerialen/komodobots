@@ -1040,6 +1040,35 @@ Registered for the `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` program (the earlier
 - External method/validation literature (MLMove, Pearce, Humanoid + one-hop refs) is consolidated in
   `references/12_DM3_4ON4_STANDIN_PROGRAM.md` §9, folded from the prior `docs/11_EXTERNAL_MOVEMENT_AI_SOURCES.md` (superseded).
 
+### Komodobots ML pipeline (`ml/`)
+
+In-repo Python (torch + numpy, `ml/requirements.txt`), trained offline on host `pinnacle`
+(RTX 4090, WSL2). Contract + data layer: `ml/BROAD_BC.md`, `ml/broad_bc/`.
+
+- **train_broad_bc.py** — `ml/train_broad_bc.py`. The production behavioral-cloning trainer
+  for the dm3 4on4 stand-in: full-POMDP `agent_observation` in, broad usercmd heads out
+  (per-entity encoder + masked DeepSets pool + GRU temporal trunk, registry v5). Emits a
+  ckpt + `metrics.json` + a model-card pinning git_sha / registry_version / norm artifact.
+- **eval_broad_closedloop.py / eval_broad_dryroute.py / eval_broad_believability.py** — the
+  GOAL-CONDITIONED gate harness. `eval_broad_closedloop.py` rolls the policy in the offline
+  pmove sim and scores the G-MV4 speed gates; `eval_broad_dryroute.py` runs the per-route
+  (route%/speed%) and launch checks; `eval_broad_believability.py` scores G-MV1/G-MV3. This
+  is the SAME harness the judge uses; all metrics are raw-validated (post-#355 goal-injection
+  fix — the policy sees the goal-conditioned obs it was trained on).
+- **rl_onspeed.py** — `ml/rl_onspeed.py`. The reusable **PPO-on-speed RL loop** (movement-v5):
+  the matched lever for the closed-loop bunnyhop-SPEED skill the supervised family
+  (BC/reweight/GRU-seq/DAgger) could not make. ENV = the offline pmove sim + the eval's OWN
+  goal-conditioned v5 obs path (byte-parity with the warm-start), reset from catalog val
+  segments. POLICY = the BC trunk with a SELF-YAW action head (the policy owns its movement
+  yaw — the speed mechanism) + a value head, warm-started from the BC-pretrained believable-aim
+  ckpt and KL-anchored to a frozen copy of it (believability). REWARD = MECHANISM-GATED speed:
+  in-band-speed + Phi-gain credited only via perpendicular air-strafe (`perp_frac`), a hard
+  air press-barrier closing the bulldoze path, route-progress, argmax-targeted cadence,
+  anti-hack + the KL-anchor. SELECTION is eval-integrity-bound (qualifies on EVAL forward-press
+  inside the human band + launch-aware screen; the reward's band term uses a DISJOINT
+  reward-leakage player split, never the gate anchors). CLI: `--init-ckpt/--steps/--out-ckpt/--eval`.
+  Offline pinnacle GPU only; no live server. Result + 8-round trajectory: `docs/notes/rl-onspeed-results.md`.
+
 ## Source hygiene rules
 
 - Prefer current source code over historical comments.

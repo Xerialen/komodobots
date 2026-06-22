@@ -32,6 +32,13 @@ This is unproven.
 
 The first project objective is to build a repeatable lab that can prove or disprove this hypothesis.
 
+The movement brain is trained by the `ml/` pipeline: `ml/train_broad_bc.py` (behavioral
+cloning) and the goal-conditioned gate evals (`ml/eval_broad_closedloop.py`,
+`ml/eval_broad_dryroute.py`, `ml/eval_broad_believability.py`). `ml/rl_onspeed.py` is the
+reusable PPO-on-speed RL loop (`--init-ckpt/--steps/--out-ckpt/--eval`, offline pinnacle
+GPU) that optimizes downstream closed-loop SPEED with self-yaw — the matched lever for the
+bunnyhop-speed skill the supervised family could not produce. See `docs/02_SOURCE_MAP.md`.
+
 ## Agent roles and autonomous loop
 
 This repository uses tool-agnostic roles. Benjamin may assign any capable agent
