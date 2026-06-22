@@ -202,6 +202,14 @@ Use this routing:
 - Test-case or evidence workflow change -> update `docs/09_TEST_CASES_AND_EVIDENCE.md`
 - Web/UI validation workflow change -> update `docs/10_AGENT_WEB_TESTING.md`
 
+## ML plan review gate
+
+Before proposing or implementing any machine-learning, training, dataset, model,
+policy, or evaluation work, evaluate the plan against
+`docs/21_ML_EVIDENCE_CHAIN_GATE.md`.
+
+A plan that cannot answer the gate questions must be revised before work starts.
+
 ## Verification workflow
 
 No theoretical code. Everything important must be proven.

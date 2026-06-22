@@ -952,6 +952,7 @@ Local files:
 - `reviewer.md`
 - `CLAUDE.md`
 - `codex.md`
+- `docs/21_ML_EVIDENCE_CHAIN_GATE.md`
 
 Why they matter:
 
@@ -960,6 +961,9 @@ Why they matter:
 - `reviewer.md` defines the technical merge-safety review role independent of
   tool brand.
 - Tool-specific files are thin adapters and must not assign permanent roles.
+- `docs/21_ML_EVIDENCE_CHAIN_GATE.md` is the mandatory review gate for ML
+  plans, tying data, labels, model structure, training runs, and evaluation
+  evidence together before work starts.
 
 ### Test-case and web-validation methodology
 
