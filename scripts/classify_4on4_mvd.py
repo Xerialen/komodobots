@@ -22,12 +22,66 @@ Modes (share classify_row, so both yield identical labels):
   --demo-dir   <dir>           parse every .mvd with qw-analyze, then classify.
   --reclassify <manifest.json> re-apply the rule to an already-parsed manifest (no qw-analyze).
 """
-import argparse, json, logging, os, subprocess, sys, time
+import argparse, hashlib, json, logging, os, re, subprocess, sys, time
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 DM3_TITLE = "The Abandoned Base"
 LOGGER = logging.getLogger(__name__)
+_SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
+
+
+def sha256_size(path):
+    """(sha256_hex, size_bytes) for a file, chunked (matches scripts/analyze_human_mvd.py)."""
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest(), os.path.getsize(path)
+
+
+def parse_corpus_tsv(text):
+    """Parse the servexeri 4on4-corpus manifest.tsv: `sha256<TAB>size<TAB>basename<TAB>source`.
+
+    Returns {basename: (sha256, size_bytes)}. Malformed lines (wrong field count, bad sha,
+    non-numeric size) are skipped so one garbled row can't poison the whole merge. This is the
+    AUTHORITATIVE content lock for the corpus on servexeri:/mnt/usb-ssd/4on4-corpus/manifest.tsv."""
+    out = {}
+    for line in (text or "").splitlines():
+        parts = line.rstrip("\n").split("\t")
+        if len(parts) != 4:
+            continue
+        sha, size, name, _src = (p.strip() for p in parts)
+        sha = sha.lower()
+        if not _SHA256_RE.fullmatch(sha) or not size.isdigit() or not name:
+            continue
+        out[name] = (sha, int(size))
+    return out
+
+
+def merge_provenance(rows, prov):
+    """Attach sha256/size_bytes to each row from a {basename: (sha256, size)} map (in place)."""
+    for r in rows:
+        if r.get("sha256"):
+            continue
+        hit = prov.get(r["demo"])
+        if hit:
+            r["sha256"], r["size_bytes"] = hit
+
+
+def validate_provenance(rows):
+    """Every TRAIN row must carry a content lock (64-hex sha256 + positive size_bytes).
+
+    The corpus is the foundation for feature extraction; a TRAIN row without a pinned identity
+    means a later run could silently trust a replaced/truncated file. Returns the offending demos."""
+    bad = []
+    for r in rows:
+        if r["class"] != "TRAIN":
+            continue
+        sha, size = r.get("sha256"), r.get("size_bytes")
+        if not (isinstance(sha, str) and _SHA256_RE.fullmatch(sha) and isinstance(size, int) and size > 0):
+            bad.append(r["demo"])
+    return bad
 
 
 def classify_row(row, team_min):
@@ -60,7 +114,13 @@ def analyze_one(arg):
     path, qwa, team_min = arg
     row = {"path": path, "demo": os.path.basename(path), "map": None,
            "active_players": None, "teams": None, "class": "EXCLUDED",
-           "reason": None, "ok": False}
+           "reason": None, "ok": False, "sha256": None, "size_bytes": None}
+    # content lock from the bytes on disk (parse-independent; even an unparseable demo is pinned)
+    try:
+        row["sha256"], row["size_bytes"] = sha256_size(path)
+    except OSError as e:  # noqa: BLE001
+        row["reason"] = "hash_failed %s: %s" % (type(e).__name__, e)
+        return row
     try:
         out = subprocess.run([qwa, "-format", "json", path],
                              capture_output=True, timeout=180)
@@ -95,15 +155,28 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--team-min", type=int, default=6, help="min active players for a 4on4 (default 6, allows churn)")
+    ap.add_argument("--manifest-tsv", action="append", default=[],
+                    help="servexeri content-lock TSV (sha256<TAB>size<TAB>basename<TAB>source) to merge "
+                         "sha256/size_bytes by basename; repeatable. Required for --reclassify of a v2 manifest.")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     if not a.demo_dir and not a.reclassify:
         ap.error("one of --demo-dir (parse) or --reclassify (re-apply rule) is required")
 
+    prov = {}
+    for tsv in a.manifest_tsv:
+        prov.update(parse_corpus_tsv(open(tsv, encoding="utf-8", errors="replace").read()))
+    if a.manifest_tsv:
+        LOGGER.info("provenance: loaded %d content-lock entries from %d TSV(s)", len(prov), len(a.manifest_tsv))
+
     t0 = time.time()
     if a.reclassify:
         prev = json.load(open(a.reclassify))
-        rows = [classify_row(r, a.team_min) for r in prev["demos"]]
+        rows = []
+        for r in prev["demos"]:
+            r.setdefault("sha256", None)
+            r.setdefault("size_bytes", None)
+            rows.append(classify_row(r, a.team_min))
         LOGGER.info("reclassify: re-applied classify_row to %d recorded demos (team_min=%d)", len(rows), a.team_min)
     else:
         sub = a.name_contains.lower()
@@ -123,15 +196,34 @@ def main():
                 if done % 25 == 0 or done == len(paths):
                     LOGGER.info("  %d/%d", done, len(paths))
 
+    if prov:
+        merge_provenance(rows, prov)
     rows.sort(key=lambda r: r["demo"])
+
+    # content-lock gate: a TRAIN row without a pinned (sha256, size_bytes) cannot be a training
+    # foundation (a later run would silently trust replaced/truncated bytes). Fail loud.
+    bad = validate_provenance(rows)
+    if bad:
+        LOGGER.error("FATAL: %d TRAIN rows lack a content lock (sha256+size_bytes). "
+                     "Pass --manifest-tsv with their hashes (or run --demo-dir to hash on disk). "
+                     "First offenders: %s", len(bad), bad[:10])
+        sys.exit(3)
+
     train = [r for r in rows if r["class"] == "TRAIN"]
     bot_excluded = sum(1 for r in rows if (r.get("reason") or "").startswith("bot_lab_default_teams"))
     ap_hist = Counter(r["active_players"] for r in rows if r["ok"])
     nt_hist = Counter(len(r["teams"] or []) for r in rows if r["ok"])
     map_hist = Counter(r["map"] for r in rows if r["ok"])
+    have_lock = sum(1 for r in rows if r.get("sha256"))
     out = {
-        "schema": "komodobots.human_4on4_dm3_mvd_manifest.v2",
+        "schema": "komodobots.human_4on4_dm3_mvd_manifest.v3",
         "ticket": "#358 / F-DATA-1 (.mvd via qw-analyze active-player read + bot-lab default-team exclusion)",
+        "provenance": {
+            "content_lock": "every row carries sha256+size_bytes; every TRAIN row is hard-gated to have it",
+            "source": "servexeri:/mnt/usb-ssd/4on4-corpus/manifest.tsv (sha256<TAB>size<TAB>basename<TAB>source); "
+                      "demos added after that manifest were hashed directly on servexeri",
+            "rows_with_lock": have_lock,
+        },
         "team_min": a.team_min,
         "counts": {"scanned": len(rows), "train": len(train),
                    "excluded": len(rows) - len(train),

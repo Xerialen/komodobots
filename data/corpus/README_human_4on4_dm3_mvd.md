@@ -6,8 +6,9 @@ that turns these demos into the learnable catalog is the next ticket.
 
 ## Files
 - `human_4on4_dm3_mvd_manifest.json` — per-demo classification of the curated 4on4 archive
-  (schema `…v2`). Each entry: `demo` (basename), `path` (locator on the archive host),
-  `map`, `active_players`, `teams`, `class` (TRAIN/EXCLUDED), `reason`, `ok`.
+  (schema `…v3`). Each entry: `demo` (basename), `path` (locator on the archive host),
+  `map`, `active_players`, `teams`, `class` (TRAIN/EXCLUDED), `reason`, `ok`, and the
+  **content lock** `sha256` + `size_bytes`.
 - `milton_div0_benchmark.json` — the Milton div0 reference, isolated as a SEPARATE held-out
   benchmark (never in TRAIN).
 - `../../scripts/classify_4on4_mvd.py` — the tool that produced the manifest (reproducible).
@@ -26,6 +27,17 @@ an old spectator-inflated client-slot count mislabeled 4on4. The corpus here is 
 curated `.mvd` archive on **servexeri** (`/mnt/usb-ssd/4on4-corpus/`, ~6.4k 4on4 mvds, ~1.8k
 `[dm3]`-named). `path` fields are servexeri-local **locators** — identity is the basename + the
 recorded parse; the feature-extraction ticket runs where the demos live.
+
+## Content lock (provenance contract)
+`path` is only a locator — the **identity** of each demo is its `sha256` + `size_bytes`.
+Every row carries them and **every TRAIN row is hard-gated** to have a valid 64-hex sha256 +
+positive size (`validate_provenance` → exit 3 otherwise), so a later extraction run cannot
+silently trust a replaced/truncated/repaired file at the same path. The hashes are sourced from
+the archive's authoritative content lock `servexeri:/mnt/usb-ssd/4on4-corpus/manifest.tsv`
+(`sha256<TAB>size<TAB>basename<TAB>source`); 4 demos added after that manifest was written were
+hashed directly on servexeri (their basenames are content-named — the filename prefix equals the
+sha256 prefix, so they are self-verifying). The downstream MVD ETL re-hashes each file before
+extraction and fails loud on any mismatch against this lock.
 
 ## Discriminator (authoritative — `mvd_analyzer` / `qw-analyze`)
 A demo is **TRAIN** iff, by qw-analyze's `match` read:
@@ -70,7 +82,11 @@ line (`docs/09` S7). See `docs/13_QWD_MVD_FUSION_PLAN.md`.
 python scripts/classify_4on4_mvd.py --demo-dir <4on4-corpus>/demos \
     --qwa ~/qw-sim/bin/qw-analyze-v20 --workers 4 \
     --out data/corpus/human_4on4_dm3_mvd_manifest.json
-# or re-apply the rule to the recorded parse (no qw-analyze):
+# or re-apply the rule to the recorded parse (no qw-analyze), merging the content lock from
+# the archive's authoritative manifest.tsv (repeat --manifest-tsv for extra hashes):
 python scripts/classify_4on4_mvd.py --reclassify <prev_manifest>.json \
-    --team-min 6 --out data/corpus/human_4on4_dm3_mvd_manifest.json
+    --manifest-tsv <4on4-corpus>/manifest.tsv --team-min 6 \
+    --out data/corpus/human_4on4_dm3_mvd_manifest.json
 ```
+`--demo-dir` hashes on disk; `--reclassify` merges `sha256`/`size_bytes` by basename from one or
+more `--manifest-tsv` files. Either way a TRAIN row without a lock fails the run.
