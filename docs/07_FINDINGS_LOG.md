@@ -5837,6 +5837,8 @@ depends on Live 3D alone.
 
 ## 2026-06-22 -- RL-on-speed cracks closed-loop over-press (movement-v5); cadence the residual
 
+> Caveat (PR #356, 2026-06-22): the magnitudes below predate three Codex-found fixes — a PPO joint-ratio head mismatch (`old_logp` included the attack head, `new_logp` didn't -> unchanged-policy ratio `1/p_attack`), a closed-loop policy-self-yaw `yaw_rate==0`-after-tick-0 bug, and an uninitialized `_prev_goal_dist` on reset — so they are INDICATIVE pending a clean re-train+re-eval; the DIRECTIONAL result (RL moves over-press where the supervised family could not) is unlikely a pure artifact but the exact numbers warrant re-validation. See `docs/notes/rl-onspeed-results.md`.
+
 ### Experiment
 
 Solve the closed-loop bunnyhop-SPEED skill the supervised family could not make.

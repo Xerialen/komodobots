@@ -261,6 +261,15 @@ class PmoveEnv:
         self.ap_rate = float(self.air_press_thresh)
         # goal of the FINAL recorded tick of this segment = the route target (for progress).
         self._final_goal = self._segment_goal(min(len(self.seg) - 1, self.horizon))
+        # (re)init the route-progress baseline from THIS segment's start distance to the new
+        # final goal, so the first step's r_prog delta (d_prev - d_now) is 0/neutral. Without
+        # this, _prev_goal_dist carries the PREVIOUS segment's last distance across a reset and
+        # the first post-reset r_prog is computed against the wrong segment's goal.
+        if self._final_goal is not None:
+            gx, gy = self._final_goal
+            self._prev_goal_dist = math.hypot(gx - self.st.origin[0], gy - self.st.origin[1])
+        else:
+            self._prev_goal_dist = None
 
     def _segment_goal(self, idx):
         g = self.seg[idx]["self"].get("goal") if idx < len(self.seg) else None
@@ -485,6 +494,25 @@ class PmoveEnv:
 # =============================================================================
 # Rollout collection (vectorized over N envs) + PPO update.
 # =============================================================================
+# The discrete heads that ARE the PPO joint action = the ones actually sampled, stored,
+# and EXECUTED in the env (fwd/side/up/jump). The policy also emits an `attack` head (5th
+# logits), but it is NOT a movement action here — it is never stored in act_buf nor passed
+# to env.step (the env hard-codes attack class 0). The PPO log-prob (old AND new) and
+# approx_kl MUST sum over EXACTLY these executed heads: a mismatch (e.g. old over 5 heads,
+# new over 4) makes the unchanged-policy ratio = 1/p_attack instead of 1.0 — a wrong
+# objective. Slicing both sums with this constant keeps them head-for-head consistent.
+PPO_ACTION_HEADS = 4  # fwd, side, up, jump (attack head excluded — sampled-but-discarded)
+
+
+def discrete_joint_logp(dists, acts):
+    """Joint log-prob of the EXECUTED discrete action = sum over the first PPO_ACTION_HEADS
+    heads only (attack excluded). `dists` is the full per-head Categorical list; `acts` is
+    the per-head sampled-action list (only the first PPO_ACTION_HEADS entries are executed).
+    Used by BOTH collect_rollout (old_logp) and ppo_update (new_logp) so they are guaranteed
+    to sum over the SAME heads."""
+    return sum(d.log_prob(a) for d, a in zip(dists[:PPO_ACTION_HEADS], acts[:PPO_ACTION_HEADS]))
+
+
 def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
     """Collect n_steps PER env. Returns flat tensors for the PPO update + diagnostics.
     The discrete heads sample from Categorical(logits); the yaw delta ~ Normal(mean,std).
@@ -513,7 +541,7 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
                 acts = [d.sample() for d in dists]
                 yaw_std = rl.yaw_log_std.exp().clamp(min=1e-2)
                 yaw = yaw_mean + torch.randn_like(yaw_mean) * yaw_std
-            logp = sum(d.log_prob(a) for d, a in zip(dists, acts))  # [N]
+            logp = discrete_joint_logp(dists, acts)  # [N] — executed heads only (no attack)
             yaw_std = rl.yaw_log_std.exp().clamp(min=1e-2)
             yaw_logp = (-0.5 * ((yaw - yaw_mean) / yaw_std) ** 2
                         - rl.yaw_log_std - 0.5 * math.log(2 * math.pi))  # [N]
@@ -611,8 +639,13 @@ def ppo_update(rl, anchor, roll, device, *, epochs=4, minibatch=4096, clip=0.2,
             mb = torch.tensor(idx[s:s + minibatch], dtype=torch.long, device=device)
             logits, yaw_mean, value = rl(obs[mb], ent[mb], em[mb], aux[mb])
             dists = [torch.distributions.Categorical(logits=lg) for lg in logits]
+            # new_logp over the SAME executed heads as old_logp (collect_rollout) — attack
+            # excluded. acts is name-keyed; pass the executed-head actions in head order to
+            # the SHARED discrete_joint_logp so old/new are head-for-head identical (the
+            # ratio == 1.0 for an unchanged policy, instead of 1/p_attack).
             head_names = ("fwd", "side", "up", "jump")
-            new_logp = sum(d.log_prob(acts[nm][mb]) for d, nm in zip(dists, head_names))
+            mb_acts = [acts[nm][mb] for nm in head_names]
+            new_logp = discrete_joint_logp(dists, mb_acts)
             yaw_std = rl.yaw_log_std.exp().clamp(min=1e-2)
             new_yawlogp = (-0.5 * ((old_yaw[mb] - yaw_mean) / yaw_std) ** 2
                            - rl.yaw_log_std - 0.5 * math.log(2 * math.pi))

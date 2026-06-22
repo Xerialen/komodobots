@@ -766,7 +766,15 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
         origins.append((tick["_ox"], tick["_oy"]))
         speeds.append(tick["hspeed"])
         msecs.append(float(msec))
-        prev_yaw = exec_view_yaw   # this tick's executed view yaw is next tick's previous
+        # next tick's "previous yaw" = the yaw THIS tick's OBS was built from (the pre-turn
+        # yaw). In aim_mode="policy" the bot integrates its turn AFTER the obs (policy_yaw =
+        # yaw + yd), so next tick's obs yaw == this exec_view_yaw; tracking exec_view_yaw here
+        # would make yaw_rate==0 on every policy tick (the turn-direction feature would vanish
+        # in closed-loop, breaking train/eval parity). Track the PRE-turn obs yaw instead, so
+        # next tick's yaw_rate = (policy_yaw - this.yaw) = this tick's turn delta — matching
+        # eval_broad_dryroute (yaw_prev = yaw) and the rl_onspeed env (prev_yaw = cur_yaw
+        # pre-turn). For replayed/recorded modes yaw == exec_view_yaw, so this is a no-op.
+        prev_yaw = yaw
 
     fwd_press_frac = (fwd_press_n / policy_ticks) if policy_ticks else None
     return gmv_ticks, origins, speeds, msecs, attack_classes, fwd_press_frac

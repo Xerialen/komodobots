@@ -335,7 +335,10 @@ class TestRegistryVersionGuard(unittest.TestCase):
         # tensors built; per-sample weight vector present and aligned to rows
         self.assertIn("w", t)
         self.assertEqual(t["w"].shape[0], t["obs"].shape[0])
-        self.assertEqual(dims["f_obs"], SC.EXPECTS_SELF_DIM)
+        # f_obs is the FLAT self-history width the model ingests (SELF_HISTORY*SELF_DIM=336 at
+        # v5), NOT the per-tick SELF channel count (obs_dim=21). The per-tick channel guard is
+        # the obs_dim check in the sibling test below.
+        self.assertEqual(dims["f_obs"], SC.EXPECTS_SELF_HISTORY_DIM)
 
     def test_v3_labelled_but_16_channel_shard_is_rejected_on_obs_dim(self):
         """The hand-edited-label attack Codex called out: a shard whose

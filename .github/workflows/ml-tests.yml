@@ -30,7 +30,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install ml test deps (subset, no torch)
+      - name: Install ml test deps (subset incl. CPU torch)
         run: |
           python -m pip install --upgrade pip
           pip install -r ml/requirements-ci.txt

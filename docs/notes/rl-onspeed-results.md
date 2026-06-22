@@ -4,6 +4,18 @@ Status: 8 RL rounds, all raw-validated, 2026-06-22. Source of record:
 `/home/ubuntu/.claude/plans/overnight-rl-summary.md` (narrative) +
 `/home/ubuntu/.claude/overnight-rl-state.json` `runs[]` (per-round vectors).
 
+> **Caveat (PR #356 review, 2026-06-22): the reported magnitudes are INDICATIVE, pending a
+> clean re-train + re-eval.** These rounds were TRAINED and MEASURED before three Codex-found
+> code fixes: (1) the PPO joint ratio summed `old_logp` over an extra discrete head (attack)
+> that `new_logp` excluded, so the unchanged-policy ratio was `1/p_attack` not 1.0 (training);
+> (2) the closed-loop policy-self-yaw eval fed `yaw_rate = 0` on every policy tick after the
+> first (measurement of the goal-conditioned gate); (3) `_prev_goal_dist` was not re-seeded on
+> reset, polluting the first post-reset route-progress reward. The DIRECTIONAL finding — RL
+> moves the closed-loop over-press where the whole supervised family could not — is unlikely to
+> be a pure bug artifact, but the exact numbers (M1 273, press 0.243, the per-round vectors
+> below) warrant re-validation under the corrected code. No re-run is included here (GPU is
+> owner-gated); this caveat is the placeholder.
+
 ## Headline
 
 The movement problem is SUBSTANTIALLY solved: the central failure (closed-loop over-press /
