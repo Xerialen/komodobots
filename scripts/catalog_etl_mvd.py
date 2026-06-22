@@ -1,0 +1,686 @@
+"""catalog_etl_mvd.py — populate the MOVE catalog from human 4on4 dm3 `.mvd` demos (F-DATA-2).
+
+Pure standard library only (sqlite3, json, math, hashlib, subprocess, pathlib, argparse,
+logging, multiprocessing). NO third-party imports — this module obeys the same stdlib-only
+gate as the rest of `scripts/` (the merge gate runs it on bare Python 3.12). Heavy deps stay
+under `ml/`. (`pmove_sim`, `features.agent_observation`, `catalog_load` are stdlib-only repo
+modules — OK to import.)
+
+WHAT THIS IS — the MVD sibling of `catalog_etl_qwd.py`
+-----------------------------------------------------
+`catalog_etl_qwd.py` builds the MOVE catalog from self-POV `.qwd` demos, where the recording
+player's usercmd INPUT stream (forwardmove/sidemove/upmove/jump/yaw) is recorded verbatim, so
+action labels are GROUND TRUTH (label_source='qwd_usercmd', confidence=1.0).
+
+This driver builds the SAME per-tick MOVE catalog from server-side `.mvd` demos, where the
+input stream is ABSENT: an MVD records server-frame STATE (positions, view-angles, and a
+finite-differenced velocity) but NOT the inputs. So the action labels must be RECOVERED from
+state via inverse dynamics (label_source='idm', confidence<1.0). The believable-bunnyhop BC
+corpus then draws from MANY more demos (the servexeri human 4on4 dm3 corpus, ~1537 demos)
+than the handful of self-POV `.qwd` recordings.
+
+Per demo it loads:
+    demos        <- one row per .mvd (source='mvd')
+    players      <- each active player's handle (real name from the MVD stream)
+    episodes     <- contiguous trajectory segments per player, split at teleport/respawn
+                    discontinuities (pmove_sim.detect_teleports) + a hard length cap
+    player_ticks <- the per-player per-tick STATE spine (o, v, angles, hspeed, geometric
+                    onground, onground_is_proxy=TRUE), msec from consecutive `t` deltas
+    actions      <- the IDM-RECOVERED (state,action) labels (sidemove SIGN, jump, view
+                    angles), label_source='idm', confidence<1.0, is_interp on unreliable rows
+
+A train/val/test split is assigned GROUPED BY demo_id (split_policy='group_by_demo_id'), the
+same policy as the QWD ETL — no demo's frames straddle the split boundary.
+
+MVD INPUT FORMAT (schema-33 qw-analyze)
+---------------------------------------
+Each `.mvd` is parsed with the schema-33 qw-analyze binary:
+    <binary> -view full -include positions,view,velocity <demo.mvd>
+yielding JSON with `streams.players[]` (~8 for a 4on4). Each player has `name`, `team`, and
+`pos` = a COLUMN-ORIENTED per-tick stream of PARALLEL ARRAYS:
+    {t, x, y, z, li, vp, vya, vx, vy, vz}   (all same length, cadence ~13-14 ms ≈ 72 Hz)
+  t            = ms timestamp
+  x,y,z        = origin (qu)
+  vya          = view YAW   in angle16 units (int16, ±32768); deg = vya*360/65536
+  vp           = view PITCH in angle16 units;                  deg = vp *360/65536
+  vx,vy,vz     = velocity qu/s (the analyzer already finite-differences it — used DIRECTLY)
+  li           = loc index (unused here)
+
+⚠️ BINARY-VERSION GUARD: the OLDER qw-analyze build emits schema 21, whose `pos` has only
+{t,x,y,z,li} — NO vp/vya/vx/vy/vz — which would silently kill strafe-sign recovery. This ETL
+HARD-FAILS unless schemaVersion>=33 AND `pos` carries `vya` and `vx` (see _validate_analysis).
+The correct binary on aws-dev is ~/qw-sim/bin/qw-analyze-v20 (schema 33, sha256 6954ffb6...).
+
+THE 3 DE-RISK REQUIREMENTS (from experiments/mvd_action_recovery, branch diag/mvd-action-recovery)
+-------------------------------------------------------------------------------------------------
+(req 1) onground from GEOMETRY (#316), NOT vz-spikes. Each tick's onground is a downward
+        floor trace from the player origin against the dm3 BSP hull-1 (the same
+        PM_CategorizePosition idiom pmove_sim uses): onground iff a 1-qu down trace hits a
+        surface whose normal_z >= MIN_STEP_NORMAL, with the vz>MAXGROUNDSPEED early-out.
+        onground_is_proxy=TRUE (MVD has no server onground flag; this is geometric).
+
+(req 2) sidemove SIGN = -sign(yaw_rate), yaw_rate via the CANONICAL agent_observation.
+        yaw_rate_degps (train/serve parity). The air-accel sign rule is ~90%+ reliable ONLY
+        in the sustained-bunnyhop regime, so the strafe-sign label is GATED to hspeed >=
+        STRAFE_SIGN_GATE (400 qu/s): at/above the gate it is a confident label
+        (confidence=STRAFE_CONF, is_interp=False); below the gate (accel phase) the row is
+        emitted with is_interp=TRUE so the trainer can exclude it. Magnitude is LOST in MVD,
+        so |sidemove| is set from the de-risk prior (SIDEMOVE_MAG ≈ full, the human move-speed
+        cvar, since |sidemove| when strafing is near-constant-full). forwardmove is GENUINELY
+        LOST (the de-risk found it nonzero in 50-71% of air frames but unrecoverable, and
+        fwd-press is the behavior we do NOT want cloned) → set to FORWARDMOVE_PRIOR (0) with
+        confidence FORWARD_CONF (low).
+
+(req 3) jump = rhythm/noise-tolerant, from geometric-onground TRUE->FALSE transitions with
+        upward intent (vz>0 around the transition), NOT per-tick vz-spike thresholding.
+        Single-tick onground flicker is tolerated (a jump is only emitted on a transition
+        that stays airborne for >= JUMP_MIN_AIR ticks). Encoded in buttons (jump bit &2) and
+        upmove (+SIDEMOVE_MAG on a jump tick). AIM (view angles) is lossless in MVD:
+        cmd_yaw/cmd_pitch = the view angles directly, confidence=AIM_CONF (high).
+
+USAGE
+-----
+    python scripts/catalog_etl_mvd.py \
+        --catalog-dir data/catalog \
+        --manifest    data/corpus/human_4on4_dm3_mvd_manifest.json \
+        --db          data/catalog/dm3_4on4_mvd.sqlite \
+        --bsp         /home/ubuntu/nquakesv/qw/maps/dm3.bsp \
+        --qw-analyze  ~/qw-sim/bin/qw-analyze-v20 \
+        --workers 4 [--limit N]
+
+Repo destination: scripts/catalog_etl_mvd.py
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import logging
+import math
+import os
+import subprocess
+import sqlite3
+import sys
+import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
+
+LOGGER = logging.getLogger(__name__)
+
+HERE = Path(__file__).resolve().parent
+REPO_ROOT = HERE.parent
+for _p in (str(REPO_ROOT), str(HERE)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+import catalog_load  # noqa: E402  (stdlib-only sibling; static spine)
+import pmove_sim  # noqa: E402  (stdlib-only; WorldModel + player_trace + detect_teleports)
+from features.agent_observation import yaw_rate_degps  # noqa: E402  (canonical turn-rate)
+
+BUTTON_JUMP = pmove_sim.BUTTON_JUMP  # 2
+DEFAULT_QW_ANALYZE = str(Path("~/qw-sim/bin/qw-analyze-v20").expanduser())
+DEFAULT_BSP = "/home/ubuntu/nquakesv/qw/maps/dm3.bsp"
+
+# --- angle16 -> degrees (QW wire format) -------------------------------------
+ANGLE16_TO_DEG = 360.0 / 65536.0
+
+# --- episode packing (mirror catalog_etl_qwd) --------------------------------
+MAX_EPISODE_FRAMES = 2048
+MIN_EPISODE_FRAMES = 24
+
+# --- recovery constants (the 3 de-risk requirements) -------------------------
+# (req 2) strafe-sign confidence regime. The QW air-accel sign rule sign(sidemove)==
+# -sign(yaw_rate) is ~90%+ reliable only above the sustained-bunnyhop speed gate (the
+# de-risk reproduced 89.6% @>=400, 92.3% @>=450). Below the gate (acceleration phase /
+# ground strafe) the sign is unreliable -> emit with is_interp=TRUE so the trainer excludes.
+STRAFE_SIGN_GATE = 400.0   # qu/s; at/above => confident strafe-sign label
+YAW_RATE_DEADBAND = 20.0   # deg/s; below this the turn is too small to sign confidently
+# (req 2) magnitude prior. |sidemove| when strafing is near-constant-full in the de-risk
+# (p50 = the player's move-speed cvar, 400). MVD loses the analog magnitude, so we emit a
+# constant full-deflection side label whose SIGN is the recovered air-strafe direction.
+SIDEMOVE_MAG = 400.0
+# (req 2) forwardmove is GENUINELY LOST (and fwd-press is the behavior we do NOT want
+# cloned). Default near 0 in air with low confidence rather than fabricating a press.
+FORWARDMOVE_PRIOR = 0.0
+
+# (req 3) jump = noise-tolerant onground TRUE->FALSE transition with upward intent.
+JUMP_MIN_AIR = 2           # ticks the player must stay airborne after the transition
+                           # for it to count as a jump (tolerates single-tick flicker)
+JUMP_VZ_MIN = 1.0          # qu/s; require upward intent (vz>0) at the transition
+
+# per-signal confidence (all < 1.0 per the actions.confidence contract for IDM rows).
+AIM_CONF = 0.95            # view angles are lossless in MVD (angle16 == client resolution)
+STRAFE_CONF = 0.9          # air-strafe sign in the >=gate bhop regime (de-risk: 89-92%)
+FORWARD_CONF = 0.2         # forwardmove is unrecoverable -> low-confidence prior
+BELOW_GATE_CONF = 0.4      # below-gate strafe sign (still recorded, is_interp=TRUE)
+
+# the per-tick STATE confidence does not exist as a column; per-row `confidence` is the
+# action-label confidence. We take the row confidence = min over the labels we trust this
+# tick (aim is always present; strafe gated; forward low). The dominant believability label
+# is the air-strafe sign, so above-gate rows carry STRAFE_CONF and below-gate rows the lower
+# BELOW_GATE_CONF + is_interp=TRUE.
+
+# --- geometric onground (req 1): a thin downward floor-trace prober ----------
+MIN_STEP_NORMAL = pmove_sim.MIN_STEP_NORMAL              # 0.7
+MAXGROUNDSPEED_DEFAULT = pmove_sim.MAXGROUNDSPEED_DEFAULT  # 180.0
+
+
+class OngroundProber:
+    """Geometric onground via a 1-qu downward hull-1 floor trace (PM_CategorizePosition
+    idiom from pmove_sim). NOT a vz-spike: this is the same world geometry the .qwd path's
+    onground comes from. Loads the dm3 BSP once per worker (the WorldModel is reused for
+    every tick of every player in the demo)."""
+
+    def __init__(self, bsp_path: str):
+        self.world = pmove_sim.WorldModel.load(bsp_path)
+
+    def onground(self, origin, vz: float) -> bool:
+        # PM_CategorizePosition early-out: moving up faster than the ground-speed cap can't
+        # be standing on a floor.
+        if vz > MAXGROUNDSPEED_DEFAULT:
+            return False
+        point = (origin[0], origin[1], origin[2] - 1.0)
+        tr = pmove_sim.player_trace(self.world, origin, point)
+        far = tr.fraction == 1.0 or tr.normal[2] < MIN_STEP_NORMAL
+        return not far
+
+
+# ---------------------------------------------------------------------------
+def _validate_analysis(data: dict, demo_name: str) -> None:
+    """Hard-fail (ValueError) unless this is a schema-33+ analysis whose `pos` stream carries
+    the velocity + view-yaw fields. Guards the schema-21 binary-version gotcha that would
+    silently kill strafe-sign recovery."""
+    sv = data.get("schemaVersion")
+    if not isinstance(sv, int) or sv < 33:
+        raise ValueError(
+            "%s: schemaVersion=%r but the MVD ETL requires schema>=33. The stock "
+            "qw-analyze-v20 on some boxes is an OLDER schema-21 build whose `pos` has only "
+            "{t,x,y,z,li} (no velocity/view) -> strafe-sign recovery silently fails. Use the "
+            "schema-33 binary (aws-dev: ~/qw-sim/bin/qw-analyze-v20, sha256 6954ffb6...)."
+            % (demo_name, sv)
+        )
+    players = (data.get("streams") or {}).get("players") or []
+    if not players:
+        raise ValueError("%s: schema-33 analysis has no streams.players" % demo_name)
+    pos = players[0].get("pos") or {}
+    missing = [k for k in ("vya", "vp", "vx", "vy", "vz") if k not in pos]
+    if missing:
+        raise ValueError(
+            "%s: `pos` stream missing %r — not a schema-33 positions,view,velocity export. "
+            "Run qw-analyze with `-include positions,view,velocity` and the schema-33 binary."
+            % (demo_name, missing)
+        )
+
+
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _player_frames(pos: dict) -> list[dict]:
+    """Turn one player's column-oriented `pos` stream into per-tick frame dicts carrying the
+    keys pmove_sim.detect_teleports needs (origin, velocity, msec) plus view angles.
+
+    velocity (vx,vy,vz) is used DIRECTLY — the analyzer already finite-differences it (a real
+    MVD has no velocity wire field). msec is the consecutive `t` delta (ms); the last tick
+    reuses the previous delta (no following sample). View angles are converted from angle16."""
+    t = pos["t"]
+    x, y, z = pos["x"], pos["y"], pos["z"]
+    vx, vy, vz = pos["vx"], pos["vy"], pos["vz"]
+    vya, vp = pos["vya"], pos["vp"]
+    n = len(t)
+    frames = []
+    for i in range(n):
+        if i + 1 < n:
+            msec = int(t[i + 1]) - int(t[i])
+        elif i > 0:
+            msec = int(t[i]) - int(t[i - 1])
+        else:
+            msec = 13
+        if msec <= 0:
+            msec = 13  # guard a duplicate/non-monotonic timestamp
+        frames.append({
+            "origin": [float(x[i]), float(y[i]), float(z[i])],
+            "velocity": [float(vx[i]), float(vy[i]), float(vz[i])],
+            "yaw": float(vya[i]) * ANGLE16_TO_DEG,
+            "pitch": float(vp[i]) * ANGLE16_TO_DEG,
+            "msec": msec,
+        })
+    return frames
+
+
+def _recover_onground(frames: list[dict], prober: OngroundProber) -> list[bool]:
+    """(req 1) geometric onground per tick — a floor trace, NOT a vz-spike."""
+    return [prober.onground(f["origin"], f["velocity"][2]) for f in frames]
+
+
+def _recover_jumps(onground: list[bool], frames: list[dict]) -> list[bool]:
+    """(req 3) jump press per tick from geometric-onground TRUE->FALSE transitions with
+    upward intent, noise-tolerant. A jump is a transition where the player was on the ground
+    at tick i, leaves the ground at i+1 with vz>0, AND stays airborne >= JUMP_MIN_AIR ticks
+    (so a single-tick onground flicker does NOT register a jump). The jump press is attributed
+    to tick i (the last grounded tick — the tick a +jump usercmd would have been issued)."""
+    n = len(frames)
+    jump = [False] * n
+    for i in range(n - 1):
+        if not (onground[i] and not onground[i + 1]):
+            continue
+        if frames[i + 1]["velocity"][2] <= JUMP_VZ_MIN:
+            continue  # no upward intent -> a fall off a ledge, not a jump
+        # require a sustained airborne run after the transition (flicker tolerance)
+        air = 0
+        for j in range(i + 1, min(n, i + 1 + JUMP_MIN_AIR)):
+            if onground[j]:
+                break
+            air += 1
+        if air >= JUMP_MIN_AIR:
+            jump[i] = True
+    return jump
+
+
+def _pack_episode(seg, seg_onground, seg_jump, start_tick: int) -> dict:
+    """Pack one contiguous frame run into compact per-tick rows (STATE + recovered ACTION).
+
+    Recovery per tick:
+      onground = seg_onground (geometric)                          (req 1)
+      sidemove = -sign(yaw_rate) * SIDEMOVE_MAG, yaw_rate canonical (req 2), gated to
+                 hspeed>=STRAFE_SIGN_GATE; below the gate the row is is_interp=TRUE.
+      jump     = seg_jump (onground TRUE->FALSE transition)        (req 3) -> buttons &2 + upmove
+      cmd_yaw/cmd_pitch = the view angles directly                 (aim lossless)
+    """
+    rows = []
+    t_s = 0.0
+    prev_yaw = None
+    for i, f in enumerate(seg):
+        o, v = f["origin"], f["velocity"]
+        yaw, pitch = f["yaw"], f["pitch"]
+        msec = int(f["msec"])
+        dt = msec * 0.001
+        hspeed = math.hypot(v[0], v[1])
+
+        # (req 2) air-strafe SIGN from the canonical turn-rate helper (train/serve parity).
+        yr = yaw_rate_degps(yaw, prev_yaw, dt)
+        prev_yaw = yaw
+        above_gate = hspeed >= STRAFE_SIGN_GATE
+        confident_turn = abs(yr) >= YAW_RATE_DEADBAND
+        if confident_turn:
+            side = -SIDEMOVE_MAG if yr > 0.0 else SIDEMOVE_MAG  # sign(side)==-sign(yaw_rate)
+        else:
+            side = 0.0  # turn too small to sign -> no strafe label this tick
+
+        jump = bool(seg_jump[i])
+        onground = bool(seg_onground[i])
+        buttons = BUTTON_JUMP if jump else 0
+        upmove = SIDEMOVE_MAG if jump else 0.0
+
+        # row confidence + is_interp: an above-gate confident-turn strafe row is the
+        # believability-critical label (STRAFE_CONF, kept). A below-gate / no-turn row carries
+        # only the low-confidence forward/aim priors -> mark is_interp so training can exclude
+        # the unreliable strafe-sign (per the de-risk: below-gate sign reliability drops).
+        if above_gate and confident_turn:
+            confidence = STRAFE_CONF
+            is_interp = False
+        else:
+            confidence = BELOW_GATE_CONF if confident_turn else FORWARD_CONF
+            is_interp = True
+
+        rows.append({
+            "tick": i,
+            "t_s": round(t_s, 4),
+            "msec": msec,
+            "ox": o[0], "oy": o[1], "oz": o[2],
+            "vx": v[0], "vy": v[1], "vz": v[2],
+            "pitch": pitch, "yaw": yaw, "roll": 0.0,
+            "hspeed": round(hspeed, 3),
+            "onground": onground,
+            "fwd": FORWARDMOVE_PRIOR, "side": side, "up": upmove,
+            "buttons": buttons,
+            "cmd_yaw": yaw, "cmd_pitch": pitch,
+            "confidence": confidence,
+            "is_interp": is_interp,
+        })
+        t_s += dt
+    return {"start": start_tick, "end": start_tick + len(seg) - 1, "n": len(seg), "frames": rows}
+
+
+def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str) -> dict:
+    """Worker: parse one .mvd into per-player per-tick STATE + recovered ACTION rows.
+
+    Returns a JSON-serializable dict (crosses the ProcessPool boundary cleanly):
+        {ok, demo, sha256, n_players, players:[{name, team, n_frames,
+            episodes:[{start,end,n,frames:[...]}]}], ...}  on success
+        {ok:False, demo, error}                            on failure
+    Never raises into the pool — a bad demo is recorded and skipped."""
+    demo = Path(demo_path)
+    try:
+        sha = _sha256_file(demo)
+        proc = subprocess.run(
+            [qw_analyze, "-view", "full", "-include", "positions,view,velocity", str(demo)],
+            capture_output=True, check=True,
+        )
+        data = json.loads(proc.stdout)
+        _validate_analysis(data, demo.name)
+    except subprocess.CalledProcessError as e:  # noqa: BLE001
+        tail = (e.stderr or b"")[-300:].decode("utf-8", "replace")
+        return {"ok": False, "demo": demo.name, "error": "qw-analyze:%s %s" % (e.returncode, tail)}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "demo": demo.name, "error": "%s: %s" % (type(e).__name__, e)}
+
+    try:
+        prober = OngroundProber(bsp_path)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "demo": demo.name, "error": "bsp:%s: %s" % (type(e).__name__, e)}
+
+    players_out = []
+    for p in data["streams"]["players"]:
+        pos = p.get("pos") or {}
+        if not pos.get("t"):
+            continue
+        frames = _player_frames(pos)
+        if len(frames) < MIN_EPISODE_FRAMES:
+            continue
+        onground = _recover_onground(frames, prober)
+        jump = _recover_jumps(onground, frames)
+
+        # episode boundaries: teleport/respawn discontinuities + a hard length cap.
+        tele = set(pmove_sim.detect_teleports(frames))
+        episodes = []
+        seg_start = 0
+        n = len(frames)
+        for k in range(n):
+            boundary = (k in tele) or (k - seg_start + 1 >= MAX_EPISODE_FRAMES) or (k == n - 1)
+            if boundary:
+                seg = frames[seg_start:k + 1]
+                if len(seg) >= MIN_EPISODE_FRAMES:
+                    episodes.append(_pack_episode(
+                        seg, onground[seg_start:k + 1], jump[seg_start:k + 1], seg_start))
+                seg_start = k + 1
+
+        players_out.append({
+            "name": p.get("name") or "",
+            "team": p.get("team"),
+            "n_frames": n,
+            "n_onground_true": sum(1 for g in onground if g),
+            "n_jumps": sum(1 for j in jump if j),
+            "episodes": episodes,
+        })
+
+    return {
+        "ok": True,
+        "demo": demo.name,
+        "sha256": sha,
+        "n_players": len(players_out),
+        "players": players_out,
+    }
+
+
+def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str) -> dict:
+    """Insert one extracted .mvd's demos/players/episodes/player_ticks/actions rows.
+    `split` is the train/val/test label for ALL of this demo's episodes (group-by-demo).
+
+    demos has UNIQUE(sha256); a byte-identical demo already loaded this run is SKIPPED
+    (no rows -> no orphan children) and reported, exactly like the QWD ETL."""
+    dup = con.execute("SELECT demo_id, path FROM demos WHERE sha256=?", (rec["sha256"],)).fetchone()
+    if dup is not None:
+        return {"skipped_duplicate": True, "demo": rec["demo"], "sha256": rec["sha256"],
+                "duplicate_of": dup[1], "duplicate_of_id": dup[0]}
+
+    cur = con.execute(
+        """INSERT INTO demos (path, source, map_id, demo_kind, sha256, parser_commit)
+           VALUES (?,?,?,?,?,?)""",
+        (rec["demo"], "mvd", map_id, "4on4", rec["sha256"], "qw-analyze:schema33"),
+    )
+    demo_id = cur.lastrowid
+
+    n_pl = n_ep = n_tick = n_act = 0
+    for p in rec["players"]:
+        if not p["episodes"]:
+            continue
+        # one players row per active player; real MVD name -> stable handle (lowercased).
+        # Disambiguate by demo so the same display-name across demos does not falsely merge
+        # (.mvd carries no persistent player id).
+        name = (p["name"] or "p").strip() or "p"
+        handle = "mvd:%s#%s" % (Path(rec["demo"]).stem[:48], name.lower())
+        con.execute("INSERT OR IGNORE INTO players (handle, is_bot) VALUES (?,0)", (handle,))
+        player_id = con.execute("SELECT player_id FROM players WHERE handle=?", (handle,)).fetchone()[0]
+        n_pl += 1
+
+        for ep in p["episodes"]:
+            c = con.execute(
+                """INSERT INTO episodes
+                   (demo_id, player_id, map_id, start_tick, end_tick, n_steps, split, split_policy)
+                   VALUES (?,?,?,?,?,?,?,?)""",
+                (demo_id, player_id, map_id, ep["start"], ep["end"], ep["n"], split, "group_by_demo_id"),
+            )
+            episode_id = c.lastrowid
+            n_ep += 1
+            for r in ep["frames"]:
+                con.execute(
+                    """INSERT INTO player_ticks
+                       (episode_id, tick, t_s, msec, ox, oy, oz, vx, vy, vz,
+                        pitch, yaw, roll, hspeed, onground, onground_is_proxy)
+                       VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?)""",
+                    (episode_id, r["tick"], r["t_s"], r["msec"],
+                     r["ox"], r["oy"], r["oz"], r["vx"], r["vy"], r["vz"],
+                     r["pitch"], r["yaw"], r["roll"], r["hspeed"],
+                     r["onground"], True),  # onground_is_proxy=TRUE (geometric, no server flag)
+                )
+                n_tick += 1
+                con.execute(
+                    """INSERT INTO actions
+                       (episode_id, tick, forwardmove, sidemove, upmove, buttons,
+                        cmd_yaw, cmd_pitch, cmd_roll, label_source, confidence, is_interp)
+                       VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?)""",
+                    (episode_id, r["tick"], r["fwd"], r["side"], r["up"], r["buttons"],
+                     r["cmd_yaw"], r["cmd_pitch"], 0.0, "idm", r["confidence"], r["is_interp"]),
+                )
+                n_act += 1
+
+    return {"demo_id": demo_id, "players": n_pl, "episodes": n_ep,
+            "player_ticks": n_tick, "actions": n_act}
+
+
+def load_manifest(manifest_path: Path) -> list[str]:
+    """Load the corpus manifest (schema v2) and return the abspaths of TRAIN demos.
+
+    Tolerates a couple of shapes: a top-level `demos`/`entries` list of objects each with a
+    `classification` and a path (`path`/`abspath`/`file`), or a bare list of the same. Only
+    classification=='TRAIN' entries are processed (the believable-BC train list)."""
+    raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entries = raw.get("demos") or raw.get("entries") or raw if isinstance(raw, (list,)) else \
+        (raw.get("demos") or raw.get("entries") or [])
+    if isinstance(raw, dict) and not isinstance(entries, list):
+        entries = []
+    out = []
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        cls = (e.get("classification") or e.get("class") or "").upper()
+        if cls and cls != "TRAIN":
+            continue
+        path = e.get("path") or e.get("abspath") or e.get("file") or e.get("demo")
+        if path:
+            out.append(str(path))
+    return out
+
+
+def assign_splits(n_demos: int, ratios=(0.7, 0.15, 0.15)) -> list[str]:
+    """Deterministic group-by-demo split (identical policy to catalog_etl_qwd.assign_splits):
+    round-robin demos into train/val/test by a cumulative-ratio schedule so no demo straddles
+    a split and every present split has >=1 demo when n_demos allows."""
+    labels = []
+    train_n = max(1, round(n_demos * ratios[0]))
+    val_n = max(1, round(n_demos * ratios[1])) if n_demos >= 3 else 0
+    for i in range(n_demos):
+        if i < train_n:
+            labels.append("train")
+        elif i < train_n + val_n:
+            labels.append("val")
+        else:
+            labels.append("test")
+    return labels
+
+
+def build(catalog_dir: Path, manifest: Path, db_path: str, bsp_path: str,
+          qw_analyze: str, workers: int = 2, limit: int = 0) -> dict:
+    """Build a populated MOVE catalog: static spine + per-tick rows recovered from .mvd demos."""
+    paths = load_manifest(manifest)
+    if limit:
+        paths = paths[:limit]
+
+    con, base = catalog_load.build(catalog_dir, fixture_dir=None, db_path=db_path)
+    map_id = con.execute("SELECT map_id FROM maps WHERE name='dm3'").fetchone()[0]
+
+    t0 = time.time()
+    extracted, errors = [], []
+    LOGGER.info("MVD ETL: extracting %d demos with %d workers ...", len(paths), workers)
+    if workers > 1 and len(paths) > 1:
+        with ProcessPoolExecutor(max_workers=workers) as ex:
+            futs = {ex.submit(extract_demo, p, qw_analyze, bsp_path): p for p in paths}
+            for fut in as_completed(futs):
+                r = fut.result()
+                (extracted if r.get("ok") else errors).append(r)
+                done = len(extracted) + len(errors)
+                LOGGER.info("  %d/%d  %s  (%s)", done, len(paths), r.get("demo"),
+                            ("%d players" % r.get("n_players", 0)) if r.get("ok")
+                            else "ERR: " + r.get("error", ""))
+    else:
+        for p in paths:
+            r = extract_demo(p, qw_analyze, bsp_path)
+            (extracted if r.get("ok") else errors).append(r)
+
+    extracted.sort(key=lambda r: r["demo"])
+    splits = assign_splits(len(extracted))
+
+    per_demo, skipped_dups = [], []
+    for rec, split in zip(extracted, splits):
+        ins = insert_demo(con, map_id, rec, split)
+        if ins.get("skipped_duplicate"):
+            skipped_dups.append(ins)
+            LOGGER.info("  SKIP duplicate sha256: %s (== %s)", rec["demo"], ins.get("duplicate_of"))
+            continue
+        ins.update(demo=rec["demo"], split=split, n_players_extracted=rec.get("n_players"))
+        per_demo.append(ins)
+
+    con.commit()
+    counts = table_counts(con)
+    summary = {
+        "db": db_path,
+        "catalog_dir": str(catalog_dir),
+        "static_spine": base,
+        "demos_attempted": len(paths),
+        "demos_loaded": len(per_demo),
+        "demos_failed": len(errors),
+        "demos_skipped_duplicate": len(skipped_dups),
+        "extract_secs": round(time.time() - t0, 1),
+        "split_counts": _split_counts(per_demo),
+        "table_counts": counts,
+        "onground_distinct": _onground_distinct(con),
+        "strafe_label_stats": _strafe_label_stats(con),
+        "per_demo": per_demo,
+        "skipped_duplicate_demos": skipped_dups,
+        "errors": [{"demo": e["demo"], "error": e["error"]} for e in errors],
+    }
+    return {"con": con, "summary": summary}
+
+
+def _split_counts(per_demo) -> dict:
+    out = {"train": 0, "val": 0, "test": 0}
+    for d in per_demo:
+        out[d["split"]] = out.get(d["split"], 0) + 1
+    return out
+
+
+def _onground_distinct(con: sqlite3.Connection) -> list:
+    try:
+        return sorted(int(bool(r[0])) for r in
+                      con.execute("SELECT DISTINCT onground FROM player_ticks").fetchall())
+    except sqlite3.OperationalError:
+        return []
+
+
+def _strafe_label_stats(con: sqlite3.Connection) -> dict:
+    """Report the recovered-label health: how many confident (non-interp, source=idm) strafe
+    rows landed in the >=gate bunnyhop regime, and the jump-press rate."""
+    try:
+        confident = con.execute(
+            "SELECT COUNT(*) FROM actions WHERE label_source='idm' AND is_interp=0 "
+            "AND sidemove != 0").fetchone()[0]
+        total_actions = con.execute("SELECT COUNT(*) FROM actions").fetchone()[0]
+        jump_rows = con.execute("SELECT COUNT(*) FROM actions WHERE (buttons & 2) != 0").fetchone()[0]
+        return {
+            "confident_strafe_sign_rows": confident,
+            "total_action_rows": total_actions,
+            "jump_press_rows": jump_rows,
+            "jump_press_rate": round(jump_rows / total_actions, 5) if total_actions else None,
+        }
+    except sqlite3.OperationalError:
+        return {}
+
+
+TABLES = ["maps", "items", "markers", "nav_edges", "players", "demos",
+          "episodes", "player_ticks", "actions"]
+
+
+def table_counts(con: sqlite3.Connection) -> dict:
+    out = {}
+    for t in TABLES:
+        try:
+            out[t] = con.execute("SELECT COUNT(*) FROM %s" % t).fetchone()[0]
+        except sqlite3.OperationalError:
+            out[t] = None
+    return out
+
+
+def main(argv=None) -> int:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    sys.setrecursionlimit(20000)
+    ap = argparse.ArgumentParser(description="Populate the MOVE catalog from human 4on4 dm3 .mvd demos")
+    ap.add_argument("--catalog-dir", type=Path, required=True)
+    ap.add_argument("--manifest", type=Path, required=True,
+                    help="corpus manifest (schema v2); only classification=='TRAIN' entries are loaded")
+    ap.add_argument("--db", required=True, help="output .sqlite path")
+    ap.add_argument("--bsp", default=DEFAULT_BSP, help="dm3 BSP for geometric onground floor-trace")
+    ap.add_argument("--qw-analyze", default=DEFAULT_QW_ANALYZE,
+                    help="schema-33 qw-analyze binary (default ~/qw-sim/bin/qw-analyze-v20)")
+    ap.add_argument("--workers", type=int, default=2)
+    ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--allow-empty", action="store_true",
+                    help="exit 0 even when NO demos loaded (static-only catalog). Default: a "
+                         "zero-demo load is an error so automation can't accept an empty catalog.")
+    args = ap.parse_args(argv)
+
+    qw_analyze = str(Path(args.qw_analyze).expanduser())
+    bsp_path = str(Path(args.bsp).expanduser())
+    if not Path(qw_analyze).exists():
+        LOGGER.error("qw-analyze binary not found: %s", qw_analyze)
+        return 2
+    if not Path(bsp_path).exists():
+        LOGGER.error("dm3 BSP not found: %s", bsp_path)
+        return 2
+
+    dbp = Path(args.db)
+    if dbp.exists():
+        dbp.unlink()
+    dbp.parent.mkdir(parents=True, exist_ok=True)
+
+    res = build(args.catalog_dir, args.manifest, args.db, bsp_path, qw_analyze,
+                workers=args.workers, limit=args.limit)
+    try:
+        print(json.dumps(res["summary"], indent=2, default=str))
+        if res["summary"]["demos_loaded"] == 0 and not args.allow_empty:
+            LOGGER.error("no .mvd demos loaded (0 episodes/player_ticks/actions from real demos); "
+                         "failing. Pass --allow-empty to accept a static-only catalog.")
+            return 2
+        return 0
+    finally:
+        con = res.get("con")
+        if con is not None:
+            con.close()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
