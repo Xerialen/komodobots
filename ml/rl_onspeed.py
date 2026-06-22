@@ -18,11 +18,16 @@ REUSE (this loop rebuilds NOTHING that exists):
              head). A small RLHead adds the VALUE head + a learned yaw log-std off the
              SAME shared trunk feature (_trunk_feat). The KL-ANCHOR reference is a FROZEN
              copy of the warm-start (believable-aim), NOT over-pressing cs10.
-  * REWARD = Phi-shaped achievable-speed-gain (sqrt(s^2+900)-s potential, policy-invariant)
-             + in-band horizontal speed (soft_band toward 252-316) + route-progress
-             (goal-distance decrease) + anti-hack penalties (spin/jitter) + KL-anchor to
-             the believable-aim reference. (The fragile hand-set believability THRESHOLD
-             term is DROPPED per STEP-0; believability == the KL-anchor.)
+  * REWARD = (ROUND-5: MECHANISM-GATED speed) air-strafe-attributed speed-gain: the in-band
+             speed + Phi-gain terms are scaled by perp_frac = 1-(vhat.wishdir)^2 IN AIR, so
+             only speed earned by wishdir _|_ velocity (the QW air-accel mechanism) is credited
+             and bulldozing (wishdir aligned = forward-press) earns ~0; PLUS a HARD air press-
+             barrier (-1.5 on air argmax-press) closing the bulldoze path; + route-progress +
+             argmax-targeted cadence + anti-hack + KL-anchor to the believable-aim reference.
+             Round 4 proved in-band speed was ONLY reachable by pressing under the old speed-
+             however-achieved reward; this geometry makes air-strafing the only positive-EV
+             route to in-band air speed. (Hand-set believability THRESHOLD dropped per STEP-0;
+             believability == the KL-anchor. Ground speed stays ungated for launch accel.)
   * PPO    = clipped surrogate + value loss + entropy floor + KL-anchor term; conservative
              (small LR, KL/clip guard, mid-route resets, entropy floor) so it ESCAPES the
              over-press basin without leaving the human manifold.
@@ -289,19 +294,63 @@ class PmoveEnv:
         self.cur_yaw = self.cur_yaw + yaw_delta_deg
         angles = [0.0, self.cur_yaw, 0.0]
         cmd = PM.Cmd(int(msec), angles, [fwd_mag, side_mag, up_mag], jump_bit)
+        # PRE-FRAME horizontal velocity (the speed-gain physics uses the velocity BEFORE the
+        # accel step: |v'|^2 = s^2 + 900 - (v_h . wishdir)^2). Capture it for the mechanism term.
+        pre_vx, pre_vy = self.st.velocity[0], self.st.velocity[1]
         self.pm.run_frame(self.st, cmd)
 
         vx, vy = self.st.velocity[0], self.st.velocity[1]
         hspeed = math.hypot(vx, vy)
         onground = bool(self.st.onground)
 
-        # ---- REWARD (rl-plan §B; reward_dryrun physics) -------------------------------
-        # r_speed: soft in-band horizontal speed (the G-MV4 objective; over-press is below).
-        r_speed = soft_band(hspeed, self.band_lo, self.band_hi)
+        # ---- AIR-STRAFE MECHANISM credit (ROUND-5) ------------------------------------
+        # The QW air-accel is ALWAYS addspeed-capped here (accelspeed ~41.6 > wishspd cap 30),
+        # so post-tick |v'_h|^2 = s^2 + 900 - (v_h . wishdir)^2 (optimal_strafe_yaw docstring).
+        # => the per-tick speed-GAIN is entirely a function of the angle between wishdir and
+        # the PRE-FRAME velocity: wishdir _|_ v gives the full phi(s) gain (the air-strafe
+        # mechanism), wishdir ALIGNED with v (forward-press bulldozing) gains ~0. perp_frac =
+        # 1 - (vhat . wishdir)^2 in [0,1] is exactly the fraction of phi(s) the geometry yields
+        # = "how much of this speed came from strafing, not pressing". Reproduce the SAME wishdir
+        # the sim built (pmove_sim angle_vectors for cur_yaw, pitch=roll=0, + the SAMPLED move
+        # mags that drove this tick) so the credit measures the realized trajectory.
+        ay = self.cur_yaw * (math.pi / 180.0)
+        cy, sy = math.cos(ay), math.sin(ay)
+        # pmove basis (pitch=roll=0): forward=[cy,sy], right=[sy,-cy]; wishvel = fwd*fmove+right*smove
+        wvx = cy * fwd_mag + sy * side_mag
+        wvy = sy * fwd_mag - cy * side_mag
+        wmag = math.hypot(wvx, wvy)
+        pre_h = math.hypot(pre_vx, pre_vy)
+        if wmag > 1e-6 and pre_h > 1e-6:
+            dot = (pre_vx * wvx + pre_vy * wvy) / (pre_h * wmag)   # vhat . wishdir, pre-frame
+            perp_frac = max(0.0, min(1.0, 1.0 - dot * dot))
+        else:
+            # no move key (wishdir undefined) or stopped: no strafe-mechanism gain this tick.
+            perp_frac = 0.0
+
+        # ---- REWARD (rl-plan §B; ROUND-5 = mechanism-gated speed) ---------------------
+        # ROUND-5 reward-geometry change. Round 4 proved eval over-press and in-band speed are
+        # ANTI-correlated under the old reward (Phi = speed-gain credited regardless of HOW): the
+        # only route to in-band speed it found was PRESSING forward (bulldozing), never air-
+        # strafing -> M3<0.50 unreachable. Fix: credit speed ONLY via the air-strafe MECHANISM
+        # (perp_frac, computed above) so a bulldozing trajectory earns ~0 speed-reward, and a
+        # HARD air press-barrier closes the bulldoze path entirely. Then the ONLY way to earn
+        # in-band air speed is wishdir _|_ velocity = air-strafing.
+        r_speed_raw = soft_band(hspeed, self.band_lo, self.band_hi)
         # r_phi: realized fraction of the analytic per-tick ACHIEVABLE gain (builds speed).
         avail = phi(self.prev_hspeed)
         ds = hspeed - self.prev_hspeed
-        r_phi = min(1.0, max(0.0, ds) / avail) if avail > 1e-6 else 0.0
+        r_phi_raw = min(1.0, max(0.0, ds) / avail) if avail > 1e-6 else 0.0
+        # MECHANISM GATE (air only): attribute speed to the air-strafe mechanism by scaling the
+        # speed terms by perp_frac. In air, holding/building speed pays only when the wishdir is
+        # perpendicular to velocity (strafing); pressing forward (perp_frac~0) earns ~0 even if
+        # the bot is fast. On GROUND we keep speed ungated (ground accel is a different mechanism;
+        # the launch guard needs ground acceleration) -> the gate targets the AIR over-press.
+        if onground:
+            r_speed = r_speed_raw
+            r_phi = r_phi_raw
+        else:
+            r_speed = perp_frac * r_speed_raw
+            r_phi = perp_frac * r_phi_raw
         # r_progress: route-progress = goal-distance DECREASE this tick (keeps it on-route,
         # not orbiting — the greedy-yaw orbit failure). Normalized by a per-tick scale.
         r_prog = 0.0
@@ -346,23 +395,27 @@ class PmoveEnv:
                 r_cad -= min(2.0, 0.5 + 0.01 * over)
         # (zero-strafe ticks neither flip nor reset the held sign; hold counter pauses.)
 
-        # r_press: explicit fwd-press penalty (ROUND-3, lever 2). fwd_press_frac counts ticks
-        # where the fwd-head ARGMAX == class 2 (press-forward); the closed-loop failure is
-        # over-pressing (0.57 air vs human top 0.50). A DIRECT penalty on the argmax press
-        # (NOT KL/entropy looseness — round 2 proved looseness RAISES press) pulls fwd_press
-        # toward the human band. Round-3b: weight 0.8 (the calib showed -0.4 lost the tug-of-
-        # war with r_speed and press climbed back to 1.0); strong enough that pressing only
-        # pays when it yields near-max in-band speed (the human "press selectively" tradeoff).
-        r_press = 1.0 if fwd_am == 2 else 0.0
+        # r_press: HARD AIR PRESS-BARRIER (ROUND-5, lever 2). The eval fwd_press_frac counts
+        # fwd-head ARGMAX == class 2 (press-forward) ticks; the bulldoze failure is over-pressing
+        # in AIR (M3 fwd_press_air >= 0.80 on every in-band snapshot). Round 3/4's weak -0.8
+        # penalty still left a viable bulldoze path (in-band speed via pressing). Round 5 makes
+        # it a BARRIER: a strong penalty on AIR argmax-press so a pressed-in-air tick is strictly
+        # net-negative (the mechanism gate already zeroes the speed credit when pressing, so the
+        # barrier is pure cost there). The ONLY remaining route to in-band air speed is air-
+        # strafing (perp wishdir, no press). GROUND press is NOT penalized — ground acceleration
+        # is legitimate (and the launch guard needs it); the failure + the metric are air-press.
+        air_press = (fwd_am == 2) and (not onground)
+        r_press = 1.0 if air_press else 0.0
 
-        # ROUND-3 reward = round-1's known-good base (r_speed weight reverted 1.5->1.0) + the
-        # two matched argmax-targeted believability terms, REBALANCED (round-3b) so they win
-        # the tug-of-war with r_speed that the first calib lost: cadence 0.3->0.5 + ramping
-        # park penalty, press penalty 0.4->0.8. True bunnyhop speed comes from AIR-STRAFING
-        # (alternating strafe + turn), not forward press — so strong cadence + press penalty
-        # are coherent: they push the policy to the air-strafe speed mechanism, not bulldozing.
+        # ROUND-5 reward = mechanism-gated speed (r_speed/r_phi scaled by perp_frac in air) +
+        # route + the argmax-targeted cadence shaping (kept from round 3) + the HARD air press-
+        # barrier (-1.5) + anti-hack. True bunnyhop speed comes from AIR-STRAFING (wishdir _|_
+        # velocity), NOT forward press; this reward makes that the only positive-EV route to the
+        # speed band in air, opening the fast-AND-low-press basin round 4 proved didn't exist
+        # under speed-however-achieved. (-1.5 press: strictly dominates the per-tick speed credit,
+        # which is ~0 when pressing anyway since perp_frac->0 -> pressing in air never pays.)
         reward = (1.0 * r_speed + 0.5 * r_phi + 0.5 * r_prog
-                  + 0.5 * r_cad - 0.8 * r_press - 1.0 * p_hack)
+                  + 0.5 * r_cad - 1.5 * r_press - 1.0 * p_hack)
 
         self.prev_hspeed = hspeed
         self.k += 1
@@ -374,7 +427,8 @@ class PmoveEnv:
         # counts argmax==2 ticks) so the training fwd_press readout tracks the eval metric.
         info = {"hspeed": hspeed, "onground": onground, "fwd_press": int(fwd_am == 2),
                 "r_speed": r_speed, "r_phi": r_phi, "r_prog": r_prog, "p_hack": p_hack,
-                "r_cad": r_cad, "r_press": r_press, "strafe_sign": cur_sign}
+                "r_cad": r_cad, "r_press": r_press, "strafe_sign": cur_sign,
+                "perp_frac": perp_frac}
         if done:
             obs = self._build_obs()  # terminal obs (unused for bootstrap if done)
         else:
@@ -932,10 +986,13 @@ def main(argv=None):
     ap.add_argument("--kl-coef", type=float, default=0.05)
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--target-kl", type=float, default=0.03)
-    ap.add_argument("--kl-anchor-ceiling", type=float, default=0.25,
+    ap.add_argument("--kl-anchor-ceiling", type=float, default=0.32,
                     help="early-stop + best-ckpt eligibility: max KL(anchor||policy) before "
                          "the policy is judged OFF the believable manifold (runaway). The "
-                         "calib runaway hit kl_anchor 0.3->2.6; 0.25 stops just as it departs.")
+                         "calib runaway hit kl_anchor 0.3->2.6. ROUND-5: relaxed 0.25->0.32 so "
+                         "the policy explores the new fast-low-press (air-strafe) basin further "
+                         "before stopping (round 4 early-stopped @it8 on kl 0.295, possibly "
+                         "before reaching it). G-MV1 is still checked by the eval guard.")
     ap.add_argument("--press-ceiling", type=float, default=0.50,
                     help="best-ckpt eligibility: max in-rollout argmax fwd_press (human top "
                          "0.50). Iters above this are over-pressing -> not eligible as best.")
