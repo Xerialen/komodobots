@@ -593,6 +593,18 @@ def train(args, device):
     print(f"[rl] {args.n_envs} envs x {args.rollout_steps} steps = {steps_per_iter}/iter; "
           f"{n_iters} iters -> ~{n_iters*steps_per_iter} env steps target", flush=True)
 
+    # BEST-believable checkpoint tracking + KL-anchor early-stop (ROUND-3c). The calib showed
+    # the believable regime (moderate argmax press + nonzero fpm) lives EARLY (~iters 8-12);
+    # longer training runs away into the bulldoze basin (press->1.0, fpm->0, kl_anchor blows
+    # up to >2). So: (a) snapshot the base state_dict at the iter with the best believability
+    # score among iters still ON the manifold (kl_anchor below threshold), and SAVE THAT (not
+    # the final collapsed policy); (b) early-STOP once kl_anchor exceeds the manifold ceiling
+    # (the runaway signal) — no point training past the collapse. This persists a guard-safe
+    # ckpt by construction and never re-saves a regression.
+    import copy as _copy
+    best = {"score": -1e9, "sd": None, "it": -1, "press": None, "fpm": None, "hsp": None}
+    kl_ceiling = args.kl_anchor_ceiling
+    stopped_early = None
     env_steps = 0
     for it in range(n_iters):
         t0 = time.time()
@@ -621,6 +633,41 @@ def train(args, device):
             print(f"[rl] WARN approx_kl {upd['approx_kl']:.3f} >> target {args.target_kl} "
                   f"(policy moving fast; conservative LR/clip should bound it)", flush=True)
 
+        # --- believability-scored best-ckpt + KL-anchor early-stop (ROUND-3c) ---------------
+        # Only iters still ON the believable manifold (kl_anchor <= ceiling) AND not over-
+        # pressing past the human top (0.50) are eligible. Among those, score rewards higher
+        # in-rollout speed and a nonzero strafe cadence (fpm>0) — i.e. the air-strafe regime,
+        # not bulldozing. Warm-up: skip iter 0 (init transient). A grace lets a couple of low-
+        # fpm iters pass without locking the best, but the press/KL gates are hard.
+        on_manifold = upd["kl_anchor"] <= kl_ceiling
+        press_ok = fwd_press <= args.press_ceiling
+        if it >= 1 and on_manifold and press_ok:
+            score = mean_hsp - 200.0 * max(0.0, fwd_press - 0.30) + 0.5 * min(fpm_est, 120.0)
+            if score > best["score"]:
+                best.update(score=score, sd=_copy.deepcopy(rl.base.state_dict()), it=it,
+                            press=fwd_press, fpm=fpm_est, hsp=mean_hsp)
+                print(f"[rl] * new best-believable @it{it}: score={score:.1f} "
+                      f"press={fwd_press:.3f} fpm~{fpm_est:.0f} hspeed={mean_hsp:.1f} "
+                      f"kl_anchor={upd['kl_anchor']:.3f}", flush=True)
+        # early-STOP on manifold departure (the runaway into the bulldoze basin).
+        if upd["kl_anchor"] > kl_ceiling and best["sd"] is not None:
+            stopped_early = it
+            print(f"[rl] EARLY-STOP @it{it}: kl_anchor {upd['kl_anchor']:.3f} > ceiling "
+                  f"{kl_ceiling} (left the believable manifold; keeping best @it{best['it']})",
+                  flush=True)
+            break
+
+    # restore the BEST-believable params for saving (NOT the final/collapsed policy). If no
+    # eligible iter was found (degenerate run), fall back to the final params with a warning.
+    if best["sd"] is not None:
+        rl.base.load_state_dict(best["sd"])
+        print(f"[rl] saving BEST-believable ckpt @it{best['it']} "
+              f"(press={best['press']:.3f} fpm~{best['fpm']:.0f} hspeed={best['hsp']:.1f})",
+              flush=True)
+    else:
+        print("[rl] WARN no on-manifold/low-press iter found — saving FINAL params "
+              "(this run likely regressed; eval will catch it)", flush=True)
+
     meta = {
         "init_ckpt": str(Path(args.init_ckpt).resolve()),
         "env_steps": env_steps, "n_iters": n_iters, "n_envs": args.n_envs,
@@ -629,6 +676,11 @@ def train(args, device):
         "ent_coef": args.ent_coef, "reward_band": [band_lo, band_hi],
         "wall_time_s": round(time.time() - t_start, 1),
         "final_mean_hspeed": mean_hsp, "final_fwd_press": fwd_press,
+        "best_it": best["it"], "best_press": best["press"], "best_fpm": best["fpm"],
+        "best_hspeed": best["hsp"], "best_score": best["score"],
+        "stopped_early_it": stopped_early, "kl_anchor_ceiling": kl_ceiling,
+        "press_ceiling": args.press_ceiling,
+        "saved_params": ("best_believable" if best["sd"] is not None else "final_fallback"),
     }
     save_rl_ckpt(args.out_ckpt, rl, src_ckpt, dims, head_dims, args.round, meta)
     print(json.dumps({"saved": str(Path(args.out_ckpt).resolve()), "rl_meta": meta}, indent=2),
@@ -769,6 +821,13 @@ def main(argv=None):
     ap.add_argument("--kl-coef", type=float, default=0.05)
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--target-kl", type=float, default=0.03)
+    ap.add_argument("--kl-anchor-ceiling", type=float, default=0.25,
+                    help="early-stop + best-ckpt eligibility: max KL(anchor||policy) before "
+                         "the policy is judged OFF the believable manifold (runaway). The "
+                         "calib runaway hit kl_anchor 0.3->2.6; 0.25 stops just as it departs.")
+    ap.add_argument("--press-ceiling", type=float, default=0.50,
+                    help="best-ckpt eligibility: max in-rollout argmax fwd_press (human top "
+                         "0.50). Iters above this are over-pressing -> not eligible as best.")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--cpu", action="store_true")
     # eval
