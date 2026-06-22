@@ -197,7 +197,7 @@ class PmoveEnv:
     def __init__(self, world, stats, segments, *, n_max=7, map_name="dm3",
                  horizon=385, band_lo=252.0, band_hi=316.0, seed=0,
                  cad_hold_min=14, cad_hold_max=230, cad_hold_late=240,
-                 air_press_thresh=0.40, ap_rate_ema=0.02):
+                 air_press_thresh=0.40, ap_rate_ema=0.02, r_cad_weight=1.0):
         self.world = world
         self.stats = stats
         self.segments = segments                 # list of (eid, start, seg) human segments
@@ -219,6 +219,13 @@ class PmoveEnv:
         # penalty reflects a sustained press habit, not a single tick).
         self.air_press_thresh = float(air_press_thresh)
         self.ap_rate_ema = float(ap_rate_ema)
+        # ROUND-7 lever: cadence-reward weight on the L<->R argmax flip term. Round 6 fixed in-band
+        # press from r4init but the policy PARKED the strafe (M6 flips 0.0) because r_cad weight
+        # 1.0 lost to the comfort of a parked perpendicular hold (full r_strafe for ~cad_hold_max
+        # ticks). Raising this (and shortening cad_hold_max so the strafe-decay bites earlier)
+        # makes flipping net-positive in the SAME in-band-press basin -> recover M6 without
+        # pushing press out of [0.07,0.50].
+        self.r_cad_weight = float(r_cad_weight)
         self.rng = np.random.RandomState(seed)
         self.pm = PM.Pmove(world)
         self._reset_state()
@@ -451,7 +458,7 @@ class PmoveEnv:
         # perpendicular strafe. Round 6: the hinge lets press settle in [0.07,0.50]; the
         # decayed-strafe + raised r_cad make low-press air-strafe COEXIST with the flip cadence.
         reward = (1.0 * r_speed + 0.5 * r_phi + 0.6 * r_strafe + 0.5 * r_prog
-                  + 1.0 * r_cad - 1.0 * r_press - 1.0 * p_hack)
+                  + self.r_cad_weight * r_cad - 1.0 * r_press - 1.0 * p_hack)
 
         self.prev_hspeed = hspeed
         self.k += 1
@@ -675,7 +682,8 @@ def train(args, device):
 
     envs = [PmoveEnv(world, stats, segs, n_max=args.n_max, map_name=args.map,
                      horizon=args.ep_horizon, band_lo=band_lo, band_hi=band_hi, seed=1000 + i,
-                     air_press_thresh=args.air_press_thresh)
+                     air_press_thresh=args.air_press_thresh,
+                     cad_hold_max=args.cad_hold_max, r_cad_weight=args.r_cad_weight)
             for i in range(args.n_envs)]
     opt = torch.optim.Adam(rl.parameters(), lr=args.lr)
 
@@ -782,6 +790,11 @@ def train(args, device):
               flush=True)
         import tempfile
         qualified, in_band = [], []
+        # ROUND-7 (lever 2): the selection M1 floor. Defaults to band_lo (round-6 behavior) but
+        # can be relaxed slightly (e.g. 252, the gate-band floor) so a press-in-band + M6-in-band
+        # candidate whose M1 sits just above the gate floor (but below the disjoint-reserve
+        # band_lo) can still be SAVED — the unified snapshot is the goal, not max M1.
+        m1_floor = float(getattr(args, "select_m1_floor", None) or band_lo)
         for ci, c in enumerate(topk):
             rl.base.load_state_dict(c["sd"])
             ep, em1, em6 = _eval_press_screen(rl, src_ckpt, dims, head_dims, args, device,
@@ -789,7 +802,7 @@ def train(args, device):
             c_diag = {"it": c["it"], "inroll_press": c["press"], "inroll_hsp": c["hsp"],
                       "inroll_fpm": c["fpm"], "eval_press": ep, "eval_m1": em1, "eval_m6": em6}
             eval_probe.append(c_diag)
-            m1_ok = (em1 is not None and em1 >= band_lo)
+            m1_ok = (em1 is not None and em1 >= m1_floor)
             m6_ok = (em6 is not None and em6 >= 0.0)
             # ROUND-6 (lever 4): a candidate fully qualifies iff its eval press is IN the HUMAN
             # BAND [press_floor, ceiling] (round 5 drove press to 0.0 BELOW the 0.07 floor by
@@ -1068,6 +1081,22 @@ def main(argv=None):
                          "below this is FREE; only the excess above it is penalized (weight -1.0). "
                          "Lets press settle in the human band [0.07,0.50] instead of being driven "
                          "to 0.0 by round-5's flat per-tick penalty.")
+    ap.add_argument("--r-cad-weight", type=float, default=1.0,
+                    help="ROUND-7: weight on the L<->R argmax cadence-flip reward. Round 6's 1.0 "
+                         "lost to a parked perpendicular strafe (M6 flips 0.0 from r4init). Raise "
+                         "(~1.6) to make flipping net-positive in the in-band-press basin -> "
+                         "recover M6 cadence WITHOUT pushing press out of [0.07,0.50].")
+    ap.add_argument("--cad-hold-max", type=int, default=230,
+                    help="ROUND-7: max human-plausible single-strafe-sign hold (ticks ~16 fpm). "
+                         "Both the cadence-flip eligibility window top AND the strafe-bonus decay "
+                         "onset. Round 6 (230) let a sign be parked ~the whole 385-tick episode "
+                         "with near-full r_strafe; shorten (~140) so the strafe-decay bites earlier "
+                         "and KEEPING the bonus REQUIRES a flip -> un-parks the strafe argmax.")
+    ap.add_argument("--select-m1-floor", type=float, default=None,
+                    help="ROUND-7 (lever 2): eval-press-selection M1 floor (default = the disjoint "
+                         "reserve band_lo). Relax slightly (e.g. 252, the gate-band floor) so a "
+                         "press-in-band + M6-in-band candidate with M1 just above the gate floor "
+                         "can still be saved (the unified snapshot is the goal, not max M1).")
     ap.add_argument("--select-eval-segments", type=int, default=8,
                     help="closed-loop segments for the per-candidate eval-press screen "
                          "(cheaper than the full --eval-segments; the winner gets the full vector).")
