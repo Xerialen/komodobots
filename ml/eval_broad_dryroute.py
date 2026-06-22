@@ -573,6 +573,11 @@ def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
     # signal (yaw_rate in the self_state) AND the action-trace yaw_rate column. Seeded to
     # frame-0 yaw so the first tick's delta is 0 (== the build's first-tick=0 convention).
     yaw_prev = float(f0["angles"][1])
+    # aim_mode="policy" (RL movement-v5): the policy owns its view yaw. policy_yaw is the
+    # running executed yaw integrated from the per-tick turn DELTA (the yaw head); it drives
+    # BOTH the obs (turn-direction features) AND the pmove wishdir = the air-strafe SPEED
+    # mechanism. Seeded at the route's first human yaw. (replayed/optimal leave it unused.)
+    policy_yaw = float(f0["angles"][1])
     # v5 SEQUENCE history: rolling buffer of the last SELF_HISTORY SELF feature-vectors,
     # OLDEST -> NEWEST, RESET here at rollout start. Each tick appends enc["self"] and the
     # flat [SELF_HISTORY*SELF_DIM] history is assembled by the SHARED helper (same order +
@@ -583,10 +588,13 @@ def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
     n = len(frames) - 1
     for k in range(n):
         f = frames[k]
-        yaw = float(f["angles"][1])
         pitch = float(f["angles"][0])
+        # OBS/EXECUTED view yaw: the policy's own running yaw under aim_mode="policy"
+        # (self-yaw), else the replayed human yaw. Obs built from THIS yaw; the yaw head
+        # (policy mode) then sets the turn delta -> policy_yaw for the executed cmd.
+        yaw = policy_yaw if aim_mode == "policy" else float(f["angles"][1])
         angles = [pitch, yaw, 0.0]
-        # turn-rate from the previous replayed yaw + this tick's dt, via the SAME shared
+        # turn-rate from the previous executed yaw + this tick's dt, via the SAME shared
         # helper the offline build + closed-loop eval call (parity). On tick 0 yaw_prev==yaw
         # so the delta is 0 — byte-identical to the build's first-tick=0.0.
         yaw_rate = AO_yaw_rate_degps(yaw, yaw_prev, float(f["msec"]) / 1000.0)
@@ -614,7 +622,17 @@ def run_policy_rollout(frames, world, route, *, model, dims, encode_obs, stats,
             em_t = torch_mod.zeros((1, n_max), device=device)
         aux_t = torch_mod.zeros((1, dims["f_aux"]), device=device)
         with torch_mod.no_grad():
-            logits = model(obs_t, ent_t, em_t, aux_t)
+            if aim_mode == "policy":
+                # SELF-YAW: yaw head proposes the per-tick turn DELTA (sincos); integrate it
+                # onto policy_yaw and execute that (the RL movement-v5 mechanism). Needs a
+                # yaw-head ckpt (forward_with_yaw).
+                logits, yaw2 = model.forward_with_yaw(obs_t, ent_t, em_t, aux_t)
+                yd = float(torch_mod.atan2(yaw2[0, 0], yaw2[0, 1]).item()) * (180.0 / math.pi)
+                yd = max(-90.0, min(90.0, yd))
+                policy_yaw = yaw + yd
+                angles = [pitch, policy_yaw, 0.0]
+            else:
+                logits = model(obs_t, ent_t, em_t, aux_t)
         pred_cls = [int(lg.argmax(dim=1).item()) for lg in logits]
         fwd_mag, side_mag, up_mag, jump_bit = CL.decode_move_heads(pred_cls)
         attack_classes.append(pred_cls[4])
@@ -1038,7 +1056,7 @@ def main(argv=None) -> int:
                     help="write a per-tick POLICY-vs-HUMAN action-trace CSV to PATH and "
                          "attach analyze_action_trace to the report (diagnostic; needs "
                          "the policy rollout, so not valid with --controls-only)")
-    ap.add_argument("--aim", choices=("replayed", "optimal"), default="replayed",
+    ap.add_argument("--aim", choices=("replayed", "optimal", "policy"), default="replayed",
                     help="executed view aim for the POLICY rollout: 'replayed' = human yaw "
                          "(the baseline); 'optimal' = wishdir _|_ velocity (the perfect-aim "
                          "diagnostic). The obs still sees the replayed yaw, so ONLY the "

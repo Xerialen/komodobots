@@ -3435,3 +3435,63 @@ copy of the workflow.
 ### Decision
 
 2026-06-20: Adopted the dm3 route taxonomy + 5-phase route-segmented BC program (issues #315-327). See docs/notes/dm3-route-taxonomy.md.
+
+---
+
+## RL-on-speed is the matched lever for closed-loop bunnyhop speed; over-press cracked, cadence the residual
+
+### Date
+
+2026-06-22
+
+### Decision
+
+Adopt RL-on-speed (`ml/rl_onspeed.py`, PPO over the offline pmove sim with a self-yaw action
+head + a mechanism-gated speed reward) as the lever for the closed-loop bunnyhop-SPEED skill,
+after the supervised behavioral-cloning family was exhausted on it (BC -> reweight ->
+GRU-sequence -> DAgger, per #353). RL solved the central failure: the closed-loop forward
+over-press (bulldozing, ~0.83-0.96) that killed the supervised family is now landed in the
+human band (best ckpt `rl_round6_r4init.pt`: fwd-press 0.243, M1 273 in the 252-316 band,
+launch PASS, G-MV1). One residual remains diagnosed (the G-MV3 strafe-cadence rhythm
+co-occurring with launch+speed in one snapshot) and is deferred to a different mechanism
+(below), owner-gated.
+
+### Alternatives Considered
+
+- **More supervised tuning (stay in the BC family).** Rejected: BC/reweight/GRU-sequence/DAgger
+  all left the over-press at ~0.83-1.0 closed-loop; per-state supervised cloning cannot
+  produce the long-horizon emergent bunnyhop-speed skill (#353 conclusion).
+- **A hand-set believability THRESHOLD reward term.** Dropped per the STEP-0 audit (it was
+  fooled by replayed aim and failed to separate over-press cs10 from humans); replaced by a
+  KL-anchor to the BC-pretrained believable-aim policy (a sound distribution-match prior),
+  with AMP reserved as the believability upgrade iff the anchor does not hold G-MV1.
+- **A "speed-however-achieved" reward.** Rejected after round 4 proved it makes over-press and
+  speed anti-correlated (in-band speed only reachable by bulldozing); replaced by the
+  mechanism-gated reward (credit speed only via perpendicular air-strafe), which broke the
+  anti-correlation in round 5.
+- **A per-tick cadence-flip reward to close M6.** Found insufficient (rounds 7-8 + a seed
+  sweep): the argmax side-flip that makes cadence steals the sustained air-strafe that launch
+  and the speed floor need. Deferred to a trajectory/multi-tick cadence credit OR AMP.
+
+### Evidence
+
+8 RL rounds, each raw-validated from the SAME goal-conditioned gate harness
+(`ml/eval_broad_closedloop.py` + `ml/eval_broad_dryroute.py`, post-#355 goal-injection fix);
+full vectors in `/home/ubuntu/.claude/overnight-rl-state.json` `runs[]`, narrative in
+`docs/notes/rl-onspeed-results.md` and `docs/07_FINDINGS_LOG.md` (2026-06-22). The over-press
+solve (round 6) and the reward-artifact diagnosis (rounds 4-5) are the load-bearing results;
+the cadence residual was reproduced across 8 candidates + a seed sweep.
+
+### Expected Consequences
+
+`ml/rl_onspeed.py` lands as reusable RL infrastructure (the PPO loop + self-yaw seam +
+mechanism-gated reward + eval-integrity-bound selection) plus the result record. This PR does
+NOT productionize a policy: the checkpoints stay on pinnacle (not in git), there is no
+live-server validation, and the cadence rhythm is still out of band with launch+speed.
+
+### Revisit Conditions
+
+Revisit when pursuing the cadence residual (a trajectory/multi-tick cadence credit or AMP — a
+fresh RL sub-track, owner-gated), when productionizing a checkpoint (needs live-server sign-off
+under the do-not-harm rules), or if a future eval change alters the goal-conditioned gate path
+the result rests on.
