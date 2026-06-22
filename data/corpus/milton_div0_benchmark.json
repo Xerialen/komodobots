@@ -1,0 +1,13 @@
+{
+ "schema": "komodobots.milton_div0_benchmark.v1",
+ "ticket": "#358 / F-DATA-1",
+ "role": "div0_benchmark",
+ "held_out_from_train": true,
+ "note": "Milton (a div0 player) is the believability REFERENCE, never training data. Kept separate from the human 4on4 dm3 MOVE corpus (human_4on4_dm3_mvd_manifest.json). Verified: that corpus contains 0 milton-named demos.",
+ "primary_demo": {
+  "demo": "milton_src.mvd",
+  "path": "/mnt/c/nQuake/qw/demos/milton_src.mvd",
+  "box": "pinnacle (/mnt/c, read-only)",
+  "parse": "DEFERRED — per-tick parse + the S5 exact-player Milton/carapace/yeti reference set are built by the benchmark/eval ticket, not this corpus-selection ticket. milton_src.mvd was previously verified to parse via mvd_analyzer (memory dm3-visual-pilot)."
+ }
+}
