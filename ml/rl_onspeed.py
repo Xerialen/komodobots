@@ -260,11 +260,26 @@ class PmoveEnv:
         self._reset_state()
         return self._build_obs()
 
-    def step(self, fwd_cls, side_cls, up_cls, jump_cls, yaw_delta_deg, msec):
-        """Apply the sampled discrete heads + the policy's per-tick yaw DELTA (self-yaw).
-        Integrate the yaw, step pmove, return (reward, done, info)."""
+    def step(self, fwd_cls, side_cls, up_cls, jump_cls, yaw_delta_deg, msec,
+             fwd_argmax=None, side_argmax=None):
+        """Apply the SAMPLED discrete heads + the policy's per-tick yaw DELTA (self-yaw),
+        integrate the yaw, step pmove, return (reward, done, info).
+
+        ROUND-3 fix (argmax cadence/press): the closed-loop EVAL drives the heads by
+        DETERMINISTIC ARGMAX (eval_broad_closedloop line ~740), so the believability-shaping
+        terms (cadence M6, fwd-press M3) MUST be functions of the ARGMAX-decoded action — a
+        sampling-only reward (round 2) shifts the sampled distribution but leaves the argmax
+        parked, so eval cadence stayed 0 / press stayed high. fwd_argmax/side_argmax are the
+        policy's deterministic intent THIS tick (the eval's exact decode); the sim still runs
+        the SAMPLED action (on-policy dynamics), reward shapes on the argmax (the eval target).
+        """
         fwd_mag, side_mag, up_mag, jump_bit = EV.decode_move_heads(
             [fwd_cls, side_cls, up_cls, jump_cls, 0])
+        # the ARGMAX-decoded side/fwd (what the deterministic eval will execute). Fall back to
+        # the sampled class if an argmax wasn't supplied (keeps the env standalone-runnable).
+        side_am = int(side_argmax) if side_argmax is not None else int(side_cls)
+        fwd_am = int(fwd_argmax) if fwd_argmax is not None else int(fwd_cls)
+        side_am_mag = EV.move_class_to_mag(side_am)
         # SELF-YAW: integrate the policy's per-tick turn delta onto the executed view yaw.
         # This is the mechanism — the yaw drives the air-strafe wishdir in pmove AND was
         # already fed into the obs this tick (cur_yaw). Clamp the delta to a sane per-tick
@@ -303,12 +318,14 @@ class PmoveEnv:
         disp = hspeed * dt
         p_hack = 1.0 if (yaw_rate > 600.0 and disp < 1.0) else 0.0
 
-        # r_cad: G-MV3 strafe-cadence shaping (round-2 M6 recovery). Mirror the gate's flip
-        # semantics on side_mag: a flip = a transition between nonzero +side and nonzero
-        # -side (zero-strafe runs DON'T reset the comparison). Reward a flip whose prior
-        # hold was human-plausible (cad_hold_min..cad_hold_max ticks); penalize parking on
-        # one nonzero strafe sign past cad_hold_late ticks (drives flips/min up into band).
-        cur_sign = 1 if side_mag > 0 else (-1 if side_mag < 0 else 0)
+        # r_cad: G-MV3 strafe-cadence shaping, ROUND-3 = on the ARGMAX side sign (the eval
+        # decodes side by argmax, so cadence must move the argmax, not the sample — round-2's
+        # sampling-only r_cad left eval cadence at 0). Mirror the gate's flip semantics on the
+        # ARGMAX-decoded sidemove: a flip = a transition between nonzero +side and nonzero
+        # -side (zero-strafe runs DON'T reset the comparison). Reward a flip whose prior hold
+        # was human-plausible (cad_hold_min..cad_hold_max ticks); penalize parking on one
+        # nonzero argmax side sign past cad_hold_late ticks (un-sticks the parked argmax).
+        cur_sign = 1 if side_am_mag > 0 else (-1 if side_am_mag < 0 else 0)
         r_cad = 0.0
         if cur_sign != 0:
             if self.prev_strafe_sign != 0 and cur_sign != self.prev_strafe_sign:
@@ -323,8 +340,17 @@ class PmoveEnv:
                 r_cad -= 0.5
         # (zero-strafe ticks neither flip nor reset the held sign; hold counter pauses.)
 
-        reward = (1.5 * r_speed + 0.5 * r_phi + 0.5 * r_prog
-                  + 0.3 * r_cad - 1.0 * p_hack)
+        # r_press: explicit fwd-press penalty (ROUND-3, lever 2). fwd_press_frac counts ticks
+        # where the fwd-head ARGMAX == class 2 (press-forward); the closed-loop failure is
+        # over-pressing (0.57 air vs human top 0.50). A DIRECT penalty on the argmax press
+        # (NOT KL/entropy looseness — round 2 proved looseness RAISES press) pulls fwd_press
+        # toward the human band. Penalize only the argmax press tick; 0 otherwise.
+        r_press = 1.0 if fwd_am == 2 else 0.0
+
+        # ROUND-3 reward = round-1's known-good base (r_speed weight reverted 1.5->1.0) + the
+        # two matched argmax-targeted believability terms (cadence up, press down).
+        reward = (1.0 * r_speed + 0.5 * r_phi + 0.5 * r_prog
+                  + 0.3 * r_cad - 0.4 * r_press - 1.0 * p_hack)
 
         self.prev_hspeed = hspeed
         self.k += 1
@@ -332,9 +358,11 @@ class PmoveEnv:
         done = (self.k >= min(self.horizon, len(self.seg) - 1))
         if not (math.isfinite(self.st.origin[0]) and math.isfinite(self.st.origin[1])):
             done = True
-        info = {"hspeed": hspeed, "onground": onground, "fwd_press": int(fwd_cls == 2),
+        # fwd_press logged on the ARGMAX (matches eval_broad_closedloop.fwd_press_frac, which
+        # counts argmax==2 ticks) so the training fwd_press readout tracks the eval metric.
+        info = {"hspeed": hspeed, "onground": onground, "fwd_press": int(fwd_am == 2),
                 "r_speed": r_speed, "r_phi": r_phi, "r_prog": r_prog, "p_hack": p_hack,
-                "r_cad": r_cad, "strafe_sign": cur_sign}
+                "r_cad": r_cad, "r_press": r_press, "strafe_sign": cur_sign}
         if done:
             obs = self._build_obs()  # terminal obs (unused for bootstrap if done)
         else:
@@ -354,7 +382,7 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
     act_buf = {"fwd": [], "side": [], "up": [], "jump": []}
     logp_buf, yaw_buf, yawlogp_buf = [], [], []
     val_buf, rew_buf, done_buf = [], [], []
-    hsp_log, fwdpress_log, rcad_log = [], [], []
+    hsp_log, fwdpress_log, rcad_log, rpress_log = [], [], [], []
 
     # current obs per env
     cur = [e._cur_obs if hasattr(e, "_cur_obs") else e.reset() for e in envs]
@@ -377,6 +405,11 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
             yaw_std = rl.yaw_log_std.exp().clamp(min=1e-2)
             yaw_logp = (-0.5 * ((yaw - yaw_mean) / yaw_std) ** 2
                         - rl.yaw_log_std - 0.5 * math.log(2 * math.pi))  # [N]
+            # ARGMAX of the fwd/side heads = the policy's deterministic intent (= what the
+            # closed-loop eval executes). The argmax-targeted cadence/press reward terms shape
+            # on THESE, not the sampled action, so they move the quantity the eval measures.
+            fwd_argmax = logits[0].argmax(dim=-1)   # [N]
+            side_argmax = logits[1].argmax(dim=-1)  # [N]
 
         obs_buf.append(self_in); ent_buf.append(ents); em_buf.append(emask)
         for j, nm in enumerate(("fwd", "side", "up", "jump")):
@@ -390,10 +423,12 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
         for i, e in enumerate(envs):
             msec = cur[i][3]
             obs, r, d, info = e.step(int(acts[0][i]), int(acts[1][i]), int(acts[2][i]),
-                                     int(acts[3][i]), float(yaw[i]), msec)
+                                     int(acts[3][i]), float(yaw[i]), msec,
+                                     fwd_argmax=int(fwd_argmax[i]),
+                                     side_argmax=int(side_argmax[i]))
             rews[i] = r; dones[i] = 1.0 if d else 0.0
             hsp_log.append(info["hspeed"]); fwdpress_log.append(info["fwd_press"])
-            rcad_log.append(info["r_cad"])
+            rcad_log.append(info["r_cad"]); rpress_log.append(info["r_press"])
             if d:
                 obs = e.reset()
             new_cur.append(obs)
@@ -414,6 +449,7 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
         "logp": logp_buf, "yaw": yaw_buf, "yawlogp": yawlogp_buf,
         "val": val_buf, "rew": rew_buf, "done": done_buf, "last_val": last_val,
         "hsp_log": hsp_log, "fwdpress_log": fwdpress_log, "rcad_log": rcad_log,
+        "rpress_log": rpress_log,
     }
 
 
