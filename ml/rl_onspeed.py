@@ -795,31 +795,46 @@ def train(args, device):
         # candidate whose M1 sits just above the gate floor (but below the disjoint-reserve
         # band_lo) can still be SAVED — the unified snapshot is the goal, not max M1.
         m1_floor = float(getattr(args, "select_m1_floor", None) or band_lo)
+        # ROUND-8 (lever 2): LAUNCH-AWARE selection. When --select-launch is set, a candidate
+        # must ALSO hold launch >= --select-launch-min (ra_jumps/hard-route dryroute passes) to
+        # qualify — closing the round-7 hole where the closed-loop-only screen saved a launch
+        # breaker (@it12: press+M6 in band but ra_jumps route% 88.8->4.56 = launch 0/3).
+        launch_aware = bool(getattr(args, "select_launch", False))
+        launch_min = int(getattr(args, "select_launch_min", 1))
         for ci, c in enumerate(topk):
             rl.base.load_state_dict(c["sd"])
-            ep, em1, em6 = _eval_press_screen(rl, src_ckpt, dims, head_dims, args, device,
-                                              tmptag=f"sel{ci}")
+            ep, em1, em6, elaunch = _eval_press_screen(rl, src_ckpt, dims, head_dims, args,
+                                                        device, tmptag=f"sel{ci}")
             c_diag = {"it": c["it"], "inroll_press": c["press"], "inroll_hsp": c["hsp"],
-                      "inroll_fpm": c["fpm"], "eval_press": ep, "eval_m1": em1, "eval_m6": em6}
+                      "inroll_fpm": c["fpm"], "eval_press": ep, "eval_m1": em1, "eval_m6": em6,
+                      "eval_launch": elaunch}
             eval_probe.append(c_diag)
             m1_ok = (em1 is not None and em1 >= m1_floor)
             m6_ok = (em6 is not None and em6 >= 0.0)
+            # ROUND-8 (lever 2): launch gate. Off (default) -> always True (round-7 behavior).
+            launch_ok = (not launch_aware) or (elaunch is not None and elaunch >= launch_min)
             # ROUND-6 (lever 4): a candidate fully qualifies iff its eval press is IN the HUMAN
             # BAND [press_floor, ceiling] (round 5 drove press to 0.0 BELOW the 0.07 floor by
             # picking the lowest-press candidate; the goal is press INSIDE the band, not minimized).
             press_inband = (ep is not None and args.eval_press_floor <= ep < args.eval_press_ceiling)
             print(f"[rl]   cand @it{c['it']}: eval_press={ep} eval_M1={em1} eval_M6={em6} "
-                  f"-> press_inband={press_inband} M1_ok={m1_ok} M6_ok={m6_ok}", flush=True)
-            if press_inband and m1_ok and m6_ok:
+                  f"eval_launch={elaunch} -> press_inband={press_inband} M1_ok={m1_ok} "
+                  f"M6_ok={m6_ok} launch_ok={launch_ok}", flush=True)
+            if press_inband and m1_ok and m6_ok and launch_ok:
                 qualified.append((em1, c))               # rank fully-qualified by HIGHEST M1 (best speed @ human press)
-            if m1_ok and ep is not None:
+            # fallback pool also REQUIRES launch_ok when launch-aware (never fall back to a
+            # launch breaker — that was exactly the round-7 @it12 trap).
+            if m1_ok and ep is not None and launch_ok:
                 in_band.append((ep, c))
+        _lr = (f" & launch>={launch_min}" if launch_aware else "")
         if qualified:
             qualified.sort(key=lambda x: x[0], reverse=True)  # highest eval M1 among press-in-band & M6-in-band
-            sel = qualified[0][1]; sel_reason = "press IN human band & M1 in band & M6 in band (max M1)"
+            sel = qualified[0][1]; sel_reason = ("press IN human band & M1 in band & M6 in band"
+                                                 + _lr + " (max M1)")
         elif in_band:
-            # fallback: no candidate had press INSIDE the band. Prefer the one CLOSEST to the band
-            # (so we don't re-pick a press-0.0 overshoot NOR a >ceiling bulldozer) while holding M1.
+            # fallback: no candidate fully qualified. Prefer the one CLOSEST to the press band
+            # (so we don't re-pick a press-0.0 overshoot NOR a >ceiling bulldozer) while holding
+            # M1 (+ launch when launch-aware — the fallback pool is already launch-filtered).
             def _press_dist(x):
                 ep = x[0]
                 if ep < args.eval_press_floor:
@@ -881,10 +896,17 @@ def train(args, device):
 
 def _eval_press_screen(rl, src_ckpt, dims, head_dims, args, device, tmptag="sel"):
     """ROUND-4 candidate screen: persist `rl`'s CURRENT base params to a temp ckpt, run the
-    SAME goal-conditioned closed-loop eval the gate uses (CLOSED-LOOP ONLY — skip the 3
-    dryroutes, which are the expensive part of the full vector), and return
-    (eval_fwd_press_frac, eval_M1_avg_hspeed, eval_M6_cadence_margin). Self-yaw, conditioned
-    goal — byte-parity with eval_metric_vector's closed-loop call, just fewer segments."""
+    SAME goal-conditioned closed-loop eval the gate uses and return
+    (eval_fwd_press_frac, eval_M1_avg_hspeed, eval_M6_cadence_margin, eval_launch_pass).
+    Self-yaw, conditioned goal — byte-parity with eval_metric_vector's calls, just fewer
+    closed-loop segments.
+
+    ROUND-8 (lever 2 — LAUNCH-AWARE selection): the round-7 screen was CLOSED-LOOP ONLY and so
+    was BLIND to the launch break (the @it12 candidate had press+M6 in band but had collapsed
+    ra_jumps route% 88.8->4.56 = launch 0/3). When --select-launch is set, the screen ALSO runs
+    the 3 hard dryroutes (the same DR.run_eval the full vector uses) and returns launch_pass so
+    the selection can REQUIRE launch >= --select-launch-min. Without --select-launch it stays
+    closed-loop only (launch_pass=None) — the cheap round-7 behavior."""
     import tempfile
     rc = args.resource_coords
     nseg = int(getattr(args, "select_eval_segments", args.eval_segments))
@@ -905,10 +927,32 @@ def _eval_press_screen(rl, src_ckpt, dims, head_dims, args, device, tmptag="sel"
         m1 = g.get("G-MV4", {}).get("statistic", {}).get("avg_hspeed_qu_per_s")
         m6 = g.get("G-MV3", {}).get("margin", {}).get("flips_per_min_to_nearer_edge")
         ep = bp.get("fwd_press_frac")
-        return (ep, m1, m6)
+        launch_pass = None
+        if getattr(args, "select_launch", False):
+            # run the SAME 3 hard dryroutes the full vector uses (goal-conditioned, self-yaw)
+            # on this candidate ckpt and count launch passes — so selection is launch-aware.
+            import eval_broad_dryroute as DR
+            hard = ["mega_to_rl", "sng_to_rl", "ra_jumps"]
+            launch_set = args.launch_routes.split(",") if args.launch_routes else hard
+            launch_pass = 0
+            for route in launch_set:
+                try:
+                    drep = DR.run_eval(
+                        tmp, Path(args.bsp), route,
+                        norm_artifact=Path(args.norm_artifact), map_name=args.map,
+                        n_max=args.n_max, cpu=(device == "cpu"),
+                        aim_mode="policy", jump_mode="policy", goal_mode="conditioned",
+                        resource_coords_path=(Path(rc) if rc else None),
+                    )
+                    if drep["bot_policy"].get("passed"):
+                        launch_pass += 1
+                except Exception as e:  # one route failing must not sink the screen
+                    print(f"[rl]   screen {tmptag} dryroute {route} FAILED: "
+                          f"{str(e)[:120]}", flush=True)
+        return (ep, m1, m6, launch_pass)
     except Exception as e:
         print(f"[rl]   screen {tmptag} FAILED: {str(e)[:160]}", flush=True)
-        return (None, None, None)
+        return (None, None, None, None)
     finally:
         try:
             tmp.unlink()
@@ -1100,6 +1144,16 @@ def main(argv=None):
     ap.add_argument("--select-eval-segments", type=int, default=8,
                     help="closed-loop segments for the per-candidate eval-press screen "
                          "(cheaper than the full --eval-segments; the winner gets the full vector).")
+    ap.add_argument("--select-launch", action="store_true",
+                    help="ROUND-8 (lever 2 — LAUNCH-AWARE selection): also run the 3 hard "
+                         "dryroutes in the per-candidate screen and REQUIRE launch >= "
+                         "--select-launch-min to qualify. Closes the round-7 hole where the "
+                         "closed-loop-only screen saved a launch breaker (@it12: press+M6 in "
+                         "band but ra_jumps route% 88.8->4.56 = launch 0/3). Costs 3 dryroutes "
+                         "per top-K candidate but cannot pick a launch-breaking ckpt.")
+    ap.add_argument("--select-launch-min", type=int, default=1,
+                    help="ROUND-8: min dryroute launch passes a candidate must hold to qualify "
+                         "under --select-launch (1 = ra_jumps PASS, the held-best's launch 1/3).")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--cpu", action="store_true")
     # eval
