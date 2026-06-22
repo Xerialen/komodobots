@@ -196,7 +196,8 @@ def save_rl_ckpt(out_path: Path, rl: RLPolicy, src_ckpt: dict, dims, head_dims,
 class PmoveEnv:
     def __init__(self, world, stats, segments, *, n_max=7, map_name="dm3",
                  horizon=385, band_lo=252.0, band_hi=316.0, seed=0,
-                 cad_hold_min=14, cad_hold_max=230, cad_hold_late=240):
+                 cad_hold_min=14, cad_hold_max=230, cad_hold_late=240,
+                 air_press_thresh=0.40, ap_rate_ema=0.02):
         self.world = world
         self.stats = stats
         self.segments = segments                 # list of (eid, start, seg) human segments
@@ -212,6 +213,12 @@ class PmoveEnv:
         # rewarded (would tank speed + trip p_hack); this only un-sticks held strafe.
         self.cad_hold_min, self.cad_hold_max, self.cad_hold_late = (
             cad_hold_min, cad_hold_max, cad_hold_late)
+        # ROUND-6 lever 1: SOFT air press-barrier. air_press_thresh = the human-band-top-ish
+        # air-press FRACTION below which pressing is FREE (penalty only on the excess above it);
+        # ap_rate_ema = the EMA rate at which the running air-press fraction tracks (slow so the
+        # penalty reflects a sustained press habit, not a single tick).
+        self.air_press_thresh = float(air_press_thresh)
+        self.ap_rate_ema = float(ap_rate_ema)
         self.rng = np.random.RandomState(seed)
         self.pm = PM.Pmove(world)
         self._reset_state()
@@ -236,6 +243,12 @@ class PmoveEnv:
         # strafe-cadence tracking (G-MV3 mirror): last NONZERO sidemove sign + ticks held.
         self.prev_strafe_sign = 0
         self.strafe_hold = 0
+        # ROUND-6 (lever 1): running AIR press-FRACTION (EMA over the episode) for the SOFT
+        # hinge barrier. Round-5's flat -1.0-per-air-press-tick drove press to 0.0 (below the
+        # human band floor 0.07); a hinge that only penalizes the air-press FRACTION ABOVE
+        # ~0.40 lets press settle anywhere in the human band [0.07,0.50] with no penalty and
+        # only fights the EXCESS. Seed at the threshold so the first ticks aren't free.
+        self.ap_rate = float(self.air_press_thresh)
         # goal of the FINAL recorded tick of this segment = the route target (for progress).
         self._final_goal = self._segment_goal(min(len(self.seg) - 1, self.horizon))
 
@@ -358,6 +371,14 @@ class PmoveEnv:
             # moving (>~ band_lo/2) so it can't be farmed at a standstill; this is the gradient
             # that pulls toward air-strafing as the speed source instead of pressing.
             r_strafe = perp_frac if hspeed > (self.band_lo * 0.5) else 0.0
+            # ROUND-6 lever 2 (cadence coexistence): a PARKED perpendicular strafe earns full
+            # r_strafe forever, which round-5 exploited (one held strafe sign -> perp_frac high,
+            # cadence DEAD M6=-8). DECAY the strafe bonus once the same nonzero argmax side sign
+            # is held past the human window (cad_hold_max), so KEEPING the bonus REQUIRES the
+            # L<->R flip -> low-press air-strafe now COEXISTS with cadence instead of fighting it.
+            if self.strafe_hold > self.cad_hold_max:
+                over = self.strafe_hold - self.cad_hold_max
+                r_strafe *= max(0.0, 1.0 - over / float(self.cad_hold_max))
         # r_progress: route-progress = goal-distance DECREASE this tick (keeps it on-route,
         # not orbiting — the greedy-yaw orbit failure). Normalized by a per-tick scale.
         r_prog = 0.0
@@ -402,27 +423,35 @@ class PmoveEnv:
                 r_cad -= min(2.0, 0.5 + 0.01 * over)
         # (zero-strafe ticks neither flip nor reset the held sign; hold counter pauses.)
 
-        # r_press: HARD AIR PRESS-BARRIER (ROUND-5b, lever 2). The eval fwd_press_frac counts
-        # fwd-head ARGMAX == class 2 (press-forward) ticks; the bulldoze failure is over-pressing
-        # in AIR (M3 fwd_press_air >= 0.80 on every in-band snapshot). Round 3/4's weak -0.8
-        # penalty left a viable bulldoze path. Round-5b: a strong penalty on AIR argmax-press,
-        # weight -1.0 (round-5a's -1.5 + a gated carrot over-dominated -> the policy stopped).
-        # With r_speed UNGATED (carrot up to +1.0 in-band), a -1.0 air-press tick that yields
-        # in-band speed is only BREAK-EVEN, while an air-strafe tick adds r_strafe + gated gain
-        # on top -> air-strafing strictly dominates pressing. GROUND press is NOT penalized —
-        # ground acceleration is legitimate (the launch guard needs it); the metric is air-press.
+        # r_press: SOFT AIR PRESS-BARRIER (ROUND-6 lever 1 — HINGE above a fraction, not a flat
+        # per-tick penalty). The eval fwd_press_frac counts fwd-head ARGMAX == class 2 (press-
+        # forward) ticks; the bulldoze failure is over-pressing in AIR (M3 fwd_press_air >= 0.80
+        # on every in-band snapshot). Round-5b's FLAT -1.0-per-air-press-tick over-corrected: it
+        # penalized EVERY air-press tick equally, so the policy drove press to 0.0 — BELOW the
+        # human band floor 0.07 (M3 fwd_press 0.0). Round 6: maintain a running air-press FRACTION
+        # (ap_rate, EMA per episode) and penalize only the EXCESS above air_press_thresh (~0.40,
+        # the human-band-top-ish). Press FRACTION <= thresh -> ZERO penalty (so the policy can
+        # settle anywhere in the human band [0.07,0.50] cleanly); excess grows linearly. The EMA
+        # updates on EVERY air tick toward the air-press indicator (0/1) so the rate reflects a
+        # SUSTAINED press habit, not a single tick. GROUND press is NOT penalized — ground accel
+        # is legitimate (the launch guard needs it) and ground ticks don't move ap_rate.
         air_press = (fwd_am == 2) and (not onground)
-        r_press = 1.0 if air_press else 0.0
+        if not onground:
+            self.ap_rate += self.ap_rate_ema * ((1.0 if air_press else 0.0) - self.ap_rate)
+        r_press = max(0.0, self.ap_rate - self.air_press_thresh)
 
-        # ROUND-5b reward = UNGATED in-band-speed carrot (keeps the objective) + mechanism-CREDIT
-        # gain (r_phi gated by perp_frac in air) + a POSITIVE air-strafe bonus (r_strafe = perp_frac
-        # while airborne+moving) + route + argmax-targeted cadence (round 3) + the HARD air press-
-        # barrier (-1.0) + anti-hack. The carrot keeps the policy wanting the band (round-5a starved
-        # it); the strafe bonus + gated gain + barrier make AIR-STRAFING (wishdir _|_ v) strictly
-        # the best route to in-band air speed -> opens the fast-AND-low-press basin round 4 proved
-        # didn't exist under speed-however-achieved, without killing the speed signal.
+        # ROUND-6 reward = UNGATED in-band-speed carrot (keeps the objective) + mechanism-CREDIT
+        # gain (r_phi gated by perp_frac in air) + a POSITIVE air-strafe bonus (r_strafe, now
+        # DECAYED when the strafe is parked past the human window) + route + argmax-targeted
+        # cadence (r_cad weight RAISED 0.5 -> 1.0 so the L<->R FLIP reward competes with the
+        # strafe bonus instead of losing to a parked perpendicular hold) + the SOFT air press-
+        # barrier (hinge above ~0.40, weight -1.0 on the EXCESS only) + anti-hack. Round 5 drove
+        # press to 0.0 (overshoot below the 0.07 floor) AND collapsed cadence (M6 -8) because the
+        # flat barrier crushed every air-press tick and the strafe bonus rewarded a parked
+        # perpendicular strafe. Round 6: the hinge lets press settle in [0.07,0.50]; the
+        # decayed-strafe + raised r_cad make low-press air-strafe COEXIST with the flip cadence.
         reward = (1.0 * r_speed + 0.5 * r_phi + 0.6 * r_strafe + 0.5 * r_prog
-                  + 0.5 * r_cad - 1.0 * r_press - 1.0 * p_hack)
+                  + 1.0 * r_cad - 1.0 * r_press - 1.0 * p_hack)
 
         self.prev_hspeed = hspeed
         self.k += 1
@@ -435,7 +464,7 @@ class PmoveEnv:
         info = {"hspeed": hspeed, "onground": onground, "fwd_press": int(fwd_am == 2),
                 "r_speed": r_speed, "r_phi": r_phi, "r_prog": r_prog, "p_hack": p_hack,
                 "r_cad": r_cad, "r_press": r_press, "strafe_sign": cur_sign,
-                "perp_frac": perp_frac, "r_strafe": r_strafe}
+                "perp_frac": perp_frac, "r_strafe": r_strafe, "ap_rate": self.ap_rate}
         if done:
             obs = self._build_obs()  # terminal obs (unused for bootstrap if done)
         else:
@@ -645,7 +674,8 @@ def train(args, device):
         raise SystemExit("[rl] NO reset segments — check db/split")
 
     envs = [PmoveEnv(world, stats, segs, n_max=args.n_max, map_name=args.map,
-                     horizon=args.ep_horizon, band_lo=band_lo, band_hi=band_hi, seed=1000 + i)
+                     horizon=args.ep_horizon, band_lo=band_lo, band_hi=band_hi, seed=1000 + i,
+                     air_press_thresh=args.air_press_thresh)
             for i in range(args.n_envs)]
     opt = torch.optim.Adam(rl.parameters(), lr=args.lr)
 
@@ -761,19 +791,32 @@ def train(args, device):
             eval_probe.append(c_diag)
             m1_ok = (em1 is not None and em1 >= band_lo)
             m6_ok = (em6 is not None and em6 >= 0.0)
-            press_lt = (ep is not None and ep < args.eval_press_ceiling)
+            # ROUND-6 (lever 4): a candidate fully qualifies iff its eval press is IN the HUMAN
+            # BAND [press_floor, ceiling] (round 5 drove press to 0.0 BELOW the 0.07 floor by
+            # picking the lowest-press candidate; the goal is press INSIDE the band, not minimized).
+            press_inband = (ep is not None and args.eval_press_floor <= ep < args.eval_press_ceiling)
             print(f"[rl]   cand @it{c['it']}: eval_press={ep} eval_M1={em1} eval_M6={em6} "
-                  f"-> press_ok={press_lt} M1_ok={m1_ok} M6_ok={m6_ok}", flush=True)
-            if press_lt and m1_ok and m6_ok:
-                qualified.append((ep, c))
+                  f"-> press_inband={press_inband} M1_ok={m1_ok} M6_ok={m6_ok}", flush=True)
+            if press_inband and m1_ok and m6_ok:
+                qualified.append((em1, c))               # rank fully-qualified by HIGHEST M1 (best speed @ human press)
             if m1_ok and ep is not None:
                 in_band.append((ep, c))
         if qualified:
-            qualified.sort(key=lambda x: x[0])           # lowest eval press among fully-qualified
-            sel = qualified[0][1]; sel_reason = "eval_press<ceiling & M1 in band & M6 in band"
+            qualified.sort(key=lambda x: x[0], reverse=True)  # highest eval M1 among press-in-band & M6-in-band
+            sel = qualified[0][1]; sel_reason = "press IN human band & M1 in band & M6 in band (max M1)"
         elif in_band:
-            in_band.sort(key=lambda x: x[0])             # materially-below fallback: lowest press, M1 held
-            sel = in_band[0][1]; sel_reason = "fallback: lowest eval press holding M1 in band (no full-qualify)"
+            # fallback: no candidate had press INSIDE the band. Prefer the one CLOSEST to the band
+            # (so we don't re-pick a press-0.0 overshoot NOR a >ceiling bulldozer) while holding M1.
+            def _press_dist(x):
+                ep = x[0]
+                if ep < args.eval_press_floor:
+                    return args.eval_press_floor - ep
+                if ep >= args.eval_press_ceiling:
+                    return ep - args.eval_press_ceiling
+                return 0.0
+            in_band.sort(key=_press_dist)
+            sel = in_band[0][1]
+            sel_reason = "fallback: eval press CLOSEST to human band holding M1 in band (no full-qualify)"
         else:
             print("[rl] WARN eval-press selection: NO candidate held M1 in band — "
                   "falling back to in-rollout best", flush=True)
@@ -1016,6 +1059,15 @@ def main(argv=None):
     ap.add_argument("--eval-press-ceiling", type=float, default=0.50,
                     help="eval-press selection: a candidate fully qualifies iff its CLOSED-LOOP "
                          "eval fwd_press_frac is below this (human top 0.50).")
+    ap.add_argument("--eval-press-floor", type=float, default=0.07,
+                    help="ROUND-6 (lever 4): a candidate fully qualifies iff its eval press is "
+                         ">= this (human band floor 0.07). Prevents re-picking a press-0.0 "
+                         "overshoot; the goal is press INSIDE [floor,ceiling], not minimized.")
+    ap.add_argument("--air-press-thresh", type=float, default=0.40,
+                    help="ROUND-6 (lever 1): SOFT air press-barrier hinge. Air-press FRACTION "
+                         "below this is FREE; only the excess above it is penalized (weight -1.0). "
+                         "Lets press settle in the human band [0.07,0.50] instead of being driven "
+                         "to 0.0 by round-5's flat per-tick penalty.")
     ap.add_argument("--select-eval-segments", type=int, default=8,
                     help="closed-loop segments for the per-candidate eval-press screen "
                          "(cheaper than the full --eval-segments; the winner gets the full vector).")
