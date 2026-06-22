@@ -327,30 +327,37 @@ class PmoveEnv:
             # no move key (wishdir undefined) or stopped: no strafe-mechanism gain this tick.
             perp_frac = 0.0
 
-        # ---- REWARD (rl-plan §B; ROUND-5 = mechanism-gated speed) ---------------------
-        # ROUND-5 reward-geometry change. Round 4 proved eval over-press and in-band speed are
-        # ANTI-correlated under the old reward (Phi = speed-gain credited regardless of HOW): the
-        # only route to in-band speed it found was PRESSING forward (bulldozing), never air-
-        # strafing -> M3<0.50 unreachable. Fix: credit speed ONLY via the air-strafe MECHANISM
-        # (perp_frac, computed above) so a bulldozing trajectory earns ~0 speed-reward, and a
-        # HARD air press-barrier closes the bulldoze path entirely. Then the ONLY way to earn
-        # in-band air speed is wishdir _|_ velocity = air-strafing.
+        # ---- REWARD (rl-plan §B; ROUND-5b = mechanism-CREDIT + strafe bonus, NOT gated-hold)
+        # Round 4 proved over-press and in-band speed are ANTI-correlated under speed-however-
+        # achieved (the only route to the band was PRESSING). Round-5a (gate BOTH r_speed and
+        # r_phi by perp_frac) OVER-corrected: gating the in-band HOLD removed the speed carrot,
+        # so from both inits the policy just SLOWED (hspeed ~45) and minimized the barrier
+        # instead of air-strafing (no on-manifold low-press snapshot was ever captured). Round-5b
+        # keeps the carrot but redirects HOW speed is earned:
+        #  - r_speed (in-band HOLD): UNGATED -> the policy still wants to reach the band (this is
+        #    what let round 4 reach M1 280). Removing the carrot starved the objective.
+        #  - r_phi (per-tick GAIN): GATED by perp_frac in air -> speed-GAIN is only credited via
+        #    the air-strafe mechanism (wishdir _|_ v); a bulldozing gain earns ~0.
+        #  - r_strafe (NEW): a POSITIVE air-strafe bonus = perp_frac when airborne & moving, so
+        #    the policy has a gradient TOWARD perpendicular wishdir, not just barrier-avoidance.
+        #  - HARD air press-barrier (below, -1.0): pressing in air pays -1.0; if it yields in-band
+        #    speed (+1.0 r_speed) it's only break-even, while air-strafing adds r_strafe + gated
+        #    gain on top -> air-strafing STRICTLY dominates pressing as the route to in-band speed.
         r_speed_raw = soft_band(hspeed, self.band_lo, self.band_hi)
         # r_phi: realized fraction of the analytic per-tick ACHIEVABLE gain (builds speed).
         avail = phi(self.prev_hspeed)
         ds = hspeed - self.prev_hspeed
         r_phi_raw = min(1.0, max(0.0, ds) / avail) if avail > 1e-6 else 0.0
-        # MECHANISM GATE (air only): attribute speed to the air-strafe mechanism by scaling the
-        # speed terms by perp_frac. In air, holding/building speed pays only when the wishdir is
-        # perpendicular to velocity (strafing); pressing forward (perp_frac~0) earns ~0 even if
-        # the bot is fast. On GROUND we keep speed ungated (ground accel is a different mechanism;
-        # the launch guard needs ground acceleration) -> the gate targets the AIR over-press.
+        r_speed = r_speed_raw                         # in-band HOLD carrot: UNGATED (round-5b fix)
         if onground:
-            r_speed = r_speed_raw
-            r_phi = r_phi_raw
+            r_phi = r_phi_raw                         # ground accel: a different mechanism
+            r_strafe = 0.0
         else:
-            r_speed = perp_frac * r_speed_raw
-            r_phi = perp_frac * r_phi_raw
+            r_phi = perp_frac * r_phi_raw             # air GAIN credited only via the mechanism
+            # positive air-strafe bonus: reward perpendicular wishdir while airborne and actually
+            # moving (>~ band_lo/2) so it can't be farmed at a standstill; this is the gradient
+            # that pulls toward air-strafing as the speed source instead of pressing.
+            r_strafe = perp_frac if hspeed > (self.band_lo * 0.5) else 0.0
         # r_progress: route-progress = goal-distance DECREASE this tick (keeps it on-route,
         # not orbiting — the greedy-yaw orbit failure). Normalized by a per-tick scale.
         r_prog = 0.0
@@ -395,27 +402,27 @@ class PmoveEnv:
                 r_cad -= min(2.0, 0.5 + 0.01 * over)
         # (zero-strafe ticks neither flip nor reset the held sign; hold counter pauses.)
 
-        # r_press: HARD AIR PRESS-BARRIER (ROUND-5, lever 2). The eval fwd_press_frac counts
+        # r_press: HARD AIR PRESS-BARRIER (ROUND-5b, lever 2). The eval fwd_press_frac counts
         # fwd-head ARGMAX == class 2 (press-forward) ticks; the bulldoze failure is over-pressing
         # in AIR (M3 fwd_press_air >= 0.80 on every in-band snapshot). Round 3/4's weak -0.8
-        # penalty still left a viable bulldoze path (in-band speed via pressing). Round 5 makes
-        # it a BARRIER: a strong penalty on AIR argmax-press so a pressed-in-air tick is strictly
-        # net-negative (the mechanism gate already zeroes the speed credit when pressing, so the
-        # barrier is pure cost there). The ONLY remaining route to in-band air speed is air-
-        # strafing (perp wishdir, no press). GROUND press is NOT penalized — ground acceleration
-        # is legitimate (and the launch guard needs it); the failure + the metric are air-press.
+        # penalty left a viable bulldoze path. Round-5b: a strong penalty on AIR argmax-press,
+        # weight -1.0 (round-5a's -1.5 + a gated carrot over-dominated -> the policy stopped).
+        # With r_speed UNGATED (carrot up to +1.0 in-band), a -1.0 air-press tick that yields
+        # in-band speed is only BREAK-EVEN, while an air-strafe tick adds r_strafe + gated gain
+        # on top -> air-strafing strictly dominates pressing. GROUND press is NOT penalized —
+        # ground acceleration is legitimate (the launch guard needs it); the metric is air-press.
         air_press = (fwd_am == 2) and (not onground)
         r_press = 1.0 if air_press else 0.0
 
-        # ROUND-5 reward = mechanism-gated speed (r_speed/r_phi scaled by perp_frac in air) +
-        # route + the argmax-targeted cadence shaping (kept from round 3) + the HARD air press-
-        # barrier (-1.5) + anti-hack. True bunnyhop speed comes from AIR-STRAFING (wishdir _|_
-        # velocity), NOT forward press; this reward makes that the only positive-EV route to the
-        # speed band in air, opening the fast-AND-low-press basin round 4 proved didn't exist
-        # under speed-however-achieved. (-1.5 press: strictly dominates the per-tick speed credit,
-        # which is ~0 when pressing anyway since perp_frac->0 -> pressing in air never pays.)
-        reward = (1.0 * r_speed + 0.5 * r_phi + 0.5 * r_prog
-                  + 0.5 * r_cad - 1.5 * r_press - 1.0 * p_hack)
+        # ROUND-5b reward = UNGATED in-band-speed carrot (keeps the objective) + mechanism-CREDIT
+        # gain (r_phi gated by perp_frac in air) + a POSITIVE air-strafe bonus (r_strafe = perp_frac
+        # while airborne+moving) + route + argmax-targeted cadence (round 3) + the HARD air press-
+        # barrier (-1.0) + anti-hack. The carrot keeps the policy wanting the band (round-5a starved
+        # it); the strafe bonus + gated gain + barrier make AIR-STRAFING (wishdir _|_ v) strictly
+        # the best route to in-band air speed -> opens the fast-AND-low-press basin round 4 proved
+        # didn't exist under speed-however-achieved, without killing the speed signal.
+        reward = (1.0 * r_speed + 0.5 * r_phi + 0.6 * r_strafe + 0.5 * r_prog
+                  + 0.5 * r_cad - 1.0 * r_press - 1.0 * p_hack)
 
         self.prev_hspeed = hspeed
         self.k += 1
@@ -428,7 +435,7 @@ class PmoveEnv:
         info = {"hspeed": hspeed, "onground": onground, "fwd_press": int(fwd_am == 2),
                 "r_speed": r_speed, "r_phi": r_phi, "r_prog": r_prog, "p_hack": p_hack,
                 "r_cad": r_cad, "r_press": r_press, "strafe_sign": cur_sign,
-                "perp_frac": perp_frac}
+                "perp_frac": perp_frac, "r_strafe": r_strafe}
         if done:
             obs = self._build_obs()  # terminal obs (unused for bootstrap if done)
         else:
