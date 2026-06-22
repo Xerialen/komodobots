@@ -3495,3 +3495,66 @@ Revisit when pursuing the cadence residual (a trajectory/multi-tick cadence cred
 fresh RL sub-track, owner-gated), when productionizing a checkpoint (needs live-server sign-off
 under the do-not-harm rules), or if a future eval change alters the goal-conditioned gate path
 the result rests on.
+
+---
+
+## Phase-1 re-validation gates the RL-on-speed numbers; A/B/C forward fork; close DAgger (#354)
+
+### Date
+
+2026-06-22
+
+### Decision
+
+Treat the overnight 8-round RL-on-speed magnitudes (the prior decision above, landed in #356)
+as **INDICATIVE, not final**, and make a clean **Phase-1 re-validation** the agreed
+prerequisite before they are enshrined or used to pick the next direction: re-eval the
+checkpoint field under the now-fixed eval code, and optionally re-train. Only after that
+re-validation does the owner choose the **forward fork**: **(A)** chase the cadence residual
+via a new RL mechanism (trajectory/multi-tick cadence credit or AMP); **(B)** productionize/ship
+the best checkpoint (`rl_round6_r4init.pt`), additionally gated on live-server sign-off; or
+**(C)** broaden the thin dm3 corpus. The fork is **not yet chosen** — it is owner-gated.
+Separately, **close #354** (the Claude DAgger expert branch / evidence tooling): DAgger is a
+ruled-out negative result, not an active line.
+
+### Alternatives Considered
+
+- **Treat the overnight magnitudes as final and pick the fork now.** Rejected: the numbers
+  predate three reviewer-found train/eval bugs (below), so the exact magnitudes warrant a clean
+  re-eval before they gate a direction; the *directional* over-press result is the load-bearing
+  claim and is unlikely to be a pure artifact, but a magnitude is not a direction.
+- **Keep #354 open as an active DAgger line.** Rejected: the DAgger family is exhausted (the
+  prior decision + #353), the PR is `gate: blocked` and conflicting, and leaving it open implies
+  an active track that does not exist. Closing it records the negative result without churn.
+- **Productionize the best checkpoint now (fork B) without re-validation.** Rejected: the
+  checkpoints are offline pinnacle artifacts with no live-server validation, and the headline
+  magnitudes are not yet re-validated under the fixed eval code.
+
+### Evidence
+
+- Three train/eval bugs found by the cross-model reviewer (Codex) on the RL line and fixed +
+  merged in #356: a PPO log-prob (joint-ratio) head mismatch (`old_logp` included the attack
+  head, `new_logp` did not -> unchanged-policy ratio `1/p_attack`); a closed-loop policy-self-yaw
+  bug feeding `yaw_rate == 0` after tick 0; and an uninitialized `_prev_goal_dist` on reset.
+  Because the 8-round numbers were produced before these fixes, they are indicative pending a
+  clean re-eval. See `docs/07_FINDINGS_LOG.md` (2026-06-22 caveat) and
+  `docs/notes/rl-onspeed-results.md`.
+- The cadence residual (G-MV3 strafe-flip rhythm co-occurring with launch+speed) was reproduced
+  across 8 candidates + a seed sweep, establishing it as a real tension that a per-tick flip
+  reward cannot close — hence fork (A) needs a different mechanism.
+- #354 state: open, `gate: blocked`, mergeable = CONFLICTING — a parked branch, not an active
+  review.
+
+### Expected Consequences
+
+The RL result is reported with its re-validation caveat everywhere it appears (roadmap, findings
+log, AGENTS hypothesis). The next GPU action on this line is the Phase-1 re-validation, not a new
+training direction. #354 is closed (negative result preserved in the decision/findings logs). No
+checkpoint is productionized until both the re-validation and live-server sign-off pass.
+
+### Revisit Conditions
+
+Revisit once the Phase-1 re-validation completes (the magnitudes become final and the owner picks
+A/B/C), if re-validation overturns the directional over-press result (would reopen the
+supervised-vs-RL question), or if a decision is made to reopen DAgger (it should not be, absent a
+new mechanism that changes its exhausted conclusion).
