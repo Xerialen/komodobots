@@ -58,12 +58,20 @@ Severity is the auditor's; `kind` is the drift class.
 | 6 | `docs/14_EXECUTIVE_SUMMARY.md:3-4` names `docs/12_DM3_4ON4_STANDIN_PROGRAM.md` (demoted to `references/12`) as program of record instead of `docs/18`. | goal-drift | high | Repoint to `docs/18` + `references/12`. |
 | 7 | `docs/01_PROJECT_BRIEF.md` and `README.md` still frame the goal as a **DM2 movement lab** with aim/Milton as non-goals — contradicts `docs/18` (DM3, learn aim) and `docs/00` (Milton-first). | goal-drift | high | Rewrite goal/non-goal sections to match `docs/18`; keep DM2-lab history under references. |
 | 8 | `docs/03_MOVEMENT_PROBLEM.md` and `docs/09_ROADMAP.md` present the superseded staged S0–S7 / SNG track as current. | goal-drift | high | Add a "superseded by `docs/18`" banner or replace the current-stage section. |
-| 9 | Duplicate doc numbers: two `09_`, two `10_`, two `13_` — every `docs/NN_` cross-reference to those is ambiguous. | numbering | med | Renumber one of each pair and fix inbound references. |
+| 9 | Duplicate doc numbers: two `09_`, two `10_`, two `13_` — every `docs/NN_` cross-reference to those is ambiguous. | numbering | med | **Resolved (this PR):** kept the more-referenced doc of each pair (`09_ROADMAP`, `10_AGENT_WEB_TESTING`, `13_QWD_MVD_FUSION_PLAN`); renamed the others to `22_TEST_CASES_AND_EVIDENCE`, `23_FROGBOTS_VS_NEW_BOT`, `24_FIRST_DM3_TRAINING_RUN` and repointed every inbound reference. |
 | 10 | Broken links: `docs/15_LIVE_VALIDATION_LOOP.md`, `docs/12_DM3_4ON4_STANDIN_PROGRAM.md`, `docs/11_EXTERNAL_MOVEMENT_AI_SOURCES.md` are referenced but do not exist on `main`. | doc-vs-doc | med | Repoint to `references/12` and the correct live-validation doc, or remove. |
-| 11 | Canonical corpus `~/ctv_decomp` is absent from the designated source docs (`docs/02`, `docs/06`); appears only in `docs/13`/`docs/18`. | doc-vs-doc | med | Now recorded in `docs/20` + `extraction_spec.yaml`; still add to `docs/02`/`06`. |
+| 11 | Canonical corpus `~/ctv_decomp` is absent from the designated source docs (`docs/02`, `docs/06`); appears only in `docs/24_FIRST_DM3_TRAINING_RUN`/`docs/18`. | doc-vs-doc | med | Now recorded in `docs/20` + `extraction_spec.yaml`; still add to `docs/02`/`06`. |
 | 12 | MVD parser exists in ≥3 commits (`qw-analyze-v20` binary, source `fab7808`, bundle `7d83ebe`) with no pinned canonical, despite a pin-before-evidence warning. | doc-vs-doc | med | Declare the canonical parser commit in the source map and gate regression evidence on it. |
 | 13 | PR template had no schema/contract/extraction/golden checkboxes (now added). | missing-memory | med | Addressed. |
 | 14 | Demo-count headline differs by doc (478 / 465 / 433; 472 = demolist rows). | doc-vs-doc | low | State raw/indexed/kept once (done in `docs/20`); reference everywhere. |
+
+### Follow-up resolution status
+
+- Findings **6, 7, 8, 10** (goal-drift banners + broken-link repointing) were resolved in
+  PR #377 (goal docs anchored to `docs/18`; `docs/12`/`docs/15`/`docs/16` references repointed
+  or dropped).
+- Finding **9** (duplicate doc numbers) is resolved in this PR — see the row above.
+- Findings **11, 12, 14** remain open as recorded.
 
 A claim from the first synthesis pass — a `verdicts.json` v1-vs-v2 schema split in `docs/06`
 — was **dropped** by the verification pass: `docs/06` contains only `komodobots.verdicts.v1`

@@ -29,7 +29,7 @@ demo_source:
   limit_arg: --limit            # 0 = all; else first N after sort (lines 88,93-94)
   workers_arg: --workers        # default os.cpu_count(); ProcessPoolExecutor (lines 87,98)
   # Canonical corpus (NOT pinned in code, only in docs):
-  canonical_corpus_note: "~/ctv_decomp, 478 QWDs (docs/18:150, docs/13_FIRST:51,57); not in docs/02 or docs/06"
+  canonical_corpus_note: "~/ctv_decomp, 478 QWDs (docs/18:150, docs/24_FIRST_DM3_TRAINING_RUN:51,57); not in docs/02 or docs/06"
 
 # ---------------------------------------------------------------------------
 # PER-FRAME ROW: one NDJSON object per command index
@@ -245,5 +245,5 @@ known_gaps:
   - "`frame` is a command index, not a time/replay frame -- easy to misread."
   - "onground/pm_code are structurally present but degenerate offline (move_world_view.py:37-42)."
   - "Quality filter (peak hspeed>700) is reported only, not enforced by the builder."
-  - "Canonical corpus path (~/ctv_decomp) lives only in docs/13 and docs/18, never in data-source docs 02/06."
+  - "Canonical corpus path (~/ctv_decomp) lives only in docs/24_FIRST_DM3_TRAINING_RUN and docs/18, never in data-source docs 02/06."
   - "No contract slot pins where final packed training data lands for the ML model to consume."

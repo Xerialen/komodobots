@@ -196,7 +196,7 @@ Use this routing:
 - MVD/data pipeline discovery -> update `docs/06_DATA_AND_MVD_PIPELINE.md`
 - Experiment result -> update `docs/07_FINDINGS_LOG.md`
 - Architecture/project decision -> update `docs/08_DECISION_LOG.md`
-- Test-case or evidence workflow change -> update `docs/09_TEST_CASES_AND_EVIDENCE.md`
+- Test-case or evidence workflow change -> update `docs/22_TEST_CASES_AND_EVIDENCE.md`
 - Web/UI validation workflow change -> update `docs/10_AGENT_WEB_TESTING.md`
 
 ## Verification workflow
@@ -210,7 +210,7 @@ After implementing, run the validation again. If validation fails, fix the issue
 Record terminal output, logs, metrics, screenshots, MVD-analysis output, or other evidence in the relevant doc or PR comment.
 
 For test-case driven work, keep the durable test case and log each execution as
-a test run. See `docs/09_TEST_CASES_AND_EVIDENCE.md`.
+a test run. See `docs/22_TEST_CASES_AND_EVIDENCE.md`.
 
 For web/UI changes, validate in a real browser and record the tool, URL,
 viewport, console/network state, and screenshot or geometry evidence. See

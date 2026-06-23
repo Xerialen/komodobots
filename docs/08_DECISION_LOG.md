@@ -2822,7 +2822,7 @@ available for reruns, while a completed execution is recorded as a test run.
 - `AGENTS.md` now refers to Coder Agent and Reviewer Agent rather than fixed
   tools.
 - `CLAUDE.md` and `codex.md` are thin role-selection adapters.
-- `docs/09_TEST_CASES_AND_EVIDENCE.md` defines user stories, durable test cases,
+- `docs/22_TEST_CASES_AND_EVIDENCE.md` defines user stories, durable test cases,
   test runs, evidence, statuses, IDs, and agent usage.
 - `docs/10_AGENT_WEB_TESTING.md` defines real-browser validation expectations
   for web/UI changes.
@@ -2861,7 +2861,7 @@ skills. Their reusable guidance lives in the vault at
 
 KomodoBots keeps the concrete BotLab rituals in project docs:
 
-- `docs/09_TEST_CASES_AND_EVIDENCE.md` for durable test cases, contract-test
+- `docs/22_TEST_CASES_AND_EVIDENCE.md` for durable test cases, contract-test
   triggers, and live-state reconciliation.
 - `docs/10_AGENT_WEB_TESTING.md` for browser evidence, GLB/runtime probes, QTV
   state checks, and records/verdicts fetch behavior.

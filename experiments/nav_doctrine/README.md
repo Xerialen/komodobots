@@ -1,7 +1,7 @@
 # nav_doctrine — frogbot-nav base (mode 23): movement doctrine, goal pinning, look-through carrot
 
 One overnight execution of the approved phased plan (2026-06-09/10). The hypothesis
-under test, per `docs/10_FROGBOTS_VS_NEW_BOT.md`: keep frogbot's navigation (goals →
+under test, per `docs/23_FROGBOTS_VS_NEW_BOT.md`: keep frogbot's navigation (goals →
 marker graph → linked marker) and replace only the actuation.
 
 ## Findings (each measured, evidence in `evidence/`)
