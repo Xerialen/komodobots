@@ -38,6 +38,7 @@ CLI:
 
 from __future__ import annotations
 
+import logging
 import argparse
 import heapq
 import json
@@ -50,6 +51,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 sys.setrecursionlimit(20000)
 
 SCRIPTS = Path(__file__).resolve().parent

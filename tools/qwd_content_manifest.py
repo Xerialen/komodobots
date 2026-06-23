@@ -33,6 +33,7 @@ usercmd struct) and ``scripts/probe_qwd_route_applicability.py``
 
 from __future__ import annotations
 
+import logging
 import argparse
 import hashlib
 import json
@@ -46,6 +47,8 @@ import tempfile
 from pathlib import Path
 from typing import Iterable
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))

@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useShellActions } from "./App.tsx";
+import { logError } from "./logger.ts";
 
 type DeltaScope = "no_previous" | "same-version" | "cross-version" | string;
 
@@ -428,9 +429,10 @@ export function FourVFourValidationPanel({ refreshKey = 0 }: { refreshKey?: numb
 
   useEffect(() => {
     let cancelled = false;
+    const url = dataUrl();
     setLoading(true);
     setError(null);
-    fetch(dataUrl())
+    fetch(url)
       .then((res) => {
         if (!res.ok) throw new Error(`4v4-validation.json ${res.status}`);
         return res.json() as Promise<ValidationLedger>;
@@ -442,6 +444,7 @@ export function FourVFourValidationPanel({ refreshKey = 0 }: { refreshKey?: numb
       })
       .catch((exc) => {
         if (cancelled) return;
+        logError("4v4 validation ledger fetch failed", exc, { url });
         setError(exc instanceof Error ? exc.message : "validation ledger unavailable");
         setLoading(false);
       });

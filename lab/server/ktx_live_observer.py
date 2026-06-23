@@ -16,12 +16,15 @@ post-game-only unless KTX later exposes a read-only event stream for them.
 
 from __future__ import annotations
 
+import logging
 import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.ktx_live_observer.v1"
 SAFE_PLAYER_FIELDS = ("slot", "name", "team", "frags", "deaths", "ping")
 SAFE_TEAM_FIELDS = ("name", "score")

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -25,6 +26,8 @@ from run_frobodm2_lab import validate_run_id
 from summarize_reference_aggregate import portable_path
 
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.qwd_sng_probe_diagnosis.v1"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DESIGN = (

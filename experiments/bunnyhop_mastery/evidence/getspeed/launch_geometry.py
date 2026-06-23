@@ -8,8 +8,11 @@ ramp refuted): horizontal speed is preserved across the launch while vz is added
 Usage:  python launch_geometry.py [getspeed.cmds]
 .cmds cols: msec ox oy oz vx vy vz pitch yaw roll fwd side up buttons  (77 fps)
 """
+import logging
 import math, sys
 
+
+LOGGER = logging.getLogger(__name__)
 def load(path):
     rows = []
     with open(path) as f:

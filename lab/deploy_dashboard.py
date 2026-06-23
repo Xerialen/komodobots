@@ -44,8 +44,10 @@ tests/test_deploy_dashboard.py.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import io
+import os
 import shutil
 import subprocess
 import sys
@@ -53,6 +55,8 @@ import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DASHBOARD_DIR = REPO_ROOT / "lab" / "dashboard"
 DIST_DIR = DASHBOARD_DIR / "dist"
@@ -66,6 +70,15 @@ BACKUP_DIR = "~/local-hub/web-backups"
 ALLOWED_RSYNC_DESTS = (STAGE_DIR, LIVE_DIR)
 
 DEFAULT_HOST = "servexeri"
+
+
+def configure_logging() -> None:
+    level_name = os.environ.get("KOMODOBOTS_LOG_LEVEL", "WARNING").upper()
+    level = getattr(logging, level_name, logging.WARNING)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -335,13 +348,17 @@ def do_audit(host: str) -> None:
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
+    configure_logging()
     require_tool("ssh")
+    mode = "cutover" if args.cutover else "audit-assets" if args.audit_assets else "stage"
+    LOGGER.info("starting dashboard deploy mode=%s host=%s", mode, args.host)
     if args.cutover:
         do_cutover(args.host)
     elif args.audit_assets:
         do_audit(args.host)
     else:
         do_stage(args.host, args.skip_build)
+    LOGGER.info("completed dashboard deploy mode=%s host=%s", mode, args.host)
     return 0
 
 

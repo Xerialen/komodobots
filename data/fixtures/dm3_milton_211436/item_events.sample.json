@@ -1,0 +1,29 @@
+{
+  "_source": "getWeaponPickups(players=Milton) + getBackpacks(players=SS) on the cached demo — offline. Full sets re-derivable; this keeps a representative slice with the spawner/backpack join illustrated.",
+  "_schema_note": "item_events rows carry time(ms), player, weapon, source(world|backpack), kills-before-next-death, nextDeathTime. Backpack pickups also carry backpackEnt + dropper, which join to a backpack drop's entNum.",
+
+  "milton_weapon_pickups": [
+    { "time": 10540,   "weapon": "gl",  "source": "world",    "kills": 1,  "hadBefore": false },
+    { "time": 30159,   "weapon": "rl",  "source": "world",    "kills": 0,  "hadBefore": false },
+    { "time": 60412,   "weapon": "rl",  "source": "world",    "kills": 16, "hadBefore": false, "note": "16-kill RL run" },
+    { "time": 131013,  "weapon": "lg",  "source": "world",    "kills": 4,  "hadBefore": false, "note": "during quad" },
+    { "time": 322111,  "weapon": "sng", "source": "world",    "kills": 1,  "hadBefore": false },
+    { "time": 504772,  "weapon": "lg",  "source": "world",    "kills": 3,  "hadBefore": false },
+    { "time": 563582,  "weapon": "rl",  "source": "backpack", "kills": 0,  "backpackEnt": 155, "dropper": "Zepp" },
+    { "time": 611014,  "weapon": "lg",  "source": "world",    "kills": 16, "hadBefore": false },
+    { "time": 672559,  "weapon": "rl",  "source": "backpack", "kills": 33, "backpackEnt": 161, "dropper": "SS", "note": "the 54-streak weapon — picked from SS's drop at Quad" },
+    { "time": 848492,  "weapon": "lg",  "source": "backpack", "kills": 0,  "backpackEnt": 150, "dropper": "SS" },
+    { "time": 867993,  "weapon": "rl",  "source": "backpack", "kills": 0,  "backpackEnt": 160, "dropper": "gor" },
+    { "time": 1193377, "weapon": "rl",  "source": "backpack", "kills": 0,  "backpackEnt": 37,  "dropper": "SS" }
+  ],
+
+  "backpack_drops_by_SS": [
+    { "time": 383349,  "weapon": "lg", "entNum": 156, "loc": "bridge.stairs", "origin": [2021.5, -323.5, -56] },
+    { "time": 672161,  "weapon": "rl", "entNum": 161, "loc": "Quad",          "origin": [849, -379.6, 56],     "note": "Milton picks this up 398 ms later (backpackEnt 161) → 33-kill streak" },
+    { "time": 847440,  "weapon": "lg", "entNum": 150, "loc": "window.Quad",   "origin": [626.1, 350.4, 56] },
+    { "time": 1119533, "weapon": "lg", "entNum": 167, "loc": "hill",          "origin": [1077.5, -300.1, -228.9] },
+    { "time": 1192836, "weapon": "rl", "entNum": 37,  "loc": "window",        "origin": [1289.5, 465.9, 56] }
+  ],
+
+  "_join_example": "backpack entNum 161 (SS drops RL at Quad, t=672161) === Milton's pickup backpackEnt 161 (t=672559). The ent number is the join key between the backpack-drop table and the weapon-pickup table."
+}

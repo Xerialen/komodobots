@@ -55,6 +55,7 @@ line are preserved) and written sorted, so partial rebuilds stay deterministic.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import hashlib
 import json
@@ -62,6 +63,8 @@ import struct
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 # Lump indices / record sizes (Quake1 BSP v29) -- from demopasha bsp_parse.py.
 LUMP_VERTEXES = 3
 LUMP_FACES = 7

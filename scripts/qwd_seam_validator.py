@@ -10,6 +10,7 @@ actuation label for KTX replay because the server consumes absolute
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import sys
@@ -17,6 +18,8 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 for _p in (str(REPO_ROOT), str(REPO_ROOT / "scripts")):
     if _p not in sys.path:

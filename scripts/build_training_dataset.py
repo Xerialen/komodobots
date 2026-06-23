@@ -16,6 +16,7 @@ onground/pm_code) -- the single genuine batch-runner gap the scouts flagged.
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -24,6 +25,8 @@ import sys
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 for _p in (str(REPO_ROOT), str(REPO_ROOT / "scripts")):
     if _p not in sys.path:

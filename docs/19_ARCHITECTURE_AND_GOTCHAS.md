@@ -329,7 +329,9 @@ review is an advisory filter on top. The deterministic merge executor
   (`:160-200`);
 - `PR Tests` present and passing, and **no** other non-gate check failing (SUCCESS / NEUTRAL
   / SKIPPED only); **fail-closed** if `PR Tests` is absent (`:230-239`);
-- the `gate: ready` label has been stable for **READY_COOLDOWN = 300 s** (`:209-214`).
+- the `gate: ready` label has been stable for **READY_COOLDOWN = 300 s**; label/CI
+  events that arrive earlier sleep once, then re-read GitHub state and re-run the full
+  gate (`review-gate-merge.yml:211-229`).
 
 On merge it **squash**-merges and `--delete-branch`'s the head — except a **long-lived
 integration branch** (`dev`/`main`) is never deleted, so a `dev`->`main` umbrella PR (head
@@ -339,8 +341,9 @@ bases auto-merge, so the staged-agent line (which targets `dev`) lands without a
 
 Triggers it reconciles on (`:37-48`): `pull_request:labeled`/`reopened`, `issues:labeled`
 (PR labels can arrive via either webhook), `workflow_run` completion of `PR Tests`, and a
-cron reconciler. `ready_for_review` is **intentionally not** a merge trigger (Reset owns it,
-`:29-37`).
+cron reconciler. Label/CI events can wait out the cooldown themselves; cron is now a
+best-effort backup, not the only path that clears cooldown. `ready_for_review` is
+**intentionally not** a merge trigger (Reset owns it, `:29-37`).
 
 A new commit resets the gate: `review-gate-reset.yml` removes `gate: ready`/`gate: blocked`
 and sets `gate: reviewing` on `opened`/`reopened`/`ready_for_review`/`synchronize`
@@ -352,13 +355,13 @@ and restores `gate: reviewing` (`gate-draft-guard.yml:14-17,62-67`).
 (`pr-tests.yml:3,22,28,30`). torch-dependent tests skip cleanly when torch is absent.
 
 **Gotchas:**
-- The schedule reconciler cron is **`*/5 * * * *`** — every 5 minutes
-  (`review-gate-merge.yml:48`). (Operationally the cron reconciler has been observed wedged —
-  see memory; the reliable trigger in practice is the `PR Tests` `workflow_run` completion
-  event, i.e. re-run "PR Tests" to force re-evaluation. Combined with the 300 s cooldown,
-  expect a few minutes of latency before a ready PR merges.)
+- The schedule reconciler cron is **`*/5 * * * *`** (`review-gate-merge.yml:48`) but GitHub
+  scheduled workflows are best-effort and have been observed arriving hours apart. Do not
+  rely on cron for the 300 s cooldown path; the label/CI event path sleeps once and then
+  revalidates current state.
 - The workflow file runs from the **default branch (`main`)** for `schedule` / `workflow_run`
-  events, so a change to the merge logic only takes full effect once it is merged to `main`.
+  events, while `pull_request:labeled` for `dev` PRs uses the workflow copy visible from
+  `dev`. Keep the executor fix on both `main` and `dev` if both paths matter.
 - **NEVER set `gate: ready` on a draft** — the draft guard will strip it, and the executor
   skips drafts anyway. Open PRs **non-draft** when you want them reviewed-and-merged.
 - **`main` and `dev` are unprotected** (free private plan; `gh api .../branches/main/protection`

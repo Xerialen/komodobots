@@ -8,6 +8,7 @@ not import or call any control/runner mutation path.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import sys
@@ -17,6 +18,8 @@ from typing import Any
 import ktx_match_stats as kms
 
 
+
+LOGGER = logging.getLogger(__name__)
 def ingest(raw: dict[str, Any], *, source_path: str | None = None) -> dict[str, Any]:
     data = kms.normalize_match(raw, source_path=source_path)
     data["source"]["notes"].append("Read-only casting ingest; no BotLab fixed-roster fields are required.")

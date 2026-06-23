@@ -18,6 +18,7 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import argparse
 import gzip
 import json
@@ -27,6 +28,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 sys.path.insert(0, str(Path(__file__).parent))
 sys.setrecursionlimit(20000)
 

@@ -8,12 +8,15 @@ peak vh in the first 3 s, time over 400, and the post-release fate (lowest z
 in the 2 s after the first vh>=400 moment — the sim never leaves the
 walkway: z stays >= -50; a pit dive shows z <= -150).
 """
+import logging
 import csv
 import json
 import math
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 SCRIPTS = Path(__file__).resolve().parents[4] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 

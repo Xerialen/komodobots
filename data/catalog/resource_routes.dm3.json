@@ -1,0 +1,865 @@
+{
+ "schema": "komodobots.resource_routes.v1",
+ "map": "dm3",
+ "_purpose": "Canonical observed-traffic route set: the path a human takes between two RESOURCES, from parsed MVD demos. Co-canonical with the qwd named routes; covers ALL resource pairs seen in play. Resources anchored to demo item entities (dm3 has ONE YA at YA.box).",
+ "_source": "mvd_analyzer qw-analyze-v20 locGraph + per-player loc streams; precision 1/8 qu (MVD protocol-bound)",
+ "_provenance": {
+  "demos": [
+   "20250405-1941_4on4_book_vs_mix[dm3].mvd"
+  ],
+  "date": "2026-06-20",
+  "note": "Aggregate across more human demos to firm up traffic weights."
+ },
+ "resources": [
+  "Pent",
+  "Quad",
+  "RA",
+  "RL",
+  "Ring",
+  "SNG",
+  "SNG.MH",
+  "YA.box",
+  "hill",
+  "water.GL",
+  "water.LG"
+ ],
+ "route_count": 68,
+ "routes": [
+  {
+   "from": "Quad",
+   "to": "RA",
+   "count": 148,
+   "byPlayer": {
+    ". ParadokS": 21,
+    "niw": 19,
+    ". zero": 20,
+    "warwank": 19,
+    "Creature": 13,
+    ". razor": 17,
+    "Milton": 16,
+    "stepcop": 23
+   }
+  },
+  {
+   "from": "SNG.MH",
+   "to": "RL",
+   "count": 83,
+   "byPlayer": {
+    ". ParadokS": 12,
+    "niw": 7,
+    ". zero": 9,
+    "warwank": 15,
+    "Creature": 10,
+    ". razor": 6,
+    "Milton": 10,
+    "stepcop": 14
+   }
+  },
+  {
+   "from": "Ring",
+   "to": "SNG",
+   "count": 74,
+   "byPlayer": {
+    ". ParadokS": 7,
+    "niw": 8,
+    ". zero": 10,
+    "warwank": 9,
+    "Creature": 14,
+    ". razor": 10,
+    "Milton": 5,
+    "stepcop": 11
+   }
+  },
+  {
+   "from": "Quad",
+   "to": "hill",
+   "count": 72,
+   "byPlayer": {
+    ". ParadokS": 12,
+    "niw": 17,
+    ". zero": 7,
+    "warwank": 7,
+    "Creature": 2,
+    ". razor": 5,
+    "Milton": 12,
+    "stepcop": 10
+   }
+  },
+  {
+   "from": "RL",
+   "to": "Ring",
+   "count": 71,
+   "byPlayer": {
+    ". ParadokS": 10,
+    "niw": 8,
+    ". zero": 7,
+    "warwank": 10,
+    "Creature": 10,
+    ". razor": 10,
+    "Milton": 7,
+    "stepcop": 9
+   }
+  },
+  {
+   "from": "RL",
+   "to": "SNG.MH",
+   "count": 67,
+   "byPlayer": {
+    ". ParadokS": 14,
+    "niw": 9,
+    ". zero": 8,
+    "warwank": 7,
+    "Creature": 5,
+    ". razor": 6,
+    "Milton": 12,
+    "stepcop": 6
+   }
+  },
+  {
+   "from": "SNG.MH",
+   "to": "Quad",
+   "count": 62,
+   "byPlayer": {
+    ". ParadokS": 10,
+    "niw": 13,
+    ". zero": 9,
+    "warwank": 5,
+    "Creature": 2,
+    ". razor": 6,
+    "Milton": 11,
+    "stepcop": 6
+   }
+  },
+  {
+   "from": "YA.box",
+   "to": "SNG.MH",
+   "count": 58,
+   "byPlayer": {
+    ". ParadokS": 4,
+    "niw": 4,
+    ". zero": 11,
+    "warwank": 8,
+    "Creature": 4,
+    ". razor": 3,
+    "Milton": 14,
+    "stepcop": 10
+   }
+  },
+  {
+   "from": "water.LG",
+   "to": "Quad",
+   "count": 55,
+   "byPlayer": {
+    ". ParadokS": 8,
+    "niw": 5,
+    ". zero": 4,
+    "warwank": 11,
+    "Creature": 7,
+    ". razor": 5,
+    "Milton": 8,
+    "stepcop": 7
+   }
+  },
+  {
+   "from": "RA",
+   "to": "Quad",
+   "count": 52,
+   "byPlayer": {
+    ". ParadokS": 10,
+    "niw": 5,
+    ". zero": 6,
+    "warwank": 7,
+    "Creature": 6,
+    ". razor": 8,
+    "Milton": 3,
+    "stepcop": 7
+   }
+  },
+  {
+   "from": "hill",
+   "to": "Quad",
+   "count": 51,
+   "byPlayer": {
+    ". ParadokS": 10,
+    "niw": 13,
+    ". zero": 3,
+    "warwank": 6,
+    "Creature": 1,
+    ". razor": 4,
+    "Milton": 7,
+    "stepcop": 7
+   }
+  },
+  {
+   "from": "SNG",
+   "to": "RL",
+   "count": 47,
+   "byPlayer": {
+    ". ParadokS": 5,
+    "niw": 4,
+    ". zero": 6,
+    "warwank": 6,
+    "Creature": 6,
+    ". razor": 6,
+    "Milton": 7,
+    "stepcop": 7
+   }
+  },
+  {
+   "from": "SNG.MH",
+   "to": "YA.box",
+   "count": 42,
+   "byPlayer": {
+    ". ParadokS": 6,
+    "niw": 4,
+    ". zero": 5,
+    "warwank": 5,
+    "Creature": 3,
+    ". razor": 2,
+    "Milton": 14,
+    "stepcop": 3
+   }
+  },
+  {
+   "from": "RA",
+   "to": "Ring",
+   "count": 39,
+   "byPlayer": {
+    ". ParadokS": 5,
+    "niw": 5,
+    ". zero": 4,
+    "warwank": 9,
+    "Creature": 3,
+    ". razor": 6,
+    "Milton": 3,
+    "stepcop": 4
+   }
+  },
+  {
+   "from": "RA",
+   "to": "SNG.MH",
+   "count": 37,
+   "byPlayer": {
+    ". ParadokS": 5,
+    "niw": 6,
+    ". zero": 3,
+    "warwank": 4,
+    "Creature": 4,
+    ". razor": 5,
+    "Milton": 4,
+    "stepcop": 6
+   }
+  },
+  {
+   "from": "Ring",
+   "to": "RL",
+   "count": 35,
+   "byPlayer": {
+    ". ParadokS": 6,
+    "niw": 6,
+    ". zero": 5,
+    "warwank": 2,
+    "Creature": 4,
+    ". razor": 4,
+    "Milton": 6,
+    "stepcop": 2
+   }
+  },
+  {
+   "from": "SNG",
+   "to": "RA",
+   "count": 34,
+   "byPlayer": {
+    ". ParadokS": 5,
+    "niw": 6,
+    ". zero": 2,
+    "warwank": 3,
+    "Creature": 6,
+    ". razor": 7,
+    "stepcop": 5
+   }
+  },
+  {
+   "from": "RA",
+   "to": "SNG",
+   "count": 33,
+   "byPlayer": {
+    ". ParadokS": 4,
+    "niw": 6,
+    ". zero": 6,
+    "warwank": 2,
+    "Creature": 1,
+    ". razor": 4,
+    "Milton": 5,
+    "stepcop": 5
+   }
+  },
+  {
+   "from": "hill",
+   "to": "water.LG",
+   "count": 30,
+   "byPlayer": {
+    ". ParadokS": 5,
+    "niw": 4,
+    ". zero": 3,
+    "warwank": 4,
+    "Creature": 3,
+    ". razor": 4,
+    "Milton": 4,
+    "stepcop": 3
+   }
+  },
+  {
+   "from": "Quad",
+   "to": "YA.box",
+   "count": 30,
+   "byPlayer": {
+    ". ParadokS": 1,
+    "niw": 4,
+    ". zero": 4,
+    "warwank": 6,
+    "Creature": 2,
+    ". razor": 3,
+    "Milton": 6,
+    "stepcop": 4
+   }
+  },
+  {
+   "from": "SNG",
+   "to": "water.GL",
+   "count": 28,
+   "byPlayer": {
+    ". ParadokS": 3,
+    "niw": 5,
+    ". zero": 7,
+    "warwank": 2,
+    "Creature": 1,
+    ". razor": 4,
+    "Milton": 2,
+    "stepcop": 4
+   }
+  },
+  {
+   "from": "Quad",
+   "to": "SNG.MH",
+   "count": 26,
+   "byPlayer": {
+    ". ParadokS": 6,
+    "niw": 2,
+    ". zero": 1,
+    "warwank": 7,
+    "Creature": 3,
+    ". razor": 1,
+    "Milton": 4,
+    "stepcop": 2
+   }
+  },
+  {
+   "from": "Ring",
+   "to": "Quad",
+   "count": 22,
+   "byPlayer": {
+    ". ParadokS": 3,
+    "niw": 2,
+    ". zero": 1,
+    "warwank": 5,
+    "Creature": 1,
+    ". razor": 3,
+    "Milton": 2,
+    "stepcop": 5
+   }
+  },
+  {
+   "from": "YA.box",
+   "to": "water.LG",
+   "count": 21,
+   "byPlayer": {
+    ". ParadokS": 3,
+    ". zero": 2,
+    "warwank": 1,
+    "Creature": 5,
+    ". razor": 2,
+    "Milton": 5,
+    "stepcop": 3
+   }
+  },
+  {
+   "from": "water.GL",
+   "to": "Quad",
+   "count": 19,
+   "byPlayer": {
+    ". ParadokS": 1,
+    "niw": 3,
+    ". zero": 5,
+    "warwank": 2,
+    "Creature": 3,
+    ". razor": 1,
+    "Milton": 1,
+    "stepcop": 3
+   }
+  },
+  {
+   "from": "SNG.MH",
+   "to": "Ring",
+   "count": 18,
+   "byPlayer": {
+    ". ParadokS": 2,
+    "niw": 1,
+    ". zero": 3,
+    "warwank": 3,
+    "Creature": 2,
+    ". razor": 1,
+    "Milton": 3,
+    "stepcop": 3
+   }
+  },
+  {
+   "from": "RA",
+   "to": "RL",
+   "count": 17,
+   "byPlayer": {
+    ". ParadokS": 4,
+    "niw": 2,
+    ". zero": 2,
+    "warwank": 1,
+    "Creature": 1,
+    ". razor": 4,
+    "stepcop": 3
+   }
+  },
+  {
+   "from": "RL",
+   "to": "SNG",
+   "count": 17,
+   "byPlayer": {
+    ". ParadokS": 3,
+    "niw": 1,
+    ". zero": 3,
+    "warwank": 3,
+    "Creature": 2,
+    ". razor": 1,
+    "stepcop": 4
+   }
+  },
+  {
+   "from": "YA.box",
+   "to": "hill",
+   "count": 17,
+   "byPlayer": {
+    ". ParadokS": 2,
+    "niw": 4,
+    ". zero": 1,
+    "warwank": 3,
+    "Creature": 2,
+    ". razor": 1,
+    "Milton": 4
+   }
+  },
+  {
+   "from": "water.GL",
+   "to": "SNG.MH",
+   "count": 14,
+   "byPlayer": {
+    ". ParadokS": 2,
+    "niw": 3,
+    ". zero": 4,
+    "Creature": 1,
+    ". razor": 1,
+    "Milton": 1,
+    "stepcop": 2
+   }
+  },
+  {
+   "from": "YA.box",
+   "to": "Quad",
+   "count": 14,
+   "byPlayer": {
+    "niw": 3,
+    ". zero": 1,
+    "warwank": 1,
+    "Creature": 1,
+    ". razor": 2,
+    "Milton": 4,
+    "stepcop": 2
+   }
+  },
+  {
+   "from": "RL",
+   "to": "Quad",
+   "count": 14,
+   "byPlayer": {
+    ". zero": 2,
+    "warwank": 2,
+    "Creature": 3,
+    ". razor": 1,
+    "Milton": 1,
+    "stepcop": 5
+   }
+  },
+  {
+   "from": "Quad",
+   "to": "water.LG",
+   "count": 13,
+   "byPlayer": {
+    ". ParadokS": 1,
+    "niw": 1,
+    "warwank": 1,
+    "Creature": 3,
+    ". razor": 4,
+    "stepcop": 3
+   }
+  },
+  {
+   "from": "Ring",
+   "to": "YA.box",
+   "count": 13,
+   "byPlayer": {
+    ". ParadokS": 1,
+    "niw": 1,
+    ". zero": 2,
+    "warwank": 1,
+    "Creature": 3,
+    ". razor": 1,
+    "Milton": 3,
+    "stepcop": 1
+   }
+  },
+  {
+   "from": "RA",
+   "to": "YA.box",
+   "count": 12,
+   "byPlayer": {
+    ". ParadokS": 1,
+    ". zero": 2,
+    "warwank": 2,
+    "Creature": 3,
+    ". razor": 1,
+    "Milton": 1,
+    "stepcop": 2
+   }
+  },
+  {
+   "from": "Ring",
+   "to": "RA",
+   "count": 10,
+   "byPlayer": {
+    ". ParadokS": 3,
+    "warwank": 4,
+    ". razor": 3
+   }
+  },
+  {
+   "from": "SNG",
+   "to": "Quad",
+   "count": 10,
+   "byPlayer": {
+    ". zero": 4,
+    "warwank": 1,
+    "Creature": 1,
+    "Milton": 2,
+    "stepcop": 2
+   }
+  },
+  {
+   "from": "Quad",
+   "to": "Ring",
+   "count": 9,
+   "byPlayer": {
+    ". ParadokS": 1,
+    "niw": 1,
+    ". zero": 3,
+    "Creature": 1,
+    ". razor": 1,
+    "Milton": 1,
+    "stepcop": 1
+   }
+  },
+  {
+   "from": "SNG.MH",
+   "to": "water.GL",
+   "count": 8,
+   "byPlayer": {
+    ". ParadokS": 2,
+    "niw": 1,
+    ". zero": 1,
+    "Creature": 1,
+    ". razor": 1,
+    "stepcop": 2
+   }
+  },
+  {
+   "from": "water.LG",
+   "to": "hill",
+   "count": 7,
+   "byPlayer": {
+    ". ParadokS": 1,
+    "Creature": 1,
+    ". razor": 2,
+    "stepcop": 3
+   }
+  },
+  {
+   "from": "hill",
+   "to": "SNG.MH",
+   "count": 6,
+   "byPlayer": {
+    "niw": 2,
+    ". zero": 1,
+    "Milton": 3
+   }
+  },
+  {
+   "from": "water.LG",
+   "to": "YA.box",
+   "count": 6,
+   "byPlayer": {
+    ". zero": 1,
+    "Creature": 1,
+    ". razor": 2,
+    "Milton": 1,
+    "stepcop": 1
+   }
+  },
+  {
+   "from": "YA.box",
+   "to": "Ring",
+   "count": 6,
+   "byPlayer": {
+    "warwank": 1,
+    "Creature": 2,
+    ". razor": 1,
+    "stepcop": 2
+   }
+  },
+  {
+   "from": "SNG",
+   "to": "Ring",
+   "count": 5,
+   "byPlayer": {
+    ". ParadokS": 2,
+    "warwank": 1,
+    "Creature": 1,
+    "stepcop": 1
+   }
+  },
+  {
+   "from": "RL",
+   "to": "YA.box",
+   "count": 5,
+   "byPlayer": {
+    "niw": 1,
+    ". zero": 1,
+    "warwank": 1,
+    "Milton": 2
+   }
+  },
+  {
+   "from": "hill",
+   "to": "YA.box",
+   "count": 5,
+   "byPlayer": {
+    "niw": 1,
+    ". zero": 1,
+    "stepcop": 3
+   }
+  },
+  {
+   "from": "water.GL",
+   "to": "SNG",
+   "count": 4,
+   "byPlayer": {
+    ". ParadokS": 1,
+    ". razor": 2,
+    "Milton": 1
+   }
+  },
+  {
+   "from": "water.GL",
+   "to": "YA.box",
+   "count": 4,
+   "byPlayer": {
+    ". ParadokS": 1,
+    "stepcop": 3
+   }
+  },
+  {
+   "from": "hill",
+   "to": "Ring",
+   "count": 4,
+   "byPlayer": {
+    "niw": 1,
+    "Creature": 1,
+    "Milton": 2
+   }
+  },
+  {
+   "from": "water.LG",
+   "to": "SNG.MH",
+   "count": 4,
+   "byPlayer": {
+    "warwank": 1,
+    "Creature": 1,
+    "Milton": 1,
+    "stepcop": 1
+   }
+  },
+  {
+   "from": "RL",
+   "to": "RA",
+   "count": 3,
+   "byPlayer": {
+    ". ParadokS": 1,
+    ". zero": 1,
+    ". razor": 1
+   }
+  },
+  {
+   "from": "Ring",
+   "to": "SNG.MH",
+   "count": 3,
+   "byPlayer": {
+    ". ParadokS": 1,
+    "warwank": 2
+   }
+  },
+  {
+   "from": "YA.box",
+   "to": "water.GL",
+   "count": 3,
+   "byPlayer": {
+    ". ParadokS": 1,
+    ". zero": 1,
+    "stepcop": 1
+   }
+  },
+  {
+   "from": "RL",
+   "to": "water.LG",
+   "count": 3,
+   "byPlayer": {
+    "warwank": 1,
+    "stepcop": 2
+   }
+  },
+  {
+   "from": "water.LG",
+   "to": "Ring",
+   "count": 3,
+   "byPlayer": {
+    "Creature": 2,
+    ". razor": 1
+   }
+  },
+  {
+   "from": "water.GL",
+   "to": "Ring",
+   "count": 2,
+   "byPlayer": {
+    ". ParadokS": 1,
+    ". razor": 1
+   }
+  },
+  {
+   "from": "SNG",
+   "to": "water.LG",
+   "count": 2,
+   "byPlayer": {
+    "warwank": 1,
+    "Creature": 1
+   }
+  },
+  {
+   "from": "Ring",
+   "to": "water.LG",
+   "count": 2,
+   "byPlayer": {
+    "warwank": 1,
+    "stepcop": 1
+   }
+  },
+  {
+   "from": "SNG.MH",
+   "to": "water.LG",
+   "count": 2,
+   "byPlayer": {
+    "warwank": 1,
+    "Milton": 1
+   }
+  },
+  {
+   "from": "RA",
+   "to": "water.LG",
+   "count": 2,
+   "byPlayer": {
+    "warwank": 2
+   }
+  },
+  {
+   "from": "RA",
+   "to": "water.GL",
+   "count": 2,
+   "byPlayer": {
+    "Creature": 1,
+    "stepcop": 1
+   }
+  },
+  {
+   "from": "SNG",
+   "to": "SNG.MH",
+   "count": 2,
+   "byPlayer": {
+    "Creature": 1,
+    "stepcop": 1
+   }
+  },
+  {
+   "from": "RL",
+   "to": "water.GL",
+   "count": 2,
+   "byPlayer": {
+    "Creature": 1,
+    "Milton": 1
+   }
+  },
+  {
+   "from": "Quad",
+   "to": "water.GL",
+   "count": 1,
+   "byPlayer": {
+    ". ParadokS": 1
+   }
+  },
+  {
+   "from": "water.GL",
+   "to": "RL",
+   "count": 1,
+   "byPlayer": {
+    ". ParadokS": 1
+   }
+  },
+  {
+   "from": "SNG.MH",
+   "to": "RA",
+   "count": 1,
+   "byPlayer": {
+    "warwank": 1
+   }
+  },
+  {
+   "from": "SNG.MH",
+   "to": "SNG",
+   "count": 1,
+   "byPlayer": {
+    "Creature": 1
+   }
+  },
+  {
+   "from": "SNG",
+   "to": "YA.box",
+   "count": 1,
+   "byPlayer": {
+    "Creature": 1
+   }
+  }
+ ]
+}

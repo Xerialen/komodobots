@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Ad-hoc inspection of live-lip.json (run groupings + crossing character)."""
+import logging
 import json
 import sys
 from collections import Counter
 from pathlib import Path
 from statistics import median
 
+
+LOGGER = logging.getLogger(__name__)
 EXP = Path(__file__).resolve().parent
 d = json.loads((EXP / "live-lip.json").read_text())
 

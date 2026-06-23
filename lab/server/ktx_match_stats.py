@@ -17,6 +17,7 @@ views without making fixed-roster assumptions.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import re
@@ -24,6 +25,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.ktx_match_stats.v1"
 
 HEALTH_ITEMS = ("health_15", "health_25", "health_100")

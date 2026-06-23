@@ -10,6 +10,7 @@ to the current S3 bot evidence.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import hashlib
 import json
@@ -23,6 +24,8 @@ from extract_movement_metrics import write_movement_metrics
 from run_frobodm2_lab import DEFAULT_ANALYZER, run_analyzer, validate_run_id
 
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DEMO_ROOT = (
     REPO_ROOT.parent

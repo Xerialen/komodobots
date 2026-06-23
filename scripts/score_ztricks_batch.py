@@ -15,6 +15,7 @@ This is intentionally an artifact scorer, not a controller.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -26,6 +27,8 @@ from typing import Iterable
 import ztricks_reference_trace as ref
 
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
 

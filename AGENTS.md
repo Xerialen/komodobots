@@ -46,6 +46,24 @@ This is unproven.
 
 The first project objective is to build a repeatable lab that can prove or disprove this hypothesis.
 
+The movement brain is trained by the `ml/` pipeline: `ml/train_broad_bc.py` (behavioral
+cloning) and the goal-conditioned gate evals (`ml/eval_broad_closedloop.py`,
+`ml/eval_broad_dryroute.py`, `ml/eval_broad_believability.py`). `ml/rl_onspeed.py` is the
+reusable PPO-on-speed RL loop (`--init-ckpt/--steps/--out-ckpt/--eval`, offline pinnacle
+GPU) that optimizes downstream closed-loop SPEED with self-yaw — the matched lever for the
+bunnyhop-speed skill the supervised family could not produce. See `docs/02_SOURCE_MAP.md`.
+
+Status (2026-06-22, movement-v5): the **supervised family is exhausted** on closed-loop
+bunnyhop SPEED — behavioral cloning, sample reweighting, the GRU sequence model, and DAgger
+all hit the same closed-loop forward **over-press** attractor (per-state cloning cannot make
+the long-horizon emergent skill). **RL-on-speed is now the active lever**, and it cracked the
+over-press **directionally** (best checkpoint lands forward-press in the human band with
+in-band speed by air-strafing, while launching and staying believable). The overnight 8-round
+**magnitudes are INDICATIVE pending a Phase-1 re-validation** under fixed eval code (three
+Codex-found train/eval bugs, fixed in #356); the strafe-cadence rhythm co-occurring with
+launch+speed is the residual, then an owner A/B/C forward fork. Full status:
+`docs/09_ROADMAP.md`, `docs/07_FINDINGS_LOG.md`, `docs/08_DECISION_LOG.md` (2026-06-22).
+
 ## Agent roles and autonomous loop
 
 This repository uses tool-agnostic roles. Benjamin may assign any capable agent
@@ -53,6 +71,11 @@ to either implementation or review work.
 
 - **Coder Agent** - follows `coder.md`.
 - **Reviewer Agent** - follows `reviewer.md`.
+- **Auditor Agent** - follows `auditor.md`. A periodic (annual, or on major
+  data/pipeline/source change) consistency and goal-anchor audit: it proves the
+  docs, code, and data contract stay coherent and pointed at the North Star, and
+  lands scoped fixes for the drift it finds. It checks consistency across the
+  `dev`/`main` pair, not just one branch. It does not implement feature work.
 - **Merge executor** - deterministic GitHub Action; it does not implement or
   review.
 
@@ -71,7 +94,7 @@ Two gates must both pass to merge, and they are deliberately layered per best pr
 1. **Deterministic CI floor** - `.github/workflows/pr-tests.yml` runs the stdlib unit suite on a hosted runner for every PR. This is the hard, machine-checked gate.
 2. **Reviewer filter** - a neutral PR label applied after a technical merge-safety review. The terminal labels are `gate: ready` or `gate: blocked`.
 
-The deterministic merge executor (`.github/workflows/review-gate-merge.yml`, no LLM, no API tokens) merges only when `gate: ready` is present, `gate: blocked` is absent, the PR's base is **`main` or `dev`**, the PR is mergeable, and **every non-gate check (including `PR Tests`) is passing**. Both bases auto-merge so the staged-agent line (which targets `dev`) lands without a manual "fallback merge"; a `dev`->`main` PR whose head is a long-lived branch is never `--delete-branch`'d. It re-evaluates on `gate: ready` label events from both PR and issue-label webhook surfaces, `PR Tests` completion events, and a 5-minute reconciler for already-ready PRs, so the PR merges as soon as the last of {tests green, `gate: ready`} is observed. Branch protection would normally enforce this natively, but it requires GitHub Pro/public; the executor provides the same gate on the free private plan. **Gemini** is an **on-demand second opinion only** (`/gemini review`) - it does not auto-review and never merges.
+The deterministic merge executor (`.github/workflows/review-gate-merge.yml`, no LLM, no API tokens) merges only when `gate: ready` is present, `gate: blocked` is absent, the PR's base is **`main` or `dev`**, the PR is mergeable, and **every non-gate check (including `PR Tests`) is passing**. Both bases auto-merge so the staged-agent line (which targets `dev`) lands without a manual "fallback merge"; a `dev`->`main` PR whose head is a long-lived branch is never `--delete-branch`'d. It re-evaluates on `gate: ready` label events from both PR and issue-label webhook surfaces, `PR Tests` completion events, and a best-effort 5-minute reconciler for already-ready PRs. Label/CI events that arrive inside the 300-second ready-label cooldown sleep once, then re-read GitHub state and re-run the full gate, so merge does not depend on cron firing exactly on time. Branch protection would normally enforce this natively, but it requires GitHub Pro/public; the executor provides the same gate on the free private plan. **Gemini** is an **on-demand second opinion only** (`/gemini review`) - it does not auto-review and never merges.
 
 ```text
 Coder Agent implements -> reset sets `gate: reviewing` -> Reviewer Agent reviews and applies `gate: ready` or `gate: blocked` -> deterministic Action merges on `gate: ready` if `PR Tests` and all other non-gate checks pass -> a Coder Agent starts the next stage from the updated base (`dev` for stage work; promoted to `main` via an umbrella `dev`->`main` PR)
@@ -136,7 +159,7 @@ A **draft** PR is advisory-only: open a PR non-draft when you want it reviewed-a
 Per-PR lifecycle:
 
 ```text
-push/open PR -> reset to `gate: reviewing` -> Reviewer Agent reviews current head SHA and applies `gate: ready` or `gate: blocked` -> deterministic Action merges on `gate: ready` plus green `PR Tests` and no failing non-gate checks, either from the event path or the 5-minute reconciler
+push/open PR -> reset to `gate: reviewing` -> Reviewer Agent reviews current head SHA and applies `gate: ready` or `gate: blocked` -> deterministic Action waits out the ready-label cooldown when needed, revalidates current GitHub state, then merges on `gate: ready` plus green `PR Tests` and no failing non-gate checks; the 5-minute reconciler is a best-effort backup
 ```
 
 ## Review guidelines
@@ -199,6 +222,14 @@ Use this routing:
 - Test-case or evidence workflow change -> update `docs/22_TEST_CASES_AND_EVIDENCE.md`
 - Web/UI validation workflow change -> update `docs/10_AGENT_WEB_TESTING.md`
 
+## ML plan review gate
+
+Before proposing or implementing any machine-learning, training, dataset, model,
+policy, or evaluation work, evaluate the plan against
+`docs/21_ML_EVIDENCE_CHAIN_GATE.md`.
+
+A plan that cannot answer the gate questions must be revised before work starts.
+
 ## Verification workflow
 
 No theoretical code. Everything important must be proven.
@@ -208,6 +239,10 @@ Before modifying source, define how the change will be validated. Where possible
 After implementing, run the validation again. If validation fails, fix the issue or document the blocker. Do not declare success without real output.
 
 Record terminal output, logs, metrics, screenshots, MVD-analysis output, or other evidence in the relevant doc or PR comment.
+
+**Eval integrity (mandatory on every data evaluation).** Before stating any conclusion, headline, or recommendation from a metric, gate, benchmark, eval, training run, or measurement — positive OR negative — apply the `eval-integrity` skill (`.claude/skills/eval-integrity/SKILL.md`): validate the metric's MEANING not just its value (open the caveats / `diagnostics_not_gated` fields and state what a pass does NOT prove); tag every number's provenance (run / seed / split / checkpoint) and never carry a number from one run into a claim about another; inspect the ground-truth artifact (the trajectory, the raw rows, the actual output) not just the summary score; interrogate a PASS as hard as a FAIL; and keep wording within the evidence (a passing proxy is not "the goal" / "human-level"). Every eval report must include a one-line "What this does NOT prove:". This rule exists because a passing gate was once reported as "human-level" when the underlying behavior failed — see the skill.
+
+**Route signatures (mapping routes / extracting movement targets from demos).** When mapping a dm3 route from real play, extracting or validating a player's MOVEMENT SIGNATURE along a route leg (speed profile, jump cadence, look-vs-move — the route-conditioned BC target and the believability rubric), or fusing a POV recording against parsed demo state, apply the `route-signature` skill (`.claude/skills/route-signature/SKILL.md`). It builds on the route canon in `experiments/route_observatory/` and is gated by `eval-integrity`: render the fused POV+route view, then read it back and confirm the plotted state matches the on-screen pixels before reporting.
 
 For test-case driven work, keep the durable test case and log each execution as
 a test run. See `docs/22_TEST_CASES_AND_EVIDENCE.md`.

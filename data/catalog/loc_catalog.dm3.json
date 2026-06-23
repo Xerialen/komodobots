@@ -1,0 +1,281 @@
+{
+  "schema": "komodobots.loc_catalog.v2",
+  "map": "dm3",
+  "_purpose": "Canonical named-location reference for dm3 (35 locTable entries; index 0 is the empty sentinel, 34 real locs). Centroids from mvd-api getLocGraph; coords are stable map geometry. Occupancy stats are demo-specific and live in the fixture, not here.",
+  "_source": "getLocTable + getLocGraph on fixture dm3_milton_211436",
+  "_loc_count": 34,
+  "locs": [
+    {
+      "name": "Pent",
+      "centroid": [
+        1134.4,
+        753,
+        -295.9
+      ]
+    },
+    {
+      "name": "Pent.hide",
+      "centroid": [
+        1488,
+        608,
+        -295.9
+      ]
+    },
+    {
+      "name": "Quad",
+      "centroid": [
+        971.5,
+        308.2,
+        56
+      ]
+    },
+    {
+      "name": "RA",
+      "centroid": [
+        58.8,
+        -528,
+        152
+      ]
+    },
+    {
+      "name": "RA.entry",
+      "centroid": [
+        495.9,
+        -460.6,
+        56
+      ]
+    },
+    {
+      "name": "RA.low",
+      "centroid": [
+        -174.5,
+        -879.9,
+        -15.9
+      ]
+    },
+    {
+      "name": "RA.rox",
+      "centroid": [
+        -344.1,
+        -672,
+        -15.9
+      ]
+    },
+    {
+      "name": "RA.tunnel",
+      "centroid": [
+        109.1,
+        -163.1,
+        -175.9
+      ]
+    },
+    {
+      "name": "RL",
+      "centroid": [
+        2005.9,
+        376.9,
+        -87.9
+      ]
+    },
+    {
+      "name": "Ring",
+      "centroid": [
+        202.6,
+        -336.6,
+        60
+      ]
+    },
+    {
+      "name": "SNG",
+      "centroid": [
+        -501.8,
+        494.1,
+        120
+      ]
+    },
+    {
+      "name": "SNG.MH",
+      "centroid": [
+        -967.9,
+        11,
+        -15.9
+      ]
+    },
+    {
+      "name": "SNG.ledge",
+      "centroid": [
+        -943.1,
+        431.5,
+        120
+      ]
+    },
+    {
+      "name": "SNG.lifts",
+      "centroid": [
+        -303.9,
+        443.8,
+        -15.9
+      ]
+    },
+    {
+      "name": "SNG.low",
+      "centroid": [
+        -581,
+        399.9,
+        -15.9
+      ]
+    },
+    {
+      "name": "SNG.tele",
+      "centroid": [
+        -687.2,
+        -461.6,
+        -15.9
+      ]
+    },
+    {
+      "name": "YA",
+      "centroid": [
+        1811,
+        -810.9,
+        -23.9
+      ]
+    },
+    {
+      "name": "YA.Quad",
+      "centroid": [
+        625.1,
+        -452.5,
+        88
+      ]
+    },
+    {
+      "name": "YA.box",
+      "centroid": [
+        1270.1,
+        -926.5,
+        -23.9
+      ]
+    },
+    {
+      "name": "YA.entry",
+      "centroid": [
+        1168.1,
+        -617.4,
+        -23.9
+      ]
+    },
+    {
+      "name": "YA.up",
+      "centroid": [
+        1461,
+        -909.4,
+        88
+      ]
+    },
+    {
+      "name": "bridge.high",
+      "centroid": [
+        1355,
+        -127.6,
+        -23.9
+      ]
+    },
+    {
+      "name": "bridge.low",
+      "centroid": [
+        1494.5,
+        -35.5,
+        -167.9
+      ]
+    },
+    {
+      "name": "bridge.stairs",
+      "centroid": [
+        1986.8,
+        -232.6,
+        -103.9
+      ]
+    },
+    {
+      "name": "hill",
+      "centroid": [
+        600.6,
+        -1.5,
+        -167.9
+      ]
+    },
+    {
+      "name": "lifts",
+      "centroid": [
+        611.5,
+        796.8,
+        -103.9
+      ]
+    },
+    {
+      "name": "lifts.below",
+      "centroid": [
+        478.6,
+        516.4,
+        56
+      ]
+    },
+    {
+      "name": "water",
+      "centroid": [
+        1198,
+        16,
+        -391.9
+      ]
+    },
+    {
+      "name": "water.GL",
+      "centroid": [
+        1202.8,
+        225.9,
+        -391.9
+      ]
+    },
+    {
+      "name": "water.LG",
+      "centroid": [
+        1541.6,
+        -168.2,
+        -391.9
+      ]
+    },
+    {
+      "name": "water.rox",
+      "centroid": [
+        1753.5,
+        -495.9,
+        -391.9
+      ]
+    },
+    {
+      "name": "water.tunnel",
+      "centroid": [
+        1296,
+        177.6,
+        -391.9
+      ]
+    },
+    {
+      "name": "window",
+      "centroid": [
+        856.9,
+        469.4,
+        56
+      ]
+    },
+    {
+      "name": "window.Quad",
+      "centroid": [
+        604.5,
+        384.4,
+        56
+      ]
+    }
+  ]
+}

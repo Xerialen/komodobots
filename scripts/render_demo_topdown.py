@@ -10,6 +10,7 @@ Dependency-light: Pillow + an ffmpeg binary. Usage:
   python scripts/render_demo_topdown.py --cmds artifacts/replay/trick5.cmds --out out.mp4 \
       --ffmpeg "<path to ffmpeg.exe>" --fps 50
 """
+import logging
 import argparse
 import math
 import subprocess
@@ -17,6 +18,8 @@ import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
+
+LOGGER = logging.getLogger(__name__)
 W = H = 720
 MARGIN = 70
 TRAIL = 90          # frames of bright trail

@@ -239,6 +239,8 @@ Why it matters:
 - `scripts/inspect_qwd_sng_mvd_crossings.py` derives first CP0 start-radius entry and sequential point-radius entries directly from MVD position samples, then compares those physical crossings against the first sampled QWD command row. It is an evidence-density diagnostic: it can prove physical control-point traversal, but it does not prove internal mode-9 activation timing by itself.
 - `scripts/diagnose_qwd_sng_slow_success.py` consumes the setup-repaired mode-9 SNG run and splits active QWD commands by current control-point target, joins each phase to MVD movement segments, and attributes slow-success failures to setup radius, route/map context, command-profile weakness, or post-control-point progression gaps.
 - `scripts/build_replay_command_file.py` builds the open-loop replay command file (`komodobots.replay.v1`) for KTX moveprobe mode 10. It time-matches exact `tools/qwd_usercmd` commands with anchored `probe_qwd_route_applicability` origin/velocity by QWD demo time, interpolates missing reference rows, emits one line per command (`msec ox oy oz vx vy vz pitch yaw roll fwd side up buttons`), and writes a JSON sidecar with command/state counts, alignment method, offset/shift, interpolated rows, source SHA, msec distribution, and `cmd_angles` vs `view_angles` stats. Legacy `--alignment zip` is refused when counts/drift make it unsafe unless `--allow-unsafe-zip` is explicitly passed. Frame 0 is the bot snap state; every frame is the divergence reference. The stream is too large for a cvar, so KTX reads it from a file. See `docs/08_DECISION_LOG.md` for the KTX-vs-ezQuake decision.
+- `scripts/catalog_etl_qwd.py` (P1) populates the Strategy-A relational catalog (`docs/20`) from real self-POV dm3 4on4 `.qwd` demos: it runs `build_replay_command_file.build_replay_frames` per demo and writes `demos`/`players`/`episodes`/`player_ticks` (ego-self state spine) + `actions` (`label_source='qwd_usercmd'`), with a group-by-demo train/val/test split. P2 extends it to also fold the observed-OTHER players into `actor_ticks` (time-joined per tick, self ego + each in-PVS other within a 0.5 s staleness window). Stdlib-only; the output `.sqlite` is a gitignored build artifact.
+- `scripts/qwd_observed_others.py` (P2) decodes the in-PVS observed-OTHER players (the POMDP `agent_observation` layer) from a self-POV `.qwd`: a full sequential `svc_*` walk of each QWD server-message body (skip table ported from the mvd_analyzer Go reader `parser.skipCommand` + mvdsv `sv_ents.c`) decodes every `svc_playerinfo` in the QWD/PF_ client form at its true offset → per other player origin/velocity/commanded-view-angles/alive/onground/pm_code. Scoped to protocol-28 standard-coord QW (refuses FTE/float-coord demos). This is the layer P1 omitted (its recovery is self-only), and it is the correct behavioral-cloning input. Stdlib-only.
 - `scripts/qwd_seam_validator.py` audits `.qwd` command/state coverage, `cmd_angles` vs `view_angles`, `msec` distribution, zip drift, and time-alignment drops for replay/imitation inputs.
 - `scripts/audit_replay_timing.py` compares a source `.cmds` file to live `moveprobe-commands.json(.gz)` or `screen.log` rows, reporting source-vs-live `msec`, cursor elapsed-time drift, duplicate/regressing cursors, and first-active-frame angle deltas before changing the live replay timing seam.
 - `scripts/run_frobodm2_lab.py` (mode 10 wiring) adds `--replay-cmds` (uploads the replay file to `~/nquakesv/ktx/bots/replay/` and sets `k_fb_moveprobe_replay_file`) and `--record-trick-name` / `--demo-name` as a route label for SSD storage. Released route demos are written only under `servexeri:/mnt/usb-ssd/non-games/lab/Komodobots/<map>/<route>__<run_id>.mvd`; the runner no longer mirrors new demos into `tricks/dm3/` or local nQuake watch folders. If no explicit label is provided for a `dm3_<route>.cmds` replay, the route name is inferred from the replay filename.
@@ -950,6 +952,7 @@ Local files:
 - `reviewer.md`
 - `CLAUDE.md`
 - `codex.md`
+- `docs/21_ML_EVIDENCE_CHAIN_GATE.md`
 
 Why they matter:
 
@@ -958,6 +961,9 @@ Why they matter:
 - `reviewer.md` defines the technical merge-safety review role independent of
   tool brand.
 - Tool-specific files are thin adapters and must not assign permanent roles.
+- `docs/21_ML_EVIDENCE_CHAIN_GATE.md` is the mandatory review gate for ML
+  plans, tying data, labels, model structure, training runs, and evaluation
+  evidence together before work starts.
 
 ### Test-case and web-validation methodology
 
@@ -965,6 +971,7 @@ Local files:
 
 - `docs/22_TEST_CASES_AND_EVIDENCE.md`
 - `docs/10_AGENT_WEB_TESTING.md`
+- `tests/test_logging_coverage.py`
 - `.github/pull_request_template.md`
 - `.github/ISSUE_TEMPLATE/user_story.yml`
 - `.github/ISSUE_TEMPLATE/bug_report.yml`
@@ -977,6 +984,11 @@ Why they matter:
 - Web/UI changes require real-browser validation by an agent before completion.
 - GitHub templates make the workflow usable from issues and PRs instead of
   living only in chat memory.
+- The logging coverage contract requires every production Python module under
+  `scripts/`, `lab/`, `tools/`, `experiments/`, `ml/`, and `cloud/` to declare a
+  module logger, requires high-risk runtime paths to emit real `LOGGER.*`
+  records, and requires dashboard `catch` blocks to log through
+  `lab/dashboard/src/logger.ts`.
 
 ### Meag KTX/Frogbots blog/discussion
 
@@ -1031,6 +1043,35 @@ Registered for the `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` program (the earlier
 - `references/12_DM3_4ON4_STANDIN_PROGRAM.md` — the earlier staged DM3 4on4 stand-in plan (Megalodon Milton), retained as background.
 - External method/validation literature (MLMove, Pearce, Humanoid + one-hop refs) is consolidated in
   `references/12_DM3_4ON4_STANDIN_PROGRAM.md` §9, folded from the prior `docs/11_EXTERNAL_MOVEMENT_AI_SOURCES.md` (superseded).
+
+### Komodobots ML pipeline (`ml/`)
+
+In-repo Python (torch + numpy, `ml/requirements.txt`), trained offline on host `pinnacle`
+(RTX 4090, WSL2). Contract + data layer: `ml/BROAD_BC.md`, `ml/broad_bc/`.
+
+- **train_broad_bc.py** — `ml/train_broad_bc.py`. The production behavioral-cloning trainer
+  for the dm3 4on4 stand-in: full-POMDP `agent_observation` in, broad usercmd heads out
+  (per-entity encoder + masked DeepSets pool + GRU temporal trunk, registry v5). Emits a
+  ckpt + `metrics.json` + a model-card pinning git_sha / registry_version / norm artifact.
+- **eval_broad_closedloop.py / eval_broad_dryroute.py / eval_broad_believability.py** — the
+  GOAL-CONDITIONED gate harness. `eval_broad_closedloop.py` rolls the policy in the offline
+  pmove sim and scores the G-MV4 speed gates; `eval_broad_dryroute.py` runs the per-route
+  (route%/speed%) and launch checks; `eval_broad_believability.py` scores G-MV1/G-MV3. This
+  is the SAME harness the judge uses; all metrics are raw-validated (post-#355 goal-injection
+  fix — the policy sees the goal-conditioned obs it was trained on).
+- **rl_onspeed.py** — `ml/rl_onspeed.py`. The reusable **PPO-on-speed RL loop** (movement-v5):
+  the matched lever for the closed-loop bunnyhop-SPEED skill the supervised family
+  (BC/reweight/GRU-seq/DAgger) could not make. ENV = the offline pmove sim + the eval's OWN
+  goal-conditioned v5 obs path (byte-parity with the warm-start), reset from catalog val
+  segments. POLICY = the BC trunk with a SELF-YAW action head (the policy owns its movement
+  yaw — the speed mechanism) + a value head, warm-started from the BC-pretrained believable-aim
+  ckpt and KL-anchored to a frozen copy of it (believability). REWARD = MECHANISM-GATED speed:
+  in-band-speed + Phi-gain credited only via perpendicular air-strafe (`perp_frac`), a hard
+  air press-barrier closing the bulldoze path, route-progress, argmax-targeted cadence,
+  anti-hack + the KL-anchor. SELECTION is eval-integrity-bound (qualifies on EVAL forward-press
+  inside the human band + launch-aware screen; the reward's band term uses a DISJOINT
+  reward-leakage player split, never the gate anchors). CLI: `--init-ckpt/--steps/--out-ckpt/--eval`.
+  Offline pinnacle GPU only; no live server. Result + 8-round trajectory: `docs/notes/rl-onspeed-results.md`.
 
 ## Source hygiene rules
 

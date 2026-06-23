@@ -958,6 +958,107 @@ python lab/tools/build_routes_manifest.py
   a fresh build byte-for-byte, so a census/replay change that is not followed
   by a rebuild fails CI.
 
+## Relational catalog rebuild and freshness guard (#296, #315)
+
+The relational catalog `data/catalog/*.sqlite` (built by `scripts/catalog_etl_qwd.py`)
+is **gitignored and regenerable** (`data/catalog/*.sqlite` in `.gitignore`) — it is a
+build artifact, not a committed source. Its per-tick world-state layers are:
+
+- `player_ticks` / `actions` — the self-POV state+action rows (the BC labels);
+- `actor_ticks` — the **all-player / agent_observation** layer added in PR #296
+  (commit `4756c0d`): the SELF ego row for every tick **plus** each OBSERVED-OTHER
+  player the recording client was receiving at that tick.
+
+### Geometric `onground` derivation (#316)
+
+The POV `.qwd` `svc_playerinfo` stream does **not** carry a usable server-side
+`FL_ONGROUND` flag: the `PF_ONGROUND` bit (`1<<14`) is **never set** in the recovered
+flags, so the raw `onground` parsed from the demo is `False` for **every** tick — for
+both the ego-self spine and every observed-other. (Diagnosed empirically on a real dm3
+demo: the raw `onground` distribution from the probe, *before* any interpolation, is
+`{False: 44979}` — literally all-zero; `pm_code` is likewise always 0. This matches the
+long-standing note in `scripts/move_world_view.py`.) The interpolation step in
+`build_replay_command_file.py` was *also* mashing the flag toward `False` with a
+conservative `prev AND next` carry, but that was a latent bug, **not** the cause — the
+input was already all-`False`.
+
+So the catalog **derives `onground` geometrically** instead of trusting the flag. For
+each recovered `(origin, velocity)` we run `pmove_sim.derive_onground` — the floor branch
+of mvdsv `PM_CategorizePosition`: trace the player hull straight **down 1 qu** against the
+real **dm3 BSP** (`/home/ubuntu/nquakesv/qw/maps/dm3.bsp`, overridable via
+`$KOMODO_DM3_BSP`) and report on-ground iff that trace hits a surface (`fraction < 1`)
+whose normal points up enough to stand on (`normal.z >= 0.7 = MIN_STEP_NORMAL`); a
+strongly-rising player (`vz > 180`) short-circuits to airborne (the "just left the
+ground" case the engine already models). This is the **gold** signal — fully local,
+deterministic, and identical to what a full `pmove_sim` replay computes at the start of
+each frame (verified to agree exactly on 4000 real dm3 states).
+
+Rows carrying the derived value are flagged **`onground_is_proxy = TRUE`** (the schema
+column already reserved for "derived, not raw server ground-truth"). The derivation is
+**dm3-only and guarded by the recovered level name** (`"The Abandoned Base"`): a demo
+that is not dm3 — even a `*_dm3_*`-named file that is actually another map, e.g. one
+corpus demo that is really "Castle of the Damned" — is **not** derived (its origins would
+be traced against the wrong geometry), and its `onground` stays `NULL`. If the dm3 BSP is
+absent the derivation is skipped (`onground` `NULL`) rather than crashing the ETL.
+
+On the dm3 slice this turns the all-`False`/all-`NULL` column into a sensible mixed
+signal: ego-self ≈ **67% grounded**, observed-others ≈ **69% grounded**, with essentially
+no "on-ground while the jump button is pressed and the player is ascending" (the bad
+case): only ~0.8% of jump-pressed frames, all at the single takeoff tick. See PR #316 and
+`tests/test_derive_onground.py` (BSP-free: a synthetic flat-floor world + the
+interpolation-carry fix).
+
+**Rebuild command** (the P1 8-demo self-POV dm3 4on4 slice):
+
+```text
+python3 scripts/catalog_etl_qwd.py \
+    --catalog-dir data/catalog \
+    --demo-list   experiments/stage2/move-bc-dataset/p1_catalog_slice.tsv \
+    --db          data/catalog/dm3_4on4.sqlite \
+    --workers 4
+```
+
+On the 8-demo slice this yields ~349.9k `player_ticks` and ~878.9k `actor_ticks`
+(~528.9k of them observed-other rows; 63 distinct actors). Because the ETL inserts the
+self ego row into `actor_ticks` for **every** `player_ticks` row, any fresh build with
+`player_ticks > 0` necessarily has `actor_ticks > 0`.
+
+### Staleness incident and lesson (#315)
+
+The on-disk catalog had been built **before** the PR-#296 actor_ticks code landed, so it
+shipped with `player_ticks` full but `actor_ticks` **empty** — silently breaking every
+all-player analysis (the agent_observation layer simply was not there). The ETL/schema
+code was correct and unit-tested; the **artifact** was stale.
+
+**Lesson: regenerate the catalog after any ETL/schema change — and the guard now enforces
+it.** `scripts/validate_catalog.py::validate_freshness` (run inside the standard
+`validate()` aggregate, and at the end of `catalog_etl_qwd.main()`) **fails loudly** when a
+catalog has `player_ticks > 0` but `actor_ticks == 0`, which is exactly the pre-#296
+stale signature. It does **not** flag a legitimately empty static-only/spine catalog
+(`player_ticks == 0`) nor an older schema with no `actor_ticks` table. Covered by
+`tests/test_catalog_freshness.py` (fresh build populates `actor_ticks`; a synthetically
+emptied `actor_ticks` is flagged).
+
+### Coverage caveat (honest scope of `actor_ticks`)
+
+`actor_ticks` holds **OBSERVED-OTHERS** — other players that were in the recording
+client's PVS, with occlusion gaps and a 0.5 s staleness window (per-demo other-coverage
+is partial, ~0.26 on the sample demo). It is **not** a true omniscient 8-player view: it
+is enough to make all-player landmark traffic measurable, but a perfectly clean 8-player
+view needs the Go `mvd_analyzer` or multi-POV `.qwd` fusion (see docs/13) later.
+
+### End-criterion demo: all-player leg traffic
+
+`scripts/dm3_leg_traffic.py` proves the rebuilt all-player layer is usable: given the
+catalog + the `dm3.json` landmark set, it counts directed landmark→landmark "legs" across
+**every** actor (self + observed others) by nearest-landmark snapping. It is a deliberately
+lightweight aggregate (a coarse traffic proxy), **not** the Phase-1 route segmenter (#319) —
+no PVS/BSP awareness, no teleporters, no route canonicalisation. On the rebuilt slice it
+snaps 99.1% of 878.9k actor ticks across 26 landmarks (328 distinct legs); the busiest
+legs are the expected dm3 patterns (`RA.low`↔`RA`, `YA`↔`YA.box`, `Ring`→`Quad`,
+`Pent`↔`RL`). The observed-others layer roughly triples the measurable traffic versus the
+self-only baseline (`--self-only`: 3,875 legs vs 11,318 all-player).
+
 ## Map entity corpus
 
 BotLab's static map context lives in the committed
@@ -1100,6 +1201,38 @@ deaths/ping. Damage, item pickups, taken-to-die, and efficiency remain
 post-game-only unless a future KTX stream proves those fields are authoritative
 mid-game. Stale or disconnected frames are marked rather than filled with fake
 values.
+
+## Named control regions (dm3) — the route-segmentation assignment layer
+
+Phase 0.3 (#317) adds a principled, NON-OVERLAPPING set of named strategic CONTROL
+REGIONS for dm3, replacing the #315 demo's coarse blanket nearest-landmark snap
+(`scripts/dm3_leg_traffic.py`: a 600 qu radius over 26 raw landmarks), which produced
+phantom intra-area "legs" like RA.low<->RA and YA.box<->YA.
+
+- Region file: `lab/dashboard/public/data/map_regions/dm3.json` (schema
+  `komodobots.map_regions.v1`) — 13 named regions, each a sphere `center` [x,y,z] +
+  `radius_qu`. Each region MERGES an item's sub-points/fixtures into ONE named area
+  (RA absorbs RA + RA.low + RA.rox; YA absorbs YA + YA.box + YA.up; SNG absorbs the
+  nest + SNG.MH/low/ledge/lifts), so the phantom shuffles collapse into a single region.
+  Genuine connectors (RA.tunnel, bridge) and the functionally-distinct SNG.tele pocket
+  are their own regions. Region granularity (which sub-points merge where, notably
+  YA<->YA.box) is a tunable design choice editable in that file alone.
+- Loader: `scripts/map_regions.py` — `load_regions()` + `assign_region(x, y, z) -> name |
+  None`. Assignment is DETERMINISTIC NEAREST-REGION-WITH-CAP using 3D distance (dm3 is
+  multi-level: water z=-416, hill/bridge, RL/window, Quad/Ring, RA), so a point is claimed
+  by exactly one region (nearest wins) or None when outside all caps. Pure stdlib.
+- Tests: `tests/test_map_regions.py` (stdlib `unittest`, no catalog dependency) — asserts
+  deterministic non-overlap, primary-control-point spot-checks (RA coord -> "RA", ...),
+  sub-point collapse (RA.low -> "RA", YA.box -> "YA"), and far-point -> None.
+- Coverage (over a locally-rebuilt `data/catalog/dm3_4on4.sqlite`, ~878k `actor_ticks`):
+  **69.9%** of actor-ticks assign to a region (>= 60% #317 end-criterion). Before/after on
+  the #315 raw-landmark traffic: the `RA.low<->RA` (815) and `YA.box<->YA` (775) phantom
+  legs are GONE under regions (those sub-points become one region), dropping distinct legs
+  from 328 to 126 inter-area-only legs.
+
+The **#319 leg segmenter consumes this region layer**: a leg becomes a transition between
+two DISTINCT region visits (not raw-landmark snaps), so segmented routes are built from
+strategic control points rather than phantom intra-area shuffles.
 
 ## Open questions
 

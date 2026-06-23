@@ -23,10 +23,13 @@ CLI:
 
 from __future__ import annotations
 
+import logging
 import struct
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 # ── BSP leaf content constants (Quake1) ──────────────────────────────────────
 CONTENTS_EMPTY = -1
 CONTENTS_SOLID = -2

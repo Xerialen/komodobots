@@ -41,6 +41,7 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import csv
 import json
 import math
@@ -52,6 +53,8 @@ from route_metrics import legit_segment, time_weighted_speed, active_mean_speed
 # vh near the ledge); the imported metric is the launch-edge CROSSING speed.
 from route_metrics import edge_speed as launch_edge_speed
 
+
+LOGGER = logging.getLogger(__name__)
 REPO = Path(__file__).resolve().parent.parent
 RUNS = REPO / "artifacts" / "lab-runs"
 EVID = REPO / "experiments" / "dm3_sng_to_rl_observability" / "evidence"

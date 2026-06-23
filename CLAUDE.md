@@ -10,6 +10,8 @@ Claude is not permanently assigned to one repository role.
 
 When Benjamin assigns this session as implementation work, follow `coder.md`.
 When Benjamin assigns this session as review work, follow `reviewer.md`.
+When Benjamin assigns this session as a consistency / goal-anchor audit, follow
+`auditor.md`.
 If no role is explicit, infer the role from the request and keep the role
 boundary visible.
 

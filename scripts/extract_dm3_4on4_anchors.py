@@ -61,6 +61,7 @@ diagnostic-only and says so.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import hashlib
 import json
@@ -69,6 +70,8 @@ from bisect import bisect_right
 from collections import Counter, defaultdict
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 # --------------------------------------------------------------------------- #
 # Movement method constants -- IDENTICAL to scripts/extract_movement_metrics.py #
 # (komodobots.movement_metrics.v2) so the anchor plane matches the bot-scoring  #

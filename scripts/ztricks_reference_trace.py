@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import json
 import math
 from pathlib import Path
 from typing import Iterable
 
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 A5_DIR = REPO_ROOT / "experiments" / "a5_distance_standstill"
 DEFAULT_CMDS = A5_DIR / "getspeed-aligned.cmds"

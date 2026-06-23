@@ -27,11 +27,14 @@ Writes human-replay.json. Exit 0 = all PASS, 2 = any FAIL.
 """
 from __future__ import annotations
 
+import logging
 import json
 import math
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
 sys.path.insert(0, str(REPO / "scripts"))

@@ -104,6 +104,7 @@ failure (issue #93: publish failure must not fail the lab run).
 
 from __future__ import annotations
 
+import logging
 import json
 import math
 import re
@@ -112,6 +113,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
 

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import sys
@@ -19,6 +20,8 @@ from ztricks_reference_trace import (
 )
 
 
+
+LOGGER = logging.getLogger(__name__)
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build ztricks Distance reference trace artifacts.")
     parser.add_argument("--cmds", type=Path, default=DEFAULT_CMDS)

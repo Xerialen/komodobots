@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import sys
@@ -21,6 +22,8 @@ from decide_cadence_normalization import (
 from summarize_reference_aggregate import portable_path
 
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.cadence_evidence_broadening.v1"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REFERENCE_AGGREGATE = (

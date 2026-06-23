@@ -17,6 +17,7 @@ checkout at runtime.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import subprocess
@@ -25,6 +26,8 @@ from pathlib import Path
 from typing import Any
 
 
+
+LOGGER = logging.getLogger(__name__)
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_SOURCE_REPO = REPO.parent / "tools" / "mvd_analyzer"
 DEFAULT_REF = "upstream/main"

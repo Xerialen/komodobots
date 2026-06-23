@@ -6,6 +6,7 @@
 // as provisional rows, but no value is fabricated here.
 
 import { useEffect, useMemo, useState } from "react";
+import { logError } from "./logger.ts";
 
 interface CastingPlayer {
   slot: number;
@@ -178,6 +179,7 @@ export function CastingScoreboard() {
       })
       .catch((exc) => {
         if (cancelled) return;
+        logError("casting stats fetch failed", exc, { url });
         setError(exc instanceof Error ? exc.message : "casting stats unavailable");
         setLoading(false);
       });

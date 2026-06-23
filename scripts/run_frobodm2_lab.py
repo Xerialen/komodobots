@@ -22,6 +22,7 @@ The default map remains frobodm2 because it has a known route file. Use
 
 from __future__ import annotations
 
+import logging
 import argparse
 import base64
 import json
@@ -46,10 +47,21 @@ from moveprobe_parse import (
 )
 
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SHIM_PATH = REPO_ROOT / "experiments" / "qw_min_client.py"
 ARTIFACT_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
 DEFAULT_ANALYZER = "/home/xerial/qw-sim/bin/qw-analyze-v20"
+
+
+def configure_logging() -> None:
+    level_name = os.environ.get("KOMODOBOTS_LOG_LEVEL", "WARNING").upper()
+    level = getattr(logging, level_name, logging.WARNING)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
 
 
 REMOTE_SCRIPT = r"""#!/usr/bin/env bash
@@ -1624,9 +1636,17 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
 
 def main(argv: Iterable[str] = sys.argv[1:]) -> int:
     args = parse_args(argv)
+    configure_logging()
     run_id = args.run_id or utc_run_id()
     local_run_dir = ARTIFACT_ROOT / run_id
     local_run_dir.mkdir(parents=True, exist_ok=True)
+    LOGGER.info(
+        "starting lab run run_id=%s map=%s host=%s requested_port=%s",
+        run_id,
+        args.map_name,
+        args.host,
+        args.port,
+    )
 
     try:
         if not args.skip_prereq_check:
@@ -1723,9 +1743,17 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
         print(f"movement_metrics={metrics_summary}")
         print(f"movement_players={len(movement_metrics.get('players', []))}")
         print(f"parser_exits={parser_exits}")
+        LOGGER.info(
+            "completed lab run run_id=%s map=%s port=%s artifacts=%s",
+            run_id,
+            args.map_name,
+            port,
+            local_run_dir,
+        )
         return 0
     except Exception as exc:
         (local_run_dir / "runner.error.txt").write_text(f"{exc}\n", encoding="utf-8")
+        LOGGER.exception("lab run failed run_id=%s artifacts=%s", run_id, local_run_dir)
         print(f"ERROR: {exc}", file=sys.stderr)
         print(f"artifacts={local_run_dir}", file=sys.stderr)
         return 1

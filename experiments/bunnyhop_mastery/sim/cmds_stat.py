@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Cheap classifier over the .cmds corpus: frames, duration, peak/median hspeed,
 net heading rotation (turns), jump fraction. Identifies figure-8 human trick runs."""
+import logging
 import glob, math, os
 
+
+LOGGER = logging.getLogger(__name__)
 COLS = "msec ox oy oz vx vy vz pitch yaw roll fwd side up buttons".split()
 
 def load(path):
