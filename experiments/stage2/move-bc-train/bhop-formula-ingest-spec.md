@@ -4,7 +4,7 @@
 **Owner of the input:** Benjamin (the cracked speed/velocity bhop rule, derived from
 his ztricks + dm3 bot tests).
 **Owner of the integration:** Claude (MOVE tier, `experiments/stage2/move-bc-train/`).
-**Applies to:** the dm3 MOVE behavioural-cloning policy (Stage 2, docs/12).
+**Applies to:** the dm3 MOVE behavioural-cloning policy (Stage 2, references/12).
 
 This document states **exactly** what is needed and **exactly** how the knowledge must
 be structured so it can be applied in the model. It is a contract: a formula delivered
@@ -186,7 +186,7 @@ Once delivered, the formula is used in up to four ways (more formats → more ro
 
 | Role | What it does | Needs format |
 |---|---|---|
-| **Prior / baseline** | replaces `airlaw_action`; the BC policy must beat it (docs/12 KILL gate) | A, B, C |
+| **Prior / baseline** | replaces `airlaw_action`; the BC policy must beat it (references/12 KILL gate) | A, B, C |
 | **Teacher (pretrain)** | generate (state→action) targets to pretrain the policy before human fine-tune | A, B, C |
 | **Residual base** | policy output = formula(state) + learned correction; bakes your physics in | A, C |
 | **Input feature** | feed `formula(state)` to the network as a hint | A, B, C |
@@ -259,7 +259,7 @@ A leg-trick can only be learned by watching hands.)
 ## A.2 Can the program work with the data we have now (massive MVDs + many QWDs, NOT from the same games)?
 
 **Yes — this is the designed-for case, not a compromise.** The 3-tier architecture
-(docs/12) exists precisely because the corpora are abundant-but-unmatched:
+(references/12) exists precisely because the corpora are abundant-but-unmatched:
 
 | Tier | Learns from | Needs same-game POV+MVD pairs? |
 |---|---|---|
@@ -297,7 +297,7 @@ The formula merges at the seam this document specifies. Three concrete merge poi
    `build_move_bc_pool.py` uses pmove_sim replay + 1 s-segmented divergence + clean-mask
    (the 2.88M→5.85M clean-yield improvement IS that method on 4on4 data). Already merged.
 2. **The ztricks trick-drill demos are the MOVE pretraining *prior* / teacher / ceiling**
-   (docs/12 data construction): cleanest bhop demonstrations, pretrain before fine-tuning on
+   (references/12 data construction): cleanest bhop demonstrations, pretrain before fine-tuning on
    noisier 4on4 match QWDs.
 3. **The synchronization principle becomes structure**: phase as a policy feature, the
    analytic air-law prior (`fit_air_law.py`), and the Stage-1 hand-mover baseline the learned

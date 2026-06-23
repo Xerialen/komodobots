@@ -55,7 +55,7 @@ long-horizon metric* regardless of collision fidelity.
   so it has high reuse value.
 - Even with perfect collision, the closed-loop **gate metric should migrate**
   from absolute position-error-vs-one-human to **route-segment completion +
-  speed-band retention over many starts** (distributional), per docs/12 G-M1 —
+  speed-band retention over many starts** (distributional), per references/12 G-M1 —
   because chaos (3) caps absolute-match no matter what.
 
 ## Build order (this is the corrected plan)

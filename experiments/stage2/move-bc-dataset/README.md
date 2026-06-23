@@ -1,7 +1,7 @@
 # Stage-2 MOVE behavioural-cloning POOL dataset (dm3 4on4 self-POV)
 
 Builds the **pooled** (state, action) BC training set for the learned MOVE
-micro-controller of the DM3 4on4 stand-in bot (`docs/12` Stage 2; §5 MOVE
+micro-controller of the DM3 4on4 stand-in bot (`references/12` Stage 2; §5 MOVE
 bullet). This is a **pretraining pool**, not a single-player clone — per-player
 depth is thin (max 10 demos/player; most have 1–2), so the corpus is pooled
 elite-self-POV per the census recommendation.
@@ -58,7 +58,7 @@ contamination is intrinsic to 4on4 play, not a parsing artefact.
 
 ### Segment-level trainable yield (the usable MOVE set)
 
-Per `docs/12` §5 ("accept only on submodel-free / opponent-free trajectory
+Per `references/12` §5 ("accept only on submodel-free / opponent-free trajectory
 segments"), the trainable set is the **clean 1 s segments**:
 
 | Metric | Value |
@@ -100,7 +100,7 @@ mostly-dirty demo are still recoverable.
    are crit (10), exile (9), wart (9), spice/akke (8), vana/janus (7). By clean
    *frame* yield: fs (102k), spice (71k), sassa (71k), reverend (70k). This is a
    **pool for pretraining**, not enough for a single-elite clone — exactly the
-   shape `docs/12` §5 and the census `infeasibility_floor` already call for.
+   shape `references/12` §5 and the census `infeasibility_floor` already call for.
 
 ## Clean-segment yield improvement (2026-06-14)
 

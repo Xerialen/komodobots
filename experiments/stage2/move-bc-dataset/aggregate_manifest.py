@@ -9,7 +9,7 @@ the dataset manifest needs:
   - demo-level label-integrity pass rate (strict: whole-demo segment-clean >= 90%)
   - SEGMENT-level clean-frame yield = the actual TRAINABLE MOVE set after
     dropping submodel/player-collision/teleport/respawn-contaminated 1 s segments
-    (the docs/12 §5 "accept only on submodel-free / opponent-free segments" rule)
+    (the references/12 §5 "accept only on submodel-free / opponent-free segments" rule)
   - per-player and per-coverage breakdowns
 
 Run on the manifest emitted by build_move_bc_pool.py.

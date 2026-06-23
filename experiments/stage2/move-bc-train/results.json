@@ -37,7 +37,7 @@
   "side": "{left, none, right} 3-way",
   "jump": "{0,1} BUTTON_JUMP"
  },
- "view_yaw_coupling": "Option (a): MOVE predicts fwd/side/jump conditioned on state incl. current view; closed-loop and open-loop replay the human view-yaw. Learned AIM (view-yaw-rate) is DEFERRED to Stage 3 per docs/12.",
+ "view_yaw_coupling": "Option (a): MOVE predicts fwd/side/jump conditioned on state incl. current view; closed-loop and open-loop replay the human view-yaw. Learned AIM (view-yaw-rate) is DEFERRED to Stage 3 per references/12.",
  "arch": {
   "type": "MoveMLP",
   "hidden": 128,
@@ -230,7 +230,7 @@
   ]
  },
  "open_loop": {
-  "gate": "docs/12 \u00a76 gate (a)",
+  "gate": "references/12 \u00a76 gate (a)",
   "action_reproduction_acc": {
    "fwd": 0.666,
    "side": 0.6375,
@@ -268,7 +268,7 @@
   "verdict": "BC >= air-law prior (PASS open-loop retention)"
  },
  "closed_loop": {
-  "gate": "docs/12 \u00a76 Closed-loop MOVE gate (REAL Stage-2 acceptance)",
+  "gate": "references/12 \u00a76 Closed-loop MOVE gate (REAL Stage-2 acceptance)",
   "harness": "closed-loop, simulated-state feedback, human view-yaw replayed (AIM deferred)",
   "anchor_bands": {
    "avg_horizontal_speed_qu_per_s_pool": {
@@ -380,11 +380,11 @@
    }
   },
   "bc_ge_airlaw_sustained_speed_all_horizons": true,
-  "substrate_finding": "Recorded human usercmds ALSO fall out of the anchor speed band and drift in this offline worldmodel-only sim (no submodels/lifts/player-collision) beyond ~1s; the bands are unreachable in this substrate by ANY controller, surfaced as a finding (docs/12: do not tune around an unreachable target)."
+  "substrate_finding": "Recorded human usercmds ALSO fall out of the anchor speed band and drift in this offline worldmodel-only sim (no submodels/lifts/player-collision) beyond ~1s; the bands are unreachable in this substrate by ANY controller, surfaced as a finding (references/12: do not tune around an unreachable target)."
  },
  "verdict": {
   "open_loop": "PASS -- BC retention 0.180 >= air-law prior 0.074 (2.4x); ~79% of recorded ceiling; median matches recorded.",
   "closed_loop": "CONDITIONAL PASS -- BC sustained speed >= air-law (hand-mover proxy) at every horizon (243>205 @1s, 218>152 @2s, 149>106 @5s); at 1s BC avg 243 ~= recorded 257 (in-band). BC does NOT independently land in anchor bands beyond 1s, but neither does the recorded human in this sim -> substrate ceiling, not policy failure.",
-  "go_no_go": "GO (keep learned MOVE as the Stage-2 residual upgrade): BC strictly beats the air-law prior on both open-loop retention and closed-loop sustained speed -> the docs/12 KILL condition (BC < air-law prior) is NOT triggered. Caveat: closed-loop route retention beyond ~1s is substrate-limited; recommend live bridge re-observe state at ~1s cadence and/or add the docs/12 DAgger/residual stabiliser before relying on multi-second open horizons."
+  "go_no_go": "GO (keep learned MOVE as the Stage-2 residual upgrade): BC strictly beats the air-law prior on both open-loop retention and closed-loop sustained speed -> the references/12 KILL condition (BC < air-law prior) is NOT triggered. Caveat: closed-loop route retention beyond ~1s is substrate-limited; recommend live bridge re-observe state at ~1s cadence and/or add the references/12 DAgger/residual stabiliser before relying on multi-second open horizons."
  }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage-2 MOVE-BC dataset builder (docs/12 Stage 2, §5).
+"""Stage-2 MOVE-BC dataset builder (references/12 Stage 2, §5).
 
 Reads the per-demo NDJSON shards (state=(o,v,a,onground,pm_code),
 action=(m=[fwd,side,up],buttons)), re-derives the SAME per-frame clean mask the

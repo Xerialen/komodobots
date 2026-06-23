@@ -24,7 +24,8 @@ file once its contents are folded into the status doc / your understanding.
 - **Worktree (do work here):** `C:\Users\benya\projects\quakeworld\komodobots-ml`, branch `ml/dm3-4on4-standin`.
   - NOTE: the *main* checkout `…\komodobots` has unrelated pre-existing dirty files from a
     prior session — leave them; not ours.
-- **Program of record:** `docs/12_DM3_4ON4_STANDIN_PROGRAM.md` (on `main`). Decision:
+- **Program of record:** `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` (greenfield, 2026-06-16);
+  earlier staged spec kept for background at `references/12_DM3_4ON4_STANDIN_PROGRAM.md`. Decision:
   `docs/08_DECISION_LOG.md` (Decision Point Alpha → Megalodon Milton).
 - **WSL2 Ubuntu-24.04 (heavy compute + data; gitignored):**
   - venv `~/komodobots-ml-venv` (torch 2.6.0+cu124, RTX 4090)
@@ -140,7 +141,7 @@ Ranked by unblocked value, given the formula is far off and MOVE is validation-c
 
 ## 7. Canonical doc pointers
 
-- Program: `docs/12_DM3_4ON4_STANDIN_PROGRAM.md` · Decision: `docs/08_DECISION_LOG.md` · North Star: `docs/00_VISION_AND_NORTH_STAR.md`
+- Program: `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` (spec background: `references/12_DM3_4ON4_STANDIN_PROGRAM.md`) · Decision: `docs/08_DECISION_LOG.md` · North Star: `docs/00_VISION_AND_NORTH_STAR.md`
 - Status/resume: `experiments/dm3_4on4_program_status.md`
 - Ceiling diagnosis: `experiments/stage2/move-bc-train/closed-loop-ceiling-diagnosis.md`
 - Bhop ingest spec: `experiments/stage2/move-bc-train/bhop-formula-ingest-spec.md` (+ issue #175)

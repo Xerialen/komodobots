@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build the Stage-2 MOVE behavioural-cloning POOL dataset from the self-POV
-4on4 dm3 corpus (docs/12 Stage 2, §5 MOVE bullet).
+4on4 dm3 corpus (references/12 Stage 2, §5 MOVE bullet).
 
 This is a thin orchestration wrapper around the already-validated lab tooling:
 

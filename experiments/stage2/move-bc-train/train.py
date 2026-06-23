@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage-2 MOVE-BC training (docs/12 Stage 2, MLMove-style discrete BC).
+"""Stage-2 MOVE-BC training (references/12 Stage 2, MLMove-style discrete BC).
 
 Small MLP -> three discrete action heads (fwd 3-way, side 3-way, jump 2-way),
 trained by behavioural cloning on the clean-masked elite self-POV corpus.

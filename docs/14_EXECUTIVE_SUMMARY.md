@@ -1,7 +1,9 @@
 # Executive Summary — The "Stand-In Player" Project
 
-*Plain-language overview for non-technical stakeholders. Companion to the technical plan in
-`docs/13_QWD_MVD_FUSION_PLAN.md` and the program of record `docs/12_DM3_4ON4_STANDIN_PROGRAM.md`.*
+*Plain-language overview for non-technical stakeholders. The program of record is
+`docs/18_BENCH_ITERATED_BOT_PROGRAM.md` (greenfield, 2026-06-16). Companion technical plan:
+`docs/13_QWD_MVD_FUSION_PLAN.md`; the earlier staged plan is kept for background at
+`references/12_DM3_4ON4_STANDIN_PROGRAM.md`.*
 
 ## What we're building
 A computer-controlled player ("bot") good enough to **drop into a real 4-on-4 QuakeWorld match

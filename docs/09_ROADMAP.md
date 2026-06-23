@@ -2,6 +2,11 @@
 
 Status: living document.
 
+> **Program of record:** `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` (greenfield, 2026-06-16). The
+> "Current Stage" (QWD-DM3-SNG) and the staged S0–S7 table below are **superseded** by the
+> bench-iterated phases in `docs/18`; they are kept here as history. Treat `docs/18` as the
+> live stage ladder.
+
 ## North Star
 
 ```mermaid

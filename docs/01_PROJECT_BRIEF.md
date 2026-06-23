@@ -1,5 +1,12 @@
 # Project Brief
 
+> **Program of record:** `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` (greenfield, approved
+> 2026-06-16; see `docs/00_VISION_AND_NORTH_STAR.md` and `docs/08_DECISION_LOG.md`). This
+> brief predates that reset: the "headless DM2 movement lab" first-goal and the
+> aim/Milton/teamplay non-goals below are **historical first-objective context**, not the
+> current plan. The current target is a learned move+aim+decision DM3 4on4 stand-in
+> (Milton-first). Read `docs/18` for the live goal and `docs/20_DATA_CONTRACT.md` for the data.
+
 ## Primary question
 
 Can QuakeWorld bots become realistic enough to act as believable substitutes for real players?
