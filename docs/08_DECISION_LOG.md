@@ -3558,3 +3558,129 @@ Revisit once the Phase-1 re-validation completes (the magnitudes become final an
 A/B/C), if re-validation overturns the directional over-press result (would reopen the
 supervised-vs-RL question), or if a decision is made to reopen DAgger (it should not be, absent a
 new mechanism that changes its exhausted conclusion).
+
+---
+
+## Adopt a machine-readable data contract for the training pipeline
+
+### Date
+
+2026-06-23
+
+### Decision
+
+Make the training-data format a version-controlled **contract** rather than authority scattered
+across code constants. The contract is a coupled set that must move together in one PR: a prose
+intent doc (`docs/25_DATA_CONTRACT.md`), a JSON Schema (`schemas/training_example.schema.json`),
+a golden example (`examples/expected_training_frame.jsonl`), a line-anchored mirror of the builder
+(`configs/extraction_spec.yaml`), and a stdlib test (`tests/test_data_contract.py`) that AST-checks
+the builder's row keys against the schema. Both the 11-field shard row **and** the derived 6-feature
+model-input view are documented, including the edge between them. The agent read-order
+(`AGENTS.md`, `CLAUDE.md`, `codex/START_HERE.md`) points at the contract.
+
+Method was **reconcile, not duplicate**: the #374 best-practice attachment prescribed
+`05_DECISION_LOG` / `06_FINDINGS_LOG`, but those already exist here at `08_`/`07_`, so the new
+contract artifacts were placed in non-colliding namespaces instead of clobbering existing docs.
+
+### Alternatives Considered
+
+- **Leave format authority in `komodobots.*.v1` code constants.** Rejected: undocumented drift
+  between the builder, the feature view, and what consumers expect — the root finding of the #374
+  audit (`docs/26_DATA_CONSISTENCY_AUDIT.md`, findings 1-5).
+- **Adopt the issue's `05`/`06` numbering verbatim.** Rejected: clobbers `HEADLESS_TEST_ENV` /
+  `DATA_AND_MVD_PIPELINE`.
+- **Record the format in prose only (no schema/test).** Rejected: a contract without a test that
+  proves the builder obeys it is not enforceable and re-drifts on the next builder change.
+
+### Evidence
+
+`docs/26_DATA_CONSISTENCY_AUDIT.md` (findings 1-5 resolved); `tests/test_data_contract.py` 3/3
+green, including the AST coupling gate that fails if the builder's row keys diverge from the schema.
+Shipped in PR #376.
+
+### Consequences
+
+- The anti-drift invariant (contract + schema + example + test in the same PR) is now enforceable
+  and is encoded in the PR template and the Auditor role.
+- The data contract is the highest-authority extraction memory; references to it (e.g. the corpus
+  provenance note) must stay current — caught once already when `configs/extraction_spec.yaml`
+  pointed at a renamed doc by shorthand (#378).
+
+---
+
+## Add the Auditor Agent role (periodic consistency + goal-anchor audit)
+
+### Date
+
+2026-06-23
+
+### Decision
+
+Add a third tool-agnostic repository role, **Auditor** (`auditor.md`), alongside Coder and Reviewer.
+It runs annually, on any major data/pipeline/source change, or on request, and proves that the docs,
+code, and data contract stay internally consistent and anchored to the North Star — the slow,
+compounding drift no single per-PR review catches (goal docs lagging the program of record, the
+data format living only in code, duplicate doc numbers, rotted cross-references, stale "canonical"
+claims). It audits by dimension, adversarially verifies every finding, produces a dated audit report,
+and lands small scoped fix PRs. It is **branch-aware** (checks consistency across the `dev`/`main`
+pair) and does not implement feature work.
+
+### Alternatives Considered
+
+- **Rely on per-PR Reviewer only.** Rejected: the Reviewer is scoped to single-PR merge safety and
+  explicitly does not block on documentation/goal drift, so cross-PR, cross-branch drift accumulates
+  unseen — demonstrated by the `docs/20` collision that formed silently across `main` and `dev`.
+- **Ad-hoc audits when someone notices.** Rejected: not repeatable and not anchored to invariants;
+  the #374 audit had to reinvent its own method.
+
+### Evidence
+
+The #374 data-consistency audit that motivated the role; the cross-branch `docs/20`/`docs/21`
+duplicate that the role's "number-free-on-every-branch" invariant is written to prevent. Shipped in
+PR #380.
+
+### Consequences
+
+- The audit method and anti-drift invariants are now written down, so the next pass follows a
+  contract instead of being reinvented.
+- After the `dev`->`main` reconcile (below) the branch-aware rules simplify to a single trunk.
+
+---
+
+## Reconcile `dev` into `main` as one trunk; retire `dev`
+
+### Date
+
+2026-06-23
+
+### Decision
+
+Stop the `dev`/`main` split and unify on a single trunk, `main`. Merge `dev` (71 commits: the
+relational catalog + `.mvd` ETL, broad enemy/team-aware BC, RL-on-speed, the believability battery,
+and the Auditor role) into `main` with a **real merge commit** to preserve that history, resolve the
+`docs/20`/`docs/21` collision the merge surfaced (the active trunk keeps `20`/`21`; the audit
+additions move to `25`/`26`), and treat `main` as the sole integration branch going forward; `dev`
+is retired.
+
+### Alternatives Considered
+
+- **Keep the `dev`-trunk / `main`-lags model with periodic umbrella PRs.** Rejected by the owner:
+  the split is what let the `docs/20` duplicate form without a git conflict, and the audit/goal-anchor
+  work landed on `main` while the data work lived on `dev`, so neither branch was the whole picture.
+- **Squash-merge the reconcile.** Rejected: it flattens 71 commits of evidence/decision history into
+  one, which this evidence-heavy project should not lose. (NOTE: the active `prod-dev-branch-protection`
+  ruleset currently allows `squash` only; merging this with a merge commit requires an owner-approved
+  change to that ruleset or merge flow — open at the time of writing.)
+
+### Evidence
+
+The `docs/20`/`docs/21` cross-branch duplicate found during this session; a clean dev->main merge
+(only 3 doc conflicts, all resolved by taking `dev`'s newer text while preserving `main`'s
+non-conflicting additions); `unittest discover` 1564 green on the merged tree. Reconcile PR #381.
+
+### Consequences
+
+- One trunk: future stage work bases on `main`; the Auditor's branch-pair checks collapse to one
+  branch.
+- `AGENTS.md`'s base-branch wording must be unified (it still describes the `dev`-trunk model in
+  places) as a follow-up.
