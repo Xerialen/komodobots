@@ -1,0 +1,13 @@
+# P1 catalog-populate slice: a bounded, representative set of REAL dm3 4on4/3on3
+# self-POV .qwd match demos (one per distinct player, smallest-first for a bounded
+# offline run on a 2-core box). Source: experiments/stage2/.../selfpov_4on4_demolist.tsv
+# filtered to match POVs present in /home/ubuntu/ctv_decomp/. Feeds catalog_etl_qwd.py.
+# Each line: <player><TAB><abspath.qwd>
+syco	/home/ubuntu/ctv_decomp/smackdown__d2d_list_1_dm3_syco.qwd
+vana	/home/ubuntu/ctv_decomp/smackdown__vana_e_vs_ff_dm3_3__vana_e_vs_ff_dm3_12.qwd
+wart	/home/ubuntu/ctv_decomp/smackdown__list_adm_1_dm3_wart.qwd
+rb	/home/ubuntu/ctv_decomp/smackdown2__chtv-carnage-st-vs-rb-dm3.qwd
+liech	/home/ubuntu/ctv_decomp/quakeworld__CHTV_Warriors_of_the_Realm-Sweden_Various-Sweden_Various_Various_QW_4v4__4on4_wr_vs_doom_dm3_liech.qwd
+zip	/home/ubuntu/ctv_decomp/smackdown2__game_258_ANTX_defs_4_DM3_Zip.qwd
+lhuk	/home/ubuntu/ctv_decomp/SmackDown3__game_398_defs_-sl-_1_DM3_lhuk.qwd
+tco	/home/ubuntu/ctv_decomp/smackdown2__omf_fu_1_dm3_tco.qwd

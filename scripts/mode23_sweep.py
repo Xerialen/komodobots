@@ -38,6 +38,7 @@ CLI:
 
 from __future__ import annotations
 
+import logging
 import argparse
 import itertools
 import json
@@ -49,6 +50,8 @@ import time
 from dataclasses import asdict, replace
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
 

@@ -66,7 +66,28 @@ class ReviewGateMergeWorkflowTests(unittest.TestCase):
         # A just-applied gate: ready must not merge immediately, so a reviewer who
         # reverts a transient PASS within the cooldown wins (the #192/#188 race).
         self.assertIn("ready_cooldown=300", merge)
-        self.assertIn('"$ready_age" -ge "$ready_cooldown"', merge)
+        self.assertIn('if [ "$ready_age" -lt "$ready_cooldown" ]; then', merge)
+        self.assertIn("sleep_s=$(( ready_cooldown - ready_age + 5 ))", merge)
+        self.assertIn('KBOT_WAITED_COOLDOWN=1 eval_and_merge "$PR"', merge)
+        self.assertIn("then re-reading current state", merge)
+
+    def test_merge_allows_dev_base_and_protects_longlived_head(self) -> None:
+        merge = _workflow_text(MERGE_WORKFLOW)
+        # dev-base PRs (the whole staged-agent ML line) auto-merge too, not just
+        # main — otherwise every dev PR needs a manual "fallback merge".
+        self.assertRegex(merge, r'case "\$base" in main\|dev\)')
+        # A dev->main PR (e.g. the umbrella #263) has head ref `dev`; the merge
+        # must NEVER --delete-branch a long-lived integration branch, or it would
+        # delete `dev`. The head ref is read from headRefName for that guard.
+        self.assertIn("headRefName", merge)
+        self.assertRegex(merge, r'case "\$head_ref" in main\|dev\) del=""')
+
+    def test_merge_binds_to_validated_head_sha(self) -> None:
+        merge = _workflow_text(MERGE_WORKFLOW)
+        # The final merge must be pinned to the SHA the gate just validated, so a
+        # commit pushed between validation and the merge call cannot become the
+        # merged commit (the validate->merge TOCTOU race).
+        self.assertRegex(merge, r'gh pr merge .*--match-head-commit "\$head"')
 
     def test_merge_allows_dev_base_and_protects_longlived_head(self) -> None:
         merge = _workflow_text(MERGE_WORKFLOW)

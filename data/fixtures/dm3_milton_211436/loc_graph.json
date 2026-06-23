@@ -1,0 +1,1145 @@
+{
+ "_source": "getLocGraph edges (cached demo, offline).",
+ "_edge_count": 116,
+ "edges": [
+  {
+   "from": "Pent",
+   "to": "Pent.hide",
+   "kind": "normal",
+   "transitions_total": 3,
+   "transitions_byTeam": {
+    "3b": 3
+   }
+  },
+  {
+   "from": "Pent",
+   "to": "lifts",
+   "kind": "normal",
+   "transitions_total": 34,
+   "transitions_byTeam": {
+    "3b": 14,
+    "Book": 20
+   }
+  },
+  {
+   "from": "Pent",
+   "to": "water.tunnel",
+   "kind": "normal",
+   "transitions_total": 12,
+   "transitions_byTeam": {
+    "3b": 5,
+    "Book": 7
+   }
+  },
+  {
+   "from": "Pent",
+   "to": "window",
+   "kind": "normal",
+   "transitions_total": 2,
+   "transitions_byTeam": {
+    "3b": 1,
+    "Book": 1
+   }
+  },
+  {
+   "from": "Pent.hide",
+   "to": "Pent",
+   "kind": "normal",
+   "transitions_total": 3,
+   "transitions_byTeam": {
+    "3b": 3
+   }
+  },
+  {
+   "from": "Quad",
+   "to": "Ring",
+   "kind": "normal",
+   "transitions_total": 36,
+   "transitions_byTeam": {
+    "3b": 8,
+    "Book": 28
+   }
+  },
+  {
+   "from": "Quad",
+   "to": "YA.Quad",
+   "kind": "normal",
+   "transitions_total": 79,
+   "transitions_byTeam": {
+    "3b": 27,
+    "Book": 52
+   }
+  },
+  {
+   "from": "Quad",
+   "to": "hill",
+   "kind": "normal",
+   "transitions_total": 25,
+   "transitions_byTeam": {
+    "3b": 11,
+    "Book": 14
+   }
+  },
+  {
+   "from": "Quad",
+   "to": "window.Quad",
+   "kind": "normal",
+   "transitions_total": 44,
+   "transitions_byTeam": {
+    "3b": 16,
+    "Book": 28
+   }
+  },
+  {
+   "from": "RA",
+   "to": "RA.low",
+   "kind": "normal",
+   "transitions_total": 51,
+   "transitions_byTeam": {
+    "3b": 8,
+    "Book": 43
+   }
+  },
+  {
+   "from": "RA",
+   "to": "RA.rox",
+   "kind": "normal",
+   "transitions_total": 31,
+   "transitions_byTeam": {
+    "3b": 3,
+    "Book": 28
+   }
+  },
+  {
+   "from": "RA.entry",
+   "to": "RA.low",
+   "kind": "normal",
+   "transitions_total": 100,
+   "transitions_byTeam": {
+    "3b": 27,
+    "Book": 73
+   }
+  },
+  {
+   "from": "RA.entry",
+   "to": "Ring",
+   "kind": "normal",
+   "transitions_total": 87,
+   "transitions_byTeam": {
+    "3b": 19,
+    "Book": 68
+   }
+  },
+  {
+   "from": "RA.low",
+   "to": "RA",
+   "kind": "normal",
+   "transitions_total": 89,
+   "transitions_byTeam": {
+    "3b": 18,
+    "Book": 71
+   }
+  },
+  {
+   "from": "RA.low",
+   "to": "RA.entry",
+   "kind": "normal",
+   "transitions_total": 80,
+   "transitions_byTeam": {
+    "3b": 15,
+    "Book": 65
+   }
+  },
+  {
+   "from": "RA.low",
+   "to": "RA.rox",
+   "kind": "normal",
+   "transitions_total": 20,
+   "transitions_byTeam": {
+    "3b": 5,
+    "Book": 15
+   }
+  },
+  {
+   "from": "RA.low",
+   "to": "RA.tunnel",
+   "kind": "normal",
+   "transitions_total": 4,
+   "transitions_byTeam": {
+    "3b": 2,
+    "Book": 2
+   }
+  },
+  {
+   "from": "RA.rox",
+   "to": "RA.low",
+   "kind": "normal",
+   "transitions_total": 27,
+   "transitions_byTeam": {
+    "3b": 13,
+    "Book": 14
+   }
+  },
+  {
+   "from": "RA.rox",
+   "to": "SNG.tele",
+   "kind": "normal",
+   "transitions_total": 41,
+   "transitions_byTeam": {
+    "3b": 6,
+    "Book": 35
+   }
+  },
+  {
+   "from": "RA.tunnel",
+   "to": "RA",
+   "kind": "normal",
+   "transitions_total": 1,
+   "transitions_byTeam": {
+    "Book": 1
+   }
+  },
+  {
+   "from": "RA.tunnel",
+   "to": "RA.low",
+   "kind": "normal",
+   "transitions_total": 37,
+   "transitions_byTeam": {
+    "3b": 12,
+    "Book": 25
+   }
+  },
+  {
+   "from": "RA.tunnel",
+   "to": "hill",
+   "kind": "normal",
+   "transitions_total": 49,
+   "transitions_byTeam": {
+    "3b": 37,
+    "Book": 12
+   }
+  },
+  {
+   "from": "RL",
+   "to": "bridge.low",
+   "kind": "normal",
+   "transitions_total": 69,
+   "transitions_byTeam": {
+    "3b": 45,
+    "Book": 24
+   }
+  },
+  {
+   "from": "RL",
+   "to": "water",
+   "kind": "normal",
+   "transitions_total": 28,
+   "transitions_byTeam": {
+    "3b": 21,
+    "Book": 7
+   }
+  },
+  {
+   "from": "Ring",
+   "to": "Quad",
+   "kind": "normal",
+   "transitions_total": 135,
+   "transitions_byTeam": {
+    "3b": 62,
+    "Book": 73
+   }
+  },
+  {
+   "from": "Ring",
+   "to": "RA.entry",
+   "kind": "normal",
+   "transitions_total": 115,
+   "transitions_byTeam": {
+    "3b": 38,
+    "Book": 77
+   }
+  },
+  {
+   "from": "Ring",
+   "to": "hill",
+   "kind": "normal",
+   "transitions_total": 37,
+   "transitions_byTeam": {
+    "3b": 19,
+    "Book": 18
+   }
+  },
+  {
+   "from": "Ring",
+   "to": "lifts.below",
+   "kind": "normal",
+   "transitions_total": 27,
+   "transitions_byTeam": {
+    "3b": 11,
+    "Book": 16
+   }
+  },
+  {
+   "from": "SNG",
+   "to": "SNG.MH",
+   "kind": "normal",
+   "transitions_total": 35,
+   "transitions_byTeam": {
+    "3b": 19,
+    "Book": 16
+   }
+  },
+  {
+   "from": "SNG",
+   "to": "SNG.ledge",
+   "kind": "normal",
+   "transitions_total": 1,
+   "transitions_byTeam": {
+    "3b": 1
+   }
+  },
+  {
+   "from": "SNG",
+   "to": "SNG.lifts",
+   "kind": "normal",
+   "transitions_total": 11,
+   "transitions_byTeam": {
+    "3b": 4,
+    "Book": 7
+   }
+  },
+  {
+   "from": "SNG",
+   "to": "SNG.low",
+   "kind": "normal",
+   "transitions_total": 10,
+   "transitions_byTeam": {
+    "3b": 4,
+    "Book": 6
+   }
+  },
+  {
+   "from": "SNG.MH",
+   "to": "SNG",
+   "kind": "normal",
+   "transitions_total": 14,
+   "transitions_byTeam": {
+    "3b": 7,
+    "Book": 7
+   }
+  },
+  {
+   "from": "SNG.MH",
+   "to": "SNG.ledge",
+   "kind": "normal",
+   "transitions_total": 25,
+   "transitions_byTeam": {
+    "3b": 10,
+    "Book": 15
+   }
+  },
+  {
+   "from": "SNG.MH",
+   "to": "SNG.low",
+   "kind": "normal",
+   "transitions_total": 10,
+   "transitions_byTeam": {
+    "3b": 3,
+    "Book": 7
+   }
+  },
+  {
+   "from": "SNG.MH",
+   "to": "SNG.tele",
+   "kind": "normal",
+   "transitions_total": 34,
+   "transitions_byTeam": {
+    "3b": 17,
+    "Book": 17
+   }
+  },
+  {
+   "from": "SNG.ledge",
+   "to": "SNG",
+   "kind": "normal",
+   "transitions_total": 44,
+   "transitions_byTeam": {
+    "3b": 21,
+    "Book": 23
+   }
+  },
+  {
+   "from": "SNG.ledge",
+   "to": "SNG.MH",
+   "kind": "normal",
+   "transitions_total": 12,
+   "transitions_byTeam": {
+    "3b": 4,
+    "Book": 8
+   }
+  },
+  {
+   "from": "SNG.ledge",
+   "to": "SNG.lifts",
+   "kind": "normal",
+   "transitions_total": 3,
+   "transitions_byTeam": {
+    "3b": 2,
+    "Book": 1
+   }
+  },
+  {
+   "from": "SNG.ledge",
+   "to": "SNG.low",
+   "kind": "normal",
+   "transitions_total": 3,
+   "transitions_byTeam": {
+    "3b": 2,
+    "Book": 1
+   }
+  },
+  {
+   "from": "SNG.ledge",
+   "to": "SNG.tele",
+   "kind": "normal",
+   "transitions_total": 1,
+   "transitions_byTeam": {
+    "Book": 1
+   }
+  },
+  {
+   "from": "SNG.lifts",
+   "to": "SNG.ledge",
+   "kind": "normal",
+   "transitions_total": 35,
+   "transitions_byTeam": {
+    "3b": 18,
+    "Book": 17
+   }
+  },
+  {
+   "from": "SNG.lifts",
+   "to": "lifts.below",
+   "kind": "normal",
+   "transitions_total": 20,
+   "transitions_byTeam": {
+    "3b": 10,
+    "Book": 10
+   }
+  },
+  {
+   "from": "SNG.low",
+   "to": "SNG",
+   "kind": "normal",
+   "transitions_total": 1,
+   "transitions_byTeam": {
+    "3b": 1
+   }
+  },
+  {
+   "from": "SNG.low",
+   "to": "SNG.MH",
+   "kind": "normal",
+   "transitions_total": 17,
+   "transitions_byTeam": {
+    "3b": 5,
+    "Book": 12
+   }
+  },
+  {
+   "from": "SNG.low",
+   "to": "SNG.lifts",
+   "kind": "normal",
+   "transitions_total": 3,
+   "transitions_byTeam": {
+    "3b": 1,
+    "Book": 2
+   }
+  },
+  {
+   "from": "SNG.tele",
+   "to": "RA.rox",
+   "kind": "normal",
+   "transitions_total": 22,
+   "transitions_byTeam": {
+    "3b": 14,
+    "Book": 8
+   }
+  },
+  {
+   "from": "SNG.tele",
+   "to": "Ring",
+   "kind": "teleport",
+   "transitions_total": 155,
+   "transitions_byTeam": {
+    "3b": 93,
+    "Book": 62
+   }
+  },
+  {
+   "from": "SNG.tele",
+   "to": "SNG.MH",
+   "kind": "normal",
+   "transitions_total": 19,
+   "transitions_byTeam": {
+    "3b": 9,
+    "Book": 10
+   }
+  },
+  {
+   "from": "SNG.tele",
+   "to": "SNG.ledge",
+   "kind": "normal",
+   "transitions_total": 3,
+   "transitions_byTeam": {
+    "Book": 3
+   }
+  },
+  {
+   "from": "YA",
+   "to": "YA.box",
+   "kind": "normal",
+   "transitions_total": 134,
+   "transitions_byTeam": {
+    "3b": 48,
+    "Book": 86
+   }
+  },
+  {
+   "from": "YA",
+   "to": "YA.entry",
+   "kind": "normal",
+   "transitions_total": 47,
+   "transitions_byTeam": {
+    "3b": 24,
+    "Book": 23
+   }
+  },
+  {
+   "from": "YA",
+   "to": "YA.up",
+   "kind": "normal",
+   "transitions_total": 29,
+   "transitions_byTeam": {
+    "3b": 11,
+    "Book": 18
+   }
+  },
+  {
+   "from": "YA.Quad",
+   "to": "Quad",
+   "kind": "normal",
+   "transitions_total": 22,
+   "transitions_byTeam": {
+    "3b": 6,
+    "Book": 16
+   }
+  },
+  {
+   "from": "YA.Quad",
+   "to": "YA.up",
+   "kind": "normal",
+   "transitions_total": 79,
+   "transitions_byTeam": {
+    "3b": 27,
+    "Book": 52
+   }
+  },
+  {
+   "from": "YA.box",
+   "to": "YA",
+   "kind": "normal",
+   "transitions_total": 107,
+   "transitions_byTeam": {
+    "3b": 47,
+    "Book": 60
+   }
+  },
+  {
+   "from": "YA.box",
+   "to": "window",
+   "kind": "teleport",
+   "transitions_total": 76,
+   "transitions_byTeam": {
+    "3b": 34,
+    "Book": 42
+   }
+  },
+  {
+   "from": "YA.entry",
+   "to": "YA",
+   "kind": "normal",
+   "transitions_total": 81,
+   "transitions_byTeam": {
+    "3b": 42,
+    "Book": 39
+   }
+  },
+  {
+   "from": "YA.entry",
+   "to": "YA.up",
+   "kind": "normal",
+   "transitions_total": 2,
+   "transitions_byTeam": {
+    "3b": 2
+   }
+  },
+  {
+   "from": "YA.entry",
+   "to": "bridge.high",
+   "kind": "normal",
+   "transitions_total": 59,
+   "transitions_byTeam": {
+    "3b": 23,
+    "Book": 36
+   }
+  },
+  {
+   "from": "YA.up",
+   "to": "YA",
+   "kind": "normal",
+   "transitions_total": 52,
+   "transitions_byTeam": {
+    "3b": 14,
+    "Book": 38
+   }
+  },
+  {
+   "from": "YA.up",
+   "to": "YA.Quad",
+   "kind": "normal",
+   "transitions_total": 26,
+   "transitions_byTeam": {
+    "3b": 9,
+    "Book": 17
+   }
+  },
+  {
+   "from": "YA.up",
+   "to": "YA.box",
+   "kind": "normal",
+   "transitions_total": 1,
+   "transitions_byTeam": {
+    "Book": 1
+   }
+  },
+  {
+   "from": "YA.up",
+   "to": "YA.entry",
+   "kind": "normal",
+   "transitions_total": 23,
+   "transitions_byTeam": {
+    "3b": 10,
+    "Book": 13
+   }
+  },
+  {
+   "from": "bridge.high",
+   "to": "RL",
+   "kind": "normal",
+   "transitions_total": 17,
+   "transitions_byTeam": {
+    "3b": 8,
+    "Book": 9
+   }
+  },
+  {
+   "from": "bridge.high",
+   "to": "YA.entry",
+   "kind": "normal",
+   "transitions_total": 80,
+   "transitions_byTeam": {
+    "3b": 39,
+    "Book": 41
+   }
+  },
+  {
+   "from": "bridge.high",
+   "to": "bridge.low",
+   "kind": "normal",
+   "transitions_total": 48,
+   "transitions_byTeam": {
+    "3b": 25,
+    "Book": 23
+   }
+  },
+  {
+   "from": "bridge.high",
+   "to": "bridge.stairs",
+   "kind": "normal",
+   "transitions_total": 8,
+   "transitions_byTeam": {
+    "3b": 5,
+    "Book": 3
+   }
+  },
+  {
+   "from": "bridge.high",
+   "to": "water",
+   "kind": "normal",
+   "transitions_total": 15,
+   "transitions_byTeam": {
+    "3b": 14,
+    "Book": 1
+   }
+  },
+  {
+   "from": "bridge.high",
+   "to": "water.GL",
+   "kind": "normal",
+   "transitions_total": 1,
+   "transitions_byTeam": {
+    "3b": 1
+   }
+  },
+  {
+   "from": "bridge.high",
+   "to": "water.LG",
+   "kind": "normal",
+   "transitions_total": 2,
+   "transitions_byTeam": {
+    "3b": 1,
+    "Book": 1
+   }
+  },
+  {
+   "from": "bridge.high",
+   "to": "window",
+   "kind": "normal",
+   "transitions_total": 26,
+   "transitions_byTeam": {
+    "3b": 16,
+    "Book": 10
+   }
+  },
+  {
+   "from": "bridge.low",
+   "to": "RL",
+   "kind": "normal",
+   "transitions_total": 57,
+   "transitions_byTeam": {
+    "3b": 34,
+    "Book": 23
+   }
+  },
+  {
+   "from": "bridge.low",
+   "to": "bridge.high",
+   "kind": "normal",
+   "transitions_total": 5,
+   "transitions_byTeam": {
+    "3b": 3,
+    "Book": 2
+   }
+  },
+  {
+   "from": "bridge.low",
+   "to": "bridge.stairs",
+   "kind": "normal",
+   "transitions_total": 93,
+   "transitions_byTeam": {
+    "3b": 62,
+    "Book": 31
+   }
+  },
+  {
+   "from": "bridge.low",
+   "to": "hill",
+   "kind": "normal",
+   "transitions_total": 33,
+   "transitions_byTeam": {
+    "3b": 22,
+    "Book": 11
+   }
+  },
+  {
+   "from": "bridge.low",
+   "to": "water",
+   "kind": "normal",
+   "transitions_total": 119,
+   "transitions_byTeam": {
+    "3b": 84,
+    "Book": 35
+   }
+  },
+  {
+   "from": "bridge.low",
+   "to": "water.GL",
+   "kind": "normal",
+   "transitions_total": 5,
+   "transitions_byTeam": {
+    "3b": 5
+   }
+  },
+  {
+   "from": "bridge.low",
+   "to": "water.LG",
+   "kind": "normal",
+   "transitions_total": 10,
+   "transitions_byTeam": {
+    "3b": 4,
+    "Book": 6
+   }
+  },
+  {
+   "from": "bridge.stairs",
+   "to": "RL",
+   "kind": "normal",
+   "transitions_total": 1,
+   "transitions_byTeam": {
+    "Book": 1
+   }
+  },
+  {
+   "from": "bridge.stairs",
+   "to": "bridge.high",
+   "kind": "normal",
+   "transitions_total": 87,
+   "transitions_byTeam": {
+    "3b": 60,
+    "Book": 27
+   }
+  },
+  {
+   "from": "bridge.stairs",
+   "to": "bridge.low",
+   "kind": "normal",
+   "transitions_total": 8,
+   "transitions_byTeam": {
+    "3b": 4,
+    "Book": 4
+   }
+  },
+  {
+   "from": "hill",
+   "to": "Quad",
+   "kind": "normal",
+   "transitions_total": 3,
+   "transitions_byTeam": {
+    "Book": 3
+   }
+  },
+  {
+   "from": "hill",
+   "to": "RA.tunnel",
+   "kind": "normal",
+   "transitions_total": 31,
+   "transitions_byTeam": {
+    "3b": 9,
+    "Book": 22
+   }
+  },
+  {
+   "from": "hill",
+   "to": "Ring",
+   "kind": "normal",
+   "transitions_total": 1,
+   "transitions_byTeam": {
+    "Book": 1
+   }
+  },
+  {
+   "from": "hill",
+   "to": "bridge.low",
+   "kind": "normal",
+   "transitions_total": 90,
+   "transitions_byTeam": {
+    "3b": 64,
+    "Book": 26
+   }
+  },
+  {
+   "from": "hill",
+   "to": "water",
+   "kind": "normal",
+   "transitions_total": 1,
+   "transitions_byTeam": {
+    "3b": 1
+   }
+  },
+  {
+   "from": "lifts",
+   "to": "Pent",
+   "kind": "normal",
+   "transitions_total": 15,
+   "transitions_byTeam": {
+    "3b": 9,
+    "Book": 6
+   }
+  },
+  {
+   "from": "lifts",
+   "to": "lifts.below",
+   "kind": "normal",
+   "transitions_total": 76,
+   "transitions_byTeam": {
+    "3b": 47,
+    "Book": 29
+   }
+  },
+  {
+   "from": "lifts",
+   "to": "window",
+   "kind": "normal",
+   "transitions_total": 2,
+   "transitions_byTeam": {
+    "Book": 2
+   }
+  },
+  {
+   "from": "lifts.below",
+   "to": "Ring",
+   "kind": "normal",
+   "transitions_total": 70,
+   "transitions_byTeam": {
+    "3b": 40,
+    "Book": 30
+   }
+  },
+  {
+   "from": "lifts.below",
+   "to": "SNG.lifts",
+   "kind": "normal",
+   "transitions_total": 43,
+   "transitions_byTeam": {
+    "3b": 23,
+    "Book": 20
+   }
+  },
+  {
+   "from": "lifts.below",
+   "to": "lifts",
+   "kind": "normal",
+   "transitions_total": 2,
+   "transitions_byTeam": {
+    "Book": 2
+   }
+  },
+  {
+   "from": "water",
+   "to": "bridge.high",
+   "kind": "normal",
+   "transitions_total": 4,
+   "transitions_byTeam": {
+    "3b": 4
+   }
+  },
+  {
+   "from": "water",
+   "to": "bridge.low",
+   "kind": "normal",
+   "transitions_total": 121,
+   "transitions_byTeam": {
+    "3b": 84,
+    "Book": 37
+   }
+  },
+  {
+   "from": "water",
+   "to": "hill",
+   "kind": "normal",
+   "transitions_total": 2,
+   "transitions_byTeam": {
+    "3b": 2
+   }
+  },
+  {
+   "from": "water",
+   "to": "water.GL",
+   "kind": "normal",
+   "transitions_total": 11,
+   "transitions_byTeam": {
+    "3b": 9,
+    "Book": 2
+   }
+  },
+  {
+   "from": "water",
+   "to": "water.LG",
+   "kind": "normal",
+   "transitions_total": 92,
+   "transitions_byTeam": {
+    "3b": 68,
+    "Book": 24
+   }
+  },
+  {
+   "from": "water",
+   "to": "water.rox",
+   "kind": "normal",
+   "transitions_total": 14,
+   "transitions_byTeam": {
+    "3b": 11,
+    "Book": 3
+   }
+  },
+  {
+   "from": "water",
+   "to": "water.tunnel",
+   "kind": "normal",
+   "transitions_total": 25,
+   "transitions_byTeam": {
+    "3b": 14,
+    "Book": 11
+   }
+  },
+  {
+   "from": "water.GL",
+   "to": "bridge.low",
+   "kind": "normal",
+   "transitions_total": 1,
+   "transitions_byTeam": {
+    "3b": 1
+   }
+  },
+  {
+   "from": "water.GL",
+   "to": "water",
+   "kind": "normal",
+   "transitions_total": 16,
+   "transitions_byTeam": {
+    "3b": 14,
+    "Book": 2
+   }
+  },
+  {
+   "from": "water.LG",
+   "to": "bridge.low",
+   "kind": "normal",
+   "transitions_total": 3,
+   "transitions_byTeam": {
+    "3b": 3
+   }
+  },
+  {
+   "from": "water.LG",
+   "to": "water",
+   "kind": "normal",
+   "transitions_total": 88,
+   "transitions_byTeam": {
+    "3b": 58,
+    "Book": 30
+   }
+  },
+  {
+   "from": "water.LG",
+   "to": "water.rox",
+   "kind": "normal",
+   "transitions_total": 8,
+   "transitions_byTeam": {
+    "3b": 7,
+    "Book": 1
+   }
+  },
+  {
+   "from": "water.rox",
+   "to": "water",
+   "kind": "normal",
+   "transitions_total": 17,
+   "transitions_byTeam": {
+    "3b": 15,
+    "Book": 2
+   }
+  },
+  {
+   "from": "water.rox",
+   "to": "water.LG",
+   "kind": "normal",
+   "transitions_total": 4,
+   "transitions_byTeam": {
+    "3b": 2,
+    "Book": 2
+   }
+  },
+  {
+   "from": "water.tunnel",
+   "to": "Pent",
+   "kind": "normal",
+   "transitions_total": 22,
+   "transitions_byTeam": {
+    "3b": 11,
+    "Book": 11
+   }
+  },
+  {
+   "from": "water.tunnel",
+   "to": "water",
+   "kind": "normal",
+   "transitions_total": 9,
+   "transitions_byTeam": {
+    "3b": 4,
+    "Book": 5
+   }
+  },
+  {
+   "from": "window",
+   "to": "Pent",
+   "kind": "normal",
+   "transitions_total": 28,
+   "transitions_byTeam": {
+    "3b": 10,
+    "Book": 18
+   }
+  },
+  {
+   "from": "window",
+   "to": "Quad",
+   "kind": "normal",
+   "transitions_total": 7,
+   "transitions_byTeam": {
+    "3b": 5,
+    "Book": 2
+   }
+  },
+  {
+   "from": "window",
+   "to": "bridge.high",
+   "kind": "normal",
+   "transitions_total": 53,
+   "transitions_byTeam": {
+    "3b": 24,
+    "Book": 29
+   }
+  },
+  {
+   "from": "window",
+   "to": "lifts",
+   "kind": "normal",
+   "transitions_total": 2,
+   "transitions_byTeam": {
+    "3b": 1,
+    "Book": 1
+   }
+  },
+  {
+   "from": "window",
+   "to": "window.Quad",
+   "kind": "normal",
+   "transitions_total": 37,
+   "transitions_byTeam": {
+    "3b": 17,
+    "Book": 20
+   }
+  },
+  {
+   "from": "window.Quad",
+   "to": "Quad",
+   "kind": "normal",
+   "transitions_total": 51,
+   "transitions_byTeam": {
+    "3b": 19,
+    "Book": 32
+   }
+  },
+  {
+   "from": "window.Quad",
+   "to": "window",
+   "kind": "normal",
+   "transitions_total": 29,
+   "transitions_byTeam": {
+    "3b": 13,
+    "Book": 16
+   }
+  }
+ ]
+}

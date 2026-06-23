@@ -7,8 +7,11 @@ steering angle = angle between WISHDIR (from fwd/side relative to view) and velo
   ~0  on the ground = straight accel to maxspeed.
   large in the air = the air-strafe lever (the 30-cap qu/s air cap depends on it).
 """
+import logging
 import math, sys
 
+
+LOGGER = logging.getLogger(__name__)
 JUMP = 2  # buttons & 2
 
 def angle_vectors(pitch, yaw, roll):

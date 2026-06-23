@@ -56,6 +56,7 @@ metric's return — the imported metric stays authoritative.
 
 from __future__ import annotations
 
+import logging
 import csv
 import importlib.util
 import json
@@ -63,6 +64,8 @@ import math
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 EXP = Path(__file__).resolve().parent
 REPO = EXP.parents[1]
 SCRIPTS = REPO / "scripts"

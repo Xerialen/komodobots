@@ -36,12 +36,15 @@ Usage:
 Stdlib-only.  Compatible with Python 3.12.
 """
 
+import logging
 import argparse
 import json
 import struct
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Repo root
 # ---------------------------------------------------------------------------

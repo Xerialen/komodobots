@@ -12,12 +12,15 @@ Anchor: spiker_base on training seeds must reproduce the recorded
 edge_median 446.5 / n526 1 / max 554.5 exactly (proves the probe wiring is
 the design-grid harness).
 """
+import logging
 import json
 import multiprocessing
 import statistics
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 SCRIPTS = Path(__file__).resolve().parents[4] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 

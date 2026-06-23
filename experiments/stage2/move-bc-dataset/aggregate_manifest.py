@@ -16,11 +16,14 @@ Run on the manifest emitted by build_move_bc_pool.py.
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 from pathlib import Path
 from collections import Counter
 
+
+LOGGER = logging.getLogger(__name__)
 SEGMENT = 77  # frames per ~1 s segment (matches the builder)
 
 

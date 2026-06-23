@@ -18,6 +18,7 @@ Writes (committed):
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import hashlib
 import json
@@ -27,6 +28,8 @@ from pathlib import Path
 
 import numpy as np
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
 

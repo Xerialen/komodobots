@@ -80,6 +80,7 @@ must be confirmed on a host that can reach ``servexeri`` (see
 
 from __future__ import annotations
 
+import logging
 import argparse
 import base64
 import re
@@ -92,6 +93,8 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SHIM_PATH = REPO_ROOT / "experiments" / "qw_min_client.py"
 

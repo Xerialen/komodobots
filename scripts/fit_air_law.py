@@ -15,10 +15,13 @@ Outputs a table binned by |v|: median |rotation|, implied cs, and the serpentine
 flip cadence + jump-on-contact stats -- the retention behaviour mode 19 imitates.
 """
 from __future__ import annotations
+import logging
 import argparse, json, math, statistics, sys
 from pathlib import Path
 
 
+
+LOGGER = logging.getLogger(__name__)
 def wrap180(d):
     return (d + 180.0) % 360.0 - 180.0
 

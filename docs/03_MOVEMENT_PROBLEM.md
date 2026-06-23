@@ -108,6 +108,20 @@ The real target is a movement mode or controller with:
 - Whether route logic and movement logic are sufficiently decoupled.
 - Whether KTX/Frogbots should remain the substrate or be replaced by a new bot architecture.
 
+## Current best answer for the learnable movement policy (caveated)
+
+On the "engine-in-loop optimization" framing above, the current best answer is
+**RL-on-speed** (movement-v5, `ml/rl_onspeed.py`): the supervised behavioral-cloning family
+(BC -> reweight -> GRU-sequence -> DAgger) is exhausted on the closed-loop bunnyhop-SPEED
+skill — it converges to a forward **over-press** that kills air-strafe acceleration — and RL
+(PPO over the offline pmove sim, self-yaw, a mechanism-gated reward) **cracked that over-press
+directionally**, reaching human-band forward-press with in-band speed while believable. This
+does NOT close the movement problem: the overnight magnitudes are INDICATIVE pending a Phase-1
+re-validation (three Codex-found train/eval bugs were fixed in #356), the strafe-cadence rhythm
+is still an unsolved residual, and no checkpoint is productionized. See `docs/09_ROADMAP.md`
+("ML Movement-Brain Track"), `docs/07_FINDINGS_LOG.md`, and `docs/08_DECISION_LOG.md`
+(2026-06-22).
+
 ## Current Practical Bunnyjump Code
 
 The 2026-06-13 ztricks `getandmaintainspeed.qwd` work produced an accepted

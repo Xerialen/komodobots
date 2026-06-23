@@ -50,6 +50,7 @@ Usage (manual v1, e.g. inside screen/tmux on servexeri):
 
 from __future__ import annotations
 
+import logging
 import argparse
 import asyncio
 import base64
@@ -61,6 +62,8 @@ import secrets
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 # repo layout: the control bridge lives in lab/server/; deployed flat it sits
 # next to this file (first sys.path entry above already covers that).
@@ -86,6 +89,15 @@ STATUS_INTERVAL_S = 2.0
 # A run dir is "live" while its screen.log keeps growing; after this long with
 # no new bytes the attempt is over and we go back to waiting.
 STALE_AFTER_S = 10.0
+
+
+def configure_logging() -> None:
+    level_name = os.environ.get("KOMODOBOTS_LOG_LEVEL", "INFO").upper()
+    level = getattr(logging, level_name, logging.INFO)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
 
 
 def encode_ws_text(payload: str) -> bytes:
@@ -233,9 +245,10 @@ async def handle_client(
             # bridge. Defense in depth on top of the bridge's loopback/token
             # authorization, not a substitute for it.
             response = {"re": req_id, "ok": False, "detail": "origin not allowed for control"}
-            print(
-                f"[bridge] refused control frame from {peer}: origin {origin!r} not allowlisted",
-                flush=True,
+            LOGGER.warning(
+                "refused control frame from %s: origin %r not allowlisted",
+                peer,
+                origin,
             )
         elif bridge is None:
             response = {"re": req_id, "ok": False, "detail": "control bridge not deployed"}
@@ -254,7 +267,7 @@ async def handle_client(
         ok, origin = await ws_handshake(reader, writer)
         if not ok:
             return
-        print(f"[ws] client connected: {peer}", flush=True)
+        LOGGER.info("client connected: %s", peer)
         hub.clients.add(writer)
         writer.write(encode_ws_text(json.dumps(hub.hello_payload(), separators=(",", ":"))))
         await writer.drain()
@@ -264,7 +277,7 @@ async def handle_client(
     finally:
         hub.clients.discard(writer)
         writer.close()
-        print(f"[ws] client gone: {peer}", flush=True)
+        LOGGER.info("client gone: %s", peer)
 
 
 def load_or_create_control_token(path: Path) -> tuple[str, bool]:
@@ -372,7 +385,7 @@ async def tail_runs(hub: Hub, runs_dir: Path) -> None:
             hub.map_name = env.get("MAP")
             hub.live = True
             last_data_t = loop.time()
-            print(f"[tail] new attempt: {hub.run_id} port={hub.port} map={hub.map_name}", flush=True)
+            LOGGER.info("new attempt: %s port=%s map=%s", hub.run_id, hub.port, hub.map_name)
             await hub.broadcast(
                 {"type": "new_attempt", "run_id": hub.run_id, "port": hub.port, "map": hub.map_name}
             )
@@ -427,7 +440,7 @@ async def tail_runs(hub: Hub, runs_dir: Path) -> None:
         now = loop.time()
         if hub.live and now - last_data_t > STALE_AFTER_S:
             hub.live = False
-            print(f"[tail] attempt {hub.run_id} went quiet; waiting", flush=True)
+            LOGGER.info("attempt %s went quiet; waiting", hub.run_id)
         if not hub.live and now - last_status_t > STATUS_INTERVAL_S:
             last_status_t = now
             await hub.broadcast({"type": "status", "live": False})
@@ -475,12 +488,13 @@ async def main() -> None:
         ),
     )
     args = parser.parse_args()
+    configure_logging()
 
     bridge = None
     if args.no_control:
-        print("[bridge] control channel disabled (--no-control)", flush=True)
+        LOGGER.info("control channel disabled (--no-control)")
     elif ControlBridge is None:
-        print("[bridge] control_bridge.py not found beside the sidecar; telemetry-only", flush=True)
+        LOGGER.warning("control_bridge.py not found beside the sidecar; telemetry-only")
     else:
         token_path = (
             Path(args.control_token_file)
@@ -489,16 +503,16 @@ async def main() -> None:
         )
         token, created = load_or_create_control_token(token_path)
         bridge = ControlBridge(lab_home=Path(args.lab_home), control_token=token)
-        print(f"[bridge] control channel up (lab home {args.lab_home})", flush=True)
-        print(
-            f"[bridge] control token {'generated at' if created else 'loaded from'} "
-            f"{token_path}; mutating ops need loopback or this token",
-            flush=True,
+        LOGGER.info("control channel up (lab home %s)", args.lab_home)
+        LOGGER.info(
+            "control token %s %s; mutating ops need loopback or this token",
+            "generated at" if created else "loaded from",
+            token_path,
         )
         if args.allow_origin:
-            print(f"[bridge] control origins allowlisted: {', '.join(args.allow_origin)}", flush=True)
+            LOGGER.info("control origins allowlisted: %s", ", ".join(args.allow_origin))
         else:
-            print("[bridge] no --allow-origin given: browser clients are telemetry-only", flush=True)
+            LOGGER.info("no --allow-origin given: browser clients are telemetry-only")
 
     hub = Hub()
     allowed_origins = frozenset(args.allow_origin)
@@ -507,7 +521,7 @@ async def main() -> None:
         args.host,
         args.port,
     )
-    print(f"[ws] listening on {args.host}:{args.port}, watching {args.runs_dir}", flush=True)
+    LOGGER.info("listening on %s:%s, watching %s", args.host, args.port, args.runs_dir)
     async with server:
         await asyncio.gather(server.serve_forever(), tail_runs(hub, Path(args.runs_dir)))
 
@@ -516,4 +530,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        pass
+        LOGGER.info("telemetry sidecar stopped by KeyboardInterrupt")

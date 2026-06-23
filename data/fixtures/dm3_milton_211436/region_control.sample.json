@@ -1,0 +1,44 @@
+{
+  "_source": "getRegionControl(windowMs=5000) on the cached demo — offline. Verbose per-region point clouds dropped; centroids, member locs, control %, and bucket timelines kept.",
+  "_window_ms": 5000,
+  "teamA": "Book",
+  "teamB": "3b",
+  "_bucket_legend": {
+    "A": "teamA (Book) strong control", "a": "teamA weak control",
+    "B": "teamB (3b) strong control", "b": "teamB weak control",
+    "c": "contested", "C": "weak-contested", "_": "empty",
+    "note": "Each char = one 5 s bucket, chronological. ~240 buckets over the 1200 s match."
+  },
+  "regions": [
+    {
+      "name": "RA", "centroid": [85.9, -692.4], "locs": ["RA", "RA.entry", "RA.low", "RA.rox"],
+      "control_pct": { "teamA_Book": 54.6, "teamA_weak": 6.7, "teamB_3b": 5.0, "teamB_weak": 4.6, "contested": 1.7, "weak_contested": 4.6, "empty": 22.9 },
+      "top_occupants_armed_s": { "Milton": 56, "stepcop": 54, "sae": 37, "wimsuit": 16 },
+      "bucketStates": "__bBCBBB_aaaacccAAAAAAAAccAAAacAA_AAAAAAA_AAA_AAA_AAAaAAAAA___cc_CBBBBbbb_AAAAAAAA__aa__bAAAAAA_AAA_AA_AA_BCAABBBAAAA_A__AAbAbcAAAAAAAA__A_bbAAAAAaaaAAAAAAAA__aAA___AAAAA__acc_AAA____aaAaAAA__AA__bAAAAAAA__AAAAbAAAA_____A_A_A___AACAAAAAA_AA"
+    },
+    {
+      "name": "QUAD", "centroid": [765.8, -18.6], "locs": ["Quad", "YA.Quad", "window.Quad"],
+      "control_pct": { "teamA_Book": 27.5, "teamA_weak": 2.9, "teamB_3b": 3.3, "teamB_weak": 7.9, "contested": 1.3, "weak_contested": 0.8, "empty": 56.3 },
+      "top_occupants_armed_s": { "Milton": 26, "sae": 23, "stepcop": 14, "wimsuit": 12 },
+      "bucketStates": "_c____B_____bb_______a_b_A_A________BC__AA__bab_AA_bBAb______aA__________b_bb__a_____AA_A__A___AAAAA_bBBA_AA__AA__________cb_BA____AAABAA_A______AAA__aa_____AAAAA______AAbAA___AAAa_BAAA___b_b_ACAAA_A____bA_AAAb_AA____A_AAAAA_A____b_AbC_____"
+    },
+    {
+      "name": "YA", "centroid": [1532.4, -814.4], "locs": ["YA", "YA.box", "YA.up"],
+      "control_pct": { "teamA_Book": 34.6, "teamA_weak": 8.8, "teamB_3b": 13.3, "teamB_weak": 8.3, "contested": 1.7, "weak_contested": 1.7, "empty": 31.7 },
+      "top_occupants_armed_s": { "wimsuit": 40, "sae": 25, "stepcop": 18, "Milton": 12, "gLAd": 12, "gor": 12 },
+      "bucketStates": "a_B_c__aCb___abacc__A_A__bA_AAAAAAAAA_AAA___AAaAAAACBaAAA_A____AbbAA_AaAA_b__BBBCAAAAaa_bAAAAAABBBBBAAAABCb__A_aA___abAAa___b_____BBBBa__BB___abBBB_b_BBb_aabBBB__bbA_aA_BBB_AAAAA__c___b_A__b__Ba_AAAAAA_AABAA__AAAAAAAAAAAAAAAAb_____b__aaaBB_"
+    },
+    {
+      "name": "RL", "centroid": [1862.8, 351.0], "locs": ["RL"],
+      "control_pct": { "teamA_Book": 4.2, "teamA_weak": 6.7, "teamB_3b": 6.7, "teamB_weak": 26.3, "contested": 0.0, "weak_contested": 7.9, "empty": 48.3 },
+      "note": "3b's weak control of RL (26.3%) reflects them being spawn-pinned in their back area, not map dominance.",
+      "bucketStates": "b___aaa_bcaac___bccc_bbca_bb_bAbb____B__bbBB___b_B______a____bbB_bcbb___acBB___bcB_bbbbcA___b_____bB__caa____bcB_bbbbA__ba_b__bbbb____cb_____aA__bbc_a_bccBB___cbbbAab_bbcaa__b__b____bbB___________b____bb_____cA__bbAAbb__bBB____AA_bbbbbB____"
+    },
+    {
+      "name": "LG", "centroid": [1541.6, -168.3], "locs": ["water.LG"],
+      "control_pct": { "teamA_Book": 2.5, "teamA_weak": 1.7, "teamB_3b": 2.9, "teamB_weak": 8.8, "contested": 0.0, "weak_contested": 0.4, "empty": 83.8 },
+      "bucketStates": "__b____Bb____a_____bB_________________bB________________________b_b__b_________________________A____aA________A____ab____bc___b______________b___________________b_____b__________b_____________B__A_____bbb__b______A_B_______BBb___A__bb____a_"
+    }
+  ],
+  "_reconcile": "Book (teamA) holds majority strong-control of all three armor/powerup regions (RA 54.6%, YA 34.6%, QUAD 27.5%). 3b's only positive is weak RL control (spawn area). This spatial dominance is the team-control mechanism behind the 294-80 score."
+}

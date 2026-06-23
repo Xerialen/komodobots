@@ -3,6 +3,8 @@
 // protocol. Frame rate is the server command rate (~100 Hz), so consumers that
 // render with React state must throttle — subscribe with raw callbacks here.
 
+import { logError, logWarn } from "./logger.ts";
+
 export type Vec3 = { x: number; y: number; z: number };
 
 export type TelemetryFrame = {
@@ -84,8 +86,9 @@ export class TelemetryClient {
     let socket: WebSocket;
     try {
       socket = new WebSocket(this.url);
-    } catch {
+    } catch (err: unknown) {
       // malformed ?ws= URL — the constructor throws; retrying won't fix it
+      logError("telemetry WebSocket construction failed", err, { url: this.url });
       this.connected = false;
       this.live = false;
       this.emitState();
@@ -106,7 +109,12 @@ export class TelemetryClient {
       let message: TelemetryMessage;
       try {
         message = JSON.parse(event.data);
-      } catch {
+      } catch (err: unknown) {
+        logWarn("telemetry message JSON parse failed", {
+          url: this.url,
+          error: err,
+          sample: String(event.data).slice(0, 200),
+        });
         return;
       }
       if (message.type === "frame") {

@@ -4,9 +4,12 @@ Integrates origin; optional position-feedback reversal (reverse early when far f
 moving outward) to hold the 8 in the room without a speed-killing centering term.
 
 trick.bsp open area: half-width ~1008 qu (mode-16 source comment); human trick5 bbox was 1788."""
+import logging
 import math
 from qwsim import air_step
 
+
+LOGGER = logging.getLogger(__name__)
 DT = 0.013
 ROOM_HALF = 1008.0   # trick.bsp playable half-width (from KTX mode-16 comment)
 HUMAN_BBOX = 1788.0

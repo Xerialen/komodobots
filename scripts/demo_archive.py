@@ -47,6 +47,7 @@ existing destination with a different hash is NEVER overwritten (reported as
 
 from __future__ import annotations
 
+import logging
 import argparse
 import hashlib
 import re
@@ -57,6 +58,8 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT_ROOT = REPO_ROOT / "artifacts" / "lab-runs"
 # Both historical local ezQuake review-mirror locations are scanned for

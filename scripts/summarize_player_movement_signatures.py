@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -14,6 +15,8 @@ from analyze_human_mvd import format_comparison_value, load_json_if_present, pct
 from summarize_reference_aggregate import portable_path
 
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.player_movement_signatures.v1"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REFERENCE_AGGREGATE = (

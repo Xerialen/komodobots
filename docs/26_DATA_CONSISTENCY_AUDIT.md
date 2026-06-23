@@ -15,7 +15,7 @@ goes.*
 - **Goal / why:** human-like-by-imitation stand-in bots; program of record
   `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` (greenfield, 2026-06-16). MOVE brain is a
   `6→128→128→{3,3,2}` MLP, move-only by design.
-- **What / how / format / destination:** see `docs/20_DATA_CONTRACT.md` and
+- **What / how / format / destination:** see `docs/25_DATA_CONTRACT.md` and
   `configs/extraction_spec.yaml`. The pipeline has two layers (raw 11-field NDJSON shard →
   derived 6-feature model vector); the model trains on the *derived* layer.
 
@@ -23,7 +23,7 @@ goes.*
 
 This PR builds the missing machine-readable memory and wires agents to it:
 
-- `docs/20_DATA_CONTRACT.md` — prose anchor tying goal → data → contract files, both pipeline
+- `docs/25_DATA_CONTRACT.md` — prose anchor tying goal → data → contract files, both pipeline
   layers, and the change-control rule.
 - `configs/extraction_spec.yaml` — line-anchored field→source→transform mapping mirroring the
   code (faithful, not aspirational).

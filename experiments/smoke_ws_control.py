@@ -16,6 +16,7 @@ format used against servexeri:8770 during the lab-slot end-to-end check.
 
 Usage: python experiments/smoke_ws_control.py
 """
+import logging
 import asyncio
 import base64
 import json
@@ -27,6 +28,8 @@ import threading
 import time
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 repo = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(repo / "scripts"))
 sys.path.insert(1, str(repo / "lab" / "server"))

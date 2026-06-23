@@ -1,0 +1,65 @@
+{
+  "schema": "komodobots.resource_coords.v1",
+  "map": "dm3",
+  "_purpose": "Catalog-side {resource: [x,y]} coords for the 11 dm3 route nodes. The route-conditioning v4 goal label (build_features._label_episode_goals) uses these to stamp each tick with its hindsight next-resource GOAL.",
+  "_source": "Generated from lab/dashboard/public/data/map_entities/dm3.json by the SAME kind-filter the segmenter uses (experiments/route_observatory/pov_fuse_extract.RES_KINDS); equals route_legs.resource_coords() on a parsed demo. Regenerate with that filter if the map-entities source changes.",
+  "_res_kinds": [
+    "gl",
+    "lg",
+    "mh",
+    "pent",
+    "quad",
+    "ra",
+    "ring",
+    "rl",
+    "sng",
+    "ya"
+  ],
+  "count": 11,
+  "resources": {
+    "Pent": [
+      1840,
+      624
+    ],
+    "Quad": [
+      952,
+      296
+    ],
+    "RA": [
+      256,
+      -704
+    ],
+    "RL": [
+      1520,
+      496
+    ],
+    "Ring": [
+      240,
+      -32
+    ],
+    "SNG": [
+      -512,
+      448
+    ],
+    "SNG.MH": [
+      -720,
+      80
+    ],
+    "YA.box": [
+      1232,
+      -904
+    ],
+    "hill": [
+      564,
+      -48
+    ],
+    "water.GL": [
+      1216,
+      240
+    ],
+    "water.LG": [
+      1544,
+      -192
+    ]
+  }
+}

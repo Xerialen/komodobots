@@ -33,6 +33,7 @@ unchanged (round-1 source, round-1 output, no funnel block).
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import gzip
 import json
@@ -40,6 +41,8 @@ import math
 from collections import Counter
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 HERE = Path(__file__).resolve().parent
 SRC = HERE / "sweep-results.json"          # falls back to the committed .gz
 OUT = HERE / "offramp-decomposition.json"

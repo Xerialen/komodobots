@@ -13,6 +13,8 @@
 // browser accessing from LAN is already loopback-trusted).  The UI is a
 // courtesy layer; the bridge is the real authority (#96 / Codex P1 #129).
 
+import { logWarn } from "./logger.ts";
+
 export type LockState =
   | { state: "free"; lock: null }
   | { state: "fresh" | "stale"; lock: Record<string, unknown> };
@@ -89,7 +91,11 @@ export class ControlClient {
     let msg: Record<string, unknown>;
     try {
       msg = JSON.parse(text) as Record<string, unknown>;
-    } catch {
+    } catch (err: unknown) {
+      logWarn("control channel JSON parse failed", {
+        error: err,
+        sample: text.slice(0, 200),
+      });
       return;
     }
     // Control event broadcast.

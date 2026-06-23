@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import sys
@@ -14,6 +15,8 @@ from characterize_land_speed_gap import optional_float, summarize_values
 from summarize_reference_aggregate import portable_path
 
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.context_gated_air_transition_probe_design.v1"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_S7K = REPO_ROOT / "experiments" / "human_comparison" / "evidence" / "failed-bucket-diagnosis-s7k-dm3.json"

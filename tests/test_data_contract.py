@@ -14,7 +14,7 @@ repo's `unittest discover` CI floor (no jsonschema / pyyaml dependency):
   3. (soft, skipped if PyYAML is absent) configs/extraction_spec.yaml lists the
      same per-frame field set as the schema.
 
-See docs/20_DATA_CONTRACT.md for the contract and its change-control rule.
+See docs/25_DATA_CONTRACT.md for the contract and its change-control rule.
 Run locally:  python3 -m unittest tests.test_data_contract -v
 """
 from __future__ import annotations
@@ -132,7 +132,7 @@ class TestDataContract(unittest.TestCase):
             "scripts/build_training_dataset.py emits a different field set than "
             "schemas/training_example.schema.json requires. If you changed the row, "
             "update the schema, configs/extraction_spec.yaml, the golden example, and "
-            "docs/20_DATA_CONTRACT.md IN THE SAME PR.\n"
+            "docs/25_DATA_CONTRACT.md IN THE SAME PR.\n"
             f"  builder only: {sorted(emitted - required)}\n"
             f"  schema only:  {sorted(required - emitted)}",
         )

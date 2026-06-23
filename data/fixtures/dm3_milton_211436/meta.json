@@ -1,0 +1,76 @@
+{
+  "_provenance": {
+    "fixture": "dm3_milton_211436",
+    "gameId": 211436,
+    "demoId": "sha:9e0d4c22438f44dc94346c6d96cb24a5fcc7498b91e3c44dd12886575ac45bc7",
+    "sha256": "9e0d4c22438f44dc94346c6d96cb24a5fcc7498b91e3c44dd12886575ac45bc7",
+    "serverdemo": "4on4_book_vs_3b[dm3]20260419-2145.mvd",
+    "schemaVersion": 12,
+    "mvd_api_binary": "~/mvd-mcp-bundle/mvd-api (no embedded git; binary mtime 2026-05-30 09:23, built from Go 1.25.10 per CLAUDE.local.md). analyzer schemaVersion=12 is the stable drift key.",
+    "extracted": "2026-06-18",
+    "hub_fetch": "one-time authorized fetch of this single demo (A0); all other chunks offline",
+    "note": "schemaVersion is the analyzer schema; mvd_api_commit is the parser binary (drift guard, _inventory.md §10.4)"
+  },
+
+  "overview": {
+    "duration_ms": 1200036,
+    "map": "dm3",
+    "mapTitle": "The Abandoned Base",
+    "mode": "4on4 (Team)",
+    "matchtag": "tb4+1",
+    "locCount": 35,
+    "hasRegionControl": true,
+    "teams": [
+      { "name": "Book", "frags": 294 },
+      { "name": "3b", "frags": 80 }
+    ],
+    "players": [
+      { "name": "Milton",  "team": "Book", "frags": 93, "userId": 84 },
+      { "name": "wimsuit", "team": "Book", "frags": 68, "userId": 95 },
+      { "name": "sae",     "team": "Book", "frags": 67, "userId": 88 },
+      { "name": "stepcop", "team": "Book", "frags": 66, "userId": 87 },
+      { "name": "gLAd",    "team": "3b",   "frags": 26, "userId": 90 },
+      { "name": "gor",     "team": "3b",   "frags": 26, "userId": 93 },
+      { "name": "Zepp",    "team": "3b",   "frags": 18, "userId": 91 },
+      { "name": "SS",      "team": "3b",   "frags": 10, "userId": 94 }
+    ],
+    "topPowerups": [
+      { "player": "Milton",  "team": "Book", "type": "quad", "start_ms": 124853, "duration_ms": 29993, "frags": 8 },
+      { "player": "stepcop", "team": "Book", "type": "quad", "start_ms": 797528, "duration_ms": 30000, "frags": 6 },
+      { "player": "sae",     "team": "Book", "type": "pent", "start_ms": 602852, "duration_ms": 30009, "frags": 5 },
+      { "player": "stepcop", "team": "Book", "type": "quad", "start_ms": 978500, "duration_ms": 30001, "frags": 5 },
+      { "player": "wimsuit", "team": "Book", "type": "quad", "start_ms": 1038647, "duration_ms": 30011, "frags": 5 }
+    ],
+    "topStreaks": [
+      { "player": "Milton",  "team": "Book", "weapon": "rl", "length": 54, "start_ms": 603938, "duration_ms": 592626 },
+      { "player": "stepcop", "team": "Book", "weapon": "lg", "length": 26, "start_ms": 41515,  "duration_ms": 441996 },
+      { "player": "Milton",  "team": "Book", "weapon": "rl", "length": 24, "start_ms": 43367,  "duration_ms": 241700 },
+      { "player": "wimsuit", "team": "Book", "weapon": "lg", "length": 22, "start_ms": 903530, "duration_ms": 296506 },
+      { "player": "stepcop", "team": "Book", "weapon": "lg", "length": 18, "start_ms": 534384, "duration_ms": 305352 }
+    ],
+    "worked_example_tick_hint": {
+      "comment": "Milton's quad run (start 124853 ms, 8 frags) is the chosen 'Milton wrecks' moment for the A5 actor-state sample and the E3 worked example.",
+      "chosen_time_s": 130.0
+    }
+  },
+
+  "ruleset": {
+    "mode": "4on4",
+    "deathmatch": 1,
+    "teamplay": 2,
+    "respawns": "KT2",
+    "spawnmodel": "KT2",
+    "spawnK": 4,
+    "antilag": 2,
+    "timelimit": 20,
+    "overtime": "5",
+    "powerups": "on",
+    "matchtag": "tb4+1",
+    "maxfps": 77,
+    "ktxver": "1.47-dev",
+    "svversion": "MVDSV 1.20-dev",
+    "progs": "so",
+    "hostname": "QUAKE.SE KTX:28505",
+    "date": "2026-04-19 22:06:06 +0200"
+  }
+}

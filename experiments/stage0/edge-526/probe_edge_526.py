@@ -33,9 +33,12 @@ Experiments:
      heading but substitutes the speed-optimal air-strafe.
 """
 from __future__ import annotations
+import logging
 import argparse, json, math, sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "scripts"))
 from pmove_sim import (WorldModel, Pmove, PlayerState, Cmd,  # noqa: E402

@@ -8,6 +8,7 @@ float32 values. The `usercmd_t` layout is from qwprot `protocol.h`.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import hashlib
 import json
@@ -19,6 +20,8 @@ from pathlib import Path
 from typing import Iterable, Iterator
 
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.qwd_usercmd.v1"
 
 DEM_CMD = 0

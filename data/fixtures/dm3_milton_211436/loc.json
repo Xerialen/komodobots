@@ -1,0 +1,447 @@
+{
+ "_source": "getLocGraph (cached demo, offline). Per-player occupancy/transition breakdowns dropped; team-level kept.",
+ "_loc_count": 34,
+ "locs": [
+  {
+   "name": "Pent",
+   "pos": [
+    1134.4,
+    753,
+    -295.9
+   ],
+   "occupancy_s_total": 400.5,
+   "occupancy_s_byTeam": {
+    "3b": 232.4,
+    "Book": 168.1
+   }
+  },
+  {
+   "name": "Pent.hide",
+   "pos": [
+    1488,
+    608,
+    -295.9
+   ],
+   "occupancy_s_total": 6.4,
+   "occupancy_s_byTeam": {
+    "3b": 6.4
+   }
+  },
+  {
+   "name": "Quad",
+   "pos": [
+    971.5,
+    308.2,
+    56
+   ],
+   "occupancy_s_total": 466.4,
+   "occupancy_s_byTeam": {
+    "3b": 150.6,
+    "Book": 315.8
+   }
+  },
+  {
+   "name": "RA",
+   "pos": [
+    58.8,
+    -528,
+    152
+   ],
+   "occupancy_s_total": 792.2,
+   "occupancy_s_byTeam": {
+    "3b": 121.2,
+    "Book": 671.0
+   }
+  },
+  {
+   "name": "RA.entry",
+   "pos": [
+    495.9,
+    -460.6,
+    56
+   ],
+   "occupancy_s_total": 143.1,
+   "occupancy_s_byTeam": {
+    "3b": 40.7,
+    "Book": 102.4
+   }
+  },
+  {
+   "name": "RA.low",
+   "pos": [
+    -174.5,
+    -879.9,
+    -15.9
+   ],
+   "occupancy_s_total": 399.8,
+   "occupancy_s_byTeam": {
+    "3b": 148.7,
+    "Book": 251.1
+   }
+  },
+  {
+   "name": "RA.rox",
+   "pos": [
+    -344.1,
+    -672,
+    -15.9
+   ],
+   "occupancy_s_total": 89.1,
+   "occupancy_s_byTeam": {
+    "3b": 33.5,
+    "Book": 55.6
+   }
+  },
+  {
+   "name": "RA.tunnel",
+   "pos": [
+    109.1,
+    -163.1,
+    -175.9
+   ],
+   "occupancy_s_total": 205.8,
+   "occupancy_s_byTeam": {
+    "3b": 117.1,
+    "Book": 88.7
+   }
+  },
+  {
+   "name": "RL",
+   "pos": [
+    2005.9,
+    376.9,
+    -87.9
+   ],
+   "occupancy_s_total": 912.8,
+   "occupancy_s_byTeam": {
+    "3b": 616.4,
+    "Book": 296.5
+   }
+  },
+  {
+   "name": "Ring",
+   "pos": [
+    202.6,
+    -336.6,
+    60
+   ],
+   "occupancy_s_total": 669.8,
+   "occupancy_s_byTeam": {
+    "3b": 306.9,
+    "Book": 363.0
+   }
+  },
+  {
+   "name": "SNG",
+   "pos": [
+    -501.8,
+    494.1,
+    120
+   ],
+   "occupancy_s_total": 149.5,
+   "occupancy_s_byTeam": {
+    "3b": 83.3,
+    "Book": 66.2
+   }
+  },
+  {
+   "name": "SNG.MH",
+   "pos": [
+    -967.9,
+    11,
+    -15.9
+   ],
+   "occupancy_s_total": 159.0,
+   "occupancy_s_byTeam": {
+    "3b": 95.8,
+    "Book": 63.3
+   }
+  },
+  {
+   "name": "SNG.ledge",
+   "pos": [
+    -943.1,
+    431.5,
+    120
+   ],
+   "occupancy_s_total": 162.8,
+   "occupancy_s_byTeam": {
+    "3b": 74.2,
+    "Book": 88.6
+   }
+  },
+  {
+   "name": "SNG.lifts",
+   "pos": [
+    -303.9,
+    443.8,
+    -15.9
+   ],
+   "occupancy_s_total": 79.3,
+   "occupancy_s_byTeam": {
+    "3b": 38.6,
+    "Book": 40.7
+   }
+  },
+  {
+   "name": "SNG.low",
+   "pos": [
+    -581,
+    399.9,
+    -15.9
+   ],
+   "occupancy_s_total": 50.8,
+   "occupancy_s_byTeam": {
+    "3b": 16.8,
+    "Book": 33.9
+   }
+  },
+  {
+   "name": "SNG.tele",
+   "pos": [
+    -687.2,
+    -461.6,
+    -15.9
+   ],
+   "occupancy_s_total": 489.6,
+   "occupancy_s_byTeam": {
+    "3b": 269.8,
+    "Book": 219.7
+   }
+  },
+  {
+   "name": "YA",
+   "pos": [
+    1811,
+    -810.9,
+    -23.9
+   ],
+   "occupancy_s_total": 523.1,
+   "occupancy_s_byTeam": {
+    "3b": 190.5,
+    "Book": 332.6
+   }
+  },
+  {
+   "name": "YA.Quad",
+   "pos": [
+    625.1,
+    -452.5,
+    88
+   ],
+   "occupancy_s_total": 141.9,
+   "occupancy_s_byTeam": {
+    "3b": 48.7,
+    "Book": 93.2
+   }
+  },
+  {
+   "name": "YA.box",
+   "pos": [
+    1270.1,
+    -926.5,
+    -23.9
+   ],
+   "occupancy_s_total": 451.7,
+   "occupancy_s_byTeam": {
+    "3b": 197.4,
+    "Book": 254.3
+   }
+  },
+  {
+   "name": "YA.entry",
+   "pos": [
+    1168.1,
+    -617.4,
+    -23.9
+   ],
+   "occupancy_s_total": 129.6,
+   "occupancy_s_byTeam": {
+    "3b": 68.1,
+    "Book": 61.6
+   }
+  },
+  {
+   "name": "YA.up",
+   "pos": [
+    1461,
+    -909.4,
+    88
+   ],
+   "occupancy_s_total": 166.2,
+   "occupancy_s_byTeam": {
+    "3b": 59.8,
+    "Book": 106.4
+   }
+  },
+  {
+   "name": "bridge.high",
+   "pos": [
+    1355,
+    -127.6,
+    -23.9
+   ],
+   "occupancy_s_total": 351.7,
+   "occupancy_s_byTeam": {
+    "3b": 185.0,
+    "Book": 166.7
+   }
+  },
+  {
+   "name": "bridge.low",
+   "pos": [
+    1494.5,
+    -35.5,
+    -167.9
+   ],
+   "occupancy_s_total": 513.0,
+   "occupancy_s_byTeam": {
+    "3b": 346.3,
+    "Book": 166.7
+   }
+  },
+  {
+   "name": "bridge.stairs",
+   "pos": [
+    1986.8,
+    -232.6,
+    -103.9
+   ],
+   "occupancy_s_total": 142.2,
+   "occupancy_s_byTeam": {
+    "3b": 103.8,
+    "Book": 38.4
+   }
+  },
+  {
+   "name": "hill",
+   "pos": [
+    600.6,
+    -1.5,
+    -167.9
+   ],
+   "occupancy_s_total": 383.4,
+   "occupancy_s_byTeam": {
+    "3b": 261.8,
+    "Book": 121.7
+   }
+  },
+  {
+   "name": "lifts",
+   "pos": [
+    611.5,
+    796.8,
+    -103.9
+   ],
+   "occupancy_s_total": 305.7,
+   "occupancy_s_byTeam": {
+    "3b": 160.3,
+    "Book": 145.4
+   }
+  },
+  {
+   "name": "lifts.below",
+   "pos": [
+    478.6,
+    516.4,
+    56
+   ],
+   "occupancy_s_total": 181.1,
+   "occupancy_s_byTeam": {
+    "3b": 102.6,
+    "Book": 78.5
+   }
+  },
+  {
+   "name": "water",
+   "pos": [
+    1198,
+    16,
+    -391.9
+   ],
+   "occupancy_s_total": 446.6,
+   "occupancy_s_byTeam": {
+    "3b": 311.0,
+    "Book": 135.6
+   }
+  },
+  {
+   "name": "water.GL",
+   "pos": [
+    1202.8,
+    225.9,
+    -391.9
+   ],
+   "occupancy_s_total": 25.6,
+   "occupancy_s_byTeam": {
+    "3b": 22.7,
+    "Book": 2.8
+   }
+  },
+  {
+   "name": "water.LG",
+   "pos": [
+    1541.6,
+    -168.2,
+    -391.9
+   ],
+   "occupancy_s_total": 183.0,
+   "occupancy_s_byTeam": {
+    "3b": 128.9,
+    "Book": 54.0
+   }
+  },
+  {
+   "name": "water.rox",
+   "pos": [
+    1753.5,
+    -495.9,
+    -391.9
+   ],
+   "occupancy_s_total": 30.5,
+   "occupancy_s_byTeam": {
+    "3b": 24.2,
+    "Book": 6.3
+   }
+  },
+  {
+   "name": "water.tunnel",
+   "pos": [
+    1296,
+    177.6,
+    -391.9
+   ],
+   "occupancy_s_total": 85.9,
+   "occupancy_s_byTeam": {
+    "3b": 45.4,
+    "Book": 40.5
+   }
+  },
+  {
+   "name": "window",
+   "pos": [
+    856.9,
+    469.4,
+    56
+   ],
+   "occupancy_s_total": 307.6,
+   "occupancy_s_byTeam": {
+    "3b": 164.8,
+    "Book": 142.8
+   }
+  },
+  {
+   "name": "window.Quad",
+   "pos": [
+    604.5,
+    384.4,
+    56
+   ],
+   "occupancy_s_total": 54.7,
+   "occupancy_s_byTeam": {
+    "3b": 26.5,
+    "Book": 28.2
+   }
+  }
+ ]
+}

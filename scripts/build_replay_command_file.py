@@ -28,6 +28,7 @@ failure mode where a dropped state frame shifted every later row.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import bisect
 import json
@@ -37,6 +38,8 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 for _p in (str(REPO_ROOT), str(REPO_ROOT / "scripts")):
     if _p not in sys.path:
@@ -279,9 +282,17 @@ def interpolated_reference(
         round(lerp(float(prev_state.velocity[axis]), float(next_state.velocity[axis]), frac))
         for axis in range(3)
     ]
-    onground = bool(prev_state.onground and next_state.onground)
-    solid = bool(prev_state.solid and next_state.solid)
-    pm_code = int(prev_state.pm_code if prev_state.pm_code == next_state.pm_code else -1)
+    # onground/solid/pm_code are DISCRETE flags — you can't lerp a boolean, so carry the
+    # NEAREST matched frame's value (the endpoint this command's time is closer to), not a
+    # conservative `prev AND next`. The old AND mashed onground toward False on every
+    # boundary tick (a single airborne neighbour zeroed an otherwise-grounded run); nearest
+    # keeps the flag whichever way the frame actually leans. (This path only matters when a
+    # source stream carries a real ground flag; the dm3 catalog re-derives onground
+    # geometrically downstream, so this is correctness hardening, not the #316 fix.)
+    near = prev_state if frac < 0.5 else next_state
+    onground = bool(near.onground)
+    solid = bool(near.solid)
+    pm_code = int(near.pm_code)
     return origin, velocity, onground, solid, pm_code, "interpolated"
 
 

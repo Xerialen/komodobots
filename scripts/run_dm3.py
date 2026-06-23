@@ -20,11 +20,15 @@ clean checkout). Override any of them by passing them explicitly.
 
 from __future__ import annotations
 
+import logging
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 REPO = Path(__file__).resolve().parent.parent
 LAB = REPO / "scripts" / "run_frobodm2_lab.py"
 RECORDS_BUILD = REPO / "lab" / "server" / "records_build.py"
@@ -36,6 +40,15 @@ _LIVE_REPLAY = REPO / "artifacts" / "replay" / "dm3_sng_to_rl.cmds"
 _COMMITTED_REPLAY = (REPO / "experiments" / "dm3_sng_to_rl_observability"
                      / "evidence" / "dm3_sng_to_rl.cmds")
 DEFAULT_REPLAY = str(_LIVE_REPLAY if _LIVE_REPLAY.exists() else _COMMITTED_REPLAY)
+
+
+def configure_logging() -> None:
+    level_name = os.environ.get("KOMODOBOTS_LOG_LEVEL", "WARNING").upper()
+    level = getattr(logging, level_name, logging.WARNING)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
 
 
 def build_cmd(passthrough):
@@ -73,13 +86,16 @@ def records_update_cmd(run_id):
 
 
 def main():
+    configure_logging()
     cmd = build_cmd(sys.argv[1:])
+    LOGGER.info("starting dm3 wrapper command=%s", " ".join(cmd))
     print(">>", " ".join(cmd), flush=True)
     out = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
     sys.stdout.write(out.stdout)
     sys.stderr.write(out.stderr)
     m = re.search(r"run_id=(\S+)", out.stdout)
     if not m:
+        LOGGER.error("could not parse run_id from lab output rc=%s", out.returncode)
         print("\nERROR: could not parse run_id from lab output", file=sys.stderr)
         sys.exit(1)
     run_id = m.group(1)
@@ -90,6 +106,7 @@ def main():
     print(f"\n=== build_trace {run_id} ===", flush=True)
     rc = subprocess.run([sys.executable, str(REPO / "scripts" / "build_trace.py"), run_id], cwd=REPO).returncode
     if rc != 0:
+        LOGGER.error("build_trace failed run_id=%s rc=%s", run_id, rc)
         print(f"\nERROR: build_trace failed (rc={rc}) -- no valid trace produced; "
               f"check the BSP path and that command logging was on", file=sys.stderr)
         sys.exit(rc)
@@ -97,6 +114,7 @@ def main():
     print(f"\n=== verify_route {run_id} ===", flush=True)
     rc = subprocess.run([sys.executable, str(REPO / "scripts" / "verify_route.py"), run_id], cwd=REPO).returncode
     if rc != 0:
+        LOGGER.error("verify_route failed run_id=%s rc=%s", run_id, rc)
         print(f"\nERROR: verify_route failed (rc={rc}) -- run not scored", file=sys.stderr)
         sys.exit(rc)
 
@@ -107,10 +125,12 @@ def main():
     print(f"\n=== records update {run_id} ===", flush=True)
     rc = subprocess.run(records_update_cmd(run_id), cwd=REPO).returncode
     if rc != 0:
+        LOGGER.warning("records update/publish failed run_id=%s rc=%s", run_id, rc)
         print(f"\nWARNING: records update/publish failed (rc={rc}) -- the lab "
               f"run itself is complete and scored; rebuild records later with: "
               f"python lab/server/records_build.py --rebuild --publish",
               file=sys.stderr)
+    LOGGER.info("completed dm3 wrapper run_id=%s artifacts=%s", run_id, run_dir)
 
 
 if __name__ == "__main__":

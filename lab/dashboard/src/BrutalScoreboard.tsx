@@ -24,6 +24,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KpiContext } from "./contextStore.ts";
 import type { ControlClient } from "./controlClient.ts";
+import { logError, logWarn } from "./logger.ts";
 
 // ---------------------------------------------------------------------------
 // Types — records schema (komodobots.records.v1), partial
@@ -334,7 +335,10 @@ function useScoreboardData(
           return null as VerdictsJson | null;
         }
         return r.json() as Promise<VerdictsJson>;
-      }).catch(() => null as VerdictsJson | null),
+      }).catch((err: unknown) => {
+        logWarn("verdicts feed unavailable", { url: VERDICTS_URL, error: err });
+        return null as VerdictsJson | null;
+      }),
     ])
       .then(([records, verdicts]) => {
         if (cancelled) return;
@@ -346,6 +350,7 @@ function useScoreboardData(
       })
       .catch((err: unknown) => {
         if (cancelled) return;
+        logError("scoreboard fetch failed", err, { recordsUrl: RECORDS_URL, verdictsUrl: VERDICTS_URL });
         setState((prev) => ({
           ...prev,
           loaded: true,
@@ -453,6 +458,7 @@ function CertifyHumanLevel({ context, controlClient, onSuccess }: CertifyHumanLe
         setError(res.detail ?? "certification failed");
       }
     } catch (err: unknown) {
+      logError("human-level certification request failed", err, { map: context.map, route: context.route });
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);

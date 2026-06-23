@@ -5,7 +5,7 @@
 > brief predates that reset: the "headless DM2 movement lab" first-goal and the
 > aim/Milton/teamplay non-goals below are **historical first-objective context**, not the
 > current plan. The current target is a learned move+aim+decision DM3 4on4 stand-in
-> (Milton-first). Read `docs/18` for the live goal and `docs/20_DATA_CONTRACT.md` for the data.
+> (Milton-first). Read `docs/18` for the live goal and `docs/25_DATA_CONTRACT.md` for the data.
 
 ## Primary question
 

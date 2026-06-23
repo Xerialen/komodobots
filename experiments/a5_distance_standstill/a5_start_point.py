@@ -20,6 +20,7 @@ Usage: python a5_start_point.py [--cmds <aligned.cmds>] [--bsp <ztricks.bsp>]
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -27,6 +28,8 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
