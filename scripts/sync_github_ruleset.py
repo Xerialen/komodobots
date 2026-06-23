@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import subprocess
 import sys
 from pathlib import Path
@@ -11,6 +12,7 @@ from typing import Any, Callable, Iterable
 
 DEFAULT_MANIFEST = Path(".github/rulesets/prod-dev-branch-protection.json")
 DEFAULT_REPO = "Xerialen/komodobots"
+LOGGER = logging.getLogger(__name__)
 
 
 class GhError(RuntimeError):
