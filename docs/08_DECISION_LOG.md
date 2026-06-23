@@ -3661,20 +3661,25 @@ and the Auditor role) onto `main`, resolve the `docs/20`/`docs/21` collision the
 active trunk keeps `20`/`21`; the audit additions move to `25`/`26`), and treat `main` as the sole
 integration branch going forward.
 
-The reconcile (PR #381) was **merged with a real merge commit** (`c8cca6ec`, two parents
-`ad69d5b0` + `70ea16d3`), so the full 71-commit history is reachable from `main` rather than
-flattened. The owner performed the merge directly. The `dev` branch ref is **kept as an archive**
-(not deleted) and is otherwise retired — no further work bases on it.
+Merge-method sequence (all true, in order): the `prod-dev-branch-protection` ruleset **initially
+allowed `squash` only**, which blocked a manual merge-commit; the live ruleset was then **changed to
+allow both `merge` and `squash`** (current state: `allowed_merge_methods: [merge, squash]`); PR #381
+was then **merged with a real merge commit** (`c8cca6ec`, two parents `ad69d5b0` + `70ea16d3`), so the
+full 71-commit history is reachable from `main` rather than flattened. The deterministic review-gate
+executor still uses `--squash` for ordinary `gate: ready` merges unless changed separately — so
+future single-PR merges to `main` are squashed; only this reconcile was a merge commit. The `dev`
+branch ref is **kept as an archive** (not deleted) and is otherwise retired — no further work bases on
+it.
 
 ### Alternatives Considered
 
 - **Keep the `dev`-trunk / `main`-lags model with periodic umbrella PRs.** Rejected by the owner:
   the split is what let the `docs/20` duplicate form without a git conflict, and the audit/goal-anchor
   work landed on `main` while the data work lived on `dev`, so neither branch was the whole picture.
-- **Squash-merge the reconcile through the review-gate executor.** The active
-  `prod-dev-branch-protection` ruleset allows `squash` only, and the gate executor uses `--squash`,
-  which would flatten the 71 commits into one. Not used: a merge commit was made directly instead,
-  preserving the history shape this evidence-heavy project values.
+- **Squash-merge the reconcile through the review-gate executor.** The gate executor uses `--squash`,
+  which would flatten the 71 commits into one. Not used: rather than accept that, the ruleset was
+  widened to permit `merge` and a merge commit was made, preserving the history shape this
+  evidence-heavy project values.
 - **Delete `dev` after the reconcile.** Rejected: keep it as a read-only archive of the granular
   branch history.
 
