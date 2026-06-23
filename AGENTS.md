@@ -57,6 +57,11 @@ to either implementation or review work.
 
 - **Coder Agent** - follows `coder.md`.
 - **Reviewer Agent** - follows `reviewer.md`.
+- **Auditor Agent** - follows `auditor.md`. A periodic (annual, or on major
+  data/pipeline/source change) consistency and goal-anchor audit: it proves the
+  docs, code, and data contract stay coherent and pointed at the North Star, and
+  lands scoped fixes for the drift it finds. It checks consistency across the
+  `dev`/`main` pair, not just one branch. It does not implement feature work.
 - **Merge executor** - deterministic GitHub Action; it does not implement or
   review.
 
