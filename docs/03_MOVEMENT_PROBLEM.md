@@ -2,6 +2,11 @@
 
 Status: living document.
 
+> **Program of record:** `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` (greenfield, 2026-06-16)
+> supersedes the staged S0–S7 / SNG track. The movement framing below remains valid as
+> problem analysis, but the staged-program references are historical — treat `docs/18` as the
+> current plan.
+
 ## Core problem
 
 The immediate challenge is not route learning.

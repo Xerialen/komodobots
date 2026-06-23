@@ -20,8 +20,8 @@
 Input is a 6-dim **state-only, velocity-relative, map-agnostic** feature vector (`build_dataset.py:14-23`, `train.py:37`): `["hspeed/320","vz/320","lvm_sin","lvm_cos","moving","pitch/90"]`, where `lvm` is the signed angle between view-yaw and velocity-heading (the QW air-accel control axis), encoded as sin/cos so it wraps safely.
 
 **Explicitly out of scope (Stage-3+, do not build here):**
-- **Aim / view control.** The policy outputs **move only**. View-yaw enters as an *input feature* (`lvm`) and is **replayed from the human** in both gates and in the live seam (`docs/15_LIVE_VALIDATION_LOOP.md:79-88`). Learned view-yaw is AIM, deferred to Stage 3.
-- **View/aim believability coupling** (DeepFrag's primary bot-detector) — a **Stage-3 acceptance metric, not a v1 gate** (`docs/15:84-88`). It only bites once synthesized view exists.
+- **Aim / view control.** The policy outputs **move only**. View-yaw enters as an *input feature* (`lvm`) and is **replayed from the human** in both gates and in the live seam (`docs/19_ARCHITECTURE_AND_GOTCHAS.md`). Learned view-yaw is AIM, deferred to Stage 3.
+- **View/aim believability coupling** (DeepFrag's primary bot-detector) — a **Stage-3 acceptance metric, not a v1 gate** (`docs/19_ARCHITECTURE_AND_GOTCHAS.md`). It only bites once synthesized view exists.
 - **DECIDE / economy, team coordination, learned multi-bot** (`references/12_DM3_4ON4_STANDIN_PROGRAM.md` §5, §7 Stages 4–5).
 - **The cracked bhop formula.** It will later slot into the `airlaw_action` seam; do **not** block on it.
 - **Architecture changes** (GRU variant) — a documented follow-up only if closed-loop later shows the MLP needs phase memory (`train.py:10-12`).

@@ -4,8 +4,9 @@
 > scout + 3 independent design lenses (POV-internal / POV×MVD-sync / distributional) →
 > adversarial judge per design → synthesis. Scores: POV-internal **34/50**, POV×MVD
 > **34/50**, distributional **29/50**. The synthesis agent verified every load-bearing
-> claim against the actual code before writing this. Companion to
-> `docs/12_DM3_4ON4_STANDIN_PROGRAM.md`.
+> claim against the actual code before writing this. Program of record:
+> `docs/18_BENCH_ITERATED_BOT_PROGRAM.md`; earlier staged plan kept for background at
+> `references/12_DM3_4ON4_STANDIN_PROGRAM.md`.
 
 ## Context — why this exists
 
@@ -176,7 +177,7 @@ aren't sanely decodable, the POV-internal spine fails in hours, before any expen
 - `scripts/probe_qwd_route_applicability.py` — `PF_*` self-decode to extend; **byte-count gate at line 333 must be replaced**.
 - `engine/demoparser/src/mvd/messages.rs` — portable `EntityUpdate`/`PacketEntities` primitives (~lines 113-160, 740-790); `parse_playerinfo` at 596 is `DF_*`-only, **NOT** portable.
 - `experiments/stage2/move-bc-train/closed-loop-ceiling-diagnosis.md` — the 88.9 qu metric + Step-2 success criterion.
-- `docs/12_DM3_4ON4_STANDIN_PROGRAM.md` — §5 contract, G-M1 distributional gate, §6 AIM-as-outcome-distribution.
+- `references/12_DM3_4ON4_STANDIN_PROGRAM.md` — §5 contract, G-M1 distributional gate, §6 AIM-as-outcome-distribution (background; program of record is `docs/18_BENCH_ITERATED_BOT_PROGRAM.md`).
 
 
 ## 6. Codex review reconciliation (incorporated 2026-06-14)
