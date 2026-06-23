@@ -3661,23 +3661,22 @@ and the Auditor role) onto `main`, resolve the `docs/20`/`docs/21` collision the
 active trunk keeps `20`/`21`; the audit additions move to `25`/`26`), and treat `main` as the sole
 integration branch going forward.
 
-The merge is **squash-merged** through the existing review-gate executor — the active
-`prod-dev-branch-protection` ruleset allows `squash` only and the owner accepted squash rather than
-relax the ruleset. The granular 71-commit history is therefore **archived on the `dev` branch ref**,
-which is intentionally **not deleted**; `main` records the reconcile as one squashed commit. `dev` is
-otherwise retired (no further work bases on it).
+The reconcile (PR #381) was **merged with a real merge commit** (`c8cca6ec`, two parents
+`ad69d5b0` + `70ea16d3`), so the full 71-commit history is reachable from `main` rather than
+flattened. The owner performed the merge directly. The `dev` branch ref is **kept as an archive**
+(not deleted) and is otherwise retired — no further work bases on it.
 
 ### Alternatives Considered
 
 - **Keep the `dev`-trunk / `main`-lags model with periodic umbrella PRs.** Rejected by the owner:
   the split is what let the `docs/20` duplicate form without a git conflict, and the audit/goal-anchor
   work landed on `main` while the data work lived on `dev`, so neither branch was the whole picture.
-- **Relax the `prod-dev-branch-protection` ruleset to allow a real merge commit.** Considered, so the
-  71 commits would appear individually on `main`. Rejected by the owner: not worth changing a live
-  branch-protection rule for one reconcile; the granular history is preserved on the retained `dev`
-  ref instead.
-- **Delete `dev` after the squash.** Rejected: that would orphan the only copy of the granular
-  history. `dev` is kept as a read-only archive.
+- **Squash-merge the reconcile through the review-gate executor.** The active
+  `prod-dev-branch-protection` ruleset allows `squash` only, and the gate executor uses `--squash`,
+  which would flatten the 71 commits into one. Not used: a merge commit was made directly instead,
+  preserving the history shape this evidence-heavy project values.
+- **Delete `dev` after the reconcile.** Rejected: keep it as a read-only archive of the granular
+  branch history.
 
 ### Evidence
 
