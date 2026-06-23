@@ -21,7 +21,7 @@ that:
 
 THE FEATURES (state-only, velocity-relative, map-agnostic -- never derived from
 the action being predicted, so the policy cannot cheat). See
-docs/13_FIRST_DM3_TRAINING_RUN.md and docs/18_BENCH_ITERATED_BOT_PROGRAM.md:
+docs/24_FIRST_DM3_TRAINING_RUN.md and docs/18_BENCH_ITERATED_BOT_PROGRAM.md:
 
   hspeed/320          horizontal speed, maxspeed-normalised
   vz/320              vertical velocity, maxspeed-normalised
