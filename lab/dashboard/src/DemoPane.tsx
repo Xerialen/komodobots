@@ -39,6 +39,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { logError } from "./logger.ts";
 
 // --------------------------------------------------------------------------
 // Public types
@@ -339,6 +340,7 @@ function RecordsTab({
         setLoading(false);
       })
       .catch((e: unknown) => {
+        logError("records feed fetch failed in demo pane", e, { url: RECORDS_URL });
         setError(String(e instanceof Error ? e.message : e));
         setLoading(false);
       });
@@ -505,6 +507,7 @@ function LabDemosTab({
         setLoading(false);
       })
       .catch((e: unknown) => {
+        logError("lab demos feed fetch failed in demo pane", e, { url: DEMOS_V2_URL });
         setError(String(e instanceof Error ? e.message : e));
         setLoading(false);
       });

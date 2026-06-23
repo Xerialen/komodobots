@@ -20,6 +20,7 @@ No server, no in-game waypoint editor required.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import math
 import sys
@@ -27,6 +28,8 @@ from pathlib import Path
 from typing import Iterable
 
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MAX_MARKERS = 180
 

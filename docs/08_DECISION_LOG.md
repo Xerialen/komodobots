@@ -2822,7 +2822,7 @@ available for reruns, while a completed execution is recorded as a test run.
 - `AGENTS.md` now refers to Coder Agent and Reviewer Agent rather than fixed
   tools.
 - `CLAUDE.md` and `codex.md` are thin role-selection adapters.
-- `docs/09_TEST_CASES_AND_EVIDENCE.md` defines user stories, durable test cases,
+- `docs/22_TEST_CASES_AND_EVIDENCE.md` defines user stories, durable test cases,
   test runs, evidence, statuses, IDs, and agent usage.
 - `docs/10_AGENT_WEB_TESTING.md` defines real-browser validation expectations
   for web/UI changes.
@@ -2861,7 +2861,7 @@ skills. Their reusable guidance lives in the vault at
 
 KomodoBots keeps the concrete BotLab rituals in project docs:
 
-- `docs/09_TEST_CASES_AND_EVIDENCE.md` for durable test cases, contract-test
+- `docs/22_TEST_CASES_AND_EVIDENCE.md` for durable test cases, contract-test
   triggers, and live-state reconciliation.
 - `docs/10_AGENT_WEB_TESTING.md` for browser evidence, GLB/runtime probes, QTV
   state checks, and records/verdicts fetch behavior.
@@ -3217,6 +3217,130 @@ Revisit if timeline API event names change, if GitHub stops exposing
 10-minute schedule reconciler is removed and the event path alone becomes
 proven reliable.
 
+## ADR — Adopt the relational data architecture (Strategy A)
+
+**Date:** 2026-06-18 · **Status:** proposed (pending three-agent review) · **Coder:** Claude
+
+### Context
+
+The lab needs a machine-learnable substrate: a stable schema for maps, items, the nav
+graph, demos/episodes, per-tick multi-actor state, and the recovered (state, action)
+labels — feeding a normalized feature pipeline. The blocker is the **stdlib-only merge
+gate** (`pr-tests.yml`, no `pip install`): a DuckDB/Parquet/torch pipeline cannot live
+where the unit suite imports it. 4on4 is the first target (≈740k actor-tick rows and
+≈5.2M visibility rows per demo — genuine Parquet/columnar scale).
+
+### Decision
+
+**Strategy A — split by dependency, not by concern:**
+
+- **In-tree, stdlib-only (CI-gated):** a SQLite catalog (`scripts/catalog_schema.sql`,
+  `catalog_load.py`), a shared pure-stdlib feature-math package (`scripts/features/`,
+  used by *both* the offline build and the live bot), and stdlib validators
+  (`scripts/validate_catalog.py`). 1:1 tests per repo convention.
+- **Out-of-tree (`ml/`, WSL2):** DuckDB/pyarrow/pandera/torch feature build + training,
+  with its own `requirements.txt` and a **separate, non-gating** `ml-tests.yml`.
+
+The merge gate stays dependency-free; the heavy stack never threatens it; the same
+feature transforms run at train and inference time (parity).
+
+### Alternatives rejected
+
+- *Everything in-tree with DuckDB* — breaks the stdlib gate. Non-starter.
+- *Everything out-of-tree* — the live bot still needs the feature math in-tree; a split
+  is unavoidable, so make it clean.
+- *Relax the gate to allow pip* — changes the lab's core governance for one feature. No.
+
+### Evidence
+
+Grounded in a real fixture (`data/fixtures/dm3_milton_211436`, gameId 211436,
+Book 294–3b 80). 24 in-tree stdlib tests pass; catalog round-trips reproduce the
+294–80 score and per-player frags; observed item respawns (RA/YA 20s, Quad 60s,
+Pent/Ring 300s, MH dynamic) are folded into the item catalog; the Frogbot dm3 graph
+(299 markers / 1231 edges) loads. See `WORKED-EXAMPLE.md`.
+
+### Consequences
+
+- New `data/catalog/` + `data/fixtures/` trees; one path constant per in-tree test.
+- A second (informational) CI surface; **must not** be a required check.
+- `bsp_geom.py` (PVS/LOS) remains a separate task; the schema reserves its columns.
+
+---
+
+## Decision
+
+Broad dm3 behavioral-cloning track on `dev` (enemy/team-aware), distinct from `main`'s move-only line.
+
+### Date
+
+2026-06-19
+
+### Decision
+
+Pursue a **broad, enemy/team-aware** dm3 4on4 behavioral-cloning bot on `dev`, built on the
+Strategy-A relational catalog — full behavior, not movement-only. `main` (remote origin) already
+ships a **move-only** learned-MOVE program (a MoveMLP over a 6-feature self world-view, served live
+through a C "mode 30" KTX patch + a `/dev/shm` policy sidecar, `--live-leap` on the leap bots, with a
+golden-vector train/serve parity gate — the `docs/18` bench-iterated program). That line is **left
+untouched**; this is a separate, broader track.
+
+The policy input is the POMDP **agent_observation**: a `.qwd` client demo records `svc_playerinfo`
+for every player in the recorder's PVS — the other players the human actually saw — which is the
+masked view the human acted on, and therefore the correct behavioral-cloning input. The omniscient
+all-player **world_state** (from `.mvd` via `mvd_analyzer`) is deferred as a critic/RL source, as are
+PVS/LOS masking (`bsp_geom`) and audio cues.
+
+Execution is **parallel agent waves**: each unit is a worktree-isolated background coder; the
+orchestrator (Claude) first-peer-reviews — re-running the checks, not trusting the report — and opens
+a PR against `dev`; an independent cross-model `gate: ready` merges (Claude never self-merges). Live
+game-server runs stay human-gated; GPU training on host `pinnacle` is autonomous.
+
+### Alternatives Considered
+
+- Continue the move-only umbrella #264 plan as written — rejected: it was authored largely unaware of
+  `main`'s already-built program, so most of its tickets were done or obsolete on their own terms.
+- Reconstruct omniscient state by joining multiple `.qwd` POVs of one match — impossible: the corpus
+  has only one POV per match (owner-confirmed).
+- Train on `.mvd` omniscient world_state directly — no human dm3 4on4 `.mvd` exists; the available
+  `.mvd` are bot-generated / other matches, which would teach bot behavior, not human believability.
+- Train on self-POV only (movement + buttons) — rejected as effectively move-only, which `main`
+  already has.
+- Keep the serial one-coder-at-a-time loop — superseded by parallel agent waves at the owner's request.
+
+### Evidence
+
+Foundation landed and first-peer-reviewed (orchestrator re-ran the ETLs/tests, not just trusting the
+coder reports): P1 `.qwd`→catalog self-state (PR #295); P2 observed-others→`actor_ticks` =
+agent_observation (PR #296; verified 124,823 `actor_ticks` on a 2-demo slice, ~8 in-PVS others, 79% of
+steps carry ≥1 observed other). Wave 1: FEAT agent_observation features + train-only normalization
+(PR #298; 18 transform tests, byte-identical refit on exactly the train split); TRAINER broad
+enemy-aware BC trainer in `ml/` (PR #297; masked-DeepSets pool over observed-others, 5 discrete heads
+incl. jump/attack, CPU smoke reproducible and beats baseline); GMV believability battery (PR #299;
+G-MV1 discriminates — real humans pass at ~51° median yaw-vs-velocity, a synthetic face-and-run fails
+at 0°).
+
+### Expected Consequences
+
+- The Strategy-A catalog/`ml` pipeline is the **foundation** of this track, not obsolete.
+- Stacked PRs on `dev` (#295→#296→FEAT→RECONCILE; TRAINER and GMV branch off `dev`).
+- A FEAT↔TRAINER shard-schema contract (the RECONCILE bridge joins catalog `actions`→`act` labels and
+  trains a real `(obs, act)` shard end-to-end) gates the first `pinnacle` GPU training run.
+- Acceptance still routes through the existing gates: docs/16 G-MV believability, docs/12 M/E/A/P/T
+  competence, docs/15 live ladder R2–R5 (human-gated).
+- Orchestration state is durable outside the repo: `~/.claude/ml-loop-runbook.md`,
+  `~/.claude/ml-loop-state.json`, and the `broad-dm3-training-program` memory.
+
+### Revisit Conditions
+
+- If a human dm3 4on4 `.mvd` corpus appears, revisit adding the omniscient world_state for a critic/RL
+  stage.
+- If the broad policy cannot beat `main`'s move-only line on believability/competence, fall back to or
+  merge with that line.
+- If parallel-wave coordination (shard contracts, stacked PRs) costs more than it saves, revert to a
+  serial loop.
+
+---
+
 ## Auto-merge base `dev`, not just `main`
 
 ### Date
@@ -3275,11 +3399,11 @@ the two long-lived branches, `main` and `dev`, and manage it with
 `scripts/sync_github_ruleset.py`.
 
 The ruleset targets `refs/heads/main` and `refs/heads/dev`, is active, has no bypass actors, blocks
-branch deletion and force-pushes, requires changes to arrive through pull requests, allows only
-squash merges, requires resolved review threads, and requires the `unittest` check from the `PR
-Tests` workflow (`GitHub Actions` integration id `15368`). The status-check rule deliberately keeps
-`strict_required_status_checks_policy=false` so the custom merge executor does not need to update a
-PR branch after every unrelated base-branch change before merging.
+branch deletion and force-pushes, requires changes to arrive through pull requests, allows both
+merge commits and squash merges, requires resolved review threads, and requires the `unittest`
+check from the `PR Tests` workflow (`GitHub Actions` integration id `15368`). The status-check rule
+deliberately keeps `strict_required_status_checks_policy=false` so the custom merge executor does
+not need to update a PR branch after every unrelated base-branch change before merging.
 
 The sync script also enforces GitHub's `deleteBranchOnMerge=true` repository setting, because
 Benjamin's branch-hygiene goal is `main` + `dev` + one or two active development heads, with feature
@@ -3301,7 +3425,9 @@ branches removed after merge.
   branch `main`.
 - Live application on 2026-06-23: `python scripts/sync_github_ruleset.py --repo
   Xerialen/komodobots --apply` created ruleset `prod-dev-branch-protection` as id `18046253`;
-  a follow-up `--check` reported `GitHub branch ruleset matches manifest.`
+  after PR #381 needed a real reconcile merge commit, the live ruleset and manifest allow
+  `merge` as well as `squash`; a follow-up `--check` reported
+  `GitHub branch ruleset matches manifest.`
 - GitHub documentation confirms repository rulesets can target branches, require pull requests,
   require status checks, block force-pushes, and restrict deletions for public repositories on GitHub
   Free.
@@ -3313,10 +3439,187 @@ branches removed after merge.
 Direct pushes, force-pushes, and deletion of `main`/`dev` are blocked by GitHub once the manifest is
 applied. Normal agent PRs still flow through the existing layered gate: `PR Tests` plus the
 SHA-bound `gate: ready` review verdict, then the deterministic merge executor squash-merges and
-deletes the feature branch.
+deletes the feature branch. Manual reconcile PRs can still use a merge commit when preserving branch
+history is the explicit merge-safety requirement.
 
 ### Revisit Conditions
 
 Revisit if the repo becomes private again without a plan that supports repository rulesets, if the
-required `unittest` check is renamed, if a third long-lived base branch is introduced, or if strict
-up-to-date checks become worth the added branch-update churn.
+required `unittest` check is renamed, if `dev` is fully retired and should be removed from the
+protected ref set, if a third long-lived base branch is introduced, or if strict up-to-date checks
+become worth the added branch-update churn.
+
+---
+
+## Make the review-gate cooldown event-driven, with cron as backup
+
+### Date
+
+2026-06-19
+
+### Decision
+
+The merge executor still requires the `gate: ready` label to be stable for 300 seconds, but a
+label/CI event that arrives inside that cooldown now sleeps once, then re-reads GitHub state and
+re-runs the full gate for the same PR. The 5-minute cron remains as best-effort reconciliation
+for missed events, but it is no longer the only mechanism that can merge after cooldown.
+
+Keep the same executor fix on both `main` and `dev`: `schedule` and `workflow_run` use the default
+branch copy, while `pull_request:labeled` for `dev` PRs can use the `dev` workflow copy.
+
+### Evidence
+
+- During the PR-flow monitor on 2026-06-19, #310 and #311 both reached `gate: ready` with green
+  checks, but their ready-label event runs skipped inside the 300-second cooldown and no cron run
+  arrived before manual fallback was required.
+- `gh run list --workflow "Review Gate Merge" --event schedule` showed scheduled runs arriving
+  hours apart despite `cron: "*/5 * * * *"`; GitHub schedule is best-effort in practice.
+- #311's ready-label run used the stale `dev` workflow copy and soft-skipped `base is 'dev'`,
+  proving the dev-base label path is not fixed by merging the executor change only to `main`.
+
+### Consequences
+
+Future `gate: ready` label events can carry themselves through the cooldown without waiting for
+an unreliable cron tick. The post-sleep recursive evaluation re-fetches PR state, labels, comments,
+timeline, checks, and head SHA before merging, preserving the existing stale-SHA and later-BLOCK
+protections. The job timeout increases to 10 minutes to cover the maximum 300-second sleep plus
+revalidation work.
+
+### Revisit Conditions
+
+Revisit if GitHub starts delivering cron with strict 5-minute reliability, if the sleep makes the
+Actions queue noisy, or if the branch model changes so `pull_request` events no longer need a `dev`
+copy of the workflow.
+
+## Adopt the dm3 route taxonomy + 5-phase route-segmented BC program
+
+### Date
+
+2026-06-20
+
+### Decision
+
+2026-06-20: Adopted the dm3 route taxonomy + 5-phase route-segmented BC program (issues #315-327). See docs/notes/dm3-route-taxonomy.md.
+
+---
+
+## RL-on-speed is the matched lever for closed-loop bunnyhop speed; over-press cracked, cadence the residual
+
+### Date
+
+2026-06-22
+
+### Decision
+
+Adopt RL-on-speed (`ml/rl_onspeed.py`, PPO over the offline pmove sim with a self-yaw action
+head + a mechanism-gated speed reward) as the lever for the closed-loop bunnyhop-SPEED skill,
+after the supervised behavioral-cloning family was exhausted on it (BC -> reweight ->
+GRU-sequence -> DAgger, per #353). RL solved the central failure: the closed-loop forward
+over-press (bulldozing, ~0.83-0.96) that killed the supervised family is now landed in the
+human band (best ckpt `rl_round6_r4init.pt`: fwd-press 0.243, M1 273 in the 252-316 band,
+launch PASS, G-MV1). One residual remains diagnosed (the G-MV3 strafe-cadence rhythm
+co-occurring with launch+speed in one snapshot) and is deferred to a different mechanism
+(below), owner-gated.
+
+### Alternatives Considered
+
+- **More supervised tuning (stay in the BC family).** Rejected: BC/reweight/GRU-sequence/DAgger
+  all left the over-press at ~0.83-1.0 closed-loop; per-state supervised cloning cannot
+  produce the long-horizon emergent bunnyhop-speed skill (#353 conclusion).
+- **A hand-set believability THRESHOLD reward term.** Dropped per the STEP-0 audit (it was
+  fooled by replayed aim and failed to separate over-press cs10 from humans); replaced by a
+  KL-anchor to the BC-pretrained believable-aim policy (a sound distribution-match prior),
+  with AMP reserved as the believability upgrade iff the anchor does not hold G-MV1.
+- **A "speed-however-achieved" reward.** Rejected after round 4 proved it makes over-press and
+  speed anti-correlated (in-band speed only reachable by bulldozing); replaced by the
+  mechanism-gated reward (credit speed only via perpendicular air-strafe), which broke the
+  anti-correlation in round 5.
+- **A per-tick cadence-flip reward to close M6.** Found insufficient (rounds 7-8 + a seed
+  sweep): the argmax side-flip that makes cadence steals the sustained air-strafe that launch
+  and the speed floor need. Deferred to a trajectory/multi-tick cadence credit OR AMP.
+
+### Evidence
+
+8 RL rounds, each raw-validated from the SAME goal-conditioned gate harness
+(`ml/eval_broad_closedloop.py` + `ml/eval_broad_dryroute.py`, post-#355 goal-injection fix);
+full vectors in `/home/ubuntu/.claude/overnight-rl-state.json` `runs[]`, narrative in
+`docs/notes/rl-onspeed-results.md` and `docs/07_FINDINGS_LOG.md` (2026-06-22). The over-press
+solve (round 6) and the reward-artifact diagnosis (rounds 4-5) are the load-bearing results;
+the cadence residual was reproduced across 8 candidates + a seed sweep.
+
+### Expected Consequences
+
+`ml/rl_onspeed.py` lands as reusable RL infrastructure (the PPO loop + self-yaw seam +
+mechanism-gated reward + eval-integrity-bound selection) plus the result record. This PR does
+NOT productionize a policy: the checkpoints stay on pinnacle (not in git), there is no
+live-server validation, and the cadence rhythm is still out of band with launch+speed.
+
+### Revisit Conditions
+
+Revisit when pursuing the cadence residual (a trajectory/multi-tick cadence credit or AMP — a
+fresh RL sub-track, owner-gated), when productionizing a checkpoint (needs live-server sign-off
+under the do-not-harm rules), or if a future eval change alters the goal-conditioned gate path
+the result rests on.
+
+---
+
+## Phase-1 re-validation gates the RL-on-speed numbers; A/B/C forward fork; close DAgger (#354)
+
+### Date
+
+2026-06-22
+
+### Decision
+
+Treat the overnight 8-round RL-on-speed magnitudes (the prior decision above, landed in #356)
+as **INDICATIVE, not final**, and make a clean **Phase-1 re-validation** the agreed
+prerequisite before they are enshrined or used to pick the next direction: re-eval the
+checkpoint field under the now-fixed eval code, and optionally re-train. Only after that
+re-validation does the owner choose the **forward fork**: **(A)** chase the cadence residual
+via a new RL mechanism (trajectory/multi-tick cadence credit or AMP); **(B)** productionize/ship
+the best checkpoint (`rl_round6_r4init.pt`), additionally gated on live-server sign-off; or
+**(C)** broaden the thin dm3 corpus. The fork is **not yet chosen** — it is owner-gated.
+Separately, **close #354** (the Claude DAgger expert branch / evidence tooling): DAgger is a
+ruled-out negative result, not an active line.
+
+### Alternatives Considered
+
+- **Treat the overnight magnitudes as final and pick the fork now.** Rejected: the numbers
+  predate three reviewer-found train/eval bugs (below), so the exact magnitudes warrant a clean
+  re-eval before they gate a direction; the *directional* over-press result is the load-bearing
+  claim and is unlikely to be a pure artifact, but a magnitude is not a direction.
+- **Keep #354 open as an active DAgger line.** Rejected: the DAgger family is exhausted (the
+  prior decision + #353), the PR is `gate: blocked` and conflicting, and leaving it open implies
+  an active track that does not exist. Closing it records the negative result without churn.
+- **Productionize the best checkpoint now (fork B) without re-validation.** Rejected: the
+  checkpoints are offline pinnacle artifacts with no live-server validation, and the headline
+  magnitudes are not yet re-validated under the fixed eval code.
+
+### Evidence
+
+- Three train/eval bugs found by the cross-model reviewer (Codex) on the RL line and fixed +
+  merged in #356: a PPO log-prob (joint-ratio) head mismatch (`old_logp` included the attack
+  head, `new_logp` did not -> unchanged-policy ratio `1/p_attack`); a closed-loop policy-self-yaw
+  bug feeding `yaw_rate == 0` after tick 0; and an uninitialized `_prev_goal_dist` on reset.
+  Because the 8-round numbers were produced before these fixes, they are indicative pending a
+  clean re-eval. See `docs/07_FINDINGS_LOG.md` (2026-06-22 caveat) and
+  `docs/notes/rl-onspeed-results.md`.
+- The cadence residual (G-MV3 strafe-flip rhythm co-occurring with launch+speed) was reproduced
+  across 8 candidates + a seed sweep, establishing it as a real tension that a per-tick flip
+  reward cannot close — hence fork (A) needs a different mechanism.
+- #354 state: open, `gate: blocked`, mergeable = CONFLICTING — a parked branch, not an active
+  review.
+
+### Expected Consequences
+
+The RL result is reported with its re-validation caveat everywhere it appears (roadmap, findings
+log, AGENTS hypothesis). The next GPU action on this line is the Phase-1 re-validation, not a new
+training direction. #354 is closed (negative result preserved in the decision/findings logs). No
+checkpoint is productionized until both the re-validation and live-server sign-off pass.
+
+### Revisit Conditions
+
+Revisit once the Phase-1 re-validation completes (the magnitudes become final and the owner picks
+A/B/C), if re-validation overturns the directional over-press result (would reopen the
+supervised-vs-RL question), or if a decision is made to reopen DAgger (it should not be, absent a
+new mechanism that changes its exhausted conclusion).

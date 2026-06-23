@@ -50,6 +50,7 @@ Pure-stdlib + numpy. Heavy compute in WSL2.
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import os
@@ -60,6 +61,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[3]
 for _p in (str(REPO_ROOT), str(REPO_ROOT / "scripts")):
     if _p not in sys.path:

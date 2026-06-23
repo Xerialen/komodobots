@@ -1,0 +1,20 @@
+{
+  "_source": "getDemoInfo (KTX authoritative scoreboard); full nested weapon/accuracy detail re-derivable offline via getDemoInfo on the cached demo",
+  "date": "2026-04-19 22:06:06 +0200",
+  "map": "dm3",
+  "mode": "team",
+  "duration_s": 1200,
+  "teams": ["Book", "3b"],
+  "team_frags": { "Book": 294, "3b": 80 },
+  "players": [
+    { "name": "Milton",  "team": "Book", "frags": 93, "kills": 96, "deaths": 21, "tk": 3, "suicides": 0, "spawn_frags": 8,  "dmg_given": 10341, "dmg_taken": 5615,  "speed_avg": 310.04, "speed_max": 1587.65, "spree_max": 54, "quad_frags": 8, "rl_acc": {"attacks": 190, "hits": 15, "real": 93}, "lg_acc": {"attacks": 228, "hits": 79} },
+    { "name": "wimsuit", "team": "Book", "frags": 68, "kills": 69, "deaths": 30, "tk": 0, "suicides": 1, "spawn_frags": 13, "dmg_given": 7965,  "dmg_taken": 6343,  "speed_avg": 303.17, "speed_max": 1030.00, "spree_max": 22, "quad_frags": 5, "rl_acc": {"attacks": 88,  "hits": 12, "real": 61}, "lg_acc": {"attacks": 70,  "hits": 25} },
+    { "name": "sae",     "team": "Book", "frags": 67, "kills": 70, "deaths": 34, "tk": 1, "suicides": 2, "spawn_frags": 10, "dmg_given": 8330,  "dmg_taken": 6459,  "speed_avg": 296.11, "speed_max": 1218.11, "spree_max": 17, "quad_frags": 4, "rl_acc": {"attacks": 131, "hits": 20, "real": 78}, "lg_acc": {"attacks": 32,  "hits": 12} },
+    { "name": "stepcop", "team": "Book", "frags": 66, "kills": 68, "deaths": 15, "tk": 2, "suicides": 0, "spawn_frags": 14, "dmg_given": 8817,  "dmg_taken": 4753,  "speed_avg": 275.55, "speed_max": 977.32,  "spree_max": 26, "quad_frags": 6, "rl_acc": {"attacks": 97,  "hits": 9,  "real": 40}, "lg_acc": {"attacks": 240, "hits": 90} },
+    { "name": "gLAd",    "team": "3b",   "frags": 26, "kills": 27, "deaths": 61, "tk": 1, "suicides": 0, "spawn_frags": 2,  "dmg_given": 5780,  "dmg_taken": 7414,  "speed_avg": 253.51, "speed_max": 1657.91, "spree_max": 8,  "quad_frags": 0, "rl_acc": {"attacks": 81,  "hits": 10, "real": 35}, "lg_acc": {"attacks": 60,  "hits": 15} },
+    { "name": "gor",     "team": "3b",   "frags": 26, "kills": 30, "deaths": 76, "tk": 3, "suicides": 1, "spawn_frags": 3,  "dmg_given": 5630,  "dmg_taken": 8264,  "speed_avg": 260.42, "speed_max": 990.93,  "spree_max": 4,  "quad_frags": 1, "rl_acc": {"attacks": 34,  "hits": 2,  "real": 18}, "lg_acc": {"attacks": 104, "hits": 39} },
+    { "name": "Zepp",    "team": "3b",   "frags": 18, "kills": 21, "deaths": 88, "tk": 2, "suicides": 1, "spawn_frags": 1,  "dmg_given": 6520,  "dmg_taken": 10316, "speed_avg": 268.93, "speed_max": 1008.28, "spree_max": 5,  "quad_frags": 1, "rl_acc": {"attacks": 64,  "hits": 9,  "real": 34}, "lg_acc": {"attacks": 61,  "hits": 26} },
+    { "name": "SS",      "team": "3b",   "frags": 10, "kills": 13, "deaths": 89, "tk": 2, "suicides": 1, "spawn_frags": 2,  "dmg_given": 5240,  "dmg_taken": 9459,  "speed_avg": 260.34, "speed_max": 1068.45, "spree_max": 2,  "quad_frags": 0, "rl_acc": {"attacks": 20,  "hits": 2,  "real": 10}, "lg_acc": {"attacks": 86,  "hits": 33} }
+  ],
+  "_reconcile": "Sum Book frags 93+68+67+66 = 294; sum 3b 26+26+18+10 = 80. Matches overview team_frags and the 294-80 result."
+}

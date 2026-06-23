@@ -14,12 +14,15 @@ the Step-0 geometry sim.
 .cmds columns: msec ox oy oz vx vy vz pitch yaw roll fwd side up buttons
 Dependency-free (stdlib only).
 """
+import logging
 import argparse
 import json
 import math
 import sys
 
 
+
+LOGGER = logging.getLogger(__name__)
 def load_cmds(path):
     frames = []
     with open(path) as f:

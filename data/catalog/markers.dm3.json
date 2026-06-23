@@ -1,0 +1,3107 @@
+{
+  "schema": "komodobots.markers.v2",
+  "map": "dm3",
+  "_purpose": "Frogbot navigation markers for dm3 (CreateMarker static origins + referenced ids). Source rows for the markers table.",
+  "_source": "parse_bot_map() on KTX dm3.bot (resources/example-configs/ktx/bots/maps/dm3.bot)",
+  "_invariant": "Attribution assumes logged marker->fb.index + 1 matches the .bot file's 1-based marker ids. CreateMarker ids are assigned by file order; item/runtime marker ids can be referenced by route commands without static origins.",
+  "marker_count": 299,
+  "static_create_marker_count": 234,
+  "markers_without_static_origin": [
+    235,
+    236,
+    237,
+    238,
+    239,
+    240,
+    241,
+    242,
+    243,
+    244,
+    245,
+    246,
+    247,
+    248,
+    249,
+    250,
+    251,
+    252,
+    253,
+    254,
+    255,
+    256,
+    257,
+    258,
+    259,
+    260,
+    261,
+    262,
+    263,
+    264,
+    265,
+    266,
+    267,
+    268,
+    269,
+    270,
+    271,
+    272,
+    273,
+    274,
+    275,
+    276,
+    277,
+    278,
+    279,
+    280,
+    281,
+    282,
+    283,
+    284,
+    285,
+    286,
+    287,
+    288,
+    289,
+    290,
+    291,
+    292,
+    293,
+    294,
+    295,
+    296,
+    297,
+    298,
+    299
+  ],
+  "markers": [
+    {
+      "marker_id": 1,
+      "origin": [
+        1615.0,
+        263.0,
+        -213.0
+      ],
+      "zone": 1,
+      "goal": 17,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 2,
+      "origin": [
+        666.0,
+        32.0,
+        -182.0
+      ],
+      "zone": 4,
+      "goal": 16,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 3,
+      "origin": [
+        1970.0,
+        428.0,
+        -88.0
+      ],
+      "zone": 7,
+      "goal": 15,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 4,
+      "origin": [
+        1740.0,
+        440.0,
+        -88.0
+      ],
+      "zone": 12,
+      "goal": 14,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 5,
+      "origin": [
+        1982.0,
+        45.0,
+        -168.0
+      ],
+      "zone": 12,
+      "goal": 14,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 6,
+      "origin": [
+        1984.0,
+        -108.0,
+        -168.0
+      ],
+      "zone": 13,
+      "goal": 13,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 7,
+      "origin": [
+        1360.0,
+        -33.0,
+        -24.0
+      ],
+      "zone": 16,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 8,
+      "origin": [
+        1839.0,
+        -33.0,
+        -168.0
+      ],
+      "zone": 16,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 9,
+      "origin": [
+        1979.0,
+        221.0,
+        -88.0
+      ],
+      "zone": 16,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 10,
+      "origin": [
+        1959.0,
+        -425.0,
+        -24.0
+      ],
+      "zone": 4,
+      "goal": 12,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 11,
+      "origin": [
+        1974.0,
+        -264.0,
+        -88.0
+      ],
+      "zone": 16,
+      "goal": 11,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 12,
+      "origin": [
+        1837.0,
+        -444.0,
+        -24.0
+      ],
+      "zone": 15,
+      "goal": 1,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 13,
+      "origin": [
+        1132.0,
+        -645.0,
+        -24.0
+      ],
+      "zone": 13,
+      "goal": 1,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 14,
+      "origin": [
+        1088.0,
+        -30.0,
+        -168.0
+      ],
+      "zone": 13,
+      "goal": 23,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 15,
+      "origin": [
+        1620.0,
+        -32.0,
+        -168.0
+      ],
+      "zone": 15,
+      "goal": 23,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 16,
+      "origin": [
+        1626.0,
+        -448.0,
+        -24.0
+      ],
+      "zone": 15,
+      "goal": 24,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 17,
+      "origin": [
+        1241.0,
+        -32.0,
+        -168.0
+      ],
+      "zone": 15,
+      "goal": 10,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 18,
+      "origin": [
+        1446.0,
+        -375.0,
+        -24.0
+      ],
+      "zone": 15,
+      "goal": 10,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 19,
+      "origin": [
+        1371.0,
+        -187.0,
+        -24.0
+      ],
+      "zone": 14,
+      "goal": 24,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 20,
+      "origin": [
+        819.0,
+        897.0,
+        -274.0
+      ],
+      "zone": 14,
+      "goal": 9,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 21,
+      "origin": [
+        631.0,
+        919.0,
+        24.0
+      ],
+      "zone": 14,
+      "goal": 23,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 22,
+      "origin": [
+        633.0,
+        754.0,
+        -104.0
+      ],
+      "zone": 9,
+      "goal": 1,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 23,
+      "origin": [
+        817.0,
+        752.0,
+        -273.0
+      ],
+      "zone": 10,
+      "goal": 23,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 24,
+      "origin": [
+        512.0,
+        944.0,
+        40.0
+      ],
+      "zone": 10,
+      "goal": 24,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 25,
+      "origin": [
+        670.0,
+        -107.0,
+        -183.0
+      ],
+      "zone": 11,
+      "goal": 1,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 26,
+      "origin": [
+        473.0,
+        -35.0,
+        -189.0
+      ],
+      "zone": 11,
+      "goal": 24,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 27,
+      "origin": [
+        -288.0,
+        513.0,
+        -16.0
+      ],
+      "zone": 11,
+      "goal": 23,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 28,
+      "origin": [
+        372.0,
+        -203.0,
+        56.0
+      ],
+      "zone": 5,
+      "goal": 23,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 29,
+      "origin": [
+        372.0,
+        143.0,
+        56.0
+      ],
+      "zone": 5,
+      "goal": 24,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 30,
+      "origin": [
+        792.0,
+        -217.0,
+        56.0
+      ],
+      "zone": 5,
+      "goal": 1,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 31,
+      "origin": [
+        789.0,
+        149.0,
+        56.0
+      ],
+      "zone": 9,
+      "goal": 24,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 32,
+      "origin": [
+        -335.0,
+        512.0,
+        120.0
+      ],
+      "zone": 8,
+      "goal": 24,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 33,
+      "origin": [
+        -416.0,
+        208.0,
+        -16.0
+      ],
+      "zone": 8,
+      "goal": 23,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 34,
+      "origin": [
+        -463.0,
+        218.0,
+        176.0
+      ],
+      "zone": 4,
+      "goal": 24,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 35,
+      "origin": [
+        -739.0,
+        218.0,
+        184.0
+      ],
+      "zone": 4,
+      "goal": 8,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 36,
+      "origin": [
+        -784.0,
+        219.0,
+        -16.0
+      ],
+      "zone": 4,
+      "goal": 1,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 37,
+      "origin": [
+        -217.0,
+        263.0,
+        -8.0
+      ],
+      "zone": 2,
+      "goal": 23,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 38,
+      "origin": [
+        -310.0,
+        -702.0,
+        -16.0
+      ],
+      "zone": 3,
+      "goal": 24,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 39,
+      "origin": [
+        -222.0,
+        -704.0,
+        152.0
+      ],
+      "zone": 17,
+      "goal": 1,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 40,
+      "origin": [
+        -299.0,
+        -577.0,
+        -16.0
+      ],
+      "zone": 17,
+      "goal": 23,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 41,
+      "origin": [
+        -789.0,
+        90.0,
+        184.0
+      ],
+      "zone": 17,
+      "goal": 23,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 42,
+      "origin": [
+        -853.0,
+        298.0,
+        184.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 43,
+      "origin": [
+        560.0,
+        613.0,
+        216.0
+      ],
+      "zone": 8,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 44,
+      "origin": [
+        497.0,
+        613.0,
+        56.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 45,
+      "origin": [
+        1357.0,
+        106.0,
+        -24.0
+      ],
+      "zone": 1,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 46,
+      "origin": [
+        1542.0,
+        828.0,
+        -296.0
+      ],
+      "zone": 1,
+      "goal": 23,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 47,
+      "origin": [
+        -798.0,
+        286.0,
+        -16.0
+      ],
+      "zone": 6,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 48,
+      "origin": [
+        -854.0,
+        240.0,
+        -16.0
+      ],
+      "zone": 6,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 49,
+      "origin": [
+        -739.0,
+        289.0,
+        184.0
+      ],
+      "zone": 11,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 50,
+      "origin": [
+        -735.0,
+        412.0,
+        184.0
+      ],
+      "zone": 11,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 51,
+      "origin": [
+        504.0,
+        486.0,
+        56.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 52,
+      "origin": [
+        511.0,
+        678.0,
+        216.0
+      ],
+      "zone": 16,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 53,
+      "origin": [
+        490.0,
+        308.0,
+        56.0
+      ],
+      "zone": 17,
+      "goal": 7,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 54,
+      "origin": [
+        363.0,
+        -31.0,
+        -200.0
+      ],
+      "zone": 10,
+      "goal": 6,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 55,
+      "origin": [
+        580.0,
+        -304.0,
+        -200.0
+      ],
+      "zone": 13,
+      "goal": 20,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 56,
+      "origin": [
+        579.0,
+        240.0,
+        -200.0
+      ],
+      "zone": 9,
+      "goal": 22,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 57,
+      "origin": [
+        347.0,
+        97.0,
+        -200.0
+      ],
+      "zone": 4,
+      "goal": 21,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 58,
+      "origin": [
+        348.0,
+        -164.0,
+        -200.0
+      ],
+      "zone": null,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 59,
+      "origin": [
+        1329.0,
+        -378.0,
+        -24.0
+      ],
+      "zone": 17,
+      "goal": 5,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 60,
+      "origin": [
+        1218.0,
+        -662.0,
+        -24.0
+      ],
+      "zone": 17,
+      "goal": 19,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 61,
+      "origin": [
+        1249.0,
+        -514.0,
+        -24.0
+      ],
+      "zone": 17,
+      "goal": 19,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 62,
+      "origin": [
+        1384.0,
+        -469.0,
+        -24.0
+      ],
+      "zone": 14,
+      "goal": 19,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 63,
+      "origin": [
+        1278.0,
+        -737.0,
+        -24.0
+      ],
+      "zone": 5,
+      "goal": 4,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 64,
+      "origin": [
+        1760.0,
+        -886.0,
+        -24.0
+      ],
+      "zone": 16,
+      "goal": 3,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 65,
+      "origin": [
+        1756.0,
+        -787.0,
+        -24.0
+      ],
+      "zone": 11,
+      "goal": 2,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 66,
+      "origin": [
+        1363.0,
+        -944.0,
+        -24.0
+      ],
+      "zone": 17,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 67,
+      "origin": [
+        1433.0,
+        -797.0,
+        -24.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 68,
+      "origin": [
+        1514.0,
+        -735.0,
+        -24.0
+      ],
+      "zone": 1,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 69,
+      "origin": [
+        672.0,
+        -624.0,
+        88.0
+      ],
+      "zone": 1,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 70,
+      "origin": [
+        822.0,
+        -659.0,
+        88.0
+      ],
+      "zone": 2,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 71,
+      "origin": [
+        1077.0,
+        -891.0,
+        88.0
+      ],
+      "zone": 2,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 72,
+      "origin": [
+        1447.0,
+        -896.0,
+        88.0
+      ],
+      "zone": 3,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 73,
+      "origin": [
+        1621.0,
+        -893.0,
+        56.0
+      ],
+      "zone": 2,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 74,
+      "origin": [
+        1254.0,
+        -896.0,
+        88.0
+      ],
+      "zone": 1,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 75,
+      "origin": [
+        667.0,
+        -372.0,
+        56.0
+      ],
+      "zone": 3,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 76,
+      "origin": [
+        652.0,
+        -501.0,
+        88.0
+      ],
+      "zone": 3,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 77,
+      "origin": [
+        1112.0,
+        624.0,
+        56.0
+      ],
+      "zone": 3,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 78,
+      "origin": [
+        1116.0,
+        642.0,
+        80.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 79,
+      "origin": [
+        627.0,
+        358.0,
+        56.0
+      ],
+      "zone": 2,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 80,
+      "origin": [
+        654.0,
+        439.0,
+        56.0
+      ],
+      "zone": 2,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 81,
+      "origin": [
+        655.0,
+        280.0,
+        56.0
+      ],
+      "zone": 3,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 82,
+      "origin": [
+        1316.0,
+        336.0,
+        56.0
+      ],
+      "zone": 2,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 83,
+      "origin": [
+        1354.0,
+        218.0,
+        24.0
+      ],
+      "zone": 3,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 84,
+      "origin": [
+        1204.0,
+        488.0,
+        56.0
+      ],
+      "zone": 3,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 85,
+      "origin": [
+        870.0,
+        447.0,
+        56.0
+      ],
+      "zone": 16,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 86,
+      "origin": [
+        992.0,
+        534.0,
+        56.0
+      ],
+      "zone": 16,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 87,
+      "origin": [
+        1032.0,
+        427.0,
+        56.0
+      ],
+      "zone": 16,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 88,
+      "origin": [
+        1151.0,
+        386.0,
+        56.0
+      ],
+      "zone": 16,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 89,
+      "origin": [
+        943.0,
+        147.0,
+        56.0
+      ],
+      "zone": 16,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 90,
+      "origin": [
+        908.0,
+        -176.0,
+        56.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 91,
+      "origin": [
+        983.0,
+        -32.0,
+        -184.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 92,
+      "origin": [
+        998.0,
+        -216.0,
+        -184.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 93,
+      "origin": [
+        994.0,
+        143.0,
+        -184.0
+      ],
+      "zone": 11,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 94,
+      "origin": [
+        826.0,
+        -253.0,
+        -184.0
+      ],
+      "zone": 11,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 95,
+      "origin": [
+        828.0,
+        197.0,
+        -184.0
+      ],
+      "zone": 5,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 96,
+      "origin": [
+        912.0,
+        -199.0,
+        -184.0
+      ],
+      "zone": 5,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 97,
+      "origin": [
+        907.0,
+        141.0,
+        -184.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 98,
+      "origin": [
+        891.0,
+        -34.0,
+        -184.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 99,
+      "origin": [
+        391.0,
+        221.0,
+        -200.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 100,
+      "origin": [
+        387.0,
+        -278.0,
+        -200.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 101,
+      "origin": [
+        573.0,
+        112.0,
+        -200.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 102,
+      "origin": [
+        584.0,
+        -176.0,
+        -200.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 103,
+      "origin": [
+        282.0,
+        -107.0,
+        -176.0
+      ],
+      "zone": 9,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 104,
+      "origin": [
+        279.0,
+        37.0,
+        -176.0
+      ],
+      "zone": 10,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 105,
+      "origin": [
+        273.0,
+        -32.0,
+        -176.0
+      ],
+      "zone": 9,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 106,
+      "origin": [
+        -152.0,
+        -232.0,
+        -176.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 107,
+      "origin": [
+        185.0,
+        -144.0,
+        -176.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 108,
+      "origin": [
+        -42.0,
+        -191.0,
+        -176.0
+      ],
+      "zone": 16,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 109,
+      "origin": [
+        -173.0,
+        -336.0,
+        -144.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 110,
+      "origin": [
+        39.0,
+        -444.0,
+        -32.0
+      ],
+      "zone": 3,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 111,
+      "origin": [
+        -68.0,
+        -437.0,
+        -64.0
+      ],
+      "zone": 16,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 112,
+      "origin": [
+        477.0,
+        -549.0,
+        56.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 113,
+      "origin": [
+        318.0,
+        -782.0,
+        -16.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 114,
+      "origin": [
+        45.0,
+        -560.0,
+        -16.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 115,
+      "origin": [
+        -143.0,
+        -561.0,
+        -16.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 116,
+      "origin": [
+        -478.0,
+        -702.0,
+        -16.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 117,
+      "origin": [
+        -673.0,
+        -289.0,
+        -16.0
+      ],
+      "zone": 16,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 118,
+      "origin": [
+        -635.0,
+        -448.0,
+        -16.0
+      ],
+      "zone": 11,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 119,
+      "origin": [
+        -927.0,
+        16.0,
+        -16.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 120,
+      "origin": [
+        -851.0,
+        36.0,
+        -16.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 121,
+      "origin": [
+        -886.0,
+        -94.0,
+        -16.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 122,
+      "origin": [
+        -833.0,
+        147.0,
+        -16.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 123,
+      "origin": [
+        -590.0,
+        317.0,
+        184.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 124,
+      "origin": [
+        -590.0,
+        219.0,
+        176.0
+      ],
+      "zone": 3,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 125,
+      "origin": [
+        -620.0,
+        477.0,
+        120.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 126,
+      "origin": [
+        -473.0,
+        514.0,
+        120.0
+      ],
+      "zone": 3,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 127,
+      "origin": [
+        -848.0,
+        558.0,
+        -16.0
+      ],
+      "zone": 3,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 128,
+      "origin": [
+        -638.0,
+        617.0,
+        184.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 129,
+      "origin": [
+        -676.0,
+        540.0,
+        120.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 130,
+      "origin": [
+        -937.0,
+        546.0,
+        120.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 131,
+      "origin": [
+        -929.0,
+        294.0,
+        104.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 132,
+      "origin": [
+        -934.0,
+        172.0,
+        40.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 133,
+      "origin": [
+        -936.0,
+        418.0,
+        120.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 134,
+      "origin": [
+        -929.0,
+        671.0,
+        120.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 135,
+      "origin": [
+        -848.0,
+        671.0,
+        -16.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 136,
+      "origin": [
+        -798.0,
+        413.0,
+        -16.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 137,
+      "origin": [
+        -799.0,
+        550.0,
+        -16.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 138,
+      "origin": [
+        -636.0,
+        770.0,
+        -16.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 139,
+      "origin": [
+        -758.0,
+        857.0,
+        120.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 140,
+      "origin": [
+        -732.0,
+        752.0,
+        -16.0
+      ],
+      "zone": 5,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 141,
+      "origin": [
+        -563.0,
+        846.0,
+        120.0
+      ],
+      "zone": 4,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 142,
+      "origin": [
+        -506.0,
+        589.0,
+        120.0
+      ],
+      "zone": 6,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 143,
+      "origin": [
+        8.0,
+        664.0,
+        40.0
+      ],
+      "zone": 6,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 144,
+      "origin": [
+        -172.0,
+        847.0,
+        120.0
+      ],
+      "zone": 5,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 145,
+      "origin": [
+        -75.0,
+        750.0,
+        104.0
+      ],
+      "zone": 6,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 146,
+      "origin": [
+        -416.0,
+        843.0,
+        120.0
+      ],
+      "zone": 5,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 147,
+      "origin": [
+        -417.0,
+        758.0,
+        -16.0
+      ],
+      "zone": 6,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 148,
+      "origin": [
+        -288.0,
+        762.0,
+        -16.0
+      ],
+      "zone": 6,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 149,
+      "origin": [
+        138.0,
+        590.0,
+        56.0
+      ],
+      "zone": 6,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 150,
+      "origin": [
+        6.0,
+        538.0,
+        40.0
+      ],
+      "zone": 6,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 151,
+      "origin": [
+        -107.0,
+        395.0,
+        24.0
+      ],
+      "zone": 6,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 152,
+      "origin": [
+        -76.0,
+        608.0,
+        40.0
+      ],
+      "zone": 6,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 153,
+      "origin": [
+        -182.0,
+        683.0,
+        8.0
+      ],
+      "zone": 6,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 154,
+      "origin": [
+        -193.0,
+        504.0,
+        -8.0
+      ],
+      "zone": 5,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 155,
+      "origin": [
+        327.0,
+        569.0,
+        56.0
+      ],
+      "zone": 5,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 156,
+      "origin": [
+        479.0,
+        -416.0,
+        56.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 157,
+      "origin": [
+        407.0,
+        -328.0,
+        56.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 158,
+      "origin": [
+        220.0,
+        -127.0,
+        56.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 159,
+      "origin": [
+        257.0,
+        156.0,
+        56.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 160,
+      "origin": [
+        -564.0,
+        614.0,
+        -16.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 161,
+      "origin": [
+        -531.0,
+        236.0,
+        -16.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 162,
+      "origin": [
+        -659.0,
+        396.0,
+        -16.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 163,
+      "origin": [
+        -528.0,
+        380.0,
+        -16.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 164,
+      "origin": [
+        -588.0,
+        459.0,
+        -16.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 165,
+      "origin": [
+        -421.0,
+        386.0,
+        -16.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 166,
+      "origin": [
+        -457.0,
+        316.0,
+        120.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 167,
+      "origin": [
+        -460.0,
+        272.0,
+        144.0
+      ],
+      "zone": 7,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 168,
+      "origin": [
+        -427.0,
+        617.0,
+        -16.0
+      ],
+      "zone": 8,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 169,
+      "origin": [
+        18.0,
+        -867.0,
+        0.0
+      ],
+      "zone": 8,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 170,
+      "origin": [
+        18.0,
+        -806.0,
+        -16.0
+      ],
+      "zone": 8,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 171,
+      "origin": [
+        481.0,
+        -867.0,
+        56.0
+      ],
+      "zone": 8,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 172,
+      "origin": [
+        134.0,
+        -805.0,
+        -16.0
+      ],
+      "zone": 8,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 173,
+      "origin": [
+        129.0,
+        -866.0,
+        16.0
+      ],
+      "zone": 8,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 174,
+      "origin": [
+        301.0,
+        -869.0,
+        32.0
+      ],
+      "zone": 8,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 175,
+      "origin": [
+        477.0,
+        -705.0,
+        56.0
+      ],
+      "zone": 8,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 176,
+      "origin": [
+        319.0,
+        -630.0,
+        -16.0
+      ],
+      "zone": 8,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 177,
+      "origin": [
+        172.0,
+        -631.0,
+        -16.0
+      ],
+      "zone": 9,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 178,
+      "origin": [
+        -208.0,
+        -880.0,
+        -16.0
+      ],
+      "zone": 9,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 179,
+      "origin": [
+        -202.0,
+        -739.0,
+        -16.0
+      ],
+      "zone": 9,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 180,
+      "origin": [
+        -222.0,
+        -544.0,
+        152.0
+      ],
+      "zone": 9,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 181,
+      "origin": [
+        140.0,
+        -543.0,
+        152.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 182,
+      "origin": [
+        292.0,
+        -545.0,
+        88.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 183,
+      "origin": [
+        -49.0,
+        -543.0,
+        152.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 184,
+      "origin": [
+        352.0,
+        -864.0,
+        264.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 185,
+      "origin": [
+        181.0,
+        -868.0,
+        232.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 186,
+      "origin": [
+        4.0,
+        -862.0,
+        152.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 187,
+      "origin": [
+        352.0,
+        -705.0,
+        264.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 188,
+      "origin": [
+        146.0,
+        -705.0,
+        328.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 189,
+      "origin": [
+        156.0,
+        -541.0,
+        264.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 190,
+      "origin": [
+        -155.0,
+        -696.0,
+        328.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 191,
+      "origin": [
+        -153.0,
+        -548.0,
+        328.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 192,
+      "origin": [
+        1.0,
+        -543.0,
+        328.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 193,
+      "origin": [
+        -1.0,
+        -702.0,
+        328.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 194,
+      "origin": [
+        1843.0,
+        962.0,
+        -213.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 195,
+      "origin": [
+        1852.0,
+        800.0,
+        -202.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 196,
+      "origin": [
+        923.0,
+        1105.0,
+        -264.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 197,
+      "origin": [
+        1134.0,
+        1106.0,
+        -264.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 198,
+      "origin": [
+        1404.0,
+        1097.0,
+        -240.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 199,
+      "origin": [
+        1623.0,
+        1068.0,
+        -213.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 200,
+      "origin": [
+        1357.0,
+        861.0,
+        -296.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 201,
+      "origin": [
+        1146.0,
+        825.0,
+        -296.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 202,
+      "origin": [
+        1142.0,
+        964.0,
+        -296.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 203,
+      "origin": [
+        707.0,
+        692.0,
+        -264.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 204,
+      "origin": [
+        632.0,
+        1032.0,
+        24.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 205,
+      "origin": [
+        527.0,
+        1032.0,
+        40.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 206,
+      "origin": [
+        1363.0,
+        648.0,
+        -392.0
+      ],
+      "zone": 14,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 207,
+      "origin": [
+        1360.0,
+        756.0,
+        -328.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 208,
+      "origin": [
+        1360.0,
+        66.0,
+        -392.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 209,
+      "origin": [
+        1356.0,
+        347.0,
+        -392.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 210,
+      "origin": [
+        1832.0,
+        -386.0,
+        -211.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 211,
+      "origin": [
+        1451.0,
+        -191.0,
+        -216.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 212,
+      "origin": [
+        1809.0,
+        141.0,
+        -218.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 213,
+      "origin": [
+        1673.0,
+        -234.0,
+        -217.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 214,
+      "origin": [
+        1366.0,
+        -436.0,
+        -206.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 215,
+      "origin": [
+        1249.0,
+        -194.0,
+        -392.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 216,
+      "origin": [
+        1773.0,
+        -275.0,
+        -279.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 217,
+      "origin": [
+        1523.0,
+        80.0,
+        -392.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 218,
+      "origin": [
+        1196.0,
+        66.0,
+        -392.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 219,
+      "origin": [
+        1532.0,
+        -368.0,
+        -208.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 220,
+      "origin": [
+        1655.0,
+        243.0,
+        -392.0
+      ],
+      "zone": 12,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 221,
+      "origin": [
+        1644.0,
+        100.0,
+        -219.0
+      ],
+      "zone": 11,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 222,
+      "origin": [
+        1497.0,
+        61.0,
+        -210.0
+      ],
+      "zone": 11,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 223,
+      "origin": [
+        1155.0,
+        -358.0,
+        -212.0
+      ],
+      "zone": 11,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 224,
+      "origin": [
+        1853.0,
+        -37.0,
+        -288.0
+      ],
+      "zone": 11,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 225,
+      "origin": [
+        1808.0,
+        -148.0,
+        -215.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 226,
+      "origin": [
+        1730.0,
+        383.0,
+        -64.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 227,
+      "origin": [
+        1809.0,
+        307.0,
+        -260.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 228,
+      "origin": [
+        1154.0,
+        122.0,
+        -208.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 229,
+      "origin": [
+        1114.0,
+        -124.0,
+        -219.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 230,
+      "origin": [
+        679.0,
+        -204.0,
+        56.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 231,
+      "origin": [
+        479.0,
+        -201.0,
+        56.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 232,
+      "origin": [
+        456.0,
+        125.0,
+        56.0
+      ],
+      "zone": 13,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 233,
+      "origin": [
+        668.0,
+        141.0,
+        56.0
+      ],
+      "zone": 15,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 234,
+      "origin": [
+        1135.0,
+        1010.0,
+        -296.0
+      ],
+      "zone": 9,
+      "goal": null,
+      "source": "CreateMarker"
+    },
+    {
+      "marker_id": 235,
+      "origin": null,
+      "zone": 9,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 236,
+      "origin": null,
+      "zone": 9,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 237,
+      "origin": null,
+      "zone": 9,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 238,
+      "origin": null,
+      "zone": 9,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 239,
+      "origin": null,
+      "zone": 9,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 240,
+      "origin": null,
+      "zone": 9,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 241,
+      "origin": null,
+      "zone": 9,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 242,
+      "origin": null,
+      "zone": 9,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 243,
+      "origin": null,
+      "zone": 9,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 244,
+      "origin": null,
+      "zone": 9,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 245,
+      "origin": null,
+      "zone": 10,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 246,
+      "origin": null,
+      "zone": 10,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 247,
+      "origin": null,
+      "zone": 10,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 248,
+      "origin": null,
+      "zone": 10,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 249,
+      "origin": null,
+      "zone": 10,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 250,
+      "origin": null,
+      "zone": 10,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 251,
+      "origin": null,
+      "zone": 10,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 252,
+      "origin": null,
+      "zone": 10,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 253,
+      "origin": null,
+      "zone": 10,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 254,
+      "origin": null,
+      "zone": 10,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 255,
+      "origin": null,
+      "zone": 10,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 256,
+      "origin": null,
+      "zone": 10,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 257,
+      "origin": null,
+      "zone": 10,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 258,
+      "origin": null,
+      "zone": 10,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 259,
+      "origin": null,
+      "zone": 16,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 260,
+      "origin": null,
+      "zone": 16,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 261,
+      "origin": null,
+      "zone": 16,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 262,
+      "origin": null,
+      "zone": 16,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 263,
+      "origin": null,
+      "zone": 16,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 264,
+      "origin": null,
+      "zone": 16,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 265,
+      "origin": null,
+      "zone": 16,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 266,
+      "origin": null,
+      "zone": 16,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 267,
+      "origin": null,
+      "zone": 16,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 268,
+      "origin": null,
+      "zone": 16,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 269,
+      "origin": null,
+      "zone": 16,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 270,
+      "origin": null,
+      "zone": 16,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 271,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 272,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 273,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 274,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 275,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 276,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 277,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 278,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 279,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 280,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 281,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 282,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 283,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 284,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 285,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 286,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 287,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 288,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 289,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 290,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 291,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 292,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 293,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 294,
+      "origin": null,
+      "zone": 17,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 295,
+      "origin": null,
+      "zone": 5,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 296,
+      "origin": null,
+      "zone": 11,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 297,
+      "origin": null,
+      "zone": 11,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 298,
+      "origin": null,
+      "zone": 5,
+      "goal": null,
+      "source": "referenced"
+    },
+    {
+      "marker_id": 299,
+      "origin": null,
+      "zone": 16,
+      "goal": null,
+      "source": "referenced"
+    }
+  ]
+}

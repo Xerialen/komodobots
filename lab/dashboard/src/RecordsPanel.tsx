@@ -31,6 +31,7 @@ import {
 } from "react";
 import type { KpiContext } from "./contextStore.ts";
 import { useShellActions } from "./App.tsx";
+import { logError } from "./logger.ts";
 
 // ---- Types ------------------------------------------------------------------
 
@@ -320,8 +321,9 @@ export function RecordsPanel({ context, refreshKey = 0 }: RecordsPanelProps) {
         setRecordsJson(data);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (cancelled) return;
+        logError("records panel fetch failed", err, { url: RECORDS_URL });
         setFetchError(true);
         setLoading(false);
       });

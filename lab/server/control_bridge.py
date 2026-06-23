@@ -53,6 +53,7 @@ deployed flat next to telemetry_ws.py (see lab/README.md).
 
 from __future__ import annotations
 
+import logging
 import hmac
 import ipaddress
 import json
@@ -66,6 +67,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Security constants
 # ---------------------------------------------------------------------------
@@ -929,7 +932,7 @@ class ControlBridge:
             with self.audit_path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(entry, separators=(",", ":")) + "\n")
         except OSError as exc:
-            print(f"[bridge] audit write failed: {exc}", file=sys.stderr, flush=True)
+            LOGGER.warning("control audit write failed: %s", exc)
 
     # -- lock helpers -----------------------------------------------------------
 

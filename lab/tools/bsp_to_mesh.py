@@ -90,6 +90,7 @@ BSP sources (none committed -- ~1 MB game assets):
 
 from __future__ import annotations
 
+import logging
 import argparse
 import base64
 import hashlib
@@ -102,6 +103,8 @@ import zlib
 from pathlib import Path
 from typing import Optional
 
+
+LOGGER = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # BSP v29 lump indices
 # ---------------------------------------------------------------------------

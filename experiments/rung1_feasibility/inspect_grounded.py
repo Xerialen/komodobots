@@ -8,6 +8,7 @@ lives in live-lip.json (takeoff_near_*, conditioned attempt segments via
 rung1_lib.lip_attempt_metrics); it reads slightly lower (median 439.0,
 >=437 in 44/70 vs 440.1 / 50/70 here) because conditioning drops rows
 after stray teleports / segment boundaries."""
+import logging
 import csv
 import json
 import math
@@ -15,6 +16,8 @@ import sys
 from pathlib import Path
 from statistics import median
 
+
+LOGGER = logging.getLogger(__name__)
 EXP = Path(__file__).resolve().parent
 sys.path.insert(0, str(EXP))
 from rung1_lib import LIP_Z_MIN, NEAR_R, RUNS, edge_point, load_route, rung1_gap  # noqa: E402

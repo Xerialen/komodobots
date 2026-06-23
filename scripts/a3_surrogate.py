@@ -45,12 +45,15 @@ identical duplicate rows) — row-count rates are never used.
 
 from __future__ import annotations
 
+import logging
 import csv
 import json
 import math
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
 

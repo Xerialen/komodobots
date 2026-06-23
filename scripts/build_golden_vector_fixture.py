@@ -16,12 +16,15 @@ then commit tests/fixtures/golden_vector_parity.tsv.
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import hashlib
 import struct
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 

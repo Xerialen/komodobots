@@ -1,0 +1,34 @@
+{
+  "_source": "getEvents(124-135 s) on the cached demo — offline. The quad-window slice, aligned with the actor_ticks/worked-example moment.",
+  "_purpose": "Source feed for the audio-cue layer (§3.6) and the team-information channel. Discrete sound-emitting + comms events; continuous weapon-fire audio is not in this stream (it is reconstructed from the dense-input/usercmd path).",
+  "_audio_cue_taxonomy": {
+    "item_gain": "pickup sound at the item's world position (armor/health/ammo clink)",
+    "weapon_gain|weapon_lose": "weapon-switch sound at the player",
+    "powerup": "QUAD/PENT/RING pickup — map-wide audible announce; the loudest single cue in QW (enemies hear quad taken)",
+    "death|spawn": "gib/pain/telefrag-respawn sounds at a world position",
+    "chat": "QW teamplay location/status callout channel — the team's information layer (not literal voice). Carries enemy-spotting (e.g. 'enemy quad'), self-status (hp/armor/loc), and item-loss reports."
+  },
+  "events": [
+    { "t": 124.563, "type": "death",   "player": "gLAd",   "by": "Milton rocket" },
+    { "t": 124.563, "type": "frag",    "player": "Milton", "team": "Book" },
+    { "t": 124.853, "type": "item",    "player": "Milton", "detail": "gain quad", "audio": "map-wide quad pickup sound" },
+    { "t": 124.853, "type": "powerup", "player": "Milton", "detail": "quad start, dur 29.993 s, 8 frags, ends 154.846" },
+    { "t": 125.143, "type": "death",   "player": "Zepp",   "by": "sae sg" },
+    { "t": 125.45,  "type": "chat",    "player": "gLAd",   "team": "3b",   "clean": "enemy quad quad", "note": "3b calls the enemy quad the instant Milton has it" },
+    { "t": 125.714, "type": "spawn",   "player": "gLAd" },
+    { "t": 126.032, "type": "spawn",   "player": "Zepp" },
+    { "t": 126.032, "type": "weapon",  "player": "Zepp",   "detail": "lose ssg (on death)" },
+    { "t": 126.503, "type": "death",   "player": "gor",    "by": "wimsuit rocket" },
+    { "t": 127.477, "type": "death",   "player": "gLAd",   "by": "stepcop" },
+    { "t": 128.23,  "type": "death",   "player": "Zepp",   "by": "wimsuit rocket" },
+    { "t": 128.558, "type": "chat",    "player": "stepcop","team": "Book", "clean": "coming ra.tunnel", "note": "movement callout" },
+    { "t": 129.058, "type": "chat",    "player": "wimsuit","team": "Book", "clean": "safe ya.box rl:2", "note": "self-status callout (loc + rockets)" },
+    { "t": 130.382, "type": "weapon",  "player": "stepcop","detail": "gain ssg" },
+    { "t": 131.013, "type": "weapon",  "player": "Milton", "detail": "gain lg", "note": "Milton's LG pickup at t≈131 (matches item_events)" },
+    { "t": 131.282, "type": "chat",    "player": "stepcop","team": "Book", "clean": "57/52 lg:15 ra.low", "note": "self-status (hp/armor/ammo/loc)" },
+    { "t": 133.049, "type": "death",   "player": "Zepp",   "by": "Milton sg" },
+    { "t": 133.844, "type": "death",   "player": "gor",    "by": "wimsuit rocket" },
+    { "t": 134.634, "type": "death",   "player": "Zepp",   "by": "Milton lg" }
+  ],
+  "_note": "Chat 'clean' text strips the QW color codes. The location tokens (ra.tunnel, ya.box, ra.low) match the locTable, so callouts are spatially groundable for the team-information feature."
+}

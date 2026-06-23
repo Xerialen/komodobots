@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Validate the bunnyhop theories in the TRUSTED pure-air sim (qwsim air-accel, 0.1% on trick5).
 Generative SteerSign policy: no demo. Tests (1) the sign theory, (2) OMEGA/lead/lobe sweeps."""
+import logging
 import math
 from qwsim import air_step, MV
 
+
+LOGGER = logging.getLogger(__name__)
 DT = 0.013
 
 def wrap180(d):

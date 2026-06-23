@@ -9,6 +9,7 @@ and cursor elapsed time to the source cadence and record the divergence.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import gzip
 import json
@@ -17,6 +18,8 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 for _p in (str(REPO_ROOT), str(REPO_ROOT / "scripts")):
     if _p not in sys.path:

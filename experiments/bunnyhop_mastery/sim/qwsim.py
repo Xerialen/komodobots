@@ -16,8 +16,11 @@ Two drivers:
   replay  -- feed trick5's EXACT usercmds (yaw,fwd,side,jump). TRUST CHECK: must reproduce ~880/1088.
   policy  -- the v2 SteerSign figure-8 (sign-corrected). THEORY SWEEP.
 """
+import logging
 import json, math, sys
 
+
+LOGGER = logging.getLogger(__name__)
 # ---- movevars (QW defaults) ----
 MV = dict(maxspeed=320.0, accel=10.0, friction=4.0, stopspeed=100.0,
           gravity=800.0, jumpspeed=270.0, aircap=30.0)

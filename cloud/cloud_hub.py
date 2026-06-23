@@ -18,6 +18,7 @@ Usage: cloud_hub.py [bind] [port]   (defaults 127.0.0.1 8099; env HUB_BIND/HUB_P
 """
 from __future__ import annotations
 
+import logging
 import http.server
 import json
 import os
@@ -26,6 +27,8 @@ import subprocess
 import sys
 import urllib.parse
 
+
+LOGGER = logging.getLogger(__name__)
 HOME = os.path.expanduser("~")
 HUB_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO = os.environ.get("KOMODO_REPO", os.path.join(HOME, "projects/komodobots"))

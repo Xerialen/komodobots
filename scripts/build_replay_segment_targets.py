@@ -8,6 +8,7 @@ then resume replay or another phase controller.
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -18,6 +19,8 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.replay_segment_targets.v1"
 REPLAY_SCHEMA_PREFIX = "# komodobots.replay.v1"
 

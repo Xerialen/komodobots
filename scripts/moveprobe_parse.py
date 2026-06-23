@@ -13,8 +13,11 @@ pipeline always used.
 
 from __future__ import annotations
 
+import logging
 import re
 
+
+LOGGER = logging.getLogger(__name__)
 MOVEPROBE_COMMAND_RE = re.compile(
     r"FBMOVEPROBE_CMD\s+"
     r"time=(?P<time>-?\d+(?:\.\d+)?)\s+"

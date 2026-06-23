@@ -35,6 +35,7 @@ Usage:  python rung1_link_sim.py [--out link-sim.json] [--workers N]
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -43,6 +44,8 @@ import sys
 from pathlib import Path
 from statistics import median
 
+
+LOGGER = logging.getLogger(__name__)
 EXP = Path(__file__).resolve().parent
 sys.path.insert(0, str(EXP))
 

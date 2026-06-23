@@ -1,0 +1,32 @@
+{
+  "schema": "komodobots.maps.seed.v2",
+  "_purpose": "Seed rows for the `maps` table (catalog.sql). One row per map; dm3 is the 4on4-first focus. AABB + physics constants are the normalization basis (diagonal scales all distances; server_fps sets the tick).",
+  "_units": "qu (Quake units); speeds qu/s; gravity qu/s^2; server_fps frames/s",
+  "_provenance": {
+    "dm3_aabb": "Verified from dm3.bsp models lump (BSP v29). Confirmed 2026-06-18.",
+    "dm3_server_fps": "77.0 confirmed LIVE from fixture dm3_milton_211436 ruleset (maxfps 77, MVDSV 1.20-dev / KTX 1.47-dev).",
+    "physics": "QW/ezQuake defaults under KTX KT2 ruleset; pmove_sim.py replays under these."
+  },
+  "maps": [
+    {
+      "name": "dm3",
+      "source_bsp": "dm3.bsp",
+      "source_bsp_sha256": "e6df9e9fd078b6d02aaa6c0f1ba40428111cb33da66dcf00234ba9ae2500a478",
+      "x_min": -984.0, "x_max": 2048.0,
+      "y_min": -960.0, "y_max": 1136.0,
+      "z_min": -416.0, "z_max": 496.0,
+      "center_x": 532.0, "center_y": 88.0, "center_z": 40.0,
+      "diagonal": 3797.1,
+      "maxspeed": 320.0,
+      "jumpspeed": 270.0,
+      "gravity": 800.0,
+      "friction": 4.0,
+      "stopspeed": 100.0,
+      "accelerate": 10.0,
+      "airaccel_cap": 30.0,
+      "server_fps": 77.0
+    }
+  ],
+  "_dm3_facts": "dm3 = The Abandoned Base. 35 named locs (locTable). NO green armor; 1x RA, 1x YA, 3x megahealth; Quad+Pent+Ring; weapons RL/LG/GL/SNG/NG/SSG x1. 51 BSP items total (item_catalog.dm3.json).",
+  "_deferred": "dm2.bsp is local; a dm2 maps row is a trivial follow-up but out of scope for this 4on4-first build."
+}

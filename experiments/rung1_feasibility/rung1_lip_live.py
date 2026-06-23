@@ -31,6 +31,7 @@ Usage:  python rung1_lip_live.py [--out live-lip.json]
 
 from __future__ import annotations
 
+import logging
 import argparse
 import re
 import subprocess
@@ -38,6 +39,8 @@ import sys
 from pathlib import Path
 from statistics import median
 
+
+LOGGER = logging.getLogger(__name__)
 EXP = Path(__file__).resolve().parent
 sys.path.insert(0, str(EXP))
 

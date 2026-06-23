@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import argparse
 import json
 import math
@@ -13,6 +14,8 @@ from pathlib import Path
 from typing import Iterable
 
 
+
+LOGGER = logging.getLogger(__name__)
 SCHEMA = "komodobots.route_state_attribution.v2"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ARTIFACT_ROOT = REPO_ROOT / "artifacts" / "lab-runs"

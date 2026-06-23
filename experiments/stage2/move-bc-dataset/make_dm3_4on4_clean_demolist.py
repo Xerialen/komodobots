@@ -25,11 +25,14 @@ Writes:
 """
 from __future__ import annotations
 
+import logging
 import json
 import re
 from collections import Counter
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 HERE = Path(__file__).resolve().parent
 MANIFEST = HERE / "manifest.json"
 ALLOWLIST = HERE / "dm3_4on4_clean_allowlist.txt"

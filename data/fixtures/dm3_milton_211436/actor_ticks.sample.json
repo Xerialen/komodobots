@@ -1,0 +1,33 @@
+{
+  "_source": "getStateAt(time=130) + getStreamSlice(Milton, 129.8-130.2) on the cached demo — offline",
+  "_time_s": 130.0,
+  "_context": "Mid Milton-quad run (quad picked up at t=124.853 s). 8-actor world_state snapshot — the raw substrate the world_state schema models.",
+  "_field_legend": {
+    "pos": "world XYZ (quake units)", "h": "health", "a": "armor value", "at": "armor type (ra/ya/ga/'')",
+    "rl/lg/ssg/sng/gl": "weapon owned (bool)", "rk/nl/cl/sh": "ammo: rockets/nails/cells/shells",
+    "q/r/pe": "powerup held: quad/ring/pent (bool)", "loc": "nearest named loc"
+  },
+  "_observability_note": "MVD state exposes position but NOT velocity or view-angles for any player. Velocity must be finite-differenced from the native-rate pos stream (shown for Milton below); view-angles are recovered via the dense-input path (komodobots tools/qwd_usercmd), not from MVD state. This is the core POMDP/observability constraint the architecture's agent_observation layer addresses.",
+
+  "world_state_t130": {
+    "Milton":  { "team": "Book", "pos": [1499, -176, -78], "h": 95, "a": 82,  "at": "ra", "rl": true,  "ssg": true,  "lg": false, "sng": false, "gl": false, "rk": 7,   "nl": 25,  "cl": 0,  "sh": 100, "q": true,  "r": false, "pe": false, "loc": "bridge.high" },
+    "wimsuit": { "team": "Book", "pos": [1271, -934, -24], "h": 44, "a": 150, "at": "ya", "rl": true,  "ssg": false, "lg": false, "sng": false, "gl": false, "rk": 2,   "nl": 25,  "cl": 0,  "sh": 87,  "q": false, "r": false, "pe": false, "loc": "YA.box" },
+    "sae":     { "team": "Book", "pos": [101, -681, 328],  "h": 36, "a": 0,   "at": "",   "rl": false, "ssg": false, "lg": false, "sng": false, "gl": false, "rk": 0,   "nl": 0,   "cl": 0,  "sh": 15,  "q": false, "r": false, "pe": false, "loc": "RA" },
+    "stepcop": { "team": "Book", "pos": [-78, -655, -16],  "h": 52, "a": 57,  "at": "ra", "rl": false, "ssg": false, "lg": true,  "sng": true,  "gl": false, "rk": 35,  "nl": 173, "cl": 0,  "sh": 100, "q": false, "r": false, "pe": false, "loc": "RA.low" },
+    "gLAd":    { "team": "3b",   "pos": [511, 848, 153],   "h": 100,"a": 0,   "at": "",   "rl": false, "ssg": false, "lg": false, "sng": false, "gl": false, "rk": 0,   "nl": 0,   "cl": 0,  "sh": 25,  "q": false, "r": false, "pe": false, "loc": "lifts" },
+    "gor":     { "team": "3b",   "pos": [444, -207, 74],   "h": 100,"a": 0,   "at": "",   "rl": false, "ssg": false, "lg": false, "sng": false, "gl": false, "rk": 0,   "nl": 0,   "cl": 0,  "sh": 25,  "q": false, "r": false, "pe": false, "loc": "Ring" },
+    "Zepp":    { "team": "3b",   "pos": [1812, 431, -88],  "h": 100,"a": 0,   "at": "",   "rl": false, "ssg": false, "lg": false, "sng": false, "gl": false, "rk": 0,   "nl": 0,   "cl": 0,  "sh": 25,  "q": false, "r": false, "pe": false, "loc": "RL" },
+    "SS":      { "team": "3b",   "pos": [-55, 765, 104],   "h": 76, "a": 0,   "at": "",   "rl": false, "ssg": false, "lg": true,  "sng": false, "gl": false, "rk": 0,   "nl": 0,   "cl": 21, "sh": 22,  "q": false, "r": false, "pe": false, "loc": "SNG.ledge" }
+  },
+
+  "milton_velocity_derivation": {
+    "_method": "central difference on the native-rate pos stream (dt ≈ 13 ms ≈ 77 fps tick)",
+    "samples_around_t130": [
+      { "t_ms": 129993, "pos": [1499, -175, -73] },
+      { "t_ms": 130006, "pos": [1499, -176, -78] },
+      { "t_ms": 130019, "pos": [1498, -177, -84] }
+    ],
+    "derived_velocity_qups": [-38, -77, -423],
+    "note": "Milton is mid-air, falling off bridge.high (z dropping fast). Horizontal speed is low at this instant; his match-average speed was 310 qu/s. This derived velocity is what the feature pipeline must compute — it is never read directly from MVD."
+  }
+}

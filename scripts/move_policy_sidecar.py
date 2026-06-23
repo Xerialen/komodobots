@@ -59,6 +59,7 @@ skips cleanly when either is absent (the test_physent_collision.py pattern).
 """
 from __future__ import annotations
 
+import logging
 import argparse
 import math
 import mmap
@@ -69,6 +70,8 @@ import time
 from pathlib import Path
 from typing import Callable, Optional, Sequence, Tuple
 
+
+LOGGER = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 _SCRIPTS = str(REPO_ROOT / "scripts")
 if _SCRIPTS not in sys.path:

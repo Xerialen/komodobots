@@ -29,12 +29,15 @@ Decision (calibrated on labelled samples, see census .md):
 Run in WSL2 (parser is pure-python, but corpus lives at ~/ctv_decomp).
 """
 from __future__ import annotations
+import logging
 import csv
 import json
 import statistics
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 # qwd_usercmd parser — load from THIS repo (tools/qwd_usercmd now lives in-tree
 # after the one-trunk reconcile); fall back to the legacy komodobots-ml worktree
 # only if the in-repo copy is absent, so a normal checkout never ModuleNotFounds.

@@ -18,12 +18,15 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import csv
 import json
 import math
 import sys
 from pathlib import Path
 
+
+LOGGER = logging.getLogger(__name__)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from bsp_geom import Bsp  # noqa: E402
 

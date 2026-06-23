@@ -22,6 +22,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { HeatmapView } from "./HeatmapView.tsx";
+import { logError } from "./logger.ts";
 
 interface ValidationTeam {
   name: string;
@@ -1822,6 +1823,7 @@ export function FourVFourEvidence() {
       })
       .catch((exc) => {
         if (cancelled) return;
+        logError("4v4 evidence ledger fetch failed", exc, { url });
         setError(exc instanceof Error ? exc.message : "validation ledger unavailable");
         setLoading(false);
       });

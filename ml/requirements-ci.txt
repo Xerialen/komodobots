@@ -1,0 +1,11 @@
+# CI subset for ml-tests.yml — what ml/tests imports. Full training stack is requirements.txt.
+duckdb>=1.1,<2
+pyarrow>=17,<19
+pandas>=2.2,<3
+pandera>=0.20,<0.23
+numpy>=1.26,<3
+# torch (CPU): the RL PPO-ratio + closed-loop yaw-rate regression tests (test_rl_onspeed.py,
+# test_eval_closedloop_yawrate.py) build a tiny policy and MUST execute in this informational
+# job — torch-gated tests would otherwise SKIP and leave the correctness bugs uncovered (the
+# reason these were caught in review, not CI). CPU wheels only; the tests are tiny.
+torch>=2.3

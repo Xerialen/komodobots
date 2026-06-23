@@ -1,0 +1,35 @@
+{
+  "_source": "getFrags on the cached demo — offline. Full 400-entry kill log re-derivable via getFrags; this fixture keeps the aggregates + a focused sample window.",
+  "_reconcile": {
+    "score_frags": { "Book": 294, "3b": 80, "sum": 374 },
+    "killlog_entries": 400,
+    "why_differ": "Frag SCORE (374) = the scoreboard; kill-LOG (400) counts every kill event including 14 teamkills, 6 suicides, and 7 telefrags. Score reconciles via per-player frags in scoreboard.json (sum to 294-80); the kill log is the raw event stream.",
+    "byPlayer_kills": { "Milton": 96, "wimsuit": 69, "sae": 70, "stepcop": 68, "gLAd": 27, "gor": 30, "Zepp": 21, "SS": 13 }
+  },
+  "byWeapon_totals": { "rl": 170, "sg": 101, "lg": 74, "ssg": 21, "sng": 17, "tele": 7, "gl": 4, "suicide": 6, "teamkill": 14 },
+  "byPlayer_byWeapon": {
+    "Milton":  { "rl": 51, "lg": 25, "sg": 8, "ssg": 8, "sng": 2, "gl": 1, "tele": 1, "deaths": 21 },
+    "sae":     { "rl": 44, "sg": 15, "ssg": 8, "lg": 2, "tele": 1, "deaths": 34 },
+    "wimsuit": { "rl": 34, "sg": 17, "lg": 11, "sng": 6, "gl": 1, "deaths": 30 },
+    "stepcop": { "lg": 22, "sg": 19, "rl": 17, "sng": 7, "ssg": 2, "tele": 1, "deaths": 15 },
+    "gor":     { "sg": 17, "lg": 7, "rl": 5, "ssg": 1, "deaths": 76 },
+    "gLAd":    { "sg": 11, "rl": 11, "lg": 2, "gl": 1, "ssg": 1, "tele": 1, "deaths": 61 },
+    "Zepp":    { "sg": 7, "rl": 6, "lg": 3, "sng": 2, "gl": 1, "ssg": 1, "tele": 1, "deaths": 88 },
+    "SS":      { "sg": 7, "rl": 2, "lg": 2, "tele": 2, "deaths": 89 }
+  },
+  "sample_window_milton_quad": {
+    "_comment": "Milton picks up Quad at t=124853 ms; these are his kills through the 30 s quad window — the E3 worked-example moment.",
+    "quad_pickup_ms": 124853,
+    "frags": [
+      { "time": 124563, "killer": "Milton", "victim": "gLAd", "weapon": "rl", "note": "just before quad" },
+      { "time": 133049, "killer": "Milton", "victim": "Zepp", "weapon": "ssg" },
+      { "time": 134634, "killer": "Milton", "victim": "Zepp", "weapon": "lg" },
+      { "time": 136269, "killer": "Milton", "victim": "gor",  "weapon": "lg" },
+      { "time": 140903, "killer": "Milton", "victim": "Zepp", "weapon": "lg" },
+      { "time": 142206, "killer": "Milton", "victim": "gor",  "weapon": "rl" },
+      { "time": 144490, "killer": "Milton", "victim": "gLAd", "weapon": "rl" },
+      { "time": 145007, "killer": "Milton", "victim": "gor",  "weapon": "lg" },
+      { "time": 149427, "killer": "Milton", "victim": "gor",  "weapon": "ssg" }
+    ]
+  }
+}
