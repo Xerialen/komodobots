@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:komodobots:schema:training_example:1",
+  "title": "Training example (single frame)",
+  "description": "One NDJSON training row emitted by scripts/build_training_dataset.py. Each row is one frame pairing player state (origin/velocity/angles) with the action (movement command) recorded at that command index. This is the RAW shard row; the move model trains on a 6-dim vector derived from it by scripts/move_world_view.py (see configs/extraction_spec.yaml -> derived_model_view).",
+  "type": "object",
+  "required": [
+    "demo",
+    "map",
+    "frame",
+    "msec",
+    "o",
+    "v",
+    "a",
+    "m",
+    "buttons",
+    "onground",
+    "pm_code"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "demo": {
+      "type": "string",
+      "description": "Source demo file name (Path.name)."
+    },
+    "map": {
+      "type": ["string", "null"],
+      "description": "Map level name (meta['map_level']); null when serverdata carried no map level."
+    },
+    "frame": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Zero-based COMMAND INDEX (one row per usercmd), NOT a wall-clock/replay time frame. See configs/extraction_spec.yaml per_frame_row."
+    },
+    "msec": {
+      "type": "integer",
+      "description": "Command duration in milliseconds (int(command.msec))."
+    },
+    "o": {
+      "type": "array",
+      "description": "Player origin [x, y, z] in world units (floats).",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "number"
+      }
+    },
+    "v": {
+      "type": "array",
+      "description": "Player velocity [x, y, z] (integers).",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "integer"
+      }
+    },
+    "a": {
+      "type": "array",
+      "description": "View angles [pitch, yaw, roll] in degrees (floats).",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "number"
+      }
+    },
+    "m": {
+      "type": "array",
+      "description": "Movement command [forwardmove, sidemove, upmove] (integers).",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "integer"
+      }
+    },
+    "buttons": {
+      "type": "integer",
+      "description": "Button bitmask for the frame (int(command.buttons))."
+    },
+    "onground": {
+      "type": "boolean",
+      "description": "Whether the player was on the ground for this frame."
+    },
+    "pm_code": {
+      "type": "integer",
+      "description": "Player-move type code; -1 when interpolated states disagree."
+    }
+  }
+}

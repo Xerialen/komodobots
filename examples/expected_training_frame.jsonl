@@ -1,0 +1,3 @@
+{"demo":"qw_bunny_dm3_pov.qwd","map":"dm3","frame":142,"msec":13,"o":[1184.031,-832.5,24.031],"v":[298,-122,0],"a":[2.8125,-114.6094,0.0],"m":[800,0,0],"buttons":2,"onground":false,"pm_code":0}
+{"demo":"qw_bunny_dm3_pov.qwd","map":"dm3","frame":143,"msec":13,"o":[1188.094,-834.156,28.5],"v":[612,-251,180],"a":[3.5156,-118.2129,0.0],"m":[800,200,0],"buttons":0,"onground":false,"pm_code":0}
+{"demo":"qw_bunny_dm2_pov.qwd","map":"dm2","frame":507,"msec":13,"o":[-256.75,944.219,112.031],"v":[-498,624,-64],"a":[-1.4062,128.4961,0.0],"m":[800,-300,0],"buttons":0,"onground":false,"pm_code":0}

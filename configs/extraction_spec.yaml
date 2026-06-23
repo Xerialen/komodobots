@@ -1,0 +1,249 @@
+# extraction_spec.yaml
+# Machine-readable mirror of what scripts/build_training_dataset.py ACTUALLY does.
+# This is a descriptive contract of code reality, NOT an aspirational design.
+# Every field below is grounded in source; see `source` keys (file:line).
+#
+# Scope note: this spec describes the RAW per-frame NDJSON shard + per-demo
+# manifest emitted by build_training_dataset.py. It does NOT describe the
+# downstream 6-dim model feature vector (that is move_world_view.state_features,
+# captured here only under `derived_model_view` for provenance / train-serve
+# parity context). The raw row is NOT what the move model consumes directly.
+
+version: 1
+dataset_name: komodobots.move_bc.shards.v1   # de-facto name; no JSON Schema file exists in-repo
+spec_status: descriptive                      # mirrors code; faithful, not aspirational
+pipeline_of_record: scripts/build_training_dataset.py
+frame_builder: scripts/build_replay_command_file.py::build_replay_frames  # lines 311-369
+
+# ---------------------------------------------------------------------------
+# INPUT: where the demos come from
+# ---------------------------------------------------------------------------
+demo_source:
+  # Supplied at runtime via --demo-dir (required); no default baked into code.
+  arg: --demo-dir
+  required: true
+  source: scripts/build_training_dataset.py:85,92
+  glob: "*.qwd"                 # sorted(args.demo_dir.glob("*.qwd")), line 92
+  demo_kind: POV_qwd            # POV .qwd is the only exact human action-label source
+  ordering: sorted_lexical      # sorted(...) line 92
+  limit_arg: --limit            # 0 = all; else first N after sort (lines 88,93-94)
+  workers_arg: --workers        # default os.cpu_count(); ProcessPoolExecutor (lines 87,98)
+  # Canonical corpus (NOT pinned in code, only in docs):
+  canonical_corpus_note: "~/ctv_decomp, 478 QWDs (docs/18:150, docs/13_FIRST:51,57); not in docs/02 or docs/06"
+
+# ---------------------------------------------------------------------------
+# PER-FRAME ROW: one NDJSON object per command index
+# ---------------------------------------------------------------------------
+# IMPORTANT: build_replay_frames iterates `for command_index, command in
+# enumerate(commands)` (build_replay_command_file.py:340) -> one frame per
+# command. build_training_dataset.py:63 then does enumerate(frames), so the
+# emitted `frame` field is a COMMAND INDEX, not a wall-clock/time frame.
+per_frame_row:
+  emit_source: scripts/build_training_dataset.py:63-70
+  docstring_source: scripts/build_training_dataset.py:5-7
+  one_row_per: command_index
+  json_separators: [",", ":"]   # compact; line 70
+  field_count: 11
+  fields:
+    - key: demo
+      type: string
+      source: build_training_dataset.py:65 (demo.name)
+      transform: demo file name (basename, includes .qwd extension)
+    - key: map
+      type: string|null
+      source: build_training_dataset.py:65 (meta.get("map_level"))
+      transform: server map level from demo serverdata; null if absent
+    - key: frame
+      type: int
+      source: build_training_dataset.py:63,65 (enumerate index i)
+      transform: "0-based COMMAND INDEX, NOT a time/replay frame (see note above)"
+    - key: msec
+      type: int
+      source: build_replay_command_file.py:353 (int(command.msec))
+      transform: usercmd msec (per-command frame time delta), int-cast
+    - key: o
+      type: "[float, float, float]"
+      source: build_replay_command_file.py:274-277,342
+      transform: "origin [x,y,z]; lerp-interpolated float, NOT rounded (type undocumented in row docstring)"
+    - key: v
+      type: "[int, int, int]"
+      source: build_replay_command_file.py:278-281,342,355
+      transform: "velocity [x,y,z]; lerp then round() to int (type undocumented in row docstring)"
+    - key: a
+      type: "[float, float, float]"
+      source: build_replay_command_file.py:341,356
+      transform: "view angles [pitch,yaw,roll] from command.view_angles, float-cast"
+    - key: m
+      type: "[int, int, int]"
+      source: build_replay_command_file.py:357
+      transform: "move [fwd,side,up] = [forwardmove, sidemove, upmove], int-cast (action label source)"
+    - key: buttons
+      type: int
+      source: build_replay_command_file.py:358
+      transform: "usercmd buttons bitfield, int-cast; bit 2 = jump (jump head label)"
+    - key: onground
+      type: bool
+      source: build_replay_command_file.py:282,363
+      transform: "prev_state.onground AND next_state.onground; KNOWN-DEGENERATE: POV .qwd does not carry server ground flag -> effectively always false offline (move_world_view.py:37-42)"
+    - key: pm_code
+      type: int
+      source: build_replay_command_file.py:284,365
+      transform: "pmove code; prev==next else -1; KNOWN-DEGENERATE: effectively 0 offline (move_world_view.py:37-42)"
+  # Fields built by build_replay_frames but NOT emitted into the NDJSON row:
+  dropped_frame_fields:
+    - solid              # build_replay_command_file.py:364, not copied at build_training_dataset.py:64-69
+    - reference_source   # build_replay_command_file.py:366
+    - reference_interpolated  # build_replay_command_file.py:367
+
+# ---------------------------------------------------------------------------
+# ACTION LABEL SET (derived from m[] / buttons; for downstream model training)
+# ---------------------------------------------------------------------------
+action_labels:
+  heads: 3
+  derived_from: ["m (forwardmove/sidemove/upmove)", "buttons (bit 2 = jump)"]
+  names: [fwd, side, jump]
+  note: "discrete heads derived downstream from the raw m[]/buttons row fields; not emitted as separate columns by this pipeline"
+
+# ---------------------------------------------------------------------------
+# PER-DEMO MANIFEST: movement-quality stats, one entry per demo
+# ---------------------------------------------------------------------------
+manifest:
+  emit_source: scripts/build_training_dataset.py:72-79 (ok), 47,49 (fail)
+  purpose_source: scripts/build_training_dataset.py:9-12
+  purpose: "per-demo movement-quality stats to FILTER to high-retention sustained-high-speed bunnyhop runs before fitting the policy (trick packs include slides/RJ/telebugs)"
+  file: "{out_dir}/manifest.json"     # single JSON array, indent=1 (line 107)
+  serialization: json_array_indent_1
+  entry_ok_fields:
+    - key: demo
+      type: string
+      source: build_training_dataset.py:73
+    - key: ok
+      type: bool
+      source: build_training_dataset.py:73 (true)
+    - key: map
+      type: string|null
+      source: build_training_dataset.py:73 (meta.get("map_level"))
+    - key: frames
+      type: int
+      source: build_training_dataset.py:74 (len(frames))
+    - key: paired_coverage
+      type: float|null
+      source: build_training_dataset.py:74 (meta.get("paired_coverage"))
+      transform: matched_state_frames / len(commands) (build_replay_command_file.py:335)
+    - key: peak_hspeed
+      type: float
+      source: build_training_dataset.py:75
+      transform: round(max(hypot(vx,vy) over all frames), 1)
+    - key: p50_hspeed
+      type: float
+      source: build_training_dataset.py:76,35-39
+      transform: round(percentile(hspeeds, 0.50), 1)
+    - key: p90_hspeed
+      type: float
+      source: build_training_dataset.py:77,35-39
+      transform: round(percentile(hspeeds, 0.90), 1)
+    - key: air_frac
+      type: float
+      source: build_training_dataset.py:78,56-57
+      transform: round(len(air_hspeeds) / len(frames), 3); air_hspeeds collected when onground is false
+    - key: jumps
+      type: int
+      source: build_training_dataset.py:58-59,79
+      transform: count of frames where (buttons & 2)
+    - key: ndjson
+      type: string
+      source: build_training_dataset.py:79 (out_path.name)
+      transform: basename of this demo's shard, "{demo_stem}.ndjson"
+  entry_fail_fields:
+    - key: demo
+      type: string
+      source: build_training_dataset.py:47,49
+    - key: ok
+      type: bool
+      source: build_training_dataset.py:47,49 (false)
+    - key: error
+      type: string
+      source: build_training_dataset.py:47,49
+      transform: "'{ExcType}: {msg}' on parse exception, or 'no frames'"
+  hspeed_definition:
+    source: build_training_dataset.py:51-59
+    formula: "hspeed = math.hypot(velocity[0], velocity[1])  # uses int-rounded v"
+
+# ---------------------------------------------------------------------------
+# QUALITY FILTER (movement-quality gate)
+# ---------------------------------------------------------------------------
+# REALITY CHECK: build_training_dataset.py does NOT drop or gate any shard on a
+# threshold. It writes a shard for every demo with >=1 frame, and only PRINTS a
+# summary count of demos with peak_hspeed > 700. The "filter" is downstream /
+# manual using the manifest stats. Recorded here as the real reporting gate.
+quality_filter:
+  enforced_in_builder: false
+  source: scripts/build_training_dataset.py:110-114
+  reported_threshold:
+    field: peak_hspeed
+    op: ">"
+    value: 700
+    meaning: "demos counted as high-speed bunnyhop candidates (reported, not enforced)"
+  intended_filter_basis:
+    - peak_hspeed     # sustained high-speed retention
+    - p50_hspeed
+    - p90_hspeed
+    - air_frac
+    - paired_coverage
+  note: "selection to high-retention runs happens downstream by consuming manifest.json; the builder emits all shards unconditionally"
+
+# ---------------------------------------------------------------------------
+# OUTPUT
+# ---------------------------------------------------------------------------
+output:
+  out_dir_arg: --out-dir
+  required: true
+  source: scripts/build_training_dataset.py:86,91
+  mkdir: "parents=True, exist_ok=True (line 91)"
+  shards:
+    layout: ndjson_per_demo
+    path: "{out_dir}/{demo_stem}.ndjson"   # line 61
+    source: scripts/build_training_dataset.py:61-70
+    encoding: utf-8
+    format: NDJSON (one compact JSON object per line)
+  manifest:
+    path: "{out_dir}/manifest.json"        # line 107
+    source: scripts/build_training_dataset.py:107
+    format: single JSON array, indent=1
+  failure_policy:
+    source: scripts/build_training_dataset.py:46-49
+    behavior: "per-demo exceptions recorded as ok:false manifest entry and skipped; batch never aborts; no shard written for a failed/empty demo"
+
+# ---------------------------------------------------------------------------
+# DOWNSTREAM MODEL VIEW (provenance only; NOT produced by this pipeline)
+# ---------------------------------------------------------------------------
+# The move model does NOT train on the 11-field raw row directly. A separate
+# module derives a 6-dim feature vector from the raw v/a fields. Recorded for
+# train/serve parity context; this pipeline emits the raw row, not these.
+derived_model_view:
+  module: scripts/move_world_view.py::state_features   # lines 80-108
+  feature_names_source: scripts/move_world_view.py:57
+  feature_dim: 6
+  feature_names: ["hspeed/320", "vz/320", "lvm_sin", "lvm_cos", "moving", "pitch/90"]
+  constants:
+    MAXSPEED: 320.0        # move_world_view.py:62
+    MOVING_EPS: 1.0        # move_world_view.py:66 (moving=1 if hspeed>=1.0)
+    PITCH_NORM: 90.0       # move_world_view.py:69
+  derived_from_raw_fields: ["v (vx,vy,vz)", "a (yaw=a[1], pitch=a[0])"]
+  packed_artifact: "(N,6) float32 X + (N,3) labels -> .npz (e.g. ~/move_bc_dataset.npz)"
+  parity_gate:
+    test: tests/test_golden_vector_parity.py
+    fixture: tests/fixtures/golden_vector_parity.tsv   # header komodobots.golden_vector.v1 (TSV, not JSONL)
+    guards: "ONLY the 6-feature world-view; does NOT guard the 11-field NDJSON row"
+
+# ---------------------------------------------------------------------------
+# KNOWN GAPS (faithful disclosure)
+# ---------------------------------------------------------------------------
+known_gaps:
+  - "No JSON Schema file exists in-repo; schema authority is scattered string constants in tool code."
+  - "Row docstring (build_training_dataset.py:5-7) does not document field types; o=float, v=int (rounded)."
+  - "`frame` is a command index, not a time/replay frame -- easy to misread."
+  - "onground/pm_code are structurally present but degenerate offline (move_world_view.py:37-42)."
+  - "Quality filter (peak hspeed>700) is reported only, not enforced by the builder."
+  - "Canonical corpus path (~/ctv_decomp) lives only in docs/13 and docs/18, never in data-source docs 02/06."
+  - "No contract slot pins where final packed training data lands for the ML model to consume."

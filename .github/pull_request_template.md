@@ -43,6 +43,14 @@ Paste command output, logs, metrics, screenshots, or browser geometry checks.
 - [ ] Test cases / evidence
 - [ ] No docs needed; reason:
 
+## Data contract (see docs/20_DATA_CONTRACT.md)
+
+- [ ] No data extraction fields, transforms, or output format changed
+- [ ] Extraction/transform/format changed AND all of these moved in this PR:
+  `docs/20_DATA_CONTRACT.md`, `configs/extraction_spec.yaml`,
+  `schemas/training_example.schema.json`, `examples/expected_training_frame.jsonl`
+- [ ] `python3 -m unittest tests.test_data_contract` passes
+
 ## Risks / rollback
 
 ## Next smallest useful experiment
