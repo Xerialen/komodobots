@@ -978,6 +978,24 @@ Why they matter:
 - GitHub templates make the workflow usable from issues and PRs instead of
   living only in chat memory.
 
+### GitHub branch policy
+
+Local files:
+
+- `.github/rulesets/prod-dev-branch-protection.json`
+- `scripts/sync_github_ruleset.py`
+- `tests/test_sync_github_ruleset.py`
+
+Why they matter:
+
+- The ruleset manifest is the source-controlled policy for protecting the
+  long-lived `main` and `dev` branches.
+- The sync script creates or updates the live GitHub repository ruleset through
+  `gh api`, verifies drift with `--check`, and ensures merged PR head branches
+  are deleted with `gh repo edit --delete-branch-on-merge`.
+- The unittest file covers manifest validation, live-state comparison, and the
+  create/update command paths without calling GitHub.
+
 ### Meag KTX/Frogbots blog/discussion
 
 URL: https://www.quakeworld.nu/blog/396

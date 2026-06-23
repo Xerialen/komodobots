@@ -3259,3 +3259,64 @@ branch (`main`) for the `schedule` / `workflow_run` reconcilers to honor it.
 
 Revisit if the branch model changes (e.g. `dev` is retired), if branch protection is enabled
 (GitHub Pro/public) and supersedes the executor, or if a third long-lived base is introduced.
+
+---
+
+## Protect `main` and `dev` with a source-controlled GitHub ruleset
+
+### Date
+
+2026-06-23
+
+### Decision
+
+Add `.github/rulesets/prod-dev-branch-protection.json` as the repository-owned branch policy for
+the two long-lived branches, `main` and `dev`, and manage it with
+`scripts/sync_github_ruleset.py`.
+
+The ruleset targets `refs/heads/main` and `refs/heads/dev`, is active, has no bypass actors, blocks
+branch deletion and force-pushes, requires changes to arrive through pull requests, allows only
+squash merges, requires resolved review threads, and requires the `unittest` check from the `PR
+Tests` workflow (`GitHub Actions` integration id `15368`). The status-check rule deliberately keeps
+`strict_required_status_checks_policy=false` so the custom merge executor does not need to update a
+PR branch after every unrelated base-branch change before merging.
+
+The sync script also enforces GitHub's `deleteBranchOnMerge=true` repository setting, because
+Benjamin's branch-hygiene goal is `main` + `dev` + one or two active development heads, with feature
+branches removed after merge.
+
+### Alternatives Considered
+
+- Keep relying only on the deterministic review-gate executor. Rejected because it does not block
+  direct pushes, force-pushes, or branch deletion on `main`/`dev`.
+- Require the `review-gate-merge` workflow as a native status check. Rejected because that workflow
+  performs the merge; requiring it before merge would deadlock the flow.
+- Require strict up-to-date status checks. Rejected for now because it adds avoidable update-branch
+  churn to a solo/agent repo while the existing gate already requires the PR head to pass `PR Tests`.
+
+### Evidence
+
+- Live repository state on 2026-06-23: `isPrivate=false`, `deleteBranchOnMerge=true`, no repository
+  rulesets returned by `gh api repos/Xerialen/komodobots/rulesets`, and no active rules returned for
+  branch `main`.
+- Live application on 2026-06-23: `python scripts/sync_github_ruleset.py --repo
+  Xerialen/komodobots --apply` created ruleset `prod-dev-branch-protection` as id `18046253`;
+  a follow-up `--check` reported `GitHub branch ruleset matches manifest.`
+- GitHub documentation confirms repository rulesets can target branches, require pull requests,
+  require status checks, block force-pushes, and restrict deletions for public repositories on GitHub
+  Free.
+- `tests/test_sync_github_ruleset.py` covers manifest loading, stable comparison, missing-rule drift,
+  matching-rule check, create, and update paths.
+
+### Expected Consequences
+
+Direct pushes, force-pushes, and deletion of `main`/`dev` are blocked by GitHub once the manifest is
+applied. Normal agent PRs still flow through the existing layered gate: `PR Tests` plus the
+SHA-bound `gate: ready` review verdict, then the deterministic merge executor squash-merges and
+deletes the feature branch.
+
+### Revisit Conditions
+
+Revisit if the repo becomes private again without a plan that supports repository rulesets, if the
+required `unittest` check is renamed, if a third long-lived base branch is introduced, or if strict
+up-to-date checks become worth the added branch-update churn.
