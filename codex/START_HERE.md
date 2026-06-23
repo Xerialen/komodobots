@@ -4,7 +4,7 @@ Before writing code, read:
 
 1. docs/00_VISION_AND_NORTH_STAR.md
 2. docs/01_PROJECT_BRIEF.md
-3. docs/20_DATA_CONTRACT.md — before touching any data extraction, transform, training-data, or model-prep code. Do not infer new fields or change the output format unless the contract, schema, golden example, and tests all move in the same PR.
+3. docs/25_DATA_CONTRACT.md — before touching any data extraction, transform, training-data, or model-prep code. Do not infer new fields or change the output format unless the contract, schema, golden example, and tests all move in the same PR.
 
 Every task in this repository must contribute evidence toward one question:
 

@@ -6,7 +6,7 @@ The project exists to answer one larger question:
 
 > Can QuakeWorld bots become realistic enough to act as believable substitutes for real players?
 
-The program of record is **`docs/18_BENCH_ITERATED_BOT_PROGRAM.md`** (greenfield, 2026-06-16): a learned move+aim+decision DM3 4on4 stand-in, modeled on real elite human demos, measured on a 4v4 bench. The data that feeds it is contracted in `docs/20_DATA_CONTRACT.md`.
+The program of record is **`docs/18_BENCH_ITERATED_BOT_PROGRAM.md`** (greenfield, 2026-06-16): a learned move+aim+decision DM3 4on4 stand-in, modeled on real elite human demos, measured on a 4v4 bench. The data that feeds it is contracted in `docs/25_DATA_CONTRACT.md`.
 
 This repository is not primarily about making Frogbots bunnyhop. Movement (bunnyjumping) was the first visible and measurable bottleneck on the path toward realistic player and match simulation; the earlier "DM2 big room movement lab" framing in older docs is historical context, not the current plan.
 

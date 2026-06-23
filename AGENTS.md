@@ -11,7 +11,7 @@ Before making changes, read:
 1. `docs/00_VISION_AND_NORTH_STAR.md`
 2. `docs/01_PROJECT_BRIEF.md`
 3. `docs/02_SOURCE_MAP.md`
-4. `docs/20_DATA_CONTRACT.md` **before touching any data extraction, transform, training-data, or model-prep code**
+4. `docs/25_DATA_CONTRACT.md` **before touching any data extraction, transform, training-data, or model-prep code**
 5. `codex/START_HERE.md` if working through Codex
 6. The relevant open PR, issue, branch, comments, latest commits, and check status
 
@@ -19,7 +19,7 @@ After reading docs, reconcile them against live repository state before acting. 
 
 ## Data contract (anti-drift rule)
 
-The training-data format is version-controlled in `docs/20_DATA_CONTRACT.md` and its companion
+The training-data format is version-controlled in `docs/25_DATA_CONTRACT.md` and its companion
 files (`configs/extraction_spec.yaml`, `schemas/training_example.schema.json`,
 `examples/expected_training_frame.jsonl`). Git, not chat memory, is the source of truth for
 what data we extract, where it comes from, why, how it is transformed, what format it must
@@ -212,7 +212,7 @@ Any meaningful change to code, scripts, configs, experiments, architecture, envi
 
 Use this routing:
 
-- Training-data fields, transforms, or output format -> update `docs/20_DATA_CONTRACT.md` + its schema/spec/example (same PR)
+- Training-data fields, transforms, or output format -> update `docs/25_DATA_CONTRACT.md` + its schema/spec/example (same PR)
 - New source or reference -> update `docs/02_SOURCE_MAP.md`
 - Movement discovery -> update `docs/03_MOVEMENT_PROBLEM.md`
 - Lab setup change -> update `docs/05_HEADLESS_TEST_ENV.md`

@@ -19,7 +19,7 @@ Hard rule: do not act as both Coder and independent Reviewer for the same PR
 unless Benjamin explicitly overrides role separation.
 
 Before changing any data extraction, transform, training-data, or model-prep code, read
-`docs/20_DATA_CONTRACT.md` and obey its anti-drift rule (contract + schema + example + tests
+`docs/25_DATA_CONTRACT.md` and obey its anti-drift rule (contract + schema + example + tests
 move in the same PR).
 
 Claude-specific guidance:
