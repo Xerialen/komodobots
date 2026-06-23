@@ -1,6 +1,6 @@
 # DM3 4on4 self-POV data census — Stage-0 Spike 3
 
-**Spike:** `docs/12_DM3_4ON4_STANDIN_PROGRAM.md` §7 spike 3 + §8 risk #1 (the #1-ranked risk:
+**Spike:** `references/12_DM3_4ON4_STANDIN_PROGRAM.md` §7 spike 3 + §8 risk #1 (the #1-ranked risk:
 "Self-POV match-corpus yield for learned MOVE/AIM-of-elites").
 **Goal:** measure whether a self-POV elite DM3 4on4 corpus large enough to behaviourally-clone
 MOVE+AIM exists, and set an infeasibility floor.
@@ -18,9 +18,9 @@ MOVE+AIM exists, and set an infeasibility floor.
 | Distinct players | **256** |
 | Full-match-length demos (≥20k frames ≈ ≥4.5 min) | **443** (median 86,810 frames ≈ 19 min) |
 | `.qwz` decompression status | **Resolved** (no gap) — bundled qizmo 2.91 in WSL2 |
-| Infeasibility floor (docs/12: "< N self-POV 4on4 → abandon") | **Cleared by ~2 orders of magnitude** |
+| Infeasibility floor (references/12: "< N self-POV 4on4 → abandon") | **Cleared by ~2 orders of magnitude** |
 
-The feared "no elite DM3 POV corpus" (docs/12 provenance note) is **false**. Learned **MOVE** and
+The feared "no elite DM3 POV corpus" (references/12 provenance note) is **false**. Learned **MOVE** and
 **aim-tracking dynamics** BC are *data-feasible*. The honest residual limits are about *per-player
 depth* and *aim target-selection*, not corpus existence — see Caveats.
 
@@ -39,7 +39,7 @@ Counted with `find -iname` across the entire quakeworld tree:
 
 `.qwz`/`.mvd` span many maps/modes. The **DM3 POV subset** is the staged corpus below; the 99 dm3
 `.mvd` (e.g. `komodobots/tricks/dm3/`) are server demos and **cannot** train MOVE/AIM (no usercmd
-labels) — they remain the macro/economy (DECIDE) and outcome-scoring source, as docs/12 §5 states.
+labels) — they remain the macro/economy (DECIDE) and outcome-scoring source, as references/12 §5 states.
 
 ## 2. The DM3 POV corpus (challenge-tv archive)
 
@@ -92,7 +92,7 @@ Self-POV demos sit at 0.82–0.86; broadcast demos at **exactly 0.00**. No overl
 - **parse_fail (5):** 4 truncated/corrupt + 1 misfiled server demo (named `*_mvd` / `*_CA`).
 - **ambiguous (20):** almost all short single-author **trick-drill** demos (`joitrick`,
   `…headbangdoublejump`, `jumpatyaquad`, `dm3-cool`) — *correctly* excluded from the match corpus
-  (docs/12 §4 separates trick-drills from match behaviour).
+  (references/12 §4 separates trick-drills from match behaviour).
 - **spectator (43):** exactly the `Autotrack`/`Commentary`/`Commentator` broadcast demos — the class
   the filter was built to catch, with `move_nonzero_frac == 0.00`.
 
@@ -107,7 +107,7 @@ Self-POV demos sit at 0.82–0.86; broadcast demos at **exactly 0.00**. No overl
 ## 5. Strength cross-reference (`rate_individual.py`)
 
 `fantasyquake/data/individual_ratings.json` (carry-corrected blended individual+team, openskill
-PlackettLuce — the docs/12 clone-selection axis) holds **108** rated players, but its window is
+PlackettLuce — the references/12 clone-selection axis) holds **108** rated players, but its window is
 **2024–2026 modern** competitive play. The challenge-tv corpus is **classic-era (2003–2008)**, so
 only **7** self-POV players appear in both:
 
@@ -136,7 +136,7 @@ pinnacle WSL2 decompresses `.qwz` deterministically, invoked exactly as ezQuake 
 
 ## 7. Infeasibility floor & recommendation
 
-> **docs/12 floor:** *"if < N self-POV 4on4 demos survive → learned MOVE/AIM-of-elites is abandoned;
+> **references/12 floor:** *"if < N self-POV 4on4 demos survive → learned MOVE/AIM-of-elites is abandoned;
 > fall back to hand controllers + stock combat."*
 
 **Yield 472 self-POV 4on4 demos / 37.56 M frames / 256 players** clears any reasonable floor
@@ -153,7 +153,7 @@ Caveats that *scope* the claim (none reopen the floor):
    fine-tune**, not "clone one player from their demos alone."
 2. **AIM target-selection still needs POV × MVD fusion** (per-frame opponent positions), which this
    census does not provide. Only aim-**tracking dynamics** are feasible from POV alone — exactly as
-   docs/12 §5 already scopes it ("hand-aim on a learned target is the expected interim outcome").
+   references/12 §5 already scopes it ("hand-aim on a learned target is the expected interim outcome").
 3. **Classic-era strength ranking** for clone-target selection needs `rate_individual.py` re-run over
    the SmackDown MVDs (the modern registry doesn't cover these names).
 

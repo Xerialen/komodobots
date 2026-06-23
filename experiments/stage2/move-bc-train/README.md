@@ -1,6 +1,6 @@
 # Stage 2 — Learned MOVE behavioural-cloning policy (MLMove-style discrete BC)
 
-Implements docs/12 Stage 2 ("Learned MOVE (residual upgrade)"). Trains a small
+Implements references/12 Stage 2 ("Learned MOVE (residual upgrade)"). Trains a small
 discrete-action behavioural-cloning policy on the clean elite self-POV dm3 4on4
 corpus, then runs both Stage-2 gates: open-loop action reproduction / replay
 divergence vs the analytic **air-law prior** (the KILL criterion), and the
@@ -8,7 +8,7 @@ divergence vs the analytic **air-law prior** (the KILL criterion), and the
 
 **Verdict: GO** — keep the learned MOVE as the Stage-2 residual upgrade. BC
 strictly beats the air-law prior on open-loop retention *and* closed-loop
-sustained speed, so the docs/12 KILL condition (`BC < air-law prior`) is not
+sustained speed, so the references/12 KILL condition (`BC < air-law prior`) is not
 triggered. The closed-loop route-retention ceiling beyond ~1 s is a *substrate*
 limit (the worldmodel-only sim, which the recorded human inputs also cannot beat),
 not a policy failure — surfaced as a finding, not tuned around.
@@ -80,7 +80,7 @@ the *recorded* actions sign-quantised vs exact gives 0.225 vs 0.229 retention.
 **View-yaw coupling — Option (a) (chosen, justified).** MOVE predicts
 fwd/side/jump *conditioned on* the current view (the view enters the feature via
 `lvm`), and both gates **replay the human view-yaw**. Learned view control
-(a view-yaw-rate output) is **AIM, explicitly deferred to Stage 3** per docs/12;
+(a view-yaw-rate output) is **AIM, explicitly deferred to Stage 3** per references/12;
 predicting it here would conflate the MOVE gate with un-validated aim synthesis.
 
 ## Architecture
@@ -138,17 +138,17 @@ Sustained horizontal speed (qu/s) vs the promoted anchor pool band
 - Neither BC, air-law, *nor the recorded human inputs* land in-band beyond ~1 s,
   and all drift: the offline worldmodel-only sim (no submodels/lifts/player
   collision) cannot hold a human route over multi-second closed-loop. This is a
-  **substrate ceiling** (docs/12: surface, don't tune around it), not a policy
+  **substrate ceiling** (references/12: surface, don't tune around it), not a policy
   failure.
 
 ## Go / No-Go
 **GO** — keep learned MOVE as the Stage-2 residual upgrade. BC strictly beats the
-air-law prior on open-loop retention and closed-loop sustained speed, so docs/12's
+air-law prior on open-loop retention and closed-loop sustained speed, so references/12's
 KILL (`BC < air-law prior → keep hand-mover`) does **not** fire.
 
 **Caveats carried forward:** (1) closed-loop route retention beyond ~1 s is
 substrate-limited — the live bridge should re-observe true state at ~1 s cadence,
-and/or add the docs/12 DAgger / residual stabiliser before relying on long open
+and/or add the references/12 DAgger / residual stabiliser before relying on long open
 horizons; (2) anchor speed bands are on the MVD event-rate plane while the sim is
 sampled at the recorded ~13 ms tick — comparable but not an identical estimator,
 so band membership is reported with that caveat; (3) learned AIM (view control)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage-2 MOVE-BC OPEN-LOOP evaluation (docs/12 Stage 2 / §6 gate (a)).
+"""Stage-2 MOVE-BC OPEN-LOOP evaluation (references/12 Stage 2 / §6 gate (a)).
 
 For each held-out demo we take the recorded per-frame state stream and the
 recorded view-yaw + msec, then REPLACE the recorded (fwd,side,jump) usercmd with
@@ -15,7 +15,7 @@ dataset clean-mask uses):
             scripts/fit_air_law.py: forward held, strafe toward the view-yaw
             (the side that rotates velocity toward look, maximising the
             900 - cs^2 air-accel gain), jump whenever grounded. This is the
-            PRIOR the BC policy must beat or match on retention (docs/12 KILL
+            PRIOR the BC policy must beat or match on retention (references/12 KILL
             criterion: if BC < air-law prior -> keep hand-mover).
   BC        (learned policy)   -- argmax of the MoveMLP heads on the state
             feature vector.
@@ -305,7 +305,7 @@ def main(argv=None):
     out["bc_beats_airlaw_prior"] = bool(bc >= al)
     out["verdict_openloop"] = ("BC >= air-law prior (PASS open-loop retention)"
                                if bc >= al else
-                               "BC < air-law prior (KILL per docs/12)")
+                               "BC < air-law prior (KILL per references/12)")
     print("\n" + json.dumps({k: out[k] for k in
           ["action_reproduction_acc", "retention",
            "bc_beats_airlaw_prior", "verdict_openloop"]}, indent=1))

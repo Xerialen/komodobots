@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage-2 MOVE-BC CLOSED-LOOP gate (docs/12 §6 'Closed-loop MOVE gate' + §7
+"""Stage-2 MOVE-BC CLOSED-LOOP gate (references/12 §6 'Closed-loop MOVE gate' + §7
 Stage-2 acceptance).
 
 THE REAL STAGE-2 ACCEPTANCE. The trained policy drives pmove_sim with the

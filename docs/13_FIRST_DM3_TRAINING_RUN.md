@@ -163,7 +163,7 @@ python scripts/run_4v4_validation_lab.py \
 **What "the policy learned dm3 movement" looks like:**
 1. **Offline:** (a) PASS (BC ≥ air-law, KILL not tripped) **and** (b) BC ≥ air-law on speed and route at the 1 s cadence, BC ~in-band at 1 s.
 2. **In-lab:** the tracked komodobot slot completes a valid 4v4 dm3 match (clean `damage.matrix`: enemy damage present, intra-team ≈ 0 — the R-T team check), survives/laps, is **not bottom-of-lobby on movement**; composite **z ≥ −1** vs the Frogbot baseline; RL/LG accuracy within ~1σ (movement must not corrupt stock aim).
-3. **Believability:** `docs/16` G-MV checks — **G-MV1 (no face-and-run collapse) is the hard fail**: airborne `|wrap180(yaw − atan2(vy,vx))|` must be human-shaped, not ~0. Band-pass is necessary-not-sufficient.
+3. **Believability:** the G-MV checks — **G-MV1 (no face-and-run collapse) is the hard fail**: airborne `|wrap180(yaw − atan2(vy,vx))|` must be human-shaped, not ~0. Band-pass is necessary-not-sufficient.
 
 > **HONEST GAP — the learned policy is not yet wired into the live slot.** `run_4v4_validation_lab.py` currently spawns the komodobot slot as a **plain Frogbot** (`addbot 20 <team>`) tagged "komodobot" by label only — it sets **no per-slot moveprobe cvar and loads no learned policy.** Driving the slot from the learned policy is **PR #190 "Drive 4v4 Komodobot slot from WSL" (open)**, and a live per-tick learned-policy bridge is an **unbuilt new capability** (`references/12_DM3_4ON4_STANDIN_PROGRAM.md:135-136, 238-241`). Until #190 lands and a policy-feeding controller exists, layer (c) can only run as a **mode-10 `.cmds` replay** of the policy's rollout (open-loop) or a labeled-Frogbot smoke check. **State which variant you ran; do not report a Frogbot-in-disguise run as a learned-MOVE validation.**
 
@@ -191,6 +191,6 @@ In-lab (this repo): `artifacts/4v4-validation-runs/<run_id>/` + the rebuilt `lab
 4. **Clean run ≈ pooled run.** 39 excluded contaminants ≈ 0.49% of frames → near-identical behavior to `~/move_bc_policy.pt`. If you only want a fresh stamped artifact, that's expected; the value is provenance alignment.
 5. **Player attribution is a filename heuristic** — fine for this pooled run, a blocker for per-player tiering (out of scope).
 6. **`onground`/`pm_code` are constant-zero in shards by design** (POV recovery limitation); handled (not a feature; sim re-derives ground state) — flagged so a reviewer doesn't mistake it for a bug.
-7. **Believability despite band-passing** — `docs/16` texture gate guards this; G-MV1 (no face-and-run) is the hard fail. For a mode-10 replay bot texture is inherited from the human (passes trivially); it only becomes a real test for the learned policy under synthesized view (Stage-3).
+7. **Believability despite band-passing** — the G-MV texture gate guards this; G-MV1 (no face-and-run) is the hard fail. For a mode-10 replay bot texture is inherited from the human (passes trivially); it only becomes a real test for the learned policy under synthesized view (Stage-3).
 
 **Net.** Offline layers (a)+(b) are runnable today on the 4090 and expected to PASS/GO at parity with the prior pooled run; in-lab layer (c) is runnable as a replay/smoke check now and as a true live learned-MOVE check only once PR #190 and the live-bridge spike land. Report exactly which was executed.

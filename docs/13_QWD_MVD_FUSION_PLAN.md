@@ -44,7 +44,7 @@ before one is fed in; formula ingest waits on Steps 1–3, not the reverse.
 
 - **The `suspicious_later_playerinfo_markers` byte-count gate** (`probe_qwd_route_applicability.py:333` = `payload.count(bytes([SVC_PLAYERINFO]))`). `0x2A` collides with arbitrary coordinate bytes — it validates **nothing**. Replaced by a real ground-truth gate (Step 1).
 - **"Reuse the Rust `parse_playerinfo` for QWD."** False: `engine/demoparser/src/mvd/messages.rs:596` is `DF_*`-only (no msec/velocity/usercmd); QWD uses `PF_*`. Only the *wire primitives* port (`EntityUpdate` struct, the `PacketEntities` delta-from-baseline walker). The QWD `PF_*` record path is **greenfield → moderate stateful work**, not a frame-reader swap.
-- **"MVD `vp/vya` gives a usable per-frame AIM signal."** Per docs/12 §6, AIM acceptance is *outcome distributions* (LG%/RL direct-hit via damage), not angle fidelity. MVD angle16 is a coarse distributional anchor only; QWD float angle remains the supervision source.
+- **"MVD `vp/vya` gives a usable per-frame AIM signal."** Per references/12 §6, AIM acceptance is *outcome distributions* (LG%/RL direct-hit via damage), not angle fidelity. MVD angle16 is a coarse distributional anchor only; QWD float angle remains the supervision source.
 - **Any claim the POV-internal insight is "verified in code."** No opponent origin has ever been decoded in this repo. It is a **hypothesis the Step-1 kill-switch tests.**
 
 ## 2. Roadmap (cheapest-disconfirming-first; every step has a kill-check)
@@ -94,7 +94,7 @@ formula). Also test **adding yaw-rate / short-history** features to the MOVE sta
 **STEP 3 — Scale + migrate the gate.** *(Codex extracts ∥ Claude measures)*
 Codex runs the opponent decoder across all 478 demos. In parallel Claude **migrates the
 closed-loop gate** from absolute position-error to the distributional metric
-(route-segment completion + speed-band retention over many starts, docs/12 G-M1) — chaos
+(route-segment completion + speed-band retention over many starts, references/12 G-M1) — chaos
 caps absolute-match regardless of collision fidelity, so success must be judged
 distributionally.
 - **Acceptance:** corpus-wide opponent tracks in the per-tick ghost format; recorded
@@ -145,7 +145,7 @@ Run trained DECIDE→contract→trained MOVE/AIM inside `pmove_sim`/KTX on synth
 | Step 6 cohort calibration | **Claude** | — | — |
 | `svc_updateuserinfo` roster/name decode + 4on4 verify of the 367 SmackDown* demos | **Codex** (local) | Step 4 | replaces the filename-heuristic `player` column |
 | **#170 independent cross-model review** (pmove ghost wiring, contract, DECIDE labels, AIM spec) | **Codex** (different LLM) | each PR | gates merge to `main` |
-| Provenance: regenerate `TRAINED_DEMOS.md` after retrains; update docs/12 + ceiling diagnosis | **Claude** | — | — |
+| Provenance: regenerate `TRAINED_DEMOS.md` after retrains; update references/12 + ceiling diagnosis | **Claude** | — | — |
 
 Codex owns everything touching the gitignored 9 GB WSL corpus (extraction MUST run local) +
 the independent review. Claude owns numerics, sim wiring, metrics, torch tiers, specs.

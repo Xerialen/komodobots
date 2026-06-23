@@ -50,7 +50,7 @@ DEFAULT_OUT = Path("artifacts") / "records" / "4v4-validation.json"
 # (docs/18 T0.1: "team leap vs team frog, 4 vs 4").
 LEAP_ROLES = ("leap", "komodobot")
 
-# R-T damage.matrix gate (docs/18 Phase 0, docs/15): a frog-vs-leap 4v4 is only
+# R-T damage.matrix gate (docs/18 Phase 0): a frog-vs-leap 4v4 is only
 # honest when bots actually fight the enemy and almost never their own team.
 # "enemy damage > 0" and "intra-team damage ~= 0". intra-team damage is the
 # canonical mvdanalyzer dmg.team field (damage dealt to a teammate); skill-20
@@ -617,7 +617,7 @@ def _damage_matrix(
     *,
     intra_team_tolerance: int | float = DEFAULT_INTRA_TEAM_DAMAGE_TOLERANCE,
 ) -> dict[str, Any]:
-    """R-T damage.matrix gate for one game (docs/18 Phase 0, docs/15).
+    """R-T damage.matrix gate for one game (docs/18 Phase 0).
 
     Combat guard is damage DONE (canonical mvdanalyzer `dmg.given`), never
     accuracy. The gate is green when the bots actually fought the enemy

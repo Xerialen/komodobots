@@ -1,7 +1,7 @@
 {
   "schema": "komodobots.stage0.self_pov_census.v1",
   "generated": "2026-06-14",
-  "spike": "Stage-0 Spike 3 — data census + self-POV provenance filter (docs/12 §7, risk #1)",
+  "spike": "Stage-0 Spike 3 — data census + self-POV provenance filter (references/12 §7, risk #1)",
   "host": "pinnaclewin11 (WSL2 Ubuntu-24.04), qizmo 2.91 bundled 32-bit",
   "method": {
     "decompression": "ezQuake cl_demo.c:2988 invocation `qizmo -q -u -3 -D <file.qwz>` via bundled 32-bit qizmo 2.91 + own loader/libs (no i386 multiarch). CWD holds compress.dat.",
@@ -32,7 +32,7 @@
     "parse_fail": 5,
     "by_class": {"self_pov": 479, "spectator": 43, "ambiguous": 20, "parse_fail": 5},
     "parse_fail_note": "4 truncated/corrupt + 1 misfiled server demo (named *_mvd / *_CA)",
-    "ambiguous_note": "almost all are short single-author TRICK-DRILL demos (joitrick, headbangdoublejump, jumpatyaquad, dm3-cool) — correctly excluded from match corpus per docs/12 §4",
+    "ambiguous_note": "almost all are short single-author TRICK-DRILL demos (joitrick, headbangdoublejump, jumpatyaquad, dm3-cool) — correctly excluded from match corpus per references/12 §4",
     "spectator_note": "the 43 are exactly the Autotrack/Commentary/Commentator broadcast demos — move_nonzero_frac == 0.00 (camera operator idle)"
   },
   "self_pov_yield": {
@@ -68,6 +68,6 @@
     "yield_vs_floor": "472 self-POV 4on4 match demos / 37.56M ground-truth usercmd frames / 256 distinct players / 443 full-match-length",
     "comparator_MLMove": "MLMove (SIGGRAPH SCA 2024) behaviourally-cloned pro CS team movement from 123h of play. 37.56M frames at ~72Hz ~= 145 hours of self-POV input — same order of magnitude as MLMove's training set, for a SINGLE map.",
     "recommendation": "FEASIBLE",
-    "rationale": "The feared 'no elite DM3 POV corpus' is decisively false. Self-POV match-demo yield exceeds any reasonable floor by ~2 orders of magnitude (472 vs a plausible N=10-25). Frame volume (~145h) is comparable to the published MLMove BC corpus on one map. Learned MOVE and aim-tracking-dynamics BC are data-feasible. CAVEATS that scope the claim: (1) per-player depth is thin for BC of a SINGLE elite's signature (max 10 demos/player; most have 1-2) — pretraining on the pooled corpus + ztricks prior, then per-player fine-tune, is the realistic shape, not 'clone one player from their demos alone'; (2) AIM target-selection still needs POV x MVD fusion (per-frame opponent positions) which this census does not provide — only aim-tracking DYNAMICS are feasible from POV alone, exactly as docs/12 §5 already states; (3) classic-era strength ranking needs rate_individual.py re-run over SmackDown MVDs to pick clone targets by per-skill signature."
+    "rationale": "The feared 'no elite DM3 POV corpus' is decisively false. Self-POV match-demo yield exceeds any reasonable floor by ~2 orders of magnitude (472 vs a plausible N=10-25). Frame volume (~145h) is comparable to the published MLMove BC corpus on one map. Learned MOVE and aim-tracking-dynamics BC are data-feasible. CAVEATS that scope the claim: (1) per-player depth is thin for BC of a SINGLE elite's signature (max 10 demos/player; most have 1-2) — pretraining on the pooled corpus + ztricks prior, then per-player fine-tune, is the realistic shape, not 'clone one player from their demos alone'; (2) AIM target-selection still needs POV x MVD fusion (per-frame opponent positions) which this census does not provide — only aim-tracking DYNAMICS are feasible from POV alone, exactly as references/12 §5 already states; (3) classic-era strength ranking needs rate_individual.py re-run over SmackDown MVDs to pick clone targets by per-skill signature."
   }
 }

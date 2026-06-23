@@ -1,7 +1,7 @@
 # DM3 4on4 elite-anchor reference — methodology
 
 `dm3_4on4_anchors.json` is the **hardened** Stage-0 Spike-4 deliverable of the
-DM3 4on4 stand-in program (`docs/12_DM3_4ON4_STANDIN_PROGRAM.md` §7 spike 4, §6
+DM3 4on4 stand-in program (`references/12_DM3_4ON4_STANDIN_PROGRAM.md` §7 spike 4, §6
 gates, §8 risk 6). It is the goal-true gate anchor: per-player distributions plus
 pool min/max for every gate-relevant metric (M / E / A / P), each tied to an
 explicitly stated **measurement plane**, with full provenance.

@@ -1,7 +1,7 @@
 # MOVE BC clean-segment yield improvement (dm3 4on4 self-POV)
 
 Improves the **clean physics-faithful frame yield** of the Stage-2 MOVE
-behavioural-cloning pool (`docs/12` §5 "accept only on submodel-free /
+behavioural-cloning pool (`references/12` §5 "accept only on submodel-free /
 opponent-free trajectory segments") without lowering label quality, and
 quantifies the gain over the manifest baseline.
 

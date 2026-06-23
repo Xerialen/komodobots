@@ -1,7 +1,7 @@
 # DM3 4on4 stand-in program — status & resumption (2026-06-14)
 
 Cold-start state for the learned-brain DM3 4on4 stand-in program. Program of record:
-`docs/12_DM3_4ON4_STANDIN_PROGRAM.md` (on `main`). Decision record: `docs/08_DECISION_LOG.md`
+`references/12_DM3_4ON4_STANDIN_PROGRAM.md` (on `main`). Decision record: `docs/08_DECISION_LOG.md`
 (2026-06-14 entry, Decision Point Alpha → Megalodon Milton). This file = "where we are, what's
 proven, what's next, and where everything lives" so a fresh agent can resume without the chat.
 
@@ -37,7 +37,7 @@ proven, what's next, and where everything lives" so a fresh agent can resume wit
   contamination = player-collision 78.6% (intrinsic to 4on4). `experiments/stage2/move-bc-dataset/`.
 - **Stage 2 — MOVE BC policy trained, verdict GO.** MoveMLP (18.4k params). Open-loop retention
   **0.180 vs air-law prior 0.074 (~2.4×)**; closed-loop beats the hand-mover at every horizon, 1 s
-  avg 243 ≈ human 257. docs/12 KILL (BC < prior) did not fire. `experiments/stage2/move-bc-train/`.
+  avg 243 ≈ human 257. references/12 KILL (BC < prior) did not fire. `experiments/stage2/move-bc-train/`.
 
 ## Key findings / caveats to carry forward
 
@@ -97,7 +97,7 @@ proven, what's next, and where everything lives" so a fresh agent can resume wit
    **also the Stage-3 AIM target-selection prerequisite**. Success metric: the `recorded`-human
    closed-loop route_err at 2 s drops materially from 88.9 qu.
 3. **Distributional closed-loop gate** — route-segment completion + speed-band retention over many
-   starts (docs/12 G-M1), replacing absolute position-match past ~1 s. Cheap, on-box.
+   starts (references/12 G-M1), replacing absolute position-match past ~1 s. Cheap, on-box.
 4. **Moving submodels** (lift timing from KTX QC) — last, lowest yield (submodels are secondary to
    players).
 5. **Live KTX path** / **Stage 3 learned AIM** — after validation is trustworthy.
