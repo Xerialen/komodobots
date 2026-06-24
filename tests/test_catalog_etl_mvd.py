@@ -601,6 +601,69 @@ class FailedRunArtifactTest(unittest.TestCase):
         self.assertEqual(val, "GOOD")
         self.assertFalse((d / "out.sqlite.partial").exists())       # only the partial was purged
 
+    def test_successful_rebuild_neutralizes_stale_canonical_wal(self):
+        # on success, replacing only the main file would leave a previous catalog's WAL/SHM
+        # sidecars in place, and a reader could see the OLD data. The publish must remove the
+        # canonical sidecars before os.replace so the new content is what readers get.
+        import sqlite3
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        # an OLD WAL-mode canonical with an uncheckpointed row; a 2nd open connection keeps the
+        # -wal from being checkpointed away on close, so a real stale out.sqlite-wal persists.
+        c1 = sqlite3.connect(final_db)
+        c1.execute("PRAGMA journal_mode=WAL")
+        c1.execute("CREATE TABLE old_marker (v TEXT)")
+        c1.execute("INSERT INTO old_marker VALUES ('OLD')")
+        c1.commit()
+        c2 = sqlite3.connect(final_db)
+        c2.execute("SELECT count(*) FROM old_marker").fetchone()
+        c1.close()
+        self.assertTrue((d / "out.sqlite-wal").exists())   # a real stale sidecar is present
+
+        qa = d / "qw-analyze"; qa.write_text("#!/bin/true\n"); qa.chmod(0o755)
+        bsp = d / "dm3.bsp"; bsp.write_bytes(b"x")
+        manifest = d / "m.json"; manifest.write_text("[]")
+        sha = "9" * 64
+        entries = [{"path": "/x/ok.mvd", "sha256": sha, "size_bytes": 10}]
+        seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                "yaw": float(i), "pitch": 0.0, "msec": 13} for i in range(4)]
+        ep = etl2._pack_episode(seg, [False] * 4, [False] * 4, 0)
+
+        def fake_static_build(catalog_dir, fixture_dir=None, db_path=None):
+            con = sqlite3.connect(db_path)
+            con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+            con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                        "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+            return con, {"fake": True}
+
+        def fake_extract(path, qw_analyze, bsp_path, _sha):
+            return {"ok": True, "demo": "ok.mvd", "sha256": sha, "n_players": 1,
+                    "players": [{"name": "p1", "team": 1, "episodes": [ep]}]}
+
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
+        etl2.catalog_load.build = fake_static_build
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fake_extract
+        try:
+            rc = etl2.main(["--catalog-dir", str(d), "--manifest", str(manifest),
+                            "--db", str(final_db), "--qw-analyze", str(qa), "--bsp", str(bsp),
+                            "--workers", "1"])
+        finally:
+            (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
+            c2.close()
+
+        self.assertEqual(rc, 0)
+        self.assertFalse((d / "out.sqlite-wal").exists(), "stale canonical WAL must be removed on publish")
+        self.assertFalse((d / "out.sqlite-shm").exists())
+        fresh = sqlite3.connect(final_db)
+        names = {r[0] for r in fresh.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        fresh.close()
+        self.assertIn("maps", names)             # the NEW catalog content is what readers see
+        self.assertNotIn("old_marker", names)    # the old WAL data does not shadow the new db
+
 
 class DemoIdDeterminismTest(unittest.TestCase):
     """demo_id must be a stable function of content identity (sha-rank), NOT the parallel

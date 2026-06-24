@@ -806,6 +806,12 @@ def main(argv=None) -> int:
                          "static-only catalog.", res["summary"]["demos_loaded"],
                          tc.get("player_ticks"), tc.get("actions"))
             return 2
+        # Neutralize any stale canonical WAL/SHM/journal sidecars BEFORE publishing — otherwise the
+        # freshly published main DB could be paired with a previous catalog's uncheckpointed WAL and
+        # readers would silently see the OLD data despite rc=0. (The new .partial is a single rollback
+        # -journal file with no live sidecars after con.close().)
+        for suffix in ("-wal", "-shm", "-journal"):
+            Path(str(dbp) + suffix).unlink(missing_ok=True)
         os.replace(tmp, dbp)  # atomic publish: the canonical path now holds a complete catalog
         published = True
         return 0
