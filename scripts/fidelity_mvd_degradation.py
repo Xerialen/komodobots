@@ -9,13 +9,15 @@ costs vs ground truth. CPU-only.
 
   python3 scripts/fidelity_mvd_degradation.py <demo.qwd> [n_frames] [dm3.bsp]
 """
-import sys, json, math, statistics as st
+import sys, json, logging, math, statistics as st
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.setrecursionlimit(20000)
 import build_replay_command_file as brc
 import pmove_sim as P
 from features.agent_observation import yaw_rate_degps
+
+LOGGER = logging.getLogger(__name__)
 
 # --- MVD/IDM degradation constants (verbatim from catalog_etl_mvd.py) -----------
 ANGLE16 = 360.0 / 65536.0
