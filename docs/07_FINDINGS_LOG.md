@@ -36,6 +36,54 @@ What should be tested next?
 
 ---
 
+## 2026-06-24 -- We extract ~movement only; a two-source full-content extraction spec authored
+
+### Experiment
+
+Audited the full information content of QW demos (the in-house `mvd_analyzer-src` decoder Result
+schema as the "everything extractable" master list) and diffed it against what our catalog ETL
+actually extracts, to author a method-agnostic Demo Extraction Specification
+(`docs/27_DEMO_EXTRACTION_SPEC.md`).
+
+### Result
+
+Two findings. (1) **We extract roughly the movement slice only** — a fraction of the demo's content.
+The MVD wire carries, per ~77 Hz frame for all 8 players: position + view-angles, health / armor /
+armor-type / ammo / active-weapon / items+powerups, frags, deaths, per-hit damage (KTX hidden block,
+era-gated), item pickup/respawn timeline, movers, chat. Our catalog *schema already has columns* for
+health/armor/weapon (`player_ticks`/`actor_ticks`) and tables for items/visibility — they are **not
+populated**, because `catalog_etl_mvd.py` requests only `positions,view,velocity`. So "get everything
+out" is largely *consuming a decode we already have*, not new decoders. (2) **A ground-truth INPUT
+corpus exists and is unused: 548 dm3 POV `.qwd`** on servexeri
+(`/mnt/usb-ssd/4on4-corpus/challenge-tv-pov-dm3/`). A first-person `.qwd` carries raw per-frame
+usercmds — the **real forwardmove that IDM cannot recover from MVD** — so it is the fidelity oracle +
+a ground-truth action source.
+
+### Evidence
+
+`docs/27_DEMO_EXTRACTION_SPEC.md`; `mvd_analyzer-src/mvd-analytics/result/*` (Result/PlayerStream/
+damage/items schemas); `scripts/catalog_schema.sql` (unpopulated rich columns); `tools/qwd_usercmd/
+qwd_usercmd.py`; vault `~/thevault/quakeworld/mvds.md` (the 548 POV corpus).
+
+### Interpretation
+
+The extraction has been grown bolt-on for one consumer (movement) at a time, so most of the demo's
+content — and the entire QWD ground-truth-input corpus — is left on the table. The fix is a do-once,
+method-agnostic, two-source extraction whose completeness is guaranteed by diffing against the
+decoder Result inventory.
+
+### Confidence
+
+High (schema + decoder + corpus all verified by direct inspection).
+
+### Follow-up
+
+Fidelity experiment (QWD-usercmd replay vs `pmove_sim` + the KTX velocity oracle) to fill the spec's
+fidelity contract; populate the rich `actor_ticks`/`item_events`/visibility/combat fields; run the
+coverage audit (catalog vs decoder inventory) before the next heavy extraction.
+
+---
+
 ## 2026-06-24 -- Phase-4 human 4on4 dm3 state-distribution corpus extracted + verified
 
 ### Experiment

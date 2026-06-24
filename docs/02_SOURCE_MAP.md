@@ -1104,6 +1104,18 @@ In-repo Python (torch + numpy, `ml/requirements.txt`), trained offline on host `
   reward-leakage player split, never the gate anchors). CLI: `--init-ckpt/--steps/--out-ckpt/--eval`.
   Offline pinnacle GPU only; no live server. Result + 8-round trajectory: `docs/notes/rl-onspeed-results.md`.
 
+## Demo extraction contract
+
+- **Demo Extraction Specification** — `docs/27_DEMO_EXTRACTION_SPEC.md` (`komodobots.demo-extraction.v1`).
+  The umbrella, **method-agnostic** contract for *everything we extract from demos* — the maximal raw,
+  two-source (omniscient server MVD + first-person client QWD) representation every model consumes a
+  subset of. Consolidates the movement-only `docs/25_DATA_CONTRACT.md`, the substrate
+  `docs/ml-data-architecture/00-DATA-ARCHITECTURE.md`, and the fusion plan `docs/13` by reference, and
+  fills the gaps (full field taxonomy + coverage method, fidelity contract, [G]/[R]/leg-phase/[C]
+  derivations, hold-out gates, versioning). Binding artifacts: `scripts/catalog_schema.sql`,
+  `data/catalog/feature_registry.yaml`. Decoders referenced by role + sha + schema version (no tool
+  names). The "everything extractable" master list lives in `mvd_analyzer-src` (Result schema).
+
 ## Source hygiene rules
 
 - Prefer current source code over historical comments.
