@@ -61,6 +61,6 @@
     "demo_id": "this corpus carries autoincrement-by-completion-order demo_ids (scratch patch); #383 assigns content-stable sha-rank demo_ids, so a re-extraction under #383 yields identical values + splits but renumbered demo_ids",
     "re_extraction": "a fully #383-reproducible re-extraction (deterministic demo_ids) is deferred until RL is greenlit; immaterial for the held-out-action state-prior use"
   },
-  "use": "RL state prior + reward/cadence anchor (plans/rl-plan.md STEP 0); action labels held out; forwardmove never used",
+  "use": "RL state prior + reward/cadence anchor (RL STEP 0; the RL plan is owner-held and not yet committed to the repo); action labels held out; forwardmove never used",
   "what_this_does_not_prove": "Green verification proves referential integrity, that geometric on-ground populated both states, and that every recovered action is held out. It does NOT prove the inverse-dynamics-recovered labels are correct, that the corpus yields useful movement behavior, that a full re-extraction stays within memory under #383, or that any bot improved."
 }

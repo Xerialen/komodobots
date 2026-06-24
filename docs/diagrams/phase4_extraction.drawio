@@ -49,7 +49,7 @@
           <mxGeometry x="950" y="410" width="260" height="130" as="geometry" />
         </mxCell>
 
-        <mxCell id="land_pin" value="servexeri  /mnt/usb-ssd/4on4-corpus/komodo-phase4/&#xa;CANONICAL state corpus, ~125 GB (not in git)&#xa;pinnacle ~/komodo-rl/ copy DEFERRED until RL greenlit&#xa;&#8594; RL STEP 0: reward / cadence anchor (plans/rl-plan.md)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;spacingLeft=8;" vertex="1" parent="1">
+        <mxCell id="land_pin" value="servexeri  /mnt/usb-ssd/4on4-corpus/komodo-phase4/&#xa;CANONICAL state corpus, ~125 GB (not in git)&#xa;pinnacle ~/komodo-rl/ copy DEFERRED until RL greenlit&#xa;&#8594; RL STEP 0: reward / cadence anchor (RL plan owner-held, not yet committed)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="1290" y="180" width="300" height="120" as="geometry" />
         </mxCell>
 

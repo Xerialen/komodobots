@@ -74,8 +74,9 @@ training utility, which is untested.
 
 ### Follow-up
 
-RL STEP-0 de-risk (`plans/rl-plan.md`) consuming the corpus as a state/cadence anchor; a fully
-#383-reproducible re-extraction (deterministic `demo_id`s) deferred until RL is greenlit.
+RL STEP-0 de-risk (per the RL plan — owner-held, not yet committed) consuming the corpus as a
+state/cadence anchor; a fully #383-reproducible re-extraction (deterministic `demo_id`s) deferred
+until RL is greenlit.
 
 ---
 

@@ -106,7 +106,8 @@ memory on the full corpus). That fix is now merged, reviewed, and tested as **PR
 
 ## Use of the corpus
 
-Reinforcement-learning **state prior** + reward / cadence anchor (`plans/rl-plan.md`, STEP 0). Action
-labels stay held out until per-head weights unlock the trustworthy heads (aim / yaw, jump, in-regime
-strafe-sign); `forwardmove` is never used. The canonical ~125 GB database stays on servexeri (not in
+Reinforcement-learning **state prior** + reward / cadence anchor (RL STEP 0). The RL plan itself is
+**owner-held and not yet committed** to the repo, so this is the intent, not a pointer to a tracked
+file. Action labels stay held out until per-head weights unlock the trustworthy heads (aim / yaw,
+jump, in-regime strafe-sign); `forwardmove` is never used. The canonical ~125 GB database stays on servexeri (not in
 git, not on the build box); the pinnacle copy is deferred until reinforcement-learning is greenlit.
