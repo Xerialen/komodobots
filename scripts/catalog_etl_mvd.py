@@ -29,10 +29,12 @@ Per demo it loads:
     actions      <- the IDM-RECOVERED (state,action) labels (sidemove SIGN, jump, view
                     angles), label_source='idm', confidence<1.0, is_interp on unreliable rows
 
-A train/val/test split is assigned GROUPED BY demo_id (split_policy='group_by_demo_id'), the
-same policy as the QWD ETL — no demo's frames straddle the split boundary. The label is picked
-per demo from its content hash (split_for_sha), so each demo streams to SQLite the moment its
-parse finishes — no global ordering, bounded memory (see build()).
+A train/val/test split is assigned GROUPED BY demo (no demo's frames straddle the boundary),
+but — unlike the QWD ETL's positional assign_splits — the bucket is picked per demo from its
+content hash (split_for_sha), so each demo streams to SQLite the moment its parse finishes (no
+global ordering, bounded memory; see build()). The episodes carry the VERSIONED provenance
+split_policy='group_by_demo_sha256_bucket_v1' (SPLIT_POLICY) so a generated catalog records
+exactly which assignment produced `split`. See data/catalog/dataset_spec.yaml.
 
 MVD INPUT FORMAT (schema-33 qw-analyze)
 ---------------------------------------
@@ -467,7 +469,7 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str) -> 
                 """INSERT INTO episodes
                    (demo_id, player_id, map_id, start_tick, end_tick, n_steps, split, split_policy)
                    VALUES (?,?,?,?,?,?,?,?)""",
-                (demo_id, player_id, map_id, ep["start"], ep["end"], ep["n"], split, "group_by_demo_id"),
+                (demo_id, player_id, map_id, ep["start"], ep["end"], ep["n"], split, SPLIT_POLICY),
             )
             episode_id = c.lastrowid
             n_ep += 1
@@ -529,8 +531,21 @@ def load_manifest(manifest_path: Path) -> list[dict]:
     return out
 
 
-def split_for_sha(sha: str, ratios=(0.70, 0.15, 0.15)) -> str:
-    """Pick a demo's train/val/test split from its OWN content hash.
+# Split provenance (audited in episodes.split_policy). MVD episodes are bucketed per demo by a
+# hash of the demo's OWN sha256 (split_for_sha) — a DIFFERENT assignment mechanism than the QWD
+# ETL's positional assign_splits, even though both share the group-by-demo INVARIANT (no demo
+# straddles a split). The value is VERSIONED so a generated catalog records exactly which method
+# produced `split`, and a re-run is reconstructable from the hash + thresholds below.
+SPLIT_POLICY = "group_by_demo_sha256_bucket_v1"
+SPLIT_RATIOS = (0.70, 0.15, 0.15)  # train / val / test; also recorded in the build summary
+
+
+def split_for_sha(sha: str, ratios=SPLIT_RATIOS) -> str:
+    """Pick a demo's train/val/test split from its OWN content hash (policy=SPLIT_POLICY).
+
+    Mechanism (the durable contract — keep in sync with SPLIT_POLICY's version and
+    data/catalog/dataset_spec.yaml): u = int(sha256_hex[:8], 16) / 0xFFFFFFFF in [0,1);
+    train if u < 0.70, val if u < 0.85, else test.
 
     This is what lets build() stream: a demo's split depends only on its sha256, so each demo
     can be inserted the instant its parse finishes — no global ordering, so we never hold all
@@ -621,6 +636,15 @@ def build(catalog_dir: Path, manifest: Path, db_path: str, bsp_path: str,
         "demos_failed": len(errors),
         "demos_skipped_duplicate": len(skipped_dups),
         "extract_secs": round(time.time() - t0, 1),
+        "split_policy": SPLIT_POLICY,  # recorded per-episode in catalog.episodes.split_policy too
+        "split_spec": {  # the durable, reconstructable split contract (gate item 2: provenance)
+            "method": SPLIT_POLICY,
+            "assignment": "per-demo sha256 bucket",
+            "hash_input": "int(sha256_hex[:8], 16) / 0xFFFFFFFF",
+            "thresholds": {"train": SPLIT_RATIOS[0], "val": SPLIT_RATIOS[0] + SPLIT_RATIOS[1]},
+            "ratios": {"train": SPLIT_RATIOS[0], "val": SPLIT_RATIOS[1], "test": SPLIT_RATIOS[2]},
+            "invariant": "group_by_demo (no demo straddles a split)",
+        },
         "split_counts": _split_counts(per_demo),
         "table_counts": counts,
         "onground_distinct": _onground_distinct(con),

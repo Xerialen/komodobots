@@ -353,6 +353,38 @@ class StreamingInsertTest(unittest.TestCase):
         labels = {sp for _, sp in inserted}
         self.assertTrue(labels <= {"train", "val", "test"})      # split assigned per demo by sha
         self.assertGreater(len(labels), 1)                       # a real partition, not all-one
+        # the split build() passed for each demo IS split_for_sha(that demo's sha) — provenance
+        sha_of = {Path(e["path"]).name: e["sha256"] for e in entries}
+        for demo, split in inserted:
+            self.assertEqual(split, etl2.split_for_sha(sha_of[demo]))
+        # build summary records the versioned, reconstructable split contract
+        self.assertEqual(res["summary"]["split_policy"], "group_by_demo_sha256_bucket_v1")
+        self.assertEqual(res["summary"]["split_spec"]["thresholds"], {"train": 0.70, "val": 0.85})
+
+
+class SplitPolicyEmittedTest(unittest.TestCase):
+    """The catalog is self-describing: a real insert writes the VERSIONED sha-bucket policy into
+    episodes.split_policy (not the QWD positional 'group_by_demo_id'), so a generated catalog
+    records which assignment produced `split`. Uses the real schema; no qw-analyze/BSP needed."""
+
+    def test_insert_demo_writes_versioned_sha_split_policy(self):
+        import sqlite3
+        con = sqlite3.connect(":memory:")
+        con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+        con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                    "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+        seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                "yaw": float(i), "pitch": 0.0, "msec": 13} for i in range(4)]
+        ep = etl._pack_episode(seg, [False] * 4, [False] * 4, 0)
+        sha = "abc12345" + "0" * 56
+        rec = {"demo": "d.mvd", "sha256": sha, "n_players": 1,
+               "players": [{"name": "p1", "team": 1, "episodes": [ep]}]}
+        split = etl.split_for_sha(sha)
+        etl.insert_demo(con, 1, rec, split)
+        rows = con.execute("SELECT DISTINCT split, split_policy FROM episodes").fetchall()
+        con.close()
+        self.assertEqual(etl.SPLIT_POLICY, "group_by_demo_sha256_bucket_v1")
+        self.assertEqual(rows, [(split, etl.SPLIT_POLICY)])      # emitted == versioned sha policy
 
 
 if __name__ == "__main__":
