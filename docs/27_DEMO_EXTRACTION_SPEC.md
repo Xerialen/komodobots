@@ -121,15 +121,25 @@ Per `(episode, tick, actor_id)`: full kinematic state (3.1) **for every player**
 for threat context [C] and is omniscient in MVD (PVS-broadcast; ~99% coverage in competitive demos).
 
 ### 3.4 Player status — health / armor / ammo / weapons / powerups [C/E]
-| Field | Role | Recov. | Avail. | Source |
-|---|---|---|---|---|
-| health, armor, armor_type (GA/YA/RA) | C | obs | always | `svc_updatestat` STAT_HEALTH/ARMOR + entity skin |
-| active_weapon, weapons-held bitfield | C/E | obs | always | STAT_ACTIVEWEAPON / STAT_ITEMS |
-| ammo: shells, nails, rockets, cells | E | obs | always | STAT_SHELLS/NAILS/ROCKETS/CELLS |
-| powerups: quad, pent, ring (held intervals) | C/E | obs | always | STAT_ITEMS bits → intervals |
 
-*(Schema columns for health/armor/armor_type/weapon already exist in `player_ticks`/`actor_ticks`
-but are currently NOT populated by the MVD ETL — see §7 coverage gap.)*
+> **Binding rule (resolves the silent-omission risk).** A field is part of the **v1 binding
+> contract** only if it has a **concrete catalog destination** — an existing column or table in
+> `scripts/catalog_schema.sql`. A field without a destination is **PENDING** (§9), explicitly
+> *excluded* from v1 — never silently "in the taxonomy." Adding a destination is a schema change that
+> moves the field from PENDING→binding under change-control (§8). This makes "the next extraction
+> silently omits a field while looking compliant" impossible: omission of a binding field is a
+> coverage-audit failure (§7); a PENDING field has no v1 obligation.
+
+| Field | Role | Recov. | Status (v1) | Catalog destination |
+|---|---|---|---|---|
+| health, armor, armor_type (GA/YA/RA) | C | obs | **binding** (unpopulated) | `player_ticks`/`actor_ticks.health/armor/armor_type` — columns exist |
+| active_weapon | C/E | obs | **binding** (unpopulated) | `…weapon` — column exists |
+| ammo: shells, nails, rockets, cells | E | obs | **PENDING** (§9) | **no column yet** — excluded from v1 until schema adds it |
+| powerups: quad, pent, ring (held intervals) | C/E | obs | **PENDING** (§9) | **no table/column yet** — excluded from v1 until schema adds it |
+
+Source (wire): `svc_updatestat` STAT_HEALTH / ARMOR / ACTIVEWEAPON / SHELLS / NAILS / ROCKETS / CELLS /
+ITEMS (+ entity skin for armor type). The **binding** rows have schema columns but are **not yet
+populated** by the MVD ETL — a coverage gap tracked by §7, not a missing destination.
 
 ### 3.5 Items / economy timeline — `items`, `item_events` [E/I]
 Static `items` (type, origin, respawn_seconds, static_value, nearest_marker) — POPULATED
@@ -139,9 +149,11 @@ schema exists, **not populated** from MVD entity state today. Respawn-ETA + cont
 
 ### 3.6 Combat events — frags / deaths / damage [C]
 `frags` (chronological, killer/victim/weapon, suicide/teamkill), deaths (deduped: STAT_HEALTH +
-DF_DEAD + obituary), `damage_events` (per-hit attacker/victim/weapon/amount/splash, **era-gated**).
-Schema: add `frags`/`damage_events` tables (greenfield) or reference the decoder Result. Movement
-pillar uses these only to **filter** clean-movement segments (§6); they are the combat pillar's core.
+DF_DEAD + obituary), `damage_events` (per-hit attacker/victim/weapon/amount/splash, **era-gated** to
+~2024+ KTX demos). **Status (v1): PENDING** (§9) — no `frags`/`damage_events` table exists yet; these
+are not part of the v1 binding contract until the schema adds them (binding rule, §3.4). The movement
+pillar uses these only to **filter** clean-movement segments (§6, fail-closed on unknown damage); they
+are the combat pillar's core.
 
 ### 3.7 World / movers / static — `maps`, `markers`, `nav_edges`, movers
 Map AABB + physics constants (`maps`); Frogbot nav graph (`markers`, `nav_edges` — POPULATED);
@@ -156,8 +168,8 @@ confidence, is_interp, onground_is_proxy.
 ### 3.9 Coverage table (the completeness guarantee)
 The spec is complete **iff** every field the decoder's Result schema produces is accounted for here
 as **extracted** / **derived** / **excluded-with-reason**. The coverage audit (§7) diffs the live
-catalog against the decoder Result inventory (`mvd_analyzer-src/mvd-analytics/result/*`,
-`RESULT_SCHEMA.md`) and emits a per-field table. **Excluded-with-reason examples:** `svc_sound`
+catalog against the decoder Result inventory (the in-house analyzer's `mvd-analytics/result/*` +
+`RESULT_SCHEMA.md`; see Appendix A / `docs/02_SOURCE_MAP.md`) and emits a per-field table. **Excluded-with-reason examples:** `svc_sound`
 details (not movement/economy relevant), temp-entities (projectile FX; rocket *positions* are
 derivable if needed — reserved §9), lightstyles/muzzleflash (cosmetic).
 
@@ -231,10 +243,18 @@ explicit and normative:
    never the gate anchors.
 4. **Splits are by whole demo** (`episodes.split` / `split_policy`); normalization stats fit on the
    TRAIN split only, frozen (`00` §6.2). No window crosses an episode boundary (`00` §5.2).
-5. **Clean-movement filter (definition):** a segment is *clean* (eligible for the human movement
-   prior/characterization) iff, across it, no enemy is within `THREAT_R` qu with line-of-sight AND
-   the player is not taking/dealing damage. Threshold `THREAT_R` and the damage window are spec
-   parameters set in Phase B; combat segments are excluded so the prior learns technique, not evasion.
+5. **Clean-movement filter (definition, FAIL-CLOSED on unknown).** A segment is *clean* (eligible for
+   the human movement prior/characterization) iff, across it, **(a)** no enemy is within `THREAT_R` qu
+   with line-of-sight, AND **(b)** the player is *provably* not taking or dealing damage. Threshold
+   `THREAT_R` and the window are spec parameters set in Phase B.
+   - **Unknown ≠ clean (fail-closed).** Because per-hit damage is era-gated (§3.6), a demo without a
+     `damage_events` source has **unknown**, not *absent*, damage. A segment whose damage state cannot
+     be **positively established as zero** in the same plane and window — whether from `damage_events`
+     or another named same-plane source (e.g. a verified health-drop / KTX scoreboard reconciliation)
+     — is treated as **NOT clean** and excluded from prior construction. Absent `damage_events` is
+     never read as "no damage."
+   This keeps combat/evasion segments (and era-gated-unknown segments) out, so the prior learns
+   technique, not evasion.
 
 ---
 
@@ -283,8 +303,13 @@ row + a catalog column with the same metadata discipline:
 
 - **[K] richer self:** explicit on-wire velocity (if a future schema carries it, replacing finite-diff
   → upgrades fidelity §4); per-frame waterlevel/onground for MVD (today MVD-NULL).
-- **[C] damage/economy:** per-hit damage on older (pre-2024) demos if recoverable; weapon-fire events;
-  projectile (rocket/grenade/nail) tracks (derivable from entity origins — reserved).
+- **[E] ammo/powerups (reserved storage):** `player_ticks`/`actor_ticks.shells/nails/rockets/cells`
+  columns + a powerup-interval table (quad/pent/ring held spans). PENDING per §3.4; moves to binding
+  when the schema adds the columns/table under change-control (§8).
+- **[C] combat tables (reserved storage):** `frags` + `damage_events` tables (per §3.6); weapon-fire
+  events; projectile (rocket/grenade/nail) tracks (derivable from entity origins). PENDING.
+- **[C] damage/economy coverage:** per-hit damage on older (pre-2024) demos if a future decoder
+  recovers it (would relax the fail-closed exclusion of §6.5 for those demos).
 - **[E] items:** populated `item_events` from entity state on all demos; backpack/weapon-drop events.
 - **[A] actions:** wider QWD POV coverage (more matched MVD↔QWD pairs) → larger ground-truth +
   calibration set.
@@ -298,9 +323,11 @@ fields is required** — that is the point of this spec.
 
 ## Appendix A — full wire/decoder inventory reference
 
-The "everything extractable" master list (diffed against in §3.9) lives in the in-house decoder:
-`mvd_analyzer-src/mvd-reader/` (`parser/*`, `MVD_FORMAT.md`) for the wire layer;
-`mvd_analyzer-src/mvd-analytics/result/*` (`result.go`, `streams.go` `PlayerStream`/`PositionTrack`,
-`damage.go`, `items.go`, `frag.go`) + `RESULT_SCHEMA.md` for the decoded Result schema. The QWD
-usercmd layout is in `tools/qwd_usercmd/qwd_usercmd.py`. These are the authority for what a demo
-physically carries; §3 is the contract for what we extract from it.
+The "everything extractable" master list (diffed against in §3.9) lives in the **in-house MVD/QWD
+analyzer source tree** — see `docs/02_SOURCE_MAP.md` for its canonical checkout location and pinned
+commit (referenced by role + commit, not a machine-specific path). Within that tree, the relevant
+modules are: the **wire layer** `mvd-reader/` (`parser/*`, `MVD_FORMAT.md`); the **decoded Result
+schema** `mvd-analytics/result/*` (`result.go`, `streams.go` `PlayerStream`/`PositionTrack`,
+`damage.go`, `items.go`, `frag.go`) + `RESULT_SCHEMA.md`. The QWD usercmd layout is in this repo at
+`tools/qwd_usercmd/qwd_usercmd.py`. These are the authority for what a demo physically carries; §3 is
+the contract for what we extract from it.
