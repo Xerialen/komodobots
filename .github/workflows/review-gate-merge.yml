@@ -7,10 +7,11 @@ name: Review Gate Merge
 #   - `gate: ready` label present; `gate: blocked` absent
 #   - a top-level gate verdict comment says `LABEL: gate: ready` for the current
 #     PR head SHA, so a stale ready label cannot authorize a newer commit
-#   - PR open, non-draft, base `main` or `dev`, mergeable, and GitHub reports a
-#     clean merge-state (the `dev` integration branch auto-merges too, so the
-#     staged agent loop lands without a manual "fallback merge"; a `dev`->`main`
-#     PR whose head is a long-lived branch is never `--delete-branch`'d)
+#   - PR open, non-draft, base `main` or `dev`, mergeable, and GitHub does not
+#     report a hard merge-state blocker such as BLOCKED/DIRTY/BEHIND (the `dev`
+#     integration branch auto-merges too, so the staged agent loop lands without
+#     a manual "fallback merge"; a `dev`->`main` PR whose head is a long-lived
+#     branch is never `--delete-branch`'d)
 #   - every non-gate status check passing (this is where `pr-tests` — the
 #     deterministic CI floor — is enforced)
 #
@@ -134,7 +135,12 @@ jobs:
             [ "$has_ready" = "true" ]      || { echo "skip #$PR: no 'gate: ready'"; return 0; }
             [ "$has_blocked" = "false" ]   || { echo "skip #$PR: 'gate: blocked' present"; return 0; }
             [ "$mergeable" = "MERGEABLE" ] || { echo "skip #$PR: not mergeable ($mergeable)"; return 0; }
-            [ "$merge_state" = "CLEAN" ]   || { echo "skip #$PR: merge state is '$merge_state' (GitHub branch/ruleset requirements not satisfied)"; return 0; }
+            case "$merge_state" in
+              BLOCKED|DIRTY|BEHIND)
+                echo "skip #$PR: merge state is '$merge_state' (GitHub branch/ruleset requirements not satisfied)"
+                return 0
+                ;;
+            esac
 
             # `gate: ready` is merge-authorizing only when a top-level gate
             # verdict comment explicitly binds that decision to the CURRENT head

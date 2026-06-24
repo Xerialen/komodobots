@@ -89,14 +89,18 @@ class ReviewGateMergeWorkflowTests(unittest.TestCase):
         # merged commit (the validate->merge TOCTOU race).
         self.assertRegex(merge, r'gh pr merge .*--match-head-commit "\$head"')
 
-    def test_merge_requires_clean_github_merge_state(self) -> None:
+    def test_merge_skips_hard_github_merge_state_blockers(self) -> None:
         merge = _workflow_text(MERGE_WORKFLOW)
         # `mergeable=MERGEABLE` only means the branches can be combined. Branch
         # rulesets such as unresolved-review-thread requirements still surface as
         # mergeStateStatus=BLOCKED and must soft-skip instead of attempting merge.
+        # UNSTABLE is deliberately not skipped here because GitHub can report it
+        # while this workflow's own non-gate merge check is pending; real checks
+        # are filtered and enforced below.
         self.assertIn("mergeStateStatus", merge)
         self.assertIn("merge_state=$(jq -r '.mergeStateStatus'", merge)
-        self.assertIn('merge state is \'$merge_state\'', merge)
+        self.assertIn('BLOCKED|DIRTY|BEHIND)', merge)
+        self.assertNotIn('[ "$merge_state" = "CLEAN" ]', merge)
 
     def test_merged_comment_only_after_successful_merge_command(self) -> None:
         merge = _workflow_text(MERGE_WORKFLOW)
