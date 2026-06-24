@@ -550,6 +550,266 @@ class FailedRunArtifactTest(unittest.TestCase):
         leftovers = sorted(p.name for p in d.glob("out.sqlite*"))
         self.assertEqual(leftovers, [], "a non-RuntimeError build failure must also purge the partial")
 
+    def test_existing_canonical_db_survives_failed_rebuild(self):
+        # fail-closed must protect the NEW artifact, not destroy the EXISTING one: a failed/empty
+        # rebuild must leave the previous known-good canonical catalog intact (it is built into a
+        # .partial and only os.replace'd on success), not delete it up front.
+        import sqlite3
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        pre = sqlite3.connect(final_db)            # a pre-existing verified catalog with a sentinel
+        pre.execute("CREATE TABLE sentinel (v TEXT)")
+        pre.execute("INSERT INTO sentinel VALUES ('GOOD')")
+        pre.commit()
+        pre.close()
+        qa = d / "qw-analyze"; qa.write_text("#!/bin/true\n"); qa.chmod(0o755)
+        bsp = d / "dm3.bsp"; bsp.write_bytes(b"x")
+        manifest = d / "m.json"; manifest.write_text("[]")
+        sha = "f" * 64
+        entries = [{"path": "/x/empty.mvd", "sha256": sha, "size_bytes": 10}]
+
+        def fake_static_build(catalog_dir, fixture_dir=None, db_path=None):
+            con = sqlite3.connect(db_path)         # builds into the .partial, NOT the canonical db
+            con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+            con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                        "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+            return con, {"fake": True}
+
+        def fake_extract(path, qw_analyze, bsp_path, _sha):
+            return {"ok": True, "demo": "empty.mvd", "sha256": sha, "n_players": 0, "players": []}
+
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
+        etl2.catalog_load.build = fake_static_build
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fake_extract
+        try:
+            rc = etl2.main(["--catalog-dir", str(d), "--manifest", str(manifest),
+                            "--db", str(final_db), "--qw-analyze", str(qa), "--bsp", str(bsp),
+                            "--workers", "1"])
+        finally:
+            (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
+
+        self.assertEqual(rc, 2)  # empty-gate failure
+        self.assertTrue(final_db.exists(),
+                        "a failed rebuild must PRESERVE the existing canonical catalog")
+        chk = sqlite3.connect(final_db)
+        val = chk.execute("SELECT v FROM sentinel").fetchone()[0]   # still the OLD db, untouched
+        chk.close()
+        self.assertEqual(val, "GOOD")
+        self.assertFalse((d / "out.sqlite.partial").exists())       # only the partial was purged
+
+    # shared fakes for the sidecar tests: a faked static spine (real schema at the .partial path)
+    # + a one-demo extract that yields a non-empty catalog so the run reaches the publish step.
+    def _sidecar_fixture(self, d):
+        import sqlite3
+        import catalog_etl_mvd as etl2
+        sha = "9" * 64
+        entries = [{"path": "/x/ok.mvd", "sha256": sha, "size_bytes": 10}]
+        seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                "yaw": float(i), "pitch": 0.0, "msec": 13} for i in range(4)]
+        ep = etl2._pack_episode(seg, [False] * 4, [False] * 4, 0)
+
+        def fake_static_build(catalog_dir, fixture_dir=None, db_path=None):
+            con = sqlite3.connect(db_path)
+            con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+            con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                        "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+            return con, {"fake": True}
+
+        def fake_extract(path, qw_analyze, bsp_path, _sha):
+            return {"ok": True, "demo": "ok.mvd", "sha256": sha, "n_players": 1,
+                    "players": [{"name": "p1", "team": 1, "episodes": [ep]}]}
+
+        qa = d / "qw-analyze"; qa.write_text("#!/bin/true\n"); qa.chmod(0o755)
+        bsp = d / "dm3.bsp"; bsp.write_bytes(b"x")
+        manifest = d / "m.json"; manifest.write_text("[]")
+        argv = ["--catalog-dir", str(d), "--manifest", str(manifest), "--db", str(d / "out.sqlite"),
+                "--qw-analyze", str(qa), "--bsp", str(bsp), "--workers", "1"]
+        return fake_static_build, fake_extract, entries, argv
+
+    @staticmethod
+    def _make_stale_wal(db_path):
+        # Leave a REAL, valid, uncheckpointed out.sqlite-wal on disk (as a crashed prior run would):
+        # a child process writes in WAL mode with autocheckpoint off and exits WITHOUT closing, so
+        # the -wal persists, unowned, with a committed-but-uncheckpointed row table old_t('OLD').
+        import subprocess
+        import sys
+        child = ("import sqlite3, os\n"
+                 "c = sqlite3.connect(%r)\n"
+                 "c.execute('PRAGMA journal_mode=WAL')\n"
+                 "c.execute('PRAGMA wal_autocheckpoint=0')\n"
+                 "c.execute('CREATE TABLE old_t(v)')\n"
+                 "c.execute(\"INSERT INTO old_t VALUES ('OLD')\")\n"
+                 "c.commit()\n"
+                 "os._exit(0)\n") % str(db_path)
+        subprocess.run([sys.executable, "-c", child], check=True)
+
+    def test_successful_rebuild_neutralizes_real_stale_wal(self):
+        # a real leftover valid -wal WOULD shadow a freshly replaced main (a reader would see the
+        # OLD data). A successful rebuild must neutralize it so the NEW catalog is what readers get.
+        import sqlite3
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        self._make_stale_wal(final_db)
+        self.assertTrue((d / "out.sqlite-wal").exists())   # a real valid stale WAL is present
+
+        fsb, fex, entries, argv = self._sidecar_fixture(d)
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
+        etl2.catalog_load.build = fsb
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fex
+        try:
+            rc = etl2.main(argv)
+        finally:
+            (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
+
+        self.assertEqual(rc, 0)
+        self.assertFalse((d / "out.sqlite-wal").exists(), "the stale WAL must be cleared on publish")
+        fresh = sqlite3.connect(final_db)
+        names = {r[0] for r in fresh.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        fresh.close()
+        self.assertIn("maps", names)             # the NEW catalog is what readers see
+        self.assertNotIn("old_t", names)         # the stale WAL no longer shadows the new db
+
+    def test_blocked_sidecar_cleanup_fails_closed(self):
+        # if a canonical sidecar cannot be cleared before publish (locked / a live reader), the
+        # run must FAIL CLOSED (rc2, no publish), not silently publish a shadowed catalog.
+        import pathlib
+        import sqlite3
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        old = sqlite3.connect(final_db)
+        old.execute("CREATE TABLE old_marker (v TEXT)")
+        old.commit()
+        old.close()
+        (d / "out.sqlite-shm").write_bytes(b"locked shm")   # a -shm that refuses removal (no -wal,
+                                                            # so no checkpoint path is taken)
+        fsb, fex, entries, argv = self._sidecar_fixture(d)
+        real_unlink = pathlib.Path.unlink
+
+        def locked_unlink(self, *a, **k):
+            if str(self) == str(final_db) + "-shm":
+                raise PermissionError("WinError 32 (simulated): file in use")
+            return real_unlink(self, *a, **k)
+
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
+        etl2.catalog_load.build = fsb
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fex
+        pathlib.Path.unlink = locked_unlink
+        try:
+            rc = etl2.main(argv)
+        finally:
+            pathlib.Path.unlink = real_unlink
+            (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
+
+        self.assertEqual(rc, 2)  # fail closed — do not publish a catalog a stale sidecar could shadow
+        fresh = sqlite3.connect(final_db)
+        names = {r[0] for r in fresh.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        fresh.close()
+        self.assertIn("old_marker", names)       # still the OLD db — the new build was NOT published
+        self.assertNotIn("maps", names)
+
+    def test_replace_failure_preserves_old_db_losslessly(self):
+        # if os.replace fails AFTER the old WAL was folded into its main file, the old catalog must
+        # still hold every committed row (the fold is lossless), and the new build is not published.
+        import sqlite3
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        self._make_stale_wal(final_db)           # old committed-but-uncheckpointed row old_t('OLD')
+
+        fsb, fex, entries, argv = self._sidecar_fixture(d)
+        real_replace = etl2.os.replace
+
+        def boom_replace(src, dst):
+            raise OSError("EXDEV (simulated): cannot replace canonical db")
+
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
+        etl2.catalog_load.build = fsb
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fex
+        etl2.os.replace = boom_replace
+        try:
+            rc = etl2.main(argv)
+        finally:
+            etl2.os.replace = real_replace
+            (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
+
+        self.assertEqual(rc, 2)  # fail closed
+        self.assertTrue(final_db.exists(), "the old canonical db must be preserved on a failed publish")
+        fresh = sqlite3.connect(final_db)
+        names = {r[0] for r in fresh.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        old_rows = [r[0] for r in fresh.execute("SELECT v FROM old_t")] if "old_t" in names else []
+        fresh.close()
+        self.assertIn("old_t", names)            # the old table survived ...
+        self.assertEqual(old_rows, ["OLD"])      # ... WITH its committed row (WAL fold was lossless)
+        self.assertNotIn("maps", names)          # the new build was NOT published
+        self.assertFalse((d / "out.sqlite.partial").exists())   # only the new partial was purged
+
+    def test_hot_rollback_journal_recovered_not_blindly_deleted(self):
+        # if the old catalog has a HOT rollback -journal (a crashed writer left an uncommitted txn),
+        # the publish must let SQLite roll it back (recover) rather than delete the journal blindly;
+        # a then-failed replace must leave the old db CONSISTENT (committed state, no partial pages).
+        import os as _os
+        import sqlite3
+        import subprocess
+        import sys
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        # child commits 'COMMITTED', then BEGINs + writes 'UNCOMMITTED' and exits without commit,
+        # leaving a hot out.sqlite-journal holding the uncommitted change.
+        child = ("import sqlite3, os\n"
+                 "c = sqlite3.connect(%r)\n"
+                 "c.execute('CREATE TABLE t(v)')\n"
+                 "c.execute(\"INSERT INTO t VALUES ('COMMITTED')\")\n"
+                 "c.commit()\n"
+                 "c.execute('BEGIN')\n"
+                 "c.execute(\"INSERT INTO t VALUES ('UNCOMMITTED')\")\n"
+                 "os._exit(0)\n") % str(final_db)
+        subprocess.run([sys.executable, "-c", child], check=True)
+        self.assertTrue((d / "out.sqlite-journal").exists())   # a hot rollback journal is present
+
+        fsb, fex, entries, argv = self._sidecar_fixture(d)
+        real_replace = etl2.os.replace
+
+        def boom_replace(src, dst):
+            raise OSError("EXDEV (simulated): cannot replace canonical db")
+
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
+        etl2.catalog_load.build = fsb
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fex
+        etl2.os.replace = boom_replace
+        try:
+            rc = etl2.main(argv)
+        finally:
+            etl2.os.replace = real_replace
+            (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
+
+        self.assertEqual(rc, 2)  # fail closed
+        fresh = sqlite3.connect(final_db)
+        self.assertEqual(fresh.execute("PRAGMA integrity_check").fetchone()[0], "ok")  # not corrupt
+        rows = [r[0] for r in fresh.execute("SELECT v FROM t")]
+        names = {r[0] for r in fresh.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        fresh.close()
+        self.assertEqual(rows, ["COMMITTED"])    # uncommitted txn rolled back; committed row intact
+        self.assertNotIn("maps", names)          # the new build was NOT published
+
 
 class DemoIdDeterminismTest(unittest.TestCase):
     """demo_id must be a stable function of content identity (sha-rank), NOT the parallel

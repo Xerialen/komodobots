@@ -773,8 +773,11 @@ def main(argv=None) -> int:
         for suffix in ("", "-wal", "-shm", "-journal"):
             Path(str(p) + suffix).unlink(missing_ok=True)
 
-    _purge(dbp)   # clear a stale canonical artifact up front
-    _purge(tmp)   # and any leftover partial from a prior aborted run
+    # Do NOT delete an existing canonical --db up front: build into the .partial and let the
+    # success-path os.replace() overwrite it ATOMICALLY. A failed/empty rebuild then PRESERVES the
+    # previous known-good catalog (an expensive verified corpus) instead of destroying it; only the
+    # new partial is purged on failure. (os.replace overwrites the destination on POSIX and Windows.)
+    _purge(tmp)   # clear only a leftover partial from a prior aborted run; the canonical db is untouched
 
     # Build into the .partial, then publish atomically. The `finally` purges the partial unless we
     # PUBLISHED — so EVERY non-success path fails closed and leaves no consumable partial catalog at
@@ -803,7 +806,39 @@ def main(argv=None) -> int:
                          "static-only catalog.", res["summary"]["demos_loaded"],
                          tc.get("player_ticks"), tc.get("actions"))
             return 2
-        os.replace(tmp, dbp)  # atomic publish: the canonical path now holds a complete catalog
+        # Publish safely. A leftover canonical -wal/-shm carries the WAL's own page-1 header, so it
+        # WOULD shadow a freshly replaced main DB — a reader opens the path in WAL mode and replays
+        # the OLD frames despite rc=0 (verified empirically). Stale sidecars MUST therefore be
+        # cleared before the new catalog is visible. But first make the OLD catalog SELF-CONSISTENT
+        # so nothing we delete is an unrecovered recovery record: opening the db lets SQLite roll
+        # back any hot -journal (and remove it), and a WAL checkpoint(TRUNCATE) folds any -wal into
+        # the main file. Both are lossless — an interrupted, uncommitted transaction is correctly
+        # discarded. Then a failed replace still leaves a complete, consistent old catalog. If any
+        # step is blocked (a live reader / locked sidecar), FAIL CLOSED: do not publish.
+        wal = Path(str(dbp) + "-wal")
+        try:
+            if dbp.exists():
+                rec = sqlite3.connect(str(dbp))
+                try:
+                    rec.execute("PRAGMA schema_version")  # forces a read lock -> hot-journal rollback
+                    if wal.exists():
+                        busy, _log, _ck = rec.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+                        if busy:  # a reader/writer blocked the fold — removing -wal would lose data
+                            raise RuntimeError("WAL checkpoint busy (the canonical catalog is held open)")
+                finally:
+                    rec.close()
+            for suffix in ("-wal", "-shm", "-journal"):
+                Path(str(dbp) + suffix).unlink(missing_ok=True)
+        except (OSError, sqlite3.Error, RuntimeError) as e:
+            LOGGER.error("cannot make the canonical catalog consistent / clear its sidecars before "
+                         "publish (locked / live reader?): %s — NOT publishing; preserved.", e)
+            return 2
+        try:
+            os.replace(tmp, dbp)  # atomic publish: the canonical path now holds the new catalog
+        except OSError as e:
+            LOGGER.error("publish failed (could not replace canonical db): %s — existing catalog "
+                         "preserved (its WAL was folded in, so no committed data is lost).", e)
+            return 2
         published = True
         return 0
     except RuntimeError as e:
