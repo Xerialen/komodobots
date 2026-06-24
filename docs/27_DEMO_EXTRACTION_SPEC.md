@@ -175,7 +175,7 @@ derivable if needed — reserved §9), lightstyles/muzzleflash (cosmetic).
 
 ---
 
-## 4. Fidelity contract (PENDING the Phase-A experiment)
+## 4. Fidelity contract (RESOLVED — fidelity experiment, 2026-06-24)
 
 **Why this is a contract, not a footnote.** QW air-acceleration integrates `wishdir=f(yaw)` **once
 per physics frame** (no sub-stepping; `pmove_sim.py`). If the corpus sample rate is **coarser** than
@@ -186,17 +186,56 @@ high-frequency air-strafe. This is physics fidelity, not smoothing.
 yaw/sidemove/jump are **step-held** (no temporal interpolation anywhere). Step-held-per-frame is what
 the real engine does, so the open question is **rate alignment**, not smoothing.
 
-**To be filled by the fidelity experiment** (set-aside plan Phase A — QWD ground-truth-usercmd
-replay through `pmove_sim` vs recorded speed, cross-checked against the **KTX server-side velocity
-oracle** (avg/max hspeed); plus MVD-step-held replay):
-- [ ] canonical tick/physics rate + tolerance;
-- [ ] QWD (client, variable) ↔ MVD (server 13 ms) alignment rule;
-- [ ] velocity-derivation method (finite-diff window/filter; the decoder uses central-difference);
-- [ ] **resample/interpolation policy** — needed only if MVD-replay loses speed vs QWD-replay; the
-      experiment decides yes/no + the target rate.
+### 4.1 Experiment (N=5 dm3 POV `.qwd`, `pmove_sim` anchored per-step replay)
 
-Until filled, this section is the **gate**: no heavy modelling run consumes the corpus as
-speed-faithful until the experiment certifies it (or specifies the resample step).
+Two halves on the **same** 5 demos (`laker__sc-sk`, `paradoks__e_vs_{bad,code,tdi}`,
+`paradoks__goldens_e_vs_4x`), measured as **anchored per-step horizontal-speed error in the bhop
+regime** (recorded `hspeed ≥ 400 qu/s`) — reset the sim to the recorded state each frame, step one
+cmd, compare `sim_vh` to the recorded next-frame speed. Anchored isolates per-step action fidelity
+from open-loop compounding.
+
+1. **Ground-truth half** — replay the **real QWD usercmds** (true forwardmove + true viewangles).
+   Per-step bhop speed error **0.5 / 1.2 / 2.0 / 2.3 / 3.1 qu/s** (the 5 demos) = **<1 % of speed**.
+   Anchored per-step origin err ~0.5–1.6 qu. → `pmove_sim` reproduces real human bunnyhop speed
+   essentially exactly; the inputs are already **at** the physics rate (1 usercmd / frame).
+2. **MVD-degradation half** — degrade the **same** inputs to the MVD/IDM representation
+   (`forwardmove → 0`; `sidemove = −sign(yaw_rate)·400` gated `|yaw_rate| ≥ 20°/s`; jump from
+   geometric-onground `T→F` with `vz>1`; yaw **angle16-quantized**, step-held — verbatim
+   `catalog_etl_mvd.py`), keeping the exact MVD state. Per-step bhop speed error rises to
+   **6.5 / 6.8 / 7.3 / 8.9 / 21.9 qu/s** = **3–14× the ground-truth**, but still only **~1.5–5 % of
+   speed**. 1-second-horizon origin err ~65–96 qu (vs ground-truth 10–43). Worst on the *slowest*
+   demo (laker, max 459, near the 400 gate); cleanest deep bhop (max 770–804) degrades least.
+
+### 4.2 Contract (filled)
+
+- **Canonical rate = native per-frame, ~72–77 Hz (1 usercmd / physics frame). No temporal
+  resampling.** Both sources are consumed step-held at native rate (the engine's own input model);
+  the QWD path is speed-faithful at it.
+- **QWD ↔ MVD alignment:** QWD = ground-truth usercmd per client frame; MVD = server snapshot per
+  ~13 ms frame. Consumed at native rate, **no cross-resampling** (the alignment that mattered for
+  route *replay* is action↔state time-base matching, not up-sampling — `alignment="time"`).
+- **Velocity derivation:** decoder central-difference, used as-is — the ~0.5–1.6 qu anchored origin
+  err confirms the state stream is physics-consistent.
+- **Resample / interpolation policy → NOT NEEDED.** The MVD's extra error is **representational, not
+  temporal**: forwardmove is unrecoverable (set 0), analog strafe magnitude collapses to ±400-sign,
+  yaw quantizes to angle16, and geometric-onground undercounts fast re-hops. **None of these is a
+  sampling-rate deficit, so resampling cannot recover any of them.** The earlier "interpolation was
+  the key" intuition is correct *in principle* (it matters when the control signal is coarser than
+  the physics) but does **not** apply here — the corpus is already at the physics rate.
+
+### 4.3 Consequence for method (why this is recorded here)
+
+The MVD **state** (origin / velocity / view) is omniscient and exact; only the **IDM-recovered
+actions** carry the 3–14× noise. So: (a) direct action-cloning on MVD labels inherits a 3–14×
+action-label noise floor vs ground truth — consistent with the supervised family's closed-loop speed
+stall; (b) the MVD corpus's durable value is as an **exact state-distribution**, best consumed
+**observation-only** — scoring `(s, s')` transitions (no action labels), which sidesteps the IDM loss
+entirely; (c) the 548 QWD POV demos remain the **ground-truth action oracle** whenever forwardmove or
+analog magnitude is genuinely required. This is a property of the data, not of any one method.
+
+> Reproduce: `scripts/fidelity_mvd_degradation.py <demo.qwd> 4000 <dm3.bsp>` (the 548 POV `.qwd`
+> live on servexeri `/mnt/usb-ssd/4on4-corpus/challenge-tv-pov-dm3/`); the degradation mirrors
+> `catalog_etl_mvd.py` IDM recovery verbatim.
 
 ---
 

@@ -36,6 +36,49 @@ What should be tested next?
 
 ---
 
+## 2026-06-24 -- Fidelity contract resolved: QWD ground-truth faithful (<1%); MVD/IDM representation costs 3-14x (representational, not temporal -> no resample)
+
+### Experiment
+
+Two-half fidelity experiment on N=5 dm3 POV `.qwd` (`laker__sc-sk`, `paradoks__e_vs_{bad,code,tdi}`,
+`paradoks__goldens_e_vs_4x`), measured as anchored per-step horizontal-speed error in the bhop
+regime (recorded `hspeed >= 400`), via `pmove_sim` replay on servexeri. (a) GROUND-TRUTH: replay the
+real QWD usercmds (true forwardmove + viewangles). (b) MVD-DEGRADATION: degrade the SAME inputs to
+the MVD/IDM representation (forwardmove->0; sidemove=-sign(yaw_rate)*400 gated; jump from
+geometric-onground T->F; yaw angle16-quantized step-held -- verbatim `catalog_etl_mvd.py`), keeping
+the exact MVD state, and re-measure. Isolates what the MVD lossy representation costs vs ground truth.
+
+### Result
+
+GROUND-TRUTH per-step bhop speed err = 0.5 / 1.2 / 2.0 / 2.3 / 3.1 qu/s (<1% of speed); anchored
+origin err ~0.5-1.6 qu. MVD-DEGRADED = 6.5 / 6.8 / 7.3 / 8.9 / 21.9 qu/s = 3-14x ground truth, but
+still only ~1.5-5% of speed; 1s-horizon origin err ~65-96 qu (vs GT 10-43). Worst on the slowest demo
+(laker, max 459, near the 400 gate); cleanest deep bhop (max 770-804) degrades least.
+
+### Evidence
+
+`docs/27_DEMO_EXTRACTION_SPEC.md` §4 (filled). Reproduce:
+`scripts/fidelity_mvd_degradation.py <demo.qwd> 4000 <dm3.bsp>` (committed; degradation mirrors
+`catalog_etl_mvd.py`). POV `.qwd` on servexeri `/mnt/usb-ssd/4on4-corpus/challenge-tv-pov-dm3/`.
+
+### Interpretation
+
+`pmove_sim` reproduces real human bunnyhop speed essentially exactly from ground-truth inputs at the
+native ~77 Hz -> NO temporal resampling needed (inputs are already at the physics rate). The MVD's
+extra error is REPRESENTATIONAL, not temporal (forwardmove unrecoverable, analog strafe -> +-400 sign,
+yaw -> angle16, geometric-onground undercounts fast re-hops), so resampling cannot recover it. The MVD
+STATE (origin/velocity/view) is exact; only the IDM-recovered ACTIONS carry the 3-14x noise.
+Consequence: direct action-cloning on MVD labels inherits a 3-14x label-noise floor (consistent with
+the supervised family's closed-loop speed stall); the MVD corpus's durable value is as an exact
+state-distribution consumed observation-only (score (s,s') -- no action labels), which sidesteps the
+IDM loss; the 548 QWD POV demos remain the ground-truth action oracle. Property of the data, not of a
+method. The "interpolation was the key" intuition is right in principle (matters when the signal is
+coarser than the physics) but does not apply to this corpus.
+
+### Confidence
+
+High for the contract (N=5, consistent regime-dependent pattern, anchored isolates per-step fidelity).
+
 ## 2026-06-24 -- We extract ~movement only; a two-source full-content extraction spec authored
 
 ### Experiment
