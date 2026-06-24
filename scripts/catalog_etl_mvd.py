@@ -30,7 +30,9 @@ Per demo it loads:
                     angles), label_source='idm', confidence<1.0, is_interp on unreliable rows
 
 A train/val/test split is assigned GROUPED BY demo_id (split_policy='group_by_demo_id'), the
-same policy as the QWD ETL — no demo's frames straddle the split boundary.
+same policy as the QWD ETL — no demo's frames straddle the split boundary. The label is picked
+per demo from its content hash (split_for_sha), so each demo streams to SQLite the moment its
+parse finishes — no global ordering, bounded memory (see build()).
 
 MVD INPUT FORMAT (schema-33 qw-analyze)
 ---------------------------------------
@@ -102,7 +104,7 @@ import subprocess
 import sqlite3
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, FIRST_COMPLETED, wait
 from pathlib import Path
 
 LOGGER = logging.getLogger(__name__)
@@ -527,21 +529,18 @@ def load_manifest(manifest_path: Path) -> list[dict]:
     return out
 
 
-def assign_splits(n_demos: int, ratios=(0.7, 0.15, 0.15)) -> list[str]:
-    """Deterministic group-by-demo split (identical policy to catalog_etl_qwd.assign_splits):
-    round-robin demos into train/val/test by a cumulative-ratio schedule so no demo straddles
-    a split and every present split has >=1 demo when n_demos allows."""
-    labels = []
-    train_n = max(1, round(n_demos * ratios[0]))
-    val_n = max(1, round(n_demos * ratios[1])) if n_demos >= 3 else 0
-    for i in range(n_demos):
-        if i < train_n:
-            labels.append("train")
-        elif i < train_n + val_n:
-            labels.append("val")
-        else:
-            labels.append("test")
-    return labels
+def split_for_sha(sha: str, ratios=(0.70, 0.15, 0.15)) -> str:
+    """Pick a demo's train/val/test split from its OWN content hash.
+
+    This is what lets build() stream: a demo's split depends only on its sha256, so each demo
+    can be inserted the instant its parse finishes — no global ordering, so we never hold all
+    demos in RAM to assign positions (the old assign_splits did, which OOM'd the 1537-corpus).
+    Content-stable too: the same demo always lands in the same split as the corpus grows or
+    reorders (positional round-robin reshuffled every demo when one was added/removed). Still
+    group-by-demo — one label for ALL of a demo's episodes, so nothing straddles the boundary."""
+    u = int((sha or "0")[:8], 16) / 0xFFFFFFFF
+    train_hi, val_hi = ratios[0], ratios[0] + ratios[1]
+    return "train" if u < train_hi else ("val" if u < val_hi else "test")
 
 
 def build(catalog_dir: Path, manifest: Path, db_path: str, bsp_path: str,
@@ -563,43 +562,53 @@ def build(catalog_dir: Path, manifest: Path, db_path: str, bsp_path: str,
     map_id = con.execute("SELECT map_id FROM maps WHERE name='dm3'").fetchone()[0]
 
     t0 = time.time()
-    extracted, errors = [], []
-    LOGGER.info("MVD ETL: extracting %d demos with %d workers ...", len(entries), workers)
-    if workers > 1 and len(entries) > 1:
+    errors, per_demo, skipped_dups = [], [], []
+    total = len(entries)
+    LOGGER.info("MVD ETL: extracting %d demos with %d workers (streaming insert) ...", total, workers)
+
+    def _consume(r):
+        """Insert one finished demo, commit, and let it go. This is the memory bound: a demo's
+        heavy per-tick frames live only from parse to insert — never all N demos at once, which
+        is what the old accumulate-then-insert did and what OOM'd the 1537-corpus."""
+        if r.get("sha_mismatch"):  # provenance failure -> abort the whole run (corpus corruption)
+            raise RuntimeError(
+                "manifest provenance: %s failed sha256 verification (the bytes on disk are not "
+                "what was classified); aborting: %s" % (r.get("demo"), r.get("error")))
+        if not r.get("ok"):
+            errors.append(r)
+        else:
+            split = split_for_sha(r.get("sha256"))
+            ins = insert_demo(con, map_id, r, split)
+            if ins.get("skipped_duplicate"):
+                skipped_dups.append(ins)
+                LOGGER.info("  SKIP duplicate sha256: %s (== %s)", r["demo"], ins.get("duplicate_of"))
+            else:
+                ins.update(demo=r["demo"], split=split, n_players_extracted=r.get("n_players"))
+                per_demo.append(ins)
+            con.commit()  # flush per demo so SQLite (not RAM) holds the growing corpus
+        done = len(per_demo) + len(errors) + len(skipped_dups)
+        if r.get("ok"):
+            LOGGER.info("  %d/%d  %s  (%d players)", done, total, r.get("demo"), r.get("n_players", 0))
+        else:
+            LOGGER.info("  %d/%d  %s  (ERR: %s)", done, total, r.get("demo"), r.get("error", ""))
+
+    if workers > 1 and total > 1:
+        window = max(2, workers * 2)  # keep ~2x workers in flight, NOT all `total` submitted at once
         with ProcessPoolExecutor(max_workers=workers) as ex:
-            futs = {ex.submit(extract_demo, e["path"], qw_analyze, bsp_path, e["sha256"]): e["path"]
-                    for e in entries}
-            for fut in as_completed(futs):
-                r = fut.result()
-                (extracted if r.get("ok") else errors).append(r)
-                done = len(extracted) + len(errors)
-                LOGGER.info("  %d/%d  %s  (%s)", done, len(entries), r.get("demo"),
-                            ("%d players" % r.get("n_players", 0)) if r.get("ok")
-                            else "ERR: " + r.get("error", ""))
+            pending, nxt = set(), 0
+            while nxt < total and len(pending) < window:
+                e = entries[nxt]; nxt += 1
+                pending.add(ex.submit(extract_demo, e["path"], qw_analyze, bsp_path, e["sha256"]))
+            while pending:
+                finished, pending = wait(pending, return_when=FIRST_COMPLETED)
+                for fut in finished:
+                    _consume(fut.result())
+                    if nxt < total:  # refill: one new parse per completion keeps the window full
+                        e = entries[nxt]; nxt += 1
+                        pending.add(ex.submit(extract_demo, e["path"], qw_analyze, bsp_path, e["sha256"]))
     else:
         for e in entries:
-            r = extract_demo(e["path"], qw_analyze, bsp_path, e["sha256"])
-            (extracted if r.get("ok") else errors).append(r)
-
-    mismatches = [e for e in errors if e.get("sha_mismatch")]
-    if mismatches:
-        raise RuntimeError(
-            "manifest provenance: %d demo(s) failed sha256 verification (corpus corruption — the "
-            "bytes on disk are not what was classified); first: %s"
-            % (len(mismatches), mismatches[0]["error"]))
-
-    extracted.sort(key=lambda r: r["demo"])
-    splits = assign_splits(len(extracted))
-
-    per_demo, skipped_dups = [], []
-    for rec, split in zip(extracted, splits):
-        ins = insert_demo(con, map_id, rec, split)
-        if ins.get("skipped_duplicate"):
-            skipped_dups.append(ins)
-            LOGGER.info("  SKIP duplicate sha256: %s (== %s)", rec["demo"], ins.get("duplicate_of"))
-            continue
-        ins.update(demo=rec["demo"], split=split, n_players_extracted=rec.get("n_players"))
-        per_demo.append(ins)
+            _consume(extract_demo(e["path"], qw_analyze, bsp_path, e["sha256"]))
 
     con.commit()
     counts = table_counts(con)

@@ -263,12 +263,96 @@ class HoldoutInvariantTest(unittest.TestCase):
 
 
 class SplitTest(unittest.TestCase):
-    def test_group_by_demo_split_shape(self):
-        labels = etl.assign_splits(10)
-        self.assertEqual(len(labels), 10)
-        self.assertIn("train", labels)
-        self.assertIn("val", labels)
-        self.assertIn("test", labels)
+    """split_for_sha: per-demo, deterministic, content-stable, roughly 70/15/15."""
+
+    def test_deterministic_and_valid_label(self):
+        sha = "deadbeef" + "0" * 56
+        self.assertEqual(etl.split_for_sha(sha), etl.split_for_sha(sha))  # same demo -> same split
+        self.assertIn(etl.split_for_sha(sha), ("train", "val", "test"))
+
+    def test_handles_missing_or_short_sha(self):
+        # a demo with no/blank sha must still get a valid label, not crash
+        self.assertIn(etl.split_for_sha(None), ("train", "val", "test"))
+        self.assertIn(etl.split_for_sha(""), ("train", "val", "test"))
+
+    def test_distribution_is_a_real_partition(self):
+        from hashlib import sha256
+        counts = {"train": 0, "val": 0, "test": 0}
+        for i in range(3000):
+            counts[etl.split_for_sha(sha256(str(i).encode()).hexdigest())] += 1
+        # generous bounds: confirm a ~70/15/15 spread, not everything in one bucket
+        self.assertGreater(counts["train"], 1800)   # ~2100 expected
+        self.assertGreater(counts["val"], 250)       # ~450 expected
+        self.assertGreater(counts["test"], 250)      # ~450 expected
+
+
+class StreamingInsertTest(unittest.TestCase):
+    """build() streams each demo to SQLite as its parse finishes and never holds all demos'
+    frames in RAM at once (the bug task #9 fixes). Control-flow test: extract/insert/static-spine
+    are faked, so it needs no qw-analyze, no BSP, no catalog fixture."""
+
+    def test_build_inserts_incrementally_and_bounds_memory(self):
+        import hashlib
+        import sqlite3
+        import catalog_etl_mvd as etl2
+
+        # Each fake demo carries a heavy "payload" that counts itself live on creation and
+        # dead on GC. Accumulate-then-insert (the old code) holds all N payloads at once
+        # (peak == N); streaming inserts+drops each as it arrives (peak stays ~1).
+        live = {"now": 0, "peak": 0}
+
+        class _Payload:
+            def __init__(self):
+                live["now"] += 1
+                live["peak"] = max(live["peak"], live["now"])
+
+            def __del__(self):
+                live["now"] -= 1
+
+        N = 60
+        entries = [{"path": "/x/d%02d.mvd" % i,
+                    "sha256": hashlib.sha256(b"%d" % i).hexdigest(), "size_bytes": 10}
+                   for i in range(N)]
+
+        def fake_static_build(catalog_dir, fixture_dir=None, db_path=None):
+            con = sqlite3.connect(":memory:")
+            con.execute("CREATE TABLE maps (map_id INTEGER PRIMARY KEY, name TEXT)")
+            con.execute("INSERT INTO maps (map_id, name) VALUES (1, 'dm3')")
+            return con, {"fake_spine": True}
+
+        def fake_extract(path, qw_analyze, bsp_path, sha):
+            return {"ok": True, "demo": Path(path).name, "sha256": sha,
+                    "n_players": 1, "_payload": _Payload()}
+
+        inserted = []
+
+        def fake_insert(con, map_id, rec, split):
+            inserted.append((rec["demo"], split))     # records the row; does NOT retain _payload
+            return {"player_ticks": 5, "actions": 5}
+
+        res = None
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo, etl2.insert_demo)
+        etl2.catalog_load.build = fake_static_build
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fake_extract
+        etl2.insert_demo = fake_insert
+        try:
+            res = etl2.build(Path("/nope"), Path("/nope.json"), ":memory:", "/bsp", "/qa", workers=1)
+        finally:
+            (etl2.catalog_load.build, etl2.load_manifest,
+             etl2.extract_demo, etl2.insert_demo) = saved
+            if res is not None and res.get("con") is not None:
+                res["con"].close()
+
+        self.assertEqual(res["summary"]["demos_loaded"], N)      # every demo streamed in
+        self.assertEqual(len(inserted), N)                       # insert called once per demo
+        self.assertLessEqual(
+            live["peak"], 3,
+            "streaming should hold ~1 demo's frames at a time, not all %d (peak was %d)"
+            % (N, live["peak"]))
+        labels = {sp for _, sp in inserted}
+        self.assertTrue(labels <= {"train", "val", "test"})      # split assigned per demo by sha
+        self.assertGreater(len(labels), 1)                       # a real partition, not all-one
 
 
 if __name__ == "__main__":
