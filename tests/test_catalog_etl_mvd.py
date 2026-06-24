@@ -630,23 +630,34 @@ class FailedRunArtifactTest(unittest.TestCase):
                 "--qw-analyze", str(qa), "--bsp", str(bsp), "--workers", "1"]
         return fake_static_build, fake_extract, entries, argv
 
-    def test_successful_rebuild_removes_stale_unowned_sidecars(self):
-        # a crashed prior run can leave UNOWNED out.sqlite-wal/-shm next to the canonical db. A
-        # successful rebuild must remove them before publishing so the new main DB can't be paired
-        # with stale WAL state. Models the real scenario (leftover files, no live connection), so
-        # the unlink is cross-platform.
+    @staticmethod
+    def _make_stale_wal(db_path):
+        # Leave a REAL, valid, uncheckpointed out.sqlite-wal on disk (as a crashed prior run would):
+        # a child process writes in WAL mode with autocheckpoint off and exits WITHOUT closing, so
+        # the -wal persists, unowned, with a committed-but-uncheckpointed row table old_t('OLD').
+        import subprocess
+        import sys
+        child = ("import sqlite3, os\n"
+                 "c = sqlite3.connect(%r)\n"
+                 "c.execute('PRAGMA journal_mode=WAL')\n"
+                 "c.execute('PRAGMA wal_autocheckpoint=0')\n"
+                 "c.execute('CREATE TABLE old_t(v)')\n"
+                 "c.execute(\"INSERT INTO old_t VALUES ('OLD')\")\n"
+                 "c.commit()\n"
+                 "os._exit(0)\n") % str(db_path)
+        subprocess.run([sys.executable, "-c", child], check=True)
+
+    def test_successful_rebuild_neutralizes_real_stale_wal(self):
+        # a real leftover valid -wal WOULD shadow a freshly replaced main (a reader would see the
+        # OLD data). A successful rebuild must neutralize it so the NEW catalog is what readers get.
         import sqlite3
         import tempfile
         import catalog_etl_mvd as etl2
 
         d = Path(tempfile.mkdtemp())
         final_db = d / "out.sqlite"
-        old = sqlite3.connect(final_db)             # an old canonical db ...
-        old.execute("CREATE TABLE old_marker (v TEXT)")
-        old.commit()
-        old.close()
-        (d / "out.sqlite-wal").write_bytes(b"\x00stale wal leftover\x00")   # ... + unowned leftovers
-        (d / "out.sqlite-shm").write_bytes(b"\x00stale shm leftover\x00")
+        self._make_stale_wal(final_db)
+        self.assertTrue((d / "out.sqlite-wal").exists())   # a real valid stale WAL is present
 
         fsb, fex, entries, argv = self._sidecar_fixture(d)
         saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
@@ -659,18 +670,16 @@ class FailedRunArtifactTest(unittest.TestCase):
             (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
 
         self.assertEqual(rc, 0)
-        self.assertFalse((d / "out.sqlite-wal").exists(), "stale canonical WAL must be removed on publish")
-        self.assertFalse((d / "out.sqlite-shm").exists())
+        self.assertFalse((d / "out.sqlite-wal").exists(), "the stale WAL must be cleared on publish")
         fresh = sqlite3.connect(final_db)
         names = {r[0] for r in fresh.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         fresh.close()
-        self.assertIn("maps", names)             # the NEW catalog content is what readers see
-        self.assertNotIn("old_marker", names)    # the old db/WAL does not shadow the new one
+        self.assertIn("maps", names)             # the NEW catalog is what readers see
+        self.assertNotIn("old_t", names)         # the stale WAL no longer shadows the new db
 
-    def test_locked_orphan_sidecar_does_not_block_publish(self):
-        # orphaned sidecar removal happens AFTER the atomic publish and is best-effort: if an old
-        # -wal can't be removed (locked), the already-published new catalog still wins (rc0). The
-        # published db is rollback-mode so the leftover -wal cannot shadow it.
+    def test_blocked_sidecar_cleanup_fails_closed(self):
+        # if a canonical sidecar cannot be cleared before publish (locked / a live reader), the
+        # run must FAIL CLOSED (rc2, no publish), not silently publish a shadowed catalog.
         import pathlib
         import sqlite3
         import tempfile
@@ -682,13 +691,13 @@ class FailedRunArtifactTest(unittest.TestCase):
         old.execute("CREATE TABLE old_marker (v TEXT)")
         old.commit()
         old.close()
-        (d / "out.sqlite-wal").write_bytes(b"locked wal")
-
+        (d / "out.sqlite-shm").write_bytes(b"locked shm")   # a -shm that refuses removal (no -wal,
+                                                            # so no checkpoint path is taken)
         fsb, fex, entries, argv = self._sidecar_fixture(d)
         real_unlink = pathlib.Path.unlink
 
-        def locked_unlink(self, *a, **k):  # the orphan canonical -wal refuses to be removed
-            if str(self) == str(final_db) + "-wal":
+        def locked_unlink(self, *a, **k):
+            if str(self) == str(final_db) + "-shm":
                 raise PermissionError("WinError 32 (simulated): file in use")
             return real_unlink(self, *a, **k)
 
@@ -703,35 +712,28 @@ class FailedRunArtifactTest(unittest.TestCase):
             pathlib.Path.unlink = real_unlink
             (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
 
-        self.assertEqual(rc, 0)  # a locked orphan does not fail an already-successful publish
+        self.assertEqual(rc, 2)  # fail closed — do not publish a catalog a stale sidecar could shadow
         fresh = sqlite3.connect(final_db)
         names = {r[0] for r in fresh.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         fresh.close()
-        self.assertIn("maps", names)             # the NEW catalog is published
-        self.assertNotIn("old_marker", names)
+        self.assertIn("old_marker", names)       # still the OLD db — the new build was NOT published
+        self.assertNotIn("maps", names)
 
-    def test_replace_failure_preserves_old_db_and_sidecars(self):
-        # the core fail-closed guarantee for the OLD artifact: if os.replace fails, the previous
-        # catalog AND its -wal/-shm must be untouched (no data loss), because sidecar cleanup only
-        # runs AFTER a successful replace.
+    def test_replace_failure_preserves_old_db_losslessly(self):
+        # if os.replace fails AFTER the old WAL was folded into its main file, the old catalog must
+        # still hold every committed row (the fold is lossless), and the new build is not published.
         import sqlite3
         import tempfile
         import catalog_etl_mvd as etl2
 
         d = Path(tempfile.mkdtemp())
         final_db = d / "out.sqlite"
-        old = sqlite3.connect(final_db)
-        old.execute("CREATE TABLE old_marker (v TEXT)")
-        old.execute("INSERT INTO old_marker VALUES ('OLD')")
-        old.commit()
-        old.close()
-        (d / "out.sqlite-wal").write_bytes(b"old wal state")    # the old catalog's sidecars ...
-        (d / "out.sqlite-shm").write_bytes(b"old shm state")    # ... must survive a failed publish
+        self._make_stale_wal(final_db)           # old committed-but-uncheckpointed row old_t('OLD')
 
         fsb, fex, entries, argv = self._sidecar_fixture(d)
         real_replace = etl2.os.replace
 
-        def boom_replace(src, dst):  # the publish step itself fails
+        def boom_replace(src, dst):
             raise OSError("EXDEV (simulated): cannot replace canonical db")
 
         saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
@@ -747,13 +749,13 @@ class FailedRunArtifactTest(unittest.TestCase):
 
         self.assertEqual(rc, 2)  # fail closed
         self.assertTrue(final_db.exists(), "the old canonical db must be preserved on a failed publish")
-        self.assertTrue((d / "out.sqlite-wal").exists(), "old -wal must NOT be stripped on a failed publish")
-        self.assertTrue((d / "out.sqlite-shm").exists(), "old -shm must NOT be stripped on a failed publish")
         fresh = sqlite3.connect(final_db)
         names = {r[0] for r in fresh.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        old_rows = [r[0] for r in fresh.execute("SELECT v FROM old_t")] if "old_t" in names else []
         fresh.close()
-        self.assertIn("old_marker", names)       # still the OLD db — the new build was NOT published
-        self.assertNotIn("maps", names)
+        self.assertIn("old_t", names)            # the old table survived ...
+        self.assertEqual(old_rows, ["OLD"])      # ... WITH its committed row (WAL fold was lossless)
+        self.assertNotIn("maps", names)          # the new build was NOT published
         self.assertFalse((d / "out.sqlite.partial").exists())   # only the new partial was purged
 
 
