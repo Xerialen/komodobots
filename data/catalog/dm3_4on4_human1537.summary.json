@@ -1,0 +1,66 @@
+{
+  "corpus": "human_4on4_dm3_mvd",
+  "description": "Human 4on4 dm3 state-distribution corpus (per-tick position/velocity/view + inverse-dynamics-recovered actions, all held out). Lightweight provenance/stats record only — the ~125 GB database is NOT committed.",
+  "host": "servexeri",
+  "db_path": "/mnt/usb-ssd/4on4-corpus/komodo-phase4/dm3_4on4_human1537.sqlite",
+  "db_size_bytes": 125276647424,
+  "manifest": "data/corpus/human_4on4_dm3_mvd_manifest.json",
+  "manifest_train_count": 1537,
+  "parser": {
+    "schema33_binary_sha256_prefix": "6954ffb6",
+    "selection_binary_sha256_prefix": "3bc388bb",
+    "qw_analyze_args": "-view full -include positions,view,velocity",
+    "note": "schema-33 is REQUIRED — the schema-21 selection binary silently drops per-tick view-yaw and would corrupt strafe-sign recovery"
+  },
+  "etl": {
+    "script": "scripts/catalog_etl_mvd.py",
+    "producer": "scratch PHASE4-STREAM patch (per-demo streaming insert + bounded worker window); the reviewed, tested port is merged as PR #383 (commit c7c09e6)",
+    "demos_attempted": 1537,
+    "demos_loaded": 1536,
+    "demos_failed": 1,
+    "demos_skipped_duplicate": 0,
+    "errors": [
+      {
+        "demo": "blixem__fs__vs_tot_dm3_2.mvd",
+        "error": "pos stream missing ['vya','vp','vx','vy','vz'] — not a schema-33 positions,view,velocity export; correctly skipped + logged, not silently dropped"
+      }
+    ],
+    "extract_secs": 22257.6,
+    "split_policy": "group_by_demo_sha256_bucket (u = int(sha256_hex[:8],16)/0xFFFFFFFF; train u<0.70, val u<0.85, else test)",
+    "split_counts": {"train": 1088, "val": 222, "test": 226},
+    "table_counts": {
+      "maps": 1, "items": 51, "markers": 299, "nav_edges": 1231,
+      "players": 12313, "demos": 1536, "episodes": 949814,
+      "player_ticks": 534627531, "actions": 534627531
+    },
+    "onground_distinct": [0, 1],
+    "onground_note": "geometric pmove_sim floor-trace proxy (player_ticks.onground_is_proxy=1), a distinct measurement plane from a live KTX on-ground flag",
+    "strafe_label_stats": {
+      "above_gate_strafe_sign_rows": 93073575,
+      "trainable_strafe_sign_rows": 0,
+      "held_out_action_rows": 534627531,
+      "total_action_rows": 534627531,
+      "jump_press_rows": 6208325,
+      "jump_press_rate": 0.01161
+    }
+  },
+  "verify": {
+    "tool": "run_verify.py (servexeri, in-place over the 125 GB DB)",
+    "foreign_key_violations": 0,
+    "onground_distinct": [0, 1],
+    "actions_total": 534627531,
+    "actions_idm": 534627531,
+    "actions_idm_trainable_BAD": 0,
+    "actions_held_out": 534627531,
+    "elapsed_s": 6923.8,
+    "result": "GREEN — referential integrity clean, on-ground populated both states, every recovered action row held out (0 trainable idm rows)"
+  },
+  "hold_out": "every actions row carries label_source='idm' and is_interp=1 — this is a STATE distribution, not a label set; no recovered action trains until per-head weights unlock the trustworthy heads",
+  "reproducibility": {
+    "values_and_splits": "reproducible from merged ETL PR #383 (c7c09e6): the scratch patch and #383 use the identical sha-bucket split thresholds and identical state/action values",
+    "demo_id": "this corpus carries autoincrement-by-completion-order demo_ids (scratch patch); #383 assigns content-stable sha-rank demo_ids, so a re-extraction under #383 yields identical values + splits but renumbered demo_ids",
+    "re_extraction": "a fully #383-reproducible re-extraction (deterministic demo_ids) is deferred until RL is greenlit; immaterial for the held-out-action state-prior use"
+  },
+  "use": "RL state prior + reward/cadence anchor (plans/rl-plan.md STEP 0); action labels held out; forwardmove never used",
+  "what_this_does_not_prove": "Green verification proves referential integrity, that geometric on-ground populated both states, and that every recovered action is held out. It does NOT prove the inverse-dynamics-recovered labels are correct, that the corpus yields useful movement behavior, that a full re-extraction stays within memory under #383, or that any bot improved."
+}
