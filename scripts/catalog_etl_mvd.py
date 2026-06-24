@@ -29,8 +29,12 @@ Per demo it loads:
     actions      <- the IDM-RECOVERED (state,action) labels (sidemove SIGN, jump, view
                     angles), label_source='idm', confidence<1.0, is_interp on unreliable rows
 
-A train/val/test split is assigned GROUPED BY demo_id (split_policy='group_by_demo_id'), the
-same policy as the QWD ETL — no demo's frames straddle the split boundary.
+A train/val/test split is assigned GROUPED BY demo (no demo's frames straddle the boundary),
+but — unlike the QWD ETL's positional assign_splits — the bucket is picked per demo from its
+content hash (split_for_sha), so each demo streams to SQLite the moment its parse finishes (no
+global ordering, bounded memory; see build()). The episodes carry the VERSIONED provenance
+split_policy='group_by_demo_sha256_bucket_v1' (SPLIT_POLICY) so a generated catalog records
+exactly which assignment produced `split`. See data/catalog/dataset_spec.yaml.
 
 MVD INPUT FORMAT (schema-33 qw-analyze)
 ---------------------------------------
@@ -102,7 +106,7 @@ import subprocess
 import sqlite3
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, FIRST_COMPLETED, wait
 from pathlib import Path
 
 LOGGER = logging.getLogger(__name__)
@@ -429,9 +433,15 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
     }
 
 
-def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str) -> dict:
+def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, demo_id: int) -> dict:
     """Insert one extracted .mvd's demos/players/episodes/player_ticks/actions rows.
     `split` is the train/val/test label for ALL of this demo's episodes (group-by-demo).
+
+    `demo_id` is assigned DETERMINISTICALLY by the caller (sha-rank, see build) — NOT an
+    autoincrement side effect of insertion order. The streaming insert lands demos in parallel
+    completion order, so an autoincrement id would vary with parse timing across rebuilds; the
+    trainer keys its held-out-demo validation split on demo_id, so a content-stable id is required
+    for reproducible splits.
 
     demos has UNIQUE(sha256); a byte-identical demo already loaded this run is SKIPPED
     (no rows -> no orphan children) and reported, exactly like the QWD ETL."""
@@ -440,12 +450,11 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str) -> 
         return {"skipped_duplicate": True, "demo": rec["demo"], "sha256": rec["sha256"],
                 "duplicate_of": dup[1], "duplicate_of_id": dup[0]}
 
-    cur = con.execute(
-        """INSERT INTO demos (path, source, map_id, demo_kind, sha256, parser_commit)
-           VALUES (?,?,?,?,?,?)""",
-        (rec["demo"], "mvd", map_id, "4on4", rec["sha256"], "qw-analyze:schema33"),
+    con.execute(
+        """INSERT INTO demos (demo_id, path, source, map_id, demo_kind, sha256, parser_commit)
+           VALUES (?,?,?,?,?,?,?)""",
+        (demo_id, rec["demo"], "mvd", map_id, "4on4", rec["sha256"], "qw-analyze:schema33"),
     )
-    demo_id = cur.lastrowid
 
     n_pl = n_ep = n_tick = n_act = 0
     for p in rec["players"]:
@@ -465,7 +474,7 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str) -> 
                 """INSERT INTO episodes
                    (demo_id, player_id, map_id, start_tick, end_tick, n_steps, split, split_policy)
                    VALUES (?,?,?,?,?,?,?,?)""",
-                (demo_id, player_id, map_id, ep["start"], ep["end"], ep["n"], split, "group_by_demo_id"),
+                (demo_id, player_id, map_id, ep["start"], ep["end"], ep["n"], split, SPLIT_POLICY),
             )
             episode_id = c.lastrowid
             n_ep += 1
@@ -527,21 +536,31 @@ def load_manifest(manifest_path: Path) -> list[dict]:
     return out
 
 
-def assign_splits(n_demos: int, ratios=(0.7, 0.15, 0.15)) -> list[str]:
-    """Deterministic group-by-demo split (identical policy to catalog_etl_qwd.assign_splits):
-    round-robin demos into train/val/test by a cumulative-ratio schedule so no demo straddles
-    a split and every present split has >=1 demo when n_demos allows."""
-    labels = []
-    train_n = max(1, round(n_demos * ratios[0]))
-    val_n = max(1, round(n_demos * ratios[1])) if n_demos >= 3 else 0
-    for i in range(n_demos):
-        if i < train_n:
-            labels.append("train")
-        elif i < train_n + val_n:
-            labels.append("val")
-        else:
-            labels.append("test")
-    return labels
+# Split provenance (audited in episodes.split_policy). MVD episodes are bucketed per demo by a
+# hash of the demo's OWN sha256 (split_for_sha) — a DIFFERENT assignment mechanism than the QWD
+# ETL's positional assign_splits, even though both share the group-by-demo INVARIANT (no demo
+# straddles a split). The value is VERSIONED so a generated catalog records exactly which method
+# produced `split`, and a re-run is reconstructable from the hash + thresholds below.
+SPLIT_POLICY = "group_by_demo_sha256_bucket_v1"
+SPLIT_RATIOS = (0.70, 0.15, 0.15)  # train / val / test; also recorded in the build summary
+
+
+def split_for_sha(sha: str, ratios=SPLIT_RATIOS) -> str:
+    """Pick a demo's train/val/test split from its OWN content hash (policy=SPLIT_POLICY).
+
+    Mechanism (the durable contract — keep in sync with SPLIT_POLICY's version and
+    data/catalog/dataset_spec.yaml): u = int(sha256_hex[:8], 16) / 0xFFFFFFFF in [0,1]
+    (all-f hashes to exactly 1.0 -> test); train if u < 0.70, val if u < 0.85, else test.
+
+    This is what lets build() stream: a demo's split depends only on its sha256, so each demo
+    can be inserted the instant its parse finishes — no global ordering, so we never hold all
+    demos in RAM to assign positions (the old assign_splits did, which OOM'd the 1537-corpus).
+    Content-stable too: the same demo always lands in the same split as the corpus grows or
+    reorders (positional round-robin reshuffled every demo when one was added/removed). Still
+    group-by-demo — one label for ALL of a demo's episodes, so nothing straddles the boundary."""
+    u = int((sha or "0")[:8], 16) / 0xFFFFFFFF
+    train_hi, val_hi = ratios[0], ratios[0] + ratios[1]
+    return "train" if u < train_hi else ("val" if u < val_hi else "test")
 
 
 def build(catalog_dir: Path, manifest: Path, db_path: str, bsp_path: str,
@@ -562,44 +581,67 @@ def build(catalog_dir: Path, manifest: Path, db_path: str, bsp_path: str,
     con, base = catalog_load.build(catalog_dir, fixture_dir=None, db_path=db_path)
     map_id = con.execute("SELECT map_id FROM maps WHERE name='dm3'").fetchone()[0]
 
+    # Deterministic demo_id from content identity (sha-rank), NOT an autoincrement side effect of
+    # parallel completion order: the streaming insert lands demos as they finish parsing, so an
+    # autoincrement id would vary with timing across rebuilds. The trainer keys its held-out-demo
+    # validation split on demo_id, so the same manifest+bytes must always yield the same ids.
+    demo_id_by_sha = {sha: i + 1 for i, sha in enumerate(sorted({e["sha256"] for e in entries}))}
+
     t0 = time.time()
-    extracted, errors = [], []
-    LOGGER.info("MVD ETL: extracting %d demos with %d workers ...", len(entries), workers)
-    if workers > 1 and len(entries) > 1:
-        with ProcessPoolExecutor(max_workers=workers) as ex:
-            futs = {ex.submit(extract_demo, e["path"], qw_analyze, bsp_path, e["sha256"]): e["path"]
-                    for e in entries}
-            for fut in as_completed(futs):
-                r = fut.result()
-                (extracted if r.get("ok") else errors).append(r)
-                done = len(extracted) + len(errors)
-                LOGGER.info("  %d/%d  %s  (%s)", done, len(entries), r.get("demo"),
-                            ("%d players" % r.get("n_players", 0)) if r.get("ok")
-                            else "ERR: " + r.get("error", ""))
-    else:
-        for e in entries:
-            r = extract_demo(e["path"], qw_analyze, bsp_path, e["sha256"])
-            (extracted if r.get("ok") else errors).append(r)
+    errors, per_demo, skipped_dups = [], [], []
+    total = len(entries)
+    LOGGER.info("MVD ETL: extracting %d demos with %d workers (streaming insert) ...", total, workers)
 
-    mismatches = [e for e in errors if e.get("sha_mismatch")]
-    if mismatches:
-        raise RuntimeError(
-            "manifest provenance: %d demo(s) failed sha256 verification (corpus corruption — the "
-            "bytes on disk are not what was classified); first: %s"
-            % (len(mismatches), mismatches[0]["error"]))
+    def _consume(r):
+        """Insert one finished demo, commit, and let it go. This is the memory bound: a demo's
+        heavy per-tick frames live only from parse to insert — never all N demos at once, which
+        is what the old accumulate-then-insert did and what OOM'd the 1537-corpus."""
+        if r.get("sha_mismatch"):  # provenance failure -> abort the whole run (corpus corruption)
+            raise RuntimeError(
+                "manifest provenance: %s failed sha256 verification (the bytes on disk are not "
+                "what was classified); aborting: %s" % (r.get("demo"), r.get("error")))
+        if not r.get("ok"):
+            errors.append(r)
+        else:
+            split = split_for_sha(r.get("sha256"))
+            ins = insert_demo(con, map_id, r, split, demo_id_by_sha[r["sha256"]])
+            if ins.get("skipped_duplicate"):
+                skipped_dups.append(ins)
+                LOGGER.info("  SKIP duplicate sha256: %s (== %s)", r["demo"], ins.get("duplicate_of"))
+            else:
+                ins.update(demo=r["demo"], split=split, n_players_extracted=r.get("n_players"))
+                per_demo.append(ins)
+            con.commit()  # flush per demo so SQLite (not RAM) holds the growing corpus
+        done = len(per_demo) + len(errors) + len(skipped_dups)
+        if r.get("ok"):
+            LOGGER.info("  %d/%d  %s  (%d players)", done, total, r.get("demo"), r.get("n_players", 0))
+        else:
+            LOGGER.info("  %d/%d  %s  (ERR: %s)", done, total, r.get("demo"), r.get("error", ""))
 
-    extracted.sort(key=lambda r: r["demo"])
-    splits = assign_splits(len(extracted))
-
-    per_demo, skipped_dups = [], []
-    for rec, split in zip(extracted, splits):
-        ins = insert_demo(con, map_id, rec, split)
-        if ins.get("skipped_duplicate"):
-            skipped_dups.append(ins)
-            LOGGER.info("  SKIP duplicate sha256: %s (== %s)", rec["demo"], ins.get("duplicate_of"))
-            continue
-        ins.update(demo=rec["demo"], split=split, n_players_extracted=rec.get("n_players"))
-        per_demo.append(ins)
+    # If the streaming loop aborts (e.g. a fatal provenance sha_mismatch mid-run), CLOSE the
+    # connection before the exception reaches main() — otherwise main()'s _purge() of the
+    # `.partial` DB fails on Windows (WinError 32: cannot unlink a file with an open handle).
+    try:
+        if workers > 1 and total > 1:
+            window = max(2, workers * 2)  # keep ~2x workers in flight, NOT all `total` at once
+            with ProcessPoolExecutor(max_workers=workers) as ex:
+                pending, nxt = set(), 0
+                while nxt < total and len(pending) < window:
+                    e = entries[nxt]; nxt += 1
+                    pending.add(ex.submit(extract_demo, e["path"], qw_analyze, bsp_path, e["sha256"]))
+                while pending:
+                    finished, pending = wait(pending, return_when=FIRST_COMPLETED)
+                    for fut in finished:
+                        _consume(fut.result())
+                        if nxt < total:  # refill: one new parse per completion keeps the window full
+                            e = entries[nxt]; nxt += 1
+                            pending.add(ex.submit(extract_demo, e["path"], qw_analyze, bsp_path, e["sha256"]))
+        else:
+            for e in entries:
+                _consume(extract_demo(e["path"], qw_analyze, bsp_path, e["sha256"]))
+    except BaseException:
+        con.close()  # release the handle so main() can purge the .partial (Windows-safe)
+        raise
 
     con.commit()
     counts = table_counts(con)
@@ -612,6 +654,15 @@ def build(catalog_dir: Path, manifest: Path, db_path: str, bsp_path: str,
         "demos_failed": len(errors),
         "demos_skipped_duplicate": len(skipped_dups),
         "extract_secs": round(time.time() - t0, 1),
+        "split_policy": SPLIT_POLICY,  # recorded per-episode in catalog.episodes.split_policy too
+        "split_spec": {  # the durable, reconstructable split contract (gate item 2: provenance)
+            "method": SPLIT_POLICY,
+            "assignment": "per-demo sha256 bucket",
+            "hash_input": "int(sha256_hex[:8], 16) / 0xFFFFFFFF",
+            "thresholds": {"train": SPLIT_RATIOS[0], "val": SPLIT_RATIOS[0] + SPLIT_RATIOS[1]},
+            "ratios": {"train": SPLIT_RATIOS[0], "val": SPLIT_RATIOS[1], "test": SPLIT_RATIOS[2]},
+            "invariant": "group_by_demo (no demo straddles a split)",
+        },
         "split_counts": _split_counts(per_demo),
         "table_counts": counts,
         "onground_distinct": _onground_distinct(con),
@@ -708,18 +759,37 @@ def main(argv=None) -> int:
         LOGGER.error("dm3 BSP not found: %s", bsp_path)
         return 2
 
+    # ATOMIC PUBLISH (fail-closed artifact): build into a `.partial` sibling and rename to the
+    # canonical --db ONLY after the run succeeds AND passes the non-empty gate. Because the
+    # streaming insert commits each demo as it lands, a fatal mid-run abort (e.g. a provenance
+    # sha_mismatch) WOULD otherwise leave a partial, consumable catalog at the canonical path that
+    # a downstream job could mistake for a complete corpus. With this, the canonical path only
+    # ever holds a complete, gate-passed catalog; a failed run leaves nothing there.
     dbp = Path(args.db)
-    if dbp.exists():
-        dbp.unlink()
+    tmp = dbp.parent / (dbp.name + ".partial")
     dbp.parent.mkdir(parents=True, exist_ok=True)
 
+    def _purge(p: Path) -> None:  # remove a sqlite db and its exact -wal/-shm/-journal sidecars
+        for suffix in ("", "-wal", "-shm", "-journal"):
+            Path(str(p) + suffix).unlink(missing_ok=True)
+
+    _purge(dbp)   # clear a stale canonical artifact up front
+    _purge(tmp)   # and any leftover partial from a prior aborted run
+
+    # Build into the .partial, then publish atomically. The `finally` purges the partial unless we
+    # PUBLISHED — so EVERY non-success path fails closed and leaves no consumable partial catalog at
+    # the predictable path: a RuntimeError provenance abort, a sqlite OperationalError /
+    # BrokenProcessPool / packing error mid-insert, the empty-gate, or any unexpected error.
+    published = False
     try:
-        res = build(args.catalog_dir, args.manifest, args.db, bsp_path, qw_analyze,
+        res = build(args.catalog_dir, args.manifest, str(tmp), bsp_path, qw_analyze,
                     workers=args.workers, limit=args.limit)
-    except RuntimeError as e:
-        LOGGER.error("FATAL provenance/build error: %s", e)
-        return 3
-    try:
+        con = res.get("con")
+        if con is not None:
+            con.close()  # summary is built; close before the rename so no open handle blocks it (Windows)
+        # record the CANONICAL published path, not the internal .partial build() wrote to — the
+        # printed/committed summary must point at where the catalog actually lands (rc=0).
+        res["summary"]["db"] = str(dbp)
         print(json.dumps(res["summary"], indent=2, default=str))
         # non-empty hard gate: a run that loaded demos but produced NO rows (analyzer export too
         # short/malformed after the schema guard, every demo zero-episode) must FAIL, not exit 0
@@ -733,11 +803,15 @@ def main(argv=None) -> int:
                          "static-only catalog.", res["summary"]["demos_loaded"],
                          tc.get("player_ticks"), tc.get("actions"))
             return 2
+        os.replace(tmp, dbp)  # atomic publish: the canonical path now holds a complete catalog
+        published = True
         return 0
+    except RuntimeError as e:
+        LOGGER.error("FATAL provenance/build error: %s", e)
+        return 3
     finally:
-        con = res.get("con")
-        if con is not None:
-            con.close()
+        if not published:
+            _purge(tmp)  # any non-published outcome (incl. an unexpected re-raised error) leaves nothing
 
 
 if __name__ == "__main__":

@@ -100,11 +100,16 @@ shards:
 
 # ---------------------------------------------------------------------------
 split_policy:
-  method: group_by_demo_id          # GroupKFold/GroupShuffleSplit; no demo straddles splits
-  fractions: { train: 0.8, val: 0.1, test: 0.1 }
+  method: group_by_demo_id          # INVARIANT: GroupKFold/GroupShuffleSplit; no demo straddles splits
+  # HOW each ETL buckets a demo's group into train/val/test (recorded per episode in
+  # catalog.episodes.split_policy so a catalog is self-describing about its own provenance):
+  assignment:
+    qwd: positional_v1                       # catalog_etl_qwd.assign_splits: cumulative-ratio over name-sorted demos
+    mvd: group_by_demo_sha256_bucket_v1      # catalog_etl_mvd.split_for_sha: u=int(sha256_hex[:8],16)/0xFFFFFFFF; train u<0.70, val u<0.85, else test
+  fractions: { train: 0.70, val: 0.15, test: 0.15 }   # both ETLs' target ratios (matches the committed 4on4 dm3 MVD corpus 1088/222/226)
   held_out_players: [milton]        # whole-player holdout -> style-generalization test
   held_out_maps: []                 # optionally hold out a whole map for layout-generalization
-  assigned_in: catalog.episodes.split
+  assigned_in: catalog.episodes.split            # the label; method in catalog.episodes.split_policy
   rationale: "Consecutive ticks of one episode are near-duplicates; splitting by tick leaks. Split by demo, hold out players/maps for generalization (00-DATA-ARCHITECTURE.md §Splits)."
 
 # ---------------------------------------------------------------------------

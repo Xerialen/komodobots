@@ -969,6 +969,26 @@ build artifact, not a committed source. Its per-tick world-state layers are:
   (commit `4756c0d`): the SELF ego row for every tick **plus** each OBSERVED-OTHER
   player the recording client was receiving at that tick.
 
+### Split assignment provenance (#383)
+
+Both ETLs assign the train/val/test `split` **grouped by demo** — no demo's frames straddle a
+split, so consecutive near-duplicate ticks cannot leak across the boundary. The *assignment
+mechanism* differs by source, and each episode records which one produced its label in
+`catalog.episodes.split_policy` (default `group_by_demo_id`):
+
+- **QWD** (`catalog_etl_qwd.py`) — positional `assign_splits`: a cumulative-ratio schedule over
+  name-sorted demos. Recorded as `group_by_demo_id`.
+- **MVD** (`catalog_etl_mvd.py`) — `split_for_sha`, a per-demo bucket of the demo's own content
+  hash: `u = int(sha256_hex[:8], 16) / 0xFFFFFFFF`; `train` if `u < 0.70`, `val` if `u < 0.85`,
+  else `test`. Recorded as the versioned `group_by_demo_sha256_bucket_v1`.
+
+The MVD method is hash-based because the extraction **streams** each demo to SQLite the instant
+its parse finishes (bounded memory on the 1537-demo corpus); a positional split would need the
+whole demo list in RAM first. It is also content-stable — a demo's split never shifts as the
+corpus grows. Target ratios for both are 0.70 / 0.15 / 0.15 (see `data/catalog/dataset_spec.yaml`
+`split_policy`); the build summary JSON carries the exact `split_spec` (method, hash input,
+thresholds) for reconstruction.
+
 ### Geometric `onground` derivation (#316)
 
 The POV `.qwd` `svc_playerinfo` stream does **not** carry a usable server-side
