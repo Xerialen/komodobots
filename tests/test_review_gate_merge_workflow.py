@@ -89,6 +89,24 @@ class ReviewGateMergeWorkflowTests(unittest.TestCase):
         # merged commit (the validate->merge TOCTOU race).
         self.assertRegex(merge, r'gh pr merge .*--match-head-commit "\$head"')
 
+    def test_merge_skips_hard_github_merge_state_blockers(self) -> None:
+        merge = _workflow_text(MERGE_WORKFLOW)
+        # `mergeable=MERGEABLE` only means the branches can be combined. Branch
+        # rulesets such as unresolved-review-thread requirements still surface as
+        # mergeStateStatus=BLOCKED and must soft-skip instead of attempting merge.
+        # UNSTABLE is deliberately not skipped here because GitHub can report it
+        # while this workflow's own non-gate merge check is pending; real checks
+        # are filtered and enforced below.
+        self.assertIn("mergeStateStatus", merge)
+        self.assertIn("merge_state=$(jq -r '.mergeStateStatus'", merge)
+        self.assertIn('BLOCKED|DIRTY|BEHIND)', merge)
+        self.assertNotIn('[ "$merge_state" = "CLEAN" ]', merge)
+
+    def test_merged_comment_only_after_successful_merge_command(self) -> None:
+        merge = _workflow_text(MERGE_WORKFLOW)
+        self.assertIn('if gh pr merge "$PR"', merge)
+        self.assertIn("not posting merged comment", merge)
+
     def test_merge_allows_dev_base_and_protects_longlived_head(self) -> None:
         merge = _workflow_text(MERGE_WORKFLOW)
         # dev-base PRs (the whole staged-agent ML line) auto-merge too, not just

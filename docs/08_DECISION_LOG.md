@@ -38,6 +38,64 @@ What evidence would justify revisiting the decision?
 
 ---
 
+## Fail closed on blocked GitHub merge state in the review-gate executor
+
+### Date
+
+2026-06-24
+
+### Decision
+
+The deterministic review-gate merge executor now reads GitHub's `mergeStateStatus` before
+attempting `gh pr merge` and soft-skips hard blockers (`BLOCKED`, `DIRTY`, or `BEHIND`) in
+addition to the existing label, head-SHA verdict, draft, base, mergeability, cooldown, and
+check gates. It deliberately does **not** require `mergeStateStatus == CLEAN`: GitHub can
+report `UNSTABLE` while this executor's own non-gate `Review Gate Merge` check is pending,
+and the workflow already filters those gate checks before enforcing real CI.
+
+The executor also posts the `**Merged** by review-gate executor` comment only after the
+`gh pr merge` command succeeds.
+
+### Alternatives Considered
+
+- Keep checking only `mergeable == MERGEABLE`. Rejected: `mergeable` only proves the branches can
+  combine; branch/ruleset blockers such as unresolved review threads can still leave the PR
+  `mergeStateStatus == BLOCKED`.
+- Require `mergeStateStatus == CLEAN`. Rejected after live #385 verification: `gate: ready`
+  label events can make the PR temporarily `UNSTABLE` because the executor's own merge check is
+  pending, which self-skips the workflow even when all real non-gate checks are green.
+- Let a failed `gh pr merge` fall through and rely on logs. Rejected: the workflow is invoked from
+  `eval_and_merge "$PR" || ...`, so Bash `set -e` does not reliably stop the function before the
+  success comment. The workflow must guard the merge command explicitly.
+
+### Evidence
+
+- PR #384 reached `gate: ready` with green `PR Tests`, but GitHub ruleset
+  `prod-dev-branch-protection` still reported `mergeStateStatus: BLOCKED` because an automated
+  review thread was unresolved.
+- The old executor attempted `gh pr merge`, GitHub rejected the merge, and the workflow still
+  posted two false `**Merged** by review-gate executor` comments.
+- PR #385 showed the opposite edge: when `mergeStateStatus == CLEAN` was required, the
+  label-triggered executor saw `mergeStateStatus: UNSTABLE` while its own `Review Gate Merge`
+  check was pending, soft-skipped, and left the PR open even after the PR returned to `CLEAN`.
+- `tests/test_review_gate_merge_workflow.py` now locks the `mergeStateStatus` fetch,
+  hard-blocker skip states, and the "comment only after successful merge command" guard.
+
+### Expected Consequences
+
+A ready-labeled PR that is still blocked by GitHub branch/ruleset requirements, conflicts, or a
+stale base now soft-skips instead of trying to merge or posting a false merge comment. A PR whose
+only merge-state noise is the executor's own pending gate workflow can continue to the existing
+non-gate check filter. The AI reviewer label remains an advisory filter; GitHub's own hard
+branch/ruleset blockers remain a final gate.
+
+### Revisit Conditions
+
+Revisit if GitHub changes `mergeStateStatus` semantics, if the ruleset is removed, or if the
+executor moves to GitHub's native auto-merge/merge-queue API instead of direct `gh pr merge`.
+
+---
+
 ## Initial Decision
 
 ### Date
