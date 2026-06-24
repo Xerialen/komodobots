@@ -544,8 +544,8 @@ def split_for_sha(sha: str, ratios=SPLIT_RATIOS) -> str:
     """Pick a demo's train/val/test split from its OWN content hash (policy=SPLIT_POLICY).
 
     Mechanism (the durable contract — keep in sync with SPLIT_POLICY's version and
-    data/catalog/dataset_spec.yaml): u = int(sha256_hex[:8], 16) / 0xFFFFFFFF in [0,1);
-    train if u < 0.70, val if u < 0.85, else test.
+    data/catalog/dataset_spec.yaml): u = int(sha256_hex[:8], 16) / 0xFFFFFFFF in [0,1]
+    (all-f hashes to exactly 1.0 -> test); train if u < 0.70, val if u < 0.85, else test.
 
     This is what lets build() stream: a demo's split depends only on its sha256, so each demo
     can be inserted the instant its parse finishes — no global ordering, so we never hold all
@@ -741,15 +741,28 @@ def main(argv=None) -> int:
         LOGGER.error("dm3 BSP not found: %s", bsp_path)
         return 2
 
+    # ATOMIC PUBLISH (fail-closed artifact): build into a `.partial` sibling and rename to the
+    # canonical --db ONLY after the run succeeds AND passes the non-empty gate. Because the
+    # streaming insert commits each demo as it lands, a fatal mid-run abort (e.g. a provenance
+    # sha_mismatch) WOULD otherwise leave a partial, consumable catalog at the canonical path that
+    # a downstream job could mistake for a complete corpus. With this, the canonical path only
+    # ever holds a complete, gate-passed catalog; a failed run leaves nothing there.
     dbp = Path(args.db)
-    if dbp.exists():
-        dbp.unlink()
+    tmp = dbp.parent / (dbp.name + ".partial")
     dbp.parent.mkdir(parents=True, exist_ok=True)
 
+    def _purge(p: Path) -> None:  # remove a sqlite db and its exact -wal/-shm/-journal sidecars
+        for suffix in ("", "-wal", "-shm", "-journal"):
+            Path(str(p) + suffix).unlink(missing_ok=True)
+
+    _purge(dbp)   # clear a stale canonical artifact up front
+    _purge(tmp)   # and any leftover partial from a prior aborted run
+
     try:
-        res = build(args.catalog_dir, args.manifest, args.db, bsp_path, qw_analyze,
+        res = build(args.catalog_dir, args.manifest, str(tmp), bsp_path, qw_analyze,
                     workers=args.workers, limit=args.limit)
     except RuntimeError as e:
+        _purge(tmp)  # fail closed: no partial catalog left behind
         LOGGER.error("FATAL provenance/build error: %s", e)
         return 3
     try:
@@ -760,13 +773,21 @@ def main(argv=None) -> int:
         tc = res["summary"].get("table_counts") or {}
         empty = (res["summary"]["demos_loaded"] == 0
                  or not tc.get("player_ticks") or not tc.get("actions"))
+        con = res.get("con")
+        if con is not None:
+            con.close()  # close BEFORE rename/purge so no open handle blocks it
         if empty and not args.allow_empty:
+            _purge(tmp)  # fail closed: an empty run publishes nothing
             LOGGER.error("empty load: demos_loaded=%s player_ticks=%s actions=%s — a non-empty run "
                          "requires player_ticks>0 AND actions>0. Pass --allow-empty for a "
                          "static-only catalog.", res["summary"]["demos_loaded"],
                          tc.get("player_ticks"), tc.get("actions"))
             return 2
+        os.replace(tmp, dbp)  # atomic publish: the canonical path now holds a complete catalog
         return 0
+    except BaseException:
+        _purge(tmp)  # never leave a partial at either path on an unexpected error
+        raise
     finally:
         con = res.get("con")
         if con is not None:

@@ -387,5 +387,106 @@ class SplitPolicyEmittedTest(unittest.TestCase):
         self.assertEqual(rows, [(split, etl.SPLIT_POLICY)])      # emitted == versioned sha policy
 
 
+class FailedRunArtifactTest(unittest.TestCase):
+    """Fail-closed artifact: a fatal mid-run abort (provenance sha_mismatch) after at least one
+    demo has already streamed+committed must leave NO catalog at the canonical --db path — the
+    streaming build writes to a `.partial` sibling and only renames to --db on success."""
+
+    def test_fatal_midstream_failure_leaves_no_final_db(self):
+        import sqlite3
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        qa = d / "qw-analyze"; qa.write_text("#!/bin/true\n"); qa.chmod(0o755)
+        bsp = d / "dm3.bsp"; bsp.write_bytes(b"x")
+        manifest = d / "m.json"; manifest.write_text("[]")  # load_manifest is faked below
+
+        good_sha, bad_sha = "a" * 64, "b" * 64
+        entries = [{"path": "/x/good.mvd", "sha256": good_sha, "size_bytes": 10},
+                   {"path": "/x/bad.mvd", "sha256": bad_sha, "size_bytes": 10}]
+        seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                "yaw": float(i), "pitch": 0.0, "msec": 13} for i in range(4)]
+        ep = etl2._pack_episode(seg, [False] * 4, [False] * 4, 0)
+
+        def fake_static_build(catalog_dir, fixture_dir=None, db_path=None):
+            con = sqlite3.connect(db_path)  # REAL file at the .partial path -> proves a partial exists
+            con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+            con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                        "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+            return con, {"fake": True}
+
+        def fake_extract(path, qw_analyze, bsp_path, sha):
+            if sha == bad_sha:  # the second demo fails provenance AFTER the first has committed
+                return {"ok": False, "demo": "bad.mvd", "sha_mismatch": True,
+                        "error": "SHA_MISMATCH manifest=%s on-disk=deadbeef" % bad_sha}
+            return {"ok": True, "demo": "good.mvd", "sha256": good_sha, "n_players": 1,
+                    "players": [{"name": "p1", "team": 1, "episodes": [ep]}]}
+
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
+        etl2.catalog_load.build = fake_static_build
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fake_extract
+        try:
+            rc = etl2.main(["--catalog-dir", str(d), "--manifest", str(manifest),
+                            "--db", str(final_db), "--qw-analyze", str(qa), "--bsp", str(bsp),
+                            "--workers", "1"])
+        finally:
+            (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
+
+        self.assertEqual(rc, 3)  # fatal provenance abort
+        self.assertFalse(final_db.exists(),
+                         "a fatal mid-run failure must NOT leave a catalog at the canonical --db")
+        # and no partial / sidecars left lingering at the canonical path either
+        leftovers = sorted(p.name for p in d.glob("out.sqlite*"))
+        self.assertEqual(leftovers, [], "no partial DB or sidecars may survive a failed run")
+
+    def test_successful_run_publishes_db_and_leaves_no_partial(self):
+        # symmetric guard: a clean run renames the .partial to the canonical --db (so a broken
+        # publish can't silently ship a missing catalog) and leaves no .partial behind.
+        import sqlite3
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        qa = d / "qw-analyze"; qa.write_text("#!/bin/true\n"); qa.chmod(0o755)
+        bsp = d / "dm3.bsp"; bsp.write_bytes(b"x")
+        manifest = d / "m.json"; manifest.write_text("[]")
+
+        sha = "c" * 64
+        entries = [{"path": "/x/ok.mvd", "sha256": sha, "size_bytes": 10}]
+        seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                "yaw": float(i), "pitch": 0.0, "msec": 13} for i in range(4)]
+        ep = etl2._pack_episode(seg, [False] * 4, [False] * 4, 0)
+
+        def fake_static_build(catalog_dir, fixture_dir=None, db_path=None):
+            con = sqlite3.connect(db_path)
+            con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+            con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                        "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+            return con, {"fake": True}
+
+        def fake_extract(path, qw_analyze, bsp_path, _sha):
+            return {"ok": True, "demo": "ok.mvd", "sha256": sha, "n_players": 1,
+                    "players": [{"name": "p1", "team": 1, "episodes": [ep]}]}
+
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
+        etl2.catalog_load.build = fake_static_build
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fake_extract
+        try:
+            rc = etl2.main(["--catalog-dir", str(d), "--manifest", str(manifest),
+                            "--db", str(final_db), "--qw-analyze", str(qa), "--bsp", str(bsp),
+                            "--workers", "1"])
+        finally:
+            (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
+
+        self.assertEqual(rc, 0)
+        self.assertTrue(final_db.exists(), "a clean run must publish the catalog at --db")
+        self.assertFalse((d / "out.sqlite.partial").exists(), "the .partial must be renamed away")
+
+
 if __name__ == "__main__":
     unittest.main()
