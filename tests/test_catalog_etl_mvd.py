@@ -410,11 +410,14 @@ class FailedRunArtifactTest(unittest.TestCase):
                 "yaw": float(i), "pitch": 0.0, "msec": 13} for i in range(4)]
         ep = etl2._pack_episode(seg, [False] * 4, [False] * 4, 0)
 
+        created = []
+
         def fake_static_build(catalog_dir, fixture_dir=None, db_path=None):
             con = sqlite3.connect(db_path)  # REAL file at the .partial path -> proves a partial exists
             con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
             con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
                         "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+            created.append(con)
             return con, {"fake": True}
 
         def fake_extract(path, qw_analyze, bsp_path, sha):
@@ -436,6 +439,10 @@ class FailedRunArtifactTest(unittest.TestCase):
             (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
 
         self.assertEqual(rc, 3)  # fatal provenance abort
+        # the build CLOSED its connection on the fatal path — this is the Windows fix (an open
+        # handle there blocks _purge of the .partial with WinError 32); checkable on any OS.
+        with self.assertRaises(sqlite3.ProgrammingError):
+            created[0].execute("SELECT 1")
         self.assertFalse(final_db.exists(),
                          "a fatal mid-run failure must NOT leave a catalog at the canonical --db")
         # and no partial / sidecars left lingering at the canonical path either

@@ -607,23 +607,30 @@ def build(catalog_dir: Path, manifest: Path, db_path: str, bsp_path: str,
         else:
             LOGGER.info("  %d/%d  %s  (ERR: %s)", done, total, r.get("demo"), r.get("error", ""))
 
-    if workers > 1 and total > 1:
-        window = max(2, workers * 2)  # keep ~2x workers in flight, NOT all `total` submitted at once
-        with ProcessPoolExecutor(max_workers=workers) as ex:
-            pending, nxt = set(), 0
-            while nxt < total and len(pending) < window:
-                e = entries[nxt]; nxt += 1
-                pending.add(ex.submit(extract_demo, e["path"], qw_analyze, bsp_path, e["sha256"]))
-            while pending:
-                finished, pending = wait(pending, return_when=FIRST_COMPLETED)
-                for fut in finished:
-                    _consume(fut.result())
-                    if nxt < total:  # refill: one new parse per completion keeps the window full
-                        e = entries[nxt]; nxt += 1
-                        pending.add(ex.submit(extract_demo, e["path"], qw_analyze, bsp_path, e["sha256"]))
-    else:
-        for e in entries:
-            _consume(extract_demo(e["path"], qw_analyze, bsp_path, e["sha256"]))
+    # If the streaming loop aborts (e.g. a fatal provenance sha_mismatch mid-run), CLOSE the
+    # connection before the exception reaches main() — otherwise main()'s _purge() of the
+    # `.partial` DB fails on Windows (WinError 32: cannot unlink a file with an open handle).
+    try:
+        if workers > 1 and total > 1:
+            window = max(2, workers * 2)  # keep ~2x workers in flight, NOT all `total` at once
+            with ProcessPoolExecutor(max_workers=workers) as ex:
+                pending, nxt = set(), 0
+                while nxt < total and len(pending) < window:
+                    e = entries[nxt]; nxt += 1
+                    pending.add(ex.submit(extract_demo, e["path"], qw_analyze, bsp_path, e["sha256"]))
+                while pending:
+                    finished, pending = wait(pending, return_when=FIRST_COMPLETED)
+                    for fut in finished:
+                        _consume(fut.result())
+                        if nxt < total:  # refill: one new parse per completion keeps the window full
+                            e = entries[nxt]; nxt += 1
+                            pending.add(ex.submit(extract_demo, e["path"], qw_analyze, bsp_path, e["sha256"]))
+        else:
+            for e in entries:
+                _consume(extract_demo(e["path"], qw_analyze, bsp_path, e["sha256"]))
+    except BaseException:
+        con.close()  # release the handle so main() can purge the .partial (Windows-safe)
+        raise
 
     con.commit()
     counts = table_counts(con)
@@ -765,6 +772,9 @@ def main(argv=None) -> int:
         _purge(tmp)  # fail closed: no partial catalog left behind
         LOGGER.error("FATAL provenance/build error: %s", e)
         return 3
+    con = res.get("con")
+    if con is not None:
+        con.close()  # summary is built; close now so the rename/purge below has no open handle (Windows)
     try:
         print(json.dumps(res["summary"], indent=2, default=str))
         # non-empty hard gate: a run that loaded demos but produced NO rows (analyzer export too
@@ -773,9 +783,6 @@ def main(argv=None) -> int:
         tc = res["summary"].get("table_counts") or {}
         empty = (res["summary"]["demos_loaded"] == 0
                  or not tc.get("player_ticks") or not tc.get("actions"))
-        con = res.get("con")
-        if con is not None:
-            con.close()  # close BEFORE rename/purge so no open handle blocks it
         if empty and not args.allow_empty:
             _purge(tmp)  # fail closed: an empty run publishes nothing
             LOGGER.error("empty load: demos_loaded=%s player_ticks=%s actions=%s — a non-empty run "
