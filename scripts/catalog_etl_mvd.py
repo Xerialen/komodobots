@@ -808,10 +808,19 @@ def main(argv=None) -> int:
             return 2
         # Neutralize any stale canonical WAL/SHM/journal sidecars BEFORE publishing — otherwise the
         # freshly published main DB could be paired with a previous catalog's uncheckpointed WAL and
-        # readers would silently see the OLD data despite rc=0. (The new .partial is a single rollback
-        # -journal file with no live sidecars after con.close().)
-        for suffix in ("-wal", "-shm", "-journal"):
-            Path(str(dbp) + suffix).unlink(missing_ok=True)
+        # readers would silently see the OLD data despite rc=0. In production these are unowned
+        # leftovers from a prior crashed run, so the unlink succeeds on every platform. If a sidecar
+        # is LOCKED (a live reader still holds the canonical catalog open — an operational
+        # anti-pattern), fail closed: do NOT publish, so the existing db + its sidecars stay a
+        # consistent unit rather than the new main being paired with un-removable old WAL state.
+        try:
+            for suffix in ("-wal", "-shm", "-journal"):
+                Path(str(dbp) + suffix).unlink(missing_ok=True)
+        except OSError as e:
+            LOGGER.error("cannot remove a stale canonical sidecar before publish (is a reader "
+                         "holding the catalog open?): %s — NOT publishing; existing catalog "
+                         "preserved.", e)
+            return 2
         os.replace(tmp, dbp)  # atomic publish: the canonical path now holds a complete catalog
         published = True
         return 0

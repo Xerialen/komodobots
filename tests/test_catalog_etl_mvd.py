@@ -601,31 +601,11 @@ class FailedRunArtifactTest(unittest.TestCase):
         self.assertEqual(val, "GOOD")
         self.assertFalse((d / "out.sqlite.partial").exists())       # only the partial was purged
 
-    def test_successful_rebuild_neutralizes_stale_canonical_wal(self):
-        # on success, replacing only the main file would leave a previous catalog's WAL/SHM
-        # sidecars in place, and a reader could see the OLD data. The publish must remove the
-        # canonical sidecars before os.replace so the new content is what readers get.
+    # shared fakes for the sidecar tests: a faked static spine (real schema at the .partial path)
+    # + a one-demo extract that yields a non-empty catalog so the run reaches the publish step.
+    def _sidecar_fixture(self, d):
         import sqlite3
-        import tempfile
         import catalog_etl_mvd as etl2
-
-        d = Path(tempfile.mkdtemp())
-        final_db = d / "out.sqlite"
-        # an OLD WAL-mode canonical with an uncheckpointed row; a 2nd open connection keeps the
-        # -wal from being checkpointed away on close, so a real stale out.sqlite-wal persists.
-        c1 = sqlite3.connect(final_db)
-        c1.execute("PRAGMA journal_mode=WAL")
-        c1.execute("CREATE TABLE old_marker (v TEXT)")
-        c1.execute("INSERT INTO old_marker VALUES ('OLD')")
-        c1.commit()
-        c2 = sqlite3.connect(final_db)
-        c2.execute("SELECT count(*) FROM old_marker").fetchone()
-        c1.close()
-        self.assertTrue((d / "out.sqlite-wal").exists())   # a real stale sidecar is present
-
-        qa = d / "qw-analyze"; qa.write_text("#!/bin/true\n"); qa.chmod(0o755)
-        bsp = d / "dm3.bsp"; bsp.write_bytes(b"x")
-        manifest = d / "m.json"; manifest.write_text("[]")
         sha = "9" * 64
         entries = [{"path": "/x/ok.mvd", "sha256": sha, "size_bytes": 10}]
         seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
@@ -643,17 +623,40 @@ class FailedRunArtifactTest(unittest.TestCase):
             return {"ok": True, "demo": "ok.mvd", "sha256": sha, "n_players": 1,
                     "players": [{"name": "p1", "team": 1, "episodes": [ep]}]}
 
+        qa = d / "qw-analyze"; qa.write_text("#!/bin/true\n"); qa.chmod(0o755)
+        bsp = d / "dm3.bsp"; bsp.write_bytes(b"x")
+        manifest = d / "m.json"; manifest.write_text("[]")
+        argv = ["--catalog-dir", str(d), "--manifest", str(manifest), "--db", str(d / "out.sqlite"),
+                "--qw-analyze", str(qa), "--bsp", str(bsp), "--workers", "1"]
+        return fake_static_build, fake_extract, entries, argv
+
+    def test_successful_rebuild_removes_stale_unowned_sidecars(self):
+        # a crashed prior run can leave UNOWNED out.sqlite-wal/-shm next to the canonical db. A
+        # successful rebuild must remove them before publishing so the new main DB can't be paired
+        # with stale WAL state. Models the real scenario (leftover files, no live connection), so
+        # the unlink is cross-platform.
+        import sqlite3
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        old = sqlite3.connect(final_db)             # an old canonical db ...
+        old.execute("CREATE TABLE old_marker (v TEXT)")
+        old.commit()
+        old.close()
+        (d / "out.sqlite-wal").write_bytes(b"\x00stale wal leftover\x00")   # ... + unowned leftovers
+        (d / "out.sqlite-shm").write_bytes(b"\x00stale shm leftover\x00")
+
+        fsb, fex, entries, argv = self._sidecar_fixture(d)
         saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
-        etl2.catalog_load.build = fake_static_build
+        etl2.catalog_load.build = fsb
         etl2.load_manifest = lambda _p: entries
-        etl2.extract_demo = fake_extract
+        etl2.extract_demo = fex
         try:
-            rc = etl2.main(["--catalog-dir", str(d), "--manifest", str(manifest),
-                            "--db", str(final_db), "--qw-analyze", str(qa), "--bsp", str(bsp),
-                            "--workers", "1"])
+            rc = etl2.main(argv)
         finally:
             (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
-            c2.close()
 
         self.assertEqual(rc, 0)
         self.assertFalse((d / "out.sqlite-wal").exists(), "stale canonical WAL must be removed on publish")
@@ -662,7 +665,52 @@ class FailedRunArtifactTest(unittest.TestCase):
         names = {r[0] for r in fresh.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         fresh.close()
         self.assertIn("maps", names)             # the NEW catalog content is what readers see
-        self.assertNotIn("old_marker", names)    # the old WAL data does not shadow the new db
+        self.assertNotIn("old_marker", names)    # the old db/WAL does not shadow the new one
+
+    def test_locked_canonical_sidecar_fails_closed(self):
+        # if a canonical sidecar can't be removed (a live reader holds it open — e.g. Windows
+        # WinError 32), the publish must FAIL CLOSED (rc2, no publish), not raise an unhandled
+        # error: the old db + its sidecars stay a consistent unit.
+        import pathlib
+        import sqlite3
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        old = sqlite3.connect(final_db)
+        old.execute("CREATE TABLE old_marker (v TEXT)")
+        old.execute("INSERT INTO old_marker VALUES ('OLD')")
+        old.commit()
+        old.close()
+        (d / "out.sqlite-wal").write_bytes(b"locked wal")
+
+        fsb, fex, entries, argv = self._sidecar_fixture(d)
+        real_unlink = pathlib.Path.unlink
+
+        def locked_unlink(self, *a, **k):  # simulate the canonical -wal being locked
+            if str(self) == str(final_db) + "-wal":
+                raise PermissionError("WinError 32 (simulated): file in use")
+            return real_unlink(self, *a, **k)
+
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
+        etl2.catalog_load.build = fsb
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fex
+        pathlib.Path.unlink = locked_unlink
+        try:
+            rc = etl2.main(argv)
+        finally:
+            pathlib.Path.unlink = real_unlink
+            (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
+
+        self.assertEqual(rc, 2)  # fail closed, not an unhandled traceback
+        self.assertTrue(final_db.exists(), "the existing canonical db must be preserved")
+        fresh = sqlite3.connect(final_db)
+        names = {r[0] for r in fresh.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        fresh.close()
+        self.assertIn("old_marker", names)       # still the OLD db — the new build was NOT published
+        self.assertNotIn("maps", names)
 
 
 class DemoIdDeterminismTest(unittest.TestCase):
