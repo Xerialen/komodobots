@@ -667,10 +667,10 @@ class FailedRunArtifactTest(unittest.TestCase):
         self.assertIn("maps", names)             # the NEW catalog content is what readers see
         self.assertNotIn("old_marker", names)    # the old db/WAL does not shadow the new one
 
-    def test_locked_canonical_sidecar_fails_closed(self):
-        # if a canonical sidecar can't be removed (a live reader holds it open — e.g. Windows
-        # WinError 32), the publish must FAIL CLOSED (rc2, no publish), not raise an unhandled
-        # error: the old db + its sidecars stay a consistent unit.
+    def test_locked_orphan_sidecar_does_not_block_publish(self):
+        # orphaned sidecar removal happens AFTER the atomic publish and is best-effort: if an old
+        # -wal can't be removed (locked), the already-published new catalog still wins (rc0). The
+        # published db is rollback-mode so the leftover -wal cannot shadow it.
         import pathlib
         import sqlite3
         import tempfile
@@ -680,7 +680,6 @@ class FailedRunArtifactTest(unittest.TestCase):
         final_db = d / "out.sqlite"
         old = sqlite3.connect(final_db)
         old.execute("CREATE TABLE old_marker (v TEXT)")
-        old.execute("INSERT INTO old_marker VALUES ('OLD')")
         old.commit()
         old.close()
         (d / "out.sqlite-wal").write_bytes(b"locked wal")
@@ -688,7 +687,7 @@ class FailedRunArtifactTest(unittest.TestCase):
         fsb, fex, entries, argv = self._sidecar_fixture(d)
         real_unlink = pathlib.Path.unlink
 
-        def locked_unlink(self, *a, **k):  # simulate the canonical -wal being locked
+        def locked_unlink(self, *a, **k):  # the orphan canonical -wal refuses to be removed
             if str(self) == str(final_db) + "-wal":
                 raise PermissionError("WinError 32 (simulated): file in use")
             return real_unlink(self, *a, **k)
@@ -704,13 +703,58 @@ class FailedRunArtifactTest(unittest.TestCase):
             pathlib.Path.unlink = real_unlink
             (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
 
-        self.assertEqual(rc, 2)  # fail closed, not an unhandled traceback
-        self.assertTrue(final_db.exists(), "the existing canonical db must be preserved")
+        self.assertEqual(rc, 0)  # a locked orphan does not fail an already-successful publish
+        fresh = sqlite3.connect(final_db)
+        names = {r[0] for r in fresh.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        fresh.close()
+        self.assertIn("maps", names)             # the NEW catalog is published
+        self.assertNotIn("old_marker", names)
+
+    def test_replace_failure_preserves_old_db_and_sidecars(self):
+        # the core fail-closed guarantee for the OLD artifact: if os.replace fails, the previous
+        # catalog AND its -wal/-shm must be untouched (no data loss), because sidecar cleanup only
+        # runs AFTER a successful replace.
+        import sqlite3
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        old = sqlite3.connect(final_db)
+        old.execute("CREATE TABLE old_marker (v TEXT)")
+        old.execute("INSERT INTO old_marker VALUES ('OLD')")
+        old.commit()
+        old.close()
+        (d / "out.sqlite-wal").write_bytes(b"old wal state")    # the old catalog's sidecars ...
+        (d / "out.sqlite-shm").write_bytes(b"old shm state")    # ... must survive a failed publish
+
+        fsb, fex, entries, argv = self._sidecar_fixture(d)
+        real_replace = etl2.os.replace
+
+        def boom_replace(src, dst):  # the publish step itself fails
+            raise OSError("EXDEV (simulated): cannot replace canonical db")
+
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
+        etl2.catalog_load.build = fsb
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fex
+        etl2.os.replace = boom_replace
+        try:
+            rc = etl2.main(argv)
+        finally:
+            etl2.os.replace = real_replace
+            (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
+
+        self.assertEqual(rc, 2)  # fail closed
+        self.assertTrue(final_db.exists(), "the old canonical db must be preserved on a failed publish")
+        self.assertTrue((d / "out.sqlite-wal").exists(), "old -wal must NOT be stripped on a failed publish")
+        self.assertTrue((d / "out.sqlite-shm").exists(), "old -shm must NOT be stripped on a failed publish")
         fresh = sqlite3.connect(final_db)
         names = {r[0] for r in fresh.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         fresh.close()
         self.assertIn("old_marker", names)       # still the OLD db — the new build was NOT published
         self.assertNotIn("maps", names)
+        self.assertFalse((d / "out.sqlite.partial").exists())   # only the new partial was purged
 
 
 class DemoIdDeterminismTest(unittest.TestCase):

@@ -806,23 +806,27 @@ def main(argv=None) -> int:
                          "static-only catalog.", res["summary"]["demos_loaded"],
                          tc.get("player_ticks"), tc.get("actions"))
             return 2
-        # Neutralize any stale canonical WAL/SHM/journal sidecars BEFORE publishing — otherwise the
-        # freshly published main DB could be paired with a previous catalog's uncheckpointed WAL and
-        # readers would silently see the OLD data despite rc=0. In production these are unowned
-        # leftovers from a prior crashed run, so the unlink succeeds on every platform. If a sidecar
-        # is LOCKED (a live reader still holds the canonical catalog open — an operational
-        # anti-pattern), fail closed: do NOT publish, so the existing db + its sidecars stay a
-        # consistent unit rather than the new main being paired with un-removable old WAL state.
+        # Publish atomically FIRST, THEN clean up — never touch the old catalog's sidecars before
+        # the replace succeeds. If os.replace fails (e.g. the canonical main is read-only or held
+        # open on Windows), the previous catalog AND its -wal/-shm stay fully intact: the
+        # fail-closed guarantee covers the old artifact's committed data, not just the new partial.
         try:
-            for suffix in ("-wal", "-shm", "-journal"):
-                Path(str(dbp) + suffix).unlink(missing_ok=True)
+            os.replace(tmp, dbp)  # atomic publish: the canonical path now holds the new catalog
         except OSError as e:
-            LOGGER.error("cannot remove a stale canonical sidecar before publish (is a reader "
-                         "holding the catalog open?): %s — NOT publishing; existing catalog "
+            LOGGER.error("publish failed (could not replace canonical db): %s — existing catalog "
                          "preserved.", e)
-            return 2
-        os.replace(tmp, dbp)  # atomic publish: the canonical path now holds a complete catalog
+            return 2  # finally purges only the new partial; the old db + its sidecars are untouched
         published = True
+        # Remove any orphaned sidecars left from a PREVIOUS WAL-mode catalog. The just-published db
+        # is a rollback-journal (DELETE-mode) db, so a reader never applies a -wal to it; this is
+        # hygiene, best-effort — a locked orphan cannot shadow a non-WAL db, so it must not fail an
+        # already-successful publish.
+        for suffix in ("-wal", "-shm", "-journal"):
+            try:
+                Path(str(dbp) + suffix).unlink(missing_ok=True)
+            except OSError as e:
+                LOGGER.warning("published catalog OK; could not remove orphaned sidecar %s%s: %s",
+                               dbp, suffix, e)
         return 0
     except RuntimeError as e:
         LOGGER.error("FATAL provenance/build error: %s", e)
