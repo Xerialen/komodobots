@@ -758,6 +758,58 @@ class FailedRunArtifactTest(unittest.TestCase):
         self.assertNotIn("maps", names)          # the new build was NOT published
         self.assertFalse((d / "out.sqlite.partial").exists())   # only the new partial was purged
 
+    def test_hot_rollback_journal_recovered_not_blindly_deleted(self):
+        # if the old catalog has a HOT rollback -journal (a crashed writer left an uncommitted txn),
+        # the publish must let SQLite roll it back (recover) rather than delete the journal blindly;
+        # a then-failed replace must leave the old db CONSISTENT (committed state, no partial pages).
+        import os as _os
+        import sqlite3
+        import subprocess
+        import sys
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        # child commits 'COMMITTED', then BEGINs + writes 'UNCOMMITTED' and exits without commit,
+        # leaving a hot out.sqlite-journal holding the uncommitted change.
+        child = ("import sqlite3, os\n"
+                 "c = sqlite3.connect(%r)\n"
+                 "c.execute('CREATE TABLE t(v)')\n"
+                 "c.execute(\"INSERT INTO t VALUES ('COMMITTED')\")\n"
+                 "c.commit()\n"
+                 "c.execute('BEGIN')\n"
+                 "c.execute(\"INSERT INTO t VALUES ('UNCOMMITTED')\")\n"
+                 "os._exit(0)\n") % str(final_db)
+        subprocess.run([sys.executable, "-c", child], check=True)
+        self.assertTrue((d / "out.sqlite-journal").exists())   # a hot rollback journal is present
+
+        fsb, fex, entries, argv = self._sidecar_fixture(d)
+        real_replace = etl2.os.replace
+
+        def boom_replace(src, dst):
+            raise OSError("EXDEV (simulated): cannot replace canonical db")
+
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
+        etl2.catalog_load.build = fsb
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fex
+        etl2.os.replace = boom_replace
+        try:
+            rc = etl2.main(argv)
+        finally:
+            etl2.os.replace = real_replace
+            (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
+
+        self.assertEqual(rc, 2)  # fail closed
+        fresh = sqlite3.connect(final_db)
+        self.assertEqual(fresh.execute("PRAGMA integrity_check").fetchone()[0], "ok")  # not corrupt
+        rows = [r[0] for r in fresh.execute("SELECT v FROM t")]
+        names = {r[0] for r in fresh.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        fresh.close()
+        self.assertEqual(rows, ["COMMITTED"])    # uncommitted txn rolled back; committed row intact
+        self.assertNotIn("maps", names)          # the new build was NOT published
+
 
 class DemoIdDeterminismTest(unittest.TestCase):
     """demo_id must be a stable function of content identity (sha-rank), NOT the parallel
