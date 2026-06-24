@@ -38,6 +38,51 @@ What evidence would justify revisiting the decision?
 
 ---
 
+## Fail closed on blocked GitHub merge state in the review-gate executor
+
+### Date
+
+2026-06-24
+
+### Decision
+
+The deterministic review-gate merge executor now requires GitHub's `mergeStateStatus` to be
+`CLEAN` before attempting `gh pr merge`, in addition to the existing label, head-SHA verdict,
+draft, base, mergeability, cooldown, and check gates. It also posts the `**Merged** by
+review-gate executor` comment only after the `gh pr merge` command succeeds.
+
+### Alternatives Considered
+
+- Keep checking only `mergeable == MERGEABLE`. Rejected: `mergeable` only proves the branches can
+  combine; branch/ruleset blockers such as unresolved review threads can still leave the PR
+  `mergeStateStatus == BLOCKED`.
+- Let a failed `gh pr merge` fall through and rely on logs. Rejected: the workflow is invoked from
+  `eval_and_merge "$PR" || ...`, so Bash `set -e` does not reliably stop the function before the
+  success comment. The workflow must guard the merge command explicitly.
+
+### Evidence
+
+- PR #384 reached `gate: ready` with green `PR Tests`, but GitHub ruleset
+  `prod-dev-branch-protection` still reported `mergeStateStatus: BLOCKED` because an automated
+  review thread was unresolved.
+- The old executor attempted `gh pr merge`, GitHub rejected the merge, and the workflow still
+  posted two false `**Merged** by review-gate executor` comments.
+- `tests/test_review_gate_merge_workflow.py` now locks the `mergeStateStatus` fetch/check and the
+  "comment only after successful merge command" guard.
+
+### Expected Consequences
+
+A ready-labeled PR that is still blocked by GitHub branch/ruleset requirements now soft-skips
+instead of trying to merge or posting a false merge comment. The AI reviewer label remains an
+advisory filter; GitHub's own branch/ruleset state remains a hard final gate.
+
+### Revisit Conditions
+
+Revisit if GitHub changes `mergeStateStatus` semantics, if the ruleset is removed, or if the
+executor moves to GitHub's native auto-merge/merge-queue API instead of direct `gh pr merge`.
+
+---
+
 ## Initial Decision
 
 ### Date
