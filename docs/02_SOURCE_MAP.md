@@ -70,6 +70,19 @@ Why it matters:
 
 ## Analysis and data sources
 
+### Phase-4 human 4on4 dm3 state-distribution corpus
+
+`data/catalog/dm3_4on4_human1537.summary.json` (provenance/stats record) ·
+`docs/PHASE4_STATE_CORPUS_FINDINGS.md` (findings) ·
+`docs/diagrams/phase4_extraction.drawio` + `docs/diagrams/komodobots_full_pipeline.drawio` (lineage).
+
+Why it matters:
+
+- Records the heavy 1537-demo extraction (`scripts/catalog_etl_mvd.py`, schema-33 `qw-analyze` sha `6954ffb6`) that produced the ~125 GB human state corpus on servexeri — 534.6M held-out per-tick state rows for the RL state prior.
+- Carries the durable provenance and the green verification (`foreign_key_violations == 0`, hold-out intact) without committing the multi-GB database.
+- Documents the scratch PHASE4-STREAM → merged PR #383 (`c7c09e6`) relationship: values + sha-bucket split reproducible, only `demo_id` numbering differs.
+- Maps the extraction to the [ML Evidence Chain Gate](21_ML_EVIDENCE_CHAIN_GATE.md); action labels held out until per-head weights.
+
 ### Agent coordination handoffs
 
 Merge-board analysis and Claude help request: `C:\Users\benya\projects\quakeworld\komodobots\codex\MERGE_BOARD_ANALYSIS_2026-06-10.md`

@@ -36,6 +36,50 @@ What should be tested next?
 
 ---
 
+## 2026-06-24 -- Phase-4 human 4on4 dm3 state-distribution corpus extracted + verified
+
+### Experiment
+
+Run the heavy `scripts/catalog_etl_mvd.py` extraction over the 1537-demo human 4on4 dm3 TRAIN
+manifest on servexeri (schema-33 `qw-analyze` sha `6954ffb6`, geometric on-ground via `dm3.bsp`),
+producing a per-tick state-distribution corpus for the RL state prior. Action labels recovered by
+inverse dynamics are held out (`is_interp=1`).
+
+### Result
+
+1536 demos loaded (1 skipped — `blixem__fs__vs_tot_dm3_2.mvd` is not a schema-33 export),
+949,814 episodes, 534,627,531 player_ticks ≈ actions, `onground_distinct == [0,1]`, sha-bucket
+split 1088/222/226. Post-extraction `run_verify.py` over the 125 GB DB returned **green**:
+`foreign_key_violations == 0`, hold-out intact (`actions_held_out == actions_total == 534,627,531`,
+`actions_idm_trainable_BAD == 0`).
+
+### Evidence
+
+`data/catalog/dm3_4on4_human1537.summary.json` (committed ETL summary + verify output + provenance);
+[docs/PHASE4_STATE_CORPUS_FINDINGS.md](PHASE4_STATE_CORPUS_FINDINGS.md); pipeline diagrams under
+`docs/diagrams/`. The ~125 GB DB stays on servexeri. The streaming ETL fix is merged as PR #383
+(`c7c09e6`).
+
+### Interpretation
+
+The corpus is a valid, referentially-clean human state distribution with every recovered action
+held out. State/action values and the sha-bucket split are reproducible from the merged #383 ETL;
+only `demo_id` numbering differs (scratch autoincrement vs #383 sha-rank). This does **not** prove
+the IDM labels are correct or that the corpus yields useful movement — no model is trained.
+
+### Confidence
+
+High for the extraction + integrity claims (the verify is direct evidence). Low for any downstream
+training utility, which is untested.
+
+### Follow-up
+
+RL STEP-0 de-risk (per the RL plan — owner-held, not yet committed) consuming the corpus as a
+state/cadence anchor; a fully #383-reproducible re-extraction (deterministic `demo_id`s) deferred
+until RL is greenlit.
+
+---
+
 ## 2026-06-16 -- T0.2 live-transport latency spike (shm chosen)
 
 ### Experiment
