@@ -773,8 +773,11 @@ def main(argv=None) -> int:
         for suffix in ("", "-wal", "-shm", "-journal"):
             Path(str(p) + suffix).unlink(missing_ok=True)
 
-    _purge(dbp)   # clear a stale canonical artifact up front
-    _purge(tmp)   # and any leftover partial from a prior aborted run
+    # Do NOT delete an existing canonical --db up front: build into the .partial and let the
+    # success-path os.replace() overwrite it ATOMICALLY. A failed/empty rebuild then PRESERVES the
+    # previous known-good catalog (an expensive verified corpus) instead of destroying it; only the
+    # new partial is purged on failure. (os.replace overwrites the destination on POSIX and Windows.)
+    _purge(tmp)   # clear only a leftover partial from a prior aborted run; the canonical db is untouched
 
     # Build into the .partial, then publish atomically. The `finally` purges the partial unless we
     # PUBLISHED — so EVERY non-success path fails closed and leaves no consumable partial catalog at

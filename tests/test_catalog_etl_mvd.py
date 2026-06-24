@@ -550,6 +550,57 @@ class FailedRunArtifactTest(unittest.TestCase):
         leftovers = sorted(p.name for p in d.glob("out.sqlite*"))
         self.assertEqual(leftovers, [], "a non-RuntimeError build failure must also purge the partial")
 
+    def test_existing_canonical_db_survives_failed_rebuild(self):
+        # fail-closed must protect the NEW artifact, not destroy the EXISTING one: a failed/empty
+        # rebuild must leave the previous known-good canonical catalog intact (it is built into a
+        # .partial and only os.replace'd on success), not delete it up front.
+        import sqlite3
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        pre = sqlite3.connect(final_db)            # a pre-existing verified catalog with a sentinel
+        pre.execute("CREATE TABLE sentinel (v TEXT)")
+        pre.execute("INSERT INTO sentinel VALUES ('GOOD')")
+        pre.commit()
+        pre.close()
+        qa = d / "qw-analyze"; qa.write_text("#!/bin/true\n"); qa.chmod(0o755)
+        bsp = d / "dm3.bsp"; bsp.write_bytes(b"x")
+        manifest = d / "m.json"; manifest.write_text("[]")
+        sha = "f" * 64
+        entries = [{"path": "/x/empty.mvd", "sha256": sha, "size_bytes": 10}]
+
+        def fake_static_build(catalog_dir, fixture_dir=None, db_path=None):
+            con = sqlite3.connect(db_path)         # builds into the .partial, NOT the canonical db
+            con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+            con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                        "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+            return con, {"fake": True}
+
+        def fake_extract(path, qw_analyze, bsp_path, _sha):
+            return {"ok": True, "demo": "empty.mvd", "sha256": sha, "n_players": 0, "players": []}
+
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
+        etl2.catalog_load.build = fake_static_build
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fake_extract
+        try:
+            rc = etl2.main(["--catalog-dir", str(d), "--manifest", str(manifest),
+                            "--db", str(final_db), "--qw-analyze", str(qa), "--bsp", str(bsp),
+                            "--workers", "1"])
+        finally:
+            (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
+
+        self.assertEqual(rc, 2)  # empty-gate failure
+        self.assertTrue(final_db.exists(),
+                        "a failed rebuild must PRESERVE the existing canonical catalog")
+        chk = sqlite3.connect(final_db)
+        val = chk.execute("SELECT v FROM sentinel").fetchone()[0]   # still the OLD db, untouched
+        chk.close()
+        self.assertEqual(val, "GOOD")
+        self.assertFalse((d / "out.sqlite.partial").exists())       # only the partial was purged
+
 
 class DemoIdDeterminismTest(unittest.TestCase):
     """demo_id must be a stable function of content identity (sha-rank), NOT the parallel
