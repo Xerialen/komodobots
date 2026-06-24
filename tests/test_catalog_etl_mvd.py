@@ -494,6 +494,62 @@ class FailedRunArtifactTest(unittest.TestCase):
         self.assertTrue(final_db.exists(), "a clean run must publish the catalog at --db")
         self.assertFalse((d / "out.sqlite.partial").exists(), "the .partial must be renamed away")
 
+    def test_unexpected_nonruntime_error_also_purges_partial(self):
+        # not just the provenance RuntimeError: ANY build failure after the .partial exists (e.g. a
+        # sqlite OperationalError mid-insert) must fail closed and leave no out.sqlite* behind.
+        import sqlite3
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        qa = d / "qw-analyze"; qa.write_text("#!/bin/true\n"); qa.chmod(0o755)
+        bsp = d / "dm3.bsp"; bsp.write_bytes(b"x")
+        manifest = d / "m.json"; manifest.write_text("[]")
+
+        entries = [{"path": "/x/d%d.mvd" % i, "sha256": chr(97 + i) * 64, "size_bytes": 10}
+                   for i in range(2)]
+        seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                "yaw": float(i), "pitch": 0.0, "msec": 13} for i in range(4)]
+        ep = etl2._pack_episode(seg, [False] * 4, [False] * 4, 0)
+
+        def fake_static_build(catalog_dir, fixture_dir=None, db_path=None):
+            con = sqlite3.connect(db_path)  # creates the real .partial file
+            con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+            con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                        "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+            return con, {"fake": True}
+
+        def fake_extract(path, qw_analyze, bsp_path, sha):
+            return {"ok": True, "demo": Path(path).name, "sha256": sha, "n_players": 1,
+                    "players": [{"name": "p1", "team": 1, "episodes": [ep]}]}
+
+        calls = {"n": 0}
+        real_insert = etl2.insert_demo
+
+        def flaky_insert(con, map_id, rec, split):
+            calls["n"] += 1
+            if calls["n"] == 2:  # blow up AFTER the first demo has streamed+committed
+                raise sqlite3.OperationalError("disk I/O error (simulated)")
+            return real_insert(con, map_id, rec, split)
+
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo, etl2.insert_demo)
+        etl2.catalog_load.build = fake_static_build
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fake_extract
+        etl2.insert_demo = flaky_insert
+        try:
+            with self.assertRaises(sqlite3.OperationalError):  # unexpected error surfaces (purged first)
+                etl2.main(["--catalog-dir", str(d), "--manifest", str(manifest),
+                           "--db", str(final_db), "--qw-analyze", str(qa), "--bsp", str(bsp),
+                           "--workers", "1"])
+        finally:
+            (etl2.catalog_load.build, etl2.load_manifest,
+             etl2.extract_demo, etl2.insert_demo) = saved
+
+        leftovers = sorted(p.name for p in d.glob("out.sqlite*"))
+        self.assertEqual(leftovers, [], "a non-RuntimeError build failure must also purge the partial")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -765,17 +765,17 @@ def main(argv=None) -> int:
     _purge(dbp)   # clear a stale canonical artifact up front
     _purge(tmp)   # and any leftover partial from a prior aborted run
 
+    # Build into the .partial, then publish atomically. The `finally` purges the partial unless we
+    # PUBLISHED — so EVERY non-success path fails closed and leaves no consumable partial catalog at
+    # the predictable path: a RuntimeError provenance abort, a sqlite OperationalError /
+    # BrokenProcessPool / packing error mid-insert, the empty-gate, or any unexpected error.
+    published = False
     try:
         res = build(args.catalog_dir, args.manifest, str(tmp), bsp_path, qw_analyze,
                     workers=args.workers, limit=args.limit)
-    except RuntimeError as e:
-        _purge(tmp)  # fail closed: no partial catalog left behind
-        LOGGER.error("FATAL provenance/build error: %s", e)
-        return 3
-    con = res.get("con")
-    if con is not None:
-        con.close()  # summary is built; close now so the rename/purge below has no open handle (Windows)
-    try:
+        con = res.get("con")
+        if con is not None:
+            con.close()  # summary is built; close before the rename so no open handle blocks it (Windows)
         print(json.dumps(res["summary"], indent=2, default=str))
         # non-empty hard gate: a run that loaded demos but produced NO rows (analyzer export too
         # short/malformed after the schema guard, every demo zero-episode) must FAIL, not exit 0
@@ -784,21 +784,20 @@ def main(argv=None) -> int:
         empty = (res["summary"]["demos_loaded"] == 0
                  or not tc.get("player_ticks") or not tc.get("actions"))
         if empty and not args.allow_empty:
-            _purge(tmp)  # fail closed: an empty run publishes nothing
             LOGGER.error("empty load: demos_loaded=%s player_ticks=%s actions=%s — a non-empty run "
                          "requires player_ticks>0 AND actions>0. Pass --allow-empty for a "
                          "static-only catalog.", res["summary"]["demos_loaded"],
                          tc.get("player_ticks"), tc.get("actions"))
             return 2
         os.replace(tmp, dbp)  # atomic publish: the canonical path now holds a complete catalog
+        published = True
         return 0
-    except BaseException:
-        _purge(tmp)  # never leave a partial at either path on an unexpected error
-        raise
+    except RuntimeError as e:
+        LOGGER.error("FATAL provenance/build error: %s", e)
+        return 3
     finally:
-        con = res.get("con")
-        if con is not None:
-            con.close()
+        if not published:
+            _purge(tmp)  # any non-published outcome (incl. an unexpected re-raised error) leaves nothing
 
 
 if __name__ == "__main__":
