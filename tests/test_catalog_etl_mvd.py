@@ -326,7 +326,7 @@ class StreamingInsertTest(unittest.TestCase):
 
         inserted = []
 
-        def fake_insert(con, map_id, rec, split):
+        def fake_insert(con, map_id, rec, split, demo_id):
             inserted.append((rec["demo"], split))     # records the row; does NOT retain _payload
             return {"player_ticks": 5, "actions": 5}
 
@@ -380,7 +380,7 @@ class SplitPolicyEmittedTest(unittest.TestCase):
         rec = {"demo": "d.mvd", "sha256": sha, "n_players": 1,
                "players": [{"name": "p1", "team": 1, "episodes": [ep]}]}
         split = etl.split_for_sha(sha)
-        etl.insert_demo(con, 1, rec, split)
+        etl.insert_demo(con, 1, rec, split, 1)
         rows = con.execute("SELECT DISTINCT split, split_policy FROM episodes").fetchall()
         con.close()
         self.assertEqual(etl.SPLIT_POLICY, "group_by_demo_sha256_bucket_v1")
@@ -527,11 +527,11 @@ class FailedRunArtifactTest(unittest.TestCase):
         calls = {"n": 0}
         real_insert = etl2.insert_demo
 
-        def flaky_insert(con, map_id, rec, split):
+        def flaky_insert(con, map_id, rec, split, demo_id):
             calls["n"] += 1
             if calls["n"] == 2:  # blow up AFTER the first demo has streamed+committed
                 raise sqlite3.OperationalError("disk I/O error (simulated)")
-            return real_insert(con, map_id, rec, split)
+            return real_insert(con, map_id, rec, split, demo_id)
 
         saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo, etl2.insert_demo)
         etl2.catalog_load.build = fake_static_build
@@ -549,6 +549,106 @@ class FailedRunArtifactTest(unittest.TestCase):
 
         leftovers = sorted(p.name for p in d.glob("out.sqlite*"))
         self.assertEqual(leftovers, [], "a non-RuntimeError build failure must also purge the partial")
+
+
+class DemoIdDeterminismTest(unittest.TestCase):
+    """demo_id must be a stable function of content identity (sha-rank), NOT the parallel
+    completion / insertion order — the trainer keys its held-out-demo split on demo_id, so two
+    rebuilds of the same manifest+bytes in different orders must map each demo to the same id."""
+
+    def _build_and_read(self, entries):
+        import sqlite3
+        import catalog_etl_mvd as etl2
+
+        seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                "yaw": float(i), "pitch": 0.0, "msec": 13} for i in range(4)]
+        ep = etl2._pack_episode(seg, [False] * 4, [False] * 4, 0)
+
+        def fake_static_build(catalog_dir, fixture_dir=None, db_path=None):
+            con = sqlite3.connect(":memory:")
+            con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+            con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                        "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+            return con, {"fake": True}
+
+        def fake_extract(path, qw_analyze, bsp_path, sha):
+            return {"ok": True, "demo": Path(path).name, "sha256": sha, "n_players": 1,
+                    "players": [{"name": "p1", "team": 1, "episodes": [ep]}]}
+
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
+        etl2.catalog_load.build = fake_static_build
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fake_extract
+        try:
+            res = etl2.build(Path("/x"), Path("/m.json"), ":memory:", "/bsp", "/qa", workers=1)
+            return dict(res["con"].execute("SELECT sha256, demo_id FROM demos").fetchall())
+        finally:
+            (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
+
+    def test_demo_id_is_order_independent(self):
+        entries = [{"path": "/x/d%d.mvd" % i, "sha256": chr(97 + i) * 64, "size_bytes": 10}
+                   for i in range(5)]
+        forward = self._build_and_read(entries)
+        reverse = self._build_and_read(list(reversed(entries)))
+        self.assertEqual(forward, reverse,  # same demo -> same id regardless of insert order
+                         "demo_id must come from sha-rank, not insertion order")
+        # and it is exactly the sha-rank (1..N over sorted shas)
+        expect = {sha: i + 1 for i, sha in enumerate(sorted(e["sha256"] for e in entries))}
+        self.assertEqual(forward, expect)
+
+
+class SummaryDbPathTest(unittest.TestCase):
+    """A successful run's printed summary must point at the CANONICAL --db (the published
+    artifact), not the internal .partial that build() wrote to and main() renamed away."""
+
+    def test_summary_db_is_canonical_after_success(self):
+        import contextlib
+        import io
+        import json as _json
+        import sqlite3
+        import tempfile
+        import catalog_etl_mvd as etl2
+
+        d = Path(tempfile.mkdtemp())
+        final_db = d / "out.sqlite"
+        qa = d / "qw-analyze"; qa.write_text("#!/bin/true\n"); qa.chmod(0o755)
+        bsp = d / "dm3.bsp"; bsp.write_bytes(b"x")
+        manifest = d / "m.json"; manifest.write_text("[]")
+        sha = "e" * 64
+        entries = [{"path": "/x/ok.mvd", "sha256": sha, "size_bytes": 10}]
+        seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                "yaw": float(i), "pitch": 0.0, "msec": 13} for i in range(4)]
+        ep = etl2._pack_episode(seg, [False] * 4, [False] * 4, 0)
+
+        def fake_static_build(catalog_dir, fixture_dir=None, db_path=None):
+            con = sqlite3.connect(db_path)
+            con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+            con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                        "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+            return con, {"fake": True}
+
+        def fake_extract(path, qw_analyze, bsp_path, _sha):
+            return {"ok": True, "demo": "ok.mvd", "sha256": sha, "n_players": 1,
+                    "players": [{"name": "p1", "team": 1, "episodes": [ep]}]}
+
+        saved = (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo)
+        etl2.catalog_load.build = fake_static_build
+        etl2.load_manifest = lambda _p: entries
+        etl2.extract_demo = fake_extract
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                rc = etl2.main(["--catalog-dir", str(d), "--manifest", str(manifest),
+                                "--db", str(final_db), "--qw-analyze", str(qa), "--bsp", str(bsp),
+                                "--workers", "1"])
+        finally:
+            (etl2.catalog_load.build, etl2.load_manifest, etl2.extract_demo) = saved
+
+        self.assertEqual(rc, 0)
+        summary = _json.loads(buf.getvalue())
+        self.assertEqual(summary["db"], str(final_db))      # canonical, not .partial
+        self.assertTrue(Path(summary["db"]).exists())        # the recorded path actually exists
+        self.assertFalse((d / "out.sqlite.partial").exists())
 
 
 if __name__ == "__main__":

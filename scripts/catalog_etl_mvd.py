@@ -433,9 +433,15 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
     }
 
 
-def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str) -> dict:
+def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, demo_id: int) -> dict:
     """Insert one extracted .mvd's demos/players/episodes/player_ticks/actions rows.
     `split` is the train/val/test label for ALL of this demo's episodes (group-by-demo).
+
+    `demo_id` is assigned DETERMINISTICALLY by the caller (sha-rank, see build) — NOT an
+    autoincrement side effect of insertion order. The streaming insert lands demos in parallel
+    completion order, so an autoincrement id would vary with parse timing across rebuilds; the
+    trainer keys its held-out-demo validation split on demo_id, so a content-stable id is required
+    for reproducible splits.
 
     demos has UNIQUE(sha256); a byte-identical demo already loaded this run is SKIPPED
     (no rows -> no orphan children) and reported, exactly like the QWD ETL."""
@@ -444,12 +450,11 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str) -> 
         return {"skipped_duplicate": True, "demo": rec["demo"], "sha256": rec["sha256"],
                 "duplicate_of": dup[1], "duplicate_of_id": dup[0]}
 
-    cur = con.execute(
-        """INSERT INTO demos (path, source, map_id, demo_kind, sha256, parser_commit)
-           VALUES (?,?,?,?,?,?)""",
-        (rec["demo"], "mvd", map_id, "4on4", rec["sha256"], "qw-analyze:schema33"),
+    con.execute(
+        """INSERT INTO demos (demo_id, path, source, map_id, demo_kind, sha256, parser_commit)
+           VALUES (?,?,?,?,?,?,?)""",
+        (demo_id, rec["demo"], "mvd", map_id, "4on4", rec["sha256"], "qw-analyze:schema33"),
     )
-    demo_id = cur.lastrowid
 
     n_pl = n_ep = n_tick = n_act = 0
     for p in rec["players"]:
@@ -576,6 +581,12 @@ def build(catalog_dir: Path, manifest: Path, db_path: str, bsp_path: str,
     con, base = catalog_load.build(catalog_dir, fixture_dir=None, db_path=db_path)
     map_id = con.execute("SELECT map_id FROM maps WHERE name='dm3'").fetchone()[0]
 
+    # Deterministic demo_id from content identity (sha-rank), NOT an autoincrement side effect of
+    # parallel completion order: the streaming insert lands demos as they finish parsing, so an
+    # autoincrement id would vary with timing across rebuilds. The trainer keys its held-out-demo
+    # validation split on demo_id, so the same manifest+bytes must always yield the same ids.
+    demo_id_by_sha = {sha: i + 1 for i, sha in enumerate(sorted({e["sha256"] for e in entries}))}
+
     t0 = time.time()
     errors, per_demo, skipped_dups = [], [], []
     total = len(entries)
@@ -593,7 +604,7 @@ def build(catalog_dir: Path, manifest: Path, db_path: str, bsp_path: str,
             errors.append(r)
         else:
             split = split_for_sha(r.get("sha256"))
-            ins = insert_demo(con, map_id, r, split)
+            ins = insert_demo(con, map_id, r, split, demo_id_by_sha[r["sha256"]])
             if ins.get("skipped_duplicate"):
                 skipped_dups.append(ins)
                 LOGGER.info("  SKIP duplicate sha256: %s (== %s)", r["demo"], ins.get("duplicate_of"))
@@ -776,6 +787,9 @@ def main(argv=None) -> int:
         con = res.get("con")
         if con is not None:
             con.close()  # summary is built; close before the rename so no open handle blocks it (Windows)
+        # record the CANONICAL published path, not the internal .partial build() wrote to — the
+        # printed/committed summary must point at where the catalog actually lands (rc=0).
+        res["summary"]["db"] = str(dbp)
         print(json.dumps(res["summary"], indent=2, default=str))
         # non-empty hard gate: a run that loaded demos but produced NO rows (analyzer export too
         # short/malformed after the schema guard, every demo zero-episode) must FAIL, not exit 0
