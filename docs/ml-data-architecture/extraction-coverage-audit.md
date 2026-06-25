@@ -168,16 +168,16 @@
 | column | class | decoder field | populated by | registry | reason |
 |---|---|---|---|---|---|
 | `event_id` | structural | — | — | — | PK/FK/provenance/split bookkeeping |
-| `demo_id` | structural | — | qwd-etl | — | PK/FK/provenance/split bookkeeping |
-| `item_id` | derived | items.world_coords | qwd-etl | — | spatial join to items by kind+origin (NULL for backpacks) |
-| `t_s` | extracted | items.pickup_respawn | qwd-etl | — | QWD ETL writes (fixture); decoder source getItems/getWeaponPickups/getBackpacks |
-| `event_kind` | extracted | items.pickup_respawn | qwd-etl | — | pickup/respawn/drop/backpack_pickup |
-| `player_id` | extracted | items.pickup_respawn | qwd-etl | — | picker (takenBy / weaponPickups.player) |
-| `origin_x` | extracted | items.backpack_drops | qwd-etl | — | getBackpacks.origin for dropped packs |
-| `origin_y` | extracted | items.backpack_drops | qwd-etl | — | getBackpacks.origin |
-| `origin_z` | extracted | items.backpack_drops | qwd-etl | — | getBackpacks.origin |
-| `item_type` | extracted | items.pickup_respawn | qwd-etl | — | denormalized kind |
-| `team_id` | extracted | world.roster_teams | qwd-etl | yes | team attribution of the pickup |
+| `demo_id` | structural | — | mvd-etl, qwd-etl | — | PK/FK/provenance/split bookkeeping |
+| `item_id` | derived | items.world_coords | mvd-etl, qwd-etl | — | spatial join to items by origin x/y/z (NULL for backpack drops) |
+| `t_s` | extracted | items.pickup_respawn | mvd-etl, qwd-etl | — | MVD writes from `-view full` items.items[].phases[] + backpacks (T4); QWD via fixture |
+| `event_kind` | extracted | items.pickup_respawn | mvd-etl, qwd-etl | — | pickup (phase.takenAt) / respawn (phase.respawnAt) / drop (backpack) |
+| `player_id` | extracted | items.pickup_respawn | mvd-etl, qwd-etl | — | picker (phase.takenBy / backpack.player); NULL for respawn |
+| `origin_x` | extracted | items.backpack_drops | mvd-etl, qwd-etl | — | backpacks.origin for dropped packs (NULL for static pickups, which carry item_id) |
+| `origin_y` | extracted | items.backpack_drops | mvd-etl, qwd-etl | — | backpacks.origin |
+| `origin_z` | extracted | items.backpack_drops | mvd-etl, qwd-etl | — | backpacks.origin |
+| `item_type` | extracted | items.pickup_respawn | mvd-etl, qwd-etl | — | denormalized kind (items.kind / backpack.weapon) |
+| `team_id` | extracted | world.roster_teams | mvd-etl, qwd-etl | yes | team attribution of the pickup (phase.team / backpack.team -> teams) |
 
 ### `actions`
 
@@ -216,36 +216,36 @@
 | column | class | decoder field | populated by | registry | reason |
 |---|---|---|---|---|---|
 | `team_id` | structural | — | — | — | PK/FK/provenance/split bookkeeping |
-| `demo_id` | structural | — | — | — | PK/FK/provenance/split bookkeeping |
-| `name` | extracted | world.roster_teams | — | — | QWD ETL via fixture; decoder getOverview roster |
-| `side` | derived | world.roster_teams | — | — | canonical A/B side label |
+| `demo_id` | structural | — | mvd-etl | — | PK/FK/provenance/split bookkeeping |
+| `name` | extracted | world.roster_teams | mvd-etl | — | MVD writes distinct per-player roster team names (T4); QWD via fixture |
+| `side` | derived | world.roster_teams | mvd-etl | — | canonical A/B side label (first-seen team order) |
 
 ### `actor_ticks`
 
 | column | class | decoder field | populated by | registry | reason |
 |---|---|---|---|---|---|
-| `episode_id` | structural | — | qwd-etl | — | PK/FK/provenance/split bookkeeping |
-| `tick` | structural | — | qwd-etl | — | PK/FK/provenance/split bookkeeping |
-| `actor_id` | structural | — | qwd-etl | — | PK/FK/provenance/split bookkeeping |
-| `team_id` | GAP | world.roster_teams | qwd-etl | — | QWD writes NULL (no roster join yet); MVD writes NONE. T4. |
-| `alive` | extracted | state.spawn_death | qwd-etl | — | QWD writes; MVD GAP (T4) |
-| `ox` | extracted | world.all_players_state | qwd-etl | — | QWD ETL writes (self+observed others); MVD ETL writes NONE -> T4 |
-| `oy` | extracted | world.all_players_state | qwd-etl | — | QWD only; MVD GAP (T4) |
-| `oz` | extracted | world.all_players_state | qwd-etl | — | QWD only; MVD GAP (T4) |
-| `vx` | extracted | world.all_players_state | qwd-etl | yes | QWD only; MVD GAP (T4) |
-| `vy` | extracted | world.all_players_state | qwd-etl | yes | QWD only; MVD GAP (T4) |
-| `vz` | extracted | world.all_players_state | qwd-etl | yes | QWD only; MVD GAP (T4) |
-| `pitch` | extracted | world.all_players_state | qwd-etl | — | QWD only; MVD GAP (T4) |
-| `yaw` | extracted | world.all_players_state | qwd-etl | — | QWD only; MVD GAP (T4) |
-| `roll` | extracted | world.all_players_state | qwd-etl | — | QWD only; MVD GAP (T4) |
-| `hspeed` | derived | world.all_players_state | qwd-etl | — | hypot(vx,vy) |
-| `onground` | derived | world.all_players_state | qwd-etl | — | geometric proxy (QWD); MVD GAP |
-| `onground_is_proxy` | derived | — | qwd-etl | — | proxy-provenance flag |
+| `episode_id` | structural | — | mvd-etl, qwd-etl | — | PK/FK/provenance/split bookkeeping |
+| `tick` | structural | — | mvd-etl, qwd-etl | — | PK/FK/provenance/split bookkeeping |
+| `actor_id` | structural | — | mvd-etl, qwd-etl | — | PK/FK/provenance/split bookkeeping |
+| `team_id` | extracted | world.roster_teams | mvd-etl, qwd-etl | — | MVD writes the absolute team_id from the per-player roster team (T4); QWD writes NULL (no roster join yet) |
+| `alive` | extracted | state.spawn_death | mvd-etl, qwd-etl | — | QWD writes; MVD forward-fills the per-player death/spawn step-timeline (T4; NULL before first death/spawn) |
+| `ox` | extracted | world.all_players_state | mvd-etl, qwd-etl | — | QWD ETL writes (self+observed others); MVD ETL writes the omniscient all-players state per episode tick (T4) |
+| `oy` | extracted | world.all_players_state | mvd-etl, qwd-etl | — | QWD + MVD (T4) |
+| `oz` | extracted | world.all_players_state | mvd-etl, qwd-etl | — | QWD + MVD (T4) |
+| `vx` | extracted | world.all_players_state | mvd-etl, qwd-etl | yes | QWD + MVD (T4) |
+| `vy` | extracted | world.all_players_state | mvd-etl, qwd-etl | yes | QWD + MVD (T4) |
+| `vz` | extracted | world.all_players_state | mvd-etl, qwd-etl | yes | QWD + MVD (T4) |
+| `pitch` | extracted | world.all_players_state | mvd-etl, qwd-etl | — | QWD + MVD (T4) |
+| `yaw` | extracted | world.all_players_state | mvd-etl, qwd-etl | — | QWD + MVD (T4) |
+| `roll` | extracted | world.all_players_state | mvd-etl, qwd-etl | — | QWD + MVD (MVD writes 0.0; angle16 has no roll) (T4) |
+| `hspeed` | derived | world.all_players_state | mvd-etl, qwd-etl | — | hypot(vx,vy) |
+| `onground` | derived | world.all_players_state | mvd-etl, qwd-etl | — | geometric proxy (QWD); MVD leaves NULL for observed-others (the proxy lives on the ego player_ticks spine) |
+| `onground_is_proxy` | derived | — | mvd-etl, qwd-etl | — | proxy-provenance flag |
 | `waterlevel` | excluded-with-reason | mvd.liquid.waterlevel | — | — | decoder CAN emit; not requested -> NULL |
-| `health` | GAP | state.health | — | yes | omniscient health decodable; populated NOWHERE. T3/T4. |
-| `armor` | GAP | state.armor | — | yes | decodable; populated nowhere. T3/T4. |
-| `armor_type` | GAP | state.armor_type | — | yes | decodable; populated nowhere. T3/T4. |
-| `weapon` | GAP | state.weapon_held | — | yes | decodable; populated nowhere. T3/T4. |
+| `health` | extracted | state.health | mvd-etl | yes | MVD forward-fills each player's `-view full` `h` step-timeline (T4); QWD NULL |
+| `armor` | extracted | state.armor | mvd-etl | yes | MVD forward-fills each player's `a` step-timeline (T4); QWD NULL |
+| `armor_type` | extracted | state.armor_type | mvd-etl | yes | MVD forward-fills each player's `at` ('ga'/'ya'/'ra') step-timeline -> 0/1/2 (T4). The `-view full` `at` stream carries the skin/type the T3 `-event-types armor` decode lacked; QWD NULL |
+| `weapon` | GAP | state.weapon_held | mvd-etl | yes | still GAP after T4: the per-tick weapon stream is gain/lose INVENTORY, not STAT_ACTIVEWEAPON (the active-weapon id the column means) — no honest active-weapon source without a decoder change. Deferred. |
 
 ### `actor_visibility`
 
@@ -290,13 +290,13 @@
 | column | class | decoder field | populated by | registry | reason |
 |---|---|---|---|---|---|
 | `event_id` | structural | — | — | — | PK/FK/provenance/split bookkeeping |
-| `demo_id` | structural | — | — | — | PK/FK/provenance/split bookkeeping |
-| `t_s` | extracted | frags.kill_timeline | — | — | QWD ETL via fixture; decoder getFrags |
-| `killer_id` | extracted | frags.kill_timeline | — | — | getFrags.killer |
-| `victim_id` | extracted | frags.kill_timeline | — | — | getFrags.victim |
-| `weapon` | extracted | frags.kill_timeline | — | — | getFrags.weapon |
-| `is_suicide` | extracted | frags.kill_timeline | — | — | getFrags.isSuicide |
-| `is_teamkill` | extracted | frags.kill_timeline | — | — | getFrags.isTeamKill |
+| `demo_id` | structural | — | mvd-etl | — | PK/FK/provenance/split bookkeeping |
+| `t_s` | extracted | frags.kill_timeline | mvd-etl | — | MVD writes from `-view full` frags.frags (T4); QWD via fixture |
+| `killer_id` | extracted | frags.kill_timeline | mvd-etl | — | frags.frags[].killer -> player_id |
+| `victim_id` | extracted | frags.kill_timeline | mvd-etl | — | frags.frags[].victim -> player_id |
+| `weapon` | extracted | frags.kill_timeline | mvd-etl | — | frags.frags[].weapon (rl/lg/sg/.../tele/fall/teamkill) |
+| `is_suicide` | extracted | frags.kill_timeline | mvd-etl | — | frags.frags[].isSuicide |
+| `is_teamkill` | extracted | frags.kill_timeline | mvd-etl | — | frags.frags[].isTeamKill |
 
 ### `region_control_timeline`
 
@@ -358,10 +358,10 @@ field codes + the QWD `usercmd_t` struct. Referenced by decoder **role**, not to
 
 | class | count |
 |---|---|
-| extracted | 56 |
+| extracted | 60 |
 | derived | 15 |
 | excluded-with-reason | 43 |
-| **GAP** | **26** |
+| **GAP** | **22** |
 | (structural: PK/FK/provenance) | 66 |
 | (UNCLASSIFIED — needs a verdict) | 0 |
 | classified content columns | 140 |
@@ -379,4 +379,4 @@ only truly-new work — confirming the audit neither invents nor misses a gap:
 - G5: stored [G] geometry / [R] regime / leg-phase columns absent
 - G6: docs/27 inaccuracies (frag_events/actor_visibility/audio_cues/teams called greenfield/reserved when schema-defined-but-empty; wrong schema path)
 
-**Scoping (which ticket each per-column GAP feeds):** `player_ticks`/`actor_ticks` health/armor/armor_type/weapon -> T3/T4; `actor_ticks` (MVD all-players) + team_id -> T4; `actor_visibility.*` + `audio_cues.*` -> T8. The ammo/powerup source columns (G4), `damage_events` table (G3), and [G]/[R]/leg-phase columns (G5) are **absent from the schema entirely** (not just unpopulated) — they are schema-addition tickets T5/T6/T7, so they do not appear as columns here; that absence IS the finding.
+**Scoping (which ticket each per-column GAP feeds):** `player_ticks` health/armor -> T3 (DONE); the omniscient `actor_ticks` all-players state + health/armor/armor_type + team_id, plus `item_events`/`frag_events`/`teams` -> T4 (DONE; from `-view full`). The GAPs that REMAIN: `player_ticks.armor_type`/`weapon` + `actor_ticks.weapon` (no honest active-weapon / ego armor-skin source without a decoder change), and `actor_visibility.*` + `audio_cues.*` -> T8. The ammo/powerup source columns (G4), `damage_events` table (G3), and [G]/[R]/leg-phase columns (G5) are **absent from the schema entirely** (not just unpopulated) — they are schema-addition tickets T5/T6/T7, so they do not appear as columns here; that absence IS the finding.

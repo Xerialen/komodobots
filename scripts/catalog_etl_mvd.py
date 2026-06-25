@@ -28,6 +28,15 @@ Per demo it loads:
                     onground, onground_is_proxy=TRUE), msec from consecutive `t` deltas
     actions      <- the IDM-RECOVERED (state,action) labels (sidemove SIGN, jump, view
                     angles), label_source='idm', confidence<1.0, is_interp on unreliable rows
+    teams        <- roster team names (one row per distinct `team` string), side A/B          (T4)
+    actor_ticks  <- the OMNISCIENT all-players world per ego-episode tick (every player's full
+                    state + forward-filled health/armor/armor_type + alive + team_id)          (T4)
+    item_events  <- pickup/respawn timeline (item phases) + dropped-weapon backpacks           (T4)
+    frag_events  <- kill timeline (killer/victim/weapon/isSuicide/isTeamKill)                   (T4)
+
+All of T4's tables read the SAME single `-view full` decode the movement spine already runs (the
+schema-33 JSON carries the per-player resource step-timelines + the match-level frags/items/backpacks
+streams) — NO extra binary invocation. See the T4 helper block for the empirically-verified shapes.
 
 A train/val/test split is assigned GROUPED BY demo (no demo's frames straddle the boundary),
 but — unlike the QWD ETL's positional assign_splits — the bucket is picked per demo from its
@@ -307,6 +316,192 @@ def _fill_resource(timeline: tuple, t_ms: int):
     return vs[i] if i >= 0 else None
 
 
+# =============================================================================
+# T4 — the OMNISCIENT MVD world (actor_ticks + item_events + frag_events + teams).
+#
+# These all read the SAME single `-view full` decode the movement spine already runs (no extra
+# binary invocation): the schema-33 `-view full` JSON carries, alongside `streams.players[].pos`,
+# the per-player resource step-timelines (`h`/`a`/`at`), per-player death-tick list (`d`), and the
+# match-level top-level streams `frags.frags` (killer/victim/weapon/isSuicide/isTeamKill),
+# `items.items[].phases[]` (pickup/respawn), and `backpacks` (dropped-weapon origins). The roster
+# `teams` come from each player's `team` string.
+#
+# EMPIRICALLY VERIFIED against ~/qw-sim/bin/qw-analyze-v20 (schema 33, sha 6954ffb6) on the real
+# 4on4 MVD 20250405-1941_4on4_book_vs_mix[dm3].mvd. Two finds that the conceptual verb names hid:
+#   * the discrete `-view events -event-types frag/death` streams are DEGENERATE for a kill table —
+#     `frag` is a SCORE-DELTA per scorer ({player,delta,team}) and `death` is victim-only ({player});
+#     neither pairs killer<->victim<->weapon. The HONEST kill timeline is the top-level `frags.frags`
+#     ([{time,killer,victim,weapon,isSuicide,isTeamKill}]) in the same `-view full` JSON.
+#   * `at` (armor TYPE: 'ra'/'ya'/'ga'/'') IS present in `-view full` per player — so actor_ticks can
+#     fill armor_type even though the T3 player_ticks path (a separate `-event-types armor` decode)
+#     could not. `weapon` (active-weapon id) stays NULL everywhere (same reason as T3: the streams
+#     carry gain/lose INVENTORY, not STAT_ACTIVEWEAPON).
+# Era-gating: an older/again-different demo whose `-view full` lacks a stream just yields NO rows for
+# that table (the helpers iterate whatever is present); the movement spine is never affected.
+# =============================================================================
+ARMOR_TYPE_CODE = {"ga": 0, "ya": 1, "ra": 2}  # 'at' string -> armor_type int (0/1/2 = GA/YA/RA)
+
+
+def _step_timeline(steps) -> tuple:
+    """Turn a `-view full` per-player `[{t (ms), v}]` step list into sorted (ts, vs) parallel
+    arrays for an at-or-before forward-fill (same shape _fill_resource consumes)."""
+    ts, vs = [], []
+    for s in steps or []:
+        if not isinstance(s, dict) or "t" not in s:
+            continue
+        ts.append(int(s["t"]))
+        vs.append(s.get("v"))
+    if ts != sorted(ts):
+        order = sorted(range(len(ts)), key=lambda i: ts[i])
+        ts, vs = [ts[i] for i in order], [vs[i] for i in order]
+    return ts, vs
+
+
+def _alive_timeline(death_ms: list, spawn_steps) -> tuple:
+    """Build an (ts, vs) alive step-timeline (vs in {True,False}) from a player's death-tick list
+    `d` (ms) and spawn-event step list (the `sp` stream, when present). A death sets alive=False;
+    the next spawn-after-a-death restores alive=True. Without a spawn stream we still mark the
+    DEATH instants (alive flips False at each death, back True at the next death's preceding window
+    is unknown) — so we conservatively encode each death as a False step and, if spawn steps exist,
+    each spawn as a True step. Empty input => empty timeline => alive stays NULL (unknown)."""
+    events = []
+    for t in death_ms or []:
+        events.append((int(t), False))
+    for s in spawn_steps or []:
+        if isinstance(s, dict) and "t" in s:
+            events.append((int(s["t"]), True))
+    events.sort(key=lambda e: e[0])
+    return [e[0] for e in events], [e[1] for e in events]
+
+
+def _actor_samples(player: dict) -> dict:
+    """Build one player's OMNISCIENT time-sorted state samples for actor_ticks alignment.
+
+    Returns {"t":[ms...], "rows":[{ox,oy,oz,vx,vy,vz,pitch,yaw,roll,hspeed,health,armor,
+    armor_type,alive}...]} — the full per-frame world state, keyed by absolute demo-time (ms) so
+    insert_demo can align EVERY player onto each episode's ticks (MVD is omniscient: no staleness
+    window, the server frame holds every player's exact state). onground is NOT carried here: it
+    needs the per-worker BSP prober and is filled tick-by-tick at alignment time would require the
+    world model in the insert process; actor_ticks.onground/onground_is_proxy are left NULL for the
+    observed-others world (the geometric proxy lives on the ego player_ticks spine). health/armor/
+    armor_type/alive forward-fill the player's `h`/`a`/`at`/`d` step-timelines."""
+    pos = player.get("pos") or {}
+    t = pos.get("t") or []
+    n = len(t)
+    if not n:
+        return {"t": [], "rows": []}
+    x, y, z = pos["x"], pos["y"], pos["z"]
+    vx, vy, vz = pos["vx"], pos["vy"], pos["vz"]
+    vya, vp = pos["vya"], pos["vp"]
+    h_tl = _step_timeline(player.get("h"))
+    a_tl = _step_timeline(player.get("a"))
+    at_tl = _step_timeline(player.get("at"))
+    alive_tl = _alive_timeline(player.get("d") or [], player.get("sp"))
+    ts, rows = [], []
+    for i in range(n):
+        t_ms = int(t[i])
+        hp = _fill_resource(h_tl, t_ms)
+        ap = _fill_resource(a_tl, t_ms)
+        at_s = _fill_resource(at_tl, t_ms)
+        at_code = ARMOR_TYPE_CODE.get(at_s) if isinstance(at_s, str) and at_s else None
+        alive = _fill_resource(alive_tl, t_ms)  # None before first death/spawn -> NULL (alive unknown)
+        ts.append(t_ms)
+        rows.append({
+            "ox": float(x[i]), "oy": float(y[i]), "oz": float(z[i]),
+            "vx": float(vx[i]), "vy": float(vy[i]), "vz": float(vz[i]),
+            "pitch": float(vp[i]) * ANGLE16_TO_DEG, "yaw": float(vya[i]) * ANGLE16_TO_DEG, "roll": 0.0,
+            "hspeed": round(math.hypot(float(vx[i]), float(vy[i])), 3),
+            "health": hp, "armor": ap, "armor_type": at_code,
+            "alive": (None if alive is None else bool(alive)),
+        })
+    return {"t": ts, "rows": rows}
+
+
+def _extract_teams(data: dict) -> list[str]:
+    """Distinct roster team names (the `team` string on each `-view full` player). Order-stable."""
+    out = []
+    for p in (data.get("streams") or {}).get("players") or []:
+        team = (p.get("team") or "").strip()
+        if team and team not in out:
+            out.append(team)
+    return out
+
+
+def _extract_item_events(data: dict) -> list[dict]:
+    """Pickup/respawn timeline from `items.items[].phases[]` + dropped-weapon `backpacks`.
+
+    items.items: [{name, kind, x,y,z, phases:[{availableFrom, takenAt, takenBy, team, respawnAt}]}].
+    Each phase yields a PICKUP (takenAt/takenBy/team, at the item's static origin) and, when the
+    item respawned within the demo (respawnAt present), a RESPAWN event (no player). backpacks:
+    [{time, player, team, weapon, origin}] -> a 'drop' event at the backpack's world origin.
+
+    Returns decoder-honest dicts with t_s (seconds), event_kind, the picker NAME + team NAME, the
+    item kind, and origin (item static or backpack drop). insert_demo resolves names->ids and the
+    kind+origin spatial join to items.item_id."""
+    out = []
+    for it in (data.get("items") or {}).get("items") or []:
+        if not isinstance(it, dict):
+            continue
+        kind = it.get("kind")
+        ox, oy, oz = it.get("x"), it.get("y"), it.get("z")
+        for ph in it.get("phases") or []:
+            if not isinstance(ph, dict):
+                continue
+            taken_at = ph.get("takenAt")
+            if taken_at is not None:
+                out.append({"kind": "pickup", "t_ms": int(taken_at), "player": ph.get("takenBy"),
+                            "team": ph.get("team"), "item_type": kind,
+                            "ox": ox, "oy": oy, "oz": oz})
+            resp = ph.get("respawnAt")
+            if resp is not None:
+                out.append({"kind": "respawn", "t_ms": int(resp), "player": None,
+                            "team": None, "item_type": kind, "ox": ox, "oy": oy, "oz": oz})
+    for bp in data.get("backpacks") or []:
+        if not isinstance(bp, dict):
+            continue
+        o = bp.get("origin") or [None, None, None]
+        out.append({"kind": "drop", "t_ms": int(bp.get("time", 0)), "player": bp.get("player"),
+                    "team": bp.get("team"), "item_type": bp.get("weapon"),
+                    "ox": o[0], "oy": o[1], "oz": o[2]})
+    out.sort(key=lambda e: e["t_ms"])
+    return out
+
+
+def _extract_frag_events(data: dict) -> list[dict]:
+    """Kill timeline from the top-level `frags.frags` ([{time, killer, victim, weapon, isSuicide,
+    isTeamKill}]). NOTE (empirically verified): the discrete `-view events` frag/death streams are
+    degenerate (score-delta / victim-only); `frags.frags` is the only honest killer<->victim<->weapon
+    source. Returns name-keyed dicts; insert_demo resolves killer/victim NAME -> player_id."""
+    out = []
+    for f in (data.get("frags") or {}).get("frags") or []:
+        if not isinstance(f, dict):
+            continue
+        killer, victim = f.get("killer"), f.get("victim")
+        out.append({
+            "t_ms": int(f.get("time", 0)),
+            "killer": killer, "victim": victim, "weapon": f.get("weapon"),
+            # honor explicit decoder flags; fall back to killer==victim for suicide if unflagged.
+            "is_suicide": bool(f.get("isSuicide", killer is not None and killer == victim)),
+            "is_teamkill": bool(f.get("isTeamKill", False)),
+        })
+    out.sort(key=lambda e: e["t_ms"])
+    return out
+
+
+def _nearest_sample(times: list, t_ms: int):
+    """Index of the omniscient state sample nearest to t_ms (at-or-before preferred, else the very
+    first sample). MVD is omniscient so there is no staleness gap to honor — every player's exact
+    state exists at every server frame; we pick the closest recorded frame to the ego tick time."""
+    if not times:
+        return None
+    i = bisect.bisect_right(times, t_ms) - 1
+    if i < 0:
+        return 0
+    if i + 1 < len(times) and (times[i + 1] - t_ms) < (t_ms - times[i]):
+        return i + 1
+    return i
+
+
 def _recover_onground(frames: list[dict], prober: OngroundProber) -> list[bool]:
     """(req 1) geometric onground per tick — a floor trace, NOT a vz-spike."""
     return [prober.onground(f["origin"], f["velocity"][2]) for f in frames]
@@ -389,6 +584,7 @@ def _pack_episode(seg, seg_onground, seg_jump, start_tick: int) -> dict:
         rows.append({
             "tick": i,
             "t_s": round(t_s, 4),
+            "t_ms": int(f.get("t_ms", 0)),  # absolute demo-time (ms): the actor_ticks alignment key
             "msec": msec,
             "ox": o[0], "oy": o[1], "oz": o[2],
             "vx": v[0], "vy": v[1], "vz": v[2],
@@ -472,11 +668,24 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "demo": demo.name, "error": "bsp:%s: %s" % (type(e).__name__, e)}
 
+    # (T4) the OMNISCIENT world, read from the SAME `-view full` decode (no extra binary run):
+    # the roster, every player's full time-sorted state samples (for actor_ticks), and the
+    # match-level item/frag timelines. Per-player team string is carried on each players_out entry.
+    teams = _extract_teams(data)
+    actor_world = {}  # player name -> {"t":[...], "rows":[...]} omniscient state samples
+    item_events = _extract_item_events(data)
+    frag_events = _extract_frag_events(data)
+
     players_out = []
     for p in data["streams"]["players"]:
         pos = p.get("pos") or {}
         if not pos.get("t"):
             continue
+        name = p.get("name") or ""
+        # (T4) every player's omniscient samples — used to populate actor_ticks for EVERY
+        # episode (self + others), keyed by absolute demo-time. Built even for players too short
+        # to form their own episodes (they still appear in OTHER players' omniscient world).
+        actor_world[name] = _actor_samples(p)
         frames = _player_frames(pos)
         if len(frames) < MIN_EPISODE_FRAMES:
             continue
@@ -517,6 +726,11 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
         "sha256": sha,
         "n_players": len(players_out),
         "players": players_out,
+        # (T4) the omniscient world streams (JSON-serializable; cross the ProcessPool cleanly).
+        "teams": teams,                # roster team names
+        "actor_world": actor_world,    # player name -> time-sorted omniscient state samples
+        "item_events": item_events,    # pickup/respawn/drop timeline (name+kind+origin keyed)
+        "frag_events": frag_events,    # kill timeline (killer/victim NAME keyed)
     }
 
 
@@ -543,7 +757,48 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
         (demo_id, rec["demo"], "mvd", map_id, "4on4", rec["sha256"], "qw-analyze:schema33"),
     )
 
-    n_pl = n_ep = n_tick = n_act = 0
+    stem = Path(rec["demo"]).stem[:48]
+
+    def _player_id(name: str) -> int:
+        """Resolve a per-demo MVD player NAME to a stable players.player_id (handle disambiguated
+        by demo, .mvd carries no persistent id). Shared by the movement spine + the T4 world so a
+        killer/victim/picker and an episode owner map to ONE id."""
+        nm = (name or "p").strip() or "p"
+        handle = "mvd:%s#%s" % (stem, nm.lower())
+        con.execute("INSERT OR IGNORE INTO players (handle, is_bot) VALUES (?,0)", (handle,))
+        return con.execute("SELECT player_id FROM players WHERE handle=?", (handle,)).fetchone()[0]
+
+    # (T4) teams roster: one row per distinct roster team name, side A/B by first-seen order
+    # (the canonical labels region_control_timeline uses; degenerate for FFA/1on1).
+    team_id_by_name: dict[str, int] = {}
+    for i, tname in enumerate(rec.get("teams") or []):
+        side = "A" if i == 0 else ("B" if i == 1 else None)
+        c = con.execute("INSERT INTO teams (demo_id, name, side) VALUES (?,?,?)", (demo_id, tname, side))
+        team_id_by_name[tname] = c.lastrowid
+
+    # (T4) register EVERY player in the omniscient world (incl. ones too short to own an episode)
+    # so actor_ticks / frag_events / item_events can reference them. team_id_by_player maps each
+    # to its absolute team for actor_ticks credit attribution.
+    actor_world = rec.get("actor_world") or {}
+    team_of_player: dict[str, str] = {}
+    for p in rec["players"]:
+        if p.get("team"):
+            team_of_player[(p["name"] or "").strip()] = p["team"]
+    pid_by_name: dict[str, int] = {}
+    team_id_by_player: dict[str, int] = {}
+    for name in actor_world:
+        pid = _player_id(name)
+        pid_by_name[name] = pid
+        tn = team_of_player.get((name or "").strip())
+        team_id_by_player[name] = team_id_by_name.get(tn) if tn else None
+
+    # pre-resolve item static origins -> item_id for the item_events spatial join (rounded to int qu,
+    # the schema's UNIQUE key resolution; the decoder emits integer item origins).
+    item_id_by_origin: dict[tuple, int] = {}
+    for iid, ox, oy, oz in con.execute("SELECT item_id, origin_x, origin_y, origin_z FROM items").fetchall():
+        item_id_by_origin[(round(ox), round(oy), round(oz))] = iid
+
+    n_pl = n_ep = n_tick = n_act = n_actor = 0
     for p in rec["players"]:
         if not p["episodes"]:
             continue
@@ -551,9 +806,7 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
         # Disambiguate by demo so the same display-name across demos does not falsely merge
         # (.mvd carries no persistent player id).
         name = (p["name"] or "p").strip() or "p"
-        handle = "mvd:%s#%s" % (Path(rec["demo"]).stem[:48], name.lower())
-        con.execute("INSERT OR IGNORE INTO players (handle, is_bot) VALUES (?,0)", (handle,))
-        player_id = con.execute("SELECT player_id FROM players WHERE handle=?", (handle,)).fetchone()[0]
+        player_id = pid_by_name.get(p["name"] or "") or _player_id(name)
         n_pl += 1
 
         for ep in p["episodes"]:
@@ -588,8 +841,67 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
                 )
                 n_act += 1
 
+                # (T4) actor_ticks: the OMNISCIENT world for THIS episode tick — every player's
+                # exact state aligned to the ego frame's absolute demo-time (MVD has all players;
+                # no PVS/staleness gate, that masking is the separate actor_visibility layer T8).
+                # onground/onground_is_proxy/waterlevel/weapon left NULL here: onground needs the
+                # per-worker BSP prober (it lives on the ego player_ticks spine); weapon has no
+                # honest active-weapon source (same reason as T3). PK (episode_id, tick, actor_id).
+                t_ms = r.get("t_ms", 0)
+                for aname, samp in actor_world.items():
+                    j = _nearest_sample(samp["t"], t_ms)
+                    if j is None:
+                        continue
+                    s = samp["rows"][j]
+                    con.execute(
+                        """INSERT OR IGNORE INTO actor_ticks
+                           (episode_id, tick, actor_id, team_id, alive, ox, oy, oz, vx, vy, vz,
+                            pitch, yaw, roll, hspeed, onground, onground_is_proxy,
+                            health, armor, armor_type, weapon)
+                           VALUES (?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?,?)""",
+                        (episode_id, r["tick"], pid_by_name[aname], team_id_by_player.get(aname),
+                         s["alive"], s["ox"], s["oy"], s["oz"], s["vx"], s["vy"], s["vz"],
+                         s["pitch"], s["yaw"], s["roll"], s["hspeed"],
+                         None, False, s["health"], s["armor"], s["armor_type"], None),
+                    )
+                    n_actor += 1
+
+    # (T4) match-level timelines (one set per demo, NOT per episode).
+    n_ie = n_fe = 0
+    for ev in rec.get("item_events") or []:
+        origin = (ev.get("ox"), ev.get("oy"), ev.get("oz"))
+        item_id = None
+        if None not in origin:
+            item_id = item_id_by_origin.get((round(origin[0]), round(origin[1]), round(origin[2])))
+        picker = pid_by_name.get(ev.get("player") or "") if ev.get("player") else None
+        # a non-static drop (backpack) keeps origin_x/y/z; a static pickup/respawn joins item_id.
+        keep_origin = item_id is None and None not in origin
+        con.execute(
+            """INSERT INTO item_events
+               (demo_id, item_id, t_s, event_kind, player_id, origin_x, origin_y, origin_z,
+                item_type, team_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (demo_id, item_id, ev["t_ms"] / 1000.0, ev["kind"], picker,
+             origin[0] if keep_origin else None, origin[1] if keep_origin else None,
+             origin[2] if keep_origin else None, ev.get("item_type"),
+             team_id_by_name.get(ev.get("team")) if ev.get("team") else None),
+        )
+        n_ie += 1
+    for fr in rec.get("frag_events") or []:
+        killer = pid_by_name.get(fr.get("killer") or "") if fr.get("killer") else None
+        victim = pid_by_name.get(fr.get("victim") or "") if fr.get("victim") else None
+        con.execute(
+            """INSERT INTO frag_events
+               (demo_id, t_s, killer_id, victim_id, weapon, is_suicide, is_teamkill)
+               VALUES (?,?,?,?,?,?,?)""",
+            (demo_id, fr["t_ms"] / 1000.0, killer, victim, fr.get("weapon"),
+             fr["is_suicide"], fr["is_teamkill"]),
+        )
+        n_fe += 1
+
     return {"demo_id": demo_id, "players": n_pl, "episodes": n_ep,
-            "player_ticks": n_tick, "actions": n_act}
+            "player_ticks": n_tick, "actions": n_act, "actor_ticks": n_actor,
+            "teams": len(team_id_by_name), "item_events": n_ie, "frag_events": n_fe}
 
 
 def load_manifest(manifest_path: Path) -> list[dict]:
@@ -806,7 +1118,8 @@ def _strafe_label_stats(con: sqlite3.Connection) -> dict:
 
 
 TABLES = ["maps", "items", "markers", "nav_edges", "players", "demos",
-          "episodes", "player_ticks", "actions"]
+          "episodes", "player_ticks", "actions",
+          "teams", "actor_ticks", "item_events", "frag_events"]  # T4 omniscient world
 
 
 def table_counts(con: sqlite3.Connection) -> dict:

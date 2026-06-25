@@ -35,12 +35,14 @@ class TestParsers(unittest.TestCase):
             {"x_min", "x_max", "y_min", "y_max", "z_min", "z_max"},
         )
 
-    def test_mvd_etl_populates_no_actor_ticks(self):
+    def test_mvd_etl_populates_omniscient_world(self):
         etl = audit.parse_etl_inserts(audit.ETL_MVD)
         self.assertIn("player_ticks", etl)
         self.assertIn("actions", etl)
-        # The core "we extract only movement" finding: MVD ETL writes NO actor_ticks.
-        self.assertNotIn("actor_ticks", etl)
+        # T4: the MVD ETL now populates the omniscient world (was a GAP through T3).
+        self.assertIn("actor_ticks", etl)
+        for t in ("item_events", "frag_events", "teams"):
+            self.assertIn(t, etl, f"MVD ETL should populate {t} (T4)")
 
     def test_qwd_etl_populates_actor_ticks(self):
         etl = audit.parse_etl_inserts(audit.ETL_QWD)
@@ -63,13 +65,23 @@ class TestParsers(unittest.TestCase):
 
 class TestClassification(unittest.TestCase):
     def test_known_gaps_classify_gap(self):
+        # After T4 the actor_ticks state + resources are extracted; the GAPs that REMAIN are the
+        # ego armor-skin / active-weapon columns (no honest source) and the T8 derived layers.
         for table, col in [
             ("player_ticks", "armor_type"), ("player_ticks", "weapon"),
-            ("actor_ticks", "health"), ("actor_ticks", "team_id"),
+            ("actor_ticks", "weapon"),
             ("actor_visibility", "is_visible"), ("audio_cues", "src_type"),
         ]:
             self.assertEqual(audit.classify_column(table, col)[0], audit.GAP,
                              f"{table}.{col} should be GAP")
+
+    def test_t4_actor_world_extracted(self):
+        # T4: omniscient actor_ticks state + resources + armor_type flip GAP -> extracted.
+        for col in ("ox", "alive", "team_id", "health", "armor", "armor_type"):
+            self.assertEqual(audit.classify_column("actor_ticks", col)[0], audit.EXTRACTED,
+                             f"actor_ticks.{col} should be extracted (T4)")
+        self.assertEqual(audit.classify_column("frag_events", "killer_id")[0], audit.EXTRACTED)
+        self.assertEqual(audit.classify_column("teams", "name")[0], audit.EXTRACTED)
 
     def test_known_extracted_derived_excluded(self):
         self.assertEqual(audit.classify_column("player_ticks", "ox")[0], audit.EXTRACTED)
