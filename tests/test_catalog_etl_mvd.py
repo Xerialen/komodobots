@@ -428,6 +428,15 @@ class WorldExtractTest(unittest.TestCase):
         self.assertIsNone(ev[1]["player"])  # respawn has no picker
         self.assertEqual(ev[2]["ox"], 343.0)  # backpack drop carries its origin
 
+    def test_extract_item_events_skips_zero_respawn(self):
+        # respawnAt == 0 means "still held / unknown", NOT a real respawn at t=0 (would poison ETA)
+        data = {"items": {"items": [
+            {"name": "ra", "kind": "ra", "x": 0, "y": 0, "z": 0,
+             "phases": [{"takenAt": 200, "takenBy": "niw", "team": "mix", "respawnAt": 0}]},
+        ]}}
+        ev = etl._extract_item_events(data)
+        self.assertEqual([e["kind"] for e in ev], ["pickup"])  # no bogus respawn
+
     def test_extract_frag_events_killer_victim_flags(self):
         data = {"frags": {"frags": [
             {"time": 0, "killer": "stepcop", "victim": "zero", "weapon": "tele"},

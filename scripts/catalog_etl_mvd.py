@@ -453,7 +453,9 @@ def _extract_item_events(data: dict) -> list[dict]:
                             "team": ph.get("team"), "item_type": kind,
                             "ox": ox, "oy": oy, "oz": oz})
             resp = ph.get("respawnAt")
-            if resp is not None:
+            # respawnAt == 0 means "still held / unknown" (_source-schemas.md), NOT a real
+            # respawn at match start — emitting it would poison respawn-ETA / item-control.
+            if resp is not None and int(resp) > 0:
                 out.append({"kind": "respawn", "t_ms": int(resp), "player": None,
                             "team": None, "item_type": kind, "ox": ox, "oy": oy, "oz": oz})
     for bp in data.get("backpacks") or []:
