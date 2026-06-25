@@ -67,11 +67,15 @@ def _seed_players(con, names):
         con.execute("INSERT INTO players (player_id, handle, is_bot) VALUES (?,?,0)", (pid, name))
 
 
-def _seed_episode(con, episode_id, demo_id, player_id, split, n_steps):
+def _seed_episode(con, episode_id, demo_id, player_id, split, n_steps, start_t_s=0.0):
+    # start_t_s = ABSOLUTE demo-time (s) of this episode's first tick. The obs assembler maps each
+    # episode-relative player_ticks.t_s onto the absolute clock via start_t_s before the as-of /
+    # damage joins. Default 0.0 = an episode that begins at demo start (item/damage t_s then read
+    # on the same scale as t_s); a multi-episode fixture passes a nonzero offset (e.g. 50.0).
     con.execute(
         "INSERT INTO episodes (episode_id, demo_id, player_id, map_id, start_tick, end_tick, "
-        "n_steps, split, split_policy) VALUES (?,?,?,1,0,?,?,?,'group_by_demo_id')",
-        (episode_id, demo_id, player_id, n_steps - 1, n_steps, split))
+        "n_steps, start_t_s, split, split_policy) VALUES (?,?,?,1,0,?,?,?,?,'group_by_demo_id')",
+        (episode_id, demo_id, player_id, n_steps - 1, n_steps, start_t_s, split))
 
 
 def _seed_player_tick(con, episode_id, tick, t_s, **kw):
@@ -109,6 +113,14 @@ def _seed_item_event(con, event_id, demo_id, t_s, item_type, player_id):
         "INSERT INTO item_events (event_id, demo_id, t_s, event_kind, player_id, "
         "origin_x, origin_y, origin_z, item_type) VALUES (?,?,?, 'pickup', ?, 0,0,0, ?)",
         (event_id, demo_id, t_s, player_id, item_type))
+
+
+def _seed_damage_event(con, event_id, demo_id, t_s, attacker_id, victim_id):
+    # damage_events.t_s is ABSOLUTE demo-time (same clock as item_events).
+    con.execute(
+        "INSERT INTO damage_events (event_id, demo_id, t_s, attacker_id, victim_id, weapon, "
+        "damage) VALUES (?,?,?,?,?, 'rl', 50)",
+        (event_id, demo_id, t_s, attacker_id, victim_id))
 
 
 # =============================================================================
@@ -326,6 +338,124 @@ class TestNormRefitTrainOnly(unittest.TestCase):
         self.assertNotAlmostEqual(train_mean, all_mean, places=1)
         self.assertGreater(train_mean, 900.0)   # train-only
         self.assertLess(all_mean, 0.0)           # all-rows is dragged negative by val/test
+
+
+# =============================================================================
+# 6) #407 P1-A — same-clock as-of join across a MULTI-EPISODE demo.
+#    player_ticks.t_s is EPISODE-RELATIVE; item_events.t_s is ABSOLUTE demo-time. An episode
+#    that starts AFTER demo-time 0 must convert its ticks to absolute (start_t_s + t_s) before
+#    the as-of cut, or it attaches a stale early-demo event (the pre-fix mixed-clock bug).
+# =============================================================================
+class TestMultiEpisodeAsofClock(unittest.TestCase):
+    def _build_late_episode(self):
+        """One demo, two episodes. Episode 2 starts at ABSOLUTE t=50s; its player_ticks.t_s runs
+        0.00, 0.013, 0.026 (episode-relative). Item events at ABSOLUTE t=0.0 (stale, early demo)
+        and t=50.0 (the real pickup at episode 2's start). The episode-2 obs ticks live at absolute
+        50.0..50.026, so the latest event at-or-before each is the t=50.0 'rl' — NOT the t=0.0
+        'ssg', and NOT None."""
+        con = _con()
+        _seed_players(con, [(1, "alpha"), (2, "beta")])
+        _seed_demo(con, 1, "sha_multiep", True)
+        # episode 1 at demo start (absolute 0); episode 2 starts at absolute t=50s.
+        _seed_episode(con, 1, 1, 1, "train", 3, start_t_s=0.0)
+        _seed_episode(con, 2, 1, 1, "train", 3, start_t_s=50.0)
+        for eid in (1, 2):
+            for tk in range(3):
+                _seed_player_tick(con, eid, tk, t_s=tk * 0.013)
+                _seed_actor_tick(con, eid, tk, 1, team_id=1)
+                _seed_actor_tick(con, eid, tk, 2, team_id=1, oy=5000.0)  # far teammate, no threat
+                _seed_visibility(con, eid, tk, 1, 2, 0)
+        # ABSOLUTE-clock item events: a stale one at demo start, the real one at episode 2's start.
+        _seed_item_event(con, 10, 1, 0.0, "ssg", 1)     # stale early-demo pickup
+        _seed_item_event(con, 11, 1, 50.0, "rl", 1)     # the pickup at episode 2's absolute start
+        con.commit()
+        return con
+
+    def test_late_episode_attaches_event_on_absolute_clock(self):
+        con = self._build_late_episode()
+        out = AOT.assemble_amp_reference(con, AOT.load_norm(TEMPLATE_STATS), split="train")
+        by_ep = {}
+        for tr in out["transitions"]:
+            by_ep.setdefault(tr["episode_id"], []).append(tr)
+        self.assertIn(2, by_ep, "episode 2 produced no transitions")
+        for tr in by_ep[2]:
+            # The episode-2 ticks are at absolute 50.0..50.026; the as-of event must be the
+            # t=50.0 'rl'. The pre-fix mixed-clock code compared episode-relative t_s≈0.0 against
+            # the ABSOLUTE timeline and attached the stale t=0.0 'ssg' (or, at t_s exactly 0, it
+            # could even mis-bind) — this asserts the absolute conversion fixed it.
+            self.assertIsNotNone(tr["last_item_event"], "as-of attached nothing (mixed clock)")
+            self.assertEqual(tr["last_item_event"]["item_type"], "rl",
+                             "stale early-demo event leaked: as-of used the wrong (episode) clock")
+            self.assertGreaterEqual(tr["last_item_event_t"], 50.0 - 1e-9)
+        # episode 1 (at demo start) still attaches the t=0.0 'ssg' on its own absolute ticks.
+        for tr in by_ep.get(1, []):
+            self.assertEqual(tr["last_item_event"]["item_type"], "ssg")
+
+
+# =============================================================================
+# 7) #407 P1-B — damage-aware clean gate. A damage event involving the ego within the clean
+#    window must EXCLUDE the tick even with NO nearby LOS enemy. The pre-fix code passed an
+#    empty damage list unconditionally, so the tick was wrongly certified clean.
+# =============================================================================
+class TestDamageAwareCleanGate(unittest.TestCase):
+    def _build(self, attacker_id, victim_id, dmg_abs_t_s, start_t_s=50.0):
+        """damage_available=True, NO nearby LOS enemy (far teammate only). A single damage event
+        on the ABSOLUTE clock. Episode starts at absolute start_t_s so the tick's absolute time is
+        start_t_s + (episode-relative t_s) — the same clock the damage event lives on."""
+        con = _con()
+        _seed_players(con, [(1, "alpha"), (2, "beta")])
+        _seed_demo(con, 1, f"sha_dmg_{attacker_id}_{victim_id}_{dmg_abs_t_s}", True)
+        _seed_episode(con, 1, 1, 1, "train", 2, start_t_s=start_t_s)
+        for tk in range(2):
+            _seed_player_tick(con, 1, tk, t_s=tk * 0.013)
+            _seed_actor_tick(con, 1, tk, 1, team_id=1)
+            _seed_actor_tick(con, 1, tk, 2, team_id=1, oy=5000.0)  # far teammate, no LOS threat
+            _seed_visibility(con, 1, tk, 1, 2, 0)
+        _seed_damage_event(con, 1, 1, dmg_abs_t_s, attacker_id, victim_id)
+        con.commit()
+        return con
+
+    def test_ego_took_damage_in_window_excluded(self):
+        # ego (player 1) is the VICTIM at absolute t=50.0; the episode ticks are at 50.0..50.013,
+        # inside the +-2s clean window -> the transition must be EXCLUDED (not clean), despite no
+        # LOS enemy. Pre-fix (empty damage list) would certify it clean.
+        con = self._build(attacker_id=2, victim_id=1, dmg_abs_t_s=50.0)
+        out = AOT.assemble_amp_reference(con, AOT.load_norm(TEMPLATE_STATS), split="train")
+        self.assertEqual(out["stats"]["clean_transitions"], 0,
+                         "ego took damage in-window but the tick was certified clean (P1-B)")
+        self.assertEqual(out["stats"]["excluded_combat"], 1)
+
+    def test_ego_gave_damage_in_window_excluded(self):
+        # ego is the ATTACKER -> equally disqualifying (gave OR took).
+        con = self._build(attacker_id=1, victim_id=2, dmg_abs_t_s=50.0)
+        out = AOT.assemble_amp_reference(con, AOT.load_norm(TEMPLATE_STATS), split="train")
+        self.assertEqual(out["stats"]["clean_transitions"], 0)
+        self.assertEqual(out["stats"]["excluded_combat"], 1)
+
+    def test_damage_outside_window_does_not_exclude(self):
+        # a damage event FAR from the ticks (absolute t=0.0, ticks at ~50.0 -> 50s gap >> 2s window)
+        # must NOT exclude — proving the gate is window-scoped, not "any damage in the demo".
+        con = self._build(attacker_id=2, victim_id=1, dmg_abs_t_s=0.0)
+        out = AOT.assemble_amp_reference(con, AOT.load_norm(TEMPLATE_STATS), split="train")
+        self.assertEqual(out["stats"]["clean_transitions"], 1,
+                         "out-of-window damage wrongly excluded the tick")
+
+    def test_damage_to_other_players_does_not_exclude(self):
+        # a damage event between two OTHER players (3 hits 4), ego uninvolved -> must NOT exclude.
+        con = _con()
+        _seed_players(con, [(1, "alpha"), (2, "beta"), (3, "gamma"), (4, "delta")])
+        _seed_demo(con, 1, "sha_dmg_other", True)
+        _seed_episode(con, 1, 1, 1, "train", 2, start_t_s=50.0)
+        for tk in range(2):
+            _seed_player_tick(con, 1, tk, t_s=tk * 0.013)
+            _seed_actor_tick(con, 1, tk, 1, team_id=1)
+            _seed_actor_tick(con, 1, tk, 2, team_id=1, oy=5000.0)
+            _seed_visibility(con, 1, tk, 1, 2, 0)
+        _seed_damage_event(con, 1, 1, 50.0, attacker_id=3, victim_id=4)  # ego not involved
+        con.commit()
+        out = AOT.assemble_amp_reference(con, AOT.load_norm(TEMPLATE_STATS), split="train")
+        self.assertEqual(out["stats"]["clean_transitions"], 1,
+                         "damage between OTHER players wrongly excluded the ego tick")
 
 
 if __name__ == "__main__":

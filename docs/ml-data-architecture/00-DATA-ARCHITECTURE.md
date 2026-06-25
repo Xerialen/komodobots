@@ -557,10 +557,15 @@ scaler/model pair must refuse to deploy together (enforced by
   The **worked, dependency-light** instance of (1)+(3) is T9 #397:
   `ml/pipeline/assemble_obs_template.py` reads per-tick state on the EXACT tick (PK
   `(episode_id, tick)`) and attaches event context via a stdlib as-of join
-  (`asof_latest_leq`, latest `item_events` row at-or-before the obs `t_s`, never `> t`),
-  and `ml/pipeline/normalize_fit.refit_template` refits the stats from `episodes.split='train'`
-  rows only. Both properties have adversarial tests that fail on the naive join / an
-  all-rows fit (`tests/test_t9_training_template.py`).
+  (`asof_latest_leq`, latest `item_events` row at-or-before the obs time, never `> t`).
+  Because `player_ticks.t_s` is **episode-relative** but `item_events.t_s` / `damage_events.t_s`
+  are **absolute demo-time**, the tick is first mapped onto the absolute clock via
+  `episodes.start_t_s` (`abs_t_s = start_t_s + t_s`) and the as-of cut + the §6.5 damage-window
+  check both run on that single absolute clock — never mixing clocks (the #407 P1 fix).
+  `ml/pipeline/normalize_fit.refit_template` refits the stats from `episodes.split='train'` rows
+  only. These properties have adversarial tests that fail on the naive join / a mixed-clock join /
+  an empty damage list / an all-rows fit (`tests/test_t9_training_template.py`, incl. a
+  multi-episode fixture and a damage-in-window fixture).
 - **Versioning:** **DVC** (Git-adjacent pointer files, S3/local remote) for the
   single-author project. Lineage = `git_sha + dvc_dataset_hash + scaler
   artifact_version + registry_version`.

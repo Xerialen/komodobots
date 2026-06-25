@@ -303,7 +303,7 @@ FAMILY_FALLBACKS: "list[tuple[str, str, str]]" = [
 STRUCTURAL_COLUMN_SUFFIXES = (
     "_id", "tick", "split", "split_policy", "sha256", "path", "source", "name",
     "handle", "is_bot", "map_id", "demo_kind", "recorded_at", "duration_s",
-    "server_fps", "parser_commit", "start_tick", "end_tick", "n_steps",
+    "server_fps", "parser_commit", "start_tick", "end_tick", "n_steps", "start_t_s",
     "total_reward", "bucket_idx", "registry_version", "norm_artifact_version",
     "git_sha", "dt", "n_rows",
 )

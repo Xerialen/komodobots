@@ -195,6 +195,13 @@ CREATE TABLE episodes (
     start_tick    INTEGER NOT NULL,
     end_tick      INTEGER NOT NULL,
     n_steps       INTEGER NOT NULL,
+    -- ABSOLUTE demo-time (seconds) of this episode's FIRST tick. player_ticks.t_s is
+    -- EPISODE-RELATIVE (reset to 0 at each episode's first frame), but item_events.t_s /
+    -- damage_events.t_s are ABSOLUTE demo-time. start_t_s is the per-episode offset that maps
+    -- between the two clocks: absolute_t_s(tick) = episodes.start_t_s + player_ticks.t_s. NULL
+    -- for older records / sources that did not record it (consumers must then skip cross-clock
+    -- as-of joins rather than mix clocks). See 00-DATA-ARCHITECTURE §7 (PIT/as-of leakage).
+    start_t_s     REAL,
     total_reward  REAL,                              -- for offline-RL / RTG precompute (NULL for pure BC)
     split         TEXT CHECK(split IN ('train','val','test')) NOT NULL DEFAULT 'train',
     split_policy  TEXT DEFAULT 'group_by_demo_id'    -- audit which grouping produced `split`

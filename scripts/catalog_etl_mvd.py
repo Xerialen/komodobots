@@ -1154,7 +1154,12 @@ def _pack_episode(seg, seg_onground, seg_jump, start_tick: int) -> dict:
             "is_interp": is_interp,
         })
         t_s += dt
-    return {"start": start_tick, "end": start_tick + len(seg) - 1, "n": len(seg), "frames": rows}
+    # ABSOLUTE demo-time (seconds) of this segment's FIRST frame. t_s above is reset to 0 at
+    # the first frame (episode-relative), so this offset is what maps the per-tick episode clock
+    # back onto the ABSOLUTE item_events/damage_events clock: abs_t_s(tick) = start_t_s + t_s.
+    start_t_s = (int(seg[0].get("t_ms", 0)) / 1000.0) if seg else None
+    return {"start": start_tick, "end": start_tick + len(seg) - 1, "n": len(seg),
+            "start_t_s": start_t_s, "frames": rows}
 
 
 def _decode_resource_events(qw_analyze: str, demo: Path) -> list:
@@ -1424,9 +1429,11 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
         for ep in p["episodes"]:
             c = con.execute(
                 """INSERT INTO episodes
-                   (demo_id, player_id, map_id, start_tick, end_tick, n_steps, split, split_policy)
-                   VALUES (?,?,?,?,?,?,?,?)""",
-                (demo_id, player_id, map_id, ep["start"], ep["end"], ep["n"], split, SPLIT_POLICY),
+                   (demo_id, player_id, map_id, start_tick, end_tick, n_steps, start_t_s,
+                    split, split_policy)
+                   VALUES (?,?,?,?,?,?,?,?,?)""",
+                (demo_id, player_id, map_id, ep["start"], ep["end"], ep["n"],
+                 ep.get("start_t_s"), split, SPLIT_POLICY),
             )
             episode_id = c.lastrowid
             n_ep += 1

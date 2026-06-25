@@ -134,6 +134,7 @@
 | `start_tick` | structural | — | mvd-etl, qwd-etl | — | PK/FK/provenance/split bookkeeping |
 | `end_tick` | structural | — | mvd-etl, qwd-etl | — | PK/FK/provenance/split bookkeeping |
 | `n_steps` | structural | — | mvd-etl, qwd-etl | — | PK/FK/provenance/split bookkeeping |
+| `start_t_s` | structural | — | mvd-etl | — | PK/FK/provenance/split bookkeeping |
 | `total_reward` | structural | — | — | — | PK/FK/provenance/split bookkeeping |
 | `split` | structural | — | mvd-etl, qwd-etl | — | PK/FK/provenance/split bookkeeping |
 | `split_policy` | structural | — | mvd-etl, qwd-etl | — | PK/FK/provenance/split bookkeeping |
@@ -408,7 +409,7 @@ field codes + the QWD `usercmd_t` struct. Referenced by decoder **role**, not to
 | derived | 43 |
 | excluded-with-reason | 43 |
 | **GAP** | **9** |
-| (structural: PK/FK/provenance) | 67 |
+| (structural: PK/FK/provenance) | 68 |
 | (UNCLASSIFIED — needs a verdict) | 0 |
 | classified content columns | 179 |
 
