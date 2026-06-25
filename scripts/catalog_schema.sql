@@ -235,7 +235,22 @@ CREATE TABLE player_ticks (
     quad_rem   REAL,                                        -- quad (q) remaining s; NULL if not active
     pent_rem   REAL,                                        -- pent (pe) remaining s; NULL if not active
     ring_rem   REAL,                                        -- ring (r) remaining s; NULL if not active
-    PRIMARY KEY (episode_id, tick)
+    -- (T7 #395) [G] geometry — derived once from the sha-locked dm3.bsp via the pmove_sim
+    -- hull-1 trace machinery (same WorldModel as the onground prober; no second BSP load).
+    -- NULL where the trace starts in solid (off-spine numeric edge) — undefined, never fabricated.
+    floor_height REAL,                                      -- [G] qu the origin sits above the floor below (z - downward-trace floor_z); matches trace.csv height_above_floor. NULL if startsolid
+    over_void    INTEGER,                                   -- [G] 1 if no floor within FLOOR_PROBE_QU OR floor < VOID_THRESH_QU (deep chasm); matches trace.csv over_void. 0/1; NULL if startsolid
+    wall_dist    REAL,                                      -- [G] qu to nearest wall (min of ±x/±y hull-1 traces), capped at WALL_PROBE_QU. NULL if startsolid
+    ledge_ahead  REAL,                                      -- [G] qu the floor drops away ahead along velocity (forward+down trace gap); 0=floor continues level. NULL if hspeed<LEDGE_MIN_HSPEED or startsolid
+    ramp_normal_z REAL,                                     -- [R-input] z of the floor-below plane normal (1.0=flat; MIN_STEP_NORMAL..~0.95=ramp/incline). NULL if over_void/startsolid
+    -- (T7 #395) [R] regime — categorical movement regime from kinematics + the [G] ramp signal.
+    regime       TEXT,                                      -- [R] accel|cruise|grounded|airborne|water|on-ramp (CHECK below); NULL only if hspeed/onground unavailable
+    -- (T7 #395) leg-phase — phase within a resource-to-resource leg (route_legs #334 segmentation).
+    -- Defined only on the ego goal-conditioned spine; NULL outside any leg (pre-first / post-last visit).
+    leg_phase    TEXT,                                      -- launch|cruise|approach|land (CHECK below); NULL outside a leg
+    PRIMARY KEY (episode_id, tick),
+    CHECK (regime IS NULL OR regime IN ('accel','cruise','grounded','airborne','water','on-ramp')),
+    CHECK (leg_phase IS NULL OR leg_phase IN ('launch','cruise','approach','land'))
 );
 CREATE INDEX idx_ticks_t ON player_ticks(episode_id, t_s);
 
@@ -357,7 +372,21 @@ CREATE TABLE actor_ticks (
     quad_rem   REAL,                                 -- quad (q) remaining s; NULL if not active
     pent_rem   REAL,                                 -- pent (pe) remaining s; NULL if not active
     ring_rem   REAL,                                 -- ring (r) remaining s; NULL if not active
-    PRIMARY KEY (episode_id, tick, actor_id)
+    -- (T7 #395) [G] geometry + [R] regime — derived from the actor's OWN position via the same
+    -- dm3.bsp hull-1 traces as player_ticks (every actor's origin/velocity is known). NULL if
+    -- the trace starts in solid. Units identical to player_ticks.
+    floor_height REAL,                               -- [G] qu above floor below; NULL if startsolid
+    over_void    INTEGER,                            -- [G] 1=void/deep-chasm below; 0/1; NULL if startsolid
+    wall_dist    REAL,                               -- [G] qu to nearest wall (±x/±y), capped; NULL if startsolid
+    ledge_ahead  REAL,                               -- [G] qu floor drops away ahead along velocity; NULL if hspeed<min or startsolid
+    ramp_normal_z REAL,                              -- [R-input] floor-plane normal z; NULL if over_void/startsolid
+    regime       TEXT,                               -- [R] accel|cruise|grounded|airborne|water|on-ramp (CHECK below)
+    -- leg_phase is NOT populated on actor_ticks: it requires the ego goal/route context (resource
+    -- legs), which is defined only for the episode-owning ego player. Left NULL by design.
+    leg_phase    TEXT,                               -- always NULL here (no goal context for observed others); CHECK below
+    PRIMARY KEY (episode_id, tick, actor_id),
+    CHECK (regime IS NULL OR regime IN ('accel','cruise','grounded','airborne','water','on-ramp')),
+    CHECK (leg_phase IS NULL OR leg_phase IN ('launch','cruise','approach','land'))
 );
 CREATE INDEX idx_actor_ticks_et ON actor_ticks(episode_id, tick);
 

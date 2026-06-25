@@ -74,6 +74,77 @@ def resource_visits(ticks, coords, rho=DEFAULT_RHO):
     return seq
 
 
+# (T7 #395) leg-phase segmentation -------------------------------------------
+CRUISE_GATE_QU = 400.0   # qu/s — sustained-bunnyhop speed = the cruise band threshold (spec §5)
+
+
+def phase_segment_leg(hspeeds, ongrounds):
+    """Segment ONE resource-to-resource leg into per-tick phase labels.
+
+    A leg is the path between two resource visits (route_legs detects these by POSITION).
+    This labels each tick of the leg launch | cruise | approach | land from the leg's hspeed
+    profile + onground, deterministically (spec §5 — the genuinely-absent derivation):
+
+      * cruise   : the contiguous span at/above CRUISE_GATE_QU (the run actually being bunnyhopped).
+      * launch   : the speed build-up BEFORE the cruise span starts (leaving the resource,
+                   accelerating). If the leg never reaches the gate, launch runs up to the peak-speed
+                   tick instead.
+      * land     : the TRAILING grounded run at the destination (the arrival/settle).
+      * approach : everything between the end of cruise (or the peak) and the land run — the
+                   decelerating glide toward the next resource.
+
+    `hspeeds` and `ongrounds` are equal-length per-tick lists for the leg. Returns a list of the
+    same length of phase strings. A degenerate/empty leg returns [] / all-'approach' sensibly.
+    Pure (no I/O); reused by the catalog ETL to fill player_ticks.leg_phase."""
+    n = len(hspeeds)
+    if n == 0:
+        return []
+    phases = [None] * n
+
+    # cruise band = the widest contiguous run of ticks at/above the gate.
+    best = None
+    i = 0
+    while i < n:
+        if hspeeds[i] >= CRUISE_GATE_QU:
+            j = i
+            while j < n and hspeeds[j] >= CRUISE_GATE_QU:
+                j += 1
+            if best is None or (j - i) > (best[1] - best[0]):
+                best = (i, j)
+            i = j
+        else:
+            i += 1
+
+    # trailing land run = the contiguous grounded ticks at the END of the leg.
+    land_start = n
+    while land_start > 0 and ongrounds[land_start - 1]:
+        land_start -= 1
+
+    if best is not None:
+        c0, c1 = best                       # cruise = [c0, c1)
+        for k in range(c0):
+            phases[k] = "launch"
+        for k in range(c0, c1):
+            phases[k] = "cruise"
+        # after cruise: land = trailing grounded run (but not inside cruise); approach = the rest.
+        ls = max(land_start, c1)
+        for k in range(c1, ls):
+            phases[k] = "approach"
+        for k in range(ls, n):
+            phases[k] = "land"
+    else:
+        # no cruise band: launch up to peak-speed tick, then approach, then trailing land.
+        peak = max(range(n), key=lambda k: hspeeds[k])
+        ls = max(land_start, peak + 1)
+        for k in range(peak + 1):
+            phases[k] = "launch"
+        for k in range(peak + 1, ls):
+            phases[k] = "approach"
+        for k in range(ls, n):
+            phases[k] = "land"
+    return phases
+
+
 def pctl(xs, q):
     xs = sorted(xs)
     if not xs:

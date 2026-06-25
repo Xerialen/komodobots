@@ -170,6 +170,13 @@
 | `quad_rem` | extracted | state.powerups | mvd-etl | — | MVD ETL derives remaining-seconds from the `-view full` `q` held-interval [s,e] at each tick (T6); NULL when not held. NULL on QWD. |
 | `pent_rem` | extracted | state.powerups | mvd-etl | — | MVD ETL derives remaining-seconds from the `-view full` `pe` held-interval at each tick (T6); NULL when not held. NULL on QWD. |
 | `ring_rem` | extracted | state.powerups | mvd-etl | — | MVD ETL derives remaining-seconds from the `-view full` `r` held-interval at each tick (T6); NULL when not held. NULL on QWD. |
+| `floor_height` | derived | geom.dm3_bsp | mvd-etl | — | [G] z - downward hull-1 floor-trace endpoint (matches trace.csv height_above_floor). NULL where the trace startsolids / over void. MVD ETL (T7) |
+| `over_void` | derived | geom.dm3_bsp | mvd-etl | — | [G] 1 if no floor within FLOOR_PROBE_QU OR floor < VOID_THRESH_QU (deep chasm); matches build_trace.py over_void. NULL if startsolid (T7) |
+| `wall_dist` | derived | geom.dm3_bsp | mvd-etl | — | [G] min of the 4 axial ±x/±y hull-1 wall traces, capped at WALL_PROBE_QU. NULL if startsolid (T7) |
+| `ledge_ahead` | derived | geom.dm3_bsp | mvd-etl | — | [G] floor drop along velocity (forward+down trace gap). NULL if hspeed<LEDGE_MIN_HSPEED / void / startsolid (T7) |
+| `ramp_normal_z` | derived | geom.dm3_bsp | mvd-etl | — | [R-input] floor-plane normal z from the downward trace (1.0 flat; <0.95 ramp). NULL over void/startsolid (T7) |
+| `regime` | derived | — | mvd-etl | — | [R] accel/cruise/grounded/airborne/water/on-ramp from hspeed+onground+ramp_normal_z (T7) |
+| `leg_phase` | derived | — | mvd-etl | — | launch/cruise/approach/land within a resource-to-resource leg (route_legs #334 segmentation); NULL outside any ego goal-conditioned leg (T7) |
 
 ### `item_events`
 
@@ -261,6 +268,13 @@
 | `quad_rem` | extracted | state.powerups | mvd-etl | — | MVD derives remaining-seconds from each player's `q` held-interval at each tick (T6; NULL when not held); QWD NULL |
 | `pent_rem` | extracted | state.powerups | mvd-etl | — | MVD derives remaining-seconds from each player's `pe` held-interval (T6; NULL when not held); QWD NULL |
 | `ring_rem` | extracted | state.powerups | mvd-etl | — | MVD derives remaining-seconds from each player's `r` held-interval (T6; NULL when not held); QWD NULL |
+| `floor_height` | derived | geom.dm3_bsp | mvd-etl | — | [G] per-actor z above floor from the dm3 hull-1 floor trace (T7). NULL if startsolid |
+| `over_void` | derived | geom.dm3_bsp | mvd-etl | — | [G] per-actor void/deep-chasm-below flag (T7). NULL if startsolid |
+| `wall_dist` | derived | geom.dm3_bsp | mvd-etl | — | [G] per-actor nearest-wall distance (±x/±y), capped (T7). NULL if startsolid |
+| `ledge_ahead` | derived | geom.dm3_bsp | mvd-etl | — | [G] per-actor forward floor-drop along velocity (T7). NULL if hspeed<min/void/startsolid |
+| `ramp_normal_z` | derived | geom.dm3_bsp | mvd-etl | — | [R-input] per-actor floor-plane normal z (T7). NULL over void/startsolid |
+| `regime` | derived | — | mvd-etl | — | [R] per-actor regime from hspeed + a LOCAL geometric onground + ramp_normal_z (T7); the actor_ticks.onground column itself stays NULL by T4 design |
+| `leg_phase` | derived | — | mvd-etl | — | ALWAYS NULL on actor_ticks: leg-phase needs the ego goal/route context, defined only for the episode-owning ego player (T7) |
 
 ### `actor_visibility`
 
@@ -376,6 +390,7 @@ field codes + the QWD `usercmd_t` struct. Referenced by decoder **role**, not to
 | `metadata.ruleset` | getMetadata serverInfo/matchSettings | MVD | ruleset: spawnmodel/powerups/noItems |
 | `demoinfo.scoreboard` | getDemoInfo (KTX scoreboard, Bot skill) | MVD (KTX) | per-player stats; is_bot flag |
 | `provenance.sha` | loadDemo sha256 + map + duration | MVD+QWD | demo provenance |
+| `geom.dm3_bsp` | pmove_sim hull-1 traces over the sha-locked dm3.bsp (NOT a decoder field) | derived | [G] wall/floor/ledge/ramp from BSP collision geometry (T7) |
 | `qwd.usercmd.forwardmove` | QWD usercmd_t.forwardmove | QWD | ground-truth forward input |
 | `qwd.usercmd.sidemove` | QWD usercmd_t.sidemove | QWD | ground-truth side input |
 | `qwd.usercmd.upmove` | QWD usercmd_t.upmove | QWD | ground-truth up input (jump/swim) |
@@ -390,12 +405,12 @@ field codes + the QWD `usercmd_t` struct. Referenced by decoder **role**, not to
 | class | count |
 |---|---|
 | extracted | 84 |
-| derived | 15 |
+| derived | 29 |
 | excluded-with-reason | 43 |
 | **GAP** | **22** |
 | (structural: PK/FK/provenance) | 68 |
 | (UNCLASSIFIED — needs a verdict) | 0 |
-| classified content columns | 164 |
+| classified content columns | 178 |
 
 ## GAP reconciliation (vs epic #388 / build-out plan)
 
@@ -407,7 +422,7 @@ only truly-new work — confirming the audit neither invents nor misses a gap:
 - G2: schema-file drift (scripts/catalog_schema.sql operative vs data/catalog/catalog.sql dup vs registry's dangling `schema/catalog.sql` reference)
 - G3: damage_events table absent (only frag_events exists) — ADDRESSED by T5 #393: the table is now schema-defined + populated from `-view full` damage.events, era-gated via demos.damage_available (fail-closed)
 - G4: ammo + powerup-remaining source columns absent (registry defines the features) — ADDRESSED by T6 #394: shells/nails/rockets/cells + quad_rem/pent_rem/ring_rem added to player_ticks + actor_ticks and populated from the same `-view full` per-player sh/nl/rk/cl + q/pe/r streams (ammo forward-filled; powerup remaining-seconds derived from the held-interval, NULL when not held)
-- G5: stored [G] geometry / [R] regime / leg-phase columns absent
+- G5: stored [G] geometry / [R] regime / leg-phase columns absent — ADDRESSED by T7 #395: floor_height/over_void/wall_dist/ledge_ahead/ramp_normal_z + regime + leg_phase added to player_ticks + actor_ticks and DERIVED (pmove_sim hull-1 traces over the sha-locked dm3.bsp for [G]; kinematics+ramp for [R]; route_legs #334 segmentation for leg-phase). They are now schema-defined + populated, appearing as DERIVED columns above (NULL where undefined, never fabricated; leg_phase NULL on actor_ticks — no ego goal context)
 - G6: docs/27 inaccuracies (frag_events/actor_visibility/audio_cues/teams called greenfield/reserved when schema-defined-but-empty; wrong schema path)
 
-**Scoping (which ticket each per-column GAP feeds):** `player_ticks` health/armor -> T3 (DONE); the omniscient `actor_ticks` all-players state + health/armor/armor_type + team_id, plus `item_events`/`frag_events`/`teams` -> T4 (DONE; from `-view full`). The GAPs that REMAIN: `player_ticks.armor_type`/`weapon` + `actor_ticks.weapon` (no honest active-weapon / ego armor-skin source without a decoder change), and `actor_visibility.*` + `audio_cues.*` -> T8. The `damage_events` table (G3) is now schema-defined + populated (T5 #393, era-gated via `demos.damage_available`), so it appears as extracted columns above. The ammo/powerup source columns (G4) are likewise now schema-defined + populated (T6 #394: `shells`/`nails`/`rockets`/`cells` + `quad_rem`/`pent_rem`/`ring_rem` on `player_ticks` + `actor_ticks`, from the same `-view full` streams), so they too appear as extracted columns above. Only the [G]/[R]/leg-phase columns (G5) remain **absent from the schema entirely** (not just unpopulated) — schema-addition ticket T7, so they do not appear as columns here; that absence IS the finding.
+**Scoping (which ticket each per-column GAP feeds):** `player_ticks` health/armor -> T3 (DONE); the omniscient `actor_ticks` all-players state + health/armor/armor_type + team_id, plus `item_events`/`frag_events`/`teams` -> T4 (DONE; from `-view full`). The GAPs that REMAIN: `player_ticks.armor_type`/`weapon` + `actor_ticks.weapon` (no honest active-weapon / ego armor-skin source without a decoder change), and `actor_visibility.*` + `audio_cues.*` -> T8. The `damage_events` table (G3) is now schema-defined + populated (T5 #393, era-gated via `demos.damage_available`), so it appears as extracted columns above. The ammo/powerup source columns (G4) are likewise now schema-defined + populated (T6 #394: `shells`/`nails`/`rockets`/`cells` + `quad_rem`/`pent_rem`/`ring_rem` on `player_ticks` + `actor_ticks`, from the same `-view full` streams), so they too appear as extracted columns above. The [G] geometry / [R] regime / leg-phase columns (G5) are now ADDRESSED by T7 #395: `floor_height`/`over_void`/`wall_dist`/`ledge_ahead`/`ramp_normal_z` + `regime` + `leg_phase` are schema-defined on `player_ticks` + `actor_ticks` and populated by the MVD ETL, so they appear as DERIVED columns above (computed from the sha-locked dm3.bsp hull-1 traces + kinematics + the route_legs #334 segmentation — NULL where undefined, never fabricated; `leg_phase` is NULL on `actor_ticks` for want of an ego goal context). No per-column GAP remains absent from the schema entirely.
