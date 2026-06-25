@@ -679,6 +679,7 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
     frag_events = _extract_frag_events(data)
 
     players_out = []
+    actor_team = {}  # actor_world key (raw name) -> team string, for EVERY world player
     for p in data["streams"]["players"]:
         pos = p.get("pos") or {}
         if not pos.get("t"):
@@ -688,6 +689,10 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
         # episode (self + others), keyed by absolute demo-time. Built even for players too short
         # to form their own episodes (they still appear in OTHER players' omniscient world).
         actor_world[name] = _actor_samples(p)
+        # (T4 P1 #402) carry EVERY world player's team string keyed by the SAME raw name used
+        # for actor_world, so actor_ticks.team_id is attributed even for players too short to own
+        # an episode (they are absent from players_out below, but present in OTHER players' world).
+        actor_team[name] = p.get("team")
         frames = _player_frames(pos)
         if len(frames) < MIN_EPISODE_FRAMES:
             continue
@@ -731,6 +736,7 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
         # (T4) the omniscient world streams (JSON-serializable; cross the ProcessPool cleanly).
         "teams": teams,                # roster team names
         "actor_world": actor_world,    # player name -> time-sorted omniscient state samples
+        "actor_team": actor_team,      # player name (actor_world key) -> team string, ALL world players
         "item_events": item_events,    # pickup/respawn/drop timeline (name+kind+origin keyed)
         "frag_events": frag_events,    # kill timeline (killer/victim NAME keyed)
     }
@@ -782,10 +788,19 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
     # so actor_ticks / frag_events / item_events can reference them. team_id_by_player maps each
     # to its absolute team for actor_ticks credit attribution.
     actor_world = rec.get("actor_world") or {}
+    # (T4 P1 #402) source team attribution from the FULL all-world map (actor_team), keyed by the
+    # same raw name as actor_world, so players too short to own an episode (absent from rec["players"])
+    # still get their actor_ticks.team_id. Fall back to rec["players"] for older records lacking it.
+    actor_team = rec.get("actor_team")
     team_of_player: dict[str, str] = {}
-    for p in rec["players"]:
-        if p.get("team"):
-            team_of_player[(p["name"] or "").strip()] = p["team"]
+    if actor_team is not None:
+        for nm, tn in actor_team.items():
+            if tn:
+                team_of_player[(nm or "").strip()] = tn
+    else:
+        for p in rec["players"]:
+            if p.get("team"):
+                team_of_player[(p["name"] or "").strip()] = p["team"]
     pid_by_name: dict[str, int] = {}
     team_id_by_player: dict[str, int] = {}
     for name in actor_world:

@@ -561,6 +561,30 @@ class WorldInsertTest(unittest.TestCase):
         # handles are mvd:<stem>#<name>; check both teams appear
         self.assertEqual(set(names.values()), {"Book", "mix"})
 
+    def test_team_id_attributed_to_episodeless_world_actor(self):
+        # (T4 P1 #402) an actor present in actor_world (and actor_team) but ABSENT from rec["players"]
+        # (too short to own an episode) must STILL get a valid actor_ticks.team_id from actor_team —
+        # not NULL. Before the fix team_of_player came only from rec["players"], dropping team here.
+        self._ensure_items()
+        sha = "ad" * 32
+        rec = _world_rec(sha)
+        # bob is in the omniscient world + carries a team, but is NOT an episode-bearing player.
+        rec["players"] = [{"name": "alice", "team": "Book", "episodes": rec["players"][0]["episodes"]}]
+        rec["actor_team"] = {"alice": "Book", "bob": "Mix"}
+        rec["teams"] = ["Book", "Mix"]
+        etl.insert_demo(self.con, 1, rec, etl.split_for_sha(sha), 1)
+        self.con.commit()
+        rows = self.con.execute(
+            "SELECT DISTINCT p.handle, t.name, at.team_id FROM actor_ticks at "
+            "JOIN players p ON p.player_id = at.actor_id "
+            "JOIN teams t ON t.team_id = at.team_id "
+            "ORDER BY p.handle").fetchall()
+        # both actors resolve to a NON-NULL team_id matching their source team (incl. episode-less bob)
+        self.assertEqual(rows, [("mvd:world#alice", "Book", 1), ("mvd:world#bob", "Mix", 2)])
+        # and NO actor_ticks row was written with a NULL team_id
+        self.assertEqual(self.con.execute(
+            "SELECT COUNT(*) FROM actor_ticks WHERE team_id IS NULL").fetchone()[0], 0)
+
 
 class SplitTest(unittest.TestCase):
     """split_for_sha: per-demo, deterministic, content-stable, roughly 70/15/15."""
