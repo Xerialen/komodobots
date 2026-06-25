@@ -909,7 +909,7 @@ class StreamingInsertTest(unittest.TestCase):
 
         inserted = []
 
-        def fake_insert(con, map_id, rec, split, demo_id):
+        def fake_insert(con, map_id, rec, split, demo_id, vis_world=None):
             inserted.append((rec["demo"], split))     # records the row; does NOT retain _payload
             return {"player_ticks": 5, "actions": 5}
 
@@ -1110,7 +1110,7 @@ class FailedRunArtifactTest(unittest.TestCase):
         calls = {"n": 0}
         real_insert = etl2.insert_demo
 
-        def flaky_insert(con, map_id, rec, split, demo_id):
+        def flaky_insert(con, map_id, rec, split, demo_id, vis_world=None):
             calls["n"] += 1
             if calls["n"] == 2:  # blow up AFTER the first demo has streamed+committed
                 raise sqlite3.OperationalError("disk I/O error (simulated)")
@@ -1669,6 +1669,293 @@ class GeometryInsertTest(unittest.TestCase):
 
         # FK integrity holds with the new columns.
         self.assertEqual(con.execute("PRAGMA foreign_key_check").fetchall(), [])
+        con.close()
+
+
+# =============================================================================
+# T8 #396 — POMDP actor_visibility (FOV / LOS / belief) + [E] item-urgency +
+# clean-movement filter. Pure-stdlib parts run anywhere; the LOS / full-insert
+# parts are @skipUnless(BSP) so CI (no map) skips while aws-dev runs them.
+# =============================================================================
+class FovTest(unittest.TestCase):
+    """FOV stage: target in the forward hemisphere is in-FOV; behind is not (reuses egocentric)."""
+
+    def test_target_ahead_is_in_fov(self):
+        # observer at origin facing +x (yaw 0); target straight ahead.
+        self.assertTrue(etl.in_fov((0, 0, 0), 0.0, 0.0, (100.0, 0.0, 0.0)))
+
+    def test_target_behind_is_out_of_fov(self):
+        # target straight behind (-x) at yaw 0 -> bearing 180 -> outside the 90-deg half-cone.
+        self.assertFalse(etl.in_fov((0, 0, 0), 0.0, 0.0, (-100.0, 0.0, 0.0)))
+
+    def test_target_at_side_edge(self):
+        # target to the LEFT (+y) at yaw 0 -> bearing 90 -> exactly at the hemisphere edge (in).
+        self.assertTrue(etl.in_fov((0, 0, 0), 0.0, 0.0, (0.0, 100.0, 0.0)))
+        # a hair past 90 deg (slightly behind) -> out.
+        self.assertFalse(etl.in_fov((0, 0, 0), 0.0, 0.0, (-1.0, 100.0, 0.0)))
+
+    def test_facing_follows_yaw(self):
+        # facing west (yaw 180): a west target is now AHEAD (in), an east target behind (out).
+        self.assertTrue(etl.in_fov((0, 0, 0), 180.0, 0.0, (-100.0, 0.0, 0.0)))
+        self.assertFalse(etl.in_fov((0, 0, 0), 180.0, 0.0, (100.0, 0.0, 0.0)))
+
+
+class BeliefTrackerTest(unittest.TestCase):
+    """The carried-forward belief block: visible refreshes snapshot, invisible carries it,
+    time_since_seen increments, seen_ever latches, never-seen is NULL (not 0)."""
+
+    def test_never_seen_is_all_null(self):
+        bt = etl.BeliefTracker()
+        b = bt.update(False, tick=5, t_s=0.5, target_state={"ox": 1, "oy": 2, "oz": 3})
+        self.assertFalse(b["seen_ever"])
+        self.assertIsNone(b["time_since_seen_s"])      # NULL, NOT 0, before first sighting
+        self.assertIsNone(b["last_seen_tick"])
+        self.assertIsNone(b["last_seen_ox"])
+
+    def test_visible_sets_snapshot_and_zero_time(self):
+        bt = etl.BeliefTracker()
+        ts = {"ox": 10.0, "oy": 20.0, "oz": 30.0, "vx": 1.0, "vy": 2.0, "vz": 3.0}
+        b = bt.update(True, tick=7, t_s=0.7, target_state=ts)
+        self.assertTrue(b["seen_ever"])
+        self.assertEqual(b["time_since_seen_s"], 0.0)   # 0 while visible
+        self.assertEqual(b["last_seen_tick"], 7)
+        self.assertAlmostEqual(b["last_seen_ox"], 10.0)
+        self.assertAlmostEqual(b["last_seen_vz"], 3.0)
+
+    def test_invisible_carries_forward_and_increments(self):
+        bt = etl.BeliefTracker()
+        seen = {"ox": 10.0, "oy": 20.0, "oz": 30.0, "vx": 1.0, "vy": 2.0, "vz": 3.0}
+        bt.update(True, tick=7, t_s=0.7, target_state=seen)
+        # now invisible at a later time; the snapshot is CARRIED (not the new state) and
+        # time_since_seen grows from the last-seen t_s.
+        later = {"ox": 999.0, "oy": 999.0, "oz": 999.0, "vx": 0.0, "vy": 0.0, "vz": 0.0}
+        b = bt.update(False, tick=9, t_s=0.9, target_state=later)
+        self.assertTrue(b["seen_ever"])                 # latched
+        self.assertEqual(b["last_seen_tick"], 7)        # still the last visible tick
+        self.assertAlmostEqual(b["last_seen_ox"], 10.0)  # carried, NOT 999
+        self.assertAlmostEqual(b["time_since_seen_s"], 0.2)  # 0.9 - 0.7
+        # a re-sighting refreshes everything and zeroes the timer again.
+        b2 = bt.update(True, tick=12, t_s=1.2, target_state=later)
+        self.assertEqual(b2["last_seen_tick"], 12)
+        self.assertAlmostEqual(b2["last_seen_ox"], 999.0)
+        self.assertEqual(b2["time_since_seen_s"], 0.0)
+
+
+class ItemUrgencyTest(unittest.TestCase):
+    """[E] respawn-ETA / contest (§3.3/§3.4) from a synthetic item_events timeline + catalog T."""
+
+    def test_unobserved_item_is_unknown_not_sentinel(self):
+        # no pickup yet -> respawn unobserved: unknown_flag=1, remaining_norm=0 (masked), up now.
+        u = etl.item_urgency([], t_now_s=5.0, respawn_seconds=30.0, dist_to_item=400.0, hspeed=400.0)
+        self.assertEqual(u["unknown_flag"], 1.0)
+        self.assertEqual(u["remaining_norm"], 0.0)
+        self.assertEqual(u["available_now"], 1.0)
+        self.assertIsNone(u["slack"])                   # undefined when respawn unobserved
+
+    def test_remaining_and_eta_after_pickup(self):
+        # picked up at t=0, T=30 -> respawn_at=30; at t=10 -> 20 s remaining, norm 20/30.
+        u = etl.item_urgency([0.0], t_now_s=10.0, respawn_seconds=30.0,
+                             dist_to_item=800.0, hspeed=400.0)
+        self.assertEqual(u["unknown_flag"], 0.0)
+        self.assertAlmostEqual(u["remaining_norm"], 20.0 / 30.0, places=4)
+        self.assertEqual(u["available_now"], 0.0)
+        self.assertAlmostEqual(u["eta"], 2.0, places=4)         # 800/400
+        self.assertAlmostEqual(u["eta_norm"], 0.2, places=4)    # 2/10
+        # eta(2) < t_remaining(20) -> will NOT be up on arrival.
+        self.assertEqual(u["up_on_arrival"], 0.0)
+
+    def test_up_on_arrival_when_eta_exceeds_remaining(self):
+        # close to respawn (t=29, remaining 1 s) and far away (eta 5 s) -> up_on_arrival.
+        u = etl.item_urgency([0.0], t_now_s=29.0, respawn_seconds=30.0,
+                             dist_to_item=2000.0, hspeed=400.0)
+        self.assertAlmostEqual(u["eta"], 5.0, places=4)
+        self.assertEqual(u["up_on_arrival"], 1.0)
+
+    def test_only_past_pickups_count_pit_safe(self):
+        # a FUTURE pickup (t=20) must not be used at t=10 (point-in-time safety).
+        ra, observed = etl.item_respawn_at([20.0], t_now_s=10.0, respawn_seconds=30.0)
+        self.assertFalse(observed)
+        self.assertIsNone(ra)
+        # the most-recent past pickup wins.
+        ra2, ok2 = etl.item_respawn_at([0.0, 5.0, 20.0], t_now_s=10.0, respawn_seconds=30.0)
+        self.assertTrue(ok2)
+        self.assertAlmostEqual(ra2, 5.0 + 30.0)
+
+
+class CleanMovementFilterTest(unittest.TestCase):
+    """§6.5 clean-movement predicate, incl. the FAIL-CLOSED damage_available=FALSE branch."""
+
+    def test_clean_when_no_threat_and_damage_zero(self):
+        ok, why = etl.tick_is_clean(t_s=10.0, threat_distances_with_los=[1200.0],
+                                    damage_available=True, damage_event_times_s=[0.0, 30.0])
+        self.assertTrue(ok)
+        self.assertEqual(why, "clean")
+
+    def test_enemy_in_los_range_is_not_clean(self):
+        ok, why = etl.tick_is_clean(t_s=10.0, threat_distances_with_los=[300.0],
+                                    damage_available=True, damage_event_times_s=[])
+        self.assertFalse(ok)
+        self.assertEqual(why, "enemy_in_los_range")
+
+    def test_damage_in_window_is_not_clean(self):
+        ok, why = etl.tick_is_clean(t_s=10.0, threat_distances_with_los=[],
+                                    damage_available=True, damage_event_times_s=[9.5])
+        self.assertFalse(ok)
+        self.assertEqual(why, "damage_in_window")
+
+    def test_fail_closed_when_damage_unavailable(self):
+        # the KEY branch: damage_available FALSE => damage UNKNOWN => NEVER clean, even with no
+        # threat and an empty damage list (absence is NOT 'no damage').
+        for unavail in (False, None):
+            ok, why = etl.tick_is_clean(t_s=10.0, threat_distances_with_los=[],
+                                        damage_available=unavail, damage_event_times_s=[])
+            self.assertFalse(ok, f"damage_available={unavail!r} must fail-closed")
+            self.assertEqual(why, "damage_unknown_fail_closed")
+
+    def test_threat_without_los_does_not_block(self):
+        # only enemies WITH line-of-sight are passed in threat_distances_with_los; an occluded
+        # enemy is simply absent from the list, so a near-but-blind enemy does not disqualify.
+        ok, why = etl.tick_is_clean(t_s=10.0, threat_distances_with_los=[],
+                                    damage_available=True, damage_event_times_s=[])
+        self.assertTrue(ok)
+
+
+@unittest.skipUnless(os.path.exists(_DM3_BSP), "dm3.bsp not present (BSP-backed LOS test)")
+class LosClearTest(unittest.TestCase):
+    """LOS raycast on the REAL dm3 hull-0: clear over open space, blocked through a wall."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.prober = etl.OngroundProber(_DM3_BSP)
+
+    # Coordinates verified on dm3.bsp near the RL: eye height -58 (origin -80 + 22). The pair
+    # (1591,526)->(1511,526) is open (frac 1.0); (1591,526)->(1391,526) has a wall between.
+    def test_open_segment_is_clear(self):
+        self.assertTrue(self.prober.los_clear((1591.0, 526.0, -80.0), (1511.0, 526.0, -80.0)))
+
+    def test_wall_between_blocks_los(self):
+        self.assertFalse(self.prober.los_clear((1591.0, 526.0, -80.0), (1391.0, 526.0, -80.0)))
+
+    def test_derive_visibility_combines_fov_and_los(self):
+        # facing west (yaw 180) toward the OPEN target -> visible; toward the WALLED target -> not.
+        v_open = etl.derive_visibility(self.prober, (1591.0, 526.0, -80.0), 180.0, 0.0,
+                                       (1511.0, 526.0, -80.0))
+        self.assertTrue(v_open["in_fov"])
+        self.assertTrue(v_open["los_clear"])
+        self.assertTrue(v_open["is_visible"])
+        self.assertIsNone(v_open["pvs_visible"])        # PVS NOT sourced -> NULL (honesty decision)
+        v_wall = etl.derive_visibility(self.prober, (1591.0, 526.0, -80.0), 180.0, 0.0,
+                                       (1391.0, 526.0, -80.0))
+        self.assertTrue(v_wall["in_fov"])
+        self.assertFalse(v_wall["los_clear"])
+        self.assertFalse(v_wall["is_visible"])
+
+    def test_target_behind_open_los_is_clear_but_invisible(self):
+        # #406 P1 regression: los_clear is the eye->eye raycast, INDEPENDENT of FOV. Observer faces
+        # EAST (yaw 0) but the OPEN target is to the WEST -> behind the view cone (in_fov False) yet
+        # the ray is unobstructed -> los_clear MUST be True (true LOS, so the §6.5 threat filter can
+        # treat a behind-but-visible enemy as active combat). FOV gates only the final is_visible.
+        v = etl.derive_visibility(self.prober, (1591.0, 526.0, -80.0), 0.0, 0.0,
+                                  (1511.0, 526.0, -80.0))
+        self.assertFalse(v["in_fov"])      # behind the cone
+        self.assertTrue(v["los_clear"])    # ray still unobstructed (NOT FOV-gated)
+        self.assertFalse(v["is_visible"])  # FOV gates the final verdict
+
+    def test_target_behind_and_walled_los_is_blocked(self):
+        # Behind the cone AND occluded by the wall -> los_clear False on its own merits (the wall),
+        # not because of FOV. Confirms the independent raycast still reports a real occluder.
+        v = etl.derive_visibility(self.prober, (1591.0, 526.0, -80.0), 0.0, 0.0,
+                                  (1391.0, 526.0, -80.0))
+        self.assertFalse(v["in_fov"])
+        self.assertFalse(v["los_clear"])
+        self.assertFalse(v["is_visible"])
+
+
+@unittest.skipUnless(os.path.exists(_DM3_BSP), "dm3.bsp not present (BSP-backed visibility insert)")
+class ActorVisibilityInsertTest(unittest.TestCase):
+    """The full POMDP layer lands in actor_visibility with the belief block carried forward."""
+
+    def _con(self):
+        import sqlite3
+        con = sqlite3.connect(":memory:")
+        con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+        con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                    "diagonal) VALUES (1, 'dm3', -1035, 2063, -975, 1151, -447, 511, 3797.1)")
+        return con
+
+    def test_visibility_rows_and_belief_carry_forward(self):
+        prober = etl.OngroundProber(_DM3_BSP)
+        # ego P1 fixed at (1591,526,-80) facing WEST (yaw 180). Target P2: tick0 OPEN (1511,
+        # visible), tick1 behind the WALL (1391, invisible). Belief must carry from tick0.
+        ego = [{"tick": i, "t_s": i * 0.1, "msec": 100, "ox": 1591.0, "oy": 526.0, "oz": -80.0,
+                "vx": 0.0, "vy": 0.0, "vz": 0.0, "pitch": 0.0, "yaw": 180.0, "roll": 0.0,
+                "hspeed": 0.0, "onground": True, "fwd": 0.0, "side": 0.0, "up": 0.0, "buttons": 0,
+                "cmd_yaw": 180.0, "cmd_pitch": 0.0, "confidence": 0.5, "is_interp": True,
+                "t_ms": i * 100} for i in range(2)]
+        ep = {"start": 0, "end": 1, "n": 2, "frames": ego}
+        p2 = etl._actor_samples({"pos": {"t": [0, 100], "x": [1511.0, 1391.0], "y": [526.0, 526.0],
+                                         "z": [-80.0, -80.0], "vx": [0.0, 0.0], "vy": [0.0, 0.0],
+                                         "vz": [0.0, 0.0], "vya": [0, 0], "vp": [0, 0]}}, prober)
+        p1 = etl._actor_samples({"pos": {"t": [0, 100], "x": [1591.0, 1591.0], "y": [526.0, 526.0],
+                                         "z": [-80.0, -80.0], "vx": [0.0, 0.0], "vy": [0.0, 0.0],
+                                         "vz": [0.0, 0.0], "vya": [0, 0], "vp": [0, 0]}}, prober)
+        rec = {"demo": "t.mvd", "sha256": "ab" + "0" * 62, "n_players": 2,
+               "players": [{"name": "P1", "team": "red", "episodes": [ep]}],
+               "teams": ["red", "blue"], "actor_world": {"P1": p1, "P2": p2},
+               "actor_team": {"P1": "red", "P2": "blue"},
+               "item_events": [], "frag_events": [], "damage_available": False, "damage_events": []}
+        con = self._con()
+        ins = etl.insert_demo(con, 1, rec, "train", 1, prober)
+        self.assertEqual(ins["actor_visibility"], 2)   # observer P1 vs target P2, two ticks (no self)
+
+        rows = con.execute(
+            "SELECT tick, is_visible, pvs_visible, in_fov, los_clear, vis_angle_source, "
+            "seen_ever, last_seen_tick, time_since_seen_s, last_seen_ox FROM actor_visibility "
+            "ORDER BY tick").fetchall()
+        self.assertEqual(len(rows), 2)
+        # tick0: open + facing -> visible; PVS NULL; angle source demoparser; belief snapshot set.
+        t0 = rows[0]
+        self.assertEqual(t0[1], 1)          # is_visible
+        self.assertIsNone(t0[2])            # pvs_visible NULL
+        self.assertEqual(t0[3], 1)          # in_fov
+        self.assertEqual(t0[4], 1)          # los_clear
+        self.assertEqual(t0[5], "demoparser")
+        self.assertEqual(t0[6], 1)          # seen_ever latched
+        self.assertEqual(t0[7], 0)          # last_seen_tick = 0
+        self.assertEqual(t0[8], 0.0)        # time_since_seen 0 while visible
+        self.assertAlmostEqual(t0[9], 1511.0)  # last_seen_ox = the visible position
+        # tick1: behind wall -> invisible, BUT belief carries the tick0 snapshot forward.
+        t1 = rows[1]
+        self.assertEqual(t1[1], 0)          # is_visible FALSE
+        self.assertEqual(t1[4], 0)          # los_clear FALSE
+        self.assertEqual(t1[6], 1)          # seen_ever still latched
+        self.assertEqual(t1[7], 0)          # last_seen_tick still 0 (last visible tick)
+        self.assertAlmostEqual(t1[8], 0.1)  # time_since_seen grew (0.1 - 0.0)
+        self.assertAlmostEqual(t1[9], 1511.0)  # carried snapshot, NOT the walled position
+        # FK integrity holds.
+        self.assertEqual(con.execute("PRAGMA foreign_key_check").fetchall(), [])
+        con.close()
+
+    def test_no_vis_world_leaves_table_empty(self):
+        # vis_world=None (default): the geometry/state rows still load, but no visibility derived.
+        prober = etl.OngroundProber(_DM3_BSP)
+        ego = [{"tick": i, "t_s": i * 0.1, "msec": 100, "ox": 1591.0, "oy": 526.0, "oz": -80.0,
+                "vx": 0.0, "vy": 0.0, "vz": 0.0, "pitch": 0.0, "yaw": 180.0, "roll": 0.0,
+                "hspeed": 0.0, "onground": True, "fwd": 0.0, "side": 0.0, "up": 0.0, "buttons": 0,
+                "cmd_yaw": 180.0, "cmd_pitch": 0.0, "confidence": 0.5, "is_interp": True,
+                "t_ms": i * 100} for i in range(2)]
+        ep = {"start": 0, "end": 1, "n": 2, "frames": ego}
+        p1 = etl._actor_samples({"pos": {"t": [0, 100], "x": [1591.0] * 2, "y": [526.0] * 2,
+                                         "z": [-80.0] * 2, "vx": [0.0] * 2, "vy": [0.0] * 2,
+                                         "vz": [0.0] * 2, "vya": [0] * 2, "vp": [0] * 2}}, prober)
+        rec = {"demo": "t.mvd", "sha256": "cd" + "0" * 62, "n_players": 1,
+               "players": [{"name": "P1", "team": "red", "episodes": [ep]}],
+               "teams": ["red"], "actor_world": {"P1": p1}, "actor_team": {"P1": "red"},
+               "item_events": [], "frag_events": [], "damage_available": False, "damage_events": []}
+        con = self._con()
+        ins = etl.insert_demo(con, 1, rec, "train", 1)   # no vis_world
+        self.assertEqual(ins["actor_visibility"], 0)
+        self.assertEqual(con.execute("SELECT COUNT(*) FROM actor_visibility").fetchone()[0], 0)
         con.close()
 
 

@@ -141,6 +141,8 @@ for _p in (str(REPO_ROOT), str(HERE)):
 import catalog_load  # noqa: E402  (stdlib-only sibling; static spine)
 import pmove_sim  # noqa: E402  (stdlib-only; WorldModel + player_trace + detect_teleports)
 from features.agent_observation import yaw_rate_degps  # noqa: E402  (canonical turn-rate)
+# (T8 #396) reuse the C3 egocentric angle math for the POMDP FOV stage — do NOT reinvent it.
+from features.egocentric import rel_bearing_deg, rel_pitch_deg  # noqa: E402
 
 # (T7 #395) leg-phase reuses the #334 resource-visit leg segmentation (no reinvention).
 sys.path.insert(0, str(REPO_ROOT / "experiments" / "route_observatory"))
@@ -204,6 +206,35 @@ LEDGE_PROBE_QU = 64.0        # forward horizontal probe distance for ledge-ahead
 LEDGE_MIN_HSPEED = 50.0      # qu/s; below this the velocity direction is ill-defined -> ledge_ahead NULL
 VOID_THRESH_QU = -200.0      # floor below this z is a deep chasm => over_void (matches build_trace.py)
 RAMP_FLAT_NORMAL = 0.95      # floor-plane normal.z >= this => flat (not a ramp); below => on-ramp
+
+
+# --- (T8 #396) POMDP visibility / belief / item-urgency / clean-movement -------
+# QW view height: the engine puts the eye DEFAULT_VIEWHEIGHT=22 qu above the player origin
+# (pmove_sim uses `origin.z + 22.0` for the same view point). Both observer eye and target
+# body-point are lifted by this so the hull-0 LOS ray is eye->eye, not foot->foot (a foot ray
+# would clip the floor and read every standing pair as occluded).
+EYE_HEIGHT_QU = 22.0
+
+# FOV / awareness cone half-angles (degrees). QW's default `fov 90` is a 90-deg HORIZONTAL field
+# of view (45-deg half-angle on the screen). But `in_fov` here is a believability AWARENESS cone,
+# not the render frustum: a human is aware of motion across their whole forward hemisphere and
+# turns to face it, so a render-tight 45 deg would mark a peripheral enemy "unseen" when the player
+# plainly reacts to them. We therefore use a generous FORWARD-HEMISPHERE cone (90-deg half-angle,
+# both axes) — anything in front of the observer is FOV-eligible. LOS (the hull-0 occlusion ray) is
+# the real correctness gate; FOV only removes targets that are behind the observer. The value is a
+# single named constant so the owner can tighten it (e.g. to the render 45 deg) without code surgery.
+FOV_HALF_HORIZONTAL_DEG = 90.0
+FOV_HALF_VERTICAL_DEG = 90.0
+
+# Item-urgency [E] (00-DATA-ARCHITECTURE §3.3/§3.4): ETA-to-arrive cap + the seconds-to-arrive eps.
+ITEM_ETA_CAP_S = 10.0        # §3.4 CAP: eta_norm = min(eta, CAP)/CAP
+ITEM_HSPEED_EPS = 1.0        # qu/s floor under hspeed so a stationary observer's eta is finite
+
+# Clean-movement filter (§6.5): a tick is clean iff no enemy is within THREAT_R with line-of-sight
+# AND damage is PROVABLY zero across the window. THREAT_R + window are Phase-B spec parameters; the
+# values here are the documented defaults (tunable, single named constants).
+CLEAN_THREAT_R_QU = 600.0    # qu; an enemy nearer than this WITH line-of-sight => in active combat
+CLEAN_DAMAGE_WINDOW_S = 2.0  # s; a damage event within +-this of the tick disqualifies it
 
 
 class OngroundProber:
@@ -306,6 +337,28 @@ class OngroundProber:
             "ramp_normal_z": round(ramp_normal_z, 4) if ramp_normal_z is not None else None,
         }
 
+    def los_clear(self, observer_origin, target_origin) -> bool:
+        """(T8 #396) Line-of-sight: a HULL-0 (point) ray observer-eye -> target-eye, unobstructed.
+
+        The spec's `los_clear` is a BSP hull-0 trace (`docs/27` §5 [C]; §2.8 stage 3), NOT the
+        hull-1 player-box sweep `geometry()`/onground use — LOS is a sight LINE, so it traces the
+        point hull (the world render BSP) and reports clear iff the segment never enters solid.
+        Both endpoints are lifted EYE_HEIGHT_QU above the origin (eye->eye). Reuses pmove_sim's
+        `_recursive_hull_check` against `world.hull0` (the same SV_RecursiveHullCheck port the rest
+        of the file uses) — no new trace code. Early-exit on first solid is intrinsic to the trace
+        (a startsolid/short fraction means an occluder; fraction==1.0 means a clear sight line)."""
+        eye = (observer_origin[0], observer_origin[1], observer_origin[2] + EYE_HEIGHT_QU)
+        tgt = (target_origin[0], target_origin[1], target_origin[2] + EYE_HEIGHT_QU)
+        hull = self.world.hull0
+        tr = pmove_sim.Trace(tgt)
+        pmove_sim._recursive_hull_check(hull, hull.firstclipnode, 0.0, 1.0,
+                                        list(eye), list(tgt), tr)
+        # startsolid (eye buried in solid) => no honest sight line; otherwise clear iff the ray
+        # reached the target without hitting a brush (fraction == 1.0).
+        if tr.startsolid:
+            return False
+        return tr.fraction >= 1.0
+
 
 # --- (T7 #395) [R] regime classification + leg-phase segmentation ------------
 CRUISE_GATE = STRAFE_SIGN_GATE    # 400 qu/s — the IDM speed gate is the accel/cruise boundary (§5)
@@ -336,6 +389,210 @@ def classify_regime(hspeed, onground, ramp_normal_z, waterlevel=None) -> str | N
     if hspeed is None:
         return "grounded"
     return "cruise" if hspeed >= CRUISE_GATE else "accel"
+
+
+# --- (T8 #396) POMDP visibility: FOV + LOS + belief ---------------------------
+# `is_visible = COALESCE(pvs_visible, TRUE) AND in_fov AND los_clear` (00-DATA-ARCHITECTURE §2.8).
+# `in_fov` and `los_clear` are INDEPENDENT predicates: in_fov tests the view cone, los_clear is the
+# hull-0 eye->eye occlusion ray. los_clear is NOT FOV-gated (the raycast runs for every pair, even
+# behind the observer) — the §6.5 clean-movement / threat filter needs true LOS for a behind-but-
+# unobstructed enemy. FOV gates only the FINAL is_visible. (PVS is the only optional perf prefilter,
+# and it is not sourced — see PVS_NOT_SOURCED.)
+#
+# PVS HONESTY DECISION (documented, NOT fabricated). pmove_sim.WorldModel parses the BSP
+# leafs/contents but does NOT decode the visdata/PVS clusters, so a true BSP-visleaf PVS
+# prefilter is not available here. Rather than invent a fake boolean, `pvs_visible` is left
+# NULL — meaning "NOT prefiltered", an OPTIONAL perf optimisation that is simply not sourced.
+# The final gate COALESCEs it to TRUE so a NULL PVS never wrongly hides a pair; LOS (the hull-0
+# occlusion ray) is the correctness gate. See §2.8 (PVS caveat) and `OngroundProber.los_clear`.
+PVS_NOT_SOURCED = None  # pvs_visible is NULL until/unless a visdata decoder is wired
+
+
+def in_fov(observer_origin, observer_yaw_deg, observer_pitch_deg, target_origin,
+           half_h_deg=FOV_HALF_HORIZONTAL_DEG, half_v_deg=FOV_HALF_VERTICAL_DEG) -> bool:
+    """(T8 #396) FOV stage: is `target` within the observer's awareness cone?
+
+    Reuses the C3 egocentric angle math (`features.egocentric.rel_bearing_deg` /
+    `rel_pitch_deg`) — bearing is the horizontal angle off the observer's facing (0 = dead
+    ahead), pitch the elevation to the target. A target is in-FOV iff |bearing| <= half_h AND
+    the elevation is within half_v of the observer's own view pitch.
+
+    NOTE on pitch convention: rel_pitch_deg is computed purely from positions (positive = target
+    ABOVE observer); QW's stored view pitch is inverted (positive = looking DOWN). We negate the
+    observer pitch to bring both into the same 'positive = up' frame before differencing, so the
+    vertical test is convention-consistent. With the default 90-deg vertical half-angle the pitch
+    test is effectively inert (full vertical awareness) and the horizontal hemisphere dominates."""
+    bearing = rel_bearing_deg(target_origin, observer_origin, observer_yaw_deg)
+    if abs(bearing) > half_h_deg:
+        return False
+    elev = rel_pitch_deg(target_origin, observer_origin)            # +up, from positions
+    obs_elev = -(observer_pitch_deg or 0.0)                          # QW pitch +down -> +up
+    return abs(elev - obs_elev) <= half_v_deg
+
+
+def derive_visibility(prober, observer_origin, observer_yaw_deg, observer_pitch_deg,
+                      target_origin) -> dict:
+    """(T8 #396) One (observer, target) visibility verdict at one tick (cheapest-first).
+
+    Returns {pvs_visible, in_fov, los_clear, is_visible}. PVS is NULL (not sourced, see
+    PVS_NOT_SOURCED). `los_clear` is the hull-0 eye->eye raycast, computed INDEPENDENTLY of FOV
+    (the column contract is 'the ray is unobstructed', NOT 'visible after FOV gating') — a target
+    BEHIND the observer with a clear ray is `los_clear=True`. FOV gates only the FINAL verdict:
+    `is_visible = COALESCE(pvs, TRUE) AND in_fov AND los_clear`. Consumers (the §6.5 clean-movement
+    filter / threat logic) need true per-pair LOS regardless of the view cone, so the raycast runs
+    for every pair (no FOV short-circuit). `los_clear` is NULL only when the ray cannot be honestly
+    evaluated (an endpoint position is missing), and a NULL los never fabricates is_visible True."""
+    fov = in_fov(observer_origin, observer_yaw_deg, observer_pitch_deg, target_origin)
+    if None in observer_origin or None in target_origin:
+        los = None                                  # unevaluable ray -> NULL, never a fake False
+    else:
+        los = bool(prober.los_clear(observer_origin, target_origin))
+    pvs = PVS_NOT_SOURCED
+    is_vis = bool((True if pvs is None else pvs) and fov and (los is True))
+    return {"pvs_visible": pvs, "in_fov": fov, "los_clear": los, "is_visible": is_vis}
+
+
+class BeliefTracker:
+    """(T8 #396) Per (observer, target) carried-forward BELIEF / memory block (§2.8).
+
+    Mirrors the 3-state `item_unknown_flag` pattern: a target that is currently invisible keeps
+    the LAST-SEEN snapshot (tick/t_s/origin/velocity) and a `time_since_seen_s`; `seen_ever`
+    latches once the target has been visible at least once. Never-seen targets carry NULL
+    last_seen fields and NULL time_since_seen_s (NOT 0 / NOT a sentinel). Stateful across the
+    episode's ticks for ONE ordered pair — `update()` is called once per tick in tick order."""
+
+    __slots__ = ("seen_ever", "last_seen_tick", "last_seen_t_s",
+                 "last_seen_ox", "last_seen_oy", "last_seen_oz",
+                 "last_seen_vx", "last_seen_vy", "last_seen_vz")
+
+    def __init__(self):
+        self.seen_ever = False
+        self.last_seen_tick = None
+        self.last_seen_t_s = None
+        self.last_seen_ox = self.last_seen_oy = self.last_seen_oz = None
+        self.last_seen_vx = self.last_seen_vy = self.last_seen_vz = None
+
+    def update(self, is_visible, tick, t_s, target_state) -> dict:
+        """Advance the belief by one tick and return the belief columns for the row.
+
+        `target_state` = {ox,oy,oz,vx,vy,vz}. When `is_visible`, refresh the last-seen snapshot
+        and zero `time_since_seen_s`; otherwise carry the snapshot and grow time_since_seen_s
+        from the last-seen t_s. Before the target is EVER seen, all belief fields are NULL."""
+        if is_visible:
+            self.seen_ever = True
+            self.last_seen_tick = tick
+            self.last_seen_t_s = t_s
+            self.last_seen_ox = target_state.get("ox")
+            self.last_seen_oy = target_state.get("oy")
+            self.last_seen_oz = target_state.get("oz")
+            self.last_seen_vx = target_state.get("vx")
+            self.last_seen_vy = target_state.get("vy")
+            self.last_seen_vz = target_state.get("vz")
+        # time_since_seen: 0 while visible, grows while invisible-but-seen, NULL if never seen.
+        if not self.seen_ever:
+            tss = None
+        elif is_visible:
+            tss = 0.0
+        else:
+            tss = round(t_s - self.last_seen_t_s, 4) if self.last_seen_t_s is not None else None
+        return {
+            "seen_ever": self.seen_ever,
+            "last_seen_tick": self.last_seen_tick,
+            "last_seen_t_s": self.last_seen_t_s,
+            "last_seen_ox": self.last_seen_ox, "last_seen_oy": self.last_seen_oy,
+            "last_seen_oz": self.last_seen_oz,
+            "last_seen_vx": self.last_seen_vx, "last_seen_vy": self.last_seen_vy,
+            "last_seen_vz": self.last_seen_vz,
+            "time_since_seen_s": tss,
+        }
+
+
+# --- (T8 #396) [E] item-urgency: respawn-ETA-on-arrival + contest -------------
+# 00-DATA-ARCHITECTURE §3.3 (respawn timer) + §3.4 (ETA / up_on_arrival / slack). Derived from
+# `item_events` (the pickup/respawn timeline, T4-populated) + `items.respawn_seconds`. These are
+# `source: derived` registry features (item_eta_norm / item_up_on_arrival / item_remaining_norm /
+# item_value_prior) computed at materialization from the populated source tables — NOT new columns.
+def item_respawn_at(pickup_times_s, t_now_s, respawn_seconds):
+    """§3.3: respawn_at = t_last_pickup + T using only pickups AT OR BEFORE t_now (PIT-safe).
+
+    Returns (respawn_at_s, observed): respawn_at is None + observed=False when no pickup has been
+    seen yet (the 3rd 'unknown' state — never a sentinel number). T = items.respawn_seconds."""
+    last = None
+    for tp in pickup_times_s:
+        if tp <= t_now_s and (last is None or tp > last):
+            last = tp
+    if last is None:
+        return (None, False)
+    return (last + respawn_seconds, True)
+
+
+def item_urgency(pickup_times_s, t_now_s, respawn_seconds, dist_to_item, hspeed):
+    """§3.3/§3.4 item-urgency [E] for one item from the observer's POV at t_now.
+
+    Returns a dict of the derived features:
+      remaining_norm  = clip(respawn_at - t_now, 0, T) / T            (§3.3; 0 = up now)
+      available_now   = respawn_at unobserved OR (respawn_at - t_now) <= 0
+      unknown_flag    = respawn_at unobserved (3rd state, NOT a sentinel in remaining_norm)
+      eta             = dist_to_item / max(hspeed, eps)               (§3.4 seconds to arrive)
+      eta_norm        = min(eta, CAP) / CAP
+      up_on_arrival   = eta >= t_remaining  (the core contest decision; TRUE if unobserved=up)
+      slack           = (eta - t_remaining) / T  (signed; None when t_remaining unknown)
+    All time-honest: unobserved respawn => 'up now' for arrival logic but unknown_flag=1 so the
+    consumer masks remaining_norm rather than reading a fake 0."""
+    respawn_at, observed = item_respawn_at(pickup_times_s, t_now_s, respawn_seconds)
+    T = float(respawn_seconds) if respawn_seconds else 0.0
+    if not observed:
+        t_remaining = 0.0           # never picked up this match => treat as available for arrival
+        remaining_norm = 0.0
+        unknown_flag = 1.0
+    else:
+        t_remaining = max(0.0, respawn_at - t_now_s)
+        remaining_norm = (min(t_remaining, T) / T) if T > 0 else 0.0
+        unknown_flag = 0.0
+    eta = dist_to_item / max(hspeed, ITEM_HSPEED_EPS)
+    eta_norm = min(eta, ITEM_ETA_CAP_S) / ITEM_ETA_CAP_S
+    up_on_arrival = 1.0 if eta >= t_remaining else 0.0
+    slack = ((eta - t_remaining) / T) if (observed and T > 0) else None
+    return {
+        "remaining_norm": round(remaining_norm, 4),
+        "available_now": 1.0 if (not observed or t_remaining <= 0.0) else 0.0,
+        "unknown_flag": unknown_flag,
+        "eta": round(eta, 4),
+        "eta_norm": round(eta_norm, 4),
+        "up_on_arrival": up_on_arrival,
+        "slack": round(slack, 4) if slack is not None else None,
+    }
+
+
+# --- (T8 #396) clean-movement filter (§6.5) — FAIL-CLOSED on unknown damage ----
+def tick_is_clean(*, t_s, threat_distances_with_los, damage_available, damage_event_times_s,
+                  threat_r=CLEAN_THREAT_R_QU, damage_window_s=CLEAN_DAMAGE_WINDOW_S):
+    """(T8 #396, spec §6.5) Is this tick CLEAN-MOVEMENT (eligible for the human movement prior)?
+
+    A tick is clean iff, across the window, (a) NO enemy is within `threat_r` qu WITH line-of-sight
+    AND (b) damage is PROVABLY zero. FAIL-CLOSED on unknown: if `damage_available` is not TRUE
+    (the demo predates the KTX per-hit damage block, T5), damage is UNKNOWN, NOT absent, so the
+    tick CANNOT be certified clean and is EXCLUDED. Absence of damage_events is never read as 'no
+    damage'.
+
+    Params:
+      threat_distances_with_los — iterable of enemy distances (qu) for enemies that ALSO have
+        line-of-sight to/from the observer this tick (an enemy behind a wall is not active combat).
+      damage_available — demos.damage_available (TRUE => damage_events authoritative for this demo).
+      damage_event_times_s — t_s of damage events INVOLVING this player (given OR taken); only
+        trustworthy when damage_available is TRUE.
+    Returns (is_clean: bool, reason: str). reason is machine-readable for diagnostics/tests."""
+    # (a) active-combat proximity: an enemy within threat_r WITH line-of-sight => not clean.
+    for d in threat_distances_with_los:
+        if d is not None and d <= threat_r:
+            return (False, "enemy_in_los_range")
+    # (b) damage state — FAIL-CLOSED. Unknown (not provably zero) => excluded.
+    if damage_available is not True:
+        return (False, "damage_unknown_fail_closed")
+    for td in damage_event_times_s:
+        if abs(td - t_s) <= damage_window_s:
+            return (False, "damage_in_window")
+    return (True, "clean")
 
 
 # ---------------------------------------------------------------------------
@@ -1068,9 +1325,15 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
     }
 
 
-def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, demo_id: int) -> dict:
+def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, demo_id: int,
+                vis_world: "OngroundProber | None" = None) -> dict:
     """Insert one extracted .mvd's demos/players/episodes/player_ticks/actions rows.
     `split` is the train/val/test label for ALL of this demo's episodes (group-by-demo).
+
+    (T8 #396) When `vis_world` (an OngroundProber wrapping the dm3 WorldModel) is supplied, the
+    POMDP `actor_visibility` layer is ALSO derived per episode: observer = the episode's ego
+    player, targets = every OTHER actor in the omniscient world, per-tick FOV/LOS + carried-forward
+    belief block. Without it, actor_visibility is left empty (the geometry/state rows still load).
 
     `demo_id` is assigned DETERMINISTICALLY by the caller (sha-rank, see build) — NOT an
     autoincrement side effect of insertion order. The streaming insert lands demos in parallel
@@ -1147,7 +1410,7 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
     for iid, ox, oy, oz in con.execute("SELECT item_id, origin_x, origin_y, origin_z FROM items").fetchall():
         item_id_by_origin[(round(ox), round(oy), round(oz))] = iid
 
-    n_pl = n_ep = n_tick = n_act = n_actor = 0
+    n_pl = n_ep = n_tick = n_act = n_actor = n_vis = 0
     for p in rec["players"]:
         if not p["episodes"]:
             continue
@@ -1167,6 +1430,11 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
             )
             episode_id = c.lastrowid
             n_ep += 1
+            # (T8 #396) per-episode belief trackers, one per (ego-observer, target) ordered pair.
+            # Observer = THIS episode's ego player; targets = every OTHER world actor. Carried
+            # forward in tick order so the belief block (last-seen + time_since_seen) is correct.
+            belief = {aname: BeliefTracker() for aname in actor_world if aname != name} \
+                if vis_world is not None else {}
             for r in ep["frames"]:
                 con.execute(
                     """INSERT INTO player_ticks
@@ -1238,6 +1506,36 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
                     )
                     n_actor += 1
 
+                    # (T8 #396) actor_visibility: observer = THIS episode's ego; target = this
+                    # OTHER actor. Derive FOV/LOS (cheapest-first; PVS NULL, not sourced) from the
+                    # ego origin+view-angles (r) to the target origin (s), and carry the belief.
+                    if vis_world is None or aname == name:
+                        continue
+                    vis = derive_visibility(
+                        vis_world, (r["ox"], r["oy"], r["oz"]), r["yaw"], r["pitch"],
+                        (s["ox"], s["oy"], s["oz"]))
+                    bel = belief[aname].update(vis["is_visible"], r["tick"], r["t_s"], s)
+                    con.execute(
+                        """INSERT OR IGNORE INTO actor_visibility
+                           (episode_id, tick, observer_id, target_id, is_visible, pvs_visible,
+                            in_fov, los_clear, vis_angle_source,
+                            last_seen_tick, last_seen_t_s,
+                            last_seen_ox, last_seen_oy, last_seen_oz,
+                            last_seen_vx, last_seen_vy, last_seen_vz,
+                            time_since_seen_s, seen_ever)
+                           VALUES (?,?,?,?,?,?, ?,?,?, ?,?, ?,?,?, ?,?,?, ?,?)""",
+                        (episode_id, r["tick"], player_id, pid_by_name[aname],
+                         vis["is_visible"], vis["pvs_visible"], vis["in_fov"], vis["los_clear"],
+                         # schema-33 carries REAL per-tick view yaw/pitch -> demoparser angles, not
+                         # the IDM/angle proxy (which is for angle-less state-only MVDs; §2.8).
+                         "demoparser",
+                         bel["last_seen_tick"], bel["last_seen_t_s"],
+                         bel["last_seen_ox"], bel["last_seen_oy"], bel["last_seen_oz"],
+                         bel["last_seen_vx"], bel["last_seen_vy"], bel["last_seen_vz"],
+                         bel["time_since_seen_s"], bel["seen_ever"]),
+                    )
+                    n_vis += 1
+
     # (T4) match-level timelines (one set per demo, NOT per episode).
     n_ie = n_fe = 0
     for ev in rec.get("item_events") or []:
@@ -1290,6 +1588,7 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
 
     return {"demo_id": demo_id, "players": n_pl, "episodes": n_ep,
             "player_ticks": n_tick, "actions": n_act, "actor_ticks": n_actor,
+            "actor_visibility": n_vis,
             "teams": len(team_id_by_name), "item_events": n_ie, "frag_events": n_fe,
             "damage_events": n_de}
 
@@ -1371,6 +1670,16 @@ def build(catalog_dir: Path, manifest: Path, db_path: str, bsp_path: str,
     con, base = catalog_load.build(catalog_dir, fixture_dir=None, db_path=db_path)
     map_id = con.execute("SELECT map_id FROM maps WHERE name='dm3'").fetchone()[0]
 
+    # (T8 #396) one dm3 WorldModel in the MAIN process for the POMDP `actor_visibility` LOS raycast
+    # (insert_demo runs here, not in the parse workers). A BSP load failure degrades gracefully —
+    # the state/geometry rows still load; only actor_visibility is skipped (logged), never fatal.
+    try:
+        vis_world = OngroundProber(bsp_path)
+    except Exception as e:  # noqa: BLE001
+        LOGGER.warning("actor_visibility disabled: could not load BSP %s (%s: %s)",
+                       bsp_path, type(e).__name__, e)
+        vis_world = None
+
     # Deterministic demo_id from content identity (sha-rank), NOT an autoincrement side effect of
     # parallel completion order: the streaming insert lands demos as they finish parsing, so an
     # autoincrement id would vary with timing across rebuilds. The trainer keys its held-out-demo
@@ -1394,7 +1703,7 @@ def build(catalog_dir: Path, manifest: Path, db_path: str, bsp_path: str,
             errors.append(r)
         else:
             split = split_for_sha(r.get("sha256"))
-            ins = insert_demo(con, map_id, r, split, demo_id_by_sha[r["sha256"]])
+            ins = insert_demo(con, map_id, r, split, demo_id_by_sha[r["sha256"]], vis_world)
             if ins.get("skipped_duplicate"):
                 skipped_dups.append(ins)
                 LOGGER.info("  SKIP duplicate sha256: %s (== %s)", r["demo"], ins.get("duplicate_of"))
@@ -1510,7 +1819,8 @@ def _strafe_label_stats(con: sqlite3.Connection) -> dict:
 TABLES = ["maps", "items", "markers", "nav_edges", "players", "demos",
           "episodes", "player_ticks", "actions",
           "teams", "actor_ticks", "item_events", "frag_events",  # T4 omniscient world
-          "damage_events"]  # T5 per-hit damage (era-gated)
+          "damage_events",  # T5 per-hit damage (era-gated)
+          "actor_visibility"]  # T8 derived POMDP visibility layer
 
 
 def table_counts(con: sqlite3.Connection) -> dict:

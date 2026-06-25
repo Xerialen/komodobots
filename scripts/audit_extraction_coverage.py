@@ -245,14 +245,15 @@ CLASSIFY: "OrderedDict[str, tuple[str, str | None, str]]" = OrderedDict([
     ("region_control_timeline.teamA_control", (EXTRACTED, "region.control_timeline", "side-A control fraction")),
     ("region_control_timeline.teamB_control", (EXTRACTED, "region.control_timeline", "side-B control fraction")),
     ("region_control_timeline.contested", (EXTRACTED, "region.control_timeline", "contested flag")),
-    # ---- actor_visibility (POMDP layer; derived offline, no decoder endpoint) ----
-    ("actor_visibility.is_visible", (GAP, None, "spec'd POMDP gate (PVS+FOV+LOS); table empty. T8.")),
-    ("actor_visibility.pvs_visible", (GAP, None, "BSP visleaf prefilter; empty. T8.")),
-    ("actor_visibility.in_fov", (GAP, None, "bearing-in-FOV; empty. T8.")),
-    ("actor_visibility.los_clear", (GAP, None, "raycast on hull-0; empty. T8.")),
-    ("actor_visibility.last_seen_ox", (GAP, None, "belief/memory block; empty. T8.")),
-    ("actor_visibility.time_since_seen_s", (GAP, None, "belief block; empty. T8.")),
-    ("actor_visibility.seen_ever", (GAP, None, "belief block; empty. T8.")),
+    # ---- actor_visibility (POMDP layer; DERIVED offline, no decoder endpoint — T8 #396) ----
+    ("actor_visibility.is_visible", (DERIVED, None, "POMDP gate = COALESCE(pvs,TRUE) AND in_fov AND los_clear; derived offline (T8).")),
+    ("actor_visibility.pvs_visible", (DERIVED, None, "BSP visleaf prefilter NOT sourced (no visdata decoder) -> NULL; optional perf prefilter, LOS is the gate (T8).")),
+    ("actor_visibility.in_fov", (DERIVED, None, "target bearing within the observer awareness cone (reuses egocentric angle math) (T8).")),
+    ("actor_visibility.los_clear", (DERIVED, None, "raycast observer-eye->target-eye on dm3.bsp hull-0 (pmove_sim) (T8).")),
+    ("actor_visibility.vis_angle_source", (DERIVED, None, "'demoparser' — schema-33 carries real per-tick view yaw/pitch (T8).")),
+    ("actor_visibility.last_seen_ox", (DERIVED, None, "belief/memory block carried forward when target invisible (T8).")),
+    ("actor_visibility.time_since_seen_s", (DERIVED, None, "seconds since last-seen (0 visible, NULL never-seen) (T8).")),
+    ("actor_visibility.seen_ever", (DERIVED, None, "latches once the observer has ever seen the target (T8).")),
     # ---- audio_cues (derived offline) ----
     ("audio_cues.src_type", (GAP, "audio.weapon_item_cues", "weapon_fire/item_pickup from getEvents + synthesized footstep; table empty. T8.")),
     ("audio_cues.src_x", (GAP, "audio.weapon_item_cues", "sound source world position; empty. T8.")),
@@ -522,8 +523,8 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
                  "T3 (DONE); the omniscient `actor_ticks` all-players state + health/armor/armor_type + "
                  "team_id, plus `item_events`/`frag_events`/`teams` -> T4 (DONE; from `-view full`). The "
                  "GAPs that REMAIN: `player_ticks.armor_type`/`weapon` + `actor_ticks.weapon` (no honest "
-                 "active-weapon / ego armor-skin source without a decoder change), and `actor_visibility.*` "
-                 "+ `audio_cues.*` -> T8. The `damage_events` table (G3) is now schema-defined + "
+                 "active-weapon / ego armor-skin source without a decoder change), and the `audio_cues.*` "
+                 "derived layer -> T8 (separate from visibility; not in #396). The `damage_events` table (G3) is now schema-defined + "
                  "populated (T5 #393, era-gated via `demos.damage_available`), so it appears as extracted "
                  "columns above. The ammo/powerup source columns (G4) are likewise now "
                  "schema-defined + populated (T6 #394: `shells`/`nails`/`rockets`/`cells` + "
@@ -535,7 +536,15 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
                  "MVD ETL, so they appear as DERIVED columns above (computed from the sha-locked dm3.bsp "
                  "hull-1 traces + kinematics + the route_legs #334 segmentation — NULL where undefined, "
                  "never fabricated; `leg_phase` is NULL on `actor_ticks` for want of an ego goal context). "
-                 "No per-column GAP remains absent from the schema entirely.")
+                 "The POMDP `actor_visibility.*` layer is now ADDRESSED by T8 #396: per (episode, tick, "
+                 "ego-observer, target) FOV (egocentric bearing cone) + LOS (observer-eye->target-eye "
+                 "hull-0 raycast on the sha-locked dm3.bsp) + carried-forward belief block, populated by "
+                 "the MVD ETL, so they appear as DERIVED columns above. PVS is an OPTIONAL perf prefilter "
+                 "that is NOT sourced here (pmove_sim does not decode the BSP visdata), so `pvs_visible` is "
+                 "left NULL and the gate COALESCEs it to TRUE — LOS is the correctness gate (honest "
+                 "degrade, never a fabricated PVS boolean). The `audio_cues.*` derived layer remains the "
+                 "one defined-but-empty T8 gap (out of #396 scope). No per-column GAP remains absent from "
+                 "the schema entirely.")
     return "\n".join(lines).rstrip("\n") + "\n", counts
 
 
@@ -604,11 +613,13 @@ def run_self_checks() -> None:
     # player_ticks.health/armor are EXTRACTED; after T4 the actor_ticks state cols are too. The
     # GAPs that REMAIN: armor_type/weapon on the EGO player_ticks spine (the `-event-types` decode
     # carries the AP value but not the skin/type nor STAT_ACTIVEWEAPON), actor_ticks.weapon (same
-    # no-active-weapon-source reason), and the T8 derived layers (actor_visibility / audio_cues).
+    # no-active-weapon-source reason), and `audio_cues` (the one remaining T8 derived layer —
+    # actor_visibility flipped GAP->DERIVED at T8 #396 when it was populated).
     known_gaps = [
         ("player_ticks", "armor_type"), ("player_ticks", "weapon"),
         ("actor_ticks", "weapon"),
-        ("actor_visibility", "is_visible"), ("audio_cues", "src_type"),
+        # actor_visibility.* flipped GAP->DERIVED at T8 #396 (populated); audio_cues.* stays the gap.
+        ("audio_cues", "src_type"),
     ]
     for table, col in known_gaps:
         label, _, _ = classify_column(table, col)
@@ -658,6 +669,18 @@ def run_self_checks() -> None:
         assert col in etl_mvd.get("player_ticks", set()), f"MVD ETL must populate player_ticks.{col} (T7)"
         assert classify_column("actor_ticks", col)[0] == DERIVED, f"actor_ticks.{col} should be DERIVED (T7)"
         assert col in etl_mvd.get("actor_ticks", set()), f"MVD ETL must populate actor_ticks.{col} (T7)"
+
+    # T8: the POMDP actor_visibility.* columns now flip GAP->DERIVED (derived offline from FOV +
+    # the dm3.bsp hull-0 LOS raycast + belief), and the MVD ETL populates the table. audio_cues
+    # stays the one remaining T8 derived gap (out of #396 scope).
+    t8_vis = ("is_visible", "pvs_visible", "in_fov", "los_clear", "vis_angle_source",
+              "last_seen_ox", "time_since_seen_s", "seen_ever")
+    for col in t8_vis:
+        assert classify_column("actor_visibility", col)[0] == DERIVED, \
+            f"actor_visibility.{col} should be DERIVED (T8 #396)"
+        assert col in etl_mvd.get("actor_visibility", set()), \
+            f"MVD ETL must populate actor_visibility.{col} (T8 #396)"
+    assert classify_column("audio_cues", "src_type")[0] == GAP, "audio_cues stays the T8 gap"
 
     # Every CLASSIFY key must reference a real schema column (no stale verdict).
     valid = {f"{t}.{c}" for t, cols in schema.items() for c in cols}

@@ -287,13 +287,28 @@ All geometry uses the sha-locked `dm3.bsp` via the existing trace primitives in 
   it; land = the trailing grounded arrival; approach = the decelerating glide between). Per-tick label
   on the ego goal-conditioned `player_ticks` spine; **NULL on `actor_ticks`** (observed others have no
   ego goal/route context) and NULL on ego ticks outside any leg.
-- **[C] threat / line-of-sight (deferred TODO today, formalize here):** nearest-enemy / nearest-mate
-  distance + bearing (from `actor_ticks`); **LOS = BSP hull-0 ray-trace** observer-eye→target,
-  early-exit on first solid; `actor_visibility(is_visible = pvs ∧ fov ∧ los_clear)` + belief block
-  (`last_seen_*`, `time_since_seen_s`) per `00-DATA-ARCHITECTURE.md` §2.8. Used to **filter**
-  clean-movement segments (§6), not (yet) as a movement input.
-- **[E] item-urgency:** respawn-ETA-on-arrival + contest, per `00-DATA-ARCHITECTURE.md` §3.3–3.4 from
-  `items.respawn_seconds` + `item_events`.
+- **[C] threat / line-of-sight (BINDING + POPULATED — T8 #396):** `actor_visibility` is now derived
+  + populated per (episode, tick, ego-observer, target). **FOV** (`in_fov`) = target bearing/pitch
+  within the observer awareness cone (reuses `scripts/features/egocentric.py` `rel_bearing_deg`/
+  `rel_pitch_deg`; a generous 90° forward-hemisphere half-angle — LOS is the real gate, FOV only
+  drops targets behind the observer). **LOS** (`los_clear`) = a hull-0 point ray observer-eye→
+  target-eye (both lifted the QW view height **22 qu** above origin) via `pmove_sim`’s
+  `_recursive_hull_check` against the sha-locked `dm3.bsp`; clear iff the segment never enters solid
+  (fraction==1.0). **PVS** is an OPTIONAL perf prefilter that is **NOT sourced** — `pmove_sim` parses
+  BSP leafs/contents but not the visdata/PVS clusters, so `pvs_visible` is left **NULL** (“not
+  prefiltered”, never a fabricated boolean) and `is_visible = COALESCE(pvs_visible, TRUE) AND in_fov
+  AND los_clear` — LOS is the correctness gate. The **belief block** (`last_seen_{tick,t_s,o*,v*}`,
+  `time_since_seen_s`, `seen_ever`) carries forward the last-seen snapshot while the target is
+  invisible (0 while visible, NULL before ever seen — 3-state, never a sentinel). `vis_angle_source =
+  'demoparser'` (schema-33 carries real per-tick view yaw/pitch). Used to **filter** clean-movement
+  segments (§6.5), not (yet) as a movement input.
+- **[E] item-urgency (BINDING — T8 #396):** respawn-ETA-on-arrival + contest, per
+  `00-DATA-ARCHITECTURE.md` §3.3–3.4, from `items.respawn_seconds` + `item_events` (both populated).
+  These are the `source: derived` registry features `item_remaining_norm` / `item_eta_norm` /
+  `item_up_on_arrival` / `item_value_prior` — DERIVED at materialization from the populated source
+  tables (PIT-safe: only pickups at-or-before `t_now`), **not** new columns. The derivation lives in
+  `scripts/catalog_etl_mvd.py` (`item_respawn_at` / `item_urgency`); unobserved respawn = the 3rd
+  `unknown_flag` state (mask `remaining_norm`, never a sentinel).
 
 ---
 
@@ -330,6 +345,12 @@ explicit and normative:
      not TRUE) is never read as "no damage."
    This keeps combat/evasion segments (and era-gated-unknown segments) out, so the prior learns
    technique, not evasion.
+   - **Implementation (T8 #396).** `scripts/catalog_etl_mvd.py` `tick_is_clean(...)` is the
+     predicate. (a) is fed the distances of enemies that ALSO have line-of-sight this tick (from the
+     T8 `actor_visibility` layer — an enemy behind a wall is not active combat); (b) is fail-closed:
+     `damage_available is not True` returns `(False, "damage_unknown_fail_closed")` BEFORE any
+     event check, so a pre-era demo can never be certified clean. `THREAT_R`/`damage_window` are the
+     documented `CLEAN_THREAT_R_QU` / `CLEAN_DAMAGE_WINDOW_S` defaults (Phase-B-tunable constants).
 
 ---
 
@@ -352,14 +373,17 @@ explicit and normative:
   health/armor/armor_type + team_id + alive), `item_events`, `frag_events`, and `teams` from the MVD
   `-view full` decode; **T5 (#393)** added + filled `damage_events` (per-hit attacker/victim/weapon/
   amount + splash/env/self/teamkill flags) from the `-view full` `damage.events`, era-gated via
-  `demos.damage_available`. Still defined-but-empty: `actor_visibility` / `audio_cues` (T8 derived
-  layers); **T6 (#394)** added + filled the ammo (`shells/nails/rockets/cells`) + powerup-remaining
-  (`quad_rem/pent_rem/ring_rem`) source columns on `player_ticks` + `actor_ticks` from the same
-  `-view full` per-player streams; **T7 (#395)** added + populated the derived [G] geometry
-  (`floor_height/over_void/wall_dist/ledge_ahead/ramp_normal_z`), [R] `regime`, and `leg_phase`
-  columns on `player_ticks` + `actor_ticks` (geometry from the sha-locked `dm3.bsp` hull-1 traces;
-  regime from kinematics; leg-phase from the #334 route-leg segmentation — `leg_phase` NULL on
-  `actor_ticks`) — the report makes the remaining (defined-but-empty / derived) gaps explicit and
+  `demos.damage_available`; **T6 (#394)** added + filled the ammo (`shells/nails/rockets/cells`) +
+  powerup-remaining (`quad_rem/pent_rem/ring_rem`) source columns on `player_ticks` + `actor_ticks`
+  from the same `-view full` per-player streams; **T7 (#395)** added + populated the derived [G]
+  geometry (`floor_height/over_void/wall_dist/ledge_ahead/ramp_normal_z`), [R] `regime`, and
+  `leg_phase` columns on `player_ticks` + `actor_ticks` (geometry from the sha-locked `dm3.bsp`
+  hull-1 traces; regime from kinematics; leg-phase from the #334 route-leg segmentation — `leg_phase`
+  NULL on `actor_ticks`); **T8 (#396)** derived + populated the POMDP `actor_visibility` layer
+  (per (episode, tick, ego-observer, target) FOV + hull-0 LOS raycast + carried-forward belief, with
+  `pvs_visible` NULL — PVS not sourced, see §5 [C]) and wired the [E] item-urgency + §6.5
+  clean-movement filter derivations. Still defined-but-empty: **`audio_cues`** (the other T8 derived
+  layer, not in #396). The report makes the remaining (defined-but-empty / derived) gaps explicit and
   tracked.
 - **Durability:** every demo sha256 + size; decoder binary sha + schema version; spec id (§8);
   canonical on servexeri (~GB, not git, not aws-dev); only the summary + coverage report + this spec
@@ -405,8 +429,13 @@ row + a catalog column with the same metadata discipline:
   (derivable from entity origins). PENDING.
 - **[C] damage/economy coverage:** per-hit damage on older (pre-2024) demos if a future decoder
   recovers it (would relax the fail-closed exclusion of §6.5 for those demos).
-- **[E] items:** `item_events` populated from `-view full` item phases + backpack drops (T4 #392);
-  remaining reserved work is per-consumer respawn-ETA derivation + weapon-pickup effectiveness joins.
+- **[C] visibility / POMDP:** `actor_visibility` is **populated** (T8 #396 — FOV + hull-0 LOS +
+  belief; `pvs_visible` NULL, PVS not sourced). Genuinely reserved: a BSP visdata/PVS-cluster decoder
+  to fill `pvs_visible` as a real prefilter (perf-only; LOS already gates correctness), and the
+  `audio_cues` derived layer. PENDING.
+- **[E] items:** `item_events` populated from `-view full` item phases + backpack drops (T4 #392); the
+  respawn-ETA / contest derivation is wired (T8 #396 — `item_respawn_at`/`item_urgency`, the
+  `source: derived` registry features). Remaining reserved: weapon-pickup effectiveness joins.
 - **[A] actions:** wider QWD POV coverage (more matched MVD↔QWD pairs) → larger ground-truth +
   calibration set.
 - **[M]:** decoder-emitted frame-coverage / drop diagnostics.

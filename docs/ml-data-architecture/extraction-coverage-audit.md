@@ -280,25 +280,25 @@
 
 | column | class | decoder field | populated by | registry | reason |
 |---|---|---|---|---|---|
-| `episode_id` | structural | — | — | — | PK/FK/provenance/split bookkeeping |
-| `tick` | structural | — | — | — | PK/FK/provenance/split bookkeeping |
-| `observer_id` | structural | — | — | — | PK/FK/provenance/split bookkeeping |
-| `target_id` | structural | — | — | — | PK/FK/provenance/split bookkeeping |
-| `is_visible` | GAP | — | — | yes | spec'd POMDP gate (PVS+FOV+LOS); table empty. T8. |
-| `pvs_visible` | GAP | — | — | — | BSP visleaf prefilter; empty. T8. |
-| `in_fov` | GAP | — | — | — | bearing-in-FOV; empty. T8. |
-| `los_clear` | GAP | — | — | — | raycast on hull-0; empty. T8. |
-| `vis_angle_source` | structural | — | — | — | PK/FK/provenance/split bookkeeping |
-| `last_seen_tick` | structural | — | — | — | PK/FK/provenance/split bookkeeping |
-| `last_seen_t_s` | GAP | — | — | — | belief/memory block; empty. T8. |
-| `last_seen_ox` | GAP | — | — | yes | belief/memory block; empty. T8. |
-| `last_seen_oy` | GAP | — | — | — | belief/memory block; empty. T8. |
-| `last_seen_oz` | GAP | — | — | — | belief/memory block; empty. T8. |
-| `last_seen_vx` | GAP | — | — | — | belief/memory block; empty. T8. |
-| `last_seen_vy` | GAP | — | — | — | belief/memory block; empty. T8. |
-| `last_seen_vz` | GAP | — | — | — | belief/memory block; empty. T8. |
-| `time_since_seen_s` | GAP | — | — | yes | belief block; empty. T8. |
-| `seen_ever` | GAP | — | — | yes | belief block; empty. T8. |
+| `episode_id` | structural | — | mvd-etl | — | PK/FK/provenance/split bookkeeping |
+| `tick` | structural | — | mvd-etl | — | PK/FK/provenance/split bookkeeping |
+| `observer_id` | structural | — | mvd-etl | — | PK/FK/provenance/split bookkeeping |
+| `target_id` | structural | — | mvd-etl | — | PK/FK/provenance/split bookkeeping |
+| `is_visible` | derived | — | mvd-etl | yes | POMDP gate = COALESCE(pvs,TRUE) AND in_fov AND los_clear; derived offline (T8). |
+| `pvs_visible` | derived | — | mvd-etl | — | BSP visleaf prefilter NOT sourced (no visdata decoder) -> NULL; optional perf prefilter, LOS is the gate (T8). |
+| `in_fov` | derived | — | mvd-etl | — | target bearing within the observer awareness cone (reuses egocentric angle math) (T8). |
+| `los_clear` | derived | — | mvd-etl | — | raycast observer-eye->target-eye on dm3.bsp hull-0 (pmove_sim) (T8). |
+| `vis_angle_source` | derived | — | mvd-etl | — | 'demoparser' — schema-33 carries real per-tick view yaw/pitch (T8). |
+| `last_seen_tick` | structural | — | mvd-etl | — | PK/FK/provenance/split bookkeeping |
+| `last_seen_t_s` | derived | — | mvd-etl | — | belief/memory block carried forward when target invisible (T8). |
+| `last_seen_ox` | derived | — | mvd-etl | yes | belief/memory block carried forward when target invisible (T8). |
+| `last_seen_oy` | derived | — | mvd-etl | — | belief/memory block carried forward when target invisible (T8). |
+| `last_seen_oz` | derived | — | mvd-etl | — | belief/memory block carried forward when target invisible (T8). |
+| `last_seen_vx` | derived | — | mvd-etl | — | belief/memory block carried forward when target invisible (T8). |
+| `last_seen_vy` | derived | — | mvd-etl | — | belief/memory block carried forward when target invisible (T8). |
+| `last_seen_vz` | derived | — | mvd-etl | — | belief/memory block carried forward when target invisible (T8). |
+| `time_since_seen_s` | derived | — | mvd-etl | yes | seconds since last-seen (0 visible, NULL never-seen) (T8). |
+| `seen_ever` | derived | — | mvd-etl | yes | latches once the observer has ever seen the target (T8). |
 
 ### `audio_cues`
 
@@ -405,12 +405,12 @@ field codes + the QWD `usercmd_t` struct. Referenced by decoder **role**, not to
 | class | count |
 |---|---|
 | extracted | 84 |
-| derived | 29 |
+| derived | 43 |
 | excluded-with-reason | 43 |
-| **GAP** | **22** |
-| (structural: PK/FK/provenance) | 68 |
+| **GAP** | **9** |
+| (structural: PK/FK/provenance) | 67 |
 | (UNCLASSIFIED — needs a verdict) | 0 |
-| classified content columns | 178 |
+| classified content columns | 179 |
 
 ## GAP reconciliation (vs epic #388 / build-out plan)
 
@@ -425,4 +425,4 @@ only truly-new work — confirming the audit neither invents nor misses a gap:
 - G5: stored [G] geometry / [R] regime / leg-phase columns absent — ADDRESSED by T7 #395: floor_height/over_void/wall_dist/ledge_ahead/ramp_normal_z + regime + leg_phase added to player_ticks + actor_ticks and DERIVED (pmove_sim hull-1 traces over the sha-locked dm3.bsp for [G]; kinematics+ramp for [R]; route_legs #334 segmentation for leg-phase). They are now schema-defined + populated, appearing as DERIVED columns above (NULL where undefined, never fabricated; leg_phase NULL on actor_ticks — no ego goal context)
 - G6: docs/27 inaccuracies (frag_events/actor_visibility/audio_cues/teams called greenfield/reserved when schema-defined-but-empty; wrong schema path)
 
-**Scoping (which ticket each per-column GAP feeds):** `player_ticks` health/armor -> T3 (DONE); the omniscient `actor_ticks` all-players state + health/armor/armor_type + team_id, plus `item_events`/`frag_events`/`teams` -> T4 (DONE; from `-view full`). The GAPs that REMAIN: `player_ticks.armor_type`/`weapon` + `actor_ticks.weapon` (no honest active-weapon / ego armor-skin source without a decoder change), and `actor_visibility.*` + `audio_cues.*` -> T8. The `damage_events` table (G3) is now schema-defined + populated (T5 #393, era-gated via `demos.damage_available`), so it appears as extracted columns above. The ammo/powerup source columns (G4) are likewise now schema-defined + populated (T6 #394: `shells`/`nails`/`rockets`/`cells` + `quad_rem`/`pent_rem`/`ring_rem` on `player_ticks` + `actor_ticks`, from the same `-view full` streams), so they too appear as extracted columns above. The [G] geometry / [R] regime / leg-phase columns (G5) are now ADDRESSED by T7 #395: `floor_height`/`over_void`/`wall_dist`/`ledge_ahead`/`ramp_normal_z` + `regime` + `leg_phase` are schema-defined on `player_ticks` + `actor_ticks` and populated by the MVD ETL, so they appear as DERIVED columns above (computed from the sha-locked dm3.bsp hull-1 traces + kinematics + the route_legs #334 segmentation — NULL where undefined, never fabricated; `leg_phase` is NULL on `actor_ticks` for want of an ego goal context). No per-column GAP remains absent from the schema entirely.
+**Scoping (which ticket each per-column GAP feeds):** `player_ticks` health/armor -> T3 (DONE); the omniscient `actor_ticks` all-players state + health/armor/armor_type + team_id, plus `item_events`/`frag_events`/`teams` -> T4 (DONE; from `-view full`). The GAPs that REMAIN: `player_ticks.armor_type`/`weapon` + `actor_ticks.weapon` (no honest active-weapon / ego armor-skin source without a decoder change), and the `audio_cues.*` derived layer -> T8 (separate from visibility; not in #396). The `damage_events` table (G3) is now schema-defined + populated (T5 #393, era-gated via `demos.damage_available`), so it appears as extracted columns above. The ammo/powerup source columns (G4) are likewise now schema-defined + populated (T6 #394: `shells`/`nails`/`rockets`/`cells` + `quad_rem`/`pent_rem`/`ring_rem` on `player_ticks` + `actor_ticks`, from the same `-view full` streams), so they too appear as extracted columns above. The [G] geometry / [R] regime / leg-phase columns (G5) are now ADDRESSED by T7 #395: `floor_height`/`over_void`/`wall_dist`/`ledge_ahead`/`ramp_normal_z` + `regime` + `leg_phase` are schema-defined on `player_ticks` + `actor_ticks` and populated by the MVD ETL, so they appear as DERIVED columns above (computed from the sha-locked dm3.bsp hull-1 traces + kinematics + the route_legs #334 segmentation — NULL where undefined, never fabricated; `leg_phase` is NULL on `actor_ticks` for want of an ego goal context). The POMDP `actor_visibility.*` layer is now ADDRESSED by T8 #396: per (episode, tick, ego-observer, target) FOV (egocentric bearing cone) + LOS (observer-eye->target-eye hull-0 raycast on the sha-locked dm3.bsp) + carried-forward belief block, populated by the MVD ETL, so they appear as DERIVED columns above. PVS is an OPTIONAL perf prefilter that is NOT sourced here (pmove_sim does not decode the BSP visdata), so `pvs_visible` is left NULL and the gate COALESCEs it to TRUE — LOS is the correctness gate (honest degrade, never a fabricated PVS boolean). The `audio_cues.*` derived layer remains the one defined-but-empty T8 gap (out of #396 scope). No per-column GAP remains absent from the schema entirely.
