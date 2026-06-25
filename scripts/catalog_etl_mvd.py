@@ -499,10 +499,13 @@ def _extract_damage_events(data: dict) -> dict:
     block, present only in ~2024+ demos. Returns BOTH an availability flag and the rows so the
     caller can distinguish "unknown" (no block — pre-era) from "genuinely zero damage":
         {"available": bool, "events": [...]}
-    `available` is the presence of the top-level `damage` block (a dict). When False the demo is
-    pre-era: NO rows are emitted and demos.damage_available is set FALSE so absence is never read
-    as "no damage". When True the demo carries the authoritative stream (possibly 0 rows = real
-    zero damage). EMPIRICALLY VERIFIED on the real 4on4 book_vs_mix MVD (schema-33, sha 6954ffb6):
+    `available` requires the top-level `damage` block to be a dict carrying a LIST-valued `events`
+    field. An empty list is authoritative-zero (a real era demo with no hits → available=True). A
+    missing block (pre-era) OR a present block whose `events` is non-list (aggregate-only byPlayer
+    shape / schema drift) is fail-closed UNKNOWN → available=False. When False the demo is treated
+    as unknown: NO rows are emitted and demos.damage_available is set FALSE so absence/unknown is
+    never read as "no damage". When True the demo carries the authoritative stream (possibly 0 rows
+    = real zero damage). EMPIRICALLY VERIFIED on the real 4on4 book_vs_mix MVD (schema-33, sha 6954ffb6):
     each event is {time (ms), attacker (name), victim (name), weapon, damage (int), isSplash?,
     isEnv?, isSelf?, isTeam?}. attacker/victim are NAMES (insert_demo -> player_id); 'world' /
     fall / drown / trigger are environmental (no attacker player). victimWep is intentionally
@@ -510,8 +513,14 @@ def _extract_damage_events(data: dict) -> dict:
     block = data.get("damage")
     if not isinstance(block, dict):
         return {"available": False, "events": []}
+    events = block.get("events")
+    if not isinstance(events, list):
+        # (P1 #403) damage block present but no list-valued per-hit `events` (aggregate-only
+        # byPlayer shape / schema drift): the per-hit stream is ABSENT → UNKNOWN, fail-closed.
+        # Never mark available off a non-list events field (that would read as authoritative zero).
+        return {"available": False, "events": []}
     out = []
-    for e in block.get("events") or []:
+    for e in events:
         if not isinstance(e, dict):
             continue
         attacker, victim = e.get("attacker"), e.get("victim")

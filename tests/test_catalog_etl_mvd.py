@@ -486,6 +486,25 @@ class WorldExtractTest(unittest.TestCase):
         self.assertTrue(empty["available"])
         self.assertEqual(empty["events"], [])
 
+    def test_extract_damage_events_non_list_events_is_unavailable_not_zero(self):
+        # FAIL-CLOSED (P1 #403): a `damage` block present but WITHOUT a list-valued per-hit
+        # `events` field (aggregate-only byPlayer shape / missing events / schema drift) must NOT
+        # be marked available -- that would read as authoritative ZERO when the per-hit stream is
+        # actually ABSENT/UNKNOWN. available=False, NO rows.
+        aggregate_only = etl._extract_damage_events({"damage": {"byPlayer": {"zero": 120}}})
+        self.assertFalse(aggregate_only["available"])
+        self.assertEqual(aggregate_only["events"], [])
+        missing_events = etl._extract_damage_events({"damage": {}})
+        self.assertFalse(missing_events["available"])
+        self.assertEqual(missing_events["events"], [])
+        non_list = etl._extract_damage_events({"damage": {"events": "notalist"}})
+        self.assertFalse(non_list["available"])
+        self.assertEqual(non_list["events"], [])
+        # GUARD against over-correcting: a genuine EMPTY LIST is still authoritative-zero/available.
+        empty_list = etl._extract_damage_events({"damage": {"events": []}})
+        self.assertTrue(empty_list["available"])
+        self.assertEqual(empty_list["events"], [])
+
 
 def _world_rec(sha):
     """A small two-player `rec` carrying both an episode (for player_ticks) and the T4 world."""
