@@ -92,6 +92,14 @@ class TestClassification(unittest.TestCase):
                              f"damage_events.{col} should be extracted (T5)")
         self.assertEqual(audit.classify_column("demos", "damage_available")[0], audit.EXTRACTED)
 
+    def test_t6_ammo_powerup_extracted(self):
+        # T6: ammo + powerup-remaining source columns classify extracted on BOTH tables (G4 closed).
+        for col in ("shells", "nails", "rockets", "cells", "quad_rem", "pent_rem", "ring_rem"):
+            self.assertEqual(audit.classify_column("player_ticks", col)[0], audit.EXTRACTED,
+                             f"player_ticks.{col} should be extracted (T6)")
+            self.assertEqual(audit.classify_column("actor_ticks", col)[0], audit.EXTRACTED,
+                             f"actor_ticks.{col} should be extracted (T6)")
+
     def test_known_extracted_derived_excluded(self):
         self.assertEqual(audit.classify_column("player_ticks", "ox")[0], audit.EXTRACTED)
         # T3: MVD health/armor event stream now populates these (GAP -> extracted)

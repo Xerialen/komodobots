@@ -359,6 +359,37 @@ def _step_timeline(steps) -> tuple:
     return ts, vs
 
 
+def _ammo_timelines(player: dict) -> dict:
+    """T6: forward-fill timelines for the per-player ammo counts. The `-view full` per-player
+    block carries `sh`/`nl`/`rk`/`cl` as `[{t (ms), v}]` step lists (verified on the real 4on4
+    book_vs_mix MVD), same shape as `h`/`a`. Returns {col: (ts, vs)} for _fill_resource to
+    forward-fill the at-or-before count onto each tick. Empty when a stream is absent."""
+    return {
+        "shells": _step_timeline(player.get("sh")),
+        "nails": _step_timeline(player.get("nl")),
+        "rockets": _step_timeline(player.get("rk")),
+        "cells": _step_timeline(player.get("cl")),
+    }
+
+
+def _powerup_remaining(intervals, t_ms: int):
+    """T6: seconds remaining on a powerup at demo-time t_ms, or None if not held.
+
+    The `-view full` per-player powerup streams `q`/`pe`/`r` are HELD INTERVALS `[{s, e}]` in ms
+    (verified: full pickups run ~30000 ms; truncated by death/re-pickup). When t_ms falls inside
+    an interval `[s, e]`, the RAW remaining time is (e - t_ms)/1000 s; outside every interval the
+    powerup is not held -> None (NULL, never 0 — the feature layer applies the /60,/300,/60 norm)."""
+    for iv in intervals or []:
+        if not isinstance(iv, dict):
+            continue
+        s, e = iv.get("s"), iv.get("e")
+        if s is None or e is None:
+            continue
+        if int(s) <= t_ms <= int(e):
+            return (int(e) - t_ms) / 1000.0
+    return None
+
+
 def _alive_timeline(death_ms: list, spawn_steps) -> tuple:
     """Build an (ts, vs) alive step-timeline (vs in {True,False}) from a player's death-tick list
     `d` (ms) and spawn-event step list (the `sp` stream, when present). A death sets alive=False;
@@ -399,6 +430,9 @@ def _actor_samples(player: dict) -> dict:
     a_tl = _step_timeline(player.get("a"))
     at_tl = _step_timeline(player.get("at"))
     alive_tl = _alive_timeline(player.get("d") or [], player.get("sp"))
+    # (T6) per-player ammo step-timelines + powerup held-intervals (same omniscient `-view full`).
+    ammo_tl = _ammo_timelines(player)
+    q_iv, pe_iv, r_iv = player.get("q"), player.get("pe"), player.get("r")
     ts, rows = [], []
     for i in range(n):
         t_ms = int(t[i])
@@ -415,6 +449,14 @@ def _actor_samples(player: dict) -> dict:
             "hspeed": round(math.hypot(float(vx[i]), float(vy[i])), 3),
             "health": hp, "armor": ap, "armor_type": at_code,
             "alive": (None if alive is None else bool(alive)),
+            # (T6) ammo (forward-filled count) + powerup remaining-seconds (None when not held)
+            "shells": _fill_resource(ammo_tl["shells"], t_ms),
+            "nails": _fill_resource(ammo_tl["nails"], t_ms),
+            "rockets": _fill_resource(ammo_tl["rockets"], t_ms),
+            "cells": _fill_resource(ammo_tl["cells"], t_ms),
+            "quad_rem": _powerup_remaining(q_iv, t_ms),
+            "pent_rem": _powerup_remaining(pe_iv, t_ms),
+            "ring_rem": _powerup_remaining(r_iv, t_ms),
         })
     return {"t": ts, "rows": rows}
 
@@ -645,6 +687,12 @@ def _pack_episode(seg, seg_onground, seg_jump, start_tick: int) -> dict:
             # armor_type/weapon stay NULL: the -event-types stream carries STAT-equivalent
             # health/armor VALUES but not the armor skin/type nor STAT_ACTIVEWEAPON.
             "health": f.get("health"), "armor": f.get("armor"),
+            # (T6) ammo counts (forward-filled) + powerup remaining-seconds (None when not held),
+            # forward-filled from the `-view full` per-player sh/nl/rk/cl + q/pe/r in extract_demo.
+            "shells": f.get("shells"), "nails": f.get("nails"),
+            "rockets": f.get("rockets"), "cells": f.get("cells"),
+            "quad_rem": f.get("quad_rem"), "pent_rem": f.get("pent_rem"),
+            "ring_rem": f.get("ring_rem"),
             "fwd": FORWARDMOVE_PRIOR, "side": side, "up": upmove,
             "buttons": buttons,
             "cmd_yaw": yaw, "cmd_pitch": pitch,
@@ -749,9 +797,21 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
             continue
         # (T3) forward-fill this player's health/armor onto each frame by demo-time (t_ms).
         rt = _resource_timeline(events, p.get("name") or "")
+        # (T6) per-player ammo step-timelines + powerup held-intervals from the SAME `-view full`
+        # decode (no extra binary run): forward-fill ammo counts, and compute remaining-seconds
+        # for each powerup that is held at the tick (None when not held).
+        ammo_tl = _ammo_timelines(p)
+        q_iv, pe_iv, r_iv = p.get("q"), p.get("pe"), p.get("r")
         for f in frames:
             f["health"] = _fill_resource(rt["health"], f["t_ms"])
             f["armor"] = _fill_resource(rt["armor"], f["t_ms"])
+            f["shells"] = _fill_resource(ammo_tl["shells"], f["t_ms"])
+            f["nails"] = _fill_resource(ammo_tl["nails"], f["t_ms"])
+            f["rockets"] = _fill_resource(ammo_tl["rockets"], f["t_ms"])
+            f["cells"] = _fill_resource(ammo_tl["cells"], f["t_ms"])
+            f["quad_rem"] = _powerup_remaining(q_iv, f["t_ms"])
+            f["pent_rem"] = _powerup_remaining(pe_iv, f["t_ms"])
+            f["ring_rem"] = _powerup_remaining(r_iv, f["t_ms"])
         onground = _recover_onground(frames, prober)
         jump = _recover_jumps(onground, frames)
 
@@ -899,13 +959,17 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
                 con.execute(
                     """INSERT INTO player_ticks
                        (episode_id, tick, t_s, msec, ox, oy, oz, vx, vy, vz,
-                        pitch, yaw, roll, hspeed, onground, onground_is_proxy, health, armor)
-                       VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?)""",
+                        pitch, yaw, roll, hspeed, onground, onground_is_proxy, health, armor,
+                        shells, nails, rockets, cells, quad_rem, pent_rem, ring_rem)
+                       VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?, ?,?,?,?, ?,?,?)""",
                     (episode_id, r["tick"], r["t_s"], r["msec"],
                      r["ox"], r["oy"], r["oz"], r["vx"], r["vy"], r["vz"],
                      r["pitch"], r["yaw"], r["roll"], r["hspeed"],
                      r["onground"], True,  # onground_is_proxy=TRUE (geometric, no server flag)
-                     r.get("health"), r.get("armor")),  # T3 forward-filled; armor_type/weapon NULL
+                     r.get("health"), r.get("armor"),  # T3 forward-filled; armor_type/weapon NULL
+                     # (T6) ammo counts + powerup remaining-seconds (NULL when not held)
+                     r.get("shells"), r.get("nails"), r.get("rockets"), r.get("cells"),
+                     r.get("quad_rem"), r.get("pent_rem"), r.get("ring_rem")),
                 )
                 n_tick += 1
                 con.execute(
@@ -934,12 +998,16 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
                         """INSERT OR IGNORE INTO actor_ticks
                            (episode_id, tick, actor_id, team_id, alive, ox, oy, oz, vx, vy, vz,
                             pitch, yaw, roll, hspeed, onground, onground_is_proxy,
-                            health, armor, armor_type, weapon)
-                           VALUES (?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?,?)""",
+                            health, armor, armor_type, weapon,
+                            shells, nails, rockets, cells, quad_rem, pent_rem, ring_rem)
+                           VALUES (?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?)""",
                         (episode_id, r["tick"], pid_by_name[aname], team_id_by_player.get(aname),
                          s["alive"], s["ox"], s["oy"], s["oz"], s["vx"], s["vy"], s["vz"],
                          s["pitch"], s["yaw"], s["roll"], s["hspeed"],
-                         None, False, s["health"], s["armor"], s["armor_type"], None),
+                         None, False, s["health"], s["armor"], s["armor_type"], None,
+                         # (T6) per-actor ammo counts + powerup remaining-seconds (NULL when not held)
+                         s["shells"], s["nails"], s["rockets"], s["cells"],
+                         s["quad_rem"], s["pent_rem"], s["ring_rem"]),
                     )
                     n_actor += 1
 

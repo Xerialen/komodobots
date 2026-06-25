@@ -163,6 +163,13 @@
 | `armor` | extracted | state.armor | mvd-etl | yes | MVD ETL forward-fills the `-event-types armor` value step-timeline onto each tick (T3). NULL on QWD. |
 | `armor_type` | GAP | state.armor_type | — | yes | still GAP after T3: the `-event-types armor` stream carries the AP VALUE but not the armor skin/type; no GA/YA/RA source in the per-tick streams. Deferred (derive from item pickups / T7). |
 | `weapon` | GAP | state.weapon_held | qwd-etl | yes | still GAP after T3: the `-event-types weapon` stream is gain/lose INVENTORY, not STAT_ACTIVEWEAPON (the 'active weapon id' the column means); QWD decoder skips SVC_UPDATESTAT. No honest active-weapon source without a decoder change. Deferred. |
+| `shells` | extracted | state.ammo | mvd-etl | — | MVD ETL forward-fills the `-view full` `sh` step-timeline onto each tick (T6). NULL on QWD. |
+| `nails` | extracted | state.ammo | mvd-etl | — | MVD ETL forward-fills the `-view full` `nl` step-timeline (T6). NULL on QWD. |
+| `rockets` | extracted | state.ammo | mvd-etl | — | MVD ETL forward-fills the `-view full` `rk` step-timeline (T6). NULL on QWD. |
+| `cells` | extracted | state.ammo | mvd-etl | — | MVD ETL forward-fills the `-view full` `cl` step-timeline (T6). NULL on QWD. |
+| `quad_rem` | extracted | state.powerups | mvd-etl | — | MVD ETL derives remaining-seconds from the `-view full` `q` held-interval [s,e] at each tick (T6); NULL when not held. NULL on QWD. |
+| `pent_rem` | extracted | state.powerups | mvd-etl | — | MVD ETL derives remaining-seconds from the `-view full` `pe` held-interval at each tick (T6); NULL when not held. NULL on QWD. |
+| `ring_rem` | extracted | state.powerups | mvd-etl | — | MVD ETL derives remaining-seconds from the `-view full` `r` held-interval at each tick (T6); NULL when not held. NULL on QWD. |
 
 ### `item_events`
 
@@ -247,6 +254,13 @@
 | `armor` | extracted | state.armor | mvd-etl | yes | MVD forward-fills each player's `a` step-timeline (T4); QWD NULL |
 | `armor_type` | extracted | state.armor_type | mvd-etl | yes | MVD forward-fills each player's `at` ('ga'/'ya'/'ra') step-timeline -> 0/1/2 (T4). The `-view full` `at` stream carries the skin/type the T3 `-event-types armor` decode lacked; QWD NULL |
 | `weapon` | GAP | state.weapon_held | mvd-etl | yes | still GAP after T4: the per-tick weapon stream is gain/lose INVENTORY, not STAT_ACTIVEWEAPON (the active-weapon id the column means) — no honest active-weapon source without a decoder change. Deferred. |
+| `shells` | extracted | state.ammo | mvd-etl | — | MVD forward-fills each player's `-view full` `sh` step-timeline (T6); QWD NULL |
+| `nails` | extracted | state.ammo | mvd-etl | — | MVD forward-fills each player's `nl` step-timeline (T6); QWD NULL |
+| `rockets` | extracted | state.ammo | mvd-etl | — | MVD forward-fills each player's `rk` step-timeline (T6); QWD NULL |
+| `cells` | extracted | state.ammo | mvd-etl | — | MVD forward-fills each player's `cl` step-timeline (T6); QWD NULL |
+| `quad_rem` | extracted | state.powerups | mvd-etl | — | MVD derives remaining-seconds from each player's `q` held-interval at each tick (T6; NULL when not held); QWD NULL |
+| `pent_rem` | extracted | state.powerups | mvd-etl | — | MVD derives remaining-seconds from each player's `pe` held-interval (T6; NULL when not held); QWD NULL |
+| `ring_rem` | extracted | state.powerups | mvd-etl | — | MVD derives remaining-seconds from each player's `r` held-interval (T6; NULL when not held); QWD NULL |
 
 ### `actor_visibility`
 
@@ -375,13 +389,13 @@ field codes + the QWD `usercmd_t` struct. Referenced by decoder **role**, not to
 
 | class | count |
 |---|---|
-| extracted | 70 |
+| extracted | 84 |
 | derived | 15 |
 | excluded-with-reason | 43 |
 | **GAP** | **22** |
 | (structural: PK/FK/provenance) | 68 |
 | (UNCLASSIFIED — needs a verdict) | 0 |
-| classified content columns | 150 |
+| classified content columns | 164 |
 
 ## GAP reconciliation (vs epic #388 / build-out plan)
 
@@ -392,7 +406,7 @@ only truly-new work — confirming the audit neither invents nor misses a gap:
 - G1: no coverage audit (THIS script fills it)
 - G2: schema-file drift (scripts/catalog_schema.sql operative vs data/catalog/catalog.sql dup vs registry's dangling `schema/catalog.sql` reference)
 - G3: damage_events table absent (only frag_events exists) — ADDRESSED by T5 #393: the table is now schema-defined + populated from `-view full` damage.events, era-gated via demos.damage_available (fail-closed)
-- G4: ammo + powerup-remaining source columns absent (registry defines the features)
+- G4: ammo + powerup-remaining source columns absent (registry defines the features) — ADDRESSED by T6 #394: shells/nails/rockets/cells + quad_rem/pent_rem/ring_rem added to player_ticks + actor_ticks and populated from the same `-view full` per-player sh/nl/rk/cl + q/pe/r streams (ammo forward-filled; powerup remaining-seconds derived from the held-interval, NULL when not held)
 - G5: stored [G] geometry / [R] regime / leg-phase columns absent
 - G6: docs/27 inaccuracies (frag_events/actor_visibility/audio_cues/teams called greenfield/reserved when schema-defined-but-empty; wrong schema path)
 
