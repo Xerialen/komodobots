@@ -392,8 +392,12 @@ def classify_regime(hspeed, onground, ramp_normal_z, waterlevel=None) -> str | N
 
 
 # --- (T8 #396) POMDP visibility: FOV + LOS + belief ---------------------------
-# Cheapest-first per 00-DATA-ARCHITECTURE §2.8: PVS prefilter -> FOV -> LOS raycast.
-# `is_visible = COALESCE(pvs_visible, TRUE) AND in_fov AND los_clear`.
+# `is_visible = COALESCE(pvs_visible, TRUE) AND in_fov AND los_clear` (00-DATA-ARCHITECTURE §2.8).
+# `in_fov` and `los_clear` are INDEPENDENT predicates: in_fov tests the view cone, los_clear is the
+# hull-0 eye->eye occlusion ray. los_clear is NOT FOV-gated (the raycast runs for every pair, even
+# behind the observer) — the §6.5 clean-movement / threat filter needs true LOS for a behind-but-
+# unobstructed enemy. FOV gates only the FINAL is_visible. (PVS is the only optional perf prefilter,
+# and it is not sourced — see PVS_NOT_SOURCED.)
 #
 # PVS HONESTY DECISION (documented, NOT fabricated). pmove_sim.WorldModel parses the BSP
 # leafs/contents but does NOT decode the visdata/PVS clusters, so a true BSP-visleaf PVS
@@ -431,12 +435,20 @@ def derive_visibility(prober, observer_origin, observer_yaw_deg, observer_pitch_
     """(T8 #396) One (observer, target) visibility verdict at one tick (cheapest-first).
 
     Returns {pvs_visible, in_fov, los_clear, is_visible}. PVS is NULL (not sourced, see
-    PVS_NOT_SOURCED). FOV gates LOS (skip the raycast when the target is behind the observer —
-    cheapest-first). `is_visible = COALESCE(pvs, TRUE) AND in_fov AND los_clear`."""
+    PVS_NOT_SOURCED). `los_clear` is the hull-0 eye->eye raycast, computed INDEPENDENTLY of FOV
+    (the column contract is 'the ray is unobstructed', NOT 'visible after FOV gating') — a target
+    BEHIND the observer with a clear ray is `los_clear=True`. FOV gates only the FINAL verdict:
+    `is_visible = COALESCE(pvs, TRUE) AND in_fov AND los_clear`. Consumers (the §6.5 clean-movement
+    filter / threat logic) need true per-pair LOS regardless of the view cone, so the raycast runs
+    for every pair (no FOV short-circuit). `los_clear` is NULL only when the ray cannot be honestly
+    evaluated (an endpoint position is missing), and a NULL los never fabricates is_visible True."""
     fov = in_fov(observer_origin, observer_yaw_deg, observer_pitch_deg, target_origin)
-    los = bool(prober.los_clear(observer_origin, target_origin)) if fov else False
+    if None in observer_origin or None in target_origin:
+        los = None                                  # unevaluable ray -> NULL, never a fake False
+    else:
+        los = bool(prober.los_clear(observer_origin, target_origin))
     pvs = PVS_NOT_SOURCED
-    is_vis = (True if pvs is None else pvs) and fov and los
+    is_vis = bool((True if pvs is None else pvs) and fov and (los is True))
     return {"pvs_visible": pvs, "in_fov": fov, "los_clear": los, "is_visible": is_vis}
 
 

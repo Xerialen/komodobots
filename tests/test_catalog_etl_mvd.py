@@ -1850,12 +1850,24 @@ class LosClearTest(unittest.TestCase):
         self.assertFalse(v_wall["los_clear"])
         self.assertFalse(v_wall["is_visible"])
 
-    def test_target_behind_skips_los_and_is_invisible(self):
-        # observer facing EAST (yaw 0) but the open target is to the WEST -> behind -> in_fov False
-        # -> is_visible False without needing a clear LOS.
+    def test_target_behind_open_los_is_clear_but_invisible(self):
+        # #406 P1 regression: los_clear is the eye->eye raycast, INDEPENDENT of FOV. Observer faces
+        # EAST (yaw 0) but the OPEN target is to the WEST -> behind the view cone (in_fov False) yet
+        # the ray is unobstructed -> los_clear MUST be True (true LOS, so the §6.5 threat filter can
+        # treat a behind-but-visible enemy as active combat). FOV gates only the final is_visible.
         v = etl.derive_visibility(self.prober, (1591.0, 526.0, -80.0), 0.0, 0.0,
                                   (1511.0, 526.0, -80.0))
+        self.assertFalse(v["in_fov"])      # behind the cone
+        self.assertTrue(v["los_clear"])    # ray still unobstructed (NOT FOV-gated)
+        self.assertFalse(v["is_visible"])  # FOV gates the final verdict
+
+    def test_target_behind_and_walled_los_is_blocked(self):
+        # Behind the cone AND occluded by the wall -> los_clear False on its own merits (the wall),
+        # not because of FOV. Confirms the independent raycast still reports a real occluder.
+        v = etl.derive_visibility(self.prober, (1591.0, 526.0, -80.0), 0.0, 0.0,
+                                  (1391.0, 526.0, -80.0))
         self.assertFalse(v["in_fov"])
+        self.assertFalse(v["los_clear"])
         self.assertFalse(v["is_visible"])
 
 

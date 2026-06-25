@@ -404,13 +404,13 @@ CREATE TABLE actor_visibility (
     tick         INTEGER NOT NULL,
     observer_id  INTEGER NOT NULL REFERENCES players(player_id),
     target_id    INTEGER NOT NULL REFERENCES players(player_id),
-    is_visible   BOOLEAN,                            -- final gate = pvs_visible AND in_fov AND los_clear
-    pvs_visible  BOOLEAN,                            -- BSP visleaf PVS prefilter (cheapest)
+    is_visible   BOOLEAN,                            -- final gate = COALESCE(pvs_visible,TRUE) AND in_fov AND los_clear
+    pvs_visible  BOOLEAN,                            -- BSP visleaf PVS prefilter; NOT sourced -> NULL (COALESCEd TRUE)
     in_fov       BOOLEAN,                            -- target bearing within observer yaw/pitch FOV
-    los_clear    BOOLEAN,                            -- raycast eye->target on hull 0 unobstructed
-    vis_angle_source TEXT,                           -- OPEN DECISION: 'demoparser'|'idm_proxy'
-                                                     --   observer view angles are demoparser-only;
-                                                     --   state-only MVDs fall back to an IDM/angle proxy
+    los_clear    BOOLEAN,                            -- hull-0 eye->eye raycast unobstructed, INDEPENDENT of FOV
+    vis_angle_source TEXT,                           -- 'demoparser' for the schema-33 corpus (real per-tick
+                                                     --   view yaw/pitch); the 'idm_proxy' fallback is for a
+                                                     --   future angle-less state-only MVD source (not used here)
     -- belief / memory block (carried forward when target is invisible)
     last_seen_tick   INTEGER,                        -- last tick is_visible was TRUE
     last_seen_t_s    REAL,                           -- seconds
