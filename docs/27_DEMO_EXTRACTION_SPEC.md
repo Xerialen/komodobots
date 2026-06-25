@@ -148,12 +148,14 @@ schema exists, **not populated** from MVD entity state today. Respawn-ETA + cont
 `00-DATA-ARCHITECTURE.md` §3.3–3.4 (item-urgency [E], feeds [C] filtering).
 
 ### 3.6 Combat events — frags / deaths / damage [C]
-`frags` (chronological, killer/victim/weapon, suicide/teamkill), deaths (deduped: STAT_HEALTH +
+`frag_events` (chronological, killer/victim/weapon, suicide/teamkill), deaths (deduped: STAT_HEALTH +
 DF_DEAD + obituary), `damage_events` (per-hit attacker/victim/weapon/amount/splash, **era-gated** to
-~2024+ KTX demos). **Status (v1): PENDING** (§9) — no `frags`/`damage_events` table exists yet; these
-are not part of the v1 binding contract until the schema adds them (binding rule, §3.4). The movement
-pillar uses these only to **filter** clean-movement segments (§6, fail-closed on unknown damage); they
-are the combat pillar's core.
+~2024+ KTX demos). **Status (v1): `frag_events` is binding (schema-defined, currently unpopulated);
+`damage_events` is PENDING** (§9). The `frag_events` table exists in `scripts/catalog_schema.sql` —
+it is part of the v1 binding contract and is filled by a later population ticket — whereas no
+`damage_events` table exists yet, so that one stays PENDING until the schema adds it (binding rule,
+§3.4). The movement pillar uses these only to **filter** clean-movement segments (§6, fail-closed on
+unknown damage); they are the combat pillar's core.
 
 ### 3.7 World / movers / static — `maps`, `markers`, `nav_edges`, movers
 Map AABB + physics constants (`maps`); Frogbot nav graph (`markers`, `nav_edges` — POPULATED);
@@ -299,17 +301,22 @@ explicit and normative:
 
 ## 7. The data deliverable (format, completeness, durability, validation)
 
-- **Storage = the relational catalog (SQLite), source of truth.** Tables (`scripts/catalog_schema.sql`):
-  `demos`, `players`, `teams`, `maps`, `markers`, `nav_edges`, `items`, `episodes`, `player_ticks`,
-  `actor_ticks`, `actions`, `actor_visibility`, `item_events`, (+ greenfield `frags`,
-  `damage_events`, leg/segment + [G]/[R] columns). Optional per-consumer **parquet** export; SQLite
-  remains canonical.
+- **Storage = the relational catalog (SQLite), source of truth.** Tables (`scripts/catalog_schema.sql`,
+  18 tables — all defined; the 4on4 ones below are schema-defined but currently empty, populated by
+  later tickets): `demos`, `players`, `teams`, `maps`, `markers`, `nav_edges`, `items`, `item_value`,
+  `episodes`, `player_ticks`, `actor_ticks`, `actions`, `feature_partitions`, `actor_visibility`,
+  `audio_cues`, `frag_events`, `region_control_timeline`, `item_events` (+ genuinely greenfield
+  `damage_events`, leg/segment + [G]/[R] columns — not yet in the schema). Optional per-consumer
+  **parquet** export; SQLite remains canonical.
 - **Raw-maximal principle:** store observed + finite-diff + geometry-derived; do **not** store
   model-specific normalized obs (those are built downstream from `feature_registry.yaml`).
 - **Completeness method:** the coverage audit (§3.9) diffs the populated catalog against the decoder
   Result inventory → a committed **coverage report** (extracted / derived / excluded-with-reason).
-  **Current state:** only the *movement* slice is populated; §3.4/3.5/3.6 (status/items/combat) have
-  schema but are unpopulated — the report makes that gap explicit and tracked.
+  **Current state:** only the *movement* slice is populated; the §3.4/3.5/3.6 (status/items/combat)
+  tables that exist in the schema (e.g. `item_events`, `frag_events`, `actor_visibility`,
+  `audio_cues`, `teams`, `region_control_timeline`) are defined-but-empty, and `damage_events` plus
+  the ammo/powerup columns are not yet in the schema at all — the report makes both kinds of gap
+  explicit and tracked.
 - **Durability:** every demo sha256 + size; decoder binary sha + schema version; spec id (§8);
   canonical on servexeri (~GB, not git, not aws-dev); only the summary + coverage report + this spec
   are committed.
@@ -345,8 +352,10 @@ row + a catalog column with the same metadata discipline:
 - **[E] ammo/powerups (reserved storage):** `player_ticks`/`actor_ticks.shells/nails/rockets/cells`
   columns + a powerup-interval table (quad/pent/ring held spans). PENDING per §3.4; moves to binding
   when the schema adds the columns/table under change-control (§8).
-- **[C] combat tables (reserved storage):** `frags` + `damage_events` tables (per §3.6); weapon-fire
-  events; projectile (rocket/grenade/nail) tracks (derivable from entity origins). PENDING.
+- **[C] combat tables:** `frag_events` already exists in the schema (binding, currently unpopulated —
+  filled by a later population ticket, NOT reserved). Genuinely reserved (no table yet): the
+  `damage_events` table (per §3.6); weapon-fire events; projectile (rocket/grenade/nail) tracks
+  (derivable from entity origins). PENDING.
 - **[C] damage/economy coverage:** per-hit damage on older (pre-2024) demos if a future decoder
   recovers it (would relax the fail-closed exclusion of §6.5 for those demos).
 - **[E] items:** populated `item_events` from entity state on all demos; backpack/weapon-drop events.

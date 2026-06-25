@@ -19,7 +19,7 @@ from pathlib import Path
 
 
 LOGGER = logging.getLogger(__name__)
-# canonical item_type vocabulary (catalog.sql items.item_type comment)
+# canonical item_type vocabulary (catalog_schema.sql items.item_type comment)
 ITEM_TYPES = {
     "rl", "ra", "ya", "ga", "mh", "quad", "pent", "ring", "ssg", "ng", "sng",
     "gl", "lg", "cells", "rockets", "nails", "shells", "health25", "health15",

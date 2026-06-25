@@ -92,7 +92,7 @@ def _tiny_catalog(path: Path) -> None:
     real corpus."""
     import sqlite3
 
-    sql = (REPO_ROOT / "data" / "catalog" / "catalog.sql").read_text(encoding="utf-8")
+    sql = (REPO_ROOT / "scripts" / "catalog_schema.sql").read_text(encoding="utf-8")
     con = sqlite3.connect(str(path))
     con.executescript(sql)
     con.execute("""INSERT INTO maps
@@ -147,7 +147,7 @@ def _tiny_catalog_teamed(path: Path) -> None:
     """
     import sqlite3
 
-    sql = (REPO_ROOT / "data" / "catalog" / "catalog.sql").read_text(encoding="utf-8")
+    sql = (REPO_ROOT / "scripts" / "catalog_schema.sql").read_text(encoding="utf-8")
     con = sqlite3.connect(str(path))
     con.executescript(sql)
     con.execute("""INSERT INTO maps
@@ -358,7 +358,7 @@ class TestP3ObservationShard(unittest.TestCase):
             db = Path(d) / "tiny20.sqlite"
             # one TRAIN episode, ticks 0..19 (the Codex repro length). pos_x = 100+tick is a
             # strictly-monotone SELF channel so each tick's SELF vector is unique.
-            sql = (REPO_ROOT / "data" / "catalog" / "catalog.sql").read_text(encoding="utf-8")
+            sql = (REPO_ROOT / "scripts" / "catalog_schema.sql").read_text(encoding="utf-8")
             con = sqlite3.connect(str(db))
             con.executescript(sql)
             con.execute("""INSERT INTO maps
@@ -513,7 +513,7 @@ def _tiny_catalog_turning(path: Path) -> None:
     heading / face_vel_angle are defined, above the 80 qu/s floor)."""
     import sqlite3
 
-    sql = (REPO_ROOT / "data" / "catalog" / "catalog.sql").read_text(encoding="utf-8")
+    sql = (REPO_ROOT / "scripts" / "catalog_schema.sql").read_text(encoding="utf-8")
     con = sqlite3.connect(str(path))
     con.executescript(sql)
     con.execute("""INSERT INTO maps

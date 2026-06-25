@@ -13,7 +13,7 @@
 # -> zero training-serving skew.
 #
 # Each feature traces to:
-#   - a real column in catalog.sql (source) OR a formula over such columns
+#   - a real column in catalog_schema.sql (source) OR a formula over such columns
 #   - a normalization method + a `stats_key` into normalization_stats.template.json
 #
 # leakage_safe: true  => uses only state at tick <= t (PIT-safe).
@@ -28,7 +28,7 @@
 registry_version: 5
 entity: { name: agent, join_keys: [episode_id, tick] }
 normalization_artifact: norm/normalization_stats.template.json
-catalog: schema/catalog.sql
+catalog: ../../scripts/catalog_schema.sql
 defaults: { group: per_map }   # spatial/velocity features normalized per-map by default
 constants:
   eps: 1.0e-6
