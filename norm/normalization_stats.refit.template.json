@@ -1,0 +1,198 @@
+{
+  "_fit_n_rows": 8,
+  "_fixture_derived": true,
+  "_fixture_note": "TEMPLATE \u2014 stat VALUES are derived from a SMALL fixture catalog, not the real 1537-demo corpus. The refit MACHINERY (train-split-only Welford/robust) is what is asserted by tests; the real refit over the gated corpus runs on servexeri and writes the production gold/norm/normalization_stats.json. Do NOT read these numbers as corpus stats.",
+  "artifact_version": "0.5.0-refit-template-fixture",
+  "computed_from": "train",
+  "computed_with": {
+    "algorithm": "welford_online + chan_parallel_merge",
+    "ddof": 0
+  },
+  "constants": {
+    "map_diagonal": {
+      "dm3": 3797.1
+    }
+  },
+  "dataset_version": "FIXTURE",
+  "divide_period": {
+    "armor": 200.0,
+    "cl": 200.0,
+    "eta_cap": 10.0,
+    "forwardmove": 400.0,
+    "health": 250.0,
+    "nl": 200.0,
+    "pent_remaining": 300.0,
+    "quad_remaining": 60.0,
+    "ring_remaining": 60.0,
+    "rk": 100.0,
+    "sh": 100.0,
+    "sidemove": 400.0,
+    "upmove": 400.0
+  },
+  "fitted_on": "FIXTURE train split (8 synthetic ticks) \u2014 NOT the 1537-demo corpus",
+  "git_sha": "UNSET",
+  "per_map": {
+    "dm3": {
+      "_ammo_empirical_train_only": {
+        "cells": {
+          "_diagnostic": "empirical robust fit (train-only); the OBS contract uses the constant divide_period cap, this is a provenance check",
+          "clip": [
+            0.0,
+            200.0
+          ],
+          "computed_from": {
+            "n": 8
+          },
+          "iqr": 0.0,
+          "median": 10.0,
+          "method": "robust"
+        },
+        "nails": {
+          "_diagnostic": "empirical robust fit (train-only); the OBS contract uses the constant divide_period cap, this is a provenance check",
+          "clip": [
+            0.0,
+            200.0
+          ],
+          "computed_from": {
+            "n": 8
+          },
+          "iqr": 0.0,
+          "median": 40.0,
+          "method": "robust"
+        },
+        "rockets": {
+          "_diagnostic": "empirical robust fit (train-only); the OBS contract uses the constant divide_period cap, this is a provenance check",
+          "clip": [
+            0.0,
+            100.0
+          ],
+          "computed_from": {
+            "n": 8
+          },
+          "iqr": 0.0,
+          "median": 5.0,
+          "method": "robust"
+        },
+        "shells": {
+          "_diagnostic": "empirical robust fit (train-only); the OBS contract uses the constant divide_period cap, this is a provenance check",
+          "clip": [
+            0.0,
+            200.0
+          ],
+          "computed_from": {
+            "n": 8
+          },
+          "iqr": 4.25,
+          "median": 26.5,
+          "method": "robust"
+        }
+      },
+      "hspeed": {
+        "clip": [
+          0.0,
+          2500.0
+        ],
+        "computed_from": {
+          "n": 8
+        },
+        "iqr": 187.00545167686028,
+        "median": 454.3679095605971,
+        "method": "robust"
+      },
+      "pos_x": {
+        "clip": [
+          -984.0,
+          2048.0
+        ],
+        "computed_from": {
+          "source": "maps.v1 AABB"
+        },
+        "max": 2048.0,
+        "method": "minmax",
+        "min": -984.0
+      },
+      "pos_y": {
+        "clip": [
+          -960.0,
+          1136.0
+        ],
+        "computed_from": {
+          "source": "maps.v1 AABB"
+        },
+        "max": 1136.0,
+        "method": "minmax",
+        "min": -960.0
+      },
+      "pos_z": {
+        "clip": [
+          -416.0,
+          496.0
+        ],
+        "computed_from": {
+          "source": "maps.v1 AABB"
+        },
+        "max": 496.0,
+        "method": "minmax",
+        "min": -416.0
+      },
+      "vel_x": {
+        "clip": [
+          -2500.0,
+          2500.0
+        ],
+        "computed_from": {
+          "n": 8
+        },
+        "mean": 398.75,
+        "method": "zscore",
+        "std": 127.12567600606889
+      },
+      "vel_y": {
+        "clip": [
+          -2500.0,
+          2500.0
+        ],
+        "computed_from": {
+          "n": 8
+        },
+        "mean": 177.5,
+        "method": "zscore",
+        "std": 40.85033659592048
+      },
+      "vel_z": {
+        "clip": [
+          -1000.0,
+          1000.0
+        ],
+        "computed_from": {
+          "n": 8
+        },
+        "mean": 0.12499999999999978,
+        "method": "zscore",
+        "std": 13.147599590799835
+      },
+      "yaw_rate": {
+        "clip": [
+          -1500.0,
+          1500.0
+        ],
+        "computed_from": {
+          "n": 8
+        },
+        "mean": 1548.076923076923,
+        "method": "zscore",
+        "std": 585.1180784085152
+      }
+    }
+  },
+  "registry_version": 5,
+  "schema": "komodobots.normalization_stats.v1",
+  "sincos": [
+    "yaw",
+    "pitch",
+    "vel_heading",
+    "rel_bearing",
+    "rel_pitch"
+  ],
+  "split_def": "group_by_demo_id"
+}

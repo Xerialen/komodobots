@@ -273,7 +273,11 @@ fields are **zeroed when invisible**; the belief block carries memory.
 The variable count is handled by a **DeepSets or small transformer head with a pad-mask —
 NOT fixed sorted slots** — so the representation is permutation-invariant and side-invariant.
 `N_max = 7` (4on4 = 7 other actors); **1v1 is the same code path with more masking**.
-Cross-ref the `entities` / `ent_mask` tensors in `schema/dataset_spec.yaml`.
+Cross-ref the `entities` / `ent_mask` tensors in **`data/catalog/dataset_spec.yaml`**
+(`record_layout` keys + `entity_max.N_max`), now machine-read by the stdlib reader
+`ml/pipeline/dataset_spec.py` (T9 #397). The worked consumer that assembles this obs from
+the populated catalog — leakage-safe (§7) + clean-movement-gated (§6.5) — is
+`ml/pipeline/assemble_obs_template.py`.
 
 ---
 
@@ -550,6 +554,13 @@ scaler/model pair must refuse to deploy together (enforced by
   imitation labels so every feature uses only state at tick ≤ t —
   `feature_registry.yaml` marks each feature `leakage_safe`; (4) exclude
   post-outcome / `role: target|conditioning|weight` features from observations.
+  The **worked, dependency-light** instance of (1)+(3) is T9 #397:
+  `ml/pipeline/assemble_obs_template.py` reads per-tick state on the EXACT tick (PK
+  `(episode_id, tick)`) and attaches event context via a stdlib as-of join
+  (`asof_latest_leq`, latest `item_events` row at-or-before the obs `t_s`, never `> t`),
+  and `ml/pipeline/normalize_fit.refit_template` refits the stats from `episodes.split='train'`
+  rows only. Both properties have adversarial tests that fail on the naive join / an
+  all-rows fit (`tests/test_t9_training_template.py`).
 - **Versioning:** **DVC** (Git-adjacent pointer files, S3/local remote) for the
   single-author project. Lineage = `git_sha + dvc_dataset_hash + scaler
   artifact_version + registry_version`.

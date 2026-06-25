@@ -212,6 +212,52 @@ def fit_from_catalog(sqlite_path, split: str = "train", map_name: str = "dm3") -
     return {"map": map_name, "n_rows": len(rows), "feats": feats}
 
 
+# T6 ammo columns now populated on player_ticks (#394). The OBS contract normalizes them by a
+# constant `divide_period` cap (§6.6), NOT a fitted z-score — so these EMPIRICAL robust stats
+# do NOT replace the divide_period block. They are a TRAIN-SPLIT-ONLY provenance/diagnostic
+# fit the now-populated catalog finally makes possible (the cap was a placeholder before T6),
+# surfaced so a consumer can sanity-check the constant caps against the real distribution.
+_AMMO_COLS = ("shells", "nails", "rockets", "cells")
+_AMMO_CLIP = {"shells": [0.0, 200.0], "nails": [0.0, 200.0],
+              "rockets": [0.0, 100.0], "cells": [0.0, 200.0]}
+
+
+def fit_richer_from_catalog(sqlite_path, split: str = "train", map_name: str = "dm3") -> dict:
+    """TRAIN-SPLIT-ONLY robust fit of the richer T6-populated columns (ammo counts).
+
+    Streams ONLY `episodes.split = <split>` player_ticks rows (the same train-only contract
+    as fit_from_catalog) and returns {col: robust_spec, ...} for the ammo columns. Lives
+    beside fit_from_catalog so the refit machinery can emit BOTH the (frozen) divide_period
+    block AND these empirical diagnostics. Skips NULLs (a tick with no ammo source is unknown,
+    never fabricated 0)."""
+    import sqlite3
+
+    con = sqlite3.connect(str(sqlite_path))
+    try:
+        rows = con.execute(
+            f"""SELECT {", ".join("pt." + c for c in _AMMO_COLS)}
+                  FROM player_ticks pt
+                  JOIN episodes e USING(episode_id)
+                 WHERE e.split = ?""",
+            (split,),
+        ).fetchall()
+    finally:
+        con.close()
+
+    cols = {c: [] for c in _AMMO_COLS}
+    for row in rows:
+        for c, v in zip(_AMMO_COLS, row):
+            if v is not None:
+                cols[c].append(float(v))
+    out = {}
+    for c in _AMMO_COLS:
+        spec = robust_spec(cols[c], clip=_AMMO_CLIP[c])
+        spec["_diagnostic"] = ("empirical robust fit (train-only); the OBS contract uses the "
+                               "constant divide_period cap, this is a provenance check")
+        out[c] = spec
+    return {"map": map_name, "n_rows": len(rows), "ammo": out}
+
+
 # Static map AABB (qu) -> position minmax specs (from maps.v1; NOT fitted from data).
 _POS_AABB = {
     "dm3": {"pos_x": (-984.0, 2048.0), "pos_y": (-960.0, 1136.0), "pos_z": (-416.0, 496.0)},
@@ -248,6 +294,7 @@ def write_stats(per_map_fits: dict, out_path, **meta) -> None:
         "divide_period": {"health": 250.0, "armor": 200.0},
     }
     from pathlib import Path
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     Path(out_path).write_text(json.dumps(doc, indent=2, sort_keys=True), encoding="utf-8")
     return doc
 
@@ -269,6 +316,55 @@ def fit_stats_doc(sqlite_path, out_path, split: str = "train", map_name: str = "
     return doc
 
 
+# the constant divide_period block (§6.6) — caps, NOT fitted. Mirrors the committed template's
+# divide_period so the refit artifact carries the SAME parameter-free norm for ammo/powerup.
+_DIVIDE_PERIOD = {
+    "health": 250.0, "armor": 200.0,
+    "forwardmove": 400.0, "sidemove": 400.0, "upmove": 400.0,
+    "quad_remaining": 60.0, "ring_remaining": 60.0, "pent_remaining": 300.0,
+    "eta_cap": 10.0,
+    "sh": 100.0, "nl": 200.0, "rk": 100.0, "cl": 200.0,
+}
+
+
+def refit_template(sqlite_path, out_path, split: str = "train", map_name: str = "dm3",
+                   **meta) -> dict:
+    """T9 #397 REFIT over the RICHER (now-populated T3-T8) fields, TRAIN-SPLIT-ONLY.
+
+    Produces the FULL refit artifact a v5 consumer reads: the fitted per-map velocity/hspeed/
+    yaw_rate (train-only Welford), the static position AABB, the constant divide_period block
+    (ammo/powerup caps), AND the train-only empirical ammo-distribution diagnostics the
+    now-populated T6 columns finally make computable. EVERY fitted stat is computed from
+    `episodes.split = <split>` rows ONLY — val/test rows never touch the scaler (§6.2). The
+    stat VALUES are FIXTURE / TEMPLATE-DERIVED (the small catalog this runs on), clearly
+    labeled `_fixture_derived: true`; the real refit over the 1537-demo corpus is the
+    separate gated servexeri run. Returns the written doc."""
+    fit = fit_from_catalog(sqlite_path, split=split, map_name=map_name)
+    richer = fit_richer_from_catalog(sqlite_path, split=split, map_name=map_name)
+    feats = dict(fit["feats"])
+    aabb = _POS_AABB.get(map_name, _POS_AABB["dm3"])
+    for key, (lo, hi) in aabb.items():
+        feats[key] = {"method": "minmax", "min": lo, "max": hi,
+                      "computed_from": {"source": "maps.v1 AABB"}, "clip": [lo, hi]}
+    meta.setdefault("computed_from", split)
+    meta.setdefault("fitted_on", f"{split}_split:{Path(str(sqlite_path)).name}")
+    meta.setdefault("artifact_version", "0.5.0-refit-template")
+    doc = write_stats({map_name: feats}, out_path, **meta)
+    # augment the written doc with the constant divide_period block + the richer diagnostics,
+    # then rewrite — keeps write_stats single-purpose while this assembles the FULL refit doc.
+    doc["divide_period"] = dict(_DIVIDE_PERIOD)
+    doc.setdefault("per_map", {}).setdefault(map_name, {})["_ammo_empirical_train_only"] = richer["ammo"]
+    doc["_fixture_derived"] = True
+    doc["_fixture_note"] = (
+        "TEMPLATE — stat VALUES are derived from a SMALL fixture catalog, not the real "
+        "1537-demo corpus. The refit MACHINERY (train-split-only Welford/robust) is what is "
+        "asserted by tests; the real refit over the gated corpus runs on servexeri and writes "
+        "the production gold/norm/normalization_stats.json. Do NOT read these numbers as corpus stats.")
+    doc["_fit_n_rows"] = fit["n_rows"]
+    Path(out_path).write_text(json.dumps(doc, indent=2, sort_keys=True), encoding="utf-8")
+    return doc
+
+
 if __name__ == "__main__":
     import argparse
     from pathlib import Path
@@ -279,9 +375,12 @@ if __name__ == "__main__":
     ap.add_argument("--split", default="train")
     ap.add_argument("--map", default="dm3")
     ap.add_argument("--artifact-version", default="0.5.0-v5fit")
+    ap.add_argument("--refit-richer", action="store_true",
+                    help="T9: refit over the richer T3-T8 fields (full artifact + ammo diagnostics)")
     args = ap.parse_args()
-    d = fit_stats_doc(args.db, args.out, split=args.split, map_name=args.map,
-                      artifact_version=args.artifact_version)
+    fn = refit_template if args.refit_richer else fit_stats_doc
+    d = fn(args.db, args.out, split=args.split, map_name=args.map,
+           artifact_version=args.artifact_version)
     print(json.dumps({"out": str(args.out), "computed_from": d["computed_from"],
                       "n_rows": d["_fit_n_rows"],
                       "vel_x": d["per_map"][args.map]["vel_x"]}, indent=2))

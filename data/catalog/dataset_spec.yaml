@@ -14,7 +14,14 @@ registry_version: 5                 # must match feature_registry.yaml (v3 appen
                                     # goal_heading_sincos + goal_dist_norm; v5 SEQUENCE-AWARE adds
                                     # the flat self_history field — the last SELF_HISTORY=16 SELF
                                     # ticks (16*21=336) the policy now consumes)
-normalization_artifact: norm/normalization_stats.template.json
+normalization_artifact: data/catalog/normalization_stats.template.json   # the frozen contract template
+# T9 #397: the refit MACHINERY is ml/pipeline/normalize_fit.refit_template (train-split-only,
+# §6.2; stdlib Welford/robust, no numpy). A fixture-DERIVED example output (clearly labeled
+# `_fixture_derived`, NOT the real-corpus refit) lives at norm/normalization_stats.refit.template.json;
+# the real refit over the 1537-demo TRAIN split is the separate gated servexeri run that writes
+# the production gold/norm/normalization_stats.json.
+refit_machinery: ml/pipeline/normalize_fit.py            # refit_template() — train-split-only
+refit_example: norm/normalization_stats.refit.template.json   # fixture-derived, _fixture_derived:true
 
 # ---------------------------------------------------------------------------
 tick_rate:
