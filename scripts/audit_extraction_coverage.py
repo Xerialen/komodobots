@@ -34,12 +34,13 @@ Regenerate the committed report:
 from __future__ import annotations
 
 import argparse
+import logging
 import re
 import sys
 from collections import OrderedDict
 from pathlib import Path
 
-import yaml
+LOGGER = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_SQL = REPO_ROOT / "scripts" / "catalog_schema.sql"
@@ -331,17 +332,29 @@ def parse_etl_inserts(etl_path: Path) -> "dict[str, set[str]]":
 
 
 def parse_registry_sources(yaml_path: Path) -> "dict[str, set[str]]":
-    """Map each `table.column` -> {feature names that reference it} from feature `source:`."""
-    doc = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    """Map each `table.column` -> {feature names that reference it} from feature `source:`.
+
+    Parsed with a stdlib line-scan rather than PyYAML — this script is part of the
+    deterministic CI floor and CI has no PyYAML. Within the `feature_groups:` region we
+    track the current `name:` and pull `table.column` tokens out of each `source:` value.
+    """
     refs: "dict[str, set[str]]" = {}
-    for group in (doc.get("feature_groups") or {}).values():
-        feats = group if isinstance(group, list) else []
-        for feat in feats:
-            if not isinstance(feat, dict):
-                continue
-            src = feat.get("source") or ""
-            for token in re.findall(r"\b([a-z_]+\.[a-z_]+)\b", src):
-                refs.setdefault(token, set()).add(feat.get("name", "?"))
+    in_groups = False
+    cur_name = "?"
+    for raw in yaml_path.read_text(encoding="utf-8").splitlines():
+        stripped = raw.strip()
+        if not in_groups:
+            if re.match(r"^feature_groups\s*:", stripped):
+                in_groups = True
+            continue
+        m = re.match(r"^-?\s*name\s*:\s*(.+?)\s*$", stripped)
+        if m:
+            cur_name = m.group(1).strip().strip("\"'")
+            continue
+        if re.match(r"^source\s*:", stripped):
+            value = stripped.split(":", 1)[1]
+            for token in re.findall(r"\b([a-z_]+\.[a-z_]+)\b", value):
+                refs.setdefault(token, set()).add(cur_name)
     return refs
 
 
