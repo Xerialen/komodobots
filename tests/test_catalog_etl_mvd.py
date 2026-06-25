@@ -354,6 +354,134 @@ class ResourceStateTest(unittest.TestCase):
         self.assertEqual(etl._decode_resource_events("/nonexistent-qwa", Path("/x/d.mvd")), [])
 
 
+class AmmoPowerupTest(unittest.TestCase):
+    """T6: ammo (sh/nl/rk/cl) forward-filled + powerup (q/pe/r) remaining-seconds derived from the
+    `-view full` per-player streams, onto BOTH the ego player_ticks spine and actor_ticks. Verified
+    on the real 4on4 book_vs_mix MVD: ammo are `[{t,v}]` step lists, powerups `[{s,e}]` held
+    intervals (~30000 ms full)."""
+
+    def test_ammo_timelines_forward_fill(self):
+        p = {"sh": [{"t": 0, "v": 25}, {"t": 1000, "v": 70}], "nl": [{"t": 500, "v": 100}]}
+        tl = etl._ammo_timelines(p)
+        self.assertEqual(tl["shells"], ([0, 1000], [25, 70]))
+        self.assertEqual(tl["nails"], ([500], [100]))
+        # cl absent -> empty timeline -> _fill_resource None (NULL, never 0)
+        self.assertEqual(tl["cells"], ([], []))
+        self.assertIsNone(etl._fill_resource(tl["nails"], 0))   # before first event -> NULL
+        self.assertEqual(etl._fill_resource(tl["shells"], 999), 25)   # at-or-before holds
+        self.assertEqual(etl._fill_resource(tl["shells"], 1000), 70)  # step boundary inclusive
+        self.assertEqual(etl._fill_resource(tl["shells"], 9999), 70)  # forward-filled past last
+        self.assertIsNone(etl._fill_resource(tl["cells"], 100))       # empty -> NULL
+
+    def test_powerup_remaining_inside_interval_else_none(self):
+        intervals = [{"s": 1000, "e": 31000}]  # a 30 s quad
+        self.assertIsNone(etl._powerup_remaining(intervals, 500))     # before pickup -> not held
+        self.assertEqual(etl._powerup_remaining(intervals, 1000), 30.0)   # at start: full remaining
+        self.assertEqual(etl._powerup_remaining(intervals, 16000), 15.0)  # mid: raw seconds remaining
+        self.assertEqual(etl._powerup_remaining(intervals, 31000), 0.0)   # at expiry boundary
+        self.assertIsNone(etl._powerup_remaining(intervals, 31001))   # after expiry -> not held
+        self.assertIsNone(etl._powerup_remaining(None, 5000))         # no powerup stream -> not held
+        self.assertIsNone(etl._powerup_remaining([], 5000))           # empty -> not held
+        # multiple held intervals (re-pickup): the one covering t wins
+        multi = [{"s": 0, "e": 6000}, {"s": 10000, "e": 40000}]
+        self.assertEqual(etl._powerup_remaining(multi, 3000), 3.0)
+        self.assertIsNone(etl._powerup_remaining(multi, 8000))        # gap between holds
+        self.assertEqual(etl._powerup_remaining(multi, 25000), 15.0)
+
+    def test_actor_samples_carry_ammo_and_powerup_remaining(self):
+        p = {
+            "name": "a", "team": "Book",
+            "pos": {"t": [0, 13, 26], "x": [1.0, 2.0, 3.0], "y": [0.0, 0.0, 0.0],
+                    "z": [-10.0, -10.0, -10.0], "vx": [400.0, 0.0, 0.0], "vy": [0.0, 0.0, 0.0],
+                    "vz": [0.0, 0.0, 0.0], "vya": [0, 0, 0], "vp": [0, 0, 0]},
+            "sh": [{"t": 0, "v": 25}, {"t": 20, "v": 60}],
+            "rk": [{"t": 13, "v": 5}],
+            "q": [{"s": 13, "e": 30013}],   # quad picked up at t=13
+        }
+        samp = etl._actor_samples(p)
+        # shells forward-fill (25 until t>=20 -> 60 at t=26)
+        self.assertEqual([r["shells"] for r in samp["rows"]], [25, 25, 60])
+        # rockets None before first event (t=13), then 5
+        self.assertEqual([r["rockets"] for r in samp["rows"]], [None, 5, 5])
+        # nails/cells absent stream -> NULL throughout
+        self.assertEqual([r["nails"] for r in samp["rows"]], [None, None, None])
+        # quad_rem: None before pickup, then remaining-seconds; pent/ring absent -> None
+        self.assertEqual([r["quad_rem"] for r in samp["rows"]], [None, 30.0, 29.987])
+        self.assertTrue(all(r["pent_rem"] is None and r["ring_rem"] is None for r in samp["rows"]))
+
+    def test_pack_episode_carries_ammo_and_powerup(self):
+        seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                "yaw": float(i), "pitch": 0.0, "msec": 13, "t_ms": i * 13,
+                "shells": 25, "nails": None, "rockets": 5, "cells": 0,
+                "quad_rem": 10.0, "pent_rem": None, "ring_rem": None} for i in range(4)]
+        ep = etl._pack_episode(seg, [False] * 4, [False] * 4, 0)
+        self.assertEqual([r["shells"] for r in ep["frames"]], [25, 25, 25, 25])
+        self.assertTrue(all(r["nails"] is None for r in ep["frames"]))
+        self.assertEqual([r["quad_rem"] for r in ep["frames"]], [10.0, 10.0, 10.0, 10.0])
+
+    def test_insert_writes_ammo_powerup_onto_player_ticks(self):
+        import sqlite3
+        con = sqlite3.connect(":memory:")
+        con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+        con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                    "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+        seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                "yaw": float(i), "pitch": 0.0, "msec": 13,
+                "shells": 25, "nails": 100, "rockets": 5, "cells": 0,
+                "quad_rem": 12.5, "pent_rem": None, "ring_rem": None} for i in range(4)]
+        ep = etl._pack_episode(seg, [False] * 4, [False] * 4, 0)
+        sha = "a1104123" + "0" * 56
+        rec = {"demo": "d.mvd", "sha256": sha, "n_players": 1,
+               "players": [{"name": "p1", "team": 1, "episodes": [ep]}]}
+        etl.insert_demo(con, 1, rec, etl.split_for_sha(sha), 1)
+        rows = con.execute("SELECT shells, nails, rockets, cells, quad_rem, pent_rem, ring_rem "
+                           "FROM player_ticks").fetchall()
+        con.close()
+        self.assertEqual(len(rows), 4)
+        for sh, nl, rk, cl, q, pe, r in rows:
+            self.assertEqual((sh, nl, rk, cl), (25, 100, 5, 0))   # 0 cells is a REAL count, kept
+            self.assertEqual(q, 12.5)
+            self.assertIsNone(pe)   # not held -> NULL (never 0)
+            self.assertIsNone(r)
+
+    def test_insert_writes_ammo_powerup_onto_actor_ticks(self):
+        sha = "ac" * 32
+        con = _con_with_schema()
+        con.execute(
+            "INSERT INTO items (item_id, map_id, classname, item_type, category, "
+            "origin_x, origin_y, origin_z, static_value) "
+            "VALUES (1, 1, 'weapon_rocketlauncher', 'rl', 'weapon', 1520, 496, -112, 1.0)")
+        etl.insert_demo(con, 1, _world_rec(sha), etl.split_for_sha(sha), 1)
+        con.commit()
+        rows = con.execute("SELECT DISTINCT shells, nails, rockets, cells, quad_rem, pent_rem, "
+                           "ring_rem FROM actor_ticks").fetchall()
+        con.close()
+        # _world_rec actors all carry the same constant resource sample
+        self.assertEqual(rows, [(25, 100, 5, 0, 12.5, None, None)])
+
+    def test_null_ammo_powerup_inserts_as_null(self):
+        # a player whose frames carry no ammo/powerup keys must insert NULL (honest unknown),
+        # never 0 — NULL distinct from a real 0-count / not-held reading.
+        import sqlite3
+        con = sqlite3.connect(":memory:")
+        con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+        con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                    "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+        seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                "yaw": 0.0, "pitch": 0.0, "msec": 13} for i in range(3)]  # no ammo/powerup keys
+        ep = etl._pack_episode(seg, [False] * 3, [False] * 3, 0)
+        sha = "a110d0e1" + "0" * 56
+        rec = {"demo": "d.mvd", "sha256": sha, "n_players": 1,
+               "players": [{"name": "p1", "team": 1, "episodes": [ep]}]}
+        etl.insert_demo(con, 1, rec, etl.split_for_sha(sha), 1)
+        n_null = con.execute(
+            "SELECT COUNT(*) FROM player_ticks WHERE shells IS NULL AND nails IS NULL "
+            "AND rockets IS NULL AND cells IS NULL AND quad_rem IS NULL "
+            "AND pent_rem IS NULL AND ring_rem IS NULL").fetchone()[0]
+        con.close()
+        self.assertEqual(n_null, 3)
+
+
 # =============================================================================
 # T4 — the OMNISCIENT world (actor_ticks + item_events + frag_events + teams).
 # All exercised on synthetic `-view full`-shaped dicts (no binary/BSP needed), mirroring the
@@ -516,7 +644,10 @@ def _world_rec(sha):
     def _samples(name, oy):
         rows = [{"ox": float(i), "oy": oy, "oz": -88.0, "vx": 450.0, "vy": 0.0, "vz": 0.0,
                  "pitch": 0.0, "yaw": float(i), "roll": 0.0, "hspeed": 450.0,
-                 "health": 100, "armor": 50, "armor_type": 2, "alive": True} for i in range(30)]
+                 "health": 100, "armor": 50, "armor_type": 2, "alive": True,
+                 # (T6) ammo counts + powerup remaining-seconds (held here for the insert assertions)
+                 "shells": 25, "nails": 100, "rockets": 5, "cells": 0,
+                 "quad_rem": 12.5, "pent_rem": None, "ring_rem": None} for i in range(30)]
         return {"t": [i * 13 for i in range(30)], "rows": rows}
 
     return {

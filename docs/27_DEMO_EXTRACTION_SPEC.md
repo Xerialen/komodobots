@@ -140,8 +140,8 @@ from the same `-view full` decode (kinematics + forward-filled `h`/`a`/`at`→he
 | health, armor | C | obs | **binding** (**populated, T3** — MVD) | `player_ticks.health/armor` — MVD ETL forward-fills the per-tick value step-timeline |
 | armor_type (GA/YA/RA) | C | obs | **binding** (`player_ticks` unpopulated; `actor_ticks` **populated, T4**) | `…armor_type` — the `-view full` per-player `at` ('ga'/'ya'/'ra') step-timeline → 0/1/2 fills `actor_ticks.armor_type` (T4). The ego `player_ticks` path (a separate `-event-types armor` decode) lacks the skin/type → still NULL there (derive / unify, T7) |
 | active_weapon | C/E | obs | **binding** (unpopulated) | `…weapon` — column exists; the per-tick weapon stream is gain/lose INVENTORY, not STAT_ACTIVEWEAPON — no honest active-weapon source without a decoder change (deferred) |
-| ammo: shells, nails, rockets, cells | E | obs | **PENDING** (§9) | **no column yet** — excluded from v1 until schema adds it |
-| powerups: quad, pent, ring (held intervals) | C/E | obs | **PENDING** (§9) | **no table/column yet** — excluded from v1 until schema adds it |
+| ammo: shells, nails, rockets, cells | E | obs | **binding** (**populated, T6** — MVD) | `player_ticks`/`actor_ticks.shells/nails/rockets/cells` — MVD ETL forward-fills the `-view full` per-player `sh`/`nl`/`rk`/`cl` step-timeline onto each tick (T6, #394) |
+| powerups: quad, pent, ring (remaining seconds) | C/E | obs | **binding** (**populated, T6** — MVD) | `player_ticks`/`actor_ticks.quad_rem/pent_rem/ring_rem` — remaining-SECONDS derived from the `-view full` per-player `q`/`pe`/`r` held-interval `[s,e]` at each tick (T6, #394); NULL when not held (never 0). The feature layer applies the registry `/60,/300,/60` norm |
 
 Source (wire): `svc_updatestat` STAT_HEALTH / ARMOR / ACTIVEWEAPON / SHELLS / NAILS / ROCKETS / CELLS /
 ITEMS (+ entity skin for armor type). **health/armor are now populated** on `player_ticks` by the MVD
@@ -341,8 +341,10 @@ explicit and normative:
   `-view full` decode; **T5 (#393)** added + filled `damage_events` (per-hit attacker/victim/weapon/
   amount + splash/env/self/teamkill flags) from the `-view full` `damage.events`, era-gated via
   `demos.damage_available`. Still defined-but-empty: `actor_visibility` / `audio_cues` (T8 derived
-  layers); the ammo/powerup columns are not yet in the schema at all — the report makes both kinds of
-  gap explicit and tracked.
+  layers); **T6 (#394)** added + filled the ammo (`shells/nails/rockets/cells`) + powerup-remaining
+  (`quad_rem/pent_rem/ring_rem`) source columns on `player_ticks` + `actor_ticks` from the same
+  `-view full` per-player streams — the report makes the remaining (defined-but-empty / derived)
+  gaps explicit and tracked.
 - **Durability:** every demo sha256 + size; decoder binary sha + schema version; spec id (§8);
   canonical on servexeri (~GB, not git, not aws-dev); only the summary + coverage report + this spec
   are committed.
@@ -375,9 +377,12 @@ row + a catalog column with the same metadata discipline:
 
 - **[K] richer self:** explicit on-wire velocity (if a future schema carries it, replacing finite-diff
   → upgrades fidelity §4); per-frame waterlevel/onground for MVD (today MVD-NULL).
-- **[E] ammo/powerups (reserved storage):** `player_ticks`/`actor_ticks.shells/nails/rockets/cells`
-  columns + a powerup-interval table (quad/pent/ring held spans). PENDING per §3.4; moves to binding
-  when the schema adds the columns/table under change-control (§8).
+- **[E] ammo/powerups:** `player_ticks`/`actor_ticks.shells/nails/rockets/cells` +
+  `quad_rem/pent_rem/ring_rem` columns exist in the schema and are **populated** (T6 #394) from the
+  `-view full` per-player `sh/nl/rk/cl` step-timelines (forward-filled) and `q/pe/r` held-intervals
+  (remaining-seconds; NULL when not held) — no longer reserved. Genuinely reserved: a normalized
+  powerup-interval *table* (per-pickup span rows), if a consumer needs spans rather than per-tick
+  remaining. PENDING.
 - **[C] combat tables:** `frag_events` (T4 #392) and `damage_events` (T5 #393, era-gated via
   `demos.damage_available`) both exist in the schema and are **populated** — no longer reserved.
   Genuinely reserved (no table yet): weapon-fire events; projectile (rocket/grenade/nail) tracks

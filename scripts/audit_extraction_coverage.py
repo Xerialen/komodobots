@@ -143,6 +143,13 @@ CLASSIFY: "OrderedDict[str, tuple[str, str | None, str]]" = OrderedDict([
     ("player_ticks.armor", (EXTRACTED, "state.armor", "MVD ETL forward-fills the `-event-types armor` value step-timeline onto each tick (T3). NULL on QWD.")),
     ("player_ticks.armor_type", (GAP, "state.armor_type", "still GAP after T3: the `-event-types armor` stream carries the AP VALUE but not the armor skin/type; no GA/YA/RA source in the per-tick streams. Deferred (derive from item pickups / T7).")),
     ("player_ticks.weapon", (GAP, "state.weapon_held", "still GAP after T3: the `-event-types weapon` stream is gain/lose INVENTORY, not STAT_ACTIVEWEAPON (the 'active weapon id' the column means); QWD decoder skips SVC_UPDATESTAT. No honest active-weapon source without a decoder change. Deferred.")),
+    ("player_ticks.shells", (EXTRACTED, "state.ammo", "MVD ETL forward-fills the `-view full` `sh` step-timeline onto each tick (T6). NULL on QWD.")),
+    ("player_ticks.nails", (EXTRACTED, "state.ammo", "MVD ETL forward-fills the `-view full` `nl` step-timeline (T6). NULL on QWD.")),
+    ("player_ticks.rockets", (EXTRACTED, "state.ammo", "MVD ETL forward-fills the `-view full` `rk` step-timeline (T6). NULL on QWD.")),
+    ("player_ticks.cells", (EXTRACTED, "state.ammo", "MVD ETL forward-fills the `-view full` `cl` step-timeline (T6). NULL on QWD.")),
+    ("player_ticks.quad_rem", (EXTRACTED, "state.powerups", "MVD ETL derives remaining-seconds from the `-view full` `q` held-interval [s,e] at each tick (T6); NULL when not held. NULL on QWD.")),
+    ("player_ticks.pent_rem", (EXTRACTED, "state.powerups", "MVD ETL derives remaining-seconds from the `-view full` `pe` held-interval at each tick (T6); NULL when not held. NULL on QWD.")),
+    ("player_ticks.ring_rem", (EXTRACTED, "state.powerups", "MVD ETL derives remaining-seconds from the `-view full` `r` held-interval at each tick (T6); NULL when not held. NULL on QWD.")),
     # ---- actor_ticks (omniscient all-players world) ----
     ("actor_ticks.ox", (EXTRACTED, "world.all_players_state", "QWD ETL writes (self+observed others); MVD ETL writes the omniscient all-players state per episode tick (T4)")),
     ("actor_ticks.oy", (EXTRACTED, "world.all_players_state", "QWD + MVD (T4)")),
@@ -163,6 +170,13 @@ CLASSIFY: "OrderedDict[str, tuple[str, str | None, str]]" = OrderedDict([
     ("actor_ticks.armor", (EXTRACTED, "state.armor", "MVD forward-fills each player's `a` step-timeline (T4); QWD NULL")),
     ("actor_ticks.armor_type", (EXTRACTED, "state.armor_type", "MVD forward-fills each player's `at` ('ga'/'ya'/'ra') step-timeline -> 0/1/2 (T4). The `-view full` `at` stream carries the skin/type the T3 `-event-types armor` decode lacked; QWD NULL")),
     ("actor_ticks.weapon", (GAP, "state.weapon_held", "still GAP after T4: the per-tick weapon stream is gain/lose INVENTORY, not STAT_ACTIVEWEAPON (the active-weapon id the column means) — no honest active-weapon source without a decoder change. Deferred.")),
+    ("actor_ticks.shells", (EXTRACTED, "state.ammo", "MVD forward-fills each player's `-view full` `sh` step-timeline (T6); QWD NULL")),
+    ("actor_ticks.nails", (EXTRACTED, "state.ammo", "MVD forward-fills each player's `nl` step-timeline (T6); QWD NULL")),
+    ("actor_ticks.rockets", (EXTRACTED, "state.ammo", "MVD forward-fills each player's `rk` step-timeline (T6); QWD NULL")),
+    ("actor_ticks.cells", (EXTRACTED, "state.ammo", "MVD forward-fills each player's `cl` step-timeline (T6); QWD NULL")),
+    ("actor_ticks.quad_rem", (EXTRACTED, "state.powerups", "MVD derives remaining-seconds from each player's `q` held-interval at each tick (T6; NULL when not held); QWD NULL")),
+    ("actor_ticks.pent_rem", (EXTRACTED, "state.powerups", "MVD derives remaining-seconds from each player's `pe` held-interval (T6; NULL when not held); QWD NULL")),
+    ("actor_ticks.ring_rem", (EXTRACTED, "state.powerups", "MVD derives remaining-seconds from each player's `r` held-interval (T6; NULL when not held); QWD NULL")),
     # ---- actions (recovered state->action labels) ----
     ("actions.forwardmove", (EXTRACTED, "qwd.usercmd.forwardmove", "QWD=ground-truth; MVD=IDM-recovered")),
     ("actions.sidemove", (EXTRACTED, "qwd.usercmd.sidemove", "QWD=ground-truth; MVD=IDM sign")),
@@ -284,7 +298,10 @@ PLAN_GAPS = [
     "G3: damage_events table absent (only frag_events exists) — ADDRESSED by T5 #393: the table is "
     "now schema-defined + populated from `-view full` damage.events, era-gated via "
     "demos.damage_available (fail-closed)",
-    "G4: ammo + powerup-remaining source columns absent (registry defines the features)",
+    "G4: ammo + powerup-remaining source columns absent (registry defines the features) — ADDRESSED "
+    "by T6 #394: shells/nails/rockets/cells + quad_rem/pent_rem/ring_rem added to player_ticks + "
+    "actor_ticks and populated from the same `-view full` per-player sh/nl/rk/cl + q/pe/r streams "
+    "(ammo forward-filled; powerup remaining-seconds derived from the held-interval, NULL when not held)",
     "G5: stored [G] geometry / [R] regime / leg-phase columns absent",
     "G6: docs/27 inaccuracies (frag_events/actor_visibility/audio_cues/teams called "
     "greenfield/reserved when schema-defined-but-empty; wrong schema path)",
@@ -485,15 +502,38 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
                  "active-weapon / ego armor-skin source without a decoder change), and `actor_visibility.*` "
                  "+ `audio_cues.*` -> T8. The `damage_events` table (G3) is now schema-defined + "
                  "populated (T5 #393, era-gated via `demos.damage_available`), so it appears as extracted "
-                 "columns above. The ammo/powerup source columns (G4) and [G]/[R]/leg-phase columns (G5) "
-                 "are still **absent from the schema entirely** (not just unpopulated) — schema-addition "
-                 "tickets T6/T7, so they do not appear as columns here; that absence IS the finding.")
+                 "columns above. The ammo/powerup source columns (G4) are likewise now "
+                 "schema-defined + populated (T6 #394: `shells`/`nails`/`rockets`/`cells` + "
+                 "`quad_rem`/`pent_rem`/`ring_rem` on `player_ticks` + `actor_ticks`, from the same "
+                 "`-view full` streams), so they too appear as extracted columns above. Only the [G]/[R]/"
+                 "leg-phase columns (G5) remain **absent from the schema entirely** (not just unpopulated) "
+                 "— schema-addition ticket T7, so they do not appear as columns here; that absence IS the "
+                 "finding.")
     return "\n".join(lines).rstrip("\n") + "\n", counts
 
 
 # =============================================================================
 # Self-checks (the runnable assert gate)
 # =============================================================================
+def _report_claims_g4_absent(report: str) -> bool:
+    """True if the report prose asserts the G4 ammo/powerup columns are absent from the schema.
+
+    Robust to minor wording: requires, within one sentence, both a reference to the
+    ammo/powerup (G4) columns AND an "absent from the schema" claim. Matches the substantive
+    claim rather than a single brittle string so a future edit can't dodge the guard by
+    rephrasing.
+    """
+    text = report.lower()
+    for sentence in re.split(r"(?<=[.!?])\s+|\n", text):
+        mentions_g4 = ("ammo/powerup" in sentence
+                       or ("g4" in sentence and "g5" not in sentence)
+                       or ("ammo" in sentence and "powerup" in sentence))
+        claims_absent = "absent from the schema" in sentence
+        if mentions_g4 and claims_absent:
+            return True
+    return False
+
+
 def run_self_checks() -> None:
     schema = parse_schema_tables(SCHEMA_SQL)
     etl_mvd = parse_etl_inserts(ETL_MVD)
@@ -554,6 +594,15 @@ def run_self_checks() -> None:
         assert col in etl_mvd.get("damage_events", set()), f"MVD ETL must populate damage_events.{col} (T5)"
     assert classify_column("demos", "damage_available")[0] == EXTRACTED, "demos.damage_available is the era-gate (T5)"
 
+    # T6: ammo + powerup-remaining source columns now exist on BOTH the ego spine and the
+    # omniscient world, populated from the same `-view full` per-player sh/nl/rk/cl + q/pe/r
+    # (G4 closed). They classify extracted and the MVD ETL writes them on both tables.
+    for col in ("shells", "nails", "rockets", "cells", "quad_rem", "pent_rem", "ring_rem"):
+        assert classify_column("player_ticks", col)[0] == EXTRACTED, f"player_ticks.{col} should be extracted (T6)"
+        assert col in etl_mvd.get("player_ticks", set()), f"MVD ETL must populate player_ticks.{col} (T6)"
+        assert classify_column("actor_ticks", col)[0] == EXTRACTED, f"actor_ticks.{col} should be extracted (T6)"
+        assert col in etl_mvd.get("actor_ticks", set()), f"MVD ETL must populate actor_ticks.{col} (T6)"
+
     # Every CLASSIFY key must reference a real schema column (no stale verdict).
     valid = {f"{t}.{c}" for t, cols in schema.items() for c in cols}
     stale = [k for k in CLASSIFY if k not in valid]
@@ -572,6 +621,20 @@ def run_self_checks() -> None:
 
     # The 6-gap roll-up must stay enumerated.
     assert len(PLAN_GAPS) == 6, "plan names exactly 6 genuine gaps"
+
+    # Anti-recurrence guard (#404 P1): the report must not SIMULTANEOUSLY classify the T6
+    # ammo/powerup G4 columns as extracted AND assert in its prose that those columns are
+    # "absent from the schema". Build the report text and detect the contradiction directly so
+    # the deterministic gate can never green-light a self-contradictory data contract.
+    report, _ = build_report(schema, etl_mvd, etl_qwd, registry_refs)
+    t6_cols = ("shells", "nails", "rockets", "cells", "quad_rem", "pent_rem", "ring_rem")
+    t6_extracted = all(classify_column("player_ticks", c)[0] == EXTRACTED for c in t6_cols)
+    if t6_extracted and _report_claims_g4_absent(report):
+        raise AssertionError(
+            "report contradiction (#404 P1): T6 ammo/powerup columns classify as extracted, "
+            "yet the report prose still asserts the G4 ammo/powerup columns are absent from the "
+            "schema. Update the scoping paragraph to mark G4 as ADDRESSED by T6.")
+
     print("self-checks: OK")
 
 

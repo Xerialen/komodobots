@@ -92,6 +92,14 @@ class TestClassification(unittest.TestCase):
                              f"damage_events.{col} should be extracted (T5)")
         self.assertEqual(audit.classify_column("demos", "damage_available")[0], audit.EXTRACTED)
 
+    def test_t6_ammo_powerup_extracted(self):
+        # T6: ammo + powerup-remaining source columns classify extracted on BOTH tables (G4 closed).
+        for col in ("shells", "nails", "rockets", "cells", "quad_rem", "pent_rem", "ring_rem"):
+            self.assertEqual(audit.classify_column("player_ticks", col)[0], audit.EXTRACTED,
+                             f"player_ticks.{col} should be extracted (T6)")
+            self.assertEqual(audit.classify_column("actor_ticks", col)[0], audit.EXTRACTED,
+                             f"actor_ticks.{col} should be extracted (T6)")
+
     def test_known_extracted_derived_excluded(self):
         self.assertEqual(audit.classify_column("player_ticks", "ox")[0], audit.EXTRACTED)
         # T3: MVD health/armor event stream now populates these (GAP -> extracted)
@@ -138,6 +146,30 @@ class TestReport(unittest.TestCase):
     def test_self_check_entrypoint_passes(self):
         # the runnable --check gate must not raise
         audit.run_self_checks()
+
+    def test_g4_absent_guard_detects_contradiction(self):
+        # #404 P1 anti-recurrence: with T6 ammo/powerup columns extracted, the report prose
+        # must NOT also claim those G4 columns are "absent from the schema". The detector
+        # returns False on the corrected report and True on the stale/contradictory phrasing.
+        schema = audit.parse_schema_tables(audit.SCHEMA_SQL)
+        etl_mvd = audit.parse_etl_inserts(audit.ETL_MVD)
+        etl_qwd = audit.parse_etl_inserts(audit.ETL_QWD)
+        refs = audit.parse_registry_sources(audit.REGISTRY_YAML)
+        report, _ = audit.build_report(schema, etl_mvd, etl_qwd, refs)
+
+        # T6 columns really are extracted, so the contradiction would be live if the prose said absent.
+        for col in ("shells", "nails", "rockets", "cells", "quad_rem", "pent_rem", "ring_rem"):
+            self.assertEqual(audit.classify_column("player_ticks", col)[0], audit.EXTRACTED)
+
+        # The corrected report must not trip the guard.
+        self.assertFalse(audit._report_claims_g4_absent(report),
+                         "corrected report must not assert G4 ammo/powerup columns are absent")
+
+        # Inject the old stale clause; the guard MUST fire (robust to wording, matches the claim).
+        stale = report + ("\nThe ammo/powerup source columns (G4) are still absent from the "
+                          "schema entirely, so they do not appear as columns here.\n")
+        self.assertTrue(audit._report_claims_g4_absent(stale),
+                        "guard must detect the G4-absent contradiction in stale prose")
 
 
 if __name__ == "__main__":

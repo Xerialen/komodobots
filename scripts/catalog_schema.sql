@@ -226,6 +226,15 @@ CREATE TABLE player_ticks (
     armor      INTEGER,                                     -- AP
     armor_type INTEGER,                                     -- 0/1/2 = GA/YA/RA (absorb 0.3/0.6/0.8)
     weapon     INTEGER,                                     -- active weapon id
+    -- ammo counts per weapon class (T6: source cols for feature ammo_per_weapon_norm)
+    shells     INTEGER,                                     -- sh count
+    nails      INTEGER,                                     -- nl count
+    rockets    INTEGER,                                     -- rk count
+    cells      INTEGER,                                     -- cl count
+    -- powerup remaining seconds (T6: source cols for feature powerup_remaining; NULL when not held)
+    quad_rem   REAL,                                        -- quad (q) remaining s; NULL if not active
+    pent_rem   REAL,                                        -- pent (pe) remaining s; NULL if not active
+    ring_rem   REAL,                                        -- ring (r) remaining s; NULL if not active
     PRIMARY KEY (episode_id, tick)
 );
 CREATE INDEX idx_ticks_t ON player_ticks(episode_id, t_s);
@@ -339,6 +348,15 @@ CREATE TABLE actor_ticks (
     armor      INTEGER,                              -- AP
     armor_type INTEGER,                              -- 0/1/2 = GA/YA/RA
     weapon     INTEGER,                              -- active weapon id
+    -- ammo counts per weapon class (T6: source cols for feature ammo_per_weapon_norm, entity variant)
+    shells     INTEGER,                              -- sh count
+    nails      INTEGER,                              -- nl count
+    rockets    INTEGER,                              -- rk count
+    cells      INTEGER,                              -- cl count
+    -- powerup remaining seconds (T6: source cols for feature entity_powerup_remaining; NULL when not held)
+    quad_rem   REAL,                                 -- quad (q) remaining s; NULL if not active
+    pent_rem   REAL,                                 -- pent (pe) remaining s; NULL if not active
+    ring_rem   REAL,                                 -- ring (r) remaining s; NULL if not active
     PRIMARY KEY (episode_id, tick, actor_id)
 );
 CREATE INDEX idx_actor_ticks_et ON actor_ticks(episode_id, tick);
