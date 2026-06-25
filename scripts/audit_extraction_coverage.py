@@ -353,7 +353,9 @@ def parse_registry_sources(yaml_path: Path) -> "dict[str, set[str]]":
             continue
         if re.match(r"^source\s*:", stripped):
             value = stripped.split(":", 1)[1]
-            for token in re.findall(r"\b([a-z_]+\.[a-z_]+)\b", value):
+            # column names may carry uppercase/digits (teamA_control, intensity0);
+            # table starts with a letter/underscore so numeric literals (0.5) don't match.
+            for token in re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*\.[A-Za-z0-9_]+)\b", value):
                 refs.setdefault(token, set()).add(cur_name)
     return refs
 
@@ -469,8 +471,7 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
                  "`damage_events` table (G3), and [G]/[R]/leg-phase columns (G5) are **absent from the "
                  "schema entirely** (not just unpopulated) — they are schema-addition tickets T5/T6/T7, "
                  "so they do not appear as columns here; that absence IS the finding.")
-    lines.append("")
-    return "\n".join(lines) + "\n", counts
+    return "\n".join(lines).rstrip("\n") + "\n", counts
 
 
 # =============================================================================

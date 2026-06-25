@@ -282,7 +282,7 @@
 | `src_x` | GAP | audio.weapon_item_cues | — | yes | sound source world position; empty. T8. |
 | `src_y` | GAP | audio.weapon_item_cues | — | yes | sound source world position; empty. T8. |
 | `src_z` | GAP | audio.weapon_item_cues | — | — | sound source world position; empty. T8. |
-| `intensity0` | GAP | — | — | — | emission intensity (decay model); empty. T8. |
+| `intensity0` | GAP | — | — | yes | emission intensity (decay model); empty. T8. |
 | `t_emit_s` | GAP | — | — | yes | emission time for decay; empty. T8. |
 
 ### `frag_events`
@@ -306,7 +306,7 @@
 | `bucket_idx` | structural | — | qwd-etl | — | PK/FK/provenance/split bookkeeping |
 | `t_s` | extracted | region.control_timeline | qwd-etl | — | QWD ETL via fixture; decoder getRegionControl |
 | `region_name` | extracted | region.control_timeline | qwd-etl | — | getRegionControl region |
-| `teamA_control` | extracted | region.control_timeline | qwd-etl | — | side-A control fraction |
+| `teamA_control` | extracted | region.control_timeline | qwd-etl | yes | side-A control fraction |
 | `teamB_control` | extracted | region.control_timeline | qwd-etl | — | side-B control fraction |
 | `contested` | extracted | region.control_timeline | qwd-etl | — | contested flag |
 
@@ -380,4 +380,3 @@ only truly-new work — confirming the audit neither invents nor misses a gap:
 - G6: docs/27 inaccuracies (frag_events/actor_visibility/audio_cues/teams called greenfield/reserved when schema-defined-but-empty; wrong schema path)
 
 **Scoping (which ticket each per-column GAP feeds):** `player_ticks`/`actor_ticks` health/armor/armor_type/weapon -> T3/T4; `actor_ticks` (MVD all-players) + team_id -> T4; `actor_visibility.*` + `audio_cues.*` -> T8. The ammo/powerup source columns (G4), `damage_events` table (G3), and [G]/[R]/leg-phase columns (G5) are **absent from the schema entirely** (not just unpopulated) — they are schema-addition tickets T5/T6/T7, so they do not appear as columns here; that absence IS the finding.
-

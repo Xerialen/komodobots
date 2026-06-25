@@ -54,6 +54,12 @@ class TestParsers(unittest.TestCase):
         self.assertIn("player_ticks.health", refs)
         self.assertIn("player_ticks.armor", refs)
 
+    def test_registry_captures_mixedcase_and_digit_columns(self):
+        # source tokens whose column carries uppercase/digits must not be dropped
+        refs = audit.parse_registry_sources(audit.REGISTRY_YAML)
+        self.assertIn("region_control_timeline.teamA_control", refs)
+        self.assertIn("audio_cues.intensity0", refs)
+
 
 class TestClassification(unittest.TestCase):
     def test_known_gaps_classify_gap(self):
