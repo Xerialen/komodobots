@@ -502,15 +502,38 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
                  "active-weapon / ego armor-skin source without a decoder change), and `actor_visibility.*` "
                  "+ `audio_cues.*` -> T8. The `damage_events` table (G3) is now schema-defined + "
                  "populated (T5 #393, era-gated via `demos.damage_available`), so it appears as extracted "
-                 "columns above. The ammo/powerup source columns (G4) and [G]/[R]/leg-phase columns (G5) "
-                 "are still **absent from the schema entirely** (not just unpopulated) — schema-addition "
-                 "tickets T6/T7, so they do not appear as columns here; that absence IS the finding.")
+                 "columns above. The ammo/powerup source columns (G4) are likewise now "
+                 "schema-defined + populated (T6 #394: `shells`/`nails`/`rockets`/`cells` + "
+                 "`quad_rem`/`pent_rem`/`ring_rem` on `player_ticks` + `actor_ticks`, from the same "
+                 "`-view full` streams), so they too appear as extracted columns above. Only the [G]/[R]/"
+                 "leg-phase columns (G5) remain **absent from the schema entirely** (not just unpopulated) "
+                 "— schema-addition ticket T7, so they do not appear as columns here; that absence IS the "
+                 "finding.")
     return "\n".join(lines).rstrip("\n") + "\n", counts
 
 
 # =============================================================================
 # Self-checks (the runnable assert gate)
 # =============================================================================
+def _report_claims_g4_absent(report: str) -> bool:
+    """True if the report prose asserts the G4 ammo/powerup columns are absent from the schema.
+
+    Robust to minor wording: requires, within one sentence, both a reference to the
+    ammo/powerup (G4) columns AND an "absent from the schema" claim. Matches the substantive
+    claim rather than a single brittle string so a future edit can't dodge the guard by
+    rephrasing.
+    """
+    text = report.lower()
+    for sentence in re.split(r"(?<=[.!?])\s+|\n", text):
+        mentions_g4 = ("ammo/powerup" in sentence
+                       or ("g4" in sentence and "g5" not in sentence)
+                       or ("ammo" in sentence and "powerup" in sentence))
+        claims_absent = "absent from the schema" in sentence
+        if mentions_g4 and claims_absent:
+            return True
+    return False
+
+
 def run_self_checks() -> None:
     schema = parse_schema_tables(SCHEMA_SQL)
     etl_mvd = parse_etl_inserts(ETL_MVD)
@@ -598,6 +621,20 @@ def run_self_checks() -> None:
 
     # The 6-gap roll-up must stay enumerated.
     assert len(PLAN_GAPS) == 6, "plan names exactly 6 genuine gaps"
+
+    # Anti-recurrence guard (#404 P1): the report must not SIMULTANEOUSLY classify the T6
+    # ammo/powerup G4 columns as extracted AND assert in its prose that those columns are
+    # "absent from the schema". Build the report text and detect the contradiction directly so
+    # the deterministic gate can never green-light a self-contradictory data contract.
+    report, _ = build_report(schema, etl_mvd, etl_qwd, registry_refs)
+    t6_cols = ("shells", "nails", "rockets", "cells", "quad_rem", "pent_rem", "ring_rem")
+    t6_extracted = all(classify_column("player_ticks", c)[0] == EXTRACTED for c in t6_cols)
+    if t6_extracted and _report_claims_g4_absent(report):
+        raise AssertionError(
+            "report contradiction (#404 P1): T6 ammo/powerup columns classify as extracted, "
+            "yet the report prose still asserts the G4 ammo/powerup columns are absent from the "
+            "schema. Update the scoping paragraph to mark G4 as ADDRESSED by T6.")
+
     print("self-checks: OK")
 
 
