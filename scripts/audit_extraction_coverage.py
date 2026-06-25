@@ -94,7 +94,7 @@ DECODER_INVENTORY: "OrderedDict[str, tuple[str, str, str]]" = OrderedDict([
     # --- MVD combat / events ---
     ("frags.kill_timeline", ("getFrags (time,killer,victim,weapon,isSuicide,isTeamKill)", "MVD", "kill timeline")),
     ("events.life", ("getEvents frag/powerup/streak/spawn/death/weapon/item/chat", "MVD", "authoritative spawn/death log")),
-    ("damage.per_hit", ("getEvents damage detail (victim,damage,weapon,isSplash...)", "MVD (KTX ~2024+)", "per-hit KTX damage; mvdhidden_dmgdone")),
+    ("damage.per_hit", ("`-view full` damage.events (attacker,victim,weapon,damage,isSplash/isEnv/isSelf/isTeam)", "MVD (KTX ~2024+)", "per-hit KTX damage; mvdhidden_dmgdone. POPULATED -> damage_events (T5), ERA-GATED via demos.damage_available")),
     # --- MVD spatial / region ---
     ("region.control_timeline", ("getRegionControl bucketStates/stats", "MVD", "bucketed map-region control")),
     ("audio.weapon_item_cues", ("getEvents weapon/item (sound sources)", "MVD", "weapon-fire/item-pickup audio cue sources")),
@@ -193,6 +193,17 @@ CLASSIFY: "OrderedDict[str, tuple[str, str | None, str]]" = OrderedDict([
     ("frag_events.weapon", (EXTRACTED, "frags.kill_timeline", "frags.frags[].weapon (rl/lg/sg/.../tele/fall/teamkill)")),
     ("frag_events.is_suicide", (EXTRACTED, "frags.kill_timeline", "frags.frags[].isSuicide")),
     ("frag_events.is_teamkill", (EXTRACTED, "frags.kill_timeline", "frags.frags[].isTeamKill")),
+    # ---- damage_events (T5; per-hit KTX damage, ERA-GATED ~2024+; from `-view full` damage.events) ----
+    ("demos.damage_available", (EXTRACTED, "damage.per_hit", "era-gate flag: TRUE if the demo carried the `-view full` damage block (per-hit stream authoritative), FALSE => UNKNOWN/pre-era (fail-closed, never zero). MVD ETL writes per demo (T5)")),
+    ("damage_events.t_s", (EXTRACTED, "damage.per_hit", "MVD writes from `-view full` damage.events (T5, era-gated); damage.events[].time/1000")),
+    ("damage_events.attacker_id", (EXTRACTED, "damage.per_hit", "damage.events[].attacker -> player_id (NULL for 'world'/environmental)")),
+    ("damage_events.victim_id", (EXTRACTED, "damage.per_hit", "damage.events[].victim -> player_id")),
+    ("damage_events.weapon", (EXTRACTED, "damage.per_hit", "damage.events[].weapon (rl/lg/sg/.../fall/drown/trigger)")),
+    ("damage_events.damage", (EXTRACTED, "damage.per_hit", "damage.events[].damage (hit-point amount)")),
+    ("damage_events.is_splash", (EXTRACTED, "damage.per_hit", "damage.events[].isSplash")),
+    ("damage_events.is_env", (EXTRACTED, "damage.per_hit", "damage.events[].isEnv (fall/drown/trigger)")),
+    ("damage_events.is_self", (EXTRACTED, "damage.per_hit", "damage.events[].isSelf (attacker==victim)")),
+    ("damage_events.is_teamkill", (EXTRACTED, "damage.per_hit", "damage.events[].isTeam (same-team damage)")),
     # ---- teams ----
     ("teams.name", (EXTRACTED, "world.roster_teams", "MVD writes distinct per-player roster team names (T4); QWD via fixture")),
     ("teams.side", (DERIVED, "world.roster_teams", "canonical A/B side label (first-seen team order)")),
@@ -270,7 +281,9 @@ PLAN_GAPS = [
     "G1: no coverage audit (THIS script fills it)",
     "G2: schema-file drift (scripts/catalog_schema.sql operative vs data/catalog/catalog.sql dup "
     "vs registry's dangling `schema/catalog.sql` reference)",
-    "G3: damage_events table absent (only frag_events exists)",
+    "G3: damage_events table absent (only frag_events exists) — ADDRESSED by T5 #393: the table is "
+    "now schema-defined + populated from `-view full` damage.events, era-gated via "
+    "demos.damage_available (fail-closed)",
     "G4: ammo + powerup-remaining source columns absent (registry defines the features)",
     "G5: stored [G] geometry / [R] regime / leg-phase columns absent",
     "G6: docs/27 inaccuracies (frag_events/actor_visibility/audio_cues/teams called "
@@ -470,10 +483,11 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
                  "team_id, plus `item_events`/`frag_events`/`teams` -> T4 (DONE; from `-view full`). The "
                  "GAPs that REMAIN: `player_ticks.armor_type`/`weapon` + `actor_ticks.weapon` (no honest "
                  "active-weapon / ego armor-skin source without a decoder change), and `actor_visibility.*` "
-                 "+ `audio_cues.*` -> T8. The ammo/powerup source columns (G4), "
-                 "`damage_events` table (G3), and [G]/[R]/leg-phase columns (G5) are **absent from the "
-                 "schema entirely** (not just unpopulated) — they are schema-addition tickets T5/T6/T7, "
-                 "so they do not appear as columns here; that absence IS the finding.")
+                 "+ `audio_cues.*` -> T8. The `damage_events` table (G3) is now schema-defined + "
+                 "populated (T5 #393, era-gated via `demos.damage_available`), so it appears as extracted "
+                 "columns above. The ammo/powerup source columns (G4) and [G]/[R]/leg-phase columns (G5) "
+                 "are still **absent from the schema entirely** (not just unpopulated) — schema-addition "
+                 "tickets T6/T7, so they do not appear as columns here; that absence IS the finding.")
     return "\n".join(lines).rstrip("\n") + "\n", counts
 
 
@@ -488,7 +502,7 @@ def run_self_checks() -> None:
 
     # Schema parse sanity: the v2 4on4 tables must all be present.
     for t in ("player_ticks", "actor_ticks", "actions", "item_events", "frag_events",
-              "teams", "actor_visibility", "audio_cues", "region_control_timeline"):
+              "damage_events", "teams", "actor_visibility", "audio_cues", "region_control_timeline"):
         assert t in schema, f"schema parse missing table {t}"
     assert "weapon" in schema["player_ticks"], "player_ticks.weapon column not parsed"
 
@@ -532,6 +546,13 @@ def run_self_checks() -> None:
     assert classify_column("actor_ticks", "weapon")[0] == GAP, "actor_ticks.weapon stays GAP (no active-weapon source)"
     assert classify_column("frag_events", "killer_id")[0] == EXTRACTED
     assert classify_column("teams", "name")[0] == EXTRACTED
+
+    # T5: damage_events is now schema-defined + populated (G3 closed), era-gated via
+    # demos.damage_available. Its content columns classify extracted and the MVD ETL writes them.
+    for col in ("attacker_id", "victim_id", "weapon", "damage", "is_splash"):
+        assert classify_column("damage_events", col)[0] == EXTRACTED, f"damage_events.{col} should be extracted (T5)"
+        assert col in etl_mvd.get("damage_events", set()), f"MVD ETL must populate damage_events.{col} (T5)"
+    assert classify_column("demos", "damage_available")[0] == EXTRACTED, "demos.damage_available is the era-gate (T5)"
 
     # Every CLASSIFY key must reference a real schema column (no stale verdict).
     valid = {f"{t}.{c}" for t, cols in schema.items() for c in cols}

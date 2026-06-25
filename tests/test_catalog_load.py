@@ -23,13 +23,13 @@ FIXTURE_DIR = REPO_ROOT / "data" / "fixtures" / "dm3_milton_211436"
 
 
 class TestSchemaApplies(unittest.TestCase):
-    def test_eighteen_tables(self):
+    def test_nineteen_tables(self):
         con = catalog_load.connect()
         tabs = [r[0] for r in con.execute(
             "SELECT name FROM sqlite_master WHERE type='table'")]
-        self.assertEqual(len(tabs), 18, tabs)
+        self.assertEqual(len(tabs), 19, tabs)  # +damage_events (T5 #393)
         for required in ("maps", "items", "markers", "nav_edges", "demos",
-                         "teams", "players", "frag_events", "actor_ticks",
+                         "teams", "players", "frag_events", "damage_events", "actor_ticks",
                          "actor_visibility", "audio_cues", "region_control_timeline"):
             self.assertIn(required, tabs)
 

@@ -449,6 +449,43 @@ class WorldExtractTest(unittest.TestCase):
         self.assertTrue(ev[2]["is_suicide"])
         self.assertFalse(ev[0]["is_suicide"])
 
+    def test_extract_damage_events_fields_and_flags(self):
+        # the real `-view full` damage.events shape (verified on book_vs_mix): time/attacker/victim/
+        # weapon/damage + isSplash/isEnv/isSelf/isTeam. Block PRESENT => available, rows emitted sorted.
+        data = {"damage": {"events": [
+            {"time": 37, "attacker": "zero", "victim": "Milton", "weapon": "lg", "damage": 30},
+            {"time": 10, "attacker": "Milton", "victim": "zero", "weapon": "rl", "damage": 52,
+             "isSplash": True},
+            {"time": 99, "attacker": "world", "victim": "niw", "weapon": "fall", "damage": 12,
+             "isEnv": True},
+            {"time": 120, "attacker": "niw", "victim": "niw", "weapon": "rl", "damage": 40,
+             "isSelf": True},
+            {"time": 200, "attacker": "zero", "victim": "razor", "weapon": "lg", "damage": 8,
+             "isTeam": True},
+        ]}}
+        res = etl._extract_damage_events(data)
+        self.assertTrue(res["available"])
+        ev = res["events"]
+        self.assertEqual([e["t_ms"] for e in ev], [10, 37, 99, 120, 200])  # sorted by time
+        self.assertEqual(ev[0]["damage"], 52)
+        self.assertTrue(ev[0]["is_splash"])
+        self.assertTrue(ev[2]["is_env"])
+        self.assertEqual(ev[2]["attacker"], "world")  # environmental name (resolves to NULL id)
+        self.assertTrue(ev[3]["is_self"])
+        self.assertTrue(ev[4]["is_teamkill"])
+        self.assertFalse(ev[0]["is_env"])
+
+    def test_extract_damage_events_block_absent_is_unavailable_not_zero(self):
+        # FAIL-CLOSED (§6.5): a pre-era demo has NO `damage` block -> available=False, NO rows.
+        # available=False must be distinguishable from an empty (available=True) damage stream.
+        absent = etl._extract_damage_events({"frags": {"frags": []}})  # no `damage` key
+        self.assertFalse(absent["available"])
+        self.assertEqual(absent["events"], [])
+        # a PRESENT-but-empty block = genuinely zero damage (era demo, no hits) -> available=True
+        empty = etl._extract_damage_events({"damage": {"events": []}})
+        self.assertTrue(empty["available"])
+        self.assertEqual(empty["events"], [])
+
 
 def _world_rec(sha):
     """A small two-player `rec` carrying both an episode (for player_ticks) and the T4 world."""
@@ -484,6 +521,14 @@ def _world_rec(sha):
              "is_suicide": False, "is_teamkill": False},
             {"t_ms": 80, "killer": "bob", "victim": "bob", "weapon": "fall",
              "is_suicide": True, "is_teamkill": False},
+        ],
+        # (T5) per-hit damage: block present (era demo) -> available + rows.
+        "damage_available": True,
+        "damage_events": [
+            {"t_ms": 40, "attacker": "alice", "victim": "bob", "weapon": "lg", "damage": 30,
+             "is_splash": False, "is_env": False, "is_self": False, "is_teamkill": False},
+            {"t_ms": 70, "attacker": "world", "victim": "bob", "weapon": "fall", "damage": 12,
+             "is_splash": False, "is_env": True, "is_self": False, "is_teamkill": False},
         ],
     }
 
@@ -584,6 +629,70 @@ class WorldInsertTest(unittest.TestCase):
         # and NO actor_ticks row was written with a NULL team_id
         self.assertEqual(self.con.execute(
             "SELECT COUNT(*) FROM actor_ticks WHERE team_id IS NULL").fetchone()[0], 0)
+
+
+class DamageEventsInsertTest(unittest.TestCase):
+    """insert_demo populates damage_events (T5) and sets the demos.damage_available era-gate,
+    fail-closed: a pre-era demo (no damage block) writes NO rows and is marked unavailable, NOT
+    zeroed; an era demo with an empty stream is available (= genuinely zero damage)."""
+
+    def setUp(self):
+        self.con = _con_with_schema()
+        # the world fixture's item_events pickup joins on this item; seed it (same as WorldInsertTest).
+        self.con.execute(
+            "INSERT INTO items (item_id, map_id, classname, item_type, category, "
+            "origin_x, origin_y, origin_z, static_value) "
+            "VALUES (1, 1, 'weapon_rocketlauncher', 'rl', 'weapon', 1520, 496, -112, 1.0)")
+
+    def test_damage_events_populate_and_resolve_names(self):
+        sha = "ba" * 32
+        ins = etl.insert_demo(self.con, 1, _world_rec(sha), etl.split_for_sha(sha), 1)
+        self.con.commit()
+        # two hits inserted; the count is reported
+        self.assertEqual(ins["damage_events"], 2)
+        self.assertEqual(self.con.execute("SELECT COUNT(*) FROM damage_events").fetchone()[0], 2)
+        # demo marked era-AVAILABLE (block was present)
+        self.assertEqual(self.con.execute(
+            "SELECT damage_available FROM demos WHERE demo_id=1").fetchone()[0], 1)
+        # attacker NAME -> player_id for a real attacker; environmental 'world' -> NULL attacker_id
+        rows = self.con.execute(
+            "SELECT weapon, damage, attacker_id, is_env FROM damage_events ORDER BY t_s").fetchall()
+        self.assertEqual(rows[0][0], "lg")
+        self.assertEqual(rows[0][1], 30)
+        self.assertIsNotNone(rows[0][2])        # alice resolved to a player_id
+        self.assertEqual(rows[1][0], "fall")
+        self.assertIsNone(rows[1][2])           # 'world' -> NULL (no player), is_env true
+        self.assertEqual(rows[1][3], 1)
+        # FK integrity across the db
+        self.con.execute("PRAGMA foreign_keys=ON")
+        self.assertEqual(self.con.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+    def test_pre_era_demo_is_unavailable_not_zeroed(self):
+        # FAIL-CLOSED: a demo whose decode lacked the damage block -> damage_available FALSE and
+        # ZERO damage_events rows. A consumer reads "unknown", never "no damage".
+        sha = "be" * 32
+        rec = _world_rec(sha)
+        rec["damage_available"] = False
+        rec["damage_events"] = []
+        ins = etl.insert_demo(self.con, 1, rec, etl.split_for_sha(sha), 1)
+        self.con.commit()
+        self.assertEqual(ins["damage_events"], 0)
+        self.assertEqual(self.con.execute("SELECT COUNT(*) FROM damage_events").fetchone()[0], 0)
+        avail = self.con.execute("SELECT damage_available FROM demos WHERE demo_id=1").fetchone()[0]
+        self.assertEqual(avail, 0)               # FALSE, recorded as unknown — NOT NULL-silent, NOT zeroed
+        self.assertIsNotNone(avail)              # the flag is explicitly set, not left NULL
+
+    def test_era_demo_with_no_hits_is_available_zero(self):
+        # an era demo (block present) that simply had no hits -> available TRUE, 0 rows = genuinely zero.
+        sha = "bd" * 32
+        rec = _world_rec(sha)
+        rec["damage_available"] = True
+        rec["damage_events"] = []
+        etl.insert_demo(self.con, 1, rec, etl.split_for_sha(sha), 1)
+        self.con.commit()
+        self.assertEqual(self.con.execute("SELECT COUNT(*) FROM damage_events").fetchone()[0], 0)
+        self.assertEqual(self.con.execute(
+            "SELECT damage_available FROM demos WHERE demo_id=1").fetchone()[0], 1)
 
 
 class SplitTest(unittest.TestCase):

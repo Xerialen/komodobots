@@ -33,6 +33,8 @@ Per demo it loads:
                     state + forward-filled health/armor/armor_type + alive + team_id)          (T4)
     item_events  <- pickup/respawn timeline (item phases) + dropped-weapon backpacks           (T4)
     frag_events  <- kill timeline (killer/victim/weapon/isSuicide/isTeamKill)                   (T4)
+    damage_events<- per-HIT damage (attacker/victim/weapon/damage/splash/env/self/teamkill),
+                    ERA-GATED: demos.damage_available marks block-present vs UNKNOWN (fail-closed) (T5)
 
 All of T4's tables read the SAME single `-view full` decode the movement spine already runs (the
 schema-33 JSON carries the per-player resource step-timelines + the match-level frags/items/backpacks
@@ -490,6 +492,43 @@ def _extract_frag_events(data: dict) -> list[dict]:
     return out
 
 
+def _extract_damage_events(data: dict) -> dict:
+    """Per-HIT damage stream from the `-view full` top-level `damage.events` (T5 #393).
+
+    ERA-GATED + FAIL-CLOSED (§3.6/§6.5): per-hit damage is the KTX hidden `mvdhidden_dmgdone`
+    block, present only in ~2024+ demos. Returns BOTH an availability flag and the rows so the
+    caller can distinguish "unknown" (no block — pre-era) from "genuinely zero damage":
+        {"available": bool, "events": [...]}
+    `available` is the presence of the top-level `damage` block (a dict). When False the demo is
+    pre-era: NO rows are emitted and demos.damage_available is set FALSE so absence is never read
+    as "no damage". When True the demo carries the authoritative stream (possibly 0 rows = real
+    zero damage). EMPIRICALLY VERIFIED on the real 4on4 book_vs_mix MVD (schema-33, sha 6954ffb6):
+    each event is {time (ms), attacker (name), victim (name), weapon, damage (int), isSplash?,
+    isEnv?, isSelf?, isTeam?}. attacker/victim are NAMES (insert_demo -> player_id); 'world' /
+    fall / drown / trigger are environmental (no attacker player). victimWep is intentionally
+    dropped (not modelled; mirror the lean frag/item shape)."""
+    block = data.get("damage")
+    if not isinstance(block, dict):
+        return {"available": False, "events": []}
+    out = []
+    for e in block.get("events") or []:
+        if not isinstance(e, dict):
+            continue
+        attacker, victim = e.get("attacker"), e.get("victim")
+        out.append({
+            "t_ms": int(e.get("time", 0)),
+            "attacker": attacker, "victim": victim, "weapon": e.get("weapon"),
+            "damage": e.get("damage"),
+            "is_splash": bool(e.get("isSplash", False)),
+            "is_env": bool(e.get("isEnv", False)),
+            # honor the explicit decoder flag; fall back to attacker==victim for self if unflagged.
+            "is_self": bool(e.get("isSelf", attacker is not None and attacker == victim)),
+            "is_teamkill": bool(e.get("isTeam", False)),
+        })
+    out.sort(key=lambda d: d["t_ms"])
+    return {"available": True, "events": out}
+
+
 def _nearest_sample(times: list, t_ms: int):
     """Index of the omniscient state sample nearest to t_ms (at-or-before preferred, else the very
     first sample). MVD is omniscient so there is no staleness gap to honor — every player's exact
@@ -677,6 +716,9 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
     actor_world = {}  # player name -> {"t":[...], "rows":[...]} omniscient state samples
     item_events = _extract_item_events(data)
     frag_events = _extract_frag_events(data)
+    # (T5) per-hit damage — ERA-GATED: `damage_available` is the presence of the `-view full`
+    # damage block; pre-era demos lack it (damage UNKNOWN, fail-closed — never zeroed).
+    damage = _extract_damage_events(data)
 
     players_out = []
     actor_team = {}  # actor_world key (raw name) -> team string, for EVERY world player
@@ -739,6 +781,9 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
         "actor_team": actor_team,      # player name (actor_world key) -> team string, ALL world players
         "item_events": item_events,    # pickup/respawn/drop timeline (name+kind+origin keyed)
         "frag_events": frag_events,    # kill timeline (killer/victim NAME keyed)
+        # (T5) per-hit damage stream (attacker/victim NAME keyed) + era availability flag.
+        "damage_available": damage["available"],
+        "damage_events": damage["events"],
     }
 
 
@@ -759,10 +804,16 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
         return {"skipped_duplicate": True, "demo": rec["demo"], "sha256": rec["sha256"],
                 "duplicate_of": dup[1], "duplicate_of_id": dup[0]}
 
+    # (T5) era-gating: damage_available records whether this demo carried the `-view full` damage
+    # block. TRUE => damage_events is authoritative (0 rows = real zero); FALSE => pre-era, damage
+    # UNKNOWN (fail-closed, never read as zero). Default NULL/unknown for records lacking the key.
+    damage_available = rec.get("damage_available")
     con.execute(
-        """INSERT INTO demos (demo_id, path, source, map_id, demo_kind, sha256, parser_commit)
-           VALUES (?,?,?,?,?,?,?)""",
-        (demo_id, rec["demo"], "mvd", map_id, "4on4", rec["sha256"], "qw-analyze:schema33"),
+        """INSERT INTO demos
+           (demo_id, path, source, map_id, demo_kind, sha256, parser_commit, damage_available)
+           VALUES (?,?,?,?,?,?,?,?)""",
+        (demo_id, rec["demo"], "mvd", map_id, "4on4", rec["sha256"], "qw-analyze:schema33",
+         damage_available),
     )
 
     stem = Path(rec["demo"]).stem[:48]
@@ -916,9 +967,27 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
         )
         n_fe += 1
 
+    # (T5) per-hit damage stream — only when the era-gated block was present (damage_available).
+    # A pre-era demo (damage_available FALSE) emits NO rows here: absence stays UNKNOWN, never zero.
+    # attacker 'world'/fall/drown resolves to NULL (no player), exactly like an environmental frag.
+    n_de = 0
+    for dm in rec.get("damage_events") or []:
+        attacker = pid_by_name.get(dm.get("attacker") or "") if dm.get("attacker") else None
+        victim = pid_by_name.get(dm.get("victim") or "") if dm.get("victim") else None
+        con.execute(
+            """INSERT INTO damage_events
+               (demo_id, t_s, attacker_id, victim_id, weapon, damage,
+                is_splash, is_env, is_self, is_teamkill)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (demo_id, dm["t_ms"] / 1000.0, attacker, victim, dm.get("weapon"), dm.get("damage"),
+             dm["is_splash"], dm["is_env"], dm["is_self"], dm["is_teamkill"]),
+        )
+        n_de += 1
+
     return {"demo_id": demo_id, "players": n_pl, "episodes": n_ep,
             "player_ticks": n_tick, "actions": n_act, "actor_ticks": n_actor,
-            "teams": len(team_id_by_name), "item_events": n_ie, "frag_events": n_fe}
+            "teams": len(team_id_by_name), "item_events": n_ie, "frag_events": n_fe,
+            "damage_events": n_de}
 
 
 def load_manifest(manifest_path: Path) -> list[dict]:
@@ -1136,7 +1205,8 @@ def _strafe_label_stats(con: sqlite3.Connection) -> dict:
 
 TABLES = ["maps", "items", "markers", "nav_edges", "players", "demos",
           "episodes", "player_ticks", "actions",
-          "teams", "actor_ticks", "item_events", "frag_events"]  # T4 omniscient world
+          "teams", "actor_ticks", "item_events", "frag_events",  # T4 omniscient world
+          "damage_events"]  # T5 per-hit damage (era-gated)
 
 
 def table_counts(con: sqlite3.Connection) -> dict:
