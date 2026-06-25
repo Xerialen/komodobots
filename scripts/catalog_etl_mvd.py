@@ -50,6 +50,15 @@ yielding JSON with `streams.players[]` (~8 for a 4on4). Each player has `name`, 
   vx,vy,vz     = velocity qu/s (the analyzer already finite-differences it — used DIRECTLY)
   li           = loc index (unused here)
 
+RESOURCE STATE (T3) — a SECOND, best-effort decode of the discrete event stream:
+    <binary> -view events -event-types health,armor <demo.mvd>
+yields `events: [{t (s), type, player(name), detail:{value}}]`. The per-player health/armor
+VALUE step-timelines are forward-filled onto each pos tick (joined by demo-time + player name)
+and written to player_ticks.health/armor. armor_type and weapon stay NULL: this stream carries
+the STAT-equivalent health/armor values but NOT the armor skin/type, and its weapon events are
+gain/lose INVENTORY changes, not STAT_ACTIVEWEAPON (the "active weapon id" the column means).
+Best-effort: a failed/empty event decode leaves health/armor NULL; movement is never gated on it.
+
 ⚠️ BINARY-VERSION GUARD: the OLDER qw-analyze build emits schema 21, whose `pos` has only
 {t,x,y,z,li} — NO vp/vya/vx/vy/vz — which would silently kill strafe-sign recovery. This ETL
 HARD-FAILS unless schemaVersion>=33 AND `pos` carries `vya` and `vx` (see _validate_analysis).
@@ -97,6 +106,7 @@ Repo destination: scripts/catalog_etl_mvd.py
 from __future__ import annotations
 
 import argparse
+import bisect
 import hashlib
 import json
 import logging
@@ -252,8 +262,49 @@ def _player_frames(pos: dict) -> list[dict]:
             "yaw": float(vya[i]) * ANGLE16_TO_DEG,
             "pitch": float(vp[i]) * ANGLE16_TO_DEG,
             "msec": msec,
+            "t_ms": int(t[i]),  # absolute demo-time (ms); the join key for the resource timeline
         })
     return frames
+
+
+def _resource_timeline(events: list, player_name: str) -> dict:
+    """Build one player's step-function resource timeline (health/armor) from the `-view events
+    -event-types health,armor` stream, keyed for an at-or-before lookup against a tick's t_ms.
+
+    The events stream is `[{t (seconds, demo-time), type, player (name), detail:{value,...}}]`.
+    `health` / `armor` events carry an ABSOLUTE STAT value in detail.value at each change time
+    (the spec §3.4 STAT_HEALTH/STAT_ARMOR equivalents). We keep, per type, the sorted change
+    times (in ms, same origin as the pos stream's `t`) and their values, so _fill_resource can
+    forward-fill the most-recent value at-or-before each tick. Returns {"health": (ts, vs),
+    "armor": (ts, vs)} with parallel sorted arrays (empty when the player has no such events)."""
+    out = {"health": ([], []), "armor": ([], [])}
+    for e in events:
+        if e.get("player") != player_name:
+            continue
+        typ = e.get("type")
+        if typ not in out:
+            continue
+        val = (e.get("detail") or {}).get("value")
+        if val is None:
+            continue
+        t_ms = int(round(float(e.get("t", 0.0)) * 1000.0))  # seconds -> ms (pos-stream origin)
+        out[typ][0].append(t_ms)
+        out[typ][1].append(int(val))
+    for typ in out:  # the analyzer emits change-events in time order, but sort to be safe
+        ts, vs = out[typ]
+        if ts != sorted(ts):
+            order = sorted(range(len(ts)), key=lambda i: ts[i])
+            out[typ] = ([ts[i] for i in order], [vs[i] for i in order])
+    return out
+
+
+def _fill_resource(timeline: tuple, t_ms: int):
+    """Most-recent step value at-or-before t_ms (forward-fill); None before the first event."""
+    ts, vs = timeline
+    if not ts:
+        return None
+    i = bisect.bisect_right(ts, t_ms) - 1
+    return vs[i] if i >= 0 else None
 
 
 def _recover_onground(frames: list[dict], prober: OngroundProber) -> list[bool]:
@@ -344,6 +395,10 @@ def _pack_episode(seg, seg_onground, seg_jump, start_tick: int) -> dict:
             "pitch": pitch, "yaw": yaw, "roll": 0.0,
             "hspeed": round(hspeed, 3),
             "onground": onground,
+            # resource state forward-filled from the events stream in extract_demo (T3).
+            # armor_type/weapon stay NULL: the -event-types stream carries STAT-equivalent
+            # health/armor VALUES but not the armor skin/type nor STAT_ACTIVEWEAPON.
+            "health": f.get("health"), "armor": f.get("armor"),
             "fwd": FORWARDMOVE_PRIOR, "side": side, "up": upmove,
             "buttons": buttons,
             "cmd_yaw": yaw, "cmd_pitch": pitch,
@@ -352,6 +407,24 @@ def _pack_episode(seg, seg_onground, seg_jump, start_tick: int) -> dict:
         })
         t_s += dt
     return {"start": start_tick, "end": start_tick + len(seg) - 1, "n": len(seg), "frames": rows}
+
+
+def _decode_resource_events(qw_analyze: str, demo: Path) -> list:
+    """Best-effort decode of the discrete event stream for resource state (T3).
+
+    Runs `<binary> -view events -event-types health,armor <demo>` and returns its `events`
+    list (`[{t, type, player, detail}]`). Best-effort: ANY failure (the binary lacks the flag,
+    a malformed/empty export, a parse error) returns [] so health/armor stay NULL and the
+    movement spine is unaffected — resource state is additive context, never a hard gate."""
+    try:
+        proc = subprocess.run(
+            [qw_analyze, "-view", "events", "-event-types", "health,armor", str(demo)],
+            capture_output=True, check=True,
+        )
+        ev = json.loads(proc.stdout).get("events")
+        return ev if isinstance(ev, list) else []
+    except Exception:  # noqa: BLE001  (resource state is best-effort; never fail the demo on it)
+        return []
 
 
 def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
@@ -385,6 +458,15 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "demo": demo.name, "error": "%s: %s" % (type(e).__name__, e)}
 
+    # (T3) resource state: a SECOND, best-effort decode of the discrete event stream for the
+    # per-player health/armor step timelines (`-view events -event-types health,armor`). This is
+    # a SEPARATE view from `-view full` (one decode each), but the same already-recorded demo.
+    # Best-effort by design: a demo whose event view fails/empties just yields NULL health/armor
+    # (resource state is additive context, never the movement spine). armor_type and weapon stay
+    # NULL — the stream carries STAT-equivalent health/armor VALUES but neither the armor skin/type
+    # nor STAT_ACTIVEWEAPON (its weapon events are gain/lose inventory, not the active-weapon id).
+    events = _decode_resource_events(qw_analyze, demo)
+
     try:
         prober = OngroundProber(bsp_path)
     except Exception as e:  # noqa: BLE001
@@ -398,6 +480,11 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
         frames = _player_frames(pos)
         if len(frames) < MIN_EPISODE_FRAMES:
             continue
+        # (T3) forward-fill this player's health/armor onto each frame by demo-time (t_ms).
+        rt = _resource_timeline(events, p.get("name") or "")
+        for f in frames:
+            f["health"] = _fill_resource(rt["health"], f["t_ms"])
+            f["armor"] = _fill_resource(rt["armor"], f["t_ms"])
         onground = _recover_onground(frames, prober)
         jump = _recover_jumps(onground, frames)
 
@@ -482,12 +569,13 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
                 con.execute(
                     """INSERT INTO player_ticks
                        (episode_id, tick, t_s, msec, ox, oy, oz, vx, vy, vz,
-                        pitch, yaw, roll, hspeed, onground, onground_is_proxy)
-                       VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?)""",
+                        pitch, yaw, roll, hspeed, onground, onground_is_proxy, health, armor)
+                       VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?)""",
                     (episode_id, r["tick"], r["t_s"], r["msec"],
                      r["ox"], r["oy"], r["oz"], r["vx"], r["vy"], r["vz"],
                      r["pitch"], r["yaw"], r["roll"], r["hspeed"],
-                     r["onground"], True),  # onground_is_proxy=TRUE (geometric, no server flag)
+                     r["onground"], True,  # onground_is_proxy=TRUE (geometric, no server flag)
+                     r.get("health"), r.get("armor")),  # T3 forward-filled; armor_type/weapon NULL
                 )
                 n_tick += 1
                 con.execute(

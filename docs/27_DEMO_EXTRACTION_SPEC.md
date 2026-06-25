@@ -132,14 +132,18 @@ for threat context [C] and is omniscient in MVD (PVS-broadcast; ~99% coverage in
 
 | Field | Role | Recov. | Status (v1) | Catalog destination |
 |---|---|---|---|---|
-| health, armor, armor_type (GA/YA/RA) | C | obs | **binding** (unpopulated) | `player_ticks`/`actor_ticks.health/armor/armor_type` — columns exist |
-| active_weapon | C/E | obs | **binding** (unpopulated) | `…weapon` — column exists |
+| health, armor | C | obs | **binding** (**populated, T3** — MVD) | `player_ticks.health/armor` — MVD ETL forward-fills the per-tick value step-timeline |
+| armor_type (GA/YA/RA) | C | obs | **binding** (unpopulated) | `…armor_type` — column exists; no GA/YA/RA source in the per-tick streams yet (derive from item pickups, T7) |
+| active_weapon | C/E | obs | **binding** (unpopulated) | `…weapon` — column exists; the per-tick weapon stream is gain/lose INVENTORY, not STAT_ACTIVEWEAPON — no honest active-weapon source without a decoder change (deferred) |
 | ammo: shells, nails, rockets, cells | E | obs | **PENDING** (§9) | **no column yet** — excluded from v1 until schema adds it |
 | powerups: quad, pent, ring (held intervals) | C/E | obs | **PENDING** (§9) | **no table/column yet** — excluded from v1 until schema adds it |
 
 Source (wire): `svc_updatestat` STAT_HEALTH / ARMOR / ACTIVEWEAPON / SHELLS / NAILS / ROCKETS / CELLS /
-ITEMS (+ entity skin for armor type). The **binding** rows have schema columns but are **not yet
-populated** by the MVD ETL — a coverage gap tracked by §7, not a missing destination.
+ITEMS (+ entity skin for armor type). **health/armor are now populated** on `player_ticks` by the MVD
+ETL (T3, #391): a second best-effort decode `-view events -event-types health,armor` yields per-player
+absolute value step-timelines, forward-filled onto each tick by demo-time. `armor_type` and
+`active_weapon` **remain unpopulated** — the per-tick event streams carry the AP value but neither the
+armor skin/type nor the active-weapon id (its weapon events are gain/lose inventory) — tracked by §7.
 
 ### 3.5 Items / economy timeline — `items`, `item_events` [E/I]
 Static `items` (type, origin, respawn_seconds, static_value, nearest_marker) — POPULATED
