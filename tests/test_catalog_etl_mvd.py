@@ -62,6 +62,8 @@ class Angle16Test(unittest.TestCase):
         self.assertAlmostEqual(frames[0]["yaw"], 90.0, places=3)
         # velocity is used directly (analyzer already finite-differenced it)
         self.assertEqual(frames[0]["velocity"], [300.0, 5.0, 0.0])
+        # absolute demo-time (ms) carried for the T3 resource-timeline join
+        self.assertEqual([f["t_ms"] for f in frames], [0, 13, 26])
 
 
 class StrafeSignTest(unittest.TestCase):
@@ -260,6 +262,96 @@ class HoldoutInvariantTest(unittest.TestCase):
             ep = etl._pack_episode(seg, [False] * len(seg), [False] * len(seg), 0)
             self.assertTrue(all(r["is_interp"] for r in ep["frames"]),
                             "every idm row must be is_interp=True (no move head trains)")
+
+
+class ResourceStateTest(unittest.TestCase):
+    """T3: health/armor forward-filled from the `-event-types health,armor` step timeline;
+    armor_type/weapon left NULL (the stream carries STAT health/armor VALUES but not the armor
+    skin/type nor STAT_ACTIVEWEAPON). No qw-analyze binary needed — the events list is synthetic."""
+
+    EVENTS = [
+        {"t": 0.0, "type": "health", "player": "alice", "detail": {"value": 100}},
+        {"t": 0.5, "type": "armor", "player": "alice", "detail": {"value": 150}},
+        {"t": 1.0, "type": "health", "player": "alice", "detail": {"value": 80, "delta": -20}},
+        {"t": 0.2, "type": "health", "player": "bob", "detail": {"value": 100}},  # other player
+        {"t": 0.3, "type": "weapon", "player": "alice", "detail": {"kind": "gain", "weapon": "rl"}},
+    ]
+
+    def test_timeline_filters_player_and_type_and_converts_seconds_to_ms(self):
+        rt = etl._resource_timeline(self.EVENTS, "alice")
+        self.assertEqual(rt["health"], ([0, 1000], [100, 80]))   # alice only; s->ms; sorted
+        self.assertEqual(rt["armor"], ([500], [150]))
+        # bob's event excluded; weapon events ignored (not a tracked resource value)
+        self.assertEqual(etl._resource_timeline(self.EVENTS, "bob")["health"], ([200], [100]))
+
+    def test_fill_forward_fills_and_is_null_before_first_event(self):
+        rt = etl._resource_timeline(self.EVENTS, "alice")
+        self.assertIsNone(etl._fill_resource(rt["armor"], 0))      # before first armor event -> NULL
+        self.assertEqual(etl._fill_resource(rt["armor"], 600), 150)
+        self.assertEqual(etl._fill_resource(rt["health"], 0), 100)
+        self.assertEqual(etl._fill_resource(rt["health"], 999), 100)   # at-or-before (step holds)
+        self.assertEqual(etl._fill_resource(rt["health"], 1000), 80)   # step boundary inclusive
+        self.assertEqual(etl._fill_resource(rt["health"], 5000), 80)   # forward-filled past last
+        self.assertIsNone(etl._fill_resource(([], []), 100))           # empty timeline -> NULL
+
+    def test_pack_episode_carries_health_armor_and_leaves_type_weapon_absent(self):
+        seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                "yaw": float(i), "pitch": 0.0, "msec": 13,
+                "health": 100 if i < 2 else 80, "armor": None} for i in range(4)]
+        ep = etl._pack_episode(seg, [False] * 4, [False] * 4, 0)
+        self.assertEqual([r["health"] for r in ep["frames"]], [100, 100, 80, 80])
+        self.assertTrue(all(r["armor"] is None for r in ep["frames"]))
+        # armor_type/weapon are deliberately NOT emitted by the packer (stay NULL on insert)
+        self.assertNotIn("armor_type", ep["frames"][0])
+        self.assertNotIn("weapon", ep["frames"][0])
+
+    def test_insert_writes_health_armor_columns_and_nulls_type_weapon(self):
+        import sqlite3
+        con = sqlite3.connect(":memory:")
+        con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+        con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                    "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+        seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                "yaw": float(i), "pitch": 0.0, "msec": 13,
+                "health": 90, "armor": 25} for i in range(4)]
+        ep = etl._pack_episode(seg, [False] * 4, [False] * 4, 0)
+        sha = "abc12345" + "0" * 56
+        rec = {"demo": "d.mvd", "sha256": sha, "n_players": 1,
+               "players": [{"name": "p1", "team": 1, "episodes": [ep]}]}
+        etl.insert_demo(con, 1, rec, etl.split_for_sha(sha), 1)
+        rows = con.execute("SELECT health, armor, armor_type, weapon FROM player_ticks").fetchall()
+        con.close()
+        self.assertEqual(len(rows), 4)
+        for h, a, at, w in rows:
+            self.assertEqual(h, 90)
+            self.assertEqual(a, 25)
+            self.assertIsNone(at)   # armor_type: no source in this stream -> NULL (era/format-gated)
+            self.assertIsNone(w)    # weapon: gain/lose inventory, not active-weapon id -> NULL
+
+    def test_null_resource_inserts_as_null(self):
+        # a player with no health/armor events (frames carry health/armor=None) must insert NULL,
+        # not 0 — NULL is the honest "unknown", distinct from a real 0-HP/0-AP reading.
+        import sqlite3
+        con = sqlite3.connect(":memory:")
+        con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+        con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                    "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+        seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                "yaw": 0.0, "pitch": 0.0, "msec": 13} for i in range(3)]  # no health/armor keys
+        ep = etl._pack_episode(seg, [False] * 3, [False] * 3, 0)
+        sha = "dd001122" + "0" * 56
+        rec = {"demo": "d.mvd", "sha256": sha, "n_players": 1,
+               "players": [{"name": "p1", "team": 1, "episodes": [ep]}]}
+        etl.insert_demo(con, 1, rec, etl.split_for_sha(sha), 1)
+        n_null = con.execute("SELECT COUNT(*) FROM player_ticks WHERE health IS NULL "
+                             "AND armor IS NULL").fetchone()[0]
+        con.close()
+        self.assertEqual(n_null, 3)
+
+    def test_decode_resource_events_is_best_effort_on_bad_binary(self):
+        # a missing/failing binary must yield [] (NULL resources), never raise — movement is
+        # never gated on resource state.
+        self.assertEqual(etl._decode_resource_events("/nonexistent-qwa", Path("/x/d.mvd")), [])
 
 
 class SplitTest(unittest.TestCase):

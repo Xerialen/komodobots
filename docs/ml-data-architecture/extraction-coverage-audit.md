@@ -158,10 +158,10 @@
 | `onground` | derived | mvd.pos.xyz | mvd-etl, qwd-etl | — | geometric onground proxy (pmove_sim); MVD has no server flag |
 | `onground_is_proxy` | derived | — | mvd-etl, qwd-etl | — | ETL flags proxy provenance (always TRUE for MVD) |
 | `waterlevel` | excluded-with-reason | mvd.liquid.waterlevel | — | — | decoder CAN emit via -include liquid; ETL does NOT request it -> left NULL |
-| `health` | GAP | state.health | — | yes | decoder emits getStateAt h; MVD ETL requests only positions,view,velocity -> NULL. T3. |
-| `armor` | GAP | state.armor | — | yes | decoder emits getStateAt a; ETL leaves NULL. T3. |
-| `armor_type` | GAP | state.armor_type | — | yes | decoder emits getStateAt at; ETL leaves NULL. T3. |
-| `weapon` | GAP | state.weapon_held | qwd-etl | yes | decoder emits held-weapon intervals; MVD+QWD ETL write NULL. T3. |
+| `health` | extracted | state.health | mvd-etl | yes | MVD ETL forward-fills the `-event-types health` value step-timeline onto each tick (T3). NULL on QWD (not yet wired). |
+| `armor` | extracted | state.armor | mvd-etl | yes | MVD ETL forward-fills the `-event-types armor` value step-timeline onto each tick (T3). NULL on QWD. |
+| `armor_type` | GAP | state.armor_type | — | yes | still GAP after T3: the `-event-types armor` stream carries the AP VALUE but not the armor skin/type; no GA/YA/RA source in the per-tick streams. Deferred (derive from item pickups / T7). |
+| `weapon` | GAP | state.weapon_held | qwd-etl | yes | still GAP after T3: the `-event-types weapon` stream is gain/lose INVENTORY, not STAT_ACTIVEWEAPON (the 'active weapon id' the column means); QWD decoder skips SVC_UPDATESTAT. No honest active-weapon source without a decoder change. Deferred. |
 
 ### `item_events`
 
@@ -358,10 +358,10 @@ field codes + the QWD `usercmd_t` struct. Referenced by decoder **role**, not to
 
 | class | count |
 |---|---|
-| extracted | 54 |
+| extracted | 56 |
 | derived | 15 |
 | excluded-with-reason | 43 |
-| **GAP** | **28** |
+| **GAP** | **26** |
 | (structural: PK/FK/provenance) | 66 |
 | (UNCLASSIFIED — needs a verdict) | 0 |
 | classified content columns | 140 |

@@ -64,7 +64,6 @@ class TestParsers(unittest.TestCase):
 class TestClassification(unittest.TestCase):
     def test_known_gaps_classify_gap(self):
         for table, col in [
-            ("player_ticks", "health"), ("player_ticks", "armor"),
             ("player_ticks", "armor_type"), ("player_ticks", "weapon"),
             ("actor_ticks", "health"), ("actor_ticks", "team_id"),
             ("actor_visibility", "is_visible"), ("audio_cues", "src_type"),
@@ -74,6 +73,9 @@ class TestClassification(unittest.TestCase):
 
     def test_known_extracted_derived_excluded(self):
         self.assertEqual(audit.classify_column("player_ticks", "ox")[0], audit.EXTRACTED)
+        # T3: MVD health/armor event stream now populates these (GAP -> extracted)
+        self.assertEqual(audit.classify_column("player_ticks", "health")[0], audit.EXTRACTED)
+        self.assertEqual(audit.classify_column("player_ticks", "armor")[0], audit.EXTRACTED)
         self.assertEqual(audit.classify_column("player_ticks", "hspeed")[0], audit.DERIVED)
         self.assertEqual(audit.classify_column("player_ticks", "waterlevel")[0], audit.EXCLUDED)
 

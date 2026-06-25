@@ -139,10 +139,10 @@ CLASSIFY: "OrderedDict[str, tuple[str, str | None, str]]" = OrderedDict([
     ("player_ticks.onground", (DERIVED, "mvd.pos.xyz", "geometric onground proxy (pmove_sim); MVD has no server flag")),
     ("player_ticks.onground_is_proxy", (DERIVED, None, "ETL flags proxy provenance (always TRUE for MVD)")),
     ("player_ticks.waterlevel", (EXCLUDED, "mvd.liquid.waterlevel", "decoder CAN emit via -include liquid; ETL does NOT request it -> left NULL")),
-    ("player_ticks.health", (GAP, "state.health", "decoder emits getStateAt h; MVD ETL requests only positions,view,velocity -> NULL. T3.")),
-    ("player_ticks.armor", (GAP, "state.armor", "decoder emits getStateAt a; ETL leaves NULL. T3.")),
-    ("player_ticks.armor_type", (GAP, "state.armor_type", "decoder emits getStateAt at; ETL leaves NULL. T3.")),
-    ("player_ticks.weapon", (GAP, "state.weapon_held", "decoder emits held-weapon intervals; MVD+QWD ETL write NULL. T3.")),
+    ("player_ticks.health", (EXTRACTED, "state.health", "MVD ETL forward-fills the `-event-types health` value step-timeline onto each tick (T3). NULL on QWD (not yet wired).")),
+    ("player_ticks.armor", (EXTRACTED, "state.armor", "MVD ETL forward-fills the `-event-types armor` value step-timeline onto each tick (T3). NULL on QWD.")),
+    ("player_ticks.armor_type", (GAP, "state.armor_type", "still GAP after T3: the `-event-types armor` stream carries the AP VALUE but not the armor skin/type; no GA/YA/RA source in the per-tick streams. Deferred (derive from item pickups / T7).")),
+    ("player_ticks.weapon", (GAP, "state.weapon_held", "still GAP after T3: the `-event-types weapon` stream is gain/lose INVENTORY, not STAT_ACTIVEWEAPON (the 'active weapon id' the column means); QWD decoder skips SVC_UPDATESTAT. No honest active-weapon source without a decoder change. Deferred.")),
     # ---- actor_ticks (omniscient all-players world) ----
     ("actor_ticks.ox", (EXTRACTED, "world.all_players_state", "QWD ETL writes (self+observed others); MVD ETL writes NONE -> T4")),
     ("actor_ticks.oy", (EXTRACTED, "world.all_players_state", "QWD only; MVD GAP (T4)")),
@@ -494,9 +494,10 @@ def run_self_checks() -> None:
     assert "actor_ticks" not in etl_mvd, "MVD ETL must populate NO actor_ticks (the T4 gap)"
     assert "actor_ticks" in etl_qwd, "QWD ETL should populate actor_ticks"
 
-    # The known GAP fields must classify as GAP (the load-bearing audit verdict).
+    # The known GAP fields must classify as GAP (the load-bearing audit verdict). After T3,
+    # player_ticks.health/armor are EXTRACTED (below); armor_type/weapon REMAIN GAP because the
+    # per-tick event streams carry the AP value but not the armor skin/type nor STAT_ACTIVEWEAPON.
     known_gaps = [
-        ("player_ticks", "health"), ("player_ticks", "armor"),
         ("player_ticks", "armor_type"), ("player_ticks", "weapon"),
         ("actor_visibility", "is_visible"), ("audio_cues", "src_type"),
     ]
@@ -506,6 +507,11 @@ def run_self_checks() -> None:
 
     # A known-extracted field must classify extracted; a known-derived derived; excluded excluded.
     assert classify_column("player_ticks", "ox")[0] == EXTRACTED
+    # T3: resource health/armor populated by the MVD ETL -> extracted (and actually in its INSERT list)
+    assert classify_column("player_ticks", "health")[0] == EXTRACTED
+    assert classify_column("player_ticks", "armor")[0] == EXTRACTED
+    assert "health" in etl_mvd.get("player_ticks", set()), "MVD ETL must populate player_ticks.health (T3)"
+    assert "armor" in etl_mvd.get("player_ticks", set()), "MVD ETL must populate player_ticks.armor (T3)"
     assert classify_column("player_ticks", "hspeed")[0] == DERIVED
     assert classify_column("player_ticks", "waterlevel")[0] == EXCLUDED
 
