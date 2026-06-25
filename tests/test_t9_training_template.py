@@ -47,20 +47,19 @@ def _con() -> sqlite3.Connection:
     return con
 
 
-_SEEDED_TEAMS = set()  # (id(con), team_id) so a team is created once per connection
-
-
 def _seed_demo(con, demo_id, sha, damage_available):
     con.execute(
         "INSERT INTO demos (demo_id, path, source, map_id, sha256, damage_available) "
         "VALUES (?,?, 'mvd', 1, ?, ?)",
         (demo_id, f"bronze/demos/d{demo_id}.mvd", sha, damage_available))
-    # teams 1 & 2 (actor_ticks.team_id FK -> teams); seed once per connection against this demo.
+    # teams 1 & 2 (actor_ticks.team_id FK -> teams); seed once per connection. team_id is the
+    # PRIMARY KEY, so OR IGNORE makes this idempotent for a second demo on the SAME connection
+    # without an id(con) cache (which is unsafe: CPython reuses the id of a freed connection, so
+    # a later test's fresh :memory: con can collide and skip the seed -> FK failure under the
+    # full-suite ordering, the CI flake this avoids).
     for tid in (1, 2):
-        if (id(con), tid) not in _SEEDED_TEAMS:
-            con.execute("INSERT INTO teams (team_id, demo_id, name, side) VALUES (?,?,?,?)",
-                        (tid, demo_id, f"team{tid}", "A" if tid == 1 else "B"))
-            _SEEDED_TEAMS.add((id(con), tid))
+        con.execute("INSERT OR IGNORE INTO teams (team_id, demo_id, name, side) VALUES (?,?,?,?)",
+                    (tid, demo_id, f"team{tid}", "A" if tid == 1 else "B"))
 
 
 def _seed_players(con, names):
