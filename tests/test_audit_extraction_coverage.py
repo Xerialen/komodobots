@@ -122,6 +122,23 @@ class TestClassification(unittest.TestCase):
                              f"actor_visibility.{col} should be DERIVED (T8)")
         self.assertEqual(audit.classify_column("audio_cues", "src_type")[0], audit.GAP)
 
+    def test_t9_training_connection_noted_without_new_gap(self):
+        # T9 #397 (capstone): the report's scoping section now NOTES the training-connection
+        # template (dataset_spec reader + worked consumer + train-only refit) is delivered. It is
+        # a downstream consumer deliverable, so it must add NO schema column / change no verdict
+        # (the counts stay what the schema dictates) and must NOT trip the G4/G5 absent guards.
+        schema = audit.parse_schema_tables(audit.SCHEMA_SQL)
+        etl_mvd = audit.parse_etl_inserts(audit.ETL_MVD)
+        etl_qwd = audit.parse_etl_inserts(audit.ETL_QWD)
+        refs = audit.parse_registry_sources(audit.REGISTRY_YAML)
+        report, _ = audit.build_report(schema, etl_mvd, etl_qwd, refs)
+        self.assertIn("Training connection (T9 #397", report)
+        self.assertIn("dataset_spec.yaml", report)
+        self.assertIn("assemble_obs_template.py", report)
+        # the T9 note must not reintroduce a G4/G5 "absent from the schema" contradiction.
+        self.assertFalse(audit._report_claims_g4_absent(report))
+        self.assertFalse(audit._report_claims_g5_absent(report))
+
     def test_known_extracted_derived_excluded(self):
         self.assertEqual(audit.classify_column("player_ticks", "ox")[0], audit.EXTRACTED)
         # T3: MVD health/armor event stream now populates these (GAP -> extracted)

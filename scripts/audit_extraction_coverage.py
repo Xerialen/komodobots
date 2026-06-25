@@ -303,7 +303,7 @@ FAMILY_FALLBACKS: "list[tuple[str, str, str]]" = [
 STRUCTURAL_COLUMN_SUFFIXES = (
     "_id", "tick", "split", "split_policy", "sha256", "path", "source", "name",
     "handle", "is_bot", "map_id", "demo_kind", "recorded_at", "duration_s",
-    "server_fps", "parser_commit", "start_tick", "end_tick", "n_steps",
+    "server_fps", "parser_commit", "start_tick", "end_tick", "n_steps", "start_t_s",
     "total_reward", "bucket_idx", "registry_version", "norm_artifact_version",
     "git_sha", "dt", "n_rows",
 )
@@ -545,6 +545,19 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
                  "degrade, never a fabricated PVS boolean). The `audio_cues.*` derived layer remains the "
                  "one defined-but-empty T8 gap (out of #396 scope). No per-column GAP remains absent from "
                  "the schema entirely.")
+    lines.append("")
+    lines.append("**Training connection (T9 #397, capstone — NOT a schema-coverage gap).** The catalog "
+                 "is now \"structured & connected to enable training\": `data/catalog/dataset_spec.yaml` "
+                 "(the §2.9 entities/`ent_mask`/window contract) is machine-read by the stdlib reader "
+                 "`ml/pipeline/dataset_spec.py` (no PyYAML); the worked consumer "
+                 "`ml/pipeline/assemble_obs_template.py` assembles the AMP `(s,s')` obs from the "
+                 "now-populated T3-T8 columns honoring the §7 PIT/as-of leakage guard (every read is "
+                 "<= the obs tick; the item context is an as-of join) and the §6.5 clean-movement filter "
+                 "(fail-closed on era-gated-unknown damage); and `ml/pipeline/normalize_fit.refit_template` "
+                 "refits the normalization stats TRAIN-SPLIT-ONLY (§6.2) over the richer fields "
+                 "(fixture-derived example at `norm/normalization_stats.refit.template.json`, the real "
+                 "refit being the separate gated 1537-demo run). This is a downstream consumer/template "
+                 "deliverable, so it adds NO schema column and changes none of the per-column verdicts above.")
     return "\n".join(lines).rstrip("\n") + "\n", counts
 
 

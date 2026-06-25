@@ -273,7 +273,11 @@ fields are **zeroed when invisible**; the belief block carries memory.
 The variable count is handled by a **DeepSets or small transformer head with a pad-mask —
 NOT fixed sorted slots** — so the representation is permutation-invariant and side-invariant.
 `N_max = 7` (4on4 = 7 other actors); **1v1 is the same code path with more masking**.
-Cross-ref the `entities` / `ent_mask` tensors in `schema/dataset_spec.yaml`.
+Cross-ref the `entities` / `ent_mask` tensors in **`data/catalog/dataset_spec.yaml`**
+(`record_layout` keys + `entity_max.N_max`), now machine-read by the stdlib reader
+`ml/pipeline/dataset_spec.py` (T9 #397). The worked consumer that assembles this obs from
+the populated catalog — leakage-safe (§7) + clean-movement-gated (§6.5) — is
+`ml/pipeline/assemble_obs_template.py`.
 
 ---
 
@@ -550,6 +554,18 @@ scaler/model pair must refuse to deploy together (enforced by
   imitation labels so every feature uses only state at tick ≤ t —
   `feature_registry.yaml` marks each feature `leakage_safe`; (4) exclude
   post-outcome / `role: target|conditioning|weight` features from observations.
+  The **worked, dependency-light** instance of (1)+(3) is T9 #397:
+  `ml/pipeline/assemble_obs_template.py` reads per-tick state on the EXACT tick (PK
+  `(episode_id, tick)`) and attaches event context via a stdlib as-of join
+  (`asof_latest_leq`, latest `item_events` row at-or-before the obs time, never `> t`).
+  Because `player_ticks.t_s` is **episode-relative** but `item_events.t_s` / `damage_events.t_s`
+  are **absolute demo-time**, the tick is first mapped onto the absolute clock via
+  `episodes.start_t_s` (`abs_t_s = start_t_s + t_s`) and the as-of cut + the §6.5 damage-window
+  check both run on that single absolute clock — never mixing clocks (the #407 P1 fix).
+  `ml/pipeline/normalize_fit.refit_template` refits the stats from `episodes.split='train'` rows
+  only. These properties have adversarial tests that fail on the naive join / a mixed-clock join /
+  an empty damage list / an all-rows fit (`tests/test_t9_training_template.py`, incl. a
+  multi-episode fixture and a damage-in-window fixture).
 - **Versioning:** **DVC** (Git-adjacent pointer files, S3/local remote) for the
   single-author project. Lineage = `git_sha + dvc_dataset_hash + scaler
   artifact_version + registry_version`.

@@ -444,6 +444,34 @@ When the new data arrives: add the §3 rows, extend `catalog_schema.sql` + `feat
 re-run the coverage audit (§3.9), bump the minor version (§8). **No re-parse of already-extracted
 fields is required** — that is the point of this spec.
 
+### Training connection (T9 #397, capstone — DELIVERED)
+The catalog is now **"structured & connected to enable training"** — the worked end-to-end
+template that takes a consumer from the populated catalog to a leakage-safe, normalized obs
+exists, closing the epic (#388):
+- **`data/catalog/dataset_spec.yaml`** is the §2.9 entities / `ent_mask` / window contract
+  (`komodobots.dataset_spec.v1`: `lookback_K=64`, `stride=16`, `N_max=7`, the `obs`/`self_history`/
+  `entities`/`ent_mask`/`act`/`mask`/`weight` record layout, the `group_by_demo_id` split). It is now
+  **machine-read** by the stdlib reader **`ml/pipeline/dataset_spec.py`** (no PyYAML — the same
+  line-scan pattern the coverage audit uses), and a T9 test asserts the read spec agrees with
+  `ml/broad_bc/shard_contract`'s pinned geometry (the drift guard the duplicated constants lacked).
+- **Worked consumer `ml/pipeline/assemble_obs_template.py`** (stdlib-only) assembles the AMP `(s,s')`
+  obs from the now-populated T3–T8 columns via the SHARED `scripts/features.agent_observation`
+  encoder (so it inherits the `feature_registry` v5 order, not a reinvented one), honoring **both**
+  high-risk properties: the **§7 PIT / as-of leakage guard** (every per-tick read is on the EXACT
+  tick — PK `(episode_id, tick)`, never `tick+1`; the item context is an `asof_latest_leq`
+  point-in-time join taking the latest `item_events` row at-or-before the obs `t_s`, so no future
+  value can leak), and the **§6.5 clean-movement filter** (gates the AMP reference set to clean
+  segments via the SAME `tick_is_clean` predicate the ETL uses, fail-closed on era-gated-unknown
+  damage and LOS-gated on enemy proximity).
+- **Norm refit machinery `ml/pipeline/normalize_fit.refit_template`** refits the normalization stats
+  **TRAIN-SPLIT-ONLY (§6.2)** over the richer now-populated fields (stdlib Welford/robust mean/std,
+  no numpy). The committed values are a **fixture-derived TEMPLATE** (clearly labeled
+  `_fixture_derived`, at `norm/normalization_stats.refit.template.json`); the real refit over the
+  1537-demo TRAIN split is the separate gated servexeri run that writes the production
+  `gold/norm/normalization_stats.json`.
+The leakage guard and the train-only discipline each have an **adversarial test** that fails on the
+naive implementation (`tests/test_t9_training_template.py`).
+
 ---
 
 ## Appendix A — full wire/decoder inventory reference
