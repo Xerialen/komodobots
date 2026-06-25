@@ -1,5 +1,12 @@
 # Source schemas — mvd_analyzer + demoparser (real-code study)
 
+> **Companion (generated):** the runnable coverage audit
+> `extraction-coverage-audit.md` diffs this decoder Result inventory against the
+> operative catalog schema + feature registry + what each ETL populates, classifying
+> every column extracted/derived/excluded/GAP. Regenerate with
+> `python3 scripts/audit_extraction_coverage.py` (Demo Extraction Spec v1, ticket #389).
+
+
 Study target: replace template placeholders (`coords_verified=false`, `_verify=true`,
 `*_unavailable`) in `schema/catalog.sql` + `schema/item_catalog.dm3.json` with real
 fields from the two parsers actually on this machine.
