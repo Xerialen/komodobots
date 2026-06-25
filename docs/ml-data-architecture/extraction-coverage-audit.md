@@ -121,6 +121,7 @@
 | `server_fps` | structural | — | qwd-etl | — | PK/FK/provenance/split bookkeeping |
 | `sha256` | structural | — | mvd-etl, qwd-etl | — | PK/FK/provenance/split bookkeeping |
 | `parser_commit` | structural | — | mvd-etl, qwd-etl | — | PK/FK/provenance/split bookkeeping |
+| `damage_available` | extracted | damage.per_hit | mvd-etl | — | era-gate flag: TRUE if the demo carried the `-view full` damage block (per-hit stream authoritative), FALSE => UNKNOWN/pre-era (fail-closed, never zero). MVD ETL writes per demo (T5) |
 
 ### `episodes`
 
@@ -298,6 +299,22 @@
 | `is_suicide` | extracted | frags.kill_timeline | mvd-etl | — | frags.frags[].isSuicide |
 | `is_teamkill` | extracted | frags.kill_timeline | mvd-etl | — | frags.frags[].isTeamKill |
 
+### `damage_events`
+
+| column | class | decoder field | populated by | registry | reason |
+|---|---|---|---|---|---|
+| `event_id` | structural | — | — | — | PK/FK/provenance/split bookkeeping |
+| `demo_id` | structural | — | mvd-etl | — | PK/FK/provenance/split bookkeeping |
+| `t_s` | extracted | damage.per_hit | mvd-etl | — | MVD writes from `-view full` damage.events (T5, era-gated); damage.events[].time/1000 |
+| `attacker_id` | extracted | damage.per_hit | mvd-etl | — | damage.events[].attacker -> player_id (NULL for 'world'/environmental) |
+| `victim_id` | extracted | damage.per_hit | mvd-etl | — | damage.events[].victim -> player_id |
+| `weapon` | extracted | damage.per_hit | mvd-etl | — | damage.events[].weapon (rl/lg/sg/.../fall/drown/trigger) |
+| `damage` | extracted | damage.per_hit | mvd-etl | — | damage.events[].damage (hit-point amount) |
+| `is_splash` | extracted | damage.per_hit | mvd-etl | — | damage.events[].isSplash |
+| `is_env` | extracted | damage.per_hit | mvd-etl | — | damage.events[].isEnv (fall/drown/trigger) |
+| `is_self` | extracted | damage.per_hit | mvd-etl | — | damage.events[].isSelf (attacker==victim) |
+| `is_teamkill` | extracted | damage.per_hit | mvd-etl | — | damage.events[].isTeam (same-team damage) |
+
 ### `region_control_timeline`
 
 | column | class | decoder field | populated by | registry | reason |
@@ -338,7 +355,7 @@ field codes + the QWD `usercmd_t` struct. Referenced by decoder **role**, not to
 | `items.backpack_drops` | getBackpacks (origin qu, entNum join key) | MVD | RL/LG drop world position (KTX) |
 | `frags.kill_timeline` | getFrags (time,killer,victim,weapon,isSuicide,isTeamKill) | MVD | kill timeline |
 | `events.life` | getEvents frag/powerup/streak/spawn/death/weapon/item/chat | MVD | authoritative spawn/death log |
-| `damage.per_hit` | getEvents damage detail (victim,damage,weapon,isSplash...) | MVD (KTX ~2024+) | per-hit KTX damage; mvdhidden_dmgdone |
+| `damage.per_hit` | `-view full` damage.events (attacker,victim,weapon,damage,isSplash/isEnv/isSelf/isTeam) | MVD (KTX ~2024+) | per-hit KTX damage; mvdhidden_dmgdone. POPULATED -> damage_events (T5), ERA-GATED via demos.damage_available |
 | `region.control_timeline` | getRegionControl bucketStates/stats | MVD | bucketed map-region control |
 | `audio.weapon_item_cues` | getEvents weapon/item (sound sources) | MVD | weapon-fire/item-pickup audio cue sources |
 | `locgraph.movement` | getLocGraph / getLocTrails | MVD | data-derived loc movement graph (NOT a Frogbot nav mesh) |
@@ -358,13 +375,13 @@ field codes + the QWD `usercmd_t` struct. Referenced by decoder **role**, not to
 
 | class | count |
 |---|---|
-| extracted | 60 |
+| extracted | 70 |
 | derived | 15 |
 | excluded-with-reason | 43 |
 | **GAP** | **22** |
-| (structural: PK/FK/provenance) | 66 |
+| (structural: PK/FK/provenance) | 68 |
 | (UNCLASSIFIED — needs a verdict) | 0 |
-| classified content columns | 140 |
+| classified content columns | 150 |
 
 ## GAP reconciliation (vs epic #388 / build-out plan)
 
@@ -374,9 +391,9 @@ only truly-new work — confirming the audit neither invents nor misses a gap:
 
 - G1: no coverage audit (THIS script fills it)
 - G2: schema-file drift (scripts/catalog_schema.sql operative vs data/catalog/catalog.sql dup vs registry's dangling `schema/catalog.sql` reference)
-- G3: damage_events table absent (only frag_events exists)
+- G3: damage_events table absent (only frag_events exists) — ADDRESSED by T5 #393: the table is now schema-defined + populated from `-view full` damage.events, era-gated via demos.damage_available (fail-closed)
 - G4: ammo + powerup-remaining source columns absent (registry defines the features)
 - G5: stored [G] geometry / [R] regime / leg-phase columns absent
 - G6: docs/27 inaccuracies (frag_events/actor_visibility/audio_cues/teams called greenfield/reserved when schema-defined-but-empty; wrong schema path)
 
-**Scoping (which ticket each per-column GAP feeds):** `player_ticks` health/armor -> T3 (DONE); the omniscient `actor_ticks` all-players state + health/armor/armor_type + team_id, plus `item_events`/`frag_events`/`teams` -> T4 (DONE; from `-view full`). The GAPs that REMAIN: `player_ticks.armor_type`/`weapon` + `actor_ticks.weapon` (no honest active-weapon / ego armor-skin source without a decoder change), and `actor_visibility.*` + `audio_cues.*` -> T8. The ammo/powerup source columns (G4), `damage_events` table (G3), and [G]/[R]/leg-phase columns (G5) are **absent from the schema entirely** (not just unpopulated) — they are schema-addition tickets T5/T6/T7, so they do not appear as columns here; that absence IS the finding.
+**Scoping (which ticket each per-column GAP feeds):** `player_ticks` health/armor -> T3 (DONE); the omniscient `actor_ticks` all-players state + health/armor/armor_type + team_id, plus `item_events`/`frag_events`/`teams` -> T4 (DONE; from `-view full`). The GAPs that REMAIN: `player_ticks.armor_type`/`weapon` + `actor_ticks.weapon` (no honest active-weapon / ego armor-skin source without a decoder change), and `actor_visibility.*` + `audio_cues.*` -> T8. The `damage_events` table (G3) is now schema-defined + populated (T5 #393, era-gated via `demos.damage_available`), so it appears as extracted columns above. The ammo/powerup source columns (G4) and [G]/[R]/leg-phase columns (G5) are still **absent from the schema entirely** (not just unpopulated) — schema-addition tickets T6/T7, so they do not appear as columns here; that absence IS the finding.

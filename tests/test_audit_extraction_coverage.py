@@ -23,8 +23,8 @@ class TestParsers(unittest.TestCase):
     def test_schema_parse_has_4on4_tables(self):
         schema = audit.parse_schema_tables(audit.SCHEMA_SQL)
         for t in ("player_ticks", "actor_ticks", "actions", "item_events",
-                  "frag_events", "teams", "actor_visibility", "audio_cues",
-                  "region_control_timeline"):
+                  "frag_events", "damage_events", "teams", "actor_visibility",
+                  "audio_cues", "region_control_timeline"):
             self.assertIn(t, schema)
         # constraint lines must NOT leak in as columns
         self.assertNotIn("PRIMARY", schema["player_ticks"])
@@ -43,6 +43,8 @@ class TestParsers(unittest.TestCase):
         self.assertIn("actor_ticks", etl)
         for t in ("item_events", "frag_events", "teams"):
             self.assertIn(t, etl, f"MVD ETL should populate {t} (T4)")
+        # T5: the MVD ETL also populates the era-gated per-hit damage stream.
+        self.assertIn("damage_events", etl, "MVD ETL should populate damage_events (T5)")
 
     def test_qwd_etl_populates_actor_ticks(self):
         etl = audit.parse_etl_inserts(audit.ETL_QWD)
@@ -82,6 +84,13 @@ class TestClassification(unittest.TestCase):
                              f"actor_ticks.{col} should be extracted (T4)")
         self.assertEqual(audit.classify_column("frag_events", "killer_id")[0], audit.EXTRACTED)
         self.assertEqual(audit.classify_column("teams", "name")[0], audit.EXTRACTED)
+
+    def test_t5_damage_events_extracted(self):
+        # T5: damage_events columns + the demos.damage_available era-gate classify extracted (G3 closed).
+        for col in ("attacker_id", "victim_id", "weapon", "damage", "is_splash", "is_env"):
+            self.assertEqual(audit.classify_column("damage_events", col)[0], audit.EXTRACTED,
+                             f"damage_events.{col} should be extracted (T5)")
+        self.assertEqual(audit.classify_column("demos", "damage_available")[0], audit.EXTRACTED)
 
     def test_known_extracted_derived_excluded(self):
         self.assertEqual(audit.classify_column("player_ticks", "ox")[0], audit.EXTRACTED)

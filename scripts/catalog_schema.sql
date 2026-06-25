@@ -171,6 +171,13 @@ CREATE TABLE demos (
     server_fps    REAL DEFAULT 77.0,
     sha256        TEXT NOT NULL,                     -- provenance lock
     parser_commit TEXT,                              -- qw-analyze build (drift risk: 7d83ebe vs fab7808)
+    -- per-hit damage is era-gated (KTX hidden mvdhidden_dmgdone block, ~2024+ demos; §3.6/§6.5).
+    -- 3-state availability so a consumer can tell "unknown" from "genuinely zero damage" — the
+    -- FAIL-CLOSED gate. TRUE => the `-view full` damage block was present (damage_events is the
+    -- authoritative per-hit stream, even if 0 rows = genuinely no damage). FALSE => no damage block
+    -- (pre-era demo): damage is UNKNOWN, NOT zero; emit NO damage_events rows and never read absence
+    -- as "no damage". NULL => not yet determined (older record). See §6.5 clean-movement filter.
+    damage_available BOOLEAN,
     UNIQUE (sha256)
 );
 CREATE INDEX idx_demos_map ON demos(map_id);
@@ -401,6 +408,30 @@ CREATE TABLE frag_events (
     is_teamkill BOOLEAN DEFAULT FALSE
 );
 CREATE INDEX idx_frag_events_demo_t ON frag_events(demo_id, t_s);
+
+-- -----------------------------------------------------------------------------
+-- damage_events  — per-HIT damage stream (NEW, T5 #393; from the `-view full` top-level
+-- `damage.events`). The per-hit complement to frag_events (kills): attacker, victim, weapon,
+-- damage amount, time, plus splash/environment/self/teamkill flags. ERA-GATED — the KTX hidden
+-- `mvdhidden_dmgdone` block exists only in ~2024+ demos; a pre-era demo has NO damage block and
+-- yields ZERO rows here with demos.damage_available=FALSE (= damage UNKNOWN, never read as zero;
+-- see §3.6/§6.5 fail-closed). attacker/victim NULL for environmental ('world'/fall/drown/trigger).
+-- 00-DATA-ARCHITECTURE §3.7.
+-- -----------------------------------------------------------------------------
+CREATE TABLE damage_events (
+    event_id    INTEGER PRIMARY KEY,
+    demo_id     INTEGER NOT NULL REFERENCES demos(demo_id),
+    t_s         REAL    NOT NULL,                    -- seconds (server clock, same base as player_ticks.t_s)
+    attacker_id INTEGER REFERENCES players(player_id),  -- NULL for environmental ('world')
+    victim_id   INTEGER REFERENCES players(player_id),
+    weapon      TEXT,                                -- weapon name (e.g. 'rl','lg','sg','fall','drown')
+    damage      INTEGER,                             -- hit-point damage dealt
+    is_splash   BOOLEAN DEFAULT FALSE,               -- splash (indirect) damage
+    is_env      BOOLEAN DEFAULT FALSE,               -- environmental (fall/drown/trigger), no attacker
+    is_self     BOOLEAN DEFAULT FALSE,               -- self-inflicted (attacker == victim)
+    is_teamkill BOOLEAN DEFAULT FALSE                -- attacker and victim on the same team
+);
+CREATE INDEX idx_damage_events_demo_t ON damage_events(demo_id, t_s);
 
 -- -----------------------------------------------------------------------------
 -- region_control_timeline  — bucketed map-region control over time (from
