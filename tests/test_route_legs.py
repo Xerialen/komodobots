@@ -109,5 +109,36 @@ class TestGoalVector(unittest.TestCase):
         self.assertEqual(far["goal_dist_norm"], 1.0)   # clamped to map diagonal
 
 
+class TestPhaseSegmentLeg(unittest.TestCase):
+    """(T7 #395) per-tick leg-phase: launch | cruise | approach | land within one leg."""
+
+    def test_full_profile(self):
+        # cruise = the contiguous >=400 run (420,500,480); 300 decelerates -> approach.
+        hs = [100, 250, 420, 500, 480, 300, 120, 0]
+        og = [True, False, False, False, False, False, True, True]
+        self.assertEqual(RL.phase_segment_leg(hs, og),
+                         ["launch", "launch", "cruise", "cruise", "cruise",
+                          "approach", "land", "land"])
+
+    def test_cruise_band_is_the_widest_run(self):
+        # two >=gate runs: the segmenter labels the WIDER one cruise; the narrower lone 450
+        # stays launch (it precedes the cruise band).
+        hs = [450, 200, 410, 420, 430, 440]
+        og = [False] * 6
+        ph = RL.phase_segment_leg(hs, og)
+        self.assertEqual(ph.count("cruise"), 4)        # the 4-wide run, not the lone 450
+        self.assertEqual(ph[2:6], ["cruise"] * 4)
+
+    def test_no_cruise_band(self):
+        hs = [50, 120, 200, 150, 80]
+        og = [True, False, False, False, True]
+        ph = RL.phase_segment_leg(hs, og)
+        self.assertEqual(ph[2], "launch")   # peak tick is the last launch tick
+        self.assertEqual(ph[-1], "land")
+
+    def test_empty(self):
+        self.assertEqual(RL.phase_segment_leg([], []), [])
+
+
 if __name__ == "__main__":
     unittest.main()

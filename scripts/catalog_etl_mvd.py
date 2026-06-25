@@ -142,6 +142,13 @@ import catalog_load  # noqa: E402  (stdlib-only sibling; static spine)
 import pmove_sim  # noqa: E402  (stdlib-only; WorldModel + player_trace + detect_teleports)
 from features.agent_observation import yaw_rate_degps  # noqa: E402  (canonical turn-rate)
 
+# (T7 #395) leg-phase reuses the #334 resource-visit leg segmentation (no reinvention).
+sys.path.insert(0, str(REPO_ROOT / "experiments" / "route_observatory"))
+from route_legs import (  # noqa: E402  (stdlib-only; pov_fuse_extract is stdlib)
+    phase_segment_leg, resource_coords as _resource_coords, resource_visits as _resource_visits,
+    DEFAULT_RHO as _LEG_RHO,
+)
+
 BUTTON_JUMP = pmove_sim.BUTTON_JUMP  # 2
 DEFAULT_QW_ANALYZE = str(Path("~/qw-sim/bin/qw-analyze-v20").expanduser())
 DEFAULT_BSP = "/home/ubuntu/nquakesv/qw/maps/dm3.bsp"
@@ -189,12 +196,25 @@ BELOW_GATE_CONF = 0.4      # below-gate strafe sign (still recorded, is_interp=T
 MIN_STEP_NORMAL = pmove_sim.MIN_STEP_NORMAL              # 0.7
 MAXGROUNDSPEED_DEFAULT = pmove_sim.MAXGROUNDSPEED_DEFAULT  # 180.0
 
+# --- (T7 #395) [G] geometry derivation constants -----------------------------
+# All distances qu. The probe lengths bound the hull-1 traces (a miss returns the cap, not inf).
+FLOOR_PROBE_QU = 4096.0      # downward floor trace length; a frac==1.0 miss => no floor (void)
+WALL_PROBE_QU = 512.0        # ±x/±y wall-trace length; wall_dist is capped here (open => 512)
+LEDGE_PROBE_QU = 64.0        # forward horizontal probe distance for ledge-ahead gap detection
+LEDGE_MIN_HSPEED = 50.0      # qu/s; below this the velocity direction is ill-defined -> ledge_ahead NULL
+VOID_THRESH_QU = -200.0      # floor below this z is a deep chasm => over_void (matches build_trace.py)
+RAMP_FLAT_NORMAL = 0.95      # floor-plane normal.z >= this => flat (not a ramp); below => on-ramp
+
 
 class OngroundProber:
     """Geometric onground via a 1-qu downward hull-1 floor trace (PM_CategorizePosition
     idiom from pmove_sim). NOT a vz-spike: this is the same world geometry the .qwd path's
     onground comes from. Loads the dm3 BSP once per worker (the WorldModel is reused for
-    every tick of every player in the demo)."""
+    every tick of every player in the demo).
+
+    (T7 #395) Also the [G] geometry prober: the same WorldModel + pmove_sim.player_trace
+    machinery yields wall-distance, floor-height, over-void, ledge-ahead, and the floor-plane
+    ramp normal. No second BSP load — geometry() reuses self.world."""
 
     def __init__(self, bsp_path: str):
         self.world = pmove_sim.WorldModel.load(bsp_path)
@@ -208,6 +228,114 @@ class OngroundProber:
         tr = pmove_sim.player_trace(self.world, origin, point)
         far = tr.fraction == 1.0 or tr.normal[2] < MIN_STEP_NORMAL
         return not far
+
+    def _floor_trace(self, origin):
+        """Downward hull-1 trace from `origin` (FLOOR_PROBE_QU qu). Returns the Trace."""
+        end = (origin[0], origin[1], origin[2] - FLOOR_PROBE_QU)
+        return pmove_sim.player_trace(self.world, origin, end)
+
+    def geometry(self, origin, velocity) -> dict:
+        """Derive the per-tick [G] geometry at `origin` (velocity used only for ledge-ahead).
+
+        Reuses pmove_sim.player_trace (the hull-1 swept SV_RecursiveHullCheck port) against the
+        worker's dm3 WorldModel. Returns a dict with floor_height/over_void/wall_dist/ledge_ahead/
+        ramp_normal_z. Any signal that cannot be derived HONESTLY is None (NULL), never invented:
+
+          * If the trace STARTS IN SOLID (numeric edge / a sample off the real spine) -> the
+            position is not a standing point; ALL geometry is None.
+          * floor_height = z - floor-trace endpoint z  (matches build_trace.py/trace.csv
+            height_above_floor = z - bsp.floor_z(...)). None when over_void (no honest floor).
+          * over_void = 1 if the floor trace missed (frac==1.0, no floor in FLOOR_PROBE_QU) OR the
+            floor is below VOID_THRESH_QU (deep chasm) — same rule as build_trace.py over_void.
+          * wall_dist = min over the 4 axial horizontal traces (±x,±y) of (fraction*WALL_PROBE_QU),
+            capped at WALL_PROBE_QU (an open direction contributes the cap, not infinity).
+          * ledge_ahead = how far the floor DROPS AWAY a short distance ahead along the velocity
+            heading: trace forward LEDGE_PROBE_QU, then down at that point; ledge_ahead = the drop
+            of that forward floor below the current floor (>=0; 0 = level). None if hspeed too low
+            (heading undefined) or no forward floor (over a void ahead -> None, not a fake drop).
+          * ramp_normal_z = the floor-trace plane normal z (1.0 flat; <RAMP_FLAT_NORMAL a ramp).
+            None when over_void (no floor plane was hit).
+        """
+        null = {"floor_height": None, "over_void": None, "wall_dist": None,
+                "ledge_ahead": None, "ramp_normal_z": None}
+        floor = self._floor_trace(origin)
+        if floor.startsolid:
+            return dict(null)
+
+        missed = floor.fraction >= 1.0          # no floor within FLOOR_PROBE_QU
+        floor_z = floor.endpos[2]
+        over_void = 1 if (missed or floor_z < VOID_THRESH_QU) else 0
+        if over_void:
+            floor_height = None
+            ramp_normal_z = None
+        else:
+            floor_height = origin[2] - floor_z
+            ramp_normal_z = floor.normal[2]
+
+        # wall distance: 4 axial horizontal hull-1 traces, nearest hit wins (capped at the probe).
+        wall_dist = WALL_PROBE_QU
+        for dx, dy in ((1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)):
+            end = (origin[0] + dx * WALL_PROBE_QU, origin[1] + dy * WALL_PROBE_QU, origin[2])
+            tr = pmove_sim.player_trace(self.world, origin, end)
+            if tr.startsolid:
+                continue
+            d = tr.fraction * WALL_PROBE_QU
+            if d < wall_dist:
+                wall_dist = d
+
+        # ledge-ahead: forward then down, gap = forward-floor drop below the current floor.
+        hspeed = math.hypot(velocity[0], velocity[1])
+        ledge_ahead = None
+        if hspeed >= LEDGE_MIN_HSPEED and not over_void:
+            hx, hy = velocity[0] / hspeed, velocity[1] / hspeed
+            ahead = (origin[0] + hx * LEDGE_PROBE_QU, origin[1] + hy * LEDGE_PROBE_QU, origin[2])
+            fwd = pmove_sim.player_trace(self.world, origin, ahead)
+            if not fwd.startsolid:
+                fp = fwd.endpos  # forward landing point (stops at a wall if one is closer)
+                fd = self._floor_trace(fp)
+                if not fd.startsolid and fd.fraction < 1.0 and fd.endpos[2] >= VOID_THRESH_QU:
+                    drop = floor_z - fd.endpos[2]      # forward floor below current floor => +
+                    ledge_ahead = drop if drop > 0.0 else 0.0
+                # a missed/void forward floor leaves ledge_ahead None (honest: unknown drop)
+
+        return {
+            "floor_height": round(floor_height, 3) if floor_height is not None else None,
+            "over_void": over_void,
+            "wall_dist": round(wall_dist, 3),
+            "ledge_ahead": round(ledge_ahead, 3) if ledge_ahead is not None else None,
+            "ramp_normal_z": round(ramp_normal_z, 4) if ramp_normal_z is not None else None,
+        }
+
+
+# --- (T7 #395) [R] regime classification + leg-phase segmentation ------------
+CRUISE_GATE = STRAFE_SIGN_GATE    # 400 qu/s — the IDM speed gate is the accel/cruise boundary (§5)
+
+
+def classify_regime(hspeed, onground, ramp_normal_z, waterlevel=None) -> str | None:
+    """[R] categorical movement regime from kinematics + the [G] ramp signal (§5).
+
+    Vocabulary (priority order): water > airborne > on-ramp > cruise/accel.
+      * water    : waterlevel is not None and > 0  (MVD has no waterlevel -> never water here)
+      * airborne : NOT onground
+      * on-ramp  : grounded on a sloped floor (MIN_STEP_NORMAL <= ramp_normal_z < RAMP_FLAT_NORMAL)
+      * cruise   : grounded (flat), hspeed >= CRUISE_GATE (the sustained-bunnyhop regime)
+      * accel    : grounded (flat), hspeed <  CRUISE_GATE (still building speed)
+    Returns None only when onground is unknown (None) — never guesses a regime.
+
+    NOTE: 'grounded' is in the schema vocabulary as the generic standing label; this classifier
+    emits the more specific accel/cruise/on-ramp for a grounded tick (grounded is reserved for a
+    consumer that wants the coarse bucket, and for a future source that lacks hspeed)."""
+    if waterlevel is not None and waterlevel > 0:
+        return "water"
+    if onground is None:
+        return None
+    if not onground:
+        return "airborne"
+    if ramp_normal_z is not None and MIN_STEP_NORMAL <= ramp_normal_z < RAMP_FLAT_NORMAL:
+        return "on-ramp"
+    if hspeed is None:
+        return "grounded"
+    return "cruise" if hspeed >= CRUISE_GATE else "accel"
 
 
 # ---------------------------------------------------------------------------
@@ -407,17 +535,23 @@ def _alive_timeline(death_ms: list, spawn_steps) -> tuple:
     return [e[0] for e in events], [e[1] for e in events]
 
 
-def _actor_samples(player: dict) -> dict:
+def _actor_samples(player: dict, prober: "OngroundProber | None" = None) -> dict:
     """Build one player's OMNISCIENT time-sorted state samples for actor_ticks alignment.
 
     Returns {"t":[ms...], "rows":[{ox,oy,oz,vx,vy,vz,pitch,yaw,roll,hspeed,health,armor,
     armor_type,alive}...]} — the full per-frame world state, keyed by absolute demo-time (ms) so
     insert_demo can align EVERY player onto each episode's ticks (MVD is omniscient: no staleness
-    window, the server frame holds every player's exact state). onground is NOT carried here: it
-    needs the per-worker BSP prober and is filled tick-by-tick at alignment time would require the
-    world model in the insert process; actor_ticks.onground/onground_is_proxy are left NULL for the
-    observed-others world (the geometric proxy lives on the ego player_ticks spine). health/armor/
-    armor_type/alive forward-fill the player's `h`/`a`/`at`/`d` step-timelines."""
+    window, the server frame holds every player's exact state). actor_ticks.onground/
+    onground_is_proxy stay NULL for the observed-others world (the geometric proxy lives on the ego
+    player_ticks spine). health/armor/armor_type/alive forward-fill the player's `h`/`a`/`at`/`d`
+    step-timelines.
+
+    (T7 #395) When a `prober` is supplied, each row ALSO carries the [G] geometry (floor_height/
+    over_void/wall_dist/ledge_ahead/ramp_normal_z) derived from THIS actor's own origin+velocity
+    via the dm3 hull-1 traces, plus the [R] regime. The regime uses a LOCAL geometric onground
+    (same prober) purely to classify accel/cruise/airborne/on-ramp — it does NOT populate the
+    actor_ticks.onground column (that stays NULL by T4 design). leg_phase is NOT set on actors
+    (no ego goal/route context). Without a prober every geometry/regime field is None (NULL)."""
     pos = player.get("pos") or {}
     t = pos.get("t") or []
     n = len(t)
@@ -442,11 +576,24 @@ def _actor_samples(player: dict) -> dict:
         at_code = ARMOR_TYPE_CODE.get(at_s) if isinstance(at_s, str) and at_s else None
         alive = _fill_resource(alive_tl, t_ms)  # None before first death/spawn -> NULL (alive unknown)
         ts.append(t_ms)
+        ox, oy, oz = float(x[i]), float(y[i]), float(z[i])
+        avx, avy, avz = float(vx[i]), float(vy[i]), float(vz[i])
+        ahs = round(math.hypot(avx, avy), 3)
+        # (T7) per-actor [G] geometry + [R] regime (only with a prober; observed-others have a
+        # known origin+velocity so the geometry is well-defined). leg_phase stays NULL for actors.
+        if prober is not None:
+            g = prober.geometry((ox, oy, oz), (avx, avy, avz))
+            og = prober.onground((ox, oy, oz), avz)  # local-only, for regime; NOT the onground column
+            reg = classify_regime(ahs, og, g.get("ramp_normal_z"))
+        else:
+            g = {"floor_height": None, "over_void": None, "wall_dist": None,
+                 "ledge_ahead": None, "ramp_normal_z": None}
+            reg = None
         rows.append({
-            "ox": float(x[i]), "oy": float(y[i]), "oz": float(z[i]),
-            "vx": float(vx[i]), "vy": float(vy[i]), "vz": float(vz[i]),
+            "ox": ox, "oy": oy, "oz": oz,
+            "vx": avx, "vy": avy, "vz": avz,
             "pitch": float(vp[i]) * ANGLE16_TO_DEG, "yaw": float(vya[i]) * ANGLE16_TO_DEG, "roll": 0.0,
-            "hspeed": round(math.hypot(float(vx[i]), float(vy[i])), 3),
+            "hspeed": ahs,
             "health": hp, "armor": ap, "armor_type": at_code,
             "alive": (None if alive is None else bool(alive)),
             # (T6) ammo (forward-filled count) + powerup remaining-seconds (None when not held)
@@ -457,6 +604,10 @@ def _actor_samples(player: dict) -> dict:
             "quad_rem": _powerup_remaining(q_iv, t_ms),
             "pent_rem": _powerup_remaining(pe_iv, t_ms),
             "ring_rem": _powerup_remaining(r_iv, t_ms),
+            # (T7) [G] geometry + [R] regime for this actor; leg_phase NULL (no ego goal context).
+            "floor_height": g.get("floor_height"), "over_void": g.get("over_void"),
+            "wall_dist": g.get("wall_dist"), "ledge_ahead": g.get("ledge_ahead"),
+            "ramp_normal_z": g.get("ramp_normal_z"), "regime": reg,
         })
     return {"t": ts, "rows": rows}
 
@@ -623,6 +774,40 @@ def _recover_jumps(onground: list[bool], frames: list[dict]) -> list[bool]:
     return jump
 
 
+def _recover_geometry(frames: list[dict], prober: OngroundProber) -> list[dict]:
+    """(T7 #395) per-tick [G] geometry — wall/floor/ledge/ramp from the dm3 BSP hull-1 traces."""
+    return [prober.geometry(f["origin"], f["velocity"]) for f in frames]
+
+
+def _recover_leg_phase(frames: list[dict], onground: list[bool], coords: dict) -> list[str | None]:
+    """(T7 #395) per-tick leg-phase for the EGO player over their full frame stream.
+
+    A leg = the path between two RESOURCE visits (route_legs #334, position-based, flicker-immune).
+    Detect the ego player's ordered resource visits, then phase-segment each leg on its hspeed +
+    onground profile (route_legs.phase_segment_leg). Ticks OUTSIDE any leg (before the first visit /
+    after the last) stay None (NULL) — leg-phase is only defined inside a goal-conditioned leg.
+
+    `coords` is {resource_name: (x,y)} from the demo's item entities. Empty coords (no item world
+    data) -> all None (honest: no leg context to assign)."""
+    n = len(frames)
+    phases: list[str | None] = [None] * n
+    if not coords or n == 0:
+        return phases
+    # adapt frames -> the resource_visits tick shape ({x,y,t}); reuse the #334 detector verbatim.
+    ticks = [{"x": f["origin"][0], "y": f["origin"][1], "t": f["t_ms"] / 1000.0} for f in frames]
+    visits = _resource_visits(ticks, coords, _LEG_RHO)  # [(idx, t_s, resname)]
+    for (i0, _, a), (i1, _, b) in zip(visits, visits[1:]):
+        if a == b or i1 <= i0:
+            continue
+        seg_hs = [math.hypot(frames[k]["velocity"][0], frames[k]["velocity"][1])
+                  for k in range(i0, i1 + 1)]
+        seg_og = [onground[k] for k in range(i0, i1 + 1)]
+        leg_phases = phase_segment_leg(seg_hs, seg_og)
+        for off, ph in enumerate(leg_phases):
+            phases[i0 + off] = ph
+    return phases
+
+
 def _pack_episode(seg, seg_onground, seg_jump, start_tick: int) -> dict:
     """Pack one contiguous frame run into compact per-tick rows (STATE + recovered ACTION).
 
@@ -642,6 +827,8 @@ def _pack_episode(seg, seg_onground, seg_jump, start_tick: int) -> dict:
         msec = int(f["msec"])
         dt = msec * 0.001
         hspeed = math.hypot(v[0], v[1])
+        # (T7) per-frame [G] geometry (attached in extract_demo; absent -> all-None for safety).
+        geom = f.get("geom") or {}
 
         # (req 2) air-strafe SIGN from the canonical turn-rate helper (train/serve parity).
         yr = yaw_rate_degps(yaw, prev_yaw, dt)
@@ -693,6 +880,16 @@ def _pack_episode(seg, seg_onground, seg_jump, start_tick: int) -> dict:
             "rockets": f.get("rockets"), "cells": f.get("cells"),
             "quad_rem": f.get("quad_rem"), "pent_rem": f.get("pent_rem"),
             "ring_rem": f.get("ring_rem"),
+            # (T7) [G] geometry (None where the trace startsolids / over void) + [R] regime
+            # (from kinematics + the ramp normal) + leg-phase (ego goal-conditioned legs; None
+            # outside any leg). geom/leg_phase are attached per-frame in extract_demo.
+            "floor_height": geom.get("floor_height"),
+            "over_void": geom.get("over_void"),
+            "wall_dist": geom.get("wall_dist"),
+            "ledge_ahead": geom.get("ledge_ahead"),
+            "ramp_normal_z": geom.get("ramp_normal_z"),
+            "regime": classify_regime(hspeed, onground, geom.get("ramp_normal_z")),
+            "leg_phase": f.get("leg_phase"),
             "fwd": FORWARDMOVE_PRIOR, "side": side, "up": upmove,
             "buttons": buttons,
             "cmd_yaw": yaw, "cmd_pitch": pitch,
@@ -777,6 +974,13 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
     # damage block; pre-era demos lack it (damage UNKNOWN, fail-closed — never zeroed).
     damage = _extract_damage_events(data)
 
+    # (T7 #395) resource world coords {name:(x,y)} from the item entities — the leg-phase route
+    # context (reuses the #334 detector). Empty/absent -> leg_phase stays NULL (no leg context).
+    try:
+        leg_coords = _resource_coords(data)
+    except Exception:  # noqa: BLE001  (leg-phase is additive context; never fail the demo on it)
+        leg_coords = {}
+
     players_out = []
     actor_team = {}  # actor_world key (raw name) -> team string, for EVERY world player
     for p in data["streams"]["players"]:
@@ -787,7 +991,8 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
         # (T4) every player's omniscient samples — used to populate actor_ticks for EVERY
         # episode (self + others), keyed by absolute demo-time. Built even for players too short
         # to form their own episodes (they still appear in OTHER players' omniscient world).
-        actor_world[name] = _actor_samples(p)
+        # (T7) the prober adds each actor's [G] geometry + [R] regime (leg_phase stays NULL).
+        actor_world[name] = _actor_samples(p, prober)
         # (T4 P1 #402) carry EVERY world player's team string keyed by the SAME raw name used
         # for actor_world, so actor_ticks.team_id is attributed even for players too short to own
         # an episode (they are absent from players_out below, but present in OTHER players' world).
@@ -814,6 +1019,13 @@ def extract_demo(demo_path: str, qw_analyze: str, bsp_path: str,
             f["ring_rem"] = _powerup_remaining(r_iv, f["t_ms"])
         onground = _recover_onground(frames, prober)
         jump = _recover_jumps(onground, frames)
+        # (T7 #395) attach per-tick [G] geometry + ego leg-phase onto each frame so _pack_episode
+        # emits them (regime is computed from these + kinematics inside _pack_episode).
+        geom = _recover_geometry(frames, prober)
+        leg_phase = _recover_leg_phase(frames, onground, leg_coords)
+        for f, g, lp in zip(frames, geom, leg_phase):
+            f["geom"] = g
+            f["leg_phase"] = lp
 
         # episode boundaries: teleport/respawn discontinuities + a hard length cap.
         tele = set(pmove_sim.detect_teleports(frames))
@@ -960,8 +1172,11 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
                     """INSERT INTO player_ticks
                        (episode_id, tick, t_s, msec, ox, oy, oz, vx, vy, vz,
                         pitch, yaw, roll, hspeed, onground, onground_is_proxy, health, armor,
-                        shells, nails, rockets, cells, quad_rem, pent_rem, ring_rem)
-                       VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?, ?,?,?,?, ?,?,?)""",
+                        shells, nails, rockets, cells, quad_rem, pent_rem, ring_rem,
+                        floor_height, over_void, wall_dist, ledge_ahead, ramp_normal_z,
+                        regime, leg_phase)
+                       VALUES (?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?, ?,?,?,?, ?,?,?,
+                               ?,?,?,?,?, ?,?)""",
                     (episode_id, r["tick"], r["t_s"], r["msec"],
                      r["ox"], r["oy"], r["oz"], r["vx"], r["vy"], r["vz"],
                      r["pitch"], r["yaw"], r["roll"], r["hspeed"],
@@ -969,7 +1184,12 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
                      r.get("health"), r.get("armor"),  # T3 forward-filled; armor_type/weapon NULL
                      # (T6) ammo counts + powerup remaining-seconds (NULL when not held)
                      r.get("shells"), r.get("nails"), r.get("rockets"), r.get("cells"),
-                     r.get("quad_rem"), r.get("pent_rem"), r.get("ring_rem")),
+                     r.get("quad_rem"), r.get("pent_rem"), r.get("ring_rem"),
+                     # (T7) [G] geometry (NULL where the trace startsolids/over-void) + [R] regime
+                     # + ego leg-phase (NULL outside a goal-conditioned leg).
+                     r.get("floor_height"), r.get("over_void"), r.get("wall_dist"),
+                     r.get("ledge_ahead"), r.get("ramp_normal_z"),
+                     r.get("regime"), r.get("leg_phase")),
                 )
                 n_tick += 1
                 con.execute(
@@ -999,15 +1219,22 @@ def insert_demo(con: sqlite3.Connection, map_id: int, rec: dict, split: str, dem
                            (episode_id, tick, actor_id, team_id, alive, ox, oy, oz, vx, vy, vz,
                             pitch, yaw, roll, hspeed, onground, onground_is_proxy,
                             health, armor, armor_type, weapon,
-                            shells, nails, rockets, cells, quad_rem, pent_rem, ring_rem)
-                           VALUES (?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?)""",
+                            shells, nails, rockets, cells, quad_rem, pent_rem, ring_rem,
+                            floor_height, over_void, wall_dist, ledge_ahead, ramp_normal_z,
+                            regime, leg_phase)
+                           VALUES (?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,
+                                   ?,?,?,?,?, ?,?)""",
                         (episode_id, r["tick"], pid_by_name[aname], team_id_by_player.get(aname),
                          s["alive"], s["ox"], s["oy"], s["oz"], s["vx"], s["vy"], s["vz"],
                          s["pitch"], s["yaw"], s["roll"], s["hspeed"],
                          None, False, s["health"], s["armor"], s["armor_type"], None,
                          # (T6) per-actor ammo counts + powerup remaining-seconds (NULL when not held)
                          s["shells"], s["nails"], s["rockets"], s["cells"],
-                         s["quad_rem"], s["pent_rem"], s["ring_rem"]),
+                         s["quad_rem"], s["pent_rem"], s["ring_rem"],
+                         # (T7) per-actor [G] geometry + [R] regime (from the actor's own origin);
+                         # leg_phase stays NULL on actor_ticks (no ego goal/route context).
+                         s.get("floor_height"), s.get("over_void"), s.get("wall_dist"),
+                         s.get("ledge_ahead"), s.get("ramp_normal_z"), s.get("regime"), None),
                     )
                     n_actor += 1
 

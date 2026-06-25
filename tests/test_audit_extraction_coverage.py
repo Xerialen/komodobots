@@ -100,6 +100,17 @@ class TestClassification(unittest.TestCase):
             self.assertEqual(audit.classify_column("actor_ticks", col)[0], audit.EXTRACTED,
                              f"actor_ticks.{col} should be extracted (T6)")
 
+    def test_t7_geometry_regime_legphase_derived(self):
+        # T7: [G] geometry + [R] regime + leg-phase columns classify DERIVED on BOTH tables (G5
+        # closed). They are computed (dm3.bsp traces + kinematics + route_legs), not raw decoder
+        # fields — DERIVED, the same honest verdict as onground/hspeed.
+        for col in ("floor_height", "over_void", "wall_dist", "ledge_ahead", "ramp_normal_z",
+                    "regime", "leg_phase"):
+            self.assertEqual(audit.classify_column("player_ticks", col)[0], audit.DERIVED,
+                             f"player_ticks.{col} should be DERIVED (T7)")
+            self.assertEqual(audit.classify_column("actor_ticks", col)[0], audit.DERIVED,
+                             f"actor_ticks.{col} should be DERIVED (T7)")
+
     def test_known_extracted_derived_excluded(self):
         self.assertEqual(audit.classify_column("player_ticks", "ox")[0], audit.EXTRACTED)
         # T3: MVD health/armor event stream now populates these (GAP -> extracted)
@@ -170,6 +181,29 @@ class TestReport(unittest.TestCase):
                           "schema entirely, so they do not appear as columns here.\n")
         self.assertTrue(audit._report_claims_g4_absent(stale),
                         "guard must detect the G4-absent contradiction in stale prose")
+
+    def test_g5_absent_guard_detects_contradiction(self):
+        # T7 #395 anti-recurrence (mirrors G4): with the [G]/[R]/leg-phase columns now DERIVED
+        # (schema-present), the report prose must NOT claim those G5 columns are "absent from the
+        # schema". The detector is False on the corrected report, True on the stale phrasing.
+        schema = audit.parse_schema_tables(audit.SCHEMA_SQL)
+        etl_mvd = audit.parse_etl_inserts(audit.ETL_MVD)
+        etl_qwd = audit.parse_etl_inserts(audit.ETL_QWD)
+        refs = audit.parse_registry_sources(audit.REGISTRY_YAML)
+        report, _ = audit.build_report(schema, etl_mvd, etl_qwd, refs)
+
+        # The T7 columns really are schema-present (DERIVED), so the contradiction would be live.
+        for col in ("floor_height", "over_void", "wall_dist", "ledge_ahead", "ramp_normal_z",
+                    "regime", "leg_phase"):
+            self.assertEqual(audit.classify_column("player_ticks", col)[0], audit.DERIVED)
+
+        self.assertFalse(audit._report_claims_g5_absent(report),
+                         "corrected report must not assert G5 [G]/[R]/leg-phase columns are absent")
+
+        stale = report + ("\nOnly the [G]/[R]/leg-phase columns (G5) remain absent from the "
+                          "schema entirely, so they do not appear as columns here.\n")
+        self.assertTrue(audit._report_claims_g5_absent(stale),
+                        "guard must detect the G5-absent contradiction in stale prose")
 
 
 if __name__ == "__main__":

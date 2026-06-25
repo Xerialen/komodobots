@@ -1494,5 +1494,183 @@ class SummaryDbPathTest(unittest.TestCase):
         self.assertFalse((d / "out.sqlite.partial").exists())
 
 
+# =============================================================================
+# (T7 #395) [R] regime classification, leg-phase segmentation, [G] geometry.
+# =============================================================================
+_DM3_BSP = "/home/ubuntu/nquakesv/qw/maps/dm3.bsp"
+
+
+class RegimeClassifyTest(unittest.TestCase):
+    """[R] regime from kinematics + the ramp normal. Each vocabulary case is exercised."""
+
+    def test_airborne_when_not_onground(self):
+        # airborne dominates the speed buckets: a not-onground tick is 'airborne' at any speed.
+        self.assertEqual(etl.classify_regime(600.0, False, 1.0), "airborne")
+        self.assertEqual(etl.classify_regime(100.0, False, None), "airborne")
+
+    def test_cruise_and_accel_split_at_the_gate(self):
+        # grounded + flat floor: >= CRUISE_GATE -> cruise, below -> accel.
+        self.assertEqual(etl.classify_regime(etl.CRUISE_GATE, True, 1.0), "cruise")
+        self.assertEqual(etl.classify_regime(etl.CRUISE_GATE - 1, True, 1.0), "accel")
+        self.assertEqual(etl.classify_regime(50.0, True, 1.0), "accel")
+
+    def test_on_ramp_when_grounded_on_a_slope(self):
+        # grounded on a sloped floor (MIN_STEP_NORMAL <= nz < RAMP_FLAT_NORMAL) -> on-ramp,
+        # regardless of speed (the slope label takes priority over accel/cruise).
+        nz = 0.5 * (etl.MIN_STEP_NORMAL + etl.RAMP_FLAT_NORMAL)
+        self.assertEqual(etl.classify_regime(600.0, True, nz), "on-ramp")
+        self.assertEqual(etl.classify_regime(100.0, True, nz), "on-ramp")
+        # a near-flat normal (>= RAMP_FLAT_NORMAL) is NOT a ramp.
+        self.assertEqual(etl.classify_regime(600.0, True, 0.99), "cruise")
+
+    def test_water_only_when_waterlevel_present(self):
+        # MVD carries no waterlevel -> default None -> never 'water'. When a source supplies it,
+        # waterlevel>0 dominates.
+        self.assertEqual(etl.classify_regime(600.0, True, 1.0, waterlevel=2), "water")
+        self.assertNotEqual(etl.classify_regime(600.0, True, 1.0, waterlevel=0), "water")
+
+    def test_none_when_onground_unknown(self):
+        # onground unknown (None) and no water -> regime is None (never guessed).
+        self.assertIsNone(etl.classify_regime(600.0, None, 1.0))
+
+
+class LegPhaseTest(unittest.TestCase):
+    """leg-phase segmentation within one resource-to-resource leg (route_legs.phase_segment_leg)."""
+
+    def test_launch_cruise_approach_land_profile(self):
+        # a textbook leg: build speed (launch) -> sustained >=400 (cruise) -> decelerate
+        # (approach) -> grounded arrival (land).
+        # cruise band = the contiguous >=400 run (420,500,480 at idx 2,3,4); 300 at idx5 = approach.
+        hs = [100, 250, 420, 500, 480, 300, 120, 0]
+        og = [True, False, False, False, False, False, True, True]
+        ph = etl.phase_segment_leg(hs, og)
+        self.assertEqual(ph, ["launch", "launch", "cruise", "cruise", "cruise",
+                              "approach", "land", "land"])
+
+    def test_no_cruise_band_uses_peak_then_land(self):
+        # never reaches the gate: launch up to the peak-speed tick, approach after, trailing land.
+        hs = [50, 120, 200, 150, 80]
+        og = [True, False, False, False, True]
+        ph = etl.phase_segment_leg(hs, og)
+        self.assertEqual(ph[0:3], ["launch", "launch", "launch"])  # up to + incl the peak (idx 2)
+        self.assertEqual(ph[3], "approach")
+        self.assertEqual(ph[4], "land")
+
+    def test_empty_leg_is_empty(self):
+        self.assertEqual(etl.phase_segment_leg([], []), [])
+
+    def test_leg_phase_null_without_resource_coords(self):
+        # _recover_leg_phase with no coords -> all None (no leg context).
+        frames = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+                   "t_ms": i * 13} for i in range(5)]
+        self.assertEqual(etl._recover_leg_phase(frames, [False] * 5, {}), [None] * 5)
+
+
+@unittest.skipUnless(os.path.exists(_DM3_BSP), "dm3.bsp not present (BSP-backed [G] geometry test)")
+class GeometryProberTest(unittest.TestCase):
+    """[G] geometry on the REAL dm3 BSP: finite + sane near a known floor, NULL where undefined."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.prober = etl.OngroundProber(_DM3_BSP)
+
+    def test_floor_and_wall_are_finite_and_sane_over_known_floor(self):
+        # RL spot (1591,526,-88 floor); stand 8 qu above it.
+        g = self.prober.geometry((1591.0, 526.0, -80.0), (300.0, 0.0, 0.0))
+        self.assertEqual(g["over_void"], 0)
+        self.assertAlmostEqual(g["floor_height"], 8.0, delta=1.0)  # z - floor_z ~ 8
+        self.assertIsNotNone(g["wall_dist"])
+        self.assertGreater(g["wall_dist"], 0.0)
+        self.assertLessEqual(g["wall_dist"], etl.WALL_PROBE_QU)
+        self.assertAlmostEqual(g["ramp_normal_z"], 1.0, places=2)  # flat floor
+
+    def test_startsolid_position_is_all_null(self):
+        # a point buried in solid (well outside the playable AABB) -> all geometry None.
+        g = self.prober.geometry((5000.0, 5000.0, 0.0), (0.0, 0.0, 0.0))
+        for k in ("floor_height", "over_void", "wall_dist", "ledge_ahead", "ramp_normal_z"):
+            self.assertIsNone(g[k], f"{k} should be NULL at a startsolid position")
+
+    def test_ledge_ahead_null_below_min_hspeed(self):
+        # ledge-ahead needs a defined heading; below LEDGE_MIN_HSPEED it is NULL.
+        g = self.prober.geometry((1591.0, 526.0, -80.0), (1.0, 0.0, 0.0))  # ~1 qu/s
+        self.assertIsNone(g["ledge_ahead"])
+
+    def test_actor_samples_carry_geometry_and_regime(self):
+        # _actor_samples with a prober tags each row with [G] geometry + [R] regime; leg_phase absent.
+        player = {"pos": {"t": [0, 13], "x": [1591.0, 1595.0], "y": [526.0, 526.0],
+                          "z": [-80.0, -80.0], "vx": [500.0, 500.0], "vy": [0.0, 0.0],
+                          "vz": [0.0, 0.0], "vya": [0, 0], "vp": [0, 0]}}
+        samp = etl._actor_samples(player, self.prober)
+        r = samp["rows"][0]
+        self.assertIsNotNone(r["floor_height"])
+        self.assertIsNotNone(r["wall_dist"])
+        self.assertIn(r["regime"], ("accel", "cruise", "grounded", "airborne", "on-ramp"))
+        self.assertNotIn("leg_phase", r)  # leg_phase is NULL on actors (set to None at insert)
+        # without a prober every geometry/regime field is None.
+        r0 = etl._actor_samples(player, None)["rows"][0]
+        self.assertIsNone(r0["floor_height"])
+        self.assertIsNone(r0["regime"])
+
+
+@unittest.skipUnless(os.path.exists(_DM3_BSP), "dm3.bsp not present (BSP-backed insert test)")
+class GeometryInsertTest(unittest.TestCase):
+    """The T7 columns land on BOTH player_ticks and actor_ticks; leg_phase NULL on actors."""
+
+    def _con(self):
+        import sqlite3
+        con = sqlite3.connect(":memory:")
+        con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+        con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                    "diagonal) VALUES (1, 'dm3', -1035, 2063, -975, 1151, -447, 511, 3797.1)")
+        return con
+
+    def test_geometry_columns_populate_both_tables(self):
+        prober = etl.OngroundProber(_DM3_BSP)
+        # ego segment over the real RL floor, tagged with geometry + a leg_phase.
+        seg = [{"origin": [1591.0 + i, 526.0, -80.0], "velocity": [500.0, 0.0, 0.0],
+                "yaw": float(i), "pitch": 0.0, "msec": 13, "t_ms": i * 13} for i in range(4)]
+        geom = etl._recover_geometry(seg, prober)
+        for f, g in zip(seg, geom):
+            f["geom"] = g
+            f["leg_phase"] = "cruise"
+        ep = etl._pack_episode(seg, [True, False, False, True], [False] * 4, 0)
+        aw = {"P1": etl._actor_samples(
+            {"pos": {"t": [0, 13, 26, 39], "x": [1591.0] * 4, "y": [526.0] * 4,
+                     "z": [-80.0] * 4, "vx": [500.0] * 4, "vy": [0.0] * 4,
+                     "vz": [0.0] * 4, "vya": [0] * 4, "vp": [0] * 4}}, prober)}
+        sha = "ab" + "0" * 62
+        rec = {"demo": "t.mvd", "sha256": sha, "n_players": 1,
+               "players": [{"name": "P1", "team": "red", "episodes": [ep]}],
+               "teams": ["red"], "actor_world": aw, "actor_team": {"P1": "red"},
+               "item_events": [], "frag_events": [],
+               "damage_available": False, "damage_events": []}
+        con = self._con()
+        etl.insert_demo(con, 1, rec, "train", 1)
+
+        # player_ticks: geometry finite, regime present, leg_phase carried.
+        pt = con.execute("SELECT floor_height, over_void, wall_dist, ramp_normal_z, regime, "
+                         "leg_phase FROM player_ticks").fetchall()
+        self.assertEqual(len(pt), 4)
+        for fh, ov, wd, rn, reg, lp in pt:
+            self.assertIsNotNone(fh)
+            self.assertEqual(ov, 0)
+            self.assertIsNotNone(wd)
+            self.assertIn(reg, ("accel", "cruise", "grounded", "airborne", "on-ramp"))
+            self.assertEqual(lp, "cruise")
+
+        # actor_ticks: geometry + regime present; leg_phase NULL (no ego goal context).
+        at = con.execute("SELECT floor_height, wall_dist, regime, leg_phase FROM actor_ticks").fetchall()
+        self.assertTrue(at)
+        for fh, wd, reg, lp in at:
+            self.assertIsNotNone(fh)
+            self.assertIsNotNone(wd)
+            self.assertIsNotNone(reg)
+            self.assertIsNone(lp)  # leg_phase always NULL on actor_ticks
+
+        # FK integrity holds with the new columns.
+        self.assertEqual(con.execute("PRAGMA foreign_key_check").fetchall(), [])
+        con.close()
+
+
 if __name__ == "__main__":
     unittest.main()

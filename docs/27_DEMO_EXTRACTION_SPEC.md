@@ -266,16 +266,27 @@ Reference `00-DATA-ARCHITECTURE.md` §2 (geometry/nav), §3 (items) where covere
 All geometry uses the sha-locked `dm3.bsp` via the existing trace primitives in `pmove_sim.py`
 (`player_trace`, `_recursive_hull_check`, `hull_point_contents`, `derive_onground`).
 
-- **[G] map geometry (GREENFIELD beyond onground):** distance-to-nearest-wall (radial ray-cast),
-  ledge-ahead (forward+down trace delta), ramp/incline (`trace.normal.z` bucket), floor-height-below,
-  jump-pad/teleporter proximity (from `markers.is_teleport` / item/nav metadata). *Why:* makes a
-  trick-jump interpretable (you strafe *toward* a ledge). Stored as `player_ticks` columns.
-- **[R] regime (GREENFIELD bucketing):** speed-regime (accel `<400` / cruise `≥400` — the IDM gate);
-  grounded/airborne/in-water; on-ramp/stairs (from [G] normal); pre/post-jump tick. Cheap labels over
-  existing columns.
-- **leg-phase (GREENFIELD):** launch / cruise / approach / land, segmented from the #334
-  `route_legs.py` signature (hspeed profile + jump cadence + end-distance trajectory). Per-tick label
-  joined to the leg.
+- **[G] map geometry (BINDING + POPULATED — T7 #395):** distance-to-nearest-wall (`wall_dist`, min of
+  the 4 axial ±x/±y hull-1 traces, capped at 512 qu), ledge-ahead (`ledge_ahead`, forward+down trace
+  drop along velocity), ramp/incline (`ramp_normal_z`, the floor-trace plane `normal.z`; <0.95 = ramp),
+  floor-height-below (`floor_height` = z − downward-trace floor z; matches `trace.csv`/`build_trace.py`
+  `height_above_floor`) + `over_void` (no floor within 4096 qu, OR floor < −200 qu deep-chasm — the
+  `build_trace.py` rule). All via the `pmove_sim.player_trace` hull-1 machinery against the sha-locked
+  `dm3.bsp` (the SAME `WorldModel` the onground prober already loads per worker — no second BSP load).
+  Stored as `player_ticks` **and** `actor_ticks` columns; NULL where the trace starts in solid / over a
+  void (undefined, never fabricated). *Why:* makes a trick-jump interpretable (you strafe *toward* a
+  ledge). Jump-pad/teleporter proximity stays reserved (Frogbot `markers.is_teleport` join — §9).
+- **[R] regime (BINDING + POPULATED — T7 #395):** `regime` ∈ {accel `<400` / cruise `≥400` (the IDM
+  gate) / grounded / airborne / water / on-ramp}, from `hspeed` + (geometric) `onground` + the [G]
+  `ramp_normal_z` (priority water > airborne > on-ramp > cruise/accel). MVD has no waterlevel so `water`
+  never emits for MVD (honest). Stored on `player_ticks` + `actor_ticks` (the actor regime uses a local
+  geometric onground; the `actor_ticks.onground` column itself stays NULL by T4 design).
+- **leg-phase (BINDING + POPULATED — T7 #395):** `leg_phase` ∈ {launch / cruise / approach / land},
+  segmented from the #334 `route_legs.py` resource-to-resource legs (position-based visits) on the
+  per-leg hspeed profile + onground (cruise = the contiguous ≥400 band; launch = the build-up before
+  it; land = the trailing grounded arrival; approach = the decelerating glide between). Per-tick label
+  on the ego goal-conditioned `player_ticks` spine; **NULL on `actor_ticks`** (observed others have no
+  ego goal/route context) and NULL on ego ticks outside any leg.
 - **[C] threat / line-of-sight (deferred TODO today, formalize here):** nearest-enemy / nearest-mate
   distance + bearing (from `actor_ticks`); **LOS = BSP hull-0 ray-trace** observer-eye→target,
   early-exit on first solid; `actor_visibility(is_visible = pvs ∧ fov ∧ los_clear)` + belief block
@@ -328,9 +339,10 @@ explicit and normative:
   19 tables — all defined; the 4on4 ones below are schema-defined, several populated by tickets):
   `demos`, `players`, `teams`, `maps`, `markers`, `nav_edges`, `items`, `item_value`,
   `episodes`, `player_ticks`, `actor_ticks`, `actions`, `feature_partitions`, `actor_visibility`,
-  `audio_cues`, `frag_events`, `damage_events`, `region_control_timeline`, `item_events` (+ genuinely
-  greenfield leg/segment + [G]/[R] columns — not yet in the schema). Optional per-consumer
-  **parquet** export; SQLite remains canonical.
+  `audio_cues`, `frag_events`, `damage_events`, `region_control_timeline`, `item_events`. The
+  derived [G] geometry / [R] regime / leg-phase columns now live additively on `player_ticks` +
+  `actor_ticks` (T7 #395 — no new table). Optional per-consumer **parquet** export; SQLite remains
+  canonical.
 - **Raw-maximal principle:** store observed + finite-diff + geometry-derived; do **not** store
   model-specific normalized obs (those are built downstream from `feature_registry.yaml`).
 - **Completeness method:** the coverage audit (§3.9) diffs the populated catalog against the decoder
@@ -343,8 +355,12 @@ explicit and normative:
   `demos.damage_available`. Still defined-but-empty: `actor_visibility` / `audio_cues` (T8 derived
   layers); **T6 (#394)** added + filled the ammo (`shells/nails/rockets/cells`) + powerup-remaining
   (`quad_rem/pent_rem/ring_rem`) source columns on `player_ticks` + `actor_ticks` from the same
-  `-view full` per-player streams — the report makes the remaining (defined-but-empty / derived)
-  gaps explicit and tracked.
+  `-view full` per-player streams; **T7 (#395)** added + populated the derived [G] geometry
+  (`floor_height/over_void/wall_dist/ledge_ahead/ramp_normal_z`), [R] `regime`, and `leg_phase`
+  columns on `player_ticks` + `actor_ticks` (geometry from the sha-locked `dm3.bsp` hull-1 traces;
+  regime from kinematics; leg-phase from the #334 route-leg segmentation — `leg_phase` NULL on
+  `actor_ticks`) — the report makes the remaining (defined-but-empty / derived) gaps explicit and
+  tracked.
 - **Durability:** every demo sha256 + size; decoder binary sha + schema version; spec id (§8);
   canonical on servexeri (~GB, not git, not aws-dev); only the summary + coverage report + this spec
   are committed.

@@ -102,6 +102,8 @@ DECODER_INVENTORY: "OrderedDict[str, tuple[str, str, str]]" = OrderedDict([
     ("metadata.ruleset", ("getMetadata serverInfo/matchSettings", "MVD", "ruleset: spawnmodel/powerups/noItems")),
     ("demoinfo.scoreboard", ("getDemoInfo (KTX scoreboard, Bot skill)", "MVD (KTX)", "per-player stats; is_bot flag")),
     ("provenance.sha", ("loadDemo sha256 + map + duration", "MVD+QWD", "demo provenance")),
+    # --- derivation inputs (NOT a decoder stream — the sha-locked dm3.bsp via pmove_sim traces) ---
+    ("geom.dm3_bsp", ("pmove_sim hull-1 traces over the sha-locked dm3.bsp (NOT a decoder field)", "derived", "[G] wall/floor/ledge/ramp from BSP collision geometry (T7)")),
     # --- QWD first-person POV usercmd (the action oracle; tools/qwd_usercmd) ---
     ("qwd.usercmd.forwardmove", ("QWD usercmd_t.forwardmove", "QWD", "ground-truth forward input")),
     ("qwd.usercmd.sidemove", ("QWD usercmd_t.sidemove", "QWD", "ground-truth side input")),
@@ -150,6 +152,14 @@ CLASSIFY: "OrderedDict[str, tuple[str, str | None, str]]" = OrderedDict([
     ("player_ticks.quad_rem", (EXTRACTED, "state.powerups", "MVD ETL derives remaining-seconds from the `-view full` `q` held-interval [s,e] at each tick (T6); NULL when not held. NULL on QWD.")),
     ("player_ticks.pent_rem", (EXTRACTED, "state.powerups", "MVD ETL derives remaining-seconds from the `-view full` `pe` held-interval at each tick (T6); NULL when not held. NULL on QWD.")),
     ("player_ticks.ring_rem", (EXTRACTED, "state.powerups", "MVD ETL derives remaining-seconds from the `-view full` `r` held-interval at each tick (T6); NULL when not held. NULL on QWD.")),
+    # ---- player_ticks [G] geometry + [R] regime + leg-phase (T7 #395; DERIVED, not raw decoder fields) ----
+    ("player_ticks.floor_height", (DERIVED, "geom.dm3_bsp", "[G] z - downward hull-1 floor-trace endpoint (matches trace.csv height_above_floor). NULL where the trace startsolids / over void. MVD ETL (T7)")),
+    ("player_ticks.over_void", (DERIVED, "geom.dm3_bsp", "[G] 1 if no floor within FLOOR_PROBE_QU OR floor < VOID_THRESH_QU (deep chasm); matches build_trace.py over_void. NULL if startsolid (T7)")),
+    ("player_ticks.wall_dist", (DERIVED, "geom.dm3_bsp", "[G] min of the 4 axial ±x/±y hull-1 wall traces, capped at WALL_PROBE_QU. NULL if startsolid (T7)")),
+    ("player_ticks.ledge_ahead", (DERIVED, "geom.dm3_bsp", "[G] floor drop along velocity (forward+down trace gap). NULL if hspeed<LEDGE_MIN_HSPEED / void / startsolid (T7)")),
+    ("player_ticks.ramp_normal_z", (DERIVED, "geom.dm3_bsp", "[R-input] floor-plane normal z from the downward trace (1.0 flat; <0.95 ramp). NULL over void/startsolid (T7)")),
+    ("player_ticks.regime", (DERIVED, None, "[R] accel/cruise/grounded/airborne/water/on-ramp from hspeed+onground+ramp_normal_z (T7)")),
+    ("player_ticks.leg_phase", (DERIVED, None, "launch/cruise/approach/land within a resource-to-resource leg (route_legs #334 segmentation); NULL outside any ego goal-conditioned leg (T7)")),
     # ---- actor_ticks (omniscient all-players world) ----
     ("actor_ticks.ox", (EXTRACTED, "world.all_players_state", "QWD ETL writes (self+observed others); MVD ETL writes the omniscient all-players state per episode tick (T4)")),
     ("actor_ticks.oy", (EXTRACTED, "world.all_players_state", "QWD + MVD (T4)")),
@@ -177,6 +187,14 @@ CLASSIFY: "OrderedDict[str, tuple[str, str | None, str]]" = OrderedDict([
     ("actor_ticks.quad_rem", (EXTRACTED, "state.powerups", "MVD derives remaining-seconds from each player's `q` held-interval at each tick (T6; NULL when not held); QWD NULL")),
     ("actor_ticks.pent_rem", (EXTRACTED, "state.powerups", "MVD derives remaining-seconds from each player's `pe` held-interval (T6; NULL when not held); QWD NULL")),
     ("actor_ticks.ring_rem", (EXTRACTED, "state.powerups", "MVD derives remaining-seconds from each player's `r` held-interval (T6; NULL when not held); QWD NULL")),
+    # ---- actor_ticks [G] geometry + [R] regime (T7 #395; DERIVED from each actor's own origin/velocity) ----
+    ("actor_ticks.floor_height", (DERIVED, "geom.dm3_bsp", "[G] per-actor z above floor from the dm3 hull-1 floor trace (T7). NULL if startsolid")),
+    ("actor_ticks.over_void", (DERIVED, "geom.dm3_bsp", "[G] per-actor void/deep-chasm-below flag (T7). NULL if startsolid")),
+    ("actor_ticks.wall_dist", (DERIVED, "geom.dm3_bsp", "[G] per-actor nearest-wall distance (±x/±y), capped (T7). NULL if startsolid")),
+    ("actor_ticks.ledge_ahead", (DERIVED, "geom.dm3_bsp", "[G] per-actor forward floor-drop along velocity (T7). NULL if hspeed<min/void/startsolid")),
+    ("actor_ticks.ramp_normal_z", (DERIVED, "geom.dm3_bsp", "[R-input] per-actor floor-plane normal z (T7). NULL over void/startsolid")),
+    ("actor_ticks.regime", (DERIVED, None, "[R] per-actor regime from hspeed + a LOCAL geometric onground + ramp_normal_z (T7); the actor_ticks.onground column itself stays NULL by T4 design")),
+    ("actor_ticks.leg_phase", (DERIVED, None, "ALWAYS NULL on actor_ticks: leg-phase needs the ego goal/route context, defined only for the episode-owning ego player (T7)")),
     # ---- actions (recovered state->action labels) ----
     ("actions.forwardmove", (EXTRACTED, "qwd.usercmd.forwardmove", "QWD=ground-truth; MVD=IDM-recovered")),
     ("actions.sidemove", (EXTRACTED, "qwd.usercmd.sidemove", "QWD=ground-truth; MVD=IDM sign")),
@@ -302,7 +320,12 @@ PLAN_GAPS = [
     "by T6 #394: shells/nails/rockets/cells + quad_rem/pent_rem/ring_rem added to player_ticks + "
     "actor_ticks and populated from the same `-view full` per-player sh/nl/rk/cl + q/pe/r streams "
     "(ammo forward-filled; powerup remaining-seconds derived from the held-interval, NULL when not held)",
-    "G5: stored [G] geometry / [R] regime / leg-phase columns absent",
+    "G5: stored [G] geometry / [R] regime / leg-phase columns absent — ADDRESSED by T7 #395: "
+    "floor_height/over_void/wall_dist/ledge_ahead/ramp_normal_z + regime + leg_phase added to "
+    "player_ticks + actor_ticks and DERIVED (pmove_sim hull-1 traces over the sha-locked dm3.bsp "
+    "for [G]; kinematics+ramp for [R]; route_legs #334 segmentation for leg-phase). They are now "
+    "schema-defined + populated, appearing as DERIVED columns above (NULL where undefined, never "
+    "fabricated; leg_phase NULL on actor_ticks — no ego goal context)",
     "G6: docs/27 inaccuracies (frag_events/actor_visibility/audio_cues/teams called "
     "greenfield/reserved when schema-defined-but-empty; wrong schema path)",
 ]
@@ -505,10 +528,14 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
                  "columns above. The ammo/powerup source columns (G4) are likewise now "
                  "schema-defined + populated (T6 #394: `shells`/`nails`/`rockets`/`cells` + "
                  "`quad_rem`/`pent_rem`/`ring_rem` on `player_ticks` + `actor_ticks`, from the same "
-                 "`-view full` streams), so they too appear as extracted columns above. Only the [G]/[R]/"
-                 "leg-phase columns (G5) remain **absent from the schema entirely** (not just unpopulated) "
-                 "— schema-addition ticket T7, so they do not appear as columns here; that absence IS the "
-                 "finding.")
+                 "`-view full` streams), so they too appear as extracted columns above. The [G] geometry "
+                 "/ [R] regime / leg-phase columns (G5) are now ADDRESSED by T7 #395: "
+                 "`floor_height`/`over_void`/`wall_dist`/`ledge_ahead`/`ramp_normal_z` + `regime` + "
+                 "`leg_phase` are schema-defined on `player_ticks` + `actor_ticks` and populated by the "
+                 "MVD ETL, so they appear as DERIVED columns above (computed from the sha-locked dm3.bsp "
+                 "hull-1 traces + kinematics + the route_legs #334 segmentation — NULL where undefined, "
+                 "never fabricated; `leg_phase` is NULL on `actor_ticks` for want of an ego goal context). "
+                 "No per-column GAP remains absent from the schema entirely.")
     return "\n".join(lines).rstrip("\n") + "\n", counts
 
 
@@ -530,6 +557,25 @@ def _report_claims_g4_absent(report: str) -> bool:
                        or ("ammo" in sentence and "powerup" in sentence))
         claims_absent = "absent from the schema" in sentence
         if mentions_g4 and claims_absent:
+            return True
+    return False
+
+
+def _report_claims_g5_absent(report: str) -> bool:
+    """True if the report prose asserts the G5 [G]/[R]/leg-phase columns are absent from the schema.
+
+    Mirrors _report_claims_g4_absent (#404 P1): within one sentence, both a reference to the
+    G5 geometry/regime/leg-phase columns AND an "absent from the schema" claim. After T7 #395
+    those columns are schema-defined + populated, so this contradiction must never reappear.
+    """
+    text = report.lower()
+    for sentence in re.split(r"(?<=[.!?])\s+|\n", text):
+        mentions_g5 = ("leg-phase" in sentence or "leg_phase" in sentence
+                       or ("g5" in sentence and "g4" not in sentence)
+                       or ("[g]" in sentence and "regime" in sentence)
+                       or ("geometry" in sentence and "regime" in sentence))
+        claims_absent = "absent from the schema" in sentence
+        if mentions_g5 and claims_absent:
             return True
     return False
 
@@ -603,6 +649,16 @@ def run_self_checks() -> None:
         assert classify_column("actor_ticks", col)[0] == EXTRACTED, f"actor_ticks.{col} should be extracted (T6)"
         assert col in etl_mvd.get("actor_ticks", set()), f"MVD ETL must populate actor_ticks.{col} (T6)"
 
+    # T7: [G] geometry + [R] regime + leg-phase derived columns now exist on BOTH tables (G5
+    # closed). They classify DERIVED (computed from the dm3.bsp traces + kinematics + route_legs,
+    # NOT raw decoder fields) and the MVD ETL writes them. leg_phase is on player_ticks too.
+    t7_geom = ("floor_height", "over_void", "wall_dist", "ledge_ahead", "ramp_normal_z")
+    for col in t7_geom + ("regime", "leg_phase"):
+        assert classify_column("player_ticks", col)[0] == DERIVED, f"player_ticks.{col} should be DERIVED (T7)"
+        assert col in etl_mvd.get("player_ticks", set()), f"MVD ETL must populate player_ticks.{col} (T7)"
+        assert classify_column("actor_ticks", col)[0] == DERIVED, f"actor_ticks.{col} should be DERIVED (T7)"
+        assert col in etl_mvd.get("actor_ticks", set()), f"MVD ETL must populate actor_ticks.{col} (T7)"
+
     # Every CLASSIFY key must reference a real schema column (no stale verdict).
     valid = {f"{t}.{c}" for t, cols in schema.items() for c in cols}
     stale = [k for k in CLASSIFY if k not in valid]
@@ -634,6 +690,16 @@ def run_self_checks() -> None:
             "report contradiction (#404 P1): T6 ammo/powerup columns classify as extracted, "
             "yet the report prose still asserts the G4 ammo/powerup columns are absent from the "
             "schema. Update the scoping paragraph to mark G4 as ADDRESSED by T6.")
+
+    # Anti-recurrence guard (T7 #395, mirroring #404 P1): the report must not SIMULTANEOUSLY
+    # classify the T7 [G]/[R]/leg-phase columns as schema-present (DERIVED) AND assert in its prose
+    # that those columns are "absent from the schema". After T7 they are defined + populated.
+    t7_present = all(classify_column("player_ticks", c)[0] == DERIVED for c in t7_geom)
+    if t7_present and _report_claims_g5_absent(report):
+        raise AssertionError(
+            "report contradiction (T7 #395): the [G]/[R]/leg-phase columns classify as DERIVED "
+            "(schema-defined + populated), yet the report prose still asserts the G5 columns are "
+            "absent from the schema. Update the scoping paragraph to mark G5 as ADDRESSED by T7.")
 
     print("self-checks: OK")
 
