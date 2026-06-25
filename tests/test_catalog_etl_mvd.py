@@ -354,6 +354,238 @@ class ResourceStateTest(unittest.TestCase):
         self.assertEqual(etl._decode_resource_events("/nonexistent-qwa", Path("/x/d.mvd")), [])
 
 
+# =============================================================================
+# T4 — the OMNISCIENT world (actor_ticks + item_events + frag_events + teams).
+# All exercised on synthetic `-view full`-shaped dicts (no binary/BSP needed), mirroring the
+# real schema-33 streams verified against ~/qw-sim/bin/qw-analyze-v20.
+# =============================================================================
+def _con_with_schema():
+    import sqlite3
+    con = sqlite3.connect(":memory:")
+    con.executescript((REPO_ROOT / "scripts" / "catalog_schema.sql").read_text())
+    con.execute("INSERT INTO maps (map_id, name, x_min, x_max, y_min, y_max, z_min, z_max, "
+                "diagonal) VALUES (1, 'dm3', 0, 1, 0, 1, 0, 1, 1.0)")
+    return con
+
+
+class WorldExtractTest(unittest.TestCase):
+    """The decoder-honest extractors over synthetic `-view full` streams."""
+
+    def test_extract_teams_distinct_order_stable(self):
+        data = {"streams": {"players": [
+            {"name": "a", "team": "Book"}, {"name": "b", "team": "mix"},
+            {"name": "c", "team": "Book"}, {"name": "d", "team": ""},
+        ]}}
+        self.assertEqual(etl._extract_teams(data), ["Book", "mix"])  # blank dropped, order kept
+
+    def test_actor_samples_forward_fills_resources_and_armor_type(self):
+        p = {
+            "name": "a", "team": "Book",
+            "pos": {"t": [0, 13, 26], "x": [1.0, 2.0, 3.0], "y": [0.0, 0.0, 0.0],
+                    "z": [-10.0, -10.0, -10.0], "vx": [400.0, 0.0, 0.0], "vy": [0.0, 0.0, 0.0],
+                    "vz": [0.0, 0.0, 0.0], "vya": [0, 0, 0], "vp": [0, 0, 0]},
+            "h": [{"t": 0, "v": 100}, {"t": 20, "v": 80}],
+            "a": [{"t": 13, "v": 50}],
+            "at": [{"t": 13, "v": "ra"}],
+            "d": [], "sp": [],
+        }
+        samp = etl._actor_samples(p)
+        self.assertEqual(samp["t"], [0, 13, 26])
+        # health forward-fills (100 until t>=20 -> 80 at t=26)
+        self.assertEqual([r["health"] for r in samp["rows"]], [100, 100, 80])
+        # armor None before its first event (t=13), then 50
+        self.assertEqual([r["armor"] for r in samp["rows"]], [None, 50, 50])
+        # armor_type 'ra' -> 2; None before the first 'at' step
+        self.assertEqual([r["armor_type"] for r in samp["rows"]], [None, 2, 2])
+        self.assertAlmostEqual(samp["rows"][0]["hspeed"], 400.0, places=3)
+
+    def test_alive_timeline_death_then_spawn(self):
+        # alive flips False at a death, True at the next spawn; NULL before either.
+        ts, vs = etl._alive_timeline([100], [{"t": 200}])
+        self.assertEqual((ts, vs), ([100, 200], [False, True]))
+        # before the first event -> fill returns None (alive unknown)
+        self.assertIsNone(etl._fill_resource((ts, vs), 50))
+        self.assertEqual(etl._fill_resource((ts, vs), 150), False)
+        self.assertEqual(etl._fill_resource((ts, vs), 250), True)
+
+    def test_extract_item_events_pickup_respawn_and_drops(self):
+        data = {
+            "items": {"items": [
+                {"name": "rl", "kind": "rl", "x": 1520, "y": 496, "z": -112,
+                 "phases": [{"takenAt": 138, "takenBy": "warwank", "team": "Book", "respawnAt": 5138}]},
+            ]},
+            "backpacks": [
+                {"time": 9000, "player": "Milton", "team": "Book", "weapon": "lg",
+                 "origin": [343.0, 208.0, -200.0]},
+            ],
+        }
+        ev = etl._extract_item_events(data)
+        kinds = [e["kind"] for e in ev]
+        self.assertEqual(kinds, ["pickup", "respawn", "drop"])  # time-sorted
+        pick = ev[0]
+        self.assertEqual((pick["player"], pick["team"], pick["item_type"]), ("warwank", "Book", "rl"))
+        self.assertEqual((pick["ox"], pick["oy"], pick["oz"]), (1520, 496, -112))
+        self.assertIsNone(ev[1]["player"])  # respawn has no picker
+        self.assertEqual(ev[2]["ox"], 343.0)  # backpack drop carries its origin
+
+    def test_extract_item_events_skips_zero_respawn(self):
+        # respawnAt == 0 means "still held / unknown", NOT a real respawn at t=0 (would poison ETA)
+        data = {"items": {"items": [
+            {"name": "ra", "kind": "ra", "x": 0, "y": 0, "z": 0,
+             "phases": [{"takenAt": 200, "takenBy": "niw", "team": "mix", "respawnAt": 0}]},
+        ]}}
+        ev = etl._extract_item_events(data)
+        self.assertEqual([e["kind"] for e in ev], ["pickup"])  # no bogus respawn
+
+    def test_extract_frag_events_killer_victim_flags(self):
+        data = {"frags": {"frags": [
+            {"time": 0, "killer": "stepcop", "victim": "zero", "weapon": "tele"},
+            {"time": 26, "killer": "zero", "victim": "niw", "weapon": "teamkill", "isTeamKill": True},
+            {"time": 37702, "killer": "Milton", "victim": "Milton", "weapon": "fall", "isSuicide": True},
+        ]}}
+        ev = etl._extract_frag_events(data)
+        self.assertEqual([e["t_ms"] for e in ev], [0, 26, 37702])  # sorted
+        self.assertTrue(ev[1]["is_teamkill"])
+        self.assertTrue(ev[2]["is_suicide"])
+        self.assertFalse(ev[0]["is_suicide"])
+
+
+def _world_rec(sha):
+    """A small two-player `rec` carrying both an episode (for player_ticks) and the T4 world."""
+    seg = [{"origin": [float(i), 0.0, -88.0], "velocity": [450.0, 0.0, 0.0],
+            "yaw": float(i), "pitch": 0.0, "msec": 13, "t_ms": i * 13,
+            "health": 100, "armor": 50} for i in range(30)]
+    ep = etl._pack_episode(seg, [False] * 30, [False] * 30, 0)
+
+    def _samples(name, oy):
+        rows = [{"ox": float(i), "oy": oy, "oz": -88.0, "vx": 450.0, "vy": 0.0, "vz": 0.0,
+                 "pitch": 0.0, "yaw": float(i), "roll": 0.0, "hspeed": 450.0,
+                 "health": 100, "armor": 50, "armor_type": 2, "alive": True} for i in range(30)]
+        return {"t": [i * 13 for i in range(30)], "rows": rows}
+
+    return {
+        "demo": "world.mvd", "sha256": sha, "n_players": 2,
+        "players": [
+            {"name": "alice", "team": "Book", "episodes": [ep]},
+            {"name": "bob", "team": "mix", "episodes": []},  # no episode but in the world
+        ],
+        "teams": ["Book", "mix"],
+        "actor_world": {"alice": _samples("alice", 0.0), "bob": _samples("bob", 64.0)},
+        "item_events": [
+            {"kind": "pickup", "t_ms": 100, "player": "alice", "team": "Book",
+             "item_type": "rl", "ox": 1520, "oy": 496, "oz": -112},        # joins items.item_id
+            {"kind": "respawn", "t_ms": 5100, "player": None, "team": None,
+             "item_type": "rl", "ox": 1520, "oy": 496, "oz": -112},
+            {"kind": "drop", "t_ms": 200, "player": "bob", "team": "mix",
+             "item_type": "lg", "ox": 999.0, "oy": 888.0, "oz": -50.0},     # backpack -> NULL item_id
+        ],
+        "frag_events": [
+            {"t_ms": 50, "killer": "alice", "victim": "bob", "weapon": "rl",
+             "is_suicide": False, "is_teamkill": False},
+            {"t_ms": 80, "killer": "bob", "victim": "bob", "weapon": "fall",
+             "is_suicide": True, "is_teamkill": False},
+        ],
+    }
+
+
+class WorldInsertTest(unittest.TestCase):
+    """insert_demo populates the four T4 tables with FK integrity + NULL-where-absent."""
+
+    def setUp(self):
+        self.con = _con_with_schema()
+        # the item_events spatial join needs the items spine; seed the one item the test joins on
+        # (kept minimal — the full dm3 catalog is exercised by the real-demo smoke, not the unit).
+        self.con.execute(
+            "INSERT INTO items (item_id, map_id, classname, item_type, category, "
+            "origin_x, origin_y, origin_z, static_value) "
+            "VALUES (1, 1, 'weapon_rocketlauncher', 'rl', 'weapon', 1520, 496, -112, 1.0)")
+
+    def _ensure_items(self):  # kept for call-site compat; items seeded in setUp
+        pass
+
+    def test_all_four_tables_populate_with_fk_integrity(self):
+        self._ensure_items()
+        sha = "ab" * 32
+        ins = etl.insert_demo(self.con, 1, _world_rec(sha), etl.split_for_sha(sha), 1)
+        self.con.commit()
+        # teams: one per distinct roster name, sides A/B
+        self.assertEqual(self.con.execute("SELECT COUNT(*) FROM teams").fetchone()[0], 2)
+        sides = dict(self.con.execute("SELECT name, side FROM teams").fetchall())
+        self.assertEqual(sides, {"Book": "A", "mix": "B"})
+        # actor_ticks: every player (alice AND bob, incl. the episode-less one) per ego tick
+        self.assertEqual(self.con.execute("SELECT COUNT(DISTINCT actor_id) FROM actor_ticks").fetchone()[0], 2)
+        self.assertEqual(ins["actor_ticks"], 30 * 2)  # 30 ego ticks * 2 world actors
+        # item_events: static pickup/respawn join item_id; backpack drop keeps origin + NULL item_id
+        kinds = dict(self.con.execute("SELECT event_kind, COUNT(*) FROM item_events GROUP BY event_kind").fetchall())
+        self.assertEqual(kinds, {"pickup": 1, "respawn": 1, "drop": 1})
+        self.assertEqual(self.con.execute(
+            "SELECT item_id FROM item_events WHERE event_kind='pickup'").fetchone()[0], 1)
+        drop = self.con.execute(
+            "SELECT item_id, origin_x FROM item_events WHERE event_kind='drop'").fetchone()
+        self.assertIsNone(drop[0])           # backpack -> no static item
+        self.assertEqual(drop[1], 999.0)     # ... but keeps its drop origin
+        # frag_events: killer/victim resolved to player_ids, flags honored
+        self.assertEqual(self.con.execute("SELECT COUNT(*) FROM frag_events").fetchone()[0], 2)
+        self.assertEqual(self.con.execute(
+            "SELECT COUNT(*) FROM frag_events WHERE is_suicide=1").fetchone()[0], 1)
+        # FK integrity across the whole db
+        self.con.execute("PRAGMA foreign_keys=ON")
+        self.assertEqual(self.con.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+    def test_actor_ticks_null_where_absent(self):
+        self._ensure_items()
+        sha = "cd" * 32
+        etl.insert_demo(self.con, 1, _world_rec(sha), etl.split_for_sha(sha), 1)
+        # onground / weapon are deliberately NULL for the observed-others world; armor_type IS set
+        n_onground = self.con.execute(
+            "SELECT COUNT(*) FROM actor_ticks WHERE onground IS NOT NULL").fetchone()[0]
+        n_weapon = self.con.execute(
+            "SELECT COUNT(*) FROM actor_ticks WHERE weapon IS NOT NULL").fetchone()[0]
+        n_armor_type = self.con.execute(
+            "SELECT COUNT(*) FROM actor_ticks WHERE armor_type IS NOT NULL").fetchone()[0]
+        self.assertEqual(n_onground, 0)
+        self.assertEqual(n_weapon, 0)
+        self.assertGreater(n_armor_type, 0)  # `at` stream populates armor_type (the T3 gap)
+
+    def test_team_id_attributed_to_actor(self):
+        self._ensure_items()
+        sha = "ef" * 32
+        etl.insert_demo(self.con, 1, _world_rec(sha), etl.split_for_sha(sha), 1)
+        # each actor's actor_ticks carry its absolute team_id (a real teams FK)
+        rows = self.con.execute(
+            "SELECT DISTINCT at.actor_id, t.name FROM actor_ticks at "
+            "JOIN players p ON p.player_id = at.actor_id "
+            "JOIN teams t ON t.team_id = at.team_id").fetchall()
+        names = {self.con.execute('SELECT handle FROM players WHERE player_id=?', (a,)).fetchone()[0]: tn
+                 for a, tn in rows}
+        # handles are mvd:<stem>#<name>; check both teams appear
+        self.assertEqual(set(names.values()), {"Book", "mix"})
+
+    def test_team_id_attributed_to_episodeless_world_actor(self):
+        # (T4 P1 #402) an actor present in actor_world (and actor_team) but ABSENT from rec["players"]
+        # (too short to own an episode) must STILL get a valid actor_ticks.team_id from actor_team —
+        # not NULL. Before the fix team_of_player came only from rec["players"], dropping team here.
+        self._ensure_items()
+        sha = "ad" * 32
+        rec = _world_rec(sha)
+        # bob is in the omniscient world + carries a team, but is NOT an episode-bearing player.
+        rec["players"] = [{"name": "alice", "team": "Book", "episodes": rec["players"][0]["episodes"]}]
+        rec["actor_team"] = {"alice": "Book", "bob": "Mix"}
+        rec["teams"] = ["Book", "Mix"]
+        etl.insert_demo(self.con, 1, rec, etl.split_for_sha(sha), 1)
+        self.con.commit()
+        rows = self.con.execute(
+            "SELECT DISTINCT p.handle, t.name, at.team_id FROM actor_ticks at "
+            "JOIN players p ON p.player_id = at.actor_id "
+            "JOIN teams t ON t.team_id = at.team_id "
+            "ORDER BY p.handle").fetchall()
+        # both actors resolve to a NON-NULL team_id matching their source team (incl. episode-less bob)
+        self.assertEqual(rows, [("mvd:world#alice", "Book", 1), ("mvd:world#bob", "Mix", 2)])
+        # and NO actor_ticks row was written with a NULL team_id
+        self.assertEqual(self.con.execute(
+            "SELECT COUNT(*) FROM actor_ticks WHERE team_id IS NULL").fetchone()[0], 0)
+
+
 class SplitTest(unittest.TestCase):
     """split_for_sha: per-demo, deterministic, content-stable, roughly 70/15/15."""
 

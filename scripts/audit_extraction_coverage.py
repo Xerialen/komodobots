@@ -144,25 +144,25 @@ CLASSIFY: "OrderedDict[str, tuple[str, str | None, str]]" = OrderedDict([
     ("player_ticks.armor_type", (GAP, "state.armor_type", "still GAP after T3: the `-event-types armor` stream carries the AP VALUE but not the armor skin/type; no GA/YA/RA source in the per-tick streams. Deferred (derive from item pickups / T7).")),
     ("player_ticks.weapon", (GAP, "state.weapon_held", "still GAP after T3: the `-event-types weapon` stream is gain/lose INVENTORY, not STAT_ACTIVEWEAPON (the 'active weapon id' the column means); QWD decoder skips SVC_UPDATESTAT. No honest active-weapon source without a decoder change. Deferred.")),
     # ---- actor_ticks (omniscient all-players world) ----
-    ("actor_ticks.ox", (EXTRACTED, "world.all_players_state", "QWD ETL writes (self+observed others); MVD ETL writes NONE -> T4")),
-    ("actor_ticks.oy", (EXTRACTED, "world.all_players_state", "QWD only; MVD GAP (T4)")),
-    ("actor_ticks.oz", (EXTRACTED, "world.all_players_state", "QWD only; MVD GAP (T4)")),
-    ("actor_ticks.vx", (EXTRACTED, "world.all_players_state", "QWD only; MVD GAP (T4)")),
-    ("actor_ticks.vy", (EXTRACTED, "world.all_players_state", "QWD only; MVD GAP (T4)")),
-    ("actor_ticks.vz", (EXTRACTED, "world.all_players_state", "QWD only; MVD GAP (T4)")),
-    ("actor_ticks.pitch", (EXTRACTED, "world.all_players_state", "QWD only; MVD GAP (T4)")),
-    ("actor_ticks.yaw", (EXTRACTED, "world.all_players_state", "QWD only; MVD GAP (T4)")),
-    ("actor_ticks.roll", (EXTRACTED, "world.all_players_state", "QWD only; MVD GAP (T4)")),
-    ("actor_ticks.alive", (EXTRACTED, "state.spawn_death", "QWD writes; MVD GAP (T4)")),
+    ("actor_ticks.ox", (EXTRACTED, "world.all_players_state", "QWD ETL writes (self+observed others); MVD ETL writes the omniscient all-players state per episode tick (T4)")),
+    ("actor_ticks.oy", (EXTRACTED, "world.all_players_state", "QWD + MVD (T4)")),
+    ("actor_ticks.oz", (EXTRACTED, "world.all_players_state", "QWD + MVD (T4)")),
+    ("actor_ticks.vx", (EXTRACTED, "world.all_players_state", "QWD + MVD (T4)")),
+    ("actor_ticks.vy", (EXTRACTED, "world.all_players_state", "QWD + MVD (T4)")),
+    ("actor_ticks.vz", (EXTRACTED, "world.all_players_state", "QWD + MVD (T4)")),
+    ("actor_ticks.pitch", (EXTRACTED, "world.all_players_state", "QWD + MVD (T4)")),
+    ("actor_ticks.yaw", (EXTRACTED, "world.all_players_state", "QWD + MVD (T4)")),
+    ("actor_ticks.roll", (EXTRACTED, "world.all_players_state", "QWD + MVD (MVD writes 0.0; angle16 has no roll) (T4)")),
+    ("actor_ticks.alive", (EXTRACTED, "state.spawn_death", "QWD writes; MVD forward-fills the per-player death/spawn step-timeline (T4; NULL before first death/spawn)")),
     ("actor_ticks.hspeed", (DERIVED, "world.all_players_state", "hypot(vx,vy)")),
-    ("actor_ticks.onground", (DERIVED, "world.all_players_state", "geometric proxy (QWD); MVD GAP")),
+    ("actor_ticks.onground", (DERIVED, "world.all_players_state", "geometric proxy (QWD); MVD leaves NULL for observed-others (the proxy lives on the ego player_ticks spine)")),
     ("actor_ticks.onground_is_proxy", (DERIVED, None, "proxy-provenance flag")),
-    ("actor_ticks.team_id", (GAP, "world.roster_teams", "QWD writes NULL (no roster join yet); MVD writes NONE. T4.")),
+    ("actor_ticks.team_id", (EXTRACTED, "world.roster_teams", "MVD writes the absolute team_id from the per-player roster team (T4); QWD writes NULL (no roster join yet)")),
     ("actor_ticks.waterlevel", (EXCLUDED, "mvd.liquid.waterlevel", "decoder CAN emit; not requested -> NULL")),
-    ("actor_ticks.health", (GAP, "state.health", "omniscient health decodable; populated NOWHERE. T3/T4.")),
-    ("actor_ticks.armor", (GAP, "state.armor", "decodable; populated nowhere. T3/T4.")),
-    ("actor_ticks.armor_type", (GAP, "state.armor_type", "decodable; populated nowhere. T3/T4.")),
-    ("actor_ticks.weapon", (GAP, "state.weapon_held", "decodable; populated nowhere. T3/T4.")),
+    ("actor_ticks.health", (EXTRACTED, "state.health", "MVD forward-fills each player's `-view full` `h` step-timeline (T4); QWD NULL")),
+    ("actor_ticks.armor", (EXTRACTED, "state.armor", "MVD forward-fills each player's `a` step-timeline (T4); QWD NULL")),
+    ("actor_ticks.armor_type", (EXTRACTED, "state.armor_type", "MVD forward-fills each player's `at` ('ga'/'ya'/'ra') step-timeline -> 0/1/2 (T4). The `-view full` `at` stream carries the skin/type the T3 `-event-types armor` decode lacked; QWD NULL")),
+    ("actor_ticks.weapon", (GAP, "state.weapon_held", "still GAP after T4: the per-tick weapon stream is gain/lose INVENTORY, not STAT_ACTIVEWEAPON (the active-weapon id the column means) — no honest active-weapon source without a decoder change. Deferred.")),
     # ---- actions (recovered state->action labels) ----
     ("actions.forwardmove", (EXTRACTED, "qwd.usercmd.forwardmove", "QWD=ground-truth; MVD=IDM-recovered")),
     ("actions.sidemove", (EXTRACTED, "qwd.usercmd.sidemove", "QWD=ground-truth; MVD=IDM sign")),
@@ -177,25 +177,25 @@ CLASSIFY: "OrderedDict[str, tuple[str, str | None, str]]" = OrderedDict([
     ("actions.align_shift", (EXCLUDED, None, "cmd<->state alignment offset; not written by either ETL (per-frame aligned in place)")),
     ("actions.is_interp", (DERIVED, None, "interp/hold-out flag set by ETL")),
     # ---- item_events ----
-    ("item_events.t_s", (EXTRACTED, "items.pickup_respawn", "QWD ETL writes (fixture); decoder source getItems/getWeaponPickups/getBackpacks")),
-    ("item_events.event_kind", (EXTRACTED, "items.pickup_respawn", "pickup/respawn/drop/backpack_pickup")),
-    ("item_events.player_id", (EXTRACTED, "items.pickup_respawn", "picker (takenBy / weaponPickups.player)")),
-    ("item_events.item_id", (DERIVED, "items.world_coords", "spatial join to items by kind+origin (NULL for backpacks)")),
-    ("item_events.origin_x", (EXTRACTED, "items.backpack_drops", "getBackpacks.origin for dropped packs")),
-    ("item_events.origin_y", (EXTRACTED, "items.backpack_drops", "getBackpacks.origin")),
-    ("item_events.origin_z", (EXTRACTED, "items.backpack_drops", "getBackpacks.origin")),
-    ("item_events.item_type", (EXTRACTED, "items.pickup_respawn", "denormalized kind")),
-    ("item_events.team_id", (EXTRACTED, "world.roster_teams", "team attribution of the pickup")),
+    ("item_events.t_s", (EXTRACTED, "items.pickup_respawn", "MVD writes from `-view full` items.items[].phases[] + backpacks (T4); QWD via fixture")),
+    ("item_events.event_kind", (EXTRACTED, "items.pickup_respawn", "pickup (phase.takenAt) / respawn (phase.respawnAt) / drop (backpack)")),
+    ("item_events.player_id", (EXTRACTED, "items.pickup_respawn", "picker (phase.takenBy / backpack.player); NULL for respawn")),
+    ("item_events.item_id", (DERIVED, "items.world_coords", "spatial join to items by origin x/y/z (NULL for backpack drops)")),
+    ("item_events.origin_x", (EXTRACTED, "items.backpack_drops", "backpacks.origin for dropped packs (NULL for static pickups, which carry item_id)")),
+    ("item_events.origin_y", (EXTRACTED, "items.backpack_drops", "backpacks.origin")),
+    ("item_events.origin_z", (EXTRACTED, "items.backpack_drops", "backpacks.origin")),
+    ("item_events.item_type", (EXTRACTED, "items.pickup_respawn", "denormalized kind (items.kind / backpack.weapon)")),
+    ("item_events.team_id", (EXTRACTED, "world.roster_teams", "team attribution of the pickup (phase.team / backpack.team -> teams)")),
     # ---- frag_events ----
-    ("frag_events.t_s", (EXTRACTED, "frags.kill_timeline", "QWD ETL via fixture; decoder getFrags")),
-    ("frag_events.killer_id", (EXTRACTED, "frags.kill_timeline", "getFrags.killer")),
-    ("frag_events.victim_id", (EXTRACTED, "frags.kill_timeline", "getFrags.victim")),
-    ("frag_events.weapon", (EXTRACTED, "frags.kill_timeline", "getFrags.weapon")),
-    ("frag_events.is_suicide", (EXTRACTED, "frags.kill_timeline", "getFrags.isSuicide")),
-    ("frag_events.is_teamkill", (EXTRACTED, "frags.kill_timeline", "getFrags.isTeamKill")),
+    ("frag_events.t_s", (EXTRACTED, "frags.kill_timeline", "MVD writes from `-view full` frags.frags (T4); QWD via fixture")),
+    ("frag_events.killer_id", (EXTRACTED, "frags.kill_timeline", "frags.frags[].killer -> player_id")),
+    ("frag_events.victim_id", (EXTRACTED, "frags.kill_timeline", "frags.frags[].victim -> player_id")),
+    ("frag_events.weapon", (EXTRACTED, "frags.kill_timeline", "frags.frags[].weapon (rl/lg/sg/.../tele/fall/teamkill)")),
+    ("frag_events.is_suicide", (EXTRACTED, "frags.kill_timeline", "frags.frags[].isSuicide")),
+    ("frag_events.is_teamkill", (EXTRACTED, "frags.kill_timeline", "frags.frags[].isTeamKill")),
     # ---- teams ----
-    ("teams.name", (EXTRACTED, "world.roster_teams", "QWD ETL via fixture; decoder getOverview roster")),
-    ("teams.side", (DERIVED, "world.roster_teams", "canonical A/B side label")),
+    ("teams.name", (EXTRACTED, "world.roster_teams", "MVD writes distinct per-player roster team names (T4); QWD via fixture")),
+    ("teams.side", (DERIVED, "world.roster_teams", "canonical A/B side label (first-seen team order)")),
     # ---- region_control_timeline ----
     ("region_control_timeline.t_s", (EXTRACTED, "region.control_timeline", "QWD ETL via fixture; decoder getRegionControl")),
     ("region_control_timeline.region_name", (EXTRACTED, "region.control_timeline", "getRegionControl region")),
@@ -465,9 +465,12 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
     for g in PLAN_GAPS:
         lines.append(f"- {g}")
     lines.append("")
-    lines.append("**Scoping (which ticket each per-column GAP feeds):** `player_ticks`/`actor_ticks` "
-                 "health/armor/armor_type/weapon -> T3/T4; `actor_ticks` (MVD all-players) + team_id -> "
-                 "T4; `actor_visibility.*` + `audio_cues.*` -> T8. The ammo/powerup source columns (G4), "
+    lines.append("**Scoping (which ticket each per-column GAP feeds):** `player_ticks` health/armor -> "
+                 "T3 (DONE); the omniscient `actor_ticks` all-players state + health/armor/armor_type + "
+                 "team_id, plus `item_events`/`frag_events`/`teams` -> T4 (DONE; from `-view full`). The "
+                 "GAPs that REMAIN: `player_ticks.armor_type`/`weapon` + `actor_ticks.weapon` (no honest "
+                 "active-weapon / ego armor-skin source without a decoder change), and `actor_visibility.*` "
+                 "+ `audio_cues.*` -> T8. The ammo/powerup source columns (G4), "
                  "`damage_events` table (G3), and [G]/[R]/leg-phase columns (G5) are **absent from the "
                  "schema entirely** (not just unpopulated) — they are schema-addition tickets T5/T6/T7, "
                  "so they do not appear as columns here; that absence IS the finding.")
@@ -489,16 +492,22 @@ def run_self_checks() -> None:
         assert t in schema, f"schema parse missing table {t}"
     assert "weapon" in schema["player_ticks"], "player_ticks.weapon column not parsed"
 
-    # ETL parse sanity: the MVD ETL writes player_ticks + actions, NOT actor_ticks.
+    # ETL parse sanity: both ETLs write player_ticks + actions; after T4 the MVD ETL ALSO writes
+    # the omniscient world (actor_ticks + item_events + frag_events + teams).
     assert "player_ticks" in etl_mvd and "actions" in etl_mvd
-    assert "actor_ticks" not in etl_mvd, "MVD ETL must populate NO actor_ticks (the T4 gap)"
+    assert "actor_ticks" in etl_mvd, "MVD ETL must populate actor_ticks (T4 omniscient world)"
     assert "actor_ticks" in etl_qwd, "QWD ETL should populate actor_ticks"
+    for t in ("item_events", "frag_events", "teams"):
+        assert t in etl_mvd, f"MVD ETL must populate {t} (T4)"
 
     # The known GAP fields must classify as GAP (the load-bearing audit verdict). After T3,
-    # player_ticks.health/armor are EXTRACTED (below); armor_type/weapon REMAIN GAP because the
-    # per-tick event streams carry the AP value but not the armor skin/type nor STAT_ACTIVEWEAPON.
+    # player_ticks.health/armor are EXTRACTED; after T4 the actor_ticks state cols are too. The
+    # GAPs that REMAIN: armor_type/weapon on the EGO player_ticks spine (the `-event-types` decode
+    # carries the AP value but not the skin/type nor STAT_ACTIVEWEAPON), actor_ticks.weapon (same
+    # no-active-weapon-source reason), and the T8 derived layers (actor_visibility / audio_cues).
     known_gaps = [
         ("player_ticks", "armor_type"), ("player_ticks", "weapon"),
+        ("actor_ticks", "weapon"),
         ("actor_visibility", "is_visible"), ("audio_cues", "src_type"),
     ]
     for table, col in known_gaps:
@@ -514,6 +523,15 @@ def run_self_checks() -> None:
     assert "armor" in etl_mvd.get("player_ticks", set()), "MVD ETL must populate player_ticks.armor (T3)"
     assert classify_column("player_ticks", "hspeed")[0] == DERIVED
     assert classify_column("player_ticks", "waterlevel")[0] == EXCLUDED
+
+    # T4: the omniscient actor_ticks state + resources classify extracted (and are in the INSERT
+    # list); armor_type flips GAP->extracted here (the `-view full` `at` stream), weapon stays GAP.
+    for col in ("ox", "alive", "team_id", "health", "armor", "armor_type"):
+        assert classify_column("actor_ticks", col)[0] == EXTRACTED, f"actor_ticks.{col} should be extracted (T4)"
+        assert col in etl_mvd.get("actor_ticks", set()), f"MVD ETL must populate actor_ticks.{col} (T4)"
+    assert classify_column("actor_ticks", "weapon")[0] == GAP, "actor_ticks.weapon stays GAP (no active-weapon source)"
+    assert classify_column("frag_events", "killer_id")[0] == EXTRACTED
+    assert classify_column("teams", "name")[0] == EXTRACTED
 
     # Every CLASSIFY key must reference a real schema column (no stale verdict).
     valid = {f"{t}.{c}" for t, cols in schema.items() for c in cols}
