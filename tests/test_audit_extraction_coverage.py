@@ -67,12 +67,13 @@ class TestParsers(unittest.TestCase):
 
 class TestClassification(unittest.TestCase):
     def test_known_gaps_classify_gap(self):
-        # After T4 the actor_ticks state + resources are extracted; the GAPs that REMAIN are the
-        # ego armor-skin / active-weapon columns (no honest source) and the T8 derived layers.
+        # After T4 the actor_ticks state + resources are extracted; T8 #396 flips actor_visibility.*
+        # GAP -> DERIVED. The GAPs that REMAIN: ego armor-skin / active-weapon columns (no honest
+        # source) and the audio_cues.* derived layer (the one remaining T8 gap, out of #396 scope).
         for table, col in [
             ("player_ticks", "armor_type"), ("player_ticks", "weapon"),
             ("actor_ticks", "weapon"),
-            ("actor_visibility", "is_visible"), ("audio_cues", "src_type"),
+            ("audio_cues", "src_type"),
         ]:
             self.assertEqual(audit.classify_column(table, col)[0], audit.GAP,
                              f"{table}.{col} should be GAP")
@@ -111,6 +112,16 @@ class TestClassification(unittest.TestCase):
             self.assertEqual(audit.classify_column("actor_ticks", col)[0], audit.DERIVED,
                              f"actor_ticks.{col} should be DERIVED (T7)")
 
+    def test_t8_actor_visibility_derived(self):
+        # T8 #396: the POMDP actor_visibility.* columns classify DERIVED (FOV + dm3.bsp hull-0 LOS
+        # raycast + carried-forward belief, derived offline — not raw decoder fields). audio_cues
+        # stays the one remaining T8 derived gap (out of #396 scope).
+        for col in ("is_visible", "pvs_visible", "in_fov", "los_clear", "vis_angle_source",
+                    "last_seen_ox", "time_since_seen_s", "seen_ever"):
+            self.assertEqual(audit.classify_column("actor_visibility", col)[0], audit.DERIVED,
+                             f"actor_visibility.{col} should be DERIVED (T8)")
+        self.assertEqual(audit.classify_column("audio_cues", "src_type")[0], audit.GAP)
+
     def test_known_extracted_derived_excluded(self):
         self.assertEqual(audit.classify_column("player_ticks", "ox")[0], audit.EXTRACTED)
         # T3: MVD health/armor event stream now populates these (GAP -> extracted)
@@ -122,7 +133,8 @@ class TestClassification(unittest.TestCase):
     def test_sibling_columns_inherit_family_verdict(self):
         # axis siblings inherit without a per-axis CLASSIFY entry
         self.assertEqual(audit.classify_column("audio_cues", "src_y")[0], audit.GAP)
-        self.assertEqual(audit.classify_column("actor_visibility", "last_seen_vz")[0], audit.GAP)
+        # T8 #396: the last_seen_* belief siblings inherit DERIVED from last_seen_ox (was GAP).
+        self.assertEqual(audit.classify_column("actor_visibility", "last_seen_vz")[0], audit.DERIVED)
         self.assertEqual(audit.classify_column("maps", "z_max")[0], audit.EXCLUDED)
 
     def test_no_unclassified_columns(self):

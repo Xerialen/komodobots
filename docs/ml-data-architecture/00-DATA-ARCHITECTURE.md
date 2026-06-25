@@ -241,6 +241,25 @@ which are demoparser-only (absent from the mvd_analyzer state stream). For state
 FOV must fall back to an **IDM/angle proxy**. Record which was used in
 `actor_visibility.vis_angle_source` (`'demoparser'` vs `'idm_proxy'`).
 
+**Status (POPULATED — T8 #396).** `actor_visibility` is now derived + populated by the MVD ETL
+(`scripts/catalog_etl_mvd.py`), per (episode, tick, ego-observer, target):
+- **FOV** (`in_fov`) reuses `scripts/features/egocentric.py` (`rel_bearing_deg`/`rel_pitch_deg`); the
+  awareness cone is a generous **90° forward-hemisphere** half-angle (a named constant, owner-tunable
+  to the render-tight 45°) — LOS is the real gate, FOV only removes targets behind the observer.
+- **LOS** (`los_clear`) is a **hull-0 point ray** observer-eye→target-eye (both lifted the QW view
+  height **22 qu** above origin), via `pmove_sim._recursive_hull_check` against the sha-locked
+  `dm3.bsp`; clear iff the segment never enters solid.
+- **PVS honesty caveat.** `pmove_sim.WorldModel` parses BSP leafs/contents but **not** the
+  visdata/PVS clusters, so a true visleaf PVS prefilter is not sourced. `pvs_visible` is left **NULL**
+  (“not prefiltered”) — an optional perf optimisation, **never a fabricated boolean** — and the gate
+  is `is_visible = COALESCE(pvs_visible, TRUE) AND in_fov AND los_clear`. LOS is the correctness gate.
+- **Belief** (`last_seen_*`, `time_since_seen_s`, `seen_ever`) carries the last-seen snapshot forward
+  while invisible (0 while visible, NULL before ever seen). `vis_angle_source = 'demoparser'` (the
+  schema-33 corpus carries real per-tick view yaw/pitch, so the `idm_proxy` fallback is not used).
+This layer also drives the §6.5 clean-movement filter (`tick_is_clean`): only enemies WITH
+line-of-sight count as active-combat proximity, and the filter is fail-closed on era-gated-unknown
+damage. The remaining defined-but-empty POMDP layer is `audio_cues` (a separate T8 derivation).
+
 ### 2.9 Entity representation (opponents + teammates)
 The `entity_observation` feature group (`schema/feature_registry.yaml`) encodes a
 **variable-length list of OTHER actors**, each as a fixed-width **egocentric** vector
