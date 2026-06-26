@@ -68,8 +68,9 @@ class TestParsers(unittest.TestCase):
 class TestClassification(unittest.TestCase):
     def test_known_gaps_classify_gap(self):
         # After T4 the actor_ticks state + resources are extracted; T8 #396 flips actor_visibility.*
-        # GAP -> DERIVED. The GAPs that REMAIN: ego armor-skin / active-weapon columns (no honest
-        # source) and the audio_cues.* derived layer (the one remaining T8 gap, out of #396 scope).
+        # GAP -> DERIVED. The GAPs that REMAIN: the active-weapon columns (STAT_ACTIVEWEAPON is parsed
+        # by the mvd-reader but not surfaced -> WS-1 analyzer-fitness), player_ticks.armor_type (an
+        # ETL-wiring gap; the `at` stream exists), and audio_cues.* (the one remaining T8 gap).
         for table, col in [
             ("player_ticks", "armor_type"), ("player_ticks", "weapon"),
             ("actor_ticks", "weapon"),
@@ -233,6 +234,27 @@ class TestReport(unittest.TestCase):
                           "schema entirely, so they do not appear as columns here.\n")
         self.assertTrue(audit._report_claims_g5_absent(stale),
                         "guard must detect the G5-absent contradiction in stale prose")
+
+    def test_schema33_provenance_guard_detects_stale_report(self):
+        # #437 anti-recurrence: WS-0 reconciled the inventory to MVD schema v35 (state.weapon_active
+        # / mvd.hidden.usercmd are present), so the generated report must NOT still advertise the
+        # retired schema-33 provenance. The detector is False on the corrected report, True on stale.
+        schema = audit.parse_schema_tables(audit.SCHEMA_SQL)
+        etl_mvd = audit.parse_etl_inserts(audit.ETL_MVD)
+        etl_qwd = audit.parse_etl_inserts(audit.ETL_QWD)
+        refs = audit.parse_registry_sources(audit.REGISTRY_JSON)
+        report, _ = audit.build_report(schema, etl_mvd, etl_qwd, refs)
+
+        # The inventory really is v35-based, so a schema-33 mention in the report would be a live
+        # contradiction.
+        self.assertIn("state.weapon_active", audit.DECODER_INVENTORY)
+        self.assertFalse(audit._report_advertises_stale_schema33(report),
+                         "corrected v35 report must not advertise retired schema-33 provenance")
+
+        stale = report + ("\nSourced from the committed static reference + qw-analyze schema-33 "
+                          "`-include` groups + getStateAt field codes.\n")
+        self.assertTrue(audit._report_advertises_stale_schema33(stale),
+                        "guard must detect stale schema-33 provenance in the report")
 
 
 if __name__ == "__main__":
