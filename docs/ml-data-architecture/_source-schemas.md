@@ -6,6 +6,17 @@
 > every column extracted/derived/excluded/GAP. Regenerate with
 > `python3 scripts/audit_extraction_coverage.py` (Demo Extraction Spec v1, ticket #389).
 
+> **⚠️ DATED CORRECTION (2026-06-26, analyzer-fitness WS-0).** This study predates the MVD reader's
+> **schema v31/v32/v33** additions, so §A/§C/§D below are STALE where they say mvd_analyzer "has no
+> velocity / no view angles" — schema **v35** now exposes view pitch/yaw (v31), derived velocity (v32),
+> and float32 precision (v33). Trust `scripts/audit_extraction_coverage.py` (the generated companion) +
+> `plans/analyzer-fitness-plan.md` for current truth. Two findings in this doc are now LOAD-BEARING for
+> analyzer-fitness: (1) §C/§B1 — `active_weapon()=stat[10]` is recoverable (WS-1: the mvd-reader parses
+> STAT_ACTIVEWEAPON but does not surface it in the Result); (2) **§B4 — the KTX hidden-usercmd block is
+> decodable** (demoparser `src/mvd/hidden.rs:143-179` recovers forward/side/buttons/impulse; up/angles/msec
+> are present but discarded). (2) is the WS-2 spike: true forwardmove from MVD is feasibility-proven, gated
+> only on per-tick density + KTX-version coverage.
+
 
 Study target: replace template placeholders (`coords_verified=false`, `_verify=true`,
 `*_unavailable`) in `schema/catalog.sql` + `schema/item_catalog.dm3.json` with real

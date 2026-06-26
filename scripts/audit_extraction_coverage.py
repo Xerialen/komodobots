@@ -62,15 +62,17 @@ GAP = "GAP"
 # DECODER RESULT INVENTORY (the master list — what the demos can yield).
 #
 # Sourced from the committed static reference docs/ml-data-architecture/_source-schemas.md
-# (mvd_analyzer result/*.go study) + qw-analyze schema-33 `-include` groups (cmd/qw-analyze
-# /main.go: positions,view,height,liquid,velocity) + getStateAt field codes + the QWD
-# usercmd_t struct (tools/qwd_usercmd). Keyed by decoder ROLE (not tool name, per the spec).
+# (mvd_analyzer result/*.go study) reconciled to the MVD reader's current **schema v35** (PR#91:
+# v31 view angles + v32 derived velocity + v33 float32 are NOW exposed — the older "schema-33 / no
+# velocity/angles" study is superseded) + getStateAt field codes + the QWD usercmd_t struct
+# (tools/qwd_usercmd). Keyed by decoder ROLE + schema version, NOT tool name (per the spec; the
+# legacy "qw-analyze" origin strings below name the historical CLI, not the contract).
 #
 # Each entry: id -> (origin, availability, note). origin = the decoder endpoint/stream.
 # This is forward-compatible DATA: extend it as the analyzers grow; the diff logic is fixed.
 # -----------------------------------------------------------------------------
 DECODER_INVENTORY: "OrderedDict[str, tuple[str, str, str]]" = OrderedDict([
-    # --- MVD omniscient server state (qw-analyze schema-33 -include + getStateAt) ---
+    # --- MVD omniscient server state (mvd_analyzer schema v35 -include + getStateAt) ---
     ("mvd.pos.xyz", ("qw-analyze -include positions (native ~77fps track)", "MVD+QWD", "origin qu")),
     ("mvd.pos.loc", ("qw-analyze -include positions (loc index)", "MVD", "nearest named loc")),
     ("mvd.view.pitchyaw", ("qw-analyze -include view (angle16 vya/vp)", "MVD+QWD", "view angles deg; lossless")),
@@ -80,10 +82,13 @@ DECODER_INVENTORY: "OrderedDict[str, tuple[str, str, str]]" = OrderedDict([
     ("state.health", ("getStateAt h (int16)", "MVD", "HP; state-only stream")),
     ("state.armor", ("getStateAt a (int16)", "MVD", "AP")),
     ("state.armor_type", ("getStateAt at ('ga'/'ya'/'ra'/'')", "MVD", "armor type")),
-    ("state.weapon_held", ("getStateAt rl/lg/gl/ssg/sng (bools)", "MVD", "held-weapon intervals; no single active-weapon int")),
+    ("state.weapon_held", ("getStateAt rl/lg/gl/ssg/sng (bools)", "MVD", "held-weapon POSSESSION intervals (5 of 8 weapons; SG/NG/axe absent) — NOT the active/selected weapon")),
+    ("state.weapon_active", ("STAT_ACTIVEWEAPON — PARSED by the mvd-reader (parser/stats.go) but NOT surfaced in the Result (v35)", "MVD — parsed, UNSURFACED", "active-weapon id; the demoparser fork exposes it as active_weapon()=stat[10]. Surfacing it in mvd_analyzer = WS-1 (analyzer-fitness) -> unblocks player_ticks/actor_ticks.weapon (weapon_onehot)")),
     ("state.ammo", ("getStateAt sh/nl/rk/cl (int16)", "MVD", "shells/nails/rockets/cells")),
     ("state.powerups", ("getStateAt q/pe/r (bools)", "MVD", "quad/pent/ring held")),
     ("state.spawn_death", ("getStateAt sp/d (bools)", "MVD", "spawn/death event bools")),
+    # --- MVD KTX hidden usercmd side-channel (on-wire; the mvd-reader does NOT dispatch it yet) ---
+    ("mvd.hidden.usercmd", ("KTX mvdhidden usercmd blocks 0x0001/0x0002 (mvd/types.go); the mvd-reader hidden-message switch (parser.go) does NOT decode them", "MVD (KTX) — POTENTIAL, undecoded", "true per-player usercmd. FEASIBILITY PROVEN: the independent demoparser fork DECODES this block (src/mvd/hidden.rs:143-179) recovering forward/side/buttons/impulse (the full 23-byte block also carries up/3 angles/msec, read-then-discarded). If per-tick-dense + present in our KTX corpus this yields GROUND-TRUTH forwardmove for ALL players across the MVD corpus -> dissolves the 'MVD=obs-only, forwardmove-unrecoverable' premise. WS-2 spike gates on density + KTX-version coverage, NOT feasibility")),
     # --- MVD omniscient: ALL players (the world) ---
     ("world.all_players_state", ("getStateAt (every player) / getBuckets", "MVD", "omniscient per-player state -> actor_ticks")),
     ("world.roster_teams", ("getOverview teams/players roster", "MVD", "team membership + frags")),
@@ -144,8 +149,8 @@ CLASSIFY: "OrderedDict[str, tuple[str, str | None, str]]" = OrderedDict([
     ("player_ticks.waterlevel", (EXCLUDED, "mvd.liquid.waterlevel", "decoder CAN emit via -include liquid; ETL does NOT request it -> left NULL")),
     ("player_ticks.health", (EXTRACTED, "state.health", "MVD ETL forward-fills the `-event-types health` value step-timeline onto each tick (T3). NULL on QWD (not yet wired).")),
     ("player_ticks.armor", (EXTRACTED, "state.armor", "MVD ETL forward-fills the `-event-types armor` value step-timeline onto each tick (T3). NULL on QWD.")),
-    ("player_ticks.armor_type", (GAP, "state.armor_type", "still GAP after T3: the `-event-types armor` stream carries the AP VALUE but not the armor skin/type; no GA/YA/RA source in the per-tick streams. Deferred (derive from item pickups / T7).")),
-    ("player_ticks.weapon", (GAP, "state.weapon_held", "still GAP after T3: the `-event-types weapon` stream is gain/lose INVENTORY, not STAT_ACTIVEWEAPON (the 'active weapon id' the column means); QWD decoder skips SVC_UPDATESTAT. No honest active-weapon source without a decoder change. Deferred.")),
+    ("player_ticks.armor_type", (GAP, "state.armor_type", "GAP today, but an ETL-WIRING gap not a missing source: the `at` armor-type stream EXISTS and already populates actor_ticks.armor_type (T4) — the ego player_ticks fill loop just doesn't forward-fill it onto the spine. Wiring it is a catalog-buildout (Class-A) task, NOT an analyzer-fitness decoder change.")),
+    ("player_ticks.weapon", (GAP, "state.weapon_active", "GAP today: the per-tick weapon stream is gain/lose POSSESSION, not STAT_ACTIVEWEAPON (the active-weapon id the column means). STAT_ACTIVEWEAPON IS parsed by the mvd-reader (parser/stats.go) but NOT surfaced in the Result; surfacing it is WS-1 of analyzer-fitness (see state.weapon_active). GAP until that decoder change lands.")),
     ("player_ticks.shells", (EXTRACTED, "state.ammo", "MVD ETL forward-fills the `-view full` `sh` step-timeline onto each tick (T6). NULL on QWD.")),
     ("player_ticks.nails", (EXTRACTED, "state.ammo", "MVD ETL forward-fills the `-view full` `nl` step-timeline (T6). NULL on QWD.")),
     ("player_ticks.rockets", (EXTRACTED, "state.ammo", "MVD ETL forward-fills the `-view full` `rk` step-timeline (T6). NULL on QWD.")),
@@ -180,7 +185,7 @@ CLASSIFY: "OrderedDict[str, tuple[str, str | None, str]]" = OrderedDict([
     ("actor_ticks.health", (EXTRACTED, "state.health", "MVD forward-fills each player's `-view full` `h` step-timeline (T4); QWD NULL")),
     ("actor_ticks.armor", (EXTRACTED, "state.armor", "MVD forward-fills each player's `a` step-timeline (T4); QWD NULL")),
     ("actor_ticks.armor_type", (EXTRACTED, "state.armor_type", "MVD forward-fills each player's `at` ('ga'/'ya'/'ra') step-timeline -> 0/1/2 (T4). The `-view full` `at` stream carries the skin/type the T3 `-event-types armor` decode lacked; QWD NULL")),
-    ("actor_ticks.weapon", (GAP, "state.weapon_held", "still GAP after T4: the per-tick weapon stream is gain/lose INVENTORY, not STAT_ACTIVEWEAPON (the active-weapon id the column means) — no honest active-weapon source without a decoder change. Deferred.")),
+    ("actor_ticks.weapon", (GAP, "state.weapon_active", "GAP today (same as player_ticks.weapon): the per-tick weapon stream is gain/lose POSSESSION, not STAT_ACTIVEWEAPON. The active-weapon id IS parsed by the mvd-reader but unsurfaced; surfacing it = WS-1 of analyzer-fitness. GAP until then.")),
     ("actor_ticks.shells", (EXTRACTED, "state.ammo", "MVD forward-fills each player's `-view full` `sh` step-timeline (T6); QWD NULL")),
     ("actor_ticks.nails", (EXTRACTED, "state.ammo", "MVD forward-fills each player's `nl` step-timeline (T6); QWD NULL")),
     ("actor_ticks.rockets", (EXTRACTED, "state.ammo", "MVD forward-fills each player's `rk` step-timeline (T6); QWD NULL")),
@@ -516,9 +521,13 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
     lines.append("**Scoping (which ticket each per-column GAP feeds):** `player_ticks` health/armor -> "
                  "T3 (DONE); the omniscient `actor_ticks` all-players state + health/armor/armor_type + "
                  "team_id, plus `item_events`/`frag_events`/`teams` -> T4 (DONE; from `-view full`). The "
-                 "GAPs that REMAIN: `player_ticks.armor_type`/`weapon` + `actor_ticks.weapon` (no honest "
-                 "active-weapon / ego armor-skin source without a decoder change), and the `audio_cues.*` "
-                 "derived layer -> T8 (separate from visibility; not in #396). The `damage_events` table (G3) is now schema-defined + "
+                 "GAPs that REMAIN: `player_ticks.armor_type`/`weapon` + `actor_ticks.weapon`, and the "
+                 "`audio_cues.*` derived layer -> T8 (separate from visibility; not in #396). The weapon GAPs "
+                 "are an ANALYZER-FITNESS decoder gap: STAT_ACTIVEWEAPON is parsed by the mvd-reader but not "
+                 "surfaced in the Result (surfacing it = WS-1; see the `state.weapon_active` inventory entry); "
+                 "`player_ticks.armor_type` is instead an ETL-WIRING gap (the `at` stream exists, already "
+                 "feeding `actor_ticks.armor_type` — Class-A catalog-buildout, not a decoder change). The "
+                 "`damage_events` table (G3) is now schema-defined + "
                  "populated (T5 #393, era-gated via `demos.damage_available`), so it appears as extracted "
                  "columns above. The ammo/powerup source columns (G4) are likewise now "
                  "schema-defined + populated (T6 #394: `shells`/`nails`/`rockets`/`cells` + "
@@ -618,10 +627,10 @@ def run_self_checks() -> None:
 
     # The known GAP fields must classify as GAP (the load-bearing audit verdict). After T3,
     # player_ticks.health/armor are EXTRACTED; after T4 the actor_ticks state cols are too. The
-    # GAPs that REMAIN: armor_type/weapon on the EGO player_ticks spine (the `-event-types` decode
-    # carries the AP value but not the skin/type nor STAT_ACTIVEWEAPON), actor_ticks.weapon (same
-    # no-active-weapon-source reason), and `audio_cues` (the one remaining T8 derived layer —
-    # actor_visibility flipped GAP->DERIVED at T8 #396 when it was populated).
+    # GAPs that REMAIN: weapon (player_ticks + actor_ticks) — STAT_ACTIVEWEAPON is parsed by the
+    # mvd-reader but not surfaced (surfacing it = WS-1 analyzer-fitness); player_ticks.armor_type —
+    # an ETL-wiring gap (the `at` stream exists, already feeds actor_ticks.armor_type); and
+    # `audio_cues` (the one remaining T8 derived layer — actor_visibility flipped GAP->DERIVED at #396).
     known_gaps = [
         ("player_ticks", "armor_type"), ("player_ticks", "weapon"),
         ("actor_ticks", "weapon"),
@@ -647,7 +656,7 @@ def run_self_checks() -> None:
     for col in ("ox", "alive", "team_id", "health", "armor", "armor_type"):
         assert classify_column("actor_ticks", col)[0] == EXTRACTED, f"actor_ticks.{col} should be extracted (T4)"
         assert col in etl_mvd.get("actor_ticks", set()), f"MVD ETL must populate actor_ticks.{col} (T4)"
-    assert classify_column("actor_ticks", "weapon")[0] == GAP, "actor_ticks.weapon stays GAP (no active-weapon source)"
+    assert classify_column("actor_ticks", "weapon")[0] == GAP, "actor_ticks.weapon stays GAP (active-weapon parsed but unsurfaced; WS-1)"
     assert classify_column("frag_events", "killer_id")[0] == EXTRACTED
     assert classify_column("teams", "name")[0] == EXTRACTED
 

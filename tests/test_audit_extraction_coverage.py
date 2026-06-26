@@ -68,8 +68,9 @@ class TestParsers(unittest.TestCase):
 class TestClassification(unittest.TestCase):
     def test_known_gaps_classify_gap(self):
         # After T4 the actor_ticks state + resources are extracted; T8 #396 flips actor_visibility.*
-        # GAP -> DERIVED. The GAPs that REMAIN: ego armor-skin / active-weapon columns (no honest
-        # source) and the audio_cues.* derived layer (the one remaining T8 gap, out of #396 scope).
+        # GAP -> DERIVED. The GAPs that REMAIN: the active-weapon columns (STAT_ACTIVEWEAPON is parsed
+        # by the mvd-reader but not surfaced -> WS-1 analyzer-fitness), player_ticks.armor_type (an
+        # ETL-wiring gap; the `at` stream exists), and audio_cues.* (the one remaining T8 gap).
         for table, col in [
             ("player_ticks", "armor_type"), ("player_ticks", "weapon"),
             ("actor_ticks", "weapon"),
