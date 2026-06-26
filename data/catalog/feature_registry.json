@@ -758,6 +758,19 @@
         "note": "Reuses quad_remaining/pent_remaining/ring_remaining divide_period periods (self + entity)."
       },
       {
+        "name": "entity_alive",
+        "dtype": "float32",
+        "source": "actor_ticks.alive",
+        "formula": "1.0 if actor_ticks.alive else 0.0",
+        "unit": "0/1",
+        "norm": "identity",
+        "stats_key": null,
+        "group": "none",
+        "version": 2,
+        "leakage_safe": true,
+        "note": "Liveness of the other actor; actor_ticks.alive is FALSE between death and respawn. 0/1 identity, NOT visibility-gated (matches the encoder default-True at agent_observation.py)."
+      },
+      {
         "name": "entity_is_teammate",
         "dtype": "float32",
         "source": "derived",

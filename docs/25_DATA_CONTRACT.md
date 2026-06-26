@@ -62,7 +62,10 @@ an `AUTO-GENERATED — DO NOT HAND-EDIT` header) — and **validates** (never ov
 that legitimately hold config the registry does not: every feature `source:` must exist in
 `scripts/catalog_schema.sql`; every fitted feature must have a matching key + method in
 `data/catalog/normalization_stats.template.json` (which keeps the *verified* map AABB bounds); and
-`data/catalog/dataset_spec.yaml`'s `registry_version` / `N_max` must match. The gating check
+`data/catalog/dataset_spec.yaml`'s `registry_version` / `N_max` must match; and every emitted
+observation-layout channel (`self_layout` / `entity_layout` / `action_layout`) must resolve to a registered
+feature or a documented `<base>_sincos` flattening, so a model input can never be emitted without a
+declaration (fail-closed). The gating check
 `tests/test_registry_generate.py` fails the build if regenerating the generated files produces any diff
 (definition drift) or if a linkage breaks. **Edit the registry, then regenerate — never hand-edit a
 generated file.** Changing this surface (adding / renaming / reordering an obs channel) moves

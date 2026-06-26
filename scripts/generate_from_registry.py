@@ -272,6 +272,60 @@ def validate_dataset_spec(reg: dict, spec_path: Path = DATASET_SPEC) -> "list[st
     return problems
 
 
+# fitted-method set lives above; sincos channels flatten <base>_sincos -> <base>_sin/<base>_cos.
+_SINCOS_SUFFIXES = ("_sin", "_cos")
+
+
+def _registered_feature_names(reg: dict) -> "set[str]":
+    """Every feature `name` declared across feature_groups (doc-only `_` groups skipped)."""
+    names: "set[str]" = set()
+    for group, feats in reg.get("feature_groups", {}).items():
+        if str(group).startswith("_"):
+            continue
+        for fe in feats:
+            if isinstance(fe, dict) and "name" in fe:
+                names.add(str(fe["name"]))
+    return names
+
+
+def _sincos_bases(reg: dict) -> "set[str]":
+    """Names of features whose `norm` is sincos (each flattens to <name minus _sincos>_sin/_cos)."""
+    bases: "set[str]" = set()
+    for group, feats in reg.get("feature_groups", {}).items():
+        if str(group).startswith("_"):
+            continue
+        for fe in feats:
+            if isinstance(fe, dict) and fe.get("norm") == "sincos":
+                bases.add(str(fe.get("name", "")))
+    return bases
+
+
+def validate_layout_channel_coverage(reg: dict) -> "list[str]":
+    """Every flattened obs-layout channel must resolve to a REGISTERED feature (fail-closed).
+
+    A channel `ch` resolves iff (a) `ch` is itself a registered feature name, or (b) `ch` is the
+    documented sincos flattening `<base>_sin` / `<base>_cos` of a feature registered as
+    `<base>_sincos` with `norm: sincos`. Anything else is a model input that is emitted into
+    SELF/ENTITY/ACT_FIELDS + obs_spec but never declared/source-validated in the registry — the
+    exact silent-drift class T1.1 exists to eliminate (cf. `onground`, `entity_alive`) — so it
+    fails the build instead of passing while undocumented.
+    """
+    names = _registered_feature_names(reg)
+    sincos = _sincos_bases(reg)
+    obs = reg.get("observation", {})
+    problems: "list[str]" = []
+    for layout in ("self_layout", "entity_layout", "action_layout"):
+        for ch in obs.get(layout, []):
+            if ch in names:
+                continue
+            if ch.endswith(_SINCOS_SUFFIXES) and (ch[:-4] + "_sincos") in sincos:
+                continue
+            problems.append(
+                f"{layout} channel {ch!r} resolves to no registered feature "
+                f"(declare it in feature_groups, or register a `{ch[:-4]}_sincos` sincos feature)")
+    return problems
+
+
 # =============================================================================
 # emit / check / validate-all
 # =============================================================================
@@ -303,6 +357,7 @@ def all_validations(reg: dict) -> "dict[str, list[str]]":
         "schema_sources": validate_schema_sources(reg),
         "norm_keys": validate_norm_keys(reg),
         "dataset_spec": validate_dataset_spec(reg),
+        "layout_coverage": validate_layout_channel_coverage(reg),
     }
 
 

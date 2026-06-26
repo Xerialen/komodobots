@@ -76,6 +76,43 @@ class TestRegistryGenerate(unittest.TestCase):
         self.assertTrue(any(f.get("name") == "onground" for f in pos),
                         "onground must be a registered feature in feature_groups.position")
 
+    # --- every emitted obs channel resolves to a registered feature (fail-closed) -
+    def test_every_layout_channel_is_registered(self):
+        """Codex P1 (#436): no SELF/entity/action channel may be emitted without a registry decl."""
+        self.assertEqual(
+            g.validate_layout_channel_coverage(self.reg), [],
+            "an obs-layout channel resolves to no registered feature (the silent-drift hole)")
+        # entity_alive was the orphan Codex caught — emitted into ENTITY_FIELDS/obs_spec but
+        # never declared. It must now be a registered feature.
+        entity = self.reg["feature_groups"]["entity_observation"]
+        alive = [f for f in entity if f.get("name") == "entity_alive"]
+        self.assertTrue(alive, "entity_alive must be registered in feature_groups.entity_observation")
+        self.assertEqual(alive[0].get("source"), "actor_ticks.alive")
+
+    def test_unregistered_channel_fails_closed(self):
+        """An emitted channel with no feature declaration must be reported (the gate bites)."""
+        mutated = copy.deepcopy(self.reg)
+        mutated["observation"]["entity_layout"].append("entity_ghost_channel")
+        problems = g.validate_layout_channel_coverage(mutated)
+        self.assertTrue(any("entity_ghost_channel" in p for p in problems),
+                        "an unregistered obs channel must fail layout-coverage validation")
+
+    def test_sincos_flattening_requires_its_registered_base(self):
+        """The `_sin`/`_cos` escape hatch is NOT a blanket pass — it needs the `<base>_sincos` feature."""
+        names = g._registered_feature_names(self.reg)
+        # yaw_sin/yaw_cos are in the real layout, have no direct feature, and resolve ONLY via yaw_sincos.
+        self.assertIn("yaw_sin", self.reg["observation"]["self_layout"])
+        self.assertNotIn("yaw_sin", names)
+        self.assertIn("yaw_sincos", names)
+        mutated = copy.deepcopy(self.reg)
+        for grp in mutated["feature_groups"].values():
+            if isinstance(grp, list):
+                grp[:] = [f for f in grp
+                          if not (isinstance(f, dict) and f.get("name") == "yaw_sincos")]
+        problems = g.validate_layout_channel_coverage(mutated)
+        self.assertTrue(any("yaw_sin" in p for p in problems),
+                        "dropping yaw_sincos must make yaw_sin/yaw_cos fail coverage")
+
     # --- the consumers derive from the generated module (no hand-copied dims) -
     def test_consumers_derive_from_generated(self):
         from scripts.features import registry_constants_generated as rc
