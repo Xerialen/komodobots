@@ -6,13 +6,21 @@ Before writing code, read:
 2. docs/01_PROJECT_BRIEF.md
 3. docs/25_DATA_CONTRACT.md — before touching any data extraction, transform, training-data, or model-prep code. Do not infer new fields or change the output format unless the contract, schema, golden example, and tests all move in the same PR.
 
-Every task in this repository must contribute evidence toward one question:
+Every task in this repository must contribute toward the program of record,
+`docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md`:
 
-Can QuakeWorld bots become realistic enough to act as believable substitutes for real players?
+Build Megalodon Milton — the strongest QuakeWorld bot possible (it may move, aim and play better than the
+best humans), bound by one constraint: information honesty (it acts only on what it can see or hear itself,
+or read in teamsay). Method = RL on rewards; validated route-first, not by a believability bench.
 
-Bunnyjumping, DM2, KTX, Frogbots, MVD analysis, route learning, and movement controllers are not end goals. They are experiments designed to answer that question.
+Bunnyjumping, DM2, KTX, Frogbots, MVD analysis, route learning, and movement controllers are not end goals.
+They are experiments toward that bot. (Supersedes the earlier "believable substitutes" framing + docs/18.)
 
 ## First objective
+
+> **Historical (the lab is long-built).** This section is superseded by `docs/28`. The active objective is
+> **docs/28 Phase 1** (epic #414): the data pipeline + Route Canon + the Commander/Motor-Cortex handoff PoC.
+> The lab described below already exists.
 
 Do NOT implement a bunnyjump controller.
 

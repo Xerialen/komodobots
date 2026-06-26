@@ -26,17 +26,22 @@ This document is the prose layer. The binding, machine-readable layer is:
 
 ## 1. WHY — what the data is for
 
-Program of record: `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` (greenfield, approved 2026-06-16;
-see `docs/00_VISION_AND_NORTH_STAR.md` and `docs/08_DECISION_LOG.md`). The thesis is
-**human-like-by-imitation**: move, aim, and decide like a real player, *learned from real
-human demos* rather than hand-coded.
+**Program of record: `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md`** (owner re-plan, 2026-06-26). This
+contract's **row/schema mechanics (sections 2–6 below) are unchanged** — it is still the version-controlled
+truth for what is extracted, from where, and in what format. What changed is the **purpose**: the goal is no
+longer human-like-by-imitation judged on a 4v4 bench, but the **information-honest superhuman bot
+(Megalodon Milton), trained by RL and validated route-first** (MSE/RMSE vs elite-human ground truth on a
+Route Canon "Highway"); 4v4 is demoted to a Phase-4 drift signal.
 
-The data exists to train the **MOVE** brain — a `6 -> 128 -> 128 -> {3,3,2}` ReLU MLP
-(`experiments/stage2/move-bc-train/train.py`) with three discrete heads (forward / side /
-jump). MOVE is **move-only by design**; view/aim is replayed from the human until a later
-stage (`docs/19_ARCHITECTURE_AND_GOTCHAS.md`). Success is measured on one binding bench: a
-4v4 dm3 leap-bot-vs-frog-bot frag margin, with damage-done (not accuracy) as the
-combat-not-broken guard (`docs/18`).
+The original consumer described here is now **legacy**: the move-only `6 -> 128 -> 128 -> {3,3,2}` ReLU MLP
+MoveMLP (`experiments/stage2/move-bc-train/train.py`, view/aim replayed from the human;
+`docs/19_ARCHITECTURE_AND_GOTCHAS.md`) with success on the 4v4 dm3 leap-vs-frog frag margin is the **old
+serving model that the docs/28 P1–P3 movement brain replaces**. The **evolution of the feature vector /
+training target** to the docs/28 feature store and RL observation space is owned by tickets **T1.1 (#418,
+Feature-Registry→JSON)**, **T1.2 (#419, unified catalog writer)**, and **T4.1 (#425, Parquet offline
+store)** — each of which, per the binding rule above, must move this contract + schema + golden example +
+tests together in the **same PR**. Until then the extracted rows below remain valid as the data line that
+feeds the pivot; this docs-only PR changes none of them.
 
 ## 2. WHERE — data sources
 

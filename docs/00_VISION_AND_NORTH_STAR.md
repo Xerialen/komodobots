@@ -2,7 +2,7 @@
 
 ## Why this project exists
 
-Komodobots exists to investigate whether QuakeWorld bots can become sufficiently realistic to serve as believable stand-ins for real players.
+Komodobots exists to build the strongest QuakeWorld bot possible — one that may move, aim and play better than the best humans — under a single constraint: **information honesty** (it acts only on what it can see or hear itself, or read in teamsay chat). The codename is **Megalodon Milton**. The program of record is `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md`.
 
 The project is NOT primarily about:
 
@@ -25,10 +25,9 @@ Run seasons.
 
 ### Megalodon Milton
 
-Learn individual players.
-Recreate their behaviour.
-Simulate hypothetical player matchups.
-Create digital versions of historical and concurrent players.
+The strongest possible bot — superhuman movement, aim and play — constrained only by information honesty.
+(Originally framed as recreating individual players like Milton; the target is now to *surpass* elite play,
+honestly, not to imitate it.) This is the current program of record — see `docs/28`.
 
 ## Shared foundation
 
@@ -37,6 +36,8 @@ Both futures require:
 Bunnyjumping -> Movement Realism -> Player Realism -> Simulation Realism
 
 ## Current focus
+
+_(Live plan is `docs/28` Phase 1; movement remains the focus — it is Brain 1, the Motor Cortex.)_
 
 The largest visible gap today is movement.
 
@@ -58,3 +59,10 @@ greenfield, bench-iterated program for a human-like DM3 bot (movement + aim + de
 from human demos, judged on a frog-vs-leap 4on4 bench). The earlier staged plan
 `references/12_DM3_4ON4_STANDIN_PROGRAM.md` is retained as background only. The decision record and
 revisit conditions are in `docs/08_DECISION_LOG.md`.
+
+**Update (2026-06-26): pivot — the program of record is now `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md`.**
+The goal changed from *believable / human-like* to **information-honest superhuman** ("plays perfectly",
+codename Megalodon Milton); the method from behaviour-cloning to **RL on rewards**; and early validation from
+the 4v4 believability bench to **route-isolated MSE vs elite-human ground truth** (4v4 demoted to a Phase-4
+drift-detection signal). `docs/18` is retained as history. Architecture = a modular, bottom-up-trained,
+freeze-as-you-go brain hierarchy (movement → combat → strategy).

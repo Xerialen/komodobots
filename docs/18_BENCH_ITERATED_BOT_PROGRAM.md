@@ -1,9 +1,14 @@
 # 18 — Bench-iterated human-like DM3 bot program
 
-**Status:** canonical program (greenfield, approved 2026-06-16). Supersedes the staged
-DM3 4on4 stand-in plan, now moved to `references/12_DM3_4ON4_STANDIN_PROGRAM.md` as background.
-Register here is deliberately plain ("caveman") per owner preference; exit criteria and
-tickets are precise and testable.
+> **⛔ SUPERSEDED (2026-06-26) by `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md`.** The project goal is no
+> longer a *believable / human-like* bot judged on a 4on4 bench. It is now the strongest-possible,
+> **information-honest** bot (Megalodon Milton), trained by **RL** and validated **route-first**; the 4v4
+> bench is demoted to a Phase-4 drift-detection signal. This document is retained as history.
+
+**Status:** SUPERSEDED (was canonical program, greenfield, approved 2026-06-16; superseded 2026-06-26 by
+`docs/28`). Supersedes the staged DM3 4on4 stand-in plan, now moved to
+`references/12_DM3_4ON4_STANDIN_PROGRAM.md` as background. Register here is deliberately plain ("caveman")
+per owner preference; exit criteria and tickets are precise and testable.
 
 ## Why we do this
 - We want a bot that plays DM3 like a human. Move like human. Aim like human. Think like human.
