@@ -7,10 +7,7 @@ name: Review Gate Merge
 #   - `gate: ready` label present; `gate: blocked` absent
 #   - a top-level gate verdict comment says `LABEL: gate: ready` for the current
 #     PR head SHA, so a stale ready label cannot authorize a newer commit
-#   - PR open, non-draft, base `main` or `dev`, mergeable (the `dev` integration
-#     branch auto-merges too, so the staged agent loop lands without a manual
-#     "fallback merge"; a `dev`->`main` PR whose head is a long-lived branch is
-#     never `--delete-branch`'d)
+#   - PR open, non-draft, base `main`, mergeable
 #   - every non-gate status check passing (this is where `pr-tests` — the
 #     deterministic CI floor — is enforced)
 #
@@ -129,7 +126,7 @@ jobs:
 
             [ "$state" = "OPEN" ]          || { echo "skip #$PR: not open (state=$state)"; return 0; }
             [ "$draft" = "false" ]         || { echo "skip #$PR: draft"; return 0; }
-            case "$base" in main|dev) ;; *) echo "skip #$PR: base is '$base' (only main/dev auto-merge)"; return 0 ;; esac
+            case "$base" in main) ;; *) echo "skip #$PR: base is '$base' (only main auto-merge)"; return 0 ;; esac
             [ "$has_ready" = "true" ]      || { echo "skip #$PR: no 'gate: ready'"; return 0; }
             [ "$has_blocked" = "false" ]   || { echo "skip #$PR: 'gate: blocked' present"; return 0; }
             [ "$mergeable" = "MERGEABLE" ] || { echo "skip #$PR: not mergeable ($mergeable)"; return 0; }
@@ -255,9 +252,9 @@ jobs:
             [ "${pt_total}" -eq "${pt_ok}" ]  || { echo "skip #$PR: 'PR Tests' not all passing ($pt_ok/$pt_total)"; return 0; }
 
             # Clean up disposable feature branches, but NEVER delete a long-lived
-            # integration branch — e.g. a `dev`->`main` PR whose head ref is `dev`.
+            # trunk or historical archive branch.
             local del="--delete-branch"
-            case "$head_ref" in main|dev) del="" ;; esac
+            case "$head_ref" in main|archive/dev-retired) del="" ;; esac
 
             echo "merging #$PR @ $short into '$base' ($n_checks check(s) passing, incl. PR Tests $pt_ok/$pt_total; SHA-bound gate verdict present)"
             # Bind the merge to the exact head we just validated: if a commit landed

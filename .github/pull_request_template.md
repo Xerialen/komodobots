@@ -51,6 +51,11 @@ Paste command output, logs, metrics, screenshots, or browser geometry checks.
   `schemas/training_example.schema.json`, `examples/expected_training_frame.jsonl`
 - [ ] `python3 -m unittest tests.test_data_contract` passes
 
+## ML impact
+
+- [ ] No ML impact
+- [ ] ML-impacting; ML Evidence Chain Gate addressed
+
 ## Risks / rollback
 
 ## Next smallest useful experiment

@@ -3668,8 +3668,8 @@ was then **merged with a real merge commit** (`c8cca6ec`, two parents `ad69d5b0`
 full 71-commit history is reachable from `main` rather than flattened. The deterministic review-gate
 executor still uses `--squash` for ordinary `gate: ready` merges unless changed separately — so
 future single-PR merges to `main` are squashed; only this reconcile was a merge commit. The `dev`
-branch ref is **kept as an archive** (not deleted) and is otherwise retired — no further work bases on
-it.
+branch ref was initially kept as an archive, then renamed to `archive/dev-retired` on 2026-06-24 —
+no further work bases on it.
 
 ### Alternatives Considered
 
@@ -3693,5 +3693,91 @@ non-conflicting additions); `unittest discover` 1564 green on the merged tree. R
 
 - One trunk: future stage work bases on `main`; the Auditor's branch-pair checks collapse to one
   branch.
-- `AGENTS.md`'s base-branch wording must be unified (it still describes the `dev`-trunk model in
-  places) as a follow-up.
+- The retired `dev` branch is preserved at `archive/dev-retired` for historical inspection.
+
+---
+
+## Rename retired `dev` branch to `archive/dev-retired`
+
+### Date
+
+2026-06-24
+
+### Decision
+
+Rename the retired remote `dev` branch to `archive/dev-retired` in GitHub. Keep `main` as the only
+live integration branch and update the review-gate executor so only PRs targeting `main`
+auto-merge. Preserve `archive/dev-retired` from automatic branch deletion if it ever appears as a PR
+head.
+
+### Alternatives Considered
+
+- **Leave the branch named `dev`.** Rejected: the name made it look like an active integration
+  branch even after the trunk was unified on `main`.
+- **Delete the branch.** Rejected: the branch still preserves useful granular history from the
+  pre-reconcile ML line.
+- **Rename to plain `archive`.** Rejected: less clear than preserving the original branch identity.
+
+### Evidence
+
+GitHub branch rename succeeded via `gh api --method POST repos/Xerialen/komodobots/branches/dev/rename
+-f new_name=archive/dev-retired`. Verification showed only `archive/dev-retired` among dev/archive
+branches at SHA `f650ec3e7bc3bf5b346f3a7bd64ad49d57944fd7`, and open PR #375 was retargeted from
+base `dev` to base `archive/dev-retired`.
+
+### Consequences
+
+- New work and review-gate merges target `main`.
+- PRs against `archive/dev-retired` are archival/advisory and will not auto-merge under
+  `review-gate-merge.yml`.
+
+---
+
+## Specialize the existing reviewer gate for ML-impacting PRs
+
+### Date
+
+2026-06-24
+
+### Decision
+
+Add `machine-learning-reviewer.md` as the ML-specific review contract and wire it into the existing
+Reviewer role. Every review now first classifies the PR as ML-impacting or not. If the PR touches
+data extraction, demo parsing, labels, training rows, feature vectors, model/training/eval code,
+live inference seams, benchmark/evidence ledgers, route signatures, findings/decision logs, or ML
+docs, the Reviewer must apply `machine-learning-reviewer.md` before any `gate: ready` decision.
+
+This deliberately keeps the existing single merge gate:
+
+```text
+gate: reviewing -> gate: ready | gate: blocked
+```
+
+The ML review layer is evidence discipline inside the current SHA-bound `DECISION` / `LABEL` /
+`HEAD_SHA` reviewer comment. It does not add GitHub Actions, reviewer-specific labels, or a second
+merge state machine.
+
+### Alternatives Considered
+
+- **Add reviewer-specific labels such as `review/codex:*`, `review/claude:*`, or
+  `ml-review-required`.** Rejected for now: extra labels would increase state-machine surface area
+  without adding enforcement the existing gate cannot already provide.
+- **Add a workflow that detects ML-impacting paths and labels PRs.** Rejected for now: path-only
+  detection cannot reliably capture evidence/log/doc changes that are ML-impacting by meaning, and
+  the project already warns against duplicate automations managing overlapping gate state.
+- **Keep the checklist only in the loop prompt.** Rejected: review policy belongs in repo state so
+  the next agent does not need chat history to know the rule.
+
+### Evidence
+
+Baseline `python -m unittest tests.test_review_gate_merge_workflow -v` passed before the change.
+This decision updates only role/template/docs files; no merge executor behavior, labels, or CI
+workflows changed.
+
+### Consequences
+
+- Looped Codex review can use the same prompt and gate labels, but ML-impacting PRs get the expanded
+  checklist and must include "what this does NOT prove" for evidence claims.
+- Non-ML PR reviews should explicitly say they are not ML-impacting.
+- Codex-authored PRs still require non-Codex independent review before `gate: ready`; this decision
+  does not weaken the cross-model review convention.

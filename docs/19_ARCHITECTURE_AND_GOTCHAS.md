@@ -320,7 +320,7 @@ The two-layer gate (`AGENTS.md`): a deterministic CI floor is the real authority
 review is an advisory filter on top. The deterministic merge executor
 (`.github/workflows/review-gate-merge.yml`) merges **only when ALL** are true:
 
-- PR open, **non-draft**, base **`main` or `dev`**, **mergeable** (`review-gate-merge.yml:130-135`);
+- PR open, **non-draft**, base **`main`**, **mergeable** (`review-gate-merge.yml:130-135`);
 - label `gate: ready` present, `gate: blocked` absent (`:133-134`);
 - a top-level verdict comment for the **current head SHA** containing `DECISION: PASS|READY`
   / `LABEL: gate: ready` / `HEAD_SHA: <full head sha>` (`:141-143,175-177`);
@@ -333,11 +333,11 @@ review is an advisory filter on top. The deterministic merge executor
   events that arrive earlier sleep once, then re-read GitHub state and re-run the full
   gate (`review-gate-merge.yml:211-229`).
 
-On merge it **squash**-merges and `--delete-branch`'s the head — except a **long-lived
-integration branch** (`dev`/`main`) is never deleted, so a `dev`->`main` umbrella PR (head
-`dev`, e.g. #263) can't delete `dev` (`review-gate-merge.yml:243-247`). Both `main` and `dev`
-bases auto-merge, so the staged-agent line (which targets `dev`) lands without a manual
-"fallback merge".
+On merge it **squash**-merges and `--delete-branch`'s the head — except the long-lived
+trunk `main` and historical archive branch `archive/dev-retired` are never deleted
+(`review-gate-merge.yml:243-247`). Only `main` bases auto-merge. The old `dev`
+integration branch was renamed to `archive/dev-retired` on 2026-06-24 and is not an
+auto-merge target.
 
 Triggers it reconciles on (`:37-48`): `pull_request:labeled`/`reopened`, `issues:labeled`
 (PR labels can arrive via either webhook), `workflow_run` completion of `PR Tests`, and a
@@ -360,11 +360,11 @@ and restores `gate: reviewing` (`gate-draft-guard.yml:14-17,62-67`).
   rely on cron for the 300 s cooldown path; the label/CI event path sleeps once and then
   revalidates current state.
 - The workflow file runs from the **default branch (`main`)** for `schedule` / `workflow_run`
-  events, while `pull_request:labeled` for `dev` PRs uses the workflow copy visible from
-  `dev`. Keep the executor fix on both `main` and `dev` if both paths matter.
+  events. `pull_request:labeled` PRs should target `main`; the archived
+  `archive/dev-retired` branch is historical only.
 - **NEVER set `gate: ready` on a draft** — the draft guard will strip it, and the executor
   skips drafts anyway. Open PRs **non-draft** when you want them reviewed-and-merged.
-- **`main` and `dev` are unprotected** (free private plan; `gh api .../branches/main/protection`
+- **`main` is unprotected** (free private plan; `gh api .../branches/main/protection`
   → 404). The executor *substitutes* for branch protection but does **not** check authorship —
   see §8.
 
@@ -415,6 +415,15 @@ Do **not** treat the review-open-PRs loop's `gate: ready` as the independent rev
 guarantee a non-Claude pass before a Claude-authored PR merges, either keep it a draft until
 Codex reviews (the executor ignores drafts) then mark ready, or get the loop to skip
 same-author PRs.
+
+**ML reviewer specialization (2026-06-24):** ML-impacting PRs use the same `gate: ready` /
+`gate: blocked` review gate, but the Reviewer must also apply `machine-learning-reviewer.md`
+before passing the head. "ML-impacting" includes data extraction, demo parsing, source selection,
+filters, labels, training rows, feature vectors, world-view code, model/training/eval changes,
+checkpoints, inference sidecars, live KTX/Frogbot seams, benchmark/evidence ledgers, route
+signatures, findings/decision logs, and ML docs. This is intentionally a specialized reviewer mode,
+not a second label family or a new GitHub Actions state machine. The current-head structured
+`DECISION` / `LABEL` / `HEAD_SHA` comment remains the merge executor's contract.
 
 **Evidence:** `AGENTS.md:35-79`; memories `review-gate-self-review-gap`,
 `pr-review-protocol`, `draft-pr-never-gate-ready`, `loop-merge-authority`.

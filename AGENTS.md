@@ -74,8 +74,9 @@ to either implementation or review work.
 - **Auditor Agent** - follows `auditor.md`. A periodic (annual, or on major
   data/pipeline/source change) consistency and goal-anchor audit: it proves the
   docs, code, and data contract stay coherent and pointed at the North Star, and
-  lands scoped fixes for the drift it finds. It checks consistency across the
-  `dev`/`main` pair, not just one branch. It does not implement feature work.
+  lands scoped fixes for the drift it finds. Current work is single-trunk on
+  `main`; the retired `dev` history is archived as `archive/dev-retired`. It
+  does not implement feature work.
 - **Merge executor** - deterministic GitHub Action; it does not implement or
   review.
 
@@ -94,10 +95,10 @@ Two gates must both pass to merge, and they are deliberately layered per best pr
 1. **Deterministic CI floor** - `.github/workflows/pr-tests.yml` runs the stdlib unit suite on a hosted runner for every PR. This is the hard, machine-checked gate.
 2. **Reviewer filter** - a neutral PR label applied after a technical merge-safety review. The terminal labels are `gate: ready` or `gate: blocked`.
 
-The deterministic merge executor (`.github/workflows/review-gate-merge.yml`, no LLM, no API tokens) merges only when `gate: ready` is present, `gate: blocked` is absent, the PR's base is **`main` or `dev`**, the PR is mergeable, and **every non-gate check (including `PR Tests`) is passing**. Both bases auto-merge so the staged-agent line (which targets `dev`) lands without a manual "fallback merge"; a `dev`->`main` PR whose head is a long-lived branch is never `--delete-branch`'d. It re-evaluates on `gate: ready` label events from both PR and issue-label webhook surfaces, `PR Tests` completion events, and a best-effort 5-minute reconciler for already-ready PRs. Label/CI events that arrive inside the 300-second ready-label cooldown sleep once, then re-read GitHub state and re-run the full gate, so merge does not depend on cron firing exactly on time. Branch protection would normally enforce this natively, but it requires GitHub Pro/public; the executor provides the same gate on the free private plan. **Gemini** is an **on-demand second opinion only** (`/gemini review`) - it does not auto-review and never merges.
+The deterministic merge executor (`.github/workflows/review-gate-merge.yml`, no LLM, no API tokens) merges only when `gate: ready` is present, `gate: blocked` is absent, the PR's base is **`main`**, the PR is mergeable, and **every non-gate check (including `PR Tests`) is passing**. It re-evaluates on `gate: ready` label events from both PR and issue-label webhook surfaces, `PR Tests` completion events, and a best-effort 5-minute reconciler for already-ready PRs. Label/CI events that arrive inside the 300-second ready-label cooldown sleep once, then re-read GitHub state and re-run the full gate, so merge does not depend on cron firing exactly on time. Branch protection would normally enforce this natively, but it requires GitHub Pro/public; the executor provides the same gate on the free private plan. **Gemini** is an **on-demand second opinion only** (`/gemini review`) - it does not auto-review and never merges.
 
 ```text
-Coder Agent implements -> reset sets `gate: reviewing` -> Reviewer Agent reviews and applies `gate: ready` or `gate: blocked` -> deterministic Action merges on `gate: ready` if `PR Tests` and all other non-gate checks pass -> a Coder Agent starts the next stage from the updated base (`dev` for stage work; promoted to `main` via an umbrella `dev`->`main` PR)
+Coder Agent implements from `main` -> reset sets `gate: reviewing` -> Reviewer Agent reviews and applies `gate: ready` or `gate: blocked` -> deterministic Action merges on `gate: ready` if `PR Tests` and all other non-gate checks pass -> a Coder Agent starts the next stage from updated `main`
 ```
 
 Role boundaries are mandatory:
@@ -105,6 +106,7 @@ Role boundaries are mandatory:
 - Coder Agent implements the current stage, updates docs/evidence, opens or updates the stage PR, and responds to review feedback that stays inside the same stage.
 - Reviewer Agent reviews only technical merge safety: correctness, regressions, security, reliability, CI/CD, GitHub Actions logic, workflow triggers, label/merge-gate logic, permissions, secrets, branch-protection assumptions, operational/deployment risk, data-loss/destructive behavior, and tests for changed behavior.
 - Review automation or the assigned Reviewer posts the required structured review comment for the current head SHA and applies exactly one terminal label: `gate: ready` or `gate: blocked`.
+- ML/data/eval/model/live-serving PRs require the Reviewer to apply `machine-learning-reviewer.md` inside that same structured review gate before any `gate: ready` decision. This is a specialized reviewer mode, not a second merge gate or label family.
 - The merge executor (a deterministic, no-LLM Action) performs the final gate check and merges only when `gate: ready` is set and all gates pass.
 - Gemini is an on-demand second opinion (`/gemini review`) - not part of the autonomous loop, and never merges.
 
@@ -166,6 +168,8 @@ push/open PR -> reset to `gate: reviewing` -> Reviewer Agent reviews current hea
 
 These guide the Reviewer Agent on every PR review. Do not review plan, roadmap, scope, architecture-plan deviation, north-star drift, or documentation drift. Do not block on style, naming, or formatting unless it creates a concrete defect risk.
 
+Before applying a gate decision, classify whether the PR is ML-impacting. If it touches data extraction, demo parsing, source selection, filters, labels, training rows, feature vectors, world-view code, model architecture, training loops, checkpoints, inference sidecars, live KTX/Frogbot seams, evaluation gates, metrics, dashboards or ledgers used as evidence, route signatures, decision logs, findings logs, or ML docs, read and apply `machine-learning-reviewer.md`. Non-ML PR reviews should say explicitly that the PR is not ML-impacting.
+
 Review focus, in priority order:
 
 - Correctness, regression, security, or reliability defects.
@@ -196,7 +200,7 @@ The merge executor may merge only when all are true:
 
 - Target repository and PR are unambiguous.
 - PR is open and non-draft.
-- PR targets the correct base branch — `dev` for stage work, or `main` (both auto-merge).
+- PR targets the correct base branch — `main`.
 - PR is mergeable.
 - `PR Tests` is present and all its runs pass.
 - No other non-gate check is failing.

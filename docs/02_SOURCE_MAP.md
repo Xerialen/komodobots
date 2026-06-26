@@ -950,6 +950,7 @@ Local files:
 - `AGENTS.md`
 - `coder.md`
 - `reviewer.md`
+- `machine-learning-reviewer.md`
 - `CLAUDE.md`
 - `codex.md`
 - `docs/21_ML_EVIDENCE_CHAIN_GATE.md`
@@ -960,6 +961,9 @@ Why they matter:
 - `coder.md` defines the implementation role independent of tool brand.
 - `reviewer.md` defines the technical merge-safety review role independent of
   tool brand.
+- `machine-learning-reviewer.md` specializes the Reviewer role for PRs that
+  touch data, extraction, training, evaluation, model serving, ML evidence, or
+  ML documentation, without adding a second merge gate.
 - Tool-specific files are thin adapters and must not assign permanent roles.
 - `docs/21_ML_EVIDENCE_CHAIN_GATE.md` is the mandatory review gate for ML
   plans, tying data, labels, model structure, training runs, and evaluation
