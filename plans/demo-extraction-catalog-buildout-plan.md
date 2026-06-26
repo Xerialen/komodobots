@@ -20,7 +20,7 @@ none duplicates one. The keystone is the coverage **audit** the spec promises bu
   with `health/armor/armor_type/weapon`), `actions`, `item_events`, `items`, `item_value`, `markers`,
   `nav_edges`, `episodes`, `teams`, `actor_visibility` (full PVS/FOV/LOS + belief block),
   `audio_cues`, `frag_events`, `region_control_timeline`, `feature_partitions`.
-- **`data/catalog/feature_registry.yaml`** (`registry_version: 5`) — 12 feature groups: position,
+- **`data/catalog/feature_registry.json`** (`registry_version: 5`) — 12 feature groups: position,
   velocity, orientation (incl. yaw_rate/face-vel/goal-conditioning), player_resource (incl.
   `ammo_per_weapon_norm`, `powerup_remaining`), item (incl. `item_eta_norm`, `item_up_on_arrival`,
   `item_value_prior`), timing (incl. `time_to_reach_navgraph_norm`), player_style, entity_observation
@@ -68,7 +68,7 @@ expensive parse happens ONCE (spec principle).**
 - **T1 — Coverage audit (keystone; ABSENT).** Build the runnable audit + committed report the spec
   promises (§3.9/§7): enumerate the decoder Result inventory (MVD qw-analyze schema-33 + in-house
   result: streams/damage/items/frag; QWD usercmd struct) and diff vs `catalog_schema.sql` columns +
-  `feature_registry.yaml` + what each ETL populates → classify every field
+  `feature_registry.json` + what each ETL populates → classify every field
   **extracted / derived / excluded-with-reason / GAP**. Scopes T2–T9. Extends per-ETL `table_counts`/
   `_observed_summary` + `_source-schemas.md`. No schema change.
 - **T2 — Canonicalize the schema file + reconcile docs/27 to the real repo** ("accept what exists").

@@ -22,6 +22,10 @@ review.
 - Run the focused validation after implementation.
 - Record evidence in the PR, issue, findings log, or relevant doc.
 - Update docs when source, config, lab behavior, assumptions, or workflow changes.
+- When a file is generated from a declarative source (e.g. the feature registry →
+  its generated constants / obs spec via `scripts/generate_from_registry.py`), edit the
+  **source** and **regenerate** — never hand-edit a file carrying an `AUTO-GENERATED — DO
+  NOT HAND-EDIT` header; run the generator and commit the regenerated artifacts in the same PR.
 - Link or create durable test cases for meaningful user-facing behavior.
 - Log each completed manual test as a test run, not by deleting the test case.
 - Open a PR intended for the review gate as **ready for review (non-draft)**. Use

@@ -34,7 +34,7 @@ Copy into the repo as follows:
 | `../schema/*.json`, `../schema/catalog.sql` | `data/catalog/` | data (see §1) |
 | `../fixtures/dm3_milton_211436/` | `data/fixtures/dm3_milton_211436/` | data |
 
-`../schema/feature_registry.yaml` + `dataset_spec.yaml` stay **reference-only** in
+`../schema/feature_registry.json` + `dataset_spec.yaml` stay **reference-only** in
 `data/catalog/` — read by `ml/` (PyYAML) or mirrored to JSON for in-tree use. They are
 never imported by the unit suite.
 

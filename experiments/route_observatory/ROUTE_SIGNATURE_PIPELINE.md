@@ -122,7 +122,7 @@ The broad-BC pipeline is **catalog SQLite → `normalize_fit` → `build_feature
 2. **per-route envelope** (`envelopes.json`) → the believability eval target consumed by the
    closed-loop scorer (bot leg vs human p10–p90), and the curriculum signal (difficult routes).
 
-The v4 feature is now LANDED in `feature_registry.yaml` (registry_version 4): the SELF vector
+The v4 feature is now LANDED in `feature_registry.json` (registry_version 4): the SELF vector
 is appended in the SHARED `scripts/features/agent_observation.goal_vector` (train/serve parity),
 `shard_contract` EXPECTS_SELF_DIM 21, and `build_features.py` materialises the goal columns
 catalog-wide via `ml/pipeline/route_goals.py` (hindsight next-resource label, GCSL; dm3 coords

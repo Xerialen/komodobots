@@ -10,7 +10,7 @@ so the spec and the code could silently drift.
 This module is the machine reader that closes that loop. It is **stdlib-only** (no PyYAML —
 CI has none; the repo's deterministic floor must import without third-party deps), using the
 same targeted line-scan pattern scripts/audit_extraction_coverage.parse_registry_sources and
-scripts/features/agent_observation use to read feature_registry.yaml. It does NOT implement a
+scripts/features/agent_observation use to read feature_registry.json. It does NOT implement a
 general YAML parser: it pulls the handful of scalar windowing/record-layout fields the
 training connection needs out of the (flat-ish, 2-space-indented) dataset_spec, and is
 asserted against shard_contract's pinned constants by the T9 test so any future edit to

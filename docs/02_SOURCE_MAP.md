@@ -1122,7 +1122,7 @@ In-repo Python (torch + numpy, `ml/requirements.txt`), trained offline on host `
   `docs/ml-data-architecture/00-DATA-ARCHITECTURE.md`, and the fusion plan `docs/13` by reference, and
   fills the gaps (full field taxonomy + coverage method, fidelity contract, [G]/[R]/leg-phase/[C]
   derivations, hold-out gates, versioning). Binding artifacts: `scripts/catalog_schema.sql`,
-  `data/catalog/feature_registry.yaml`. Decoders referenced by role + sha + schema version (no tool
+  `data/catalog/feature_registry.json`. Decoders referenced by role + sha + schema version (no tool
   names). The "everything extractable" master list lives in `mvd_analyzer-src` (Result schema).
 
 ## Source hygiene rules

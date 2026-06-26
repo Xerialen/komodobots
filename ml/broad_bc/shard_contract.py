@@ -7,7 +7,7 @@ stdlib smoke import this so they agree on exactly one schema.
 THE CONTRACT (what FEAT emits / what this trainer consumes)
 =============================================================================
 Authoritative source: `data/catalog/dataset_spec.yaml` (komodobots.dataset_spec.v1,
-registry_version 5) + `data/catalog/feature_registry.yaml`. One *sample* = one
+registry_version 5) + `data/catalog/feature_registry.json`. One *sample* = one
 window of K ticks. FEAT (the parallel feature coder) materializes the windowed
 gold tensors; this trainer reads them.
 
@@ -96,7 +96,7 @@ from the move-only 3 heads to the broad action):
 TOLERANCE / REBIND
 =============================================================================
 FEAT's *exact* per-feature column ORDER inside obs/entities is frozen by
-feature_registry.yaml at review-time. Until then this module ships:
+feature_registry.json at review-time. Until then this module ships:
   * the EXPECTED widths/keys (so synthetic shards match the layout), and
   * `ShardSchema`, a small config object the loader/trainer accept so at
     review-time we bind to FEAT's real `obs_dim` / `ent_dim` / `N_max` / action
@@ -108,8 +108,28 @@ from __future__ import annotations
 
 import logging
 import json
+import sys
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
+
+# The obs-vector layout dims (SELF_DIM, the v5 history dims, REQUIRED_NORM_KEYS, the registry
+# version, N_max) are the GENERATED single source of truth — data/catalog/feature_registry.json
+# `observation`, emitted to scripts/features/registry_constants_generated.py by
+# scripts/generate_from_registry.py. This contract IMPORTS them (aliased to the EXPECTS_* names)
+# instead of hand-copying, so a shard, the live encoder and this trainer can never disagree with
+# the registry. Self-bootstrap the repo root onto sys.path so the import resolves regardless of
+# cwd; still deps-free stdlib (the generated module is pure constants).
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+from scripts.features.registry_constants_generated import (  # noqa: E402
+    REGISTRY_VERSION as EXPECTS_REGISTRY_VERSION,
+    SELF_DIM as EXPECTS_SELF_DIM,
+    SELF_HISTORY as EXPECTS_SELF_HISTORY,
+    SELF_HISTORY_DIM as EXPECTS_SELF_HISTORY_DIM,
+    REQUIRED_NORM_KEYS,
+    N_MAX_DEFAULT as DEFAULT_N_MAX,
+)
 
 
 
@@ -128,31 +148,31 @@ SHARD_CONTRACT_VERSION = "broad_bc.shard_contract.v1"
 # be rejected loudly — the registry-version equality guard + the explicit self-history
 # flat-dim guard + the obs_dim channel-count guard below do that. The v4 goal features are
 # sincos + /diagonal identity, so they add NO new required norm key.
-EXPECTS_REGISTRY_VERSION = 5          # must match feature_registry.yaml / dataset_spec.yaml
+# EXPECTS_REGISTRY_VERSION is IMPORTED above (= registry observation REGISTRY_VERSION); must
+# match feature_registry.json / dataset_spec.yaml (the linkage is validated by generate_from_registry.py).
 # expected SELF (obs) channel count — agent_observation.SELF_DIM. 21-wide goal-conditioned
 # v4 layout (frozen-16 + turn-direction pair + route-conditioning goal triple); the per-tick
 # `obs` column carries it and each of the SELF_HISTORY history rows is one such 21-wide SELF
-# vector. Pinned HERE (deps-free) so the loader can reject a shard whose declared obs_dim
-# does not match the SELF layout even if its registry_version label was hand-edited to 5.
-EXPECTS_SELF_DIM = 21
+# vector. IMPORTED above (deps-free, single source = registry observation SELF_DIM) so the loader
+# can reject a shard whose declared obs_dim does not match the SELF layout even if its
+# registry_version label was hand-edited to 5.
 # the short-history length the v5 sequence-aware policy consumes (== agent_observation.
 # SELF_HISTORY). The model input replaces the single-tick SELF with the FLAT history of
 # these many ticks; the flattened width is EXPECTS_SELF_HISTORY * EXPECTS_SELF_DIM.
-EXPECTS_SELF_HISTORY = 16
+# EXPECTS_SELF_HISTORY is IMPORTED above (= registry observation SELF_HISTORY).
 # expected FLAT self-history width PER ROW = EXPECTS_SELF_HISTORY * EXPECTS_SELF_DIM (336).
 # self_history is stored as ONE [HD] history per window (the last-real-tick history), so a
-# row's self_history length must be EXACTLY this HD. Pinned (deps-free) so the loader can
-# reject a shard whose `self_history` width does not match the v5 layout — both a too-narrow
-# (wrong history length, or a 16-wide-SELF history) AND a too-wide (the OLD per-tick [K*HD]
-# storage, or a hand-edited registry_version=5 on a single-tick shard) — even if its
-# registry_version label says 5.
-EXPECTS_SELF_HISTORY_DIM = EXPECTS_SELF_HISTORY * EXPECTS_SELF_DIM
+# row's self_history length must be EXACTLY this HD. IMPORTED above (deps-free, single source =
+# registry observation SELF_HISTORY * SELF_DIM = 336) so the loader can reject a shard whose
+# `self_history` width does not match the v5 layout — both a too-narrow (wrong history length, or
+# a 16-wide-SELF history) AND a too-wide (the OLD per-tick [K*HD] storage, or a hand-edited
+# registry_version=5 on a single-tick shard) — even if its registry_version label says 5.
 # normalization keys the SELF path REQUIRES under per_map[<map>]. yaw_rate_z (v3) z-scores
 # against `yaw_rate`; a stats artifact missing it would silently de-normalize the appended
 # turn-rate feature, so its absence is a hard reject (not a zero-fill). The v4 goal features
 # need NO fitted key (sincos + identity), and v5 adds no channel, so REQUIRED_NORM_KEYS is
 # unchanged (each history row z-scores yaw_rate_z against the SAME `yaw_rate` key).
-REQUIRED_NORM_KEYS = ("yaw_rate",)
+# REQUIRED_NORM_KEYS is IMPORTED above (= registry observation.required_norm_keys).
 
 # --- array keys (dataset_spec record_layout) --------------------------------
 KEY_OBS = "obs"
@@ -183,7 +203,7 @@ KEY_EPISODE_IDS = "episode_ids"
 OPTIONAL_KEYS = (KEY_AUDIO, KEY_TEAM, KEY_WEIGHT)
 
 # --- default geometry (from dataset_spec.yaml) ------------------------------
-DEFAULT_N_MAX = 7                     # entity_max.N_max (4on4 = 7 other actors)
+# DEFAULT_N_MAX is IMPORTED above (= registry observation.n_max; entity_max.N_max, 4on4 = 7).
 
 # Reference action-column order inside `act` (feature_registry `action` group,
 # leakage_safe:false targets). Used to build synthetic shards and as the DEFAULT
@@ -362,17 +382,13 @@ def check_norm_artifact(stats: dict, map_name: str = "dm3", *, where: str = "nor
             f"path z-scores yaw_rate_z against `yaw_rate` — refusing to de-normalize it")
 
 
-def load_registry_version(registry_yaml: Path) -> int | None:
-    """Cheap stdlib read of `registry_version:` from feature_registry.yaml
-    (no yaml dep — we only need the one integer)."""
+def load_registry_version(registry_json: Path) -> int | None:
+    """Cheap stdlib read of `registry_version` from feature_registry.json (stdlib `json` only;
+    T1.1 #418 migrated the registry yaml -> json)."""
     try:
-        for ln in Path(registry_yaml).read_text(encoding="utf-8").splitlines():
-            s = ln.strip()
-            if s.startswith("registry_version:"):
-                return int(s.split(":", 1)[1].strip().split()[0])
-    except OSError:
+        return int(json.loads(Path(registry_json).read_text(encoding="utf-8"))["registry_version"])
+    except (OSError, ValueError, KeyError, TypeError):
         return None
-    return None
 
 
 def encode_sign3(value: float, deadzone: float = SIGN3_DEADZONE) -> int:
@@ -417,7 +433,7 @@ def write_contract_doc(out_path: Path, schema: ShardSchema | None = None) -> Pat
     schema = schema or ShardSchema()
     doc = {
         "contract_version": SHARD_CONTRACT_VERSION,
-        "authoritative_source": "data/catalog/dataset_spec.yaml + data/catalog/feature_registry.yaml",
+        "authoritative_source": "data/catalog/dataset_spec.yaml + data/catalog/feature_registry.json",
         "expects_registry_version": EXPECTS_REGISTRY_VERSION,
         "expects_self_dim": EXPECTS_SELF_DIM,
         "expects_self_history": EXPECTS_SELF_HISTORY,

@@ -319,7 +319,7 @@ CREATE TABLE feature_partitions (
     dt                    DATE NOT NULL,             -- ingest partition date
     path                  TEXT NOT NULL UNIQUE,      -- gold/features/map=dm3/dt=.../part-*.parquet
     n_rows                INTEGER,
-    registry_version      INTEGER,                   -- which feature_registry.yaml built it
+    registry_version      INTEGER,                   -- which feature_registry.json built it
     norm_artifact_version TEXT,                       -- which normalization_stats.json it assumes
     git_sha               TEXT                        -- code SHA at build time (reproducibility)
 );

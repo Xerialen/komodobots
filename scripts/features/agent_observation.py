@@ -13,7 +13,7 @@ bot: train/serve parity. It composes the per-feature math in `transforms` and th
 egocentric geometry in `egocentric` — it adds NO new math, only the assembly + the
 observed-others layout (N-nearest cap, pad/mask) the dataset_spec calls for.
 
-Layout authority: data/catalog/feature_registry.yaml (groups position / velocity /
+Layout authority: data/catalog/feature_registry.json (groups position / velocity /
 orientation / player_resource for SELF; entity_observation for OTHERS) and
 data/catalog/dataset_spec.yaml (record_layout.obs / entities / ent_mask, N_max=7).
 
@@ -30,6 +30,22 @@ import math
 
 from .transforms import normalize
 from .egocentric import egocentric_vec, rel_distance, rel_bearing_deg, rel_pitch_deg
+# Obs-vector layout (SELF/ENTITY/ACTION field tuples + dims + the v5 history dims) is the
+# GENERATED single source of truth — derived from data/catalog/feature_registry.json
+# `observation` by scripts/generate_from_registry.py. Edit the registry then regenerate;
+# never hand-edit the layout here (the CI zero-diff gate enforces it). The comment blocks
+# below still document WHAT each layout is and WHY; the values themselves are imported.
+from .registry_constants_generated import (
+    SELF_FIELDS,
+    SELF_DIM,
+    SELF_HISTORY,
+    SELF_HISTORY_DIM,
+    ENTITY_FIELDS,
+    ENTITY_DIM,
+    ACT_FIELDS,
+    ACT_DIM,
+    N_MAX_DEFAULT,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -61,21 +77,10 @@ LOGGER = logging.getLogger(__name__)
 # the POLICY now consumes the FLAT last-SELF_HISTORY-tick history of it (assemble_self_
 # history below, width SELF_HISTORY*SELF_DIM=336) so it can express the bunnyhop CADENCE
 # (a temporal pattern); the single-tick SELF is the newest block of that history.
-SELF_FIELDS: tuple[str, ...] = (
-    "pos_x_norm", "pos_y_norm", "pos_z_norm",
-    "vel_x_z", "vel_y_z", "vel_z_z",
-    "hspeed_norm",
-    "vel_heading_sin", "vel_heading_cos",
-    "yaw_sin", "yaw_cos", "pitch_sin", "pitch_cos",
-    "onground",
-    "health_norm", "armor_norm",
-    "yaw_rate_z",
-    "face_vel_angle_norm",
-    # --- ROUTE-CONDITIONING (v4 append; goal-conditioned imitation, GCSL) ---
-    "goal_heading_sin", "goal_heading_cos",
-    "goal_dist_norm",
-)
-SELF_DIM = len(SELF_FIELDS)
+# SELF_FIELDS / SELF_DIM are IMPORTED above from registry_constants_generated (the single
+# source = feature_registry.json observation.self_layout, the 21-wide goal-conditioned vector
+# documented channel-by-channel just above). `onground` is now a registered feature
+# (feature_groups.position); the order is frozen in the registry — append, never reorder.
 
 # --- SELF HISTORY (sequence-aware redesign, registry_version 5) ---------------
 # The single-tick MLP cannot produce bunnyhop jump cadence (jump-on-landing is a
@@ -95,8 +100,8 @@ SELF_DIM = len(SELF_FIELDS)
 # BOTH the offline feature build (ml/pipeline/build_features.py) AND every inference
 # rollout (eval_broad_closedloop / eval_broad_dryroute) call, so the flattened history
 # is byte-identical between train and serve (the #1 correctness risk of this redesign).
-SELF_HISTORY = 16
-SELF_HISTORY_DIM = SELF_HISTORY * SELF_DIM
+# SELF_HISTORY / SELF_HISTORY_DIM are IMPORTED above from registry_constants_generated
+# (feature_registry.json observation.self_history); the v5 sequence design is documented above.
 
 # the stats_key under per_map[<map>] that yaw_rate_z z-scores against (fitted by
 # ml/pipeline/normalize_fit.py from consecutive-tick view-yaw deltas, same spec shape
@@ -117,20 +122,12 @@ _VEL_HEADING_FLOOR = 80.0
 #   entity_alive                                            (1)  0/1
 #   entity_is_teammate                                      (1)  relative; 0 when team unknown
 #   entity_is_visible                                       (1)  observed-this-tick gate
-ENTITY_FIELDS: tuple[str, ...] = (
-    "entity_rel_dist_norm",
-    "entity_rel_bearing_sin", "entity_rel_bearing_cos",
-    "entity_rel_pitch_sin", "entity_rel_pitch_cos",
-    "entity_rel_vel_x", "entity_rel_vel_y", "entity_rel_vel_z",
-    "entity_health_est_norm", "entity_armor_est_norm",
-    "entity_alive",
-    "entity_is_teammate",
-    "entity_is_visible",
-)
-ENTITY_DIM = len(ENTITY_FIELDS)
+# ENTITY_FIELDS / ENTITY_DIM are IMPORTED above from registry_constants_generated
+# (feature_registry.json observation.entity_layout); the per-other-actor channels are
+# documented just above.
 
-# dataset_spec.entity_max.N_max — 4on4 => 7 other actors.
-N_MAX_DEFAULT = 7
+# N_MAX_DEFAULT (dataset_spec.entity_max.N_max — 4on4 => 7 other actors) is IMPORTED above
+# from registry_constants_generated (feature_registry.json observation.n_max).
 
 # constant denominators (mirror feature_registry constants / divide_period)
 _HEALTH_CAP = 250.0
@@ -147,14 +144,9 @@ _MAP_DIAGONAL = {"dm3": 3797.1}
 # The two reserved continuous turn columns (cmd_delta_yaw_sin/cos) are NOT cloned
 # yet (reserved for a future AIM head), so the shard emits only these 5 — the
 # trainer indexes act columns BY NAME, so a width-5 `act` binds correctly.
-ACT_FIELDS: tuple[str, ...] = (
-    "forwardmove",     # actions.forwardmove / 400  -> ~[-1,1]
-    "sidemove",        # actions.sidemove    / 400
-    "upmove",          # actions.upmove      / 400
-    "jump_button",     # 1.0 if (buttons & 2) else 0.0
-    "attack_button",   # 1.0 if (buttons & 1) else 0.0
-)
-ACT_DIM = len(ACT_FIELDS)
+# ACT_FIELDS / ACT_DIM are IMPORTED above from registry_constants_generated
+# (feature_registry.json observation.action_layout — the 5 cloned heads fwd/side/up/jump/attack;
+# the two reserved continuous turn columns are NOT cloned yet, see shard_contract.ACT_COLS).
 
 # usercmd move shorts are bounded ~[-400,400]; /400 maps to ~[-1,1] (registry).
 _MOVE_SCALE = 400.0

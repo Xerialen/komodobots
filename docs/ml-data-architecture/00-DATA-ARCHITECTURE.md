@@ -56,7 +56,7 @@ qwbot-data/
       imitation/val/shard-{000000..NNNNNN}.tar
       rl/episodes.hdf5                                   # Minari-style offline-RL store
     norm/normalization_stats.json            # frozen stats artifact (§7)
-    registry/feature_registry.yaml           # feature declarations
+    registry/feature_registry.json           # feature declarations
   catalog.duckdb                            # relational catalog (schema/catalog.sql)
   dvc.yaml + *.dvc                          # data versioning
 ```
@@ -87,7 +87,7 @@ qwbot-data/
 | `human_mvd_inventory.v1` + lab-run `run.env` | `demos` table |
 | continuity splits (`qwd_route_probe.v1`) / `alignment-meta.json` | `episodes` table (+ `align_shift` on `actions`) |
 | `dm3.bsp` entity lump (= `getMapEntities`) + `getItems`/`getWeaponPickups` | `items` (coords DONE), `item_value`, `item_events` |
-| `movement_metrics.v2` scalars | per-tick features in `feature_registry.yaml` (`hspeed_norm`, `jump_cadence_norm`, …) |
+| `movement_metrics.v2` scalars | per-tick features in `feature_registry.json` (`hspeed_norm`, `jump_cadence_norm`, …) |
 | cadence re-normalization (`cadence_normalization_decision.v1`) | replaced by the fitted `normalization_stats.json` |
 | `.cmds` (`replay.v1`) | the canonical training row: `player_ticks` ⨝ `actions` (still emittable as `.cmds` for `pmove_sim`) |
 
@@ -261,7 +261,7 @@ line-of-sight count as active-combat proximity, and the filter is fail-closed on
 damage. The remaining defined-but-empty POMDP layer is `audio_cues` (a separate T8 derivation).
 
 ### 2.9 Entity representation (opponents + teammates)
-The `entity_observation` feature group (`schema/feature_registry.yaml`) encodes a
+The `entity_observation` feature group (`schema/feature_registry.json`) encodes a
 **variable-length list of OTHER actors**, each as a fixed-width **egocentric** vector
 relative to the observer (reusing the §2.2 rotate + §2.3 sin/cos machinery): `rel_dist_norm`,
 `rel_bearing_sincos`, `rel_pitch_sincos`, `rel_vel_{x,y,z}` (zscore, reusing the per-map
@@ -513,7 +513,7 @@ genuinely differ — a fast map inflates all movement features); **global** for
 behavioral/style features (`jump_cadence`, `time_since_pickup`, `rtg`) with
 `map_id` carried as a feature. `normalization_stats.json` has both a `global`
 block and a `per_map.<map>` block; each feature's `stats_key` in
-`feature_registry.yaml` routes to the right one.
+`feature_registry.json` routes to the right one.
 
 ### 6.5 Versioned artifact
 `normalization_stats.json` records `artifact_version`, `registry_version`,
@@ -552,7 +552,7 @@ scaler/model pair must refuse to deploy together (enforced by
 - **Leakage controls:** (1) fit transformers on train only (§6.2); (2) grouped
   splits; (3) **PIT/as-of joins** (DuckDB `ASOF JOIN`, `tick ≤ t`) when mining
   imitation labels so every feature uses only state at tick ≤ t —
-  `feature_registry.yaml` marks each feature `leakage_safe`; (4) exclude
+  `feature_registry.json` marks each feature `leakage_safe`; (4) exclude
   post-outcome / `role: target|conditioning|weight` features from observations.
   The **worked, dependency-light** instance of (1)+(3) is T9 #397:
   `ml/pipeline/assemble_obs_template.py` reads per-tick state on the EXACT tick (PK
@@ -655,7 +655,7 @@ Each step is independently shippable and does not block the current evidence loo
    `item_catalog.dm3.v2`, `coords_verified:true`). Remaining: wire `getItems`
    `phases[]` for observed respawns + `getWeaponPickups`/`getBackpacks` → `item_events`.
    This unblocks all item/timing features.
-5. **Feature build + PIT.** Implement the `feature_registry.yaml` transforms as
+5. **Feature build + PIT.** Implement the `feature_registry.json` transforms as
    one shared module (used offline AND by the bot), build `gold/features`
    Parquet via DuckDB `ASOF JOIN`.
 6. **Fit normalization.** Welford/Chan over train shards → `normalization_stats.json`
@@ -703,6 +703,6 @@ A second-model (Gemini) draft was reviewed against this architecture. Verdict by
 
 ## See also
 - [`schema/README.md`](schema/README.md) — index of the schema files
-- [`schema/catalog.sql`](schema/catalog.sql) · [`schema/feature_registry.yaml`](schema/feature_registry.yaml) · [`schema/normalization_stats.template.json`](schema/normalization_stats.template.json) · [`schema/item_catalog.dm3.json`](schema/item_catalog.dm3.json) · [`schema/dataset_spec.yaml`](schema/dataset_spec.yaml)
+- [`schema/catalog.sql`](schema/catalog.sql) · [`schema/feature_registry.json`](schema/feature_registry.json) · [`schema/normalization_stats.template.json`](schema/normalization_stats.template.json) · [`schema/item_catalog.dm3.json`](schema/item_catalog.dm3.json) · [`schema/dataset_spec.yaml`](schema/dataset_spec.yaml)
 - [`_inventory.md`](_inventory.md) — the real existing substrate
 - [`_external-research.md`](_external-research.md) — formats/formulas/citations

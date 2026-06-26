@@ -37,7 +37,7 @@ so the deps-free smoke exercises the *real* contract.
 ## SHARD CONTRACT (what FEAT emits / what the loader consumes)
 
 Authoritative source: `data/catalog/dataset_spec.yaml` (`komodobots.dataset_spec.v1`,
-`registry_version: 5`) + `data/catalog/feature_registry.yaml`. One **sample = one window
+`registry_version: 5`) + `data/catalog/feature_registry.json`. One **sample = one window
 of K ticks**. (v5 is **sequence-aware**: the policy SELF input is the FLAT last-`SELF_HISTORY=16`-tick
 goal-conditioned SELF history, the `self_history` field — see below.) FEAT's REAL build (`ml/pipeline/build_features.py shard`) emits **one
 Parquet file** holding MANY windows (and many demos) with the per-window arrays stored
@@ -68,7 +68,7 @@ is tolerant to FEAT's final widths.
 - BC-only: by default the loader takes the **last real tick** of each window, so it works
   whether FEAT emits single-step BC rows (`bc_window=1`) or `K=64` sequence windows.
 - Pad entity slots are **zeroed** (contract); invisible-but-known actors carry the belief
-  block in their live fields per `feature_registry.yaml` `entity_observation`.
+  block in their live fields per `feature_registry.json` `entity_observation`.
 - **`.qwd` provenance:** the self-POV `.qwd` corpus carries observed-others' kinematics +
   alive but NOT their health/armor/team, so `entity_health_est/armor_est` are 0 and
   `entity_is_teammate` is 0 (team unknown) in a `.qwd`-only shard; those populate once the
