@@ -11,9 +11,10 @@ Before making changes, read:
 1. `docs/00_VISION_AND_NORTH_STAR.md`
 2. `docs/01_PROJECT_BRIEF.md`
 3. `docs/02_SOURCE_MAP.md`
-4. `docs/25_DATA_CONTRACT.md` **before touching any data extraction, transform, training-data, or model-prep code**
-5. `codex/START_HERE.md` if working through Codex
-6. The relevant open PR, issue, branch, comments, latest commits, and check status
+4. `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md` — **the program of record** (4-phase MLOps plan)
+5. `docs/25_DATA_CONTRACT.md` **before touching any data extraction, transform, training-data, or model-prep code**
+6. `codex/START_HERE.md` if working through Codex
+7. The relevant open PR, issue, branch, comments, latest commits, and check status
 
 After reading docs, reconcile them against live repository state before acting. If documentation and live state disagree, trust live state and update the relevant doc before continuing.
 
@@ -32,11 +33,16 @@ have, and where the output goes.
 
 ## North star
 
-Every task must contribute evidence toward this question:
+The program of record is `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md`. Every task must contribute toward it:
 
-> Can QuakeWorld bots become realistic enough to act as believable substitutes for real players?
+> Build **Megalodon Milton**: the strongest QuakeWorld bot possible — it may move, aim and play better than
+> the best humans — bound by one constraint, **information honesty** (it acts only on what it can see or hear
+> itself, or read in teamsay, never omniscient engine state). Method = **RL on rewards**; validated
+> **route-first** (MSE vs elite-human ground truth), not by a believability bench.
 
-Bunnyjumping, DM2, KTX, Frogbots, MVD analysis, route learning, and movement controllers are not end goals. They are experiments designed to answer that larger question.
+Bunnyjumping, DM2, KTX, Frogbots, MVD analysis, route learning, and movement controllers are not end goals.
+They are experiments toward that bot. (This supersedes the earlier "believable substitutes for real players"
+framing and the `docs/18` human-like program, both kept as history.)
 
 ## Current hypothesis
 

@@ -6,6 +6,13 @@ Status: living document. Keep this updated as sources are verified, forked, pinn
 
 This document maps the core sources Komodobots depends on. It should help Codex and humans avoid rediscovering context and avoid using stale assumptions.
 
+## Program of record
+
+`docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md` (owner re-plan, 2026-06-26) is the current program of record: the
+4-phase MLOps plan for **Megalodon Milton** (information-honest superhuman bot; RL; route-first validation).
+It supersedes the human-like `docs/18_BENCH_ITERATED_BOT_PROGRAM.md`. GitHub: milestones Phase 1–4 (#4–#7),
+label `mlops-pivot`, epics #414–#417, tickets #418–#434.
+
 ## Primary implementation sources
 
 ### KTX server-side Frogbots

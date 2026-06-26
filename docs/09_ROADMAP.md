@@ -2,10 +2,10 @@
 
 Status: living document.
 
-> **Program of record:** `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` (greenfield, 2026-06-16). The
-> "Current Stage" (QWD-DM3-SNG) and the staged S0–S7 table below are **superseded** by the
-> bench-iterated phases in `docs/18`; they are kept here as history. Treat `docs/18` as the
-> live stage ladder.
+> **Program of record:** `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md` (owner re-plan, 2026-06-26) — the
+> 4-phase MLOps program for **Megalodon Milton** (information-honest superhuman bot; RL; route-first
+> validation). It supersedes both the bench-iterated `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` and the staged
+> S0–S7 / "Current Stage" ladder below; all are kept here as history. Treat `docs/28` as the live plan.
 
 ## North Star
 

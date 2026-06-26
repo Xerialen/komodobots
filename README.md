@@ -4,9 +4,11 @@ Komodobots is a QuakeWorld bot research lab.
 
 The project exists to answer one larger question:
 
-> Can QuakeWorld bots become realistic enough to act as believable substitutes for real players?
+> How strong a QuakeWorld bot can we build if its only constraint is information honesty?
 
-The program of record is **`docs/18_BENCH_ITERATED_BOT_PROGRAM.md`** (greenfield, 2026-06-16): a learned move+aim+decision DM3 4on4 stand-in, modeled on real elite human demos, measured on a 4v4 bench. The data that feeds it is contracted in `docs/25_DATA_CONTRACT.md`.
+The goal is **Megalodon Milton**: the strongest bot possible — it may move, aim and play **better than the best humans** — bound by one rule, that it acts only on what it can **see or hear itself, or read in teamsay** (never omniscient engine state). Method = **reinforcement learning on rewards**, validated **route-first** (MSE vs elite-human ground truth), not by a believability bench.
+
+The program of record is **`docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md`** (owner re-plan, 2026-06-26), a 4-phase MLOps program. It supersedes the earlier human-like bench program `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` (kept as history). The data that feeds it is contracted in `docs/25_DATA_CONTRACT.md`.
 
 This repository is not primarily about making Frogbots bunnyhop. Movement (bunnyjumping) was the first visible and measurable bottleneck on the path toward realistic player and match simulation; the earlier "DM2 big room movement lab" framing in older docs is historical context, not the current plan.
 
@@ -15,9 +17,9 @@ This repository is not primarily about making Frogbots bunnyhop. Movement (bunny
 Komodobots may later support either or both of these tracks:
 
 1. **FantasyQuake** — simulated matches, seasons, drafts, and player value based on real QuakeWorld data.
-2. **Megalodon Milton** — player-specific agents that try to imitate elite players, starting with Milton, from MVD-derived evidence.
+2. **Megalodon Milton** — the strongest-possible, information-honest bot (the current program of record, `docs/28`). Originally framed as imitating elite players; the target is now to *surpass* them under the honesty constraint.
 
-Both tracks need the same foundation: believable movement, then believable player behaviour, then believable simulation.
+Both tracks build on the same foundation — elite movement first, then aim/combat, then strategy — built as a modular, bottom-up-trained brain hierarchy (see `docs/28`).
 
 ## Start here
 
