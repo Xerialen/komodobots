@@ -289,7 +289,7 @@
 | `pvs_visible` | derived | — | mvd-etl | — | BSP visleaf prefilter NOT sourced (no visdata decoder) -> NULL; optional perf prefilter, LOS is the gate (T8). |
 | `in_fov` | derived | — | mvd-etl | — | target bearing within the observer awareness cone (reuses egocentric angle math) (T8). |
 | `los_clear` | derived | — | mvd-etl | — | raycast observer-eye->target-eye on dm3.bsp hull-0 (pmove_sim) (T8). |
-| `vis_angle_source` | derived | — | mvd-etl | — | 'demoparser' — schema-33 carries real per-tick view yaw/pitch (T8). |
+| `vis_angle_source` | derived | — | mvd-etl | — | 'demoparser' — MVD schema v35 (view angles since v31) carries real per-tick view yaw/pitch (T8). |
 | `last_seen_tick` | structural | — | mvd-etl | — | PK/FK/provenance/split bookkeeping |
 | `last_seen_t_s` | derived | — | mvd-etl | — | belief/memory block carried forward when target invisible (T8). |
 | `last_seen_ox` | derived | — | mvd-etl | yes | belief/memory block carried forward when target invisible (T8). |
@@ -358,8 +358,8 @@
 
 ## Decoder Result inventory (master list)
 
-Sourced from the committed static reference `docs/ml-data-architecture/_source-schemas.md` + qw-analyze schema-33 `-include` groups + getStateAt
-field codes + the QWD `usercmd_t` struct. Referenced by decoder **role**, not tool name.
+Sourced from the committed static reference `docs/ml-data-architecture/_source-schemas.md` reconciled to MVD reader **schema v35** + getStateAt
+field codes + the QWD `usercmd_t` struct. Referenced by decoder **role** + schema version, not tool name.
 
 | decoder field | origin | availability | note |
 |---|---|---|---|

@@ -21,7 +21,7 @@ NO database, hits NO network, runs NO heavy compute. It parses only in-repo text
 
 The **decoder Result inventory** itself is a curated, sourced manifest (DECODER_INVENTORY
 below) anchored in the committed static reference docs/ml-data-architecture/_source-schemas.md
-(mvd_analyzer result/*.go study) + the qw-analyze schema-33 `-include` groups + getStateAt
+(mvd_analyzer result/*.go study) reconciled to MVD reader schema v35 + getStateAt
 field codes. It is data, not code, so it is forward-compatible: as the analyzers evolve, edit
 the manifest, not the diff logic. mvd_analyzer-src is NOT imported (it is a sibling repo, not a
 runtime dependency of komodobots).
@@ -256,7 +256,7 @@ CLASSIFY: "OrderedDict[str, tuple[str, str | None, str]]" = OrderedDict([
     ("actor_visibility.pvs_visible", (DERIVED, None, "BSP visleaf prefilter NOT sourced (no visdata decoder) -> NULL; optional perf prefilter, LOS is the gate (T8).")),
     ("actor_visibility.in_fov", (DERIVED, None, "target bearing within the observer awareness cone (reuses egocentric angle math) (T8).")),
     ("actor_visibility.los_clear", (DERIVED, None, "raycast observer-eye->target-eye on dm3.bsp hull-0 (pmove_sim) (T8).")),
-    ("actor_visibility.vis_angle_source", (DERIVED, None, "'demoparser' — schema-33 carries real per-tick view yaw/pitch (T8).")),
+    ("actor_visibility.vis_angle_source", (DERIVED, None, "'demoparser' — MVD schema v35 (view angles since v31) carries real per-tick view yaw/pitch (T8).")),
     ("actor_visibility.last_seen_ox", (DERIVED, None, "belief/memory block carried forward when target invisible (T8).")),
     ("actor_visibility.time_since_seen_s", (DERIVED, None, "seconds since last-seen (0 visible, NULL never-seen) (T8).")),
     ("actor_visibility.seen_ever", (DERIVED, None, "latches once the observer has ever seen the target (T8).")),
@@ -484,8 +484,8 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
     lines.append("## Decoder Result inventory (master list)")
     lines.append("")
     lines.append("Sourced from the committed static reference "
-                 f"`{SOURCE_SCHEMAS_DOC}` + qw-analyze schema-33 `-include` groups + getStateAt")
-    lines.append("field codes + the QWD `usercmd_t` struct. Referenced by decoder **role**, not tool name.")
+                 f"`{SOURCE_SCHEMAS_DOC}` reconciled to MVD reader **schema v35** + getStateAt")
+    lines.append("field codes + the QWD `usercmd_t` struct. Referenced by decoder **role** + schema version, not tool name.")
     lines.append("")
     lines.append("| decoder field | origin | availability | note |")
     lines.append("|---|---|---|---|")
@@ -603,6 +603,19 @@ def _report_claims_g5_absent(report: str) -> bool:
         if mentions_g5 and claims_absent:
             return True
     return False
+
+
+def _report_advertises_stale_schema33(report: str) -> bool:
+    """True if the generated report still cites the retired `schema-33` provenance.
+
+    WS-0 (#437) reconciled the decoder inventory to MVD reader **schema v35** (it now carries
+    v35-era entries like `state.weapon_active` / `mvd.hidden.usercmd`). The generated report is the
+    load-bearing ML evidence ledger, so it must not simultaneously advertise the superseded
+    schema-33 provenance — that self-contradiction is exactly what Codex blocked PR #437 on. Mirrors
+    _report_claims_g4_absent: a deterministic guard so `--check` fails if a future regen reintroduces
+    stale schema-33 provenance into the report.
+    """
+    return "schema-33" in report.lower()
 
 
 def run_self_checks() -> None:
@@ -739,6 +752,16 @@ def run_self_checks() -> None:
             "report contradiction (T7 #395): the [G]/[R]/leg-phase columns classify as DERIVED "
             "(schema-defined + populated), yet the report prose still asserts the G5 columns are "
             "absent from the schema. Update the scoping paragraph to mark G5 as ADDRESSED by T7.")
+
+    # Anti-recurrence guard (#437): the inventory is reconciled to MVD reader schema v35 (it carries
+    # v35-era entries like state.weapon_active / mvd.hidden.usercmd), so the generated report must NOT
+    # still advertise the retired schema-33 provenance — that self-contradiction was the PR #437 block.
+    inventory_is_v35 = "state.weapon_active" in DECODER_INVENTORY
+    if inventory_is_v35 and _report_advertises_stale_schema33(report):
+        raise AssertionError(
+            "report contradiction (#437): the decoder inventory is schema-v35-based (state.weapon_active "
+            "present), yet the generated report still advertises retired `schema-33` provenance. Update "
+            "the build_report provenance text (+ any schema-33 CLASSIFY reason) and regenerate.")
 
     print("self-checks: OK")
 
