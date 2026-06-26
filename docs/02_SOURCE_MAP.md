@@ -1048,11 +1048,12 @@ Why it matters:
 - Reportedly shows bunnyjump technique with live key/button presses.
 - Not a core dependency for the first lab.
 
-## QuakeWorld ecosystem tooling (DM3 4on4 stand-in program)
+## QuakeWorld ecosystem tooling
 
-Registered for the `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` program (the earlier
-`references/12_DM3_4ON4_STANDIN_PROGRAM.md` is retained as background). All verified on disk under
-`C:\Users\benya\projects\quakeworld\`. Pin commits before relying on behaviour.
+This tooling was registered for the (now-superseded) `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` program; it
+remains the valid data / movement-analysis tooling under the current program of record
+`docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md` (`references/12_DM3_4ON4_STANDIN_PROGRAM.md` is background).
+All verified on disk under `C:\Users\benya\projects\quakeworld\`. Pin commits before relying on behaviour.
 
 - **mvd_analyzer** — `tools/mvd_analyzer` (Go, Schema v32; REST + MCP + `qw-analyze` CLI). Macro /
   economy signal from MVD server demos: `damage` (per-hit, given/taken, EWep buckets, matrix),
@@ -1073,7 +1074,8 @@ Registered for the `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` program (the earlier
 
 ### Program & external movement-AI references
 
-- `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` — the program of record (greenfield bench-iterated human-like DM3 bot).
+- `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md` — **the program of record** (Megalodon Milton MLOps program; RL, route-first).
+- `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` — **SUPERSEDED** by docs/28; the earlier greenfield bench-iterated human-like DM3 bot program, retained as history.
 - `docs/19_ARCHITECTURE_AND_GOTCHAS.md` — the live-loop architecture map plus the hard-won
   particularities and prior mistakes (slot seating, MSHM capacity + drift guard, the silent
   fallback trap, remote-shell quoting, speed-metric source, the merge gate + Codex review

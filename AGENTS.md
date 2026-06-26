@@ -46,6 +46,11 @@ framing and the `docs/18` human-like program, both kept as history.)
 
 ## Current hypothesis
 
+> **Historical status (movement line, 2026-06-22).** The detailed status below predates the 2026-06-26
+> pivot; the live plan is `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md`. The core hypothesis (KTX/Frogbots as
+> a server-native shell with a replaced movement brain) still holds — it is exactly docs/28's Motor-Cortex
+> approach — and RL-on-speed is now the method, but the "believable"/G-MV framing here is superseded.
+
 KTX/Frogbots may be usable as a server-native bot shell while replacing or enhancing the movement brain.
 
 This is unproven.
@@ -269,6 +274,10 @@ Answer these in the final message, PR body, PR comment, or commit summary:
 - What is the next smallest useful experiment?
 
 ## Do not do these first
+
+_(Historical first-lab guidance — superseded by `docs/28`. The lab is built; under the pivot, velocity/speed
+IS a primary movement reward, so "do not treat speed alone as success" no longer applies as written. Kept
+for context; the live first step is docs/28 Phase 1.)_
 
 Do not start by training Milton.
 Do not start by rewriting Frogbots.

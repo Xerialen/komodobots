@@ -37,6 +37,8 @@ Bunnyjumping -> Movement Realism -> Player Realism -> Simulation Realism
 
 ## Current focus
 
+_(Live plan is `docs/28` Phase 1; movement remains the focus — it is Brain 1, the Motor Cortex.)_
+
 The largest visible gap today is movement.
 
 The largest visible gap inside movement is bunnyjumping.

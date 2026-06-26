@@ -18,6 +18,10 @@ They are experiments toward that bot. (Supersedes the earlier "believable substi
 
 ## First objective
 
+> **Historical (the lab is long-built).** This section is superseded by `docs/28`. The active objective is
+> **docs/28 Phase 1** (epic #414): the data pipeline + Route Canon + the Commander/Motor-Cortex handoff PoC.
+> The lab described below already exists.
+
 Do NOT implement a bunnyjump controller.
 
 First establish a repeatable laboratory that can:

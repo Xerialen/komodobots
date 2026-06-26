@@ -1,13 +1,17 @@
 # Project Brief
 
-> **Program of record:** `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` (greenfield, approved
-> 2026-06-16; see `docs/00_VISION_AND_NORTH_STAR.md` and `docs/08_DECISION_LOG.md`). This
-> brief predates that reset: the "headless DM2 movement lab" first-goal and the
-> aim/Milton/teamplay non-goals below are **historical first-objective context**, not the
-> current plan. The current target is a learned move+aim+decision DM3 4on4 stand-in
-> (Milton-first). Read `docs/18` for the live goal and `docs/25_DATA_CONTRACT.md` for the data.
+> **Program of record:** `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md` (owner re-plan, 2026-06-26; see
+> `docs/00_VISION_AND_NORTH_STAR.md`). **This entire brief is historical.** The "headless DM2 movement
+> lab" first-goal and the non-goals below predate two resets; and the "believable substitutes / human-like
+> 4on4 stand-in" framing — together with `docs/18_BENCH_ITERATED_BOT_PROGRAM.md` — is itself now
+> **superseded** by docs/28: the goal is the information-honest superhuman bot (Megalodon Milton), trained
+> by RL and validated route-first. Read `docs/28` for the live goal and `docs/25_DATA_CONTRACT.md` for the
+> data mechanics.
 
 ## Primary question
+
+_(Historical — superseded by docs/28. The goal is no longer "believable substitutes" but the
+strongest-possible, information-honest bot; see `docs/28` / `docs/00`.)_
 
 Can QuakeWorld bots become realistic enough to act as believable substitutes for real players?
 
