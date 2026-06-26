@@ -23,6 +23,10 @@ Prioritize concrete defects and merge risks:
 - Missing or broken tests where changed behavior creates real regression risk.
 - Missing test-case evidence for user-facing behavior that agents are expected
   to validate repeatedly.
+- Hand-edits to generated files (those carrying an `AUTO-GENERATED — DO NOT HAND-EDIT`
+  header, e.g. the registry's generated constants / obs spec): they must be regenerated
+  from their source, not edited by hand — the zero-diff CI gate
+  (`tests/test_registry_generate.py`) is the proof.
 
 Do not block on style, naming, formatting, roadmap taste, or documentation drift
 unless it creates a concrete defect or merge-safety risk.

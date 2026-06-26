@@ -1,6 +1,6 @@
 """Unit tests for scripts/audit_extraction_coverage.py — the T1 coverage audit (#389).
 
-Pure stdlib + PyYAML (already a repo dep). Loads NO database, hits NO network. Exercises:
+Pure stdlib (the feature registry is JSON since T1.1 #418). Loads NO database, hits NO network. Exercises:
   * the schema/ETL/registry text parsers on the real in-repo artifacts,
   * the per-column classification verdicts (the load-bearing extracted/derived/excluded/GAP),
   * the self-check gate (asserts the known GAP fields classify GAP, no UNCLASSIFIED column),
@@ -53,14 +53,14 @@ class TestParsers(unittest.TestCase):
         self.assertIn("weapon", etl["player_ticks"])
 
     def test_registry_references_resource_gaps(self):
-        refs = audit.parse_registry_sources(audit.REGISTRY_YAML)
+        refs = audit.parse_registry_sources(audit.REGISTRY_JSON)
         # registry v5 DEFINES features over the unpopulated resource columns
         self.assertIn("player_ticks.health", refs)
         self.assertIn("player_ticks.armor", refs)
 
     def test_registry_captures_mixedcase_and_digit_columns(self):
         # source tokens whose column carries uppercase/digits must not be dropped
-        refs = audit.parse_registry_sources(audit.REGISTRY_YAML)
+        refs = audit.parse_registry_sources(audit.REGISTRY_JSON)
         self.assertIn("region_control_timeline.teamA_control", refs)
         self.assertIn("audio_cues.intensity0", refs)
 
@@ -130,7 +130,7 @@ class TestClassification(unittest.TestCase):
         schema = audit.parse_schema_tables(audit.SCHEMA_SQL)
         etl_mvd = audit.parse_etl_inserts(audit.ETL_MVD)
         etl_qwd = audit.parse_etl_inserts(audit.ETL_QWD)
-        refs = audit.parse_registry_sources(audit.REGISTRY_YAML)
+        refs = audit.parse_registry_sources(audit.REGISTRY_JSON)
         report, _ = audit.build_report(schema, etl_mvd, etl_qwd, refs)
         self.assertIn("Training connection (T9 #397", report)
         self.assertIn("dataset_spec.yaml", report)
@@ -172,7 +172,7 @@ class TestReport(unittest.TestCase):
         schema = audit.parse_schema_tables(audit.SCHEMA_SQL)
         etl_mvd = audit.parse_etl_inserts(audit.ETL_MVD)
         etl_qwd = audit.parse_etl_inserts(audit.ETL_QWD)
-        refs = audit.parse_registry_sources(audit.REGISTRY_YAML)
+        refs = audit.parse_registry_sources(audit.REGISTRY_JSON)
         r1, c1 = audit.build_report(schema, etl_mvd, etl_qwd, refs)
         r2, c2 = audit.build_report(schema, etl_mvd, etl_qwd, refs)
         self.assertEqual(r1, r2, "report generation must be deterministic")
@@ -194,7 +194,7 @@ class TestReport(unittest.TestCase):
         schema = audit.parse_schema_tables(audit.SCHEMA_SQL)
         etl_mvd = audit.parse_etl_inserts(audit.ETL_MVD)
         etl_qwd = audit.parse_etl_inserts(audit.ETL_QWD)
-        refs = audit.parse_registry_sources(audit.REGISTRY_YAML)
+        refs = audit.parse_registry_sources(audit.REGISTRY_JSON)
         report, _ = audit.build_report(schema, etl_mvd, etl_qwd, refs)
 
         # T6 columns really are extracted, so the contradiction would be live if the prose said absent.
@@ -218,7 +218,7 @@ class TestReport(unittest.TestCase):
         schema = audit.parse_schema_tables(audit.SCHEMA_SQL)
         etl_mvd = audit.parse_etl_inserts(audit.ETL_MVD)
         etl_qwd = audit.parse_etl_inserts(audit.ETL_QWD)
-        refs = audit.parse_registry_sources(audit.REGISTRY_YAML)
+        refs = audit.parse_registry_sources(audit.REGISTRY_JSON)
         report, _ = audit.build_report(schema, etl_mvd, etl_qwd, refs)
 
         # The T7 columns really are schema-present (DERIVED), so the contradiction would be live.

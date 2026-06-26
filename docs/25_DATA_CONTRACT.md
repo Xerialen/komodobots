@@ -38,10 +38,38 @@ MoveMLP (`experiments/stage2/move-bc-train/train.py`, view/aim replayed from the
 `docs/19_ARCHITECTURE_AND_GOTCHAS.md`) with success on the 4v4 dm3 leap-vs-frog frag margin is the **old
 serving model that the docs/28 P1–P3 movement brain replaces**. The **evolution of the feature vector /
 training target** to the docs/28 feature store and RL observation space is owned by tickets **T1.1 (#418,
-Feature-Registry→JSON)**, **T1.2 (#419, unified catalog writer)**, and **T4.1 (#425, Parquet offline
-store)** — each of which, per the binding rule above, must move this contract + schema + golden example +
-tests together in the **same PR**. Until then the extracted rows below remain valid as the data line that
-feeds the pivot; this docs-only PR changes none of them.
+Feature-Registry→JSON — LANDED, see §1.1)**, **T1.2 (#419, unified catalog writer)**, and **T4.1 (#425,
+Parquet offline store)** — each of which, per the binding rule above, must move this contract together with
+whatever data-contract surface it actually touches in the **same PR**. Note the **docs/28 feature-store
+surface** (the `feature_registry` / `dataset_spec` / `normalization_stats` family — §1.1) is **distinct**
+from the **Layer-A raw-row contract** that sections 2–6 below pin (`build_training_dataset.py`'s 11-field
+NDJSON + `move_world_view` 6-dim vector + its schema/golden/extraction-spec/tests): **T1.1 migrated the
+former (YAML→JSON) and left the latter byte-unchanged** (no Layer-A field added, renamed, or reordered).
+Until the remaining tickets land, the extracted rows below remain valid as the data line that feeds the pivot.
+
+### 1.1 Feature registry — the docs/28 feature-store surface (generate-first, T1.1 #418)
+
+The docs/28 movement-brain observation space is declared in **`data/catalog/feature_registry.json`**
+(migrated from YAML in T1.1; `registry_version` 5). It is the **single source** for the obs-vector layout:
+its `observation` block — the explicit, load-bearing SELF / entity / action channel order plus the v5
+history dims — is the authority the live + offline encoder (`scripts/features/agent_observation.py`) and the
+shard contract (`ml/broad_bc/shard_contract.py`) both **import** (no hand-copied dims; the `onground` SELF
+channel, previously in the encoder but unregistered, is now a registered feature).
+
+`scripts/generate_from_registry.py` (pure stdlib) **derives** two committed artifacts from the registry —
+`scripts/features/registry_constants_generated.py` and `data/catalog/obs_spec.generated.json` (each carries
+an `AUTO-GENERATED — DO NOT HAND-EDIT` header) — and **validates** (never overwrites) the curated artifacts
+that legitimately hold config the registry does not: every feature `source:` must exist in
+`scripts/catalog_schema.sql`; every fitted feature must have a matching key + method in
+`data/catalog/normalization_stats.template.json` (which keeps the *verified* map AABB bounds); and
+`data/catalog/dataset_spec.yaml`'s `registry_version` / `N_max` must match; and every emitted
+observation-layout channel (`self_layout` / `entity_layout` / `action_layout`) must resolve to a registered
+feature or a documented `<base>_sincos` flattening, so a model input can never be emitted without a
+declaration (fail-closed). The gating check
+`tests/test_registry_generate.py` fails the build if regenerating the generated files produces any diff
+(definition drift) or if a linkage breaks. **Edit the registry, then regenerate — never hand-edit a
+generated file.** Changing this surface (adding / renaming / reordering an obs channel) moves
+`feature_registry.json` + the regenerated artifacts + `tests/test_registry_generate.py` in the same PR.
 
 ## 2. WHERE — data sources
 

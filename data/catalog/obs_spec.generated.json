@@ -1,0 +1,59 @@
+{
+  "_doc": "AUTO-GENERATED from data/catalog/feature_registry.json by scripts/generate_from_registry.py — DO NOT HAND-EDIT. Regenerate with: python scripts/generate_from_registry.py",
+  "schema": "komodobots.obs_spec.v1",
+  "registry_version": 5,
+  "self_layout": [
+    "pos_x_norm",
+    "pos_y_norm",
+    "pos_z_norm",
+    "vel_x_z",
+    "vel_y_z",
+    "vel_z_z",
+    "hspeed_norm",
+    "vel_heading_sin",
+    "vel_heading_cos",
+    "yaw_sin",
+    "yaw_cos",
+    "pitch_sin",
+    "pitch_cos",
+    "onground",
+    "health_norm",
+    "armor_norm",
+    "yaw_rate_z",
+    "face_vel_angle_norm",
+    "goal_heading_sin",
+    "goal_heading_cos",
+    "goal_dist_norm"
+  ],
+  "self_dim": 21,
+  "self_history": 16,
+  "self_history_dim": 336,
+  "entity_layout": [
+    "entity_rel_dist_norm",
+    "entity_rel_bearing_sin",
+    "entity_rel_bearing_cos",
+    "entity_rel_pitch_sin",
+    "entity_rel_pitch_cos",
+    "entity_rel_vel_x",
+    "entity_rel_vel_y",
+    "entity_rel_vel_z",
+    "entity_health_est_norm",
+    "entity_armor_est_norm",
+    "entity_alive",
+    "entity_is_teammate",
+    "entity_is_visible"
+  ],
+  "entity_dim": 13,
+  "action_layout": [
+    "forwardmove",
+    "sidemove",
+    "upmove",
+    "jump_button",
+    "attack_button"
+  ],
+  "action_dim": 5,
+  "n_max": 7,
+  "required_norm_keys": [
+    "yaw_rate"
+  ]
+}

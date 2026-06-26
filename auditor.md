@@ -88,6 +88,15 @@ in every fix PR:
 - **Contract moves together.** A change to the data contract, its schema, its
   golden example, and its test must travel in the **same PR**. A schema without a
   test, or an example that no test validates, is not a contract.
+- **Generated files derive from their source; never hand-edited.** A file generated
+  from a declarative source (`scripts/features/registry_constants_generated.py` and
+  `data/catalog/obs_spec.generated.json` from `data/catalog/feature_registry.json` via
+  `scripts/generate_from_registry.py`; the `extraction-coverage-audit.md`) carries an
+  `AUTO-GENERATED — DO NOT HAND-EDIT` header and must be **regenerated, not edited by
+  hand**. Any PR that changes the source MUST regenerate the artifacts in the same PR;
+  the gating check `tests/test_registry_generate.py` fails the build if regenerating
+  produces a diff (definition drift) or if a feature `source:` / normalization key no
+  longer links to the schema / norm template. Flag a hand-edit to a generated file as drift.
 - **Number-before-you-assign, on every branch.** Before giving any doc a
   `docs/NN_` number, verify `NN` is free on `main`, on `dev`, **and** on every
   open feature branch. A number that is free on one branch but used for a

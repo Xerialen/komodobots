@@ -125,7 +125,7 @@ scratch file; agent memory went stale on the RL state). Make the knowledge infra
   `mvd-analytics/result/*` (`result.go`, `streams.go` PlayerStream, `damage.go`, `items.go`),
   `RESULT_SCHEMA.md`.
 - Current extraction: `scripts/catalog_etl_mvd.py`, `scripts/catalog_etl_qwd.py` +
-  `tools/qwd_usercmd/qwd_usercmd.py`, `scripts/catalog_schema.sql`, `data/catalog/feature_registry.yaml` (v5).
+  `tools/qwd_usercmd/qwd_usercmd.py`, `scripts/catalog_schema.sql`, `data/catalog/feature_registry.json` (v5).
 - Derivation primitives: `scripts/pmove_sim.py` (bsp traces), `data/catalog/item_catalog.dm3.json` +
   `nav_edges.dm3.json`, `experiments/route_observatory/route_legs.py` (#334), `scripts/gmv_believability.py`.
 - Corpora (servexeri): `/mnt/usb-ssd/4on4-corpus/demos/` (6,409 MVD),
@@ -249,7 +249,7 @@ table before the run" gate.
 
 The right artifact is a **Movement Data & Feature Specification** (`docs/NN_MOVEMENT_DATA_SPEC.md`) — a
 standing document, not a throwaway prep plan. We are **not** starting from scratch: much of the
-field-level contract exists, scattered and never consolidated — `data/catalog/feature_registry.yaml`
+field-level contract exists, scattered and never consolidated — `data/catalog/feature_registry.json`
 (registry **v5**: the 21-dim SELF, 13-dim ENTITY, goal fields, each with source column + norm + role),
 `scripts/catalog_schema.sql` (`catalog.v1`: tables/types/FKs + provenance `label_source` /
 `confidence` / `is_interp` / `onground_is_proxy`), and the `docs/` evidence chain
@@ -266,7 +266,7 @@ representation walls.
 ### Phase 0 — author the Movement Data & Feature Specification (the standing artifact)
 One living doc `docs/NN_MOVEMENT_DATA_SPEC.md` = the single source of truth for what the model
 consumes. It (a) **consolidates** the existing registry + schema *by reference* (do not duplicate —
-point at `feature_registry.yaml` v5 + `catalog_schema.sql` as the field-level source of truth); and
+point at `feature_registry.json` v5 + `catalog_schema.sql` as the field-level source of truth); and
 (b) **adds the missing layers**, each with: definition, units, source/derivation, provenance, role
 (input / target / filter / held-out), and train-vs-eval plane:
 - the **fidelity contract** (the rate / interpolation decision — finalized by Phase A);

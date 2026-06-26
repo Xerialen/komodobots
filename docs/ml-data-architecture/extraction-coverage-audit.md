@@ -8,7 +8,7 @@
 > Read-only audit for Demo Extraction Spec v1 (`docs/27` §3.9/§7), ticket #389 (T1),
 > epic #388. Loads NO database, hits NO network. It enumerates the decoder Result
 > inventory (anchored in `docs/ml-data-architecture/_source-schemas.md`) and diffs it against the operative
-> schema `scripts/catalog_schema.sql`, `data/catalog/feature_registry.yaml`, and what
+> schema `scripts/catalog_schema.sql`, `data/catalog/feature_registry.json`, and what
 > `catalog_etl_mvd.py` / `catalog_etl_qwd.py` actually populate. Classifies every
 > catalog column **extracted / derived / excluded-with-reason / GAP**.
 
@@ -157,7 +157,7 @@
 | `yaw` | extracted | mvd.view.pitchyaw | mvd-etl, qwd-etl | yes | ETL writes view yaw |
 | `roll` | extracted | mvd.view.pitchyaw | mvd-etl, qwd-etl | — | ETL writes view roll |
 | `hspeed` | derived | mvd.velocity.xyz | mvd-etl, qwd-etl | yes | hypot(vx,vy) computed by ETL |
-| `onground` | derived | mvd.pos.xyz | mvd-etl, qwd-etl | — | geometric onground proxy (pmove_sim); MVD has no server flag |
+| `onground` | derived | mvd.pos.xyz | mvd-etl, qwd-etl | yes | geometric onground proxy (pmove_sim); MVD has no server flag |
 | `onground_is_proxy` | derived | — | mvd-etl, qwd-etl | — | ETL flags proxy provenance (always TRUE for MVD) |
 | `waterlevel` | excluded-with-reason | mvd.liquid.waterlevel | — | — | decoder CAN emit via -include liquid; ETL does NOT request it -> left NULL |
 | `health` | extracted | state.health | mvd-etl | yes | MVD ETL forward-fills the `-event-types health` value step-timeline onto each tick (T3). NULL on QWD (not yet wired). |

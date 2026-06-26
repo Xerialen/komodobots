@@ -19,7 +19,7 @@ when the modelling method changes.
 
 > **Change-control (inherited from `docs/25` §5).** Do not add, rename, or retype an extracted
 > field without updating, in the same PR: this document, `scripts/catalog_schema.sql`,
-> `data/catalog/feature_registry.yaml`, and the relevant tests. Decisions → `docs/08_DECISION_LOG.md`;
+> `data/catalog/feature_registry.json`, and the relevant tests. Decisions → `docs/08_DECISION_LOG.md`;
 > newly discovered source-data behaviour → `docs/07_FINDINGS_LOG.md`.
 
 ---
@@ -33,7 +33,7 @@ when the modelling method changes.
 | `docs/13_QWD_MVD_FUSION_PLAN.md` | The two-source QWD+MVD fusion roadmap (opponent-collision physics). | The plan that motivates the two-source design; §2 here is its data contract. |
 | `docs/06_DATA_AND_MVD_PIPELINE.md` | Narrative + the QWD-POV usercmd-label apparatus and moveprobe history. | Prior art for §2/§4 (not the normative extraction). |
 | `docs/02_SOURCE_MAP.md` | Software sources (KTX, MVDSV, parsers) + parser-pinning warning. | Provenance source for §2. This spec is registered there. |
-| `scripts/catalog_schema.sql` (`catalog.v1`) · `data/catalog/feature_registry.yaml` (v5) | The machine-readable schema + feature registry. | The binding artifacts §3/§7 reference field-by-field. |
+| `scripts/catalog_schema.sql` (`catalog.v1`) · `data/catalog/feature_registry.json` (v5) | The machine-readable schema + feature registry. | The binding artifacts §3/§7 reference field-by-field. |
 
 ---
 
@@ -365,7 +365,7 @@ explicit and normative:
   `actor_ticks` (T7 #395 — no new table). Optional per-consumer **parquet** export; SQLite remains
   canonical.
 - **Raw-maximal principle:** store observed + finite-diff + geometry-derived; do **not** store
-  model-specific normalized obs (those are built downstream from `feature_registry.yaml`).
+  model-specific normalized obs (those are built downstream from `feature_registry.json`).
 - **Completeness method:** the coverage audit (§3.9) diffs the populated catalog against the decoder
   Result inventory → a committed **coverage report** (extracted / derived / excluded-with-reason).
   **Current state:** the movement slice plus the §3.3/3.5/3.6 omniscient world are populated — T3
@@ -403,7 +403,7 @@ explicit and normative:
   migration note in `docs/08_DECISION_LOG.md`, flagged ≥30 days ahead where it affects committed data.
 - **Durable home:** this doc in `docs/`, registered in `docs/02_SOURCE_MAP.md` + the evidence chain
   (`docs/21_ML_EVIDENCE_CHAIN_GATE.md`); the binding schema is `scripts/catalog_schema.sql` +
-  `data/catalog/feature_registry.yaml`; provenance per §2. The plans live in `plans/` (committed).
+  `data/catalog/feature_registry.json`; provenance per §2. The plans live in `plans/` (committed).
 - **No tool names in the contract** — decoders referenced by role + binary sha + schema version, so a
   rename of the analyzers does not break the spec.
 
@@ -440,7 +440,7 @@ row + a catalog column with the same metadata discipline:
   calibration set.
 - **[M]:** decoder-emitted frame-coverage / drop diagnostics.
 
-When the new data arrives: add the §3 rows, extend `catalog_schema.sql` + `feature_registry.yaml`,
+When the new data arrives: add the §3 rows, extend `catalog_schema.sql` + `feature_registry.json`,
 re-run the coverage audit (§3.9), bump the minor version (§8). **No re-parse of already-extracted
 fields is required** — that is the point of this spec.
 

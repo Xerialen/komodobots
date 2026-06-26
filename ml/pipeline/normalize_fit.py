@@ -108,7 +108,7 @@ def robust_spec(values, clip=None) -> dict:
 # --- train-only catalog fit ---------------------------------------------------
 # The per-map velocity zscore keys (vel_x/y/z) are fitted here; the agent_observation
 # transform REUSES them for the egocentric entity_rel_vel_* channels (no separate
-# fitted key — feature_registry.yaml). hspeed is robust. Position is the static map
+# fitted key — feature_registry.json). hspeed is robust. Position is the static map
 # AABB (minmax), not fitted from data, so it is carried from the template/maps.v1.
 # yaw_rate (the turn-direction signal) is zscore, fitted from consecutive-tick view-yaw
 # deltas using the SAME AO.yaw_rate_degps the build + inference call (so the fitted

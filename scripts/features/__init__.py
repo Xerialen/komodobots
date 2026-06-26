@@ -1,7 +1,7 @@
 """komodobots feature-transform math (C3) — pure standard library.
 
 The canonical implementation of the per-feature normalization and egocentric
-geometry described by feature_registry.yaml and normalization_stats.json. Imported
+geometry described by feature_registry.json and normalization_stats.json. Imported
 by BOTH the offline feature build (ml/) and the live bot, so the same vector math
 runs at train time and inference time (the in-tree/out-of-tree parity guarantee).
 

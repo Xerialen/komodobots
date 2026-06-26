@@ -14,7 +14,7 @@ This is the §7 validation gate and the map that scopes T2–T9. It is **read-on
 NO database, hits NO network, runs NO heavy compute. It parses only in-repo text artifacts:
 
   * scripts/catalog_schema.sql            — the OPERATIVE schema (catalog_load.py loads it)
-  * data/catalog/feature_registry.yaml    — registry_version 5 feature `source:` references
+  * data/catalog/feature_registry.json    — registry_version 5 feature `source:` references
   * scripts/catalog_etl_mvd.py            — INSERT column lists actually populated (MVD)
   * scripts/catalog_etl_qwd.py            — INSERT column lists actually populated (QWD)
   * tools/qwd_usercmd/qwd_usercmd.py       — the QWD usercmd struct (ground-truth action oracle)
@@ -34,6 +34,7 @@ Regenerate the committed report:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import re
 import sys
@@ -44,7 +45,7 @@ LOGGER = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_SQL = REPO_ROOT / "scripts" / "catalog_schema.sql"
-REGISTRY_YAML = REPO_ROOT / "data" / "catalog" / "feature_registry.yaml"
+REGISTRY_JSON = REPO_ROOT / "data" / "catalog" / "feature_registry.json"
 ETL_MVD = REPO_ROOT / "scripts" / "catalog_etl_mvd.py"
 ETL_QWD = REPO_ROOT / "scripts" / "catalog_etl_qwd.py"
 QWD_USERCMD = REPO_ROOT / "tools" / "qwd_usercmd" / "qwd_usercmd.py"
@@ -385,31 +386,24 @@ def parse_etl_inserts(etl_path: Path) -> "dict[str, set[str]]":
     return out
 
 
-def parse_registry_sources(yaml_path: Path) -> "dict[str, set[str]]":
+def parse_registry_sources(registry_json: Path) -> "dict[str, set[str]]":
     """Map each `table.column` -> {feature names that reference it} from feature `source:`.
 
-    Parsed with a stdlib line-scan rather than PyYAML — this script is part of the
-    deterministic CI floor and CI has no PyYAML. Within the `feature_groups:` region we
-    track the current `name:` and pull `table.column` tokens out of each `source:` value.
+    Reads the JSON registry (T1.1 #418 migrated feature_registry.json -> .json). Stdlib `json`
+    only — this script is part of the deterministic CI floor and CI has no PyYAML. Walks every
+    feature in feature_groups and pulls `table.column` tokens out of each `source:` value
+    (documentation-only `_`-prefixed keys are skipped by the structure — features are real dicts).
     """
     refs: "dict[str, set[str]]" = {}
-    in_groups = False
-    cur_name = "?"
-    for raw in yaml_path.read_text(encoding="utf-8").splitlines():
-        stripped = raw.strip()
-        if not in_groups:
-            if re.match(r"^feature_groups\s*:", stripped):
-                in_groups = True
-            continue
-        m = re.match(r"^-?\s*name\s*:\s*(.+?)\s*$", stripped)
-        if m:
-            cur_name = m.group(1).strip().strip("\"'")
-            continue
-        if re.match(r"^source\s*:", stripped):
-            value = stripped.split(":", 1)[1]
-            # column names may carry uppercase/digits (teamA_control, intensity0);
-            # table starts with a letter/underscore so numeric literals (0.5) don't match.
-            for token in re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*\.[A-Za-z0-9_]+)\b", value):
+    reg = json.loads(Path(registry_json).read_text(encoding="utf-8"))
+    for _group, feats in reg.get("feature_groups", {}).items():
+        for fe in feats:
+            if not isinstance(fe, dict):
+                continue
+            cur_name = str(fe.get("name", "?"))
+            # column names may carry uppercase/digits (teamA_control, intensity0); a table starts
+            # with a letter/underscore so numeric literals (0.5) don't match.
+            for token in re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*\.[A-Za-z0-9_]+)\b", str(fe.get("source", ""))):
                 refs.setdefault(token, set()).add(cur_name)
     return refs
 
@@ -452,7 +446,7 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
     lines.append("> Read-only audit for Demo Extraction Spec v1 (`docs/27` §3.9/§7), ticket #389 (T1),")
     lines.append("> epic #388. Loads NO database, hits NO network. It enumerates the decoder Result")
     lines.append(f"> inventory (anchored in `{SOURCE_SCHEMAS_DOC}`) and diffs it against the operative")
-    lines.append("> schema `scripts/catalog_schema.sql`, `data/catalog/feature_registry.yaml`, and what")
+    lines.append("> schema `scripts/catalog_schema.sql`, `data/catalog/feature_registry.json`, and what")
     lines.append("> `catalog_etl_mvd.py` / `catalog_etl_qwd.py` actually populate. Classifies every")
     lines.append("> catalog column **extracted / derived / excluded-with-reason / GAP**.")
     lines.append("")
@@ -606,7 +600,7 @@ def run_self_checks() -> None:
     schema = parse_schema_tables(SCHEMA_SQL)
     etl_mvd = parse_etl_inserts(ETL_MVD)
     etl_qwd = parse_etl_inserts(ETL_QWD)
-    registry_refs = parse_registry_sources(REGISTRY_YAML)
+    registry_refs = parse_registry_sources(REGISTRY_JSON)
 
     # Schema parse sanity: the v2 4on4 tables must all be present.
     for t in ("player_ticks", "actor_ticks", "actions", "item_events", "frag_events",
@@ -753,7 +747,7 @@ def main(argv=None) -> int:
     schema = parse_schema_tables(SCHEMA_SQL)
     etl_mvd = parse_etl_inserts(ETL_MVD)
     etl_qwd = parse_etl_inserts(ETL_QWD)
-    registry_refs = parse_registry_sources(REGISTRY_YAML)
+    registry_refs = parse_registry_sources(REGISTRY_JSON)
     report, counts = build_report(schema, etl_mvd, etl_qwd, registry_refs)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(report, encoding="utf-8")
