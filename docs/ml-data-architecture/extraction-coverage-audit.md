@@ -359,7 +359,7 @@
 ## Decoder Result inventory (master list)
 
 Sourced from the committed static reference `docs/ml-data-architecture/_source-schemas.md` reconciled to MVD reader **schema v35** + getStateAt
-field codes + the QWD `usercmd_t` struct. MVD rows are keyed by decoder **role** + schema version; the QWD rows name the current stage-0 `qwd_usercmd` source — re-keying them to the qwd-analyzer `q*.v1` contract is deferred to WS-3 (#442).
+field codes + the QWD POV usercmd decoder contract. MVD rows name the decoder endpoint at schema v35; QWD rows name the in-repo contract-id `komodobots.qwd_usercmd.v1` (consumed by `catalog_etl_qwd.py` today). The qwd-analyzer decoder-of-record (`qwd_analyzer.q5_catalog.v1` / `qwd_analyzer.q6_observed_others.v1`) is the WS-3 (#442) target.
 
 | decoder field | origin | availability | note |
 |---|---|---|---|
@@ -394,14 +394,14 @@ field codes + the QWD `usercmd_t` struct. MVD rows are keyed by decoder **role**
 | `demoinfo.scoreboard` | getDemoInfo (KTX scoreboard, Bot skill) | MVD (KTX) | per-player stats; is_bot flag |
 | `provenance.sha` | loadDemo sha256 + map + duration | MVD+QWD | demo provenance |
 | `geom.dm3_bsp` | pmove_sim hull-1 traces over the sha-locked dm3.bsp (NOT a decoder field) | derived | [G] wall/floor/ledge/ramp from BSP collision geometry (T7) |
-| `qwd.usercmd.forwardmove` | QWD usercmd_t.forwardmove | QWD | ground-truth forward input |
-| `qwd.usercmd.sidemove` | QWD usercmd_t.sidemove | QWD | ground-truth side input |
-| `qwd.usercmd.upmove` | QWD usercmd_t.upmove | QWD | ground-truth up input (jump/swim) |
-| `qwd.usercmd.buttons` | QWD usercmd_t.buttons | QWD | button bitfield (jump/attack) |
-| `qwd.usercmd.impulse` | QWD usercmd_t.impulse | QWD | weapon switch |
-| `qwd.usercmd.cmd_angles` | QWD usercmd_t.angles[3] | QWD | commanded view angles deg |
-| `qwd.usercmd.msec` | QWD usercmd_t.msec | QWD | frame duration ms |
-| `qwd.view_angles` | QWD per-record view-angle floats | QWD | resulting view angles deg |
+| `qwd.usercmd.forwardmove` | komodobots.qwd_usercmd.v1 forwardmove | QWD | ground-truth forward input |
+| `qwd.usercmd.sidemove` | komodobots.qwd_usercmd.v1 sidemove | QWD | ground-truth side input |
+| `qwd.usercmd.upmove` | komodobots.qwd_usercmd.v1 upmove | QWD | ground-truth up input (jump/swim) |
+| `qwd.usercmd.buttons` | komodobots.qwd_usercmd.v1 buttons | QWD | button bitfield (jump/attack) |
+| `qwd.usercmd.impulse` | komodobots.qwd_usercmd.v1 impulse | QWD | weapon switch |
+| `qwd.usercmd.cmd_angles` | komodobots.qwd_usercmd.v1 angles[3] | QWD | commanded view angles deg |
+| `qwd.usercmd.msec` | komodobots.qwd_usercmd.v1 msec | QWD | frame duration ms |
+| `qwd.view_angles` | komodobots.qwd_usercmd.v1 view_angles (per-record floats) | QWD | resulting view angles deg |
 
 ## Summary
 
