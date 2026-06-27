@@ -67,6 +67,10 @@ GAP = "GAP"
 # velocity/angles" study is superseded) + getStateAt field codes + the QWD usercmd_t struct
 # (tools/qwd_usercmd). Keyed by decoder ROLE + schema version, NOT tool name (per the spec; the
 # legacy "qw-analyze" origin strings below name the historical CLI, not the contract).
+# NOTE (WS-0 review 2026-06-27): the QWD rows are keyed to the CURRENTLY-CONSUMED source — the
+# stage-0 `tools/qwd_usercmd` POV usercmd tool — NOT the qwd-analyzer `q*.v1` contracts
+# (`qwd_usercmd.v1`/`q5_catalog.v1`/`q6_observed_others.v1`), which are not yet landed/stable.
+# Re-keying the QWD rows to `q*.v1` is deferred to WS-3 (#442), when the owner declares it stable.
 #
 # Each entry: id -> (origin, availability, note). origin = the decoder endpoint/stream.
 # This is forward-compatible DATA: extend it as the analyzers grow; the diff logic is fixed.
@@ -110,7 +114,8 @@ DECODER_INVENTORY: "OrderedDict[str, tuple[str, str, str]]" = OrderedDict([
     ("provenance.sha", ("loadDemo sha256 + map + duration", "MVD+QWD", "demo provenance")),
     # --- derivation inputs (NOT a decoder stream — the sha-locked dm3.bsp via pmove_sim traces) ---
     ("geom.dm3_bsp", ("pmove_sim hull-1 traces over the sha-locked dm3.bsp (NOT a decoder field)", "derived", "[G] wall/floor/ledge/ramp from BSP collision geometry (T7)")),
-    # --- QWD first-person POV usercmd (the action oracle; tools/qwd_usercmd) ---
+    # --- QWD first-person POV usercmd (the action oracle; current source = stage-0 tools/qwd_usercmd;
+    #     re-key to qwd-analyzer q*.v1 deferred to WS-3 #442 — see header NOTE) ---
     ("qwd.usercmd.forwardmove", ("QWD usercmd_t.forwardmove", "QWD", "ground-truth forward input")),
     ("qwd.usercmd.sidemove", ("QWD usercmd_t.sidemove", "QWD", "ground-truth side input")),
     ("qwd.usercmd.upmove", ("QWD usercmd_t.upmove", "QWD", "ground-truth up input (jump/swim)")),
@@ -485,7 +490,9 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
     lines.append("")
     lines.append("Sourced from the committed static reference "
                  f"`{SOURCE_SCHEMAS_DOC}` reconciled to MVD reader **schema v35** + getStateAt")
-    lines.append("field codes + the QWD `usercmd_t` struct. Referenced by decoder **role** + schema version, not tool name.")
+    lines.append("field codes + the QWD `usercmd_t` struct. MVD rows are keyed by decoder **role** + "
+                 "schema version; the QWD rows name the current stage-0 `qwd_usercmd` source — re-keying "
+                 "them to the qwd-analyzer `q*.v1` contract is deferred to WS-3 (#442).")
     lines.append("")
     lines.append("| decoder field | origin | availability | note |")
     lines.append("|---|---|---|---|")
@@ -618,6 +625,25 @@ def _report_advertises_stale_schema33(report: str) -> bool:
     return "schema-33" in report.lower()
 
 
+def unbacked_registry_sources(registry_refs: "dict[str, set[str]]",
+                              schema: "OrderedDict[str, list[str]]") -> "list[str]":
+    """Registry `source:` tokens that name a real catalog table but a column absent from it.
+
+    The REGISTRY half of the UNCLASSIFIED gate (#439 WS-0: "a new registry `source:` OR schema
+    column with no decoder backing surfaces as UNCLASSIFIED and fails the build"). The column half
+    is enforced in run_self_checks via classify_column; this is the source half: a feature whose
+    declared `source:` points at a `<table>.<column>` that does not exist is drift with no decoder
+    backing — it would silently yield a feature with no data path. Tokens whose table part is NOT a
+    catalog table (a derivation expression, a non-column reference) are not catalog refs -> skipped.
+    """
+    bad: "list[str]" = []
+    for token, feats in registry_refs.items():
+        table, _, col = token.partition(".")
+        if table in schema and col not in schema[table]:
+            bad.append(f"{token} (features: {', '.join(sorted(feats))})")
+    return sorted(bad)
+
+
 def run_self_checks() -> None:
     schema = parse_schema_tables(SCHEMA_SQL)
     etl_mvd = parse_etl_inserts(ETL_MVD)
@@ -723,6 +749,14 @@ def run_self_checks() -> None:
             if classify_column(table, col)[0] == "UNCLASSIFIED":
                 unclassified.append(f"{table}.{col}")
     assert not unclassified, f"UNCLASSIFIED columns (extend CLASSIFY): {unclassified}"
+
+    # The REGISTRY half of the same gate (#439 WS-0): every feature `source:` that names a real
+    # catalog table must reference a real column in it. A `<table>.<typo>` (renamed/removed column)
+    # has no decoder backing and must fail closed, just as a new UNCLASSIFIED schema column does.
+    unbacked = unbacked_registry_sources(registry_refs, schema)
+    assert not unbacked, (
+        "registry `source:` references catalog columns absent from the schema (drift — fix the "
+        f"registry source or add the column): {unbacked}")
 
     # Registry sanity: a defined feature references player_ticks.health (the resource GAP).
     assert "player_ticks.health" in registry_refs, "registry should reference player_ticks.health"
