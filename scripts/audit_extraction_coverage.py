@@ -67,10 +67,14 @@ GAP = "GAP"
 # velocity/angles" study is superseded) + getStateAt field codes + the QWD usercmd_t struct
 # (tools/qwd_usercmd). Keyed by decoder ROLE + schema version, NOT tool name (per the spec; the
 # legacy "qw-analyze" origin strings below name the historical CLI, not the contract).
-# NOTE (WS-0 review 2026-06-27): the QWD rows are keyed to the CURRENTLY-CONSUMED source — the
-# stage-0 `tools/qwd_usercmd` POV usercmd tool — NOT the qwd-analyzer `q*.v1` contracts
-# (`qwd_usercmd.v1`/`q5_catalog.v1`/`q6_observed_others.v1`), which are not yet landed/stable.
-# Re-keying the QWD rows to `q*.v1` is deferred to WS-3 (#442), when the owner declares it stable.
+# KEYING CONVENTION (WS-0): MVD rows name the decoder ENDPOINT (getStateAt field / result stream) at
+# the header's schema v35; the legacy `qw-analyze -include …` MVD origin strings are a grandfathered
+# tool-name exception (a standing follow-up to re-key to endpoints). QWD rows name the in-repo decoder
+# CONTRACT-ID inline: `komodobots.qwd_usercmd.v1` — the POV usercmd decoder (`tools/qwd_usercmd`,
+# decodes usercmd_t from QWD bytes per ezQuake cl_demo.c) that `catalog_etl_qwd.py` consumes TODAY.
+# The qwd-analyzer DECODER-OF-RECORD (`qwd_analyzer.qwd_usercmd.v1` / `qwd_analyzer.q5_catalog.v1` /
+# `qwd_analyzer.q6_observed_others.v1`; private repo, at Q8) is NOT consumed yet — adopting it is WS-3
+# (#442); the ledger re-keys the QWD rows to it then. Keying to it now would be false.
 #
 # Each entry: id -> (origin, availability, note). origin = the decoder endpoint/stream.
 # This is forward-compatible DATA: extend it as the analyzers grow; the diff logic is fixed.
@@ -114,16 +118,17 @@ DECODER_INVENTORY: "OrderedDict[str, tuple[str, str, str]]" = OrderedDict([
     ("provenance.sha", ("loadDemo sha256 + map + duration", "MVD+QWD", "demo provenance")),
     # --- derivation inputs (NOT a decoder stream — the sha-locked dm3.bsp via pmove_sim traces) ---
     ("geom.dm3_bsp", ("pmove_sim hull-1 traces over the sha-locked dm3.bsp (NOT a decoder field)", "derived", "[G] wall/floor/ledge/ramp from BSP collision geometry (T7)")),
-    # --- QWD first-person POV usercmd (the action oracle; current source = stage-0 tools/qwd_usercmd;
-    #     re-key to qwd-analyzer q*.v1 deferred to WS-3 #442 — see header NOTE) ---
-    ("qwd.usercmd.forwardmove", ("QWD usercmd_t.forwardmove", "QWD", "ground-truth forward input")),
-    ("qwd.usercmd.sidemove", ("QWD usercmd_t.sidemove", "QWD", "ground-truth side input")),
-    ("qwd.usercmd.upmove", ("QWD usercmd_t.upmove", "QWD", "ground-truth up input (jump/swim)")),
-    ("qwd.usercmd.buttons", ("QWD usercmd_t.buttons", "QWD", "button bitfield (jump/attack)")),
-    ("qwd.usercmd.impulse", ("QWD usercmd_t.impulse", "QWD", "weapon switch")),
-    ("qwd.usercmd.cmd_angles", ("QWD usercmd_t.angles[3]", "QWD", "commanded view angles deg")),
-    ("qwd.usercmd.msec", ("QWD usercmd_t.msec", "QWD", "frame duration ms")),
-    ("qwd.view_angles", ("QWD per-record view-angle floats", "QWD", "resulting view angles deg")),
+    # --- QWD first-person POV usercmd — the in-repo POV usercmd DECODER contract consumed today
+    #     (`komodobots.qwd_usercmd.v1`, decodes usercmd_t from QWD bytes; the qwd-analyzer
+    #     decoder-of-record `qwd_analyzer.q5_catalog.v1`/`q6_observed_others.v1` is the WS-3 #442 target) ---
+    ("qwd.usercmd.forwardmove", ("komodobots.qwd_usercmd.v1 forwardmove", "QWD", "ground-truth forward input")),
+    ("qwd.usercmd.sidemove", ("komodobots.qwd_usercmd.v1 sidemove", "QWD", "ground-truth side input")),
+    ("qwd.usercmd.upmove", ("komodobots.qwd_usercmd.v1 upmove", "QWD", "ground-truth up input (jump/swim)")),
+    ("qwd.usercmd.buttons", ("komodobots.qwd_usercmd.v1 buttons", "QWD", "button bitfield (jump/attack)")),
+    ("qwd.usercmd.impulse", ("komodobots.qwd_usercmd.v1 impulse", "QWD", "weapon switch")),
+    ("qwd.usercmd.cmd_angles", ("komodobots.qwd_usercmd.v1 angles[3]", "QWD", "commanded view angles deg")),
+    ("qwd.usercmd.msec", ("komodobots.qwd_usercmd.v1 msec", "QWD", "frame duration ms")),
+    ("qwd.view_angles", ("komodobots.qwd_usercmd.v1 view_angles (per-record floats)", "QWD", "resulting view angles deg")),
 ])
 
 # -----------------------------------------------------------------------------
@@ -490,9 +495,10 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
     lines.append("")
     lines.append("Sourced from the committed static reference "
                  f"`{SOURCE_SCHEMAS_DOC}` reconciled to MVD reader **schema v35** + getStateAt")
-    lines.append("field codes + the QWD `usercmd_t` struct. MVD rows are keyed by decoder **role** + "
-                 "schema version; the QWD rows name the current stage-0 `qwd_usercmd` source — re-keying "
-                 "them to the qwd-analyzer `q*.v1` contract is deferred to WS-3 (#442).")
+    lines.append("field codes + the QWD POV usercmd decoder contract. MVD rows name the decoder endpoint "
+                 "at schema v35; QWD rows name the in-repo contract-id `komodobots.qwd_usercmd.v1` "
+                 "(consumed by `catalog_etl_qwd.py` today). The qwd-analyzer decoder-of-record "
+                 "(`qwd_analyzer.q5_catalog.v1` / `qwd_analyzer.q6_observed_others.v1`) is the WS-3 (#442) target.")
     lines.append("")
     lines.append("| decoder field | origin | availability | note |")
     lines.append("|---|---|---|---|")
