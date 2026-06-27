@@ -190,7 +190,11 @@ confidence, is_interp, onground_is_proxy.
 The spec is complete **iff** every field the decoder's Result schema produces is accounted for here
 as **extracted** / **derived** / **excluded-with-reason**. The coverage audit (§7) diffs the live
 catalog against the decoder Result inventory (the in-house analyzer's `mvd-analytics/result/*` +
-`RESULT_SCHEMA.md`; see Appendix A / `docs/02_SOURCE_MAP.md`) and emits a per-field table. **Excluded-with-reason examples:** `svc_sound`
+`RESULT_SCHEMA.md`; see Appendix A / `docs/02_SOURCE_MAP.md`) and emits a per-field table. **The standing
+fitness instrument is `scripts/audit_extraction_coverage.py`** (the decoder-vs-catalog ledger): it runs in
+the CI floor (`tests/test_audit_extraction_coverage.py`) and **fails closed** — a schema column *or* a
+feature-registry `source:` with no decoder backing surfaces as UNCLASSIFIED / unbacked and blocks the build,
+so completeness is enforced continuously rather than re-audited by hand (analyzer-fitness WS-0). **Excluded-with-reason examples:** `svc_sound`
 details (not movement/economy relevant), temp-entities (projectile FX; rocket *positions* are
 derivable if needed — reserved §9), lightstyles/muzzleflash (cosmetic).
 

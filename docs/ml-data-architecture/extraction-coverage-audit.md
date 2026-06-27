@@ -359,7 +359,7 @@
 ## Decoder Result inventory (master list)
 
 Sourced from the committed static reference `docs/ml-data-architecture/_source-schemas.md` reconciled to MVD reader **schema v35** + getStateAt
-field codes + the QWD `usercmd_t` struct. Referenced by decoder **role** + schema version, not tool name.
+field codes + the QWD `usercmd_t` struct. MVD rows are keyed by decoder **role** + schema version; the QWD rows name the current stage-0 `qwd_usercmd` source — re-keying them to the qwd-analyzer `q*.v1` contract is deferred to WS-3 (#442).
 
 | decoder field | origin | availability | note |
 |---|---|---|---|

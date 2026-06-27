@@ -64,6 +64,23 @@ class TestParsers(unittest.TestCase):
         self.assertIn("region_control_timeline.teamA_control", refs)
         self.assertIn("audio_cues.intensity0", refs)
 
+    def test_registry_sources_all_resolve_to_real_columns(self):
+        # #439 WS-0 (registry half of the UNCLASSIFIED gate): every feature `source:` that names a
+        # real catalog table must reference a real column in it — no phantom/renamed columns.
+        schema = audit.parse_schema_tables(audit.SCHEMA_SQL)
+        refs = audit.parse_registry_sources(audit.REGISTRY_JSON)
+        self.assertEqual(audit.unbacked_registry_sources(refs, schema), [],
+                         "every registry source: must name a real catalog column")
+
+    def test_registry_source_gate_bites_on_phantom_and_skips_noncatalog(self):
+        # the gate must FAIL on a real-table.nonexistent-column (drift) and must NOT false-positive
+        # on a dotted token whose table part isn't a catalog table (e.g. a derivation expression).
+        schema = audit.parse_schema_tables(audit.SCHEMA_SQL)
+        self.assertEqual(
+            audit.unbacked_registry_sources({"player_ticks.no_such_col": {"phantom_feature"}}, schema),
+            ["player_ticks.no_such_col (features: phantom_feature)"])
+        self.assertEqual(audit.unbacked_registry_sources({"normalize.zscore": {"f"}}, schema), [])
+
 
 class TestClassification(unittest.TestCase):
     def test_known_gaps_classify_gap(self):
