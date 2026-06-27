@@ -38,6 +38,27 @@ The committed `signatures/*.json` are the produced envelopes (`envelopes_mvd_4on
 97-demo `envelopes_qwd.json`, and the pooled `envelopes_merged.json`). The raw `legs.jsonl`
 are regenerable and kept out of git (the 97-demo corpus is ~9 MB / 16k legs).
 
+## The four "route" artifacts — which is canonical for what
+
+`dm3` has four route-related artifacts with deliberately distinct jobs; do not conflate them:
+
+| Artifact (schema) | What it holds | Consumed by |
+|---|---|---|
+| `data/catalog/resource_routes.dm3.json` (`resource_routes.v1`) | observed-traffic counts per resource pair (li-flicker; geometry approximate) | nothing in code today (provenance only) |
+| `signatures/envelopes_*.json` (`route_envelopes.v2`) | per-route signature BANDS (core = faster-half BC target, all_traffic = believability band) | believability eval / curriculum |
+| `data/catalog/resource_coords.dm3.json` (`resource_coords.v1`) | the 11 resource `{name:[x,y]}` | `ml/pipeline/route_goals` goal-label (train/serve) |
+| `data/catalog/route_canon.dm3.json` (`route_canon.v1`, NEW · #420) | owner-marked clean half-route SEED LINES (exact trajectory + endpoints + base/shortcut/enabler) | #428 route-isolated MSE/RMSE ground truth; #421 band seed |
+
+**#420 vs #421 scope.** `route_canon.v1` is **#420** — DEFINE the highways + one SEED LINE each (the
+initial MSE ground truth). **#421** (POV-fusion) later WIDENS each highway to an empirical band over
+many matched corpus traversals, and MUST gate that harvest by seed-trajectory similarity +
+`route_class`, **never** by the `(from,to)` resource pair (that re-pools base + shortcut traversals —
+the contamination #420 exists to prevent; see the canon's `_match_key`). Built by
+`build_route_canon.py` from `route_canon_marks.dm3.json`, whose owner hand-cuts EXCLUDE trick jumps
+so movement quality is measured without trick-execution contamination. `route_class` is stored on
+ALL highways; Phase-1 base training consumes `route_class=='base'` only (trickjump-separation,
+docs/28).
+
 ## The key correction: position-based legs, NOT `pos.li`
 
 The committed canon (PR #332) and the first cut of this tool segmented routes by the loc-index
