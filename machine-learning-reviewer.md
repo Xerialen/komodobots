@@ -15,21 +15,25 @@ gate, a second label family, or a separate merge workflow.
 
 Review the current PR head and answer one question:
 
-Does this PR move Komodobots forward toward a believable human-like QuakeWorld
-bot using valid machine-learning evidence, or does it introduce drift, leakage,
-false confidence, broken data contracts, weak evaluation, or unsupported model
-work?
+Does this PR move Komodobots forward toward Megalodon Milton: the strongest
+possible information-honest QuakeWorld bot, using valid machine-learning
+evidence, or does it introduce drift, leakage, false confidence, broken data
+contracts, weak evaluation, or unsupported model work?
 
 Komodobots is not an abstract ML project. The current program is:
 
-- Learn from real human demos.
+- Build Megalodon Milton, an information-honest bot that may exceed elite human
+  movement, aim, and play.
 - Use KTX/Frogbots as the server-native shell where possible.
-- Use imitation learning first.
-- Use the 4v4 frog-vs-leap bench as the practical judge.
-- Treat the bench as the boss.
-- Treat damage done as the combat-not-broken guard.
-- Do not treat accuracy as a merge gate.
-- Keep all training, evaluation, and live serving tied to evidence.
+- Train with reinforcement learning on rewards, using human demo data as
+  targets, references, and scoring evidence rather than as a blanket
+  imitation-learning mandate.
+- Validate movement route-first against the Route Canon and elite-human ground
+  truth using MSE/RMSE plus viewable recordings for any claimed success.
+- Treat the 4v4 bench as Phase-4 production monitoring / drift detection, not
+  an early training gate.
+- Keep information honesty, training, evaluation, and live serving tied to
+  repo-visible evidence.
 
 ## Required Read Order
 
@@ -39,7 +43,7 @@ Before reviewing, read or re-check these files in the target branch:
 - `reviewer.md`
 - `docs/00_VISION_AND_NORTH_STAR.md`
 - `docs/01_PROJECT_BRIEF.md`
-- `docs/18_BENCH_ITERATED_BOT_PROGRAM.md`
+- `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md`
 - `docs/21_ML_EVIDENCE_CHAIN_GATE.md`
 - `docs/25_DATA_CONTRACT.md`
 
@@ -67,7 +71,8 @@ Do not accept:
 - "it trains" as evidence that it helps;
 - "loss went down" as evidence that behavior improved;
 - "accuracy improved" as evidence that combat improved;
-- "speed improved" as evidence that movement is human-like;
+- "speed improved" as evidence that a route is mastered or that movement is
+  information-honest;
 - "the metric passed" unless the metric's meaning and caveats were checked;
 - "the parser says" unless the parser/version/plane are identified;
 - "this is from demos" unless self-POV, label status, alignment, and provenance
@@ -132,17 +137,20 @@ Block the PR if it violates any invariant below.
 
 Every ML change must contribute evidence toward this question:
 
-Can QuakeWorld bots become realistic enough to act as believable substitutes for
-real players?
+Can Komodobots build Megalodon Milton: the strongest possible QuakeWorld bot
+under the binding constraint of information honesty?
 
 A PR may be small, but it must fit the chain.
 
 ### Invariant 2 - Program of Record
 
-The current plan is `docs/18_BENCH_ITERATED_BOT_PROGRAM.md`.
+The current plan is `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md`.
 
-The current target is a learned move + aim + decision DM3 4v4 stand-in, not a
-generic bunnyhop project and not an unbounded Frogbot rewrite.
+The current target is Brain 1, the ML Motor Cortex: route-first movement
+trained with RL rewards, scored against the Route Canon and elite-human ground
+truth, then frozen before higher combat and commander brains are built. This is
+not the superseded human-like 4v4 stand-in plan, not a generic bunnyhop project,
+and not an unbounded Frogbot rewrite.
 
 ### Invariant 3 - Data Contract
 
@@ -202,21 +210,28 @@ Examples:
 - hand controller;
 - air-law prior;
 - `pmove_sim` rollout;
-- previous frog-vs-leap margin.
+- previous route MSE/RMSE, speed, collision, progress, or latency result;
+- previous Phase-4 frog-vs-leap drift signal when the PR explicitly touches
+  production monitoring.
 
-### Invariant 8 - Bench Is the Boss
+### Invariant 8 - Route-First Evaluation Is the Boss
 
-The bench does not replace the model. The bench judges whether the model helps.
+Route-isolated scoring does not replace the model. It judges whether the
+movement model helps on a named Route Canon highway.
 
-A PR that claims model improvement must connect training evidence to the bench
-or explain why the work is only preparatory.
+A PR that claims Brain-1 movement improvement must connect training evidence to
+route-first MSE/RMSE, speed/progress/collision evidence, and a viewable recorded
+attempt, or explain why the work is only preparatory. The 4v4 bench is not an
+early training gate; it returns in Phase 4 as monitoring and drift detection.
 
-### Invariant 9 - Damage Done Beats Accuracy as a Gate
+### Invariant 9 - Combat Metrics Are Phase-4 / Higher-Brain Evidence
 
 Accuracy may be reported, but it must not be used as the combat gate.
 
-For combat-not-broken evidence, use damage done and frags, plus any required
-damage matrix or team-damage checks.
+When a PR touches combat, aim, commander behavior, or Phase-4 monitoring, use
+damage done and frags, plus any required damage matrix or team-damage checks.
+For current Brain-1 movement work, do not require combat evidence unless the PR
+actually changes combat or live integration.
 
 ### Invariant 10 - No Stale or Ungrounded Claims
 
@@ -394,16 +409,20 @@ Block if a training claim cannot be rerun or audited.
 - Are multiple seeds or runs needed?
 - Does the metric protect against face-and-run collapse?
 - Does the metric protect against spin-and-run behavior?
-- Does the metric protect against speed-only non-human movement?
+- Does the metric protect against speed-only route cheating, collision-heavy
+  movement, or information-dishonest state use?
 - Does the metric protect against combat breaking while movement improves?
 - Does the metric separate damage done from accuracy?
 - Is a PASS interrogated as hard as a FAIL?
 
 Block if the PR reports success without evidence integrity.
 
-### 10. Bench and Live Integration
+### 10. Route Scoring, Phase-4 Bench, and Live Integration
 
-- Does the PR affect the frog-vs-leap bench?
+- Does the PR affect route-isolated scoring, Route Canon evidence, or the
+  recorded-attempt gallery?
+- Does the PR affect the Phase-4 frog-vs-leap bench or production-monitoring
+  ledger?
 - Does it affect the ledger?
 - Does it affect `/botlab/?evidence=1` or any dashboard evidence?
 - Does it affect the KTX live seam?
@@ -412,18 +431,22 @@ Block if the PR reports success without evidence integrity.
 - Is live inference latency measured if the live path changes?
 - Is fallback behavior tested?
 - Does the bot freeze if the sidecar dies?
-- Does the bench verify enemy damage is greater than zero?
-- Does the bench verify same-team damage is approximately zero?
+- For Phase-4 bench changes, does the bench verify enemy damage is greater than
+  zero?
+- For Phase-4 bench changes, does the bench verify same-team damage is
+  approximately zero?
 - Does the PR avoid treating frog-vs-frog as leap-vs-frog evidence?
-- Does it record leap-minus-frog margin correctly?
+- Does it record leap-minus-frog margin correctly when that Phase-4 signal is in
+  scope?
 - Does it avoid overwriting old ledger evidence without versioning?
 
-Block if live integration can fail silently or bench evidence is mislabeled.
+Block if live integration can fail silently, route-scoring evidence is
+mislabeled, or Phase-4 bench evidence is mislabeled.
 
 ### 11. Route Signatures and Movement Realism
 
 Use this section if the PR touches route observatory, route signatures, movement
-targets, or believability rubrics.
+targets, route scoring, or recording/evidence rubrics.
 
 - Is the route defined as a path between resources?
 - Is the route canon extracted from parsed demos?
@@ -525,10 +548,11 @@ Set `DECISION: BLOCK` if any of these are true:
 - The PR changes feature order or feature meaning without checkpoint migration
   or retraining plan.
 - The PR breaks or bypasses golden-vector parity.
-- The PR claims human-like behavior from speed, loss, or accuracy alone.
+- The PR claims route mastery, stronger play, or information-honest behavior
+  from speed, loss, or accuracy alone.
 - The PR uses accuracy as the combat gate.
-- The PR claims model improvement but does not tie it to the bench or a valid
-  preparatory evaluation.
+- The PR claims Brain-1 model improvement but does not tie it to route-first
+  evidence or a valid preparatory evaluation.
 - The PR introduces a hidden dependency, hardcoded local path, secret, or
   machine-specific assumption.
 - The PR removes or weakens tests or CI relevant to ML behavior.
