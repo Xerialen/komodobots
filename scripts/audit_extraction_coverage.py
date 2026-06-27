@@ -91,7 +91,7 @@ DECODER_INVENTORY: "OrderedDict[str, tuple[str, str, str]]" = OrderedDict([
     ("state.armor", ("getStateAt a (int16)", "MVD", "AP")),
     ("state.armor_type", ("getStateAt at ('ga'/'ya'/'ra'/'')", "MVD", "armor type")),
     ("state.weapon_held", ("getStateAt rl/lg/gl/ssg/sng (bools)", "MVD", "held-weapon POSSESSION intervals (5 of 8 weapons; SG/NG/axe absent) — NOT the active/selected weapon")),
-    ("state.weapon_active", ("STAT_ACTIVEWEAPON — PARSED by the mvd-reader (parser/stats.go) but NOT surfaced in the Result (v35)", "MVD — parsed, UNSURFACED", "active-weapon id; the demoparser fork exposes it as active_weapon()=stat[10]. Surfacing it in mvd_analyzer = WS-1 (analyzer-fitness) -> unblocks player_ticks/actor_ticks.weapon (weapon_onehot)")),
+    ("state.weapon_active", ("STAT_ACTIVEWEAPON — surfaced as PlayerStream.w (ChangeI16) in mvd_analyzer schema v37", "MVD — surfaced", "surfaced in v37 (Xerialen/mvd_analyzer#1 @ 4146b10); raw IT_ weapon bits; remaining gap is ETL-wiring (#440)")),
     ("state.ammo", ("getStateAt sh/nl/rk/cl (int16)", "MVD", "shells/nails/rockets/cells")),
     ("state.powerups", ("getStateAt q/pe/r (bools)", "MVD", "quad/pent/ring held")),
     ("state.spawn_death", ("getStateAt sp/d (bools)", "MVD", "spawn/death event bools")),
@@ -160,7 +160,7 @@ CLASSIFY: "OrderedDict[str, tuple[str, str | None, str]]" = OrderedDict([
     ("player_ticks.health", (EXTRACTED, "state.health", "MVD ETL forward-fills the `-event-types health` value step-timeline onto each tick (T3). NULL on QWD (not yet wired).")),
     ("player_ticks.armor", (EXTRACTED, "state.armor", "MVD ETL forward-fills the `-event-types armor` value step-timeline onto each tick (T3). NULL on QWD.")),
     ("player_ticks.armor_type", (GAP, "state.armor_type", "GAP today, but an ETL-WIRING gap not a missing source: the `at` armor-type stream EXISTS and already populates actor_ticks.armor_type (T4) — the ego player_ticks fill loop just doesn't forward-fill it onto the spine. Wiring it is a catalog-buildout (Class-A) task, NOT an analyzer-fitness decoder change.")),
-    ("player_ticks.weapon", (GAP, "state.weapon_active", "GAP today: the per-tick weapon stream is gain/lose POSSESSION, not STAT_ACTIVEWEAPON (the active-weapon id the column means). STAT_ACTIVEWEAPON IS parsed by the mvd-reader (parser/stats.go) but NOT surfaced in the Result; surfacing it is WS-1 of analyzer-fitness (see state.weapon_active). GAP until that decoder change lands.")),
+    ("player_ticks.weapon", (GAP, "state.weapon_active", "active-weapon now surfaced (mvd v37 PlayerStream.w); remaining gap = ETL-wiring — the ETL still runs the frozen v33-era qw-analyze-v20 (sha 6954ffb6), emits no w — tracked by #440")),
     ("player_ticks.shells", (EXTRACTED, "state.ammo", "MVD ETL forward-fills the `-view full` `sh` step-timeline onto each tick (T6). NULL on QWD.")),
     ("player_ticks.nails", (EXTRACTED, "state.ammo", "MVD ETL forward-fills the `-view full` `nl` step-timeline (T6). NULL on QWD.")),
     ("player_ticks.rockets", (EXTRACTED, "state.ammo", "MVD ETL forward-fills the `-view full` `rk` step-timeline (T6). NULL on QWD.")),
@@ -195,7 +195,7 @@ CLASSIFY: "OrderedDict[str, tuple[str, str | None, str]]" = OrderedDict([
     ("actor_ticks.health", (EXTRACTED, "state.health", "MVD forward-fills each player's `-view full` `h` step-timeline (T4); QWD NULL")),
     ("actor_ticks.armor", (EXTRACTED, "state.armor", "MVD forward-fills each player's `a` step-timeline (T4); QWD NULL")),
     ("actor_ticks.armor_type", (EXTRACTED, "state.armor_type", "MVD forward-fills each player's `at` ('ga'/'ya'/'ra') step-timeline -> 0/1/2 (T4). The `-view full` `at` stream carries the skin/type the T3 `-event-types armor` decode lacked; QWD NULL")),
-    ("actor_ticks.weapon", (GAP, "state.weapon_active", "GAP today (same as player_ticks.weapon): the per-tick weapon stream is gain/lose POSSESSION, not STAT_ACTIVEWEAPON. The active-weapon id IS parsed by the mvd-reader but unsurfaced; surfacing it = WS-1 of analyzer-fitness. GAP until then.")),
+    ("actor_ticks.weapon", (GAP, "state.weapon_active", "active-weapon now surfaced (mvd v37 PlayerStream.w); remaining gap = ETL-wiring — the ETL still runs the frozen v33-era qw-analyze-v20 (sha 6954ffb6), emits no w — tracked by #440")),
     ("actor_ticks.shells", (EXTRACTED, "state.ammo", "MVD forward-fills each player's `-view full` `sh` step-timeline (T6); QWD NULL")),
     ("actor_ticks.nails", (EXTRACTED, "state.ammo", "MVD forward-fills each player's `nl` step-timeline (T6); QWD NULL")),
     ("actor_ticks.rockets", (EXTRACTED, "state.ammo", "MVD forward-fills each player's `rk` step-timeline (T6); QWD NULL")),
@@ -495,7 +495,8 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
     lines.append("")
     lines.append("Sourced from the committed static reference "
                  f"`{SOURCE_SCHEMAS_DOC}` reconciled to MVD reader **schema v35** + getStateAt")
-    lines.append("field codes + the QWD POV usercmd decoder contract. MVD rows name the decoder endpoint "
+    lines.append("field codes + the QWD POV usercmd decoder contract (active-weapon surfaced in the "
+                 "**v37** decoder, #440). MVD rows name the decoder endpoint "
                  "at schema v35; QWD rows name the in-repo contract-id `komodobots.qwd_usercmd.v1` "
                  "(consumed by `catalog_etl_qwd.py` today). The qwd-analyzer decoder-of-record "
                  "(`qwd_analyzer.q5_catalog.v1` / `qwd_analyzer.q6_observed_others.v1`) is the WS-3 (#442) target.")
@@ -536,8 +537,9 @@ def build_report(schema, etl_mvd, etl_qwd, registry_refs) -> tuple[str, dict]:
                  "team_id, plus `item_events`/`frag_events`/`teams` -> T4 (DONE; from `-view full`). The "
                  "GAPs that REMAIN: `player_ticks.armor_type`/`weapon` + `actor_ticks.weapon`, and the "
                  "`audio_cues.*` derived layer -> T8 (separate from visibility; not in #396). The weapon GAPs "
-                 "are an ANALYZER-FITNESS decoder gap: STAT_ACTIVEWEAPON is parsed by the mvd-reader but not "
-                 "surfaced in the Result (surfacing it = WS-1; see the `state.weapon_active` inventory entry); "
+                 "are now an ETL-WIRING gap: STAT_ACTIVEWEAPON is surfaced (mvd v37 `PlayerStream.w`; see "
+                 "the `state.weapon_active` inventory entry), but the komodobots MVD ETL still runs the frozen "
+                 "v33-era `qw-analyze-v20` (sha `6954ffb6`), which emits no `w` — remaining = ETL-wiring (#440); "
                  "`player_ticks.armor_type` is instead an ETL-WIRING gap (the `at` stream exists, already "
                  "feeding `actor_ticks.armor_type` — Class-A catalog-buildout, not a decoder change). The "
                  "`damage_events` table (G3) is now schema-defined + "
@@ -621,8 +623,8 @@ def _report_claims_g5_absent(report: str) -> bool:
 def _report_advertises_stale_schema33(report: str) -> bool:
     """True if the generated report still cites the retired `schema-33` provenance.
 
-    WS-0 (#437) reconciled the decoder inventory to MVD reader **schema v35** (it now carries
-    v35-era entries like `state.weapon_active` / `mvd.hidden.usercmd`). The generated report is the
+    WS-0 (#437) reconciled the decoder inventory to MVD reader **schema v35** (it carries entries like
+    `mvd.hidden.usercmd`; `state.weapon_active` since surfaced in the v37 decoder, #440). The generated report is the
     load-bearing ML evidence ledger, so it must not simultaneously advertise the superseded
     schema-33 provenance — that self-contradiction is exactly what Codex blocked PR #437 on. Mirrors
     _report_claims_g4_absent: a deterministic guard so `--check` fails if a future regen reintroduces
@@ -672,8 +674,8 @@ def run_self_checks() -> None:
 
     # The known GAP fields must classify as GAP (the load-bearing audit verdict). After T3,
     # player_ticks.health/armor are EXTRACTED; after T4 the actor_ticks state cols are too. The
-    # GAPs that REMAIN: weapon (player_ticks + actor_ticks) — STAT_ACTIVEWEAPON is parsed by the
-    # mvd-reader but not surfaced (surfacing it = WS-1 analyzer-fitness); player_ticks.armor_type —
+    # GAPs that REMAIN: weapon (player_ticks + actor_ticks) — STAT_ACTIVEWEAPON is now surfaced (mvd
+    # v37 PlayerStream.w); remaining = ETL-wiring (#440); player_ticks.armor_type —
     # an ETL-wiring gap (the `at` stream exists, already feeds actor_ticks.armor_type); and
     # `audio_cues` (the one remaining T8 derived layer — actor_visibility flipped GAP->DERIVED at #396).
     known_gaps = [
@@ -701,7 +703,7 @@ def run_self_checks() -> None:
     for col in ("ox", "alive", "team_id", "health", "armor", "armor_type"):
         assert classify_column("actor_ticks", col)[0] == EXTRACTED, f"actor_ticks.{col} should be extracted (T4)"
         assert col in etl_mvd.get("actor_ticks", set()), f"MVD ETL must populate actor_ticks.{col} (T4)"
-    assert classify_column("actor_ticks", "weapon")[0] == GAP, "actor_ticks.weapon stays GAP (active-weapon parsed but unsurfaced; WS-1)"
+    assert classify_column("actor_ticks", "weapon")[0] == GAP, "actor_ticks.weapon stays GAP (active-weapon surfaced v37; ETL not yet reading `w`; #440)"
     assert classify_column("frag_events", "killer_id")[0] == EXTRACTED
     assert classify_column("teams", "name")[0] == EXTRACTED
 
@@ -794,10 +796,11 @@ def run_self_checks() -> None:
             "absent from the schema. Update the scoping paragraph to mark G5 as ADDRESSED by T7.")
 
     # Anti-recurrence guard (#437): the inventory is reconciled to MVD reader schema v35 (it carries
-    # v35-era entries like state.weapon_active / mvd.hidden.usercmd), so the generated report must NOT
-    # still advertise the retired schema-33 provenance — that self-contradiction was the PR #437 block.
-    inventory_is_v35 = "state.weapon_active" in DECODER_INVENTORY
-    if inventory_is_v35 and _report_advertises_stale_schema33(report):
+    # entries like mvd.hidden.usercmd; state.weapon_active since surfaced in the v37 decoder, #440), so
+    # the generated report must NOT still advertise the retired schema-33 provenance — that
+    # self-contradiction was the PR #437 block. The guard key persists across the v37 active-weapon flip.
+    inventory_has_active_weapon = "state.weapon_active" in DECODER_INVENTORY
+    if inventory_has_active_weapon and _report_advertises_stale_schema33(report):
         raise AssertionError(
             "report contradiction (#437): the decoder inventory is schema-v35-based (state.weapon_active "
             "present), yet the generated report still advertises retired `schema-33` provenance. Update "

@@ -11,8 +11,8 @@
 > velocity / no view angles" — schema **v35** now exposes view pitch/yaw (v31), derived velocity (v32),
 > and float32 precision (v33). Trust `scripts/audit_extraction_coverage.py` (the generated companion) +
 > `plans/analyzer-fitness-plan.md` for current truth. Two findings in this doc are now LOAD-BEARING for
-> analyzer-fitness: (1) §C/§B1 — `active_weapon()=stat[10]` is recoverable (WS-1: the mvd-reader parses
-> STAT_ACTIVEWEAPON but does not surface it in the Result); (2) **§B4 — the KTX hidden-usercmd block is
+> analyzer-fitness: (1) §C/§B1 — `active_weapon()=stat[10]` is recoverable (WS-1 DONE: the mvd-reader now
+> surfaces STAT_ACTIVEWEAPON in the Result as `PlayerStream.w`, schema v37 — Xerialen/mvd_analyzer#1 @ `4146b10`); (2) **§B4 — the KTX hidden-usercmd block is
 > decodable** (demoparser `src/mvd/hidden.rs:143-179` recovers forward/side/buttons/impulse; up/angles/msec
 > are present but discarded). (2) is the WS-2 spike: true forwardmove from MVD is feasibility-proven, gated
 > only on per-tick density + KTX-version coverage.
@@ -353,7 +353,7 @@ Unit transform `ms→s = *0.001` applies to every time field below.
 | health | `getStateAt`/`getBuckets` `h` (int16) | direct |
 | armor | `a` (int16) | direct |
 | armor_type | `at` ("ga"/"ya"/"ra"/"") → 0/1/2 | string→int map |
-| weapon | held-weapon intervals `rl/lg/gl/ssg/sng` (bools) — no single "active weapon" int in mvd_analyzer; demoparser has `active_weapon()`=stat[10] | derive active from intervals, or use demoparser |
+| weapon | held-weapon intervals `rl/lg/gl/ssg/sng` (bools); **active weapon now surfaced** as `PlayerStream.w` (raw `IT_` bits) in mvd_analyzer schema v37 (Xerialen/mvd_analyzer#1 @ `4146b10`) | read `PlayerStream.w` (ETL-wiring pending, #440) |
 
 ## `actions` (imitation labels) — see §D for the hard truth
 | template col | source | transform |

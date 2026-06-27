@@ -121,7 +121,7 @@ Per `(episode, tick, actor_id)`: full kinematic state (3.1) **for every player**
 for threat context [C] and is omniscient in MVD (PVS-broadcast; ~99% coverage in competitive demos).
 **Status (v1): POPULATED, T4 (#392)** — the MVD ETL writes every player's state per ego-episode tick
 from the same `-view full` decode (kinematics + forward-filled `h`/`a`/`at`→health/armor/armor_type +
-`d`/`sp`→alive + the roster team_id). `weapon` stays NULL (no active-weapon source, as §3.4);
+`d`/`sp`→alive + the roster team_id). `weapon` stays NULL — active-weapon now surfaced in mvd v37 (`PlayerStream.w`); remaining gap = ETL-population (#440);
 `onground`/`onground_is_proxy` stay NULL for observed-others (the geometric proxy lives on the ego
 `player_ticks` spine).
 
@@ -139,16 +139,18 @@ from the same `-view full` decode (kinematics + forward-filled `h`/`a`/`at`→he
 |---|---|---|---|---|
 | health, armor | C | obs | **binding** (**populated, T3** — MVD) | `player_ticks.health/armor` — MVD ETL forward-fills the per-tick value step-timeline |
 | armor_type (GA/YA/RA) | C | obs | **binding** (`player_ticks` unpopulated; `actor_ticks` **populated, T4**) | `…armor_type` — the `-view full` per-player `at` ('ga'/'ya'/'ra') step-timeline → 0/1/2 fills `actor_ticks.armor_type` (T4). The ego `player_ticks` path (a separate `-event-types armor` decode) lacks the skin/type → still NULL there (derive / unify, T7) |
-| active_weapon | C/E | obs | **binding** (unpopulated) | `…weapon` — column exists; the per-tick weapon stream is gain/lose INVENTORY, not STAT_ACTIVEWEAPON — no honest active-weapon source without a decoder change (deferred) |
+| active_weapon | C/E | obs | **binding** (unpopulated) | `…weapon` — column exists; STAT_ACTIVEWEAPON now surfaced in mvd v37 as `PlayerStream.w` (raw `IT_` weapon bits, Xerialen/mvd_analyzer#1 @ `4146b10`); remaining gap = ETL-population (#440) |
 | ammo: shells, nails, rockets, cells | E | obs | **binding** (**populated, T6** — MVD) | `player_ticks`/`actor_ticks.shells/nails/rockets/cells` — MVD ETL forward-fills the `-view full` per-player `sh`/`nl`/`rk`/`cl` step-timeline onto each tick (T6, #394) |
 | powerups: quad, pent, ring (remaining seconds) | C/E | obs | **binding** (**populated, T6** — MVD) | `player_ticks`/`actor_ticks.quad_rem/pent_rem/ring_rem` — remaining-SECONDS derived from the `-view full` per-player `q`/`pe`/`r` held-interval `[s,e]` at each tick (T6, #394); NULL when not held (never 0). The feature layer applies the registry `/60,/300,/60` norm |
 
 Source (wire): `svc_updatestat` STAT_HEALTH / ARMOR / ACTIVEWEAPON / SHELLS / NAILS / ROCKETS / CELLS /
 ITEMS (+ entity skin for armor type). **health/armor are now populated** on `player_ticks` by the MVD
 ETL (T3, #391): a second best-effort decode `-view events -event-types health,armor` yields per-player
-absolute value step-timelines, forward-filled onto each tick by demo-time. `armor_type` and
-`active_weapon` **remain unpopulated** — the per-tick event streams carry the AP value but neither the
-armor skin/type nor the active-weapon id (its weapon events are gain/lose inventory) — tracked by §7.
+absolute value step-timelines, forward-filled onto each tick by demo-time. `armor_type` **remains
+unpopulated** on `player_ticks` — the per-tick event stream carries the AP value but not the armor
+skin/type — tracked by §7. `active_weapon` now has an honest source — STAT_ACTIVEWEAPON is surfaced in
+mvd v37 as `PlayerStream.w` (raw `IT_` weapon bits; Xerialen/mvd_analyzer#1 @ `4146b10`) — so the column
+stays NULL only pending ETL-population (#440), tracked by §7.
 
 ### 3.5 Items / economy timeline — `items`, `item_events` [E/I]
 Static `items` (type, origin, respawn_seconds, static_value, nearest_marker) — POPULATED
@@ -387,7 +389,10 @@ explicit and normative:
   (per (episode, tick, ego-observer, target) FOV + hull-0 LOS raycast + carried-forward belief, with
   `pvs_visible` NULL — PVS not sourced, see §5 [C]) and wired the [E] item-urgency + §6.5
   clean-movement filter derivations. Still defined-but-empty: **`audio_cues`** (the other T8 derived
-  layer, not in #396). The report makes the remaining (defined-but-empty / derived) gaps explicit and
+  layer, not in #396) and **`player_ticks.weapon`** / **`actor_ticks.weapon`** (active-weapon: the
+  decoder gap is now CLOSED — STAT_ACTIVEWEAPON is surfaced in mvd v37 as `PlayerStream.w`,
+  Xerialen/mvd_analyzer#1 @ `4146b10` — but the columns stay NULL pending ETL-population, #440). The
+  report makes the remaining (defined-but-empty / derived) gaps explicit and
   tracked.
 - **Durability:** every demo sha256 + size; decoder binary sha + schema version; spec id (§8);
   canonical on servexeri (~GB, not git, not aws-dev); only the summary + coverage report + this spec
