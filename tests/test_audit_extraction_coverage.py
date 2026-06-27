@@ -85,9 +85,10 @@ class TestParsers(unittest.TestCase):
 class TestClassification(unittest.TestCase):
     def test_known_gaps_classify_gap(self):
         # After T4 the actor_ticks state + resources are extracted; T8 #396 flips actor_visibility.*
-        # GAP -> DERIVED. The GAPs that REMAIN: the active-weapon columns (STAT_ACTIVEWEAPON is parsed
-        # by the mvd-reader but not surfaced -> WS-1 analyzer-fitness), player_ticks.armor_type (an
-        # ETL-wiring gap; the `at` stream exists), and audio_cues.* (the one remaining T8 gap).
+        # GAP -> DERIVED. The GAPs that REMAIN: the active-weapon columns (STAT_ACTIVEWEAPON is now
+        # surfaced in mvd v37 as PlayerStream.w -> the remaining gap is ETL-wiring, #440),
+        # player_ticks.armor_type (an ETL-wiring gap; the `at` stream exists), and audio_cues.* (the
+        # one remaining T8 gap).
         for table, col in [
             ("player_ticks", "armor_type"), ("player_ticks", "weapon"),
             ("actor_ticks", "weapon"),
@@ -262,8 +263,8 @@ class TestReport(unittest.TestCase):
         refs = audit.parse_registry_sources(audit.REGISTRY_JSON)
         report, _ = audit.build_report(schema, etl_mvd, etl_qwd, refs)
 
-        # The inventory really is v35-based, so a schema-33 mention in the report would be a live
-        # contradiction.
+        # The inventory is still v35-baselined (a schema-33 mention would be a live contradiction);
+        # state.weapon_active persists as a key even after its origin flipped to the v37 decoder (#440).
         self.assertIn("state.weapon_active", audit.DECODER_INVENTORY)
         self.assertFalse(audit._report_advertises_stale_schema33(report),
                          "corrected v35 report must not advertise retired schema-33 provenance")
