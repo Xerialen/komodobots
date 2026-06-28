@@ -49,6 +49,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_DIR = REPO_ROOT / "scripts"
@@ -165,13 +166,23 @@ def bot_edicts_and_slots(bots: int) -> tuple[tuple[int, ...], tuple[int, ...]]:
     return edicts, slots
 
 
-def utc_run_id() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+def make_run_id(port: int) -> str:
+    """Collision-proof attempt identity (#453).
+
+    run_dir, demo_name, the /dev/shm region, and the ledger key all derive from
+    this, so it must be unique even for two same-second launches: a bare
+    UTC-second id let same-second runs share an artifact dir + demo prefix +
+    ledger key (one attempt's recording mis-attributed to another). Port makes
+    cross-port ids deterministically distinct; the random suffix covers same-port
+    same-second (sequential) reuse.
+    """
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return f"{stamp}-p{port}-{uuid4().hex[:8]}"
 
 
-def default_shm_name(port: int, run_id: str) -> str:
-    """Per-run /dev/shm region name -> two concurrent runs never collide (#453)."""
-    return f"{SHM_NAME_PREFIX}_{port}_{run_id}"
+def default_shm_name(run_id: str) -> str:
+    """Per-run /dev/shm region name; run_id is already collision-proof (#453)."""
+    return f"{SHM_NAME_PREFIX}_{run_id}"
 
 
 def select_run_demo(demos_dir: Path, demo_name: str, after_mtime: float) -> Path | None:
@@ -323,7 +334,7 @@ def main(argv=None) -> int:
         return 2
 
     bot_edicts, bot_slots = bot_edicts_and_slots(args.bots)
-    run_id = utc_run_id()
+    run_id = make_run_id(args.port)
     run_dir = args.out_root / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     session = f"komodobots_prewar_{args.port}_{run_id}"
@@ -334,7 +345,7 @@ def main(argv=None) -> int:
     start_marker = run_dir / "start.marker"
     # Per-run shm isolation (#453): default to a per-port/per-run region so two
     # concurrent scratch-port runs can't unlink/pkill each other's sidecar.
-    shm_name = args.shm_name or default_shm_name(args.port, run_id)
+    shm_name = args.shm_name or default_shm_name(run_id)
 
     # Preflight.
     for path, what in ((NQ / "mvdsv", "mvdsv binary"),

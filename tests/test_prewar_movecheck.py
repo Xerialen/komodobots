@@ -58,18 +58,39 @@ class SelectRunDemoTest(unittest.TestCase):
         self.assertIsNone(pw.select_run_demo(self.dir, self.demo_name, self.after))
 
 
+class MakeRunIdTest(unittest.TestCase):
+    def test_distinct_across_ports_same_second(self):
+        # Two runs launched in the same second on different ports must get
+        # distinct attempt ids (deterministically, via the port component).
+        a, b = pw.make_run_id(28599), pw.make_run_id(28600)
+        self.assertNotEqual(a, b)
+        self.assertIn("p28599", a)
+        self.assertIn("p28600", b)
+
+    def test_distinct_on_repeat_same_port_same_second(self):
+        # Same port, same second (sequential reuse) -> still unique (random suffix).
+        ids = {pw.make_run_id(28599) for _ in range(50)}
+        self.assertEqual(len(ids), 50, "same-second same-port ids must not collide")
+
+    def test_derived_artifacts_are_distinct_across_concurrent_runs(self):
+        a, b = pw.make_run_id(28599), pw.make_run_id(28600)
+        # run_dir, demo prefix, and shm all derive from run_id -> all distinct.
+        self.assertNotEqual(f"prewar_movecheck_dm3_{a}", f"prewar_movecheck_dm3_{b}")
+        self.assertNotEqual(f"experiments/prewar-movecheck/{a}",
+                            f"experiments/prewar-movecheck/{b}")
+        self.assertNotEqual(pw.default_shm_name(a), pw.default_shm_name(b))
+
+
 class DefaultShmNameTest(unittest.TestCase):
-    def test_is_per_port_and_per_run(self):
-        a = pw.default_shm_name(28599, "20260628T120000Z")
-        b = pw.default_shm_name(28600, "20260628T120000Z")  # different port
-        c = pw.default_shm_name(28599, "20260628T120500Z")  # different run
-        self.assertEqual(len({a, b, c}), 3, "two concurrent runs must not share an shm region")
+    def test_derives_from_collision_proof_run_id(self):
+        a = pw.default_shm_name(pw.make_run_id(28599))
+        b = pw.default_shm_name(pw.make_run_id(28600))
+        self.assertNotEqual(a, b)
 
     def test_not_the_old_shared_constant(self):
-        name = pw.default_shm_name(28599, "20260628T120000Z")
+        name = pw.default_shm_name(pw.make_run_id(28599))
         self.assertNotEqual(name, "komodo_move_t07_prewar")
         self.assertTrue(name.startswith("komodo_move_prewar_"))
-        self.assertIn("28599", name)
 
 
 if __name__ == "__main__":
