@@ -30,6 +30,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))  # tests/ for _live_c_h
 import _live_c_harness as _harness  # noqa: E402
 from _live_c_harness import run as _run  # noqa: E402
 
+sys.path.insert(0, str(ROOT / "experiments" / "route_observatory"))
+import gen_route_canon_header as _gen  # noqa: E402
+
 CANON = json.loads((ROOT / "data" / "catalog" / "route_canon.dm3.json").read_text(encoding="utf-8"))
 
 
@@ -176,6 +179,43 @@ class TestHandoffGate(unittest.TestCase):
             (1, self.p_off, 1, self.goal_end),   # slot 1 off-line -> stays disengaged
         ])
         self.assertEqual(res, [1, 0])
+
+    @staticmethod
+    def _closest_overlap_vertex():
+        """The base-highway downsampled vertex closest to a DIFFERENT base highway's polyline.
+        Returns (vertex, i, j, end_i, end_j, gap): vertex lies on highway i (its global-nearest)
+        but within `gap` of highway j. Mirrors the geometry the committed header encodes."""
+        base = _base()
+        polys = [_gen.downsample(_xy(h), _gen.DEFAULT_MAX_PTS) for h in base]
+        ends = [(float(h["end_xyz"][0]), float(h["end_xyz"][1])) for h in base]
+        best = None
+        for i in range(len(polys)):
+            for j in range(len(polys)):
+                if i == j:
+                    continue
+                for v in polys[i]:
+                    gap = _gen._min_poly_dist([v], polys[j])
+                    if best is None or gap < best[0]:
+                        best = (gap, i, j, v)
+        gap, i, j, v = best
+        return v, i, j, ends[i], ends[j], gap
+
+    def test_engage_picks_intended_highway_on_overlap(self):
+        # Fix 2 (Codex P2): on overlapping dm3 corridors a bot can be globally-nearest to highway i
+        # yet intend highway j (goal at j's end). Intent-first selection must engage j, NOT refuse
+        # because i's end != the goal (the global-nearest-first bug).
+        v, i, j, end_i, end_j, gap = self._closest_overlap_vertex()
+        self.assertNotEqual(i, j)
+        dist, which = self._nearest(v)
+        self.assertEqual(which, i, "overlap vertex must be globally nearest to highway i")
+        self.assertLess(dist, self.R_ON)
+        self.assertLessEqual(gap, self.R_ON, "vertex must also be within R_ON of highway j")
+        # premise: i's end is far from the goal, so global-nearest-first would have refused here
+        self.assertGreater(math.dist(end_i, end_j), self.R_GOAL,
+                           "test needs distinct highway ends to exercise the bug")
+        res = self._seq([(0, v, 1, end_j)])  # goal targets highway j's end
+        self.assertEqual(res, [1],
+                         "bot on highway i but intending highway j must engage j, not be refused")
 
 
 if __name__ == "__main__":

@@ -44,32 +44,41 @@ static double mhw_dist2(double ax, double ay, double bx, double by)
     return dx * dx + dy * dy;
 }
 
+/* Squared min (x,y) distance from (x,y) to base highway h's polyline (point-to-segment). */
+static double mhw_line_dist2(int h, double x, double y)
+{
+    int    n = MHW_NPTS[h];
+    double best = DBL_MAX;
+    int    i;
+
+    if (n <= 0)
+    {
+        return DBL_MAX;
+    }
+    if (n == 1)
+    {
+        return mhw_dist2(x, y, MHW_PTS[h][0][0], MHW_PTS[h][0][1]);
+    }
+    for (i = 0; i + 1 < n; i++)
+    {
+        double d2 = mhw_seg_dist2(x, y,
+                                  MHW_PTS[h][i][0],     MHW_PTS[h][i][1],
+                                  MHW_PTS[h][i + 1][0], MHW_PTS[h][i + 1][1]);
+        if (d2 < best) { best = d2; }
+    }
+    return best;
+}
+
 double mhw_nearest_base_highway(double x, double y, int *which)
 {
     double best = DBL_MAX;
     int    best_i = -1;
-    int    h, i, n;
+    int    h;
 
     for (h = 0; h < MHW_N_BASE; h++)
     {
-        n = MHW_NPTS[h];
-        if (n <= 0)
-        {
-            continue;
-        }
-        if (n == 1)
-        {
-            double d2 = mhw_dist2(x, y, MHW_PTS[h][0][0], MHW_PTS[h][0][1]);
-            if (d2 < best) { best = d2; best_i = h; }
-            continue;
-        }
-        for (i = 0; i + 1 < n; i++)
-        {
-            double d2 = mhw_seg_dist2(x, y,
-                                      MHW_PTS[h][i][0],     MHW_PTS[h][i][1],
-                                      MHW_PTS[h][i + 1][0], MHW_PTS[h][i + 1][1]);
-            if (d2 < best) { best = d2; best_i = h; }
-        }
+        double d2 = mhw_line_dist2(h, x, y);
+        if (d2 < best) { best = d2; best_i = h; }
     }
     if (which)
     {
@@ -82,46 +91,58 @@ int mhw_handoff_engaged(int slot, double bx, double by, int have_goal, double gx
 {
     static int engaged[MHW_MAX_SLOTS];        /* C zero-init -> disengaged */
     static int engaged_which[MHW_MAX_SLOTS];
-    int    which = -1;
-    double d2, end2, goalend2;
+    int    h;
 
     if ((slot < 0) || (slot >= MHW_MAX_SLOTS))
     {
         return 0;            /* out of range -> stock Commander */
     }
 
-    d2 = mhw_nearest_base_highway(bx, by, &which);
-    if (which < 0)
-    {
-        engaged[slot] = 0;   /* no base highways -> Commander */
-        return 0;
-    }
-    end2 = mhw_dist2(bx, by, MHW_END[which][0], MHW_END[which][1]);
-    goalend2 = have_goal ? mhw_dist2(gx, gy, MHW_END[which][0], MHW_END[which][1]) : DBL_MAX;
-
     if (engaged[slot])
     {
-        /* Stay engaged (hysteresis) until a yield-back condition trips: drifted off the line,
-         * arrived at the end, lost the Commander's intent, or the nearest base highway changed. */
+        /* Stay engaged on the SPECIFIC highway we latched (engaged_which), with hysteresis, until
+         * a yield-back condition trips: drifted off ITS line, arrived at ITS end, or lost the
+         * Commander's intent toward ITS end. No "nearest changed" check -- the engaged highway is
+         * tracked explicitly, so a momentarily-closer overlapping corridor cannot churn it. */
+        int    w = engaged_which[slot];
+        double d2 = mhw_line_dist2(w, bx, by);
+        double end2 = mhw_dist2(bx, by, MHW_END[w][0], MHW_END[w][1]);
+        double goalend2 = have_goal ? mhw_dist2(gx, gy, MHW_END[w][0], MHW_END[w][1]) : DBL_MAX;
         if ((d2 > (MHW_R_OFF * MHW_R_OFF))
             || (end2 <= (MHW_R_ARRIVE * MHW_R_ARRIVE))
             || (!have_goal)
-            || (goalend2 > (MHW_R_GOAL * MHW_R_GOAL))
-            || (which != engaged_which[slot]))
+            || (goalend2 > (MHW_R_GOAL * MHW_R_GOAL)))
         {
             engaged[slot] = 0;
         }
+        return engaged[slot];
     }
-    else
+
+    /* Disengaged: select by INTENT first. Among base highways whose END the Commander's goal is
+     * heading for (within R_GOAL), pick the one whose polyline is nearest the bot, and engage it
+     * iff that nearest is within R_ON. Intent-first (not global-nearest-first) so that on
+     * overlapping dm3 corridors the bot latches the highway it actually intends to run -- not
+     * whichever line happens to be a quu closer. Requires a goal (no intent -> Commander). */
+    if (!have_goal)
     {
-        /* Engage only with Commander intent (goal toward this highway's end) AND precise on-line
-         * membership (within R_ON of the polyline). */
-        if ((d2 <= (MHW_R_ON * MHW_R_ON))
-            && have_goal
-            && (goalend2 <= (MHW_R_GOAL * MHW_R_GOAL)))
+        return 0;
+    }
+    {
+        int    best_h = -1;
+        double best_d2 = DBL_MAX;
+        for (h = 0; h < MHW_N_BASE; h++)
+        {
+            double goalend2 = mhw_dist2(gx, gy, MHW_END[h][0], MHW_END[h][1]);
+            if (goalend2 <= (MHW_R_GOAL * MHW_R_GOAL))
+            {
+                double d2 = mhw_line_dist2(h, bx, by);
+                if (d2 < best_d2) { best_d2 = d2; best_h = h; }
+            }
+        }
+        if ((best_h >= 0) && (best_d2 <= (MHW_R_ON * MHW_R_ON)))
         {
             engaged[slot] = 1;
-            engaged_which[slot] = which;
+            engaged_which[slot] = best_h;
         }
     }
     return engaged[slot];

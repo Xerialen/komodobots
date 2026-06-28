@@ -14,7 +14,7 @@ index a11978f..cbe41c8 100644
  	"${DIR_SRC}/captain.c"
  	"${DIR_SRC}/coach.c"
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index 29a86ba..e2b4b6b 100644
+index 29a86ba..a2408ca 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
 @@ -6,6 +6,10 @@
@@ -64,7 +64,7 @@ index 29a86ba..e2b4b6b 100644
  // bot-program T0.5 (#210) PR-B: per-tick live world-view DUMP for the offline
  // golden-parity check (scripts/diff_live_world_view.py). Gated by the global
  // cvar k_fb_moveprobe_live_dump (default off -> inert in normal play). Emits
-@@ -3277,6 +3310,32 @@ static void BotApplyMoveProbeLive(gedict_t *self, int slot, qbool *jumping,
+@@ -3277,6 +3310,42 @@ static void BotApplyMoveProbeLive(gedict_t *self, int slot, qbool *jumping,
  						 self->s.v.velocity[2], self->fb.desired_angle[1],
  						 self->fb.desired_angle[0], feats);
  
@@ -77,13 +77,23 @@ index 29a86ba..e2b4b6b 100644
 +	// stream (the freshness counters) stays continuous. Gate off (default) -> unchanged.
 +	{
 +		int gate_on = 0, gate_from_slot = 0;
-+		BotMoveProbeCvarIntForBot(self, "live_highway_gate", &gate_on, &gate_from_slot);
++		if (BotMoveProbeCvarIntForBot(self, "live_highway_gate", &gate_on, &gate_from_slot) < 0)
++		{
++			// Malformed per-slot gate cvar (the loud-fail row is already printed). FAIL SAFE: do
++			// NOT override -- yield to the stock Commander move (mirrors the mode-resolve hold path
++			// above) rather than silently leaving the safety gate off and overriding everywhere.
++			BotMoveProbeHandoffLog(slot, 0);
++			return;
++		}
 +		if (gate_on)
 +		{
-+			gedict_t *goal = PROG_TO_EDICT(self->s.v.goalentity);
-+			int    have_goal = (goal != NULL) && (goal != world);
-+			double gx = have_goal ? goal->s.v.origin[0] : 0.0;
-+			double gy = have_goal ? goal->s.v.origin[1] : 0.0;
++			// goalentity holds an edict NUMBER (bot_botgoals.c sets it via NUM_FOR_EDICT), so read
++			// it back through the bounds-checked g_edicts[] index -- NOT PROG_TO_EDICT, which is a
++			// byte-offset macro and would build a misaligned pointer. number 0 == world == no goal.
++			int    goalentity = self->s.v.goalentity;
++			int    have_goal = (goalentity > 0) && (goalentity < MAX_EDICTS);
++			double gx = have_goal ? g_edicts[goalentity].s.v.origin[0] : 0.0;
++			double gy = have_goal ? g_edicts[goalentity].s.v.origin[1] : 0.0;
 +			if (!mhw_handoff_engaged(slot, self->s.v.origin[0], self->s.v.origin[1],
 +									 have_goal, gx, gy))
 +			{
@@ -99,10 +109,10 @@ index 29a86ba..e2b4b6b 100644
  	if (mshm_read_move(region, slot, &mv)
 diff --git a/src/move_highway.c b/src/move_highway.c
 new file mode 100644
-index 0000000..6a74ab9
+index 0000000..3712bf8
 --- /dev/null
 +++ b/src/move_highway.c
-@@ -0,0 +1,130 @@
+@@ -0,0 +1,151 @@
 +/* See move_highway.h. The geometric handoff gate the KTX live mode consults to decide whether the
 + * bot is on a trained base highway (yield to the Motor Cortex) or off it (stock Commander drives). */
 +#include "move_highway.h"
@@ -149,32 +159,41 @@ index 0000000..6a74ab9
 +    return dx * dx + dy * dy;
 +}
 +
++/* Squared min (x,y) distance from (x,y) to base highway h's polyline (point-to-segment). */
++static double mhw_line_dist2(int h, double x, double y)
++{
++    int    n = MHW_NPTS[h];
++    double best = DBL_MAX;
++    int    i;
++
++    if (n <= 0)
++    {
++        return DBL_MAX;
++    }
++    if (n == 1)
++    {
++        return mhw_dist2(x, y, MHW_PTS[h][0][0], MHW_PTS[h][0][1]);
++    }
++    for (i = 0; i + 1 < n; i++)
++    {
++        double d2 = mhw_seg_dist2(x, y,
++                                  MHW_PTS[h][i][0],     MHW_PTS[h][i][1],
++                                  MHW_PTS[h][i + 1][0], MHW_PTS[h][i + 1][1]);
++        if (d2 < best) { best = d2; }
++    }
++    return best;
++}
++
 +double mhw_nearest_base_highway(double x, double y, int *which)
 +{
 +    double best = DBL_MAX;
 +    int    best_i = -1;
-+    int    h, i, n;
++    int    h;
 +
 +    for (h = 0; h < MHW_N_BASE; h++)
 +    {
-+        n = MHW_NPTS[h];
-+        if (n <= 0)
-+        {
-+            continue;
-+        }
-+        if (n == 1)
-+        {
-+            double d2 = mhw_dist2(x, y, MHW_PTS[h][0][0], MHW_PTS[h][0][1]);
-+            if (d2 < best) { best = d2; best_i = h; }
-+            continue;
-+        }
-+        for (i = 0; i + 1 < n; i++)
-+        {
-+            double d2 = mhw_seg_dist2(x, y,
-+                                      MHW_PTS[h][i][0],     MHW_PTS[h][i][1],
-+                                      MHW_PTS[h][i + 1][0], MHW_PTS[h][i + 1][1]);
-+            if (d2 < best) { best = d2; best_i = h; }
-+        }
++        double d2 = mhw_line_dist2(h, x, y);
++        if (d2 < best) { best = d2; best_i = h; }
 +    }
 +    if (which)
 +    {
@@ -187,46 +206,58 @@ index 0000000..6a74ab9
 +{
 +    static int engaged[MHW_MAX_SLOTS];        /* C zero-init -> disengaged */
 +    static int engaged_which[MHW_MAX_SLOTS];
-+    int    which = -1;
-+    double d2, end2, goalend2;
++    int    h;
 +
 +    if ((slot < 0) || (slot >= MHW_MAX_SLOTS))
 +    {
 +        return 0;            /* out of range -> stock Commander */
 +    }
 +
-+    d2 = mhw_nearest_base_highway(bx, by, &which);
-+    if (which < 0)
-+    {
-+        engaged[slot] = 0;   /* no base highways -> Commander */
-+        return 0;
-+    }
-+    end2 = mhw_dist2(bx, by, MHW_END[which][0], MHW_END[which][1]);
-+    goalend2 = have_goal ? mhw_dist2(gx, gy, MHW_END[which][0], MHW_END[which][1]) : DBL_MAX;
-+
 +    if (engaged[slot])
 +    {
-+        /* Stay engaged (hysteresis) until a yield-back condition trips: drifted off the line,
-+         * arrived at the end, lost the Commander's intent, or the nearest base highway changed. */
++        /* Stay engaged on the SPECIFIC highway we latched (engaged_which), with hysteresis, until
++         * a yield-back condition trips: drifted off ITS line, arrived at ITS end, or lost the
++         * Commander's intent toward ITS end. No "nearest changed" check -- the engaged highway is
++         * tracked explicitly, so a momentarily-closer overlapping corridor cannot churn it. */
++        int    w = engaged_which[slot];
++        double d2 = mhw_line_dist2(w, bx, by);
++        double end2 = mhw_dist2(bx, by, MHW_END[w][0], MHW_END[w][1]);
++        double goalend2 = have_goal ? mhw_dist2(gx, gy, MHW_END[w][0], MHW_END[w][1]) : DBL_MAX;
 +        if ((d2 > (MHW_R_OFF * MHW_R_OFF))
 +            || (end2 <= (MHW_R_ARRIVE * MHW_R_ARRIVE))
 +            || (!have_goal)
-+            || (goalend2 > (MHW_R_GOAL * MHW_R_GOAL))
-+            || (which != engaged_which[slot]))
++            || (goalend2 > (MHW_R_GOAL * MHW_R_GOAL)))
 +        {
 +            engaged[slot] = 0;
 +        }
++        return engaged[slot];
 +    }
-+    else
++
++    /* Disengaged: select by INTENT first. Among base highways whose END the Commander's goal is
++     * heading for (within R_GOAL), pick the one whose polyline is nearest the bot, and engage it
++     * iff that nearest is within R_ON. Intent-first (not global-nearest-first) so that on
++     * overlapping dm3 corridors the bot latches the highway it actually intends to run -- not
++     * whichever line happens to be a quu closer. Requires a goal (no intent -> Commander). */
++    if (!have_goal)
 +    {
-+        /* Engage only with Commander intent (goal toward this highway's end) AND precise on-line
-+         * membership (within R_ON of the polyline). */
-+        if ((d2 <= (MHW_R_ON * MHW_R_ON))
-+            && have_goal
-+            && (goalend2 <= (MHW_R_GOAL * MHW_R_GOAL)))
++        return 0;
++    }
++    {
++        int    best_h = -1;
++        double best_d2 = DBL_MAX;
++        for (h = 0; h < MHW_N_BASE; h++)
++        {
++            double goalend2 = mhw_dist2(gx, gy, MHW_END[h][0], MHW_END[h][1]);
++            if (goalend2 <= (MHW_R_GOAL * MHW_R_GOAL))
++            {
++                double d2 = mhw_line_dist2(h, bx, by);
++                if (d2 < best_d2) { best_d2 = d2; best_h = h; }
++            }
++        }
++        if ((best_h >= 0) && (best_d2 <= (MHW_R_ON * MHW_R_ON)))
 +        {
 +            engaged[slot] = 1;
-+            engaged_which[slot] = which;
++            engaged_which[slot] = best_h;
 +        }
 +    }
 +    return engaged[slot];
@@ -235,10 +266,10 @@ index 0000000..6a74ab9
 +#endif /* !Q3_VM */
 diff --git a/src/move_highway.h b/src/move_highway.h
 new file mode 100644
-index 0000000..f371e80
+index 0000000..59f560a
 --- /dev/null
 +++ b/src/move_highway.h
-@@ -0,0 +1,43 @@
+@@ -0,0 +1,44 @@
 +/* Commander/Motor-Cortex handoff gate -- C unit (bot-program T3.1, #422).
 + *
 + * Pure C + libm, no engine types (mirrors move_world_view.{c,h}), so the same translation unit
@@ -251,7 +282,7 @@ index 0000000..f371e80
 + * trajectory only; #421 _match_key / F5). The handoff is a latched CONJUNCTION: to yield movement
 + * the bot must (i) intend to head toward a base highway's end (Commander intent) AND (ii) physically
 + * be on that highway's traced polyline (geometric latch). It hands back to the Commander on arrival,
-+ * drift, intent loss, or a change of nearest highway.
++ * drift, or intent loss.
 + */
 +#ifndef KOMODO_MOVE_HIGHWAY_H
 +#define KOMODO_MOVE_HIGHWAY_H
@@ -272,11 +303,12 @@ index 0000000..f371e80
 +double mhw_nearest_base_highway(double x, double y, int *which);
 +
 +/* Per-slot LATCHED conjunction handoff gate. Returns 1 = engaged (yield movement to the Motor
-+ * Cortex), 0 = disengaged (stock Commander drives). Engages from disengaged only when the bot is
-+ * within R_ON of a base polyline AND has a goal within R_GOAL of that highway's end; stays engaged
-+ * (hysteresis to R_OFF) until it drifts off (> R_OFF), arrives (end within R_ARRIVE), loses intent,
-+ * or the nearest base highway changes. State is per-slot; C zero-init == disengaged (a bot must
-+ * reach a base highway to engage). */
++ * Cortex), 0 = disengaged (stock Commander drives). Engages from disengaged by INTENT first: among
++ * the base highways whose end the goal targets (within R_GOAL), it latches the one whose polyline is
++ * nearest the bot, iff that nearest is within R_ON. Once latched it stays on THAT specific highway
++ * (tracked explicitly) with hysteresis to R_OFF, until it drifts off (> R_OFF), arrives (end within
++ * R_ARRIVE), or loses intent. State is per-slot; C zero-init == disengaged (a bot must reach a base
++ * highway to engage). */
 +int mhw_handoff_engaged(int slot, double bx, double by, int have_goal, double gx, double gy);
 +
 +#endif /* !Q3_VM */

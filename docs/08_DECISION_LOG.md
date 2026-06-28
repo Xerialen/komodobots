@@ -3948,12 +3948,14 @@ harvest. **17 `test_pov_fuse_pipeline` tests + the full floor green.**
 ### Decision
 
 The Commander→Motor-Cortex handoff is decided in **C (KTX)**, keyed on **route geometry**, as a
-latched **conjunction**: yield movement to the ML mover only while the bot both (i) intends to head
-toward a base Route-Canon highway's end (Commander intent, loose `R_GOAL`) AND (ii) is physically on
-that highway's traced (x,y) polyline (`R_ON`/`R_OFF` hysteresis); hand back on arrival (`R_ARRIVE`),
-drift, intent loss, or nearest-highway change. The base-highway geometry is a **generated, committed C
-header** (`gen_route_canon_header.py` → `route_canon_dm3.h`); the gate is an opt-in cvar
-(`k_fb_moveprobe_live_highway_gate`, default off) layered on the mode-30 live seam.
+latched **conjunction** with **intent-first** highway selection: among the base Route-Canon highways
+whose end the Commander's goal targets (within `R_GOAL`), latch the one whose traced (x,y) polyline is
+nearest the bot, and engage it iff that nearest is within `R_ON` (`R_ON`/`R_OFF` hysteresis); then
+stay on THAT specific highway and hand back on arrival (`R_ARRIVE`), drift, or intent loss.
+Intent-first (not global-nearest-first) so overlapping dm3 corridors don't churn the latch. The
+base-highway geometry is a **generated, committed C header** (`gen_route_canon_header.py` →
+`route_canon_dm3.h`); the gate is an opt-in cvar (`k_fb_moveprobe_live_highway_gate`, default off,
+fail-safe to stock on a malformed value) layered on the mode-30 live seam.
 
 ### Alternatives Considered
 

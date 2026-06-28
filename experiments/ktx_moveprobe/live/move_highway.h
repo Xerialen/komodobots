@@ -10,7 +10,7 @@
  * trajectory only; #421 _match_key / F5). The handoff is a latched CONJUNCTION: to yield movement
  * the bot must (i) intend to head toward a base highway's end (Commander intent) AND (ii) physically
  * be on that highway's traced polyline (geometric latch). It hands back to the Commander on arrival,
- * drift, intent loss, or a change of nearest highway.
+ * drift, or intent loss.
  */
 #ifndef KOMODO_MOVE_HIGHWAY_H
 #define KOMODO_MOVE_HIGHWAY_H
@@ -31,11 +31,12 @@
 double mhw_nearest_base_highway(double x, double y, int *which);
 
 /* Per-slot LATCHED conjunction handoff gate. Returns 1 = engaged (yield movement to the Motor
- * Cortex), 0 = disengaged (stock Commander drives). Engages from disengaged only when the bot is
- * within R_ON of a base polyline AND has a goal within R_GOAL of that highway's end; stays engaged
- * (hysteresis to R_OFF) until it drifts off (> R_OFF), arrives (end within R_ARRIVE), loses intent,
- * or the nearest base highway changes. State is per-slot; C zero-init == disengaged (a bot must
- * reach a base highway to engage). */
+ * Cortex), 0 = disengaged (stock Commander drives). Engages from disengaged by INTENT first: among
+ * the base highways whose end the goal targets (within R_GOAL), it latches the one whose polyline is
+ * nearest the bot, iff that nearest is within R_ON. Once latched it stays on THAT specific highway
+ * (tracked explicitly) with hysteresis to R_OFF, until it drifts off (> R_OFF), arrives (end within
+ * R_ARRIVE), or loses intent. State is per-slot; C zero-init == disengaged (a bot must reach a base
+ * highway to engage). */
 int mhw_handoff_engaged(int slot, double bx, double by, int have_goal, double gx, double gy);
 
 #endif /* !Q3_VM */
