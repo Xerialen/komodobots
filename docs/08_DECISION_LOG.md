@@ -3866,9 +3866,10 @@ NotebookLM (docs/27+28-grounded). `unittest discover -s tests` green incl. `test
 ### Decision
 
 The trick-verifier flags a run as containing an explosive jump only when an **individual** self-damage
-event (`attacker==victim` — the decoder records it separately from enemy damage) is in `[18,60]` dmg
-**AND** a coincident **upward launch** (`vz >= 450` within `[hit-200, hit+400]` ms) occurs. Both are
-required. The standalone `VZ_TRICK_CEILING` is dropped (vz alone is legit hill/lift movement, ~615).
+event (`attacker==victim` — the decoder records it separately from enemy damage) **from an explosive
+weapon (`rl`/`gl`)** is in `[18,60]` dmg **AND** a coincident **upward launch** (`vz >= 450` within
+`[hit-200, hit+400]` ms) occurs. All three are required (the weapon predicate is explicit
+defence-in-depth — a non-explosive self-hit must never read as an explosive jump). The standalone `VZ_TRICK_CEILING` is dropped (vz alone is legit hill/lift movement, ~615).
 Self-damage without a launch is combat splash, not a trick; vz without self-damage is not flagged.
 
 ### Rejected / accepted alternatives

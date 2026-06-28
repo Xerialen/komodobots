@@ -130,10 +130,19 @@ class TestBuildRouteCanon(unittest.TestCase):
         self.assertFalse(hw["suspect_trick"])
 
     def test_above_max_dmg_stays_clean(self):
-        # death/suicide / lg water-discharge (> SELF_DMG_MAX) even with a launch -> not a survivable jump
+        # an explosive death/suicide (> SELF_DMG_MAX) even with a launch -> not a survivable jump
         pts = _straight(1.0, 20, 0.0, 50.0)
         pts[5] = (pts[5][0], pts[5][1], 0.0, 0.0, 500.0, 0.0, 600.0, 0.0)
-        dmg = [{"attacker": "p1", "victim": "p1", "weapon": "lg", "damage": 115, "time": 1500}]
+        dmg = [{"attacker": "p1", "victim": "p1", "weapon": "rl", "damage": 115, "time": 1500}]
+        hw = _build(pts, 1.0, 2.9, dmg=dmg)
+        self.assertFalse(hw["suspect_trick"])
+
+    def test_non_explosive_self_damage_stays_clean(self):
+        # contract: an explosive jump is rocket/grenade ONLY — a non-explosive self-damage event
+        # (even in-band + a coincident launch) must NOT flag as an explosive jump
+        pts = _straight(1.0, 20, 0.0, 50.0)
+        pts[5] = (pts[5][0], pts[5][1], 0.0, 0.0, 500.0, 0.0, 600.0, 0.0)
+        dmg = [{"attacker": "p1", "victim": "p1", "weapon": "sg", "damage": 40, "time": 1500}]
         hw = _build(pts, 1.0, 2.9, dmg=dmg)
         self.assertFalse(hw["suspect_trick"])
 

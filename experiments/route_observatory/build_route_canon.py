@@ -72,6 +72,11 @@ SELF_DMG_MAX = 60          # above this = a death/suicide or lg water-discharge,
 LAUNCH_VZ = 450.0          # upward vz confirming the blast launched the player (mid the 361..553 gap)
 LAUNCH_PRE_MS = 200.0      # launch-search window before the hit (damage/position clock-skew tolerance)
 LAUNCH_POST_MS = 400.0     # window after the hit (the impulse persists as the player rises)
+EXPLOSIVE_WEAPONS = ("rl", "gl")   # an explosive jump is rocket/grenade ONLY — enforced explicitly to
+                                   # match the contract. In practice only rl/gl splash self-damages in
+                                   # the band (direct-fire weapons can't self-hit; lg-discharge is
+                                   # >=115, out of band), but the predicate is defence-in-depth: a
+                                   # non-explosive self-damage event must never read as an explosive jump.
 
 
 def _slug(label):
@@ -157,9 +162,11 @@ def _suspect_trick(run, self_dmg):
                        "fail-closed (absence is not evidence of trick-free)")
     else:
         for e in self_dmg:
+            if e.get("weapon") not in EXPLOSIVE_WEAPONS:
+                continue                              # non-explosive self-damage is not a rocket/grenade jump
             dmg = e.get("damage") or 0
             if not (SELF_DMG_MIN <= dmg <= SELF_DMG_MAX):
-                continue                              # scratch / death / lg-discharge — not a jump
+                continue                              # scratch / death — not a survivable explosive jump
             peak = _launch_peak(run, e.get("time", 0))
             if peak >= LAUNCH_VZ:
                 reasons.append(f"explosive jump: self-damage {dmg} via {e.get('weapon')} @ "
