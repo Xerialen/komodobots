@@ -63,7 +63,12 @@ from run_4v4_validation_lab import build_leap_cvar_block, evaluate_live_freshnes
 NQ = Path("/home/ubuntu/nquakesv")
 SHIM = REPO_ROOT / "experiments" / "qw_min_client.py"
 
-DEFAULT_SHM_NAME = "komodo_move_t07_prewar"
+# Per-run shm name prefix (#453 Codex P2 fix): the live /dev/shm region, the
+# sidecar that attaches it, and teardown's unlink/pkill are all keyed by this
+# name. A shared constant let two concurrent scratch-port runs unlink/pkill each
+# other's sidecar -> false REDs / stale evidence. default_shm_name() makes the
+# default per-port + per-run so runs never collide; --shm-name still overrides.
+SHM_NAME_PREFIX = "komodo_move_prewar"
 DEFAULT_STALE_TICKS = 3
 DEFAULT_SIDECAR_PYTHON = "/home/ubuntu/t0.3-venv/bin/python"
 DEFAULT_SIDECAR_SCRIPT = "/home/ubuntu/komodo-t0.3/scripts/move_policy_sidecar.py"
@@ -162,6 +167,29 @@ def bot_edicts_and_slots(bots: int) -> tuple[tuple[int, ...], tuple[int, ...]]:
 
 def utc_run_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def default_shm_name(port: int, run_id: str) -> str:
+    """Per-run /dev/shm region name -> two concurrent runs never collide (#453)."""
+    return f"{SHM_NAME_PREFIX}_{port}_{run_id}"
+
+
+def select_run_demo(demos_dir: Path, demo_name: str, after_mtime: float) -> Path | None:
+    """Select THIS run's recorded MVD, bound to its run-unique requested name.
+
+    sv_demoeasyrecord writes ``<demo_name>.mvd`` (KTX may append a date suffix, so
+    we match by PREFIX, not equality). ``demo_name`` carries the unique run_id, so
+    restricting discovery to it prevents an unrelated demo written by another
+    mvdsv process during the run from being mis-attributed to this attempt -- the
+    accountability bug #453 flagged: a false GREEN, or a watch URL pointing at the
+    wrong recording. Picks the newest matching, non-empty file recorded after
+    ``after_mtime``; None if this run produced nothing of its own (-> RED).
+    """
+    candidates = [
+        f for f in demos_dir.glob(f"{demo_name}*.mvd")
+        if f.stat().st_mtime > after_mtime and f.stat().st_size > 0
+    ]
+    return max(candidates, key=lambda f: f.stat().st_mtime) if candidates else None
 
 
 def screen_stuff(session: str, cmd: str, delay: float = 0.5) -> None:
@@ -275,7 +303,9 @@ def main(argv=None) -> int:
     p.add_argument("--map", dest="map_name", default="dm3")
     p.add_argument("--timelimit", type=int, default=10, help="KTX timelimit (min); outlasts the run.")
     p.add_argument("--run-for", type=float, default=90.0, help="Seconds the bot moves before teardown.")
-    p.add_argument("--shm-name", default=DEFAULT_SHM_NAME)
+    p.add_argument("--shm-name", default=None,
+                   help="Override the /dev/shm region name (default: per-run "
+                        "komodo_move_prewar_<port>_<run_id>, isolated from other runs).")
     p.add_argument("--stale-ticks", type=int, default=DEFAULT_STALE_TICKS)
     p.add_argument("--sidecar-python", default=DEFAULT_SIDECAR_PYTHON)
     p.add_argument("--sidecar-script", default=DEFAULT_SIDECAR_SCRIPT)
@@ -302,6 +332,9 @@ def main(argv=None) -> int:
     screen_log = run_dir / "screen.log"
     demo_name = f"prewar_movecheck_{args.map_name}_{run_id}"
     start_marker = run_dir / "start.marker"
+    # Per-run shm isolation (#453): default to a per-port/per-run region so two
+    # concurrent scratch-port runs can't unlink/pkill each other's sidecar.
+    shm_name = args.shm_name or default_shm_name(args.port, run_id)
 
     # Preflight.
     for path, what in ((NQ / "mvdsv", "mvdsv binary"),
@@ -322,7 +355,7 @@ def main(argv=None) -> int:
     sidecar_proc: subprocess.Popen | None = None
     try:
         write_cfg(cfg_path, port=args.port, map_name=args.map_name,
-                  timelimit=args.timelimit, shm_name=args.shm_name,
+                  timelimit=args.timelimit, shm_name=shm_name,
                   stale_ticks=args.stale_ticks, bot_edicts=bot_edicts)
         (run_dir / "lab.cfg").write_text(cfg_path.read_text(), encoding="utf-8")
         start_marker.touch()
@@ -368,7 +401,7 @@ def main(argv=None) -> int:
         # Start the sidecar waiter BEFORE the bot spawns so it attaches the
         # instant KTX creates the shm region.
         sidecar_proc = start_sidecar_waiter(
-            run_dir, args.shm_name, args.sidecar_python, args.sidecar_script,
+            run_dir, shm_name, args.sidecar_python, args.sidecar_script,
             args.sidecar_ckpt, args.sidecar_hz,
         )
 
@@ -400,12 +433,11 @@ def main(argv=None) -> int:
         screen_stuff(session, "sv_demostop", 2.0)
         screen_stuff(session, "status")
 
+        # Bind the demo to THIS run's unique name, not just "newest *.mvd": the
+        # demos dir is shared, so a concurrent unrelated recording must never be
+        # mis-attributed to this attempt (#453 accountability fix).
         demos_dir = NQ / "ktx" / "demos"
-        candidates = [
-            f for f in demos_dir.glob("*.mvd")
-            if f.stat().st_mtime > start_marker.stat().st_mtime and f.stat().st_size > 0
-        ]
-        demo = max(candidates, key=lambda f: f.stat().st_mtime) if candidates else None
+        demo = select_run_demo(demos_dir, demo_name, start_marker.stat().st_mtime)
 
         # Freshness gate over screen.log (the proven per-frame live=L/T gate).
         time.sleep(0.5)  # let screen.log flush
@@ -476,13 +508,13 @@ def main(argv=None) -> int:
             except subprocess.TimeoutExpired:
                 sidecar_proc.kill()
         subprocess.run(
-            ["pkill", "-f", f"move_policy_sidecar.py --shm-name {args.shm_name}"],
+            ["pkill", "-f", f"move_policy_sidecar.py --shm-name {shm_name}"],
             check=False,
         )
         if session_exists(session):
             screen_stuff(session, "sv_demostop", 0.5)
             subprocess.run(["screen", "-S", session, "-X", "quit"], check=False)
-        Path(f"/dev/shm/{args.shm_name}").unlink(missing_ok=True)
+        Path(f"/dev/shm/{shm_name}").unlink(missing_ok=True)
         cfg_path.unlink(missing_ok=True)
 
 
