@@ -2,7 +2,16 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index a11978f..cbe41c8 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -62,6 +62,10 @@ set(SRC_COMMON
+@@ -53,24 +53,28 @@ set(SRC_COMMON
+ 	"${DIR_SRC}/bot_items.c"
+ 	"${DIR_SRC}/bot_load.c"
+ 	"${DIR_SRC}/bot_loadmap.c"
+ 	"${DIR_SRC}/bot_match.c"
+ 	"${DIR_SRC}/bot_movement.c"
+ 	"${DIR_SRC}/bot_routing.c"
+ 	"${DIR_SRC}/bot_world.c"
+ 	# bot-program T0.3 live-brain mode (native-only; a no-op under QVM via
+ 	# #ifndef Q3_VM). Canonical source: experiments/ktx_moveprobe/live/ in the
  	# komodobots repo; the CI byte-match gate pins it to the Python contract.
  	"${DIR_SRC}/move_world_view.c"
  	"${DIR_SRC}/move_shm.c"
@@ -13,11 +22,25 @@ index a11978f..cbe41c8 100644
  	"${DIR_SRC}/buttons.c"
  	"${DIR_SRC}/captain.c"
  	"${DIR_SRC}/coach.c"
+ 	"${DIR_SRC}/clan_arena.c"
+ 	"${DIR_SRC}/client.c"
+ 	"${DIR_SRC}/combat.c"
+ 	"${DIR_SRC}/commands.c"
+ 	"${DIR_SRC}/ctf.c"
+ 	"${DIR_SRC}/doors.c"
+ 	"${DIR_SRC}/fb_globals.c"
+ 	"${DIR_SRC}/files.c"
+ 	"${DIR_SRC}/func_bob.c"
 diff --git a/src/bot_movement.c b/src/bot_movement.c
 index 29a86ba..20d5a80 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -6,6 +6,10 @@
+@@ -1,20 +1,24 @@
+ #ifdef BOT_SUPPORT
+ 
+ #include "g_local.h"
+ 
+ // bot-program T0.3 live-brain mode: world-view + POSIX-shm transport to the
  // MoveMLP sidecar. Native-only; move_shm.h self-guards to nothing under Q3_VM.
  #include "move_shm.h"
  
@@ -28,7 +51,25 @@ index 29a86ba..20d5a80 100644
  #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
  #define MIN_DEAD_TIME 0.2f
  #define MAX_DEAD_TIME 1.0f
-@@ -3146,6 +3150,35 @@ static void BotMoveProbeLiveLog(int slot, int live, unsigned req, unsigned ans,
+ #define MOVEPROBE_QWD_MAX_POINTS 16
+ 
+ static int moveprobe_transition_active[MAX_CLIENTS];
+ static int moveprobe_transition_on_ground[MAX_CLIENTS];
+ static int moveprobe_transition_has_ground_time[MAX_CLIENTS];
+ static int moveprobe_transition_has_air_time[MAX_CLIENTS];
+ static int moveprobe_transition_has_seen_time[MAX_CLIENTS];
+ static float moveprobe_transition_last_ground_time[MAX_CLIENTS];
+ static float moveprobe_transition_last_air_time[MAX_CLIENTS];
+@@ -3137,24 +3141,53 @@ static void BotMoveProbeLiveLog(int slot, int live, unsigned req, unsigned ans,
+ 		G_bprint(PRINT_HIGH, "[moveprobe-live] slot %d LIVE fwd=%d side=%d jump=%d (req=%u ans=%u) live=%u/%u\n",
+ 				 slot, fwd, side, jump, req, ans,
+ 				 moveprobe_live_frames[slot], moveprobe_total_frames[slot]);
+ 	}
+ 	else
+ 	{
+ 		G_bprint(PRINT_HIGH, "[moveprobe-live] slot %d FALLBACK (stock frogbot; req=%u ans=%u) live=%u/%u\n",
+ 				 slot, req, ans,
+ 				 moveprobe_live_frames[slot], moveprobe_total_frames[slot]);
  	}
  }
  
@@ -64,7 +105,25 @@ index 29a86ba..20d5a80 100644
  // bot-program T0.5 (#210) PR-B: per-tick live world-view DUMP for the offline
  // golden-parity check (scripts/diff_live_world_view.py). Gated by the global
  // cvar k_fb_moveprobe_live_dump (default off -> inert in normal play). Emits
-@@ -3277,6 +3310,50 @@ static void BotApplyMoveProbeLive(gedict_t *self, int slot, qbool *jumping,
+ // KTX's EXACT f32 inputs to mwv_state_features and the f32 features it computed,
+ // both as little-endian 8-hex-digit bit patterns, so the offline recompute is
+ // bit-exact and trajectory-independent (formula parity only; pmove resim is T0.7).
+ static unsigned mwv_f32bits(float x)
+ {
+ 	union { float f; unsigned u; } c;
+ 	c.f = x;
+ 	return c.u;
+ }
+@@ -3268,24 +3301,68 @@ static void BotApplyMoveProbeLive(gedict_t *self, int slot, qbool *jumping,
+ 			resume_req[slot] = req_counter[slot] + 1;
+ 		}
+ 	}
+ 	live_seeded[slot] = 1;
+ 	last_live_time[slot] = now;
+ 
+ 	req = ++req_counter[slot];
+ 	mshm_write_view(region, slot, req, feats, 1);
+ 	BotMoveProbeLiveDump(slot, req, self->s.v.velocity[0], self->s.v.velocity[1],
  						 self->s.v.velocity[2], self->fb.desired_angle[1],
  						 self->fb.desired_angle[0], feats);
  
@@ -115,6 +174,15 @@ index 29a86ba..20d5a80 100644
  	// Apply the sidecar's freshest answer (KTX reader role): only an untorn record
  	// whose answer is recent enough, else fall back to stock frogbot.
  	if (mshm_read_move(region, slot, &mv)
+ 		&& (mv.ans_seq != 0)
+ 		&& (mv.ans_seq >= resume_req[slot])
+ 		&& ((req - mv.ans_seq) <= (unsigned) stale_ticks))
+ 	{
+ 		direction[0] = mv.move[0];
+ 		direction[1] = mv.move[1];
+ 		direction[2] = 0;
+ 		*jumping = (mv.jump != 0) ? true : false;
+ 		moveprobe_live_frames[slot]++;
 diff --git a/src/move_highway.c b/src/move_highway.c
 new file mode 100644
 index 0000000..2754cf6
