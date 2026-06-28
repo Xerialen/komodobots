@@ -9,9 +9,10 @@ handoff toggle (#422 / PR #454): ``-p99`` was refined (its call site wrapped in
 the committed stack no longer applied clean-room and ``-fraction`` failed at
 ``bot_movement.c:3270``.
 
-This test reproduces the documented apply sequence against a pinned snapshot of the
-three files the stack MODIFIES (``tests/fixtures/ktx_08807da/`` -- the ``live`` patch
-*creates* the ``move_*`` units, so they need no pre-image) and asserts every patch
+This test reproduces the documented apply sequence -- now through the ``handoff``
+toggle (#422 T3.1) that landed on top -- against a pinned snapshot of the three files
+the stack MODIFIES (``tests/fixtures/ktx_08807da/`` -- the ``live``/``handoff`` patches
+*create* the ``move_*`` units, so they need no pre-image) and asserts every patch
 applies with rc=0, in order. No network clone, no compiler -- just ``git apply`` -- so
 it is hermetic and safe in the gating floor.
 """
@@ -28,15 +29,18 @@ REPO = Path(__file__).resolve().parent.parent
 PATCH_DIR = REPO / "experiments" / "ktx_moveprobe"
 FIXTURE = REPO / "tests" / "fixtures" / "ktx_08807da"
 
-# The documented clean-room apply order (T0.3_LIVE_MODE.md). The order is
-# load-bearing: live + dump + p99 + fraction all edit bot_movement.c and each
-# builds on the prior tree.
+# The documented clean-room apply order (T0.3_LIVE_MODE.md + T3.1_HANDOFF.md). The
+# order is load-bearing: live + dump + p99 + fraction + handoff all edit
+# bot_movement.c and each builds on the prior tree. `handoff` (#422 T3.1) applies
+# last; it also edits CMakeLists.txt and creates move_highway.*/route_canon_dm3.h
+# (new-file hunks, no pre-image needed).
 PATCH_STACK = (
     "frogbot-moveprobe-perslot.patch",
     "frogbot-moveprobe-live.patch",
     "frogbot-moveprobe-live-dump.patch",
     "frogbot-moveprobe-live-p99.patch",
     "frogbot-moveprobe-live-fraction.patch",
+    "frogbot-moveprobe-handoff.patch",
 )
 
 _GIT = shutil.which("git")
