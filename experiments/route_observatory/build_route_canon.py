@@ -54,12 +54,29 @@ RESPAWN_FRACTION = 0.2     # among multiple runs, drop any shorter than this * t
                            # comparable teleport-chain legs (seg4). ponytail: a respawn-aware
                            # (health->100) detector is the upgrade if this fraction ever misfires.
 GOAL_RHO = 200.0           # endpoint-label "approximate" threshold (matches route_legs visit rho)
-# Self-damage (attacker==victim) is the RELIABLE rocket-jump / trick signal. vz alone is NOT: legit
-# movement in this corpus (mega hill, lifts/jump-pads) launches vz to ~615, so a low ceiling cries
-# wolf on clean bhop. VZ_TRICK_CEILING is a coarse backstop for a genuinely-extreme launch only;
-# max_vz is recorded descriptively. Pure-movement "tricks" (hilljump etc.) carry no anomaly — they
-# ARE skilled movement, excluded by the owner's cut, not by this verifier.
-VZ_TRICK_CEILING = 900.0
+# An explosive (rocket / grenade) jump = self-damage (attacker==victim) in a magnitude band AND a
+# coincident UPWARD LAUNCH (a vz spike near the hit). BOTH are required — neither alone is a trick:
+# legit movement here (mega hill, lifts/jump-pads) reaches vz ~615 with NO damage, and self-damage
+# with NO launch is just combat splash (a rocket eaten mid-fight, not ridden). The detector keys on
+# the INDIVIDUAL self-damage EVENT amount, which the decoder records SEPARATELY from enemy damage, so
+# a rocket jump DURING combat is still caught (its self-rocket is its own ~20-50 event; a simultaneous
+# enemy hit is a different event, ignored here). Standalone vz is NOT a signal (owner decision); a
+# vz-only enemy-juggle launch with no self-damage is an accepted blind spot (owner: clean-cut
+# discipline + flag-never-drop guard it). Thresholds are data-derived from book_vs_mix: rl self-jumps
+# 21-56 dmg, launch vz 553-732; combat-splash launch vz <=361 (mostly 0) => a clean 361..553 gap;
+# deaths / lg water-discharge are >=115 dmg. max_vz is still recorded descriptively. ponytail: a
+# vz-rises-vs-pre-hit-baseline test would also drop the rare splash-while-on-a-liftpad false positive —
+# deferred (seeds don't need it; flag-never-drop makes a false positive cheap).
+SELF_DMG_MIN = 18          # below this = a scratch, not an explosive jump
+SELF_DMG_MAX = 60          # above this = a death/suicide or lg water-discharge, not a survivable jump
+LAUNCH_VZ = 450.0          # upward vz confirming the blast launched the player (mid the 361..553 gap)
+LAUNCH_PRE_MS = 200.0      # launch-search window before the hit (damage/position clock-skew tolerance)
+LAUNCH_POST_MS = 400.0     # window after the hit (the impulse persists as the player rises)
+EXPLOSIVE_WEAPONS = ("rl", "gl")   # an explosive jump is rocket/grenade ONLY — enforced explicitly to
+                                   # match the contract. In practice only rl/gl splash self-damages in
+                                   # the band (direct-fire weapons can't self-hit; lg-discharge is
+                                   # >=115, out of band), but the predicate is defence-in-depth: a
+                                   # non-explosive self-damage event must never read as an explosive jump.
 
 
 def _slug(label):
@@ -120,13 +137,24 @@ def _self_damage(dmg_events, player, t0_ms, t1_ms):
             and t0_ms <= e.get("time", 0) <= t1_ms]
 
 
+def _launch_peak(run, t_hit_ms):
+    """Peak upward vz among run ticks within [t_hit-PRE, t_hit+POST] ms of a hit — the launch window.
+    Returns -inf if no tick falls in the window, so a hit with no nearby tick never reads as a launch.
+    (Tick `t` is SECONDS — route_legs divides pos.t/1000 — damage `time` is MS, hence the *1000.)"""
+    lo, hi = t_hit_ms - LAUNCH_PRE_MS, t_hit_ms + LAUNCH_POST_MS
+    vzs = [tk["vz"] for tk in run if lo <= tk["t"] * 1000.0 <= hi]
+    return max(vzs) if vzs else float("-inf")
+
+
 def _suspect_trick(run, self_dmg):
-    """Flag (not drop) a run that looks like it contains a trick jump: self-damage (the reliable
-    rocket-jump signal) and/or a genuinely-extreme vertical launch. The owner's cut is
-    authoritative — this VERIFIES it is trick-free rather than trusting it blindly (#420).
-    `self_dmg` is the list of self-damage events, or **None when the damage stream is UNAVAILABLE**
-    (missing/malformed) — which fails closed (flagged suspect), since absence is not evidence of
-    trick-free. Returns (suspect, reasons, max_vz)."""
+    """Flag (not drop) a run that contains an explosive (rocket/grenade) jump: a self-damage event in
+    the [SELF_DMG_MIN, SELF_DMG_MAX] band AND a coincident UPWARD LAUNCH (vz >= LAUNCH_VZ near the
+    hit). BOTH are required — self-damage without a launch is combat splash, not a trick; vz alone is
+    legit movement (hills/lifts). The owner's HALF-route cut is authoritative — this VERIFIES it is
+    trick-free rather than trusting it blindly (#420). `self_dmg` is the list of self-damage events,
+    or **None when the damage stream is UNAVAILABLE** (missing/malformed) — which fails closed
+    (flagged suspect), since absence is not evidence of trick-free. Returns (suspect, reasons,
+    max_vz)."""
     reasons = []
     vz_max = max(tk["vz"] for tk in run)
     if self_dmg is None:
@@ -134,10 +162,15 @@ def _suspect_trick(run, self_dmg):
                        "fail-closed (absence is not evidence of trick-free)")
     else:
         for e in self_dmg:
-            reasons.append(f"self-damage {e.get('damage')} via {e.get('weapon')} @ "
-                           f"{e.get('time')}ms (rocket jump)")
-    if vz_max > VZ_TRICK_CEILING:
-        reasons.append(f"extreme vz launch {round(vz_max)} > {round(VZ_TRICK_CEILING)} (review)")
+            if e.get("weapon") not in EXPLOSIVE_WEAPONS:
+                continue                              # non-explosive self-damage is not a rocket/grenade jump
+            dmg = e.get("damage") or 0
+            if not (SELF_DMG_MIN <= dmg <= SELF_DMG_MAX):
+                continue                              # scratch / death — not a survivable explosive jump
+            peak = _launch_peak(run, e.get("time", 0))
+            if peak >= LAUNCH_VZ:
+                reasons.append(f"explosive jump: self-damage {dmg} via {e.get('weapon')} @ "
+                               f"{e.get('time')}ms + upward launch vz {round(peak)} (>= {round(LAUNCH_VZ)})")
     return (len(reasons) > 0), reasons, round(vz_max)
 
 
