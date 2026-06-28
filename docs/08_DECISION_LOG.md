@@ -3818,3 +3818,45 @@ non-conflicting additions); `unittest discover` 1564 green on the merged tree. R
   branch.
 - `AGENTS.md`'s base-branch wording must be unified (it still describes the `dev`-trunk model in
   places) as a follow-up.
+
+## Route Canon DB defines highways by owner-marked clean HALF-routes (#420)
+
+### Date
+
+2026-06-27
+
+### Decision
+
+Build the dm3 Route Canon (`route_canon.v1`, `data/catalog/route_canon.dm3.json`) from owner
+hand-marked clean HALF-route segments `(demo, player, start_s, end_s, label, route_class)` — the
+owner's cut EXCLUDES the trick jump. `build_route_canon.py` extracts the seed-line trajectory
+(reusing `pov_fuse_extract.compute_signature` / `route_legs.player_ticks` / `route_goals`
+coords), labels endpoints by nearest resource, splits teleports honestly (per-run signatures),
+flags — never drops — suspect trick content via self-damage, and tags `base/shortcut/enabler`. This
+is **#420**: the per-highway SEED LINE = the initial route-isolated MSE/RMSE ground truth (#428).
+**#421** (POV-fusion) later widens each highway to an empirical band, gated by seed-trajectory
+similarity + `route_class`, NEVER by the resource pair.
+
+### Alternatives Considered
+
+- **Whole-route resource-pair extraction** (the existing `route_legs` segmenter): rejected as the
+  primary path — it cannot exclude a trick within a resource pair, so shortcut traversals fold into
+  the base envelope (the contamination this ticket exists to prevent).
+- **An empirical band now instead of one seed line**: deferred to #421 — a naive corpus harvest
+  re-pools trick traversals unless gated by the #420 seed.
+- **Auto-drop suspect-trick segments**: rejected — the owner's cut is authoritative; the verifier
+  FLAGS (self-damage / extreme vz) for review, it does not filter.
+
+### Evidence
+
+5 owner-marked book_vs_mix segments extracted + owner-verified (2D + 3D) earlier this session; on
+real data all 5 are clean (no self-damage), seg1 respawn-gib correctly dropped (n_segments=1), seg4
+teleport chain preserved (n_segments=2); vz alone reaches ~615 on legit hill/lift movement, so
+self-damage — not vz — is the reliable trick signal. Plan reviewed: auditor.md = PASS-WITH-FIXES +
+NotebookLM (docs/27+28-grounded). `unittest discover -s tests` green incl. `test_build_route_canon`.
+
+### Consequences
+
+- #428 has a concrete ground-truth surface; #421 has a seed + an explicit match rule (`_match_key`).
+- `route_class` is owner-confirmable on seg4 (shortcut) / seg5 (base); reclassifying edits the field
+  only (ids are slug(label), decoupled from class).
