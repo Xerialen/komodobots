@@ -3938,3 +3938,37 @@ segment-bands — `low_bridge_stairs_ya` (water.LG→YA.box) **n=5** (3 players,
 64-pt corridor) + the shortcut's `#seg1` Ring→Quad n=2 are corpus-widened; the rest n=1 (closest
 corpus candidate 277–1212 qu off the seed) under the principled gate, validating the deferred corpus
 harvest. **17 `test_pov_fuse_pipeline` tests + the full floor green.**
+
+## Commander/Motor-Cortex handoff is a C-side geometric gate (#422, T3.1)
+
+### Date
+
+2026-06-28
+
+### Decision
+
+The Commander→Motor-Cortex handoff is decided in **C (KTX)**, keyed on **route geometry**, as a
+latched **conjunction**: yield movement to the ML mover only while the bot both (i) intends to head
+toward a base Route-Canon highway's end (Commander intent, loose `R_GOAL`) AND (ii) is physically on
+that highway's traced (x,y) polyline (`R_ON`/`R_OFF` hysteresis); hand back on arrival (`R_ARRIVE`),
+drift, intent loss, or nearest-highway change. The base-highway geometry is a **generated, committed C
+header** (`gen_route_canon_header.py` → `route_canon_dm3.h`); the gate is an opt-in cvar
+(`k_fb_moveprobe_live_highway_gate`, default off) layered on the mode-30 live seam.
+
+### Alternatives Considered
+
+Python-side gating (rejected: the sidecar's 6-feat world-view is position-free and the VIEW layout is
+parity-locked, so it cannot know highway membership without breaking the byte-match gate).
+Geometry-only gate (rejected: lets the Motor Cortex hijack the bot when it merely crosses a highway or
+side-steps in combat — the conjunction's intent filter gates that out). Keying on
+`(from_resource,to_resource)` (rejected: violates #421 `_match_key`; trajectory + `route_class` only).
+Runtime JSON parse in qwprogs / a hardcoded single highway (rejected: no JSON in the QVM-safe build;
+not regenerable — use the repo's generate-from-registry idiom).
+
+### Evidence
+
+`route_canon.dm3.json` `_phase1_consumption` ("base training consumes `route_class=='base'` ONLY"),
+the fallback seam already present at `BotApplyMoveProbeLive` (the stock move is computed first, then
+optionally overridden). Verified: patched native `qwprogs.so` builds 0 warnings / 0 errors; 22 new
+stdlib/C-harness tests + the full CI floor green; the generated header is zero-drift under `--check`.
+M3's live test is visual-integrity / plumbing (frozen 6-feat MoveMLP), not bot quality.

@@ -1,0 +1,621 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a11978f..cbe41c8 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -62,6 +62,10 @@ set(SRC_COMMON
+ 	# komodobots repo; the CI byte-match gate pins it to the Python contract.
+ 	"${DIR_SRC}/move_world_view.c"
+ 	"${DIR_SRC}/move_shm.c"
++	# bot-program T3.1 (#422): Commander/Motor-Cortex handoff geometric gate
++	# (native-only; a no-op under QVM via #ifndef Q3_VM). Geometry is baked into
++	# the generated route_canon_dm3.h (gen_route_canon_header.py in the komodobots repo).
++	"${DIR_SRC}/move_highway.c"
+ 	"${DIR_SRC}/buttons.c"
+ 	"${DIR_SRC}/captain.c"
+ 	"${DIR_SRC}/coach.c"
+diff --git a/src/bot_movement.c b/src/bot_movement.c
+index 29a86ba..e2b4b6b 100644
+--- a/src/bot_movement.c
++++ b/src/bot_movement.c
+@@ -6,6 +6,10 @@
+ // MoveMLP sidecar. Native-only; move_shm.h self-guards to nothing under Q3_VM.
+ #include "move_shm.h"
+ 
++// bot-program T3.1 (#422): Commander/Motor-Cortex handoff geometric gate.
++// Native-only; move_highway.h self-guards to nothing under Q3_VM.
++#include "move_highway.h"
++
+ #define ARROW_TIME_INCREASE       0.15  // Seconds to advance after NewVelocityForArrow
+ #define MIN_DEAD_TIME 0.2f
+ #define MAX_DEAD_TIME 1.0f
+@@ -3146,6 +3150,35 @@ static void BotMoveProbeLiveLog(int slot, int live, unsigned req, unsigned ans,
+ 	}
+ }
+ 
++// bot-program T3.1 (#422): throttled handoff-state log (mirrors BotMoveProbeLiveLog's
++// transition + ~1 Hz throttle) so screen.log carries the ENGAGED/DISENGAGED evidence for
++// the Commander/Motor-Cortex handoff. Gated by the same k_fb_moveprobe_live_log cvar.
++static void BotMoveProbeHandoffLog(int slot, int engaged)
++{
++	static int   last_engaged[MAX_CLIENTS];
++	static float last_time[MAX_CLIENTS];
++	static int   seeded[MAX_CLIENTS];
++	float now = g_globalvars.time;
++
++	if (!cvar("k_fb_moveprobe_live_log"))
++	{
++		return;
++	}
++	if ((slot < 0) || (slot >= MAX_CLIENTS))
++	{
++		return;
++	}
++	if (seeded[slot] && (engaged == last_engaged[slot]) && ((now - last_time[slot]) < 1.0f))
++	{
++		return;
++	}
++	seeded[slot] = 1;
++	last_engaged[slot] = engaged;
++	last_time[slot] = now;
++	G_bprint(PRINT_HIGH, "[moveprobe-handoff] slot %d %s\n",
++			 slot, engaged ? "ENGAGED" : "DISENGAGED");
++}
++
+ // bot-program T0.5 (#210) PR-B: per-tick live world-view DUMP for the offline
+ // golden-parity check (scripts/diff_live_world_view.py). Gated by the global
+ // cvar k_fb_moveprobe_live_dump (default off -> inert in normal play). Emits
+@@ -3277,6 +3310,32 @@ static void BotApplyMoveProbeLive(gedict_t *self, int slot, qbool *jumping,
+ 						 self->s.v.velocity[2], self->fb.desired_angle[1],
+ 						 self->fb.desired_angle[0], feats);
+ 
++	// bot-program T3.1 (#422): Commander/Motor-Cortex handoff toggle. When the
++	// per-slot/global cvar k_fb_moveprobe_live_highway_gate is set, override the stock
++	// move ONLY while the bot is ENGAGED on a trained base Route-Canon highway (Commander
++	// intent toward its end AND on its traced polyline; see move_highway.c). Off a highway
++	// it DISENGAGES -- yields to the stock Commander move -- without freezing. The VIEW was
++	// already published above, so the sidecar stays warm across the handoff and the request
++	// stream (the freshness counters) stays continuous. Gate off (default) -> unchanged.
++	{
++		int gate_on = 0, gate_from_slot = 0;
++		BotMoveProbeCvarIntForBot(self, "live_highway_gate", &gate_on, &gate_from_slot);
++		if (gate_on)
++		{
++			gedict_t *goal = PROG_TO_EDICT(self->s.v.goalentity);
++			int    have_goal = (goal != NULL) && (goal != world);
++			double gx = have_goal ? goal->s.v.origin[0] : 0.0;
++			double gy = have_goal ? goal->s.v.origin[1] : 0.0;
++			if (!mhw_handoff_engaged(slot, self->s.v.origin[0], self->s.v.origin[1],
++									 have_goal, gx, gy))
++			{
++				BotMoveProbeHandoffLog(slot, 0);
++				return;		// off-highway -> stock Commander move stays
++			}
++			BotMoveProbeHandoffLog(slot, 1);
++		}
++	}
++
+ 	// Apply the sidecar's freshest answer (KTX reader role): only an untorn record
+ 	// whose answer is recent enough, else fall back to stock frogbot.
+ 	if (mshm_read_move(region, slot, &mv)
+diff --git a/src/move_highway.c b/src/move_highway.c
+new file mode 100644
+index 0000000..6a74ab9
+--- /dev/null
++++ b/src/move_highway.c
+@@ -0,0 +1,130 @@
++/* See move_highway.h. The geometric handoff gate the KTX live mode consults to decide whether the
++ * bot is on a trained base highway (yield to the Motor Cortex) or off it (stock Commander drives). */
++#include "move_highway.h"
++
++/* Native-only: under Q3_VM there is no live handoff (the whole live mode is native-only), so this
++ * TU is a no-op there. The standalone test harness compiles with Q3_VM undefined. */
++#ifndef Q3_VM
++
++#include <float.h>
++
++/* Generated base-highway geometry: MHW_N_BASE, MHW_MAX_PTS, MHW_NPTS[], MHW_END[][2],
++ * MHW_PTS[][MHW_MAX_PTS][2]. AUTO-GENERATED -- regenerate via
++ * experiments/route_observatory/gen_route_canon_header.py, never hand-edit. */
++#include "route_canon_dm3.h"
++
++/* Slots 0..7 (matches the live mode's MSHM_MAX_SLOTS). Kept local so this unit stays free of the
++ * shm transport's types. */
++#define MHW_MAX_SLOTS 8
++
++/* Squared distance from point (px,py) to segment [(ax,ay),(bx,by)]. */
++static double mhw_seg_dist2(double px, double py,
++                            double ax, double ay, double bx, double by)
++{
++    double dx = bx - ax, dy = by - ay;
++    double l2 = dx * dx + dy * dy;
++    double t, cx, cy;
++    if (l2 <= 0.0)            /* degenerate segment (duplicate trajectory points) -> point */
++    {
++        dx = px - ax; dy = py - ay;
++        return dx * dx + dy * dy;
++    }
++    t = ((px - ax) * dx + (py - ay) * dy) / l2;
++    if (t < 0.0) t = 0.0;
++    else if (t > 1.0) t = 1.0;
++    cx = ax + t * dx; cy = ay + t * dy;
++    dx = px - cx; dy = py - cy;
++    return dx * dx + dy * dy;
++}
++
++/* Squared distance between two points. */
++static double mhw_dist2(double ax, double ay, double bx, double by)
++{
++    double dx = ax - bx, dy = ay - by;
++    return dx * dx + dy * dy;
++}
++
++double mhw_nearest_base_highway(double x, double y, int *which)
++{
++    double best = DBL_MAX;
++    int    best_i = -1;
++    int    h, i, n;
++
++    for (h = 0; h < MHW_N_BASE; h++)
++    {
++        n = MHW_NPTS[h];
++        if (n <= 0)
++        {
++            continue;
++        }
++        if (n == 1)
++        {
++            double d2 = mhw_dist2(x, y, MHW_PTS[h][0][0], MHW_PTS[h][0][1]);
++            if (d2 < best) { best = d2; best_i = h; }
++            continue;
++        }
++        for (i = 0; i + 1 < n; i++)
++        {
++            double d2 = mhw_seg_dist2(x, y,
++                                      MHW_PTS[h][i][0],     MHW_PTS[h][i][1],
++                                      MHW_PTS[h][i + 1][0], MHW_PTS[h][i + 1][1]);
++            if (d2 < best) { best = d2; best_i = h; }
++        }
++    }
++    if (which)
++    {
++        *which = best_i;
++    }
++    return best;
++}
++
++int mhw_handoff_engaged(int slot, double bx, double by, int have_goal, double gx, double gy)
++{
++    static int engaged[MHW_MAX_SLOTS];        /* C zero-init -> disengaged */
++    static int engaged_which[MHW_MAX_SLOTS];
++    int    which = -1;
++    double d2, end2, goalend2;
++
++    if ((slot < 0) || (slot >= MHW_MAX_SLOTS))
++    {
++        return 0;            /* out of range -> stock Commander */
++    }
++
++    d2 = mhw_nearest_base_highway(bx, by, &which);
++    if (which < 0)
++    {
++        engaged[slot] = 0;   /* no base highways -> Commander */
++        return 0;
++    }
++    end2 = mhw_dist2(bx, by, MHW_END[which][0], MHW_END[which][1]);
++    goalend2 = have_goal ? mhw_dist2(gx, gy, MHW_END[which][0], MHW_END[which][1]) : DBL_MAX;
++
++    if (engaged[slot])
++    {
++        /* Stay engaged (hysteresis) until a yield-back condition trips: drifted off the line,
++         * arrived at the end, lost the Commander's intent, or the nearest base highway changed. */
++        if ((d2 > (MHW_R_OFF * MHW_R_OFF))
++            || (end2 <= (MHW_R_ARRIVE * MHW_R_ARRIVE))
++            || (!have_goal)
++            || (goalend2 > (MHW_R_GOAL * MHW_R_GOAL))
++            || (which != engaged_which[slot]))
++        {
++            engaged[slot] = 0;
++        }
++    }
++    else
++    {
++        /* Engage only with Commander intent (goal toward this highway's end) AND precise on-line
++         * membership (within R_ON of the polyline). */
++        if ((d2 <= (MHW_R_ON * MHW_R_ON))
++            && have_goal
++            && (goalend2 <= (MHW_R_GOAL * MHW_R_GOAL)))
++        {
++            engaged[slot] = 1;
++            engaged_which[slot] = which;
++        }
++    }
++    return engaged[slot];
++}
++
++#endif /* !Q3_VM */
+diff --git a/src/move_highway.h b/src/move_highway.h
+new file mode 100644
+index 0000000..f371e80
+--- /dev/null
++++ b/src/move_highway.h
+@@ -0,0 +1,43 @@
++/* Commander/Motor-Cortex handoff gate -- C unit (bot-program T3.1, #422).
++ *
++ * Pure C + libm, no engine types (mirrors move_world_view.{c,h}), so the same translation unit
++ * compiles standalone for the test harness (tests/test_move_highway.py via tests/_live_c_harness.py)
++ * AND inside the KTX .so (frogbot-moveprobe-handoff.patch). Under Q3_VM the whole unit is a no-op
++ * (the live handoff is a native-only feature).
++ *
++ * The decision is keyed on ROUTE GEOMETRY -- the base-highway trajectories baked into the generated
++ * route_canon_dm3.h -- NEVER on the (from_resource,to_resource) pair (route_class + traced
++ * trajectory only; #421 _match_key / F5). The handoff is a latched CONJUNCTION: to yield movement
++ * the bot must (i) intend to head toward a base highway's end (Commander intent) AND (ii) physically
++ * be on that highway's traced polyline (geometric latch). It hands back to the Commander on arrival,
++ * drift, intent loss, or a change of nearest highway.
++ */
++#ifndef KOMODO_MOVE_HIGHWAY_H
++#define KOMODO_MOVE_HIGHWAY_H
++
++#ifndef Q3_VM
++
++/* Handoff radii (quake units). R_ON < R_OFF gives engage/disengage hysteresis. PoC defaults
++ * (#422); tune by-eye in the live run, together with the route_canon_dm3.h downsample cap (a
++ * coarse polyline can sit > R_ON off a high-curvature leg -> spurious DISENGAGE). */
++#define MHW_R_ON      48.0   /* engage: within this of a base polyline (precise membership)  */
++#define MHW_R_OFF     96.0   /* disengage: drifted beyond this off the polyline (hysteresis)  */
++#define MHW_R_ARRIVE  64.0   /* disengage: within this of the highway end (arrival)           */
++#define MHW_R_GOAL   256.0   /* intent: Commander goal within this of the highway end (loose) */
++
++/* Squared min (x,y) distance from (x,y) to the nearest base-highway polyline (point-to-segment over
++ * every base highway). Sets *which to that highway's index (-1 if there are none). Pure / stateless
++ * -- the testable membership primitive. */
++double mhw_nearest_base_highway(double x, double y, int *which);
++
++/* Per-slot LATCHED conjunction handoff gate. Returns 1 = engaged (yield movement to the Motor
++ * Cortex), 0 = disengaged (stock Commander drives). Engages from disengaged only when the bot is
++ * within R_ON of a base polyline AND has a goal within R_GOAL of that highway's end; stays engaged
++ * (hysteresis to R_OFF) until it drifts off (> R_OFF), arrives (end within R_ARRIVE), loses intent,
++ * or the nearest base highway changes. State is per-slot; C zero-init == disengaged (a bot must
++ * reach a base highway to engage). */
++int mhw_handoff_engaged(int slot, double bx, double by, int have_goal, double gx, double gy);
++
++#endif /* !Q3_VM */
++
++#endif /* KOMODO_MOVE_HIGHWAY_H */
+diff --git a/src/route_canon_dm3.h b/src/route_canon_dm3.h
+new file mode 100644
+index 0000000..575b392
+--- /dev/null
++++ b/src/route_canon_dm3.h
+@@ -0,0 +1,331 @@
++/* AUTO-GENERATED — DO NOT HAND-EDIT.
++ * Generated from data/catalog/route_canon.dm3.json by
++ * experiments/route_observatory/gen_route_canon_header.py
++ * Regenerate: python3 experiments/route_observatory/gen_route_canon_header.py
++ *
++ * Base-highway (route_class=='base') (x,y) trajectory polylines for the
++ * Commander/Motor-Cortex handoff gate (move_highway.c, #422 T3.1).
++ * source schema: komodobots.route_canon.v1 | map: dm3
++ * source date: 2026-06-27 | n_base: 4 | max_pts: 72
++ */
++#ifndef KOMODO_ROUTE_CANON_DM3_H
++#define KOMODO_ROUTE_CANON_DM3_H
++
++#define MHW_N_BASE 4
++#define MHW_MAX_PTS 72
++
++/* Real point count per base highway (the padding tail below is never iterated). */
++static const int MHW_NPTS[MHW_N_BASE] = {
++	72, 72, 72, 72
++};
++
++/* End (x,y) of each base highway (the arrival + intent target). */
++static const double MHW_END[MHW_N_BASE][2] = {
++	{ 1680.400000, 400.000000 },  /* ra_tunnel_mega_rl */
++	{ 228.400000, -708.900000 },  /* enter_ra_mid_ledge_top */
++	{ 1372.200000, -944.000000 },  /* low_bridge_stairs_ya */
++	{ 608.000000, 732.800000 },  /* rl_high_bridge_window_lifts */
++};
++
++/* Downsampled (x,y) polyline per base highway, padded to MHW_MAX_PTS with the
++ * last point (padding is inert: MHW_NPTS bounds every read). */
++static const double MHW_PTS[MHW_N_BASE][MHW_MAX_PTS][2] = {
++	{  /* ra_tunnel_mega_rl (72 pts) */
++		{ 192.000000, -208.000000 },
++		{ 192.000000, -208.000000 },
++		{ 192.000000, -197.400000 },
++		{ 192.200000, -163.500000 },
++		{ 192.200000, -122.800000 },
++		{ 202.500000, -85.800000 },
++		{ 227.000000, -50.800000 },
++		{ 277.000000, -29.000000 },
++		{ 326.600000, -31.800000 },
++		{ 374.100000, -32.500000 },
++		{ 426.900000, -33.500000 },
++		{ 471.800000, -22.900000 },
++		{ 518.400000, 7.900000 },
++		{ 566.400000, 18.100000 },
++		{ 615.900000, 5.600000 },
++		{ 658.200000, -33.400000 },
++		{ 674.000000, -81.900000 },
++		{ 669.100000, -135.800000 },
++		{ 675.500000, -195.000000 },
++		{ 706.000000, -239.900000 },
++		{ 764.100000, -264.800000 },
++		{ 819.000000, -258.400000 },
++		{ 867.900000, -224.500000 },
++		{ 897.100000, -165.800000 },
++		{ 906.400000, -107.800000 },
++		{ 938.900000, -51.600000 },
++		{ 991.400000, -21.200000 },
++		{ 1052.400000, -19.600000 },
++		{ 1118.100000, -46.100000 },
++		{ 1176.500000, -73.200000 },
++		{ 1236.600000, -89.400000 },
++		{ 1308.400000, -83.200000 },
++		{ 1365.000000, -55.600000 },
++		{ 1433.500000, -28.400000 },
++		{ 1498.800000, -23.600000 },
++		{ 1565.500000, -26.000000 },
++		{ 1637.800000, -28.800000 },
++		{ 1702.000000, -31.100000 },
++		{ 1767.400000, -33.500000 },
++		{ 1841.800000, -35.400000 },
++		{ 1905.500000, -16.400000 },
++		{ 1956.000000, 34.900000 },
++		{ 1969.200000, 82.500000 },
++		{ 1974.400000, 121.800000 },
++		{ 1980.500000, 164.000000 },
++		{ 1967.400000, 204.400000 },
++		{ 1964.000000, 244.800000 },
++		{ 1960.000000, 285.900000 },
++		{ 1964.600000, 322.100000 },
++		{ 1972.400000, 361.100000 },
++		{ 1968.600000, 401.400000 },
++		{ 1942.200000, 430.900000 },
++		{ 1894.500000, 437.400000 },
++		{ 1850.500000, 426.400000 },
++		{ 1807.100000, 421.900000 },
++		{ 1770.500000, 426.500000 },
++		{ 1737.100000, 435.000000 },
++		{ 1698.900000, 447.200000 },
++		{ 1666.100000, 459.000000 },
++		{ 1632.800000, 471.100000 },
++		{ 1595.600000, 484.600000 },
++		{ 1562.000000, 496.600000 },
++		{ 1526.400000, 507.900000 },
++		{ 1531.000000, 512.600000 },
++		{ 1558.200000, 500.900000 },
++		{ 1596.400000, 486.200000 },
++		{ 1630.500000, 466.800000 },
++		{ 1658.900000, 441.900000 },
++		{ 1680.600000, 410.800000 },
++		{ 1680.400000, 400.000000 },
++		{ 1680.400000, 400.000000 },
++		{ 1680.400000, 400.000000 },
++	},
++	{  /* enter_ra_mid_ledge_top (72 pts) */
++		{ 249.500000, -315.900000 },
++		{ 275.200000, -322.000000 },
++		{ 301.500000, -333.000000 },
++		{ 336.000000, -350.900000 },
++		{ 371.000000, -368.100000 },
++		{ 406.500000, -369.500000 },
++		{ 447.200000, -384.500000 },
++		{ 475.500000, -404.500000 },
++		{ 479.400000, -433.000000 },
++		{ 472.900000, -464.800000 },
++		{ 464.000000, -499.400000 },
++		{ 463.800000, -532.800000 },
++		{ 446.900000, -553.500000 },
++		{ 407.500000, -558.800000 },
++		{ 365.900000, -547.900000 },
++		{ 331.800000, -544.900000 },
++		{ 288.900000, -557.400000 },
++		{ 241.500000, -549.900000 },
++		{ 203.100000, -537.100000 },
++		{ 156.200000, -544.400000 },
++		{ 116.800000, -577.800000 },
++		{ 92.400000, -614.900000 },
++		{ 69.800000, -661.400000 },
++		{ 58.900000, -713.000000 },
++		{ 56.100000, -765.900000 },
++		{ 60.800000, -810.800000 },
++		{ 80.600000, -853.500000 },
++		{ 117.600000, -875.000000 },
++		{ 152.400000, -879.900000 },
++		{ 190.800000, -880.000000 },
++		{ 228.600000, -879.100000 },
++		{ 260.800000, -867.000000 },
++		{ 300.200000, -856.600000 },
++		{ 335.500000, -832.400000 },
++		{ 355.500000, -796.500000 },
++		{ 358.400000, -748.200000 },
++		{ 349.000000, -703.800000 },
++		{ 350.600000, -662.900000 },
++		{ 349.600000, -629.200000 },
++		{ 334.900000, -589.200000 },
++		{ 302.500000, -557.000000 },
++		{ 268.600000, -539.200000 },
++		{ 232.000000, -528.600000 },
++		{ 195.600000, -528.800000 },
++		{ 160.200000, -528.000000 },
++		{ 120.200000, -528.000000 },
++		{ 83.800000, -528.000000 },
++		{ 52.800000, -528.100000 },
++		{ 16.500000, -530.000000 },
++		{ -18.900000, -529.600000 },
++		{ -55.100000, -529.100000 },
++		{ -86.500000, -532.500000 },
++		{ -124.100000, -544.900000 },
++		{ -156.100000, -568.900000 },
++		{ -164.400000, -604.200000 },
++		{ -157.000000, -644.200000 },
++		{ -126.800000, -674.400000 },
++		{ -97.000000, -690.200000 },
++		{ -60.900000, -691.800000 },
++		{ -26.200000, -691.600000 },
++		{ 5.100000, -690.900000 },
++		{ 40.100000, -689.400000 },
++		{ 77.600000, -694.200000 },
++		{ 108.600000, -701.600000 },
++		{ 144.100000, -707.400000 },
++		{ 169.600000, -710.900000 },
++		{ 185.600000, -713.100000 },
++		{ 185.900000, -714.100000 },
++		{ 185.900000, -714.100000 },
++		{ 185.900000, -714.100000 },
++		{ 197.400000, -712.900000 },
++		{ 228.400000, -708.900000 },
++	},
++	{  /* low_bridge_stairs_ya (72 pts) */
++		{ 1672.500000, -75.900000 },
++		{ 1695.400000, -74.400000 },
++		{ 1713.800000, -73.100000 },
++		{ 1737.500000, -71.600000 },
++		{ 1760.000000, -70.100000 },
++		{ 1779.000000, -68.900000 },
++		{ 1801.600000, -67.400000 },
++		{ 1824.500000, -65.900000 },
++		{ 1843.000000, -64.600000 },
++		{ 1866.500000, -63.100000 },
++		{ 1889.600000, -62.900000 },
++		{ 1907.500000, -71.000000 },
++		{ 1926.200000, -88.400000 },
++		{ 1942.800000, -108.200000 },
++		{ 1952.900000, -123.200000 },
++		{ 1962.900000, -144.200000 },
++		{ 1963.500000, -169.800000 },
++		{ 1957.200000, -190.800000 },
++		{ 1951.000000, -216.500000 },
++		{ 1950.000000, -243.400000 },
++		{ 1959.200000, -271.900000 },
++		{ 1968.800000, -291.100000 },
++		{ 1976.400000, -316.900000 },
++		{ 1975.200000, -346.000000 },
++		{ 1966.600000, -369.500000 },
++		{ 1947.900000, -394.600000 },
++		{ 1922.400000, -413.000000 },
++		{ 1898.400000, -420.500000 },
++		{ 1866.100000, -419.900000 },
++		{ 1836.000000, -409.900000 },
++		{ 1811.800000, -401.400000 },
++		{ 1780.400000, -390.400000 },
++		{ 1749.500000, -380.600000 },
++		{ 1725.400000, -377.000000 },
++		{ 1694.100000, -378.100000 },
++		{ 1662.200000, -386.100000 },
++		{ 1637.900000, -398.000000 },
++		{ 1611.600000, -418.000000 },
++		{ 1584.900000, -439.100000 },
++		{ 1563.000000, -452.500000 },
++		{ 1531.100000, -464.100000 },
++		{ 1497.400000, -467.400000 },
++		{ 1470.900000, -465.200000 },
++		{ 1438.200000, -462.200000 },
++		{ 1404.500000, -465.500000 },
++		{ 1379.200000, -473.400000 },
++		{ 1348.900000, -488.900000 },
++		{ 1320.100000, -508.000000 },
++		{ 1297.600000, -525.800000 },
++		{ 1271.500000, -550.800000 },
++		{ 1250.400000, -578.800000 },
++		{ 1238.500000, -604.400000 },
++		{ 1233.000000, -640.900000 },
++		{ 1241.800000, -676.100000 },
++		{ 1262.200000, -705.000000 },
++		{ 1285.900000, -722.200000 },
++		{ 1320.600000, -734.200000 },
++		{ 1360.100000, -739.900000 },
++		{ 1388.600000, -746.800000 },
++		{ 1422.400000, -759.500000 },
++		{ 1451.400000, -781.200000 },
++		{ 1469.900000, -805.200000 },
++		{ 1481.900000, -839.900000 },
++		{ 1481.000000, -869.800000 },
++		{ 1471.900000, -885.200000 },
++		{ 1458.800000, -901.800000 },
++		{ 1444.000000, -912.000000 },
++		{ 1432.100000, -913.100000 },
++		{ 1419.800000, -921.600000 },
++		{ 1407.100000, -936.200000 },
++		{ 1394.000000, -944.000000 },
++		{ 1372.200000, -944.000000 },
++	},
++	{  /* rl_high_bridge_window_lifts (72 pts) */
++		{ 1520.000000, 432.000000 },
++		{ 1500.500000, 451.500000 },
++		{ 1488.000000, 480.500000 },
++		{ 1488.000000, 516.800000 },
++		{ 1488.000000, 547.800000 },
++		{ 1488.400000, 545.600000 },
++		{ 1490.000000, 541.000000 },
++		{ 1493.000000, 535.200000 },
++		{ 1521.600000, 531.500000 },
++		{ 1565.500000, 515.600000 },
++		{ 1613.800000, 519.800000 },
++		{ 1672.400000, 541.200000 },
++		{ 1733.800000, 532.100000 },
++		{ 1779.200000, 490.400000 },
++		{ 1827.400000, 459.800000 },
++		{ 1891.200000, 448.100000 },
++		{ 1947.900000, 414.400000 },
++		{ 1974.900000, 350.800000 },
++		{ 1973.800000, 289.800000 },
++		{ 1961.500000, 221.600000 },
++		{ 1948.600000, 152.100000 },
++		{ 1936.500000, 85.500000 },
++		{ 1940.100000, 26.000000 },
++		{ 1945.100000, -40.100000 },
++		{ 1949.200000, -95.400000 },
++		{ 1964.200000, -142.400000 },
++		{ 1968.800000, -194.800000 },
++		{ 1956.400000, -248.200000 },
++		{ 1969.100000, -302.500000 },
++		{ 1983.900000, -354.900000 },
++		{ 1959.400000, -408.000000 },
++		{ 1901.500000, -435.900000 },
++		{ 1839.000000, -422.200000 },
++		{ 1776.500000, -403.200000 },
++		{ 1720.100000, -405.900000 },
++		{ 1652.000000, -413.200000 },
++		{ 1586.400000, -399.500000 },
++		{ 1530.100000, -359.400000 },
++		{ 1491.800000, -311.900000 },
++		{ 1458.400000, -251.200000 },
++		{ 1433.400000, -186.200000 },
++		{ 1411.600000, -123.400000 },
++		{ 1391.200000, -63.900000 },
++		{ 1374.200000, -9.800000 },
++		{ 1359.900000, 37.600000 },
++		{ 1356.200000, 89.200000 },
++		{ 1344.900000, 134.200000 },
++		{ 1349.200000, 182.900000 },
++		{ 1357.900000, 228.500000 },
++		{ 1365.000000, 275.100000 },
++		{ 1345.200000, 316.400000 },
++		{ 1302.100000, 350.100000 },
++		{ 1251.100000, 366.900000 },
++		{ 1211.400000, 403.900000 },
++		{ 1194.100000, 455.100000 },
++		{ 1163.200000, 507.000000 },
++		{ 1125.400000, 553.500000 },
++		{ 1106.100000, 614.400000 },
++		{ 1085.600000, 667.000000 },
++		{ 1034.200000, 698.900000 },
++		{ 971.500000, 711.100000 },
++		{ 909.000000, 723.200000 },
++		{ 853.100000, 734.100000 },
++		{ 788.400000, 746.800000 },
++		{ 726.600000, 747.600000 },
++		{ 665.500000, 740.900000 },
++		{ 611.600000, 735.000000 },
++		{ 608.000000, 731.800000 },
++		{ 608.000000, 731.800000 },
++		{ 608.000000, 731.800000 },
++		{ 608.000000, 731.800000 },
++		{ 608.000000, 732.800000 },
++	},
++};
++
++#endif /* KOMODO_ROUTE_CANON_DM3_H */
