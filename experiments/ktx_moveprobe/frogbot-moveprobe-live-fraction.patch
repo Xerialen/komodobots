@@ -1,7 +1,16 @@
 diff --git a/src/bot_movement.c b/src/bot_movement.c
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
-@@ -3099,6 +3099,16 @@
+@@ -3093,24 +3093,34 @@ static void moveprobe_p99_maybe_report(void)
+ 	{
+ 		moveprobe_p99_hist[b] = 0;
+ 	}
+ 	moveprobe_p99_count = 0;
+ 	moveprobe_p99_max = 0.0;
+ 	moveprobe_p99_last_report = now;
+ }
+ 
+ // bot-program T0.3 live-brain mode. Throttled status log so screen.log shows
  // LIVE cmds + FALLBACK transitions without per-tick (77 Hz) spam: emit on a
  // state change or at most once per ~second while steady. Gated by the global
  // cvar k_fb_moveprobe_live_log.
@@ -18,7 +27,25 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
  static void BotMoveProbeLiveLog(int slot, int live, unsigned req, unsigned ans,
  								int fwd, int side, int jump)
  {
-@@ -3124,13 +3134,15 @@
+ 	static int   last_live[MAX_CLIENTS];
+ 	static float last_time[MAX_CLIENTS];
+ 	static int   seeded[MAX_CLIENTS];
+ 	float now = g_globalvars.time;
+ 
+ 	if (!cvar("k_fb_moveprobe_live_log"))
+ 	{
+ 		return;
+ 	}
+@@ -3118,31 +3128,33 @@ static void BotMoveProbeLiveLog(int slot, int live, unsigned req, unsigned ans,
+ 	{
+ 		return;
+ 	}
+ 	if (seeded[slot] && (live == last_live[slot]) && ((now - last_time[slot]) < 1.0f))
+ 	{
+ 		return;
+ 	}
+ 	seeded[slot] = 1;
+ 	last_live[slot] = live;
  	last_time[slot] = now;
  	if (live)
  	{
@@ -38,7 +65,25 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
  	}
  }
  
-@@ -3201,6 +3213,12 @@
+ // bot-program T0.5 (#210) PR-B: per-tick live world-view DUMP for the offline
+ // golden-parity check (scripts/diff_live_world_view.py). Gated by the global
+ // cvar k_fb_moveprobe_live_dump (default off -> inert in normal play). Emits
+ // KTX's EXACT f32 inputs to mwv_state_features and the f32 features it computed,
+ // both as little-endian 8-hex-digit bit patterns, so the offline recompute is
+ // bit-exact and trajectory-independent (formula parity only; pmove resim is T0.7).
+ static unsigned mwv_f32bits(float x)
+ {
+ 	union { float f; unsigned u; } c;
+@@ -3196,24 +3208,30 @@ static void BotApplyMoveProbeLive(gedict_t *self, int slot, qbool *jumping,
+ 	mshm_move_t		mv;
+ 	double			t_start = 0.0;
+ 	int				live_log = 0;
+ 
+ 	(void) firing;	// aim + fire stay stock frogbot in Phase 0
+ 	(void) impulse;
+ 
+ 	if ((slot < 0) || (slot >= MSHM_MAX_SLOTS))
+ 	{
  		return;		// out of range -> stock frogbot
  	}
  
@@ -51,11 +96,38 @@ diff --git a/src/bot_movement.c b/src/bot_movement.c
  	// KTX owns region creation; the sidecar attaches. Create once per process.
  	if ((region == NULL) && !create_failed)
  	{
-@@ -3270,6 +3288,7 @@
+ 		shm_name[0] = '\0';
+ 		BotMoveProbeCvarStringForBot(self, "live_shm_name", shm_name, sizeof(shm_name));
+ 		if (shm_name[0] == '\0')
+ 		{
+ 			strlcpy(shm_name, "komodo_move_t06", sizeof(shm_name));
+ 		}
+ 		region = mshm_create(shm_name);
+ 		if (region == NULL)
+ 		{
+@@ -3271,24 +3289,25 @@ static void BotApplyMoveProbeLive(gedict_t *self, int slot, qbool *jumping,
+ 
+ 	// Apply the sidecar's freshest answer (KTX reader role): only an untorn record
+ 	// whose answer is recent enough, else fall back to stock frogbot.
+ 	if (mshm_read_move(region, slot, &mv)
+ 		&& (mv.ans_seq != 0)
+ 		&& (mv.ans_seq >= resume_req[slot])
+ 		&& ((req - mv.ans_seq) <= (unsigned) stale_ticks))
+ 	{
+ 		direction[0] = mv.move[0];
  		direction[1] = mv.move[1];
  		direction[2] = 0;
  		*jumping = (mv.jump != 0) ? true : false;
 +		moveprobe_live_frames[slot]++;
- 		moveprobe_p99_record(moveprobe_now_us() - t_start);
+ 		if (live_log)
+ 		{
+ 			moveprobe_p99_record(moveprobe_now_us() - t_start);
+ 		}
  		BotMoveProbeLiveLog(slot, 1, req, mv.ans_seq, mv.fwd, mv.side, mv.jump);
  	}
+ 	else
+ 	{
+ 		if (live_log)
+ 		{
+ 			moveprobe_p99_record(moveprobe_now_us() - t_start);
+ 		}
