@@ -121,22 +121,42 @@ def positional_corridor(kept_xy, m=CORRIDOR_M):
     return corridor
 
 
-def build_band(highway, analyses, coords_by_alias):
-    """Harvest one canon highway's band across the provided analyses. Matches on the FIRST segment's
-    endpoints (single-segment base highways; a multi-segment shortcut matches its segment[0] — a
-    documented limitation, fine since Phase-1 consumes base highways only)."""
-    seed_seg = highway["segments"][0]
-    seed_from, seed_to, rclass = seed_seg["from_resource"], seed_seg["to_resource"], highway["route_class"]
-    sd_demo, sd_player = highway["seed"]["demo"], highway["seed"]["player"]
-    sd_t0, sd_t1 = float(highway["seed"]["start_s"]), float(highway["seed"]["end_s"])
+def _segment_seed_window(seg):
+    """The segment's own time span, from its trajectory (canon rows are [t,x,y,z])."""
+    ts = [p[0] for p in seg["trajectory"]]
+    return (round(ts[0], 3), round(ts[-1], 3)) if ts else (None, None)
 
-    # The seed is ALWAYS a member of its own band (n >= 1, corridor always brackets the seed); corpus
-    # matches widen it. An idiosyncratic half-route cut that no other corpus traversal resembles stays
-    # n=1 — honestly "no corpus support yet", not an empty band.
+
+def segment_band_identity(highway, seg_idx, seg):
+    """Per-SEGMENT band identity. A multi-segment highway (a teleport chain) is banded one segment at
+    a time so the band's id / endpoints / seed-window all match the segment ACTUALLY banded — never
+    the whole-highway label + span, which would advertise e.g. the 0.0-4.5s SNG->...->Quad shortcut as
+    a 1.4s SNG.MH->SNG.MH band. A single-segment highway keeps the plain highway id (no `#segN`)."""
+    n = len(highway["segments"])
+    st0, st1 = _segment_seed_window(seg)
+    return {
+        "id": highway["id"] if n == 1 else f"{highway['id']}#seg{seg_idx}",
+        "parent_highway": highway["id"], "segment_index": seg_idx, "n_segments": n,
+        "label": highway["label"], "route_class": highway["route_class"],
+        "from_resource": seg["from_resource"], "to_resource": seg["to_resource"],
+        "seed": {"demo": highway["seed"]["demo"], "player": highway["seed"]["player"],
+                 "start_s": st0, "end_s": st1},
+    }
+
+
+def build_band(highway, seg_idx, seg, analyses, coords_by_alias):
+    """Harvest the band for ONE segment of a canon highway across the provided analyses. The seed
+    segment is ALWAYS a member (n>=1); corpus matches widen it. An idiosyncratic cut no other corpus
+    traversal resembles stays n=1 — honestly 'no corpus support yet', not an empty band."""
+    ident = segment_band_identity(highway, seg_idx, seg)
+    seed_from, seed_to = seg["from_resource"], seg["to_resource"]
+    sd_demo, sd_player = ident["seed"]["demo"], ident["seed"]["player"]
+    sd_t0, sd_t1 = ident["seed"]["start_s"], ident["seed"]["end_s"]
+
     kept = [{"demo": sd_demo, "player": sd_player, "t0": sd_t0, "t1": sd_t1,
              "source": "seed", "median_dist_qu": 0.0}]
-    kept_sigs = [seed_seg["signature"]]
-    kept_xy = [[(p[1], p[2]) for p in seed_seg["trajectory"]]]
+    kept_sigs = [seg["signature"]]
+    kept_xy = [[(p[1], p[2]) for p in seg["trajectory"]]]
     by_source = {"seed": 1}
 
     for alias, d in analyses.items():
@@ -151,30 +171,28 @@ def build_band(highway, analyses, coords_by_alias):
                 if (a, b) != (seed_from, seed_to):          # filter 1: endpoint prefilter (cheap)
                     continue
                 if (alias == sd_demo and P["name"] == sd_player          # don't double-count the seed
-                        and not (t1 < sd_t0 or t0 > sd_t1)):             # leg if it re-appears here
+                        and sd_t0 is not None and not (t1 < sd_t0 or t0 > sd_t1)):
                     continue
-                seg = ticks[i0:i1 + 1]
-                if len(seg) < MIN_LEG_TICKS:
+                leg = ticks[i0:i1 + 1]
+                if len(leg) < MIN_LEG_TICKS:
                     continue
-                sig = compute_signature(seg)
+                sig = compute_signature(leg)
                 sdmg = (None if dmg_events is None
-                        else _self_damage(dmg_events, P["name"], seg[0]["t"] * 1000, seg[-1]["t"] * 1000))
-                keep, dist, reason = gate_keep(seed_seg, seg, sig, sdmg)
+                        else _self_damage(dmg_events, P["name"], leg[0]["t"] * 1000, leg[-1]["t"] * 1000))
+                keep, dist, reason = gate_keep(seg, leg, sig, sdmg)
                 if not keep:
                     continue
                 kept.append({"demo": alias, "player": P["name"], "source": "corpus",
                              "t0": round(t0, 2), "t1": round(t1, 2),
                              "median_dist_qu": round(dist, 1) if dist is not None else None})
                 kept_sigs.append(sig)
-                kept_xy.append([(t["x"], t["y"]) for t in seg])
+                kept_xy.append([(t["x"], t["y"]) for t in leg])
                 by_source[alias] = by_source.get(alias, 0) + 1
 
     LOGGER.info("%s [%s] %s->%s: kept %d traversal(s) %s",
-                highway["id"], rclass, seed_from, seed_to, len(kept), dict(by_source))
+                ident["id"], ident["route_class"], seed_from, seed_to, len(kept), dict(by_source))
     return {
-        "id": highway["id"], "label": highway["label"], "route_class": rclass,
-        "from_resource": seed_from, "to_resource": seed_to,
-        "seed": highway["seed"],
+        **ident,
         "n_traversals": len(kept), "by_source": by_source,
         "gate": {"sim_qu": SIM_QU, "corridor_m": CORRIDOR_M, "straight_tol": STRAIGHT_TOL,
                  "jump_tol_frac": JUMP_TOL_FRAC,
@@ -215,11 +233,11 @@ def main(argv):
 
     bands = []
     for h in canon["highways"]:
-        seed_alias = h["seed"]["demo"]
-        if seed_alias not in analyses:
-            LOGGER.warning("highway %r: no --analysis for seed demo %r — harvesting only the "
-                           "provided analyses (seed not necessarily present)", h["id"], seed_alias)
-        bands.append(build_band(h, analyses, coords_by_alias))
+        if h["seed"]["demo"] not in analyses:
+            LOGGER.warning("highway %r: no --analysis for seed demo %r — seed segment(s) still "
+                           "emitted, no corpus widening", h["id"], h["seed"]["demo"])
+        for k, seg in enumerate(h["segments"]):        # per-SEGMENT: a teleport chain bands each run
+            bands.append(build_band(h, k, seg, analyses, coords_by_alias))
 
     doc = {
         "schema": SCHEMA, "map": canon.get("map", "dm3"),

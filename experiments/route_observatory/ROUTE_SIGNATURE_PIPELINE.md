@@ -71,16 +71,20 @@ docs/28).
   Frame variance needs Pillow (integration-only); demo-eyecheck `--render` (winnacle GPU) supplies POV
   frames for non-Milton players (integration-only — the offline/CI proof rests on the Milton frames).
 - `route_canon_band.py <canon> --analysis <alias>=<full.json> -o route_canon_bands.dm3.json` — the
-  band harvest. Gate A per candidate leg: endpoint==seed (cheap prefilter) AND `_suspect_trick`-clean
-  (reuse #420) AND median per-point (x,y) ≤ `SIM_QU`=200 qu AND `route_class`==seed AND
-  straightness/jumps within an explicit tolerance width. The seed is ALWAYS a band member (n≥1).
-- **Single-demo finding (book_vs_mix).** Under the principled gate, 4/5 owner half-route cuts are
+  band harvest. Banded **per SEGMENT** (a multi-segment teleport chain → one band per continuous run,
+  id `<highway>#segN`, so each band's endpoints + seed-window + signature match the segment actually
+  banded, never the whole-highway label/span). Gate A per candidate leg: endpoint==seed (cheap
+  prefilter) AND `_suspect_trick`-clean (reuse #420) AND median per-point (x,y) ≤ `SIM_QU`=200 qu AND
+  `route_class`==seed AND straightness/jumps within an explicit tolerance width. The seed segment is
+  ALWAYS a band member (n≥1).
+- **Single-demo finding (book_vs_mix).** Under the principled gate, most owner half-route cuts are
   idiosyncratic paths no other player in ONE demo resembles (Ring→RA: 73 endpoint candidates but the
-  closest is 277 qu off the seed; Ring→RL: 1212 qu), so they stay n=1 (seed only); only
-  `low_bridge_stairs_ya` (water.LG→YA.box) has a matched sub-population → **n=5** (3 players, hs_mean
-  365/394/424). The machinery is correct; the candidates are genuinely dissimilar, not a bug. Widening
-  the rest needs the **full corpus harvest** over many demos (the gated heavy run, like #420's heavy
-  extraction) — which this finding validates deferring.
+  closest is 277 qu off the seed; Ring→RL: 1212 qu), so they stay n=1 (seed only). Of the 6
+  segment-bands, only `low_bridge_stairs_ya` (water.LG→YA.box) → **n=5** (3 players, hs_mean
+  365/394/424) and the shortcut's `…#seg1` Ring→Quad → n=2 gather corpus support. The machinery is
+  correct; the candidates are genuinely dissimilar, not a bug. Widening the rest needs the **full
+  corpus harvest** over many demos (the gated heavy run, like #420's heavy extraction) — which this
+  finding validates deferring.
 
 ## The key correction: position-based legs, NOT `pos.li`
 

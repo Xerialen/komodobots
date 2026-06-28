@@ -140,5 +140,39 @@ class TestL1Verdict(unittest.TestCase):
         self.assertIn("skipped", reason)
 
 
+class TestSegmentBandIdentity(unittest.TestCase):
+    """A multi-segment highway (teleport chain) must be banded PER SEGMENT — each band's id +
+    endpoints + seed-window match the segment, never the whole highway (the ML-review regression)."""
+
+    def _seg(self, fr, to, t0, t1):
+        return {"from_resource": fr, "to_resource": to,
+                "signature": {"straightness": 0.5, "jumps": 2},
+                "trajectory": [[t0, 0.0, 0.0, 0.0], [t1, 100.0, 0.0, 0.0]]}
+
+    def _highway(self, segs, rclass="shortcut"):
+        return {"id": "hw", "label": "L", "route_class": rclass,
+                "seed": {"demo": "d.mvd", "player": "p"}, "segments": segs}
+
+    def test_single_segment_keeps_plain_id(self):
+        hw = self._highway([self._seg("A", "B", 1.0, 5.0)], rclass="base")
+        ident = RB.segment_band_identity(hw, 0, hw["segments"][0])
+        self.assertEqual(ident["id"], "hw")
+        self.assertEqual((ident["from_resource"], ident["to_resource"]), ("A", "B"))
+        self.assertEqual((ident["seed"]["start_s"], ident["seed"]["end_s"]), (1.0, 5.0))
+
+    def test_multi_segment_scopes_id_endpoints_and_window(self):
+        segs = [self._seg("SNG", "SNG", 0.0, 1.4), self._seg("Ring", "Quad", 1.5, 4.5)]
+        hw = self._highway(segs)
+        i0 = RB.segment_band_identity(hw, 0, segs[0])
+        i1 = RB.segment_band_identity(hw, 1, segs[1])
+        self.assertEqual((i0["id"], i1["id"]), ("hw#seg0", "hw#seg1"))
+        self.assertEqual((i1["from_resource"], i1["to_resource"]), ("Ring", "Quad"))
+        self.assertEqual((i0["seed"]["start_s"], i0["seed"]["end_s"]), (0.0, 1.4))
+        self.assertEqual((i1["seed"]["start_s"], i1["seed"]["end_s"]), (1.5, 4.5))
+        # the seg1 band must NOT advertise the whole-highway 0.0-4.5 span or the seg0 endpoints
+        self.assertNotEqual(i1["seed"]["start_s"], 0.0)
+        self.assertEqual((i1["parent_highway"], i1["n_segments"]), ("hw", 2))
+
+
 if __name__ == "__main__":
     unittest.main()

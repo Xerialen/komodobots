@@ -3902,10 +3902,13 @@ tools, and widen each #420 seed line into a human-range band:
   canon-driven command → the quantified signature + a fused POV+route contact sheet + an L1
   eval-integrity report (per row: frame PRESENT + NON-DEGENERATE + in-window; the frame↔state offset
   is calibrated by-eye once per demo and passed as `--offset`, `offset-unverified` fail-loud otherwise).
-- `route_canon_band.py` harvests, per highway, the corpus legs matching the seed by **trajectory
-  similarity + route_class, NEVER by `(from,to)`** (endpoint is a cheap prefilter; `_suspect_trick`
-  + median-(x,y) ≤ 200 qu + class + a straightness/jump tolerance are the decision) into a signature
-  band + a per-arc-fraction positional corridor → `route_canon_bands.v1`. The seed is always a member (n≥1).
+- `route_canon_band.py` harvests, per highway SEGMENT, the corpus legs matching the seed by
+  **trajectory similarity + route_class, NEVER by `(from,to)`** (endpoint is a cheap prefilter;
+  `_suspect_trick` + median-(x,y) ≤ 200 qu + class + a straightness/jump tolerance are the decision)
+  into a signature band + a per-arc-fraction positional corridor → `route_canon_bands.v1`. A
+  multi-segment teleport chain is banded one run at a time (id `<hw>#segN`) so a band's
+  endpoints/seed-window/signature always match the segment, never the whole-highway span. The seed
+  segment is always a member (n≥1).
 
 The #420 **seed line stays #428's MSE/RMSE centerline**; the #421 band is the **human-range tolerance
 envelope** consumed by **Phase-4 drift/believability monitoring + curriculum**, NOT a #428 input. This
@@ -3930,8 +3933,8 @@ Plan dual-reviewed: **auditor.md = PASS-WITH-FIXES** (every code citation verifi
 reconciliation confirmed honest) + **NotebookLM** (aligned with docs/27+28); both **ratified all five
 decisions**, five clarifications folded. Pipeline proof on `ra_tunnel_mega_rl` (Milton 47–55.5s): 9
 fused rows, signature 8.5s / hspeed 0/408/856 / 6 jumps / straightness 0.09, **L1 9 pass** (offset 1695
-verified by the in-game HUD clock 00:47/00:51 == match_t; POV↔route coherent by-eye). Band proof:
-`low_bridge_stairs_ya` (water.LG→YA.box) **n=5** (3 players, hs_mean 365/394/424, 64-pt corridor); the
-other 4 cuts are idiosyncratic (n=1 — closest corpus candidate 277–1212 qu off the seed) under the
-principled gate, validating the deferred corpus harvest. **15 new `test_pov_fuse_pipeline` tests + the
-full floor (1733) green.**
+verified by the in-game HUD clock 00:47/00:51 == match_t; POV↔route coherent by-eye). Band proof: 6
+segment-bands — `low_bridge_stairs_ya` (water.LG→YA.box) **n=5** (3 players, hs_mean 365/394/424,
+64-pt corridor) + the shortcut's `#seg1` Ring→Quad n=2 are corpus-widened; the rest n=1 (closest
+corpus candidate 277–1212 qu off the seed) under the principled gate, validating the deferred corpus
+harvest. **17 `test_pov_fuse_pipeline` tests + the full floor green.**
