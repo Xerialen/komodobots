@@ -28,7 +28,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 LIVE_DIR = ROOT / "experiments" / "ktx_moveprobe" / "live"
-C_SOURCES = ["move_world_view.c", "move_shm.c", "selftest_main.c"]
+C_SOURCES = ["move_world_view.c", "move_shm.c", "move_highway.c", "selftest_main.c"]
 
 # Set at import. HARNESS is the compiled binary path, or None. SKIP_REASON is
 # set (and HARNESS left None) only when no compiler exists; a present-but-failing

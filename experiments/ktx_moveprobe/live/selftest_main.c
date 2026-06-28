@@ -21,9 +21,23 @@
  *   read_move <name> <slot>
  *       read the MOVE record (KTX reader role); print
  *       "<fresh> <ans_seq> <fwd> <side> <jump> <mx> <my> <mz>" (floats hex).
+ *
+ * Handoff-gate commands (bot-program T3.1 #422; drive tests/test_move_highway.py):
+ *   radii
+ *       print "<R_ON> <R_OFF> <R_ARRIVE> <R_GOAL>" (the move_highway.h gate radii, qu).
+ *   nearest <x> <y>
+ *       print "<dist> <which>": Euclidean (x,y) distance to the nearest base highway
+ *       polyline and that highway's index (-1 if none).
+ *   engaged <slot> <bx> <by> <have_goal> <gx> <gy>
+ *       print the latched gate result (0/1) for one call from a fresh process.
+ *   engaged_seq
+ *       read "<slot> <bx> <by> <have_goal> <gx> <gy>" lines from stdin until EOF; print one
+ *       0/1 per line in ONE process so the per-slot latch/hysteresis persists across the steps.
  */
 #include "move_shm.h"
+#include "move_highway.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -144,6 +158,44 @@ static int cmd_read_move(const char *name, char **a)
     return 0;
 }
 
+static int cmd_radii(void)
+{
+    printf("%g %g %g %g\n", MHW_R_ON, MHW_R_OFF, MHW_R_ARRIVE, MHW_R_GOAL);
+    return 0;
+}
+
+static int cmd_nearest(char **a)
+{
+    int which = -1;
+    double d2 = mhw_nearest_base_highway(atof(a[0]), atof(a[1]), &which);
+    printf("%.6f %d\n", sqrt(d2), which);
+    return 0;
+}
+
+static int cmd_engaged(char **a)
+{
+    int r = mhw_handoff_engaged(atoi(a[0]), atof(a[1]), atof(a[2]),
+                                atoi(a[3]), atof(a[4]), atof(a[5]));
+    printf("%d\n", r);
+    return 0;
+}
+
+static int cmd_engaged_seq(void)
+{
+    char line[256];
+    while (fgets(line, sizeof(line), stdin))
+    {
+        int slot, hg;
+        double bx, by, gx, gy;
+        if (sscanf(line, "%d %lf %lf %d %lf %lf", &slot, &bx, &by, &hg, &gx, &gy) != 6)
+        {
+            continue;  /* skip blank/short lines */
+        }
+        printf("%d\n", mhw_handoff_engaged(slot, bx, by, hg, gx, gy));
+    }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2)
@@ -163,6 +215,10 @@ int main(int argc, char **argv)
     if (strcmp(cmd, "write_view_feats") == 0 && n == 10)
         return cmd_write_view_feats(a[0], a + 1);
     if (strcmp(cmd, "read_move") == 0 && n == 2) return cmd_read_move(a[0], a + 1);
+    if (strcmp(cmd, "radii") == 0 && n == 0) return cmd_radii();
+    if (strcmp(cmd, "nearest") == 0 && n == 2) return cmd_nearest(a);
+    if (strcmp(cmd, "engaged") == 0 && n == 6) return cmd_engaged(a);
+    if (strcmp(cmd, "engaged_seq") == 0 && n == 0) return cmd_engaged_seq();
 
     fprintf(stderr, "bad command '%s' (n=%d)\n", cmd, n);
     return 1;

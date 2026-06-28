@@ -314,6 +314,30 @@ class FreshnessGateTests(unittest.TestCase):
         self.assertEqual(s1["fallback_loglines"], 2)
         self.assertLess(s1["fraction"], 0.05)
 
+    def test_disengaged_tail_counts_as_fallback_not_stale_freshness(self) -> None:
+        # #422 ML evidence-chain: the C handoff gate emits off-highway DISENGAGED frames as
+        # FALLBACK [moveprobe-live] lines (live flat, total advancing), so a run that ends on a
+        # long off-highway tail reports the TRUE (low) engaged share -- not a stale high fraction
+        # frozen at the last on-highway line. The parser keys on the max-total line, so the tail
+        # cannot pass via a stale total.
+        import tempfile
+
+        log = "\n".join([
+            _cum_line(1, "LIVE", 70, 77),        # on-highway burst -> looks ~0.91 fresh
+            _cum_line(1, "FALLBACK", 70, 700),   # DISENGAGED tail: total climbs, live stays flat
+            _cum_line(1, "FALLBACK", 70, 1400),  # ... still off-highway (the max-total line)
+        ]) + "\n"
+        with tempfile.TemporaryDirectory() as td:
+            rd = Path(td)
+            (rd / "screen.log").write_text(log, encoding="utf-8")
+            ok, rep = live4v4.evaluate_live_freshness(rd, leap_slots=(1,))
+        s1 = rep["slots"]["1"]
+        self.assertEqual(s1["total_frames"], 1400)  # max-total wins, not stuck at the stale 77
+        self.assertEqual(s1["live_frames"], 70)
+        self.assertAlmostEqual(s1["fraction"], 70 / 1400, places=4)  # true engaged share ~0.05
+        self.assertLess(s1["fraction"], 0.5)
+        self.assertFalse(ok)  # a long off-highway tail must FAIL the freshness gate
+
     def test_leap_slot_with_no_cumulative_fails(self) -> None:
         # slot 4 logs only OLD-format lines (no live=L/T) -> can't prove the true
         # per-frame fraction -> fail closed (forces the cumulative-aware KTX build)
