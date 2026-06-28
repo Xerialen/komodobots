@@ -124,12 +124,18 @@ def _suspect_trick(run, self_dmg):
     """Flag (not drop) a run that looks like it contains a trick jump: self-damage (the reliable
     rocket-jump signal) and/or a genuinely-extreme vertical launch. The owner's cut is
     authoritative — this VERIFIES it is trick-free rather than trusting it blindly (#420).
-    Returns (suspect, reasons, max_vz)."""
+    `self_dmg` is the list of self-damage events, or **None when the damage stream is UNAVAILABLE**
+    (missing/malformed) — which fails closed (flagged suspect), since absence is not evidence of
+    trick-free. Returns (suspect, reasons, max_vz)."""
     reasons = []
     vz_max = max(tk["vz"] for tk in run)
-    for e in self_dmg:
-        reasons.append(f"self-damage {e.get('damage')} via {e.get('weapon')} @ {e.get('time')}ms "
-                       f"(rocket jump)")
+    if self_dmg is None:
+        reasons.append("damage stream unavailable — self-damage (rocket jump) unverifiable; "
+                       "fail-closed (absence is not evidence of trick-free)")
+    else:
+        for e in self_dmg:
+            reasons.append(f"self-damage {e.get('damage')} via {e.get('weapon')} @ "
+                           f"{e.get('time')}ms (rocket jump)")
     if vz_max > VZ_TRICK_CEILING:
         reasons.append(f"extreme vz launch {round(vz_max)} > {round(VZ_TRICK_CEILING)} (review)")
     return (len(reasons) > 0), reasons, round(vz_max)
@@ -160,7 +166,8 @@ def build_highway(d, mark, coords, dmg_events):
         if math.hypot(sx - coords[to][0], sy - coords[to][1]) <= td:
             LOGGER.warning("mark %r run does not approach its to_resource %s (start no farther "
                            "than end)", mark.get("label"), to)
-        sdmg = _self_damage(dmg_events, player, r[0]["t"] * 1000, r[-1]["t"] * 1000)
+        sdmg = (None if dmg_events is None
+                else _self_damage(dmg_events, player, r[0]["t"] * 1000, r[-1]["t"] * 1000))
         susp, reasons, max_vz = _suspect_trick(r, sdmg)
         if susp:
             hw_suspect = True
@@ -238,7 +245,13 @@ def main(argv):
     highways = []
     for m in marks["marks"]:
         d = load(m["demo"])
-        dmg_events = (d.get("damage") or {}).get("events") or []
+        # Distinguish an AUTHORITATIVE empty damage stream ([]) from an UNAVAILABLE one (missing /
+        # malformed): absence of damage is NOT evidence of zero self-damage, so a missing stream
+        # fails closed (the highway is flagged suspect, never silently passed as clean). None here
+        # signals unavailable; [] is a real "no self-damage occurred".
+        damage = d.get("damage")
+        events = damage.get("events") if isinstance(damage, dict) else None
+        dmg_events = events if isinstance(events, list) else None
         hw = build_highway(d, m, coords, dmg_events)
         highways.append(hw)
         s0 = hw["segments"][0]["signature"]

@@ -31,11 +31,15 @@ def _player(pts):
     return {"name": "p1", "pos": pos}
 
 
-def _build(pts, start_s, end_s, coords=None, dmg=None, route_class="base", label="L"):
+_UNSET = object()
+
+
+def _build(pts, start_s, end_s, coords=None, dmg=_UNSET, route_class="base", label="L"):
     d = {"streams": {"players": [_player(pts)]}}
     mark = {"demo": "test.mvd", "player": "p1", "start_s": start_s, "end_s": end_s,
             "label": label, "route_class": route_class}
-    return B.build_highway(d, mark, coords or COORDS, dmg or [])
+    events = [] if dmg is _UNSET else dmg          # default [] = available-empty; None = unavailable
+    return B.build_highway(d, mark, coords or COORDS, events)
 
 
 def _straight(t0, n, x0, dx, dt=0.1, y=0.0, z=0.0, vx=500.0, vy=0.0, vz=100.0, vya=0.0):
@@ -99,6 +103,17 @@ class TestBuildRouteCanon(unittest.TestCase):
         self.assertTrue(hw["suspect_trick"])
         self.assertTrue(any("vz" in r for r in hw["suspect_reasons"]))
         self.assertEqual(hw["segments"][0]["max_vz"], 1000)
+
+    def test_fail_closed_on_unavailable_damage(self):
+        # missing/malformed damage stream must NOT be passed as clean (absence != trick-free)
+        hw = _build(_straight(1.0, 20, 0.0, 50.0), 1.0, 2.9, dmg=None)
+        self.assertTrue(hw["suspect_trick"])
+        self.assertTrue(any("unavailable" in r for r in hw["suspect_reasons"]))
+
+    def test_authoritative_empty_damage_stays_clean(self):
+        # an available, genuinely-empty damage stream ([]) is a real "no self-damage" -> clean
+        hw = _build(_straight(1.0, 20, 0.0, 50.0), 1.0, 2.9, dmg=[])
+        self.assertFalse(hw["suspect_trick"])
 
 
 if __name__ == "__main__":
