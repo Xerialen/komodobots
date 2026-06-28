@@ -3891,3 +3891,47 @@ vz ≤361 (clean 361..553 gap); deaths / lg water-discharge ≥115 dmg. New dete
 `demo-eyecheck` skill (PR #450): `zero` @match-118 rocket jump (armor 131→84, airborne) flagged;
 @match-64 splash (level/grounded) clean. Plan reviewed: auditor.md PASS-WITH-FIXES + NotebookLM;
 16 `test_build_route_canon` tests green.
+
+## Route Canon POV-fusion pipeline + band harvest (#421 / T2.2, 2026-06-28)
+
+### Decision
+
+Automate the POV-fusion pipeline (the docs/28 M2 deliverable + the Phase-1 live test) as two linked
+tools, and widen each #420 seed line into a human-range band:
+- `pov_fuse_pipeline.py` links `pov_fuse_extract` → `pov_fuse_render` → `pov_fuse_shot.js` into one
+  canon-driven command → the quantified signature + a fused POV+route contact sheet + an L1
+  eval-integrity report (per row: frame PRESENT + NON-DEGENERATE + in-window; the frame↔state offset
+  is calibrated by-eye once per demo and passed as `--offset`, `offset-unverified` fail-loud otherwise).
+- `route_canon_band.py` harvests, per highway, the corpus legs matching the seed by **trajectory
+  similarity + route_class, NEVER by `(from,to)`** (endpoint is a cheap prefilter; `_suspect_trick`
+  + median-(x,y) ≤ 200 qu + class + a straightness/jump tolerance are the decision) into a signature
+  band + a per-arc-fraction positional corridor → `route_canon_bands.v1`. The seed is always a member (n≥1).
+
+The #420 **seed line stays #428's MSE/RMSE centerline**; the #421 band is the **human-range tolerance
+envelope** consumed by **Phase-4 drift/believability monitoring + curriculum**, NOT a #428 input. This
+also reframes the pre-pivot `route_envelopes.v2` "believability / BC target" language (the human is a
+target to BEAT, not clone).
+
+### Rejected/accepted alternatives
+
+- **Band replaces the seed as #428's target**: REJECTED (both reviewers) — scoring against the band
+  median would chase the average human = behaviour-cloning, the docs/28 anti-goal.
+- **Bump `route_canon.v2` with a band block**: rejected — a separate generated artifact keeps the
+  light #420 marks→seed generator uncoupled from the heavy corpus harvest.
+- **Full per-row HUD OCR (L2) for the pixel check**: deferred — L1 + a one-anchor by-eye offset
+  calibration is the honest Phase-1 plumbing gate; per-row OCR gold-plates it and would pull Pillow
+  into the gate. Pixel-decode + render are integration-only (the gating floor is stdlib).
+- **Full corpus harvest now**: deferred to the gated heavy run (like #420) — machinery + a
+  single-demo proof land now.
+
+### Evidence
+
+Plan dual-reviewed: **auditor.md = PASS-WITH-FIXES** (every code citation verified; the framing
+reconciliation confirmed honest) + **NotebookLM** (aligned with docs/27+28); both **ratified all five
+decisions**, five clarifications folded. Pipeline proof on `ra_tunnel_mega_rl` (Milton 47–55.5s): 9
+fused rows, signature 8.5s / hspeed 0/408/856 / 6 jumps / straightness 0.09, **L1 9 pass** (offset 1695
+verified by the in-game HUD clock 00:47/00:51 == match_t; POV↔route coherent by-eye). Band proof:
+`low_bridge_stairs_ya` (water.LG→YA.box) **n=5** (3 players, hs_mean 365/394/424, 64-pt corridor); the
+other 4 cuts are idiosyncratic (n=1 — closest corpus candidate 277–1212 qu off the seed) under the
+principled gate, validating the deferred corpus harvest. **15 new `test_pov_fuse_pipeline` tests + the
+full floor (1733) green.**

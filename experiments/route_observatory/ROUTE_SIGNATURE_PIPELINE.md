@@ -38,16 +38,17 @@ The committed `signatures/*.json` are the produced envelopes (`envelopes_mvd_4on
 97-demo `envelopes_qwd.json`, and the pooled `envelopes_merged.json`). The raw `legs.jsonl`
 are regenerable and kept out of git (the 97-demo corpus is ~9 MB / 16k legs).
 
-## The four "route" artifacts — which is canonical for what
+## The five "route" artifacts — which is canonical for what
 
-`dm3` has four route-related artifacts with deliberately distinct jobs; do not conflate them:
+`dm3` has five route-related artifacts with deliberately distinct jobs; do not conflate them:
 
 | Artifact (schema) | What it holds | Consumed by |
 |---|---|---|
 | `data/catalog/resource_routes.dm3.json` (`resource_routes.v1`) | observed-traffic counts per resource pair (li-flicker; geometry approximate) | nothing in code today (provenance only) |
-| `signatures/envelopes_*.json` (`route_envelopes.v2`) | per-route signature BANDS (core = faster-half BC target, all_traffic = believability band) | believability eval / curriculum |
+| `signatures/envelopes_*.json` (`route_envelopes.v2`) | per-route signature BANDS pooled by `(from,to)` (core = faster-half, all_traffic = full) | believability eval / curriculum. **PRE-PIVOT framing** — the row calls these a "BC target / believability band"; under docs/28 the human is a target to BEAT, not clone, and the `(from,to)` pooling is exactly what `route_canon_bands` avoids |
 | `data/catalog/resource_coords.dm3.json` (`resource_coords.v1`) | the 11 resource `{name:[x,y]}` | `ml/pipeline/route_goals` goal-label (train/serve) |
-| `data/catalog/route_canon.dm3.json` (`route_canon.v1`, NEW · #420) | owner-marked clean half-route SEED LINES (exact trajectory + endpoints + base/shortcut/enabler) | #428 route-isolated MSE/RMSE ground truth; #421 band seed |
+| `data/catalog/route_canon.dm3.json` (`route_canon.v1`, #420) | owner-marked clean half-route SEED LINES (exact trajectory + endpoints + base/shortcut/enabler) | **#428 route-isolated MSE/RMSE centerline**; the seed for `route_canon_bands` |
+| `data/catalog/route_canon_bands.dm3.json` (`route_canon_bands.v1`, NEW · #421) | per-highway human-range BAND around the seed: signature band (reuse `route_env`) + per-arc-fraction (x,y) positional corridor, harvested by **seed-trajectory similarity + route_class** (NEVER `(from,to)`) | **Phase-4 drift/believability monitoring + curriculum** (NOT #428 — #428 scores vs the seed centerline) |
 
 **#420 vs #421 scope.** `route_canon.v1` is **#420** — DEFINE the highways + one SEED LINE each (the
 initial MSE ground truth). **#421** (POV-fusion) later WIDENS each highway to an empirical band over
@@ -58,6 +59,28 @@ the contamination #420 exists to prevent; see the canon's `_match_key`). Built b
 so movement quality is measured without trick-execution contamination. `route_class` is stored on
 ALL highways; Phase-1 base training consumes `route_class=='base'` only (trickjump-separation,
 docs/28).
+
+**#421 (T2.2) — IMPLEMENTED.** Two tools link + automate the POV-fusion pipeline and build the band:
+- `pov_fuse_pipeline.py <canon> <highway-id> --analysis <alias>=<full.json> --frames <dir> [--offset
+  N] [--offset-verified] [--no-shot]` — the linked driver (`pov_fuse_extract` → `pov_fuse_render` →
+  `pov_fuse_shot.js`) → the quantified signature + the fused POV+route contact sheet + an L1
+  eval-integrity report (`pov_fuse_report.json`: each row PRESENT + NON-DEGENERATE + in-window). The
+  frame↔state OFFSET is per-frame-SOURCE, calibrated by-eye once per demo (the in-game HUD match
+  clock is the cleanest anchor) and passed as `--offset`; without `--offset-verified` rows are
+  `offset-unverified` (fail-loud, never silently aligned). This is the Phase-1 LIVE TEST (docs/28:85).
+  Frame variance needs Pillow (integration-only); demo-eyecheck `--render` (winnacle GPU) supplies POV
+  frames for non-Milton players (integration-only — the offline/CI proof rests on the Milton frames).
+- `route_canon_band.py <canon> --analysis <alias>=<full.json> -o route_canon_bands.dm3.json` — the
+  band harvest. Gate A per candidate leg: endpoint==seed (cheap prefilter) AND `_suspect_trick`-clean
+  (reuse #420) AND median per-point (x,y) ≤ `SIM_QU`=200 qu AND `route_class`==seed AND
+  straightness/jumps within an explicit tolerance width. The seed is ALWAYS a band member (n≥1).
+- **Single-demo finding (book_vs_mix).** Under the principled gate, 4/5 owner half-route cuts are
+  idiosyncratic paths no other player in ONE demo resembles (Ring→RA: 73 endpoint candidates but the
+  closest is 277 qu off the seed; Ring→RL: 1212 qu), so they stay n=1 (seed only); only
+  `low_bridge_stairs_ya` (water.LG→YA.box) has a matched sub-population → **n=5** (3 players, hs_mean
+  365/394/424). The machinery is correct; the candidates are genuinely dissimilar, not a bug. Widening
+  the rest needs the **full corpus harvest** over many demos (the gated heavy run, like #420's heavy
+  extraction) — which this finding validates deferring.
 
 ## The key correction: position-based legs, NOT `pos.li`
 

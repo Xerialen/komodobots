@@ -1,0 +1,1374 @@
+{
+ "schema": "komodobots.route_canon_bands.v1",
+ "map": "dm3",
+ "_generated_by": "experiments/route_observatory/route_canon_band.py",
+ "_seed_source": "route_canon.dm3.json",
+ "_consumer": "Phase-4 drift/believability monitoring + curriculum. NOT a #428 input — #428 scores MSE/RMSE against the #420 seed centerline (route_canon segments[].trajectory); this band is the human-range tolerance envelope around it.",
+ "_match_key": "harvest gated by seed-trajectory similarity + route_class, NEVER by (from,to) — re-pooling the pair re-introduces the trick/shortcut contamination #420 prevents (see route_canon.dm3.json _match_key).",
+ "_provenance": {
+  "analyses": [
+   "book_vs_mix[dm3].mvd"
+  ],
+  "n_bands": 5
+ },
+ "bands": [
+  {
+   "id": "ra_tunnel_mega_rl",
+   "label": "RA-tunnel -> mega -> RL",
+   "route_class": "base",
+   "from_resource": "Ring",
+   "to_resource": "RL",
+   "seed": {
+    "demo": "book_vs_mix[dm3].mvd",
+    "player": "Milton",
+    "start_s": 47.0,
+    "end_s": 55.5
+   },
+   "n_traversals": 1,
+   "by_source": {
+    "seed": 1
+   },
+   "gate": {
+    "sim_qu": 200.0,
+    "corridor_m": 64,
+    "straight_tol": 0.15,
+    "jump_tol_frac": 0.5,
+    "rule": "endpoint==seed AND _suspect_trick-clean AND median(x,y)<=sim_qu AND route_class==seed AND straightness/jumps within explicit tol; NEVER (from,to) alone"
+   },
+   "signature_band": {
+    "dur_s": {
+     "n": 1,
+     "p10": 8.2,
+     "median": 8.2,
+     "p90": 8.2,
+     "mean": 8.2,
+     "min": 8.2,
+     "max": 8.2
+    },
+    "hs_mean": {
+     "n": 1,
+     "p10": 411,
+     "median": 411,
+     "p90": 411,
+     "mean": 411.0,
+     "min": 411,
+     "max": 411
+    },
+    "hs_max": {
+     "n": 1,
+     "p10": 625,
+     "median": 625,
+     "p90": 625,
+     "mean": 625.0,
+     "min": 625,
+     "max": 625
+    },
+    "jumps_per_leg": {
+     "n": 1,
+     "p10": 6,
+     "median": 6,
+     "p90": 6,
+     "mean": 6.0,
+     "min": 6,
+     "max": 6
+    },
+    "jump_interval_s": {
+     "n": 1,
+     "p10": 0.544,
+     "median": 0.544,
+     "p90": 0.544,
+     "mean": 0.544,
+     "min": 0.544,
+     "max": 0.544
+    },
+    "lookmove_deg": {
+     "n": 1,
+     "p10": 32,
+     "median": 32,
+     "p90": 32,
+     "mean": 32.0,
+     "min": 32,
+     "max": 32
+    },
+    "straightness": {
+     "n": 1,
+     "p10": 0.478,
+     "median": 0.478,
+     "p90": 0.478,
+     "mean": 0.478,
+     "min": 0.478,
+     "max": 0.478
+    }
+   },
+   "positional_corridor": [],
+   "members": [
+    {
+     "demo": "book_vs_mix[dm3].mvd",
+     "player": "Milton",
+     "t0": 47.0,
+     "t1": 55.5,
+     "source": "seed",
+     "median_dist_qu": 0.0
+    }
+   ]
+  },
+  {
+   "id": "enter_ra_mid_ledge_top",
+   "label": "enter RA -> mid ledge -> top",
+   "route_class": "base",
+   "from_resource": "Ring",
+   "to_resource": "RA",
+   "seed": {
+    "demo": "book_vs_mix[dm3].mvd",
+    "player": "Milton",
+    "start_s": 166.0,
+    "end_s": 173.5
+   },
+   "n_traversals": 1,
+   "by_source": {
+    "seed": 1
+   },
+   "gate": {
+    "sim_qu": 200.0,
+    "corridor_m": 64,
+    "straight_tol": 0.15,
+    "jump_tol_frac": 0.5,
+    "rule": "endpoint==seed AND _suspect_trick-clean AND median(x,y)<=sim_qu AND route_class==seed AND straightness/jumps within explicit tol; NEVER (from,to) alone"
+   },
+   "signature_band": {
+    "dur_s": {
+     "n": 1,
+     "p10": 7.5,
+     "median": 7.5,
+     "p90": 7.5,
+     "mean": 7.5,
+     "min": 7.5,
+     "max": 7.5
+    },
+    "hs_mean": {
+     "n": 1,
+     "p10": 345,
+     "median": 345,
+     "p90": 345,
+     "mean": 345.0,
+     "min": 345,
+     "max": 345
+    },
+    "hs_max": {
+     "n": 1,
+     "p10": 497,
+     "median": 497,
+     "p90": 497,
+     "mean": 497.0,
+     "min": 497,
+     "max": 497
+    },
+    "jumps_per_leg": {
+     "n": 1,
+     "p10": 7,
+     "median": 7,
+     "p90": 7,
+     "mean": 7.0,
+     "min": 7,
+     "max": 7
+    },
+    "jump_interval_s": {
+     "n": 1,
+     "p10": 0.565,
+     "median": 0.565,
+     "p90": 0.565,
+     "mean": 0.565,
+     "min": 0.565,
+     "max": 0.565
+    },
+    "lookmove_deg": {
+     "n": 1,
+     "p10": 33,
+     "median": 33,
+     "p90": 33,
+     "mean": 33.0,
+     "min": 33,
+     "max": 33
+    },
+    "straightness": {
+     "n": 1,
+     "p10": 0.152,
+     "median": 0.152,
+     "p90": 0.152,
+     "mean": 0.152,
+     "min": 0.152,
+     "max": 0.152
+    }
+   },
+   "positional_corridor": [],
+   "members": [
+    {
+     "demo": "book_vs_mix[dm3].mvd",
+     "player": "Milton",
+     "t0": 166.0,
+     "t1": 173.5,
+     "source": "seed",
+     "median_dist_qu": 0.0
+    }
+   ]
+  },
+  {
+   "id": "low_bridge_stairs_ya",
+   "label": "low bridge -> stairs -> YA",
+   "route_class": "base",
+   "from_resource": "water.LG",
+   "to_resource": "YA.box",
+   "seed": {
+    "demo": "book_vs_mix[dm3].mvd",
+    "player": "Milton",
+    "start_s": 511.0,
+    "end_s": 515.5
+   },
+   "n_traversals": 5,
+   "by_source": {
+    "seed": 1,
+    "book_vs_mix[dm3].mvd": 4
+   },
+   "gate": {
+    "sim_qu": 200.0,
+    "corridor_m": 64,
+    "straight_tol": 0.15,
+    "jump_tol_frac": 0.5,
+    "rule": "endpoint==seed AND _suspect_trick-clean AND median(x,y)<=sim_qu AND route_class==seed AND straightness/jumps within explicit tol; NEVER (from,to) alone"
+   },
+   "signature_band": {
+    "dur_s": {
+     "n": 5,
+     "p10": 4.62,
+     "median": 5.0,
+     "p90": 5.6,
+     "mean": 5.06,
+     "min": 4.5,
+     "max": 6.0
+    },
+    "hs_mean": {
+     "n": 5,
+     "p10": 364.8,
+     "median": 394,
+     "p90": 424.2,
+     "mean": 393.6,
+     "min": 362,
+     "max": 435
+    },
+    "hs_max": {
+     "n": 5,
+     "p10": 505.6,
+     "median": 544,
+     "p90": 561.2,
+     "mean": 535.0,
+     "min": 504,
+     "max": 568
+    },
+    "jumps_per_leg": {
+     "n": 5,
+     "p10": 5.4,
+     "median": 6,
+     "p90": 7.0,
+     "mean": 6.2,
+     "min": 5,
+     "max": 7
+    },
+    "jump_interval_s": {
+     "n": 5,
+     "p10": 0.436,
+     "median": 0.495,
+     "p90": 0.702,
+     "mean": 0.553,
+     "min": 0.428,
+     "max": 0.716
+    },
+    "lookmove_deg": {
+     "n": 5,
+     "p10": 29.0,
+     "median": 52,
+     "p90": 57.0,
+     "mean": 45.0,
+     "min": 27,
+     "max": 57
+    },
+    "straightness": {
+     "n": 5,
+     "p10": 0.329,
+     "median": 0.357,
+     "p90": 0.43,
+     "mean": 0.372,
+     "min": 0.319,
+     "max": 0.469
+    }
+   },
+   "positional_corridor": [
+    {
+     "frac": 0.0,
+     "x": {
+      "p10": 1426.925,
+      "median": 1441.125,
+      "p90": 1581.9
+     },
+     "y": {
+      "p10": -58.49,
+      "median": -30.5,
+      "p90": -21.45
+     }
+    },
+    {
+     "frac": 0.0159,
+     "x": {
+      "p10": 1463.899,
+      "median": 1476.857,
+      "p90": 1613.858
+     },
+     "y": {
+      "p10": -61.411,
+      "median": -38.56,
+      "p90": -26.194
+     }
+    },
+    {
+     "frac": 0.0317,
+     "x": {
+      "p10": 1501.492,
+      "median": 1510.696,
+      "p90": 1648.238
+     },
+     "y": {
+      "p10": -65.613,
+      "median": -43.812,
+      "p90": -27.243
+     }
+    },
+    {
+     "frac": 0.0476,
+     "x": {
+      "p10": 1537.382,
+      "median": 1551.143,
+      "p90": 1682.682
+     },
+     "y": {
+      "p10": -67.83,
+      "median": -44.655,
+      "p90": -28.268
+     }
+    },
+    {
+     "frac": 0.0635,
+     "x": {
+      "p10": 1573.027,
+      "median": 1593.571,
+      "p90": 1716.998
+     },
+     "y": {
+      "p10": -66.067,
+      "median": -45.498,
+      "p90": -29.336
+     }
+    },
+    {
+     "frac": 0.0794,
+     "x": {
+      "p10": 1609.392,
+      "median": 1633.714,
+      "p90": 1751.92
+     },
+     "y": {
+      "p10": -61.145,
+      "median": -46.341,
+      "p90": -30.348
+     }
+    },
+    {
+     "frac": 0.0952,
+     "x": {
+      "p10": 1645.839,
+      "median": 1672.929,
+      "p90": 1785.19
+     },
+     "y": {
+      "p10": -58.625,
+      "median": -46.339,
+      "p90": -31.332
+     }
+    },
+    {
+     "frac": 0.1111,
+     "x": {
+      "p10": 1683.475,
+      "median": 1713.833,
+      "p90": 1816.291
+     },
+     "y": {
+      "p10": -57.998,
+      "median": -47.833,
+      "p90": -34.6
+     }
+    },
+    {
+     "frac": 0.127,
+     "x": {
+      "p10": 1720.06,
+      "median": 1755.774,
+      "p90": 1845.713
+     },
+     "y": {
+      "p10": -57.527,
+      "median": -48.746,
+      "p90": -42.764
+     }
+    },
+    {
+     "frac": 0.1429,
+     "x": {
+      "p10": 1756.636,
+      "median": 1795.304,
+      "p90": 1875.244
+     },
+     "y": {
+      "p10": -58.433,
+      "median": -49.589,
+      "p90": -47.243
+     }
+    },
+    {
+     "frac": 0.1587,
+     "x": {
+      "p10": 1792.493,
+      "median": 1835.03,
+      "p90": 1901.782
+     },
+     "y": {
+      "p10": -69.252,
+      "median": -54.718,
+      "p90": -51.055
+     }
+    },
+    {
+     "frac": 0.1746,
+     "x": {
+      "p10": 1825.757,
+      "median": 1872.179,
+      "p90": 1927.523
+     },
+     "y": {
+      "p10": -86.005,
+      "median": -64.849,
+      "p90": -56.486
+     }
+    },
+    {
+     "frac": 0.1905,
+     "x": {
+      "p10": 1858.429,
+      "median": 1909.607,
+      "p90": 1948.975
+     },
+     "y": {
+      "p10": -104.462,
+      "median": -75.571,
+      "p90": -64.008
+     }
+    },
+    {
+     "frac": 0.2063,
+     "x": {
+      "p10": 1891.399,
+      "median": 1944.44,
+      "p90": 1970.602
+     },
+     "y": {
+      "p10": -123.714,
+      "median": -94.794,
+      "p90": -72.421
+     }
+    },
+    {
+     "frac": 0.2222,
+     "x": {
+      "p10": 1922.708,
+      "median": 1964.167,
+      "p90": 1984.008
+     },
+     "y": {
+      "p10": -148.886,
+      "median": -118.472,
+      "p90": -85.367
+     }
+    },
+    {
+     "frac": 0.2381,
+     "x": {
+      "p10": 1948.864,
+      "median": 1964.25,
+      "p90": 1997.073
+     },
+     "y": {
+      "p10": -178.381,
+      "median": -137.411,
+      "p90": -101.054
+     }
+    },
+    {
+     "frac": 0.254,
+     "x": {
+      "p10": 1958.987,
+      "median": 1988.347,
+      "p90": 1999.089
+     },
+     "y": {
+      "p10": -207.773,
+      "median": -168.75,
+      "p90": -115.327
+     }
+    },
+    {
+     "frac": 0.2698,
+     "x": {
+      "p10": 1964.036,
+      "median": 1993.435,
+      "p90": 2007.024
+     },
+     "y": {
+      "p10": -239.407,
+      "median": -198.774,
+      "p90": -128.933
+     }
+    },
+    {
+     "frac": 0.2857,
+     "x": {
+      "p10": 1966.314,
+      "median": 1996.286,
+      "p90": 2022.275
+     },
+     "y": {
+      "p10": -271.781,
+      "median": -224.446,
+      "p90": -137.436
+     }
+    },
+    {
+     "frac": 0.3016,
+     "x": {
+      "p10": 1972.245,
+      "median": 1994.31,
+      "p90": 2030.362
+     },
+     "y": {
+      "p10": -302.664,
+      "median": -251.042,
+      "p90": -155.169
+     }
+    },
+    {
+     "frac": 0.3175,
+     "x": {
+      "p10": 1971.129,
+      "median": 1992.5,
+      "p90": 2026.529
+     },
+     "y": {
+      "p10": -334.971,
+      "median": -278.565,
+      "p90": -179.385
+     }
+    },
+    {
+     "frac": 0.3333,
+     "x": {
+      "p10": 1961.762,
+      "median": 1993.625,
+      "p90": 2012.125
+     },
+     "y": {
+      "p10": -366.707,
+      "median": -305.625,
+      "p90": -201.733
+     }
+    },
+    {
+     "frac": 0.3492,
+     "x": {
+      "p10": 1943.568,
+      "median": 1983.095,
+      "p90": 1996.826
+     },
+     "y": {
+      "p10": -395.16,
+      "median": -331.196,
+      "p90": -224.656
+     }
+    },
+    {
+     "frac": 0.3651,
+     "x": {
+      "p10": 1914.625,
+      "median": 1970.363,
+      "p90": 1991.356
+     },
+     "y": {
+      "p10": -417.481,
+      "median": -357.083,
+      "p90": -253.105
+     }
+    },
+    {
+     "frac": 0.381,
+     "x": {
+      "p10": 1877.766,
+      "median": 1968.393,
+      "p90": 1988.161
+     },
+     "y": {
+      "p10": -425.283,
+      "median": -385.054,
+      "p90": -286.715
+     }
+    },
+    {
+     "frac": 0.3968,
+     "x": {
+      "p10": 1838.733,
+      "median": 1978.048,
+      "p90": 1980.798
+     },
+     "y": {
+      "p10": -416.397,
+      "median": -406.589,
+      "p90": -318.14
+     }
+    },
+    {
+     "frac": 0.4127,
+     "x": {
+      "p10": 1801.992,
+      "median": 1951.512,
+      "p90": 1987.808
+     },
+     "y": {
+      "p10": -415.386,
+      "median": -396.883,
+      "p90": -346.448
+     }
+    },
+    {
+     "frac": 0.4286,
+     "x": {
+      "p10": 1763.696,
+      "median": 1923.25,
+      "p90": 1985.279
+     },
+     "y": {
+      "p10": -427.3,
+      "median": -396.429,
+      "p90": -360.964
+     }
+    },
+    {
+     "frac": 0.4444,
+     "x": {
+      "p10": 1723.671,
+      "median": 1894.333,
+      "p90": 1969.936
+     },
+     "y": {
+      "p10": -437.242,
+      "median": -384.789,
+      "p90": -378.3
+     }
+    },
+    {
+     "frac": 0.4603,
+     "x": {
+      "p10": 1684.156,
+      "median": 1871.024,
+      "p90": 1944.208
+     },
+     "y": {
+      "p10": -437.507,
+      "median": -407.524,
+      "p90": -377.517
+     }
+    },
+    {
+     "frac": 0.4762,
+     "x": {
+      "p10": 1645.612,
+      "median": 1850.935,
+      "p90": 1913.475
+     },
+     "y": {
+      "p10": -441.289,
+      "median": -391.405,
+      "p90": -381.987
+     }
+    },
+    {
+     "frac": 0.4921,
+     "x": {
+      "p10": 1606.151,
+      "median": 1815.363,
+      "p90": 1884.174
+     },
+     "y": {
+      "p10": -440.29,
+      "median": -406.964,
+      "p90": -377.185
+     }
+    },
+    {
+     "frac": 0.5079,
+     "x": {
+      "p10": 1566.766,
+      "median": 1780.637,
+      "p90": 1849.936
+     },
+     "y": {
+      "p10": -431.813,
+      "median": -413.355,
+      "p90": -378.435
+     }
+    },
+    {
+     "frac": 0.5238,
+     "x": {
+      "p10": 1529.176,
+      "median": 1745.506,
+      "p90": 1819.432
+     },
+     "y": {
+      "p10": -423.49,
+      "median": -406.923,
+      "p90": -384.514
+     }
+    },
+    {
+     "frac": 0.5397,
+     "x": {
+      "p10": 1492.561,
+      "median": 1707.206,
+      "p90": 1791.798
+     },
+     "y": {
+      "p10": -427.622,
+      "median": -403.308,
+      "p90": -393.627
+     }
+    },
+    {
+     "frac": 0.5556,
+     "x": {
+      "p10": 1453.849,
+      "median": 1667.875,
+      "p90": 1766.508
+     },
+     "y": {
+      "p10": -439.963,
+      "median": -408.292,
+      "p90": -386.906
+     }
+    },
+    {
+     "frac": 0.5714,
+     "x": {
+      "p10": 1412.667,
+      "median": 1630.018,
+      "p90": 1735.304
+     },
+     "y": {
+      "p10": -449.183,
+      "median": -418.804,
+      "p90": -377.5
+     }
+    },
+    {
+     "frac": 0.5873,
+     "x": {
+      "p10": 1375.778,
+      "median": 1592.355,
+      "p90": 1702.186
+     },
+     "y": {
+      "p10": -450.439,
+      "median": -425.161,
+      "p90": -375.808
+     }
+    },
+    {
+     "frac": 0.6032,
+     "x": {
+      "p10": 1347.107,
+      "median": 1558.411,
+      "p90": 1672.076
+     },
+     "y": {
+      "p10": -447.608,
+      "median": -416.377,
+      "p90": -387.177
+     }
+    },
+    {
+     "frac": 0.619,
+     "x": {
+      "p10": 1321.971,
+      "median": 1538.631,
+      "p90": 1644.346
+     },
+     "y": {
+      "p10": -457.438,
+      "median": -412.762,
+      "p90": -385.314
+     }
+    },
+    {
+     "frac": 0.6349,
+     "x": {
+      "p10": 1314.987,
+      "median": 1532.048,
+      "p90": 1614.899
+     },
+     "y": {
+      "p10": -473.765,
+      "median": -401.423,
+      "p90": -383.902
+     }
+    },
+    {
+     "frac": 0.6508,
+     "x": {
+      "p10": 1312.423,
+      "median": 1514.879,
+      "p90": 1588.6
+     },
+     "y": {
+      "p10": -495.395,
+      "median": -397.448,
+      "p90": -382.889
+     }
+    },
+    {
+     "frac": 0.6667,
+     "x": {
+      "p10": 1310.633,
+      "median": 1488.875,
+      "p90": 1574.45
+     },
+     "y": {
+      "p10": -519.45,
+      "median": -396.333,
+      "p90": -377.9
+     }
+    },
+    {
+     "frac": 0.6825,
+     "x": {
+      "p10": 1294.563,
+      "median": 1461.113,
+      "p90": 1562.01
+     },
+     "y": {
+      "p10": -549.577,
+      "median": -392.921,
+      "p90": -368.729
+     }
+    },
+    {
+     "frac": 0.6984,
+     "x": {
+      "p10": 1271.591,
+      "median": 1435.183,
+      "p90": 1544.45
+     },
+     "y": {
+      "p10": -574.813,
+      "median": -384.105,
+      "p90": -359.243
+     }
+    },
+    {
+     "frac": 0.7143,
+     "x": {
+      "p10": 1249.063,
+      "median": 1420.25,
+      "p90": 1525.882
+     },
+     "y": {
+      "p10": -595.36,
+      "median": -363.321,
+      "p90": -349.564
+     }
+    },
+    {
+     "frac": 0.7302,
+     "x": {
+      "p10": 1233.877,
+      "median": 1423.016,
+      "p90": 1508.593
+     },
+     "y": {
+      "p10": -624.926,
+      "median": -353.21,
+      "p90": -339.343
+     }
+    },
+    {
+     "frac": 0.746,
+     "x": {
+      "p10": 1226.926,
+      "median": 1432.071,
+      "p90": 1491.043
+     },
+     "y": {
+      "p10": -658.331,
+      "median": -360.925,
+      "p90": -328.902
+     }
+    },
+    {
+     "frac": 0.7619,
+     "x": {
+      "p10": 1225.067,
+      "median": 1413.232,
+      "p90": 1482.281
+     },
+     "y": {
+      "p10": -687.271,
+      "median": -380.655,
+      "p90": -318.775
+     }
+    },
+    {
+     "frac": 0.7778,
+     "x": {
+      "p10": 1220.688,
+      "median": 1382.708,
+      "p90": 1468.833
+     },
+     "y": {
+      "p10": -707.843,
+      "median": -393.931,
+      "p90": -310.675
+     }
+    },
+    {
+     "frac": 0.7937,
+     "x": {
+      "p10": 1215.337,
+      "median": 1354.423,
+      "p90": 1451.5
+     },
+     "y": {
+      "p10": -717.477,
+      "median": -407.53,
+      "p90": -305.479
+     }
+    },
+    {
+     "frac": 0.8095,
+     "x": {
+      "p10": 1193.257,
+      "median": 1372.533,
+      "p90": 1434.796
+     },
+     "y": {
+      "p10": -724.426,
+      "median": -428.643,
+      "p90": -303.611
+     }
+    },
+    {
+     "frac": 0.8254,
+     "x": {
+      "p10": 1162.385,
+      "median": 1351.881,
+      "p90": 1446.926
+     },
+     "y": {
+      "p10": -731.225,
+      "median": -443.139,
+      "p90": -305.9
+     }
+    },
+    {
+     "frac": 0.8413,
+     "x": {
+      "p10": 1136.052,
+      "median": 1323.927,
+      "p90": 1460.103
+     },
+     "y": {
+      "p10": -741.7,
+      "median": -451.829,
+      "p90": -310.564
+     }
+    },
+    {
+     "frac": 0.8571,
+     "x": {
+      "p10": 1128.957,
+      "median": 1300.214,
+      "p90": 1470.423
+     },
+     "y": {
+      "p10": -877.749,
+      "median": -688.911,
+      "p90": -453.618
+     }
+    },
+    {
+     "frac": 0.873,
+     "x": {
+      "p10": 1123.599,
+      "median": 1284.163,
+      "p90": 1477.807
+     },
+     "y": {
+      "p10": -892.297,
+      "median": -685.24,
+      "p90": -484.579
+     }
+    },
+    {
+     "frac": 0.8889,
+     "x": {
+      "p10": 1118.825,
+      "median": 1268.167,
+      "p90": 1477.293
+     },
+     "y": {
+      "p10": -903.279,
+      "median": -681.444,
+      "p90": -513.647
+     }
+    },
+    {
+     "frac": 0.9048,
+     "x": {
+      "p10": 1115.364,
+      "median": 1247.042,
+      "p90": 1470.419
+     },
+     "y": {
+      "p10": -901.887,
+      "median": -677.53,
+      "p90": -542.712
+     }
+    },
+    {
+     "frac": 0.9206,
+     "x": {
+      "p10": 1111.515,
+      "median": 1232.177,
+      "p90": 1465.031
+     },
+     "y": {
+      "p10": -898.147,
+      "median": -675.173,
+      "p90": -572.3
+     }
+    },
+    {
+     "frac": 0.9365,
+     "x": {
+      "p10": 1108.839,
+      "median": 1221.095,
+      "p90": 1458.455
+     },
+     "y": {
+      "p10": -891.786,
+      "median": -679.022,
+      "p90": -598.93
+     }
+    },
+    {
+     "frac": 0.9524,
+     "x": {
+      "p10": 1113.964,
+      "median": 1211.452,
+      "p90": 1449.369
+     },
+     "y": {
+      "p10": -885.726,
+      "median": -687.321,
+      "p90": -627.546
+     }
+    },
+    {
+     "frac": 0.9683,
+     "x": {
+      "p10": 1121.678,
+      "median": 1231.399,
+      "p90": 1432.822
+     },
+     "y": {
+      "p10": -883.95,
+      "median": -710.026,
+      "p90": -658.383
+     }
+    },
+    {
+     "frac": 0.9841,
+     "x": {
+      "p10": 1134.754,
+      "median": 1261.798,
+      "p90": 1411.314
+     },
+     "y": {
+      "p10": -887.371,
+      "median": -735.411,
+      "p90": -687.465
+     }
+    },
+    {
+     "frac": 1.0,
+     "x": {
+      "p10": 1149.95,
+      "median": 1294.375,
+      "p90": 1387.68
+     },
+     "y": {
+      "p10": -884.6,
+      "median": -760.625,
+      "p90": -708.6
+     }
+    }
+   ],
+   "members": [
+    {
+     "demo": "book_vs_mix[dm3].mvd",
+     "player": "Milton",
+     "t0": 511.0,
+     "t1": 515.5,
+     "source": "seed",
+     "median_dist_qu": 0.0
+    },
+    {
+     "demo": "book_vs_mix[dm3].mvd",
+     "player": ". ParadokS",
+     "source": "corpus",
+     "t0": 444.14,
+     "t1": 449.1,
+     "median_dist_qu": 197.6
+    },
+    {
+     "demo": "book_vs_mix[dm3].mvd",
+     "player": "Milton",
+     "source": "corpus",
+     "t0": 228.47,
+     "t1": 233.45,
+     "median_dist_qu": 172.6
+    },
+    {
+     "demo": "book_vs_mix[dm3].mvd",
+     "player": "Milton",
+     "source": "corpus",
+     "t0": 561.82,
+     "t1": 566.64,
+     "median_dist_qu": 198.5
+    },
+    {
+     "demo": "book_vs_mix[dm3].mvd",
+     "player": "stepcop",
+     "source": "corpus",
+     "t0": 103.15,
+     "t1": 109.1,
+     "median_dist_qu": 92.9
+    }
+   ]
+  },
+  {
+   "id": "sng_teleport_ring_quad",
+   "label": "SNG -> teleport -> Ring -> Quad",
+   "route_class": "shortcut",
+   "from_resource": "SNG.MH",
+   "to_resource": "SNG.MH",
+   "seed": {
+    "demo": "book_vs_mix[dm3].mvd",
+    "player": "niw",
+    "start_s": 0.0,
+    "end_s": 4.5
+   },
+   "n_traversals": 1,
+   "by_source": {
+    "seed": 1
+   },
+   "gate": {
+    "sim_qu": 200.0,
+    "corridor_m": 64,
+    "straight_tol": 0.15,
+    "jump_tol_frac": 0.5,
+    "rule": "endpoint==seed AND _suspect_trick-clean AND median(x,y)<=sim_qu AND route_class==seed AND straightness/jumps within explicit tol; NEVER (from,to) alone"
+   },
+   "signature_band": {
+    "dur_s": {
+     "n": 1,
+     "p10": 1.4,
+     "median": 1.4,
+     "p90": 1.4,
+     "mean": 1.4,
+     "min": 1.4,
+     "max": 1.4
+    },
+    "hs_mean": {
+     "n": 1,
+     "p10": 354,
+     "median": 354,
+     "p90": 354,
+     "mean": 354.0,
+     "min": 354,
+     "max": 354
+    },
+    "hs_max": {
+     "n": 1,
+     "p10": 463,
+     "median": 463,
+     "p90": 463,
+     "mean": 463.0,
+     "min": 463,
+     "max": 463
+    },
+    "jumps_per_leg": {
+     "n": 1,
+     "p10": 1,
+     "median": 1,
+     "p90": 1,
+     "mean": 1.0,
+     "min": 1,
+     "max": 1
+    },
+    "jump_interval_s": null,
+    "lookmove_deg": {
+     "n": 1,
+     "p10": 48,
+     "median": 48,
+     "p90": 48,
+     "mean": 48.0,
+     "min": 48,
+     "max": 48
+    },
+    "straightness": {
+     "n": 1,
+     "p10": 0.519,
+     "median": 0.519,
+     "p90": 0.519,
+     "mean": 0.519,
+     "min": 0.519,
+     "max": 0.519
+    }
+   },
+   "positional_corridor": [],
+   "members": [
+    {
+     "demo": "book_vs_mix[dm3].mvd",
+     "player": "niw",
+     "t0": 0.0,
+     "t1": 4.5,
+     "source": "seed",
+     "median_dist_qu": 0.0
+    }
+   ]
+  },
+  {
+   "id": "rl_high_bridge_window_lifts",
+   "label": "RL -> high bridge -> window -> lifts",
+   "route_class": "base",
+   "from_resource": "RL",
+   "to_resource": "Quad",
+   "seed": {
+    "demo": "book_vs_mix[dm3].mvd",
+    "player": "warwank",
+    "start_s": 0.0,
+    "end_s": 9.5
+   },
+   "n_traversals": 1,
+   "by_source": {
+    "seed": 1
+   },
+   "gate": {
+    "sim_qu": 200.0,
+    "corridor_m": 64,
+    "straight_tol": 0.15,
+    "jump_tol_frac": 0.5,
+    "rule": "endpoint==seed AND _suspect_trick-clean AND median(x,y)<=sim_qu AND route_class==seed AND straightness/jumps within explicit tol; NEVER (from,to) alone"
+   },
+   "signature_band": {
+    "dur_s": {
+     "n": 1,
+     "p10": 9.5,
+     "median": 9.5,
+     "p90": 9.5,
+     "mean": 9.5,
+     "min": 9.5,
+     "max": 9.5
+    },
+    "hs_mean": {
+     "n": 1,
+     "p10": 382,
+     "median": 382,
+     "p90": 382,
+     "mean": 382.0,
+     "min": 382,
+     "max": 382
+    },
+    "hs_max": {
+     "n": 1,
+     "p10": 544,
+     "median": 544,
+     "p90": 544,
+     "mean": 544.0,
+     "min": 544,
+     "max": 544
+    },
+    "jumps_per_leg": {
+     "n": 1,
+     "p10": 11,
+     "median": 11,
+     "p90": 11,
+     "mean": 11.0,
+     "min": 11,
+     "max": 11
+    },
+    "jump_interval_s": {
+     "n": 1,
+     "p10": 0.694,
+     "median": 0.694,
+     "p90": 0.694,
+     "mean": 0.694,
+     "min": 0.694,
+     "max": 0.694
+    },
+    "lookmove_deg": {
+     "n": 1,
+     "p10": 32,
+     "median": 32,
+     "p90": 32,
+     "mean": 32.0,
+     "min": 32,
+     "max": 32
+    },
+    "straightness": {
+     "n": 1,
+     "p10": 0.264,
+     "median": 0.264,
+     "p90": 0.264,
+     "mean": 0.264,
+     "min": 0.264,
+     "max": 0.264
+    }
+   },
+   "positional_corridor": [],
+   "members": [
+    {
+     "demo": "book_vs_mix[dm3].mvd",
+     "player": "warwank",
+     "t0": 0.0,
+     "t1": 9.5,
+     "source": "seed",
+     "median_dist_qu": 0.0
+    }
+   ]
+  }
+ ]
+}
