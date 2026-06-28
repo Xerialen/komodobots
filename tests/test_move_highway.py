@@ -165,6 +165,18 @@ class TestHandoffGate(unittest.TestCase):
         ])
         self.assertEqual(res, [1, 0])
 
+    def test_arrival_is_sticky_no_reengage_at_endpoint(self):
+        # Codex round-3: arrival must STAY a hand-back. Sitting at the endpoint with the goal still
+        # there, the fresh-engage scan must NOT re-latch (the endpoint is on the polyline + within
+        # R_GOAL of its own end), else DISENGAGED/ENGAGED oscillates at the destination.
+        res = self._seq([
+            (0, self.p_on, 1, self.goal_end),    # engage
+            (0, self.end, 1, self.goal_end),     # arrive -> hand back
+            (0, self.end, 1, self.goal_end),     # still at endpoint -> stays Commander
+            (0, self.end, 1, self.goal_end),     # ... and stays (no re-engage)
+        ])
+        self.assertEqual(res, [1, 0, 0, 0])
+
     def test_disengage_on_intent_loss(self):
         res = self._seq([
             (0, self.p_on, 1, self.goal_end),

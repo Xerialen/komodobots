@@ -133,7 +133,14 @@ int mhw_handoff_engaged(int slot, double bx, double by, int have_goal, double gx
         for (h = 0; h < MHW_N_BASE; h++)
         {
             double goalend2 = mhw_dist2(gx, gy, MHW_END[h][0], MHW_END[h][1]);
-            if (goalend2 <= (MHW_R_GOAL * MHW_R_GOAL))
+            /* Arrival is a STICKY yield-back: a highway whose end the bot is already sitting at
+             * (within R_ARRIVE) is excluded from fresh engagement, so the arrival-disengage above
+             * cannot immediately re-latch (the endpoint is on the polyline, so it would otherwise
+             * pass d2 <= R_ON). Commander keeps control until the bot moves off the endpoint toward
+             * a goal/highway it has not arrived at. Drift-disengage is unaffected (re-engage there
+             * still just needs to come back within R_ON, away from the end). */
+            if (goalend2 <= (MHW_R_GOAL * MHW_R_GOAL)
+                && mhw_dist2(bx, by, MHW_END[h][0], MHW_END[h][1]) > (MHW_R_ARRIVE * MHW_R_ARRIVE))
             {
                 double d2 = mhw_line_dist2(h, bx, by);
                 if (d2 < best_d2) { best_d2 = d2; best_h = h; }
