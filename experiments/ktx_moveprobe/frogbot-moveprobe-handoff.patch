@@ -14,7 +14,7 @@ index a11978f..cbe41c8 100644
  	"${DIR_SRC}/captain.c"
  	"${DIR_SRC}/coach.c"
 diff --git a/src/bot_movement.c b/src/bot_movement.c
-index 29a86ba..a2408ca 100644
+index 29a86ba..20d5a80 100644
 --- a/src/bot_movement.c
 +++ b/src/bot_movement.c
 @@ -6,6 +6,10 @@
@@ -64,7 +64,7 @@ index 29a86ba..a2408ca 100644
  // bot-program T0.5 (#210) PR-B: per-tick live world-view DUMP for the offline
  // golden-parity check (scripts/diff_live_world_view.py). Gated by the global
  // cvar k_fb_moveprobe_live_dump (default off -> inert in normal play). Emits
-@@ -3277,6 +3310,42 @@ static void BotApplyMoveProbeLive(gedict_t *self, int slot, qbool *jumping,
+@@ -3277,6 +3310,50 @@ static void BotApplyMoveProbeLive(gedict_t *self, int slot, qbool *jumping,
  						 self->s.v.velocity[2], self->fb.desired_angle[1],
  						 self->fb.desired_angle[0], feats);
  
@@ -82,7 +82,10 @@ index 29a86ba..a2408ca 100644
 +			// Malformed per-slot gate cvar (the loud-fail row is already printed). FAIL SAFE: do
 +			// NOT override -- yield to the stock Commander move (mirrors the mode-resolve hold path
 +			// above) rather than silently leaving the safety gate off and overriding everywhere.
++			// Emit the FALLBACK [moveprobe-live] line too, so the freshness parser counts this
++			// (already-totalled) frame in its plane (live=0) instead of stalling on a stale total.
 +			BotMoveProbeHandoffLog(slot, 0);
++			BotMoveProbeLiveLog(slot, 0, req, 0, 0, 0, 0);
 +			return;
 +		}
 +		if (gate_on)
@@ -97,7 +100,12 @@ index 29a86ba..a2408ca 100644
 +			if (!mhw_handoff_engaged(slot, self->s.v.origin[0], self->s.v.origin[1],
 +									 have_goal, gx, gy))
 +			{
++				// Off-highway DISENGAGED is FALLBACK for freshness (the Motor Cortex did not drive
++				// this frame). Emit the FALLBACK line so evaluate_live_freshness counts the frame
++				// (total already advanced at the top of this fn) -- a long off-highway tail then
++				// reports the TRUE engaged share, not a fraction frozen at the last on-highway line.
 +				BotMoveProbeHandoffLog(slot, 0);
++				BotMoveProbeLiveLog(slot, 0, req, 0, 0, 0, 0);
 +				return;		// off-highway -> stock Commander move stays
 +			}
 +			BotMoveProbeHandoffLog(slot, 1);
