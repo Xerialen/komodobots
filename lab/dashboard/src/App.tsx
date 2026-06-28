@@ -39,6 +39,7 @@ import { ControlClient } from "./controlClient.ts";
 import { ControlDrawer, CvarConsolePanel } from "./ControlDrawer.tsx";
 import { CastingScoreboard } from "./CastingScoreboard.tsx";
 import { FourVFourEvidence } from "./FourVFourEvidence.tsx";
+import { BotAttemptsGallery } from "./BotAttemptsGallery.tsx";
 
 // Re-export openDemo type for LD-E4 (#104) to import.
 export type { OpenDemoParams } from "./DemoPane.tsx";
@@ -140,6 +141,12 @@ export function App() {
   const evidenceMode = getParam("evidence") === "1";
   if (evidenceMode) {
     return <FourVFourEvidence />;
+  }
+
+  // #424 (T3.3): full-page attempt-recording gallery (every live run, indexed).
+  const attemptsMode = getParam("attempts") === "1";
+  if (attemptsMode) {
+    return <BotAttemptsGallery />;
   }
 
   const wsUrl = useMemo(() => getParam("ws") ?? DEFAULT_TELEMETRY_WS, []);
