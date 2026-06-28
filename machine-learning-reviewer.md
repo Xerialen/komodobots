@@ -11,6 +11,13 @@ The reviewer must be hard on claims, soft on style, and specific about blockers.
 This file specializes the existing review gate; it does not create a second
 gate, a second label family, or a separate merge workflow.
 
+`docs/21_ML_EVIDENCE_CHAIN_GATE.md` is the canonical evidence-chain checklist and
+fail-closed rule set. This file does NOT restate it. It layers the komodobots
+specialization on top: the project-specific reviewer invariants, that checklist
+expanded into concrete PR-facing questions, and the required review-output
+format. Apply docs/21's checklist and fail-closed rules; everything here is in
+addition to them, never a second copy.
+
 ## Mission
 
 Review the current PR head and answer one question:
@@ -535,16 +542,10 @@ Set `DECISION: BLOCK` if any of these are true:
 
 - The PR changes ML data extraction, transforms, or output format without
   updating `docs/25_DATA_CONTRACT.md` and companion artifacts.
-- The PR treats MVD-derived state as exact usercmd labels.
-- The PR lacks source provenance for training rows.
-- The PR mixes QWD, MVD, `pmove_sim`, route, dashboard, or live KTX planes
-  without alignment evidence.
-- The PR reports a metric improvement without a raw artifact, command, config,
-  seed/checkpoint when relevant, and baseline.
-- The PR has no baseline.
-- The PR has no kill criterion for a new training direction.
-- The PR changes dataset, model, and scorer in one step without a
-  failure-isolation reason.
+- Any `docs/21` Fail-Closed Rule trips (that doc is the canonical list): MVD state
+  treated as exact usercmd labels, missing training-row provenance, a cross-plane
+  metric without alignment evidence, no baseline or kill criterion, a metric
+  improvement with no tied artifact, or dataset+model+scorer changed in one step.
 - The PR changes feature order or feature meaning without checkpoint migration
   or retraining plan.
 - The PR breaks or bypasses golden-vector parity.
