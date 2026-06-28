@@ -1,0 +1,39 @@
+{
+  "schema": "komodobots.bot_attempts.v1",
+  "map": "dm3",
+  "attempts": [
+    {
+      "run_id": "20260626T131959Z",
+      "ts_utc": "2026-06-26T13:21:30+00:00",
+      "map": "dm3",
+      "n_bots": 1,
+      "mode": "prewar-movecheck",
+      "demo": {
+        "name": "prewar_movecheck_dm3_20260626T131959Z.mvd",
+        "url": "/demos/online/prewar_movecheck_dm3_20260626T131959Z.mvd"
+      },
+      "freshness": {
+        "ok": true,
+        "live_fraction": 0.9548,
+        "min_fraction": 0.5
+      },
+      "verdict": "GREEN",
+      "artifact_dir": "experiments/prewar-movecheck/20260626T131959Z"
+    },
+    {
+      "run_id": "20260626T131620Z",
+      "ts_utc": "2026-06-26T13:17:50+00:00",
+      "map": "dm3",
+      "n_bots": 1,
+      "mode": "prewar-movecheck",
+      "demo": null,
+      "freshness": {
+        "ok": false,
+        "live_fraction": null,
+        "min_fraction": 0.5
+      },
+      "verdict": "RED",
+      "artifact_dir": "experiments/prewar-movecheck/20260626T131620Z"
+    }
+  ]
+}

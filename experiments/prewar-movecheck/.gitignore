@@ -1,0 +1,5 @@
+# Run outputs (screen.log, freshness.json, sidecar.log, ...) are throwaway
+# per-run artifacts, not source. Keep the dir tracked + the recorder default
+# --out-root present, but never commit individual run dirs.
+*/
+!.gitignore
