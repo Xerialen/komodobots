@@ -89,20 +89,53 @@ class TestBuildRouteCanon(unittest.TestCase):
         self.assertIn(hw["to_resource"], ("A", "B"))          # still labelled
         self.assertGreater(hw["to_dist_qu"], 200)             # but flagged-far, distance persisted
 
-    def test_suspect_on_self_damage(self):
+    def test_suspect_on_self_damage_with_launch(self):
+        # explosive jump = in-band self-damage AND a coincident upward launch (both required)
         pts = _straight(1.0, 20, 0.0, 50.0)
+        pts[5] = (pts[5][0], pts[5][1], 0.0, 0.0, 500.0, 0.0, 600.0, 0.0)   # vz 600 launch at t=1.5s
         dmg = [{"attacker": "p1", "victim": "p1", "weapon": "rl", "damage": 40, "time": 1500}]
         hw = _build(pts, 1.0, 2.9, dmg=dmg)
         self.assertTrue(hw["suspect_trick"])
-        self.assertTrue(any("self-damage" in r for r in hw["suspect_reasons"]))
+        self.assertTrue(any("explosive jump" in r for r in hw["suspect_reasons"]))
 
-    def test_suspect_on_extreme_vz(self):
+    def test_self_damage_without_launch_stays_clean(self):
+        # in-band self-damage but flat low vz = combat splash (a rocket eaten mid-fight) -> NOT a jump
+        dmg = [{"attacker": "p1", "victim": "p1", "weapon": "rl", "damage": 40, "time": 1500}]
+        hw = _build(_straight(1.0, 20, 0.0, 50.0), 1.0, 2.9, dmg=dmg)   # vz constant 100 < LAUNCH_VZ
+        self.assertFalse(hw["suspect_trick"])
+
+    def test_vz_launch_without_self_damage_stays_clean(self):
+        # vz alone no longer flags (hills/lifts reach ~615); max_vz still recorded descriptively
         pts = _straight(1.0, 20, 0.0, 50.0)
-        pts[10] = (pts[10][0], pts[10][1], 0.0, 0.0, 500.0, 0.0, 1000.0, 0.0)  # vz 1000 > 900
-        hw = _build(pts, 1.0, 2.9)
-        self.assertTrue(hw["suspect_trick"])
-        self.assertTrue(any("vz" in r for r in hw["suspect_reasons"]))
+        pts[10] = (pts[10][0], pts[10][1], 0.0, 0.0, 500.0, 0.0, 1000.0, 0.0)
+        hw = _build(pts, 1.0, 2.9, dmg=[])             # available stream, no self-damage
+        self.assertFalse(hw["suspect_trick"])
         self.assertEqual(hw["segments"][0]["max_vz"], 1000)
+
+    def test_launch_outside_window_stays_clean(self):
+        # F2 — locks the temporal window: in-band self-damage with low vz near the hit, but the only
+        # vz>=LAUNCH_VZ tick is OUTSIDE [time-200, time+400]ms (far end of the run) -> clean.
+        pts = _straight(1.0, 20, 0.0, 50.0)
+        pts[18] = (pts[18][0], pts[18][1], 0.0, 0.0, 500.0, 0.0, 800.0, 0.0)  # launch t=2.8s, >400ms after hit
+        dmg = [{"attacker": "p1", "victim": "p1", "weapon": "rl", "damage": 40, "time": 1500}]
+        hw = _build(pts, 1.0, 2.9, dmg=dmg)
+        self.assertFalse(hw["suspect_trick"])
+
+    def test_below_min_dmg_stays_clean(self):
+        # F3 — locks the lower bound: a scratch (< SELF_DMG_MIN) even with a launch -> clean
+        pts = _straight(1.0, 20, 0.0, 50.0)
+        pts[5] = (pts[5][0], pts[5][1], 0.0, 0.0, 500.0, 0.0, 600.0, 0.0)
+        dmg = [{"attacker": "p1", "victim": "p1", "weapon": "rl", "damage": 10, "time": 1500}]
+        hw = _build(pts, 1.0, 2.9, dmg=dmg)
+        self.assertFalse(hw["suspect_trick"])
+
+    def test_above_max_dmg_stays_clean(self):
+        # death/suicide / lg water-discharge (> SELF_DMG_MAX) even with a launch -> not a survivable jump
+        pts = _straight(1.0, 20, 0.0, 50.0)
+        pts[5] = (pts[5][0], pts[5][1], 0.0, 0.0, 500.0, 0.0, 600.0, 0.0)
+        dmg = [{"attacker": "p1", "victim": "p1", "weapon": "lg", "damage": 115, "time": 1500}]
+        hw = _build(pts, 1.0, 2.9, dmg=dmg)
+        self.assertFalse(hw["suspect_trick"])
 
     def test_fail_closed_on_unavailable_damage(self):
         # missing/malformed damage stream must NOT be passed as clean (absence != trick-free)

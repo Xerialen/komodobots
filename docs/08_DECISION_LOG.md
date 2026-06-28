@@ -3860,3 +3860,33 @@ NotebookLM (docs/27+28-grounded). `unittest discover -s tests` green incl. `test
 - #428 has a concrete ground-truth surface; #421 has a seed + an explicit match rule (`_match_key`).
 - `route_class` is owner-confirmable on seg4 (shortcut) / seg5 (base); reclassifying edits the field
   only (ids are slug(label), decoupled from class).
+
+## Route Canon rocket-jump verifier: self-damage ∧ launch conjunction (#420 follow-up, 2026-06-28)
+
+### Decision
+
+The trick-verifier flags a run as containing an explosive jump only when an **individual** self-damage
+event (`attacker==victim` — the decoder records it separately from enemy damage) is in `[18,60]` dmg
+**AND** a coincident **upward launch** (`vz >= 450` within `[hit-200, hit+400]` ms) occurs. Both are
+required. The standalone `VZ_TRICK_CEILING` is dropped (vz alone is legit hill/lift movement, ~615).
+Self-damage without a launch is combat splash, not a trick; vz without self-damage is not flagged.
+
+### Rejected / accepted alternatives
+
+- **"any self-damage OR vz>900"** (prior rule): rejected — it flagged combat splash as a trick (false
+  positive). The demoshots ground truth showed a rocket jump and a combat splash BOTH drop armor;
+  only the jump launches, so the launch is the discriminator.
+- **Raise the 60 cap / add a `vz>800` enemy-juggle backstop**: offered to owner; owner chose **cap 60**
+  (self- vs enemy-damage IS distinguishable, so a combat rocket jump is still its own ~20-50 self-event)
+  + **no vz backstop** (a no-self-damage enemy-juggle launch is an accepted blind spot, guarded by
+  clean-cut discipline + flag-never-drop).
+
+### Evidence
+
+Data-derived from book_vs_mix: rl self-jumps 21-56 dmg / launch vz 553-732; combat-splash launch
+vz ≤361 (clean 361..553 gap); deaths / lg water-discharge ≥115 dmg. New detector on real events:
+**20/20 real jumps flagged, 0 missed; 49 combat-splash + 6 out-of-band all clean.** Canon regen
+**byte-identical** (seeds carry no self-damage, max_vz<900). Visual ground truth via the new
+`demo-eyecheck` skill (PR #450): `zero` @match-118 rocket jump (armor 131→84, airborne) flagged;
+@match-64 splash (level/grounded) clean. Plan reviewed: auditor.md PASS-WITH-FIXES + NotebookLM;
+16 `test_build_route_canon` tests green.
