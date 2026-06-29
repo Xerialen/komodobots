@@ -248,6 +248,19 @@ def base_highway_seeds(canon: dict, n_bots: int) -> list:
     return out
 
 
+def base_highway_end_markers(canon: dict) -> dict:
+    """`{highway_id: end_marker}` for `route_class=='base'` highways carrying an optional
+    `end_marker` -- a 1-based live FBMARKER index at the highway END (the Commander goal the
+    INTENT-FIRST handoff gate needs to latch the route). READ-ONLY here: absent on every base
+    highway today (the index is not derivable offline -- it needs a live MATCHLESS FBMARKER dump),
+    so this returns `{}` and a directed `--score` run fail-louds. Populated by the #428 follow-up at
+    the generator SOURCE (`data/catalog/route_canon_marks.dm3.json`) + regen -- the generated canon
+    is NEVER hand-edited. The map drives live GOAL INTENT only; pin_driven_highway still scores by
+    the highway actually driven, so the score stays honest regardless."""
+    base = [h for h in canon.get("highways", []) if h.get("route_class") == "base"]
+    return {h["id"]: int(h["end_marker"]) for h in base if h.get("end_marker") is not None}
+
+
 def _player_min_dist_to_point(P, pt) -> float:
     """Min 3-D distance (qu) from a player's whole trajectory to a point -- the closest approach a bot
     made to a seed coordinate."""

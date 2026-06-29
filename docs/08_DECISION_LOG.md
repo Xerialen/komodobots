@@ -4108,6 +4108,11 @@ registered in `docs/02_SOURCE_MAP.md`.
 
 ## 2026-06-29 — T5.2 (#428) PR2: 4 bots / 4 routes, route-isolated per-route eval
 
+> **SUPERSEDED by the "PR2 re-scope (B)" entry at the end of this log (2026-06-29).** The claim below
+> that "the existing handoff gate latches the highway the bot stands on" is **false** — the gate is
+> intent-first (it needs a goal at the highway END), so spawn-seeding alone does not latch the assigned
+> route. The re-scope adds the END goal-pin + a fail-loud directed contract and defers the live run.
+
 **Decision.** Finish #428 with **shape (A): N bots spawn-seeded onto N distinct base highways in ONE
 mvdsv/KTX server**, scored **per-route** — **no engine rebuild** (the three per-slot cvars
 `spawn_origin`/`fixed_goal`/`live_highway_gate` already exist on origin/main;
@@ -4174,3 +4179,62 @@ asserts canon coords at `edict=slot+1`, spectator never seeded; the hook scores 
 `evaluate_run_multi`) green in the stdlib floor — full `python -m unittest discover -s tests` = **1841
 OK**, `route_canon_dm3.h` lock-step gate still passes (PR2 does not regenerate the header). The live
 `--bots 4 --score` run is **owner-gated / on-box** (scratch port 28599+).
+
+---
+
+## Decision
+
+T5.2 (#428) PR2 re-scope (B): ship the offline scorer + an enforced directed-run contract; defer the live directed run
+
+### Date
+
+2026-06-29
+
+### Decision
+
+Re-scope PR #459 from "finishes #428's live 4-route directed run" to "ships #428's measurement spine,
+honestly." The directed `--score --bots N` path now emits, per slot, BOTH a START spawn-snap
+(`spawn_origin_s<edict>`) AND an END goal-pin (`fixed_goal_s<edict>`, a 1-based live marker index) under
+`k_matchless 1`, or it **fails loud (exit 2) before standing up mvdsv/KTX**. The END→marker map
+(`route_eval.base_highway_end_markers`, an optional per-base-highway `end_marker` field) is **empty
+offline today** → the directed run fail-louds. Filling it (a live FBMARKER dump → author the markers at
+the generator **source** `data/catalog/route_canon_marks.dm3.json` + regen, per-END reach-validation,
+and validation of the matchless harness flow) is a **named, owner-gated follow-up**; **#428 stays
+OPEN**. The false docstring/runbook claim that spawn-snapping the START "latches the assigned highway"
+is **stripped** — the handoff gate is intent-first (`move_highway.c` needs a goal within `MHW_R_GOAL`
+of the highway END).
+
+### Alternatives Considered
+
+(A) Do the full live FBMARKER dump now — owner-gated on-box, needs a live matchless dump per END (no END
+marker is derivable offline); rejected for this PR (heavy, on-box). (B-minimal) strip the overclaim +
+defer ALL plumbing — rejected: leaves Codex's "emit goal intent" unmet → re-block risk. (warn-and-
+proceed instead of fail-loud) — rejected: half-answers the contract and can emit an all-invalid ledger
+that reads like a real measurement. (hand-edit `end_marker` into the generated canon) — rejected: the
+canon is GENERATED (`_warning: do NOT hand-edit`), so the next regen would wipe it — author at the marks
+source instead.
+
+### Evidence
+
+Codex round-3 P1 on PR #459 (intent-first gate; START-seeding alone → `no_engaged_spans` or a wrong
+latch → missing/mislabelled `route_evals`). Independently verified by an auditor pass (vs origin/main:
+`move_highway.c:126-149`, `move_highway.h` `MHW_R_GOAL=256`/`R_ON=48`; `perslot.patch:46-62` makes
+`fixed_goal` crash-safe; `run-ledger.md:11` — a marker index is meaningful only in the 65-item matchless
+set; the historical NULL-marker segfault is already guarded, `run-ledger.md:61,110`) and a NotebookLM
+pass. All three accepted the re-scope direction. `python -m unittest discover -s tests` = **1850 OK**
+(+ directed both-intents emission, the matchless-coupling cfg, the empty-map fail-loud-before-server
+gate, and `base_highway_end_markers`).
+
+### Expected Consequences
+
+A directed `--score --bots N` run today fails loud with a named error (no silent zero-scores, no unsafe
+prewar marker emission). The offline scorer + seeding are usable now; the score stays honest (pins the
+actually-driven highway, fail-closes on contamination). The follow-up is producer-code-free — it fills
+the markers at the source + validates the matchless flow + per-END reach, then the directed live run
+works.
+
+### Revisit Conditions
+
+The FBMARKER dump lands (the 4 END marker indices known + reach-validated) and the matchless harness
+flow is validated on-box → flip the directed run from fail-loud to live, fill `end_marker` at
+`route_canon_marks.dm3.json`, and close #428.

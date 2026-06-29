@@ -228,7 +228,7 @@ def port_is_down(port: int) -> bool:
     return not out or "DOWN" in out
 
 
-def build_score_cvar_block(bot_edicts: tuple[int, ...], seeds=None) -> str:
+def build_score_cvar_block(bot_edicts: tuple[int, ...], seeds=None, end_markers=None) -> str:
     """T5.2 (#428) --score: isolate each bot on a base Route-Canon highway + ensure the ENGAGED
     window logs, so route_eval.py can pin + score the run.
 
@@ -237,30 +237,47 @@ def build_score_cvar_block(bot_edicts: tuple[int, ...], seeds=None) -> str:
     slot. `k_fb_moveprobe_live_log` is already on via build_leap_cvar_block, but it is re-asserted
     here so the score path is self-contained.
 
-    PR2 multi-bot (`seeds` set): also spawn-snap each bot onto its ASSIGNED base highway via the
-    per-slot `k_fb_moveprobe_spawn_origin_s<edict>` cvar (a one-time teleport on the first moveprobe
-    frame), so bot k starts ON base-highway-k and the handoff gate geometrically latches THAT highway.
-    `seeds = [(slot, highway_id, (x, y, z)), ...]` from route_eval.base_highway_seeds; edict = slot + 1
-    (slot 1 = bot edict 2; the spectator edict 1 is NEVER seeded). The coords are the 3-D start_xyz
-    from the JSON canon (the generated 2-D route_canon_dm3.h is not the source). Single-bot --score
-    passes no seeds -> free spawn (unchanged PR1 behavior). Default off.
+    PR2 directed multi-bot (`seeds` set): each bot gets BOTH intents the INTENT-FIRST handoff gate
+    requires -- a one-time spawn-snap onto its assigned base highway's START
+    (`k_fb_moveprobe_spawn_origin_s<edict>`, the 3-D start_xyz from the JSON canon, NOT the 2-D
+    route_canon_dm3.h) AND a fixed goal at that highway's END (`k_fb_moveprobe_fixed_goal_s<edict>`,
+    a 1-based live MARKER INDEX from `end_markers`). Spawn-snapping the START alone does NOT latch
+    the assigned highway: the gate (`experiments/ktx_moveprobe/live/move_highway.c`) engages a base
+    highway only with a goal within MHW_R_GOAL of its END, so the fixed_goal is REQUIRED, not
+    optional (memory route-eval-engagement-gate). A marker INDEX is meaningful only under
+    k_matchless 1 (write_cfg(directed=True); experiments/nav_doctrine/evidence/run-ledger.md:11) --
+    the caller couples them. `seeds = [(slot, highway_id, (x, y, z)), ...]`; edict = slot + 1
+    (slot 1 = bot edict 2; the spectator edict 1 is NEVER seeded). RAISES if a seed has no
+    `end_markers` entry -- the directed contract is both-intents-or-nothing, and the END-marker map
+    is empty offline until a live FBMARKER dump (main fail-louds before reaching here). Single-bot
+    --score passes no seeds -> free spawn, prewar (unchanged PR1 behavior). Default off.
     """
     lines = [f"set k_fb_moveprobe_live_highway_gate_s{int(e)} 1" for e in bot_edicts]
-    for slot, _hid, (x, y, z) in (seeds or []):
-        lines.append(f'set k_fb_moveprobe_spawn_origin_s{int(slot) + 1} "{x} {y} {z}"')
+    for slot, hid, (x, y, z) in (seeds or []):
+        if not end_markers or hid not in end_markers:
+            raise ValueError(
+                f"build_score_cvar_block: directed seed for {hid!r} (slot {slot}) has no end_marker "
+                f"-- directed --score requires BOTH spawn_origin AND fixed_goal per slot; the "
+                f"END-marker map is empty until the live FBMARKER dump (#428 follow-up)")
+        edict = int(slot) + 1
+        lines.append(f'set k_fb_moveprobe_spawn_origin_s{edict} "{x} {y} {z}"')
+        lines.append(f"set k_fb_moveprobe_fixed_goal_s{edict} {int(end_markers[hid])}")
     lines.append("set k_fb_moveprobe_live_log 1")
     return "\n".join(lines) + "\n"
 
 
 def write_cfg(cfg_path: Path, *, port: int, map_name: str, timelimit: int,
               shm_name: str, stale_ticks: int, bot_edicts: tuple[int, ...],
-              score: bool = False, seeds=None) -> None:
+              score: bool = False, seeds=None, end_markers=None, directed: bool = False) -> None:
     leap_cvars = build_leap_cvar_block(shm_name, stale_ticks, leap_edicts=bot_edicts)
-    score_cvars = build_score_cvar_block(bot_edicts, seeds) if score else ""
+    score_cvars = build_score_cvar_block(bot_edicts, seeds, end_markers) if score else ""
+    # Directed PR2 runs (seeds set) pin a per-slot fixed_goal MARKER INDEX, which is only meaningful
+    # under matchless (the 65-item set the dm3.bot markers are numbered against; run-ledger.md:11) --
+    # so directed => k_matchless 1. The single-bot/undirected path stays prewar (k_matchless 0).
     cfg = f"""// Auto-generated Komodobots prewar movecheck config
 hostname "komodobots-prewar:{port}"
 set k_motd1 "Komodobots prewar movecheck"
-set k_matchless 0
+set k_matchless {1 if directed else 0}
 set k_use_matchless_dir 1
 set k_allowed_free_modes 4095
 set k_defmode ffa
@@ -419,21 +436,40 @@ def main(argv=None) -> int:
 
     bot_edicts, bot_slots = bot_edicts_and_slots(args.bots)
     seeds = None
+    end_markers = None
     if args.score and args.bots > 1:
-        # PR2 shape-A: assign each bot a DISTINCT base highway by spawn-seeding it onto that highway's
-        # 3-D start_xyz. base_highway_seeds raises if --bots exceeds the base-highway count (4).
+        # PR2 shape-A (re-scope B): assign each bot a DISTINCT base highway by spawn-seeding it onto
+        # that highway's 3-D start_xyz AND pinning its Commander goal to that highway's END marker.
+        # The handoff gate is INTENT-FIRST (move_highway.c: a base highway latches only with a goal
+        # within MHW_R_GOAL of its END), so spawn-snap alone is NOT enough -- BOTH intents are
+        # required (memory route-eval-engagement-gate). base_highway_seeds raises if --bots exceeds
+        # the base count (4).
         robs = str(REPO_ROOT / "experiments" / "route_observatory")
         if robs not in sys.path:
             sys.path.insert(0, robs)
         try:
-            from route_eval import base_highway_seeds  # noqa: PLC0415
-            seeds = base_highway_seeds(json.loads(CANON_PATH.read_text(encoding="utf-8")), args.bots)
+            from route_eval import base_highway_seeds, base_highway_end_markers  # noqa: PLC0415
+            canon = json.loads(CANON_PATH.read_text(encoding="utf-8"))
+            seeds = base_highway_seeds(canon, args.bots)
+            end_markers = base_highway_end_markers(canon)
         except ValueError as exc:
             print(f"ERROR: --score --bots {args.bots}: {exc}", file=sys.stderr)
             return 2
         except (OSError, ImportError) as exc:
             print(f"ERROR: --score --bots {args.bots}: cannot load route-canon seeds ({exc})",
                   file=sys.stderr)
+            return 2
+        # Directed-run contract (Codex r3 P1): a directed --score run MUST pin each bot's goal to its
+        # highway END, or refuse to start. The end->marker map is EMPTY offline today -- no
+        # base-highway END marker is derivable without a live FBMARKER dump -- so fail LOUD here,
+        # BEFORE standing up mvdsv/KTX, rather than silently produce un-directed/zero scores.
+        missing = [hid for _slot, hid, _xyz in seeds if hid not in end_markers]
+        if missing:
+            print(f"ERROR: --score --bots {args.bots}: no validated END marker for base highway(s) "
+                  f"{', '.join(missing)} -- directed per-route scoring needs a live FBMARKER dump to "
+                  f"fill end_marker at the generator source (data/catalog/route_canon_marks.dm3.json) "
+                  f"+ regen (owner-gated; see memory route-eval-engagement-gate / the #428 follow-up). "
+                  f"Re-run without --score for an undirected, watchable MVD.", file=sys.stderr)
             return 2
     run_id = make_run_id(args.port)
     run_dir = args.out_root / run_id
@@ -468,7 +504,8 @@ def main(argv=None) -> int:
     try:
         write_cfg(cfg_path, port=args.port, map_name=args.map_name,
                   timelimit=args.timelimit, shm_name=shm_name,
-                  stale_ticks=args.stale_ticks, bot_edicts=bot_edicts, score=args.score, seeds=seeds)
+                  stale_ticks=args.stale_ticks, bot_edicts=bot_edicts, score=args.score,
+                  seeds=seeds, end_markers=end_markers, directed=bool(seeds))
         (run_dir / "lab.cfg").write_text(cfg_path.read_text(), encoding="utf-8")
         start_marker.touch()
 
@@ -611,8 +648,9 @@ def main(argv=None) -> int:
               f"publish it to prod alongside the .mvd)")
 
         # T5.2 (#428): route-isolated objective scoring. Opt-in (--score); needs the demo +
-        # the handoff-gated cfg (set above). SINGLE-bot only (the hook fail-closed SKIPs --bots>1 to
-        # avoid scoring the wrong bot). Best-effort -- never changes the run's exit code.
+        # the handoff-gated cfg (set above). --bots 1 scores the lone mover; --bots>1 (directed)
+        # scores each seeded bot per-route via evaluate_run_multi -- main already fail-louded above
+        # if the END-marker map was incomplete. Best-effort -- never changes the run's exit code.
         if args.score and demo is not None:
             _run_route_eval_score(run_dir, bot_slots, demos_dir, seeds=seeds, n_bots=args.bots)
         return 0 if verdict_green else 1

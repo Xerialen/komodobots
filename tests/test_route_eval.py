@@ -439,6 +439,19 @@ class TestBaseHighwaySeeds(unittest.TestCase):
             RE.base_highway_seeds(_canon([_highway("A", _line_x(0))]), 2)
 
 
+class TestBaseHighwayEndMarkers(unittest.TestCase):
+    def test_empty_when_no_highway_carries_an_end_marker(self):
+        # Today's reality: the canon has no end_marker on any base highway -> {} -> directed fail-loud.
+        canon = _canon([_highway("A", _line_x(0)), _highway("B", _line_x(100))])
+        self.assertEqual(RE.base_highway_end_markers(canon), {})
+
+    def test_maps_base_highways_that_have_one_skips_shortcut_and_unmarked(self):
+        a = _highway("A", _line_x(0)); a["end_marker"] = 7
+        s = _highway("S", _line_x(50), route_class="shortcut"); s["end_marker"] = 99
+        b = _highway("B", _line_x(100))                        # base, but no end_marker
+        self.assertEqual(RE.base_highway_end_markers(_canon([a, s, b])), {"A": 7})
+
+
 class TestBindPlayersToSeeds(unittest.TestCase):
     def _pl(self, name, start):
         x, y, z = start
