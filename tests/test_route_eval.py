@@ -476,8 +476,8 @@ class TestDetectPlayerContact(unittest.TestCase):
         a = [[0.0, 0., 0., 0.], [1.0, 0., 0., 0.]]               # static at origin
         b = [[0.0, 100., 0., 0.], [1.0, -100., 0., 0.]]          # sweeps through origin at t=0.5
         contacts = RE.detect_player_contact(
-            [{"slot": 1, "player": "a", "window_s": (0.0, 1.0), "rows": a},
-             {"slot": 2, "player": "b", "window_s": (0.0, 1.0), "rows": b}])
+            [{"slot": 1, "player": "a", "valid": True, "window_s": (0.0, 1.0), "rows": a},
+             {"slot": 2, "player": "b", "valid": True, "window_s": (0.0, 1.0), "rows": b}])
         self.assertEqual(set(contacts), {1, 2})
         self.assertEqual(contacts[1][0]["slot"], 2)
         self.assertLess(contacts[1][0]["min_dist_qu"], 1.0)        # passes through origin
@@ -489,8 +489,8 @@ class TestDetectPlayerContact(unittest.TestCase):
         a = [[0.0, 0., 0., 0.], [1.0, 0., 0., 0.]]
         b = [[0.0, 0., 0., 40.], [1.0, 0., 0., 40.]]
         contacts = RE.detect_player_contact(
-            [{"slot": 1, "player": "a", "window_s": (0.0, 1.0), "rows": a},
-             {"slot": 2, "player": "b", "window_s": (0.0, 1.0), "rows": b}])
+            [{"slot": 1, "player": "a", "valid": True, "window_s": (0.0, 1.0), "rows": a},
+             {"slot": 2, "player": "b", "valid": True, "window_s": (0.0, 1.0), "rows": b}])
         self.assertEqual(set(contacts), {1, 2})                   # hull overlap despite a 40-qu Z gap
         self.assertGreater(math.dist((0, 0, 0), (0, 0, 40)), 34.0)  # the old scalar check would not fire
 
@@ -501,8 +501,8 @@ class TestDetectPlayerContact(unittest.TestCase):
         a = [[0.0, 0., 0., 0.], [0.1, 0., 0., 0.]]                # static at origin
         b = [[0.0, 200., 0., 0.], [0.1, -600., 0., 0.]]          # x: 200 -> -600, through 0 at t=0.025
         contacts = RE.detect_player_contact(
-            [{"slot": 1, "player": "a", "window_s": (0.0, 0.1), "rows": a},
-             {"slot": 2, "player": "b", "window_s": (0.0, 0.1), "rows": b}])
+            [{"slot": 1, "player": "a", "valid": True, "window_s": (0.0, 0.1), "rows": a},
+             {"slot": 2, "player": "b", "valid": True, "window_s": (0.0, 0.1), "rows": b}])
         self.assertEqual(set(contacts), {1, 2})
         self.assertLess(contacts[1][0]["min_dist_qu"], 1.0)       # true closest approach ~0 at t~0.025
 
@@ -510,15 +510,17 @@ class TestDetectPlayerContact(unittest.TestCase):
         a = [[0.0, 0., 0., 0.], [1.0, 0., 0., 0.]]
         b = [[0.0, 500., 500., 0.], [1.0, 500., 500., 0.]]
         self.assertEqual(RE.detect_player_contact(
-            [{"slot": 1, "player": "a", "window_s": (0.0, 1.0), "rows": a},
-             {"slot": 2, "player": "b", "window_s": (0.0, 1.0), "rows": b}]), {})
+            [{"slot": 1, "player": "a", "valid": True, "window_s": (0.0, 1.0), "rows": a},
+             {"slot": 2, "player": "b", "valid": True, "window_s": (0.0, 1.0), "rows": b}]), {})
 
-    def test_non_overlapping_windows_never_contact(self):
-        a = [[0.0, 0., 0., 0.], [0.4, 0., 0., 0.]]               # same place, but disjoint windows
-        b = [[0.6, 0., 0., 0.], [1.0, 0., 0., 0.]]
+    def test_disjoint_recordings_never_contact(self):
+        # B has no RECORDED position during A's scored window (disjoint recordings) -> no false contact:
+        # O is only present where it was recorded; its position is never fabricated by clamping.
+        a = [[0.0, 0., 0., 0.], [0.4, 0., 0., 0.]]               # A recorded [0, 0.4]
+        b = [[0.6, 0., 0., 0.], [1.0, 0., 0., 0.]]               # B recorded [0.6, 1.0]
         self.assertEqual(RE.detect_player_contact(
-            [{"slot": 1, "player": "a", "window_s": (0.0, 0.4), "rows": a},
-             {"slot": 2, "player": "b", "window_s": (0.6, 1.0), "rows": b}]), {})
+            [{"slot": 1, "player": "a", "valid": True, "window_s": (0.0, 0.4), "rows": a},
+             {"slot": 2, "player": "b", "valid": True, "window_s": (0.6, 1.0), "rows": b}]), {})
 
 
 class TestEvaluateRunMulti(unittest.TestCase):
@@ -589,6 +591,41 @@ class TestEvaluateRunMulti(unittest.TestCase):
             self.assertIn("player_contact", art1["invalid_reasons"])
             self.assertIn("contact_partners", art1["non_isolated_debug"])
             self.assertEqual(art1["non_isolated_debug"]["contact_partners"][0]["slot"], 2)
+
+    def test_invalid_bound_bot_contaminates_valid_bot(self):
+        # Codex P1 (round 2): slot 2 NEVER engages (invalid `no_engaged_spans`) but its body overlaps
+        # slot 1's hull during slot 1's engaged window -> the VALID slot 1 must be demoted
+        # `player_contact` (no consumable score), while slot 2 stays invalid for its OWN reason.
+        analysis = _analysis_multi([("botK", _hug(0)), ("botBlock", _hug(5))])
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            run_id = "20260629T020202Z-p28599-feedface"
+            run_dir = td / run_id
+            run_dir.mkdir()
+            n = 11
+            log = ([_live(1, 1), _handoff(1, "ENGAGED")] + [_live(1, t) for t in range(2, n + 1)]
+                   + [_live(2, t, "FALLBACK") for t in range(1, n + 1)])     # slot 2 never ENGAGED
+            (run_dir / "screen.log").write_text("\n".join(log), encoding="utf-8")
+            (run_dir / "rec.mvd").write_bytes(b"\x00" * 128)
+            canon_path = td / "canon.json"
+            canon_path.write_text(json.dumps(self._canon()), encoding="utf-8")
+            ledger_path = td / "bot-attempts.json"
+            ledger_path.write_text(json.dumps({"schema": "komodobots.bot_attempts.v1", "map": "dm3",
+                                               "attempts": [{"run_id": run_id, "verdict": "GREEN"}]}),
+                                   encoding="utf-8")
+            RE.run_qw_analyze = lambda *a, **k: analysis
+            seeds = RE.base_highway_seeds(json.loads(canon_path.read_text()), 2)
+            res = RE.evaluate_run_multi(run_dir, seeds=seeds, canon_path=canon_path, demos_dir=run_dir,
+                                        ledger_path=ledger_path)
+            blocks = {b["slot"]: b for b in res["route_evals"]}
+            self.assertFalse(blocks[1]["valid"])                        # the valid bot, physically blocked
+            self.assertIn("player_contact", blocks[1]["invalid_reasons"])
+            self.assertNotIn("rmse_xyz", blocks[1])                     # no consumable score survives
+            self.assertFalse(blocks[2]["valid"])                        # slot 2 invalid for its OWN reason
+            self.assertIn("no_engaged_spans", blocks[2]["invalid_reasons"])
+            self.assertNotIn("player_contact", blocks[2]["invalid_reasons"])
+            art1 = json.loads((run_dir / "route_eval.s1.json").read_text())
+            self.assertFalse(art1["non_isolated_debug"]["contact_partners"][0]["partner_valid"])
 
 
 if __name__ == "__main__":

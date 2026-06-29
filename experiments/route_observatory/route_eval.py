@@ -505,47 +505,62 @@ def _segment_min_dist(pa0, pa1, pb0, pb1):
     return math.sqrt(sum(v * v for v in r)), s
 
 
-def detect_player_contact(tracks) -> dict:
-    """Cross-bot fail-closed isolation check (#428 shape-A). Two bots whose player HULLS overlap at any
-    instant DURING the overlap of their engaged windows bumped -- a physics block perturbs the scored
-    path without disengaging the gate, silently corrupting the MSE. Both runs are flagged so the caller
-    invalidates them (`player_contact`).
+def _pair_hull_contact(rows_a, rows_b, lo, hi):
+    """(hit, min_dist_qu, t_s) for two bots over the window [lo,hi]: the swept hull-overlap test over
+    the union of their RECORDED tick times within the window (full [[t,x,y,z],...] rows, interpolated).
+    `hit` is the hull-overlap decision; `min_dist` is the L2 closest approach (evidence detail only)."""
+    ts_a = [r[0] for r in rows_a]
+    ts_b = [r[0] for r in rows_b]
+    times = sorted({lo, hi} | {t for t in ts_a if lo <= t <= hi} | {t for t in ts_b if lo <= t <= hi})
+    hit, min_d, min_t = False, float("inf"), lo
+    for k in range(len(times) - 1):
+        t0, t1 = times[k], times[k + 1]
+        pa0, pa1 = _interp_xyz(ts_a, rows_a, t0), _interp_xyz(ts_a, rows_a, t1)
+        pb0, pb1 = _interp_xyz(ts_b, rows_b, t0), _interp_xyz(ts_b, rows_b, t1)
+        d, s = _segment_min_dist(pa0, pa1, pb0, pb1)
+        if d < min_d:
+            min_d, min_t = d, t0 + s * (t1 - t0)
+        if _segment_hull_overlap(pa0, pa1, pb0, pb1):
+            hit = True
+    return hit, min_d, min_t
 
-    HULL-based + CONTINUOUS (the two P1 review fixes): contact is the per-axis AABB overlap of the QW
-    player hulls (`PLAYER_HULL_HALF` -- NOT a centre-sphere distance; bots block on ramps/stairs with
-    vertically-separated origins), evaluated over each linear sub-interval between the bots' RECORDED
-    tick timestamps within the window overlap (a swept test -- a fast pass-through between samples can't
-    slip through a coarse fixed grid). `tracks = [{slot, player, window_s:(t0,t1),
-    rows:[[t,x,y,z],...]}, ...]` (VALID slots only). Returns `{slot: [{slot, min_dist_qu, t_s}, ...]}`
-    for contacted slots (empty dict = clean)."""
+
+def detect_player_contact(tracks) -> dict:
+    """Cross-bot fail-closed isolation check (#428 shape-A). A VALID bot's scored window is contaminated
+    if ANY OTHER bound bot's player HULL overlaps it during that window -- a physics block perturbs the
+    scored path without disengaging the gate, silently corrupting the MSE -> the valid bot is demoted
+    (`player_contact`, no consumable score).
+
+    Checks every VALID bot against ALL other bound bots -- INCLUDING invalid-but-bound ones (a bot that
+    never engaged / multi-span / etc. still has a body that can block a valid bot; an invalid bot has no
+    consumable score so it is never itself demoted, but it CAN contaminate a valid one -- gate fix,
+    Codex P1 round 2). Contact is HULL-based + CONTINUOUS: the per-axis AABB overlap of the QW player
+    hulls (`PLAYER_HULL_HALF` -- NOT a centre-sphere distance; bots block on ramps/stairs with
+    vertically-separated origins), swept over each linear sub-interval between the bots' RECORDED tick
+    times within the VALID bot's window (a fast pass-through between samples can't slip through).
+    `tracks = [{slot, player, valid, window_s, rows(full)}, ...]` for ALL bound bots. Returns
+    `{slot: [{slot, min_dist_qu, t_s, partner_valid}, ...]}` for contaminated VALID slots."""
     contacts: dict = {}
-    for i in range(len(tracks)):
-        for j in range(i + 1, len(tracks)):
-            A, B = tracks[i], tracks[j]
-            lo = max(A["window_s"][0], B["window_s"][0])
-            hi = min(A["window_s"][1], B["window_s"][1])
-            if hi <= lo:
-                continue                                  # engaged windows do not overlap in time
-            tsA = [r[0] for r in A["rows"]]
-            tsB = [r[0] for r in B["rows"]]
-            # the RECORDED tick times of BOTH bots within the overlap (+ its ends) -- the true samples
-            times = sorted({lo, hi} | {t for t in tsA if lo <= t <= hi}
-                           | {t for t in tsB if lo <= t <= hi})
-            hit, min_d, min_t = False, float("inf"), lo
-            for k in range(len(times) - 1):
-                t0, t1 = times[k], times[k + 1]
-                pa0, pa1 = _interp_xyz(tsA, A["rows"], t0), _interp_xyz(tsA, A["rows"], t1)
-                pb0, pb1 = _interp_xyz(tsB, B["rows"], t0), _interp_xyz(tsB, B["rows"], t1)
-                d, s = _segment_min_dist(pa0, pa1, pb0, pb1)
-                if d < min_d:
-                    min_d, min_t = d, t0 + s * (t1 - t0)
-                if _segment_hull_overlap(pa0, pa1, pb0, pb1):
-                    hit = True
+    for v in tracks:
+        if not v.get("valid") or not v.get("window_s"):
+            continue
+        lo, hi = v["window_s"]
+        if hi <= lo:
+            continue
+        for o in tracks:
+            if o["slot"] == v["slot"]:
+                continue
+            # clip to O's RECORDED time extent -- O only physically existed where it was recorded;
+            # never fabricate a position by clamping outside it (else a bot recorded elsewhere would
+            # phantom-block during V's window).
+            clo, chi = max(lo, o["rows"][0][0]), min(hi, o["rows"][-1][0])
+            if chi <= clo:
+                continue
+            hit, min_d, min_t = _pair_hull_contact(v["rows"], o["rows"], clo, chi)
             if hit:
-                contacts.setdefault(A["slot"], []).append(
-                    {"slot": B["slot"], "min_dist_qu": round(min_d, 1), "t_s": round(min_t, 3)})
-                contacts.setdefault(B["slot"], []).append(
-                    {"slot": A["slot"], "min_dist_qu": round(min_d, 1), "t_s": round(min_t, 3)})
+                contacts.setdefault(v["slot"], []).append(
+                    {"slot": o["slot"], "min_dist_qu": round(min_d, 1), "t_s": round(min_t, 3),
+                     "partner_valid": bool(o.get("valid"))})
     return contacts
 
 
@@ -879,10 +894,17 @@ def evaluate_run_multi(run_dir, *, seeds, spectator_name="KomodoPrewar", canon_p
                                     screen_log_text=screen_text, map_name=map_name, grid=grid,
                                     demo=demo_block, freshness=freshness, run_id=run_id, ts_utc=ts_utc)
         arts[slot] = (player, art)
-        if art["valid"]:
-            w = art["highway"]["engaged_window_s"]
-            rows = extract_attempt_trajectory(analysis, player, window=(w[0], w[1]))
-            tracks.append({"slot": slot, "player": player, "window_s": (w[0], w[1]), "rows": rows})
+        # the contact check needs EVERY bound bot's FULL trajectory -- an invalid-but-bound bot can
+        # still physically block a VALID bot during its scored window (Codex P1 round 2).
+        if player is not None:
+            try:
+                full_rows = extract_attempt_trajectory(analysis, player, window=None)
+            except SystemExit:
+                full_rows = None
+            if full_rows is not None:
+                w = art["highway"]["engaged_window_s"] if art["valid"] else None
+                tracks.append({"slot": slot, "player": player, "valid": bool(art["valid"]),
+                               "window_s": (tuple(w) if w else None), "rows": full_rows})
 
     for slot, partners in detect_player_contact(tracks).items():
         LOGGER.warning("route_eval: slot %d player_contact %s -> INVALID (physics-contaminated)",

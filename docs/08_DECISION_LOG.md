@@ -4123,12 +4123,16 @@ mvdsv/KTX server**, scored **per-route** — **no engine rebuild** (the three pe
   coordinate (greedy by distance, uniqueness enforced; spectator excluded by name). This **supersedes
   the (g) "single-bot only" fail-closed SKIP** of the PR1 entry above — multi-bot post-run scoring is
   now `evaluate_run_multi` (qw-analyze once → loop slots → `route_eval.s<N>.json`).
-- **Cross-bot isolation = fail-closed `player_contact`** (`detect_player_contact`): two bots whose
-  player **hulls** overlap (hull-based `|dx|<32, |dy|<32, |dz|<56`, evaluated **continuously** over the
-  recorded tick interval — NOT a centre-sphere distance, NOT a coarse fixed grid) DURING the overlap of
-  their engaged windows → **both** invalid (no consumable score). Closes a silent-MSE-corruption hole —
-  a bump perturbs the scored path without disengaging the gate. Integrity, not yield. Engine
-  combat/collision-off = approach (b), deferred. (Hull + continuous-sweep are the two P1 review fixes.)
+- **Cross-bot isolation = fail-closed `player_contact`** (`detect_player_contact`): a VALID bot is
+  demoted (no consumable score) if ANY other bound bot's player **hull** overlaps it DURING the valid
+  bot's scored window — checked against ALL bound bots **including invalid-but-bound** ones (an invalid
+  bot still has a body that can block a valid one; it is never itself demoted but CAN contaminate).
+  Hull-based (`|dx|<32, |dy|<32, |dz|<56`, NOT a centre distance) + **continuous** (a swept AABB test
+  over the recorded tick interval, clipped to the partner's recorded extent — NOT a coarse fixed grid,
+  no phantom placement). Closes a silent-MSE-corruption hole — a bump perturbs the scored path without
+  disengaging the gate. Integrity, not yield. Engine combat/collision-off = approach (b), deferred.
+  (Hull, continuous-sweep, and the invalid-but-bound contamination case are the P1 review fixes —
+  Codex rounds 1 & 2.)
 - **Ledger shape generalized to `route_evals: [block, …]`** (single-bot = 1-element). The old singular
   `route_eval` key had **no live consumer** (tree-wide grep empty; `BotAttemptsGallery.tsx` reads only
   the row's required keys), so one shape. **Producer-only** — NOT added to the golden
