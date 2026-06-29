@@ -227,9 +227,25 @@ def port_is_down(port: int) -> bool:
     return not out or "DOWN" in out
 
 
+def build_score_cvar_block(bot_edicts: tuple[int, ...]) -> str:
+    """T5.2 (#428) --score: isolate each bot on a base Route-Canon highway + ensure the ENGAGED
+    window logs, so route_eval.py can pin + score the run.
+
+    Per-EDICT highway-gate cvars (`k_fb_moveprobe_live_highway_gate_s<edict>`): the moveprobe cvar
+    suffix is the 1-based EDICT, matching build_leap_cvar_block's mode-30 arming, NOT the internal
+    slot. `k_fb_moveprobe_live_log` is already on via build_leap_cvar_block, but it is re-asserted
+    here so the score path is self-contained. Default off -> unchanged behavior.
+    """
+    lines = [f"set k_fb_moveprobe_live_highway_gate_s{int(e)} 1" for e in bot_edicts]
+    lines.append("set k_fb_moveprobe_live_log 1")
+    return "\n".join(lines) + "\n"
+
+
 def write_cfg(cfg_path: Path, *, port: int, map_name: str, timelimit: int,
-              shm_name: str, stale_ticks: int, bot_edicts: tuple[int, ...]) -> None:
+              shm_name: str, stale_ticks: int, bot_edicts: tuple[int, ...],
+              score: bool = False) -> None:
     leap_cvars = build_leap_cvar_block(shm_name, stale_ticks, leap_edicts=bot_edicts)
+    score_cvars = build_score_cvar_block(bot_edicts) if score else ""
     cfg = f"""// Auto-generated Komodobots prewar movecheck config
 hostname "komodobots-prewar:{port}"
 set k_motd1 "Komodobots prewar movecheck"
@@ -262,8 +278,51 @@ sv_demotxt 2
 sv_demofps 77
 sv_demodir demos
 serverinfo hostname "komodobots-prewar:{port}"
-{leap_cvars}"""
+{leap_cvars}{score_cvars}"""
     cfg_path.write_text(cfg, encoding="utf-8")
+
+
+def _run_route_eval_score(run_dir: Path, slot: int, demos_dir: Path, n_bots: int = 1) -> None:
+    """T5.2 (#428) post-run hook: pin + score this run via route_eval.py.
+
+    SINGLE-BOT ONLY (fail-closed). route_eval scores ONE isolated bot -- it auto-picks the lone mover
+    (`player=None`) and clips to `slot`'s ENGAGED window. With `--bots > 1` the most-moving player may
+    be a DIFFERENT bot than `slot`, so scoring would write a valid-looking artifact + ledger score for
+    the WRONG bot's trajectory under slot N's window (corrupt evidence). Until the multi-bot
+    slot->player binding lands (the PR2 4-assigned-routes harness), `n_bots != 1` SKIPS scoring with a
+    loud warning and writes NO artifact + NO ledger score.
+
+    Additive + best-effort: a scoring failure here (e.g. no qw-analyze on the box) only WARNs --
+    the freshness verdict + the recorded MVD are already final and unaffected.
+    """
+    if n_bots != 1:
+        LOGGER.warning("route_eval --score SKIPPED: scores the single isolated bot, but --bots=%d. "
+                       "Multi-bot slot->player binding is a PR2 concern; no route_eval artifact or "
+                       "ledger score written (the run/MVD/verdict are unaffected).", n_bots)
+        print(f"route_eval    : SKIPPED (--bots {n_bots} != 1; multi-bot slot->player binding is PR2)")
+        return
+    robs = str(REPO_ROOT / "experiments" / "route_observatory")
+    if robs not in sys.path:
+        sys.path.insert(0, robs)
+    try:
+        import route_eval  # noqa: PLC0415 — lazy: only the opt-in --score path needs it
+        art = route_eval.evaluate_run(run_dir, slot=slot, player=None,
+                                      demos_dir=demos_dir, ledger_path=LEDGER_PATH)
+        if art["valid"]:
+            h, v = art["highway"], art["velocity"]
+            print(f"route_eval    : VALID highway={h['id']} rmse_xyz={art['adherence']['rmse_xyz']:.1f} "
+                  f"speed={v['mean_speed_qu_s']:.1f}qu/s prog={v['progress_fraction']:.2f} "
+                  f"degenerate={art['degenerate']} -> {run_dir / 'route_eval.json'}")
+        else:
+            print(f"route_eval    : INVALID ({', '.join(art['invalid_reasons'])}) -- run NOT "
+                  f"route-isolated; no consumable score -> {run_dir / 'route_eval.json'}")
+    # route_eval's expected-failure paths raise SystemExit (a BaseException, NOT an Exception), so it
+    # MUST be caught alongside Exception or it would escape this best-effort hook and kill an
+    # already-valid live run. (Bare BaseException is deliberately NOT caught -- KeyboardInterrupt /
+    # SystemExit-from-the-harness-proper must still propagate.)
+    except (Exception, SystemExit) as exc:  # noqa: BLE001 — scoring must never fail the live run
+        LOGGER.warning("route_eval scoring failed (run still valid): %s", exc)
+        print(f"route_eval    : FAILED ({exc}); the freshness run + MVD are unaffected")
 
 
 def start_sidecar_waiter(run_dir: Path, shm_name: str, py: str, script: str,
@@ -324,6 +383,12 @@ def main(argv=None) -> int:
     p.add_argument("--sidecar-hz", type=int, default=DEFAULT_SIDECAR_HZ)
     p.add_argument("--min-live-fraction", type=float, default=0.5)
     p.add_argument("--out-root", type=Path, default=REPO_ROOT / "experiments" / "prewar-movecheck")
+    p.add_argument("--score", action="store_true",
+                   help="T5.2 (#428): isolate each bot on a base Route-Canon highway (handoff-gate "
+                        "cvars) and, after the run, pin + score it with route_eval.py -- writes a "
+                        "komodobots.route_eval.v1 artifact into the run dir and merges the score into "
+                        "the ledger row. SINGLE-bot scoring only: with --bots>1 the post-run scoring "
+                        "is SKIPPED (multi-bot slot->player binding is PR2). Default off.")
     args = p.parse_args(argv)
 
     if not 28599 <= args.port <= 28609:
@@ -367,7 +432,7 @@ def main(argv=None) -> int:
     try:
         write_cfg(cfg_path, port=args.port, map_name=args.map_name,
                   timelimit=args.timelimit, shm_name=shm_name,
-                  stale_ticks=args.stale_ticks, bot_edicts=bot_edicts)
+                  stale_ticks=args.stale_ticks, bot_edicts=bot_edicts, score=args.score)
         (run_dir / "lab.cfg").write_text(cfg_path.read_text(), encoding="utf-8")
         start_marker.touch()
 
@@ -508,6 +573,12 @@ def main(argv=None) -> int:
         ledger = _emit_attempt_ledger(LEDGER_PATH, record, map_name=args.map_name)
         print(f"attempt ledger: {LEDGER_PATH} ({len(ledger['attempts'])} attempts; "
               f"publish it to prod alongside the .mvd)")
+
+        # T5.2 (#428): route-isolated objective scoring. Opt-in (--score); needs the demo +
+        # the handoff-gated cfg (set above). SINGLE-bot only (the hook fail-closed SKIPs --bots>1 to
+        # avoid scoring the wrong bot). Best-effort -- never changes the run's exit code.
+        if args.score and demo is not None:
+            _run_route_eval_score(run_dir, bot_slots[0], demos_dir, n_bots=args.bots)
         return 0 if verdict_green else 1
 
     finally:

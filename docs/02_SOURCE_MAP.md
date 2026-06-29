@@ -1121,6 +1121,32 @@ In-repo Python (torch + numpy, `ml/requirements.txt`), trained offline on host `
   **qu** + per-axis + xy/z splits). Has a P1 unit-guard (fails on an ~8x span = raw 1/8-qu vs qu).
   Arc-fraction is path-shape-only / speed-blind; rigorous variable-dt alignment is #428 (T5.2). CLI:
   `--canon/--highway/--attempt/--grid/-o`. Runbook: `experiments/ktx_moveprobe/T3.2_PLUMBING.md`.
+- **route_eval.py** — `experiments/route_observatory/route_eval.py` (**stdlib + the in-repo reuse
+  modules only**, the T5.2 #428 route-isolated eval harness, PR1). Turns a recorded prewar-movecheck
+  run into one objective score: **geometrically pins** the base highway the bot drove
+  (`pin_driven_highway`, the Python mirror of `move_highway.c:mhw_nearest_base_highway` — nearest base
+  seed polyline by mean point-to-polyline xy distance; the engine log carries NO highway id), within
+  the engine-logged ENGAGED window (`parse_engaged_window` over `[moveprobe-handoff]` +
+  `[moveprobe-live] live=L/T` frames), extracts the bot trajectory (reusing `route_legs.player_ticks`
+  — the SAME qw-analyze-JSON decode that built the #420 seeds), grades **route ADHERENCE** via
+  `score_route_mse.build_artifact` AND records an explicit **VELOCITY** scalar
+  (`mean_speed_qu_s`/`progress_fraction`; a `degenerate` flag when progress < `MIN_PROGRESS`). Emits
+  **`komodobots.route_eval.v1`** into the run dir + merges the result into the `bot-attempts.json`
+  ledger row (so it travels with the watchable MVD). **Route isolation is load-bearing:** the artifact
+  carries a top-level **`valid` + `invalid_reasons`** — a run that is not route-isolated yields
+  `valid:false` (reasons `no_engaged_spans`/`multi_span_engagement` [engaged >1x — fail-closed so a
+  disengaged gap can't bridge velocity/arclen]/`engaged_window_too_narrow`/`window_extraction_failed`;
+  a VALID run has exactly ONE engaged span), the consumable `adherence`/`velocity`/`degenerate` are
+  **null**, the
+  full-trajectory numbers are quarantined in **`non_isolated_debug`** (never consumable), and the
+  ledger row gets NO `rmse_xyz`/`mean_speed_qu_s` — so an un-isolated run can't be mistaken for a real
+  score (#428). **The adherence MSE is a route-SHAPE proxy (speed-blind), NOT the optimization target;
+  #427's reward sources speed from `velocity.mean_speed_qu_s`.** The `qw-analyze -view full` subprocess
+  + run-dir/ledger I/O are the only impure (on-box, non-CI) parts; the pure core is gated
+  (`tests/test_route_eval.py`). CLI: `route_eval.py <run_dir> [--slot/--player/--grid/--canon/--ledger/
+  --no-write]`; live wrapper: `prewar_movecheck.py --score`. Runbook:
+  `experiments/ktx_moveprobe/T5.2_ROUTE_EVAL.md`. PR1 ships #428's Verification gate but does not
+  finish #428 (the 4-assigned-routes deliverable is PR2; #428 stays open).
 
 ## Demo extraction contract
 
