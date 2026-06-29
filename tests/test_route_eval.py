@@ -167,6 +167,14 @@ class TestExtractAttemptTrajectory(unittest.TestCase):
         with self.assertRaises(SystemExit):
             RE.extract_attempt_trajectory(_analysis("Bot", self._traj()), "Nobody")
 
+    def test_multi_interval_window_keeps_union_and_drops_the_gap(self):
+        traj = [[round(i * 0.1, 3), float(i * 10), 0.0, 0.0] for i in range(11)]   # t=0..1.0
+        rows = RE.extract_attempt_trajectory(_analysis("Bot", traj), "Bot",
+                                             window=[(0.0, 0.2), (0.8, 1.0)])
+        kept = [r[0] for r in rows]
+        self.assertEqual(kept, [0.0, 0.1, 0.2, 0.8, 0.9, 1.0])    # union kept; the 0.3..0.7 gap dropped
+        self.assertTrue(all(not (0.2 < t < 0.8) for t in kept))
+
 
 # --- route_eval assembly ------------------------------------------------------------------------
 def _moving_attempt(n=11, dx=80.0):
@@ -192,10 +200,12 @@ class TestEvaluateAnalysis(unittest.TestCase):
         self.assertNotIn("non_isolated_debug", art)               # no quarantine block on the valid path
         self.assertEqual(art["highway"]["id"], "K")
         self.assertEqual(art["highway"]["pin"], "nearest-base-polyline (geometric)")
-        self.assertIsInstance(art["highway"]["engaged_window_s"], list)
-        self.assertEqual(len(art["highway"]["engaged_window_s"]), 2)
+        ews = art["highway"]["engaged_window_s"]                  # LIST of [t0,t1] intervals
+        self.assertIsInstance(ews, list)
+        self.assertEqual(len(ews), 1)                             # one ENGAGED span -> one interval
+        self.assertEqual(len(ews[0]), 2)                          # an [t0,t1] pair
         self.assertIsInstance(art["highway"]["engaged_fraction"], float)
-        self.assertGreaterEqual(art["highway"]["n_engaged_spans"], 1)
+        self.assertEqual(art["highway"]["n_engaged_spans"], 1)
         # adherence (the SHAPE proxy) + the explicit velocity scalar both present + consumable
         for k in ("mse_xyz", "rmse_xyz", "rmse_xy", "rmse_z"):
             self.assertIsInstance(art["adherence"][k], (int, float))
@@ -203,6 +213,27 @@ class TestEvaluateAnalysis(unittest.TestCase):
             self.assertIsInstance(art["velocity"][k], (int, float))
         self.assertGreater(art["velocity"]["mean_speed_qu_s"], 0)
         self.assertFalse(art["degenerate"])
+
+    def test_multi_span_excludes_offroute_gap_from_the_score(self):
+        # Hug K (y=3) for the first + last thirds; wander FAR off-route (y=5000) in the middle, with
+        # ENGAGED -> DISENGAGED -> ENGAGED. The disengaged gap rows must NOT enter the scored
+        # trajectory (P1-1): if they did, the pin would be off-all-highways (mean dist ~1800 qu).
+        rows = ([[round(i * 0.1, 3), float(i * 10), 3.0, 0.0] for i in range(5)]        # span1: K
+                + [[round(i * 0.1, 3), float(i * 10), 5000.0, 0.0] for i in range(5, 10)]  # gap: off-route
+                + [[round(i * 0.1, 3), float(i * 10), 3.0, 0.0] for i in range(10, 15)])    # span2: K
+        log = "\n".join([_live(1, 1), _handoff(1, "ENGAGED")]
+                        + [_live(1, t) for t in range(2, 6)] + [_handoff(1, "DISENGAGED")]
+                        + [_live(1, t) for t in range(6, 11)] + [_handoff(1, "ENGAGED")]
+                        + [_live(1, t) for t in range(11, 16)])
+        art = RE.evaluate_analysis(self._canon(), _analysis("Bot", rows), player="Bot", slot=1,
+                                   screen_log_text=log, run_id="rm")
+        self.assertTrue(art["valid"])
+        self.assertEqual(art["highway"]["id"], "K")
+        self.assertEqual(art["highway"]["n_engaged_spans"], 2)
+        self.assertEqual(len(art["highway"]["engaged_window_s"]), 2)   # union surfaced per-span
+        # the off-route gap was EXCLUDED -> the pin is clean (not pulled off-all by the y=5000 gap)
+        self.assertFalse(art["highway"]["off_all_highways"])
+        self.assertLess(art["highway"]["mean_dist_qu"], RE.PIN_OFF_ALL_QU)
 
     def test_stalled_attempt_is_valid_but_degenerate(self):
         # barely moves (x 0..6 qu vs the ~1000 qu seed) -> progress < MIN_PROGRESS, but it WAS

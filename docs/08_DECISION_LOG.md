@@ -4056,6 +4056,14 @@ fields `n_engaged_spans`/`engaged_frames`/`engaged_fraction`). Rationale: the ea
 full-trajectory fallback let an un-isolated run produce a normal-looking score — indistinguishable
 downstream from a real route-isolated result, which defeats #428's purpose (eval-integrity). The gate
 verdict's bar: "missing route-isolation evidence must be impossible to mistake for a valid result."
+**(e) the engaged window is the UNION of per-ENGAGED-span intervals — disengaged gaps are excluded**
+(2nd-pass ML-gate P1-1): `engaged_window_s` is a LIST of `[t0,t1]` intervals (one per span) and the
+scored trajectory keeps only rows inside ANY interval, so an engage→DISENGAGE (off-route)→re-engage gap
+never enters a valid score (a collapsed `[min,max]` window would have swallowed it — a route-plane
+leak). **(f) the `--score` post-run hook is best-effort against `SystemExit` too** (2nd-pass P1-2):
+route_eval's expected failures `raise SystemExit` (a BaseException, not Exception), so the hook catches
+`(Exception, SystemExit)` — a scoring failure only warns and never fails an already-valid recorded run
+(bare BaseException is deliberately not caught, so KeyboardInterrupt still propagates).
 
 ### Alternatives Considered
 

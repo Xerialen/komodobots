@@ -86,9 +86,12 @@ _NOTE = (
     "objective (use velocity.*) and NOT a #421-band believability judgment. highway.id is pinned "
     "GEOMETRICALLY (nearest base polyline in xy), NEVER by (from,to) and NOT from the engine log "
     "(which carries no id). #427 reward sources speed from velocity.mean_speed_qu_s. "
-    "engaged_window_s is mapped from the [moveprobe-live] total-frame counter onto the trajectory "
-    "clock (anchored fraction; PR1 approximation) -- rigorous sub-frame/variable-dt alignment is the "
-    "deferred #428 item. A LARGE MSE is a PASS for the automation (quality is the RL job, #427). "
+    "engaged_window_s is a LIST of [t0,t1] intervals (one per ENGAGED span) mapped from the "
+    "[moveprobe-live] total-frame counter onto the trajectory clock (anchored fraction; PR1 "
+    "approximation); the score is the UNION of those intervals, so a DISENGAGED gap between spans "
+    "(bot off-route, re-engaged later) is EXCLUDED -- never scored as route-isolated. Rigorous "
+    "sub-frame/variable-dt alignment is the deferred #428 item. A LARGE MSE is a PASS for the "
+    "automation (quality is the RL job, #427). "
     "valid=false (+ invalid_reasons) means the run was NOT route-isolated (no / too-narrow / "
     "unextractable engaged window): its consumable adherence/velocity/degenerate are NULL and ONLY "
     "non_isolated_debug carries (non-consumable) full-trajectory numbers -- never read those as a score."
@@ -176,14 +179,31 @@ def _pick_mover(players: list) -> str:
     return best["name"]
 
 
+def _norm_windows(window):
+    """Normalise a window arg to a LIST of (t0,t1) seconds intervals. Accepts None, a single (t0,t1)
+    pair, or a list of (t0,t1) pairs (the multi-ENGAGED-span UNION). The list form lets the windowed
+    score EXCLUDE the disengaged gaps between ENGAGED spans (P1-1)."""
+    if window is None:
+        return None
+    if len(window) == 2 and all(isinstance(v, (int, float)) for v in window):
+        return [(float(window[0]), float(window[1]))]
+    return [(float(a), float(b)) for (a, b) in window]
+
+
+def _in_windows(t, windows):
+    """True iff t falls inside ANY (t0,t1) interval (inclusive) -- the union membership test."""
+    return any(t0 <= t <= t1 for (t0, t1) in windows)
+
+
 def extract_attempt_trajectory(analysis_json: dict, player, window=None) -> list:
     """The bot player's `[[t,x,y,z], ...]` in QUAKE UNITS (t in seconds), window-clipped.
 
     Reuses route_legs.player_ticks + pov_fuse_extract._find_player -- the SAME decode that built the
     #420 seed lines (build_route_canon.py) -- so the attempt is in qu exactly like the seed (unit
-    symmetry). `player=None` auto-picks the most-moving player. `window=(t0,t1)` clips inclusively on
-    the trajectory's own seconds clock. Raises SystemExit on an unknown player or < 2 surviving ticks.
-    """
+    symmetry). `player=None` auto-picks the most-moving player. `window` is a single `(t0,t1)` pair OR
+    a LIST of `(t0,t1)` intervals (the engaged-span UNION); a row survives iff its t is inside ANY
+    interval, so the DISENGAGED gaps between spans are dropped (P1-1). Raises SystemExit on an unknown
+    player or < 2 surviving ticks (a too-narrow union)."""
     players = (analysis_json.get("streams") or {}).get("players")
     if not players:
         raise SystemExit("extract_attempt_trajectory: analysis JSON has no streams.players")
@@ -192,8 +212,8 @@ def extract_attempt_trajectory(analysis_json: dict, player, window=None) -> list
     rows = [[round(tk["t"], 3), round(tk["x"], 1), round(tk["y"], 1), round(tk["z"], 1)]
             for tk in player_ticks(P)]
     if window is not None:
-        t0, t1 = window
-        rows = [r for r in rows if t0 <= r[0] <= t1]
+        windows = _norm_windows(window)
+        rows = [r for r in rows if _in_windows(r[0], windows)]
     if len(rows) < 2:
         raise SystemExit(f"extract_attempt_trajectory: < 2 ticks for {name!r}"
                          + (f" in window {window}" if window else ""))
@@ -241,8 +261,8 @@ def _mean_dist_to_polyline(attempt_xy, poly) -> float:
 
 
 def _attempt_rows(attempt, window=None) -> list:
-    """Normalise an attempt to [[t,x,y,z], ...]; accept bare [x,y,z] (t := index). Clip by window
-    (seconds) when the rows carry t."""
+    """Normalise an attempt to [[t,x,y,z], ...]; accept bare [x,y,z] (t := index). Clip by window (a
+    single (t0,t1) pair or a list of intervals -- union membership) when the rows carry t."""
     rows = []
     for i, p in enumerate(attempt):
         if len(p) >= 4:
@@ -252,8 +272,8 @@ def _attempt_rows(attempt, window=None) -> list:
         else:
             raise SystemExit(f"pin_driven_highway: attempt row must be [t,x,y,z] or [x,y,z], got {p!r}")
     if window is not None:
-        t0, t1 = window
-        rows = [r for r in rows if t0 <= r[0] <= t1]
+        windows = _norm_windows(window)
+        rows = [r for r in rows if _in_windows(r[0], windows)]
     return rows
 
 
@@ -329,28 +349,32 @@ def compute_velocity(attempt_rows, seed_xyz) -> dict:
     }
 
 
-def _frames_to_time_window(spans_frames, total_frames, full_rows):
-    """Map the engaged FRAME-counter span onto the trajectory's own SECONDS clock.
+def _frames_to_time_windows(spans_frames, total_frames, full_rows):
+    """Map EACH engaged FRAME-counter span onto the trajectory's own SECONDS clock, returning a LIST
+    of (t0,t1) intervals -- ONE per ENGAGED span.
+
+    The windowed score is the UNION of these intervals, so a DISENGAGED gap between two ENGAGED spans
+    (the bot wandered off-route, re-engaged later) is EXCLUDED -- it can never enter a route-isolated
+    score (P1-1). Collapsing spans into one [min,max] would swallow the gap; this does NOT.
 
     PR1 approximation (documented in _NOTE + the runbook): the screen.log handoff line has no clock,
-    only the interleaved [moveprobe-live] total-frame counter. Anchoring by FRACTION of total_frames
-    onto the recorded [t_first, t_last] span needs neither an absolute offset nor a fixed dt, and is
-    robust to total_frames != len(trajectory); precise sub-frame alignment is the deferred
-    rigorous-dt item (#428). Returns (t0,t1) seconds, or None if there is no usable span.
+    only the interleaved [moveprobe-live] total-frame counter. Anchoring each span's [a,b] by FRACTION
+    of total_frames onto the recorded [t_first, t_last] span needs neither an absolute offset nor a
+    fixed dt; precise sub-frame alignment is the deferred rigorous-dt item (#428). Degenerate (t1<=t0)
+    spans are dropped. Returns the list of intervals, or None if none are usable.
     """
     if not spans_frames or not total_frames or len(full_rows) < 2:
         return None
     t_first, t_last = full_rows[0][0], full_rows[-1][0]
     if t_last <= t_first:
         return None
-    f0 = min(s[0] for s in spans_frames)
-    f1 = max(s[1] for s in spans_frames)
 
     def t_of(f):
         frac = max(0.0, min(1.0, f / total_frames))
         return t_first + frac * (t_last - t_first)
 
-    return (t_of(f0), t_of(f1))
+    intervals = [(t_of(a), t_of(b)) for (a, b) in spans_frames if t_of(b) > t_of(a)]
+    return intervals or None
 
 
 def _seed_ts(canon, highway_id):
@@ -402,25 +426,26 @@ def evaluate_analysis(canon, analysis_json, *, player, slot, screen_log_text, ma
 
     full_rows = extract_attempt_trajectory(analysis_json, player, window=None)
 
-    window_s = None
+    engaged_windows = None        # LIST of (t0,t1) intervals (the engaged-span UNION; gaps excluded)
     attempt_rows = None
     if not invalid_reasons:
-        window_s = _frames_to_time_window(eng["spans_frames"], eng["total_frames"], full_rows)
-        if not window_s:
+        engaged_windows = _frames_to_time_windows(eng["spans_frames"], eng["total_frames"], full_rows)
+        if not engaged_windows:
             LOGGER.warning("route_eval: engaged spans %s map to no usable window -> INVALID "
                            "(not route-isolated)", eng["spans_frames"])
             invalid_reasons.append("engaged_window_too_narrow")
         else:
             try:
-                attempt_rows = extract_attempt_trajectory(analysis_json, player, window=window_s)
+                # UNION of the engaged intervals -> the disengaged gaps are dropped (P1-1)
+                attempt_rows = extract_attempt_trajectory(analysis_json, player, window=engaged_windows)
             except SystemExit as exc:
                 LOGGER.warning("route_eval: %s -> INVALID (engaged window too narrow)", exc)
                 invalid_reasons.append("engaged_window_too_narrow")
-                window_s = None
+                engaged_windows = None
             except Exception as exc:  # noqa: BLE001 — any other windowed-extract failure is invalid
                 LOGGER.warning("route_eval: windowed extraction failed (%s) -> INVALID", exc)
                 invalid_reasons.append("window_extraction_failed")
-                window_s = None
+                engaged_windows = None
 
     valid = not invalid_reasons
     art = {
@@ -428,7 +453,8 @@ def evaluate_analysis(canon, analysis_json, *, player, slot, screen_log_text, ma
         "valid": valid, "invalid_reasons": invalid_reasons,
         "highway": {            # isolation evidence is always present; the geometric PIN only on valid
             "id": None, "pin": "nearest-base-polyline (geometric)",
-            "engaged_window_s": ([round(window_s[0], 3), round(window_s[1], 3)] if window_s else None),
+            "engaged_window_s": ([[round(a, 3), round(b, 3)] for (a, b) in engaged_windows]
+                                 if engaged_windows else None),
             "engaged_fraction": eng["engaged_fraction"],
             "engaged_frames": eng["engaged_frames"], "total_frames": eng["total_frames"],
             "n_engaged_spans": eng["n_engaged_spans"],

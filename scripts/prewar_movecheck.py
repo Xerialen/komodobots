@@ -303,7 +303,11 @@ def _run_route_eval_score(run_dir: Path, slot: int, demos_dir: Path) -> None:
         else:
             print(f"route_eval    : INVALID ({', '.join(art['invalid_reasons'])}) -- run NOT "
                   f"route-isolated; no consumable score -> {run_dir / 'route_eval.json'}")
-    except Exception as exc:  # noqa: BLE001 — scoring must never fail the live run
+    # route_eval's expected-failure paths raise SystemExit (a BaseException, NOT an Exception), so it
+    # MUST be caught alongside Exception or it would escape this best-effort hook and kill an
+    # already-valid live run. (Bare BaseException is deliberately NOT caught -- KeyboardInterrupt /
+    # SystemExit-from-the-harness-proper must still propagate.)
+    except (Exception, SystemExit) as exc:  # noqa: BLE001 — scoring must never fail the live run
         LOGGER.warning("route_eval scoring failed (run still valid): %s", exc)
         print(f"route_eval    : FAILED ({exc}); the freshness run + MVD are unaffected")
 
