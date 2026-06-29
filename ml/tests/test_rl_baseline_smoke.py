@@ -67,6 +67,14 @@ class TestSmokeLoopCloses(unittest.TestCase):
         import rl_onspeed as RL
         self._assert_closed(RL.run_smoke("cpu", baseline_reward=False, n_iters=2))
 
+    def test_smoke_cli_runs_with_zero_data_args(self):
+        # the advertised artifact-free CLI: `rl_onspeed --smoke` must parse + run with NO
+        # --db/--bsp/--norm-artifact/--anchors/--init-ckpt (regression for the required=True bug
+        # that argparse rejected before the smoke branch). main() returns 0 on success.
+        import rl_onspeed as RL
+        self.assertEqual(RL.main(["--smoke", "--cpu"]), 0)
+        self.assertEqual(RL.main(["--smoke", "--cpu", "--baseline-reward"]), 0)
+
 
 @unittest.skipUnless(_HAVE_TORCH, "torch required for the RL baseline-smoke loop")
 class TestEnvStepWiresBaseline(unittest.TestCase):

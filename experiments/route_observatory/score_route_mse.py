@@ -41,12 +41,14 @@ def _read_json(path):
     with open(path, encoding="utf-8") as fh:
         return json.loads(fh.read())
 
-# Unit-consistency guard (P1): a single-highway ATTEMPT whose (x,y,z) coordinate span is ~this
-# many times the SEED's almost certainly means one trajectory is in raw 1/8-qu wire units (the
-# QW wire scale is exactly 8x qu) while the other is in qu. Fail closed rather than emit a
-# silently-corrupted keystone number. A real (even bad) bot run on ONE highway never spans 5x the
-# human seed line, so 5x is a safe floor for "these are different units, not a different path".
-UNIT_GUARD_RATIO = 5.0
+# Unit-consistency guard (P1): the QW wire scale is EXACTLY 8x qu, so a raw-1/8-qu attempt has
+# coordinate MAGNITUDES ~8x the (committed-qu) seed's. Guard ONE-DIRECTIONALLY on max-absolute
+# coordinate: raise only when the attempt is implausibly LARGER than the seed (>= this ratio, toward
+# the 8x wire scale) — NEVER when it is smaller. A stalled/low-progress same-unit attempt (the
+# expected D3 case: the frozen 6-feat mover covers only a short fraction of the long seed) keeps its
+# coordinates WITHIN the seed's range, so it must SCORE, not raise. Map-agnostic (relative to the
+# seed; no hardcoded bounds). 4x sits between same-scale (~1x) and the 8x wire scale.
+UNIT_GUARD_RATIO = 4.0
 
 _SCORING_NOTE = (
     "Minimal honest plumbing MSE: resample BOTH trajectories to a common arc-fraction grid, "
@@ -149,23 +151,28 @@ def resample(pts, ts, grid, m=GRID_N):
     return [_interp_at(pts, keys, s / (m - 1)) for s in range(m)]
 
 
-def _span_sum(pts):
-    """Sum of the (x,y,z) coordinate spans (max-min per axis) — a units-scale proxy."""
-    return sum((max(p[d] for p in pts) - min(p[d] for p in pts)) for d in range(3))
+def _max_abs_coord(pts):
+    """Largest absolute (x,y,z) coordinate over the trajectory — a units-scale MAGNITUDE proxy,
+    robust to a near-zero axis (unlike a per-axis span)."""
+    return max(max(abs(p[0]), abs(p[1]), abs(p[2])) for p in pts)
 
 
 def unit_guard(seed_xyz, attempt_xyz):
-    """P1 unit-consistency guard: fail loudly if the two trajectories' coordinate spans differ
-    by ~8x (one in raw 1/8-qu wire units, the other in qu). Both inputs MUST be in qu."""
-    a, b = _span_sum(seed_xyz), _span_sum(attempt_xyz)
-    if min(a, b) <= 1e-6:
-        return                                  # a degenerate near-zero span; let MSE speak
-    ratio = max(a, b) / min(a, b)
-    if ratio >= UNIT_GUARD_RATIO:
+    """P1 unit-consistency guard: fail loudly ONLY when the ATTEMPT's coordinate magnitude is
+    implausibly LARGER than the (committed-qu) SEED's (>= UNIT_GUARD_RATIO x, toward the 8x
+    qu<->1/8-qu wire scale) — i.e. the attempt looks like raw 1/8-qu. A SMALLER attempt is a
+    legitimate low-progress/stalled run (the D3 case where the frozen 6-feat mover barely moves),
+    NOT a unit error, and is never rejected. Both inputs MUST be in qu."""
+    seed_mag = _max_abs_coord(seed_xyz)
+    att_mag = _max_abs_coord(attempt_xyz)
+    if seed_mag <= 1e-6:
+        return                                  # degenerate near-origin seed; let MSE speak
+    if att_mag >= UNIT_GUARD_RATIO * seed_mag:
         raise SystemExit(
-            f"unit mismatch: seed span {a:.0f} vs attempt span {b:.0f} (ratio {ratio:.1f}x ~ the "
-            f"8x qu<->1/8-qu wire scale). Both trajectories must be in QUAKE UNITS (qu); one looks "
-            f"like raw 1/8-qu. Re-extract in qu (see experiments/ktx_moveprobe/T3.2_PLUMBING.md).")
+            f"unit mismatch: attempt max|coord| {att_mag:.0f} is {att_mag / seed_mag:.1f}x the "
+            f"seed's {seed_mag:.0f} (~ the 8x qu<->1/8-qu wire scale). Both trajectories must be in "
+            f"QUAKE UNITS (qu); the attempt looks like raw 1/8-qu. Re-extract in qu "
+            f"(see experiments/ktx_moveprobe/T3.2_PLUMBING.md).")
 
 
 def score(seed_xyz, attempt_xyz, grid, seed_ts, attempt_ts, m=GRID_N):

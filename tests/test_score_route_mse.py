@@ -120,6 +120,29 @@ class TestUnitGuard(unittest.TestCase):
         attempt = [(5.0, 5.0, 5.0), (110.0, 3.0, 2.0), (95.0, 120.0, 44.0)]  # same scale, diff path
         SR.unit_guard(seed, attempt)   # must NOT raise
 
+    def test_unit_guard_passes_short_low_progress_attempt(self):
+        # the D3 case: a LONG seed vs a SHORT same-unit attempt (small coords WITHIN the seed bbox).
+        # A smaller attempt is low-progress, not a unit error -> the guard must NOT fire.
+        seed = [(float(i * 60), 0.0, -176.0) for i in range(50)]            # x 0..2940 qu
+        attempt = [(0.0, 0.0, -176.0), (40.0, 5.0, -176.0), (55.0, 3.0, -170.0)]  # stalled near start
+        SR.unit_guard(seed, attempt)   # must NOT raise
+
+    def test_short_low_progress_attempt_scores_not_raises_d3_case(self):
+        # End-to-end D3 regression: the frozen 6-feat mover stalls, so build_artifact must return a
+        # FINITE route_mse.v1 (a large MSE is a PASS for plumbing) and NOT raise the unit-guard.
+        long_seed = [(float(i * 60), 0.0, -176.0) for i in range(50)]       # long highway, x 0..2940
+        canon = _canon([_highway("hw", [long_seed])])
+        seed_xyz, meta = SR.load_highway_seed(canon, "hw")
+        short_attempt = [(0.0, 0.0, -176.0), (40.0, 5.0, -176.0), (55.0, 3.0, -170.0)]
+        seed_ts = [p[0] for h in canon["highways"] for seg in h["segments"]
+                   for p in seg["trajectory"]]
+        att_ts = [p[0] for p in _traj(short_attempt)]
+        art = SR.build_artifact("hw", seed_xyz, meta, short_attempt, "stalled-6feat",
+                                "arclen", seed_ts, att_ts)
+        self.assertEqual(art["schema"], "komodobots.route_mse.v1")
+        self.assertTrue(math.isfinite(art["rmse_xyz"]))
+        self.assertGreater(art["rmse_xyz"], 0.0)   # far from the seed (large MSE) — but finite
+
 
 class TestLoaders(unittest.TestCase):
     def _write(self, obj):

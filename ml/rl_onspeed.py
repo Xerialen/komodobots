@@ -1242,10 +1242,11 @@ def main(argv=None):
                          "PPO iters and assert it stays finite + a checkpoint writes. Needs NO "
                          "--init-ckpt/--bsp/--db. Honors --baseline-reward and --out-ckpt.")
     # data
-    ap.add_argument("--db", required=True)
-    ap.add_argument("--bsp", required=True)
-    ap.add_argument("--norm-artifact", required=True)
-    ap.add_argument("--anchors", required=True)
+    # data args: required for train/--eval, but NOT for --smoke (validated after the smoke branch)
+    ap.add_argument("--db", required=False, default=None)
+    ap.add_argument("--bsp", required=False, default=None)
+    ap.add_argument("--norm-artifact", required=False, default=None)
+    ap.add_argument("--anchors", required=False, default=None)
     ap.add_argument("--resource-coords", default=None)
     ap.add_argument("--split", default="val")
     ap.add_argument("--map", default="dm3")
@@ -1348,6 +1349,11 @@ def main(argv=None):
         return 0
     if not args.init_ckpt:
         raise SystemExit("[rl] --init-ckpt required (unless --smoke)")
+    # train/--eval need the heavy data artifacts (--smoke already returned above without them)
+    _need = [n for n in ("db", "bsp", "norm_artifact", "anchors") if getattr(args, n) is None]
+    if _need:
+        raise SystemExit("[rl] missing required arg(s) for train/--eval (unless --smoke): "
+                         + ", ".join("--" + n.replace("_", "-") for n in _need))
 
     if args.eval:
         vec = eval_metric_vector(args, device)
