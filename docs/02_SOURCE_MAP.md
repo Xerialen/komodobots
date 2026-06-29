@@ -1133,9 +1133,11 @@ In-repo Python (torch + numpy, `ml/requirements.txt`), trained offline on host `
   (`mean_speed_qu_s`/`progress_fraction`; a `degenerate` flag when progress < `MIN_PROGRESS`). Emits
   **`komodobots.route_eval.v1`** into the run dir + merges the result into the `bot-attempts.json`
   ledger row (so it travels with the watchable MVD). **Route isolation is load-bearing:** the artifact
-  carries a top-level **`valid` + `invalid_reasons`** — a missing / too-narrow / unextractable engaged
-  window yields `valid:false` (reasons `no_engaged_spans`/`engaged_window_too_narrow`/
-  `window_extraction_failed`), the consumable `adherence`/`velocity`/`degenerate` are **null**, the
+  carries a top-level **`valid` + `invalid_reasons`** — a run that is not route-isolated yields
+  `valid:false` (reasons `no_engaged_spans`/`multi_span_engagement` [engaged >1x — fail-closed so a
+  disengaged gap can't bridge velocity/arclen]/`engaged_window_too_narrow`/`window_extraction_failed`;
+  a VALID run has exactly ONE engaged span), the consumable `adherence`/`velocity`/`degenerate` are
+  **null**, the
   full-trajectory numbers are quarantined in **`non_isolated_debug`** (never consumable), and the
   ledger row gets NO `rmse_xyz`/`mean_speed_qu_s` — so an un-isolated run can't be mistaken for a real
   score (#428). **The adherence MSE is a route-SHAPE proxy (speed-blind), NOT the optimization target;

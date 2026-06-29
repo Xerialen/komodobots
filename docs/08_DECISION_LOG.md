@@ -4056,14 +4056,19 @@ fields `n_engaged_spans`/`engaged_frames`/`engaged_fraction`). Rationale: the ea
 full-trajectory fallback let an un-isolated run produce a normal-looking score — indistinguishable
 downstream from a real route-isolated result, which defeats #428's purpose (eval-integrity). The gate
 verdict's bar: "missing route-isolation evidence must be impossible to mistake for a valid result."
-**(e) the engaged window is the UNION of per-ENGAGED-span intervals — disengaged gaps are excluded**
-(2nd-pass ML-gate P1-1): `engaged_window_s` is a LIST of `[t0,t1]` intervals (one per span) and the
-scored trajectory keeps only rows inside ANY interval, so an engage→DISENGAGE (off-route)→re-engage gap
-never enters a valid score (a collapsed `[min,max]` window would have swallowed it — a route-plane
-leak). **(f) the `--score` post-run hook is best-effort against `SystemExit` too** (2nd-pass P1-2):
-route_eval's expected failures `raise SystemExit` (a BaseException, not Exception), so the hook catches
-`(Exception, SystemExit)` — a scoring failure only warns and never fails an already-valid recorded run
-(bare BaseException is deliberately not caught, so KeyboardInterrupt still propagates).
+**(e) a VALID run has exactly ONE engaged span; multi-span fail-closes** (gate P1, 2nd+3rd pass): the
+parse anchors each handoff transition to the FOLLOWING `[moveprobe-live]` counter (KTX logs the handoff
+line BEFORE the same-frame live line, so the previous counter is the prior FALLBACK frame — anchoring
+to it shifts the span by one live line; 3rd-pass P1-a). A run with `n_engaged_spans > 1` is INVALID
+(`multi_span_engagement`) — an earlier UNION-of-intervals attempt excluded the disengaged gap ROWS but
+`_cum_arclen_3d`/`compute_velocity` (and the adherence resample) still treated the last tick of span1
+and the first of span2 as adjacent, BRIDGING the gap and inflating `mean_speed_qu_s` (the consumable
+#427 reward signal); fail-closing on multi-span removes the bridge entirely. So a valid run is a single
+contiguous `[t0,t1]` window with no gap; proper per-span multi-span scoring is a deferred follow-up
+(3rd-pass P1-b). **(f) the `--score` post-run hook is best-effort against `SystemExit` too** (2nd-pass
+P1-2): route_eval's expected failures `raise SystemExit` (a BaseException, not Exception), so the hook
+catches `(Exception, SystemExit)` — a scoring failure only warns and never fails an already-valid
+recorded run (bare BaseException is deliberately not caught, so KeyboardInterrupt still propagates).
 
 ### Alternatives Considered
 
@@ -4084,11 +4089,12 @@ Reuse confirmed @ origin/main `1ce3047`: `score_route_mse.load_highway_seed`/`bu
 `move_highway.{c,h}:mhw_nearest_base_highway` (#422), `route_legs.player_ticks` (the seed-building
 qw-analyze-JSON decode, build_route_canon.py — NOT `catalog_etl_qwd.py`, auditor SF-3),
 `prewar_movecheck` reuse surface + the `bot-attempts.json` ledger (#424). `tests/test_route_eval.py`
-(21 cases: geometric pin hug/ambiguous/off-all, engaged-window parse + per-slot filtering, qu slice +
-window clip, valid-artifact assembly + the three INVALID paths (no-span / too-narrow /
-extraction-failed → null consumable score + quarantined debug) + the ledger merge writing NO
-consumable score on the invalid path) green in the stdlib floor; the harness was exercised on the real
-`route_canon.dm3.json` (valid path pinned `ra_tunnel_mega_rl` from geometry; no-ENGAGED path returned
-`valid:false`/`no_engaged_spans` with null adherence/velocity). Contract surface: not a docs/25 surface (no obs channel,
+(24 cases: geometric pin hug/ambiguous/off-all, engaged-window parse incl. the following-counter anchor
++ the fallback-frame-excluded regression + 2-span capture + per-slot filtering, qu slice + window clip,
+valid single-span assembly + the four INVALID paths (no-span / multi-span / too-narrow /
+extraction-failed → null consumable score + quarantined debug + no ledger score) green in the stdlib
+floor; the harness was exercised on the real `route_canon.dm3.json` (valid path pinned
+`ra_tunnel_mega_rl` from geometry; no-ENGAGED path returned `valid:false`/`no_engaged_spans` with null
+adherence/velocity). Contract surface: not a docs/25 surface (no obs channel,
 no Layer-A field — precedent: the sibling `route_mse.v1` lives in docs/02 + docs/08, not docs/25);
 registered in `docs/02_SOURCE_MAP.md`.

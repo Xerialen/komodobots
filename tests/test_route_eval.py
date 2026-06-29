@@ -107,6 +107,18 @@ class TestPinDrivenHighway(unittest.TestCase):
 
 # --- parse_engaged_window -----------------------------------------------------------------------
 class TestParseEngagedWindow(unittest.TestCase):
+    def test_anchor_is_the_following_live_counter_not_the_previous(self):
+        # KTX emits the handoff line BEFORE the same-frame live line, so each transition anchors to the
+        # NEXT live counter (gate P1-a). The prior FALLBACK frame (400) must be EXCLUDED.
+        log = "\n".join([
+            _live(1, 400, "FALLBACK"), _handoff(1, "ENGAGED"),
+            _live(1, 500), _handoff(1, "DISENGAGED"), _live(1, 700),
+        ])
+        eng = RE.parse_engaged_window(log, slot=1)
+        self.assertEqual(eng["spans_frames"], [[500, 700]])     # NOT [[400, 500]]
+        self.assertEqual(eng["engaged_frames"], 200)
+        self.assertTrue(all(400 not in span for span in eng["spans_frames"]))
+
     def test_transitions_give_the_right_frame_window(self):
         log = "\n".join([
             _live(1, 1), _live(1, 2), _handoff(1, "ENGAGED"),
@@ -114,24 +126,33 @@ class TestParseEngagedWindow(unittest.TestCase):
             _live(1, 12, "FALLBACK"),
         ])
         eng = RE.parse_engaged_window(log, slot=1)
-        self.assertEqual(eng["spans_frames"], [[2, 10]])
+        self.assertEqual(eng["spans_frames"], [[5, 12]])        # ENGAGED->next live 5; DISENGAGED->next 12
         self.assertEqual(eng["n_engaged_spans"], 1)
-        self.assertEqual(eng["engaged_frames"], 8)
+        self.assertEqual(eng["engaged_frames"], 7)
         self.assertEqual(eng["total_frames"], 12)
-        self.assertEqual(eng["engaged_fraction"], round(8 / 12, 4))
+        self.assertEqual(eng["engaged_fraction"], round(7 / 12, 4))
 
     def test_open_span_closes_at_end_of_log(self):
-        log = "\n".join([_live(1, 1), _handoff(1, "ENGAGED"), _live(1, 7)])
+        log = "\n".join([_live(1, 1), _handoff(1, "ENGAGED"), _live(1, 5), _live(1, 7)])
         eng = RE.parse_engaged_window(log, slot=1)
-        self.assertEqual(eng["spans_frames"], [[1, 7]])
+        self.assertEqual(eng["spans_frames"], [[5, 7]])         # ENGAGED->next live 5; ran off -> last 7
 
     def test_only_the_requested_slot_is_parsed(self):
         log = "\n".join([
-            _live(2, 3), _handoff(2, "ENGAGED"), _live(2, 9), _handoff(2, "DISENGAGED"),
-            _live(1, 4), _handoff(1, "ENGAGED"), _live(1, 6), _handoff(1, "DISENGAGED"),
+            _live(2, 10), _handoff(2, "ENGAGED"), _live(2, 20), _handoff(2, "DISENGAGED"), _live(2, 30),
+            _live(1, 40), _handoff(1, "ENGAGED"), _live(1, 50), _handoff(1, "DISENGAGED"), _live(1, 60),
         ])
-        self.assertEqual(RE.parse_engaged_window(log, slot=1)["spans_frames"], [[4, 6]])
-        self.assertEqual(RE.parse_engaged_window(log, slot=2)["spans_frames"], [[3, 9]])
+        self.assertEqual(RE.parse_engaged_window(log, slot=1)["spans_frames"], [[50, 60]])
+        self.assertEqual(RE.parse_engaged_window(log, slot=2)["spans_frames"], [[20, 30]])
+
+    def test_two_spans_are_both_captured(self):
+        log = "\n".join([
+            _live(1, 1), _handoff(1, "ENGAGED"), _live(1, 5), _handoff(1, "DISENGAGED"),
+            _live(1, 10), _handoff(1, "ENGAGED"), _live(1, 15), _live(1, 20),
+        ])
+        eng = RE.parse_engaged_window(log, slot=1)
+        self.assertEqual(eng["spans_frames"], [[5, 10], [15, 20]])
+        self.assertEqual(eng["n_engaged_spans"], 2)
 
     def test_no_engaged_transition_is_a_clear_error(self):
         log = "\n".join([_live(1, 1, "FALLBACK"), _live(1, 2, "FALLBACK")])
@@ -167,14 +188,6 @@ class TestExtractAttemptTrajectory(unittest.TestCase):
         with self.assertRaises(SystemExit):
             RE.extract_attempt_trajectory(_analysis("Bot", self._traj()), "Nobody")
 
-    def test_multi_interval_window_keeps_union_and_drops_the_gap(self):
-        traj = [[round(i * 0.1, 3), float(i * 10), 0.0, 0.0] for i in range(11)]   # t=0..1.0
-        rows = RE.extract_attempt_trajectory(_analysis("Bot", traj), "Bot",
-                                             window=[(0.0, 0.2), (0.8, 1.0)])
-        kept = [r[0] for r in rows]
-        self.assertEqual(kept, [0.0, 0.1, 0.2, 0.8, 0.9, 1.0])    # union kept; the 0.3..0.7 gap dropped
-        self.assertTrue(all(not (0.2 < t < 0.8) for t in kept))
-
 
 # --- route_eval assembly ------------------------------------------------------------------------
 def _moving_attempt(n=11, dx=80.0):
@@ -200,12 +213,13 @@ class TestEvaluateAnalysis(unittest.TestCase):
         self.assertNotIn("non_isolated_debug", art)               # no quarantine block on the valid path
         self.assertEqual(art["highway"]["id"], "K")
         self.assertEqual(art["highway"]["pin"], "nearest-base-polyline (geometric)")
-        ews = art["highway"]["engaged_window_s"]                  # LIST of [t0,t1] intervals
+        ews = art["highway"]["engaged_window_s"]                  # a single contiguous [t0,t1]
         self.assertIsInstance(ews, list)
-        self.assertEqual(len(ews), 1)                             # one ENGAGED span -> one interval
-        self.assertEqual(len(ews[0]), 2)                          # an [t0,t1] pair
+        self.assertEqual(len(ews), 2)
+        self.assertTrue(all(isinstance(v, (int, float)) for v in ews))
+        self.assertLess(ews[0], ews[1])
         self.assertIsInstance(art["highway"]["engaged_fraction"], float)
-        self.assertEqual(art["highway"]["n_engaged_spans"], 1)
+        self.assertEqual(art["highway"]["n_engaged_spans"], 1)    # VALID == exactly one span
         # adherence (the SHAPE proxy) + the explicit velocity scalar both present + consumable
         for k in ("mse_xyz", "rmse_xyz", "rmse_xy", "rmse_z"):
             self.assertIsInstance(art["adherence"][k], (int, float))
@@ -214,26 +228,35 @@ class TestEvaluateAnalysis(unittest.TestCase):
         self.assertGreater(art["velocity"]["mean_speed_qu_s"], 0)
         self.assertFalse(art["degenerate"])
 
-    def test_multi_span_excludes_offroute_gap_from_the_score(self):
-        # Hug K (y=3) for the first + last thirds; wander FAR off-route (y=5000) in the middle, with
-        # ENGAGED -> DISENGAGED -> ENGAGED. The disengaged gap rows must NOT enter the scored
-        # trajectory (P1-1): if they did, the pin would be off-all-highways (mean dist ~1800 qu).
-        rows = ([[round(i * 0.1, 3), float(i * 10), 3.0, 0.0] for i in range(5)]        # span1: K
-                + [[round(i * 0.1, 3), float(i * 10), 5000.0, 0.0] for i in range(5, 10)]  # gap: off-route
-                + [[round(i * 0.1, 3), float(i * 10), 3.0, 0.0] for i in range(10, 15)])    # span2: K
-        log = "\n".join([_live(1, 1), _handoff(1, "ENGAGED")]
-                        + [_live(1, t) for t in range(2, 6)] + [_handoff(1, "DISENGAGED")]
-                        + [_live(1, t) for t in range(6, 11)] + [_handoff(1, "ENGAGED")]
-                        + [_live(1, t) for t in range(11, 16)])
-        art = RE.evaluate_analysis(self._canon(), _analysis("Bot", rows), player="Bot", slot=1,
+    def test_multi_span_engagement_is_invalid_with_no_consumable_score(self):
+        # The bot engages -> DISENGAGES -> re-engages (2 spans). Fail-closed (gate P1-b): scoring a
+        # 2-span run would BRIDGE the disengaged off-route gap in velocity/arclen, so it is INVALID
+        # (multi_span_engagement) with NO consumable score -- and the ledger gets no rmse/speed.
+        traj = _moving_attempt(16)
+        log = "\n".join([_live(1, 1), _handoff(1, "ENGAGED")] + [_live(1, t) for t in range(2, 6)]
+                        + [_handoff(1, "DISENGAGED")] + [_live(1, t) for t in range(6, 11)]
+                        + [_handoff(1, "ENGAGED")] + [_live(1, t) for t in range(11, 17)])
+        art = RE.evaluate_analysis(self._canon(), _analysis("Bot", traj), player="Bot", slot=1,
                                    screen_log_text=log, run_id="rm")
-        self.assertTrue(art["valid"])
-        self.assertEqual(art["highway"]["id"], "K")
+        self.assertFalse(art["valid"])
+        self.assertIn("multi_span_engagement", art["invalid_reasons"])
         self.assertEqual(art["highway"]["n_engaged_spans"], 2)
-        self.assertEqual(len(art["highway"]["engaged_window_s"]), 2)   # union surfaced per-span
-        # the off-route gap was EXCLUDED -> the pin is clean (not pulled off-all by the y=5000 gap)
-        self.assertFalse(art["highway"]["off_all_highways"])
-        self.assertLess(art["highway"]["mean_dist_qu"], RE.PIN_OFF_ALL_QU)
+        self.assertIsNone(art["highway"]["engaged_window_s"])      # no single contiguous window
+        self.assertIsNone(art["adherence"])                        # NO consumable score (no bridge)
+        self.assertIsNone(art["velocity"])
+        self.assertIsNone(art["degenerate"])
+        self.assertIn("non_isolated_debug", art)                   # full-traj numbers quarantined only
+        # ...and the ledger merge writes NO rmse/speed for a multi-span (invalid) run
+        with tempfile.TemporaryDirectory() as td:
+            lp = Path(td) / "bot-attempts.json"
+            lp.write_text(json.dumps({"schema": "komodobots.bot_attempts.v1", "map": "dm3",
+                                      "attempts": [{"run_id": "rm", "verdict": "GREEN"}]}),
+                          encoding="utf-8")
+            re_row = RE.merge_score_into_ledger(lp, "rm", art)
+            self.assertFalse(re_row["valid"])
+            self.assertIn("multi_span_engagement", re_row["invalid_reasons"])
+            self.assertNotIn("rmse_xyz", re_row)
+            self.assertNotIn("mean_speed_qu_s", re_row)
 
     def test_stalled_attempt_is_valid_but_degenerate(self):
         # barely moves (x 0..6 qu vs the ~1000 qu seed) -> progress < MIN_PROGRESS, but it WAS
