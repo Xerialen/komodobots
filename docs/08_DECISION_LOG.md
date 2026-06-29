@@ -4069,6 +4069,13 @@ contiguous `[t0,t1]` window with no gap; proper per-span multi-span scoring is a
 P1-2): route_eval's expected failures `raise SystemExit` (a BaseException, not Exception), so the hook
 catches `(Exception, SystemExit)` — a scoring failure only warns and never fails an already-valid
 recorded run (bare BaseException is deliberately not caught, so KeyboardInterrupt still propagates).
+**(g) `--score` scoring is SINGLE-bot only** (gate P1, 4th pass): route_eval scores one isolated bot
+and auto-picks the lone mover (`player=None`), so with `--bots > 1` the most-moving player can be a
+different bot than the gated `slot` → it would write a valid-looking artifact + ledger score for the
+WRONG bot's trajectory under slot N's window. The `--score` post-run hook therefore fail-closed SKIPS
+(loud warning, no artifact, no ledger score) when `n_bots != 1`; the per-edict isolation cvars are
+still set for every bot, only the post-run *scoring* is single-bot. The multi-bot slot→player binding
+is the PR2 4-assigned-routes concern.
 
 ### Alternatives Considered
 

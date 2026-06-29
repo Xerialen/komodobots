@@ -282,12 +282,25 @@ serverinfo hostname "komodobots-prewar:{port}"
     cfg_path.write_text(cfg, encoding="utf-8")
 
 
-def _run_route_eval_score(run_dir: Path, slot: int, demos_dir: Path) -> None:
+def _run_route_eval_score(run_dir: Path, slot: int, demos_dir: Path, n_bots: int = 1) -> None:
     """T5.2 (#428) post-run hook: pin + score this run via route_eval.py.
+
+    SINGLE-BOT ONLY (fail-closed). route_eval scores ONE isolated bot -- it auto-picks the lone mover
+    (`player=None`) and clips to `slot`'s ENGAGED window. With `--bots > 1` the most-moving player may
+    be a DIFFERENT bot than `slot`, so scoring would write a valid-looking artifact + ledger score for
+    the WRONG bot's trajectory under slot N's window (corrupt evidence). Until the multi-bot
+    slot->player binding lands (the PR2 4-assigned-routes harness), `n_bots != 1` SKIPS scoring with a
+    loud warning and writes NO artifact + NO ledger score.
 
     Additive + best-effort: a scoring failure here (e.g. no qw-analyze on the box) only WARNs --
     the freshness verdict + the recorded MVD are already final and unaffected.
     """
+    if n_bots != 1:
+        LOGGER.warning("route_eval --score SKIPPED: scores the single isolated bot, but --bots=%d. "
+                       "Multi-bot slot->player binding is a PR2 concern; no route_eval artifact or "
+                       "ledger score written (the run/MVD/verdict are unaffected).", n_bots)
+        print(f"route_eval    : SKIPPED (--bots {n_bots} != 1; multi-bot slot->player binding is PR2)")
+        return
     robs = str(REPO_ROOT / "experiments" / "route_observatory")
     if robs not in sys.path:
         sys.path.insert(0, robs)
@@ -373,8 +386,9 @@ def main(argv=None) -> int:
     p.add_argument("--score", action="store_true",
                    help="T5.2 (#428): isolate each bot on a base Route-Canon highway (handoff-gate "
                         "cvars) and, after the run, pin + score it with route_eval.py -- writes a "
-                        "komodobots.route_eval.v1 artifact into the run dir and merges rmse_xyz + "
-                        "mean_speed + highway_id into the ledger row. Default off (unchanged behavior).")
+                        "komodobots.route_eval.v1 artifact into the run dir and merges the score into "
+                        "the ledger row. SINGLE-bot scoring only: with --bots>1 the post-run scoring "
+                        "is SKIPPED (multi-bot slot->player binding is PR2). Default off.")
     args = p.parse_args(argv)
 
     if not 28599 <= args.port <= 28609:
@@ -561,9 +575,10 @@ def main(argv=None) -> int:
               f"publish it to prod alongside the .mvd)")
 
         # T5.2 (#428): route-isolated objective scoring. Opt-in (--score); needs the demo +
-        # the handoff-gated cfg (set above). Best-effort -- never changes the run's exit code.
+        # the handoff-gated cfg (set above). SINGLE-bot only (the hook fail-closed SKIPs --bots>1 to
+        # avoid scoring the wrong bot). Best-effort -- never changes the run's exit code.
         if args.score and demo is not None:
-            _run_route_eval_score(run_dir, bot_slots[0], demos_dir)
+            _run_route_eval_score(run_dir, bot_slots[0], demos_dir, n_bots=args.bots)
         return 0 if verdict_green else 1
 
     finally:

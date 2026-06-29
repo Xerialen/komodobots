@@ -114,7 +114,18 @@ class ScoreHookBestEffortTest(unittest.TestCase):
         self.route_eval.evaluate_run = _raise
         with tempfile.TemporaryDirectory() as td:
             # Must return None WITHOUT raising -- the recorded run/verdict stands.
-            self.assertIsNone(pw._run_route_eval_score(Path(td), 1, Path(td)))
+            self.assertIsNone(pw._run_route_eval_score(Path(td), 1, Path(td), n_bots=1))
+
+    def test_hook_skips_scoring_for_multi_bot(self):
+        # P1 (4th-pass): route_eval scores the SINGLE isolated bot; with --bots>1 the auto-picked
+        # mover may be a DIFFERENT bot than slot 1 -> corrupt score. The hook MUST fail-closed SKIP:
+        # never call evaluate_run, never write a route_eval artifact or ledger score.
+        called = []
+        self.route_eval.evaluate_run = lambda *a, **k: called.append(True)
+        with tempfile.TemporaryDirectory() as td:
+            self.assertIsNone(pw._run_route_eval_score(Path(td), 1, Path(td), n_bots=2))
+            self.assertEqual(called, [])                                   # evaluate_run NOT called
+            self.assertFalse((Path(td) / "route_eval.json").exists())      # no artifact written
 
 
 if __name__ == "__main__":
