@@ -1210,7 +1210,10 @@ def run_smoke(device="cpu", *, baseline_reward=True, n_iters=3, n_envs=2, rollou
     src_ckpt = {"hidden": 16, "ent_out": 8, "self_dim": SELF_DIM, "gru_hidden": GRU_HIDDEN,
                 "yaw_loss": "cosine", "warmstart_of": "smoke"}
     head_dims = [h.out_features for h in base.heads]
-    save_rl_ckpt(out_ckpt, rl, src_ckpt, [f_obs, f_ent, 0, n_max], head_dims, 0,
+    # dims MUST be the NAMED dict the shared loader round-trips (_build_policy_from_checkpoint reads
+    # dims["f_obs"]/["f_ent"]/["f_aux"]/["n_max"]) — a list would save but not reload.
+    dims = {"f_obs": f_obs, "f_ent": f_ent, "f_aux": 0, "n_max": n_max}
+    save_rl_ckpt(out_ckpt, rl, src_ckpt, dims, head_dims, 0,
                  {"smoke": True, "baseline_reward": baseline_reward})
     wrote = Path(out_ckpt).exists() and Path(out_ckpt).stat().st_size > 0
     assert wrote, f"checkpoint was not written to {out_ckpt}"

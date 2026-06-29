@@ -75,6 +75,23 @@ class TestSmokeLoopCloses(unittest.TestCase):
         self.assertEqual(RL.main(["--smoke", "--cpu"]), 0)
         self.assertEqual(RL.main(["--smoke", "--cpu", "--baseline-reward"]), 0)
 
+    def test_smoke_ckpt_reloads_via_shared_loader(self):
+        # the smoke ckpt must satisfy the repo's checkpoint contract: a REAL round-trip through the
+        # shared load_rl_policy (the train/eval path), not just file-exists. Regression for dims
+        # passed as a list (the loader reads dims["f_obs"] etc., a NAMED dict).
+        import tempfile
+        import rl_onspeed as RL
+        with tempfile.NamedTemporaryFile(suffix="_smoke.pt", delete=False) as tf:
+            ckpt = Path(tf.name)
+        try:
+            res = RL.run_smoke("cpu", baseline_reward=True, n_iters=1, out_ckpt=str(ckpt))
+            self.assertTrue(res["ckpt_written"])
+            rl, _anchor, _ckpt, dims, _head_dims = RL.load_rl_policy(ckpt, "cpu")
+            self.assertEqual(dims["f_obs"], 336)
+            self.assertIsNotNone(rl)
+        finally:
+            ckpt.unlink(missing_ok=True)
+
 
 @unittest.skipUnless(_HAVE_TORCH, "torch required for the RL baseline-smoke loop")
 class TestEnvStepWiresBaseline(unittest.TestCase):
