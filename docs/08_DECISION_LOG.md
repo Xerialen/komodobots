@@ -4018,3 +4018,69 @@ Reviews: auditor.md PASS-WITH-FIXES (all ~20 citations exact on origin/main post
 untouched: T3.2 is a read-only consumer of obs/state + the #420 seed; it writes only a training-time
 reward scalar (never persisted) + an MSE eval artifact (not a feature) — no `feature_registry` /
 golden / Layer-A co-move (docs/25 §1.1).
+
+## T5.2 route-isolated eval: the driven highway is pinned GEOMETRICALLY; un-isolated runs are explicitly INVALID; PR1 ships the gate but does not finish #428 (#428)
+
+### Date
+
+2026-06-29
+
+### Decision
+
+T5.2 (#428) automates the single-route eval loop: take a recorded prewar-movecheck run →
+**geometrically pin** the base highway the bot drove → extract the bot trajectory → grade route
+ADHERENCE (MSE vs the #420 seed) **AND** record an explicit **velocity/duration** scalar → write
+`komodobots.route_eval.v1` + merge the score into the watchable-attempt ledger row. `route_eval.py`'s
+pure core is CI-gated (`tests/test_route_eval.py`); the `qw-analyze` shell-out + the live run are the
+only on-box parts (the live wrapper is `prewar_movecheck.py --score`). **PR1 ships #428's
+*Verification* gate (one bot, one highway, objective MSE + velocity, watchable, 4v4 removed) but does
+not finish #428** — the issue's "**4 bots at 4 start positions with 4 assigned routes**" *deliverable*
+is **PR2**; #428 stays OPEN. Four sub-decisions: **(a) geometric pin, not a log id** — the engine's
+`[moveprobe-handoff] slot N ENGAGED|DISENGAGED` line carries slot + state ONLY (no `*which`, no
+coordinates), so the driven highway is pinned by nearest base-seed polyline (the Python mirror of
+`move_highway.c:mhw_nearest_base_highway`), needing no engine change and no manual index→id step (this
+also fixes the inherited `T3.2_PLUMBING.md` Step 2 doc bug, which wrongly claimed the log carries the
+index/coords). **(b) a velocity scalar separate from the MSE** — the arc-fraction MSE renormalises to
+[0,1] (speed-blind), so route_eval records `velocity.mean_speed_qu_s`; **#427's reward sources speed
+from THAT term, never from the MSE** (matching the human centerline would cap the bot at human — the
+metric is route-ADHERENCE + VELOCITY, not centerline-matching). **(c) no CI gate on the MSE value** — a
+large MSE (the frozen 6-feat mover won't track a highway) is a PASS for the automation; a `degenerate`
+flag marks a stalled run whose MSE is not meaningful. **(d) route isolation is load-bearing —
+un-isolated runs are explicitly INVALID, never a silent full-trajectory score** (ML-gate P1): a
+missing / too-narrow / unextractable engaged window sets a top-level `valid: false` +
+`invalid_reasons` (`no_engaged_spans` / `engaged_window_too_narrow` / `window_extraction_failed`), the
+consumable `adherence`/`velocity`/`degenerate` go **null**, the full-trajectory numbers are quarantined
+in a non-consumable `non_isolated_debug` block, and `merge_score_into_ledger` writes **no**
+`rmse_xyz`/`mean_speed_qu_s` on the invalid path (only `valid`/`invalid_reasons` + the isolation-proof
+fields `n_engaged_spans`/`engaged_frames`/`engaged_fraction`). Rationale: the earlier silent
+full-trajectory fallback let an un-isolated run produce a normal-looking score — indistinguishable
+downstream from a real route-isolated result, which defeats #428's purpose (eval-integrity). The gate
+verdict's bar: "missing route-isolation evidence must be impossible to mistake for a valid result."
+
+### Alternatives Considered
+
+**Read the latched highway from the engine log** (rejected: the log exposes no id/coords — verified in
+`frogbot-moveprobe-handoff.patch:101-102`; auditor MF-1/MF-2). **Score against the #421 band instead of
+the seed** (rejected here, named follow-up: PR1 reuses the seed-line scorer that exists, #423; band
+tolerance is gap 2i). **Make MSE the optimization target** (rejected: caps the bot at human; velocity
+is the Phase-2 objective). **A per-slot highway-PIN cvar for deterministic 4-route assignment**
+(deferred to PR2 — a small engine change; the #422 gate latches by *intent*, not assignment).
+**Rigorous variable-dt/DTW alignment** (deferred — PR1 reuses the proven arc-fraction + time grids).
+The engaged window is mapped frames→seconds by anchored fraction (a documented PR1 approximation;
+rigorous sub-frame alignment is the deferred #428 item).
+
+### Evidence
+
+docs/28:61,64-65,67 (objective automated scoring replaces 4v4 / by-eye; every attempt watchable).
+Reuse confirmed @ origin/main `1ce3047`: `score_route_mse.load_highway_seed`/`build_artifact` (#423),
+`move_highway.{c,h}:mhw_nearest_base_highway` (#422), `route_legs.player_ticks` (the seed-building
+qw-analyze-JSON decode, build_route_canon.py — NOT `catalog_etl_qwd.py`, auditor SF-3),
+`prewar_movecheck` reuse surface + the `bot-attempts.json` ledger (#424). `tests/test_route_eval.py`
+(21 cases: geometric pin hug/ambiguous/off-all, engaged-window parse + per-slot filtering, qu slice +
+window clip, valid-artifact assembly + the three INVALID paths (no-span / too-narrow /
+extraction-failed → null consumable score + quarantined debug) + the ledger merge writing NO
+consumable score on the invalid path) green in the stdlib floor; the harness was exercised on the real
+`route_canon.dm3.json` (valid path pinned `ra_tunnel_mega_rl` from geometry; no-ENGAGED path returned
+`valid:false`/`no_engaged_spans` with null adherence/velocity). Contract surface: not a docs/25 surface (no obs channel,
+no Layer-A field — precedent: the sibling `route_mse.v1` lives in docs/02 + docs/08, not docs/25);
+registered in `docs/02_SOURCE_MAP.md`.
