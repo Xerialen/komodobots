@@ -254,14 +254,19 @@ def build_score_cvar_block(bot_edicts: tuple[int, ...], seeds=None, end_markers=
     """
     lines = [f"set k_fb_moveprobe_live_highway_gate_s{int(e)} 1" for e in bot_edicts]
     for slot, hid, (x, y, z) in (seeds or []):
-        if not end_markers or hid not in end_markers:
+        marker = (end_markers or {}).get(hid)
+        # The directed contract is BOTH-intents-or-nothing AND the END goal must be a real, POSITIVE
+        # 1-based marker: fixed_goal 0/negative is an engine no-op ("0 leaves fixed_goal alone",
+        # perslot.patch) -> un-directed = the silent-evidence risk. So reject missing AND non-positive.
+        if not isinstance(marker, int) or isinstance(marker, bool) or marker < 1:
             raise ValueError(
-                f"build_score_cvar_block: directed seed for {hid!r} (slot {slot}) has no end_marker "
-                f"-- directed --score requires BOTH spawn_origin AND fixed_goal per slot; the "
-                f"END-marker map is empty until the live FBMARKER dump (#428 follow-up)")
+                f"build_score_cvar_block: directed seed for {hid!r} (slot {slot}) has no valid "
+                f"end_marker (got {marker!r}) -- directed --score requires BOTH spawn_origin AND a "
+                f"POSITIVE 1-based fixed_goal per slot; the END-marker map is empty/invalid until the "
+                f"live FBMARKER dump (#428 follow-up / #460)")
         edict = int(slot) + 1
         lines.append(f'set k_fb_moveprobe_spawn_origin_s{edict} "{x} {y} {z}"')
-        lines.append(f"set k_fb_moveprobe_fixed_goal_s{edict} {int(end_markers[hid])}")
+        lines.append(f"set k_fb_moveprobe_fixed_goal_s{edict} {marker}")
     lines.append("set k_fb_moveprobe_live_log 1")
     return "\n".join(lines) + "\n"
 

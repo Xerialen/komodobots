@@ -163,14 +163,15 @@ class BuildScoreCvarBlockTest(unittest.TestCase):
         self.assertNotIn("fixed_goal_s1", block)
         self.assertIn("set k_fb_moveprobe_live_highway_gate_s3 1", block)
 
-    def test_directed_seed_without_end_marker_raises(self):
-        # The directed contract is both-intents-or-nothing: a seed with no end_marker must RAISE,
-        # never emit a START-only (un-latchable) directed run.
+    def test_directed_seed_without_valid_end_marker_raises(self):
+        # The directed contract is both-intents-or-nothing AND the END marker must be a POSITIVE
+        # 1-based index: missing, empty, OR a no-op 0/negative/non-int must all RAISE -- never emit a
+        # START-only (un-latchable) or fixed_goal-0 (no-op = un-directed) run.
         seeds = [(1, "ra_tunnel_mega_rl", (192.0, -208.0, -176.0))]
-        with self.assertRaises(ValueError):
-            pw.build_score_cvar_block((1, 2), seeds, {})              # empty marker map
-        with self.assertRaises(ValueError):
-            pw.build_score_cvar_block((1, 2), seeds, None)            # no marker map at all
+        for bad in (None, {}, {"ra_tunnel_mega_rl": 0}, {"ra_tunnel_mega_rl": -3},
+                    {"ra_tunnel_mega_rl": 7.0}, {"other": 7}):
+            with self.assertRaises(ValueError):
+                pw.build_score_cvar_block((1, 2), seeds, bad)
 
 
 class WriteCfgDirectedTest(unittest.TestCase):
@@ -209,6 +210,26 @@ class MainDirectedGateTest(unittest.TestCase):
             {"id": "h_a", "route_class": "base", "start_xyz": [0, 0, 0], "end_xyz": [9, 9, 9]},
             {"id": "h_b", "route_class": "base", "start_xyz": [1, 1, 1], "end_xyz": [8, 8, 8]},
         ]}  # base highways present, but NO end_marker on any -> empty map -> fail-loud
+        orig = pw.CANON_PATH
+        with tempfile.TemporaryDirectory() as td:
+            cpath = Path(td) / "canon.json"
+            cpath.write_text(json.dumps(canon), encoding="utf-8")
+            pw.CANON_PATH = cpath
+            try:
+                rc = pw.main(["--score", "--bots", "2", "--port", "28599"])
+            finally:
+                pw.CANON_PATH = orig
+        self.assertEqual(rc, 2)
+
+    def test_nonpositive_marker_also_fails_before_server(self):
+        # A malformed end_marker: 0 (an engine no-op) must NOT satisfy the directed contract -- the
+        # run must still fail loud (exit 2) before startup, not launch un-directed.
+        canon = {"highways": [
+            {"id": "h_a", "route_class": "base", "start_xyz": [0, 0, 0], "end_xyz": [9, 9, 9],
+             "end_marker": 0},
+            {"id": "h_b", "route_class": "base", "start_xyz": [1, 1, 1], "end_xyz": [8, 8, 8],
+             "end_marker": 5},
+        ]}
         orig = pw.CANON_PATH
         with tempfile.TemporaryDirectory() as td:
             cpath = Path(td) / "canon.json"

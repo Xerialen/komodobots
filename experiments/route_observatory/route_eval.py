@@ -256,9 +256,24 @@ def base_highway_end_markers(canon: dict) -> dict:
     so this returns `{}` and a directed `--score` run fail-louds. Populated by the #428 follow-up at
     the generator SOURCE (`data/catalog/route_canon_marks.dm3.json`) + regen -- the generated canon
     is NEVER hand-edited. The map drives live GOAL INTENT only; pin_driven_highway still scores by
-    the highway actually driven, so the score stays honest regardless."""
-    base = [h for h in canon.get("highways", []) if h.get("route_class") == "base"]
-    return {h["id"]: int(h["end_marker"]) for h in base if h.get("end_marker") is not None}
+    the highway actually driven, so the score stays honest regardless. RAISES ValueError if a present
+    `end_marker` is not a POSITIVE 1-based int -- 0 / negative / non-int is rejected, because
+    `fixed_goal 0` is an engine no-op (perslot.patch: "0 leaves fixed_goal alone") = un-directed,
+    the exact silent-evidence risk this contract guards against."""
+    out = {}
+    for h in canon.get("highways", []):
+        if h.get("route_class") != "base":
+            continue
+        marker = h.get("end_marker")
+        if marker is None:
+            continue
+        if not isinstance(marker, int) or isinstance(marker, bool) or marker < 1:
+            raise ValueError(
+                f"base_highway_end_markers: highway {h['id']!r} has invalid end_marker {marker!r} "
+                f"-- must be a positive 1-based live FBMARKER index (>= 1); 0/negative/non-int is "
+                f"rejected (fixed_goal 0 is a no-op = un-directed)")
+        out[h["id"]] = marker
+    return out
 
 
 def _player_min_dist_to_point(P, pt) -> float:

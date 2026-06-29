@@ -451,6 +451,14 @@ class TestBaseHighwayEndMarkers(unittest.TestCase):
         b = _highway("B", _line_x(100))                        # base, but no end_marker
         self.assertEqual(RE.base_highway_end_markers(_canon([a, s, b])), {"A": 7})
 
+    def test_rejects_non_positive_or_non_int_markers(self):
+        # fixed_goal 0/negative is an engine no-op (= un-directed); a non-int is not a marker index.
+        # All must RAISE before the bad value can ever be emitted as a fixed_goal cvar.
+        for bad in (0, -1, 7.0, "7", True):
+            a = _highway("A", _line_x(0)); a["end_marker"] = bad
+            with self.assertRaises(ValueError):
+                RE.base_highway_end_markers(_canon([a]))
+
 
 class TestBindPlayersToSeeds(unittest.TestCase):
     def _pl(self, name, start):
