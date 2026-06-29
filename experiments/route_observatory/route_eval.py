@@ -42,6 +42,7 @@ Usage (standalone, on a recorded run dir):
 from __future__ import annotations
 
 import argparse
+import bisect
 import json
 import logging
 import math
@@ -76,6 +77,13 @@ MIN_PROGRESS = 0.10
 PIN_AMBIGUOUS_MARGIN_QU = 48.0          # == MHW_R_ON
 PIN_OFF_ALL_QU = 96.0                   # == MHW_R_OFF
 
+# Cross-bot isolation (#428 shape-A: N bots in ONE server). The QW player hull is +-16 qu in xy, so
+# two bot centres within ~32 qu are touching; 34 = a small margin. Two bots within this DURING the
+# overlap of their engaged windows bumped -- a physics block that perturbs the scored path WITHOUT
+# disengaging the highway gate (which would silently corrupt the MSE) -> fail-closed `player_contact`
+# (invalidate both; a contaminated run is never silently scored).
+PLAYER_CONTACT_QU = 34.0
+
 DEFAULT_CANON = REPO_ROOT / "data" / "catalog" / "route_canon.dm3.json"
 DEFAULT_LEDGER = REPO_ROOT / "lab" / "dashboard" / "public" / "data" / "bot-attempts.json"
 DEFAULT_DEMOS_DIR = Path("/home/ubuntu/nquakesv/ktx/demos")
@@ -94,7 +102,9 @@ _NOTE = (
     "valid=false (+ invalid_reasons) means the run was NOT route-isolated -- no_engaged_spans / "
     "multi_span_engagement (the bot engaged >1x: a disengaged off-route gap would bridge "
     "velocity/arclen across spans, so PR1 fail-closes; per-span scoring is a deferred follow-up) / "
-    "engaged_window_too_narrow / window_extraction_failed. On invalid the consumable "
+    "engaged_window_too_narrow / window_extraction_failed / player_contact (a cross-bot bump within "
+    "the engaged window physics-contaminated the scored path -- multi-bot only) / no_player_bound. "
+    "On invalid the consumable "
     "adherence/velocity/degenerate are NULL and ONLY non_isolated_debug carries (non-consumable) "
     "full-trajectory numbers -- never read those as a score."
 )
@@ -216,6 +226,63 @@ def extract_attempt_trajectory(analysis_json: dict, player, window=None) -> list
         raise SystemExit(f"extract_attempt_trajectory: < 2 ticks for {name!r}"
                          + (f" in window {window}" if window else ""))
     return rows
+
+
+# =============================================================================
+# 2b. seeds + slot->player binding (#428 shape-A multi-bot: N bots in ONE server)
+# =============================================================================
+def base_highway_seeds(canon: dict, n_bots: int) -> list:
+    """The first `n_bots` route_class=='base' highways (in canon file order) as
+    `(slot, highway_id, (x, y, z))` seeds: the harness spawn-snaps bot k (slot k, engine edict k+1) to
+    base[k-1]'s 3-D `start_xyz`. start_xyz is read from the JSON canon (the generated 2-D
+    route_canon_dm3.h is NOT the seed source -- it has no z). Raises if `n_bots` exceeds the base
+    count (PR2 assigns one distinct base highway per bot; there are 4)."""
+    base = [h for h in canon.get("highways", []) if h.get("route_class") == "base"]
+    if n_bots > len(base):
+        raise ValueError(f"base_highway_seeds: {n_bots} bots but only {len(base)} base highways")
+    out = []
+    for k, h in enumerate(base[:n_bots], start=1):
+        xyz = h.get("start_xyz") or h["segments"][0]["trajectory"][0][1:4]
+        out.append((k, h["id"], (float(xyz[0]), float(xyz[1]), float(xyz[2]))))
+    return out
+
+
+def _player_min_dist_to_point(P, pt) -> float:
+    """Min 3-D distance (qu) from a player's whole trajectory to a point -- the closest approach a bot
+    made to a seed coordinate."""
+    best = float("inf")
+    for tk in player_ticks(P):
+        d = math.dist((tk["x"], tk["y"], tk["z"]), pt)
+        if d < best:
+            best = d
+    return best
+
+
+def bind_players_to_seeds(analysis_json: dict, seeds, *, exclude_players=()) -> dict:
+    """Bind each seeded slot to the DISTINCT player whose trajectory passes nearest that slot's
+    spawn-snap coordinate. KTX `addbot` names bots randomly (NOT per-slot), so the binding is purely
+    geometric: with each bot spawn-snapped to a far-apart base-highway start, closest-approach
+    uniquely identifies it (the 4 dm3 base starts are >=270 qu apart). Greedy by smallest distance,
+    each player used at most ONCE (uniqueness -- two slots never bind the same player). The non-moving
+    spectator shim is excluded by name (`exclude_players`); excluding by movement is impossible because
+    the frozen mover stalls too. `seeds = [(slot, (x, y, z)), ...]`. Returns `{slot: player_name|None}`
+    (None when fewer players than seeds)."""
+    excl = set(exclude_players)
+    players = [P for P in ((analysis_json.get("streams") or {}).get("players") or [])
+               if P.get("name") not in excl]
+    triples = [(_player_min_dist_to_point(P, tuple(pt)), slot, P["name"])
+               for slot, pt in seeds for P in players]
+    triples.sort(key=lambda t: t[0])
+    bound, used_slots, used_names = {}, set(), set()
+    for _d, slot, name in triples:
+        if slot in used_slots or name in used_names:
+            continue
+        bound[slot] = name
+        used_slots.add(slot)
+        used_names.add(name)
+    for slot, _pt in seeds:
+        bound.setdefault(slot, None)
+    return bound
 
 
 # =============================================================================
@@ -380,6 +447,82 @@ def _seed_ts(canon, highway_id):
 
 
 # =============================================================================
+# 4b. cross-bot player_contact — the fail-closed multi-bot isolation guard (#428 shape-A)
+# =============================================================================
+def _interp_xyz(ts, rows, t):
+    """Linear-interpolate [x,y,z] at time t over [t,x,y,z] `rows` (`ts` = their t column), clamped to
+    the ends. Lets two bots be compared at the SAME demo instant (one recording -> one shared clock)."""
+    i = bisect.bisect_left(ts, t)
+    if i <= 0:
+        return rows[0][1:4]
+    if i >= len(rows):
+        return rows[-1][1:4]
+    t0, t1 = ts[i - 1], ts[i]
+    a, b = rows[i - 1], rows[i]
+    if t1 <= t0:
+        return a[1:4]
+    f = (t - t0) / (t1 - t0)
+    return [a[1] + f * (b[1] - a[1]), a[2] + f * (b[2] - a[2]), a[3] + f * (b[3] - a[3])]
+
+
+def detect_player_contact(tracks, *, threshold_qu=PLAYER_CONTACT_QU, dt=0.05) -> dict:
+    """Cross-bot fail-closed isolation check. Two bots whose trajectories come within the player bbox
+    (`threshold_qu`) DURING the overlap of their engaged windows bumped -- a physics block that
+    perturbs the scored path without disengaging the gate, silently corrupting the MSE. Both runs are
+    flagged so the caller invalidates them (`player_contact`). Compared at a shared `dt` time grid over
+    the window overlap (same demo clock). `tracks = [{slot, player, window_s:(t0,t1),
+    rows:[[t,x,y,z],...]}, ...]` (VALID slots only). Returns `{slot: [{slot,min_dist_qu,t_s}, ...]}`
+    for contacted slots (empty dict = clean)."""
+    contacts: dict = {}
+    for i in range(len(tracks)):
+        for j in range(i + 1, len(tracks)):
+            A, B = tracks[i], tracks[j]
+            lo = max(A["window_s"][0], B["window_s"][0])
+            hi = min(A["window_s"][1], B["window_s"][1])
+            if hi <= lo:
+                continue                                  # engaged windows do not overlap in time
+            tsA = [r[0] for r in A["rows"]]
+            tsB = [r[0] for r in B["rows"]]
+            best, best_t = float("inf"), lo
+            for k in range(int((hi - lo) / dt) + 2):
+                tt = min(hi, lo + k * dt)
+                d = math.dist(_interp_xyz(tsA, A["rows"], tt), _interp_xyz(tsB, B["rows"], tt))
+                if d < best:
+                    best, best_t = d, tt
+            if best < threshold_qu:
+                contacts.setdefault(A["slot"], []).append(
+                    {"slot": B["slot"], "min_dist_qu": round(best, 1), "t_s": round(best_t, 3)})
+                contacts.setdefault(B["slot"], []).append(
+                    {"slot": A["slot"], "min_dist_qu": round(best, 1), "t_s": round(best_t, 3)})
+    return contacts
+
+
+def _demote_to_player_contact(art: dict, partners: list) -> dict:
+    """Demote a VALID artifact to invalid:`player_contact` -- a cross-bot bump within the engaged
+    window contaminated the scored trajectory (fail-closed: a physics block is not a movement score).
+    The windowed numbers move to `non_isolated_debug` (non-consumable); the consumables go NULL, same
+    invariant as every other invalid path."""
+    pinned_id = (art.get("highway") or {}).get("id")
+    art["valid"] = False
+    if "player_contact" not in art["invalid_reasons"]:
+        art["invalid_reasons"].append("player_contact")
+    art["non_isolated_debug"] = {
+        "_warning": ("player_contact: within the player bbox of another bot DURING the engaged window "
+                     "-> the scored trajectory is physics-contaminated, NOT a valid route score; do "
+                     "NOT consume these numbers."),
+        "contact_partners": partners,
+        "highway_id": pinned_id,
+        "adherence": art.get("adherence"), "velocity": art.get("velocity"),
+        "degenerate": art.get("degenerate"),
+    }
+    art["highway"]["id"] = None
+    art["adherence"] = None
+    art["velocity"] = None
+    art["degenerate"] = None
+    return art
+
+
+# =============================================================================
 # 5. evaluate_analysis — the pure assembly (the CI-tested core)
 # =============================================================================
 def _score_rows(canon, rows, grid, map_name):
@@ -535,14 +678,39 @@ def _freshness_block(freshness):
     return {k: freshness.get(k) for k in ("ok", "min_fraction") if k in freshness} or None
 
 
-def merge_score_into_ledger(ledger_path: Path, run_id: str, artifact: dict):
-    """Merge the route-eval result into that run's `komodobots.bot_attempts.v1` row (additive nested
-    `route_eval` key -- the row's required keys are untouched, so the dashboard gallery still reads
-    it). ALWAYS carries the isolation-proof fields (`valid`, `invalid_reasons`, `n_engaged_spans`,
-    `engaged_frames`, `engaged_fraction`); the consumable `highway_id`/`rmse_xyz`/`mean_speed_qu_s`/
-    `degenerate` are written ONLY when `valid` -- an INVALID (not route-isolated) eval writes NO
-    consumable score, so a downstream reader can never mistake it for a real route_eval result
-    (#428). A missing/unreadable ledger or a missing row WARNs and skips (never crashes the run)."""
+def _ledger_block(artifact: dict, *, slot=None, player=None) -> dict:
+    """One per-bot ledger block. ALWAYS carries the isolation-proof fields (`valid`,
+    `invalid_reasons`, `n_engaged_spans`, `engaged_frames`, `engaged_fraction`); the consumable
+    `highway_id`/`rmse_xyz`/`mean_speed_qu_s`/`degenerate` ONLY when `valid` -- an INVALID (not
+    route-isolated / contaminated) eval lands NO consumable score, so a downstream reader can never
+    mistake it for a real result (#428). `slot`/`player` identify the bot within a multi-bot
+    `route_evals` array (single-bot run -> a 1-element array)."""
+    hw = artifact.get("highway") or {}
+    block = {
+        "slot": slot, "player": player,
+        "valid": artifact.get("valid"),
+        "invalid_reasons": artifact.get("invalid_reasons", []),
+        "n_engaged_spans": hw.get("n_engaged_spans"),
+        "engaged_frames": hw.get("engaged_frames"),
+        "engaged_fraction": hw.get("engaged_fraction"),
+    }
+    if artifact.get("valid"):
+        block.update({
+            "highway_id": hw.get("id"),
+            "rmse_xyz": (artifact.get("adherence") or {}).get("rmse_xyz"),
+            "mean_speed_qu_s": (artifact.get("velocity") or {}).get("mean_speed_qu_s"),
+            "degenerate": artifact.get("degenerate"),
+        })
+    return block
+
+
+def merge_route_evals_into_ledger(ledger_path: Path, run_id: str, blocks: list):
+    """Merge N per-bot blocks onto that run's `komodobots.bot_attempts.v1` row as the additive nested
+    `route_evals` array (the multi-bot shape; a single-bot run is a 1-element array). The row's
+    required keys are untouched, so the dashboard gallery still reads it; no live consumer reads
+    `route_evals` yet. A missing/unreadable ledger or a missing row WARNs + skips (never crashes the
+    run). Returns the merged `blocks`, or None when not merged."""
+    ledger_path = Path(ledger_path)
     if not ledger_path.exists():
         LOGGER.warning("ledger %s absent; score not merged", ledger_path)
         return None
@@ -551,29 +719,22 @@ def merge_score_into_ledger(ledger_path: Path, run_id: str, artifact: dict):
     if not isinstance(attempts, list):
         LOGGER.warning("ledger %s has no attempts list; score not merged", ledger_path)
         return None
-    hw = artifact.get("highway") or {}
-    route_eval = {
-        "valid": artifact.get("valid"),
-        "invalid_reasons": artifact.get("invalid_reasons", []),
-        "n_engaged_spans": hw.get("n_engaged_spans"),
-        "engaged_frames": hw.get("engaged_frames"),
-        "engaged_fraction": hw.get("engaged_fraction"),
-    }
-    if artifact.get("valid"):
-        route_eval.update({
-            "highway_id": hw.get("id"),
-            "rmse_xyz": (artifact.get("adherence") or {}).get("rmse_xyz"),
-            "mean_speed_qu_s": (artifact.get("velocity") or {}).get("mean_speed_qu_s"),
-            "degenerate": artifact.get("degenerate"),
-        })
     for row in attempts:
         if row.get("run_id") == run_id:
-            row["route_eval"] = route_eval
+            row["route_evals"] = blocks
             ledger_path.write_text(json.dumps(ledger, indent=2, sort_keys=True) + "\n",
                                    encoding="utf-8")
-            return route_eval
-    LOGGER.warning("no ledger row for run_id %s; route_eval not merged", run_id)
+            return blocks
+    LOGGER.warning("no ledger row for run_id %s; route_evals not merged", run_id)
     return None
+
+
+def merge_score_into_ledger(ledger_path: Path, run_id: str, artifact: dict, *, slot=1, player=None):
+    """Single-bot convenience: merge ONE artifact as a 1-element `route_evals` array. Returns the
+    per-bot block (back-compat), or None when no matching row. See _ledger_block /
+    merge_route_evals_into_ledger."""
+    block = _ledger_block(artifact, slot=slot, player=player)
+    return block if merge_route_evals_into_ledger(ledger_path, run_id, [block]) is not None else None
 
 
 def evaluate_run(run_dir, *, slot=1, player=None, canon_path=DEFAULT_CANON, map_name="dm3",
@@ -604,8 +765,89 @@ def evaluate_run(run_dir, *, slot=1, player=None, canon_path=DEFAULT_CANON, map_
         (run_dir / "route_eval.json").write_text(json.dumps(artifact, indent=1) + "\n",
                                                  encoding="utf-8")
         if ledger_path:
-            merge_score_into_ledger(Path(ledger_path), run_id, artifact)
+            merge_score_into_ledger(Path(ledger_path), run_id, artifact, slot=slot, player=player)
     return artifact
+
+
+def _no_player_artifact(slot, screen_text, *, map_name, run_id, ts_utc, demo, freshness) -> dict:
+    """A fail-closed INVALID artifact for a seeded slot that bound to NO player (binding
+    under-supplied -- shouldn't happen with proper seeding, but never silently score). Mirrors the
+    evaluate_analysis invalid skeleton; isolation evidence kept, consumables NULL."""
+    try:
+        eng = parse_engaged_window(screen_text, slot)
+    except SystemExit:
+        eng = {"engaged_fraction": None, "engaged_frames": 0, "total_frames": 0, "n_engaged_spans": 0}
+    return {
+        "schema": SCHEMA, "map": map_name, "run_id": run_id, "ts_utc": ts_utc,
+        "valid": False, "invalid_reasons": ["no_player_bound"],
+        "highway": {"id": None, "pin": "nearest-base-polyline (geometric)", "engaged_window_s": None,
+                    "engaged_fraction": eng["engaged_fraction"], "engaged_frames": eng["engaged_frames"],
+                    "total_frames": eng["total_frames"], "n_engaged_spans": eng["n_engaged_spans"],
+                    "pin_margin_qu": None, "ambiguous": None, "off_all_highways": None,
+                    "mean_dist_qu": None, "ranked_mean_dist_qu": None},
+        "adherence": None, "velocity": None, "degenerate": None,
+        "freshness": freshness, "demo": demo, "_note": _NOTE,
+    }
+
+
+def evaluate_run_multi(run_dir, *, seeds, spectator_name="KomodoPrewar", canon_path=DEFAULT_CANON,
+                       map_name="dm3", grid="arclen", qw_analyze_bin=DEFAULT_QW_ANALYZE,
+                       demos_dir=DEFAULT_DEMOS_DIR, ledger_path=DEFAULT_LEDGER, write=True) -> dict:
+    """Score a MULTI-bot run end-to-end (#428 shape-A: N bots seeded onto N base highways in ONE
+    server). qw-analyze ONCE; bind each seeded slot to its DISTINCT player by nearest-seed-coordinate
+    (KTX names bots randomly); evaluate each slot independently; apply the cross-bot `player_contact`
+    fail-closed invalidation; write `route_eval.s<N>.json` per slot and merge a `route_evals:[...]`
+    array onto the ledger row. `seeds = [(slot, highway_id, (x, y, z)), ...]` (base_highway_seeds) --
+    the spawn-snap starts the harness seeded each bot to. Returns
+    `{run_id, route_evals, artifacts:{slot: artifact}}`."""
+    run_dir = Path(run_dir)
+    screen_log = run_dir / "screen.log"
+    if not screen_log.exists():
+        raise SystemExit(f"evaluate_run_multi: no screen.log in {run_dir}")
+    screen_text = screen_log.read_text(encoding="utf-8", errors="replace")
+    canon = json.loads(Path(canon_path).read_text(encoding="utf-8"))
+    run_id = run_dir.name
+    mvd = _find_run_mvd(run_dir, demos_dir, run_id)
+    analysis = run_qw_analyze(mvd, qw_analyze_bin)
+    demo_block = {"name": mvd.name, "url": f"/demos/online/{mvd.name}"}
+    freshness = _freshness_block(_load_json(run_dir / "freshness.json"))
+    ts_utc = datetime.now(timezone.utc).isoformat()
+
+    bound = bind_players_to_seeds(analysis, [(s, xyz) for s, _hid, xyz in seeds],
+                                  exclude_players=(spectator_name,))
+    arts, tracks = {}, []
+    for slot, _hid, _xyz in seeds:
+        player = bound.get(slot)
+        if player is None:
+            LOGGER.warning("route_eval: slot %d bound to no player -> INVALID (no_player_bound)", slot)
+            art = _no_player_artifact(slot, screen_text, map_name=map_name, run_id=run_id,
+                                      ts_utc=ts_utc, demo=demo_block, freshness=freshness)
+        else:
+            art = evaluate_analysis(canon, analysis, player=player, slot=slot,
+                                    screen_log_text=screen_text, map_name=map_name, grid=grid,
+                                    demo=demo_block, freshness=freshness, run_id=run_id, ts_utc=ts_utc)
+        arts[slot] = (player, art)
+        if art["valid"]:
+            w = art["highway"]["engaged_window_s"]
+            rows = extract_attempt_trajectory(analysis, player, window=(w[0], w[1]))
+            tracks.append({"slot": slot, "player": player, "window_s": (w[0], w[1]), "rows": rows})
+
+    for slot, partners in detect_player_contact(tracks).items():
+        LOGGER.warning("route_eval: slot %d player_contact %s -> INVALID (physics-contaminated)",
+                       slot, partners)
+        _demote_to_player_contact(arts[slot][1], partners)
+
+    blocks = []
+    for slot, _hid, _xyz in seeds:
+        player, art = arts[slot]
+        if write:
+            (run_dir / f"route_eval.s{slot}.json").write_text(
+                json.dumps(art, indent=1) + "\n", encoding="utf-8")
+        blocks.append(_ledger_block(art, slot=slot, player=player))
+    if write and ledger_path:
+        merge_route_evals_into_ledger(Path(ledger_path), run_id, blocks)
+    return {"run_id": run_id, "route_evals": blocks,
+            "artifacts": {s: a for s, (_p, a) in arts.items()}}
 
 
 def main(argv=None) -> int:

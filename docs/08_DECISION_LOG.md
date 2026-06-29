@@ -4105,3 +4105,66 @@ floor; the harness was exercised on the real `route_canon.dm3.json` (valid path 
 adherence/velocity). Contract surface: not a docs/25 surface (no obs channel,
 no Layer-A field — precedent: the sibling `route_mse.v1` lives in docs/02 + docs/08, not docs/25);
 registered in `docs/02_SOURCE_MAP.md`.
+
+## 2026-06-29 — T5.2 (#428) PR2: 4 bots / 4 routes, route-isolated per-route eval
+
+**Decision.** Finish #428 with **shape (A): N bots spawn-seeded onto N distinct base highways in ONE
+mvdsv/KTX server**, scored **per-route** — **no engine rebuild** (the three per-slot cvars
+`spawn_origin`/`fixed_goal`/`live_highway_gate` already exist on origin/main;
+`frogbot-moveprobe-perslot.patch`).
+
+- **Assignment = start-position seeding (approach a).** `build_score_cvar_block` emits
+  `k_fb_moveprobe_spawn_origin_s<edict>` per bot from the canon's 3-D `start_xyz`
+  (`route_eval.base_highway_seeds`; the generated 2-D `route_canon_dm3.h` is NOT the seed source — no
+  z). The existing handoff gate latches the highway the bot stands on; the geometric pin reports which
+  it drove. `--score` requires **`--bots ≤ 4`** (4 base highways map 1:1 to 4 bots).
+- **slot→player binding is geometric** (`bind_players_to_seeds`): KTX `addbot` names bots **randomly**,
+  so each seeded slot takes the **distinct** player whose trajectory passes nearest its spawn-snap
+  coordinate (greedy by distance, uniqueness enforced; spectator excluded by name). This **supersedes
+  the (g) "single-bot only" fail-closed SKIP** of the PR1 entry above — multi-bot post-run scoring is
+  now `evaluate_run_multi` (qw-analyze once → loop slots → `route_eval.s<N>.json`).
+- **Cross-bot isolation = fail-closed `player_contact`** (`detect_player_contact`): two bots within the
+  player bbox (~34 qu) DURING the overlap of their engaged windows → **both** invalid (no consumable
+  score). Closes a silent-MSE-corruption hole — a bump perturbs the scored path without disengaging the
+  gate. Integrity, not yield. Engine combat/collision-off = approach (b), deferred.
+- **Ledger shape generalized to `route_evals: [block, …]`** (single-bot = 1-element). The old singular
+  `route_eval` key had **no live consumer** (tree-wide grep empty; `BotAttemptsGallery.tsx` reads only
+  the row's required keys), so one shape. **Producer-only** — NOT added to the golden
+  `bot-attempts.example.json` (an example no test validates is not a contract); the dashboard wiring +
+  panel-test + golden-example row move together in a later consumer ticket.
+
+**"4 bots" ≠ "4v4".** docs/28:93 mandates "no 4v4". 4 *isolated* bots in FFA warmup, each gated onto its
+own highway, scored independently + fail-closed if contaminated, is the opposite of a noisy 4v4 match.
+
+### Alternatives Considered
+
+**4 single-route processes (shape B)** — 1 bot / 1 route / 1 server, fanned out: collision-free by
+construction (no `player_contact` needed), embarrassingly parallel, reuses PR1's single-bot path (no
+binding). The eval rollout is **CPU-bound** (mvdsv + KTX + qw-analyze; the frozen 6-feat MLP runs on
+CPU — the GPU is for *training*), so (B) is the unit of a parallel CPU rollout farm for the RL loop
+(#427/#429). **Recorded on the #428 thread + the runbook; PR2 ships (A) as reviewed** (owner: document
+the alternative, proceed with the plan). **Engine combat/collision-off + a per-slot highway-PIN cvar**
+(approach b — a KTX change; deferred: (a) guarantees integrity via `player_contact`/`multi_span`, not
+yield). **Goal-pin per slot** (`fixed_goal_s<edict>` at the highway end; deferred — needs an
+end_xyz→live-marker map; integrity-safe to defer). **Always-singular `route_eval` + a separate
+`route_evals`** (rejected: two shapes for a value nothing reads yet; one generalized key is simpler).
+
+### Reviews
+
+Plan reviewed pre-implementation by an **auditor** pass (origin/main + origin/dev → **targets main**;
+dev is a strict ancestor of main, all PR2 files main-only, **no per-file dev parity owed**) and a
+**NotebookLM** pass (surfaced the **player-collision** silent-corruption gap → the `player_contact`
+guard). The auditor **MAJOR** — don't seed an unvalidated `route_evals` field into the golden example —
+→ kept **producer-only**. Auditor precision fixes folded: the guard was a logged SKIP (not a bare
+`return`); 3-D seed from the JSON canon vs the 2-D header; the per-slot artifact print strings.
+
+### Evidence
+
+`tests/test_route_eval.py` (+12 multi-bot cases: `base_highway_seeds` order/3-D-start/over-cap;
+geometric binding + uniqueness + spectator-exclusion + under-supply; `player_contact`
+detect/clean/non-overlap; `evaluate_run_multi` happy-path pins each bot's OWN highway + the
+colliding-pair both-`player_contact` path) and `tests/test_prewar_movecheck.py` (seed-cvar render
+asserts canon coords at `edict=slot+1`, spectator never seeded; the hook scores multi-bot via
+`evaluate_run_multi`) green in the stdlib floor — full `python -m unittest discover -s tests` = **1841
+OK**, `route_canon_dm3.h` lock-step gate still passes (PR2 does not regenerate the header). The live
+`--bots 4 --score` run is **owner-gated / on-box** (scratch port 28599+).

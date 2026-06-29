@@ -86,6 +86,7 @@ LOGGER = logging.getLogger(__name__)
 # falls back to bot-attempts.example.json before the first real run.
 LEDGER_SCHEMA = "komodobots.bot_attempts.v1"
 LEDGER_PATH = REPO_ROOT / "lab" / "dashboard" / "public" / "data" / "bot-attempts.json"
+CANON_PATH = REPO_ROOT / "data" / "catalog" / "route_canon.dm3.json"   # PR2 --score multi-bot seeds
 
 
 def _freshness_summary(report: dict) -> dict:
@@ -227,25 +228,35 @@ def port_is_down(port: int) -> bool:
     return not out or "DOWN" in out
 
 
-def build_score_cvar_block(bot_edicts: tuple[int, ...]) -> str:
+def build_score_cvar_block(bot_edicts: tuple[int, ...], seeds=None) -> str:
     """T5.2 (#428) --score: isolate each bot on a base Route-Canon highway + ensure the ENGAGED
     window logs, so route_eval.py can pin + score the run.
 
     Per-EDICT highway-gate cvars (`k_fb_moveprobe_live_highway_gate_s<edict>`): the moveprobe cvar
     suffix is the 1-based EDICT, matching build_leap_cvar_block's mode-30 arming, NOT the internal
     slot. `k_fb_moveprobe_live_log` is already on via build_leap_cvar_block, but it is re-asserted
-    here so the score path is self-contained. Default off -> unchanged behavior.
+    here so the score path is self-contained.
+
+    PR2 multi-bot (`seeds` set): also spawn-snap each bot onto its ASSIGNED base highway via the
+    per-slot `k_fb_moveprobe_spawn_origin_s<edict>` cvar (a one-time teleport on the first moveprobe
+    frame), so bot k starts ON base-highway-k and the handoff gate geometrically latches THAT highway.
+    `seeds = [(slot, highway_id, (x, y, z)), ...]` from route_eval.base_highway_seeds; edict = slot + 1
+    (slot 1 = bot edict 2; the spectator edict 1 is NEVER seeded). The coords are the 3-D start_xyz
+    from the JSON canon (the generated 2-D route_canon_dm3.h is not the source). Single-bot --score
+    passes no seeds -> free spawn (unchanged PR1 behavior). Default off.
     """
     lines = [f"set k_fb_moveprobe_live_highway_gate_s{int(e)} 1" for e in bot_edicts]
+    for slot, _hid, (x, y, z) in (seeds or []):
+        lines.append(f'set k_fb_moveprobe_spawn_origin_s{int(slot) + 1} "{x} {y} {z}"')
     lines.append("set k_fb_moveprobe_live_log 1")
     return "\n".join(lines) + "\n"
 
 
 def write_cfg(cfg_path: Path, *, port: int, map_name: str, timelimit: int,
               shm_name: str, stale_ticks: int, bot_edicts: tuple[int, ...],
-              score: bool = False) -> None:
+              score: bool = False, seeds=None) -> None:
     leap_cvars = build_leap_cvar_block(shm_name, stale_ticks, leap_edicts=bot_edicts)
-    score_cvars = build_score_cvar_block(bot_edicts) if score else ""
+    score_cvars = build_score_cvar_block(bot_edicts, seeds) if score else ""
     cfg = f"""// Auto-generated Komodobots prewar movecheck config
 hostname "komodobots-prewar:{port}"
 set k_motd1 "Komodobots prewar movecheck"
@@ -282,31 +293,42 @@ serverinfo hostname "komodobots-prewar:{port}"
     cfg_path.write_text(cfg, encoding="utf-8")
 
 
-def _run_route_eval_score(run_dir: Path, slot: int, demos_dir: Path, n_bots: int = 1) -> None:
+def _run_route_eval_score(run_dir: Path, bot_slots: tuple[int, ...], demos_dir: Path, *,
+                          seeds=None, n_bots: int = 1) -> None:
     """T5.2 (#428) post-run hook: pin + score this run via route_eval.py.
 
-    SINGLE-BOT ONLY (fail-closed). route_eval scores ONE isolated bot -- it auto-picks the lone mover
-    (`player=None`) and clips to `slot`'s ENGAGED window. With `--bots > 1` the most-moving player may
-    be a DIFFERENT bot than `slot`, so scoring would write a valid-looking artifact + ledger score for
-    the WRONG bot's trajectory under slot N's window (corrupt evidence). Until the multi-bot
-    slot->player binding lands (the PR2 4-assigned-routes harness), `n_bots != 1` SKIPS scoring with a
-    loud warning and writes NO artifact + NO ledger score.
+    n_bots == 1: score the lone isolated bot -- auto-pick the mover (`player=None`), clip to slot 1's
+    ENGAGED window -> `route_eval.json` (PR1 path, unchanged). n_bots > 1 (PR2 shape-A): score EACH
+    seeded bot per-route -- bind slot->player by nearest spawn-snap coordinate, evaluate each, and
+    fail-closed `player_contact` any bumped pair -> `route_eval.s<N>.json` per bot + a `route_evals[]`
+    ledger array.
 
-    Additive + best-effort: a scoring failure here (e.g. no qw-analyze on the box) only WARNs --
-    the freshness verdict + the recorded MVD are already final and unaffected.
+    Additive + best-effort: a scoring failure here (e.g. no qw-analyze on the box) only WARNs -- the
+    freshness verdict + the recorded MVD are already final and unaffected. route_eval's
+    expected-failure paths raise SystemExit (a BaseException), so it is caught alongside Exception or
+    it would escape this best-effort hook and kill an already-valid live run (bare BaseException is
+    deliberately NOT caught -- KeyboardInterrupt must still propagate).
     """
-    if n_bots != 1:
-        LOGGER.warning("route_eval --score SKIPPED: scores the single isolated bot, but --bots=%d. "
-                       "Multi-bot slot->player binding is a PR2 concern; no route_eval artifact or "
-                       "ledger score written (the run/MVD/verdict are unaffected).", n_bots)
-        print(f"route_eval    : SKIPPED (--bots {n_bots} != 1; multi-bot slot->player binding is PR2)")
-        return
     robs = str(REPO_ROOT / "experiments" / "route_observatory")
     if robs not in sys.path:
         sys.path.insert(0, robs)
     try:
         import route_eval  # noqa: PLC0415 — lazy: only the opt-in --score path needs it
-        art = route_eval.evaluate_run(run_dir, slot=slot, player=None,
+        if n_bots > 1:
+            res = route_eval.evaluate_run_multi(run_dir, seeds=seeds, demos_dir=demos_dir,
+                                                ledger_path=LEDGER_PATH)
+            for blk in res["route_evals"]:
+                if blk["valid"]:
+                    print(f"route_eval s{blk['slot']}: VALID highway={blk['highway_id']} "
+                          f"rmse_xyz={blk['rmse_xyz']:.1f} speed={blk['mean_speed_qu_s']:.1f}qu/s "
+                          f"degenerate={blk['degenerate']}")
+                else:
+                    print(f"route_eval s{blk['slot']}: INVALID "
+                          f"({', '.join(blk['invalid_reasons'])}) -- no consumable score")
+            print(f"route_eval    : {len(res['route_evals'])} per-route artifacts -> "
+                  f"{run_dir}/route_eval.s<N>.json")
+            return
+        art = route_eval.evaluate_run(run_dir, slot=bot_slots[0], player=None,
                                       demos_dir=demos_dir, ledger_path=LEDGER_PATH)
         if art["valid"]:
             h, v = art["highway"], art["velocity"]
@@ -316,10 +338,6 @@ def _run_route_eval_score(run_dir: Path, slot: int, demos_dir: Path, n_bots: int
         else:
             print(f"route_eval    : INVALID ({', '.join(art['invalid_reasons'])}) -- run NOT "
                   f"route-isolated; no consumable score -> {run_dir / 'route_eval.json'}")
-    # route_eval's expected-failure paths raise SystemExit (a BaseException, NOT an Exception), so it
-    # MUST be caught alongside Exception or it would escape this best-effort hook and kill an
-    # already-valid live run. (Bare BaseException is deliberately NOT caught -- KeyboardInterrupt /
-    # SystemExit-from-the-harness-proper must still propagate.)
     except (Exception, SystemExit) as exc:  # noqa: BLE001 — scoring must never fail the live run
         LOGGER.warning("route_eval scoring failed (run still valid): %s", exc)
         print(f"route_eval    : FAILED ({exc}); the freshness run + MVD are unaffected")
@@ -387,8 +405,9 @@ def main(argv=None) -> int:
                    help="T5.2 (#428): isolate each bot on a base Route-Canon highway (handoff-gate "
                         "cvars) and, after the run, pin + score it with route_eval.py -- writes a "
                         "komodobots.route_eval.v1 artifact into the run dir and merges the score into "
-                        "the ledger row. SINGLE-bot scoring only: with --bots>1 the post-run scoring "
-                        "is SKIPPED (multi-bot slot->player binding is PR2). Default off.")
+                        "the ledger row. PR2 multi-bot: with --bots>1 each bot is spawn-seeded onto a "
+                        "DISTINCT base highway and scored per-route (route_eval.s<N>.json + a "
+                        "route_evals[] ledger array; needs --bots<=4). Default off.")
     args = p.parse_args(argv)
 
     if not 28599 <= args.port <= 28609:
@@ -399,6 +418,23 @@ def main(argv=None) -> int:
         return 2
 
     bot_edicts, bot_slots = bot_edicts_and_slots(args.bots)
+    seeds = None
+    if args.score and args.bots > 1:
+        # PR2 shape-A: assign each bot a DISTINCT base highway by spawn-seeding it onto that highway's
+        # 3-D start_xyz. base_highway_seeds raises if --bots exceeds the base-highway count (4).
+        robs = str(REPO_ROOT / "experiments" / "route_observatory")
+        if robs not in sys.path:
+            sys.path.insert(0, robs)
+        try:
+            from route_eval import base_highway_seeds  # noqa: PLC0415
+            seeds = base_highway_seeds(json.loads(CANON_PATH.read_text(encoding="utf-8")), args.bots)
+        except ValueError as exc:
+            print(f"ERROR: --score --bots {args.bots}: {exc}", file=sys.stderr)
+            return 2
+        except (OSError, ImportError) as exc:
+            print(f"ERROR: --score --bots {args.bots}: cannot load route-canon seeds ({exc})",
+                  file=sys.stderr)
+            return 2
     run_id = make_run_id(args.port)
     run_dir = args.out_root / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -432,7 +468,7 @@ def main(argv=None) -> int:
     try:
         write_cfg(cfg_path, port=args.port, map_name=args.map_name,
                   timelimit=args.timelimit, shm_name=shm_name,
-                  stale_ticks=args.stale_ticks, bot_edicts=bot_edicts, score=args.score)
+                  stale_ticks=args.stale_ticks, bot_edicts=bot_edicts, score=args.score, seeds=seeds)
         (run_dir / "lab.cfg").write_text(cfg_path.read_text(), encoding="utf-8")
         start_marker.touch()
 
@@ -578,7 +614,7 @@ def main(argv=None) -> int:
         # the handoff-gated cfg (set above). SINGLE-bot only (the hook fail-closed SKIPs --bots>1 to
         # avoid scoring the wrong bot). Best-effort -- never changes the run's exit code.
         if args.score and demo is not None:
-            _run_route_eval_score(run_dir, bot_slots[0], demos_dir, n_bots=args.bots)
+            _run_route_eval_score(run_dir, bot_slots, demos_dir, seeds=seeds, n_bots=args.bots)
         return 0 if verdict_green else 1
 
     finally:

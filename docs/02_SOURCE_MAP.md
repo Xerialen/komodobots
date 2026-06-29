@@ -1145,8 +1145,14 @@ In-repo Python (torch + numpy, `ml/requirements.txt`), trained offline on host `
   + run-dir/ledger I/O are the only impure (on-box, non-CI) parts; the pure core is gated
   (`tests/test_route_eval.py`). CLI: `route_eval.py <run_dir> [--slot/--player/--grid/--canon/--ledger/
   --no-write]`; live wrapper: `prewar_movecheck.py --score`. Runbook:
-  `experiments/ktx_moveprobe/T5.2_ROUTE_EVAL.md`. PR1 ships #428's Verification gate but does not
-  finish #428 (the 4-assigned-routes deliverable is PR2; #428 stays open).
+  `experiments/ktx_moveprobe/T5.2_ROUTE_EVAL.md`. **PR2 (4 bots / 4 routes) finishes #428** — adds the
+  multi-bot path: `base_highway_seeds` + `bind_players_to_seeds` (geometric slot→player binding, since
+  KTX `addbot` names bots randomly) + the fail-closed cross-bot `player_contact` guard +
+  `evaluate_run_multi` (qw-analyze once → per-slot `route_eval.s<N>.json`); the ledger merge is
+  generalized to a `route_evals: [block, …]` array (single-bot = 1-element; `player_contact` /
+  `no_player_bound` are multi-bot invalid_reasons). `prewar_movecheck.py --bots N --score` spawn-seeds
+  each bot onto a distinct base highway (`k_fb_moveprobe_spawn_origin_s<edict>`, 3-D canon `start_xyz`;
+  needs `--bots ≤ 4`).
 
 ## Demo extraction contract
 

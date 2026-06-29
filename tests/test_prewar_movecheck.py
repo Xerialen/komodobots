@@ -103,9 +103,11 @@ class ScoreHookBestEffortTest(unittest.TestCase):
         import route_eval  # noqa: PLC0415
         self.route_eval = route_eval
         self._orig = route_eval.evaluate_run
+        self._orig_multi = route_eval.evaluate_run_multi
 
     def tearDown(self):
         self.route_eval.evaluate_run = self._orig
+        self.route_eval.evaluate_run_multi = self._orig_multi
 
     def test_hook_swallows_systemexit_from_route_eval(self):
         def _raise(*_a, **_k):
@@ -114,18 +116,44 @@ class ScoreHookBestEffortTest(unittest.TestCase):
         self.route_eval.evaluate_run = _raise
         with tempfile.TemporaryDirectory() as td:
             # Must return None WITHOUT raising -- the recorded run/verdict stands.
-            self.assertIsNone(pw._run_route_eval_score(Path(td), 1, Path(td), n_bots=1))
+            self.assertIsNone(pw._run_route_eval_score(Path(td), (1,), Path(td), n_bots=1))
 
-    def test_hook_skips_scoring_for_multi_bot(self):
-        # P1 (4th-pass): route_eval scores the SINGLE isolated bot; with --bots>1 the auto-picked
-        # mover may be a DIFFERENT bot than slot 1 -> corrupt score. The hook MUST fail-closed SKIP:
-        # never call evaluate_run, never write a route_eval artifact or ledger score.
-        called = []
-        self.route_eval.evaluate_run = lambda *a, **k: called.append(True)
+    def test_hook_scores_multi_bot_via_evaluate_run_multi(self):
+        # PR2: with --bots>1 the hook scores EACH seeded bot per-route via evaluate_run_multi, passing
+        # the seeds (NOT a fail-closed SKIP, and NOT the single-bot evaluate_run path).
+        seen = {}
+
+        def _multi(run_dir, **k):
+            seen["seeds"] = k.get("seeds")
+            return {"run_id": "r", "route_evals": []}
+
+        self.route_eval.evaluate_run_multi = _multi
+        self.route_eval.evaluate_run = lambda *a, **k: self.fail("single-bot path must not run")
+        seeds = [(1, "A", (0.0, 0.0, 0.0)), (2, "B", (100.0, 0.0, 0.0))]
         with tempfile.TemporaryDirectory() as td:
-            self.assertIsNone(pw._run_route_eval_score(Path(td), 1, Path(td), n_bots=2))
-            self.assertEqual(called, [])                                   # evaluate_run NOT called
-            self.assertFalse((Path(td) / "route_eval.json").exists())      # no artifact written
+            pw._run_route_eval_score(Path(td), (1, 2), Path(td), seeds=seeds, n_bots=2)
+        self.assertEqual(seen["seeds"], seeds)
+
+
+class BuildScoreCvarBlockTest(unittest.TestCase):
+    """T5.2 (#428) --score cvar emission: highway-gate cvars always; PR2 multi-bot ALSO spawn-seeds
+    each bot onto its assigned base highway via per-edict k_fb_moveprobe_spawn_origin (edict=slot+1)."""
+
+    def test_single_bot_emits_gate_only_no_seed(self):
+        block = pw.build_score_cvar_block((1, 2))                     # spectator edict 1 + 1 bot edict 2
+        self.assertIn("set k_fb_moveprobe_live_highway_gate_s2 1", block)
+        self.assertIn("set k_fb_moveprobe_live_log 1", block)
+        self.assertNotIn("spawn_origin", block)                      # free spawn (PR1 single-bot)
+
+    def test_multi_bot_seeds_each_edict_at_canon_coords(self):
+        seeds = [(1, "ra_tunnel_mega_rl", (192.0, -208.0, -176.0)),
+                 (2, "enter_ra_mid_ledge_top", (249.5, -315.9, 68.8))]
+        block = pw.build_score_cvar_block((1, 2, 3), seeds)          # spectator + 2 bots
+        # slot k spawn-seeds EDICT k+1; the spectator edict 1 is NEVER seeded
+        self.assertIn('set k_fb_moveprobe_spawn_origin_s2 "192.0 -208.0 -176.0"', block)
+        self.assertIn('set k_fb_moveprobe_spawn_origin_s3 "249.5 -315.9 68.8"', block)
+        self.assertNotIn("spawn_origin_s1", block)
+        self.assertIn("set k_fb_moveprobe_live_highway_gate_s3 1", block)
 
 
 if __name__ == "__main__":
