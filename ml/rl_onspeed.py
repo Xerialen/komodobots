@@ -496,7 +496,9 @@ class PmoveEnv:
         # round-6 terms above still populate the `info` diagnostics collect_rollout reads.
         r_baseline = baseline_forward_reward((pre_ox, pre_oy),
                                              (self.st.origin[0], self.st.origin[1]), self.cur_yaw)
-        if self.baseline_reward:
+        # getattr default keeps the round-6 path for envs built via __new__ that pre-date this attr
+        # (e.g. test_rl_onspeed's hand-built fixture) — mirrors the _prev_goal_dist guard above.
+        if getattr(self, "baseline_reward", False):
             reward = r_baseline
 
         self.prev_hspeed = hspeed
