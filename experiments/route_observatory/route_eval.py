@@ -77,12 +77,13 @@ MIN_PROGRESS = 0.10
 PIN_AMBIGUOUS_MARGIN_QU = 48.0          # == MHW_R_ON
 PIN_OFF_ALL_QU = 96.0                   # == MHW_R_OFF
 
-# Cross-bot isolation (#428 shape-A: N bots in ONE server). The QW player hull is +-16 qu in xy, so
-# two bot centres within ~32 qu are touching; 34 = a small margin. Two bots within this DURING the
-# overlap of their engaged windows bumped -- a physics block that perturbs the scored path WITHOUT
-# disengaging the highway gate (which would silently corrupt the MSE) -> fail-closed `player_contact`
-# (invalidate both; a contaminated run is never silently scored).
-PLAYER_CONTACT_QU = 34.0
+# Cross-bot isolation (#428 shape-A: N bots in ONE server). Two bots whose QW player HULLS overlap
+# DURING the overlap of their engaged windows bumped -- a physics block that perturbs the scored path
+# WITHOUT disengaging the highway gate (which would silently corrupt the MSE) -> fail-closed
+# `player_contact` (invalidate both). Collision is HULL-based, NOT a centre-sphere distance (two bots
+# block on a ramp/stairs with vertically-separated origins): the QW player hull is +-16 qu in x,y and
+# spans z in [-24, +32], so two equal hulls' AABBs overlap iff |dx| < 32 AND |dy| < 32 AND |dz| < 56.
+PLAYER_HULL_HALF = (32.0, 32.0, 56.0)   # per-axis (|dx|,|dy|,|dz|) hull-overlap bounds (progs hull sums)
 
 DEFAULT_CANON = REPO_ROOT / "data" / "catalog" / "route_canon.dm3.json"
 DEFAULT_LEDGER = REPO_ROOT / "lab" / "dashboard" / "public" / "data" / "bot-attempts.json"
@@ -465,13 +466,57 @@ def _interp_xyz(ts, rows, t):
     return [a[1] + f * (b[1] - a[1]), a[2] + f * (b[2] - a[2]), a[3] + f * (b[3] - a[3])]
 
 
-def detect_player_contact(tracks, *, threshold_qu=PLAYER_CONTACT_QU, dt=0.05) -> dict:
-    """Cross-bot fail-closed isolation check. Two bots whose trajectories come within the player bbox
-    (`threshold_qu`) DURING the overlap of their engaged windows bumped -- a physics block that
-    perturbs the scored path without disengaging the gate, silently corrupting the MSE. Both runs are
-    flagged so the caller invalidates them (`player_contact`). Compared at a shared `dt` time grid over
-    the window overlap (same demo clock). `tracks = [{slot, player, window_s:(t0,t1),
-    rows:[[t,x,y,z],...]}, ...]` (VALID slots only). Returns `{slot: [{slot,min_dist_qu,t_s}, ...]}`
+def _axis_overlap_interval(a0, a1, h):
+    """The s-subinterval of [0,1] where the relative coord `a0 + (a1-a0)*s` stays within +-h (one axis
+    of the hull-overlap box) as the bots move linearly; None if it never does."""
+    da = a1 - a0
+    if abs(da) < 1e-9:                                     # no relative motion on this axis
+        return (0.0, 1.0) if abs(a0) < h else None
+    s0, s1 = (-h - a0) / da, (h - a0) / da
+    if s0 > s1:
+        s0, s1 = s1, s0
+    lo, hi = max(0.0, s0), min(1.0, s1)
+    return (lo, hi) if lo <= hi else None
+
+
+def _segment_hull_overlap(pa0, pa1, pb0, pb1):
+    """True iff the two players' HULLS overlap at ANY instant as each moves linearly p*0 -> p*1 over a
+    shared s in [0,1] (a continuous swept AABB-vs-AABB test -- a fast pass-through BETWEEN samples
+    cannot slip through). Contact iff the three per-axis hull-overlap s-intervals intersect."""
+    lo, hi = 0.0, 1.0
+    for ax, h in enumerate(PLAYER_HULL_HALF):
+        iv = _axis_overlap_interval(pa0[ax] - pb0[ax], pa1[ax] - pb1[ax], h)
+        if iv is None:
+            return False
+        lo, hi = max(lo, iv[0]), min(hi, iv[1])
+        if lo > hi:
+            return False
+    return True
+
+
+def _segment_min_dist(pa0, pa1, pb0, pb1):
+    """(min Euclidean distance, s*) between the two players as each moves linearly over s in [0,1] --
+    for the contact-evidence detail only (the DECISION is the hull-overlap test, not this scalar)."""
+    r0 = [pa0[k] - pb0[k] for k in range(3)]
+    dr = [(pa1[k] - pb1[k]) - r0[k] for k in range(3)]
+    a = sum(d * d for d in dr)
+    s = 0.0 if a < 1e-12 else max(0.0, min(1.0, -sum(r0[k] * dr[k] for k in range(3)) / a))
+    r = [r0[k] + s * dr[k] for k in range(3)]
+    return math.sqrt(sum(v * v for v in r)), s
+
+
+def detect_player_contact(tracks) -> dict:
+    """Cross-bot fail-closed isolation check (#428 shape-A). Two bots whose player HULLS overlap at any
+    instant DURING the overlap of their engaged windows bumped -- a physics block perturbs the scored
+    path without disengaging the gate, silently corrupting the MSE. Both runs are flagged so the caller
+    invalidates them (`player_contact`).
+
+    HULL-based + CONTINUOUS (the two P1 review fixes): contact is the per-axis AABB overlap of the QW
+    player hulls (`PLAYER_HULL_HALF` -- NOT a centre-sphere distance; bots block on ramps/stairs with
+    vertically-separated origins), evaluated over each linear sub-interval between the bots' RECORDED
+    tick timestamps within the window overlap (a swept test -- a fast pass-through between samples can't
+    slip through a coarse fixed grid). `tracks = [{slot, player, window_s:(t0,t1),
+    rows:[[t,x,y,z],...]}, ...]` (VALID slots only). Returns `{slot: [{slot, min_dist_qu, t_s}, ...]}`
     for contacted slots (empty dict = clean)."""
     contacts: dict = {}
     for i in range(len(tracks)):
@@ -483,17 +528,24 @@ def detect_player_contact(tracks, *, threshold_qu=PLAYER_CONTACT_QU, dt=0.05) ->
                 continue                                  # engaged windows do not overlap in time
             tsA = [r[0] for r in A["rows"]]
             tsB = [r[0] for r in B["rows"]]
-            best, best_t = float("inf"), lo
-            for k in range(int((hi - lo) / dt) + 2):
-                tt = min(hi, lo + k * dt)
-                d = math.dist(_interp_xyz(tsA, A["rows"], tt), _interp_xyz(tsB, B["rows"], tt))
-                if d < best:
-                    best, best_t = d, tt
-            if best < threshold_qu:
+            # the RECORDED tick times of BOTH bots within the overlap (+ its ends) -- the true samples
+            times = sorted({lo, hi} | {t for t in tsA if lo <= t <= hi}
+                           | {t for t in tsB if lo <= t <= hi})
+            hit, min_d, min_t = False, float("inf"), lo
+            for k in range(len(times) - 1):
+                t0, t1 = times[k], times[k + 1]
+                pa0, pa1 = _interp_xyz(tsA, A["rows"], t0), _interp_xyz(tsA, A["rows"], t1)
+                pb0, pb1 = _interp_xyz(tsB, B["rows"], t0), _interp_xyz(tsB, B["rows"], t1)
+                d, s = _segment_min_dist(pa0, pa1, pb0, pb1)
+                if d < min_d:
+                    min_d, min_t = d, t0 + s * (t1 - t0)
+                if _segment_hull_overlap(pa0, pa1, pb0, pb1):
+                    hit = True
+            if hit:
                 contacts.setdefault(A["slot"], []).append(
-                    {"slot": B["slot"], "min_dist_qu": round(best, 1), "t_s": round(best_t, 3)})
+                    {"slot": B["slot"], "min_dist_qu": round(min_d, 1), "t_s": round(min_t, 3)})
                 contacts.setdefault(B["slot"], []).append(
-                    {"slot": A["slot"], "min_dist_qu": round(best, 1), "t_s": round(best_t, 3)})
+                    {"slot": A["slot"], "min_dist_qu": round(min_d, 1), "t_s": round(min_t, 3)})
     return contacts
 
 

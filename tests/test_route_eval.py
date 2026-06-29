@@ -14,6 +14,7 @@ Covers the plan's Verification §1:
     (qw-analyze stubbed) -> route_eval.json + a correctly-merged ledger row.
 """
 import json
+import math
 import sys
 import tempfile
 import unittest
@@ -479,7 +480,31 @@ class TestDetectPlayerContact(unittest.TestCase):
              {"slot": 2, "player": "b", "window_s": (0.0, 1.0), "rows": b}])
         self.assertEqual(set(contacts), {1, 2})
         self.assertEqual(contacts[1][0]["slot"], 2)
-        self.assertLess(contacts[1][0]["min_dist_qu"], RE.PLAYER_CONTACT_QU)
+        self.assertLess(contacts[1][0]["min_dist_qu"], 1.0)        # passes through origin
+
+    def test_vertical_hull_overlap_caught_when_center_distance_would_miss(self):
+        # P1-a (review): same XY, origins 40 qu apart in Z. The player hulls overlap (|dz|=40 < 56) ->
+        # contact, but a 3-D CENTRE distance (40 qu) exceeds the old 34-qu threshold and would MISS the
+        # physics block (two bots blocking on a ramp / stairs).
+        a = [[0.0, 0., 0., 0.], [1.0, 0., 0., 0.]]
+        b = [[0.0, 0., 0., 40.], [1.0, 0., 0., 40.]]
+        contacts = RE.detect_player_contact(
+            [{"slot": 1, "player": "a", "window_s": (0.0, 1.0), "rows": a},
+             {"slot": 2, "player": "b", "window_s": (0.0, 1.0), "rows": b}])
+        self.assertEqual(set(contacts), {1, 2})                   # hull overlap despite a 40-qu Z gap
+        self.assertGreater(math.dist((0, 0, 0), (0, 0, 40)), 34.0)  # the old scalar check would not fire
+
+    def test_fast_passthrough_between_coarse_samples_caught(self):
+        # P1-b (review): bots cross at t=0.025, BETWEEN the old fixed 50 ms grid nodes (0.0 / 0.05 /
+        # 0.1) -- the grid sampled |d|>=200 at every node and returned clean. The swept hull test over
+        # the recorded tick interval catches the true crossing.
+        a = [[0.0, 0., 0., 0.], [0.1, 0., 0., 0.]]                # static at origin
+        b = [[0.0, 200., 0., 0.], [0.1, -600., 0., 0.]]          # x: 200 -> -600, through 0 at t=0.025
+        contacts = RE.detect_player_contact(
+            [{"slot": 1, "player": "a", "window_s": (0.0, 0.1), "rows": a},
+             {"slot": 2, "player": "b", "window_s": (0.0, 0.1), "rows": b}])
+        self.assertEqual(set(contacts), {1, 2})
+        self.assertLess(contacts[1][0]["min_dist_qu"], 1.0)       # true closest approach ~0 at t~0.025
 
     def test_far_apart_bots_are_clean(self):
         a = [[0.0, 0., 0., 0.], [1.0, 0., 0., 0.]]
