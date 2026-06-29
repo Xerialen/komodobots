@@ -107,6 +107,19 @@ def wrap180(d: float) -> float:
     return d if d > -180.0 else d + 360.0
 
 
+def baseline_forward_reward(prev_xy, cur_xy, yaw_deg) -> float:
+    """T3.2 (#423) NAIVE plumbing reward — the ticket's "+1 for moving forward": the horizontal
+    displacement this tick PROJECTED onto the view-facing (yaw) direction. +ve when the bot moves
+    the way it faces, -ve when it backs up, 0 when it doesn't move. A THROWAWAY signal that only
+    proves the reward pipe carries a finite scalar end-to-end (state->action->reward->update); it
+    is NOT a trained objective — the real mechanism-gated reward is PmoveEnv.step's round-6 path,
+    and reward shaping is Phase-2 (T5.1). Pure stdlib math so it is unit-testable without torch."""
+    dx = cur_xy[0] - prev_xy[0]
+    dy = cur_xy[1] - prev_xy[1]
+    ay = yaw_deg * (math.pi / 180.0)
+    return dx * math.cos(ay) + dy * math.sin(ay)
+
+
 # =============================================================================
 # Policy wrapper: warm-start BroadBCPolicy(yaw_head=True) + value head + yaw log-std.
 # The discrete heads sample from logits (Categorical); the continuous yaw delta is
@@ -200,7 +213,8 @@ class PmoveEnv:
     def __init__(self, world, stats, segments, *, n_max=7, map_name="dm3",
                  horizon=385, band_lo=252.0, band_hi=316.0, seed=0,
                  cad_hold_min=14, cad_hold_max=230, cad_hold_late=240,
-                 air_press_thresh=0.40, ap_rate_ema=0.02, r_cad_weight=1.0):
+                 air_press_thresh=0.40, ap_rate_ema=0.02, r_cad_weight=1.0,
+                 baseline_reward=False):
         self.world = world
         self.stats = stats
         self.segments = segments                 # list of (eid, start, seg) human segments
@@ -229,6 +243,10 @@ class PmoveEnv:
         # makes flipping net-positive in the SAME in-band-press basin -> recover M6 without
         # pushing press out of [0.07,0.50].
         self.r_cad_weight = float(r_cad_weight)
+        # T3.2 (#423): when set, PmoveEnv.step returns the NAIVE plumbing reward
+        # (baseline_forward_reward) instead of the round-6 mechanism-gated reward — to prove the
+        # reward signal flows, NOT to train. The round-6 reward path is otherwise untouched.
+        self.baseline_reward = bool(baseline_reward)
         self.rng = np.random.RandomState(seed)
         self.pm = PM.Pmove(world)
         self._reset_state()
@@ -329,6 +347,7 @@ class PmoveEnv:
         # PRE-FRAME horizontal velocity (the speed-gain physics uses the velocity BEFORE the
         # accel step: |v'|^2 = s^2 + 900 - (v_h . wishdir)^2). Capture it for the mechanism term.
         pre_vx, pre_vy = self.st.velocity[0], self.st.velocity[1]
+        pre_ox, pre_oy = self.st.origin[0], self.st.origin[1]   # T3.2 baseline-reward fwd progress
         self.pm.run_frame(self.st, cmd)
 
         vx, vy = self.st.velocity[0], self.st.velocity[1]
@@ -472,6 +491,14 @@ class PmoveEnv:
         reward = (1.0 * r_speed + 0.5 * r_phi + 0.6 * r_strafe + 0.5 * r_prog
                   + self.r_cad_weight * r_cad - 1.0 * r_press - 1.0 * p_hack)
 
+        # T3.2 (#423) PLUMBING override: the naive "+forward-progress" reward (proves the signal
+        # flows; trains nothing). Computed from the SAME executed yaw + pre/post origin; the
+        # round-6 terms above still populate the `info` diagnostics collect_rollout reads.
+        r_baseline = baseline_forward_reward((pre_ox, pre_oy),
+                                             (self.st.origin[0], self.st.origin[1]), self.cur_yaw)
+        if self.baseline_reward:
+            reward = r_baseline
+
         self.prev_hspeed = hspeed
         self.k += 1
         # done: route/segment exhausted, time-limit, or fell out of bounds (origin NaN/away).
@@ -483,7 +510,8 @@ class PmoveEnv:
         info = {"hspeed": hspeed, "onground": onground, "fwd_press": int(fwd_am == 2),
                 "r_speed": r_speed, "r_phi": r_phi, "r_prog": r_prog, "p_hack": p_hack,
                 "r_cad": r_cad, "r_press": r_press, "strafe_sign": cur_sign,
-                "perp_frac": perp_frac, "r_strafe": r_strafe, "ap_rate": self.ap_rate}
+                "perp_frac": perp_frac, "r_strafe": r_strafe, "ap_rate": self.ap_rate,
+                "r_baseline": r_baseline}
         if done:
             obs = self._build_obs()  # terminal obs (unused for bootstrap if done)
         else:
@@ -719,7 +747,8 @@ def train(args, device):
     envs = [PmoveEnv(world, stats, segs, n_max=args.n_max, map_name=args.map,
                      horizon=args.ep_horizon, band_lo=band_lo, band_hi=band_hi, seed=1000 + i,
                      air_press_thresh=args.air_press_thresh,
-                     cad_hold_max=args.cad_hold_max, r_cad_weight=args.r_cad_weight)
+                     cad_hold_max=args.cad_hold_max, r_cad_weight=args.r_cad_weight,
+                     baseline_reward=args.baseline_reward)
             for i in range(args.n_envs)]
     opt = torch.optim.Adam(rl.parameters(), lr=args.lr)
 
@@ -1095,15 +1124,121 @@ def reward_band_disjoint(anchors_path):
     return float(min(vals)), float(max(vals))
 
 
+# =============================================================================
+# T3.2 (#423) artifact-free SMOKE — close the RL loop on a DEGENERATE world (no BSP / ckpt /
+# catalog), to prove the pipe is functional: state -> action -> reward -> PPO update, no NaN, a
+# checkpoint writes. Shared by the `--smoke` CLI and ml/tests/test_rl_baseline_smoke.py.
+# =============================================================================
+# A minimal per-map normalization (the shape build_features loads; mirrors
+# tests/test_agent_observation.STATS). The smoke checks the loop closes, not fitted norm values.
+_SMOKE_STATS = {"per_map": {"dm3": {
+    "pos_x": {"method": "minmax", "min": -984.0, "max": 2048.0, "clip": [-984.0, 2048.0]},
+    "pos_y": {"method": "minmax", "min": -960.0, "max": 1136.0, "clip": [-960.0, 1136.0]},
+    "pos_z": {"method": "minmax", "min": -416.0, "max": 496.0, "clip": [-416.0, 496.0]},
+    "vel_x": {"method": "zscore", "mean": 0.0, "std": 310.0, "clip": [-2500.0, 2500.0]},
+    "vel_y": {"method": "zscore", "mean": 0.0, "std": 310.0, "clip": [-2500.0, 2500.0]},
+    "vel_z": {"method": "zscore", "mean": 0.0, "std": 180.0, "clip": [-1000.0, 1000.0]},
+    "hspeed": {"method": "robust", "median": 320.0, "iqr": 210.0, "clip": [0.0, 2500.0]},
+    "yaw_rate": {"method": "zscore", "mean": 0.0, "std": 220.0, "clip": [-1500.0, 1500.0]},
+}}}
+
+
+def build_smoke_world():
+    """A degenerate open-space WorldModel: empty-leaf hulls (firstclipnode = CONTENTS_EMPTY) make
+    EVERY pmove trace return open air, so the player air-moves with no collision. Lets the FULL
+    PmoveEnv step + v5 obs path run with NO BSP load (the artifact-free T3.2 smoke)."""
+    empty = PM.Hull([], [], PM.CONTENTS_EMPTY)
+    return PM.WorldModel(empty, empty, (-4096.0, -4096.0, -4096.0),
+                         (4096.0, 4096.0, 4096.0), [])
+
+
+def build_smoke_segments(n_ticks=48):
+    """One hand-built mid-route reset segment: a few self-dicts moving +x at speed toward a goal,
+    13ms ticks. Enough ticks for a short rollout plus a reset (the env interface PmoveEnv reads:
+    tick['self'] origin/velocity/yaw/goal + tick['act']['msec'])."""
+    seg = [{"self": {"ox": float(i * 5), "oy": 0.0, "oz": 0.0,
+                     "vx": 300.0, "vy": 0.0, "vz": 80.0, "yaw": 0.0, "goal": [2000.0, 0.0]},
+            "act": {"msec": 13}} for i in range(n_ticks)]
+    return [(0, 0, seg)]
+
+
+def run_smoke(device="cpu", *, baseline_reward=True, n_iters=3, n_envs=2, rollout_steps=8,
+              out_ckpt=None):
+    """Close the RL loop on the degenerate smoke world for a few PPO iters and ASSERT it stays
+    finite + a checkpoint writes. Returns a small stats dict. Raises AssertionError on any
+    NaN/inf. No heavy artifacts; commits nothing (a temp ckpt is removed unless out_ckpt given)."""
+    import copy
+    import tempfile
+    world = build_smoke_world()
+    segs = build_smoke_segments()
+    n_max = 2
+    envs = [PmoveEnv(world, _SMOKE_STATS, segs, n_max=n_max, map_name="dm3", horizon=24,
+                     seed=100 + i, baseline_reward=baseline_reward) for i in range(n_envs)]
+    # size the policy from a REAL env observation (f_obs=336 self-history, f_ent=ENTITY_DIM).
+    self_in, ents, _mask, _msec = envs[0].reset()
+    f_obs, f_ent = len(self_in), (len(ents[0]) if ents else 0)
+    base = BroadBCPolicy(f_obs=f_obs, f_ent=f_ent, f_aux=0, n_max=n_max, self_dim=SELF_DIM,
+                         ent_hidden=8, ent_out=8, hidden=16, yaw_head=True).to(device)
+    rl = RLPolicy(base).to(device)
+    anchor = copy.deepcopy(base).to(device).eval()
+    for p in anchor.parameters():
+        p.requires_grad = False
+    opt = torch.optim.Adam(rl.parameters(), lr=3e-4)
+
+    last = {}
+    for it in range(n_iters):
+        roll = collect_rollout(envs, rl, device, rollout_steps)
+        rew = torch.stack(roll["rew"]); val = torch.stack(roll["val"])
+        assert torch.isfinite(rew).all(), f"iter {it}: non-finite reward"
+        assert torch.isfinite(val).all(), f"iter {it}: non-finite value"
+        adv, ret = compute_gae(roll["rew"], roll["val"], roll["done"], roll["last_val"])
+        assert all(torch.isfinite(a).all() for a in adv), f"iter {it}: non-finite GAE advantage"
+        upd = ppo_update(rl, anchor, roll, device, epochs=2, minibatch=64, opt=opt)
+        assert math.isfinite(upd["pg"]) and math.isfinite(upd["vf"]), \
+            f"iter {it}: non-finite PPO loss (pg={upd['pg']} vf={upd['vf']})"
+        last = {"it": it, "mean_reward": float(rew.mean()), "pg": upd["pg"], "vf": upd["vf"],
+                "mean_hspeed": (float(np.mean(roll["hsp_log"])) if roll["hsp_log"] else 0.0)}
+
+    tmp = None
+    if out_ckpt is None:
+        tf = tempfile.NamedTemporaryFile(suffix="_smoke.pt", delete=False)
+        tf.close()
+        out_ckpt = tf.name
+        tmp = out_ckpt
+    src_ckpt = {"hidden": 16, "ent_out": 8, "self_dim": SELF_DIM, "gru_hidden": GRU_HIDDEN,
+                "yaw_loss": "cosine", "warmstart_of": "smoke"}
+    head_dims = [h.out_features for h in base.heads]
+    save_rl_ckpt(out_ckpt, rl, src_ckpt, [f_obs, f_ent, 0, n_max], head_dims, 0,
+                 {"smoke": True, "baseline_reward": baseline_reward})
+    wrote = Path(out_ckpt).exists() and Path(out_ckpt).stat().st_size > 0
+    assert wrote, f"checkpoint was not written to {out_ckpt}"
+    if tmp is not None:
+        Path(tmp).unlink(missing_ok=True)
+    result = {"baseline_reward": baseline_reward, "n_iters": n_iters, "n_envs": n_envs,
+              "ckpt_written": wrote, "f_obs": f_obs, "f_ent": f_ent, **last}
+    LOGGER.info("smoke OK: %s", json.dumps(result))
+    return result
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="PPO-on-speed RL loop (movement-v5)")
-    ap.add_argument("--init-ckpt", required=True,
-                    help="warm-start (rl_warmstart_v5_yaw.pt) OR a prior RL round ckpt")
-    ap.add_argument("--out-ckpt", help="output ckpt (required unless --eval)")
+    ap.add_argument("--init-ckpt", required=False, default=None,
+                    help="warm-start (rl_warmstart_v5_yaw.pt) OR a prior RL round ckpt "
+                         "(required for train/--eval; NOT needed for --smoke)")
+    ap.add_argument("--out-ckpt", help="output ckpt (required unless --eval/--smoke)")
     ap.add_argument("--steps", type=int, default=200000, help="target env steps to train")
     ap.add_argument("--eval", action="store_true",
                     help="EVAL ONLY: run the goal-conditioned hold-guard eval on --init-ckpt")
     ap.add_argument("--round", type=int, default=1)
+    # T3.2 (#423) plumbing flags
+    ap.add_argument("--baseline-reward", action="store_true",
+                    help="T3.2: use the NAIVE +forward-progress reward (baseline_forward_reward) "
+                         "instead of the round-6 mechanism-gated reward. Proves the reward signal "
+                         "flows; trains nothing useful (the round-6 path is the real objective).")
+    ap.add_argument("--smoke", action="store_true",
+                    help="T3.2: close the RL loop on a DEGENERATE artifact-free world for a few "
+                         "PPO iters and assert it stays finite + a checkpoint writes. Needs NO "
+                         "--init-ckpt/--bsp/--db. Honors --baseline-reward and --out-ckpt.")
     # data
     ap.add_argument("--db", required=True)
     ap.add_argument("--bsp", required=True)
@@ -1204,6 +1339,13 @@ def main(argv=None):
     torch.manual_seed(args.seed); np.random.seed(args.seed)
     device = "cpu" if args.cpu else ("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[rl] device={device} torch={torch.__version__}", flush=True)
+
+    if args.smoke:
+        res = run_smoke(device, baseline_reward=args.baseline_reward, out_ckpt=args.out_ckpt)
+        print("SMOKE_OK " + json.dumps(res), flush=True)
+        return 0
+    if not args.init_ckpt:
+        raise SystemExit("[rl] --init-ckpt required (unless --smoke)")
 
     if args.eval:
         vec = eval_metric_vector(args, device)

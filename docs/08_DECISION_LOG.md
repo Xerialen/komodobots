@@ -3974,3 +3974,47 @@ the fallback seam already present at `BotApplyMoveProbeLive` (the stock move is 
 optionally overridden). Verified: patched native `qwprogs.so` builds 0 warnings / 0 errors; 22 new
 stdlib/C-harness tests + the full CI floor green; the generated header is zero-drift under `--check`.
 M3's live test is visual-integrity / plumbing (frozen 6-feat MoveMLP), not bot quality.
+
+## T3.2 plumbing test proves both engine seams minimally; the v5-live encoder bridge is deferred (#423, Branch C)
+
+### Date
+
+2026-06-29
+
+### Decision
+
+T3.2 (the "baseline PPO reward signal & scoring" plumbing test) proves the pipes carry **a** policy
+and **a** trajectory scores, training nothing (docs/28 M3). It ships three deliverables across the
+**two engine seams that already exist**, rather than building a new one: **D1** a stdlib, CI-gated
+route-MSE scorer (`score_route_mse.py` → `komodobots.route_mse.v1`) — the number the owner watches;
+**D2** a `--baseline-reward` (naive +forward-progress) branch + an artifact-free `--smoke` that closes
+the PPO loop on the **SIM** seam (`PmoveEnv`, v5 obs); **D3** an on-box runbook that drives the
+**LIVE** #422 handoff seam with the **existing 6-feat MoveMLP**, records (#424), and scores with D1.
+Per **Branch C**, the **v5-live world-view encoder** (extending `mwv_state_features` 6→v5 so a v5 RL
+policy can drive the live engine) is **explicitly deferred and filed as a NAMED follow-up ticket** —
+not silently left open.
+
+### Alternatives Considered
+
+**A — 6-feat live, v5 bridge left un-ticketed** (rejected: cheapest but leaves the safety-critical v5
+plumbing silently unproven — NotebookLM's objection). **B — build a minimal v5-live encoder + parity
+test inside T3.2** and drive D3 with a random-init v5 policy (rejected for T3.2: a substantial C lift —
+the whole world-view bridge + its own parity burden — turns a plumbing test into a real engine
+feature; it is its own ticket). **C — 6-feat live for the handoff/record/score proof + keep the
+parity discipline + FILE the v5-bridge as the next de-risk** (**chosen**). Driving D3 with the
+parity-proven 6-feat encoder (`test_live_c_parity.py`) **honors** the docs/28 "zero training-serving
+skew" mandate (no skewed encoder is shipped); docs/28 M3 does not time-bind the v5-encoder build to
+T3.2. Expect a **large** D3 MSE (the 6-feat mover has a standstill attractor and does not track a
+highway) — a large number is a PASS for plumbing, not a quality verdict.
+
+### Evidence
+
+docs/28:76-86 ("prove an ML model can drive… Not testing whether the bot is good yet"); the two
+working seams — LIVE `move_world_view.mwv_state_features` (`MWV_FEATURE_DIM=6`) + `mhw_handoff_engaged`
+(#422), and SIM `ml/rl_onspeed.PmoveEnv` (v5 336-dim goal-conditioned obs). The 6-feat↔v5 obs gap and
+the 6-feat mover's standstill attractor are the known train/serve gap (memory `live-bot-test-rig.md`).
+Reviews: auditor.md PASS-WITH-FIXES (all ~20 citations exact on origin/main post-#456); NotebookLM
+4-aligned / 1-gap (the v5-skew coverage gap → surfaced as this decision, not buried). Contract surface
+untouched: T3.2 is a read-only consumer of obs/state + the #420 seed; it writes only a training-time
+reward scalar (never persisted) + an MSE eval artifact (not a feature) — no `feature_registry` /
+golden / Layer-A co-move (docs/25 §1.1).
