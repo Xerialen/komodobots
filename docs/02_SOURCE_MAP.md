@@ -1110,8 +1110,17 @@ In-repo Python (torch + numpy, `ml/requirements.txt`), trained offline on host `
   air press-barrier closing the bulldoze path, route-progress, argmax-targeted cadence,
   anti-hack + the KL-anchor. SELECTION is eval-integrity-bound (qualifies on EVAL forward-press
   inside the human band + launch-aware screen; the reward's band term uses a DISJOINT
-  reward-leakage player split, never the gate anchors). CLI: `--init-ckpt/--steps/--out-ckpt/--eval`.
-  Offline pinnacle GPU only; no live server. Result + 8-round trajectory: `docs/notes/rl-onspeed-results.md`.
+  reward-leakage player split, never the gate anchors). CLI: `--init-ckpt/--steps/--out-ckpt/--eval`;
+  T3.2 (#423) added `--baseline-reward` (the naive +forward-progress plumbing reward) + `--smoke` (an
+  artifact-free PPO-loop-closes smoke). Offline pinnacle GPU only; no live server. Result + 8-round
+  trajectory: `docs/notes/rl-onspeed-results.md`.
+- **score_route_mse.py** — `experiments/route_observatory/score_route_mse.py` (**stdlib-only**, the
+  T3.2 #423 plumbing keystone). Grades a recorded bot ATTEMPT trajectory against a #420 Route-Canon
+  highway SEED line: concatenates `segments[].trajectory` in order, resamples BOTH to a common
+  arc-fraction (default) or time grid, and emits `komodobots.route_mse.v1` (mse/rmse over x,y,z in
+  **qu** + per-axis + xy/z splits). Has a P1 unit-guard (fails on an ~8x span = raw 1/8-qu vs qu).
+  Arc-fraction is path-shape-only / speed-blind; rigorous variable-dt alignment is #428 (T5.2). CLI:
+  `--canon/--highway/--attempt/--grid/-o`. Runbook: `experiments/ktx_moveprobe/T3.2_PLUMBING.md`.
 
 ## Demo extraction contract
 
