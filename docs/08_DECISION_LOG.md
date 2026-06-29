@@ -4105,3 +4105,136 @@ floor; the harness was exercised on the real `route_canon.dm3.json` (valid path 
 adherence/velocity). Contract surface: not a docs/25 surface (no obs channel,
 no Layer-A field — precedent: the sibling `route_mse.v1` lives in docs/02 + docs/08, not docs/25);
 registered in `docs/02_SOURCE_MAP.md`.
+
+## 2026-06-29 — T5.2 (#428) PR2: 4 bots / 4 routes, route-isolated per-route eval
+
+> **SUPERSEDED by the "PR2 re-scope (B)" entry at the end of this log (2026-06-29).** The claim below
+> that "the existing handoff gate latches the highway the bot stands on" is **false** — the gate is
+> intent-first (it needs a goal at the highway END), so spawn-seeding alone does not latch the assigned
+> route. The re-scope adds the END goal-pin + a fail-loud directed contract and defers the live run.
+
+**Decision.** Finish #428 with **shape (A): N bots spawn-seeded onto N distinct base highways in ONE
+mvdsv/KTX server**, scored **per-route** — **no engine rebuild** (the three per-slot cvars
+`spawn_origin`/`fixed_goal`/`live_highway_gate` already exist on origin/main;
+`frogbot-moveprobe-perslot.patch`).
+
+- **Assignment = start-position seeding (approach a).** `build_score_cvar_block` emits
+  `k_fb_moveprobe_spawn_origin_s<edict>` per bot from the canon's 3-D `start_xyz`
+  (`route_eval.base_highway_seeds`; the generated 2-D `route_canon_dm3.h` is NOT the seed source — no
+  z). The existing handoff gate latches the highway the bot stands on; the geometric pin reports which
+  it drove. `--score` requires **`--bots ≤ 4`** (4 base highways map 1:1 to 4 bots).
+- **slot→player binding is geometric** (`bind_players_to_seeds`): KTX `addbot` names bots **randomly**,
+  so each seeded slot takes the **distinct** player whose trajectory passes nearest its spawn-snap
+  coordinate (greedy by distance, uniqueness enforced; spectator excluded by name). This **supersedes
+  the (g) "single-bot only" fail-closed SKIP** of the PR1 entry above — multi-bot post-run scoring is
+  now `evaluate_run_multi` (qw-analyze once → loop slots → `route_eval.s<N>.json`).
+- **Cross-bot isolation = fail-closed `player_contact`** (`detect_player_contact`): a VALID bot is
+  demoted (no consumable score) if ANY other bound bot's player **hull** overlaps it DURING the valid
+  bot's scored window — checked against ALL bound bots **including invalid-but-bound** ones (an invalid
+  bot still has a body that can block a valid one; it is never itself demoted but CAN contaminate).
+  Hull-based (`|dx|<32, |dy|<32, |dz|<56`, NOT a centre distance) + **continuous** (a swept AABB test
+  over the recorded tick interval, clipped to the partner's recorded extent — NOT a coarse fixed grid,
+  no phantom placement). Closes a silent-MSE-corruption hole — a bump perturbs the scored path without
+  disengaging the gate. Integrity, not yield. Engine combat/collision-off = approach (b), deferred.
+  (Hull, continuous-sweep, and the invalid-but-bound contamination case are the P1 review fixes —
+  Codex rounds 1 & 2.)
+- **Ledger shape generalized to `route_evals: [block, …]`** (single-bot = 1-element). The old singular
+  `route_eval` key had **no live consumer** (tree-wide grep empty; `BotAttemptsGallery.tsx` reads only
+  the row's required keys), so one shape. **Producer-only** — NOT added to the golden
+  `bot-attempts.example.json` (an example no test validates is not a contract); the dashboard wiring +
+  panel-test + golden-example row move together in a later consumer ticket.
+
+**"4 bots" ≠ "4v4".** docs/28:93 mandates "no 4v4". 4 *isolated* bots in FFA warmup, each gated onto its
+own highway, scored independently + fail-closed if contaminated, is the opposite of a noisy 4v4 match.
+
+### Alternatives Considered
+
+**4 single-route processes (shape B)** — 1 bot / 1 route / 1 server, fanned out: collision-free by
+construction (no `player_contact` needed), embarrassingly parallel, reuses PR1's single-bot path (no
+binding). The eval rollout is **CPU-bound** (mvdsv + KTX + qw-analyze; the frozen 6-feat MLP runs on
+CPU — the GPU is for *training*), so (B) is the unit of a parallel CPU rollout farm for the RL loop
+(#427/#429). **Recorded on the #428 thread + the runbook; PR2 ships (A) as reviewed** (owner: document
+the alternative, proceed with the plan). **Engine combat/collision-off + a per-slot highway-PIN cvar**
+(approach b — a KTX change; deferred: (a) guarantees integrity via `player_contact`/`multi_span`, not
+yield). **Goal-pin per slot** (`fixed_goal_s<edict>` at the highway end; deferred — needs an
+end_xyz→live-marker map; integrity-safe to defer). **Always-singular `route_eval` + a separate
+`route_evals`** (rejected: two shapes for a value nothing reads yet; one generalized key is simpler).
+
+### Reviews
+
+Plan reviewed pre-implementation by an **auditor** pass (origin/main + origin/dev → **targets main**;
+dev is a strict ancestor of main, all PR2 files main-only, **no per-file dev parity owed**) and a
+**NotebookLM** pass (surfaced the **player-collision** silent-corruption gap → the `player_contact`
+guard). The auditor **MAJOR** — don't seed an unvalidated `route_evals` field into the golden example —
+→ kept **producer-only**. Auditor precision fixes folded: the guard was a logged SKIP (not a bare
+`return`); 3-D seed from the JSON canon vs the 2-D header; the per-slot artifact print strings.
+
+### Evidence
+
+`tests/test_route_eval.py` (+12 multi-bot cases: `base_highway_seeds` order/3-D-start/over-cap;
+geometric binding + uniqueness + spectator-exclusion + under-supply; `player_contact`
+detect/clean/non-overlap; `evaluate_run_multi` happy-path pins each bot's OWN highway + the
+colliding-pair both-`player_contact` path) and `tests/test_prewar_movecheck.py` (seed-cvar render
+asserts canon coords at `edict=slot+1`, spectator never seeded; the hook scores multi-bot via
+`evaluate_run_multi`) green in the stdlib floor — full `python -m unittest discover -s tests` = **1841
+OK**, `route_canon_dm3.h` lock-step gate still passes (PR2 does not regenerate the header). The live
+`--bots 4 --score` run is **owner-gated / on-box** (scratch port 28599+).
+
+---
+
+## Decision
+
+T5.2 (#428) PR2 re-scope (B): ship the offline scorer + an enforced directed-run contract; defer the live directed run
+
+### Date
+
+2026-06-29
+
+### Decision
+
+Re-scope PR #459 from "finishes #428's live 4-route directed run" to "ships #428's measurement spine,
+honestly." The directed `--score --bots N` path now emits, per slot, BOTH a START spawn-snap
+(`spawn_origin_s<edict>`) AND an END goal-pin (`fixed_goal_s<edict>`, a 1-based live marker index) under
+`k_matchless 1`, or it **fails loud (exit 2) before standing up mvdsv/KTX**. The END→marker map
+(`route_eval.base_highway_end_markers`, an optional per-base-highway `end_marker` field) is **empty
+offline today** → the directed run fail-louds. Filling it (a live FBMARKER dump → author the markers at
+the generator **source** `data/catalog/route_canon_marks.dm3.json` + regen, per-END reach-validation,
+and validation of the matchless harness flow) is a **named, owner-gated follow-up**; **#428 stays
+OPEN**. The false docstring/runbook claim that spawn-snapping the START "latches the assigned highway"
+is **stripped** — the handoff gate is intent-first (`move_highway.c` needs a goal within `MHW_R_GOAL`
+of the highway END).
+
+### Alternatives Considered
+
+(A) Do the full live FBMARKER dump now — owner-gated on-box, needs a live matchless dump per END (no END
+marker is derivable offline); rejected for this PR (heavy, on-box). (B-minimal) strip the overclaim +
+defer ALL plumbing — rejected: leaves Codex's "emit goal intent" unmet → re-block risk. (warn-and-
+proceed instead of fail-loud) — rejected: half-answers the contract and can emit an all-invalid ledger
+that reads like a real measurement. (hand-edit `end_marker` into the generated canon) — rejected: the
+canon is GENERATED (`_warning: do NOT hand-edit`), so the next regen would wipe it — author at the marks
+source instead.
+
+### Evidence
+
+Codex round-3 P1 on PR #459 (intent-first gate; START-seeding alone → `no_engaged_spans` or a wrong
+latch → missing/mislabelled `route_evals`). Independently verified by an auditor pass (vs origin/main:
+`move_highway.c:126-149`, `move_highway.h` `MHW_R_GOAL=256`/`R_ON=48`; `perslot.patch:46-62` makes
+`fixed_goal` crash-safe; `run-ledger.md:11` — a marker index is meaningful only in the 65-item matchless
+set; the historical NULL-marker segfault is already guarded, `run-ledger.md:61,110`) and a NotebookLM
+pass. All three accepted the re-scope direction. `python -m unittest discover -s tests` = **1850 OK**
+(+ directed both-intents emission, the matchless-coupling cfg, the empty-map fail-loud-before-server
+gate, and `base_highway_end_markers`).
+
+### Expected Consequences
+
+A directed `--score --bots N` run today fails loud with a named error (no silent zero-scores, no unsafe
+prewar marker emission). The offline scorer + seeding are usable now; the score stays honest (pins the
+actually-driven highway, fail-closes on contamination). The follow-up is producer-code-free — it fills
+the markers at the source + validates the matchless flow + per-END reach, then the directed live run
+works.
+
+### Revisit Conditions
+
+The FBMARKER dump lands (the 4 END marker indices known + reach-validated) and the matchless harness
+flow is validated on-box → flip the directed run from fail-loud to live, fill `end_marker` at
+`route_canon_marks.dm3.json`, and close #428.

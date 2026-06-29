@@ -14,6 +14,7 @@ Covers the plan's Verification §1:
     (qw-analyze stubbed) -> route_eval.json + a correctly-merged ledger row.
 """
 import json
+import math
 import sys
 import tempfile
 import unittest
@@ -357,7 +358,7 @@ class TestEvaluateRunAndLedger(unittest.TestCase):
             # the score is merged into that run's ledger row (additive nested key; row keys intact)
             ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
             row = ledger["attempts"][0]
-            re_row = row["route_eval"]
+            re_row = row["route_evals"][0]          # single-bot run -> a 1-element route_evals array
             self.assertTrue(re_row["valid"])
             self.assertEqual(re_row["invalid_reasons"], [])
             self.assertEqual(re_row["highway_id"], "K")
@@ -386,7 +387,8 @@ class TestEvaluateRunAndLedger(unittest.TestCase):
             self.assertNotIn("rmse_xyz", re_row)          # NO consumable score
             self.assertNotIn("mean_speed_qu_s", re_row)
             self.assertNotIn("highway_id", re_row)
-            on_disk = json.loads(ledger_path.read_text(encoding="utf-8"))["attempts"][0]["route_eval"]
+            on_disk = json.loads(
+                ledger_path.read_text(encoding="utf-8"))["attempts"][0]["route_evals"][0]
             self.assertNotIn("rmse_xyz", on_disk)
 
     def test_merge_skips_when_no_matching_row(self):
@@ -397,6 +399,254 @@ class TestEvaluateRunAndLedger(unittest.TestCase):
             art = {"valid": True, "highway": {"id": "K"}, "adherence": {"rmse_xyz": 1.0},
                    "velocity": {"mean_speed_qu_s": 2.0}, "degenerate": False}
             self.assertIsNone(RE.merge_score_into_ledger(ledger_path, "missing", art))
+
+
+# --- multi-bot: seeds + binding + player_contact + evaluate_run_multi (#428 PR2 shape-A) ----------
+def _pos(txyz, vya=0):
+    return {"t": [int(round(r[0] * 1000)) for r in txyz],
+            "x": [r[1] for r in txyz], "y": [r[2] for r in txyz], "z": [r[3] for r in txyz],
+            "vx": [100.0] * len(txyz), "vy": [0.0] * len(txyz), "vz": [0.0] * len(txyz),
+            "vya": [vya] * len(txyz)}
+
+
+def _analysis_multi(players):
+    """players = [(name, txyz), ...] -> a multi-player qw-analyze JSON (streams.players)."""
+    return {"streams": {"players": [{"name": n, "pos": _pos(t)} for n, t in players]}}
+
+
+def _hug(y, n=11, dx=80.0):
+    """A bot path hugging the y=`y` base highway over x=0..(n-1)*dx (covers most of its length)."""
+    return [[round(i * 0.1, 3), round(i * dx, 1), float(y), 0.0] for i in range(n)]
+
+
+class TestBaseHighwaySeeds(unittest.TestCase):
+    def test_returns_slot_id_xyz_for_base_only_in_order(self):
+        canon = _canon([_highway("A", _line_x(0)),
+                        _highway("S", _line_x(50), route_class="shortcut"),
+                        _highway("B", _line_x(100))])
+        seeds = RE.base_highway_seeds(canon, 2)
+        self.assertEqual([(s, hid) for s, hid, _xyz in seeds], [(1, "A"), (2, "B")])  # shortcut skipped
+        self.assertEqual(seeds[0][2], (0.0, 0.0, 0.0))           # = A's first trajectory point
+
+    def test_prefers_explicit_3d_start_xyz_over_trajectory(self):
+        h = _highway("A", _line_x(0))
+        h["start_xyz"] = [7.0, 8.0, 9.0]                          # the 3-D JSON field (z the header lacks)
+        seeds = RE.base_highway_seeds(_canon([h]), 1)
+        self.assertEqual(seeds[0][2], (7.0, 8.0, 9.0))
+
+    def test_raises_when_more_bots_than_base_highways(self):
+        with self.assertRaises(ValueError):
+            RE.base_highway_seeds(_canon([_highway("A", _line_x(0))]), 2)
+
+
+class TestBaseHighwayEndMarkers(unittest.TestCase):
+    def test_empty_when_no_highway_carries_an_end_marker(self):
+        # Today's reality: the canon has no end_marker on any base highway -> {} -> directed fail-loud.
+        canon = _canon([_highway("A", _line_x(0)), _highway("B", _line_x(100))])
+        self.assertEqual(RE.base_highway_end_markers(canon), {})
+
+    def test_maps_base_highways_that_have_one_skips_shortcut_and_unmarked(self):
+        a = _highway("A", _line_x(0)); a["end_marker"] = 7
+        s = _highway("S", _line_x(50), route_class="shortcut"); s["end_marker"] = 99
+        b = _highway("B", _line_x(100))                        # base, but no end_marker
+        self.assertEqual(RE.base_highway_end_markers(_canon([a, s, b])), {"A": 7})
+
+    def test_rejects_non_positive_or_non_int_markers(self):
+        # fixed_goal 0/negative is an engine no-op (= un-directed); a non-int is not a marker index.
+        # All must RAISE before the bad value can ever be emitted as a fixed_goal cvar.
+        for bad in (0, -1, 7.0, "7", True):
+            a = _highway("A", _line_x(0)); a["end_marker"] = bad
+            with self.assertRaises(ValueError):
+                RE.base_highway_end_markers(_canon([a]))
+
+
+class TestBindPlayersToSeeds(unittest.TestCase):
+    def _pl(self, name, start):
+        x, y, z = start
+        return (name, [[0.0, x, y, z], [0.1, x + 10, y, z], [0.2, x + 20, y, z]])
+
+    def test_binds_each_slot_to_its_nearest_distinct_player(self):
+        seeds = [(1, (0., 0., 0.)), (2, (1000., 0., 0.)), (3, (0., 1000., 0.)), (4, (1000., 1000., 0.))]
+        analysis = _analysis_multi([self._pl("fb_a", (0, 0, 0)), self._pl("fb_b", (1000, 0, 0)),
+                                    self._pl("fb_c", (0, 1000, 0)), self._pl("fb_d", (1000, 1000, 0))])
+        bound = RE.bind_players_to_seeds(analysis, seeds)
+        self.assertEqual(bound, {1: "fb_a", 2: "fb_b", 3: "fb_c", 4: "fb_d"})
+
+    def test_uniqueness_two_near_players_bind_to_distinct_slots(self):
+        seeds = [(1, (0., 0., 0.)), (2, (50., 0., 0.))]
+        analysis = _analysis_multi([self._pl("near1", (0, 0, 0)), self._pl("near2", (60, 0, 0))])
+        bound = RE.bind_players_to_seeds(analysis, seeds)
+        self.assertEqual(bound[1], "near1")                      # global-nearest pair claimed first
+        self.assertEqual({bound[1], bound[2]}, {"near1", "near2"})  # distinct -- never the same player
+
+    def test_spectator_is_excluded_by_name(self):
+        seeds = [(1, (0., 0., 0.))]
+        analysis = _analysis_multi([self._pl("KomodoPrewar", (0, 0, 0)), self._pl("bot", (5, 0, 0))])
+        bound = RE.bind_players_to_seeds(analysis, seeds, exclude_players=("KomodoPrewar",))
+        self.assertEqual(bound[1], "bot")                        # the nearer spectator is excluded
+
+    def test_fewer_players_than_seeds_leaves_none(self):
+        seeds = [(1, (0., 0., 0.)), (2, (1000., 0., 0.))]
+        bound = RE.bind_players_to_seeds(_analysis_multi([self._pl("only", (0, 0, 0))]), seeds)
+        self.assertEqual(bound[1], "only")
+        self.assertIsNone(bound[2])
+
+
+class TestDetectPlayerContact(unittest.TestCase):
+    def test_two_bots_within_bbox_during_overlap_are_flagged(self):
+        a = [[0.0, 0., 0., 0.], [1.0, 0., 0., 0.]]               # static at origin
+        b = [[0.0, 100., 0., 0.], [1.0, -100., 0., 0.]]          # sweeps through origin at t=0.5
+        contacts = RE.detect_player_contact(
+            [{"slot": 1, "player": "a", "valid": True, "window_s": (0.0, 1.0), "rows": a},
+             {"slot": 2, "player": "b", "valid": True, "window_s": (0.0, 1.0), "rows": b}])
+        self.assertEqual(set(contacts), {1, 2})
+        self.assertEqual(contacts[1][0]["slot"], 2)
+        self.assertLess(contacts[1][0]["min_dist_qu"], 1.0)        # passes through origin
+
+    def test_vertical_hull_overlap_caught_when_center_distance_would_miss(self):
+        # P1-a (review): same XY, origins 40 qu apart in Z. The player hulls overlap (|dz|=40 < 56) ->
+        # contact, but a 3-D CENTRE distance (40 qu) exceeds the old 34-qu threshold and would MISS the
+        # physics block (two bots blocking on a ramp / stairs).
+        a = [[0.0, 0., 0., 0.], [1.0, 0., 0., 0.]]
+        b = [[0.0, 0., 0., 40.], [1.0, 0., 0., 40.]]
+        contacts = RE.detect_player_contact(
+            [{"slot": 1, "player": "a", "valid": True, "window_s": (0.0, 1.0), "rows": a},
+             {"slot": 2, "player": "b", "valid": True, "window_s": (0.0, 1.0), "rows": b}])
+        self.assertEqual(set(contacts), {1, 2})                   # hull overlap despite a 40-qu Z gap
+        self.assertGreater(math.dist((0, 0, 0), (0, 0, 40)), 34.0)  # the old scalar check would not fire
+
+    def test_fast_passthrough_between_coarse_samples_caught(self):
+        # P1-b (review): bots cross at t=0.025, BETWEEN the old fixed 50 ms grid nodes (0.0 / 0.05 /
+        # 0.1) -- the grid sampled |d|>=200 at every node and returned clean. The swept hull test over
+        # the recorded tick interval catches the true crossing.
+        a = [[0.0, 0., 0., 0.], [0.1, 0., 0., 0.]]                # static at origin
+        b = [[0.0, 200., 0., 0.], [0.1, -600., 0., 0.]]          # x: 200 -> -600, through 0 at t=0.025
+        contacts = RE.detect_player_contact(
+            [{"slot": 1, "player": "a", "valid": True, "window_s": (0.0, 0.1), "rows": a},
+             {"slot": 2, "player": "b", "valid": True, "window_s": (0.0, 0.1), "rows": b}])
+        self.assertEqual(set(contacts), {1, 2})
+        self.assertLess(contacts[1][0]["min_dist_qu"], 1.0)       # true closest approach ~0 at t~0.025
+
+    def test_far_apart_bots_are_clean(self):
+        a = [[0.0, 0., 0., 0.], [1.0, 0., 0., 0.]]
+        b = [[0.0, 500., 500., 0.], [1.0, 500., 500., 0.]]
+        self.assertEqual(RE.detect_player_contact(
+            [{"slot": 1, "player": "a", "valid": True, "window_s": (0.0, 1.0), "rows": a},
+             {"slot": 2, "player": "b", "valid": True, "window_s": (0.0, 1.0), "rows": b}]), {})
+
+    def test_disjoint_recordings_never_contact(self):
+        # B has no RECORDED position during A's scored window (disjoint recordings) -> no false contact:
+        # O is only present where it was recorded; its position is never fabricated by clamping.
+        a = [[0.0, 0., 0., 0.], [0.4, 0., 0., 0.]]               # A recorded [0, 0.4]
+        b = [[0.6, 0., 0., 0.], [1.0, 0., 0., 0.]]               # B recorded [0.6, 1.0]
+        self.assertEqual(RE.detect_player_contact(
+            [{"slot": 1, "player": "a", "valid": True, "window_s": (0.0, 0.4), "rows": a},
+             {"slot": 2, "player": "b", "valid": True, "window_s": (0.6, 1.0), "rows": b}]), {})
+
+
+class TestEvaluateRunMulti(unittest.TestCase):
+    def setUp(self):
+        self._orig = RE.run_qw_analyze
+
+    def tearDown(self):
+        RE.run_qw_analyze = self._orig
+
+    def _canon(self):
+        return _canon([_highway("K", _line_x(0)), _highway("L", _line_x(1000))])
+
+    def _setup_run(self, td, analysis):
+        run_id = "20260629T010101Z-p28599-cafebabe"
+        run_dir = td / run_id
+        run_dir.mkdir()
+        n = len(analysis["streams"]["players"][0]["pos"]["t"])
+        log = []
+        for slot in (1, 2):                                       # each slot engaged the full window
+            log += [_live(slot, 1), _handoff(slot, "ENGAGED")] + [_live(slot, t) for t in range(2, n + 1)]
+        (run_dir / "screen.log").write_text("\n".join(log), encoding="utf-8")
+        (run_dir / "rec.mvd").write_bytes(b"\x00" * 128)
+        canon_path = td / "canon.json"
+        canon_path.write_text(json.dumps(self._canon()), encoding="utf-8")
+        ledger_path = td / "bot-attempts.json"
+        ledger_path.write_text(json.dumps({"schema": "komodobots.bot_attempts.v1", "map": "dm3",
+                                           "attempts": [{"run_id": run_id, "verdict": "GREEN"}]}),
+                               encoding="utf-8")
+        RE.run_qw_analyze = lambda *a, **k: analysis
+        return run_dir, canon_path, ledger_path
+
+    def test_two_distinct_bots_each_score_their_own_highway(self):
+        analysis = _analysis_multi([("botK", _hug(3)), ("botL", _hug(1003))])
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            run_dir, cp, lp = self._setup_run(td, analysis)
+            seeds = RE.base_highway_seeds(json.loads(cp.read_text()), 2)
+            res = RE.evaluate_run_multi(run_dir, seeds=seeds, canon_path=cp, demos_dir=run_dir,
+                                        ledger_path=lp)
+            blocks = {b["slot"]: b for b in res["route_evals"]}
+            self.assertTrue(blocks[1]["valid"])
+            self.assertEqual(blocks[1]["highway_id"], "K")
+            self.assertEqual(blocks[1]["player"], "botK")
+            self.assertTrue(blocks[2]["valid"])
+            self.assertEqual(blocks[2]["highway_id"], "L")
+            self.assertEqual(blocks[2]["player"], "botL")
+            self.assertTrue((run_dir / "route_eval.s1.json").exists())
+            self.assertTrue((run_dir / "route_eval.s2.json").exists())
+            ledger_blocks = json.loads(lp.read_text())["attempts"][0]["route_evals"]
+            self.assertEqual(len(ledger_blocks), 2)
+
+    def test_colliding_bots_are_both_player_contact_invalid(self):
+        # both bots hug highway K (y=0 and y=5) -> within the player bbox the whole window -> the
+        # scored MSE would be physics-contaminated, so BOTH are fail-closed player_contact (no score).
+        analysis = _analysis_multi([("botA", _hug(0)), ("botB", _hug(5))])
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            run_dir, cp, lp = self._setup_run(td, analysis)
+            seeds = RE.base_highway_seeds(json.loads(cp.read_text()), 2)
+            res = RE.evaluate_run_multi(run_dir, seeds=seeds, canon_path=cp, demos_dir=run_dir,
+                                        ledger_path=lp)
+            blocks = {b["slot"]: b for b in res["route_evals"]}
+            for s in (1, 2):
+                self.assertFalse(blocks[s]["valid"])
+                self.assertIn("player_contact", blocks[s]["invalid_reasons"])
+                self.assertNotIn("rmse_xyz", blocks[s])          # no consumable score on a bumped run
+            art1 = json.loads((run_dir / "route_eval.s1.json").read_text())
+            self.assertIn("player_contact", art1["invalid_reasons"])
+            self.assertIn("contact_partners", art1["non_isolated_debug"])
+            self.assertEqual(art1["non_isolated_debug"]["contact_partners"][0]["slot"], 2)
+
+    def test_invalid_bound_bot_contaminates_valid_bot(self):
+        # Codex P1 (round 2): slot 2 NEVER engages (invalid `no_engaged_spans`) but its body overlaps
+        # slot 1's hull during slot 1's engaged window -> the VALID slot 1 must be demoted
+        # `player_contact` (no consumable score), while slot 2 stays invalid for its OWN reason.
+        analysis = _analysis_multi([("botK", _hug(0)), ("botBlock", _hug(5))])
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            run_id = "20260629T020202Z-p28599-feedface"
+            run_dir = td / run_id
+            run_dir.mkdir()
+            n = 11
+            log = ([_live(1, 1), _handoff(1, "ENGAGED")] + [_live(1, t) for t in range(2, n + 1)]
+                   + [_live(2, t, "FALLBACK") for t in range(1, n + 1)])     # slot 2 never ENGAGED
+            (run_dir / "screen.log").write_text("\n".join(log), encoding="utf-8")
+            (run_dir / "rec.mvd").write_bytes(b"\x00" * 128)
+            canon_path = td / "canon.json"
+            canon_path.write_text(json.dumps(self._canon()), encoding="utf-8")
+            ledger_path = td / "bot-attempts.json"
+            ledger_path.write_text(json.dumps({"schema": "komodobots.bot_attempts.v1", "map": "dm3",
+                                               "attempts": [{"run_id": run_id, "verdict": "GREEN"}]}),
+                                   encoding="utf-8")
+            RE.run_qw_analyze = lambda *a, **k: analysis
+            seeds = RE.base_highway_seeds(json.loads(canon_path.read_text()), 2)
+            res = RE.evaluate_run_multi(run_dir, seeds=seeds, canon_path=canon_path, demos_dir=run_dir,
+                                        ledger_path=ledger_path)
+            blocks = {b["slot"]: b for b in res["route_evals"]}
+            self.assertFalse(blocks[1]["valid"])                        # the valid bot, physically blocked
+            self.assertIn("player_contact", blocks[1]["invalid_reasons"])
+            self.assertNotIn("rmse_xyz", blocks[1])                     # no consumable score survives
+            self.assertFalse(blocks[2]["valid"])                        # slot 2 invalid for its OWN reason
+            self.assertIn("no_engaged_spans", blocks[2]["invalid_reasons"])
+            self.assertNotIn("player_contact", blocks[2]["invalid_reasons"])
+            art1 = json.loads((run_dir / "route_eval.s1.json").read_text())
+            self.assertFalse(art1["non_isolated_debug"]["contact_partners"][0]["partner_valid"])
 
 
 if __name__ == "__main__":

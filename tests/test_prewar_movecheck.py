@@ -5,6 +5,7 @@ attributed to the wrong run, (2) the live sidecar's /dev/shm region was not
 isolated per run. These lock the fixes. Stdlib only — no live server.
 """
 
+import json
 import os
 import sys
 import tempfile
@@ -103,9 +104,11 @@ class ScoreHookBestEffortTest(unittest.TestCase):
         import route_eval  # noqa: PLC0415
         self.route_eval = route_eval
         self._orig = route_eval.evaluate_run
+        self._orig_multi = route_eval.evaluate_run_multi
 
     def tearDown(self):
         self.route_eval.evaluate_run = self._orig
+        self.route_eval.evaluate_run_multi = self._orig_multi
 
     def test_hook_swallows_systemexit_from_route_eval(self):
         def _raise(*_a, **_k):
@@ -114,18 +117,129 @@ class ScoreHookBestEffortTest(unittest.TestCase):
         self.route_eval.evaluate_run = _raise
         with tempfile.TemporaryDirectory() as td:
             # Must return None WITHOUT raising -- the recorded run/verdict stands.
-            self.assertIsNone(pw._run_route_eval_score(Path(td), 1, Path(td), n_bots=1))
+            self.assertIsNone(pw._run_route_eval_score(Path(td), (1,), Path(td), n_bots=1))
 
-    def test_hook_skips_scoring_for_multi_bot(self):
-        # P1 (4th-pass): route_eval scores the SINGLE isolated bot; with --bots>1 the auto-picked
-        # mover may be a DIFFERENT bot than slot 1 -> corrupt score. The hook MUST fail-closed SKIP:
-        # never call evaluate_run, never write a route_eval artifact or ledger score.
-        called = []
-        self.route_eval.evaluate_run = lambda *a, **k: called.append(True)
+    def test_hook_scores_multi_bot_via_evaluate_run_multi(self):
+        # PR2: with --bots>1 the hook scores EACH seeded bot per-route via evaluate_run_multi, passing
+        # the seeds (NOT a fail-closed SKIP, and NOT the single-bot evaluate_run path).
+        seen = {}
+
+        def _multi(run_dir, **k):
+            seen["seeds"] = k.get("seeds")
+            return {"run_id": "r", "route_evals": []}
+
+        self.route_eval.evaluate_run_multi = _multi
+        self.route_eval.evaluate_run = lambda *a, **k: self.fail("single-bot path must not run")
+        seeds = [(1, "A", (0.0, 0.0, 0.0)), (2, "B", (100.0, 0.0, 0.0))]
         with tempfile.TemporaryDirectory() as td:
-            self.assertIsNone(pw._run_route_eval_score(Path(td), 1, Path(td), n_bots=2))
-            self.assertEqual(called, [])                                   # evaluate_run NOT called
-            self.assertFalse((Path(td) / "route_eval.json").exists())      # no artifact written
+            pw._run_route_eval_score(Path(td), (1, 2), Path(td), seeds=seeds, n_bots=2)
+        self.assertEqual(seen["seeds"], seeds)
+
+
+class BuildScoreCvarBlockTest(unittest.TestCase):
+    """T5.2 (#428) --score cvar emission: highway-gate cvars always; PR2 DIRECTED multi-bot emits
+    BOTH intents per slot -- spawn_origin (START) AND fixed_goal (END marker), edict=slot+1 -- because
+    the handoff gate is INTENT-FIRST (spawn-snap alone does not latch the route)."""
+
+    def test_single_bot_emits_gate_only_no_seed(self):
+        block = pw.build_score_cvar_block((1, 2))                     # spectator edict 1 + 1 bot edict 2
+        self.assertIn("set k_fb_moveprobe_live_highway_gate_s2 1", block)
+        self.assertIn("set k_fb_moveprobe_live_log 1", block)
+        self.assertNotIn("spawn_origin", block)                      # free spawn (PR1 single-bot)
+        self.assertNotIn("fixed_goal", block)
+
+    def test_multi_bot_seeds_each_edict_with_both_intents(self):
+        # Codex r3: every assigned slot gets BOTH start (spawn_origin) AND end (fixed_goal) intent.
+        seeds = [(1, "ra_tunnel_mega_rl", (192.0, -208.0, -176.0)),
+                 (2, "enter_ra_mid_ledge_top", (249.5, -315.9, 68.8))]
+        end_markers = {"ra_tunnel_mega_rl": 7, "enter_ra_mid_ledge_top": 12}
+        block = pw.build_score_cvar_block((1, 2, 3), seeds, end_markers)   # spectator + 2 bots
+        # slot k -> EDICT k+1; the spectator edict 1 is NEVER seeded
+        self.assertIn('set k_fb_moveprobe_spawn_origin_s2 "192.0 -208.0 -176.0"', block)
+        self.assertIn("set k_fb_moveprobe_fixed_goal_s2 7", block)
+        self.assertIn('set k_fb_moveprobe_spawn_origin_s3 "249.5 -315.9 68.8"', block)
+        self.assertIn("set k_fb_moveprobe_fixed_goal_s3 12", block)
+        self.assertNotIn("spawn_origin_s1", block)
+        self.assertNotIn("fixed_goal_s1", block)
+        self.assertIn("set k_fb_moveprobe_live_highway_gate_s3 1", block)
+
+    def test_directed_seed_without_valid_end_marker_raises(self):
+        # The directed contract is both-intents-or-nothing AND the END marker must be a POSITIVE
+        # 1-based index: missing, empty, OR a no-op 0/negative/non-int must all RAISE -- never emit a
+        # START-only (un-latchable) or fixed_goal-0 (no-op = un-directed) run.
+        seeds = [(1, "ra_tunnel_mega_rl", (192.0, -208.0, -176.0))]
+        for bad in (None, {}, {"ra_tunnel_mega_rl": 0}, {"ra_tunnel_mega_rl": -3},
+                    {"ra_tunnel_mega_rl": 7.0}, {"other": 7}):
+            with self.assertRaises(ValueError):
+                pw.build_score_cvar_block((1, 2), seeds, bad)
+
+
+class WriteCfgDirectedTest(unittest.TestCase):
+    """T5.2 (#428) PR2: directed runs (seeds set) couple fixed_goal with k_matchless 1 -- a marker
+    INDEX is meaningful only under the 65-item matchless set (run-ledger.md:11). Undirected/single-bot
+    stays prewar (k_matchless 0)."""
+
+    def _write(self, **kw):
+        with tempfile.TemporaryDirectory() as td:
+            cfg = Path(td) / "x.cfg"
+            pw.write_cfg(cfg, port=28599, map_name="dm3", timelimit=10, shm_name="t",
+                         stale_ticks=10, bot_edicts=(1, 2, 3), **kw)
+            return cfg.read_text()
+
+    def test_directed_is_matchless_with_both_cvars(self):
+        seeds = [(1, "A", (1.0, 2.0, 3.0)), (2, "B", (4.0, 5.0, 6.0))]
+        cfg = self._write(score=True, seeds=seeds, end_markers={"A": 7, "B": 12}, directed=True)
+        self.assertIn("set k_matchless 1", cfg)
+        self.assertIn('set k_fb_moveprobe_spawn_origin_s2 "1.0 2.0 3.0"', cfg)
+        self.assertIn("set k_fb_moveprobe_fixed_goal_s2 7", cfg)
+        self.assertIn("set k_fb_moveprobe_fixed_goal_s3 12", cfg)
+
+    def test_undirected_is_prewar_no_seed_cvars(self):
+        cfg = self._write(score=True, seeds=None, end_markers=None, directed=False)
+        self.assertIn("set k_matchless 0", cfg)
+        self.assertNotIn("spawn_origin", cfg)
+        self.assertNotIn("fixed_goal", cfg)
+
+
+class MainDirectedGateTest(unittest.TestCase):
+    """T5.2 (#428) PR2 (Codex r3): a directed --score --bots>1 run with an EMPTY end-marker map must
+    fail loud (exit 2) BEFORE standing up mvdsv/KTX -- never silently produce un-directed scores."""
+
+    def test_empty_marker_map_fails_before_server(self):
+        canon = {"highways": [
+            {"id": "h_a", "route_class": "base", "start_xyz": [0, 0, 0], "end_xyz": [9, 9, 9]},
+            {"id": "h_b", "route_class": "base", "start_xyz": [1, 1, 1], "end_xyz": [8, 8, 8]},
+        ]}  # base highways present, but NO end_marker on any -> empty map -> fail-loud
+        orig = pw.CANON_PATH
+        with tempfile.TemporaryDirectory() as td:
+            cpath = Path(td) / "canon.json"
+            cpath.write_text(json.dumps(canon), encoding="utf-8")
+            pw.CANON_PATH = cpath
+            try:
+                rc = pw.main(["--score", "--bots", "2", "--port", "28599"])
+            finally:
+                pw.CANON_PATH = orig
+        self.assertEqual(rc, 2)
+
+    def test_nonpositive_marker_also_fails_before_server(self):
+        # A malformed end_marker: 0 (an engine no-op) must NOT satisfy the directed contract -- the
+        # run must still fail loud (exit 2) before startup, not launch un-directed.
+        canon = {"highways": [
+            {"id": "h_a", "route_class": "base", "start_xyz": [0, 0, 0], "end_xyz": [9, 9, 9],
+             "end_marker": 0},
+            {"id": "h_b", "route_class": "base", "start_xyz": [1, 1, 1], "end_xyz": [8, 8, 8],
+             "end_marker": 5},
+        ]}
+        orig = pw.CANON_PATH
+        with tempfile.TemporaryDirectory() as td:
+            cpath = Path(td) / "canon.json"
+            cpath.write_text(json.dumps(canon), encoding="utf-8")
+            pw.CANON_PATH = cpath
+            try:
+                rc = pw.main(["--score", "--bots", "2", "--port", "28599"])
+            finally:
+                pw.CANON_PATH = orig
+        self.assertEqual(rc, 2)
 
 
 if __name__ == "__main__":

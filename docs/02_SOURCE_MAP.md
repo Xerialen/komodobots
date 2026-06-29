@@ -1145,8 +1145,20 @@ In-repo Python (torch + numpy, `ml/requirements.txt`), trained offline on host `
   + run-dir/ledger I/O are the only impure (on-box, non-CI) parts; the pure core is gated
   (`tests/test_route_eval.py`). CLI: `route_eval.py <run_dir> [--slot/--player/--grid/--canon/--ledger/
   --no-write]`; live wrapper: `prewar_movecheck.py --score`. Runbook:
-  `experiments/ktx_moveprobe/T5.2_ROUTE_EVAL.md`. PR1 ships #428's Verification gate but does not
-  finish #428 (the 4-assigned-routes deliverable is PR2; #428 stays open).
+  `experiments/ktx_moveprobe/T5.2_ROUTE_EVAL.md`. **PR2 (4 bots / 4 routes) ships #428's measurement
+  spine** (the live directed run is deferred — see below) — adds the multi-bot path:
+  `base_highway_seeds` + `base_highway_end_markers` (the optional per-base-highway END `end_marker` map,
+  empty offline today) + `bind_players_to_seeds` (geometric slot→player binding, since KTX `addbot`
+  names bots randomly) + the fail-closed cross-bot `player_contact` guard + `evaluate_run_multi`
+  (qw-analyze once → per-slot `route_eval.s<N>.json`); the ledger merge is generalized to a
+  `route_evals: [block, …]` array (single-bot = 1-element; `player_contact` / `no_player_bound` are
+  multi-bot invalid_reasons). A **directed** `prewar_movecheck.py --bots N --score` emits per bot BOTH a
+  START spawn-snap (`k_fb_moveprobe_spawn_origin_s<edict>`, 3-D canon `start_xyz`) AND an END goal-pin
+  (`k_fb_moveprobe_fixed_goal_s<edict>`, a live marker index from `base_highway_end_markers`) under
+  `k_matchless 1` — the intent-first handoff gate needs the END goal, so START-seeding alone does not
+  latch the route. If the END→marker map is empty (all 4 today) the run **fails loud (exit 2) before
+  startup**; the live FBMARKER dump that fills it is a named owner-gated follow-up (`#428` stays open).
+  Needs `--bots ≤ 4`.
 
 ## Demo extraction contract
 
