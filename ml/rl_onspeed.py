@@ -1179,8 +1179,11 @@ def run_smoke(device="cpu", *, baseline_reward=True, n_iters=3, n_envs=2, rollou
     # size the policy from a REAL env observation (f_obs=336 self-history, f_ent=ENTITY_DIM).
     self_in, ents, _mask, _msec = envs[0].reset()
     f_obs, f_ent = len(self_in), (len(ents[0]) if ents else 0)
+    # small trunk (cheap), but ONLY override params the shared loader round-trips: ent_out, hidden,
+    # self_dim, gru_hidden are saved + reconstructed; ent_hidden is NOT (the loader uses the
+    # BroadBCPolicy default), so it must stay default or the smoke ckpt won't reload.
     base = BroadBCPolicy(f_obs=f_obs, f_ent=f_ent, f_aux=0, n_max=n_max, self_dim=SELF_DIM,
-                         ent_hidden=8, ent_out=8, hidden=16, yaw_head=True).to(device)
+                         ent_out=8, hidden=16, yaw_head=True).to(device)
     rl = RLPolicy(base).to(device)
     anchor = copy.deepcopy(base).to(device).eval()
     for p in anchor.parameters():
