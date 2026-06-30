@@ -251,11 +251,12 @@ def base_highway_seeds(canon: dict, n_bots: int) -> list:
 def base_highway_end_markers(canon: dict) -> dict:
     """`{highway_id: end_marker}` for `route_class=='base'` highways carrying an optional
     `end_marker` -- a 1-based live FBMARKER index at the highway END (the Commander goal the
-    INTENT-FIRST handoff gate needs to latch the route). READ-ONLY here: absent on every base
-    highway today (the index is not derivable offline -- it needs a live MATCHLESS FBMARKER dump),
-    so this returns `{}` and a directed `--score` run fail-louds. Populated by the #428 follow-up at
-    the generator SOURCE (`data/catalog/route_canon_marks.dm3.json`) + regen -- the generated canon
-    is NEVER hand-edited. The map drives live GOAL INTENT only; pin_driven_highway still scores by
+    INTENT-FIRST handoff gate needs to latch the route). READ-ONLY here: authored at the generator
+    SOURCE (`data/catalog/route_canon_marks.dm3.json`) as the NEAREST live FBMARKER of ANY class
+    (2-D) to each END + regen (the generated canon is NEVER hand-edited); the indices are
+    map-deterministic and derived + drift-gated offline by `derive_end_markers.py` (#460, no live
+    dump). A base highway that omits `end_marker` is returned absent and a directed `--score` run
+    fail-louds. The map drives live GOAL INTENT only; pin_driven_highway still scores by
     the highway actually driven, so the score stays honest regardless. RAISES ValueError if a present
     `end_marker` is not a POSITIVE 1-based int -- 0 / negative / non-int is rejected, because
     `fixed_goal 0` is an engine no-op (perslot.patch: "0 leaves fixed_goal alone") = un-directed,
@@ -617,6 +618,31 @@ def _demote_to_player_contact(art: dict, partners: list) -> dict:
     return art
 
 
+def _demote_to_wrong_highway(art: dict, assigned_id: str) -> dict:
+    """Demote a VALID artifact to invalid:`drove_wrong_highway` (#460 directed contract). The geometric
+    pin reports the highway the bot ACTUALLY drove; when that differs from the one its directed seed
+    ASSIGNED (a mid-run corridor flip, or a mis-authored end_marker pin), a score filed under the
+    assigned slot would be silent-evidence -- a real number for the WRONG route. Fail-closed: not
+    consumable. Same invariant as `_demote_to_player_contact` (consumables -> NULL, windowed numbers
+    quarantined to non_isolated_debug; the driven id is preserved there for the diagnosis)."""
+    driven_id = (art.get("highway") or {}).get("id")
+    art["valid"] = False
+    if "drove_wrong_highway" not in art["invalid_reasons"]:
+        art["invalid_reasons"].append("drove_wrong_highway")
+    art["non_isolated_debug"] = {
+        "_warning": (f"drove_wrong_highway: assigned {assigned_id!r} but the geometric pin drove "
+                     f"{driven_id!r} -> the score is filed under the WRONG route; do NOT consume it."),
+        "assigned_highway_id": assigned_id, "driven_highway_id": driven_id,
+        "adherence": art.get("adherence"), "velocity": art.get("velocity"),
+        "degenerate": art.get("degenerate"),
+    }
+    art["highway"]["id"] = None
+    art["adherence"] = None
+    art["velocity"] = None
+    art["degenerate"] = None
+    return art
+
+
 # =============================================================================
 # 5. evaluate_analysis — the pure assembly (the CI-tested core)
 # =============================================================================
@@ -788,6 +814,10 @@ def _ledger_block(artifact: dict, *, slot=None, player=None) -> dict:
         "n_engaged_spans": hw.get("n_engaged_spans"),
         "engaged_frames": hw.get("engaged_frames"),
         "engaged_fraction": hw.get("engaged_fraction"),
+        # Directed contract (#460): assigned-vs-driven, always present so a positional consumer can
+        # never read a wrong-route number as the assigned score. None on an undirected single-bot run.
+        "assigned_highway_id": hw.get("assigned_highway_id"),
+        "route_match": hw.get("route_match"),
     }
     if artifact.get("valid"):
         block.update({
@@ -921,6 +951,22 @@ def evaluate_run_multi(run_dir, *, seeds, spectator_name="KomodoPrewar", canon_p
             art = evaluate_analysis(canon, analysis, player=player, slot=slot,
                                     screen_log_text=screen_text, map_name=map_name, grid=grid,
                                     demo=demo_block, freshness=freshness, run_id=run_id, ts_utc=ts_utc)
+        # Directed contract (#460): the seed ASSIGNED this slot highway `_hid`; the geometric pin says
+        # which highway the bot actually DROVE. Record both so the artifact self-certifies, and
+        # fail-closed demote a clean-but-WRONG-route score (the silent-evidence hole: a valid number
+        # filed under a route the bot never drove). route_match=None when not assessable (invalid/no pin).
+        driven_id = (art.get("highway") or {}).get("id")
+        art["highway"]["assigned_highway_id"] = _hid
+        if art["valid"] and driven_id is not None:
+            if driven_id != _hid:
+                LOGGER.warning("route_eval: slot %d assigned %r but drove %r -> INVALID "
+                               "(drove_wrong_highway)", slot, _hid, driven_id)
+                _demote_to_wrong_highway(art, _hid)
+                art["highway"]["route_match"] = False
+            else:
+                art["highway"]["route_match"] = True
+        else:
+            art["highway"]["route_match"] = None
         arts[slot] = (player, art)
         # the contact check needs EVERY bound bot's FULL trajectory -- an invalid-but-bound bot can
         # still physically block a VALID bot during its scored window (Codex P1 round 2).

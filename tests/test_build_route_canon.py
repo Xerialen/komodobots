@@ -34,10 +34,13 @@ def _player(pts):
 _UNSET = object()
 
 
-def _build(pts, start_s, end_s, coords=None, dmg=_UNSET, route_class="base", label="L"):
+def _build(pts, start_s, end_s, coords=None, dmg=_UNSET, route_class="base", label="L",
+           end_marker=None):
     d = {"streams": {"players": [_player(pts)]}}
     mark = {"demo": "test.mvd", "player": "p1", "start_s": start_s, "end_s": end_s,
             "label": label, "route_class": route_class}
+    if end_marker is not None:
+        mark["end_marker"] = end_marker
     events = [] if dmg is _UNSET else dmg          # default [] = available-empty; None = unavailable
     return B.build_highway(d, mark, coords or COORDS, events)
 
@@ -62,6 +65,13 @@ class TestBuildRouteCanon(unittest.TestCase):
         for f in ("hs_mean", "jumps", "straightness", "dur_s"):
             self.assertIn(f, seg["signature"])
         self.assertFalse(hw["suspect_trick"])
+
+    def test_end_marker_propagated_from_mark(self):
+        # #460: an authored end_marker on the SOURCE mark passes through to the canon highway
+        # (so route_eval can read it); absent unless authored (un-directed highways stay clean).
+        pts = _straight(1.0, 20, 0.0, 50.0)
+        self.assertEqual(_build(pts, 1.0, 2.9, end_marker=291)["end_marker"], 291)
+        self.assertNotIn("end_marker", _build(pts, 1.0, 2.9))
 
     def test_internal_teleport_two_segments(self):
         pts = _straight(1.0, 18, 0.0, 50.0) + _straight(2.8, 18, 1400.0, 50.0)  # jump 550 > 200
