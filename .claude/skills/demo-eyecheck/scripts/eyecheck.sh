@@ -67,7 +67,7 @@ ssh "$WIN_HOST" "& '$WIN_PY' '$WIN_OUT\\contact_sheet.py' '$WIN_OUT\\$safe' $lo 
 # 4. pull the sheet + the in-range full-res frames to aws-dev (linnacle scp, else winnacle base64)
 mkdir -p "$LOCAL/$safe"
 pull "$LIN_OUT/$safe/sheet_${lo}-${hi}.jpg" "$WIN_OUT\\$safe\\sheet_${lo}-${hi}.jpg" "$LOCAL/$safe/sheet_${lo}-${hi}.jpg" \
-  || echo "WARN: could not pull the contact sheet (linnacle scp AND winnacle base64 both failed)"
+  || { echo "ERROR: could not pull the contact sheet (linnacle scp AND winnacle base64 both failed)" >&2; exit 1; }
 for s in $(seq "$lo" "$hi"); do
   f=$(printf 't%06d.jpg' "$s")
   pull "$LIN_OUT/$safe/$f" "$WIN_OUT\\$safe\\$f" "$LOCAL/$safe/$f" 2>/dev/null || true
