@@ -92,6 +92,12 @@ Then **Read** the printed sheet, and zoom to the full-res `t<sec>.jpg` frames fo
   fully headless. Don't run it while a match is live on that box.
 - **MaxSec sizes the capture from 0** (no start-second param) → set it just past your event; one full
   POV ≈ 1200 frames ≈ 45 s, so a targeted event is seconds of wall-clock.
+- **A HIGH `match_sec` makes a long 0..MaxSec capture that trips demoshots' runaway-loop guard**
+  (`chunk 0-N TIMEOUT … lower -Chunk`, ~140+ shots/launch). The driver passes **`-Chunk 80`** so it
+  auto-relaunches per chunk and never trips (override `EYECHECK_CHUNK`); proven on a 531-frame capture.
+- **`linnacle` (WSL2) scp is flaky** ("Connection closed"). All pulls fall back to **winnacle
+  PowerShell base64** (`pull()` helper) — winnacle is the Windows side of the same `/mnt/c`, so it
+  always works when linnacle is down; the small `contact_sheet.py` upload has the same fallback.
 - **OFFSET is per-demo** — recalibrate for every new demo (don't reuse book_vs_mix's +11).
 - Demo names with a leading color byte (`\x1c zero`) may fail `track` by plain name → use the userid
   (capture-pov logs `no such player` when this happens).
