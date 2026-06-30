@@ -108,10 +108,25 @@ timeout 150 xvfb-run -a -s "-screen 0 ${W}x${H}x24" \
   env APPIMAGE_EXTRACT_AND_RUN=1 LIBGL_ALWAYS_SOFTWARE=1 "$EZ" -basedir "$NQ" -condebug +exec _povshot.cfg > "$LOG" 2>&1
 RC=$?
 
-if [ -f "$SHOTDIR/$OUT.png" ]; then
-  echo "SHOT=$SHOTDIR/$OUT.png"
-else
+QCON="$NQ/qw/qconsole.log"
+if [ ! -f "$SHOTDIR/$OUT.png" ]; then
   echo "NO-SHOT (ezquake rc=$RC). console (qconsole.log) tail:"
-  tail -15 "$NQ/qw/qconsole.log" 2>/dev/null || tail -20 "$LOG"
+  tail -15 "$QCON" 2>/dev/null || tail -20 "$LOG"
   exit 4
 fi
+
+# Fail CLOSED on a wrong-player frame. If a specific player was requested ($TRACK non-empty) but
+# ezQuake could not resolve/lock that token (bad name, color-byte name vs userid, player absent at
+# f_spawn), it SILENTLY falls back to the demo's default POV and still writes a PNG — misleading
+# "exact-player" evidence. CL_Track (ezQuake src/cl_cam.c) prints a resolution error to the console
+# in exactly those cases, so reject the shot when any such line is present. (Default POV = empty
+# $TRACK, skips this. Overrides are off above, so a resolved track binds the requested player.)
+if [ -n "$TRACK" ] && grep -qiE 'no such player|no player with userid|cannot track a spectator|only track in spectator mode|must be connected to track' "$QCON" 2>/dev/null; then
+  echo "NO-SHOT: track FAILED for player '$PLAYER' — ezQuake could not resolve/lock it, so the POV is"
+  echo "        the demo default, NOT '$PLAYER'. Use the exact in-demo name or a numeric userid."
+  grep -iE 'no such player|no player with|cannot track|only track in spectator|connected to track' "$QCON" 2>/dev/null | tail -3
+  rm -f "$SHOTDIR/$OUT.png"
+  exit 5
+fi
+
+echo "SHOT=$SHOTDIR/$OUT.png"

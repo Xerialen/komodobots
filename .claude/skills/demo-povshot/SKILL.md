@@ -57,6 +57,11 @@ scripts/grab.sh <demo-rel-to-qw> <player|-|userid> <demo_sec> <local-out.png>
   Intel HD 530, no GPU accel needed). Default 1280×720; bump via `POV_W`/`POV_H` env.
 - **player** must be a single token: a QW name w/o spaces, or a numeric **userid** (color-byte names
   need the userid — get it from a roster), or `-` for the default POV (no track).
+- **Fail-closed on a wrong player (evidence integrity).** If a specific player is requested but ezQuake
+  can't resolve/lock it, it silently renders the *default* POV and still writes a PNG. The capture
+  detects the `CL_Track` resolution error in `qconsole.log` (via `-condebug`) and **rejects the shot**
+  (non-zero, no `SHOT=`, deletes the PNG) rather than return a misleading frame — so a bad name/userid
+  errors out instead of passing off the wrong POV as that player. Default POV (`-`) skips the check.
 
 ## Input safety (validated at both layers)
 The args flow through a 2-hop ssh chain and into the ezQuake config, so both scripts reject injection
