@@ -49,6 +49,15 @@ render) → `screenshot <name>` → `quit`. Output lands in `~/nquake/qw/matchin
 - **player** must be a single token: a QW name w/o spaces, or a numeric **userid** (color-byte names
   need the userid — get it from a roster), or `-` for the default POV (no track).
 
+## Input safety (validated at both layers)
+The args flow through a 2-hop ssh chain and into the ezQuake config, so both scripts reject injection
+before acting: **SEC** must be numeric; **outname**/**POV_W/H** are whitelisted (`[A-Za-z0-9._-]` /
+digits); **demo**/**player** reject the shell/cfg metachars `" ' ; $ \` \ ` and newlines. `grab.sh`
+additionally marshals the remote command with `printf %q` + base64 (no raw user byte ever reaches the
+ssh string — the value stays inert data through the Windows middle hop). Real `[dm3]` demo names are
+fine (`[`/`]` are allowed and `%q`-escaped for the shell). A rejected value exits non-zero with a clear
+`FATAL:` line and renders nothing.
+
 ## Clock offset (match-time vs demo-second) — IMPORTANT
 `demo_jump <sec>` uses the **demo clock** (includes warmup/prewar), NOT match-time. The in-game HUD
 match-clock is burned into the shot, so calibrate by reading it back: `demo_sec = match_sec + warmup`

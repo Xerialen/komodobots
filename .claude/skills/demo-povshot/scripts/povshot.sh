@@ -17,6 +17,18 @@ SEC="${3:?need demo-second}"
 OUT="${4:-povshot}"
 W="${POV_W:-1280}"; H="${POV_H:-720}"
 
+# --- input validation (cfg-injection guard): SEC/OUT/W/H/DEMO/PLAYER are interpolated into the
+#     ezQuake config + the Xvfb screen spec below, where a newline / ';' / '"' / '$' would inject
+#     extra console commands. Whitelist the numeric/filename ones; reject metachars in demo/player
+#     so a hostile demo path or player token can't smuggle commands into the engine. ---
+case "$SEC" in ''|*[!0-9.]*) echo "FATAL: demo-second must be numeric: '$SEC'" >&2; exit 2;; esac
+case "$OUT" in ''|*[!A-Za-z0-9._-]*) echo "FATAL: outname must match [A-Za-z0-9._-]: '$OUT'" >&2; exit 2;; esac
+case "$W$H" in ''|*[!0-9]*) echo "FATAL: POV_W/POV_H must be numeric: '${W}x${H}'" >&2; exit 2;; esac
+case "$DEMO$PLAYER" in
+  *'"'*|*';'*|*'$'*|*'`'*|*'\'*|*$'\n'*)
+    echo "FATAL: illegal metachar (\" ; \$ \` \\ newline) in demo/player" >&2; exit 2;;
+esac
+
 NQ="$HOME/nquake"
 EZ="$NQ/ezQuake-x86_64.AppImage"
 SHOTDIR="$NQ/qw/matchinfo/screenshots"

@@ -11,6 +11,15 @@ PLAYER="${2:?player name|userid|-}"
 SEC="${3:?demo-second}"
 OUT="${4:?local output .png path}"
 
+# --- input validation: DEMO/PLAYER/SEC flow through the ssh chain + (on servexeri) into the
+#     ezQuake cfg. Validate here too (fail fast, clear error) so a hostile value never reaches
+#     the remote. SEC numeric; reject shell/cfg metachars in demo/player. ---
+case "$SEC" in ''|*[!0-9.]*) echo "demo-second must be numeric: '$SEC'" >&2; exit 2;; esac
+case "$DEMO$PLAYER" in
+  *'"'*|*"'"*|*';'*|*'$'*|*'`'*|*'\'*|*$'\n'*)
+    echo "illegal metachar (\" ' ; \$ \` \\ newline) in demo/player" >&2; exit 2;;
+esac
+
 HERE="$(cd "$(dirname "$0")" && pwd)"
 WIN="${POVSHOT_JUMP:-winnacle}"            # pinnacle Windows host (tailscale)
 SX="${POVSHOT_HOST:-xerial@192.168.86.33}" # real servexeri over pinnacle LAN
@@ -21,9 +30,15 @@ B64=$(base64 -w0 "$HERE/povshot.sh")
 ssh -o ConnectTimeout=20 "$WIN" "ssh -o ConnectTimeout=15 $SX 'echo $B64 | base64 -d > ~/nquake/povshot.sh; chmod +x ~/nquake/povshot.sh'" \
   || { echo "deploy failed"; exit 2; }
 
-# 2) capture (player/demo/sec are single tokens -> safe through the ssh chain)
+# 2) capture. Marshal the remote command safely: printf %q shell-quotes each user value for
+#    servexeri's bash, then base64 the whole inner command so it survives the Windows middle hop
+#    with zero quoting hazards (pattern: memory servexeri-demo-archive — nested quotes/parens
+#    otherwise break across the 3 ssh layers). No raw user byte reaches the ssh string.
 echo "capturing POV[$PLAYER] @ demo_sec $SEC of $DEMO ..."
-RES=$(ssh -o ConnectTimeout=20 "$WIN" "ssh -o ConnectTimeout=15 $SX 'cd ~/nquake && ./povshot.sh $DEMO $PLAYER $SEC $NAME 2>&1 | tail -4'")
+INNER=$(printf 'cd ~/nquake && ./povshot.sh %q %q %q %q 2>&1 | tail -6' "$DEMO" "$PLAYER" "$SEC" "$NAME")
+IB64=$(printf %s "$INNER" | base64 -w0)
+RES=$(ssh -o ConnectTimeout=20 "$WIN" "ssh -o ConnectTimeout=15 $SX 'echo $IB64 | base64 -d | bash'") \
+  || { echo "capture ssh failed"; exit 4; }
 echo "$RES"
 echo "$RES" | grep -q "^SHOT=" || { echo "CAPTURE FAILED (see above)"; exit 4; }
 
