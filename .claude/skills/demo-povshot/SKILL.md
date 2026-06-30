@@ -33,11 +33,20 @@ scripts/grab.sh <demo-rel-to-qw> <player|-|userid> <demo_sec> <local-out.png>
 - `scripts/povshot.sh` is the servexeri-side driver (auto-deployed by grab.sh to `~/nquake/`);
   `scripts/grab.sh` is the aws-dev orchestrator (deploy → run → base64-pull the PNG).
 
-## The recipe (owner's clipsmith `~/nquake/qw/render.cfg`, parameterized)
-On the demo's first spawn (`f_spawn`): `demo_jump <sec>` → `track <player>` → 8×`wait` (let frames
-render) → `screenshot <name>` → `quit`. Output lands in `~/nquake/qw/matchinfo/screenshots/<name>.png`.
+## The recipe (proven demoshots engine — two cfgs)
+**loop cfg** — at the demo's first spawn (`f_spawn`): turn the engine's auto-POV overrides OFF
+(`mvd_autotrack 0` / `demo_autotrack 0` / `cl_hightrack 0`), `ruleset default`, `cl_demospeed 5`→`1`,
+`track <player>`, then **`exec` the shots cfg**. **shots cfg** — `demo_jump <sec>` → a few `wait`s →
+`screenshot <name>` → `quit`. Output lands in `~/nquake/qw/matchinfo/screenshots/<name>.png`.
 
 ## Engine gotchas (encoded in povshot.sh — do not relearn the hard way)
+- ★**Tracking a SPECIFIC player needs the auto-POV overrides OFF + an `exec` boundary.** Without
+  `mvd_autotrack 0` / `demo_autotrack 0` / `cl_hightrack 0`, ezQuake's `Cam_Track` (cl_cam.c) silently
+  re-locks the POV to the high-frag / first-present player — `track Milton` shows ParadokS/niw instead.
+  AND `track` must run in a SEPARATE cbuf pass from `demo_jump` (the loop cfg tracks, then `exec`s the
+  shots cfg) so `Cam_Track` latches the player BEFORE the seek; track+jump in one alias does NOT stick.
+  `ruleset default` lifts the qcon `wait`-cap(10); `cl_demospeed 5`→`1` fast-forwards warmup so f_spawn
+  fires with players loaded. (Verified: this is exactly what the `demoshots`/`demo-eyecheck` engine does.)
 - **Run the AppImage with `APPIMAGE_EXTRACT_AND_RUN=1`, NOT the bare extracted binary.** servexeri's
   system glibc is OLDER than the AppImage's bundled libs, so mixing them dies with
   `GLIBC_ABI_DT_X86_64_PLT not found`. AppRun's "appimage libc" branch loads the bundled glibc
@@ -52,7 +61,9 @@ render) → `screenshot <name>` → `quit`. Output lands in `~/nquake/qw/matchin
 ## Input safety (validated at both layers)
 The args flow through a 2-hop ssh chain and into the ezQuake config, so both scripts reject injection
 before acting: **SEC** must be numeric; **outname**/**POV_W/H** are whitelisted (`[A-Za-z0-9._-]` /
-digits); **demo**/**player** reject the shell/cfg metachars `" ' ; $ \` \ ` and newlines. `grab.sh`
+digits); **demo**/**player** reject whitespace + the shell/cfg metachars `" ' ; $ \` \ ` and newlines
+(demo/player go bare into `playdemo`/`track`, mirroring the owner's render.cfg — a space-containing
+name needs the numeric userid). `grab.sh`
 additionally marshals the remote command with `printf %q` + base64 (no raw user byte ever reaches the
 ssh string — the value stays inert data through the Windows middle hop). Real `[dm3]` demo names are
 fine (`[`/`]` are allowed and `%q`-escaped for the shell). A rejected value exits non-zero with a clear

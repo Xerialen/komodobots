@@ -16,8 +16,8 @@ OUT="${4:?local output .png path}"
 #     the remote. SEC numeric; reject shell/cfg metachars in demo/player. ---
 case "$SEC" in ''|*[!0-9.]*) echo "demo-second must be numeric: '$SEC'" >&2; exit 2;; esac
 case "$DEMO$PLAYER" in
-  *'"'*|*"'"*|*';'*|*'$'*|*'`'*|*'\'*|*$'\n'*)
-    echo "illegal metachar (\" ' ; \$ \` \\ newline) in demo/player" >&2; exit 2;;
+  *' '*|*$'\t'*|*'"'*|*"'"*|*';'*|*'$'*|*'`'*|*'\'*|*$'\n'*)
+    echo "illegal char (whitespace or \" ' ; \$ \` \\ newline) in demo/player" >&2; exit 2;;
 esac
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
