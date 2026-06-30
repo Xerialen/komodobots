@@ -845,6 +845,11 @@ def train(args, device):
         "rollout_steps": args.rollout_steps, "ppo_epochs": args.ppo_epochs,
         "lr": args.lr, "clip": args.clip, "kl_coef": args.kl_coef,
         "ent_coef": args.ent_coef, "reward_band": [band_lo, band_hi],
+        # #427 reward provenance (Codex r2 P1): persist the explicit --reward-weight overrides AND the
+        # fully-resolved reward config actually used by PmoveEnv, so each owner-gated ckpt identifies the
+        # reward that produced it (reproducible/comparable MVD evidence across runs).
+        "reward_weights_override": reward_weights,
+        "reward_config": dict(envs[0]._rcfg) if envs else {},
         "wall_time_s": round(time.time() - t_start, 1),
         "final_mean_hspeed": mean_hsp, "final_fwd_press": fwd_press,
         "best_it": best["it"], "best_press": best["press"], "best_fpm": best["fpm"],
