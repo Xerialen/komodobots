@@ -436,7 +436,7 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
     act_buf = {"fwd": [], "side": [], "up": [], "jump": []}
     logp_buf, yaw_buf, yawlogp_buf = [], [], []
     val_buf, rew_buf, done_buf = [], [], []
-    hsp_log, fwdpress_log, rcad_log, rpress_log = [], [], [], []
+    hsp_log, fwdpress_log, rcad_log, rpress_log, rvel_log = [], [], [], [], []
 
     # current obs per env
     cur = [e._cur_obs if hasattr(e, "_cur_obs") else e.reset() for e in envs]
@@ -483,6 +483,7 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
             rews[i] = r; dones[i] = 1.0 if d else 0.0
             hsp_log.append(info["hspeed"]); fwdpress_log.append(info["fwd_press"])
             rcad_log.append(info["r_cad"]); rpress_log.append(info["r_press"])
+            rvel_log.append(info["r_vel"])      # #427 new-objective diagnostic (route-relative speedup)
             if d:
                 obs = e.reset()
             new_cur.append(obs)
@@ -503,7 +504,7 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
         "logp": logp_buf, "yaw": yaw_buf, "yawlogp": yawlogp_buf,
         "val": val_buf, "rew": rew_buf, "done": done_buf, "last_val": last_val,
         "hsp_log": hsp_log, "fwdpress_log": fwdpress_log, "rcad_log": rcad_log,
-        "rpress_log": rpress_log,
+        "rpress_log": rpress_log, "rvel_log": rvel_log,
     }
 
 
@@ -679,6 +680,10 @@ def train(args, device):
                          ent_coef=args.ent_coef, kl_coef=args.kl_coef, opt=opt)
         mean_hsp = float(np.mean(roll["hsp_log"])) if roll["hsp_log"] else 0.0
         fwd_press = float(np.mean(roll["fwdpress_log"])) if roll["fwdpress_log"] else 0.0
+        # #427 new-objective diagnostics: the reward RETURN (the #427 objective itself) + mean r_vel
+        # (route-relative speedup), for the DEFAULT checkpoint selection + the run's evidence chain.
+        mean_reward = float(np.mean([float(r.mean()) for r in roll["rew"]])) if roll["rew"] else 0.0
+        mean_rvel = float(np.mean(roll["rvel_log"])) if roll.get("rvel_log") else 0.0
         # cadence proxy: fraction of ticks that scored a flip-reward (r_cad>0) -> rough
         # flips/min = flip_frac * (60000/13) so I can watch M6 recover during training.
         rcad = roll["rcad_log"]
@@ -686,7 +691,8 @@ def train(args, device):
         fpm_est = flip_frac * (60000.0 / 13.0)
         dt = time.time() - t0
         sps = steps_per_iter / dt if dt > 0 else 0.0
-        print(f"[it {it:03d}] env_steps={env_steps} mean_hspeed={mean_hsp:6.1f} "
+        print(f"[it {it:03d}] env_steps={env_steps} rew~{mean_reward:+.3f} r_vel~{mean_rvel:+.2f} "
+              f"mean_hspeed={mean_hsp:6.1f} "
               f"fwd_press={fwd_press:.3f} fpm~{fpm_est:5.0f} pg={upd['pg']:+.4f} "
               f"vf={upd['vf']:.4f} ent={upd['ent']:.3f} kl_anchor={upd['kl_anchor']:.4f} "
               f"approx_kl={upd['approx_kl']:+.4f} yaw_std={float(rl.yaw_log_std.exp()):.2f} "
@@ -697,35 +703,43 @@ def train(args, device):
             print(f"[rl] WARN approx_kl {upd['approx_kl']:.3f} >> target {args.target_kl} "
                   f"(policy moving fast; conservative LR/clip should bound it)", flush=True)
 
-        # --- believability-scored best-ckpt + KL-anchor early-stop (ROUND-3c) ---------------
-        # Only iters still ON the believable manifold (kl_anchor <= ceiling) AND not over-
-        # pressing past the human top (0.50) are eligible. Among those, score rewards higher
-        # in-rollout speed and a nonzero strafe cadence (fpm>0) — i.e. the air-strafe regime,
-        # not bulldozing. Warm-up: skip iter 0 (init transient). A grace lets a couple of low-
-        # fpm iters pass without locking the best, but the press/KL gates are hard.
+        # --- best-ckpt selection + KL-anchor early-stop ---------------------------------------
+        # #427: the DEFAULT saved checkpoint is ranked by the NEW reward objective itself (the
+        # rollout reward RETURN = r_vel/progress - collision/time), so the persisted model is the
+        # one that best achieved #427 — NOT the old believability score (raw speed - press + cadence
+        # flips). Eligibility keeps only the KL stability bound (anti-runaway; tunable via
+        # --kl-anchor-ceiling — RAISE it for the new objective if it caps the superhuman improvement).
+        # Legacy believability selection (the old plane: human press gate + cadence-flip score) is
+        # preserved behind --select-legacy-believable for A/B against the superseded objective.
+        legacy_sel = bool(getattr(args, "select_legacy_believable", False))
         on_manifold = upd["kl_anchor"] <= kl_ceiling
-        press_ok = fwd_press <= args.press_ceiling
-        if it >= 1 and on_manifold and press_ok:
+        if legacy_sel:
+            eligible = (it >= 1 and on_manifold and fwd_press <= args.press_ceiling)
             score = mean_hsp - 200.0 * max(0.0, fwd_press - 0.30) + 0.5 * min(fpm_est, 120.0)
+        else:
+            eligible = (it >= 1 and on_manifold)
+            score = mean_reward
+        if eligible:
             cand = {"score": score, "sd": _copy.deepcopy(rl.base.state_dict()), "it": it,
                     "press": fwd_press, "fpm": fpm_est, "hsp": mean_hsp,
                     "kl_anchor": float(upd["kl_anchor"])}
-            # top-K by in-rollout score (ROUND-4): retain the K best believable snapshots for
-            # the post-hoc eval-press selection; keep `best` as the single-best for logging.
+            # top-K by the ACTIVE score (default: #427 reward return) — retained for the opt-in
+            # eval-press screen; `best` is the single-best for the default save.
             topk.append(cand)
             topk.sort(key=lambda c: c["score"], reverse=True)
             del topk[K:]
             if score > best["score"]:
                 best.update(score=score, sd=cand["sd"], it=it,
                             press=fwd_press, fpm=fpm_est, hsp=mean_hsp)
-                print(f"[rl] * new best-believable @it{it}: score={score:.1f} "
-                      f"press={fwd_press:.3f} fpm~{fpm_est:.0f} hspeed={mean_hsp:.1f} "
+                _tag = "best-believable(legacy)" if legacy_sel else "best(#427 reward)"
+                print(f"[rl] * new {_tag} @it{it}: score={score:+.3f} rew~{mean_reward:+.3f} "
+                      f"r_vel~{mean_rvel:+.2f} press={fwd_press:.3f} hspeed={mean_hsp:.1f} "
                       f"kl_anchor={upd['kl_anchor']:.3f}", flush=True)
         # early-STOP on manifold departure (the runaway into the bulldoze basin).
         if upd["kl_anchor"] > kl_ceiling and best["sd"] is not None:
             stopped_early = it
             print(f"[rl] EARLY-STOP @it{it}: kl_anchor {upd['kl_anchor']:.3f} > ceiling "
-                  f"{kl_ceiling} (left the believable manifold; keeping best @it{best['it']})",
+                  f"{kl_ceiling} (KL stability ceiling exceeded; keeping best @it{best['it']})",
                   flush=True)
             break
 
@@ -817,9 +831,10 @@ def train(args, device):
               f"eval_M6={ed.get('eval_m6')}; reason={sel_reason})", flush=True)
     elif best["sd"] is not None:
         rl.base.load_state_dict(best["sd"])
-        print(f"[rl] saving BEST-believable ckpt @it{best['it']} "
-              f"(press={best['press']:.3f} fpm~{best['fpm']:.0f} hspeed={best['hsp']:.1f})",
-              flush=True)
+        _btag = ("BEST-believable(legacy)" if getattr(args, "select_legacy_believable", False)
+                 else "BEST(#427 reward)")
+        print(f"[rl] saving {_btag} ckpt @it{best['it']} (score={best['score']:+.3f} "
+              f"press={best['press']:.3f} hspeed={best['hsp']:.1f})", flush=True)
     else:
         print("[rl] WARN no on-manifold/low-press iter found — saving FINAL params "
               "(this run likely regressed; eval will catch it)", flush=True)
@@ -836,6 +851,7 @@ def train(args, device):
         "best_hspeed": best["hsp"], "best_score": best["score"],
         "stopped_early_it": stopped_early, "kl_anchor_ceiling": kl_ceiling,
         "press_ceiling": args.press_ceiling,
+        "select_legacy_believable": bool(getattr(args, "select_legacy_believable", False)),
         "select_by_eval_press": bool(getattr(args, "select_by_eval_press", False)),
         "eval_press_ceiling": float(getattr(args, "eval_press_ceiling", 0.50)),
         "topk_snapshots": K,
@@ -843,7 +859,10 @@ def train(args, device):
         "selected_it": (sel["it"] if sel is not None else best["it"]),
         "selected_reason": sel_reason,
         "saved_params": ("eval_press_selected" if sel is not None
-                         else ("best_believable" if best["sd"] is not None else "final_fallback")),
+                         else (("best_believable_legacy"
+                                if getattr(args, "select_legacy_believable", False)
+                                else "best_phase2_reward")
+                               if best["sd"] is not None else "final_fallback")),
     }
     save_rl_ckpt(args.out_ckpt, rl, src_ckpt, dims, head_dims, args.round, meta)
     print(json.dumps({"saved": str(Path(args.out_ckpt).resolve()), "rl_meta": meta}, indent=2),
@@ -1174,8 +1193,16 @@ def main(argv=None):
                     help="best-ckpt eligibility: max in-rollout argmax fwd_press (human top "
                          "0.50). Iters above this are over-pressing -> not eligible as best.")
     # ROUND-4 eval-press selection (the targeted fix for the round-3 in-rollout/eval mismatch)
+    ap.add_argument("--select-legacy-believable", action="store_true",
+                    help="#427: opt back into the LEGACY believability checkpoint selection (rank the "
+                         "saved ckpt by the old score = in-rollout speed - press penalty + cadence "
+                         "flips, gated by the human press ceiling). DEFAULT (off) ranks the saved ckpt "
+                         "by the new #427 reward RETURN (r_vel/progress - collision/time) so the "
+                         "persisted model reflects the trained objective. Use only for A/B vs the old "
+                         "objective; the eval-press screen below is part of this legacy plane.")
     ap.add_argument("--select-by-eval-press", action="store_true",
-                    help="ROUND-4: after training, eval each of the top-K believable snapshots "
+                    help="LEGACY believability screen (use with --select-legacy-believable). ROUND-4: "
+                         "after training, eval each of the top-K believable snapshots "
                          "on the goal-conditioned closed-loop and SAVE the one whose EVAL press "
                          "< --eval-press-ceiling while holding M1 in band + M6 in-band (else "
                          "the lowest-eval-press candidate that holds M1). Fixes round-3 where "

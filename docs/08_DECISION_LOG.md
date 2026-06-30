@@ -4378,10 +4378,17 @@ No success claim without a linked viewable MVD (docs/28).
 
 ### Deferred (named, not silent)
 
-- **Selection / gate re-point → #428.** `G-MV4` is a two-sided band that *fails* above the top edge (a
-  superhuman bot reads off-band) and the best-ckpt `score` ranks on raw `mean_hsp` (an orbiter ranks high).
-  Both belong to the eval-metrics ticket #428 (which redesigns the gate); #427 only relabels the in-file band
-  echo and leaves a runbook note. `G-MV4` is `hard:false` so it does not sink the hard guard meanwhile.
+- **Checkpoint SAVE selection aligned in this PR (Codex review r1, P1).** The training loop previously saved
+  the "best-believable" checkpoint by default (old score: raw speed − press + cadence flips, human-press
+  gated) — so a run under the new reward would persist a model chosen by the *superseded* objective, making
+  its MVD/metric evidence ambiguous. Fixed: the **default** saved checkpoint is now ranked by the **#427
+  reward return** (r_vel/progress − collision/time = `mean_reward`; `r_vel` surfaced in `collect_rollout` +
+  the per-iter log), eligibility = the KL **stability** bound only. Legacy believability selection is opt-in
+  via `--select-legacy-believable`. The KL-anchor stays (anti-runaway) but is tunable — raise
+  `--kl-anchor-ceiling` if it caps superhuman improvement.
+- **Broader eval-GATE re-point → #428.** `G-MV4` is a two-sided band that *fails* above the top edge (a
+  superhuman bot reads off-band). It belongs to the eval-metrics ticket #428 (which redesigns the gate); it is
+  `hard:false` so it does not sink the hard guard meanwhile (read M1/M2 floor-only until then).
 - **No return-normalizer / Huber value loss** — unnecessary because the bounded ratio keeps returns in scale.
 - The old `--r-cad-weight` flag is deprecated (superseded by `--reward-weight w_cad=`); the `info` reward keys
   are **not** under the `docs/25` data contract (verified: that contract governs extraction/training-example
