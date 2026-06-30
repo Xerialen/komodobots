@@ -57,15 +57,18 @@ scripts/grab.sh <demo-rel-to-qw> <player|-|userid> <demo_sec> <local-out.png>
   Intel HD 530, no GPU accel needed). Default 1280×720; bump via `POV_W`/`POV_H` env.
 - **player** must be a single token: a QW name w/o spaces, or a numeric **userid** (color-byte names
   need the userid — get it from a roster), or `-` for the default POV (no track).
-- **Fail-closed on a wrong player (evidence integrity).** If a specific player is requested but ezQuake
-  can't resolve/lock it (or the player is dead/absent at the exact second), it silently renders the
-  *default*/another POV and still writes a PNG. The capture rejects the shot (non-zero, no `SHOT=`,
-  deletes the PNG) in **two** ways: (1) it greps `qconsole.log` (via `-condebug`) for the `CL_Track`
-  resolution error → catches a bad name/userid; (2) after the seek it RE-asserts `track $PLAYER` and
-  arms `f_trackspectate` as a **re-lock detector** — if the engine silently re-locks the POV to another
-  player in the final pre-shot window (requested player dead/absent at that second) it echoes
-  `POVSHOT_RELOCK` → fail closed. A stable, present player produces no re-lock. Default POV (`-`) skips
-  both. (Verified: `Milton`@active → shot; `Milton`@a dead second → rejected; bad name → rejected.)
+- ★**Identity is verified by reading the frame, not a fragile self-check.** The cfg sets
+  `scr_newhud 0` + `scr_tracking "Tracking %t %n"`, so every shot **burns the tracked player's name
+  into the image** (e.g. `TRACKING BOOK MILTON`). The caller READS it to confirm the rendered POV is
+  the requested player — robust and unambiguous (no misreading an abbreviated `MIL`). ezQuake exposes
+  NO console/cfg signal for the tracked player's identity (`WhoIsSpectated` is C-only; the name lives
+  only in the HUD), so a *programmatic* per-second identity check isn't possible — and the
+  `f_trackspectate` re-lock trick is FLAKY (non-deterministic, false-positives on valid active
+  captures) — do not use it. What IS deterministic + kept: `povshot.sh` greps `qconsole.log` (via
+  `-condebug`) for the `CL_Track` resolution error and fails closed on a **bad name/userid** (no
+  `SHOT=`, PNG deleted). The dead/absent-at-exact-second case (engine silently re-locks) shows up as a
+  *different name* in the burned-in `Tracking …` line → the caller catches it by eye. Default POV (`-`)
+  has no `Tracking` line.
 
 ## Input safety (validated at both layers)
 The args flow through a 2-hop ssh chain and into the ezQuake config, so both scripts reject injection

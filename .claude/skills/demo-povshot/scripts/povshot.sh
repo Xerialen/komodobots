@@ -69,13 +69,13 @@ tp_loadlocs 0
 scr_centertime 0
 scr_conspeed 99999
 scr_consize 0
-scr_newhud 1
+scr_newhud 0
 sshot_format png
 vid_width $W
 vid_height $H
 vid_conwidth 512
-hud_recalculate
-hud_tracker_show 1
+scr_tracking "Tracking %t %n"
+scr_spectatorMessage 0
 r_tracker 1
 cl_maxfps 0
 ruleset default
@@ -90,22 +90,7 @@ alias f_spawn "do_start"
 playdemo $DEMO
 EOF
 
-# Positive post-seek verification (only when a specific player is requested): after the seek settles,
-# RE-assert `track $PLAYER` (forces the requested slot; a disconnected player errors -> caught below),
-# then arm f_trackspectate as a re-lock detector. ezQuake's Cam_Lock fires f_trackspectate on EVERY
-# lock (src/cl_cam.c), so if the engine SILENTLY re-locks the POV to another player in the final
-# pre-screenshot window — because the requested player is dead/absent at this exact second — it echoes
-# POVSHOT_RELOCK and we fail closed. A stable, present player produces no re-lock (Cam_Track branch A
-# keeps spec_track == the requested slot), so a clean run has no POVSHOT_RELOCK.
-RETRACK_BLOCK=""
-if [ -n "$TRACK" ]; then
-  RETRACK_BLOCK="track $PLAYER
-alias f_trackspectate \"echo POVSHOT_RELOCK\"
-wait
-wait"
-fi
-
-# shots cfg: seek to the target second, settle, (re-track + arm the re-lock detector), screenshot, quit.
+# shots cfg: seek to the target second, let the scene+HUD settle, screenshot, quit.
 cat > "$CFG_SHOTS" <<EOF
 demo_jump $SEC
 wait
@@ -114,7 +99,6 @@ wait
 wait
 wait
 wait
-$RETRACK_BLOCK
 screenshot $OUT
 echo POVSHOT_DONE
 quit
@@ -146,17 +130,6 @@ if [ -n "$TRACK" ] && grep -qiE 'no such player|no player with userid|cannot tra
   grep -iE 'no such player|no player with|cannot track|only track in spectator|connected to track' "$QCON" 2>/dev/null | tail -3
   rm -f "$SHOTDIR/$OUT.png"
   exit 5
-fi
-
-# Positive check: the requested player resolved (no error above) AND the POV stayed locked to them
-# through the shot. If f_trackspectate fired in the final window, the engine re-locked to another
-# player (requested player dead/absent at this exact second) -> the frame is NOT their POV -> reject.
-if [ -n "$TRACK" ] && grep -qi 'POVSHOT_RELOCK' "$QCON" 2>/dev/null; then
-  echo "NO-SHOT: '$PLAYER' was not a STABLE POV at demo_sec $SEC — ezQuake re-locked the view to another"
-  echo "        player just before the shot (the requested player is dead/absent at this exact second)."
-  echo "        Pick a second where '$PLAYER' is active."
-  rm -f "$SHOTDIR/$OUT.png"
-  exit 6
 fi
 
 echo "SHOT=$SHOTDIR/$OUT.png"

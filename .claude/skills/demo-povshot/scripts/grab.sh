@@ -42,6 +42,18 @@ RES=$(ssh -o ConnectTimeout=20 "$WIN" "ssh -o ConnectTimeout=15 $SX 'echo $IB64 
 echo "$RES"
 echo "$RES" | grep -q "^SHOT=" || { echo "CAPTURE FAILED (see above)"; exit 4; }
 
-# 3) pull the PNG to the local path
-ssh -o ConnectTimeout=20 "$WIN" "ssh -o ConnectTimeout=12 $SX 'base64 -w0 ~/nquake/qw/matchinfo/screenshots/$NAME.png'" 2>/dev/null | base64 -d > "$OUT"
-[ -s "$OUT" ] && echo "LOCAL=$OUT ($(wc -c < "$OUT") bytes)" || { echo "pull failed"; exit 5; }
+# 3) pull the PNG ATOMICALLY: stream to a temp, require BOTH legs of the ssh|base64 pipe to succeed
+#    AND the result to be a real PNG (magic bytes), then mv into place. An interrupted two-hop
+#    transfer otherwise leaves a non-empty PARTIAL file that the old `-s` check would accept as a
+#    successful capture (truncated/corrupt evidence).
+TMP="$(mktemp "${OUT}.part.XXXXXX")" || { echo "pull failed (mktemp)"; exit 5; }
+ssh -o ConnectTimeout=20 "$WIN" "ssh -o ConnectTimeout=12 $SX 'base64 -w0 ~/nquake/qw/matchinfo/screenshots/$NAME.png'" 2>/dev/null | base64 -d > "$TMP"
+st_ssh=${PIPESTATUS[0]} st_b64=${PIPESTATUS[1]}
+if [ "$st_ssh" -ne 0 ] || [ "$st_b64" -ne 0 ] || [ ! -s "$TMP" ]; then
+  rm -f "$TMP"; echo "pull failed (transfer error: ssh=$st_ssh base64=$st_b64)"; exit 5
+fi
+if [ "$(head -c8 "$TMP" | od -An -tx1 | tr -d ' \n')" != "89504e470d0a1a0a" ]; then
+  rm -f "$TMP"; echo "pull failed (not a valid PNG — truncated/corrupt transfer)"; exit 5
+fi
+mv -f "$TMP" "$OUT" || { rm -f "$TMP"; echo "pull failed (mv)"; exit 5; }
+echo "LOCAL=$OUT ($(wc -c < "$OUT") bytes)"
