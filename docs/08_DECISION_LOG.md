@@ -4321,3 +4321,75 @@ The #428 scoring-pipeline follow-up lands (match the matchless auto-demo name in
 `select_run_demo`; a decoder that extracts players from server `sv_demo`s) **and** the docs/28 movement brain
 replaces the frozen 6-feat mover → the directed `--bots 4 --score` run produces real per-route MSE, and #428
 can close. The `route_match` guard then becomes live-exercised (it is unit-tested only today).
+
+## 2026-06-30 — T5.1 (#427): reframe the PPO reward from human-imitation to information-honest superhuman (option C)
+
+### Context
+
+#427 (Phase-2 M5) develops the docs/28 reward — **Velocity+ / Progress+ / Collision− / Time−** — to "learn
+elite mechanics and surpass human speed." The env (`ml/rl_onspeed.py:PmoveEnv.step`) already carried a
+heavily-iterated reward (ROUND-1..8, commit 17c68e4, **pre-pivot 2026-06-22**) built for the *superseded
+believability* goal (docs/18): `r_speed = soft_band(hspeed, 252, 316)` **gaussian-decays above 316** (a
+superhuman-speed CAP — it penalised even elite-human peak speed, ~534 qu/s on dm3), cadence/press windows
+sourced from human play, KL-anchored to a "believable-aim" policy. Collision− and Time− were absent. So
+#427 is a **reframe** of a hard-tuned reward, not a green-field add. Owner picked **option C** ("uncap speed,
+keep the mechanism scaffolding") over a clean-slate rebuild (B, risks the ROUND-4 bulldoze regression) and a
+minimal 2-term add (A, keeps the human speed cap → cannot go superhuman).
+
+### Decision
+
+Reframe the reward, keeping the *physics mechanism* and replacing the *human-imitation anchors*:
+
+- **Velocity+ `r_vel`** (replaces the `soft_band` cap): a human-RELATIVE speedup ratio = `(v·route_tangent) /
+  human_speed_here`, soft-saturated above 1 (asymptote 1+`v_sat`) and floored at −1. `ratio>1` = superhuman
+  on this stretch. Ratio-not-raw-speed is deliberate: the PPO loop z-scores *advantages* but fits **raw
+  returns** (value head, no return normalizer), so an unbounded term would inflate the shared-trunk value
+  gradient, let one outlier wreck batch advantage-normalization, and trip `--kl-anchor-ceiling` early — the
+  bounded ratio keeps returns in ROUND-6's O() so the value path / ceilings stay valid. Projecting onto the
+  route tangent (not raw `|v|`) is the anti-hack: vibrating/orbiting earns ≤0.
+- **Progress+ `r_prog`** (replaces single-goal-distance): arc-length delta along the segment's human-reference
+  polyline (the per-tick human origins already threaded in `self.seg`). Back-and-forth nets ~0.
+- **Collision− `p_collide`** (NEW): a wall hit this frame (pmove `blocked` bitmask STEP|OTHER, not FLOOR). The
+  bitmask was computed but swallowed in `_slide_move`; surfaced via `PlayerState.blocked`.
+- **Time− `w_time`** (NEW): a small constant per-tick penalty.
+- **KEPT verbatim** (physics, *how bhop is discovered* — ROUND-4 proved naive speed bulldozes): `r_phi`,
+  `r_strafe`, `r_press` (anti-bulldoze), `p_hack` (anti-spin). Their constants are now plain tunables (#429),
+  no longer "human-plausible" targets.
+- **DROPPED by default (`w_cad=0`)**: `r_cad`, the L↔R cadence rhythm. The ROUND-8 residual that plateaued
+  the old work — the cadence flip STEALING the sustained air-strafe that launch+speed need — is a
+  *believability* signal (M6/G-MV3); under docs/28 (superhuman, not believable) dropping it **dissolves that
+  residual**. Still computed for the `info` diagnostic + re-enablable via `--reward-weight w_cad=<x>`.
+- **Extraction**: the reward math is moved to a pure stdlib module
+  `experiments/route_observatory/reward_onspeed.py` (`compute_step_reward(cur, carry, route, cfg) ->
+  (reward, info, next_carry)`; the env threads the carry via `self._rstate`), so #427's core logic lands in
+  the **gating** stdlib test floor (`tests/test_reward_onspeed.py`, incl. a corner-vibrate reward-hack
+  guard), not the torch tier. The polyline-projection helpers were promoted out of a test file into
+  `experiments/route_observatory/route_geom.py`.
+
+### Expected Consequences
+
+The reward now rewards going *faster than the human on the same route* (uncapped, bounded for PPO), credits
+genuine route progress, and penalises wall-grinding + dawdling, while retaining the air-strafe scaffolding
+that makes bhop emerge. The PR ships the reward + wiring + offline tests (the math is fully unit-verifiable);
+**the behavioural verification — a PPO training run showing bhop emergence + ratio climbing >1 + iterative
+reward-hack patching — is owner-gated** (the GPU loop on pinnacle, `rl_round6_r4init.pt` warmstart; runbook
+`experiments/ktx_moveprobe/T5.1_REWARD.md`), exactly as #460 split offline-authoring from the gated live run.
+No success claim without a linked viewable MVD (docs/28).
+
+### Deferred (named, not silent)
+
+- **Selection / gate re-point → #428.** `G-MV4` is a two-sided band that *fails* above the top edge (a
+  superhuman bot reads off-band) and the best-ckpt `score` ranks on raw `mean_hsp` (an orbiter ranks high).
+  Both belong to the eval-metrics ticket #428 (which redesigns the gate); #427 only relabels the in-file band
+  echo and leaves a runbook note. `G-MV4` is `hard:false` so it does not sink the hard guard meanwhile.
+- **No return-normalizer / Huber value loss** — unnecessary because the bounded ratio keeps returns in scale.
+- The old `--r-cad-weight` flag is deprecated (superseded by `--reward-weight w_cad=`); the `info` reward keys
+  are **not** under the `docs/25` data contract (verified: that contract governs extraction/training-example
+  schemas), so no four-artifact lock-step applies.
+
+### Revisit Conditions
+
+The owner-gated training run lands → if the policy fails to discover bhop (regresses toward bulldoze) or a new
+reward-hack appears, iterate the weights (`--reward-weight`) / the kept-term constants (#429) or re-enable a
+de-anchored cadence credit. When #428 redesigns G-MV4/selection, re-point the best-ckpt score to the projected
+`v_along` (already surfaced in `info`) and demote the two-sided speed band to a floor-only/drift signal.

@@ -62,7 +62,8 @@ import torch.nn.functional as F
 
 HERE = Path(__file__).resolve().parent          # ml/
 REPO_ROOT = HERE.parent
-for p in (str(REPO_ROOT / "scripts"), str(HERE), str(HERE / "pipeline")):
+for p in (str(REPO_ROOT / "scripts"), str(HERE), str(HERE / "pipeline"),
+          str(REPO_ROOT / "experiments" / "route_observatory")):
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -75,31 +76,15 @@ import eval_broad_closedloop as EV                              # noqa: E402
 from eval_broad_believability import _build_policy_from_checkpoint  # noqa: E402
 from build_features import _load_episode_ticks                  # noqa: E402
 import route_goals as RG                                        # noqa: E402
+import route_geom as RGEO                                       # noqa: E402  (#427 polyline projection)
+import reward_onspeed as RW                                     # noqa: E402  (#427 pure stdlib reward)
 
 LOGGER = logging.getLogger(__name__)
 
 # ---- reward physics (REUSE reward_dryrun constants verbatim) ---------------------------
-WISHSPD_CAP = 30.0
-PHI_C = WISHSPD_CAP * WISHSPD_CAP                # 900 (the analytic per-tick achievable gain)
 MOVE_MAG = 400.0                                 # usercmd move magnitude (EV.MOVE_MAG)
 SELF_HISTORY = SC.EXPECTS_SELF_HISTORY           # 16
 SELF_DIM = SC.EXPECTS_SELF_DIM                   # 21
-
-
-def phi(s: float) -> float:
-    """Analytic per-tick achievable horizontal-speed gain at speed s (greedy-perp)."""
-    return math.sqrt(s * s + PHI_C) - s
-
-
-def soft_band(x: float, lo: float, hi: float) -> float:
-    """1.0 inside [lo,hi], gaussian-decaying (band-width scale) below/above. The over-press
-    failure is BELOW band -> this pulls the policy up toward the band."""
-    if lo <= x <= hi:
-        return 1.0
-    w = max(hi - lo, 1e-6)
-    if x < lo:
-        return math.exp(-((lo - x) / w) ** 2)
-    return math.exp(-((x - hi) / w) ** 2)
 
 
 def wrap180(d: float) -> float:
@@ -214,7 +199,7 @@ class PmoveEnv:
                  horizon=385, band_lo=252.0, band_hi=316.0, seed=0,
                  cad_hold_min=14, cad_hold_max=230, cad_hold_late=240,
                  air_press_thresh=0.40, ap_rate_ema=0.02, r_cad_weight=1.0,
-                 baseline_reward=False):
+                 baseline_reward=False, reward_weights=None):
         self.world = world
         self.stats = stats
         self.segments = segments                 # list of (eid, start, seg) human segments
@@ -247,6 +232,16 @@ class PmoveEnv:
         # (baseline_forward_reward) instead of the round-6 mechanism-gated reward — to prove the
         # reward signal flows, NOT to train. The round-6 reward path is otherwise untouched.
         self.baseline_reward = bool(baseline_reward)
+        # #427 (T5.1): the Phase-2 reward config = the option-C defaults, overlaid with THIS env's
+        # mechanism params (de-anchored tunables), overlaid with any caller weights (CLI / #429).
+        self._rcfg = dict(RW.DEFAULT_WEIGHTS)
+        self._rcfg.update({"band_lo": self.band_lo,
+                           "cad_hold_min": self.cad_hold_min, "cad_hold_max": self.cad_hold_max,
+                           "cad_hold_late": self.cad_hold_late,
+                           "air_press_thresh": self.air_press_thresh,
+                           "ap_rate_ema": self.ap_rate_ema})
+        if reward_weights:
+            self._rcfg.update(reward_weights)
         self.rng = np.random.RandomState(seed)
         self.pm = PM.Pmove(world)
         self._reset_state()
@@ -267,31 +262,26 @@ class PmoveEnv:
         self.cur_yaw = float(t0.get("yaw", 0.0) or 0.0)
         self.prev_yaw = None
         self.self_hist = deque(maxlen=SELF_HISTORY)
-        self.prev_hspeed = math.hypot(self.st.velocity[0], self.st.velocity[1])
-        # strafe-cadence tracking (G-MV3 mirror): last NONZERO sidemove sign + ticks held.
-        self.prev_strafe_sign = 0
-        self.strafe_hold = 0
-        # ROUND-6 (lever 1): running AIR press-FRACTION (EMA over the episode) for the SOFT
-        # hinge barrier. Round-5's flat -1.0-per-air-press-tick drove press to 0.0 (below the
-        # human band floor 0.07); a hinge that only penalizes the air-press FRACTION ABOVE
-        # ~0.40 lets press settle anywhere in the human band [0.07,0.50] with no penalty and
-        # only fights the EXCESS. Seed at the threshold so the first ticks aren't free.
-        self.ap_rate = float(self.air_press_thresh)
-        # goal of the FINAL recorded tick of this segment = the route target (for progress).
-        self._final_goal = self._segment_goal(min(len(self.seg) - 1, self.horizon))
-        # (re)init the route-progress baseline from THIS segment's start distance to the new
-        # final goal, so the first step's r_prog delta (d_prev - d_now) is 0/neutral. Without
-        # this, _prev_goal_dist carries the PREVIOUS segment's last distance across a reset and
-        # the first post-reset r_prog is computed against the wrong segment's goal.
-        if self._final_goal is not None:
-            gx, gy = self._final_goal
-            self._prev_goal_dist = math.hypot(gx - self.st.origin[0], gy - self.st.origin[1])
-        else:
-            self._prev_goal_dist = None
-
-    def _segment_goal(self, idx):
-        g = self.seg[idx]["self"].get("goal") if idx < len(self.seg) else None
-        return (float(g[0]), float(g[1])) if g is not None else None
+        # #427 (T5.1): cache THIS segment's human-reference polyline (the route the bot is graded
+        # against) + per-vertex human speed (the V_REF for the route-relative Velocity+ ratio).
+        poly = [(float(t["self"]["ox"]), float(t["self"]["oy"]), float(t["self"]["oz"]))
+                for t in self.seg]
+        speeds = [math.hypot(float(t["self"].get("vx", 0.0)), float(t["self"].get("vy", 0.0)))
+                  for t in self.seg]
+        total_len = sum(math.dist(a, b) for a, b in zip(poly, poly[1:])) if len(poly) > 1 else 0.0
+        self._route = {"polyline": poly, "speeds": speeds, "total_len": total_len}
+        # Seed the reward carry. prev_arc = the start's arc on this polyline (the bot spawns ON the
+        # human path -> ~0), so the first step's arc-length progress reflects only real movement
+        # (the reset-neutrality the old goal-distance baseline gave via _prev_goal_dist).
+        arc0 = 0.0
+        if total_len > 0:
+            proj0 = RGEO.project_onto_polyline(self.st.origin[0], self.st.origin[1],
+                                               self.st.origin[2], poly)
+            if proj0 is not None:
+                arc0 = proj0["arcFrac"] * total_len
+        self._rstate = {"prev_hspeed": math.hypot(self.st.velocity[0], self.st.velocity[1]),
+                        "prev_arc": arc0, "prev_strafe_sign": 0, "strafe_hold": 0,
+                        "ap_rate": float(self.air_press_thresh)}
 
     def _build_obs(self):
         """Build the goal-conditioned v5 obs for the CURRENT sim state + the policy's OWN
@@ -378,142 +368,36 @@ class PmoveEnv:
             # no move key (wishdir undefined) or stopped: no strafe-mechanism gain this tick.
             perp_frac = 0.0
 
-        # ---- REWARD (rl-plan §B; ROUND-5b = mechanism-CREDIT + strafe bonus, NOT gated-hold)
-        # Round 4 proved over-press and in-band speed are ANTI-correlated under speed-however-
-        # achieved (the only route to the band was PRESSING). Round-5a (gate BOTH r_speed and
-        # r_phi by perp_frac) OVER-corrected: gating the in-band HOLD removed the speed carrot,
-        # so from both inits the policy just SLOWED (hspeed ~45) and minimized the barrier
-        # instead of air-strafing (no on-manifold low-press snapshot was ever captured). Round-5b
-        # keeps the carrot but redirects HOW speed is earned:
-        #  - r_speed (in-band HOLD): UNGATED -> the policy still wants to reach the band (this is
-        #    what let round 4 reach M1 280). Removing the carrot starved the objective.
-        #  - r_phi (per-tick GAIN): GATED by perp_frac in air -> speed-GAIN is only credited via
-        #    the air-strafe mechanism (wishdir _|_ v); a bulldozing gain earns ~0.
-        #  - r_strafe (NEW): a POSITIVE air-strafe bonus = perp_frac when airborne & moving, so
-        #    the policy has a gradient TOWARD perpendicular wishdir, not just barrier-avoidance.
-        #  - HARD air press-barrier (below, -1.0): pressing in air pays -1.0; if it yields in-band
-        #    speed (+1.0 r_speed) it's only break-even, while air-strafing adds r_strafe + gated
-        #    gain on top -> air-strafing STRICTLY dominates pressing as the route to in-band speed.
-        r_speed_raw = soft_band(hspeed, self.band_lo, self.band_hi)
-        # r_phi: realized fraction of the analytic per-tick ACHIEVABLE gain (builds speed).
-        avail = phi(self.prev_hspeed)
-        ds = hspeed - self.prev_hspeed
-        r_phi_raw = min(1.0, max(0.0, ds) / avail) if avail > 1e-6 else 0.0
-        r_speed = r_speed_raw                         # in-band HOLD carrot: UNGATED (round-5b fix)
-        if onground:
-            r_phi = r_phi_raw                         # ground accel: a different mechanism
-            r_strafe = 0.0
-        else:
-            r_phi = perp_frac * r_phi_raw             # air GAIN credited only via the mechanism
-            # positive air-strafe bonus: reward perpendicular wishdir while airborne and actually
-            # moving (>~ band_lo/2) so it can't be farmed at a standstill; this is the gradient
-            # that pulls toward air-strafing as the speed source instead of pressing.
-            r_strafe = perp_frac if hspeed > (self.band_lo * 0.5) else 0.0
-            # ROUND-6 lever 2 (cadence coexistence): a PARKED perpendicular strafe earns full
-            # r_strafe forever, which round-5 exploited (one held strafe sign -> perp_frac high,
-            # cadence DEAD M6=-8). DECAY the strafe bonus once the same nonzero argmax side sign
-            # is held past the human window (cad_hold_max), so KEEPING the bonus REQUIRES the
-            # L<->R flip -> low-press air-strafe now COEXISTS with cadence instead of fighting it.
-            if self.strafe_hold > self.cad_hold_max:
-                over = self.strafe_hold - self.cad_hold_max
-                r_strafe *= max(0.0, 1.0 - over / float(self.cad_hold_max))
-        # r_progress: route-progress = goal-distance DECREASE this tick (keeps it on-route,
-        # not orbiting — the greedy-yaw orbit failure). Normalized by a per-tick scale.
-        r_prog = 0.0
-        if self._final_goal is not None:
-            gx, gy = self._final_goal
-            d_now = math.hypot(gx - self.st.origin[0], gy - self.st.origin[1])
-            d_prev = getattr(self, "_prev_goal_dist", d_now)
-            r_prog = max(-1.0, min(1.0, (d_prev - d_now) / 50.0))  # +1 ~ 50qu closer/tick
-            self._prev_goal_dist = d_now
-        # p_hack: spin-in-place (big yaw_rate, tiny displacement). pogo/jitter handled by
-        # r_speed/route. dt for the displacement proxy.
-        dt = float(msec) / 1000.0
-        yaw_rate = abs(yaw_delta_deg) / dt if dt > 0 else 0.0
-        disp = hspeed * dt
-        p_hack = 1.0 if (yaw_rate > 600.0 and disp < 1.0) else 0.0
-
-        # r_cad: G-MV3 strafe-cadence shaping, ROUND-3 = on the ARGMAX side sign (the eval
-        # decodes side by argmax, so cadence must move the argmax, not the sample — round-2's
-        # sampling-only r_cad left eval cadence at 0). Mirror the gate's flip semantics on the
-        # ARGMAX-decoded sidemove: a flip = a transition between nonzero +side and nonzero
-        # -side (zero-strafe runs DON'T reset the comparison). Reward a flip whose prior hold
-        # was human-plausible (cad_hold_min..cad_hold_max ticks); penalize parking on one
-        # nonzero argmax side sign past cad_hold_late ticks (un-sticks the parked argmax).
-        cur_sign = 1 if side_am_mag > 0 else (-1 if side_am_mag < 0 else 0)
-        r_cad = 0.0
-        if cur_sign != 0:
-            if self.prev_strafe_sign != 0 and cur_sign != self.prev_strafe_sign:
-                # a real L<->R flip. Reward only if the prior hold was in the human window.
-                if self.cad_hold_min <= self.strafe_hold <= self.cad_hold_max:
-                    r_cad += 1.0
-                self.strafe_hold = 0
-            else:
-                self.strafe_hold += 1
-            self.prev_strafe_sign = cur_sign
-            if self.strafe_hold > self.cad_hold_late:
-                # RAMPING park penalty (round-3b): the calib showed a flat, late (460-tick)
-                # park penalty never fired before the policy committed to parking the strafe
-                # argmax for straight-line speed (fpm collapsed 86->0, press climbed to 1.0).
-                # A penalty that GROWS with the hold past cad_hold_late (240 ~= the 16-fpm low
-                # edge) makes parking progressively net-negative, so the policy keeps flipping.
-                over = self.strafe_hold - self.cad_hold_late
-                r_cad -= min(2.0, 0.5 + 0.01 * over)
-        # (zero-strafe ticks neither flip nor reset the held sign; hold counter pauses.)
-
-        # r_press: SOFT AIR PRESS-BARRIER (ROUND-6 lever 1 — HINGE above a fraction, not a flat
-        # per-tick penalty). The eval fwd_press_frac counts fwd-head ARGMAX == class 2 (press-
-        # forward) ticks; the bulldoze failure is over-pressing in AIR (M3 fwd_press_air >= 0.80
-        # on every in-band snapshot). Round-5b's FLAT -1.0-per-air-press-tick over-corrected: it
-        # penalized EVERY air-press tick equally, so the policy drove press to 0.0 — BELOW the
-        # human band floor 0.07 (M3 fwd_press 0.0). Round 6: maintain a running air-press FRACTION
-        # (ap_rate, EMA per episode) and penalize only the EXCESS above air_press_thresh (~0.40,
-        # the human-band-top-ish). Press FRACTION <= thresh -> ZERO penalty (so the policy can
-        # settle anywhere in the human band [0.07,0.50] cleanly); excess grows linearly. The EMA
-        # updates on EVERY air tick toward the air-press indicator (0/1) so the rate reflects a
-        # SUSTAINED press habit, not a single tick. GROUND press is NOT penalized — ground accel
-        # is legitimate (the launch guard needs it) and ground ticks don't move ap_rate.
-        air_press = (fwd_am == 2) and (not onground)
-        if not onground:
-            self.ap_rate += self.ap_rate_ema * ((1.0 if air_press else 0.0) - self.ap_rate)
-        r_press = max(0.0, self.ap_rate - self.air_press_thresh)
-
-        # ROUND-6 reward = UNGATED in-band-speed carrot (keeps the objective) + mechanism-CREDIT
-        # gain (r_phi gated by perp_frac in air) + a POSITIVE air-strafe bonus (r_strafe, now
-        # DECAYED when the strafe is parked past the human window) + route + argmax-targeted
-        # cadence (r_cad weight RAISED 0.5 -> 1.0 so the L<->R FLIP reward competes with the
-        # strafe bonus instead of losing to a parked perpendicular hold) + the SOFT air press-
-        # barrier (hinge above ~0.40, weight -1.0 on the EXCESS only) + anti-hack. Round 5 drove
-        # press to 0.0 (overshoot below the 0.07 floor) AND collapsed cadence (M6 -8) because the
-        # flat barrier crushed every air-press tick and the strafe bonus rewarded a parked
-        # perpendicular strafe. Round 6: the hinge lets press settle in [0.07,0.50]; the
-        # decayed-strafe + raised r_cad make low-press air-strafe COEXIST with the flip cadence.
-        reward = (1.0 * r_speed + 0.5 * r_phi + 0.6 * r_strafe + 0.5 * r_prog
-                  + self.r_cad_weight * r_cad - 1.0 * r_press - 1.0 * p_hack)
+        # ── #427 (T5.1) Phase-2 reward — information-honest superhuman reframe of the ROUND-6
+        # human-anchored reward. The math is the pure stdlib RW.compute_step_reward
+        # (experiments/route_observatory/reward_onspeed.py), gating-tested in tests/test_reward_onspeed.
+        # KEPT mechanism: r_phi/r_strafe/r_press/p_hack. REPLACED: r_vel (uncapped route-relative
+        # speedup, supersedes the soft_band 252-316 cap) + r_prog (human-polyline arc-length,
+        # supersedes goal-distance). ADDED: Collision- (pmove blocked bitmask) + Time-. r_cad DROPPED
+        # by default (w_cad=0; it was a believability rhythm that stole launch+speed — ROUND-8).
+        # Reward carry (prev_hspeed/_arc, strafe_hold, ap_rate, sign) threads via self._rstate; the
+        # per-segment human polyline + V_REF is cached in self._route at reset.
+        cur = {"hspeed": hspeed, "vx": vx, "vy": vy, "onground": onground,
+               "ox": self.st.origin[0], "oy": self.st.origin[1], "oz": self.st.origin[2],
+               "perp_frac": perp_frac, "side_am_mag": side_am_mag, "fwd_am": fwd_am,
+               "yaw_delta_deg": yaw_delta_deg, "msec": msec,
+               "blocked": getattr(self.st, "blocked", 0)}
+        reward, info, self._rstate = RW.compute_step_reward(cur, self._rstate, self._route, self._rcfg)
 
         # T3.2 (#423) PLUMBING override: the naive "+forward-progress" reward (proves the signal
-        # flows; trains nothing). Computed from the SAME executed yaw + pre/post origin; the
-        # round-6 terms above still populate the `info` diagnostics collect_rollout reads.
+        # flows; trains nothing). The #427 terms above still populate the `info` diagnostics that
+        # collect_rollout reads (hspeed/fwd_press/r_cad/r_press).
         r_baseline = baseline_forward_reward((pre_ox, pre_oy),
                                              (self.st.origin[0], self.st.origin[1]), self.cur_yaw)
-        # getattr default keeps the round-6 path for envs built via __new__ that pre-date this attr
-        # (e.g. test_rl_onspeed's hand-built fixture) — mirrors the _prev_goal_dist guard above.
+        info["r_baseline"] = r_baseline
         if getattr(self, "baseline_reward", False):
             reward = r_baseline
 
-        self.prev_hspeed = hspeed
         self.k += 1
         # done: route/segment exhausted, time-limit, or fell out of bounds (origin NaN/away).
         done = (self.k >= min(self.horizon, len(self.seg) - 1))
         if not (math.isfinite(self.st.origin[0]) and math.isfinite(self.st.origin[1])):
             done = True
-        # fwd_press logged on the ARGMAX (matches eval_broad_closedloop.fwd_press_frac, which
-        # counts argmax==2 ticks) so the training fwd_press readout tracks the eval metric.
-        info = {"hspeed": hspeed, "onground": onground, "fwd_press": int(fwd_am == 2),
-                "r_speed": r_speed, "r_phi": r_phi, "r_prog": r_prog, "p_hack": p_hack,
-                "r_cad": r_cad, "r_press": r_press, "strafe_sign": cur_sign,
-                "perp_frac": perp_frac, "r_strafe": r_strafe, "ap_rate": self.ap_rate,
-                "r_baseline": r_baseline}
         if done:
             obs = self._build_obs()  # terminal obs (unused for bootstrap if done)
         else:
@@ -746,11 +630,17 @@ def train(args, device):
     if not segs:
         raise SystemExit("[rl] NO reset segments — check db/split")
 
+    # #427 (T5.1): optional reward-weight overrides for the option-C Phase-2 reward, e.g.
+    # --reward-weight w_vel=1.2 --reward-weight w_collide=0.8 (keys in reward_onspeed.DEFAULT_WEIGHTS).
+    reward_weights = {}
+    for kv in getattr(args, "reward_weight", None) or []:
+        k, _, v = kv.partition("=")
+        reward_weights[k.strip()] = float(v)
     envs = [PmoveEnv(world, stats, segs, n_max=args.n_max, map_name=args.map,
                      horizon=args.ep_horizon, band_lo=band_lo, band_hi=band_hi, seed=1000 + i,
                      air_press_thresh=args.air_press_thresh,
                      cad_hold_max=args.cad_hold_max, r_cad_weight=args.r_cad_weight,
-                     baseline_reward=args.baseline_reward)
+                     baseline_reward=args.baseline_reward, reward_weights=reward_weights)
             for i in range(args.n_envs)]
     opt = torch.optim.Adam(rl.parameters(), lr=args.lr)
 
@@ -1305,8 +1195,15 @@ def main(argv=None):
                          "below this is FREE; only the excess above it is penalized (weight -1.0). "
                          "Lets press settle in the human band [0.07,0.50] instead of being driven "
                          "to 0.0 by round-5's flat per-tick penalty.")
+    ap.add_argument("--reward-weight", action="append", default=[], metavar="KEY=VAL",
+                    help="#427 (T5.1): override a Phase-2 reward weight, repeatable. Keys (defaults in "
+                         "reward_onspeed.DEFAULT_WEIGHTS): w_vel/w_prog/w_phi/w_strafe/w_cad/w_press/"
+                         "w_collide/w_time/w_hack + v_sat/prog_scale. E.g. --reward-weight w_vel=1.2 "
+                         "--reward-weight w_cad=0.5 (re-enables the dropped believability cadence).")
     ap.add_argument("--r-cad-weight", type=float, default=1.0,
-                    help="ROUND-7: weight on the L<->R argmax cadence-flip reward. Round 6's 1.0 "
+                    help="DEPRECATED under #427 (the cadence rhythm is dropped: w_cad=0). Kept for "
+                         "back-compat construction; use --reward-weight w_cad=<x> to re-enable. "
+                         "ROUND-7: weight on the L<->R argmax cadence-flip reward. Round 6's 1.0 "
                          "lost to a parked perpendicular strafe (M6 flips 0.0 from r4init). Raise "
                          "(~1.6) to make flipping net-positive in the in-band-press basin -> "
                          "recover M6 cadence WITHOUT pushing press out of [0.07,0.50].")

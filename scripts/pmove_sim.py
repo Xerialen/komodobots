@@ -521,7 +521,7 @@ class PlayerState:
     """Persistent player state across commands (mirrors what SV_RunCmd
     carries over: origin, velocity, FL_ONGROUND, teleport_time, jump_held)."""
     __slots__ = ("origin", "velocity", "jump_held", "waterjumptime",
-                 "onground", "waterlevel", "watertype", "groundnormal")
+                 "onground", "waterlevel", "watertype", "groundnormal", "blocked")
 
     def __init__(self, origin, velocity, jump_held=False, waterjumptime=0.0,
                  onground=False):
@@ -533,6 +533,7 @@ class PlayerState:
         self.waterlevel = 0
         self.watertype = CONTENTS_EMPTY
         self.groundnormal = [0.0, 0.0, 0.0]
+        self.blocked = 0  # collision bitmask (BLOCKED_*) from the last run_frame (#427 Collision-)
 
 
 class Pmove:
@@ -988,9 +989,9 @@ class Pmove:
         self._friction(s)
 
         if s.waterlevel >= 2:
-            self._water_move(s, cmd)
+            s.blocked = self._water_move(s, cmd)
         else:
-            self._air_move(s, cmd)
+            s.blocked = self._air_move(s, cmd)
 
         # set onground, watertype, and waterlevel for final spot
         self._categorize(s)
