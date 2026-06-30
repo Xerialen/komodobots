@@ -69,6 +69,11 @@ ssh string — the value stays inert data through the Windows middle hop). Real 
 fine (`[`/`]` are allowed and `%q`-escaped for the shell). A rejected value exits non-zero with a clear
 `FATAL:` line and renders nothing.
 
+**Concurrency:** the cfg files (`_povshot.cfg`/`_povshot_shots.cfg`) + `qconsole.log` are shared fixed
+paths, so `povshot.sh` takes an exclusive **`flock`** (`$NQ/.povshot.lock`, held cfg-gen → shot check):
+overlapping captures serialize instead of clobbering each other's cfg and returning a wrong frame. One
+ezQuake at a time also matches the single Intel GPU — parallel `grab.sh` calls are safe, they just queue.
+
 ## Clock offset (match-time vs demo-second) — IMPORTANT
 `demo_jump <sec>` uses the **demo clock** (includes warmup/prewar), NOT match-time. The in-game HUD
 match-clock is burned into the shot, so calibrate by reading it back: `demo_sec = match_sec + warmup`

@@ -44,6 +44,14 @@ LOG="$NQ/_povshot.log"
 
 [ -f "$EZ" ] || { echo "FATAL: AppImage missing: $EZ"; exit 3; }
 
+# Serialize captures on this box. The cfg files + qconsole.log below are shared FIXED paths, so two
+# overlapping renders would clobber each other's cfg and a render could screenshot the other request's
+# second/outname -> a plausible but WRONG frame (evidence corruption). One ezQuake at a time also
+# matches the single Intel HD 530 GPU (parallel xvfb renders just contend). The lock is held (fd 9
+# stays open) from cfg generation through the shot-existence check, i.e. the whole capture.
+exec 9>"$NQ/.povshot.lock" || { echo "FATAL: cannot open lockfile $NQ/.povshot.lock" >&2; exit 3; }
+flock -w 200 9 || { echo "FATAL: timed out waiting for the povshot capture lock" >&2; exit 3; }
+
 TRACK=""
 # bare `track $PLAYER` (no quotes) — nested quotes inside the double-quoted alias corrupt the cfg.
 # PLAYER is whitespace-free (validated above), so a single bare token is safe; color-byte names use
