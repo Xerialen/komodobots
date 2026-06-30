@@ -220,6 +220,10 @@ def build_highway(d, mark, coords, dmg_events):
     return {
         "id": mark.get("id") or _slug(mark["label"]),
         "label": mark["label"], "route_class": mark["route_class"],
+        # Optional directed-eval goal pin (#460): a 1-based live FBMARKER index at the highway END,
+        # passed through from the mark SOURCE so the generated canon stays the single source. Absent
+        # unless authored; route_eval.base_highway_end_markers validates it (positive 1-based int).
+        **({"end_marker": mark["end_marker"]} if "end_marker" in mark else {}),
         "from_resource": segments[0]["from_resource"], "to_resource": segments[-1]["to_resource"],
         "from_dist_qu": segments[0]["from_dist_qu"], "to_dist_qu": segments[-1]["to_dist_qu"],
         "start_xyz": segments[0]["start_xyz"], "end_xyz": segments[-1]["end_xyz"],

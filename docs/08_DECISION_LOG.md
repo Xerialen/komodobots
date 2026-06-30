@@ -4238,3 +4238,65 @@ works.
 The FBMARKER dump lands (the 4 END marker indices known + reach-validated) and the matchless harness
 flow is validated on-box → flip the directed run from fail-loud to live, fill `end_marker` at
 `route_canon_marks.dm3.json`, and close #428.
+
+## Decision
+
+#460 — the 4 base `end_marker` indices are authored, on-binary-validated, and the directed contract is
+route-isolation-hardened; the per-route SCORE is split off as a tracked #428 follow-up.
+
+### Date
+
+2026-06-30
+
+### Decision
+
+Author the four base-highway `end_marker` goal-pins as the **nearest live FBMARKER of ANY class** to each
+highway END (gate-aware), at the generator SOURCE, and validate them on the consuming gate-bearing build by
+**handoff-gate engagement** rather than by a separate FBMARKER dump or a per-route MSE:
+
+- `ra_tunnel_mega_rl→69`, `enter_ra_mid_ledge_top→54`, `low_bridge_stairs_ya→131`, `rl_high_bridge_window_lifts→87`.
+- `build_route_canon.build_highway` passes `end_marker` through from `route_canon_marks.dm3.json` (regen,
+  never hand-edit the generated canon). `route_eval` validates it (positive 1-based int).
+- Add a `route_match` guard to `evaluate_run_multi`: compare the directed-seed's ASSIGNED highway to the
+  geometric pin's DRIVEN highway; on mismatch fail-closed `drove_wrong_highway` (consumables NULL), and
+  always emit `assigned_highway_id` + `route_match` so a positional consumer can never read a wrong-route
+  number as the assigned score (closes the silent-evidence hole the auditor named).
+
+### Alternatives Considered
+
+- **Nearest goal-ITEM** (the route's named RL/RA/YA item): rejected — for `rl_high_bridge_window_lifts` the
+  nearest item (Ring) is 406qu (2-D) from the owner-marked END, outside the gate's R_GOAL=256qu, so it would
+  never engage. `to_resource` is worse (Quad, 556qu). The engine's `fixed_goal` accepts ANY marker, and the
+  gate only needs the goal origin within R_GOAL of the END, so nearest-ANY is both correct and gate-valid.
+- **A fresh live FBMARKER dump cvar** (Option A): unnecessary — the marker graph is map-deterministic
+  (`dm3.bot` reproduces the committed dump's 234 path markers 234/234; items 1-65 are BSP-deterministic), so
+  the committed `fbmarker-dm3.txt` numbering is authoritative for the consuming build. Engagement + 0
+  per-slot errors on-binary confirms it without a dump.
+
+### Evidence
+
+- Regen diff vs committed canon = **+4 `end_marker` lines only** (decode pipeline verified reproducible:
+  qw-analyze-v20 on `bookmix.mvd` → unmodified-marks regen == committed canon, 0-line diff).
+- Live directed `--bots 4 --score` matchless run (gate KTX from `ktx@08807da` + the 6 moveprobe patches incl.
+  handoff; scratch port 28599; standing `.so` restored after): screen.log = **4/4 slots' gate ENGAGED, 0
+  `FBMOVEPROBE_PERSLOT_ERROR`**; emit-layer `lab.cfg` carries `fixed_goal_s{2..5} = 69/54/131/87` + matching
+  spawn_origins under `k_matchless 1` (rules out a plumbing transposition). 88 tests green.
+- Consensus: independent auditor (evidence-backed, vs origin/main) + NotebookLM (repo-grounded) both confirm
+  the marker data is reliable and that gate-engagement validation suffices for the M3 plumbing mandate
+  (docs/28: M3 tests wiring, not bot quality).
+
+### Expected Consequences
+
+#460's marker-data deliverable is DONE. A directed run now engages all four assigned routes on the gate
+build. The per-route MSE **score** still does not compute because the live `--bots 4 --score` scoring path
+(never run end-to-end before) has two pre-existing gaps: matchless KTX auto-names its demo
+`ffa_4[dm3]<date>.mvd` (the run_id-keyed finder misses it), and `qw-analyze-v20` extracts 0 players from
+these server `sv_demo`s. Tracked as a #428 SCORING follow-up; the frozen 6-feat mover makes the score
+degenerate-by-design regardless, so a real score is gated on the docs/28 movement brain.
+
+### Revisit Conditions
+
+The #428 scoring-pipeline follow-up lands (match the matchless auto-demo name in `_find_run_mvd`/
+`select_run_demo`; a decoder that extracts players from server `sv_demo`s) **and** the docs/28 movement brain
+replaces the frozen 6-feat mover → the directed `--bots 4 --score` run produces real per-route MSE, and #428
+can close. The `route_match` guard then becomes live-exercised (it is unit-tested only today).

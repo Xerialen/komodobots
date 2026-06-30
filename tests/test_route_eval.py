@@ -593,14 +593,59 @@ class TestEvaluateRunMulti(unittest.TestCase):
             ledger_blocks = json.loads(lp.read_text())["attempts"][0]["route_evals"]
             self.assertEqual(len(ledger_blocks), 2)
 
-    def test_colliding_bots_are_both_player_contact_invalid(self):
-        # both bots hug highway K (y=0 and y=5) -> within the player bbox the whole window -> the
-        # scored MSE would be physics-contaminated, so BOTH are fail-closed player_contact (no score).
-        analysis = _analysis_multi([("botA", _hug(0)), ("botB", _hug(5))])
+    def test_drove_wrong_highway_is_demoted(self):
+        # #460 directed-contract guard: seed each slot at one highway's start but ASSIGN it the OTHER
+        # highway's id (slot1 @ K's seed tagged 'L', slot2 @ L's seed tagged 'K'). Each bot drives the
+        # highway it stands on, so the geometric pin disagrees with the assignment -> fail-closed
+        # drove_wrong_highway (no consumable score), and the artifact self-certifies assigned vs driven.
+        analysis = _analysis_multi([("botK", _hug(3)), ("botL", _hug(1003))])
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            run_dir, cp, lp = self._setup_run(td, analysis)
+            seeds = RE.base_highway_seeds(json.loads(cp.read_text()), 2)   # [(1,'K',xyzK),(2,'L',xyzL)]
+            swapped = [(1, "L", seeds[0][2]), (2, "K", seeds[1][2])]        # wrong ids, same seed coords
+            res = RE.evaluate_run_multi(run_dir, seeds=swapped, canon_path=cp, demos_dir=run_dir,
+                                        ledger_path=lp)
+            blocks = {b["slot"]: b for b in res["route_evals"]}
+            for s in (1, 2):
+                self.assertFalse(blocks[s]["valid"])
+                self.assertIn("drove_wrong_highway", blocks[s]["invalid_reasons"])
+                self.assertNotIn("rmse_xyz", blocks[s])              # no consumable score on a wrong route
+                self.assertFalse(blocks[s]["route_match"])
+            self.assertEqual(blocks[1]["assigned_highway_id"], "L")
+            art1 = json.loads((run_dir / "route_eval.s1.json").read_text())
+            self.assertEqual(art1["highway"]["assigned_highway_id"], "L")
+            self.assertIs(art1["highway"]["route_match"], False)
+            self.assertEqual(art1["non_isolated_debug"]["driven_highway_id"], "K")
+
+    def test_assigned_route_match_true_when_driven_matches(self):
+        # the happy path: each bot drives the highway it was assigned -> route_match True, valid score.
+        analysis = _analysis_multi([("botK", _hug(3)), ("botL", _hug(1003))])
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
             run_dir, cp, lp = self._setup_run(td, analysis)
             seeds = RE.base_highway_seeds(json.loads(cp.read_text()), 2)
+            res = RE.evaluate_run_multi(run_dir, seeds=seeds, canon_path=cp, demos_dir=run_dir,
+                                        ledger_path=lp)
+            blocks = {b["slot"]: b for b in res["route_evals"]}
+            for s in (1, 2):
+                self.assertTrue(blocks[s]["valid"])
+                self.assertTrue(blocks[s]["route_match"])
+            self.assertEqual(blocks[1]["assigned_highway_id"], "K")
+            self.assertEqual(blocks[2]["assigned_highway_id"], "L")
+
+    def test_colliding_bots_are_both_player_contact_invalid(self):
+        # both bots hug highway K (y=0 and y=5) -> within the player bbox the whole window -> the
+        # scored MSE would be physics-contaminated, so BOTH are fail-closed player_contact (no score).
+        # Both are ASSIGNED K (the line they drive) so route_match passes and the collision is the ONLY
+        # fault -- isolating player_contact from the #460 drove_wrong_highway guard (mirrors the real
+        # case: two bots on their CORRECT corridor-sharing highways bumping).
+        analysis = _analysis_multi([("botA", _hug(0)), ("botB", _hug(5))])
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            run_dir, cp, lp = self._setup_run(td, analysis)
+            base = RE.base_highway_seeds(json.loads(cp.read_text()), 2)
+            seeds = [(1, "K", base[0][2]), (2, "K", base[0][2])]   # both assigned K (both drive K)
             res = RE.evaluate_run_multi(run_dir, seeds=seeds, canon_path=cp, demos_dir=run_dir,
                                         ledger_path=lp)
             blocks = {b["slot"]: b for b in res["route_evals"]}
