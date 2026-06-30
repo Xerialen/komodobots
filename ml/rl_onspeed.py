@@ -437,6 +437,8 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
     logp_buf, yaw_buf, yawlogp_buf = [], [], []
     val_buf, rew_buf, done_buf = [], [], []
     hsp_log, fwdpress_log, rcad_log, rpress_log, rvel_log = [], [], [], [], []
+    # #427-R2 per-term diagnostics (which term bit + ground-vs-air) for the iter-log breakdown.
+    pcollide_log, rphi_log, rstrafe_log, aprate_log, onground_log = [], [], [], [], []
 
     # current obs per env
     cur = [e._cur_obs if hasattr(e, "_cur_obs") else e.reset() for e in envs]
@@ -484,6 +486,9 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
             hsp_log.append(info["hspeed"]); fwdpress_log.append(info["fwd_press"])
             rcad_log.append(info["r_cad"]); rpress_log.append(info["r_press"])
             rvel_log.append(info["r_vel"])      # #427 new-objective diagnostic (route-relative speedup)
+            pcollide_log.append(info["p_collide"]); rphi_log.append(info["r_phi"])
+            rstrafe_log.append(info["r_strafe"]); aprate_log.append(info["ap_rate"])
+            onground_log.append(1.0 if info["onground"] else 0.0)
             if d:
                 obs = e.reset()
             new_cur.append(obs)
@@ -505,6 +510,8 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
         "val": val_buf, "rew": rew_buf, "done": done_buf, "last_val": last_val,
         "hsp_log": hsp_log, "fwdpress_log": fwdpress_log, "rcad_log": rcad_log,
         "rpress_log": rpress_log, "rvel_log": rvel_log,
+        "pcollide_log": pcollide_log, "rphi_log": rphi_log, "rstrafe_log": rstrafe_log,
+        "aprate_log": aprate_log, "onground_log": onground_log,
     }
 
 
@@ -684,6 +691,13 @@ def train(args, device):
         # (route-relative speedup), for the DEFAULT checkpoint selection + the run's evidence chain.
         mean_reward = float(np.mean([float(r.mean()) for r in roll["rew"]])) if roll["rew"] else 0.0
         mean_rvel = float(np.mean(roll["rvel_log"])) if roll.get("rvel_log") else 0.0
+        # #427-R2 per-term breakdown — see which term actually bit (and ground vs air bulldoze).
+        mean_rpress = float(np.mean(roll["rpress_log"])) if roll.get("rpress_log") else 0.0
+        mean_aprate = float(np.mean(roll["aprate_log"])) if roll.get("aprate_log") else 0.0
+        mean_pcollide = float(np.mean(roll["pcollide_log"])) if roll.get("pcollide_log") else 0.0
+        mean_rphi = float(np.mean(roll["rphi_log"])) if roll.get("rphi_log") else 0.0
+        mean_rstrafe = float(np.mean(roll["rstrafe_log"])) if roll.get("rstrafe_log") else 0.0
+        ground_frac = float(np.mean(roll["onground_log"])) if roll.get("onground_log") else 0.0
         # cadence proxy: fraction of ticks that scored a flip-reward (r_cad>0) -> rough
         # flips/min = flip_frac * (60000/13) so I can watch M6 recover during training.
         rcad = roll["rcad_log"]
@@ -693,7 +707,10 @@ def train(args, device):
         sps = steps_per_iter / dt if dt > 0 else 0.0
         print(f"[it {it:03d}] env_steps={env_steps} rew~{mean_reward:+.3f} r_vel~{mean_rvel:+.2f} "
               f"mean_hspeed={mean_hsp:6.1f} "
-              f"fwd_press={fwd_press:.3f} fpm~{fpm_est:5.0f} pg={upd['pg']:+.4f} "
+              f"fwd_press={fwd_press:.3f} fpm~{fpm_est:5.0f} "
+              f"r_press={mean_rpress:.3f} ap_rate={mean_aprate:.3f} p_coll={mean_pcollide:.3f} "
+              f"r_phi={mean_rphi:.3f} r_strafe={mean_rstrafe:.3f} gnd={ground_frac:.2f} "
+              f"pg={upd['pg']:+.4f} "
               f"vf={upd['vf']:.4f} ent={upd['ent']:.3f} kl_anchor={upd['kl_anchor']:.4f} "
               f"approx_kl={upd['approx_kl']:+.4f} yaw_std={float(rl.yaw_log_std.exp()):.2f} "
               f"({sps:,.0f} env-steps/s, {dt:.1f}s)", flush=True)

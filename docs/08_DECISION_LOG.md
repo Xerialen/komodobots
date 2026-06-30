@@ -4400,3 +4400,47 @@ The owner-gated training run lands → if the policy fails to discover bhop (reg
 reward-hack appears, iterate the weights (`--reward-weight`) / the kept-term constants (#429) or re-enable a
 de-anchored cadence credit. When #428 redesigns G-MV4/selection, re-point the best-ckpt score to the projected
 `v_along` (already surfaced in `info`) and demote the two-sided speed band to a floor-only/drift signal.
+
+## 2026-06-30 (evening) — T5.1 R2 (#427): close the `+forward` ground-bulldoze loophole + per-term reward logging
+
+### Date
+
+2026-06-30
+
+### Context
+
+The first owner-gated T5.1 training round (R1, pinnacle, warmstart `rl_round6_r4init.pt`, kl-anchor ceiling 0.6)
+was an informative NEGATIVE: the policy never beat the air-strafing warmstart (best-by-reward it3 ≈ warmstart,
+reward 0.139), then drifted into forward-bulldoze (by it27 `fwd_press`→1.0, hspeed 156, but reward DOWN to 0.070
+and route-relative `r_vel` only 0.26 — sub-human), and the KL-anchor early-stopped it at ~28% of planned steps.
+An auditor pass (verified vs origin/main) found the bulldoze is BOTH an exploration/credit-assignment failure
+(reward went DOWN while hspeed went UP → PPO walked into a lower-return basin) AND a code-verified structural
+hole: the anti-bulldoze `r_press` barrier was AIR-ONLY (`air_press = (fwd_am==2) and (not onground)`; the EMA
+updated only under `if not onground`), so a sustained GROUND `+forward` at speed earned `r_press`≈0 and ran free —
+bhop beat bulldoze by only ~0.069.
+
+### Decision
+
+Close the `+forward` hole as a #427 STRUCTURAL loophole-patch (NOT a #429 weight retune): the press-rate EMA now
+counts a forward-press whenever it is in the air (unchanged) OR on the ground past the strafe-speed gate
+(`hspeed > band_lo*0.5`); low-speed ground acceleration stays free. `air_press_thresh`/`w_press` VALUES are
+unchanged (tuning those is #429). Pinned by a gating stdlib test (`tests/test_reward_onspeed.py
+::TestGroundForwardBulldoze`) that FAILS on the air-only code and PASSES on the fix. Also surfaced the per-term
+reward breakdown (`r_press, ap_rate, p_collide, r_phi, r_strafe`, ground-fraction) in the `rl_onspeed.py` per-iter
+log — previously invisible — so R2 can SEE which term bit (the auditor's instrument-first prerequisite; docs/28
+evidence honesty). `r_phi` added to the reward `info` for the same reason.
+
+### Why this is #427, not #429
+
+Auditor boundary: changing what `r_press` STRUCTURALLY measures (air-only → at-speed, closing a free exploit) is a
+behavioral loophole-patch the T5.1 runbook scopes to #427 ("iterate the reward + features for any new loophole the
+policy finds"); changing weight/threshold VALUES is #429. This PR does only the former. (The R1 Revisit Condition
+above routes a *bulldoze regression* to #429 weight-tuning; the auditor reframed THIS instance as a structural gap
+provable from code — hence a unit test, not a sweep. The review gate / owner can re-rule the ticket assignment.)
+
+### Verification
+
+stdlib gate green (`python -m unittest discover -s tests`, incl. the new failing-on-old test); `py_compile` clean
+for the torch-gated `rl_onspeed.py`. The BEHAVIORAL proof (does the policy stop bulldozing and complete the route
+faster?) is the owner-gated pinnacle round R2 — offline metrics + trajectory only; the live MVD publish stays
+owner-gated (docs/28: no success claim without a viewable recording).
