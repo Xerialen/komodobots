@@ -10,10 +10,11 @@ fails-before / passes-after test:
     only). The test drives the REAL collect_rollout + the real recompute and asserts the
     unchanged-policy ratio == 1.0 (and approx_kl == 0) across attack probabilities.
 
-  * Finding 3 [Medium]: _reset_state never (re)initialized _prev_goal_dist, so the first
-    r_prog after a reset to a NEW segment was computed against the PREVIOUS segment's goal
-    distance. The test resets twice to different segments and asserts the first post-reset
-    step's route-progress reward is neutral (0.0).
+  * Finding 3 [Medium] (ported to #427's arc-length progress): the reward carry (self._rstate)
+    is rebuilt each _reset_state, re-seeding prev_arc to the NEW segment's start arc, so the
+    first r_prog after a reset reflects only the bot's own movement, not a stale cross-segment
+    arc. The test resets twice to different straight routes and asserts the first post-reset
+    step's arc-length progress is the bot's +5qu stub move (+0.1), not a jump.
 
 These need torch (RLPolicy/BroadBCPolicy + Categorical) so they are torch-GATED here in
 ml/tests (the deps-heavy subtree), NOT in the stdlib-only merge-gate tests/. They build a
@@ -88,9 +89,9 @@ class TestPPOLogProbHeadParity(unittest.TestCase):
             def step(self, fwd, side, up, jump, yaw, m, fwd_argmax=None, side_argmax=None):
                 self.t += 1
                 info = {"hspeed": 100.0, "onground": False, "fwd_press": int(fwd == 2),
-                        "r_speed": 0.0, "r_phi": 0.0, "r_prog": 0.0, "p_hack": 0.0,
-                        "r_cad": 0.0, "r_press": 0.0, "strafe_sign": 0,
-                        "perp_frac": 0.0, "r_strafe": 0.0, "ap_rate": 0.0}
+                        "r_vel": 0.0, "v_along": 0.0, "r_phi": 0.0, "r_prog": 0.0,
+                        "p_hack": 0.0, "r_cad": 0.0, "r_press": 0.0, "strafe_sign": 0,
+                        "perp_frac": 0.0, "r_strafe": 0.0, "ap_rate": 0.0, "p_collide": 0.0}
                 return self._obs(), 0.0, False, info
         return _Env()
 
@@ -161,27 +162,25 @@ class TestPPOLogProbHeadParity(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAVE_TORCH, "torch required for the RL env reset regression test")
-class TestResetGoalDistNeutral(unittest.TestCase):
-    """Finding 3: after a reset to a NEW segment, the first step's route-progress reward
-    must be neutral (0.0), not polluted by the PREVIOUS segment's goal distance."""
+class TestResetArcProgressNeutral(unittest.TestCase):
+    """Finding 3, ported to #427: after a reset to a NEW segment the first step's arc-length
+    progress (r_prog) must reflect only the bot's own movement, not a jump from a stale
+    cross-segment arc. _reset_state rebuilds the reward carry (self._rstate), re-seeding
+    prev_arc to the new segment's start arc — this pins that."""
 
     def _make_env(self):
-        """A PmoveEnv with pmove/run_frame stubbed out (no BSP) and two segments whose final
-        goals are FAR apart, so a stale _prev_goal_dist would make the first post-reset r_prog
-        large. Only the reset/goal-distance bookkeeping is exercised."""
-        import numpy as np
+        """A PmoveEnv with pmove/run_frame stubbed out (no BSP) and two straight +x reference
+        routes at DIFFERENT absolute positions (distinct per-tick origins => non-degenerate
+        polyline so projection/arc-length work). Only the reset/reward-carry bookkeeping runs."""
         import rl_onspeed as RL
 
-        # two segments: distinct start origins + distinct final goals (far apart). A segment is
-        # a list of tick dicts; only ["self"] (origin/velocity/yaw/goal) + ["act"]["msec"] read.
-        def seg(ox, oy, gx, gy, n=6):
-            return [{"self": {"ox": ox, "oy": oy, "oz": 0.0, "vx": 320.0, "vy": 0.0,
-                              "vz": 0.0, "yaw": 0.0, "goal": [gx, gy]},
-                     "act": {"msec": 13}} for _ in range(n)]
-        segments = [
-            (0, 0, seg(0.0, 0.0, 100.0, 0.0)),       # near goal: starts 100qu away
-            (1, 0, seg(0.0, 0.0, 5000.0, 0.0)),      # far goal: starts 5000qu away
-        ]
+        # A straight +x human-reference route of n vertices 100qu apart, starting at x0. A segment
+        # is a list of tick dicts; only ["self"] (origin/velocity/yaw) + ["act"]["msec"] are read.
+        def seg(x0, n=6, dx=100.0):
+            return [{"self": {"ox": x0 + k * dx, "oy": 0.0, "oz": 0.0, "vx": 320.0, "vy": 0.0,
+                              "vz": 0.0, "yaw": 0.0, "goal": [x0 + (n - 1) * dx, 0.0]},
+                     "act": {"msec": 13}} for k in range(n)]
+        segments = [(0, 0, seg(0.0)), (1, 0, seg(1000.0))]   # seg0 @x=0..500, seg1 @x=1000..1500
 
         env = RL.PmoveEnv.__new__(RL.PmoveEnv)        # bypass __init__ (no world/BSP)
         env.world = None
@@ -190,13 +189,10 @@ class TestResetGoalDistNeutral(unittest.TestCase):
         env.n_max = 1
         env.map_name = "dm3"
         env.horizon = 5
-        env.band_lo, env.band_hi = 252.0, 316.0
-        env.cad_hold_min, env.cad_hold_max, env.cad_hold_late = 14, 230, 240
-        env.air_press_thresh = 0.40
-        env.ap_rate_ema = 0.02
-        env.r_cad_weight = 1.0
+        env.air_press_thresh = 0.40                   # _reset_state seeds the carry's ap_rate from this
+        env._rcfg = dict(RL.RW.DEFAULT_WEIGHTS)        # __init__ (bypassed here) normally builds this
 
-        # deterministic segment selection: first reset -> seg0 (near), second -> seg1 (far).
+        # deterministic segment selection: first reset -> seg0, second -> seg1.
         class _SeqRNG:
             def __init__(self, seq):
                 self.seq, self.i = seq, 0
@@ -207,49 +203,44 @@ class TestResetGoalDistNeutral(unittest.TestCase):
                 return v
         env.rng = _SeqRNG([0, 1])
 
-        # stub pmove: a frame that moves the origin a small fixed step along +x and keeps the
-        # bot airborne (so the air branch runs) — no real physics needed for the r_prog check.
+        # stub pmove: a frame that moves the origin a small fixed step ALONG the route (+x) and
+        # keeps the bot airborne — no real physics needed for the arc-progress check.
         class _StubPm:
             def run_frame(self, st, cmd):
-                st.origin[0] += 5.0          # 5qu toward the (far +x) goal per tick
+                st.origin[0] += 5.0          # 5qu along the +x route per tick
                 st.onground = False
         env.pm = _StubPm()
 
-        # build_obs touches AO.encode_observation/_self_state_from_sim; stub _build_obs so the
-        # reset/step bookkeeping is isolated from the obs encoder (not under test here).
+        # build_obs touches the obs encoder; stub it so the reset/step bookkeeping is isolated.
         env._build_obs = lambda: ([0.0], [], [], 13)
         return env, RL
 
-    def test_first_step_rprog_neutral_after_each_reset(self):
-        # Drives the REAL reset()+step() twice across DIFFERENT segments. The bug shows up on
-        # the SECOND reset: production step() reads d_prev via getattr(self,"_prev_goal_dist",
-        # d_now), so the very first reset+step is incidentally neutral (getattr fallback), but
-        # after that step the attribute persists; on the next reset _reset_state must re-seed
-        # it to the NEW segment's start distance or the next first-step r_prog is computed
-        # against the PREVIOUS segment's goal. The +0.1 expected value is the 5qu the stub
-        # moves toward the goal per tick (+5/50), the ONLY legitimate progress on step 1.
+    def test_first_step_arc_progress_neutral_after_each_reset(self):
+        # Drives the REAL reset()+step() twice across DIFFERENT routes. The +0.1 expected value is
+        # the 5qu the stub moves along the route per tick (+5 / prog_scale 50), the ONLY legitimate
+        # progress on step 1. A stale carried-over arc would make the post-reset first r_prog jump.
         env, RL = self._make_env()
 
-        # reset #1 -> near-goal segment (start dist 100). First step's r_prog is the +5qu step.
+        # reset #1 -> seg0 (start arc 0). First step's r_prog is the +5qu move.
         env.reset()
         _, _, _, info1 = env.step(1, 1, 1, 0, 0.0, 13)   # no-yaw, neutral move keys
         self.assertAlmostEqual(info1["r_prog"], 0.1, places=3)
+        for _ in range(3):                                # advance so prev_arc is well past 0
+            env.step(1, 1, 1, 0, 0.0, 13)
 
-        # reset #2 -> FAR-goal segment (start dist 5000). After reset _prev_goal_dist must be
-        # re-seeded to 5000 (this segment's start dist), so the first step's r_prog is again
-        # the +5qu stub step (+0.1). Under the bug _prev_goal_dist still holds the near
-        # segment's last distance (~95), so the first r_prog is (95 - 4995)/50 clamped to -1.0
-        # — the pollution this regression pins.
+        # reset #2 -> seg1 (a DIFFERENT route, start arc 0). The rebuilt carry must re-seed
+        # prev_arc to ~0 (this segment's start), so the first step is again the +5qu move (+0.1),
+        # not a jump computed against seg0's accumulated arc.
         env.reset()
-        self.assertAlmostEqual(env._prev_goal_dist, 5000.0, places=3,
-                               msg="reset did not re-seed _prev_goal_dist to the new segment")
+        self.assertAlmostEqual(env._rstate["prev_arc"], 0.0, places=1,
+                               msg="reset did not re-seed the reward carry's prev_arc")
         _, _, _, info2 = env.step(1, 1, 1, 0, 0.0, 13)
         self.assertAlmostEqual(info2["r_prog"], 0.1, places=3,
-                               msg="first r_prog after reset to a new segment is polluted by "
-                                   "the previous segment's goal distance")
+                               msg="first arc-progress after reset to a new route is polluted by "
+                                   "the previous route's arc")
         self.assertGreaterEqual(info2["r_prog"], 0.0,
                                 "first post-reset r_prog must not be a large negative from a "
-                                "stale (previous-segment) goal distance")
+                                "stale (previous-segment) arc")
 
 
 if __name__ == "__main__":

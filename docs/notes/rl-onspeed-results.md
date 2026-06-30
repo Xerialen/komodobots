@@ -146,3 +146,24 @@ attempt needs a DIFFERENT mechanism, not more per-tick tuning:
   distribution (the STEP-0 audit's recommendation).
 
 Either is a fresh RL sub-track and is owner-gated.
+
+## Phase-2 reframe (#427, 2026-06-30) — what these ROUND-1..8 numbers now mean
+
+All metrics above were measured under the **believability** objective (docs/18): the in-band speed bands
+(M1 252–316, M2 461–560), the air-press band (M3 0.07–0.50), the cadence band (M6), the G-MV1 "believable"
+guard, and the KL-anchor to a believable-aim policy. **docs/28 dropped believability for information-honest
+superhuman speed**, so under #427's reward reframe (option C — see `docs/08_DECISION_LOG.md` 2026-06-30):
+
+- The **speed band is gone**. `r_speed = soft_band(252,316)` (which *penalised* speed above 316) is replaced
+  by `r_vel`, a human-relative speedup ratio that rewards going **faster** without an upper cap (bounded only
+  for PPO stability). M1/M2-as-a-two-sided-band are therefore legacy: a successful bot reads **above** them.
+- The **cadence rhythm (M6) is dropped** (`w_cad=0`). The ROUND-8 residual — cadence stealing the sustained
+  air-strafe that launch+speed need — was a believability constraint; removing it dissolves the tension that
+  plateaued rounds 7–8. So the "cadence residual + next mechanism" section above is **moot** under docs/28
+  (re-enable only if a believability sub-goal returns).
+- **KEPT**: the air-strafe mechanism credit (`r_phi`/`r_strafe`), the anti-bulldoze press barrier (`r_press`),
+  anti-spin (`p_hack`) — these are physics, not imitation, and ROUND-4 proved they're required (naive speed
+  → bulldoze). **ADDED**: Collision− + Time−.
+- `rl_round6_r4init.pt` remains the **warmstart** for the Phase-2 training run (it already air-strafes), but
+  it is no longer the "best" by a believability bar — the new objective is route-relative speedup. Re-train +
+  re-eval under the new reward is the owner-gated next step (`experiments/ktx_moveprobe/T5.1_REWARD.md`).
