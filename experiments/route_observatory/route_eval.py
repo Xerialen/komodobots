@@ -251,11 +251,12 @@ def base_highway_seeds(canon: dict, n_bots: int) -> list:
 def base_highway_end_markers(canon: dict) -> dict:
     """`{highway_id: end_marker}` for `route_class=='base'` highways carrying an optional
     `end_marker` -- a 1-based live FBMARKER index at the highway END (the Commander goal the
-    INTENT-FIRST handoff gate needs to latch the route). READ-ONLY here: absent on every base
-    highway today (the index is not derivable offline -- it needs a live MATCHLESS FBMARKER dump),
-    so this returns `{}` and a directed `--score` run fail-louds. Populated by the #428 follow-up at
-    the generator SOURCE (`data/catalog/route_canon_marks.dm3.json`) + regen -- the generated canon
-    is NEVER hand-edited. The map drives live GOAL INTENT only; pin_driven_highway still scores by
+    INTENT-FIRST handoff gate needs to latch the route). READ-ONLY here: authored at the generator
+    SOURCE (`data/catalog/route_canon_marks.dm3.json`) as the NEAREST live FBMARKER of ANY class
+    (2-D) to each END + regen (the generated canon is NEVER hand-edited); the indices are
+    map-deterministic and derived + drift-gated offline by `derive_end_markers.py` (#460, no live
+    dump). A base highway that omits `end_marker` is returned absent and a directed `--score` run
+    fail-louds. The map drives live GOAL INTENT only; pin_driven_highway still scores by
     the highway actually driven, so the score stays honest regardless. RAISES ValueError if a present
     `end_marker` is not a POSITIVE 1-based int -- 0 / negative / non-int is rejected, because
     `fixed_goal 0` is an engine no-op (perslot.patch: "0 leaves fixed_goal alone") = un-directed,
