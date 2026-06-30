@@ -41,6 +41,8 @@ SHOTDIR="$NQ/qw/matchinfo/screenshots"
 CFG="$NQ/qw/_povshot.cfg"            # loop: setup + track@f_spawn -> exec shots
 CFG_SHOTS="$NQ/qw/_povshot_shots.cfg" # shots: demo_jump + screenshot (separate cbuf pass)
 LOG="$NQ/_povshot.log"
+QCON="$NQ/qw/qconsole.log"           # ezQuake console (-condebug); CLEARED per run so the track-fail
+                                     # grep below is scoped to THIS capture, not a stale prior one
 
 [ -f "$EZ" ] || { echo "FATAL: AppImage missing: $EZ"; exit 3; }
 
@@ -102,13 +104,14 @@ echo POVSHOT_DONE
 quit
 EOF
 
-rm -f "$SHOTDIR/$OUT.png"
+# clear this capture's outputs FIRST (under the flock): the shot, and the SHARED console log so the
+# post-run track-fail grep can't be poisoned by a stale "no such player" line from a prior capture.
+rm -f "$SHOTDIR/$OUT.png" "$QCON"
 cd "$NQ" || exit 3   # OWD must contain id1/ so AppRun keeps the right gamedir context
 timeout 150 xvfb-run -a -s "-screen 0 ${W}x${H}x24" \
   env APPIMAGE_EXTRACT_AND_RUN=1 LIBGL_ALWAYS_SOFTWARE=1 "$EZ" -basedir "$NQ" -condebug +exec _povshot.cfg > "$LOG" 2>&1
 RC=$?
 
-QCON="$NQ/qw/qconsole.log"
 if [ ! -f "$SHOTDIR/$OUT.png" ]; then
   echo "NO-SHOT (ezquake rc=$RC). console (qconsole.log) tail:"
   tail -15 "$QCON" 2>/dev/null || tail -20 "$LOG"
