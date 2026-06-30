@@ -17,7 +17,7 @@
    "id": "ra_tunnel_mega_rl",
    "label": "RA-tunnel -> mega -> RL",
    "route_class": "base",
-   "end_marker": 69,
+   "end_marker": 291,
    "from_resource": "Ring",
    "to_resource": "RL",
    "from_dist_qu": 182,

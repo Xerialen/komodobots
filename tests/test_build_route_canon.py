@@ -70,7 +70,7 @@ class TestBuildRouteCanon(unittest.TestCase):
         # #460: an authored end_marker on the SOURCE mark passes through to the canon highway
         # (so route_eval can read it); absent unless authored (un-directed highways stay clean).
         pts = _straight(1.0, 20, 0.0, 50.0)
-        self.assertEqual(_build(pts, 1.0, 2.9, end_marker=69)["end_marker"], 69)
+        self.assertEqual(_build(pts, 1.0, 2.9, end_marker=291)["end_marker"], 291)
         self.assertNotIn("end_marker", _build(pts, 1.0, 2.9))
 
     def test_internal_teleport_two_segments(self):

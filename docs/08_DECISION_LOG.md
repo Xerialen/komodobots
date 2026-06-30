@@ -4251,16 +4251,33 @@ route-isolation-hardened; the per-route SCORE is split off as a tracked #428 fol
 ### Decision
 
 Author the four base-highway `end_marker` goal-pins as the **nearest live FBMARKER of ANY class** to each
-highway END (gate-aware), at the generator SOURCE, and validate them on the consuming gate-bearing build by
+highway END (2-D — the plane the gate tests; computed + drift-gated by `derive_end_markers.py --check`), at
+the generator SOURCE, and validate them on the consuming gate-bearing build by
 **handoff-gate engagement** rather than by a separate FBMARKER dump or a per-route MSE:
 
-- `ra_tunnel_mega_rl→69`, `enter_ra_mid_ledge_top→54`, `low_bridge_stairs_ya→131`, `rl_high_bridge_window_lifts→87`.
+- `ra_tunnel_mega_rl→291`, `enter_ra_mid_ledge_top→54`, `low_bridge_stairs_ya→131`, `rl_high_bridge_window_lifts→87`
+  (ra was corrected 69→291 in Codex review r1 — see Correction).
 - `build_route_canon.build_highway` passes `end_marker` through from `route_canon_marks.dm3.json` (regen,
   never hand-edit the generated canon). `route_eval` validates it (positive 1-based int).
 - Add a `route_match` guard to `evaluate_run_multi`: compare the directed-seed's ASSIGNED highway to the
   geometric pin's DRIVEN highway; on mismatch fail-closed `drove_wrong_highway` (consumables NULL), and
   always emit `assigned_highway_id` + `route_match` so a positional consumer can never read a wrong-route
   number as the assigned score (closes the silent-evidence hole the auditor named).
+
+### Correction (Codex review r1, 2026-06-30)
+
+The first head authored `ra_tunnel_mega_rl→69`, which VIOLATED the stated nearest-ANY rule: the committed
+dump has marker **291** at 52.4qu (2-D) from that END vs marker 69 at 71.8qu — 291 is nearer. Codex blocked
+(P1, evidence-honesty: a rule the data contradicts is not auditable). Fixed by obeying the rule (`ra→291`);
+the other three (54/131/87) were already each the nearest-ANY. To make the rule machine-checked and
+un-driftable, added `experiments/route_observatory/derive_end_markers.py` (`--check` = zero-diff drift gate
+over the committed dump + canon ENDs) + `tests/test_end_markers_nearest.py` (asserts each `end_marker` ==
+argmin 2-D distance to its END and is unique within R_GOAL) — the lock fails on 69, passes on 291, and would
+have caught the original error. **The earlier 4/4-engaged run (which carried 69) still validates 291**: the
+gate uses the pin only for 2-D intent-selection + disengage (`move_highway.c`, never as a steering target),
+and 291 and 69 BOTH sit within R_GOAL=256qu of ra's END and >1100qu from every other END, so the engage
+decision is provably goal-pin-invariant (independently re-verified by the auditor). A confirmatory
+`fixed_goal_s2=291` run is optional belt-and-suspenders, not required for the evidence chain.
 
 ### Alternatives Considered
 
@@ -4280,7 +4297,11 @@ highway END (gate-aware), at the generator SOURCE, and validate them on the cons
 - Live directed `--bots 4 --score` matchless run (gate KTX from `ktx@08807da` + the 6 moveprobe patches incl.
   handoff; scratch port 28599; standing `.so` restored after): screen.log = **4/4 slots' gate ENGAGED, 0
   `FBMOVEPROBE_PERSLOT_ERROR`**; emit-layer `lab.cfg` carries `fixed_goal_s{2..5} = 69/54/131/87` + matching
-  spawn_origins under `k_matchless 1` (rules out a plumbing transposition). 88 tests green.
+  spawn_origins under `k_matchless 1` (rules out a plumbing transposition). NB: this run carried ra=**69**;
+  291 supersedes it post-review and is engagement-equivalent by the goal-pin-invariance proof (Correction).
+- Reproducible derivation: `derive_end_markers.py --check` exits 0 on the committed data (all 4 = nearest-ANY,
+  each unique within R_GOAL); regen diff vs committed canon after the 69→291 fix = the single `end_marker` line.
+  1860 stdlib tests green incl. `tests/test_end_markers_nearest.py` (the nearest-ANY lock).
 - Consensus: independent auditor (evidence-backed, vs origin/main) + NotebookLM (repo-grounded) both confirm
   the marker data is reliable and that gate-engagement validation suffices for the M3 plumbing mandate
   (docs/28: M3 tests wiring, not bot quality).
