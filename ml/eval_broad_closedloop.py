@@ -553,11 +553,16 @@ def _airborne_moving_count(ticks, *, hspeed_floor: float = None) -> int:
 
 
 def select_start_segments(episodes, *, horizon: int, n_segments: int,
-                          min_airborne_moving: int = None) -> list:
+                          min_airborne_moving: int = None, skip: int = 0) -> list:
     """From {eid: [tick_obs,...]} pick up to `n_segments` (eid, start_index, segment)
     triples, each a horizon-length slice with enough airborne-moving ticks to give
     gate_mv1 a verdict. Deterministic: episodes sorted, first qualifying window per
-    episode taken (one segment per episode keeps coverage broad). Pure python."""
+    episode taken (one segment per episode keeps coverage broad). Pure python.
+
+    `skip` (B1, held-out selection): drop the first `skip` qualifying episodes and return the
+    NEXT `n_segments`. skip=0 is the historical behaviour (the first `n_segments`). A caller that
+    resets training on the first N episodes can grade checkpoint SELECTION on skip=N -> a segment
+    set DISJOINT from the training resets (anti-Goodhart, nblm MF-N1), without changing training."""
     if min_airborne_moving is None:
         # gate_mv1 needs >= mv1_min_ticks airborne-moving ticks; require at least that
         # many in the chosen window so the bot's G-MV1 is scorable, not "insufficient".
@@ -575,9 +580,9 @@ def select_start_segments(episodes, *, horizon: int, n_segments: int,
                 out.append((eid, start, seg))
                 break
             start += horizon
-        if len(out) >= n_segments:
+        if len(out) >= skip + n_segments:
             break
-    return out
+    return out[skip:skip + n_segments]
 
 
 # =============================================================================
@@ -820,7 +825,8 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
              map_name: str = "dm3", n_max: int = 7, cpu: bool = False,
              goal_mode: str = "conditioned",
              resource_coords_path: Path | None = None,
-             aim_mode: str = "replayed", grade_route: bool = False) -> dict:
+             aim_mode: str = "replayed", grade_route: bool = False,
+             select_holdout_offset: int = 0) -> dict:
     """Closed-loop believability eval. NEEDS torch (policy forward) + numpy (parity) +
     duckdb (catalog start states) + the BSP world. Flow:
 
@@ -876,7 +882,8 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
     n_goal_ticks = sum(1 for et in episodes.values()
                        for t in et if t["self"].get("goal") is not None)
     n_all_ticks = sum(len(et) for et in episodes.values())
-    segments = select_start_segments(episodes, horizon=horizon, n_segments=n_segments)
+    segments = select_start_segments(episodes, horizon=horizon, n_segments=n_segments,
+                                     skip=select_holdout_offset)
 
     # carry the encoder + stats through the rollout without re-importing per tick.
     norm_bundle = {"_AO": AO, "_stats": stats}

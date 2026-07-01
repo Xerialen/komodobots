@@ -293,3 +293,44 @@ def aggregate_route_grades(grades):
         "median_human_ref_ratio": (_median(refs) if refs else None),
         "superhuman_claim": False,
     }
+
+
+def rank_by_route_grade(candidates, min_valid_segments=1):
+    """Pick the candidate whose HONEST route-grade (the #428 relative metric) is best, for checkpoint
+    SELECTION (#429 bridge). RANKING ONLY — never a superhuman CLAIM (docs/28: the absolute claim needs a
+    live recording + pov_fuse). Each candidate is a dict {"tag": <opaque>, "summary": <aggregate_route_grades
+    output>}. Ranking key, best first:
+
+      1. seg_faster_frac       — the ONLY per-candidate RELATIVE signal: fraction of segments beating their
+                                 OWN re-simulated sim-human control. #471 already refuses invalid/degenerate
+                                 references, so this fraction never counts a phantom pass. Higher = better.
+      2. median_speedup_ratio  — tie-break. NOTE: this is the ABSOLUTE median along-route speedup (v_along /
+                                 v_ref), NOT control-normalised (there is no aggregate relative-ratio key).
+                                 Higher = better.
+      3. -median_route_rmse_qu — final tie-break: tighter to the route. Lower rmse = better.
+
+    A candidate whose count of VALID-reference segments (n_segments - n_ref_invalid - n_ref_degenerate) is
+    < `min_valid_segments` is INELIGIBLE — its relative fraction rests on too few trustworthy sim-human
+    controls to rank honestly (auditor SF-4). Returns (best_index, reason); best_index is None if NO
+    candidate is eligible. Reads only the already-rounded summary fields and adds NO rounding of its own."""
+    def valid_segs(s):
+        return s.get("n_segments", 0) - s.get("n_ref_invalid", 0) - s.get("n_ref_degenerate", 0)
+
+    eligible = [(i, c) for i, c in enumerate(candidates)
+                if valid_segs(c["summary"]) >= min_valid_segments]
+    if not eligible:
+        return None, (f"no candidate had >= {min_valid_segments} valid-reference segment(s) "
+                      f"(sim-human controls too invalid/degenerate to rank honestly)")
+
+    def key(ic):
+        s = ic[1]["summary"]
+        return (s.get("seg_faster_frac", 0.0),
+                s.get("median_speedup_ratio", 0.0),
+                -s.get("median_route_rmse_qu", 0.0))
+
+    best_i, best_c = max(eligible, key=key)
+    s = best_c["summary"]
+    reason = (f"highest honest route-grade: seg_faster_frac={s.get('seg_faster_frac')} "
+              f"median_ratio={s.get('median_speedup_ratio')} rmse={s.get('median_route_rmse_qu')} "
+              f"(valid_refs={valid_segs(s)}/{s.get('n_segments')}); RELATIVE ranking, superhuman_claim=false")
+    return best_i, reason
