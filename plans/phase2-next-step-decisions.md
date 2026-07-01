@@ -212,12 +212,14 @@ Status legend: **LANDED** (on main) · **PROPOSED** (recommended, awaiting owner
   `faster_than_sim_human` / `superhuman_claim:false` / `human_ref_ratio`) so #429 cannot misread it as
   absolute; a reference is REFUSED (not auto-passed, tagged `relative_ref_invalid` / `relative_ref_degenerate`
   + counted in the summary) when the sim-human control was itself an INVALID route anchor on that segment
-  (off-route / incomplete — Codex #471 P1) OR ~stalled (ratio ≤ `min_ref_ratio`=0.05); and because the sim
+  (off-route / incomplete — Codex #471 P1) OR ~stalled (ratio ≤ `min_ref_ratio`=0.05). The relative
+  comparison anchors on the control's UNROUNDED median (`median_speedup_ratio_raw`), never the 4-dp display
+  field (Codex #471 P1, 2nd round — else display rounding could flip a near-threshold pass). Because the sim
   can degrade human vs bot UNEQUALLY, the guard against that
   is the docs/28 **M3 `pov_fuse` live visual-integrity check + a recorded `.mvd`** — the absolute SUPERHUMAN
   claim is proven only live, never the offline sim alone ("no success claim without a linked recording").
 - **Status:** LANDED (this PR): `route_grade.grade_trajectory(human_ref_ratio=…)` +
-  `eval_broad_closedloop.py --grade-route` threads the control's per-segment ratio; +5 gating tests.
+  `eval_broad_closedloop.py --grade-route` threads the control's per-segment UNROUNDED ratio; +7 gating tests.
 - **NOT in scope (named):** wiring the trustworthy grade into checkpoint SELECTION (replacing the circular
   reward-return) — where #428 meets #429; Option A (tangential `v_ref` — rejected: it doesn't fix the
   sim-fidelity cause and would touch the shared reward); the live 4-bot harness / #464 (D4 hygiene, grades

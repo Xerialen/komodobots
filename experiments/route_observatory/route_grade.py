@@ -91,7 +91,8 @@ def _polyline_len(polyline):
 
 def _empty_grade(cfg):
     return {
-        "route_rmse_qu": 0.0, "median_speedup_ratio": 0.0, "mean_speedup_ratio": 0.0,
+        "route_rmse_qu": 0.0, "median_speedup_ratio": 0.0, "median_speedup_ratio_raw": 0.0,
+        "mean_speedup_ratio": 0.0,
         "faster_than_human_frac": 0.0, "air_frac": 0.0, "air_forward_press_frac": 0.0,
         "route_coverage_frac": 0.0, "n_ticks": 0, "on_route": False, "faster_than_human": False,
         "faster_basis": "absolute", "faster_than_sim_human": None, "human_ref_ratio": None,
@@ -197,6 +198,9 @@ def grade_trajectory(traj, route, cfg=None, human_ref_ratio=None, human_ref_vali
     return {
         "route_rmse_qu": round(rmse, 3),
         "median_speedup_ratio": round(median_ratio, 4),
+        # gate-safe UNROUNDED median (Codex #471 P1): a relative caller (eval --grade-route) MUST anchor its
+        # bar on this, never the 4-dp display field above, or display rounding can flip a near-threshold pass.
+        "median_speedup_ratio_raw": median_ratio,
         "mean_speedup_ratio": round(mean_ratio, 4),
         "faster_than_human_frac": round(fth_ticks / n, 4),
         "air_frac": round(air_ticks / n, 4),

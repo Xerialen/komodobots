@@ -289,6 +289,21 @@ class TestRouteGrade(unittest.TestCase):
         self.assertFalse(agg["superhuman_claim"])
         self.assertFalse(agg["all_passed"], "a degenerate-reference segment is refused -> not all passed")
 
+    def test_display_rounding_cannot_flip_the_relative_gate(self):
+        # Codex #471 P1 (2nd round): the relative bar must anchor on the UNROUNDED control median
+        # (median_speedup_ratio_raw), never the 4-dp display field -> else a policy genuinely SLOWER than the
+        # control false-passes when both collapse to the same rounded value. Build a control whose raw median
+        # rounds DOWN (0.490149 -> 0.4901), opening a [rounded, raw) gap, and a policy sitting in that gap.
+        ctrl = [tick(x, 0.0, 196.0596, 0.0, onground=False, fwd_am=0) for x in _XS]
+        cg = G.grade_trajectory(ctrl, ROUTE)
+        raw, disp = cg["median_speedup_ratio_raw"], cg["median_speedup_ratio"]
+        self.assertGreater(raw, disp, "boundary needs a control whose raw median rounds DOWN")
+        pol = [tick(x, 0.0, ((raw + disp) / 2.0) * 400.0, 0.0, onground=False, fwd_am=0) for x in _XS]
+        self.assertFalse(G.grade_trajectory(pol, ROUTE, human_ref_ratio=raw)["faster_than_human"],
+                         "policy is slower than the UNROUNDED control -> must fail")
+        self.assertTrue(G.grade_trajectory(pol, ROUTE, human_ref_ratio=disp)["faster_than_human"],
+                        "the rounded control would wrongly PASS it -> exactly why eval reads the raw field")
+
 
 if __name__ == "__main__":
     unittest.main()

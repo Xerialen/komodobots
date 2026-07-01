@@ -934,7 +934,9 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
             # human) -> a trustworthy ranking, NOT a superhuman claim (which needs a live recording; docs/28).
             route_grades.append(
                 RGRADE.grade_trajectory(RGRADE.prep_traj_for_grade(p_traj, _route), _route,
-                                        human_ref_ratio=_rec_grade["median_speedup_ratio"],
+                                        # UNROUNDED control median (Codex #471 P1): the 4-dp display field
+                                        # would let presentation rounding flip a near-threshold policy pass.
+                                        human_ref_ratio=_rec_grade["median_speedup_ratio_raw"],
                                         human_ref_valid=_ref_valid))
         # per-segment gmv batteries (scored ONCE here): the summary feeds per_segment[]
         # AND each segment's own G-MV3 gate is kept so the pooled cadence can be summed
