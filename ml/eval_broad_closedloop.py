@@ -762,6 +762,9 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
                 angles = [pitch, exec_yaw, 0.0]
         else:  # "recorded" positive control
             fwd_mag, side_mag, up_mag, jump_bit = _recorded_usercmd(rec_act)
+            # recorded +forward CLASS from the human's ACTUAL forwardmove -> the recorded control
+            # exercises clean_mechanism too (not hardwired via fwd_am=None). 2=held, 0=back, 1=neutral.
+            fwd_am_cls = 2 if fwd_mag > 1e-6 else (0 if fwd_mag < -1e-6 else 1)
             attack_classes.append(None)
 
         cmd = pm_module.Cmd(msec, angles, [fwd_mag, side_mag, up_mag], jump_bit)
@@ -1018,7 +1021,7 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
             "note": ("sign3 class -> usercmd: 2->+MAG, 0->-MAG, 1->0; MAG=400 matches "
                      "the BROAD trainer's /400 move scale (agent_observation._MOVE_SCALE). "
                      "jump head==1 -> BUTTON_JUMP; attack head NOT driven (logged only). "
-                     "view yaw/pitch REPLAYED from the recorded human (AIM deferred)."),
+                     + _aim_plane_note(aim_mode)),
             "button_jump_bit": BUTTON_JUMP,
         },
         "anchor_bands": _anchor_band_summary(anchors_obj, player_band),
@@ -1031,7 +1034,7 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
             "expect": "G-MV1 must FAIL (yaw locked to velocity every tick)",
         },
         "per_segment": per_segment,
-        "caveats": _build_caveats(),
+        "caveats": _build_caveats(aim_mode),
         "provenance": {
             "git_sha": _core.git_sha(REPO_ROOT),
             "norm_artifact_version": stats.get("artifact_version", "UNSET"),
@@ -1045,13 +1048,16 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
             "summary": RGRADE.aggregate_route_grades(route_grades),
             "recorded_control": RGRADE.aggregate_route_grades(recorded_grades),
             "per_segment": route_grades,
-            "note": ("D1 honest OFFLINE route-grade of the policy rollout (on_route + faster_than_human "
-                     "+ clean_mechanism + completed_route, per segment; prep_traj_for_grade guards the "
-                     "superhuman-overrun + v_ref~0 misgrade traps). `recorded_control` grades the SAME "
-                     "routes with the recorded HUMAN usercmd — the positive control (expect ~1.0 ratio + "
-                     "pass -> the judge is calibrated; a policy 0/N is only meaningful if the human passes). "
-                     "The INTERNAL instrument that de-circularises training decisions — NOT the superhuman "
-                     "CLAIM, which still needs an owner-gated live recorded run + pov_fuse (docs/28)."),
+            "aim_mode": aim_mode,
+            "measurement_plane": _aim_head_label(aim_mode),
+            "note": ("D1 honest OFFLINE route-grade of the policy rollout on the `measurement_plane` above "
+                     "(on_route + faster_than_human + clean_mechanism + completed_route, per segment; "
+                     "prep_traj_for_grade guards the superhuman-overrun + v_ref~0 misgrade traps). "
+                     "`recorded_control` grades the SAME routes with the recorded HUMAN usercmd (fwd class "
+                     "from the recorded forwardmove, so it exercises ALL four gates) — the positive control "
+                     "showing the sim-fidelity ceiling; read the policy RELATIVE to it, not vs an absolute "
+                     "bar. The INTERNAL instrument that de-circularises training decisions — NOT the "
+                     "superhuman CLAIM, which still needs an owner-gated live recorded run + pov_fuse (docs/28)."),
         }
     return report
 
@@ -1075,18 +1081,32 @@ def _anchor_band_summary(anchors_obj, player_band) -> dict:
     }
 
 
-def _build_caveats() -> dict:
+def _aim_head_label(aim_mode: str) -> str:
+    """Measurement-plane label for the executed view yaw (provenance: which aim plane the grade saw)."""
+    return {"policy": "POLICY_SELF_YAW", "optimal": "OPTIMAL_ANALYTIC"}.get(aim_mode, "REPLAYED")
+
+
+def _aim_plane_note(aim_mode: str) -> str:
+    """One-line description of the executed-view-yaw plane, keyed on aim_mode (NOT hard-coded replayed)."""
+    if aim_mode == "policy":
+        return ("view yaw = the POLICY's OWN self-yaw head (forward_with_yaw), integrated per tick -> the "
+                "route-grade is measured on the policy's SELF-YAW plane, NOT replayed human aim.")
+    if aim_mode == "optimal":
+        return ("view yaw = the greedy speed-OPTIMAL analytic air-strafe yaw (RL STEP-0 ceiling diagnostic); "
+                "the obs used the replayed human yaw.")
+    return ("view yaw/pitch REPLAYED from the recorded human (AIM deferred): movement/jump heads are the "
+            "policy's, the view is the human's.")
+
+
+def _build_caveats(aim_mode: str = "replayed") -> dict:
     return {
         "eval_mode": "closed_loop",
         "what_closed_loop_means": (
             "The policy DRIVES pmove_sim with the sim's own evolving state fed back "
             "each tick (not re-anchored to human state), so G-MV1/G-MV3/G-MV4 and route "
             "retention are scored on the BOT's own resulting trajectory."),
-        "aim_head": "REPLAYED",
-        "aim_head_detail": (
-            "The BROAD policy clones movement/jump/attack but NOT view. The view "
-            "yaw/pitch each tick is REPLAYED from the recorded human; G-MV1 measures the "
-            "bot's yaw-vs-its-own-velocity over the bot's motion under that facing."),
+        "aim_head": _aim_head_label(aim_mode),
+        "aim_head_detail": _aim_plane_note(aim_mode),
         "solo_roam": (
             "No enemies in the sim -> encode_observation is called with observed_others=[] "
             "(entity channel all-pad + zero mask). Combat dynamics are out of scope here."),
@@ -1183,7 +1203,7 @@ def main(argv=None) -> int:
              report["bot_policy"]["route"]["longest_stall_s"]), flush=True)
     print("  CONTROLS: recorded-human should PASS G-MV1; face-and-run should FAIL G-MV1.",
           flush=True)
-    print("  CAVEATS: closed-loop; AIM replayed; solo-roam; MOVE mag=400; attack not driven.",
+    print("  CAVEATS: closed-loop; AIM=%s; solo-roam; MOVE mag=400; attack not driven." % args.aim,
           flush=True)
     if args.grade_route and "route_grade" in report:
         _rg = report["route_grade"]["summary"]
