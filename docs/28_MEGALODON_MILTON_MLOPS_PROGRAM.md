@@ -89,7 +89,12 @@ the Frogbot movement without crashing.
 ### Phase 2 — Velocity Optimisation (RL) · milestone #5 · epic #415
 Heavy PPO RL to learn elite mechanics and surpass human speed; reward shaping + automated tuning.
 - **M4 Training Loop & Offline Store (P2.1):** T4.1 Materialize denormalized Parquet offline feature store
-  (#425); T4.2 Establish experiment tracking — MLflow/W&B (#426).
+  (#425); T4.2 Establish experiment tracking — stdlib append-only JSONL run-registry + query CLI
+  (`ml/pipeline/experiment_registry.py`), a **deliberate deviation from the ticket's "MLflow or W&B"**
+  (2026-07-01: W&B is cloud — run data must stay on the offline 4090; MLflow is a heavy non-stdlib server
+  that cannot gate in the stdlib CI floor and exceeds single-box needs; the registry pins config, data
+  sha256s, code version, seed, honest route-grade and ckpt sha256 per run — what T5.3 actually consumes)
+  (#426).
 - **M5 Reward Shaping & Automated Tuning (P2.2):** T5.1 Phase-2 PPO reward signals — Velocity+ / Progress+ /
   Collision− / Time− (#427); T5.2 Automated evaluation metrics — route-isolated route-grade (shape adherence + faster-than-human), **no 4v4** (#428);
   T5.3 Systematic hyperparameter tuning — Bayesian/Random search (#429).
