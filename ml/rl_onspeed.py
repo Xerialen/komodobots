@@ -1024,7 +1024,10 @@ def _route_grade_screen(rl, src_ckpt, dims, head_dims, args, device, tmptag="rg"
         save_rl_ckpt(tmp, rl, src_ckpt, dims, head_dims, args.round, {"screen": tmptag})
         rep = EV.run_eval(
             tmp, Path(args.bsp), Path(args.db), Path(args.norm_artifact),
-            split=args.split, horizon=args.ep_horizon,
+            # Use the SAME segment-load horizon as the reset pool, so
+            # skip=--n-reset-segments skips the exact qualifying prefix training
+            # could reset from even when --ep-horizon is overridden separately.
+            split=args.split, horizon=args.horizon,
             n_segments=int(getattr(args, "select_grade_segments", 12)),
             anchors=Path(args.anchors), player_band=None, map_name=args.map,
             n_max=args.n_max, cpu=(device == "cpu"),

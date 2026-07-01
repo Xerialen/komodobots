@@ -26,6 +26,7 @@ import importlib.util
 import math
 import sys
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -241,6 +242,58 @@ class TestResetArcProgressNeutral(unittest.TestCase):
         self.assertGreaterEqual(info2["r_prog"], 0.0,
                                 "first post-reset r_prog must not be a large negative from a "
                                 "stale (previous-segment) arc")
+
+
+@unittest.skipUnless(_HAVE_TORCH, "torch required for the RL selection regression test")
+class TestRouteGradeScreenHoldout(unittest.TestCase):
+    """B1 held-out selection must skip the same qualified segment prefix as training resets."""
+
+    def test_route_grade_screen_uses_reset_segment_horizon_for_holdout(self):
+        import rl_onspeed as RL
+
+        calls = {}
+
+        def fake_save_rl_ckpt(out_path, rl, src_ckpt, dims, head_dims, round_idx, meta):
+            Path(out_path).write_bytes(b"stub")
+
+        def fake_run_eval(*args, **kwargs):
+            calls.update(kwargs)
+            return {"route_grade": {"summary": {"n_segments": 1, "seg_faster_frac": 1.0}}}
+
+        old_save, old_eval = RL.save_rl_ckpt, RL.EV.run_eval
+        RL.save_rl_ckpt, RL.EV.run_eval = fake_save_rl_ckpt, fake_run_eval
+        try:
+            args = SimpleNamespace(
+                resource_coords=None,
+                round=1,
+                bsp="dummy.bsp",
+                db="dummy.duckdb",
+                norm_artifact="norm.json",
+                split="val",
+                horizon=123,
+                ep_horizon=456,
+                select_grade_segments=7,
+                anchors="anchors.json",
+                map="dm3",
+                n_max=7,
+                cpu=True,
+                n_reset_segments=64,
+            )
+            summary = RL._route_grade_screen(
+                rl=SimpleNamespace(),
+                src_ckpt={},
+                dims={},
+                head_dims=[],
+                args=args,
+                device="cpu",
+            )
+        finally:
+            RL.save_rl_ckpt, RL.EV.run_eval = old_save, old_eval
+
+        self.assertEqual(summary["seg_faster_frac"], 1.0)
+        self.assertEqual(calls["horizon"], 123)
+        self.assertEqual(calls["select_holdout_offset"], 64)
+        self.assertEqual(calls["n_segments"], 7)
 
 
 if __name__ == "__main__":

@@ -92,3 +92,8 @@ training resets — which the press screen (training-overlapping HEAD) cannot su
 rollout per candidate. Held-out correctness (KEY guard) outranks the zero-rollout efficiency the shared call
 would have bought; `_eval_press_screen` is left untouched (its 4-tuple + call site unchanged), which is lower
 risk than the shared-call threading MF-A1 anticipated. Landed via `--select-by-route-grade`.
+
+Review fix: `_route_grade_screen` selects the held-out suffix with the same segment-load horizon
+as the reset pool (`--horizon`), not the rollout episode horizon (`--ep-horizon`), so
+`skip=--n-reset-segments` skips the exact qualifying prefix training can reset from even when those
+CLI knobs differ.
