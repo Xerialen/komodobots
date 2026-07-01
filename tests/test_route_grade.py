@@ -25,6 +25,13 @@ def tick(x, y, vx, vy, onground=False, fwd_am=0, z=0.0):
     return {"ox": x, "oy": y, "oz": z, "vx": vx, "vy": vy, "onground": onground, "fwd_am": fwd_am}
 
 
+def _summary(faster_frac, ratio=0.5, rmse=50.0, n=8, n_ref_invalid=0, n_ref_degenerate=0):
+    """A minimal aggregate_route_grades-shaped summary for the rank_by_route_grade tests."""
+    return {"n_segments": n, "seg_faster_frac": faster_frac, "median_speedup_ratio": ratio,
+            "median_route_rmse_qu": rmse, "n_ref_invalid": n_ref_invalid,
+            "n_ref_degenerate": n_ref_degenerate, "superhuman_claim": False}
+
+
 class TestRouteGrade(unittest.TestCase):
     def test_clean_fast_bhop_passes(self):
         # On the line, 1.5x human speed, airborne, forward RELEASED, vertical bounce present.
@@ -303,6 +310,46 @@ class TestRouteGrade(unittest.TestCase):
                          "policy is slower than the UNROUNDED control -> must fail")
         self.assertTrue(G.grade_trajectory(pol, ROUTE, human_ref_ratio=disp)["faster_than_human"],
                         "the rounded control would wrongly PASS it -> exactly why eval reads the raw field")
+
+
+class TestRankByRouteGrade(unittest.TestCase):
+    """B1 (#428->#429 bridge): checkpoint SELECTION ranks retained snapshots by the honest relative grade."""
+
+    def test_picks_highest_faster_frac(self):
+        cands = [{"tag": "a", "summary": _summary(0.25)},
+                 {"tag": "b", "summary": _summary(0.5)},
+                 {"tag": "c", "summary": _summary(0.125)}]
+        best, reason = G.rank_by_route_grade(cands)
+        self.assertEqual(best, 1, "the candidate beating the most sim-human controls wins")
+        self.assertIn("superhuman_claim=false", reason)
+
+    def test_tie_break_ratio_then_rmse(self):
+        # equal seg_faster_frac -> higher absolute median_speedup_ratio wins.
+        cands = [{"tag": "slow", "summary": _summary(0.5, ratio=0.40)},
+                 {"tag": "fast", "summary": _summary(0.5, ratio=0.60)}]
+        self.assertEqual(G.rank_by_route_grade(cands)[0], 1)
+        # equal frac AND ratio -> lower route rmse (tighter to the route) wins.
+        cands = [{"tag": "loose", "summary": _summary(0.5, ratio=0.5, rmse=90.0)},
+                 {"tag": "tight", "summary": _summary(0.5, ratio=0.5, rmse=40.0)}]
+        self.assertEqual(G.rank_by_route_grade(cands)[0], 1)
+
+    def test_refuses_too_few_valid_refs(self):
+        # A candidate with the HIGHEST faster_frac but whose sim-human controls were ALL invalid
+        # (0 valid refs) must NOT win over a slower candidate with trustworthy references.
+        high_but_invalid = {"tag": "phantom", "summary": _summary(1.0, n=8, n_ref_invalid=8)}
+        honest_slower = {"tag": "honest", "summary": _summary(0.375, n=8, n_ref_invalid=0)}
+        best, _ = G.rank_by_route_grade([high_but_invalid, honest_slower], min_valid_segments=4)
+        self.assertEqual(best, 1, "phantom fraction on 0 valid refs is refused, not selected")
+        # if NONE clears the valid-ref floor -> no selection (None), surfaced honestly.
+        none_valid = [{"tag": "x", "summary": _summary(0.9, n=8, n_ref_invalid=6, n_ref_degenerate=2)}]
+        best, reason = G.rank_by_route_grade(none_valid, min_valid_segments=4)
+        self.assertIsNone(best)
+        self.assertIn("valid-reference", reason)
+
+    def test_ranking_only_never_promotes_superhuman(self):
+        cands = [{"tag": "a", "summary": _summary(0.5)}]
+        best, _ = G.rank_by_route_grade(cands)
+        self.assertFalse(cands[best]["summary"]["superhuman_claim"], "selection is ranking, NOT a claim")
 
 
 if __name__ == "__main__":

@@ -76,6 +76,7 @@ import eval_broad_closedloop as EV                              # noqa: E402
 from eval_broad_believability import _build_policy_from_checkpoint  # noqa: E402
 from build_features import _load_episode_ticks                  # noqa: E402
 import route_goals as RG                                        # noqa: E402
+import route_grade as RGRADE                                    # noqa: E402  (B1 honest-grade SELECTION)
 import route_geom as RGEO                                       # noqa: E402  (#427 polyline projection)
 import reward_onspeed as RW                                     # noqa: E402  (#427 pure stdlib reward)
 
@@ -772,7 +773,45 @@ def train(args, device):
     sel = None       # the chosen candidate dict
     sel_reason = None
     eval_probe = []  # per-candidate eval diagnostics for the meta
-    if getattr(args, "select_by_eval_press", False) and topk:
+
+    # --- B1 (#428->#429 bridge): HONEST route-grade selection ------------------------------
+    # Rank the retained snapshots by the #428 RELATIVE route-grade (faster-than-sim-human on
+    # HELD-OUT routes) — the trustworthy metric #429 will tune against — de-circularising the
+    # default #427-reward-return selection. RANKING only; superhuman_claim stays false (the
+    # absolute claim needs a live recording + pov_fuse, docs/28). Takes precedence over the
+    # legacy eval-press screen when both are set. Grades the held-out SUFFIX (disjoint from the
+    # RL resets), so it costs one rollout per candidate (the honest price of not grading on the
+    # training routes).
+    if getattr(args, "select_by_route_grade", False) and topk:
+        print(f"[rl] ROUTE-GRADE SELECTION over {len(topk)} top-K snapshots "
+              f"(held-out suffix skip={args.n_reset_segments}, "
+              f"{int(getattr(args, 'select_grade_segments', 12))} segs, honest #428 relative bar)",
+              flush=True)
+        ranked = []
+        for ci, c in enumerate(topk):
+            rl.base.load_state_dict(c["sd"])
+            summ = _route_grade_screen(rl, src_ckpt, dims, head_dims, args, device, tmptag=f"rg{ci}")
+            eval_probe.append({"it": c["it"], "route_grade": summ})
+            _brief = None if summ is None else {k: summ.get(k) for k in
+                     ("seg_faster_frac", "median_speedup_ratio", "n_ref_invalid", "n_segments")}
+            print(f"[rl]   cand @it{c['it']}: route_grade={_brief}", flush=True)
+            if summ is not None:
+                ranked.append({"tag": c["it"], "summary": summ, "cand": c})
+        if ranked:
+            best_i, reason = RGRADE.rank_by_route_grade(
+                ranked, min_valid_segments=int(getattr(args, "select_grade_min_valid", 3)))
+            if best_i is not None:
+                sel = ranked[best_i]["cand"]
+                sel_reason = f"route-grade #428 (held-out): {reason}"
+                print(f"[rl] * ROUTE-GRADE selected @it{ranked[best_i]['tag']}: {reason}", flush=True)
+            else:
+                print(f"[rl] WARN route-grade selection: {reason} — falling back", flush=True)
+        else:
+            print("[rl] WARN route-grade selection: no candidate produced a grade — falling back",
+                  flush=True)
+
+    # legacy eval-press screen: runs only if route-grade did NOT already select (sel is None).
+    if sel is None and getattr(args, "select_by_eval_press", False) and topk:
         print(f"[rl] EVAL-PRESS SELECTION over {len(topk)} top-K snapshots "
               f"(ceiling press<{args.eval_press_ceiling}, M1>={band_lo:.0f}, M6 in-band)",
               flush=True)
@@ -843,9 +882,9 @@ def train(args, device):
     if sel is not None:
         rl.base.load_state_dict(sel["sd"])
         ed = next((d for d in eval_probe if d["it"] == sel["it"]), {})
-        print(f"[rl] saving EVAL-PRESS-SELECTED ckpt @it{sel['it']} "
-              f"(eval_press={ed.get('eval_press')} eval_M1={ed.get('eval_m1')} "
-              f"eval_M6={ed.get('eval_m6')}; reason={sel_reason})", flush=True)
+        _detail = (f"eval_press={ed.get('eval_press')} eval_M1={ed.get('eval_m1')} "
+                   f"eval_M6={ed.get('eval_m6')}; " if "eval_press" in ed else "")
+        print(f"[rl] saving SELECTED ckpt @it{sel['it']} ({_detail}reason={sel_reason})", flush=True)
     elif best["sd"] is not None:
         rl.base.load_state_dict(best["sd"])
         _btag = ("BEST-believable(legacy)" if getattr(args, "select_legacy_believable", False)
@@ -875,12 +914,15 @@ def train(args, device):
         "press_ceiling": args.press_ceiling,
         "select_legacy_believable": bool(getattr(args, "select_legacy_believable", False)),
         "select_by_eval_press": bool(getattr(args, "select_by_eval_press", False)),
+        "select_by_route_grade": bool(getattr(args, "select_by_route_grade", False)),
         "eval_press_ceiling": float(getattr(args, "eval_press_ceiling", 0.50)),
         "topk_snapshots": K,
+        # per-candidate SELECTION diagnostics (eval-press metrics and/or the B1 route_grade summary).
         "eval_press_probe": eval_probe,
         "selected_it": (sel["it"] if sel is not None else best["it"]),
         "selected_reason": sel_reason,
-        "saved_params": ("eval_press_selected" if sel is not None
+        "saved_params": ((("route_grade_selected" if (sel_reason or "").startswith("route-grade")
+                           else "eval_press_selected")) if sel is not None
                          else (("best_believable_legacy"
                                 if getattr(args, "select_legacy_believable", False)
                                 else "best_phase2_reward")
@@ -951,6 +993,52 @@ def _eval_press_screen(rl, src_ckpt, dims, head_dims, args, device, tmptag="sel"
     except Exception as e:
         print(f"[rl]   screen {tmptag} FAILED: {str(e)[:160]}", flush=True)
         return (None, None, None, None)
+    finally:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+
+
+def _route_grade_screen(rl, src_ckpt, dims, head_dims, args, device, tmptag="rg"):
+    """B1 (#428->#429 bridge): the candidate's HONEST offline route-grade for checkpoint SELECTION, on
+    routes HELD OUT from the RL resets. Persists `rl`'s current base params, runs ONE goal-conditioned
+    closed-loop with grade_route=True on the DISJOINT segment SUFFIX (skip=--n-reset-segments, the count
+    training resets from) so selection cannot reward route-memorisation (nblm MF-N1), over the full
+    --select-grade-segments segments (auditor SF-4). Returns rep["route_grade"]["summary"] or None.
+
+    A SEPARATE run from _eval_press_screen by necessity: the press screen grades the training-overlapping
+    HEAD, this must grade the held-out SUFFIX — distinct segments, so a distinct rollout (the held-out
+    guard costs one rollout; that is the honest price of not grading on the training routes).
+
+    FOLLOW-UP (nblm MF-N2, control purity): the sim-human control is the recorded usercmd re-simulated;
+    it is NOT yet gated on a per-episode trick-jump anomaly signal (that lives in the route-canon build,
+    not this closed-loop control path). Lower-risk than it looks: a trick-contaminated control INFLATES
+    the relative bar (the policy fails relative to it) — the SAFE direction, never a phantom pass — but a
+    proper control-purity gate is a named follow-up, not silently assumed."""
+    import tempfile
+    rc = args.resource_coords
+    with tempfile.NamedTemporaryFile(suffix=f"_{tmptag}.pt", delete=False) as tf:
+        tmp = Path(tf.name)
+    try:
+        save_rl_ckpt(tmp, rl, src_ckpt, dims, head_dims, args.round, {"screen": tmptag})
+        rep = EV.run_eval(
+            tmp, Path(args.bsp), Path(args.db), Path(args.norm_artifact),
+            # Use the SAME segment-load horizon as the reset pool, so
+            # skip=--n-reset-segments skips the exact qualifying prefix training
+            # could reset from even when --ep-horizon is overridden separately.
+            split=args.split, horizon=args.horizon,
+            n_segments=int(getattr(args, "select_grade_segments", 12)),
+            anchors=Path(args.anchors), player_band=None, map_name=args.map,
+            n_max=args.n_max, cpu=(device == "cpu"),
+            goal_mode="conditioned", resource_coords_path=(Path(rc) if rc else None),
+            aim_mode="policy", grade_route=True,
+            select_holdout_offset=int(args.n_reset_segments),
+        )
+        return rep.get("route_grade", {}).get("summary")
+    except Exception as e:
+        print(f"[rl]   route-grade screen {tmptag} FAILED: {str(e)[:160]}", flush=True)
+        return None
     finally:
         try:
             tmp.unlink()
@@ -1231,7 +1319,24 @@ def main(argv=None):
                          "in-rollout press did not transfer to the eval distribution.")
     ap.add_argument("--topk-snapshots", type=int, default=6,
                     help="how many top-in-rollout-score believable snapshots to retain for the "
-                         "eval-press selection pass (--select-by-eval-press).")
+                         "eval-press selection pass (--select-by-eval-press) OR the route-grade pass "
+                         "(--select-by-route-grade). Widen it if the honest optimum diverges from the "
+                         "reward optimum, since both passes RE-RANK the reward+KL-eligible top-K.")
+    # B1 (#428->#429 bridge): honest route-grade checkpoint SELECTION.
+    ap.add_argument("--select-by-route-grade", action="store_true",
+                    help="B1: after training, rank the top-K retained snapshots by the #428 HONEST "
+                         "route-grade (faster-than-sim-human RELATIVE, on HELD-OUT routes disjoint from "
+                         "the RL resets) and SAVE the best — the de-circularised metric #429 tunes "
+                         "against. Ranking only; superhuman_claim stays false. Takes precedence over the "
+                         "legacy eval-press screen when both are set.")
+    ap.add_argument("--select-grade-segments", type=int, default=12,
+                    help="B1: how many HELD-OUT route segments to grade per candidate under "
+                         "--select-by-route-grade (skips the first --n-reset-segments episodes so the "
+                         "grade routes are disjoint from the RL resets; anti-Goodhart, nblm MF-N1).")
+    ap.add_argument("--select-grade-min-valid", type=int, default=3,
+                    help="B1: minimum count of VALID-reference segments (n_segments - n_ref_invalid - "
+                         "n_ref_degenerate) a candidate needs before its relative route-grade can rank "
+                         "it; below this the sim-human controls are too degenerate to trust (auditor SF-4).")
     ap.add_argument("--eval-press-ceiling", type=float, default=0.50,
                     help="eval-press selection: a candidate fully qualifies iff its CLOSED-LOOP "
                          "eval fwd_press_frac is below this (human top 0.50).")
