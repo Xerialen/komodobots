@@ -242,6 +242,24 @@ class TestRouteGrade(unittest.TestCase):
         self.assertEqual(ok["faster_basis"], "relative")
         self.assertTrue(ok["faster_than_human"])
 
+    def test_invalid_reference_not_a_pass(self):
+        # Codex #471 P1: an off-route / incomplete sim-human control with a HEALTHY ratio (0.49, NOT
+        # degenerate) must NOT license an on-route policy to pass relative to it. The caller flags the
+        # reference invalid (control not on_route/completed) -> refuse, distinct from low-ratio degeneracy.
+        fast_on_route = [tick(x, 0.0, 600.0, 0.0, onground=False, fwd_am=0) for x in _XS]
+        bad = G.grade_trajectory(fast_on_route, ROUTE, human_ref_ratio=0.49, human_ref_valid=False)
+        self.assertEqual(bad["faster_basis"], "relative_ref_invalid")
+        self.assertFalse(bad["faster_than_human"], "an invalid control reference is refused, not passed")
+        self.assertFalse(bad["passed"])
+        # the SAME policy + ratio with a VALID reference passes -> the refusal is the validity flag, not
+        # the ratio (proves the guard is the control's route-validity, not a numeric accident).
+        ok = G.grade_trajectory(fast_on_route, ROUTE, human_ref_ratio=0.49, human_ref_valid=True)
+        self.assertEqual(ok["faster_basis"], "relative")
+        self.assertTrue(ok["passed"])
+        agg = G.aggregate_route_grades([bad, ok])
+        self.assertEqual(agg["n_ref_invalid"], 1)
+        self.assertFalse(agg["all_passed"], "an invalid-reference segment is refused -> not all passed")
+
     def test_relative_tag_is_machine_readable(self):
         # #428 provenance: a downstream selector (#429) must tell relative from absolute and never read the
         # relative verdict as an absolute superhuman claim.

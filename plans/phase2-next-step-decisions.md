@@ -210,8 +210,10 @@ Status legend: **LANDED** (on main) · **PROPOSED** (recommended, awaiting owner
   S7 0.495 in `docs/03`.)
 - **Honesty guards (auditor + nblm):** the relative verdict is machine-tagged (`faster_basis` /
   `faster_than_sim_human` / `superhuman_claim:false` / `human_ref_ratio`) so #429 cannot misread it as
-  absolute; a degenerate reference (sim-human ~stalled on a segment, ratio ≤ `min_ref_ratio`=0.05) is
-  REFUSED, not auto-passed; and because the sim can degrade human vs bot UNEQUALLY, the guard against that
+  absolute; a reference is REFUSED (not auto-passed, tagged `relative_ref_invalid` / `relative_ref_degenerate`
+  + counted in the summary) when the sim-human control was itself an INVALID route anchor on that segment
+  (off-route / incomplete — Codex #471 P1) OR ~stalled (ratio ≤ `min_ref_ratio`=0.05); and because the sim
+  can degrade human vs bot UNEQUALLY, the guard against that
   is the docs/28 **M3 `pov_fuse` live visual-integrity check + a recorded `.mvd`** — the absolute SUPERHUMAN
   claim is proven only live, never the offline sim alone ("no success claim without a linked recording").
 - **Status:** LANDED (this PR): `route_grade.grade_trajectory(human_ref_ratio=…)` +

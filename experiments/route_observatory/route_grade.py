@@ -100,7 +100,7 @@ def _empty_grade(cfg):
     }
 
 
-def grade_trajectory(traj, route, cfg=None, human_ref_ratio=None):
+def grade_trajectory(traj, route, cfg=None, human_ref_ratio=None, human_ref_valid=True):
     """Grade ONE closed-loop trajectory against its human-reference route (the D1/D2 honest gate).
 
     traj  : list of per-tick dicts, each with keys ox, oy, oz, vx, vy, onground (bool),
@@ -114,6 +114,10 @@ def grade_trajectory(traj, route, cfg=None, human_ref_ratio=None):
             `faster_than_human` RELATIVELY (bot ratio >= sim-human ratio): the common sim-fidelity
             factor cancels. This is "faster than the SIM-human", NOT a superhuman CLAIM (which needs a
             live recording; docs/28). None -> the absolute `min_ratio` bar (back-compatible default).
+    human_ref_valid : whether the sim-human control was itself a VALID route anchor on this segment
+            (caller passes on_route AND completed_route of the control). False -> the reference is
+            untrustworthy (off-route / incomplete control) and the relative bar is REFUSED, not applied
+            (Codex #471 P1: an off-route control with a healthy ratio must not license a policy pass).
 
     Returns a grade dict: route_rmse_qu, speedup stats, mechanism fractions, route_coverage_frac, the
     four per-criterion booleans (on_route / faster_than_human / clean_mechanism / completed_route), the
@@ -172,11 +176,15 @@ def grade_trajectory(traj, route, cfg=None, human_ref_ratio=None):
     on_route = rmse <= c["rmse_tol"]
     # faster_than_human: absolute (vs the RAW recorded human) UNLESS a sim-human control reference is
     # supplied (#428) -> then judge RELATIVE to the human re-simulated on this route, which cancels the
-    # common sim-fidelity factor. A degenerate reference (sim-human ~stalled here, ratio <= min_ref_ratio)
-    # is REFUSED, not auto-passed (else bot >= ~0 trivially passes where the instrument is least trusted).
+    # common sim-fidelity factor. TWO ways the reference is refused (not auto-passed): the control was not
+    # a valid route anchor (off-route / incomplete -> ratio not trustworthy, Codex #471 P1), or it ~stalled
+    # (ratio <= min_ref_ratio -> bot >= ~0 would trivially pass where the instrument is least trusted).
     if human_ref_ratio is None:
         faster_than_human = median_ratio >= c["min_ratio"]
         faster_basis = "absolute"
+    elif not human_ref_valid:
+        faster_than_human = False
+        faster_basis = "relative_ref_invalid"
     elif human_ref_ratio <= c["min_ref_ratio"]:
         faster_than_human = False
         faster_basis = "relative_ref_degenerate"
@@ -247,15 +255,17 @@ def aggregate_route_grades(grades):
     """Aggregate per-segment grade dicts (from `grade_trajectory`) into one route-grade summary. Each
     boolean criterion becomes a pass-FRACTION across segments; the overall honest route-grade PASS =
     EVERY graded segment fully passed (`all_passed`). When graded RELATIVE to a sim-human control (#428)
-    the summary also carries `n_ref_degenerate` (segments the sim-human couldn't anchor) and
-    `median_human_ref_ratio` (the sim-fidelity ceiling). Pure stdlib -> gates in the aws-dev floor."""
+    the summary also carries `n_ref_degenerate` + `n_ref_invalid` (segments whose sim-human reference
+    was ~stalled / not a valid route anchor) and `median_human_ref_ratio` (the sim-fidelity ceiling).
+    Pure stdlib -> gates in the aws-dev floor."""
     clean = [g for g in grades if g]
     n = len(clean)
     if n == 0:
         return {"n_segments": 0, "seg_on_route_frac": 0.0, "seg_faster_frac": 0.0,
                 "seg_clean_mechanism_frac": 0.0, "seg_completed_frac": 0.0, "seg_passed_frac": 0.0,
                 "all_passed": False, "median_speedup_ratio": 0.0, "median_route_rmse_qu": 0.0,
-                "n_ref_degenerate": 0, "median_human_ref_ratio": None, "superhuman_claim": False}
+                "n_ref_degenerate": 0, "n_ref_invalid": 0, "median_human_ref_ratio": None,
+                "superhuman_claim": False}
 
     def frac(key):
         return round(sum(1 for g in clean if g.get(key)) / n, 4)
@@ -275,6 +285,7 @@ def aggregate_route_grades(grades):
         # surface the count + the median sim-fidelity ceiling (the human control ratio) so a reader sees
         # how degraded the instrument is. superhuman_claim stays False — this is a relative ranking only.
         "n_ref_degenerate": sum(1 for g in clean if g.get("faster_basis") == "relative_ref_degenerate"),
+        "n_ref_invalid": sum(1 for g in clean if g.get("faster_basis") == "relative_ref_invalid"),
         "median_human_ref_ratio": (_median(refs) if refs else None),
         "superhuman_claim": False,
     }

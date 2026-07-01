@@ -925,11 +925,17 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
             # CEILING and the RELATIVE bar the policy must beat (#428), cancelling the common sim factor.
             _rec_grade = RGRADE.grade_trajectory(RGRADE.prep_traj_for_grade(r_traj, _route), _route)
             recorded_grades.append(_rec_grade)
+            # The control is a valid SPEED reference only if it was itself a valid route anchor on this
+            # segment: on_route AND completed_route (Codex #471 P1 — an off-route / incomplete control with
+            # a healthy ratio must NOT license a policy relative-pass). clean_mechanism is NOT required: the
+            # control is a speed reference, not a bhop-purity exemplar.
+            _ref_valid = bool(_rec_grade["on_route"] and _rec_grade["completed_route"])
             # Policy graded RELATIVE to that control: faster_than_human == beat the SIM-human (not the raw
             # human) -> a trustworthy ranking, NOT a superhuman claim (which needs a live recording; docs/28).
             route_grades.append(
                 RGRADE.grade_trajectory(RGRADE.prep_traj_for_grade(p_traj, _route), _route,
-                                        human_ref_ratio=_rec_grade["median_speedup_ratio"]))
+                                        human_ref_ratio=_rec_grade["median_speedup_ratio"],
+                                        human_ref_valid=_ref_valid))
         # per-segment gmv batteries (scored ONCE here): the summary feeds per_segment[]
         # AND each segment's own G-MV3 gate is kept so the pooled cadence can be summed
         # from PER-SEGMENT flips (no cross-boundary L<->R flip — see overwrite_pooled_mv3).
