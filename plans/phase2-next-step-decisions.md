@@ -196,11 +196,43 @@ Status legend: **LANDED** (on main) · **PROPOSED** (recommended, awaiting owner
   against D1, never blind. (Under review by auditor + nblm 2026-07-01.)
 - **Backtrack:** additive `--reward-weight`-gated term → revert = weight 0. No data-contract change.
 
+## D8 — Recalibrate the offline grade's faster-than-human bar to RELATIVE (#428, LANDED — this PR)
+- **Decision:** the offline route-grade's `faster_than_human` criterion changes from an ABSOLUTE bar (bot
+  median along-route ratio ≥ 1.0 vs the RAW recorded human) to a RELATIVE one: the policy must beat the
+  recorded-human control RE-SIMULATED in the same pmove sim (`ratio_bot ≥ ratio_sim_human`, per segment).
+  Grade-only — the training reward's absolute ratio (a shaping gradient) is untouched.
+- **Why:** the first D1 run showed the judge RANKS correctly (R5 bot ≈0.08 vs human control ≈0.49) but its
+  absolute bar is unreachable IN-SIM — the offline sim reproduces only ~half the real engine's along-route
+  speed, so even the human's OWN recording re-simulated scores ≈0.49, never ≥1.0. A judge whose pass-line
+  the human can't reach can't certify "superhuman." The relative bar cancels the common sim-fidelity factor
+  → a trustworthy "faster than the sim-human" ranking that de-circularises #429. (Provenance: the 0.49/0.08
+  are provisional pinnacle-run figures — attach the run artifact before citing as fact; NOT the unrelated
+  S7 0.495 in `docs/03`.)
+- **Honesty guards (auditor + nblm):** the relative verdict is machine-tagged (`faster_basis` /
+  `faster_than_sim_human` / `superhuman_claim:false` / `human_ref_ratio`) so #429 cannot misread it as
+  absolute; a reference is REFUSED (not auto-passed, tagged `relative_ref_invalid` / `relative_ref_degenerate`
+  + counted in the summary) when the sim-human control was itself an INVALID route anchor on that segment
+  (off-route / incomplete — Codex #471 P1) OR ~stalled (ratio ≤ `min_ref_ratio`=0.05). The relative
+  comparison anchors on the control's UNROUNDED median (`median_speedup_ratio_raw`), never the 4-dp display
+  field (Codex #471 P1, 2nd round — else display rounding could flip a near-threshold pass). Because the sim
+  can degrade human vs bot UNEQUALLY, the guard against that
+  is the docs/28 **M3 `pov_fuse` live visual-integrity check + a recorded `.mvd`** — the absolute SUPERHUMAN
+  claim is proven only live, never the offline sim alone ("no success claim without a linked recording").
+- **Status:** LANDED (this PR): `route_grade.grade_trajectory(human_ref_ratio=…)` +
+  `eval_broad_closedloop.py --grade-route` threads the control's per-segment UNROUNDED ratio; +7 gating tests.
+- **NOT in scope (named):** wiring the trustworthy grade into checkpoint SELECTION (replacing the circular
+  reward-return) — where #428 meets #429; Option A (tangential `v_ref` — rejected: it doesn't fix the
+  sim-fidelity cause and would touch the shared reward); the live 4-bot harness / #464 (D4 hygiene, grades
+  the frozen mover).
+- **Backtrack:** `grade_trajectory` defaults to the absolute bar when `human_ref_ratio=None`
+  (back-compatible); revert = stop passing the reference. No training / data-contract change.
+
 ---
 
 ### Sequence
-D1 (build the offline honest grade) → re-run PPO with anchor-off (D3) **graded by D1** → tune weights (#429)
-against D1's metric, incorporating D6's first-jump shaping. D4 (#464) and D5 (docs) run independently.
+D1 (build the offline honest grade) → **D8 recalibrate D1's faster-than-human bar to RELATIVE** (so the judge
+is trustworthy) → re-run PPO with anchor-off (D3) **graded by D1** → tune weights (#429) against D1's metric,
+incorporating D6's first-jump shaping. D4 (#464) and D5 (docs) run independently.
 
 ### Owner decisions currently needed
 1. Go on **D1** as the next build (offline, no live-MVD).
