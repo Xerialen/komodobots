@@ -202,6 +202,75 @@ class TestRouteGrade(unittest.TestCase):
         self.assertEqual(G.aggregate_route_grades([])["n_segments"], 0)
         self.assertFalse(G.aggregate_route_grades([])["all_passed"])
 
+    # --- #428: RELATIVE faster-than-human bar (beat the sim-human, cancel the sim-fidelity factor) ---
+
+    def test_relative_gate_passes_beating_slow_sim_human(self):
+        # THE #428 recalibration. A bot SLOWER than the raw human (ratio 0.625 < 1.0 -> the ABSOLUTE bar
+        # fails) but FASTER than the sim-human control (0.49) PASSES the relative bar: the offline sim
+        # only reproduces ~half the real speed, so "beat the sim-human" is the trustworthy in-sim verdict.
+        traj = [tick(x, 0.0, 250.0, 0.0, onground=False, fwd_am=0) for x in _XS]
+        absolute = G.grade_trajectory(traj, ROUTE)
+        self.assertAlmostEqual(absolute["median_speedup_ratio"], 0.625, places=3)
+        self.assertFalse(absolute["faster_than_human"], "0.625 < 1.0 -> absolute bar fails")
+        self.assertEqual(absolute["faster_basis"], "absolute")
+        rel = G.grade_trajectory(traj, ROUTE, human_ref_ratio=0.49)
+        self.assertEqual(rel["faster_basis"], "relative")
+        self.assertTrue(rel["faster_than_human"], "0.625 >= 0.49 sim-human -> relative bar passes")
+        self.assertTrue(rel["faster_than_sim_human"])
+        self.assertFalse(rel["superhuman_claim"], "relative verdict is never an absolute superhuman claim")
+        self.assertTrue(rel["passed"])
+
+    def test_relative_gate_still_fails_slow_hybrid(self):
+        # The R5-style hybrid (slow 0.375 + airborne +forward) must FAIL even RELATIVE to the 0.49
+        # sim-human -> the relative bar does NOT rescue a genuinely-slow / bulldoze run.
+        traj = [tick(x, 0.0, 150.0, 0.0, onground=False, fwd_am=2) for x in _XS]
+        rel = G.grade_trajectory(traj, ROUTE, human_ref_ratio=0.49)
+        self.assertFalse(rel["faster_than_human"], "0.375 < 0.49 sim-human")
+        self.assertFalse(rel["clean_mechanism"])
+        self.assertFalse(rel["passed"])
+
+    def test_degenerate_reference_not_a_pass(self):
+        # MUST-FIX (auditor L1): if the sim-human control ~stalled on a segment (ref <= min_ref_ratio), a
+        # fast bot must NOT auto-PASS the relative bar (bot >= ~0 is trivially true exactly where the
+        # instrument is least trustworthy). It is REFUSED + tagged, not passed.
+        fast = [tick(x, 0.0, 600.0, 0.0, onground=False, fwd_am=0) for x in _XS]   # ratio 1.5, clearly fast
+        deg = G.grade_trajectory(fast, ROUTE, human_ref_ratio=0.0)
+        self.assertEqual(deg["faster_basis"], "relative_ref_degenerate")
+        self.assertFalse(deg["faster_than_human"], "degenerate reference is refused, not auto-passed")
+        self.assertFalse(deg["passed"])
+        ok = G.grade_trajectory(fast, ROUTE, human_ref_ratio=0.06)   # just above the floor -> real compare
+        self.assertEqual(ok["faster_basis"], "relative")
+        self.assertTrue(ok["faster_than_human"])
+
+    def test_relative_tag_is_machine_readable(self):
+        # #428 provenance: a downstream selector (#429) must tell relative from absolute and never read the
+        # relative verdict as an absolute superhuman claim.
+        traj = [tick(x, 0.0, 600.0, 0.0, onground=False, fwd_am=0) for x in _XS]
+        absi = G.grade_trajectory(traj, ROUTE)
+        self.assertEqual(absi["faster_basis"], "absolute")
+        self.assertIsNone(absi["faster_than_sim_human"])
+        self.assertIsNone(absi["human_ref_ratio"])
+        self.assertFalse(absi["superhuman_claim"])
+        rel = G.grade_trajectory(traj, ROUTE, human_ref_ratio=0.49)
+        self.assertEqual(rel["human_ref_ratio"], 0.49)
+        self.assertIs(rel["faster_than_sim_human"], True)
+        self.assertFalse(rel["superhuman_claim"])
+
+    def test_aggregate_surfaces_sim_fidelity_ceiling(self):
+        # The route summary surfaces the sim-fidelity ceiling (median human_ref_ratio) + the count of
+        # segments the relative bar could not judge (degenerate), and never claims superhuman.
+        g_ok = G.grade_trajectory([tick(x, 0.0, 250.0, 0.0, onground=False, fwd_am=0)
+                                   for x in range(50, 951, 50)], ROUTE, human_ref_ratio=0.49)
+        g_deg = G.grade_trajectory([tick(x, 0.0, 600.0, 0.0, onground=False, fwd_am=0)
+                                    for x in range(50, 951, 50)], ROUTE, human_ref_ratio=0.0)
+        self.assertTrue(g_ok["passed"])
+        self.assertFalse(g_deg["passed"])
+        agg = G.aggregate_route_grades([g_ok, g_deg])
+        self.assertEqual(agg["n_ref_degenerate"], 1)
+        self.assertEqual(agg["median_human_ref_ratio"], G._median([0.49, 0.0]))
+        self.assertFalse(agg["superhuman_claim"])
+        self.assertFalse(agg["all_passed"], "a degenerate-reference segment is refused -> not all passed")
+
 
 if __name__ == "__main__":
     unittest.main()

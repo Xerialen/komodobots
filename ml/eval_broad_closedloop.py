@@ -891,7 +891,8 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
         "recorded": {"ticks": [], "routes": [], "mv3_gates": []},
     }
     route_grades = []      # per-segment D1 honest route-grade dicts (populated only when grade_route)
-    recorded_grades = []   # the recorded-human positive control (validates the judge: expect ~1.0 ratio + pass)
+    recorded_grades = []   # recorded-human positive control = the SIM-FIDELITY CEILING (sim-human's own
+    #                        ratio, well under the raw-human 1.0 bar) -> the RELATIVE bar the policy is judged against (#428)
     for (eid, start, seg) in segments:
         pol = closed_loop_rollout(
             pmove_sim, world, seg, "policy", model=model, dims=dims,
@@ -911,19 +912,24 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
             # per-segment human-reference route, built the SAME way as the reward's
             # rl_onspeed._reset_state (poly = self ox/oy/oz, speeds = hypot(vx,vy),
             # total_len = sum segment dist) -> route_speedup gives the identical v_ref, so the
-            # grade's speedup ratio == the reward's by construction. Grade ONLY the policy traj.
+            # grade's speedup ratio == the reward's by construction.
             _poly = [(float(s["self"]["ox"]), float(s["self"]["oy"]), float(s["self"]["oz"]))
                      for s in seg]
             _spd = [math.hypot(float(s["self"].get("vx", 0.0)), float(s["self"].get("vy", 0.0)))
                     for s in seg]
             _tot = sum(math.dist(a, b) for a, b in zip(_poly, _poly[1:])) if len(_poly) > 1 else 0.0
             _route = {"polyline": _poly, "speeds": _spd, "total_len": _tot}
+            # Positive control FIRST: grade the recorded HUMAN usercmd RE-SIMULATED on the SAME route.
+            # The offline sim reproduces only ~half the real engine's along-route speed, so this control
+            # does NOT score ~1.0 vs the raw human -> its median ratio is the per-segment SIM-FIDELITY
+            # CEILING and the RELATIVE bar the policy must beat (#428), cancelling the common sim factor.
+            _rec_grade = RGRADE.grade_trajectory(RGRADE.prep_traj_for_grade(r_traj, _route), _route)
+            recorded_grades.append(_rec_grade)
+            # Policy graded RELATIVE to that control: faster_than_human == beat the SIM-human (not the raw
+            # human) -> a trustworthy ranking, NOT a superhuman claim (which needs a live recording; docs/28).
             route_grades.append(
-                RGRADE.grade_trajectory(RGRADE.prep_traj_for_grade(p_traj, _route), _route))
-            # positive control: grade the recorded HUMAN usercmd on the SAME route -> must score
-            # ~1.0 ratio + pass, which proves the judge is calibrated (else a policy 0/N is meaningless).
-            recorded_grades.append(
-                RGRADE.grade_trajectory(RGRADE.prep_traj_for_grade(r_traj, _route), _route))
+                RGRADE.grade_trajectory(RGRADE.prep_traj_for_grade(p_traj, _route), _route,
+                                        human_ref_ratio=_rec_grade["median_speedup_ratio"]))
         # per-segment gmv batteries (scored ONCE here): the summary feeds per_segment[]
         # AND each segment's own G-MV3 gate is kept so the pooled cadence can be summed
         # from PER-SEGMENT flips (no cross-boundary L<->R flip — see overwrite_pooled_mv3).
@@ -1050,14 +1056,18 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
             "per_segment": route_grades,
             "aim_mode": aim_mode,
             "measurement_plane": _aim_head_label(aim_mode),
-            "note": ("D1 honest OFFLINE route-grade of the policy rollout on the `measurement_plane` above "
-                     "(on_route + faster_than_human + clean_mechanism + completed_route, per segment; "
+            "superhuman_claim": False,
+            "note": ("D1/#428 honest OFFLINE route-grade of the policy rollout on the `measurement_plane` "
+                     "above (on_route + faster_than_human + clean_mechanism + completed_route, per segment; "
                      "prep_traj_for_grade guards the superhuman-overrun + v_ref~0 misgrade traps). "
-                     "`recorded_control` grades the SAME routes with the recorded HUMAN usercmd (fwd class "
-                     "from the recorded forwardmove, so it exercises ALL four gates) — the positive control "
-                     "showing the sim-fidelity ceiling; read the policy RELATIVE to it, not vs an absolute "
-                     "bar. The INTERNAL instrument that de-circularises training decisions — NOT the "
-                     "superhuman CLAIM, which still needs an owner-gated live recorded run + pov_fuse (docs/28)."),
+                     "`recorded_control` grades the SAME routes with the recorded HUMAN usercmd re-simulated "
+                     "(fwd class from the recorded forwardmove, so it exercises ALL four gates) — the positive "
+                     "control showing the SIM-FIDELITY CEILING. The policy's `faster_than_human` is judged "
+                     "RELATIVE to that control (#428: beat the sim-human, cancelling the ~half-speed sim "
+                     "factor that makes the raw-human 1.0 bar unreachable in-sim; see per-segment "
+                     "`faster_basis`). An INTERNAL ranking instrument that de-circularises training decisions "
+                     "— NOT the superhuman CLAIM (`superhuman_claim:false`), which still needs an owner-gated "
+                     "live recorded run + pov_fuse (docs/28)."),
         }
     return report
 
@@ -1207,14 +1217,14 @@ def main(argv=None) -> int:
           flush=True)
     if args.grade_route and "route_grade" in report:
         _rg = report["route_grade"]["summary"]
-        print("  ROUTE-GRADE (D1 offline): seg_passed=%d/%d  all_passed=%s  median_ratio=%s  median_rmse=%s qu"
+        print("  ROUTE-GRADE (#428 offline; faster=RELATIVE to sim-human): seg_passed=%d/%d  all_passed=%s  median_ratio=%s  median_rmse=%s qu"
               % (round(_rg["seg_passed_frac"] * _rg["n_segments"]), _rg["n_segments"],
                  _rg["all_passed"], _rg["median_speedup_ratio"], _rg["median_route_rmse_qu"]), flush=True)
         _rc = report["route_grade"]["recorded_control"]
-        print("    CONTROL (recorded human): seg_passed=%d/%d  median_ratio=%s  (expect ~1.0 -> judge calibrated)"
+        print("    CONTROL (recorded human re-simulated): seg_passed=%d/%d  median_ratio=%s  (SIM-FIDELITY CEILING = the relative bar; sim reproduces ~half real speed)"
               % (round(_rc["seg_passed_frac"] * _rc["n_segments"]), _rc["n_segments"], _rc["median_speedup_ratio"]),
               flush=True)
-        print("    (offline instrument only; the superhuman CLAIM needs a live recording + pov_fuse.)",
+        print("    (offline ranking instrument only; superhuman_claim=false — the CLAIM needs a live recording + pov_fuse.)",
               flush=True)
     # exit non-zero if the discrimination controls are wrong (the judge is invalid),
     # so a CI consumer never trusts a run whose controls failed.

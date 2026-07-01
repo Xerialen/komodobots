@@ -9,9 +9,12 @@ four criteria, ALL required to pass:
   1. on_route          — lateral (horizontal) RMSE off the human polyline within a LOOSE containment
                          tolerance (still running the route / not lost into a wall). NOT a centerline
                          match: matching the human line would cap the bot at the human's path (docs/28).
-  2. faster_than_human — median along-route speedup ratio (v_along / human v_ref here) >= 1.0, i.e. at
-                         least human speed on the stretch. Uses reward_onspeed.route_speedup so the
-                         gate's ratio is IDENTICAL to the one the reward optimizes.
+  2. faster_than_human — median along-route speedup ratio (v_along / human v_ref here). ABSOLUTE bar
+                         (>= 1.0 = at least RAW-human speed) by default; when a sim-human control ratio
+                         is supplied (#428) the bar is RELATIVE — beat the human RE-SIMULATED in the same
+                         sim, which cancels the ~half-speed sim-fidelity factor that makes the absolute
+                         bar unreachable in-sim. Uses reward_onspeed.route_speedup so the gate's ratio is
+                         IDENTICAL to the one the reward optimizes.
   3. clean_mechanism   — the fraction of AIRBORNE ticks holding +forward (fwd_am==2) is capped: a clean
                          air-strafe bhop releases forward in the air (the 30-qu/s air cap makes forward
                          add ~0 speed there; QWD action oracle / #427 D6), a bulldoze-hybrid does not.
@@ -55,6 +58,11 @@ DEFAULT_GRADE_CFG = {
     #     ((arc_last−arc_first)/total_len). A "materially traversed the route" floor that rejects a
     #     non-completing local speed sample — NOT a human-match target.
     "min_coverage_frac": 0.5,
+    # (2b) degenerate-reference floor (#428): when grading RELATIVE to a human control (human_ref_ratio),
+    #      a control ratio <= this means the sim-human itself made ~no along-route progress on this
+    #      segment -> `bot >= ~0` would trivially auto-PASS exactly where the instrument is least
+    #      trustworthy. Below this floor the segment is NOT certified faster (conservative), not passed.
+    "min_ref_ratio": 0.05,
 }
 
 # fwd_am value meaning "+forward held" (mirrors the reward / usercmd forwardmove +400 class == 2).
@@ -86,21 +94,31 @@ def _empty_grade(cfg):
         "route_rmse_qu": 0.0, "median_speedup_ratio": 0.0, "mean_speedup_ratio": 0.0,
         "faster_than_human_frac": 0.0, "air_frac": 0.0, "air_forward_press_frac": 0.0,
         "route_coverage_frac": 0.0, "n_ticks": 0, "on_route": False, "faster_than_human": False,
+        "faster_basis": "absolute", "faster_than_sim_human": None, "human_ref_ratio": None,
+        "superhuman_claim": False,
         "clean_mechanism": False, "completed_route": False, "passed": False, "cfg": cfg,
     }
 
 
-def grade_trajectory(traj, route, cfg=None):
+def grade_trajectory(traj, route, cfg=None, human_ref_ratio=None):
     """Grade ONE closed-loop trajectory against its human-reference route (the D1/D2 honest gate).
 
     traj  : list of per-tick dicts, each with keys ox, oy, oz, vx, vy, onground (bool),
             fwd_am (int; 2 == +forward held). Extra keys are ignored.
     route : dict with polyline=[(x,y,z),...], speeds=[per-vertex human speed], total_len (optional).
     cfg   : threshold overrides (see DEFAULT_GRADE_CFG).
+    human_ref_ratio : optional per-segment RELATIVE bar (#428). The offline pmove sim reproduces only
+            ~half the real engine's along-route speed, so even the recorded human re-simulated scores
+            well under the absolute 1.0 bar (measured vs the RAW recorded human) -> that bar is
+            unreachable in-sim. Pass the recorded-human control's median ratio here to judge
+            `faster_than_human` RELATIVELY (bot ratio >= sim-human ratio): the common sim-fidelity
+            factor cancels. This is "faster than the SIM-human", NOT a superhuman CLAIM (which needs a
+            live recording; docs/28). None -> the absolute `min_ratio` bar (back-compatible default).
 
     Returns a grade dict: route_rmse_qu, speedup stats, mechanism fractions, route_coverage_frac, the
-    four per-criterion booleans (on_route / faster_than_human / clean_mechanism / completed_route), and
-    the overall `passed` (all four).
+    four per-criterion booleans (on_route / faster_than_human / clean_mechanism / completed_route), the
+    overall `passed` (all four), and #428 provenance (faster_basis / faster_than_sim_human /
+    human_ref_ratio / superhuman_claim=False so a relative verdict cannot be misread as absolute).
     """
     c = dict(DEFAULT_GRADE_CFG)
     if cfg:
@@ -152,7 +170,19 @@ def grade_trajectory(traj, route, cfg=None):
         route_coverage_frac = 0.0
 
     on_route = rmse <= c["rmse_tol"]
-    faster_than_human = median_ratio >= c["min_ratio"]
+    # faster_than_human: absolute (vs the RAW recorded human) UNLESS a sim-human control reference is
+    # supplied (#428) -> then judge RELATIVE to the human re-simulated on this route, which cancels the
+    # common sim-fidelity factor. A degenerate reference (sim-human ~stalled here, ratio <= min_ref_ratio)
+    # is REFUSED, not auto-passed (else bot >= ~0 trivially passes where the instrument is least trusted).
+    if human_ref_ratio is None:
+        faster_than_human = median_ratio >= c["min_ratio"]
+        faster_basis = "absolute"
+    elif human_ref_ratio <= c["min_ref_ratio"]:
+        faster_than_human = False
+        faster_basis = "relative_ref_degenerate"
+    else:
+        faster_than_human = median_ratio >= human_ref_ratio
+        faster_basis = "relative"
     clean_mechanism = air_fwd_frac <= c["max_air_forward_frac"]
     completed_route = route_coverage_frac >= c["min_coverage_frac"]
 
@@ -167,6 +197,12 @@ def grade_trajectory(traj, route, cfg=None):
         "n_ticks": n,
         "on_route": on_route,
         "faster_than_human": faster_than_human,
+        # #428 provenance: make the relative meaning machine-readable so a downstream selector (#429)
+        # cannot silently promote "faster than the SIM-human" to an absolute "superhuman" claim.
+        "faster_basis": faster_basis,
+        "faster_than_sim_human": (None if human_ref_ratio is None else faster_than_human),
+        "human_ref_ratio": (round(float(human_ref_ratio), 4) if human_ref_ratio is not None else None),
+        "superhuman_claim": False,
         "clean_mechanism": clean_mechanism,
         "completed_route": completed_route,
         "passed": bool(on_route and faster_than_human and clean_mechanism and completed_route),
@@ -210,17 +246,21 @@ def prep_traj_for_grade(traj, route, *, min_vref=1.0):
 def aggregate_route_grades(grades):
     """Aggregate per-segment grade dicts (from `grade_trajectory`) into one route-grade summary. Each
     boolean criterion becomes a pass-FRACTION across segments; the overall honest route-grade PASS =
-    EVERY graded segment fully passed (`all_passed`). Pure stdlib -> gates in the aws-dev floor."""
+    EVERY graded segment fully passed (`all_passed`). When graded RELATIVE to a sim-human control (#428)
+    the summary also carries `n_ref_degenerate` (segments the sim-human couldn't anchor) and
+    `median_human_ref_ratio` (the sim-fidelity ceiling). Pure stdlib -> gates in the aws-dev floor."""
     clean = [g for g in grades if g]
     n = len(clean)
     if n == 0:
         return {"n_segments": 0, "seg_on_route_frac": 0.0, "seg_faster_frac": 0.0,
                 "seg_clean_mechanism_frac": 0.0, "seg_completed_frac": 0.0, "seg_passed_frac": 0.0,
-                "all_passed": False, "median_speedup_ratio": 0.0, "median_route_rmse_qu": 0.0}
+                "all_passed": False, "median_speedup_ratio": 0.0, "median_route_rmse_qu": 0.0,
+                "n_ref_degenerate": 0, "median_human_ref_ratio": None, "superhuman_claim": False}
 
     def frac(key):
         return round(sum(1 for g in clean if g.get(key)) / n, 4)
 
+    refs = [g["human_ref_ratio"] for g in clean if g.get("human_ref_ratio") is not None]
     return {
         "n_segments": n,
         "seg_on_route_frac": frac("on_route"),
@@ -231,4 +271,10 @@ def aggregate_route_grades(grades):
         "all_passed": all(g.get("passed") for g in clean),
         "median_speedup_ratio": _median([g["median_speedup_ratio"] for g in clean]),
         "median_route_rmse_qu": _median([g["route_rmse_qu"] for g in clean]),
+        # #428: segments the relative bar could NOT judge (sim-human ~stalled) are refused, not passed;
+        # surface the count + the median sim-fidelity ceiling (the human control ratio) so a reader sees
+        # how degraded the instrument is. superhuman_claim stays False — this is a relative ranking only.
+        "n_ref_degenerate": sum(1 for g in clean if g.get("faster_basis") == "relative_ref_degenerate"),
+        "median_human_ref_ratio": (_median(refs) if refs else None),
+        "superhuman_claim": False,
     }
