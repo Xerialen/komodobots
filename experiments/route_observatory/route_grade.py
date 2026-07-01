@@ -172,3 +172,63 @@ def grade_trajectory(traj, route, cfg=None):
         "passed": bool(on_route and faster_than_human and clean_mechanism and completed_route),
         "cfg": c,
     }
+
+
+def prep_traj_for_grade(traj, route, *, min_vref=1.0):
+    """Caller-side guards for the closed-loop route-grade (D1 wiring). Returns the sub-trajectory to
+    hand to `grade_trajectory`:
+
+      (iii) STOP at the route end (first tick whose projected arc reaches total_len) — else a genuinely
+            FASTER-than-human bot reaches the human route-end early and overruns; `project_onto_polyline`
+            clamps the overrun ticks to the final vertex, so their off-route distance = the overrun and
+            the horizontal RMSE inflates -> `on_route` FALSE-FAILs exactly the superhuman behaviour docs/28
+            is trying to certify (the #466-analog: a judge that penalises the target).
+      (iv)  DROP ticks whose human reference speed is ~0 (segment ends / human pauses) — `route_speedup`
+            returns ratio 0 when v_ref<=1e-6, and those 0-ratio ticks drag the speedup median -> false-FAIL
+            `faster_than_human`.
+
+    Pure stdlib; reuses `route_speedup` so arc + v_ref match the grade exactly. Falls back to the whole
+    trajectory on a degenerate route (so grading still runs)."""
+    polyline = route.get("polyline") or []
+    speeds = route.get("speeds") or []
+    total_len = route.get("total_len") or _polyline_len(polyline)
+    if len(polyline) < 2 or total_len <= 0.0:
+        return list(traj)
+    out = []
+    for t in traj:
+        _v_along, v_ref, _ratio, arc = route_speedup(
+            float(t["ox"]), float(t["oy"]), float(t.get("oz", 0.0)),
+            float(t.get("vx", 0.0)), float(t.get("vy", 0.0)),
+            polyline, speeds, total_len)
+        if v_ref is not None and v_ref > min_vref:
+            out.append(t)                       # (iv) keep only ticks with a usable human reference
+        if arc is not None and arc >= total_len:
+            break                               # (iii) stop at the route end — no overrun
+    return out or list(traj)
+
+
+def aggregate_route_grades(grades):
+    """Aggregate per-segment grade dicts (from `grade_trajectory`) into one route-grade summary. Each
+    boolean criterion becomes a pass-FRACTION across segments; the overall honest route-grade PASS =
+    EVERY graded segment fully passed (`all_passed`). Pure stdlib -> gates in the aws-dev floor."""
+    clean = [g for g in grades if g]
+    n = len(clean)
+    if n == 0:
+        return {"n_segments": 0, "seg_on_route_frac": 0.0, "seg_faster_frac": 0.0,
+                "seg_clean_mechanism_frac": 0.0, "seg_completed_frac": 0.0, "seg_passed_frac": 0.0,
+                "all_passed": False, "median_speedup_ratio": 0.0, "median_route_rmse_qu": 0.0}
+
+    def frac(key):
+        return round(sum(1 for g in clean if g.get(key)) / n, 4)
+
+    return {
+        "n_segments": n,
+        "seg_on_route_frac": frac("on_route"),
+        "seg_faster_frac": frac("faster_than_human"),
+        "seg_clean_mechanism_frac": frac("clean_mechanism"),
+        "seg_completed_frac": frac("completed_route"),
+        "seg_passed_frac": frac("passed"),
+        "all_passed": all(g.get("passed") for g in clean),
+        "median_speedup_ratio": _median([g["median_speedup_ratio"] for g in clean]),
+        "median_route_rmse_qu": _median([g["route_rmse_qu"] for g in clean]),
+    }
