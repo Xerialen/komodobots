@@ -77,6 +77,7 @@ from eval_broad_believability import _build_policy_from_checkpoint  # noqa: E402
 from build_features import _load_episode_ticks                  # noqa: E402
 import route_goals as RG                                        # noqa: E402
 import route_grade as RGRADE                                    # noqa: E402  (B1 honest-grade SELECTION)
+import experiment_registry as XR                                # noqa: E402  (T4.2 #426 run journal)
 import route_geom as RGEO                                       # noqa: E402  (#427 polyline projection)
 import reward_onspeed as RW                                     # noqa: E402  (#427 pure stdlib reward)
 
@@ -651,6 +652,21 @@ def train(args, device):
                      cad_hold_max=args.cad_hold_max, r_cad_weight=args.r_cad_weight,
                      baseline_reward=args.baseline_reward, reward_weights=reward_weights)
             for i in range(args.n_envs)]
+
+    # T4.2 (#426): journal the run START (full resolved config + pinned data identity) to the
+    # append-only experiment registry. A journal failure must never kill training — loud
+    # warning, run continues; but it never fails silently either.
+    _reg_path = XR.registry_path_for(args.out_ckpt, getattr(args, "registry", "auto"))
+    _reg_ctx = None
+    if _reg_path:
+        try:
+            _reg_ctx = XR.start_run(_reg_path, vars(args), dict(envs[0]._rcfg) if envs else {},
+                                    git_sha=getattr(args, "git_sha", None))
+            print(f"[rl] experiment journal: run {_reg_ctx['run_id']} -> {_reg_path}", flush=True)
+        except Exception as e:
+            print(f"[rl] WARN experiment journal start FAILED (training continues): "
+                  f"{str(e)[:160]}", flush=True)
+
     opt = torch.optim.Adam(rl.parameters(), lr=args.lr)
 
     steps_per_iter = args.n_envs * args.rollout_steps
@@ -931,6 +947,25 @@ def train(args, device):
     save_rl_ckpt(args.out_ckpt, rl, src_ckpt, dims, head_dims, args.round, meta)
     print(json.dumps({"saved": str(Path(args.out_ckpt).resolve()), "rl_meta": meta}, indent=2),
           flush=True)
+
+    # T4.2 (#426): journal the run FINAL — selection outcome, the SELECTED candidate's honest
+    # route-grade summary (None unless --select-by-route-grade graded it), ckpt sha256 lineage.
+    if _reg_ctx is not None:
+        try:
+            _sel_grade = next((d.get("route_grade") for d in eval_probe
+                               if d.get("it") == meta["selected_it"]), None)
+            XR.finalize_run(_reg_path, _reg_ctx,
+                            {"selected_it": meta["selected_it"],
+                             "selected_reason": meta["selected_reason"],
+                             "saved_params": meta["saved_params"],
+                             "best_it": meta["best_it"], "best_score": meta["best_score"],
+                             "final_mean_hspeed": meta["final_mean_hspeed"],
+                             "final_fwd_press": meta["final_fwd_press"],
+                             "route_grade_summary": _sel_grade},
+                            ckpt_path=args.out_ckpt)
+            print(f"[rl] experiment journal: finalized {_reg_ctx['run_id']}", flush=True)
+        except Exception as e:
+            print(f"[rl] WARN experiment journal finalize FAILED: {str(e)[:160]}", flush=True)
     return meta
 
 
@@ -1333,6 +1368,16 @@ def main(argv=None):
                     help="B1: how many HELD-OUT route segments to grade per candidate under "
                          "--select-by-route-grade (skips the first --n-reset-segments episodes so the "
                          "grade routes are disjoint from the RL resets; anti-Goodhart, nblm MF-N1).")
+    # T4.2 (#426): the experiment run-journal (ml/pipeline/experiment_registry.py).
+    ap.add_argument("--registry", default="auto",
+                    help="T4.2 experiment journal: 'auto' (default) = experiment_registry.jsonl next "
+                         "to --out-ckpt; 'off' = disabled; else an explicit path. Appends two records "
+                         "per training run (start: full config + data sha256s + code version; final: "
+                         "selection outcome + honest route-grade + ckpt sha256).")
+    ap.add_argument("--git-sha", default=None,
+                    help="T4.2: code version to journal when the run dir is NOT a git checkout (the "
+                         "pinnacle run dir is a git-archive sync — write a CODE_VERSION file at the "
+                         "tree root at sync time, or pass this flag; overrides both file and git).")
     ap.add_argument("--select-grade-min-valid", type=int, default=3,
                     help="B1: minimum count of VALID-reference segments (n_segments - n_ref_invalid - "
                          "n_ref_degenerate) a candidate needs before its relative route-grade can rank "
