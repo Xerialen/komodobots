@@ -139,7 +139,7 @@ def grade_trajectory(traj, route, cfg=None):
             fth_ticks += 1
         if not bool(t.get("onground", False)):
             air_ticks += 1
-            if int(t.get("fwd_am", 0)) == _FWD_PRESS:
+            if int(t.get("fwd_am", 0) or 0) == _FWD_PRESS:   # None (recorded control) -> not pressed
                 air_fwd_ticks += 1
 
     rmse = math.sqrt(sum_dist_sq / n)

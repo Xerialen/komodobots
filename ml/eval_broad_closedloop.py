@@ -887,7 +887,8 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
         "policy": {"ticks": [], "attack": [], "routes": [], "mv3_gates": [], "fwd_press": []},
         "recorded": {"ticks": [], "routes": [], "mv3_gates": []},
     }
-    route_grades = []   # per-segment D1 honest route-grade dicts (populated only when grade_route)
+    route_grades = []      # per-segment D1 honest route-grade dicts (populated only when grade_route)
+    recorded_grades = []   # the recorded-human positive control (validates the judge: expect ~1.0 ratio + pass)
     for (eid, start, seg) in segments:
         pol = closed_loop_rollout(
             pmove_sim, world, seg, "policy", model=model, dims=dims,
@@ -897,7 +898,7 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
             pmove_sim, world, seg, "recorded", map_name=map_name, n_max=n_max)
 
         p_ticks, p_org, p_spd, p_ms, p_atk, p_fwd_press, p_traj = pol
-        r_ticks, r_org, r_spd, r_ms, _, _, _ = rec
+        r_ticks, r_org, r_spd, r_ms, _, _, r_traj = rec
         if p_fwd_press is not None:
             pool["policy"]["fwd_press"].append((p_fwd_press, len(p_ticks)))
         # per-segment route dicts (each on ITS OWN origins -> correct, no boundary jump)
@@ -916,6 +917,10 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
             _route = {"polyline": _poly, "speeds": _spd, "total_len": _tot}
             route_grades.append(
                 RGRADE.grade_trajectory(RGRADE.prep_traj_for_grade(p_traj, _route), _route))
+            # positive control: grade the recorded HUMAN usercmd on the SAME route -> must score
+            # ~1.0 ratio + pass, which proves the judge is calibrated (else a policy 0/N is meaningless).
+            recorded_grades.append(
+                RGRADE.grade_trajectory(RGRADE.prep_traj_for_grade(r_traj, _route), _route))
         # per-segment gmv batteries (scored ONCE here): the summary feeds per_segment[]
         # AND each segment's own G-MV3 gate is kept so the pooled cadence can be summed
         # from PER-SEGMENT flips (no cross-boundary L<->R flip — see overwrite_pooled_mv3).
@@ -1038,12 +1043,15 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
     if grade_route:
         report["route_grade"] = {
             "summary": RGRADE.aggregate_route_grades(route_grades),
+            "recorded_control": RGRADE.aggregate_route_grades(recorded_grades),
             "per_segment": route_grades,
             "note": ("D1 honest OFFLINE route-grade of the policy rollout (on_route + faster_than_human "
                      "+ clean_mechanism + completed_route, per segment; prep_traj_for_grade guards the "
-                     "superhuman-overrun + v_ref~0 misgrade traps). The INTERNAL instrument that "
-                     "de-circularises training decisions — NOT the superhuman CLAIM, which still needs an "
-                     "owner-gated live recorded run + pov_fuse visual check (docs/28 recording mandate)."),
+                     "superhuman-overrun + v_ref~0 misgrade traps). `recorded_control` grades the SAME "
+                     "routes with the recorded HUMAN usercmd — the positive control (expect ~1.0 ratio + "
+                     "pass -> the judge is calibrated; a policy 0/N is only meaningful if the human passes). "
+                     "The INTERNAL instrument that de-circularises training decisions — NOT the superhuman "
+                     "CLAIM, which still needs an owner-gated live recorded run + pov_fuse (docs/28)."),
         }
     return report
 
@@ -1182,6 +1190,10 @@ def main(argv=None) -> int:
         print("  ROUTE-GRADE (D1 offline): seg_passed=%d/%d  all_passed=%s  median_ratio=%s  median_rmse=%s qu"
               % (round(_rg["seg_passed_frac"] * _rg["n_segments"]), _rg["n_segments"],
                  _rg["all_passed"], _rg["median_speedup_ratio"], _rg["median_route_rmse_qu"]), flush=True)
+        _rc = report["route_grade"]["recorded_control"]
+        print("    CONTROL (recorded human): seg_passed=%d/%d  median_ratio=%s  (expect ~1.0 -> judge calibrated)"
+              % (round(_rc["seg_passed_frac"] * _rc["n_segments"]), _rc["n_segments"], _rc["median_speedup_ratio"]),
+              flush=True)
         print("    (offline instrument only; the superhuman CLAIM needs a live recording + pov_fuse.)",
               flush=True)
     # exit non-zero if the discrimination controls are wrong (the judge is invalid),

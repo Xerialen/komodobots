@@ -173,6 +173,14 @@ class TestRouteGrade(unittest.TestCase):
         self.assertLess(len(kept), len(traj))
         self.assertNotIn(500.0, [t["ox"] for t in kept], "the paused (v_ref~0) tick is dropped")
 
+    def test_none_fwd_am_is_safe(self):
+        # The recorded positive control stores fwd_am=None (the human press-class is untracked in the
+        # sim); grading must NOT crash on int(None) — None is treated as not-pressed.
+        traj = [{"ox": x, "oy": 0.0, "oz": 0.0, "vx": 600.0, "vy": 0.0, "onground": False, "fwd_am": None}
+                for x in _XS]
+        g = G.grade_trajectory(traj, ROUTE)          # must not raise
+        self.assertTrue(g["clean_mechanism"])        # None -> not pressed -> clean
+
     def test_aggregate_all_pass(self):
         g = G.grade_trajectory([tick(x, 0.0, 600.0, 0.0, onground=False, fwd_am=0)
                                 for x in range(50, 951, 50)], ROUTE)
