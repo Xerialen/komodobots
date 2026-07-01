@@ -74,7 +74,10 @@ note ("verify it next pass"), never crowned unverified (Codex #474 P1-2). **Off-
 `winner=None`, `refusal="overfit_to_ranking_routes: …"`, the refused candidate kept in the verdict for
 audit, nothing blessed into `winners/`; a MISSING tertiary grade refuses too (fail closed). Seed
 verification fills the FULL `--verify-seeds` quota on resume — already-complete candidate seeds never
-consume it, crashed ones are replaced by the next candidate (bounded 4x).
+consume it, crashed ones are replaced by the next candidate (bounded 4x). **Crownable requires the full
+quota of completed, still-eligible runs** (checked both when the finalist finishes verifying AND again at
+verdict time): persistent verification crashes → `winner=None` + an under-verified refusal pointing at
+resume — a one-seed finalist is never crowned (Codex #474 round-2).
 
 ## Search space v1 (`komodobots.tune_space.v1` — embedded in every verdict)
 

@@ -319,6 +319,25 @@ class TestRunSweepEndToEnd(unittest.TestCase):
             self.assertEqual(v["winner"]["n_runs"], 5,
                              "already-complete verification seeds must not consume the quota")
 
+    def test_crashing_verification_seeds_refuse_the_crown(self):
+        # Codex #474 round-2 P1: the best trial completes on its first seed but EVERY
+        # replacement verification seed crashes — the bounded loop exits with the
+        # finalist under-verified; it must NOT be crowned on one seed.
+        with tempfile.TemporaryDirectory() as td:
+            def frac(idx, seed):
+                if idx == 2:
+                    return 0.8 if seed == 0 else None   # verification seeds all crash
+                return 0.2
+            fake = self._fake_runner_factory([], frac_fn=frac)
+            tert = lambda *a, **k: _summary(0.6)   # noqa: E731  (never reached)
+            a = self._args(Path(td) / "s", trials=3, verify_seeds=3)
+            a.top_k = 1
+            v = TN.run_sweep(a, runner=fake, tertiary=tert)
+            self.assertIsNone(v["winner"],
+                              "a one-seed finalist must never be crowned at verify_seeds=3")
+            self.assertIn("verify-seeds", v["refusal"])
+            self.assertGreater(v["counts"]["crashed"], 0)
+
     def test_sweep_refuses_without_code_version(self):
         with tempfile.TemporaryDirectory() as td:
             a = self._args(Path(td) / "s", git_sha=None)

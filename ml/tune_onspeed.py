@@ -337,7 +337,6 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
                       f"config — skipping verify (NOT crownable without verification)",
                       flush=True)
                 continue
-            finalist_keys.add((env, cfgid))
             index, _ = parsed
             cfg = trial_config(a.sweep_seed, index)
             # Seed-verify to the FULL quota (Codex #474 P2): iterate candidate seeds
@@ -353,6 +352,16 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
                 if seed in seeds_done:
                     continue
                 launch(index, cfg, seed)
+            # Crownable ONLY at the full quota (Codex #474 round-2 P1): if replacement
+            # verification seeds keep crashing, the bounded loop exits with the config
+            # UNDER-verified — it must refuse/resume, never crown a one-seed finalist.
+            n_done = len(completed_seeds_for_trial(registry, index))
+            if n_done >= a.verify_seeds:
+                finalist_keys.add((env, cfgid))
+            else:
+                print(f"[tune] finalist {cfgid}: only {n_done}/{a.verify_seeds} completed "
+                      f"verification runs — NOT crownable (resume the sweep to retry)",
+                      flush=True)
     except TimeoutError:
         stopped_early = True
         print(f"[tune] --max-hours budget reached — stopping (resume re-enters via the "
@@ -387,18 +396,21 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
         verdict["winner"] = None
         verdict["refusal"] = (f"{len(envs)} environment groups in the journal — grades are "
                               f"not comparable across code/data/norm/route pins: {envs}")
-    elif not any(k in scores for k in finalist_keys):
+    elif not (verified := {k: v for k, v in scores.items()
+                           if k in finalist_keys and v["n"] >= a.verify_seeds}):
+        # Belt-and-braces on the loop-side quota gate: crownable requires the full
+        # --verify-seeds count of completed AND STILL-ELIGIBLE runs at verdict time.
         verdict["winner"] = None
-        verdict["refusal"] = ("no seed-verified finalist config (sweep stopped before "
-                              "verification, or all finalists lost eligibility) — resume "
-                              "the sweep; an unverified config is never crowned")
+        verdict["refusal"] = ("no finalist reached --verify-seeds completed eligible runs "
+                              "(sweep stopped early, verification crashes, or grades lost "
+                              "eligibility) — resume the sweep; an under-verified config is "
+                              "never crowned")
     else:
         # The crown is restricted to the SEED-VERIFIED finalist set (Codex #474 P1):
         # after the finalists' extra seeds land, a previously rank-(K+1) single-seed
         # config can outrank a verified finalist's honest mean — it must trigger
         # verification in a future sweep pass, never be crowned unverified.
         ranked_all = sorted(scores.items(), key=lambda kv: kv[1]["mean_key"], reverse=True)
-        verified = {k: v for k, v in scores.items() if k in finalist_keys}
         ranked = sorted(verified.items(), key=lambda kv: kv[1]["mean_key"], reverse=True)
         if ranked_all[0][0] not in finalist_keys:
             verdict["note"] = (f"unverified config {ranked_all[0][0][1]} outranks the "
