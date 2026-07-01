@@ -195,9 +195,16 @@ class TestVerifyAndDiff(unittest.TestCase):
     def test_registry_path_resolution(self):
         self.assertIsNone(XR.registry_path_for("runs/x.pt", "off"))
         self.assertIsNone(XR.registry_path_for("runs/x.pt", None))
-        auto = XR.registry_path_for("/data/runs/x.pt", "auto")
-        self.assertEqual(Path(auto), Path("/data/runs/experiment_registry.jsonl"))
-        self.assertEqual(XR.registry_path_for("runs/x.pt", "/tmp/j.jsonl"), "/tmp/j.jsonl")
+        # platform-independent (the repo is reviewed on Windows too): assert the
+        # INVARIANT — 'auto' resolves the journal next to the checkpoint — via the
+        # same expanduser().resolve() rule, never a hard-coded POSIX absolute.
+        with tempfile.TemporaryDirectory() as td:
+            ck = Path(td) / "runs" / "x.pt"
+            auto = Path(XR.registry_path_for(ck, "auto"))
+            self.assertEqual(auto.name, "experiment_registry.jsonl")
+            self.assertEqual(auto.parent, ck.expanduser().resolve().parent)
+            explicit = str(Path(td) / "j.jsonl")
+            self.assertEqual(XR.registry_path_for(ck, explicit), explicit)
 
     def test_records_are_json_serializable_with_path_args(self):
         # Path objects in args (as rl_onspeed resolves some) must not break the writer.
