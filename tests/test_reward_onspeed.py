@@ -181,5 +181,43 @@ class TestComputeStepReward(unittest.TestCase):
         self.assertAlmostEqual(nxt["prev_arc"], 50.0, places=6)  # didn't move → arc unchanged
 
 
+class TestGroundForwardBulldoze(unittest.TestCase):
+    """#427-R2: the `+forward` hole. A sustained GROUND +forward at speed used to slip past the
+    air-only press barrier (r_press≈0), so the forward-bulldoze ran free (ROUND-4 / R1). It is now
+    penalized like an air press; low-speed ground acceleration stays free; the air path is unchanged."""
+
+    def test_ground_forward_at_speed_now_penalized(self):
+        # On ground, holding +forward, already fast (>band_lo*0.5≈126). carry ap_rate seeded at the
+        # threshold so a single press tick crosses it. (Air-only code froze ap_rate on ground → 0.)
+        cfg = mk_cfg()
+        cur = mk_cur(vx=400.0, onground=True, fwd_am=2)
+        _, info, nxt = R.compute_step_reward(cur, mk_carry(ap_rate=cfg["air_press_thresh"]), ROUTE, cfg)
+        self.assertGreater(info["r_press"], 0.0)
+        self.assertGreater(nxt["ap_rate"], cfg["air_press_thresh"])
+
+    def test_low_speed_ground_accel_not_penalized(self):
+        # Below the strafe-speed gate = legit early acceleration → must stay free (ap_rate decays).
+        cfg = mk_cfg()
+        cur = mk_cur(vx=50.0, onground=True, fwd_am=2)
+        _, info, nxt = R.compute_step_reward(cur, mk_carry(ap_rate=cfg["air_press_thresh"]), ROUTE, cfg)
+        self.assertEqual(info["r_press"], 0.0)
+        self.assertLessEqual(nxt["ap_rate"], cfg["air_press_thresh"])
+
+    def test_air_press_behavior_preserved(self):
+        # Regression guard: the original air path is unchanged — an airborne +forward still accrues.
+        cfg = mk_cfg()
+        cur = mk_cur(vx=400.0, onground=False, fwd_am=2)
+        _, _, nxt = R.compute_step_reward(cur, mk_carry(ap_rate=cfg["air_press_thresh"]), ROUTE, cfg)
+        self.assertGreater(nxt["ap_rate"], cfg["air_press_thresh"])
+
+    def test_no_forward_press_not_penalized(self):
+        # Not pressing +forward (the bhop case) at speed on ground → no press accrual.
+        cfg = mk_cfg()
+        cur = mk_cur(vx=400.0, onground=True, fwd_am=0)
+        _, info, nxt = R.compute_step_reward(cur, mk_carry(ap_rate=cfg["air_press_thresh"]), ROUTE, cfg)
+        self.assertEqual(info["r_press"], 0.0)
+        self.assertLess(nxt["ap_rate"], cfg["air_press_thresh"])
+
+
 if __name__ == "__main__":
     unittest.main()

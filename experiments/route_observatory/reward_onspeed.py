@@ -204,10 +204,16 @@ def compute_step_reward(cur, carry, route, cfg):
             over = strafe_hold - cfg["cad_hold_late"]
             r_cad -= min(2.0, 0.5 + 0.01 * over)
 
-    # ── KEPT: soft air press-barrier (r_press). Mutates ap_rate (EMA over the episode). ─────────
-    air_press = (cur["fwd_am"] == 2) and (not onground)
-    if not onground:
-        ap_rate += cfg["ap_rate_ema"] * ((1.0 if air_press else 0.0) - ap_rate)
+    # ── KEPT+#427-R2: soft press-barrier (r_press) — anti-`+forward` AT SPEED (ground OR air). ───
+    # Was AIR-ONLY (the `if not onground` guard): a sustained GROUND `+forward` at speed updated
+    # nothing, so r_press≈0 and the ground bulldoze ran free — the `+forward` hole behind the
+    # ROUND-4 / R1 forward-bulldoze. Once already moving fast, `+forward` is never the fast technique
+    # (air-strafe is), so the press-rate EMA now counts a forward-press whenever it is in the air
+    # (unchanged) OR on the ground past the strafe-speed gate (band_lo*0.5); low-speed ground accel
+    # stays free. Structural loophole-patch (#427) — NOT a weight retune (air_press_thresh / w_press
+    # unchanged; tuning their VALUES is #429).
+    press_now = (cur["fwd_am"] == 2) and ((not onground) or hspeed > (cfg["band_lo"] * 0.5))
+    ap_rate += cfg["ap_rate_ema"] * ((1.0 if press_now else 0.0) - ap_rate)
     r_press = max(0.0, ap_rate - cfg["air_press_thresh"])
 
     reward = (cfg["w_vel"] * r_vel + cfg["w_prog"] * r_prog
@@ -227,7 +233,7 @@ def compute_step_reward(cur, carry, route, cfg):
         "hspeed": hspeed, "onground": onground, "fwd_press": int(cur["fwd_am"] == 2),
         "r_vel": r_vel, "v_along": v_along, "r_prog": r_prog, "p_hack": p_hack,
         "r_cad": r_cad, "r_press": r_press, "strafe_sign": cur_sign,
-        "perp_frac": perp_frac, "r_strafe": r_strafe, "ap_rate": ap_rate,
+        "perp_frac": perp_frac, "r_strafe": r_strafe, "r_phi": r_phi, "ap_rate": ap_rate,
         "p_collide": p_collide,
     }
     return reward, info, next_carry
