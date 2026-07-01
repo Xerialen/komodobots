@@ -155,8 +155,11 @@ Status legend: **LANDED** (on main) · **PROPOSED** (recommended, awaiting owner
      so the local gradient can still favour the hybrid (= R5's exact result). The single-tick equal-speed
      unit test CANNOT detect this (it's a multi-tick trajectory property). **So the penalty must stay ≥ #466
      strength everywhere the policy operates (100–320 qu/s); the STRENGTH that actually kills the hybrid is
-     #429 (`w_press`) graded by the route-MSE (D1/#428).** This shaping SUPPORTS #429 (makes the penalty
-     phase-correct so `w_press` can rise without a freeze/scrape) — it does **not** replace it.
+     #429 (`w_press`) graded by the route-MSE (D1/#428).** *(Wording note added when #429 landed: the #429
+     grader is the honest ROUTE-GRADE — #428 relative, faster-than-sim-human on held-out routes — not
+     route-MSE alone; see `plans/tuning-loop-429.md`. Historical text left as written.)* This shaping
+     SUPPORTS #429 (makes the penalty phase-correct so `w_press` can rise without a freeze/scrape) — it
+     does **not** replace it.
 - **Status:** PROPOSED (design repaired; owner sign-off needed — it would deliberately INVERT the #466
   `test_ground_forward_at_speed_now_penalized`, moving anti-bulldoze onto the `ds>0` condition). Needs an
   origin/main sync before editing (`reward_onspeed.py` not on the local checkout).

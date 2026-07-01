@@ -1191,6 +1191,10 @@ def main(argv=None) -> int:
                          "(on_route + faster_than_human + clean_mechanism + completed_route, per "
                          "segment). Additive (leaves the G-MV battery untouched); use with --aim policy. "
                          "The INTERNAL instrument, NOT the superhuman claim (that needs a live recording).")
+    ap.add_argument("--select-holdout-offset", type=int, default=0,
+                    help="skip the first N qualifying episodes before selecting the eval segments "
+                         "(B1 held-out machinery; #429 grades the sweep WINNER on a tertiary "
+                         "never-ranked route set via n_reset_segments + select_grade_segments).")
     args = ap.parse_args(argv)
 
     report = run_eval(
@@ -1200,6 +1204,7 @@ def main(argv=None) -> int:
         map_name=args.map, n_max=args.n_max, cpu=args.cpu,
         goal_mode=args.goal_mode, resource_coords_path=args.resource_coords,
         aim_mode=args.aim, grade_route=args.grade_route,
+        select_holdout_offset=args.select_holdout_offset,
     )
     out = Path(args.out).expanduser()
     out.parent.mkdir(parents=True, exist_ok=True)
