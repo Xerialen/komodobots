@@ -4,6 +4,12 @@
 .gitattributes text eol=lf
 *.patch text eol=lf whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
 
+# Shell scripts must stay LF on EVERY checkout: this repo is also operated and
+# reviewed on Windows (core.autocrlf=true), where a CRLF-converted script breaks
+# bash at the first backslash line-continuation ("syntax error near '||'" — the
+# post-merge P1 on PR #462, .claude/skills/demo-eyecheck/scripts/eyecheck.sh).
+*.sh text eol=lf
+
 # Dashboard data assets absorbed byte-for-byte from local-hub (LD-A1, #84):
 # keep them byte-identical on every checkout — deploys serve them verbatim.
 lab/dashboard/public/* -text
