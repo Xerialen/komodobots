@@ -14,7 +14,7 @@ fast internal instrument — a "superhuman" CLAIM still needs a **live recorded 
 
 ## D1 — wire the honest route-grade onto the PPO rollout (the "honest judge")
 
-Add a `--grade route` mode to `ml/eval_broad_closedloop.py` that runs the PPO self-yaw checkpoint through the
+Add a `--grade-route` mode to `ml/eval_broad_closedloop.py` that runs the PPO self-yaw checkpoint through the
 pmove sim and grades each route with `grade_trajectory` (on-route + faster-than-human + clean-mechanism +
 completed-route). **Strictly additive.** Fresh `/tmp` worktree off `origin/main` (working tree behind at
 `f6d571c`). Torch-side → **CI-only** on aws-dev (validate via `py_compile` + reading + stdlib tests).
@@ -30,7 +30,7 @@ Edit set (corrected by audit — trust the code, the `closed_loop_rollout` docst
 4. **Route per segment** — build inside the `for (eid,start,seg)` loop `:875`, mirroring `rl_onspeed.py:267-272`
    (`polyline=[(ox,oy,oz)]`, `speeds=[hypot(vx,vy)]`, `total_len` 3-D). Grade ONLY the policy traj (not the
    `recorded` positive control).
-5. **New `--grade route` report section** — additive to the `run_eval` dict `:942-1008`; does NOT touch the
+5. **New `--grade-route` report section** — additive to the `run_eval` dict `:942-1008`; does NOT touch the
    `bot_policy`/`gmv`/`fwd_press_frac` keys the RL loop reads (`rl_onspeed.py:924-927,:986-988`). No `docs/25` change.
 
 ⚠ LANDMINE: never remove/replace the G-MV battery `run_eval` returns — the RL loop reads its gates live
@@ -55,7 +55,7 @@ The 3 caller-side guards + 2 that live in already-merged code (audit split — t
 Testability: `grade_trajectory`/`route_geom`/`reward_onspeed` are pure stdlib and already gate on aws-dev
 (`tests/test_route_grade.py`, `tests/test_reward_onspeed.py`). Extract the per-segment aggregation as a pure
 stdlib helper → new gating test in `tests/`. **The torch CI smoke MUST drive `run_eval` end-to-end with
-`--grade route`** (exercises both `:883`/`:884`) — a smoke that only calls `grade_trajectory` on synthetic data
+`--grade-route`** (exercises both `:883`/`:884`) — a smoke that only calls `grade_trajectory` on synthetic data
 would miss the `:884` ValueError. PR as coder (NO merge, NO gate label; Codex auto-reviews).
 
 **Honesty framing (nblm):** this offline grade is the fast internal instrument that de-circularizes training
@@ -112,7 +112,7 @@ anchor-off; the superhuman CLAIM waits for the owner-gated live recording.
 
 ## Done-criteria
 - **D1:** stdlib floor green incl. the new aggregation test; `py_compile` clean; guard (iii) truncation +
-  guard (iv) pre-filter present; torch CI smoke drives `run_eval --grade route` end-to-end; PR opened.
+  guard (iv) pre-filter present; torch CI smoke drives `run_eval --grade-route` end-to-end; PR opened.
 - **D3:** run launched on pinnacle with `--kl-coef 0.0 --kl-anchor-ceiling 1e9`, no opt-in selectors; logging
   `r_vel`; checkpoint retrievable for D1.
 - **D5:** all "MSE-vs-human is the gate" claims in the chosen doc set read honest (route + faster-than-human),

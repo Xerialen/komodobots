@@ -55,7 +55,7 @@ Status legend: **LANDED** (on main) · **PROPOSED** (recommended, awaiting owner
   from `closed_loop_rollout` (`:625`; only unpack site = `run_eval:883-884`, and `rl_onspeed` calls `run_eval` not
   `closed_loop_rollout`, so it is insulated). (2) build the `route` (`polyline`/`speeds`/`total_len`, 3D) from `seg["self"]`
   — code already exists at `rl_onspeed._reset_state:267-272`, the SAME route `route_speedup` consumes → grade's ratio ==
-  reward's by construction. (3) call `grade_trajectory` as a NEW `--grade route` report section.
+  reward's by construction. (3) call `grade_trajectory` as a NEW `--grade-route` report section.
   **⚠ THE ONE LANDMINE — ADD alongside, do NOT remove/replace the G-MV battery inside `run_eval`.** Its gates are read LIVE
   by the RL loop's checkpoint selection (`eval_metric_vector:986-997`, `_eval_press_screen:923-927`); removing them = a
   SILENT cross-module break with NO local test catch (no torch on aws-dev). This is the ONLY reason D1's "delete the mode"
