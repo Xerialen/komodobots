@@ -84,6 +84,55 @@ class TestRouteGrade(unittest.TestCase):
         self.assertFalse(g["faster_than_human"])
         self.assertFalse(g["passed"])
 
+    def test_one_tick_start_probe_fails_no_completion(self):
+        # THE Codex P1 adversarial case: a ONE-TICK probe at the route START — fast (1.5x), on the line,
+        # clean air-strafe — trips on_route/faster_than_human/clean_mechanism but traverses ZERO route
+        # arc. Without the completion criterion this false-certifies a non-completing local speed sample.
+        traj = [tick(0.0, 0.0, 600.0, 0.0, onground=False, fwd_am=0)]
+        g = G.grade_trajectory(traj, ROUTE)
+        self.assertTrue(g["on_route"])
+        self.assertTrue(g["faster_than_human"])
+        self.assertTrue(g["clean_mechanism"])
+        self.assertEqual(g["route_coverage_frac"], 0.0)
+        self.assertFalse(g["completed_route"])
+        self.assertFalse(g["passed"], "a one-tick start probe completes nothing -> must FAIL")
+
+    def test_short_prefix_fails(self):
+        # Fast, clean, on the line, but only traverses ~10% of the route arc (x=0..100 of 0..1000).
+        xs = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
+        traj = [tick(x, 0.0, 600.0, 0.0, onground=False, fwd_am=0) for x in xs]
+        g = G.grade_trajectory(traj, ROUTE)
+        self.assertAlmostEqual(g["route_coverage_frac"], 0.1, places=3)
+        self.assertTrue(g["on_route"])
+        self.assertTrue(g["faster_than_human"])
+        self.assertTrue(g["clean_mechanism"])
+        self.assertFalse(g["completed_route"])
+        self.assertFalse(g["passed"])
+
+    def test_full_traversal_completes(self):
+        # A genuine traversal: x=50..950 of the 0..1000 route ≈ 0.9 coverage, fast+clean+on-line -> PASS.
+        xs = [float(x) for x in range(50, 951, 50)]
+        traj = [tick(x, 0.0, 600.0, 0.0, onground=False, fwd_am=0) for x in xs]
+        g = G.grade_trajectory(traj, ROUTE)
+        self.assertAlmostEqual(g["route_coverage_frac"], 0.9, places=3)
+        self.assertTrue(g["completed_route"])
+        self.assertTrue(g["on_route"])
+        self.assertTrue(g["faster_than_human"])
+        self.assertTrue(g["clean_mechanism"])
+        self.assertTrue(g["passed"])
+
+    def test_coverage_metric_and_tunable(self):
+        # route_coverage_frac is reported; min_coverage_frac is a tunable knob (#428). The x=100..900 run
+        # is 0.8 coverage: clears the default 0.5 floor but fails a raised 0.95 floor (only completion moves).
+        traj = [tick(x, 0.0, 600.0, 0.0, onground=False, fwd_am=0) for x in _XS]
+        g = G.grade_trajectory(traj, ROUTE)
+        self.assertAlmostEqual(g["route_coverage_frac"], 0.8, places=3)
+        self.assertTrue(g["completed_route"])
+        self.assertTrue(g["passed"])
+        g2 = G.grade_trajectory(traj, ROUTE, cfg={"min_coverage_frac": 0.95})
+        self.assertFalse(g2["completed_route"])
+        self.assertFalse(g2["passed"])
+
     def test_empty_and_degenerate(self):
         self.assertFalse(G.grade_trajectory([], ROUTE)["passed"])
         self.assertEqual(G.grade_trajectory([], ROUTE)["n_ticks"], 0)

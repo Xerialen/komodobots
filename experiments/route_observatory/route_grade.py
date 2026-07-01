@@ -3,8 +3,8 @@
 Grades ONE closed-loop trajectory (the PPO policy driving pmove_sim) against its human-reference
 route. The docs/28 goal is information-honest SUPERHUMAN movement, validated route-first — so the
 grade is NOT route-shape MSE alone: adherence-MSE is speed-blind, so a non-bhop forward+strafe
-"hybrid" that hugs the human line scores a good MSE (the observed R5 failure). The honest gate pairs
-three criteria, ALL required to pass:
+"hybrid" that hugs the human line scores a good MSE (the observed R5 failure). The honest gate combines
+four criteria, ALL required to pass:
 
   1. on_route          — lateral (horizontal) RMSE off the human polyline within a LOOSE containment
                          tolerance (still running the route / not lost into a wall). NOT a centerline
@@ -15,6 +15,10 @@ three criteria, ALL required to pass:
   3. clean_mechanism   — the fraction of AIRBORNE ticks holding +forward (fwd_am==2) is capped: a clean
                          air-strafe bhop releases forward in the air (the 30-qu/s air cap makes forward
                          add ~0 speed there; QWD action oracle / #427 D6), a bulldoze-hybrid does not.
+  4. completed_route   — net along-route ARC coverage ((arc_last − arc_first) / total_len) clears a
+                         floor: the trajectory must materially TRAVERSE the route, not just sample fast
+                         locally. Without it a one-tick probe at the route start (fast, on-line, clean)
+                         false-certifies as PASS though it completes nothing (the Codex P1 gap).
 
 Route-shape RMSE is measured HORIZONTALLY (z zeroed) so a bhop's vertical bounce does not inflate it.
 
@@ -47,6 +51,10 @@ DEFAULT_GRADE_CFG = {
     "min_ratio": 1.0,
     # (3) anti-bulldoze-hybrid: max fraction of AIRBORNE ticks holding +forward.
     "max_air_forward_frac": 0.20,
+    # (4) route-completion floor: min net along-route arc coverage the trajectory must traverse
+    #     ((arc_last−arc_first)/total_len). A "materially traversed the route" floor that rejects a
+    #     non-completing local speed sample — NOT a human-match target.
+    "min_coverage_frac": 0.5,
 }
 
 # fwd_am value meaning "+forward held" (mirrors the reward / usercmd forwardmove +400 class == 2).
@@ -77,8 +85,8 @@ def _empty_grade(cfg):
     return {
         "route_rmse_qu": 0.0, "median_speedup_ratio": 0.0, "mean_speedup_ratio": 0.0,
         "faster_than_human_frac": 0.0, "air_frac": 0.0, "air_forward_press_frac": 0.0,
-        "n_ticks": 0, "on_route": False, "faster_than_human": False,
-        "clean_mechanism": False, "passed": False, "cfg": cfg,
+        "route_coverage_frac": 0.0, "n_ticks": 0, "on_route": False, "faster_than_human": False,
+        "clean_mechanism": False, "completed_route": False, "passed": False, "cfg": cfg,
     }
 
 
@@ -90,8 +98,9 @@ def grade_trajectory(traj, route, cfg=None):
     route : dict with polyline=[(x,y,z),...], speeds=[per-vertex human speed], total_len (optional).
     cfg   : threshold overrides (see DEFAULT_GRADE_CFG).
 
-    Returns a grade dict: route_rmse_qu, speedup stats, mechanism fractions, the three per-criterion
-    booleans (on_route / faster_than_human / clean_mechanism), and the overall `passed` (all three).
+    Returns a grade dict: route_rmse_qu, speedup stats, mechanism fractions, route_coverage_frac, the
+    four per-criterion booleans (on_route / faster_than_human / clean_mechanism / completed_route), and
+    the overall `passed` (all four).
     """
     c = dict(DEFAULT_GRADE_CFG)
     if cfg:
@@ -110,14 +119,22 @@ def grade_trajectory(traj, route, cfg=None):
     fth_ticks = 0
     air_ticks = 0
     air_fwd_ticks = 0
+    arc_first = None
+    arc_last = None
     for t in traj:
         ox, oy, oz = float(t["ox"]), float(t["oy"]), float(t["oz"])
         vx, vy = float(t.get("vx", 0.0)), float(t.get("vy", 0.0))
         proj2 = project_onto_polyline(ox, oy, 0.0, polyline_2d)
         if proj2 is not None:
             sum_dist_sq += proj2["distSq"]
-        _v_along, _v_ref, ratio, _arc = route_speedup(ox, oy, oz, vx, vy, polyline, speeds, total_len)
+        _v_along, _v_ref, ratio, arc_now = route_speedup(ox, oy, oz, vx, vy, polyline, speeds, total_len)
+        if arc_now is not None:                 # net arc progress (first→last tick) = route coverage
+            if arc_first is None:
+                arc_first = arc_now
+            arc_last = arc_now
         ratios.append(ratio)
+        # Reporting-only stat: a FIXED ratio>1.0 count (fraction of ticks strictly above human speed),
+        # independent of the tunable `min_ratio` gate — which tests the MEDIAN ratio below, not this.
         if ratio > 1.0:
             fth_ticks += 1
         if not bool(t.get("onground", False)):
@@ -129,10 +146,15 @@ def grade_trajectory(traj, route, cfg=None):
     median_ratio = _median(ratios)
     mean_ratio = sum(ratios) / n
     air_fwd_frac = (air_fwd_ticks / air_ticks) if air_ticks else 0.0
+    if total_len > 0 and arc_first is not None and arc_last is not None:
+        route_coverage_frac = max(0.0, min(1.0, (arc_last - arc_first) / total_len))
+    else:
+        route_coverage_frac = 0.0
 
     on_route = rmse <= c["rmse_tol"]
     faster_than_human = median_ratio >= c["min_ratio"]
     clean_mechanism = air_fwd_frac <= c["max_air_forward_frac"]
+    completed_route = route_coverage_frac >= c["min_coverage_frac"]
 
     return {
         "route_rmse_qu": round(rmse, 3),
@@ -141,10 +163,12 @@ def grade_trajectory(traj, route, cfg=None):
         "faster_than_human_frac": round(fth_ticks / n, 4),
         "air_frac": round(air_ticks / n, 4),
         "air_forward_press_frac": round(air_fwd_frac, 4),
+        "route_coverage_frac": round(route_coverage_frac, 4),
         "n_ticks": n,
         "on_route": on_route,
         "faster_than_human": faster_than_human,
         "clean_mechanism": clean_mechanism,
-        "passed": bool(on_route and faster_than_human and clean_mechanism),
+        "completed_route": completed_route,
+        "passed": bool(on_route and faster_than_human and clean_mechanism and completed_route),
         "cfg": c,
     }
