@@ -67,6 +67,11 @@ import experiment_registry as XR   # noqa: E402  (stdlib; the #426 journal)
 LOGGER = logging.getLogger(__name__)
 
 SPACE_VERSION = "komodobots.tune_space.v1"
+# PRE-REGISTERED off-ramp (plans/tuning-loop-429.md, declared before any sweep runs):
+# a winner whose tertiary (never-ranked routes) seg_faster_frac falls below HALF its
+# ranked value is "overfit to the ranking routes" — refused, not crowned. A missing
+# tertiary grade refuses too (fail closed: absence of evidence is not evidence).
+TERTIARY_OFFRAMP_FRACTION = 0.5
 # Rollout buffer at the sweep's fixed geometry (n_envs 12 x rollout_steps 256): a
 # minibatch above it is silently one full-batch pass (auditor MF-2), so the grid tops
 # out AT the buffer.
@@ -177,6 +182,16 @@ def completed_out_ckpts(runs):
         if p:
             done.add(str(p))
     return done
+
+
+def completed_seeds_for_trial(registry, index):
+    """Seeds with a COMPLETED journaled run for this trial index (driver-minted paths)."""
+    seeds = set()
+    for p in completed_out_ckpts(XR.join_runs(XR.read_records(registry))):
+        parsed = trial_index_from_path(p)
+        if parsed and parsed[0] == index:
+            seeds.add(parsed[1])
+    return seeds
 
 
 def config_scores(runs):
@@ -303,6 +318,7 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
                   f"record; log in logs/)", flush=True)
 
     stopped_early = False
+    finalist_keys = set()
     try:
         for index, cfg, seed in planned:
             launch(index, cfg, seed)
@@ -318,13 +334,25 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
                 (any_run["start"] or {}).get("args", {}).get("out_ckpt", ""))
             if parsed is None:
                 print(f"[tune] finalist {cfgid}: foreign out_ckpt, cannot re-derive its "
-                      f"config — skipping verify (still ranked on existing runs)", flush=True)
+                      f"config — skipping verify (NOT crownable without verification)",
+                      flush=True)
                 continue
+            finalist_keys.add((env, cfgid))
             index, _ = parsed
             cfg = trial_config(a.sweep_seed, index)
-            have = sc["n"]
-            for j in range(a.verify_seeds - have):
-                launch(index, cfg, a.base_seed + 1001 + j)
+            # Seed-verify to the FULL quota (Codex #474 P2): iterate candidate seeds
+            # until this config has --verify-seeds COMPLETED runs — an already-complete
+            # candidate never consumes the quota, a crashed one is replaced by the next
+            # candidate (bounded at 4x to terminate on persistent crashers).
+            candidates = [a.base_seed] + [a.base_seed + 1001 + j
+                                          for j in range(a.verify_seeds * 4)]
+            for seed in candidates:
+                seeds_done = completed_seeds_for_trial(registry, index)
+                if len(seeds_done) >= a.verify_seeds:
+                    break
+                if seed in seeds_done:
+                    continue
+                launch(index, cfg, seed)
     except TimeoutError:
         stopped_early = True
         print(f"[tune] --max-hours budget reached — stopping (resume re-enters via the "
@@ -359,8 +387,23 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
         verdict["winner"] = None
         verdict["refusal"] = (f"{len(envs)} environment groups in the journal — grades are "
                               f"not comparable across code/data/norm/route pins: {envs}")
+    elif not any(k in scores for k in finalist_keys):
+        verdict["winner"] = None
+        verdict["refusal"] = ("no seed-verified finalist config (sweep stopped before "
+                              "verification, or all finalists lost eligibility) — resume "
+                              "the sweep; an unverified config is never crowned")
     else:
-        ranked = sorted(scores.items(), key=lambda kv: kv[1]["mean_key"], reverse=True)
+        # The crown is restricted to the SEED-VERIFIED finalist set (Codex #474 P1):
+        # after the finalists' extra seeds land, a previously rank-(K+1) single-seed
+        # config can outrank a verified finalist's honest mean — it must trigger
+        # verification in a future sweep pass, never be crowned unverified.
+        ranked_all = sorted(scores.items(), key=lambda kv: kv[1]["mean_key"], reverse=True)
+        verified = {k: v for k, v in scores.items() if k in finalist_keys}
+        ranked = sorted(verified.items(), key=lambda kv: kv[1]["mean_key"], reverse=True)
+        if ranked_all[0][0] not in finalist_keys:
+            verdict["note"] = (f"unverified config {ranked_all[0][0][1]} outranks the "
+                               f"verified winner on mean grade (n={ranked_all[0][1]['n']}) "
+                               f"— verify it in the next sweep pass before trusting it")
         (env, cfgid), sc = ranked[0]
         # deployable artifact = the best single run's ckpt among the winner's seeds
         best_rid = max(sc["run_ids"],
@@ -375,6 +418,7 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
             "finalists": [{"config_id": c, "mean_key": s["mean_key"], "n": s["n"],
                            "worst_key": s["worst_key"]} for (_e, c), s in ranked[:a.top_k]],
         }
+        tert = None
         if best_ckpt and Path(best_ckpt).is_file():
             tert = tertiary(a.python, a.eval_script, data, best_ckpt,
                             holdout_offset=a.n_reset_segments + a.grade_segments,
@@ -382,12 +426,30 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
                             out_json=sweep / "winner_tertiary.json",
                             log_path=sweep / "logs" / "winner_tertiary.log",
                             timeout_s=a.trial_timeout)
-            winner["tertiary_grade"] = tert   # never-ranked route set (overfit guard)
-            winner["kept"] = keep_winner(best_ckpt, sweep / "winners")
+        winner["tertiary_grade"] = tert   # never-ranked route set (overfit guard)
+        winner["tertiary_report"] = str(sweep / "winner_tertiary.json")
+        winner["tertiary_log"] = str(sweep / "logs" / "winner_tertiary.log")
+        # The pre-registered off-ramp is EXECUTABLE, not decoration (Codex #474 P1):
+        # tertiary missing -> fail closed; tertiary collapse vs the ranked value ->
+        # overfit to the ranking routes. Either way: NO crowned winner — the refused
+        # candidate stays in the verdict, fully audited, and is NOT blessed into
+        # winners/.
+        ranked_frac = sc["mean_key"][0]
+        tert_frac = (tert or {}).get("seg_faster_frac")
+        if tert_frac is None:
+            verdict["winner"] = None
+            verdict["refusal"] = ("tertiary grade unavailable — cannot verify the top "
+                                  "config on never-ranked routes (fail closed)")
+            verdict["refused_candidate"] = winner
+        elif tert_frac < TERTIARY_OFFRAMP_FRACTION * ranked_frac:
+            verdict["winner"] = None
+            verdict["refusal"] = (f"overfit_to_ranking_routes: tertiary seg_faster_frac "
+                                  f"{tert_frac} < {TERTIARY_OFFRAMP_FRACTION} x ranked "
+                                  f"{ranked_frac}")
+            verdict["refused_candidate"] = winner
         else:
-            winner["tertiary_grade"] = None
-            winner["kept"] = None
-        verdict["winner"] = winner
+            winner["kept"] = keep_winner(best_ckpt, sweep / "winners")
+            verdict["winner"] = winner
 
     (sweep / "verdict.json").write_text(json.dumps(verdict, indent=2, default=str),
                                         encoding="utf-8")

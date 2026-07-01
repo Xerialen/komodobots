@@ -172,29 +172,34 @@ class TestGradeKeyParity(unittest.TestCase):
 
 
 class TestRunSweepEndToEnd(unittest.TestCase):
-    def _fake_runner_factory(self, reg_holder, frac_by_index):
+    @staticmethod
+    def _trial_args(out, reg, idx, seed):
+        """The arg-shape the fake trainer journals — config_id-identical for one trial
+        index across seeds (seed/out_ckpt/registry are excluded from config_id)."""
+        return {"out_ckpt": str(out), "db": None, "norm_artifact": None, "anchors": None,
+                "split": "val", "horizon": 385, "n_reset_segments": 64,
+                "select_grade_segments": 12, "seed": int(seed), "registry": str(reg),
+                "cfg": json.dumps(TN.trial_config(429, idx), sort_keys=True)}
+
+    def _fake_runner_factory(self, reg_holder, frac_by_index=None, frac_fn=None):
         """A fake trainer: journals start+final itself (as the real child does) with a
-        per-trial-index grade. Returns exit code 0, or crashes (no final) for
-        frac_by_index[i] is None."""
+        per-trial grade. frac_fn(idx, seed) overrides frac_by_index[idx]; a None frac
+        crashes (start-without-final, exit 1)."""
         def fake(argv, log_path, timeout_s):
             out = argv[argv.index("--out-ckpt") + 1]
             reg = argv[argv.index("--registry") + 1]
             reg_holder.append(reg)
-            seed = argv[argv.index("--seed") + 1]
+            seed = int(argv[argv.index("--seed") + 1])
             idx, _ = TN.trial_index_from_path(out)
-            args = {"out_ckpt": out, "db": None, "norm_artifact": None, "anchors": None,
-                    "split": "val", "horizon": 385, "n_reset_segments": 64,
-                    "select_grade_segments": 12, "seed": int(seed),
-                    "registry": reg,
-                    "cfg": json.dumps(TN.trial_config(429, idx), sort_keys=True)}
-            c = XR.start_run(reg, args, {}, git_sha="a" * 40, now=1000.0 + idx)
-            frac = frac_by_index.get(idx, 0.1)
+            c = XR.start_run(reg, self._trial_args(out, reg, idx, seed), {},
+                             git_sha="a" * 40, now=1000.0 + idx + seed)
+            frac = frac_fn(idx, seed) if frac_fn else frac_by_index.get(idx, 0.1)
             if frac is None:
                 return 1                      # crash: start-without-final
             Path(out).parent.mkdir(parents=True, exist_ok=True)
             Path(out).write_bytes(b"ckpt-" + str(idx).encode())
             XR.finalize_run(reg, c, {"route_grade_summary": _summary(frac)},
-                            ckpt_path=out, now=1060.0 + idx)
+                            ckpt_path=out, now=1060.0 + idx + seed)
             return 0
         return fake
 
@@ -245,6 +250,74 @@ class TestRunSweepEndToEnd(unittest.TestCase):
             TN.run_sweep(a, runner=fake, tertiary=fake_tert)   # second pass: all done
             self.assertEqual(len(regs), calls,
                              "a re-run of a finished sweep must launch ZERO trainers")
+
+    def test_weak_tertiary_refuses_the_crown(self):
+        # Codex #474 P1 (adversarial case reproduced): ranked 0.8, tertiary 0.1 ->
+        # the pre-registered off-ramp must EXECUTE — no crowned winner, the refused
+        # candidate stays audited, nothing blessed into winners/.
+        with tempfile.TemporaryDirectory() as td:
+            fake = self._fake_runner_factory([], {0: 0.2, 1: 0.4, 2: 0.8, 3: 0.3})
+            weak_tert = lambda *a, **k: _summary(0.1)   # noqa: E731  (0.1 < 0.5*0.8)
+            v = TN.run_sweep(self._args(Path(td) / "s"), runner=fake, tertiary=weak_tert)
+            self.assertIsNone(v["winner"])
+            self.assertIn("overfit_to_ranking_routes", v["refusal"])
+            rc = v["refused_candidate"]
+            self.assertEqual(rc["tertiary_grade"]["seg_faster_frac"], 0.1)
+            self.assertNotIn("kept", rc, "a refused candidate must not be blessed")
+            self.assertFalse((Path(td) / "s" / "winners").exists())
+
+    def test_missing_tertiary_fails_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            fake = self._fake_runner_factory([], {0: 0.2, 1: 0.4, 2: 0.8, 3: 0.3})
+            no_tert = lambda *a, **k: None   # noqa: E731  (eval failed/unreadable)
+            v = TN.run_sweep(self._args(Path(td) / "s"), runner=fake, tertiary=no_tert)
+            self.assertIsNone(v["winner"])
+            self.assertIn("unavailable", v["refusal"])
+            self.assertIsNotNone(v["refused_candidate"])
+
+    def test_unverified_config_is_never_crowned(self):
+        # Codex #474 P1-2: trial 1 looks best (0.9) and gets seed-verified DOWN to a
+        # mean ~0.37; trial 2 (single unverified seed, 0.5) then tops the full
+        # ranking — the crown must stay with the VERIFIED finalist + a note emitted.
+        with tempfile.TemporaryDirectory() as td:
+            def frac(idx, seed):
+                if idx == 1:
+                    return 0.9 if seed == 0 else 0.1
+                return 0.5 if idx == 2 else 0.1
+            fake = self._fake_runner_factory([], frac_fn=frac)
+            tert = lambda *a, **k: _summary(0.3)   # noqa: E731  (>= 0.5*mean(0.367))
+            a = self._args(Path(td) / "s", trials=3, verify_seeds=3)
+            a.top_k = 1
+            v = TN.run_sweep(a, runner=fake, tertiary=tert)
+            w = v["winner"]
+            self.assertIsNotNone(w)
+            self.assertEqual(w["n_runs"], 3, "the crowned config must be the VERIFIED one")
+            self.assertAlmostEqual(w["mean_key"][0], (0.9 + 0.1 + 0.1) / 3, places=6)
+            self.assertIn("unverified", v["note"],
+                          "an unverified better-ranked config must be surfaced, not crowned")
+
+    def test_resume_fills_the_seed_quota_without_consuming_it(self):
+        # Codex #474 P2: seeds 0 and 1001 already complete for the finalist; with
+        # --verify-seeds 5 the loop must SKIP those without consuming quota and land
+        # exactly 5 completed runs (0,1001,1002,1003,1004).
+        with tempfile.TemporaryDirectory() as td:
+            sweep = Path(td) / "s"
+            (sweep / "ckpts").mkdir(parents=True)
+            reg = sweep / "experiment_registry.jsonl"
+            for seed in (0, 1001):
+                out = TN.trial_ckpt_path(sweep, 2, seed)
+                out.write_bytes(b"ckpt-pre")          # real runs always have a ckpt
+                c = XR.start_run(reg, self._trial_args(out, reg, 2, seed), {},
+                                 git_sha="a" * 40, now=100.0 + seed)
+                XR.finalize_run(reg, c, {"route_grade_summary": _summary(0.8)},
+                                ckpt_path=out, now=160.0 + seed)
+            fake = self._fake_runner_factory([], {0: 0.2, 1: 0.4, 2: 0.8, 3: 0.3})
+            tert = lambda *a, **k: _summary(0.6)   # noqa: E731
+            a = self._args(sweep, verify_seeds=5)
+            a.top_k = 1
+            v = TN.run_sweep(a, runner=fake, tertiary=tert)
+            self.assertEqual(v["winner"]["n_runs"], 5,
+                             "already-complete verification seeds must not consume the quota")
 
     def test_sweep_refuses_without_code_version(self):
         with tempfile.TemporaryDirectory() as td:

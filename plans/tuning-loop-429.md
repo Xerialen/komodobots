@@ -63,12 +63,18 @@ already says "Bayesian/Random search" with no MSE (verified — no docs/28 edit 
 - **Hard-coded honesty:** `superhuman_claim: false` + the sim-fidelity caveat in every verdict. The absolute
   claim needs the live engine + a recording + pov_fuse — never this driver.
 
-## Pre-registered ranking rule (declared BEFORE any sweep runs — the gate asks for this)
+## Pre-registered ranking rule (declared BEFORE any sweep runs — the gate asks for this; ALL EXECUTABLE)
 
 Eligibility: completed + provenance-complete + route-graded with ≥ the selector's min valid references
 (registry `eligible`). Ranking: mean `grade_key` over a config's eligible runs, within ONE environment
-group. Off-ramp: if the winner's tertiary grade drops by more than half its ranked `seg_faster_frac`, the
-sweep result is "overfit to the ranking routes — no winner", not a crowned config.
+group. **The crown is restricted to the seed-VERIFIED finalist set** — after verification seeds land, a
+previously lower-ranked single-seed config can top the full ranking; it is surfaced in the verdict as a
+note ("verify it next pass"), never crowned unverified (Codex #474 P1-2). **Off-ramp (enforced in code,
+`TERTIARY_OFFRAMP_FRACTION = 0.5`):** tertiary `seg_faster_frac` below half the ranked value →
+`winner=None`, `refusal="overfit_to_ranking_routes: …"`, the refused candidate kept in the verdict for
+audit, nothing blessed into `winners/`; a MISSING tertiary grade refuses too (fail closed). Seed
+verification fills the FULL `--verify-seeds` quota on resume — already-complete candidate seeds never
+consume it, crashed ones are replaced by the next candidate (bounded 4x).
 
 ## Search space v1 (`komodobots.tune_space.v1` — embedded in every verdict)
 
