@@ -60,14 +60,17 @@ ssh "$WIN_HOST" "pwsh -NoProfile -File '$WIN_DEMOSHOTS\\scripts\\capture-pov.ps1
 
 # 3. build the labelled contact sheet on the GPU box (it has Pillow; aws-dev does not). contact_sheet.py
 #    is small, so on a linnacle-scp failure fall back to writing it via winnacle base64.
-scp -q "$HERE/contact_sheet.py" "$LIN_HOST:$LIN_OUT/contact_sheet.py" 2>/dev/null \
-  || ssh "$WIN_HOST" "pwsh -NoProfile -Command \"[IO.File]::WriteAllBytes('$WIN_OUT\\contact_sheet.py',[Convert]::FromBase64String('$(base64 -w0 "$HERE/contact_sheet.py")'))\""
+if ! scp -q "$HERE/contact_sheet.py" "$LIN_HOST:$LIN_OUT/contact_sheet.py" 2>/dev/null; then
+  ssh "$WIN_HOST" "pwsh -NoProfile -Command \"[IO.File]::WriteAllBytes('$WIN_OUT\\contact_sheet.py',[Convert]::FromBase64String('$(base64 -w0 "$HERE/contact_sheet.py")'))\""
+fi
 ssh "$WIN_HOST" "& '$WIN_PY' '$WIN_OUT\\contact_sheet.py' '$WIN_OUT\\$safe' $lo $hi"
 
 # 4. pull the sheet + the in-range full-res frames to aws-dev (linnacle scp, else winnacle base64)
 mkdir -p "$LOCAL/$safe"
-pull "$LIN_OUT/$safe/sheet_${lo}-${hi}.jpg" "$WIN_OUT\\$safe\\sheet_${lo}-${hi}.jpg" "$LOCAL/$safe/sheet_${lo}-${hi}.jpg" \
-  || { echo "ERROR: could not pull the contact sheet (linnacle scp AND winnacle base64 both failed)" >&2; exit 1; }
+if ! pull "$LIN_OUT/$safe/sheet_${lo}-${hi}.jpg" "$WIN_OUT\\$safe\\sheet_${lo}-${hi}.jpg" "$LOCAL/$safe/sheet_${lo}-${hi}.jpg"; then
+  echo "ERROR: could not pull the contact sheet (linnacle scp AND winnacle base64 both failed)" >&2
+  exit 1
+fi
 for s in $(seq "$lo" "$hi"); do
   f=$(printf 't%06d.jpg' "$s")
   pull "$LIN_OUT/$safe/$f" "$WIN_OUT\\$safe\\$f" "$LOCAL/$safe/$f" 2>/dev/null || true
