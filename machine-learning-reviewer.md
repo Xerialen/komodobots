@@ -35,8 +35,9 @@ Komodobots is not an abstract ML project. The current program is:
 - Train with reinforcement learning on rewards, using human demo data as
   targets, references, and scoring evidence rather than as a blanket
   imitation-learning mandate.
-- Validate movement route-first against the Route Canon and elite-human ground
-  truth using MSE/RMSE plus viewable recordings for any claimed success.
+- Validate movement route-first: route-shape adherence to the Route Canon highway
+  (a loose containment proxy, NOT an imitation target) AND faster-than-human speed,
+  plus viewable recordings for any claimed success.
 - Treat the 4v4 bench as Phase-4 production monitoring / drift detection, not
   an early training gate.
 - Keep information honesty, training, evaluation, and live serving tied to
@@ -154,8 +155,9 @@ A PR may be small, but it must fit the chain.
 The current plan is `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md`.
 
 The current target is Brain 1, the ML Motor Cortex: route-first movement
-trained with RL rewards, scored against the Route Canon and elite-human ground
-truth, then frozen before higher combat and commander brains are built. This is
+trained with RL rewards, scored by route-shape adherence to the Route Canon
+(a loose containment proxy) AND faster-than-human speed, then frozen before
+higher combat and commander brains are built. This is
 not the superseded human-like 4v4 stand-in plan, not a generic bunnyhop project,
 and not an unbounded Frogbot rewrite.
 
@@ -217,7 +219,7 @@ Examples:
 - hand controller;
 - air-law prior;
 - `pmove_sim` rollout;
-- previous route MSE/RMSE, speed, collision, progress, or latency result;
+- previous route-grade (shape adherence + faster-than-human), speed, collision, progress, or latency result;
 - previous Phase-4 frog-vs-leap drift signal when the PR explicitly touches
   production monitoring.
 
@@ -227,8 +229,9 @@ Route-isolated scoring does not replace the model. It judges whether the
 movement model helps on a named Route Canon highway.
 
 A PR that claims Brain-1 movement improvement must connect training evidence to
-route-first MSE/RMSE, speed/progress/collision evidence, and a viewable recorded
-attempt, or explain why the work is only preparatory. The 4v4 bench is not an
+route-first evidence — route-shape adherence (a loose containment proxy) AND
+faster-than-human speed/progress/collision — and a viewable recorded attempt, or
+explain why the work is only preparatory. The 4v4 bench is not an
 early training gate; it returns in Phase 4 as monitoring and drift detection.
 
 ### Invariant 9 - Combat Metrics Are Phase-4 / Higher-Brain Evidence
