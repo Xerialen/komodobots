@@ -62,9 +62,10 @@ The dm3 **4on4 believability bench is removed from the early-stage training/eval
 noisy signal this early. Instead:
 
 - **Route-isolated scoring.** Isolate the bot on a single Route Canon **"Highway"** and grade its trajectory
-  **objectively and instantly by MSE / RMSE against the elite-human ground truth** (Phase 2, T5.2 / #428).
+  **objectively and instantly by route-shape adherence to the Highway AND faster-than-human speed** —
+  route-shape RMSE is a loose containment proxy, NOT an imitation target (Phase 2, T5.2 / #428).
 - **4v4 returns only in Phase 4** as a *live monitoring / drift-detection* signal (not a training gate).
-- **Every attempt is recorded and viewable.** Even though MSE is the objective gate, **every run records an
+- **Every attempt is recorded and viewable.** Even though the route-grade is the objective gate, **every run records an
   MVD published to komodolab** (Phase 1, T3.3 / #424), so the owner can watch it — *especially any run we
   claim is succeeding*. **No success claim without a linked, viewable recording.**
 
@@ -90,10 +91,10 @@ Heavy PPO RL to learn elite mechanics and surpass human speed; reward shaping + 
 - **M4 Training Loop & Offline Store (P2.1):** T4.1 Materialize denormalized Parquet offline feature store
   (#425); T4.2 Establish experiment tracking — MLflow/W&B (#426).
 - **M5 Reward Shaping & Automated Tuning (P2.2):** T5.1 Phase-2 PPO reward signals — Velocity+ / Progress+ /
-  Collision− / Time− (#427); T5.2 Automated evaluation metrics — route-isolated MSE/RMSE, **no 4v4** (#428);
+  Collision− / Time− (#427); T5.2 Automated evaluation metrics — route-isolated route-grade (shape adherence + faster-than-human), **no 4v4** (#428);
   T5.3 Systematic hyperparameter tuning — Bayesian/Random search (#429).
 - **Live test:** automated mathematical scoring with the bot isolated on a single Highway, graded by
-  MSE/RMSE. **4v4 removed from the training eval loop.**
+  route-shape adherence AND faster-than-human speed. **4v4 removed from the training eval loop.**
 
 ### Phase 3 — Low-Latency Optimisation · milestone #6 · epic #416
 Freeze + optimise Brain 1 for the high server tick rate.
@@ -124,6 +125,6 @@ The authoritative source is the owner's re-plan (in Drive), transcribed here:
 
 `docs/18` (human-like, 4v4-judged) and the `docs/09` stage ladder remain as **history**. The goal changed
 from *believable* to *information-honest superhuman*, the method from BC to RL, and the early validation from
-the 4v4 bench to route-isolated MSE. The **data line is unchanged and still valid**: `docs/25_DATA_CONTRACT.md`
+the 4v4 bench to the route-isolated route-grade (shape adherence + faster-than-human). The **data line is unchanged and still valid**: `docs/25_DATA_CONTRACT.md`
 and `docs/27_DEMO_EXTRACTION_SPEC.md` define the corpus the RL method consumes — they are consumed, not
 discarded. This document is the live index; the GitHub milestones/epics/tickets are the executable form.

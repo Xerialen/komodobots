@@ -30,7 +30,7 @@ This document is the prose layer. The binding, machine-readable layer is:
 contract's **row/schema mechanics (sections 2–6 below) are unchanged** — it is still the version-controlled
 truth for what is extracted, from where, and in what format. What changed is the **purpose**: the goal is no
 longer human-like-by-imitation judged on a 4v4 bench, but the **information-honest superhuman bot
-(Megalodon Milton), trained by RL and validated route-first** (MSE/RMSE vs elite-human ground truth on a
+(Megalodon Milton), trained by RL and validated route-first** (route-shape adherence AND faster-than-human speed on a
 Route Canon "Highway"); 4v4 is demoted to a Phase-4 drift signal.
 
 The original consumer described here is now **legacy**: the move-only `6 -> 128 -> 128 -> {3,3,2}` ReLU MLP

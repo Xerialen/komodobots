@@ -38,7 +38,7 @@ The program of record is `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md`. Every task
 > Build **Megalodon Milton**: the strongest QuakeWorld bot possible — it may move, aim and play better than
 > the best humans — bound by one constraint, **information honesty** (it acts only on what it can see or hear
 > itself, or read in teamsay, never omniscient engine state). Method = **RL on rewards**; validated
-> **route-first** (MSE vs elite-human ground truth), not by a believability bench.
+> **route-first** (route-shape adherence AND faster-than-human speed), not by a believability bench.
 
 Bunnyjumping, DM2, KTX, Frogbots, MVD analysis, route learning, and movement controllers are not end goals.
 They are experiments toward that bot. (This supersedes the earlier "believable substitutes for real players"

@@ -63,6 +63,6 @@ revisit conditions are in `docs/08_DECISION_LOG.md`.
 **Update (2026-06-26): pivot — the program of record is now `docs/28_MEGALODON_MILTON_MLOPS_PROGRAM.md`.**
 The goal changed from *believable / human-like* to **information-honest superhuman** ("plays perfectly",
 codename Megalodon Milton); the method from behaviour-cloning to **RL on rewards**; and early validation from
-the 4v4 believability bench to **route-isolated MSE vs elite-human ground truth** (4v4 demoted to a Phase-4
+the 4v4 believability bench to **route-isolated route-shape adherence AND faster-than-human speed** (4v4 demoted to a Phase-4
 drift-detection signal). `docs/18` is retained as history. Architecture = a modular, bottom-up-trained,
 freeze-as-you-go brain hierarchy (movement → combat → strategy).
