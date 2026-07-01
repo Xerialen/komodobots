@@ -88,6 +88,9 @@ if str(HERE) not in sys.path:
 SCRIPTS = REPO_ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
+EXPERIMENTS = REPO_ROOT / "experiments" / "route_observatory"
+if str(EXPERIMENTS) not in sys.path:
+    sys.path.insert(0, str(EXPERIMENTS))
 
 # DEPS-FREE imports only at module load. torch / numpy / duckdb and the heavy
 # encoders/loaders are imported LAZILY inside run_eval(), so this module and its
@@ -104,6 +107,9 @@ from features.agent_observation import (                                    # no
     assemble_self_history as _assemble_self_history,
     SELF_HISTORY as _SELF_HISTORY,
 )
+# the honest OFFLINE route-grade (D1) — pure stdlib (route_geom + reward_onspeed), so it loads at
+# module level with the other deps-free glue; only exercised when --grade-route is passed.
+import route_grade as RGRADE                                                # noqa: E402
 
 
 # =============================================================================
@@ -630,7 +636,9 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
     `eval_closedloop.closed_loop_run` skeleton but with the BROAD obs + heads.
 
     controller in {"policy","recorded"}. Returns (gmv_ticks, origins, speeds, msecs,
-    predicted_attack_classes). The gmv tick is captured from the POST-frame sim state
+    predicted_attack_classes, fwd_press_frac, traj) — `traj` is the per-tick
+    {ox,oy,oz,vx,vy,onground,fwd_am(CLASS)} stream the D1 route-grade consumes (fwd_am is
+    None for the recorded control). The gmv tick is captured from the POST-frame sim state
     so the gates see the bot's own resulting motion.
 
     goal_mode (the v4/v5 goal-conditioning A/B, policy controller only):
@@ -661,6 +669,7 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
     speeds = []
     msecs = []
     attack_classes = []
+    traj = []                # per-tick {ox,oy,oz,vx,vy,onground,fwd_am} for the D1 route-grade
     fwd_press_n = 0          # policy ticks with fwd head == press-forward (class 2)
     policy_ticks = 0
 
@@ -684,6 +693,7 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
     from collections import deque
     self_hist = deque(maxlen=_SELF_HISTORY)
     for k in range(n):
+        fwd_am_cls = None        # policy +forward CLASS this tick (route-grade); stays None for recorded
         rec_self = segment[k]["self"]
         pitch = float(rec_self.get("pitch", 0.0) or 0.0)
         # the OBS/EXECUTED view yaw: the policy's own running yaw under aim_mode="policy"
@@ -738,6 +748,7 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
                 else:
                     logits = model(obs_t, ent_t, em_t, aux_t)
             pred_cls = [int(lg.argmax(dim=1).item()) for lg in logits]
+            fwd_am_cls = int(pred_cls[0])    # +forward CLASS (2==held) for the route-grade clean_mechanism
             fwd_mag, side_mag, up_mag, jump_bit = decode_move_heads(pred_cls)
             attack_classes.append(pred_cls[4])
             policy_ticks += 1
@@ -751,6 +762,9 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
                 angles = [pitch, exec_yaw, 0.0]
         else:  # "recorded" positive control
             fwd_mag, side_mag, up_mag, jump_bit = _recorded_usercmd(rec_act)
+            # recorded +forward CLASS from the human's ACTUAL forwardmove -> the recorded control
+            # exercises clean_mechanism too (not hardwired via fwd_am=None). 2=held, 0=back, 1=neutral.
+            fwd_am_cls = 2 if fwd_mag > 1e-6 else (0 if fwd_mag < -1e-6 else 1)
             attack_classes.append(None)
 
         cmd = pm_module.Cmd(msec, angles, [fwd_mag, side_mag, up_mag], jump_bit)
@@ -766,6 +780,10 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
         origins.append((tick["_ox"], tick["_oy"]))
         speeds.append(tick["hspeed"])
         msecs.append(float(msec))
+        # the route-grade trajectory: POST-frame sim state + this tick's +forward CLASS.
+        traj.append({"ox": float(st.origin[0]), "oy": float(st.origin[1]), "oz": float(st.origin[2]),
+                     "vx": float(st.velocity[0]), "vy": float(st.velocity[1]),
+                     "onground": bool(st.onground), "fwd_am": fwd_am_cls})
         # next tick's "previous yaw" = the yaw THIS tick's OBS was built from (the pre-turn
         # yaw). In aim_mode="policy" the bot integrates its turn AFTER the obs (policy_yaw =
         # yaw + yd), so next tick's obs yaw == this exec_view_yaw; tracking exec_view_yaw here
@@ -777,7 +795,7 @@ def closed_loop_rollout(pm_module, world, segment, controller, *,
         prev_yaw = yaw
 
     fwd_press_frac = (fwd_press_n / policy_ticks) if policy_ticks else None
-    return gmv_ticks, origins, speeds, msecs, attack_classes, fwd_press_frac
+    return gmv_ticks, origins, speeds, msecs, attack_classes, fwd_press_frac, traj
 
 
 def _controller_report(pooled_ticks, route, anchors, player_band, *,
@@ -802,7 +820,7 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
              map_name: str = "dm3", n_max: int = 7, cpu: bool = False,
              goal_mode: str = "conditioned",
              resource_coords_path: Path | None = None,
-             aim_mode: str = "replayed") -> dict:
+             aim_mode: str = "replayed", grade_route: bool = False) -> dict:
     """Closed-loop believability eval. NEEDS torch (policy forward) + numpy (parity) +
     duckdb (catalog start states) + the BSP world. Flow:
 
@@ -872,6 +890,8 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
         "policy": {"ticks": [], "attack": [], "routes": [], "mv3_gates": [], "fwd_press": []},
         "recorded": {"ticks": [], "routes": [], "mv3_gates": []},
     }
+    route_grades = []      # per-segment D1 honest route-grade dicts (populated only when grade_route)
+    recorded_grades = []   # the recorded-human positive control (validates the judge: expect ~1.0 ratio + pass)
     for (eid, start, seg) in segments:
         pol = closed_loop_rollout(
             pmove_sim, world, seg, "policy", model=model, dims=dims,
@@ -880,13 +900,30 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
         rec = closed_loop_rollout(
             pmove_sim, world, seg, "recorded", map_name=map_name, n_max=n_max)
 
-        p_ticks, p_org, p_spd, p_ms, p_atk, p_fwd_press = pol
-        r_ticks, r_org, r_spd, r_ms, _, _ = rec
+        p_ticks, p_org, p_spd, p_ms, p_atk, p_fwd_press, p_traj = pol
+        r_ticks, r_org, r_spd, r_ms, _, _, r_traj = rec
         if p_fwd_press is not None:
             pool["policy"]["fwd_press"].append((p_fwd_press, len(p_ticks)))
         # per-segment route dicts (each on ITS OWN origins -> correct, no boundary jump)
         p_route = route_metrics(p_org, p_spd, p_ms)
         r_route = route_metrics(r_org, r_spd, r_ms)
+        if grade_route:
+            # per-segment human-reference route, built the SAME way as the reward's
+            # rl_onspeed._reset_state (poly = self ox/oy/oz, speeds = hypot(vx,vy),
+            # total_len = sum segment dist) -> route_speedup gives the identical v_ref, so the
+            # grade's speedup ratio == the reward's by construction. Grade ONLY the policy traj.
+            _poly = [(float(s["self"]["ox"]), float(s["self"]["oy"]), float(s["self"]["oz"]))
+                     for s in seg]
+            _spd = [math.hypot(float(s["self"].get("vx", 0.0)), float(s["self"].get("vy", 0.0)))
+                    for s in seg]
+            _tot = sum(math.dist(a, b) for a, b in zip(_poly, _poly[1:])) if len(_poly) > 1 else 0.0
+            _route = {"polyline": _poly, "speeds": _spd, "total_len": _tot}
+            route_grades.append(
+                RGRADE.grade_trajectory(RGRADE.prep_traj_for_grade(p_traj, _route), _route))
+            # positive control: grade the recorded HUMAN usercmd on the SAME route -> must score
+            # ~1.0 ratio + pass, which proves the judge is calibrated (else a policy 0/N is meaningless).
+            recorded_grades.append(
+                RGRADE.grade_trajectory(RGRADE.prep_traj_for_grade(r_traj, _route), _route))
         # per-segment gmv batteries (scored ONCE here): the summary feeds per_segment[]
         # AND each segment's own G-MV3 gate is kept so the pooled cadence can be summed
         # from PER-SEGMENT flips (no cross-boundary L<->R flip — see overwrite_pooled_mv3).
@@ -984,7 +1021,7 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
             "note": ("sign3 class -> usercmd: 2->+MAG, 0->-MAG, 1->0; MAG=400 matches "
                      "the BROAD trainer's /400 move scale (agent_observation._MOVE_SCALE). "
                      "jump head==1 -> BUTTON_JUMP; attack head NOT driven (logged only). "
-                     "view yaw/pitch REPLAYED from the recorded human (AIM deferred)."),
+                     + _aim_plane_note(aim_mode)),
             "button_jump_bit": BUTTON_JUMP,
         },
         "anchor_bands": _anchor_band_summary(anchors_obj, player_band),
@@ -997,7 +1034,7 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
             "expect": "G-MV1 must FAIL (yaw locked to velocity every tick)",
         },
         "per_segment": per_segment,
-        "caveats": _build_caveats(),
+        "caveats": _build_caveats(aim_mode),
         "provenance": {
             "git_sha": _core.git_sha(REPO_ROOT),
             "norm_artifact_version": stats.get("artifact_version", "UNSET"),
@@ -1006,6 +1043,22 @@ def run_eval(checkpoint: Path, bsp: Path, db: Path, norm_artifact: Path, *,
             "device": device,
         },
     }
+    if grade_route:
+        report["route_grade"] = {
+            "summary": RGRADE.aggregate_route_grades(route_grades),
+            "recorded_control": RGRADE.aggregate_route_grades(recorded_grades),
+            "per_segment": route_grades,
+            "aim_mode": aim_mode,
+            "measurement_plane": _aim_head_label(aim_mode),
+            "note": ("D1 honest OFFLINE route-grade of the policy rollout on the `measurement_plane` above "
+                     "(on_route + faster_than_human + clean_mechanism + completed_route, per segment; "
+                     "prep_traj_for_grade guards the superhuman-overrun + v_ref~0 misgrade traps). "
+                     "`recorded_control` grades the SAME routes with the recorded HUMAN usercmd (fwd class "
+                     "from the recorded forwardmove, so it exercises ALL four gates) — the positive control "
+                     "showing the sim-fidelity ceiling; read the policy RELATIVE to it, not vs an absolute "
+                     "bar. The INTERNAL instrument that de-circularises training decisions — NOT the "
+                     "superhuman CLAIM, which still needs an owner-gated live recorded run + pov_fuse (docs/28)."),
+        }
     return report
 
 
@@ -1028,18 +1081,32 @@ def _anchor_band_summary(anchors_obj, player_band) -> dict:
     }
 
 
-def _build_caveats() -> dict:
+def _aim_head_label(aim_mode: str) -> str:
+    """Measurement-plane label for the executed view yaw (provenance: which aim plane the grade saw)."""
+    return {"policy": "POLICY_SELF_YAW", "optimal": "OPTIMAL_ANALYTIC"}.get(aim_mode, "REPLAYED")
+
+
+def _aim_plane_note(aim_mode: str) -> str:
+    """One-line description of the executed-view-yaw plane, keyed on aim_mode (NOT hard-coded replayed)."""
+    if aim_mode == "policy":
+        return ("view yaw = the POLICY's OWN self-yaw head (forward_with_yaw), integrated per tick -> the "
+                "route-grade is measured on the policy's SELF-YAW plane, NOT replayed human aim.")
+    if aim_mode == "optimal":
+        return ("view yaw = the greedy speed-OPTIMAL analytic air-strafe yaw (RL STEP-0 ceiling diagnostic); "
+                "the obs used the replayed human yaw.")
+    return ("view yaw/pitch REPLAYED from the recorded human (AIM deferred): movement/jump heads are the "
+            "policy's, the view is the human's.")
+
+
+def _build_caveats(aim_mode: str = "replayed") -> dict:
     return {
         "eval_mode": "closed_loop",
         "what_closed_loop_means": (
             "The policy DRIVES pmove_sim with the sim's own evolving state fed back "
             "each tick (not re-anchored to human state), so G-MV1/G-MV3/G-MV4 and route "
             "retention are scored on the BOT's own resulting trajectory."),
-        "aim_head": "REPLAYED",
-        "aim_head_detail": (
-            "The BROAD policy clones movement/jump/attack but NOT view. The view "
-            "yaw/pitch each tick is REPLAYED from the recorded human; G-MV1 measures the "
-            "bot's yaw-vs-its-own-velocity over the bot's motion under that facing."),
+        "aim_head": _aim_head_label(aim_mode),
+        "aim_head_detail": _aim_plane_note(aim_mode),
         "solo_roam": (
             "No enemies in the sim -> encode_observation is called with observed_others=[] "
             "(entity channel all-pad + zero mask). Combat dynamics are out of scope here."),
@@ -1094,6 +1161,11 @@ def main(argv=None) -> int:
                          "speed-optimal air-strafe (RL STEP-0 ceiling), or 'policy' = the "
                          "policy's OWN yaw head (self-yaw; the RL movement-v5 mechanism). "
                          "'policy' needs a yaw-head ckpt (forward_with_yaw).")
+    ap.add_argument("--grade-route", action="store_true",
+                    help="ALSO emit the D1 honest OFFLINE route-grade of the policy rollout "
+                         "(on_route + faster_than_human + clean_mechanism + completed_route, per "
+                         "segment). Additive (leaves the G-MV battery untouched); use with --aim policy. "
+                         "The INTERNAL instrument, NOT the superhuman claim (that needs a live recording).")
     args = ap.parse_args(argv)
 
     report = run_eval(
@@ -1102,7 +1174,7 @@ def main(argv=None) -> int:
         anchors=args.anchors, player_band=args.player_band,
         map_name=args.map, n_max=args.n_max, cpu=args.cpu,
         goal_mode=args.goal_mode, resource_coords_path=args.resource_coords,
-        aim_mode=args.aim,
+        aim_mode=args.aim, grade_route=args.grade_route,
     )
     out = Path(args.out).expanduser()
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -1131,8 +1203,19 @@ def main(argv=None) -> int:
              report["bot_policy"]["route"]["longest_stall_s"]), flush=True)
     print("  CONTROLS: recorded-human should PASS G-MV1; face-and-run should FAIL G-MV1.",
           flush=True)
-    print("  CAVEATS: closed-loop; AIM replayed; solo-roam; MOVE mag=400; attack not driven.",
+    print("  CAVEATS: closed-loop; AIM=%s; solo-roam; MOVE mag=400; attack not driven." % args.aim,
           flush=True)
+    if args.grade_route and "route_grade" in report:
+        _rg = report["route_grade"]["summary"]
+        print("  ROUTE-GRADE (D1 offline): seg_passed=%d/%d  all_passed=%s  median_ratio=%s  median_rmse=%s qu"
+              % (round(_rg["seg_passed_frac"] * _rg["n_segments"]), _rg["n_segments"],
+                 _rg["all_passed"], _rg["median_speedup_ratio"], _rg["median_route_rmse_qu"]), flush=True)
+        _rc = report["route_grade"]["recorded_control"]
+        print("    CONTROL (recorded human): seg_passed=%d/%d  median_ratio=%s  (expect ~1.0 -> judge calibrated)"
+              % (round(_rc["seg_passed_frac"] * _rc["n_segments"]), _rc["n_segments"], _rc["median_speedup_ratio"]),
+              flush=True)
+        print("    (offline instrument only; the superhuman CLAIM needs a live recording + pov_fuse.)",
+              flush=True)
     # exit non-zero if the discrimination controls are wrong (the judge is invalid),
     # so a CI consumer never trusts a run whose controls failed.
     rec_ok = rec["G_MV1"].get("passed") is True

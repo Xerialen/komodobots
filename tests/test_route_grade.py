@@ -143,6 +143,65 @@ class TestRouteGrade(unittest.TestCase):
         traj = [tick(x, 0.0, 600.0, 0.0, onground=False, fwd_am=0) for x in _XS]
         self.assertEqual(G.grade_trajectory(traj, ROUTE), G.grade_trajectory(traj, ROUTE))
 
+    # --- D1 wiring helpers: prep_traj_for_grade (guards iii/iv) + aggregate_route_grades ---
+
+    def test_prep_rescues_superhuman_overrun(self):
+        # Guard (iii), THE top misgrade risk. A faster bot reaches the route END and overruns past it
+        # (x=0..1500 on a 0..1000 route). project_onto_polyline clamps the overrun ticks to the final
+        # vertex, so their off-route distance = the overrun -> raw RMSE inflates -> on_route FALSE-FAILs
+        # the SUPERHUMAN behaviour. prep truncates at the route end -> on_route holds.
+        traj = [tick(float(x), 0.0, 600.0, 0.0, onground=False, fwd_am=0) for x in range(0, 1501, 100)]
+        raw = G.grade_trajectory(traj, ROUTE)
+        kept = G.prep_traj_for_grade(traj, ROUTE)
+        prepped = G.grade_trajectory(kept, ROUTE)
+        self.assertFalse(raw["on_route"], "overrun clamped to the endpoint inflates RMSE -> raw FALSE-FAILs")
+        self.assertTrue(prepped["on_route"], "prep truncates at the route end -> on_route holds")
+        self.assertLessEqual(max(t["ox"] for t in kept), 1000.0 + 1e-6)
+
+    def test_prep_keeps_clean_in_route_run(self):
+        # A run that stays within the route (x=100..900) is returned intact — prep is a no-op there.
+        traj = [tick(x, 0.0, 600.0, 0.0, onground=False, fwd_am=0) for x in _XS]
+        self.assertEqual(len(G.prep_traj_for_grade(traj, ROUTE)), len(traj))
+
+    def test_prep_drops_zero_vref_ticks(self):
+        # Guard (iv): a route whose human speed dips to ~0 over a stretch (a pause) -> route_speedup
+        # gives ratio 0 there, which would drag the speedup median. prep drops those ticks.
+        route = {"polyline": [(float(i * 100), 0.0, 0.0) for i in range(11)],
+                 "speeds": [400.0] * 4 + [0.0, 0.0, 0.0] + [400.0] * 4, "total_len": 1000.0}
+        traj = [tick(float(x), 0.0, 600.0, 0.0, onground=False, fwd_am=0) for x in range(0, 1001, 100)]
+        kept = G.prep_traj_for_grade(traj, route)
+        self.assertLess(len(kept), len(traj))
+        self.assertNotIn(500.0, [t["ox"] for t in kept], "the paused (v_ref~0) tick is dropped")
+
+    def test_none_fwd_am_is_safe(self):
+        # The recorded positive control stores fwd_am=None (the human press-class is untracked in the
+        # sim); grading must NOT crash on int(None) — None is treated as not-pressed.
+        traj = [{"ox": x, "oy": 0.0, "oz": 0.0, "vx": 600.0, "vy": 0.0, "onground": False, "fwd_am": None}
+                for x in _XS]
+        g = G.grade_trajectory(traj, ROUTE)          # must not raise
+        self.assertTrue(g["clean_mechanism"])        # None -> not pressed -> clean
+
+    def test_aggregate_all_pass(self):
+        g = G.grade_trajectory([tick(x, 0.0, 600.0, 0.0, onground=False, fwd_am=0)
+                                for x in range(50, 951, 50)], ROUTE)
+        self.assertTrue(g["passed"])
+        agg = G.aggregate_route_grades([g, g, g])
+        self.assertEqual(agg["n_segments"], 3)
+        self.assertTrue(agg["all_passed"])
+        self.assertEqual(agg["seg_passed_frac"], 1.0)
+
+    def test_aggregate_mixed_and_empty(self):
+        good = G.grade_trajectory([tick(x, 0.0, 600.0, 0.0, onground=False, fwd_am=0)
+                                   for x in range(50, 951, 50)], ROUTE)
+        bad = G.grade_trajectory([tick(x, 0.0, 150.0, 0.0, onground=False, fwd_am=2) for x in _XS], ROUTE)
+        self.assertTrue(good["passed"])
+        self.assertFalse(bad["passed"])
+        agg = G.aggregate_route_grades([good, bad])
+        self.assertEqual(agg["seg_passed_frac"], 0.5)
+        self.assertFalse(agg["all_passed"])
+        self.assertEqual(G.aggregate_route_grades([])["n_segments"], 0)
+        self.assertFalse(G.aggregate_route_grades([])["all_passed"])
+
 
 if __name__ == "__main__":
     unittest.main()
