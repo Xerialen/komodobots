@@ -9,6 +9,7 @@ verification detects severed artifact lineage.
 """
 import json
 import logging
+import os
 import sys
 import tempfile
 import unittest
@@ -30,9 +31,10 @@ def _args(**over):
     return a
 
 
-def _grade(frac=0.5, ratio=1.1, rmse=20.0):
+def _grade(frac=0.5, ratio=1.1, rmse=20.0, n=12, invalid=0, degenerate=0):
     return {"seg_faster_frac": frac, "median_speedup_ratio": ratio,
-            "median_route_rmse_qu": rmse}
+            "median_route_rmse_qu": rmse, "n_segments": n,
+            "n_ref_invalid": invalid, "n_ref_degenerate": degenerate}
 
 
 class TestWriterReaderRoundtrip(unittest.TestCase):
@@ -149,6 +151,45 @@ class TestProvenance(unittest.TestCase):
         sha, source = XR.resolve_code_version("d" * 40, tree_root="/nonexistent")
         self.assertEqual((sha, source), ("d" * 40, "arg"))
 
+    def test_selector_refused_grade_is_ineligible(self):
+        # Codex #473 P1: the registry must mirror the SELECTOR's valid-reference floor
+        # (rank_by_route_grade min_valid_segments) — a grade built on too few valid
+        # sim-human references (invalid/degenerate controls) must never rank, even
+        # with a healthy-looking seg_faster_frac.
+        with tempfile.TemporaryDirectory() as td:
+            reg = Path(td) / "r.jsonl"
+            c1 = XR.start_run(reg, _args(), {}, git_sha="a" * 40, now=1000.0)
+            XR.finalize_run(reg, c1, {"route_grade_summary":
+                                      _grade(frac=1.0, n=12, invalid=6, degenerate=4)},
+                            now=1060.0)   # valid = 2 < default min 3
+            c2 = XR.start_run(reg, _args(), {}, git_sha="a" * 40, now=2000.0)
+            XR.finalize_run(reg, c2, {"route_grade_summary":
+                                      _grade(frac=0.4, n=12, invalid=6, degenerate=3)},
+                            now=2060.0)   # valid = 3 >= 3
+            runs = XR.join_runs(XR.read_records(reg))
+            ok1, reason1 = XR.eligible(runs[c1["run_id"]])
+            self.assertFalse(ok1)
+            self.assertIn("valid-reference", reason1)
+            self.assertTrue(XR.eligible(runs[c2["run_id"]])[0])
+            ranked = XR.rank_runs(runs)
+            all_ranked = [rid for rs in ranked.values() for rid, _ in rs]
+            self.assertEqual(all_ranked, [c2["run_id"]],
+                             "the phantom 1.0 grade (2 valid refs) must not outrank "
+                             "the honest 0.4 grade (3 valid refs)")
+
+    def test_min_valid_comes_from_the_runs_own_args(self):
+        with tempfile.TemporaryDirectory() as td:
+            reg = Path(td) / "r.jsonl"
+            c = XR.start_run(reg, _args(select_grade_min_valid=5), {},
+                             git_sha="a" * 40, now=1000.0)
+            XR.finalize_run(reg, c, {"route_grade_summary":
+                                     _grade(n=12, invalid=8, degenerate=0)},
+                            now=1060.0)   # valid = 4 >= default 3, but < the run's own 5
+            runs = XR.join_runs(XR.read_records(reg))
+            ok, reason = XR.eligible(runs[c["run_id"]])
+            self.assertFalse(ok)
+            self.assertIn("min 5", reason)
+
     def test_ungraded_run_ineligible_but_completed(self):
         with tempfile.TemporaryDirectory() as td:
             reg = Path(td) / "r.jsonl"
@@ -174,6 +215,27 @@ class TestVerifyAndDiff(unittest.TestCase):
             self.assertEqual(XR.main(["--registry", str(reg), "verify"]), 1)
             ck.unlink()
             self.assertEqual(XR.main(["--registry", str(reg), "verify"]), 1)
+
+    def test_verify_is_cwd_independent_for_relative_ckpt_paths(self):
+        # Codex #473 P2: a relative --out-ckpt stored raw would be re-resolved against
+        # the VERIFIER's cwd — finalize must store the resolved absolute path so
+        # lineage verification works from anywhere.
+        old_cwd = Path.cwd()
+        with tempfile.TemporaryDirectory() as td, tempfile.TemporaryDirectory() as elsewhere:
+            try:
+                os.chdir(td)
+                reg = Path(td) / "r.jsonl"
+                Path("runs").mkdir()
+                rel_ck = Path("runs") / "model.pt"     # RELATIVE, like a real --out-ckpt
+                rel_ck.write_bytes(b"weights-v1")
+                c = XR.start_run(reg, _args(out_ckpt=str(rel_ck)), {}, git_sha="a" * 40)
+                rec = XR.finalize_run(reg, c, {"route_grade_summary": _grade()},
+                                      ckpt_path=rel_ck)
+                self.assertTrue(Path(rec["ckpt"]["path"]).is_absolute())
+                os.chdir(elsewhere)                     # verify from a DIFFERENT cwd
+                self.assertEqual(XR.main(["--registry", str(reg), "verify"]), 0)
+            finally:
+                os.chdir(old_cwd)
 
     def test_diff_reports_config_delta_only(self):
         with tempfile.TemporaryDirectory() as td:

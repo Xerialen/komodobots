@@ -222,6 +222,10 @@ def finalize_run(registry_path, ctx, result, ckpt_path=None, now=None):
     """Append the final record: selection outcome + honest grade + ckpt lineage."""
     ts = float(now) if now is not None else time.time()
     ck_sha, ck_bytes = sha256_file(ckpt_path) if ckpt_path else (None, None)
+    # Resolve the ckpt path at finalization time: a relative --out-ckpt stored raw
+    # would later be resolved against the VERIFIER's cwd — false missing/mismatch
+    # lineage failures from any other directory.
+    ck_path = str(Path(ckpt_path).expanduser().resolve()) if ckpt_path else None
     record = {
         "record_schema": RECORD_SCHEMA, "kind": "final",
         "run_id": ctx["run_id"],
@@ -231,8 +235,7 @@ def finalize_run(registry_path, ctx, result, ckpt_path=None, now=None):
         "status": "completed",
         "wall_time_s": round(ts - ctx.get("t_start", ts), 1),
         "result": dict(result or {}),
-        "ckpt": {"path": (str(ckpt_path) if ckpt_path else None),
-                 "sha256": ck_sha, "bytes": ck_bytes},
+        "ckpt": {"path": ck_path, "sha256": ck_sha, "bytes": ck_bytes},
     }
     _append(registry_path, record)
     return record
@@ -275,25 +278,49 @@ def join_runs(records):
     return runs
 
 
+def valid_segments(summary):
+    """Valid-reference segment count — mirrors route_grade.rank_by_route_grade's
+    valid_segs: segments whose sim-human control was neither invalid (off-route/
+    incomplete) nor degenerate (stalled)."""
+    return (summary.get("n_segments", 0) - summary.get("n_ref_invalid", 0)
+            - summary.get("n_ref_degenerate", 0))
+
+
 def eligible(run):
-    """(ok, reason). Eligible for ranking = completed + full provenance + a route grade."""
+    """(ok, reason). Eligible for ranking = completed + full provenance + a route grade
+    the SELECTOR itself would trust: the same min-valid-reference floor the training
+    selector applies (rank_by_route_grade min_valid_segments, from the run's own
+    recorded --select-grade-min-valid, default 3) — the registry must never rank a
+    grade built on too few valid sim-human references."""
     if run.get("final") is None:
         return False, "incomplete (no final record — crashed or still running)"
     if (run["final"].get("provenance_incomplete")
             or (run["start"] or {}).get("provenance_incomplete")):
         return False, "provenance_incomplete (no code version pinned)"
-    if not (run["final"].get("result") or {}).get("route_grade_summary"):
+    summ = (run["final"].get("result") or {}).get("route_grade_summary")
+    if not summ:
         return False, "no route_grade_summary (run not graded by the honest route-grade)"
+    min_valid = ((run["start"] or {}).get("args", {}) or {}).get("select_grade_min_valid")
+    min_valid = 3 if min_valid is None else int(min_valid)
+    nv = valid_segments(summ)
+    if nv < min_valid:
+        return False, (f"only {nv} valid-reference segment(s) < min {min_valid} "
+                       f"(the route-grade selector would refuse this grade)")
     return True, "eligible"
 
 
+def grade_key(summary):
+    """The canonical route-grade ordering (higher = better): faster-fraction first,
+    then median speedup, then LOWER route RMSE. Mirrors route_grade.rank_by_route_grade
+    (kept local: this CLI must run standalone with no repo sys.path setup); public so
+    the #429 tuning driver aggregates with the SAME ordering instead of a third copy."""
+    return (summary.get("seg_faster_frac", 0.0),
+            summary.get("median_speedup_ratio", 0.0),
+            -summary.get("median_route_rmse_qu", 0.0))
+
+
 def _grade_key(run):
-    # Mirrors route_grade.rank_by_route_grade's ordering (kept local: this CLI must
-    # run standalone with no repo sys.path setup).
-    s = run["final"]["result"]["route_grade_summary"]
-    return (s.get("seg_faster_frac", 0.0),
-            s.get("median_speedup_ratio", 0.0),
-            -s.get("median_route_rmse_qu", 0.0))
+    return grade_key(run["final"]["result"]["route_grade_summary"])
 
 
 def rank_runs(runs):
