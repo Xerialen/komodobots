@@ -28,7 +28,7 @@ Status legend: **LANDED** (on main) · **PROPOSED** (recommended, awaiting owner
 - **Backtrack:** it is an **additive** new eval mode (no data-contract/model change). If the offline grade
   proves unrepresentative of live behavior → stop using it and fall back to standing up the PPO→live bridge
   (separate ticket) + #464's live path. Reverting = delete the eval mode; nothing else depends on it.
-- **Impl note (scoped 2026-07-01):** ADAPT, don't green-field. `ml/eval_broad_closedloop.py` (1150 ln)
+- **Impl note (scoped 2026-07-01) — ⚠ SUPERSEDED; see WIRING SCOPE below (crux was INVERTED; kept for backtrack audit):** ADAPT, don't green-field. `ml/eval_broad_closedloop.py` (1150 ln)
   ALREADY runs the closed-loop rig (seed `pmove_sim.PlayerState` → policy 5 heads → usercmd → step → feed
   back) and has `route_metrics` / `aggregate_route_metrics`. It's built for the FROZEN BC mover (analytic
   `optimal_strafe_yaw`, no view head) graded by the G-MV believability battery + a path-length/anti-stall
@@ -42,6 +42,36 @@ Status legend: **LANDED** (on main) · **PROPOSED** (recommended, awaiting owner
   in `tests/test_route_grade.py`, incl. `test_r5_hybrid_fails_despite_low_rmse` (proves the paired criteria
   catch the hybrid route-MSE-alone passes). Full floor green (1894 OK). FOLLOW-UP increment: wire it into
   `ml/eval_broad_closedloop.py` to drive the PPO self-yaw ckpt through pmove_sim (torch-side, CI-only).
+- **WIRING SCOPE — auditor + nblm reviewed 2026-07-01 (crux INVERTED; the build is SMALLER than an "increment", not bigger).**
+  The impl-note's "built only for the frozen BC mover / PPO forward-pass not reachable" fear is FALSE:
+  `ml/eval_broad_closedloop.py` ALREADY loads + steps an `rl_onspeed` PPO **self-yaw** ckpt — `run_eval` →
+  `_build_policy_from_checkpoint` (`eval_broad_believability.py:488-525`, reads `yaw_head`, strict-loads `state_dict`)
+  + `closed_loop_rollout(aim_mode="policy")` (`:729-737`, `forward_with_yaw` → integrates `policy_yaw`), and that exact
+  path runs in PRODUCTION today from the RL loop (`rl_onspeed.py:978-985`). `optimal_strafe_yaw` (`:160`) is a SEPARATE
+  analytic overlay (`aim_mode="optimal"`), NOT the BC mover; the frozen 6-feat mover is the serving-path
+  `move_bc_policy.pt`, never loaded here. So NO new policy-runner, NO obs re-featurization, ONE obs-space/norm-artifact.
+  **The true increment = 3 additive pieces:** (1) per-tick collect `{ox,oy,oz,vx,vy,onground,fwd_am}` — all already in the
+  loop; only `oz` + `fwd_am` (= the press **CLASS** `pred_cls[0]`, NOT the magnitude) need storing; return as a 7th element
+  from `closed_loop_rollout` (`:625`; only unpack site = `run_eval:883-884`, and `rl_onspeed` calls `run_eval` not
+  `closed_loop_rollout`, so it is insulated). (2) build the `route` (`polyline`/`speeds`/`total_len`, 3D) from `seg["self"]`
+  — code already exists at `rl_onspeed._reset_state:267-272`, the SAME route `route_speedup` consumes → grade's ratio ==
+  reward's by construction. (3) call `grade_trajectory` as a NEW `--grade route` report section.
+  **⚠ THE ONE LANDMINE — ADD alongside, do NOT remove/replace the G-MV battery inside `run_eval`.** Its gates are read LIVE
+  by the RL loop's checkpoint selection (`eval_metric_vector:986-997`, `_eval_press_screen:923-927`); removing them = a
+  SILENT cross-module break with NO local test catch (no torch on aws-dev). This is the ONLY reason D1's "delete the mode"
+  backtrack rule holds — it holds iff we ADD, never SWAP. (Corrects the impl-note's wrong "(b) replace the believability battery".)
+  **5 misgrade traps to code right (else false PASS/FAIL):** (i) `fwd_am` as CLASS not magnitude — else `clean_mechanism`
+  always-passes (the #466 analog); (ii) grade PER-SEGMENT then aggregate — pooling injects a teleport at each seg join;
+  (iii) terminate the graded window at arc-coverage ≈1.0 — else a genuinely superhuman run overruns the human route-end,
+  RMSE inflates, and the gate FALSE-FAILs the behavior docs/28 WANTS; (iv) guard the ratio near `v_ref≈0` (ratio=0 ticks
+  drag the median → false FAIL; tiny-nonzero → blowup → false PASS); (v) monotonic/windowed arc projection on
+  self-intersecting dm3 routes (nearest-segment snap can pick the wrong arc). Build in a fresh `/tmp` worktree off
+  origin/main (working tree is behind at `f6d571c`; the `route_grade`/`reward_onspeed`/`route_geom` files exist only on origin/main).
+- **SEQUENCING (both reviewers converge): D1-wire (aws-dev, now) ∥ D3 anchor-off training (pinnacle, autonomous) — D1
+  GATES the conclusion.** They don't block each other (training-compute is autonomous on pinnacle; D1 is CI-only on
+  aws-dev); the D3 anchor-off ckpt doubles as D1's end-to-end smoke-test fixture. The only hard ordering is
+  INTERPRETATION: do NOT claim anchor-off "better" until D1's honest grade confirms it (R5's 0.315 is the circular
+  reward-return, Codex-BLOCKed non-reproducible). Supersedes the auto-memory `phase2-reward-reframe.md` "proof-run first" line.
 
 ## D2 — Honest gate = route-shape MSE **+** faster-than-human **+** press-fraction/air-vs-ground (+ visual)
 - **Decision:** the pass criterion is NOT route-MSE alone. It is: (a) route-shape adherence (MSE) as a
