@@ -4444,3 +4444,43 @@ stdlib gate green (`python -m unittest discover -s tests`, incl. the new failing
 for the torch-gated `rl_onspeed.py`. The BEHAVIORAL proof (does the policy stop bulldozing and complete the route
 faster?) is the owner-gated pinnacle round R2 — offline metrics + trajectory only; the live MVD publish stays
 owner-gated (docs/28: no success claim without a viewable recording).
+
+## 2026-07-02 — D7 (#427): potential-based sustain-speed shaping + speed/adherence rebalance arms
+
+### Context
+
+The long-run convergence probe (3 × 2M steps of the 20260702b sweep winner — the program's first
+convergence datum; no prior run exceeded ~360k steps) delivered the pre-registered D7 trigger: honest
+ranked `seg_faster_frac` EXACTLY flat across 2M/4M/6M (3-of-27) while route-RMSE kept falling, and the
+tertiary never-ranked set showed the route-hugger signature (on_route → 1.000, faster DECLINING from the
+2M point). 30× compute ⇒ compute ruled out; the reward's geometry (dense speed-independent adherence pay,
+one-directional gain credit — decay free) is the binding constraint. Evidence, provenance and the dual
+pre-flight review (auditor + NotebookLM) live in `plans/d7-sustain-shaping.md`; the pre-registration
+amendment (D6 precondition waived on `fwd_press 0.000` evidence) is logged in the D7 entry of
+`plans/phase2-next-step-decisions.md`.
+
+### Decision
+
+(1) Add `f_sustain` to the #427 reward: `F = γ·Φ(e′) − Φ(e)` with Φ = the speed-ladder potential
+(closed-form integral of `1/phi`, the same "perfect pump-ticks" currency as `r_phi_raw`) over an
+hspeed-EMA carried in the reward carry — potential-based on the augmented state ⇒ policy-invariant
+(re-times credit: sustained decay is charged as it happens; cannot move the optimum or prescribe motion —
+the r_cad trap the pre-registration excluded). Additive, `w_sustain` DEFAULT 0.0 = OFF (byte-identical
+reward), `sustain_gamma` 0.99 test-mirrored to `compute_gae`. The EMA (not raw hspeed) is load-bearing:
+a per-tick clip over raw hspeed turns bhop's routine friction-tick sawtooth into ~+0.7/tick PHANTOM
+income at constant speed — found at implementation, pinned as a permanent regression test.
+(2) Sweep-space v2 (`tune_onspeed`): PPO dims PINNED to the sweep-2 winner; sampled dims = the reward
+geometry only (`w_press`, `w_strafe` ↓0.0–0.6, `w_vel` ↑1.0–3.0, `w_sustain` {0 w.p. 0.3} ∪
+log-u(0.05, 0.6)); trial 0 = the pinned winner with pre-D7 geometry, ALWAYS seed-verified; the verdict
+EXECUTES the pre-registered promotion rule (beats-control margin ≥ one ranked-segment quantum) + a
+tertiary mechanism guard (`seg_clean_mechanism_frac ≥ 0.9`, fail-closed).
+
+### Verification
+
+stdlib floor green (1982 tests, +16 new: telescoping-exact, sawtooth-no-phantom-income,
+decay-charged/gain-credited, default-off parity, γ-mirror, reads-only-speed, sanity-net-never-engages,
+key validation; driver: control-verified, promotion-margin + mechanism-guard VIOLATING cases).
+`py_compile` clean for the torch-gated `rl_onspeed.py`. The behavioral answer is the §4 protocol on
+pinnacle (200k sweep vs the always-verified control → at most ONE promoted 2M point read against the
+probe curve, manual non-gating comparison); superhuman_claim stays false; any live/MVD publish stays
+owner-gated (docs/28 recording mandate).

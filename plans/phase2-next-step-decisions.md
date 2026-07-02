@@ -194,10 +194,26 @@ Status legend: **LANDED** (on main) · **PROPOSED** (recommended, awaiting owner
   DROPPED r_cad (w_cad=0) because it was a believability/imitation anchor that capped performance.
   Outcome-shaping (perp_frac) is the info-honest default; a yaw-coordination term risks re-introducing the
   same over-specification / imitation trap.
-- **Status:** PARKED. Return to it ONLY if the honest route-grade (D1) shows the sustain-speed problem
-  persists after D6 (phase-correct forward penalty) + #429 (`w_press`) + decision B (anchor off). Evaluate
-  against D1, never blind. (Under review by auditor + nblm 2026-07-01.)
-- **Backtrack:** additive `--reward-weight`-gated term → revert = weight 0. No data-contract change.
+- **Status:** ~~PARKED~~ → **IN PROGRESS (2026-07-02, owner-authorized design round)** — the return
+  trigger FIRED with the long-run convergence probe (3 × 2M steps of the sweep-2 winner, the program's
+  first convergence datum): honest ranked `seg_faster_frac` EXACTLY flat across 2M/4M/6M while the
+  tertiary never-ranked set showed the route-hugger signature (adherence → 1.000, faster DECLINING) —
+  30× compute ruled out; reward geometry is the binding constraint. Full evidence + design:
+  **`plans/d7-sustain-shaping.md`** (dual pre-flight reviewed; auditor + NotebookLM must-fixes folded).
+  - **AMENDMENT to the pre-registered trigger (formal, per the NotebookLM review):** the trigger
+    required persistence "after **D6**" — D6 is designed but NOT landed. The D6 precondition is WAIVED
+    on direct evidence: the failure mode D6 targets (ground `+forward` bulldoze) measured `fwd_press
+    0.000` in every probe stage's rollouts, so gating this round on a fix for a non-occurring behavior
+    serves no honesty purpose. Logged here as a formal amendment (not a footnote); owner ratification =
+    approving the D7 plan/PR. D6 itself stays parked, unchanged.
+  - **Scope note:** the implemented Φ is over (an EMA of) horizontal SPEED — the graded gap — not the
+    entry's sketched Φ(perp_frac) (already densely paid via `r_strafe`; the probe shows the mechanism
+    is present). Every pre-registered constraint holds: potential-based `F = γΦ(e′)−Φ(e)`, invariant,
+    outcome-not-prescription, never keyed to yaw-rate/hold-length/cadence (test-locked). The companion
+    rebalance sweep-arms (`w_strafe`/`w_vel`, #429 lineage) ride the same round — pre-registration home
+    for both is `plans/d7-sustain-shaping.md` §3–§4.
+- **Backtrack:** additive `--reward-weight`-gated term → revert = weight 0 (the shipped default). No
+  data-contract change.
 
 ## D8 — Recalibrate the offline grade's faster-than-human bar to RELATIVE (#428, LANDED — this PR)
 - **Decision:** the offline route-grade's `faster_than_human` criterion changes from an ABSOLUTE bar (bot

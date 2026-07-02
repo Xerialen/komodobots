@@ -442,6 +442,7 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
     hsp_log, fwdpress_log, rcad_log, rpress_log, rvel_log = [], [], [], [], []
     # #427-R2 per-term diagnostics (which term bit + ground-vs-air) for the iter-log breakdown.
     pcollide_log, rphi_log, rstrafe_log, aprate_log, onground_log = [], [], [], [], []
+    fsus_log = []   # D7 sustain-shaping term (f_sustain; nonzero gradient only when w_sustain>0)
 
     # current obs per env
     cur = [e._cur_obs if hasattr(e, "_cur_obs") else e.reset() for e in envs]
@@ -491,6 +492,7 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
             rvel_log.append(info["r_vel"])      # #427 new-objective diagnostic (route-relative speedup)
             pcollide_log.append(info["p_collide"]); rphi_log.append(info["r_phi"])
             rstrafe_log.append(info["r_strafe"]); aprate_log.append(info["ap_rate"])
+            fsus_log.append(info["f_sustain"])
             onground_log.append(1.0 if info["onground"] else 0.0)
             if d:
                 obs = e.reset()
@@ -514,7 +516,7 @@ def collect_rollout(envs, rl, device, n_steps, *, deterministic=False):
         "hsp_log": hsp_log, "fwdpress_log": fwdpress_log, "rcad_log": rcad_log,
         "rpress_log": rpress_log, "rvel_log": rvel_log,
         "pcollide_log": pcollide_log, "rphi_log": rphi_log, "rstrafe_log": rstrafe_log,
-        "aprate_log": aprate_log, "onground_log": onground_log,
+        "aprate_log": aprate_log, "onground_log": onground_log, "fsus_log": fsus_log,
     }
 
 
@@ -650,6 +652,9 @@ def train(args, device):
     for kv in getattr(args, "reward_weight", None) or []:
         k, _, v = kv.partition("=")
         reward_weights[k.strip()] = float(v)
+    # D7 sweep-integrity guard: an unknown key would update nothing and silently train the
+    # CONTROL config (a typo'd sweep arm). Fail loud at parse time instead.
+    RW.validate_weight_keys(reward_weights)
     envs = [PmoveEnv(world, stats, segs, n_max=args.n_max, map_name=args.map,
                      horizon=args.ep_horizon, band_lo=band_lo, band_hi=band_hi, seed=1000 + i,
                      air_press_thresh=args.air_press_thresh,
@@ -718,6 +723,7 @@ def train(args, device):
         mean_pcollide = float(np.mean(roll["pcollide_log"])) if roll.get("pcollide_log") else 0.0
         mean_rphi = float(np.mean(roll["rphi_log"])) if roll.get("rphi_log") else 0.0
         mean_rstrafe = float(np.mean(roll["rstrafe_log"])) if roll.get("rstrafe_log") else 0.0
+        mean_fsus = float(np.mean(roll["fsus_log"])) if roll.get("fsus_log") else 0.0
         ground_frac = float(np.mean(roll["onground_log"])) if roll.get("onground_log") else 0.0
         # cadence proxy: fraction of ticks that scored a flip-reward (r_cad>0) -> rough
         # flips/min = flip_frac * (60000/13) so I can watch M6 recover during training.
@@ -730,7 +736,8 @@ def train(args, device):
               f"mean_hspeed={mean_hsp:6.1f} "
               f"fwd_press={fwd_press:.3f} fpm~{fpm_est:5.0f} "
               f"r_press={mean_rpress:.3f} ap_rate={mean_aprate:.3f} p_coll={mean_pcollide:.3f} "
-              f"r_phi={mean_rphi:.3f} r_strafe={mean_rstrafe:.3f} gnd={ground_frac:.2f} "
+              f"r_phi={mean_rphi:.3f} r_strafe={mean_rstrafe:.3f} f_sus={mean_fsus:+.3f} "
+              f"gnd={ground_frac:.2f} "
               f"pg={upd['pg']:+.4f} "
               f"vf={upd['vf']:.4f} ent={upd['ent']:.3f} kl_anchor={upd['kl_anchor']:.4f} "
               f"approx_kl={upd['approx_kl']:+.4f} yaw_std={float(rl.yaw_log_std.exp()):.2f} "
@@ -1411,8 +1418,10 @@ def main(argv=None):
     ap.add_argument("--reward-weight", action="append", default=[], metavar="KEY=VAL",
                     help="#427 (T5.1): override a Phase-2 reward weight, repeatable. Keys (defaults in "
                          "reward_onspeed.DEFAULT_WEIGHTS): w_vel/w_prog/w_phi/w_strafe/w_cad/w_press/"
-                         "w_collide/w_time/w_hack + v_sat/prog_scale. E.g. --reward-weight w_vel=1.2 "
-                         "--reward-weight w_cad=0.5 (re-enables the dropped believability cadence).")
+                         "w_collide/w_time/w_hack/w_sustain + v_sat/prog_scale + "
+                         "sustain_gamma/sustain_ema/sustain_cap/sustain_clip (D7 shaping, "
+                         "plans/d7-sustain-shaping.md). Unknown keys are REFUSED. E.g. "
+                         "--reward-weight w_vel=1.2 --reward-weight w_sustain=0.3.")
     ap.add_argument("--r-cad-weight", type=float, default=1.0,
                     help="DEPRECATED under #427 (the cadence rhythm is dropped: w_cad=0). Kept for "
                          "back-compat construction; use --reward-weight w_cad=<x> to re-enable. "

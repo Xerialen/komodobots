@@ -24,47 +24,66 @@ sys.path.insert(0, str(REPO_ROOT / "experiments" / "route_observatory"))
 import tune_onspeed as TN                 # noqa: E402
 import experiment_registry as XR          # noqa: E402
 import route_grade as RG                  # noqa: E402
+import reward_onspeed as RW               # noqa: E402
 
 
-def _summary(frac, ratio=1.0, rmse=20.0):
+def _summary(frac, ratio=1.0, rmse=20.0, clean=1.0):
+    # mirrors route_grade.aggregate_route_grades output; seg_clean_mechanism_frac is
+    # ALWAYS present there — the D7 mechanism guard fails closed on its absence.
     return {"seg_faster_frac": frac, "median_speedup_ratio": ratio,
             "median_route_rmse_qu": rmse, "n_segments": 12,
+            "seg_clean_mechanism_frac": clean,
             "n_ref_invalid": 0, "n_ref_degenerate": 0}
 
 
 class TestSampler(unittest.TestCase):
     def test_deterministic_and_bounded(self):
-        for i in range(1, 40):
+        # v2 space (D7): PPO dims PINNED to the sweep-2 winner; reward-geometry dims
+        # sampled within the documented bounds. w_sustain is capped at 0.6 (the
+        # gamma-drag guard) and keeps explicit 0.0 rebalance-only arms.
+        seen_zero = seen_live = False
+        for i in range(1, 60):
             a = TN.trial_config(429, i)
             b = TN.trial_config(429, i)
             self.assertEqual(a, b, "same (sweep_seed, index) must resample identically")
-            self.assertTrue(1e-5 <= a["lr"] <= 3e-4)
-            self.assertTrue(0.1 <= a["clip"] <= 0.3)
-            self.assertIn(a["kl_coef"], TN.KL_COEF_ARMS)
-            self.assertTrue(1e-4 <= a["ent_coef"] <= 3e-2)
-            self.assertIn(a["minibatch"], TN.MINIBATCH_GRID)
+            for k, v in TN.WINNER_PIN.items():
+                self.assertEqual(a[k], v, f"PPO dim {k} must stay pinned to the winner")
             self.assertLessEqual(a["minibatch"], 3072,
                                  "above the 12x256 rollout buffer a minibatch is a "
-                                 "silent full-batch alias (auditor MF-2)")
-            self.assertTrue(0.5 <= a["w_press"] <= 3.0)
+                                 "silent full-batch alias (v1 auditor MF-2)")
+            self.assertTrue(2.0 <= a["w_press"] <= 3.0)
+            self.assertTrue(0.0 <= a["w_strafe"] <= 0.6)
+            self.assertTrue(1.0 <= a["w_vel"] <= 3.0)
+            if a["w_sustain"] == 0.0:
+                seen_zero = True
+            else:
+                seen_live = True
+                self.assertTrue(0.05 <= a["w_sustain"] <= 0.6)
+        self.assertTrue(seen_zero and seen_live,
+                        "both w_sustain arms (0.0 and live) must occur — the P-vs-O readout")
 
-    def test_trial_zero_is_the_incumbent_control(self):
-        self.assertEqual(TN.trial_config(429, 0), {},
-                         "trial 0 = defaults (the named-baseline control)")
+    def test_trial_zero_is_the_pinned_winner_control(self):
+        c = TN.trial_config(429, 0)
+        self.assertEqual(c, TN.CONTROL_CONFIG)
+        self.assertEqual(c["w_sustain"], 0.0, "the control runs PRE-D7 reward geometry")
+        # the control's rebalance dims must equal the reward module's shipped defaults —
+        # that is what makes it the pre-D7 incumbent, not an arbitrary point
+        self.assertEqual(c["w_strafe"], RW.DEFAULT_WEIGHTS["w_strafe"])
+        self.assertEqual(c["w_vel"], RW.DEFAULT_WEIGHTS["w_vel"])
+
+    def test_reward_argv_keys_exist_in_reward_module(self):
+        # a sampled key missing from DEFAULT_WEIGHTS would be REFUSED by the trainer's
+        # validate_weight_keys — lock the linkage here so the space can't drift
+        for k in TN.REWARD_ARGV_KEYS:
+            self.assertIn(k, RW.DEFAULT_WEIGHTS)
 
     def test_kl_ceiling_pairing(self):
-        # auditor MF-3: anchor-off arm must raise the eligibility ceiling, anchored
-        # arms must keep the default — sampled across many indices.
-        seen_off = seen_on = False
-        for i in range(1, 60):
+        # v1's MF-3 pairing invariant, pinned form: EVERY v2 config is the anchor-off
+        # arm and must carry the raised eligibility ceiling.
+        for i in range(0, 30):
             c = TN.trial_config(7, i)
-            if c["kl_coef"] == 0.0:
-                seen_off = True
-                self.assertEqual(c["kl_anchor_ceiling"], 1e9)
-            else:
-                seen_on = True
-                self.assertEqual(c["kl_anchor_ceiling"], 0.32)
-        self.assertTrue(seen_off and seen_on, "both arms must occur in 60 samples")
+            self.assertEqual(c["kl_coef"], 0.0)
+            self.assertEqual(c["kl_anchor_ceiling"], 1e9)
 
     def test_different_sweep_seed_changes_the_draw(self):
         draws_a = [TN.trial_config(1, i) for i in range(1, 6)]
@@ -95,6 +114,19 @@ class TestArgvAndIdentity(unittest.TestCase):
         self.assertIn("--seed 0", s)
         self.assertNotIn("--reset-split", s,
                          "legacy invocation (no reset_split) must stay byte-identical")
+
+    def test_argv_routes_every_reward_dim_through_reward_weight(self):
+        # v2: w_strafe/w_vel/w_sustain must ride --reward-weight (the v1 driver
+        # special-cased only w_press — the rest would crash argparse as --w-strafe)
+        argv = TN.trial_argv("python3", "ml/rl_onspeed.py", self.DATA,
+                             TN.trial_config(429, 3), seed=0, steps=1000,
+                             out_ckpt="t003_s0.pt", registry="r.jsonl",
+                             git_sha="a" * 40, grade_segments=12, n_reset_segments=30)
+        s = " ".join(argv)
+        for k in TN.REWARD_ARGV_KEYS:
+            self.assertIn(f"--reward-weight {k}=", s)
+            self.assertNotIn("--" + k.replace("_", "-") + " ", s,
+                             f"{k} must never be emitted as a bare trainer flag")
 
     def test_argv_forwards_reset_split_when_set(self):
         argv = TN.trial_argv("python3", "ml/rl_onspeed.py", self.DATA, {},
@@ -379,6 +411,89 @@ class TestRunSweepEndToEnd(unittest.TestCase):
                               "a one-seed finalist must never be crowned at verify_seeds=3")
             self.assertIn("verify-seeds", v["refusal"])
             self.assertGreater(v["counts"]["crashed"], 0)
+
+    def test_control_always_seed_verified_and_margin_emitted(self):
+        # D7 §4.1-4.2 (plans/d7-sustain-shaping.md): trial 0 (0.2) is NOT top-K here
+        # (top_k=1 -> trial 2), yet must be seed-verified to the FULL quota so the
+        # verdict's promotion rule compares verified mean vs verified mean.
+        with tempfile.TemporaryDirectory() as td:
+            fake = self._fake_runner_factory([], {0: 0.2, 1: 0.4, 2: 0.8, 3: 0.3})
+            tert = lambda *a, **k: _summary(0.6)   # noqa: E731
+            a = self._args(Path(td) / "s")
+            a.top_k = 1
+            v = TN.run_sweep(a, runner=fake, tertiary=tert)
+            w = v["winner"]
+            self.assertIsNotNone(w)
+            self.assertEqual(w["control"]["n_runs"], a.verify_seeds,
+                             "the control must reach the full verification quota")
+            self.assertAlmostEqual(w["beats_control_margin"], 0.6, places=6)
+            self.assertAlmostEqual(w["promotion_quantum"], 1.0 / 12, places=6)
+            self.assertTrue(w["promotion_eligible"])
+
+    def test_promotion_ineligible_below_one_quantum(self):
+        # VIOLATING case (failure-class 7): the winner beats the control by 0.02 <
+        # one ranked-segment quantum (1/12) — crowned as sweep-best, but the
+        # pre-registered promotion rule must say NOT eligible (no 2M run).
+        with tempfile.TemporaryDirectory() as td:
+            fake = self._fake_runner_factory([], {0: 0.50, 1: 0.52, 2: 0.1, 3: 0.1})
+            tert = lambda *a, **k: _summary(0.5)   # noqa: E731
+            a = self._args(Path(td) / "s")
+            a.top_k = 1
+            v = TN.run_sweep(a, runner=fake, tertiary=tert)
+            w = v["winner"]
+            self.assertIsNotNone(w)
+            self.assertAlmostEqual(w["beats_control_margin"], 0.02, places=6)
+            self.assertFalse(w["promotion_eligible"])
+
+    def test_mechanism_guard_refuses_dirty_winner(self):
+        # D7 §4.3 VIOLATING case: fastest config, but tertiary seg_clean_mechanism_frac
+        # 0.5 < 0.9 — anchor-off geometry optimization must never crown a
+        # physics/bulldoze artifact, however fast it grades.
+        with tempfile.TemporaryDirectory() as td:
+            fake = self._fake_runner_factory([], {0: 0.2, 1: 0.4, 2: 0.8, 3: 0.3})
+            dirty = lambda *a, **k: _summary(0.7, clean=0.5)   # noqa: E731
+            v = TN.run_sweep(self._args(Path(td) / "s"), runner=fake, tertiary=dirty)
+            self.assertIsNone(v["winner"])
+            self.assertIn("mechanism_guard", v["refusal"])
+            self.assertIsNotNone(v["refused_candidate"])
+            self.assertFalse((Path(td) / "s" / "winners").exists(),
+                             "a mech-refused candidate must not be blessed")
+
+    def test_mechanism_guard_fails_closed_on_missing_field(self):
+        # absence of evidence is not evidence: a tertiary summary WITHOUT the
+        # mechanism field (legacy eval) must refuse, never silently pass.
+        with tempfile.TemporaryDirectory() as td:
+            fake = self._fake_runner_factory([], {0: 0.2, 1: 0.4, 2: 0.8, 3: 0.3})
+
+            def legacy_tert(*a_, **k):
+                s = _summary(0.6)
+                del s["seg_clean_mechanism_frac"]
+                return s
+
+            v = TN.run_sweep(self._args(Path(td) / "s"), runner=fake,
+                             tertiary=legacy_tert)
+            self.assertIsNone(v["winner"])
+            self.assertIn("mechanism_guard", v["refusal"])
+
+    def test_under_verified_control_fails_promotion_closed(self):
+        # the control completes seed 0 then every verification seed crashes: the winner
+        # (own quota met) is still crowned, but the margin is UNKNOWN -> promotion must
+        # fail CLOSED, never compare a 2-seed winner mean to a 1-seed control point.
+        with tempfile.TemporaryDirectory() as td:
+            def frac(idx, seed):
+                if idx == 0:
+                    return 0.2 if seed == 0 else None
+                return {1: 0.4, 2: 0.8}.get(idx, 0.1)
+
+            fake = self._fake_runner_factory([], frac_fn=frac)
+            tert = lambda *a, **k: _summary(0.6)   # noqa: E731
+            a = self._args(Path(td) / "s")
+            a.top_k = 1
+            v = TN.run_sweep(a, runner=fake, tertiary=tert)
+            w = v["winner"]
+            self.assertIsNotNone(w)
+            self.assertIsNone(w["beats_control_margin"])
+            self.assertFalse(w["promotion_eligible"])
 
     def test_sweep_refuses_without_code_version(self):
         with tempfile.TemporaryDirectory() as td:
