@@ -92,8 +92,22 @@ resume — a one-seed finalist is never crowned (Codex #474 round-2).
 | w_press | uniform [0.5, 3.0] | THE R5 lever (anti-bulldoze strength), default 1.0 |
 
 Fixed per sweep (journaled; several are environment_hash pins): steps/trial, n_envs 12, rollout_steps 256,
-ppo_epochs 4, vf_coef 0.5, horizon 385, ep_horizon 385, n_reset_segments 64, select_grade_segments 12,
-select_grade_min_valid 3, split "val", map dm3, db/bsp/norm/anchors/init_ckpt, target_kl 0.03.
+ppo_epochs 4, vf_coef 0.5, horizon 385, ep_horizon 385, n_reset_segments (FORWARDED by the driver — see
+the pool budget below; 30 on the current val slice), select_grade_segments 12, select_grade_min_valid 3,
+split "val", map dm3, db/bsp/norm/anchors/init_ckpt, target_kl 0.03.
+
+## Pool budget (learned from the FIRST real sweep, 20260702 — an honest full-refusal)
+
+The reset states, the ranking holdout and the tertiary test set all draw from ONE shared ordering (the
+same `select_start_segments` qualifier behind both `build_segments` and the eval — disjointness is exact).
+The val dm3-slice pool measured **54 qualifying episodes at horizon 385**; the trainer's default
+`--n-reset-segments 64` consumed everything, the skip-64 ranking holdout came up EMPTY (n_segments=0 in
+every journal record), selection fell back on every trial, and the verdict refused all 30 runs — the
+guards worked, the budget was wrong. **Rule: `n_reset_segments + 2 × select_grade_segments ≤ pool`**
+(ranking chunk + tertiary chunk sit consecutively after the reset prefix). For this db/split:
+**30 + 12 + 12 = 54**. The driver now FORWARDS `--n-reset-segments` to every trial. Measure a new pool
+with `rl_onspeed.build_segments(db, split, coords, horizon, 99999)`; growing the pool (more demos in the
+slice / a dedicated eval split) is a data-line follow-up.
 
 ## Run cost + budget (non-gating operator note)
 
@@ -120,6 +134,7 @@ git rev-parse origin/main | ssh pinnacle-gpu 'cat > /home/xerial/rl-onspeed/CODE
   --norm-artifact /home/xerial/komodo-v5-build/gold/norm/normalization_stats.json \
   --anchors /home/xerial/komodobots/references/dm3_4on4_anchors.json \
   --resource-coords /home/xerial/rl-onspeed/data/catalog/resource_coords.dm3.json \
+  --n-reset-segments 30 \
   --trials 30 --trial-steps 200000 --max-hours 8
 ```
 
