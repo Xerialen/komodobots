@@ -31,7 +31,9 @@ HONESTY CONTRACT (why the odd-looking guards exist)
   whose environment hashes differ were trained/graded under different code, data,
   normalization, or route sets; ranking them against each other is apples-to-oranges,
   so `best` operates per environment group and REFUSES a silent global answer when
-  more than one group exists.
+  more than one group exists. The route pins record the RESOLVED grading skip
+  (grade_holdout_offset — 0 when --reset-split is disjoint from --split), not the raw
+  --n-reset-segments, so runs grading DIFFERENT routes can never share a hash.
 * config_id — sha256 over the canonical tuned config EXCLUDING the seed and
   run-specific outputs, so seed-replicates of one configuration group together (the
   tuning loop's lucky-seed guard re-runs a winning config across seeds and needs them
@@ -101,6 +103,26 @@ def config_id(args_dict, reward_config):
     return hashlib.sha256(
         _canonical({"args": cfg, "reward_config": dict(reward_config or {})}).encode()
     ).hexdigest()[:12]
+
+
+# ------------------------------------------------- reset-split / holdout policy
+# Single source of the rule; the trainer (rl_onspeed), the sweep driver
+# (tune_onspeed) and the eval_pins below all import THIS, so the journaled pins can
+# never drift from the routes actually graded.
+def resolve_reset_split(reset_split, split):
+    """The split training resets draw from: --reset-split when set, else --split."""
+    return reset_split or split
+
+
+def grade_holdout_offset(reset_split, grade_split, n_reset_segments):
+    """Segments of the GRADE split's qualifying ordering to SKIP so grading never
+    touches a training-reset route. Resets in the SAME split occupy the ordering's
+    prefix -> skip them (the legacy shared-pool budget, plans/tuning-loop-429.md). A
+    DISJOINT --reset-split means that prefix belongs to ANOTHER split's ordering, so
+    skipping would only discard grading episodes -> 0."""
+    if resolve_reset_split(reset_split, grade_split) != grade_split:
+        return 0
+    return n_reset_segments
 
 
 def environment_hash(code_version, data, eval_pins):
@@ -183,10 +205,14 @@ def start_run(registry_path, args_dict, reward_config, git_sha=None, tree_root=N
     }
     # The pins that determine WHICH held-out routes the honest grade runs on: the
     # holdout selection is deterministic given (db, split, horizon, skip, count).
+    # holdout_skip is the RESOLVED skip (0 for a disjoint --reset-split): pinning the
+    # raw --n-reset-segments would let runs grading DIFFERENT routes share a hash.
     eval_pins = {
         "split": args_dict.get("split"),
         "horizon": args_dict.get("horizon"),
-        "holdout_skip": args_dict.get("n_reset_segments"),
+        "holdout_skip": grade_holdout_offset(args_dict.get("reset_split"),
+                                             args_dict.get("split"),
+                                             args_dict.get("n_reset_segments")),
         "select_grade_segments": args_dict.get("select_grade_segments"),
     }
     ts = float(now) if now is not None else time.time()

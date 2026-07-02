@@ -109,6 +109,15 @@ guards worked, the budget was wrong. **Rule: `n_reset_segments + 2 × select_gra
 with `rl_onspeed.build_segments(db, split, coords, horizon, 99999)`; growing the pool (more demos in the
 slice / a dedicated eval split) is a data-line follow-up.
 
+**Disjoint reset split (`--reset-split`, long-run prep).** With `--reset-split train` the resets draw
+from the TRAIN split's own qualifying ordering and the reset prefix vanishes from the grade split: the
+ranking holdout starts at offset 0, the tertiary chunk at `select_grade_segments`, and the budget
+becomes **`2 × select_grade_segments ≤ pool`** (the whole val pool of 54 → up to 27 + 27). The skip
+resolution lives in ONE place — `experiment_registry.grade_holdout_offset` — imported by the trainer,
+this driver AND the journal's `eval_pins.holdout_skip` (the RESOLVED skip is what is pinned, so runs
+grading different routes can never share an `environment_hash`). Measure the TRAIN pool before relying
+on it — same command as above with `split="train"`.
+
 ## Run cost + budget (non-gating operator note)
 
 Two indicative sources, both pre-#472 (no route-grade selection overhead): R3–R5 log-entry deltas suggest

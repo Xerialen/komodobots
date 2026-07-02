@@ -10,9 +10,10 @@ REUSE (this loop rebuilds NOTHING that exists):
   * ENV    = the offline pmove sim (scripts/pmove_sim) + the eval's OWN goal-conditioned
              v5 obs path (eval_broad_closedloop._self_state_from_sim + AO.encode_observation
              + _assemble_self_history), so the policy sees the BYTE-PARITY obs it was
-             warm-started on. Reset states = the catalog val SEGMENTS (mid-route human
-             states AT SPEED) via _load_episode_ticks + select_start_segments -> the
-             over-press states are ON-POLICY (rl-plan STEP 1 RF-basin (b)).
+             warm-started on. Reset states = the catalog SEGMENTS of --reset-split
+             (default --split; mid-route human states AT SPEED) via _load_episode_ticks
+             + select_start_segments -> the over-press states are ON-POLICY (rl-plan
+             STEP 1 RF-basin (b)).
   * POLICY = train_broad_bc.BroadBCPolicy(yaw_head=True), warm-started from the
              BC-pretrained believable-aim ckpt (cs10 move/jump heads + believable yaw
              head). A small RLHead adds the VALUE head + a learned yaw log-std off the
@@ -609,9 +610,9 @@ def ppo_update(rl, anchor, roll, device, *, epochs=4, minibatch=4096, clip=0.2,
 # Train driver
 # =============================================================================
 def build_segments(db, split, resource_coords_path, horizon, n_segments, map_name="dm3"):
-    """Load catalog val segments (mid-route human states AT SPEED) WITH the per-tick
-    hindsight goal (goal-conditioned) — the SAME loader the eval uses. These are the RL
-    reset states (over-press states on-policy)."""
+    """Load catalog segments of the given split (mid-route human states AT SPEED) WITH the
+    per-tick hindsight goal (goal-conditioned) — the SAME loader the eval uses. These are
+    the RL reset states (over-press states on-policy)."""
     coords = {}
     if resource_coords_path is not None:
         coords = RG.load_resource_coords(Path(resource_coords_path).expanduser())
@@ -633,10 +634,13 @@ def train(args, device):
     print(f"[rl] reward band (disjoint reserve players) = [{band_lo:.1f},{band_hi:.1f}] "
           f"(gate band read separately by the eval)", flush=True)
 
-    segs = build_segments(args.db, args.split, args.resource_coords, args.horizon,
+    # C-lite (long-run prep): resets may draw from a DISJOINT split (--reset-split train)
+    # so the whole --split pool stays available for grading; same rule as the journal pins.
+    reset_split = XR.resolve_reset_split(getattr(args, "reset_split", None), args.split)
+    segs = build_segments(args.db, reset_split, args.resource_coords, args.horizon,
                           args.n_reset_segments, args.map)
-    print(f"[rl] {len(segs)} reset segments (mid-route human states at speed, goal-conditioned)",
-          flush=True)
+    print(f"[rl] {len(segs)} reset segments (split={reset_split}, mid-route human states "
+          f"at speed, goal-conditioned)", flush=True)
     if not segs:
         raise SystemExit("[rl] NO reset segments — check db/split")
 
@@ -799,8 +803,10 @@ def train(args, device):
     # RL resets), so it costs one rollout per candidate (the honest price of not grading on the
     # training routes).
     if getattr(args, "select_by_route_grade", False) and topk:
+        _skip = XR.grade_holdout_offset(getattr(args, "reset_split", None), args.split,
+                                        args.n_reset_segments)
         print(f"[rl] ROUTE-GRADE SELECTION over {len(topk)} top-K snapshots "
-              f"(held-out suffix skip={args.n_reset_segments}, "
+              f"(held-out {args.split} skip={_skip}, "
               f"{int(getattr(args, 'select_grade_segments', 12))} segs, honest #428 relative bar)",
               flush=True)
         ranked = []
@@ -1038,8 +1044,10 @@ def _eval_press_screen(rl, src_ckpt, dims, head_dims, args, device, tmptag="sel"
 def _route_grade_screen(rl, src_ckpt, dims, head_dims, args, device, tmptag="rg"):
     """B1 (#428->#429 bridge): the candidate's HONEST offline route-grade for checkpoint SELECTION, on
     routes HELD OUT from the RL resets. Persists `rl`'s current base params, runs ONE goal-conditioned
-    closed-loop with grade_route=True on the DISJOINT segment SUFFIX (skip=--n-reset-segments, the count
-    training resets from) so selection cannot reward route-memorisation (nblm MF-N1), over the full
+    closed-loop with grade_route=True on segments DISJOINT from the RL resets (skip=--n-reset-segments
+    when resets share --split — the legacy prefix; 0 when --reset-split is a different split, the whole
+    grade pool then being reset-free — XR.grade_holdout_offset, the same rule the journal pins) so
+    selection cannot reward route-memorisation (nblm MF-N1), over the full
     --select-grade-segments segments (auditor SF-4). Returns rep["route_grade"]["summary"] or None.
 
     A SEPARATE run from _eval_press_screen by necessity: the press screen grades the training-overlapping
@@ -1068,7 +1076,8 @@ def _route_grade_screen(rl, src_ckpt, dims, head_dims, args, device, tmptag="rg"
             n_max=args.n_max, cpu=(device == "cpu"),
             goal_mode="conditioned", resource_coords_path=(Path(rc) if rc else None),
             aim_mode="policy", grade_route=True,
-            select_holdout_offset=int(args.n_reset_segments),
+            select_holdout_offset=int(XR.grade_holdout_offset(
+                getattr(args, "reset_split", None), args.split, args.n_reset_segments)),
         )
         return rep.get("route_grade", {}).get("summary")
     except Exception as e:
@@ -1317,7 +1326,12 @@ def main(argv=None):
     ap.add_argument("--ep-horizon", type=int, default=385)
     ap.add_argument("--horizon", type=int, default=385, help="segment-load horizon")
     ap.add_argument("--n-reset-segments", type=int, default=64,
-                    help="how many human val segments to sample resets from")
+                    help="how many qualifying segments of the RESET split to sample resets from")
+    ap.add_argument("--reset-split", default=None,
+                    help="split training RESETS draw from (default: --split). A split "
+                         "DISJOINT from --split frees the whole --split pool for grading: "
+                         "the route-grade holdout skip resolves to 0 (see "
+                         "experiment_registry.grade_holdout_offset)")
     # ppo
     ap.add_argument("--ppo-epochs", type=int, default=4)
     ap.add_argument("--minibatch", type=int, default=2048)

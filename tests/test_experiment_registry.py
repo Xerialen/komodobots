@@ -278,5 +278,46 @@ class TestVerifyAndDiff(unittest.TestCase):
             json.dumps(recs[0])
 
 
+class TestResetSplitPolicy(unittest.TestCase):
+    """The single-source reset/holdout rule (long-run prep): the trainer, the sweep
+    driver and the journal pins all import THIS rule; locked here with its
+    environment-hash consequence (runs grading DIFFERENT routes never share a hash)."""
+
+    def test_default_resets_come_from_the_grade_split(self):
+        self.assertEqual(XR.resolve_reset_split(None, "val"), "val")
+        self.assertEqual(XR.resolve_reset_split("", "val"), "val")
+        self.assertEqual(XR.resolve_reset_split("train", "val"), "train")
+
+    def test_shared_split_keeps_the_legacy_prefix_skip(self):
+        self.assertEqual(XR.grade_holdout_offset(None, "val", 30), 30)
+        self.assertEqual(XR.grade_holdout_offset("val", "val", 30), 30)
+
+    def test_disjoint_reset_split_frees_the_whole_grade_pool(self):
+        self.assertEqual(XR.grade_holdout_offset("train", "val", 30), 0)
+
+    def test_reset_split_changes_the_environment_hash(self):
+        # skip 30 vs skip 0 = DIFFERENT grading routes -> must never rank together
+        with tempfile.TemporaryDirectory() as td:
+            reg = Path(td) / "r.jsonl"
+            a = XR.start_run(reg, _args(n_reset_segments=30), {}, git_sha="a" * 40,
+                             now=1000.0)
+            b = XR.start_run(reg, _args(n_reset_segments=30, reset_split="train"), {},
+                             git_sha="a" * 40, now=2000.0)
+            self.assertNotEqual(a["environment_hash"], b["environment_hash"])
+
+    def test_pin_is_the_resolved_skip_not_the_raw_reset_count(self):
+        # disjoint resets of 30 vs 100 both grade at skip 0 -> SAME routes -> same
+        # hash (pinning the RAW --n-reset-segments would wrongly split the group;
+        # the reset-diversity difference stays visible as a config_id difference)
+        with tempfile.TemporaryDirectory() as td:
+            reg = Path(td) / "r.jsonl"
+            a = XR.start_run(reg, _args(reset_split="train", n_reset_segments=30), {},
+                             git_sha="a" * 40, now=1000.0)
+            b = XR.start_run(reg, _args(reset_split="train", n_reset_segments=100), {},
+                             git_sha="a" * 40, now=2000.0)
+            self.assertEqual(a["environment_hash"], b["environment_hash"])
+            self.assertNotEqual(a["config_id"], b["config_id"])
+
+
 if __name__ == "__main__":
     unittest.main()

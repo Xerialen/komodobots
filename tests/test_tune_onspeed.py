@@ -93,6 +93,18 @@ class TestArgvAndIdentity(unittest.TestCase):
         self.assertIn("--lr 1e-04", s.replace("0.0001", "1e-04"))
         self.assertIn("--git-sha", s)
         self.assertIn("--seed 0", s)
+        self.assertNotIn("--reset-split", s,
+                         "legacy invocation (no reset_split) must stay byte-identical")
+
+    def test_argv_forwards_reset_split_when_set(self):
+        argv = TN.trial_argv("python3", "ml/rl_onspeed.py", self.DATA, {},
+                             seed=0, steps=1000, out_ckpt="t000_s0.pt",
+                             registry="r.jsonl", git_sha="a" * 40,
+                             grade_segments=12, n_reset_segments=100,
+                             reset_split="train")
+        s = " ".join(argv)
+        self.assertIn("--reset-split train", s)
+        self.assertIn("--n-reset-segments 100", s)
         reg = argv[argv.index("--registry") + 1]
         self.assertTrue(Path(reg).is_absolute(),
                         "--registry must be ABSOLUTE (the child resolves relative "
@@ -241,6 +253,33 @@ class TestRunSweepEndToEnd(unittest.TestCase):
             # verdict file written
             vf = json.loads((Path(td) / "s" / "verdict.json").read_text())
             self.assertIs(vf["superhuman_claim"], False)
+
+    def test_disjoint_reset_split_zeroes_the_tertiary_reset_skip(self):
+        # --reset-split train: resets live in ANOTHER split's ordering, so the
+        # tertiary chunk starts right after the ranking chunk (offset =
+        # grade_segments, not n_reset_segments + grade_segments) and every trial
+        # argv carries --reset-split. A stale reset-prefix skip here would silently
+        # discard grade-split episodes and shrink the pool the flag exists to free.
+        with tempfile.TemporaryDirectory() as td:
+            argvs = []
+
+            def fake_with_argv(argv, log_path, timeout_s):
+                argvs.append(" ".join(str(x) for x in argv))
+                return self._fake_runner_factory([], {0: 0.2, 1: 0.8})(
+                    argv, log_path, timeout_s)
+
+            seen = {}
+
+            def tert(*a_, **kw):
+                seen.update(kw)
+                return _summary(0.6)
+
+            a = self._args(Path(td) / "s", trials=2, verify_seeds=1)
+            a.reset_split = "train"
+            v = TN.run_sweep(a, runner=fake_with_argv, tertiary=tert)
+            self.assertIsNotNone(v["winner"])
+            self.assertEqual(seen["holdout_offset"], a.grade_segments)
+            self.assertTrue(all("--reset-split train" in s for s in argvs), argvs)
 
     def test_sweep_resume_skips_completed_trials(self):
         with tempfile.TemporaryDirectory() as td:
