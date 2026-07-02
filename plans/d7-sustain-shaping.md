@@ -97,11 +97,18 @@ appended LAST in the mix expression so weight-0 parity is byte-exact):
 ```
 Φ_ladder(h) = ∫₀^min(h, sustain_cap) dx / phi(x)          # phi(x) = √(x²+900) − x  (:57)
             = [ h·√(h²+900)/2 + 450·asinh(h/30) + h²/2 ] / 900   (closed form, stdlib math)
-e′ = e + sustain_ema · (hspeed − e)     # hspeed-EMA in the reward carry (self-seeds from
+e′   = e + sustain_ema · (hspeed − e)   # hspeed-EMA in the reward carry (self-seeds from
                                         # prev_hspeed on a legacy carry — no reset-code change)
-F  = sustain_gamma · Φ_ladder(e′) − Φ_ladder(e)     # per-tick |F| structurally bounded (below)
-reward += w_sustain * clamp(F, ±sustain_clip)       # sustain_clip 50 = never-engaging sanity net
+Pot′ = ramp(ticks_left) · Φ_ladder(e′)  # ramp = min(1, ticks_left/sustain_ramp_ticks);
+                                        # done ⇒ ramp = 0 (terminal potential EXACTLY 0)
+F    = sustain_gamma · Pot′ − Pot       # Pot carried in the reward carry (`sustain_pot`) —
+                                        # the γ-sum telescopes exactly by construction
+reward += w_sustain * clamp(F, ±sustain_clip)       # sustain_clip 60 = sanity net (below)
 ```
+
+The env (`PmoveEnv.step`) supplies `ticks_left`/`done` in `cur` — done is decidable pre-reward
+(fixed time-limit `min(horizon, len(seg)−1)` + the out-of-bounds check on already-run physics).
+Legacy callers without the clock get ramp = 1 (within-episode behavior unchanged).
 
 - **Ladder normalization:** `dΦ/dh = 1/phi(h)`, so one physics-perfect air-gain tick raises Φ by
   ≈1 at any speed (first-order: 1.021 at h=100, 1.002 at h=320 — tests assert the tolerance, not
@@ -135,14 +142,24 @@ reward += w_sustain * clamp(F, ±sustain_clip)       # sustain_clip 50 = never-e
   supplements. (Friction-tick wording per the delta audit: the sim jumps BEFORE friction, so a
   frame-perfect hop skips the friction tick — the sawtooth is the ROUTINE IMPERFECT-timing case,
   training ground-fraction ~0.1–0.2, which is exactly the statistical regime that matters.)
-- **Invariance, stated precisely:** within the clip regime the term is potential-based
-  (Ng-invariant) — converged advantages unchanged (A′=A); what changes is TD-error timing while
-  the value net has not absorbed Φ: decay ticks get an immediate negative burst, holds keep their
-  earned potential. That is "denser OUTCOME credit", and ALL it can do — **lever 1 tests
-  hypothesis P and can do nothing about hypothesis O.** Residuals, owned: the fixed-horizon
-  terminal term `γ^T·Φ(s_T) − Φ(s_0)` (≈ +2.4·w_sustain per 385-tick episode at 320 — mild "end
-  fast" pressure, goal-aligned) and the clip attenuation above. Neither can construct a
-  prescribed-motion optimum — the r_cad-trap guarantee this form was pre-registered for stands.
+- **Invariance, stated precisely (Codex #478 P1 fold — the terminal residual is CANCELLED, not
+  "owned"):** a bare γΦ(s′)−Φ(s) in finite episodes leaves the residual `γ^T·Φ(e_T) − Φ(e_0)` —
+  policies ending at different speeds earn different shaping return (Codex measured ≈70 Φ between
+  end-EMA 300 vs 400; from a late-episode action's view the bonus is nearly undiscounted), so the
+  invariance claim would be FALSE as first drafted. The fix is a **time-varying potential**
+  (Devlin & Kudenko — invariance holds for `F = γΦ(s′,t+1) − Φ(s,t)`): `Pot = ramp(ticks_left)·Φ`
+  winds to EXACTLY 0 at episode end (done ⇒ 0, including early out-of-bounds crashes), so every
+  episode's γ-weighted shaping total = `−Pot₀`, a reset-determined constant — end speed earns
+  nothing. The give-back spreads over the last `sustain_ramp_ticks` (~2.3/tick at 320), never a
+  one-tick −115 spike; the ONE exception is a pathological early-crash terminal, where the
+  give-back is attenuated by the sanity clip (a one-off on a tick that already ends the episode —
+  the crash itself forfeits all future income, so no gaming vector; test-locked). Within episodes
+  the term is Ng-invariant on the augmented state: converged advantages unchanged (A′=A); what
+  changes is TD-error timing while the value net has not absorbed Pot — decay ticks get an
+  immediate negative burst, holds keep their earned potential. That is "denser OUTCOME credit",
+  and ALL it can do — **lever 1 tests hypothesis P and can do nothing about hypothesis O.**
+  No residual can construct a prescribed-motion optimum — the r_cad-trap guarantee this form was
+  pre-registered for stands, now exactly.
 - **The invariance price (γ-drag):** holding h costs `−(1−γ)·Φ(h)` per tick (320: −1.156·w_sustain;
   150: −0.264·w_sustain). Before the value net absorbs Φ this reads as "being fast is taxed" —
   NotebookLM's early-training risk. Mitigation (folded): the sampled range is capped at
@@ -261,6 +278,8 @@ owner-gated (docs/28 recording mandate).
 | NEVER keyed to yaw-rate / hold-length / cadence: f_sustain series bit-identical under permutations of `yaw_delta_deg` / `side_am_mag` / strafe-hold carry | `test_sustain_reads_only_speed` |
 | Φ monotone non-decreasing, Φ(0)=0, flat above `sustain_cap`; dΦ/dh == 1/phi numerically; perfect-pump ΔΦ ≈ 1 first-order (never exact-1) | `test_sustain_potential_monotone_capped` |
 | The clip NEVER engages on honest dynamics within cap: CORRECTED bound γ·α·cap/phi(cap) + (1−γ)·Φ(cap) < sustain_clip (drag term included), worst within-cap tick (e=cap, h=0) under the net; wall-stop first tick ∈ (−8, −3) (immediate, spread, no −115 spike) | `test_sustain_clip_is_sanity_net_only` |
+| Terminal residual EXACTLY zero: fast-ending vs slow-ending episodes of equal length have IDENTICAL γ-weighted totals == −Pot₀ (the Codex #478 P1 case) | `test_sustain_terminal_residual_is_zero` |
+| Ramp give-back gradual inside the window (never a −115 spike); short-segment pot seeding consistent (total == −Pot₀); early done zeroes the potential on that tick (clip-attenuated one-off) | `test_sustain_rampdown_spreads_giveback_and_done_zeroes` |
 | Unknown `--reward-weight` key REFUSED with valid keys named | `test_validate_weight_keys` |
 | Existing REWARD suite untouched-green (the #427/#466 tests) | full floor (1982 OK) |
 
@@ -274,12 +293,15 @@ or `seg_clean_mechanism_frac` < 0.9 ⇒ not eligible / refused) exercised per fa
 
 - `experiments/route_observatory/reward_onspeed.py` — `phi_ladder()`, F term (appended LAST in
   the mix), `DEFAULT_WEIGHTS` += `w_sustain 0.0` / `sustain_gamma 0.99` / `sustain_cap 1000.0` /
-  `sustain_ema 0.02` / `sustain_clip 60.0`, carry key `sustain_ema` (self-seeding — no
-  reset-code change), `info["f_sustain"]`, `validate_weight_keys()`.
+  `sustain_ema 0.02` / `sustain_ramp_ticks 50` / `sustain_clip 60.0`, carry keys `sustain_ema` +
+  `sustain_pot` (self-seeding — no reset-code change), `info["f_sustain"]`,
+  `validate_weight_keys()`.
 - `tests/test_reward_onspeed.py` — the §5 tests.
 - `ml/rl_onspeed.py` — parse-time `validate_weight_keys` call; `f_sustain` collect+print
-  (`:489-493` pattern); `--reward-weight` help-string key list updated (`:1412-1415`). No
-  training-logic change (torch file: py_compile + the stdlib mirror test are the local net).
+  (`:489-493` pattern; `.get`-tolerant of pre-D7 env stubs — Codex #478 P1); `PmoveEnv.step`
+  supplies `ticks_left`/`done` in `cur` (done computed pre-reward — same conditions, hoisted);
+  `--reward-weight` help-string key list updated (`:1412-1415`). No training-logic change
+  (torch file: py_compile + the stdlib mirror test are the local net; ML Tests CI verifies).
 - `ml/tune_onspeed.py` + `tests/test_tune_onspeed.py` — space v2 + driver changes per §3 lever 2
   + §4 enforcement (control quota, promotion fields, mechanical guard).
 - `plans/d7-sustain-shaping.md` — this plan. `plans/phase2-next-step-decisions.md` — D7 entry:
@@ -353,3 +375,13 @@ per standing authorization; publishes nothing live).
   wall-stop figure −4.6 → −5.6 (drag term), friction-tick wording softened to the
   imperfect-timing statistical case (the sim jumps before friction), `sustain_ema` added to the
   help-string enumeration, control-outranks-winner verdict note clarified.
+- **Codex gate round 1 (2026-07-02, head `3e61399`): BLOCK, two P1 — both folded.**
+  (1) `collect_rollout` read `info["f_sustain"]` unconditionally → `KeyError` in the ML-tests
+  fake-env path → `.get("f_sustain", 0.0)` (pre-D7 env stubs stay compatible).
+  (2) THE substantive catch: the finite-episode terminal residual `γ^T·Φ(e_T)` made the
+  invariance claim false — policies ending faster banked a real objective bonus (Codex measured
+  ≈70 Φ between end-EMA 300 vs 400). Fixed by construction, not by re-scoping the claim: the
+  potential is now TIME-VARYING (`ramp(ticks_left)·Φ`, Devlin & Kudenko invariance), wound to
+  exactly 0 at every episode end (incl. early crashes) — each episode's shaping total is the
+  reset-constant `−Pot₀`. Locked by `test_sustain_terminal_residual_is_zero` (the reviewer's
+  exact fast-end vs slow-end case) + the ramp/short-segment/early-done test.

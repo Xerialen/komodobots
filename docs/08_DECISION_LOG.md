@@ -4461,14 +4461,17 @@ amendment (D6 precondition waived on `fwd_press 0.000` evidence) is logged in th
 
 ### Decision
 
-(1) Add `f_sustain` to the #427 reward: `F = γ·Φ(e′) − Φ(e)` with Φ = the speed-ladder potential
-(closed-form integral of `1/phi`, the same "perfect pump-ticks" currency as `r_phi_raw`) over an
-hspeed-EMA carried in the reward carry — potential-based on the augmented state ⇒ policy-invariant
-(re-times credit: sustained decay is charged as it happens; cannot move the optimum or prescribe motion —
-the r_cad trap the pre-registration excluded). Additive, `w_sustain` DEFAULT 0.0 = OFF (byte-identical
-reward), `sustain_gamma` 0.99 test-mirrored to `compute_gae`. The EMA (not raw hspeed) is load-bearing:
-a per-tick clip over raw hspeed turns bhop's routine friction-tick sawtooth into ~+0.7/tick PHANTOM
-income at constant speed — found at implementation, pinned as a permanent regression test.
+(1) Add `f_sustain` to the #427 reward: `F = γ·Pot(s′) − Pot(s)` with `Pot = ramp(ticks_left) ·
+Φ_ladder(speed-EMA)` — the speed-ladder potential (closed-form integral of `1/phi`, the same "perfect
+pump-ticks" currency as `r_phi_raw`) over an hspeed-EMA in the reward carry, wound to EXACTLY 0 at
+episode end by a time-varying ramp (Devlin & Kudenko invariance). Policy-invariant by construction:
+re-times credit (sustained decay charged as it happens), terminal residual zero (every episode's shaping
+total = the reset-constant −Pot₀ — end speed earns no hidden bonus; the Codex #478 P1 catch), cannot
+move the optimum or prescribe motion (the r_cad trap the pre-registration excluded). Additive,
+`w_sustain` DEFAULT 0.0 = OFF (byte-identical reward), `sustain_gamma` 0.99 test-mirrored to
+`compute_gae`. The EMA (not raw hspeed) is load-bearing: a per-tick clip over raw hspeed turns bhop's
+routine friction-tick sawtooth into ~+0.7/tick PHANTOM income at constant speed — found at
+implementation, pinned as a permanent regression test.
 (2) Sweep-space v2 (`tune_onspeed`): PPO dims PINNED to the sweep-2 winner; sampled dims = the reward
 geometry only (`w_press`, `w_strafe` ↓0.0–0.6, `w_vel` ↑1.0–3.0, `w_sustain` {0 w.p. 0.3} ∪
 log-u(0.05, 0.6)); trial 0 = the pinned winner with pre-D7 geometry, ALWAYS seed-verified; the verdict

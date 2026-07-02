@@ -245,6 +245,21 @@ class TestSustainShaping(unittest.TestCase):
             e = e + alpha * (float(s) - e)
         return e
 
+    @staticmethod
+    def _run_episode(speeds, cfg):
+        """Thread a FULL EPISODE with the env's clock contract: ticks_left counts down to 0
+        and the final tick carries done=True (as PmoveEnv.step provides them)."""
+        carry = mk_carry(prev_hspeed=speeds[0])
+        n = len(speeds) - 1
+        fs = []
+        for i, s in enumerate(speeds[1:]):
+            cur = mk_cur(vx=float(s))
+            cur["ticks_left"] = n - (i + 1)
+            cur["done"] = (i + 1) == n
+            _, info, carry = R.compute_step_reward(cur, carry, ROUTE, cfg)
+            fs.append(info["f_sustain"])
+        return fs
+
     def test_sustain_potential_monotone_capped(self):
         cap = 1000.0
         self.assertEqual(R.phi_ladder(0.0, cap), 0.0)
@@ -389,6 +404,52 @@ class TestSustainShaping(unittest.TestCase):
         self.assertLess(fs[0], -3.0, "a wall-stop must be charged starting the same tick")
         self.assertGreater(fs[0], -8.0, "the EMA spreads the charge — no -115 spike")
         self.assertGreater(min(fs), -cfg["sustain_clip"], "the sanity net never engages")
+
+    def test_sustain_terminal_residual_is_zero(self):
+        # THE Codex #478 P1 case: two full episodes, same start EMA and same length — one
+        # ENDS FAST (holds 320), one ENDS SLOW (decays to 120). Without terminal
+        # cancellation the fast-ender banks gamma^T * Phi(e_T) extra shaping return; with
+        # the time-varying ramp the gamma-weighted totals must be IDENTICAL and equal
+        # -pot_0 exactly — end-of-episode speed earns NO objective bonus, w_sustain only
+        # re-times credit within the episode.
+        cfg = mk_cfg(w_sustain=1.0)
+        g = cfg["sustain_gamma"]
+        n = 120
+        fast = [320.0] * (n + 1)
+        slow = [320.0] * 41 + [max(120.0, 320.0 - 5.0 * k) for k in range(1, n - 39)]
+        self.assertEqual(len(slow), n + 1)
+        tot_fast = sum((g ** t) * f for t, f in enumerate(self._run_episode(fast, cfg)))
+        tot_slow = sum((g ** t) * f for t, f in enumerate(self._run_episode(slow, cfg)))
+        pot0 = R.phi_ladder(320.0, cfg["sustain_cap"])   # ramp(120 ticks left) = 1 at seed
+        self.assertAlmostEqual(tot_fast, -pot0, places=8)
+        self.assertAlmostEqual(tot_slow, -pot0, places=8)
+        self.assertAlmostEqual(tot_fast, tot_slow, places=8)
+
+    def test_sustain_rampdown_spreads_giveback_and_done_zeroes(self):
+        cfg = mk_cfg(w_sustain=1.0)
+        g = cfg["sustain_gamma"]
+        # planned end: inside the ramp window the give-back is gradual — never a -115 spike
+        fs = self._run_episode([320.0] * 121, cfg)
+        ramp_zone = fs[-int(cfg["sustain_ramp_ticks"]):]
+        self.assertLess(max(abs(x) for x in ramp_zone), 6.0,
+                        "give-back must spread (~Phi/ramp_ticks + drag per tick)")
+        # a segment SHORTER than the ramp window: pot seeds at the episode's own initial
+        # ramp (no first-tick over-charge) and the total still telescopes to -pot_0
+        n2 = 20
+        fs2 = self._run_episode([320.0] * (n2 + 1), cfg)
+        pot0 = (n2 / cfg["sustain_ramp_ticks"]) * R.phi_ladder(320.0, cfg["sustain_cap"])
+        self.assertAlmostEqual(sum((g ** t) * f for t, f in enumerate(fs2)), -pot0,
+                               places=8)
+        self.assertLess(max(abs(x) for x in fs2), 6.0)
+        # EARLY done (the out-of-bounds crash): the potential zeroes ON that tick; the
+        # one-off give-back is attenuated by the sanity net (the documented exception) —
+        # the residual can never survive the episode.
+        carry = mk_carry(prev_hspeed=320.0)
+        cur = mk_cur(vx=320.0)
+        cur["ticks_left"], cur["done"] = 199, True
+        _, info, nxt = R.compute_step_reward(cur, carry, ROUTE, cfg)
+        self.assertEqual(nxt["sustain_pot"], 0.0)
+        self.assertEqual(info["f_sustain"], -cfg["sustain_clip"])
 
     def test_validate_weight_keys(self):
         R.validate_weight_keys({})                       # empty = fine

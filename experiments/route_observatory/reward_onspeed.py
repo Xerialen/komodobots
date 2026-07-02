@@ -114,10 +114,18 @@ DEFAULT_WEIGHTS = {
     "sustain_ema": 0.02,    # EMA rate (~50-tick / 0.65 s horizon). One-tick |F| is structurally
                             # bounded by gamma*ema*cap/phi(cap) + (1-gamma)*Phi(cap) ~= 55.1
                             # (the delta-Phi part PLUS the drag part — both matter)
+    "sustain_ramp_ticks": 50.0,  # terminal-potential wind-down window: the potential is
+                            # ramp(ticks_left)=min(1, ticks_left/this) * Phi, a TIME-VARYING
+                            # potential (Devlin & Kudenko) that reaches EXACTLY 0 at episode
+                            # end — kills the finite-episode residual gamma^T*Phi(e_T) (Codex
+                            # #478 P1: without it, ending fast earns a real objective bonus
+                            # and the invariance claim is false). Give-back spreads over the
+                            # window (~Phi/50 ~= 2.3/tick at 320), never a one-tick -115 spike.
     "sustain_clip": 60.0,   # sanity net ABOVE the 55.1 structural bound — never engages on
                             # honest dynamics within cap (an engaging clip re-opens the
-                            # phantom-income hole on climb-crash cycles); guards only state
-                            # corruption (test-locked inequality)
+                            # phantom-income hole on climb-crash cycles); guards state
+                            # corruption + attenuates only the one-off give-back on a
+                            # pathological out-of-bounds crash terminal (test-locked)
 }
 
 
@@ -266,18 +274,38 @@ def compute_step_reward(cur, carry, route, cfg):
     r_press = max(0.0, ap_rate - cfg["air_press_thresh"])
 
     # ── D7: potential-based sustain-speed shaping (plans/d7-sustain-shaping.md). Exactly
-    # F = gamma*Phi(e')-Phi(e) over the speed-EMA ladder — Ng-invariant on the augmented state,
-    # so it re-times credit (sustained DECAY is charged as it happens, symmetric to the gain
-    # side) without being able to move the optimum or prescribe motion (the r_cad trap). The
-    # EMA (not raw hspeed) is what keeps steady bhop's friction-tick sawtooth net-zero without
-    # any distorting clip — see the DEFAULT_WEIGHTS note. Reads ONLY speed state, never
-    # yaw-rate/hold/cadence (test-locked). Appended LAST so w_sustain=0 (default) keeps the
-    # reward byte-identical. The EMA self-seeds from prev_hspeed on a legacy carry (reset
-    # carries spawn at the human state's speed, so tick-1 F reflects only real movement).
+    # F = gamma*Pot(s') - Pot(s) with Pot = ramp(ticks_left) * Phi_ladder(speed-EMA) — a
+    # TIME-VARYING potential over the augmented state (EMA in the carry; ticks_left/done from
+    # the env), invariant per Devlin & Kudenko: it re-times credit (sustained DECAY is charged
+    # as it happens, symmetric to the gain side) and CANNOT move the optimum or prescribe
+    # motion (the r_cad trap). Two structural pieces, both load-bearing:
+    #  * the EMA (not raw hspeed) keeps steady bhop's friction-tick sawtooth net-zero without
+    #    any distorting clip — see the DEFAULT_WEIGHTS note;
+    #  * the terminal RAMP winds the potential to EXACTLY 0 at episode end (done -> 0 even on
+    #    an early out-of-bounds crash), so the finite-episode residual gamma^T*Phi(e_T) is 0
+    #    and end-of-episode speed earns no hidden objective bonus (Codex #478 P1). The
+    #    give-back spreads over the last `sustain_ramp_ticks` (~2.3/tick at 320), and the
+    #    telescoping anchor is the CARRIED potential value (`sustain_pot`), so the gamma-sum
+    #    is exact by construction. Legacy callers without ticks_left/done get ramp=1
+    #    (within-episode behavior unchanged); the pot self-seeds consistently at tick 1.
+    # Reads ONLY speed state + episode clock, never yaw-rate/hold/cadence (test-locked).
+    # Appended LAST so w_sustain=0 (default) keeps the reward byte-identical.
     sustain_ema_prev = carry.get("sustain_ema", prev_hspeed)
     sustain_ema = sustain_ema_prev + cfg["sustain_ema"] * (hspeed - sustain_ema_prev)
-    f_raw = (cfg["sustain_gamma"] * phi_ladder(sustain_ema, cfg["sustain_cap"])
-             - phi_ladder(sustain_ema_prev, cfg["sustain_cap"]))
+
+    def _ramp(ticks_left):
+        if ticks_left is None or cfg["sustain_ramp_ticks"] <= 0:
+            return 1.0
+        return max(0.0, min(1.0, float(ticks_left) / float(cfg["sustain_ramp_ticks"])))
+
+    tl = cur.get("ticks_left")
+    ramp_next = 0.0 if cur.get("done") else _ramp(tl)
+    pot_prev = carry.get("sustain_pot")
+    if pot_prev is None:   # tick 1: seed at THIS episode's initial ramp (tl+1 ticks were left)
+        pot_prev = _ramp(None if tl is None else tl + 1) * phi_ladder(prev_hspeed,
+                                                                      cfg["sustain_cap"])
+    pot_next = ramp_next * phi_ladder(sustain_ema, cfg["sustain_cap"])
+    f_raw = cfg["sustain_gamma"] * pot_next - pot_prev
     f_sustain = max(-cfg["sustain_clip"], min(cfg["sustain_clip"], f_raw))
 
     reward = (cfg["w_vel"] * r_vel + cfg["w_prog"] * r_prog
@@ -294,6 +322,7 @@ def compute_step_reward(cur, carry, route, cfg):
         "strafe_hold": strafe_hold,
         "ap_rate": ap_rate,
         "sustain_ema": sustain_ema,
+        "sustain_pot": pot_next,
     }
     info = {
         "hspeed": hspeed, "onground": onground, "fwd_press": int(cur["fwd_am"] == 2),
