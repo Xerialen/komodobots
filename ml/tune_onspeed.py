@@ -128,10 +128,14 @@ def trial_index_from_path(p):
 
 
 def trial_argv(python, trainer, data, cfg, *, seed, steps, out_ckpt, registry, git_sha,
-               grade_segments):
+               grade_segments, n_reset_segments):
     """The exact rl_onspeed invocation for one trial. --registry is passed ABSOLUTE
     (the child resolves a relative explicit path against ITS cwd) and every trial
-    runs --select-by-route-grade so its journal record is ranking-eligible."""
+    runs --select-by-route-grade so its journal record is ranking-eligible.
+    --n-reset-segments is FORWARDED from the sweep (first real sweep 20260702: the
+    trainer's default 64 exceeded the val pool of 54 qualifying episodes, so the
+    skip-64 holdout was EMPTY and every run was honestly refused — the sweep must
+    budget the shared pool: resets + grade + tertiary <= pool)."""
     argv = [python, str(trainer),
             "--init-ckpt", str(data["init_ckpt"]), "--db", str(data["db"]),
             "--bsp", str(data["bsp"]), "--norm-artifact", str(data["norm_artifact"]),
@@ -141,6 +145,7 @@ def trial_argv(python, trainer, data, cfg, *, seed, steps, out_ckpt, registry, g
             "--registry", str(Path(registry).expanduser().resolve()),
             "--select-by-route-grade",
             "--select-grade-segments", str(grade_segments),
+            "--n-reset-segments", str(n_reset_segments),
             "--steps", str(steps), "--seed", str(seed)]
     if data.get("resource_coords"):
         argv += ["--resource-coords", str(data["resource_coords"])]
@@ -309,7 +314,8 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
             raise TimeoutError
         argv = trial_argv(a.python, a.trainer, data, cfg, seed=seed, steps=a.trial_steps,
                           out_ckpt=out, registry=registry, git_sha=git_sha,
-                          grade_segments=a.grade_segments)
+                          grade_segments=a.grade_segments,
+                          n_reset_segments=a.n_reset_segments)
         print(f"[tune] t{index:03d}_s{seed} cfg={json.dumps(cfg, sort_keys=True)}", flush=True)
         rc = runner(argv, sweep / "logs" / f"t{index:03d}_s{seed}.log", a.trial_timeout)
         counts["completed" if rc == 0 else "crashed"] += 1
@@ -498,7 +504,11 @@ def main(argv=None):
                     help="total runs per finalist config (nblm: 3 is the bare minimum for PPO)")
     ap.add_argument("--grade-segments", type=int, default=12)
     ap.add_argument("--n-reset-segments", type=int, default=64,
-                    help="must match the trainer default — tertiary offset = this + grade-segments")
+                    help="FORWARDED to every trial as the trainer's --n-reset-segments AND used as "
+                         "the tertiary offset base. BUDGET THE POOL: this + 2 x --grade-segments must "
+                         "not exceed the split's qualifying episode pool (val dm3 slice measured at 54 "
+                         "for horizon 385 -> use 30 there), or the holdout/tertiary sets come up EMPTY "
+                         "and every run is refused as ungradable.")
     ap.add_argument("--horizon", type=int, default=385)
     ap.add_argument("--max-hours", type=float, default=0, help="0 = unbounded")
     ap.add_argument("--trial-timeout", type=int, default=7200, help="seconds per subprocess")

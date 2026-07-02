@@ -82,9 +82,12 @@ class TestArgvAndIdentity(unittest.TestCase):
                              {"lr": 1e-4, "w_press": 2.0, "kl_anchor_ceiling": 1e9},
                              seed=0, steps=200000, out_ckpt=out,
                              registry="sweep/experiment_registry.jsonl",
-                             git_sha="a" * 40, grade_segments=12)
+                             git_sha="a" * 40, grade_segments=12, n_reset_segments=30)
         s = " ".join(argv)
         self.assertIn("--select-by-route-grade", s)
+        self.assertIn("--n-reset-segments 30", s,
+                      "the sweep's pool budget must reach the trainer (default 64 can "
+                      "exceed the qualifying pool and empty the holdout)")
         self.assertIn("--reward-weight w_press=2.0", s)
         self.assertIn("--kl-anchor-ceiling", s)
         self.assertIn("--lr 1e-04", s.replace("0.0001", "1e-04"))
