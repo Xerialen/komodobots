@@ -33,8 +33,10 @@ fold lives in plans/tuning-loop-429.md)
 * Tertiary test set (nblm, multiple-comparisons guard): ranking N configs against ONE
   held-out route set can overfit the winner to those routes; the final winner (only
   it) is re-graded once on the NEXT disjoint holdout chunk
-  (`select_holdout_offset = n_reset_segments + select_grade_segments`) and the
-  verdict reports both grades.
+  (`select_holdout_offset = reset-prefix skip + select_grade_segments`, where the
+  reset-prefix skip is n_reset_segments when resets share --split and 0 when
+  --reset-split is disjoint — XR.grade_holdout_offset) and the verdict reports both
+  grades.
 * The sweep REFUSES to start without a resolvable code version (the registry would
   journal every run provenance-incomplete = ineligible), and REFUSES a verdict when
   the journal holds more than one environment_hash (grades are not comparable across
@@ -128,14 +130,16 @@ def trial_index_from_path(p):
 
 
 def trial_argv(python, trainer, data, cfg, *, seed, steps, out_ckpt, registry, git_sha,
-               grade_segments, n_reset_segments):
+               grade_segments, n_reset_segments, reset_split=None):
     """The exact rl_onspeed invocation for one trial. --registry is passed ABSOLUTE
     (the child resolves a relative explicit path against ITS cwd) and every trial
     runs --select-by-route-grade so its journal record is ranking-eligible.
     --n-reset-segments is FORWARDED from the sweep (first real sweep 20260702: the
     trainer's default 64 exceeded the val pool of 54 qualifying episodes, so the
     skip-64 holdout was EMPTY and every run was honestly refused — the sweep must
-    budget the shared pool: resets + grade + tertiary <= pool)."""
+    budget the shared pool: resets + grade + tertiary <= pool). --reset-split (when
+    set) moves resets to a DISJOINT split, so the whole --split pool is available
+    for grade + tertiary: budget becomes 2 x grade_segments <= pool."""
     argv = [python, str(trainer),
             "--init-ckpt", str(data["init_ckpt"]), "--db", str(data["db"]),
             "--bsp", str(data["bsp"]), "--norm-artifact", str(data["norm_artifact"]),
@@ -147,6 +151,8 @@ def trial_argv(python, trainer, data, cfg, *, seed, steps, out_ckpt, registry, g
             "--select-grade-segments", str(grade_segments),
             "--n-reset-segments", str(n_reset_segments),
             "--steps", str(steps), "--seed", str(seed)]
+    if reset_split:
+        argv += ["--reset-split", str(reset_split)]
     if data.get("resource_coords"):
         argv += ["--resource-coords", str(data["resource_coords"])]
     if git_sha:
@@ -315,7 +321,8 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
         argv = trial_argv(a.python, a.trainer, data, cfg, seed=seed, steps=a.trial_steps,
                           out_ckpt=out, registry=registry, git_sha=git_sha,
                           grade_segments=a.grade_segments,
-                          n_reset_segments=a.n_reset_segments)
+                          n_reset_segments=a.n_reset_segments,
+                          reset_split=getattr(a, "reset_split", None))
         print(f"[tune] t{index:03d}_s{seed} cfg={json.dumps(cfg, sort_keys=True)}", flush=True)
         rc = runner(argv, sweep / "logs" / f"t{index:03d}_s{seed}.log", a.trial_timeout)
         counts["completed" if rc == 0 else "crashed"] += 1
@@ -439,7 +446,9 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
         tert = None
         if best_ckpt and Path(best_ckpt).is_file():
             tert = tertiary(a.python, a.eval_script, data, best_ckpt,
-                            holdout_offset=a.n_reset_segments + a.grade_segments,
+                            holdout_offset=XR.grade_holdout_offset(
+                                getattr(a, "reset_split", None), a.split,
+                                a.n_reset_segments) + a.grade_segments,
                             grade_segments=a.grade_segments, horizon=a.horizon,
                             out_json=sweep / "winner_tertiary.json",
                             log_path=sweep / "logs" / "winner_tertiary.log",
@@ -493,6 +502,10 @@ def main(argv=None):
                     help="goal-conditioning resource coords json (5th data arg on pinnacle)")
     ap.add_argument("--map", default="dm3")
     ap.add_argument("--split", default="val")
+    ap.add_argument("--reset-split", default=None,
+                    help="split trial RESETS draw from (default: --split). Disjoint from "
+                         "--split -> the whole --split pool serves grade + tertiary "
+                         "(budget 2 x grade_segments <= pool)")
     ap.add_argument("--trials", type=int, default=30,
                     help="sampled configs incl. trial 0 = the incumbent-default control")
     ap.add_argument("--trial-steps", type=int, default=200000,
