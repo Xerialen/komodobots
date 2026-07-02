@@ -20,8 +20,13 @@ fold lives in plans/tuning-loop-429.md)
 * NO reduced-step screening tier (nblm: PPO learning curves cross — an early winner
   can be a memorized suboptimum). Every trial runs the SAME full per-trial step
   budget, one documented number, journaled per run.
-* Trial 0 is the INCUMBENT DEFAULT config — the control / "live point" the ML gate's
-  named-baseline invariant asks for, inside the same environment group.
+* Trial 0 is the CONTROL — the named baseline inside the same environment group. Under
+  space v2 (D7, plans/d7-sustain-shaping.md) that is the PINNED sweep-2 winner with
+  pre-D7 reward geometry (w_sustain 0), ALWAYS seed-verified to the full quota, and the
+  verdict emits the pre-registered promotion rule against it (beats_control_margin >=
+  one ranked-segment quantum + the tertiary mechanism guard) as executable fields.
+  (v1's trial 0 was the trainer-default config; superseded when the PPO dims were
+  pinned to the winner so the sweep isolates reward geometry.)
 * Driver-owned trial identity (auditor MF-1): `config_id` is NOT computable before
   launch (it hashes the fully-resolved reward config incl. the data-derived band), so
   the resume done-set matches on the deterministic per-trial `--out-ckpt` path, and
@@ -68,51 +73,74 @@ import experiment_registry as XR   # noqa: E402  (stdlib; the #426 journal)
 
 LOGGER = logging.getLogger(__name__)
 
-SPACE_VERSION = "komodobots.tune_space.v1"
+SPACE_VERSION = "komodobots.tune_space.v2"
 # PRE-REGISTERED off-ramp (plans/tuning-loop-429.md, declared before any sweep runs):
 # a winner whose tertiary (never-ranked routes) seg_faster_frac falls below HALF its
 # ranked value is "overfit to the ranking routes" — refused, not crowned. A missing
 # tertiary grade refuses too (fail closed: absence of evidence is not evidence).
 TERTIARY_OFFRAMP_FRACTION = 0.5
-# Rollout buffer at the sweep's fixed geometry (n_envs 12 x rollout_steps 256): a
-# minibatch above it is silently one full-batch pass (auditor MF-2), so the grid tops
-# out AT the buffer.
-MINIBATCH_GRID = (384, 768, 1536, 3072)
-KL_COEF_ARMS = (0.0, 0.02, 0.05, 0.1)
+# PRE-REGISTERED mechanism guard (D7, plans/d7-sustain-shaping.md §4.3): anchor-off +
+# reward-GEOMETRY optimization must never crown a physics/bulldoze artifact — a winner
+# whose tertiary seg_clean_mechanism_frac falls below this is refused regardless of its
+# faster_frac. Fail closed on a missing field.
+MECH_GUARD_MIN_CLEAN_FRAC = 0.9
+# v2 space (D7, plans/d7-sustain-shaping.md §3): the PPO dims are PINNED to the sweep-2
+# winner config aa1aaf5477a9 (pinnacle sweeps/20260702b verdict.json + registry — the
+# 5-seed-verified anchor-off + high-w_press winner) so this sweep isolates REWARD
+# GEOMETRY. minibatch 768 is within the 12x256=3072 rollout buffer (the v1 grid cap).
+WINNER_PIN = {
+    "lr": 0.00017745,
+    "clip": 0.2373,
+    "kl_coef": 0.0,             # anchor OFF (owner decision-B lane) ...
+    "kl_anchor_ceiling": 1e9,   # ... PAIRED with a raised eligibility ceiling (v1 MF-3)
+    "ent_coef": 0.0001077,
+    "minibatch": 768,
+}
+# Trial 0 = the CONTROL: the pinned winner with PRE-D7 reward geometry — w_sustain 0 and
+# the reward-module defaults for the rebalance dims. The incumbent going into this sweep
+# IS that winner (v1's incumbent-default {} would resolve to anchor-ON lr 3e-4 w_press 1.0
+# — not a valid control for the D7 question).
+CONTROL_CONFIG = dict(WINNER_PIN, w_press=2.516, w_strafe=0.6, w_vel=1.0, w_sustain=0.0)
+# Sampled reward-geometry dims; every key MUST exist in reward_onspeed.DEFAULT_WEIGHTS
+# (test-locked) — trial_argv routes exactly these through --reward-weight.
+REWARD_ARGV_KEYS = ("w_press", "w_strafe", "w_vel", "w_sustain")
 SPACE_BOUNDS = {
-    "lr": ("log-uniform", 1e-5, 3e-4),
-    "clip": ("uniform", 0.1, 0.3),
-    "kl_coef": ("categorical", KL_COEF_ARMS),
-    "kl_anchor_ceiling": ("paired", "1e9 when kl_coef==0 (anchor-off arm, owner decision-B lane) else 0.32"),
-    "ent_coef": ("log-uniform", 1e-4, 3e-2),
-    "minibatch": ("categorical", MINIBATCH_GRID),
-    "w_press": ("uniform", 0.5, 3.0),
+    "lr": ("pinned", WINNER_PIN["lr"]),
+    "clip": ("pinned", WINNER_PIN["clip"]),
+    "kl_coef": ("pinned", 0.0),
+    "kl_anchor_ceiling": ("pinned", 1e9),
+    "ent_coef": ("pinned", WINNER_PIN["ent_coef"]),
+    "minibatch": ("pinned", 768),
+    "w_press": ("uniform", 2.0, 3.0),
+    "w_strafe": ("uniform", 0.0, 0.6),
+    "w_vel": ("uniform", 1.0, 3.0),
+    "w_sustain": ("mix", "0.0 w.p. 0.3 (rebalance-only arm, P-vs-O readout) else log-uniform", 0.05, 0.6),
 }
 
 
 def sample_config(rng):
-    """One config from the v1 space. kl_coef is categorical INCLUDING the anchor-off
-    arm, and the eligibility ceiling is PAIRED with it (auditor MF-3: the ceiling
-    gates best-ckpt eligibility + early-stop; a low anchor coef under an unraised
-    ceiling makes late reward-best iters ineligible — the documented d1-d3-d5 trap)."""
-    kl_coef = rng.choice(KL_COEF_ARMS)
-    return {
-        "lr": round(10 ** rng.uniform(math.log10(1e-5), math.log10(3e-4)), 8),
-        "clip": round(rng.uniform(0.1, 0.3), 4),
-        "kl_coef": kl_coef,
-        "kl_anchor_ceiling": 1e9 if kl_coef == 0.0 else 0.32,
-        "ent_coef": round(10 ** rng.uniform(math.log10(1e-4), math.log10(3e-2)), 8),
-        "minibatch": rng.choice(MINIBATCH_GRID),
-        "w_press": round(rng.uniform(0.5, 3.0), 3),
-    }
+    """One config from the v2 space (D7): PPO dims pinned to the sweep-2 winner, reward-
+    geometry dims sampled. w_sustain keeps explicit 0.0 arms (P=0.3) so the journal can
+    separate hypothesis P (credit path, shaping) from O (optimum, rebalance) — see
+    plans/d7-sustain-shaping.md §3. Its sampled range is capped at 0.6 (the gamma-drag
+    early-training guard, NotebookLM fold)."""
+    cfg = dict(WINNER_PIN)
+    cfg["w_press"] = round(rng.uniform(2.0, 3.0), 3)
+    cfg["w_strafe"] = round(rng.uniform(0.0, 0.6), 3)
+    cfg["w_vel"] = round(rng.uniform(1.0, 3.0), 3)
+    if rng.random() < 0.3:
+        cfg["w_sustain"] = 0.0
+    else:
+        cfg["w_sustain"] = round(10 ** rng.uniform(math.log10(0.05), math.log10(0.6)), 4)
+    return cfg
 
 
 def trial_config(sweep_seed, index):
-    """Deterministic config for trial `index`. Index 0 = the incumbent defaults
-    (empty override dict) — the control. Same (sweep_seed, index) always yields the
+    """Deterministic config for trial `index`. Index 0 = the CONTROL (the pinned sweep-2
+    winner with pre-D7 reward geometry). Same (sweep_seed, index) always yields the
     same config, which is what makes the done-set resume sound."""
     if index == 0:
-        return {}
+        return dict(CONTROL_CONFIG)
     return sample_config(random.Random(f"{sweep_seed}:{index}"))
 
 
@@ -158,8 +186,8 @@ def trial_argv(python, trainer, data, cfg, *, seed, steps, out_ckpt, registry, g
     if git_sha:
         argv += ["--git-sha", str(git_sha)]
     for k, v in sorted(cfg.items()):
-        if k == "w_press":
-            argv += ["--reward-weight", f"w_press={v}"]
+        if k in REWARD_ARGV_KEYS:      # every reward-geometry dim rides --reward-weight
+            argv += ["--reward-weight", f"{k}={v}"]
         else:
             argv += ["--" + k.replace("_", "-"), str(v)]
     return argv
@@ -236,6 +264,15 @@ def config_scores(runs):
 
 def environment_hashes(scores):
     return sorted({env for (env, _cfg) in scores})
+
+
+def trial_index_of_group(runs, sc):
+    """Trial index of a config-score group (parsed from its first run's driver-minted
+    out_ckpt path), or None for a foreign path."""
+    any_run = runs[sc["run_ids"][0]]
+    parsed = trial_index_from_path(
+        (any_run["start"] or {}).get("args", {}).get("out_ckpt", ""))
+    return parsed[0] if parsed else None
 
 
 def grade_winner_tertiary(python, eval_script, data, ckpt, *, holdout_offset,
@@ -341,16 +378,25 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
         scores = config_scores(runs)
         ranked = sorted(scores.items(), key=lambda kv: kv[1]["mean_key"], reverse=True)
         finalists = ranked[:a.top_k]
-        for (env, cfgid), sc in finalists:
-            any_run = runs[sc["run_ids"][0]]
-            parsed = trial_index_from_path(
-                (any_run["start"] or {}).get("args", {}).get("out_ckpt", ""))
-            if parsed is None:
+        crownable = {key for key, _sc in finalists}
+        # D7 (plans/d7-sustain-shaping.md §4.1): the trial-0 CONTROL is ALWAYS seed-
+        # verified to the full quota — the promotion margin must never compare a 5-seed
+        # winner mean to a 1-seed control point. Verification does NOT make the control
+        # crownable unless it ranked top-K on its own (else an under-verified best
+        # candidate could be silently displaced by a verified weak control).
+        verify_worklist = list(finalists)
+        if not any(trial_index_of_group(runs, sc) == 0 for _k, sc in finalists):
+            ctrl_entry = next(((k, sc) for k, sc in ranked
+                               if trial_index_of_group(runs, sc) == 0), None)
+            if ctrl_entry is not None:
+                verify_worklist.append(ctrl_entry)
+        for (env, cfgid), sc in verify_worklist:
+            index = trial_index_of_group(runs, sc)
+            if index is None:
                 print(f"[tune] finalist {cfgid}: foreign out_ckpt, cannot re-derive its "
                       f"config — skipping verify (NOT crownable without verification)",
                       flush=True)
                 continue
-            index, _ = parsed
             cfg = trial_config(a.sweep_seed, index)
             # Seed-verify to the FULL quota (Codex #474 P2): iterate candidate seeds
             # until this config has --verify-seeds COMPLETED runs — an already-complete
@@ -368,9 +414,11 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
             # Crownable ONLY at the full quota (Codex #474 round-2 P1): if replacement
             # verification seeds keep crashing, the bounded loop exits with the config
             # UNDER-verified — it must refuse/resume, never crown a one-seed finalist.
+            # (The always-verified control stays NON-crownable unless it ranked top-K.)
             n_done = len(completed_seeds_for_trial(registry, index))
             if n_done >= a.verify_seeds:
-                finalist_keys.add((env, cfgid))
+                if (env, cfgid) in crownable:
+                    finalist_keys.add((env, cfgid))
             else:
                 print(f"[tune] finalist {cfgid}: only {n_done}/{a.verify_seeds} completed "
                       f"verification runs — NOT crownable (resume the sweep to retry)",
@@ -388,7 +436,7 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
     scores = config_scores(runs)
     envs = environment_hashes(scores)
     verdict = {
-        "verdict_schema": "komodobots.tune_verdict.v1",
+        "verdict_schema": "komodobots.tune_verdict.v2",
         "space_version": SPACE_VERSION, "space_bounds": {k: str(v) for k, v in SPACE_BOUNDS.items()},
         "sweep_seed": a.sweep_seed, "trials_planned": a.trials,
         "trial_steps": a.trial_steps, "verify_seeds": a.verify_seeds,
@@ -426,9 +474,15 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
         ranked_all = sorted(scores.items(), key=lambda kv: kv[1]["mean_key"], reverse=True)
         ranked = sorted(verified.items(), key=lambda kv: kv[1]["mean_key"], reverse=True)
         if ranked_all[0][0] not in finalist_keys:
-            verdict["note"] = (f"unverified config {ranked_all[0][0][1]} outranks the "
-                               f"verified winner on mean grade (n={ranked_all[0][1]['n']}) "
-                               f"— verify it in the next sweep pass before trusting it")
+            # NOTE this also fires when the ALWAYS-VERIFIED CONTROL outranks every crownable
+            # finalist (verified-but-non-crownable by design): the sweep still crowns the best
+            # finalist, and the readout that "nothing improved on the control" is carried by
+            # beats_control_margin <= 0 -> promotion_eligible: False, never by the crown.
+            verdict["note"] = (f"config {ranked_all[0][0][1]} outranks the verified winner "
+                               f"on mean grade (n={ranked_all[0][1]['n']}) but is not a "
+                               f"crownable finalist (unverified, or the control outside "
+                               f"top-K) — a candidate must earn the crown via top-K + full "
+                               f"seed verification in a sweep pass")
         (env, cfgid), sc = ranked[0]
         # deployable artifact = the best single run's ckpt among the winner's seeds
         best_rid = max(sc["run_ids"],
@@ -443,6 +497,26 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
             "finalists": [{"config_id": c, "mean_key": s["mean_key"], "n": s["n"],
                            "worst_key": s["worst_key"]} for (_e, c), s in ranked[:a.top_k]],
         }
+        # D7 promotion fields (plans/d7-sustain-shaping.md §4.2) — the pre-registered
+        # rule EXECUTES here, never decoration: margin vs the always-verified control in
+        # ranked-segment quanta. Fail closed: a missing or under-verified control means
+        # promotion-INELIGIBLE (never assumed), while the sweep crown itself stands.
+        ctrl_sc = next((s for k, s in scores.items()
+                        if trial_index_of_group(runs, s) == 0), None)
+        n_seg = (runs[best_rid]["final"]["result"]["route_grade_summary"]
+                 or {}).get("n_segments") or 0
+        quantum = (1.0 / n_seg) if n_seg else None
+        winner["promotion_quantum"] = quantum
+        if ctrl_sc is not None and ctrl_sc["n"] >= a.verify_seeds and quantum:
+            margin = sc["mean_key"][0] - ctrl_sc["mean_key"][0]
+            winner["control"] = {"n_runs": ctrl_sc["n"], "mean_key": ctrl_sc["mean_key"],
+                                 "worst_key": ctrl_sc["worst_key"]}
+            winner["beats_control_margin"] = margin
+            promo_margin_ok = margin >= quantum
+        else:
+            winner["control"] = None
+            winner["beats_control_margin"] = None
+            promo_margin_ok = False
         tert = None
         if best_ckpt and Path(best_ckpt).is_file():
             tert = tertiary(a.python, a.eval_script, data, best_ckpt,
@@ -463,6 +537,7 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
         # winners/.
         ranked_frac = sc["mean_key"][0]
         tert_frac = (tert or {}).get("seg_faster_frac")
+        mech_frac = (tert or {}).get("seg_clean_mechanism_frac")
         if tert_frac is None:
             verdict["winner"] = None
             verdict["refusal"] = ("tertiary grade unavailable — cannot verify the top "
@@ -474,7 +549,16 @@ def run_sweep(a, runner=run_trial, tertiary=grade_winner_tertiary):
                                   f"{tert_frac} < {TERTIARY_OFFRAMP_FRACTION} x ranked "
                                   f"{ranked_frac}")
             verdict["refused_candidate"] = winner
+        elif mech_frac is None or mech_frac < MECH_GUARD_MIN_CLEAN_FRAC:
+            # D7 pre-registered mechanism guard (plans/d7-sustain-shaping.md §4.3), fail
+            # closed on a missing field: anchor-off geometry optimization must never
+            # crown a physics/bulldoze artifact, however fast it grades.
+            verdict["winner"] = None
+            verdict["refusal"] = (f"mechanism_guard: tertiary seg_clean_mechanism_frac "
+                                  f"{mech_frac} < {MECH_GUARD_MIN_CLEAN_FRAC}")
+            verdict["refused_candidate"] = winner
         else:
+            winner["promotion_eligible"] = bool(promo_margin_ok)
             winner["kept"] = keep_winner(best_ckpt, sweep / "winners")
             verdict["winner"] = winner
 

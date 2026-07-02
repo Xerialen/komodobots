@@ -219,5 +219,246 @@ class TestGroundForwardBulldoze(unittest.TestCase):
         self.assertLess(nxt["ap_rate"], cfg["air_press_thresh"])
 
 
+class TestSustainShaping(unittest.TestCase):
+    """D7 (plans/d7-sustain-shaping.md §5): potential-based sustain-speed shaping — every
+    pre-registered guard has its enforcing test here. F = γΦ(e′)−Φ(e) over the speed-EMA
+    ladder; default w_sustain=0 = OFF."""
+
+    @staticmethod
+    def _run_speeds(speeds, cfg, mutate=None):
+        """Thread a post-frame hspeed sequence through compute_step_reward (speeds[0] seeds
+        the carry) and return the f_sustain series."""
+        carry = mk_carry(prev_hspeed=speeds[0])
+        fs = []
+        for i, s in enumerate(speeds[1:]):
+            cur = mk_cur(vx=float(s))
+            if mutate:
+                mutate(cur, carry, i)
+            _, info, carry = R.compute_step_reward(cur, carry, ROUTE, cfg)
+            fs.append(info["f_sustain"])
+        return fs
+
+    @staticmethod
+    def _ema_replay(speeds, alpha):
+        e = float(speeds[0])
+        for s in speeds[1:]:
+            e = e + alpha * (float(s) - e)
+        return e
+
+    @staticmethod
+    def _run_episode(speeds, cfg):
+        """Thread a FULL EPISODE with the env's clock contract: ticks_left counts down to 0
+        and the final tick carries done=True (as PmoveEnv.step provides them)."""
+        carry = mk_carry(prev_hspeed=speeds[0])
+        n = len(speeds) - 1
+        fs = []
+        for i, s in enumerate(speeds[1:]):
+            cur = mk_cur(vx=float(s))
+            cur["ticks_left"] = n - (i + 1)
+            cur["done"] = (i + 1) == n
+            _, info, carry = R.compute_step_reward(cur, carry, ROUTE, cfg)
+            fs.append(info["f_sustain"])
+        return fs
+
+    def test_sustain_potential_monotone_capped(self):
+        cap = 1000.0
+        self.assertEqual(R.phi_ladder(0.0, cap), 0.0)
+        vals = [R.phi_ladder(h, cap) for h in range(0, 1401, 50)]
+        self.assertEqual(vals, sorted(vals), "Phi must be monotone non-decreasing")
+        self.assertEqual(R.phi_ladder(cap, cap), R.phi_ladder(1400.0, cap),
+                         "Phi must be flat above the cap")
+        for h in (50.0, 150.0, 320.0, 600.0):
+            eps = 1e-4   # closed form == integral of 1/phi: check dPhi/dh numerically
+            num = (R.phi_ladder(h + eps, 1e9) - R.phi_ladder(h - eps, 1e9)) / (2 * eps)
+            self.assertAlmostEqual(num, 1.0 / R.phi(h), places=6)
+        for h in (30.0, 100.0, 320.0, 600.0):
+            # one physics-perfect pump tick raises Phi by ~1 FIRST-ORDER only (1.02 at
+            # h=100) — never assert exact 1 (audit note).
+            dphi = R.phi_ladder(h + R.phi(h), 1e9) - R.phi_ladder(h, 1e9)
+            self.assertGreaterEqual(dphi, 1.0)
+            self.assertLessEqual(dphi, 1.16)
+
+    def test_sustain_telescoping_exact(self):
+        # gamma-weighted sum of F telescopes EXACTLY to gamma^T*Phi(e_T) - Phi(e_0) on an
+        # arbitrary trajectory (gains, decays, a hard stop) — the potential-based property
+        # that guarantees the term cannot manufacture net income (the r_cad-trap guard).
+        cfg = mk_cfg(w_sustain=0.7)
+        g, cap = cfg["sustain_gamma"], cfg["sustain_cap"]
+        speeds = [300.0, 310.0, 305.0, 330.0, 350.0, 340.0, 360.0, 200.0, 0.0, 120.0]
+        fs = self._run_speeds(speeds, cfg)
+        total = sum((g ** t) * f for t, f in enumerate(fs))
+        e_t = self._ema_replay(speeds, cfg["sustain_ema"])
+        expect = (g ** len(fs)) * R.phi_ladder(e_t, cap) - R.phi_ladder(speeds[0], cap)
+        self.assertAlmostEqual(total, expect, places=8)
+
+    def test_sustain_steady_bhop_sawtooth_no_phantom_income(self):
+        # THE regression for the clipped-raw-hspeed design rejected at implementation: bhop's
+        # routine 1-tick friction bleed (-16.6 qu/s at 320) + gradual air regain, cycled. A
+        # per-tick clip below that sawtooth turns the term into ~+8.9 PHANTOM income per hop
+        # at CONSTANT average speed. The EMA form must (a) keep per-tick F nearly flat across
+        # the sawtooth, (b) net NEGATIVE (drag only, no income), (c) telescope exactly.
+        cfg = mk_cfg(w_sustain=1.0)
+        g, cap = cfg["sustain_gamma"], cfg["sustain_cap"]
+        drop, ticks_up = 16.6, 11
+        cycle = [320.0 - drop + (drop / ticks_up) * k for k in range(ticks_up + 1)]
+        speeds = [320.0] + cycle * 20
+        fs = self._run_speeds(speeds, cfg)
+        self.assertLess(max(fs) - min(fs), 1.0,
+                        "the EMA must absorb the friction sawtooth (raw-hspeed spread ~13)")
+        self.assertLess(sum(fs), 0.0, "steady speed must never earn net sustain income")
+        total = sum((g ** t) * f for t, f in enumerate(fs))
+        e_t = self._ema_replay(speeds, cfg["sustain_ema"])
+        expect = (g ** len(fs)) * R.phi_ladder(e_t, cap) - R.phi_ladder(speeds[0], cap)
+        self.assertAlmostEqual(total, expect, places=8)
+
+    def test_sustain_decay_charged_gain_credited(self):
+        cfg = mk_cfg()
+        g = cfg["sustain_gamma"]
+        # sustained decay 320 -> 150: charged as it happens, gamma-weighted total well below 0
+        decay = [320.0 - (170.0 / 60.0) * k for k in range(61)]
+        fs = self._run_speeds(decay, cfg)
+        self.assertLess(sum((g ** t) * f for t, f in enumerate(fs)), -60.0)
+        self.assertLess(fs[5], 0.0, "decay must be charged while it happens, not deferred")
+        # climb 150 -> 320 then hold: the climb is net-credited; holding pays only the small
+        # invariance drag -(1-gamma)*Phi(e) (~-1.16 at 320), never a fresh charge/credit.
+        climb = [150.0 + (170.0 / 60.0) * k for k in range(61)] + [320.0] * 80
+        fs2 = self._run_speeds(climb, cfg)
+        self.assertGreater(sum(fs2[:60]), 5.0)
+        self.assertGreater(fs2[-1], -1.3)
+        self.assertLess(fs2[-1], 0.0)
+
+    def test_sustain_default_off_parity(self):
+        # w_sustain=0 (the DEFAULT): the reward equals the weighted sum of the other terms
+        # exactly — the D7 term contributes nothing — while f_sustain stays observable.
+        cfg = mk_cfg()
+        self.assertEqual(cfg["w_sustain"], 0.0, "D7 ships OFF by default")
+        cases = [mk_cur(vx=300.0, perp_frac=0.9),
+                 mk_cur(vx=400.0, onground=True, fwd_am=2),
+                 mk_cur(vx=250.0, blocked=R.BLOCKED_OTHER),
+                 mk_cur(vx=0.0, yaw_delta_deg=15.0)]
+        for cur in cases:
+            carry = mk_carry(prev_hspeed=280.0, ap_rate=0.5)
+            reward, info, _ = R.compute_step_reward(cur, dict(carry), ROUTE, cfg)
+            expect = (cfg["w_vel"] * info["r_vel"] + cfg["w_prog"] * info["r_prog"]
+                      + cfg["w_phi"] * info["r_phi"] + cfg["w_strafe"] * info["r_strafe"]
+                      + cfg["w_cad"] * info["r_cad"]
+                      - cfg["w_press"] * info["r_press"]
+                      - cfg["w_collide"] * info["p_collide"]
+                      - cfg["w_time"] - cfg["w_hack"] * info["p_hack"])
+            self.assertAlmostEqual(reward, expect, places=12)
+            self.assertIn("f_sustain", info)
+            # the same tick with the term live must move the reward (the lever is real)
+            reward_on, _, _ = R.compute_step_reward(cur, dict(carry), ROUTE,
+                                                    mk_cfg(w_sustain=0.5))
+            self.assertNotAlmostEqual(reward, reward_on, places=12)
+
+    def test_sustain_gamma_mirrors_trainer(self):
+        # Exact invariance needs shaping-gamma == the trainer's GAE gamma. Lock BOTH the
+        # def-site default AND that every call site passes no explicit gamma (else a later
+        # --gamma knob silently breaks the mirror with this test green). utf-8 read: the
+        # trainer source contains non-ASCII; a Windows cp1252 default read would die.
+        import re
+        src = (Path(__file__).resolve().parent.parent / "ml" / "rl_onspeed.py").read_text(
+            encoding="utf-8")
+        m = re.search(r"def compute_gae\([^)]*gamma=([0-9.]+)", src)
+        self.assertIsNotNone(m, "compute_gae def-site with a gamma default must exist")
+        self.assertEqual(float(m.group(1)), R.DEFAULT_WEIGHTS["sustain_gamma"])
+        calls = [ln for ln in src.splitlines()
+                 if "compute_gae(" in ln and "def compute_gae" not in ln]
+        self.assertGreaterEqual(len(calls), 1)
+        for ln in calls:
+            self.assertNotIn("gamma", ln.split("compute_gae(", 1)[1],
+                             "call sites must inherit the def-site gamma the mirror locks")
+
+    def test_sustain_reads_only_speed(self):
+        # Pre-registered ban: NEVER keyed to yaw-rate / hold-length / cadence. Permuting
+        # those inputs must leave the f_sustain series bit-identical.
+        cfg = mk_cfg(w_sustain=0.4)
+        speeds = [300.0, 310.0, 250.0, 330.0, 200.0, 320.0]
+        base = self._run_speeds(speeds, cfg)
+
+        def spice(cur, carry, i):
+            cur["yaw_delta_deg"] = 45.0 if i % 2 else -30.0
+            cur["side_am_mag"] = 1 if i % 2 else -1
+            carry["strafe_hold"] = 100 + i
+
+        self.assertEqual(base, self._run_speeds(speeds, cfg, mutate=spice))
+
+    def test_sustain_clip_is_sanity_net_only(self):
+        # The clip must NEVER engage on honest dynamics within the cap (an engaging clip
+        # re-opens the phantom-income hole on climb-crash cycles). The TRUE one-tick bound
+        # has TWO parts: gamma*(max delta-Phi) + (1-gamma)*Phi(cap) — the drag term is NOT
+        # negligible (delta audit: dropping it put the bound at 44.5 while e=1000,h=0 gives
+        # |F|=54.7, engaging a clip of 50 INSIDE the cap).
+        cfg = mk_cfg(w_sustain=1.0)
+        g, cap = cfg["sustain_gamma"], cfg["sustain_cap"]
+        bound = (g * cfg["sustain_ema"] * cap / R.phi(cap)
+                 + (1.0 - g) * R.phi_ladder(cap, cap))
+        self.assertLess(bound, cfg["sustain_clip"])
+        # the worst within-cap single tick (EMA at the cap, full stop) stays under the net
+        worst = mk_carry(prev_hspeed=cap)
+        _, info, _ = R.compute_step_reward(mk_cur(vx=0.0), worst, ROUTE, cfg)
+        self.assertGreater(info["f_sustain"], -cfg["sustain_clip"])
+        self.assertLess(info["f_sustain"], 0.0)
+        fs = self._run_speeds([320.0] + [0.0] * 80, cfg)
+        self.assertLess(fs[0], -3.0, "a wall-stop must be charged starting the same tick")
+        self.assertGreater(fs[0], -8.0, "the EMA spreads the charge — no -115 spike")
+        self.assertGreater(min(fs), -cfg["sustain_clip"], "the sanity net never engages")
+
+    def test_sustain_terminal_residual_is_zero(self):
+        # THE Codex #478 P1 case: two full episodes, same start EMA and same length — one
+        # ENDS FAST (holds 320), one ENDS SLOW (decays to 120). Without terminal
+        # cancellation the fast-ender banks gamma^T * Phi(e_T) extra shaping return; with
+        # the time-varying ramp the gamma-weighted totals must be IDENTICAL and equal
+        # -pot_0 exactly — end-of-episode speed earns NO objective bonus, w_sustain only
+        # re-times credit within the episode.
+        cfg = mk_cfg(w_sustain=1.0)
+        g = cfg["sustain_gamma"]
+        n = 120
+        fast = [320.0] * (n + 1)
+        slow = [320.0] * 41 + [max(120.0, 320.0 - 5.0 * k) for k in range(1, n - 39)]
+        self.assertEqual(len(slow), n + 1)
+        tot_fast = sum((g ** t) * f for t, f in enumerate(self._run_episode(fast, cfg)))
+        tot_slow = sum((g ** t) * f for t, f in enumerate(self._run_episode(slow, cfg)))
+        pot0 = R.phi_ladder(320.0, cfg["sustain_cap"])   # ramp(120 ticks left) = 1 at seed
+        self.assertAlmostEqual(tot_fast, -pot0, places=8)
+        self.assertAlmostEqual(tot_slow, -pot0, places=8)
+        self.assertAlmostEqual(tot_fast, tot_slow, places=8)
+
+    def test_sustain_rampdown_spreads_giveback_and_done_zeroes(self):
+        cfg = mk_cfg(w_sustain=1.0)
+        g = cfg["sustain_gamma"]
+        # planned end: inside the ramp window the give-back is gradual — never a -115 spike
+        fs = self._run_episode([320.0] * 121, cfg)
+        ramp_zone = fs[-int(cfg["sustain_ramp_ticks"]):]
+        self.assertLess(max(abs(x) for x in ramp_zone), 6.0,
+                        "give-back must spread (~Phi/ramp_ticks + drag per tick)")
+        # a segment SHORTER than the ramp window: pot seeds at the episode's own initial
+        # ramp (no first-tick over-charge) and the total still telescopes to -pot_0
+        n2 = 20
+        fs2 = self._run_episode([320.0] * (n2 + 1), cfg)
+        pot0 = (n2 / cfg["sustain_ramp_ticks"]) * R.phi_ladder(320.0, cfg["sustain_cap"])
+        self.assertAlmostEqual(sum((g ** t) * f for t, f in enumerate(fs2)), -pot0,
+                               places=8)
+        self.assertLess(max(abs(x) for x in fs2), 6.0)
+        # EARLY done (the out-of-bounds crash): the potential zeroes ON that tick; the
+        # one-off give-back is attenuated by the sanity net (the documented exception) —
+        # the residual can never survive the episode.
+        carry = mk_carry(prev_hspeed=320.0)
+        cur = mk_cur(vx=320.0)
+        cur["ticks_left"], cur["done"] = 199, True
+        _, info, nxt = R.compute_step_reward(cur, carry, ROUTE, cfg)
+        self.assertEqual(nxt["sustain_pot"], 0.0)
+        self.assertEqual(info["f_sustain"], -cfg["sustain_clip"])
+
+    def test_validate_weight_keys(self):
+        R.validate_weight_keys({})                       # empty = fine
+        R.validate_weight_keys({"w_sustain": 0.3, "w_press": 2.5})
+        with self.assertRaises(ValueError) as cm:
+            R.validate_weight_keys({"w_sustian": 0.3})   # the typo that trains the control
+        self.assertIn("w_sustian", str(cm.exception))
+        self.assertIn("w_sustain", str(cm.exception), "the message must name valid keys")
+
+
 if __name__ == "__main__":
     unittest.main()
