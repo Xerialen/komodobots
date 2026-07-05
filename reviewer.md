@@ -1,6 +1,6 @@
 # Reviewer Role
 
-This role may be performed by Claude, Codex, ChatGPT, Gemini, or another capable
+This role may be performed by Claude, Codex, GLM, ChatGPT, or another capable
 coding agent when Benjamin assigns that agent to review work.
 
 The role is tool-agnostic. Use the best native tools available in the current

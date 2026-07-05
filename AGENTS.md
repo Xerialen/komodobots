@@ -94,8 +94,8 @@ The same agent must not act as both Coder and independent Reviewer for the same
 PR unless Benjamin explicitly overrides role separation.
 
 Beyond not being the same agent, the Reviewer should ideally run on a *different
-LLM* than the Coder (for example, a Claude-authored PR reviewed by Codex or
-Gemini, and a Codex-authored PR reviewed by Claude). A model reviewing its own
+LLM* than the Coder (for example, a Claude-authored PR reviewed by GLM or
+Codex, and a GLM-authored PR reviewed by Claude). A model reviewing its own
 work is the weakest form of independence. Different-LLM review is strongly
 preferred; if no different-model reviewer is available, a different agent or
 session is an acceptable fallback, but note it as a weaker review.
@@ -105,7 +105,7 @@ Two gates must both pass to merge, and they are deliberately layered per best pr
 1. **Deterministic CI floor** - `.github/workflows/pr-tests.yml` runs the stdlib unit suite on a hosted runner for every PR. This is the hard, machine-checked gate.
 2. **Reviewer filter** - a neutral PR label applied after a technical merge-safety review. The terminal labels are `gate: ready` or `gate: blocked`.
 
-The deterministic merge executor (`.github/workflows/review-gate-merge.yml`, no LLM, no API tokens) merges only when `gate: ready` is present, `gate: blocked` is absent, the PR's base is **`main` or `dev`**, the PR is mergeable, GitHub does not report a hard merge-state blocker (`BLOCKED`, `DIRTY`, or `BEHIND`), and **every non-gate check (including `PR Tests`) is passing**. It does not require `mergeStateStatus == CLEAN`, because GitHub can report `UNSTABLE` while the executor's own non-gate workflow check is pending; the workflow filters those gate checks and enforces the real check set itself. Both bases auto-merge so the staged-agent line (which targets `dev`) lands without a manual "fallback merge"; a `dev`->`main` PR whose head is a long-lived branch is never `--delete-branch`'d. It re-evaluates on `gate: ready` label events from both PR and issue-label webhook surfaces, `PR Tests` completion events, and a best-effort 5-minute reconciler for already-ready PRs. Label/CI events that arrive inside the 300-second ready-label cooldown sleep once, then re-read GitHub state and re-run the full gate, so merge does not depend on cron firing exactly on time. Branch protection would normally enforce this natively, but it requires GitHub Pro/public; the executor provides the same gate on the free private plan. **Gemini** is an **on-demand second opinion only** (`/gemini review`) - it does not auto-review and never merges.
+The deterministic merge executor (`.github/workflows/review-gate-merge.yml`, no LLM, no API tokens) merges only when `gate: ready` is present, `gate: blocked` is absent, the PR's base is **`main` or `dev`**, the PR is mergeable, GitHub does not report a hard merge-state blocker (`BLOCKED`, `DIRTY`, or `BEHIND`), and **every non-gate check (including `PR Tests`) is passing**. It does not require `mergeStateStatus == CLEAN`, because GitHub can report `UNSTABLE` while the executor's own non-gate workflow check is pending; the workflow filters those gate checks and enforces the real check set itself. Both bases auto-merge so the staged-agent line (which targets `dev`) lands without a manual "fallback merge"; a `dev`->`main` PR whose head is a long-lived branch is never `--delete-branch`'d. It re-evaluates on `gate: ready` label events from both PR and issue-label webhook surfaces, `PR Tests` completion events, and a best-effort 5-minute reconciler for already-ready PRs. Label/CI events that arrive inside the 300-second ready-label cooldown sleep once, then re-read GitHub state and re-run the full gate, so merge does not depend on cron firing exactly on time. Branch protection would normally enforce this natively, but it requires GitHub Pro/public; the executor provides the same gate on the free private plan.
 
 ```text
 Coder Agent implements -> reset sets `gate: reviewing` -> Reviewer Agent reviews and applies `gate: ready` or `gate: blocked` -> deterministic Action merges on `gate: ready` if `PR Tests` and all other non-gate checks pass -> a Coder Agent starts the next stage from the updated base (`dev` for stage work; promoted to `main` via an umbrella `dev`->`main` PR)
@@ -117,7 +117,6 @@ Role boundaries are mandatory:
 - Reviewer Agent reviews only technical merge safety: correctness, regressions, security, reliability, CI/CD, GitHub Actions logic, workflow triggers, label/merge-gate logic, permissions, secrets, branch-protection assumptions, operational/deployment risk, data-loss/destructive behavior, and tests for changed behavior.
 - Review automation or the assigned Reviewer posts the required structured review comment for the current head SHA and applies exactly one terminal label: `gate: ready` or `gate: blocked`.
 - The merge executor (a deterministic, no-LLM Action) performs the final gate check and merges only when `gate: ready` is set and all gates pass.
-- Gemini is an on-demand second opinion (`/gemini review`) - not part of the autonomous loop, and never merges.
 
 Hard separation:
 
@@ -163,7 +162,7 @@ gate: ready      -> Reviewer Agent found no blocking technical merge-safety issu
 gate: blocked    -> Reviewer Agent found at least one blocking technical merge-safety issue for the reviewed head SHA
 ```
 
-A pushed commit invalidates any previous decision: `review-gate-reset.yml` clears `gate: ready`/`gate: blocked` and sets `gate: reviewing`, so the gate always reflects the current head. If Codex cannot complete the review, leave `gate: reviewing` in place and say why; do not default to pass.
+A pushed commit invalidates any previous decision: `review-gate-reset.yml` clears `gate: ready`/`gate: blocked` and sets `gate: reviewing`, so the gate always reflects the current head. If the reviewer cannot complete the review, leave `gate: reviewing` in place and say why; do not default to pass.
 
 A **draft** PR is advisory-only: open a PR non-draft when you want it reviewed-and-merged, and never apply `gate: ready` to a draft. The merge executor skips drafts; does not treat `ready_for_review` as a merge trigger (Reset Review Gate owns that event); and authorizes only when the `gate: ready` label, plus the latest head-bound gate verdict, both post-date the most recent draft->ready promotion AND that latest verdict is itself a PASS (a later BLOCK vetoes an earlier PASS even if the `gate: blocked` label write failed). `gate-draft-guard.yml` also strips `gate: ready` and restores `gate: reviewing` if the label is ever applied to a draft.
 
