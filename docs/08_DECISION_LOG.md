@@ -4487,3 +4487,50 @@ key validation; driver: control-verified, promotion-margin + mechanism-guard VIO
 pinnacle (200k sweep vs the always-verified control → at most ONE promoted 2M point read against the
 probe curve, manual non-gating comparison); superhuman_claim stays false; any live/MVD publish stays
 owner-gated (docs/28 recording mandate).
+
+---
+
+## Decision
+
+Retire Gemini as a reviewer/role option (remove the Gemini Code Assist app wiring).
+
+### Date
+
+2026-07-05
+
+### Decision
+
+Remove the Gemini Code Assist GitHub app from this repo's workflow. Delete its per-repo config
+(`.gemini/config.yaml`, `GEMINI.md`) and drop Gemini from the role-eligibility lists in `auditor.md`,
+`coder.md`, `reviewer.md`, and the cross-model-review note in `references/12_DM3_4ON4_STANDIN_PROGRAM.md`.
+The GitHub app installation itself is uninstalled at the account level (github.com/settings/installations).
+Codex remains the adversarial Reviewer + merge authority; the autonomous Coder (Claude) → Reviewer (Codex)
+→ deterministic no-token merge loop is unchanged.
+
+### Alternatives Considered
+
+- Keep Gemini as an on-demand `/gemini review` second opinion (the prior decision — see the earlier
+  "Gemini = on-demand second opinion via the Gemini Code Assist app" entry). Rejected: unused in practice;
+  the owner asked to remove Gemini from all recently-active repos.
+- Uninstall the app but keep the config files. Rejected: leaves dead wiring and a `GEMINI.md` advertising
+  a reviewer that no longer exists.
+
+### Evidence
+
+- Zero `gemini-code-assist[bot]` review comments on recent PRs (#476–#480 checked: 0 each).
+- Owner request (2026-07-05): remove Gemini from all gh repos active in the last month. The footprint was
+  concentrated here; `agent-skills` also ships Gemini-CLI command templates, which are deliverables and
+  out of scope for this change.
+
+### Expected Consequences
+
+- `/gemini review` no longer functions on this repo (config removed); there was no auto-review to lose
+  (`pull_request_opened` was already disabled).
+- Historical/technical references to Gemini-authored drafts (FINDINGS_LOG, DATA-ARCHITECTURE §6.6/§10, the
+  `normalization_stats.template.json` note) are intentionally PRESERVED as data provenance — they record
+  why specific normalization bounds are set the way they are, not reviewer wiring.
+
+### Revisit Conditions
+
+- If a second non-Codex opinion is wanted again: re-add `.gemini/config.yaml`, reinstall the app, or wire a
+  different model.

@@ -332,4 +332,4 @@ constants, pixel input, Humanoid internals.
 This program is **documentation**; no ML/training code, the new moveprobe mode, the gate harness, or
 the Stage-0 spikes are written by this doc — those are the roadmap's steps, each under its own PR with
 its own acceptance gates. Per #170 (cross-model independent review), this doc — authored by Claude —
-**must be reviewed by a non-Claude model (Codex/Gemini) before it merges to `main`.**
+**must be reviewed by a non-Claude model (e.g. Codex) before it merges to `main`.**
