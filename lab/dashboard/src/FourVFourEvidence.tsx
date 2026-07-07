@@ -154,6 +154,9 @@ const BOT_COLUMNS: MetricDef[] = [
   { key: "team_damage", label: "Team", sub: "dmg", title: "Damage dealt to own team (lower is better)" },
   { key: "enemy_rl_kills", label: "RL", sub: "kills", title: "Enemies carrying RL killed" },
   { key: "rl_drops", label: "RL", sub: "drop", title: "Rocket launchers dropped" },
+  { key: "rl_pickups", label: "RL", sub: "take", title: "Rocket launchers picked up" },
+  { key: "lg_pickups", label: "LG", sub: "take", title: "Lightning guns picked up" },
+  { key: "rl_direct_hits", label: "RL", sub: "dir", title: "Direct rocket hits (of rockets fired)" },
   { key: "taken_to_die", label: "TTD", title: "Damage taken per death", precision: 0 },
 ];
 
@@ -171,6 +174,9 @@ const TEAM_METRICS: MetricDef[] = [
   { key: "team_damage", label: "Team dmg", title: "Damage dealt to own team (lower is better)" },
   { key: "enemy_rl_kills", label: "RL kills", title: "Enemies carrying RL killed" },
   { key: "rl_drops", label: "RL drop", title: "Rocket launchers dropped" },
+  { key: "rl_pickups", label: "RL take", title: "Rocket launchers picked up" },
+  { key: "lg_pickups", label: "LG take", title: "Lightning guns picked up" },
+  { key: "rl_direct_hits", label: "RL dir", title: "Direct rocket hits" },
   { key: "taken_to_die", label: "TTD", title: "Damage taken per death", precision: 0 },
 ];
 
@@ -1489,6 +1495,15 @@ const TREND_METRICS: Record<string, TrendMetric> = {
   damage_done: { key: "damage_done", label: "Damage Given", unit: "", invert: false },
   damage_taken: { key: "damage_taken", label: "Damage Taken", unit: "", invert: true },
   deaths: { key: "deaths", label: "Deaths", unit: "", invert: true },
+  // owner requirement 2026-07-07: progress must be trackable for powerups,
+  // RL/LG control and survivability over time.
+  quad_pickups: { key: "quad_pickups", label: "Quad Pickups", unit: "", invert: false },
+  pent_pickups: { key: "pent_pickups", label: "Pent Pickups", unit: "", invert: false },
+  ring_pickups: { key: "ring_pickups", label: "Ring Pickups", unit: "", invert: false },
+  rl_pickups: { key: "rl_pickups", label: "RL Pickups", unit: "", invert: false },
+  lg_pickups: { key: "lg_pickups", label: "LG Pickups", unit: "", invert: false },
+  rl_direct_hits: { key: "rl_direct_hits", label: "Direct RL Hits", unit: "", invert: false },
+  taken_to_die: { key: "taken_to_die", label: "Taken To Die", unit: "", invert: false },
 };
 const TREND_FOUR = ["frags", "efficiency", "avg_speed", "damage_taken"];
 const TREND_METRIC_KEYS = Object.keys(TREND_METRICS);
@@ -2095,7 +2110,16 @@ export function FourVFourEvidence() {
         )}
 
         {view === "list" ? (
-          <Kb2ListView />
+          <Kb2ListView
+            onOpenMatch={(runId) => {
+              // Owner requirement: clicking a match in List View opens Match
+              // View for that match. The run must exist in the validation
+              // ledger (bench runs do once the servexeri pipeline has built
+              // them); a missing run falls back to the latest game.
+              onSelectGame(runId);
+              onView("live");
+            }}
+          />
         ) : view === "demos" ? (
           <Kb2DemoList />
         ) : view === "bench" ? (

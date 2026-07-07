@@ -16,6 +16,14 @@ Match View / Demo List consume:
 - ``jumps[]``     — every successful gapjump (``[gapjump] ... result=LAND``
                     in server.log) with match-relative seconds and a
                     /demo-player/ deep link (event − 5 s pre-roll).
+- per-match ``jumps{}`` — attempt accounting per lane: ``attempts`` =
+                    launched trials (LAND + FAIL_GAP + FAIL_TIMEOUT),
+                    ``lands``, ``declines`` (APP_ABORT/APP_DECLINE/APP_YIELD
+                    approach outcomes that never launched), and a per-lane
+                    ``lanes{}`` breakdown — so jump success rate is trackable
+                    over time (owner requirement 2026-07-07).
+- ``jump_lanes{}``— feed-level per-lane aggregate across all included
+                    matches: attempts / lands / declines / land_rate.
 - ``features{}`` / ``configs{}`` — aggregate frag-margin per derived feature
                     tag and per candidate version stamp, each with a
                     ``best`` run; ``record_holder`` points at the best of
@@ -53,7 +61,7 @@ from urllib.parse import quote
 
 LOGGER = logging.getLogger(__name__)
 
-SCHEMA = "komodobots.kb2_matches.v1"
+SCHEMA = "komodobots.kb2_matches.v2"
 
 # Derived feature tags: (tag, predicate over (cvars, candidate_version)).
 # Order = display order. Documented in the module docstring; extend here and
@@ -98,32 +106,68 @@ def derive_features(cvars: dict, candidate_version: str) -> list[str]:
     return tags or ["stock"]
 
 
-def parse_gapjump_lands(log_text: str) -> list[dict]:
-    """Successful gapjumps with seconds since the (latest) match start.
+# Gapjump outcome taxonomy (verified against bench server.log 2026-07-07):
+#   LAND                       — launched and made the jump (success)
+#   FAIL_GAP / FAIL_TIMEOUT    — launched but missed / timed out (failed attempt)
+#   APP_ABORT_* / APP_DECLINE_* / APP_YIELD_*
+#                              — approach evaluated but never launched (decline)
+#   APP_ENGAGE / APP_LAUNCH    — phase-progress breadcrumbs, not outcomes
+# Attempts = launches = LAND + FAIL_*; declines are reported for context.
+ATTEMPT_FAIL_RESULTS = ("FAIL_GAP", "FAIL_TIMEOUT")
+DECLINE_PREFIXES = ("APP_ABORT", "APP_DECLINE", "APP_YIELD")
+GAPJUMP_DECLINE_RE = re.compile(
+    r"^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] \[gapjump\] "
+    r"lane=(?P<lane>\S+)(?: slot=\d+)?(?: name=\S+)?"
+    r"(?: trial=\d+)? result=(?P<result>APP_\S+)"
+)
 
-    Lines before the first "The match has begun!" are warmup and skipped —
-    demo time starts at the match-begun instant for these lab MVDs.
+
+def _new_lane_counts() -> dict:
+    return {"attempts": 0, "lands": 0, "fails": 0, "declines": 0}
+
+
+def parse_gapjump_events(log_text: str) -> tuple[list[dict], dict[str, dict]]:
+    """(successful lands, per-lane attempt counts) from a bench server.log.
+
+    Lands carry seconds since the (latest) match start; lines before the first
+    "The match has begun!" are warmup and skipped — demo time starts at the
+    match-begun instant for these lab MVDs. Attempt/decline counting applies
+    the same warmup filter so rates describe the counted match only.
     """
     begun: datetime | None = None
-    out: list[dict] = []
+    lands: list[dict] = []
+    lanes: dict[str, dict] = {}
     for line in log_text.splitlines():
         m = MATCH_BEGUN_RE.match(line)
         if m:
             begun = datetime.strptime(m.group("ts"), LOG_TS_FMT)
             continue
-        m = GAPJUMP_RE.match(line)
-        if not m or m.group("result") != "LAND" or begun is None:
+        if begun is None:
             continue
-        t = datetime.strptime(m.group("ts"), LOG_TS_FMT)
-        out.append({
-            "t_s": int((t - begun).total_seconds()),
-            "lane": m.group("lane"),
-            "name": m.group("name"),
-            "hdist": int(m.group("hdist")),
-            "peak_speed": int(m.group("peak")),
-            "tair": float(m.group("tair")),
-        })
-    return out
+        m = GAPJUMP_RE.match(line)
+        if m:
+            result = m.group("result")
+            lane = lanes.setdefault(m.group("lane"), _new_lane_counts())
+            if result == "LAND":
+                lane["attempts"] += 1
+                lane["lands"] += 1
+                t = datetime.strptime(m.group("ts"), LOG_TS_FMT)
+                lands.append({
+                    "t_s": int((t - begun).total_seconds()),
+                    "lane": m.group("lane"),
+                    "name": m.group("name"),
+                    "hdist": int(m.group("hdist")),
+                    "peak_speed": int(m.group("peak")),
+                    "tair": float(m.group("tair")),
+                })
+            elif result in ATTEMPT_FAIL_RESULTS:
+                lane["attempts"] += 1
+                lane["fails"] += 1
+            continue
+        m = GAPJUMP_DECLINE_RE.match(line)
+        if m and m.group("result").startswith(DECLINE_PREFIXES):
+            lanes.setdefault(m.group("lane"), _new_lane_counts())["declines"] += 1
+    return lands, lanes
 
 
 def team_frags_from_ktxstats(stats: dict) -> dict[str, int]:
@@ -191,6 +235,10 @@ def summarize_run(run_dir: Path, *, demo_url_base: str,
         for p in stats.get("players", []):
             s = p.get("stats", {})
             d = p.get("dmg", {})
+            w = p.get("weapons", {}) or {}
+            items = p.get("items", {}) or {}
+            speed = p.get("speed", {}) or {}
+            ttd = d.get("taken-to-die")
             players.append({
                 "name": p.get("name"),
                 "team": p.get("team"),
@@ -198,16 +246,30 @@ def summarize_run(run_dir: Path, *, demo_url_base: str,
                 "deaths": s.get("deaths", 0),
                 "dmg_given": d.get("given", 0),
                 "dmg_taken": d.get("taken", 0),
+                # owner requirement 2026-07-07: powerups, RL/LG pickups,
+                # direct RL hits and taken-to-die must be trackable per match.
+                "quad": (items.get("q") or {}).get("took", 0),
+                "pent": (items.get("p") or {}).get("took", 0),
+                "ring": (items.get("r") or {}).get("took", 0),
+                "rl_pickups": ((w.get("rl") or {}).get("pickups") or {}).get("taken", 0),
+                "lg_pickups": ((w.get("lg") or {}).get("pickups") or {}).get("taken", 0),
+                "rl_direct_hits": ((w.get("rl") or {}).get("acc") or {}).get("hits", 0),
+                "rl_attacks": ((w.get("rl") or {}).get("acc") or {}).get("attacks", 0),
+                # KTX writes 99999 for "never died"; surface null instead.
+                "taken_to_die": None if ttd in (None, 99999) else ttd,
+                "avg_speed": speed.get("avg"),
+                "max_speed": speed.get("max"),
             })
 
     jumps: list[dict] = []
+    jump_lanes: dict[str, dict] = {}
     log_path = run_dir / "server.log"
     if log_path.is_file():
         try:
             text = log_path.read_text(encoding="utf-8", errors="replace")
-            jumps = parse_gapjump_lands(text)
+            jumps, jump_lanes = parse_gapjump_events(text)
         except OSError:
-            jumps = []
+            jumps, jump_lanes = [], {}
     name_team = {p["name"]: p["team"] for p in players}
     map_name = meta.get("map") or (stats.get("map") if stats else "") or ""
     for j in jumps:
@@ -239,7 +301,13 @@ def summarize_run(run_dir: Path, *, demo_url_base: str,
         "in_ledger": meta["run_id"] in ledger_run_ids,
         "demo": {"name": stats.get("demo") if stats else None, "url": demo_url},
         "players": players,
-        "jumps": {"land": len(jumps)},
+        "jumps": {
+            "attempts": sum(l["attempts"] for l in jump_lanes.values()),
+            "lands": len(jumps),
+            "fails": sum(l["fails"] for l in jump_lanes.values()),
+            "declines": sum(l["declines"] for l in jump_lanes.values()),
+            "lanes": jump_lanes,
+        },
         "_jumps": jumps,
     }
 
@@ -270,6 +338,31 @@ def aggregate(matches: list[dict], key_fn) -> dict[str, dict]:
     for a in agg.values():
         a["margin_mean"] = round(a["margin_total"] / a["matches"], 2)
     return agg
+
+
+def aggregate_jump_lanes(matches: list[dict]) -> dict[str, dict]:
+    """Per-lane jump totals across all included matches (newest-first input).
+
+    land_rate = lands/attempts (attempts = actual launches). ``last_land_utc``
+    is the started_utc of the newest match where the lane landed at least once,
+    so the dashboard can show recency alongside the rate.
+    """
+    lanes: dict[str, dict] = {}
+    for m in matches:
+        for lane, counts in (m.get("jumps", {}).get("lanes") or {}).items():
+            a = lanes.setdefault(lane, {
+                "matches": 0, "attempts": 0, "lands": 0, "fails": 0,
+                "declines": 0, "land_rate": None, "last_land_utc": None,
+            })
+            a["matches"] += 1
+            for key in ("attempts", "lands", "fails", "declines"):
+                a[key] += counts.get(key, 0)
+            if counts.get("lands") and a["last_land_utc"] is None:
+                a["last_land_utc"] = m.get("started_utc")
+    for a in lanes.values():
+        if a["attempts"]:
+            a["land_rate"] = round(a["lands"] / a["attempts"], 4)
+    return lanes
 
 
 def record_holder(agg: dict[str, dict], *, min_matches: int = 3) -> dict | None:
@@ -340,6 +433,7 @@ def build(data_dir: Path, *, demo_url_base: str, max_runs: int = 500) -> dict:
                    "runs_included": len(matches)},
         "matches": matches,
         "jumps": jumps,
+        "jump_lanes": aggregate_jump_lanes(matches),
         "features": features,
         "configs": configs,
         "record_holder": {

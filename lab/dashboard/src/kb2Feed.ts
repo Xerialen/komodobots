@@ -1,4 +1,4 @@
-// Data layer for the komodobots2 match-history feed (komodobots.kb2_matches.v1,
+// Data layer for the komodobots2 match-history feed (komodobots.kb2_matches.v2,
 // built by lab/server/kb2_matches_build.py and served at
 // /demos/records/kb2-matches.json), the bench live feed (/v2/servers/bench,
 // written by the local-hub poller when lanister bench servers answer the QW
@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { logError } from "./logger.ts";
 
-// --- komodobots.kb2_matches.v1 ---
+// --- komodobots.kb2_matches.v2 ---
 
 export interface Kb2Side {
   team: string | null;
@@ -26,6 +26,42 @@ export interface Kb2Player {
   deaths: number;
   dmg_given: number;
   dmg_taken: number;
+  // v2 (owner requirement 2026-07-07): powerups, RL/LG pickups, direct RL
+  // hits and taken-to-die per player per match. Optional so a stale v1 feed
+  // still renders (columns show "—").
+  quad?: number;
+  pent?: number;
+  ring?: number;
+  rl_pickups?: number;
+  lg_pickups?: number;
+  rl_direct_hits?: number;
+  rl_attacks?: number;
+  taken_to_die?: number | null;
+  avg_speed?: number | null;
+  max_speed?: number | null;
+}
+
+// Per-lane jump attempt accounting (v2). attempts = actual launches
+// (LAND + FAIL_*); declines = approaches that never launched.
+export interface Kb2JumpLaneCounts {
+  attempts: number;
+  lands: number;
+  fails: number;
+  declines: number;
+}
+
+export interface Kb2MatchJumps {
+  attempts: number;
+  lands: number;
+  fails: number;
+  declines: number;
+  lanes: Record<string, Kb2JumpLaneCounts>;
+}
+
+export interface Kb2JumpLaneAggregate extends Kb2JumpLaneCounts {
+  matches: number;
+  land_rate: number | null;
+  last_land_utc: string | null;
 }
 
 export interface Kb2Match {
@@ -48,7 +84,7 @@ export interface Kb2Match {
   in_ledger: boolean;
   demo: { name: string | null; url: string | null };
   players: Kb2Player[];
-  jumps: { land: number };
+  jumps: Kb2MatchJumps;
 }
 
 export interface Kb2Jump {
@@ -94,6 +130,7 @@ export interface Kb2Feed {
   source: { data_dir: string; runs_scanned: number; runs_included: number };
   matches: Kb2Match[];
   jumps: Kb2Jump[];
+  jump_lanes?: Record<string, Kb2JumpLaneAggregate>;
   features: Record<string, Kb2Aggregate>;
   configs: Record<string, Kb2Aggregate>;
   record_holder: {

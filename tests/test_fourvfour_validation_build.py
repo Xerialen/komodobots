@@ -686,5 +686,130 @@ class BenchFragMarginTest(unittest.TestCase):
         self.assertFalse(bench["damage_matrix_gate_pass"])
 
 
+def kb2_roster(run_id: str, *, controller_version: str = "routepol-x") -> dict:
+    """komodobots2 bench roster: four candidate komodobots vs four skill-20 controls."""
+    players = []
+    for slot in range(1, 5):
+        players.append({
+            "slot": slot, "id": f"slot-{slot}", "name": f"cand-{slot}", "team": "Team A",
+            "role": "candidate", "bot_kind": "komodobot", "bot_skill": 20,
+            "controller_version": controller_version,
+        })
+    for slot in range(5, 9):
+        players.append({
+            "slot": slot, "id": f"slot-{slot}", "name": f"ctrl-{slot}", "team": "Team B",
+            "role": "control", "bot_kind": "frogbot", "bot_skill": 20,
+            "controller_version": "frogbot-stock",
+        })
+    return {
+        "schema": "komodobots2.4v4_roster_intent.v1",
+        "run_id": run_id,
+        "map": "dm3",
+        "mode": "4on4",
+        "deathmatch": 1,
+        "teamplay": 2,
+        "timelimit": 5,
+        "candidate_version": controller_version,
+        "candidate_team": "Team A",
+        "control_team": "Team B",
+        "players": players,
+    }
+
+
+def kb2_ktx_match(run_id: str) -> dict:
+    """KTX stats whose names/teams match kb2_roster, with weapon/item blocks."""
+    match = ktx_match(run_id)
+    kb2_names = ["cand-1", "cand-2", "cand-3", "cand-4", "ctrl-5", "ctrl-6", "ctrl-7", "ctrl-8"]
+    for player, name in zip(match["players"], kb2_names):
+        player["name"] = name
+        player["login"] = name
+    lead = match["players"][0]
+    lead["weapons"] = {
+        "rl": {
+            "acc": {"attacks": 40, "hits": 9, "real": 20, "virtual": 20},
+            "kills": {"total": 8, "team": 0, "enemy": 8, "self": 0},
+            "pickups": {"dropped": 1, "taken": 5, "total-taken": 6},
+        },
+        "lg": {"pickups": {"taken": 3, "total-taken": 3}},
+    }
+    lead["items"] = {"q": {"took": 2, "time": 55}, "p": {"took": 1, "time": 30}, "r": {"took": 1, "time": 25}}
+    return match
+
+
+class Kb2BenchEraTest(unittest.TestCase):
+    """komodobots2 bench-era adaptations (central dashboard, 2026-07-07)."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="4v4-kb2-test-"))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self.runs = self.tmp / "runs"
+        self.runs.mkdir()
+
+    def write_kb2_run(self, run_id: str, *, with_demo: bool = True) -> Path:
+        d = self.runs / run_id
+        d.mkdir(parents=True)
+        (d / "ktxstats.json").write_text(json.dumps(kb2_ktx_match(run_id)), encoding="utf-8")
+        (d / "4v4-roster.json").write_text(json.dumps(kb2_roster(run_id)), encoding="utf-8")
+        if with_demo:
+            (d / "demo.mvd").write_bytes(b"\x00mvd")
+        return d
+
+    def test_candidate_roster_shape_is_valid_and_candidate_team_is_leap(self):
+        self.write_kb2_run("20260707T100000Z-p28599")
+        data = fv.build(self.runs)
+        self.assertEqual(len(data["games"]), 1)
+        game = data["games"][0]
+        self.assertEqual(game["bench"]["leap_team"], "Team A")
+        self.assertEqual(game["bench"]["frog_team"], "Team B")
+        self.assertTrue(game["bench"]["resolved"])
+
+    def test_new_metrics_surface_in_stats_and_metric_list(self):
+        self.write_kb2_run("20260707T100000Z-p28599")
+        data = fv.build(self.runs)
+        for metric in ("lg_pickups", "rl_direct_hits", "rl_attacks"):
+            self.assertIn(metric, data["metrics"])
+        lead = data["games"][0]["players"][0]["stats"]
+        self.assertEqual(lead["rl_direct_hits"], 9)
+        self.assertEqual(lead["rl_attacks"], 40)
+        self.assertEqual(lead["lg_pickups"], 3)
+        self.assertEqual(lead["quad_pickups"], 2)
+        self.assertEqual(lead["pent_pickups"], 1)
+        self.assertEqual(lead["ring_pickups"], 1)
+        self.assertEqual(lead["rl_pickups"], 5)
+
+    def test_demo_url_base_emits_published_bench_route(self):
+        self.write_kb2_run("20260707T100000Z-p28599")
+        data = fv.build(self.runs, demo_url_base="/demos/files/non-games/lab/Komodobots/kb2")
+        self.assertEqual(
+            data["games"][0]["demo"]["url"],
+            "/demos/files/non-games/lab/Komodobots/kb2/20260707T100000Z-p28599.mvd",
+        )
+
+    def test_demo_url_falls_back_to_online_route_without_demo_artifact(self):
+        self.write_kb2_run("20260707T100000Z-p28599", with_demo=False)
+        data = fv.build(self.runs, demo_url_base="/demos/files/non-games/lab/Komodobots/kb2")
+        self.assertEqual(
+            data["games"][0]["demo"]["url"],
+            "/demos/online/20260707T100000Z-p28599.mvd",
+        )
+
+    def test_merge_legacy_carries_older_games_and_dedupes_by_run_id(self):
+        self.write_kb2_run("20260707T100000Z-p28599")
+        data = fv.build(self.runs)
+        legacy = {
+            "schema": fv.SCHEMA,
+            "games": [
+                {"run_id": "20260614T200000Z", "match": {"map": "dm3"}},
+                {"run_id": "20260707T100000Z-p28599", "match": {"map": "dm3"}},  # collision: fresh wins
+            ],
+        }
+        merged = fv.merge_legacy(data, legacy)
+        run_ids = [g["run_id"] for g in merged["games"]]
+        self.assertEqual(run_ids, ["20260614T200000Z", "20260707T100000Z-p28599"])
+        self.assertEqual(merged["provenance"]["legacy"]["games_carried"], 1)
+        # the collision kept the freshly built game (it has full players), not the stub
+        self.assertIn("players", merged["games"][1])
+
+
 if __name__ == "__main__":
     unittest.main()

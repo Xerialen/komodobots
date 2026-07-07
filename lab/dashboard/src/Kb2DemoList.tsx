@@ -87,8 +87,34 @@ export function Kb2DemoList() {
     verticalAlign: "middle",
   };
 
+  // Per-lane attempt accounting (feed jump_lanes, v2) so the list reads as
+  // "how many attempts did this jump take" — chips show lands/attempts.
+  const laneAgg = feed.jump_lanes ?? {};
+
   return (
     <div data-kb2-demos style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {Object.keys(laneAgg).length > 0 && (
+        <div data-kb2-demos-lanes style={{ ...panelStyle, display: "flex", gap: "var(--sp-7)", flexWrap: "wrap" }}>
+          {Object.entries(laneAgg)
+            .sort((a, b) => b[1].attempts - a[1].attempts)
+            .map(([lane, a]) => (
+              <div key={lane} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ fontFamily: "var(--font-display)", fontSize: "var(--t-h3)", fontWeight: 700, color: "var(--text-strong)" }}>
+                  {lane}
+                </span>
+                <span style={{ ...mono, fontSize: "var(--t-xs)" }} title={`${a.lands} landed of ${a.attempts} launched attempts (${a.declines} approaches declined) across ${a.matches} matches`}>
+                  <b style={{ color: a.land_rate != null && a.land_rate >= 0.5 ? "var(--pos-500)" : "var(--text-strong)" }}>{a.lands}</b>
+                  <span style={{ color: "var(--text-muted)" }}>/{a.attempts} attempts</span>
+                  {a.land_rate != null && (
+                    <b style={{ marginLeft: 6, color: a.land_rate >= 0.5 ? "var(--pos-500)" : "var(--flat-500)" }}>
+                      {Math.round(a.land_rate * 100)}%
+                    </b>
+                  )}
+                </span>
+              </div>
+            ))}
+        </div>
+      )}
       <div style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ ...mono, fontSize: "var(--t-2xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
           lane

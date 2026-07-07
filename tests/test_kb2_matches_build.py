@@ -1,4 +1,4 @@
-"""Contract tests for lab/server/kb2_matches_build.py (komodobots.kb2_matches.v1).
+"""Contract tests for lab/server/kb2_matches_build.py (komodobots.kb2_matches.v2).
 
 Fixtures under tests/fixtures/kb2_matches/ are real (trimmed) artifacts from
 the servexeri komodobots2-lab mirror: two hm-era runs (run-meta + ktxstats +
@@ -50,7 +50,7 @@ class GapjumpParsing(unittest.TestCase):
     ])
 
     def test_land_events_with_match_relative_seconds(self):
-        jumps = kb.parse_gapjump_lands(self.LOG)
+        jumps, _lanes = kb.parse_gapjump_events(self.LOG)
         self.assertEqual(len(jumps), 1)
         j = jumps[0]
         self.assertEqual(j["t_s"], 137)  # 04:32:23 - 04:30:06
@@ -62,15 +62,49 @@ class GapjumpParsing(unittest.TestCase):
         warmup = ("[2026-07-07 04:29:00] [gapjump] lane=ra2ya slot=1 name=hib"
                   " trial=0 result=LAND land_pos=1,2,3 hdist=1 peak_speed=400"
                   " tair=0.5 vreq=324\n")
-        jumps = kb.parse_gapjump_lands(warmup + self.LOG)
+        jumps, lanes = kb.parse_gapjump_events(warmup + self.LOG)
         self.assertEqual([j["name"] for j in jumps], ["Angua"])
+        # warmup LAND is excluded from the counts too
+        self.assertEqual(lanes["ra2ya"]["lands"], 1)
+
+    def test_attempts_fails_and_declines_are_counted_per_lane(self):
+        log = "\n".join([
+            "[2026-07-07 04:30:06] The match has begun!",
+            "[2026-07-07 04:30:20] [gapjump] lane=ra2ya result=APP_ENGAGE",
+            "[2026-07-07 04:30:21] [gapjump] lane=ra2ya result=APP_DECLINE_SLOW",
+            "[2026-07-07 04:30:30] [gapjump] lane=ra2ya result=APP_YIELD_SEEN",
+            "[2026-07-07 04:30:47] [gapjump] lane=ra2ya trial=0 result=FAIL_GAP"
+            " land_pos=601,-210,-48 hdist=96 peak_speed=409 tair=0.94 vreq=324",
+            "[2026-07-07 04:31:02] [gapjump] lane=e12b trial=0 result=FAIL_TIMEOUT"
+            " land_pos=-272,-800,336 hdist=1088 peak_speed=407 tair=4.01 vreq=324",
+            "[2026-07-07 04:32:23] [gapjump] lane=ra2ya slot=3 name=Angua trial=0"
+            " result=LAND land_pos=705,-230,56 hdist=48 peak_speed=425 tair=0.66 vreq=324",
+        ])
+        _jumps, lanes = kb.parse_gapjump_events(log)
+        self.assertEqual(lanes["ra2ya"],
+                         {"attempts": 2, "lands": 1, "fails": 1, "declines": 2})
+        self.assertEqual(lanes["e12b"],
+                         {"attempts": 1, "lands": 0, "fails": 1, "declines": 0})
+
+    def test_app_engage_and_launch_are_not_declines(self):
+        log = "\n".join([
+            "[2026-07-07 04:30:06] The match has begun!",
+            "[2026-07-07 04:30:20] [gapjump] lane=ra2ya result=APP_ENGAGE",
+            "[2026-07-07 04:30:21] [gapjump] lane=ra2ya result=APP_LAUNCH",
+        ])
+        _jumps, lanes = kb.parse_gapjump_events(log)
+        # phase breadcrumbs alone produce no outcome counts at all
+        self.assertNotIn("ra2ya", lanes)
 
     def test_fixture_log_parses(self):
         text = (FIXTURES / "lab-runs" / "20260707T022951Z-p28601" /
                 "server.log").read_text(encoding="utf-8")
-        jumps = kb.parse_gapjump_lands(text)
+        jumps, lanes = kb.parse_gapjump_events(text)
         self.assertGreaterEqual(len(jumps), 2)
         self.assertTrue(all(j["t_s"] >= 0 for j in jumps))
+        total_lands = sum(l["lands"] for l in lanes.values())
+        self.assertEqual(total_lands, len(jumps))
+        self.assertTrue(all(l["attempts"] >= l["lands"] for l in lanes.values()))
 
 
 class DeepLink(unittest.TestCase):
@@ -91,9 +125,32 @@ class BuildFromFixtures(unittest.TestCase):
         self.doc = kb.build(FIXTURES, demo_url_base="/demos/files/kb2")
 
     def test_schema_and_counts(self):
-        self.assertEqual(self.doc["schema"], "komodobots.kb2_matches.v1")
+        self.assertEqual(self.doc["schema"], "komodobots.kb2_matches.v2")
         self.assertEqual(self.doc["source"]["runs_included"], 2)
         self.assertEqual(len(self.doc["matches"]), 2)
+
+    def test_per_match_jump_accounting_and_feed_lane_aggregate(self):
+        m = self.doc["matches"][0]
+        self.assertGreaterEqual(m["jumps"]["attempts"], m["jumps"]["lands"])
+        self.assertIn("lanes", m["jumps"])
+        lanes = self.doc["jump_lanes"]
+        self.assertGreater(len(lanes), 0)
+        for lane in lanes.values():
+            self.assertGreaterEqual(lane["attempts"], lane["lands"])
+            if lane["attempts"]:
+                self.assertAlmostEqual(
+                    lane["land_rate"], lane["lands"] / lane["attempts"], places=4)
+
+    def test_player_rows_carry_pickup_and_rl_and_ttd_columns(self):
+        m = self.doc["matches"][0]
+        p = m["players"][0]
+        for key in ("quad", "pent", "ring", "rl_pickups", "lg_pickups",
+                    "rl_direct_hits", "rl_attacks", "taken_to_die",
+                    "avg_speed", "max_speed"):
+            self.assertIn(key, p)
+        # 4on4 dm3: someone in the match took the quad
+        self.assertGreaterEqual(
+            sum(x["quad"] for x in m["players"]), 1)
 
     def test_match_row_contract(self):
         m = self.doc["matches"][0]  # newest first

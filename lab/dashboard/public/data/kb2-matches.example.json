@@ -1,5 +1,5 @@
 {
- "schema": "komodobots.kb2_matches.v1",
+ "schema": "komodobots.kb2_matches.v2",
  "generated_utc": "2026-07-07T07:45:19Z",
  "source": {
   "data_dir": "tests\\fixtures\\kb2_matches",
@@ -59,7 +59,17 @@
      "frags": 9,
      "deaths": 17,
      "dmg_given": 1573,
-     "dmg_taken": 1851
+     "dmg_taken": 1851,
+     "quad": 1,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 3,
+     "rl_attacks": 12,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     },
     {
      "name": "dag",
@@ -67,7 +77,17 @@
      "frags": 15,
      "deaths": 21,
      "dmg_given": 1972,
-     "dmg_taken": 2779
+     "dmg_taken": 2779,
+     "quad": 0,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 0,
+     "rl_attacks": 4,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     },
     {
      "name": "Angua",
@@ -75,7 +95,17 @@
      "frags": 14,
      "deaths": 22,
      "dmg_given": 1496,
-     "dmg_taken": 2741
+     "dmg_taken": 2741,
+     "quad": 0,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 0,
+     "rl_attacks": 4,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     },
     {
      "name": "Rock",
@@ -83,7 +113,17 @@
      "frags": 5,
      "deaths": 14,
      "dmg_given": 1525,
-     "dmg_taken": 1840
+     "dmg_taken": 1840,
+     "quad": 0,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 0,
+     "rl_attacks": 4,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     },
     {
      "name": "/ dizzy",
@@ -91,7 +131,17 @@
      "frags": 19,
      "deaths": 15,
      "dmg_given": 2640,
-     "dmg_taken": 2088
+     "dmg_taken": 2088,
+     "quad": 0,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 0,
+     "rl_attacks": 4,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     },
     {
      "name": "/ daisy",
@@ -99,7 +149,17 @@
      "frags": 12,
      "deaths": 15,
      "dmg_given": 2089,
-     "dmg_taken": 2032
+     "dmg_taken": 2032,
+     "quad": 0,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 0,
+     "rl_attacks": 4,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     },
     {
      "name": "/ denzil",
@@ -107,7 +167,17 @@
      "frags": 20,
      "deaths": 6,
      "dmg_given": 2069,
-     "dmg_taken": 871
+     "dmg_taken": 871,
+     "quad": 0,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 0,
+     "rl_attacks": 4,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     },
     {
      "name": "/ dora",
@@ -115,11 +185,32 @@
      "frags": 18,
      "deaths": 12,
      "dmg_given": 2413,
-     "dmg_taken": 1575
+     "dmg_taken": 1575,
+     "quad": 0,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 0,
+     "rl_attacks": 4,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     }
    ],
    "jumps": {
-    "land": 2
+    "attempts": 4,
+    "lands": 2,
+    "fails": 2,
+    "declines": 3,
+    "lanes": {
+     "ra2ya": {
+      "attempts": 4,
+      "lands": 2,
+      "fails": 2,
+      "declines": 3
+     }
+    }
    }
   },
   {
@@ -174,7 +265,17 @@
      "frags": 5,
      "deaths": 17,
      "dmg_given": 1412,
-     "dmg_taken": 1912
+     "dmg_taken": 1912,
+     "quad": 1,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 3,
+     "rl_attacks": 12,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     },
     {
      "name": "dag",
@@ -182,7 +283,17 @@
      "frags": 9,
      "deaths": 16,
      "dmg_given": 1519,
-     "dmg_taken": 1945
+     "dmg_taken": 1945,
+     "quad": 0,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 0,
+     "rl_attacks": 4,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     },
     {
      "name": "Angua",
@@ -190,7 +301,17 @@
      "frags": 10,
      "deaths": 18,
      "dmg_given": 1926,
-     "dmg_taken": 2861
+     "dmg_taken": 2861,
+     "quad": 0,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 0,
+     "rl_attacks": 4,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     },
     {
      "name": "Rock",
@@ -198,7 +319,17 @@
      "frags": 9,
      "deaths": 6,
      "dmg_given": 767,
-     "dmg_taken": 1454
+     "dmg_taken": 1454,
+     "quad": 0,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 0,
+     "rl_attacks": 4,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     },
     {
      "name": "/ dizzy",
@@ -206,7 +337,17 @@
      "frags": 8,
      "deaths": 13,
      "dmg_given": 1805,
-     "dmg_taken": 1639
+     "dmg_taken": 1639,
+     "quad": 0,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 0,
+     "rl_attacks": 4,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     },
     {
      "name": "/ daisy",
@@ -214,7 +355,17 @@
      "frags": 6,
      "deaths": 10,
      "dmg_given": 1747,
-     "dmg_taken": 1295
+     "dmg_taken": 1295,
+     "quad": 0,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 0,
+     "rl_attacks": 4,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     },
     {
      "name": "/ denzil",
@@ -222,7 +373,17 @@
      "frags": 22,
      "deaths": 9,
      "dmg_given": 2189,
-     "dmg_taken": 1431
+     "dmg_taken": 1431,
+     "quad": 0,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 0,
+     "rl_attacks": 4,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     },
     {
      "name": "/ dora",
@@ -230,11 +391,32 @@
      "frags": 14,
      "deaths": 8,
      "dmg_given": 2431,
-     "dmg_taken": 1259
+     "dmg_taken": 1259,
+     "quad": 0,
+     "pent": 0,
+     "ring": 0,
+     "rl_pickups": 2,
+     "lg_pickups": 1,
+     "rl_direct_hits": 0,
+     "rl_attacks": 4,
+     "taken_to_die": 145,
+     "avg_speed": 280.5,
+     "max_speed": 720.0
     }
    ],
    "jumps": {
-    "land": 3
+    "attempts": 5,
+    "lands": 3,
+    "fails": 2,
+    "declines": 3,
+    "lanes": {
+     "ra2ya": {
+      "attempts": 5,
+      "lands": 3,
+      "fails": 2,
+      "declines": 3
+     }
+    }
    }
   }
  ],
@@ -465,5 +647,16 @@
    }
   },
   "valid_games": 29
+ },
+ "jump_lanes": {
+  "ra2ya": {
+   "matches": 2,
+   "attempts": 9,
+   "lands": 5,
+   "fails": 4,
+   "declines": 6,
+   "land_rate": 0.5556,
+   "last_land_utc": "2026-07-07T02:29:51Z"
+  }
  }
 }

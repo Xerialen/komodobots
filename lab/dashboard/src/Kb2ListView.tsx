@@ -15,6 +15,10 @@ import {
 } from "./kb2Feed.ts";
 import type { Kb2Aggregate, Kb2Feed, Kb2Match } from "./kb2Feed.ts";
 
+function fmtOrDash(v: number | null | undefined): string {
+  return v == null ? "—" : `${v}`;
+}
+
 const mono: CSSProperties = {
   fontFamily: "var(--font-mono)",
   fontVariantNumeric: "tabular-nums",
@@ -79,6 +83,54 @@ export function FeatureChip({
   );
 }
 
+// Jump-lane progress strip: per built jump (lane), attempts vs lands across
+// all included matches (owner requirement 2026-07-07: track jump success
+// over time). land_rate colors green as it climbs.
+function rateColor(rate: number | null): string {
+  if (rate == null) return "var(--text-muted)";
+  if (rate >= 0.5) return "var(--pos-500)";
+  if (rate >= 0.2) return "var(--flat-500)";
+  return "var(--neg-500)";
+}
+
+function JumpLanes({ feed }: { feed: Kb2Feed }) {
+  const lanes = Object.entries(feed.jump_lanes ?? {}).sort(
+    (a, b) => b[1].attempts - a[1].attempts,
+  );
+  if (lanes.length === 0) return null;
+  return (
+    <div data-kb2-jumplanes style={{ ...panelStyle, display: "flex", gap: "var(--sp-7)", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, justifyContent: "center" }}>
+        <span style={{ ...mono, fontSize: "var(--t-2xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+          jump lanes
+        </span>
+        <span style={{ ...mono, fontSize: "var(--t-2xs)", color: "var(--text-muted)" }}>
+          landed / attempts
+        </span>
+      </div>
+      {lanes.map(([lane, a]) => (
+        <div key={lane} data-kb2-lane={lane} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: "var(--t-h3)", fontWeight: 700, color: "var(--text-strong)" }}>
+            {lane}
+          </span>
+          <span style={{ ...mono, fontSize: "var(--t-xs)" }}>
+            <b style={{ color: rateColor(a.land_rate) }}>{a.lands}</b>
+            <span style={{ color: "var(--text-muted)" }}>/{a.attempts}</span>
+            {a.land_rate != null && (
+              <b style={{ color: rateColor(a.land_rate), marginLeft: 6 }}>
+                {Math.round(a.land_rate * 100)}%
+              </b>
+            )}
+          </span>
+          <span style={{ ...mono, fontSize: "var(--t-2xs)", color: "var(--text-muted)" }}>
+            {a.declines} declined · {a.matches} matches
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Record-holder strip: the best-performing feature tag and config stamp
 // (mean frag margin, min 3 matches) + the counted-ledger leader.
 function RecordHolders({ feed }: { feed: Kb2Feed }) {
@@ -108,20 +160,53 @@ function RecordHolders({ feed }: { feed: Kb2Feed }) {
   );
 }
 
-function MatchRow({ m, expanded, onToggle }: { m: Kb2Match; expanded: boolean; onToggle: () => void }) {
+function MatchRow({
+  m,
+  expanded,
+  onToggle,
+  onOpen,
+}: {
+  m: Kb2Match;
+  expanded: boolean;
+  onToggle: () => void;
+  onOpen?: () => void;
+}) {
   const candTeam = m.candidate.team ?? "?";
   const ctrlTeam = m.control.team ?? "?";
   const candFrags = m.team_frags[candTeam] ?? null;
   const ctrlFrags = m.team_frags[ctrlTeam] ?? null;
   const winnerSquad = m.winner === candTeam ? "leap" : m.winner === ctrlTeam ? "frog" : null;
   const tdStyle: CSSProperties = { padding: "7px 10px", borderBottom: "1px solid var(--border-line)", verticalAlign: "middle" };
+  const jumps = m.jumps ?? null;
   return (
     <>
       <tr
         data-kb2-run={m.run_id}
-        onClick={onToggle}
+        onClick={onOpen ?? onToggle}
+        title={onOpen ? "open in Match View" : undefined}
         style={{ cursor: "pointer", background: expanded ? "var(--surface-inset)" : "transparent" }}
       >
+        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+          <button
+            data-kb2-expand={m.run_id}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle();
+            }}
+            title={expanded ? "hide details" : "show cvars + player stats"}
+            style={{
+              ...mono,
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--text-muted)",
+              fontSize: "var(--t-xs)",
+              padding: "0 2px",
+            }}
+          >
+            {expanded ? "▾" : "▸"}
+          </button>
+        </td>
         <td style={{ ...tdStyle, ...mono, fontSize: "var(--t-xs)", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
           {fmtUtc(m.started_utc)}
         </td>
@@ -158,6 +243,16 @@ function MatchRow({ m, expanded, onToggle }: { m: Kb2Match; expanded: boolean; o
         <td style={{ ...tdStyle, ...mono, fontSize: "var(--t-2xs)", color: "var(--text-muted)", maxWidth: 190, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {m.candidate.version}
         </td>
+        <td style={{ ...tdStyle, ...mono, fontSize: "var(--t-xs)", textAlign: "right", whiteSpace: "nowrap" }}>
+          {jumps && jumps.attempts > 0 ? (
+            <span title={`${jumps.lands} landed of ${jumps.attempts} attempts (${jumps.fails} failed, ${jumps.declines} declined)`}>
+              <b style={{ color: jumps.lands > 0 ? "var(--pos-500)" : "var(--text-muted)" }}>{jumps.lands}</b>
+              <span style={{ color: "var(--text-muted)" }}>/{jumps.attempts}</span>
+            </span>
+          ) : (
+            <span style={{ color: "var(--text-muted)" }}>—</span>
+          )}
+        </td>
         <td style={tdStyle}>
           {m.in_ledger ? <Badge tone="komodo">counted</Badge> : <Badge tone="neutral">scratch</Badge>}
         </td>
@@ -188,7 +283,7 @@ function MatchRow({ m, expanded, onToggle }: { m: Kb2Match; expanded: boolean; o
       </tr>
       {expanded && (
         <tr data-kb2-run-detail={m.run_id}>
-          <td colSpan={10} style={{ padding: "10px 14px", background: "var(--surface-inset)", borderBottom: "1px solid var(--border-line)" }}>
+          <td colSpan={12} style={{ padding: "10px 14px", background: "var(--surface-inset)", borderBottom: "1px solid var(--border-line)" }}>
             <div style={{ display: "flex", gap: "var(--sp-7)", flexWrap: "wrap", alignItems: "flex-start" }}>
               <div>
                 <div style={{ ...mono, fontSize: "var(--t-2xs)", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 6 }}>
@@ -209,8 +304,17 @@ function MatchRow({ m, expanded, onToggle }: { m: Kb2Match; expanded: boolean; o
                 <table style={{ borderCollapse: "collapse", fontSize: "var(--t-xs)" }}>
                   <thead>
                     <tr>
-                      {["player", "team", "frags", "deaths", "dmg+", "dmg−"].map((h) => (
-                        <th key={h} style={{ ...mono, fontSize: "var(--t-2xs)", color: "var(--text-muted)", textTransform: "uppercase", padding: "2px 8px", textAlign: "left" }}>
+                      {[
+                        "player", "team", "frags", "deaths", "dmg+", "dmg−",
+                        "quad", "pent", "ring", "rl", "lg", "rl dir", "to-die",
+                      ].map((h) => (
+                        <th key={h} title={{
+                          quad: "quad pickups", pent: "pent pickups", ring: "ring pickups",
+                          rl: "RL pickups", lg: "LG pickups",
+                          "rl dir": "direct rocket hits / rockets fired",
+                          "to-die": "avg damage taken to die",
+                        }[h] ?? h}
+                          style={{ ...mono, fontSize: "var(--t-2xs)", color: "var(--text-muted)", textTransform: "uppercase", padding: "2px 8px", textAlign: "left" }}>
                           {h}
                         </th>
                       ))}
@@ -229,6 +333,15 @@ function MatchRow({ m, expanded, onToggle }: { m: Kb2Match; expanded: boolean; o
                           <td style={{ ...mono, padding: "2px 8px", textAlign: "right" }}>{p.deaths}</td>
                           <td style={{ ...mono, padding: "2px 8px", textAlign: "right" }}>{p.dmg_given}</td>
                           <td style={{ ...mono, padding: "2px 8px", textAlign: "right" }}>{p.dmg_taken}</td>
+                          <td style={{ ...mono, padding: "2px 8px", textAlign: "right", color: (p.quad ?? 0) > 0 ? "var(--text-strong)" : undefined }}>{fmtOrDash(p.quad)}</td>
+                          <td style={{ ...mono, padding: "2px 8px", textAlign: "right", color: (p.pent ?? 0) > 0 ? "var(--text-strong)" : undefined }}>{fmtOrDash(p.pent)}</td>
+                          <td style={{ ...mono, padding: "2px 8px", textAlign: "right", color: (p.ring ?? 0) > 0 ? "var(--text-strong)" : undefined }}>{fmtOrDash(p.ring)}</td>
+                          <td style={{ ...mono, padding: "2px 8px", textAlign: "right" }}>{fmtOrDash(p.rl_pickups)}</td>
+                          <td style={{ ...mono, padding: "2px 8px", textAlign: "right" }}>{fmtOrDash(p.lg_pickups)}</td>
+                          <td style={{ ...mono, padding: "2px 8px", textAlign: "right" }}>
+                            {p.rl_direct_hits == null ? "—" : `${p.rl_direct_hits}/${p.rl_attacks ?? "?"}`}
+                          </td>
+                          <td style={{ ...mono, padding: "2px 8px", textAlign: "right" }}>{fmtOrDash(p.taken_to_die)}</td>
                         </tr>
                       ))}
                   </tbody>
@@ -242,7 +355,7 @@ function MatchRow({ m, expanded, onToggle }: { m: Kb2Match; expanded: boolean; o
   );
 }
 
-export function Kb2ListView() {
+export function Kb2ListView({ onOpenMatch }: { onOpenMatch?: (runId: string) => void }) {
   const feed = useKb2Feed();
   const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(new Set());
   const [mapFilter, setMapFilter] = useState<string | null>(null);
@@ -299,6 +412,7 @@ export function Kb2ListView() {
   return (
     <div data-kb2-list style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <RecordHolders feed={feed} />
+      <JumpLanes feed={feed} />
 
       <div style={{ ...panelStyle, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ ...mono, fontSize: "var(--t-2xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
@@ -330,8 +444,8 @@ export function Kb2ListView() {
         <table style={{ borderCollapse: "collapse", width: "100%" }}>
           <thead>
             <tr>
-              {["started", "map", "length", "score", "margin", "winner", "features", "version", "ledger", "links"].map((h) => (
-                <th key={h} style={thStyle}>
+              {["", "started", "map", "length", "score", "margin", "winner", "features", "version", "jumps", "ledger", "links"].map((h, i) => (
+                <th key={h || `col-${i}`} title={h === "jumps" ? "gapjumps landed / attempted" : undefined} style={thStyle}>
                   {h}
                 </th>
               ))}
@@ -344,11 +458,12 @@ export function Kb2ListView() {
                 m={m}
                 expanded={expandedRun === m.run_id}
                 onToggle={() => setExpandedRun(expandedRun === m.run_id ? null : m.run_id)}
+                onOpen={onOpenMatch ? () => onOpenMatch(m.run_id) : undefined}
               />
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={10} style={{ ...mono, padding: 20, color: "var(--text-muted)", textAlign: "center" }}>
+                <td colSpan={12} style={{ ...mono, padding: 20, color: "var(--text-muted)", textAlign: "center" }}>
                   no matches for this filter
                 </td>
               </tr>

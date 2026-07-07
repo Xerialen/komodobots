@@ -10,6 +10,18 @@ BotLab-specific contract:
   recorded before the match in a roster-intent artifact.
 * minimum five-minute completed match.
 * deltas are computed against the previous valid game only.
+
+komodobots2 bench-era additions (2026-07-07, central dashboard):
+
+* the komodobots2 bench roster shape is a third accepted roster: four
+  role="candidate" komodobots vs four skill-20 frogbot controls, schema
+  komodobots2.4v4_roster_intent.v1 (same field layout). The candidate team is
+  the leap team.
+* per-player metrics now include lg_pickups, rl_direct_hits and rl_attacks
+  (KTX weapons.lg.pickups.taken / weapons.rl.acc.hits|attacks).
+* --demo-url-base emits published bench-demo URLs (<base>/<run_id>.mvd).
+* --legacy carries games from a previous ledger snapshot so the June
+  validation-lab era stays in the feed when rebuilding from bench runs only.
 """
 
 from __future__ import annotations
@@ -41,7 +53,14 @@ except Exception:  # pragma: no cover - extractor is optional; speed -> null
     emm = None  # type: ignore[assignment]
 
 SCHEMA = "komodobots.4v4_validation.v1"
-ROSTER_SCHEMA = "komodobots.4v4_roster_intent.v1"
+# Accepted roster-intent schemas. The komodobots2 bench (lanister) stamps its
+# rosters komodobots2.4v4_roster_intent.v1 with the same field layout; the
+# builder treats both identically so bench runs feed the same ledger.
+ROSTER_SCHEMAS = (
+    "komodobots.4v4_roster_intent.v1",
+    "komodobots2.4v4_roster_intent.v1",
+)
+ROSTER_SCHEMA = ROSTER_SCHEMAS[0]  # kept for backwards-compat imports/tests
 DEFAULT_RUNS_DIR = Path("artifacts") / "4v4-validation-runs"
 DEFAULT_OUT = Path("artifacts") / "records" / "4v4-validation.json"
 
@@ -50,8 +69,9 @@ DEFAULT_OUT = Path("artifacts") / "records" / "4v4-validation.json"
 # roster team that contains at least one of these roles; the other team is frog.
 # This keeps the existing one-komodobot validation roster working (its komodobot
 # team is the leap team) while also supporting a full four-leap-vs-four-frog run
-# (docs/18 T0.1: "team leap vs team frog, 4 vs 4").
-LEAP_ROLES = ("leap", "komodobot")
+# (docs/18 T0.1: "team leap vs team frog, 4 vs 4") and the komodobots2 bench
+# roster shape (four role="candidate" komodobots vs four skill-20 controls).
+LEAP_ROLES = ("leap", "komodobot", "candidate")
 
 # R-T damage.matrix gate (docs/18 Phase 0): a frog-vs-leap 4v4 is only
 # honest when bots actually fight the enemy and almost never their own team.
@@ -95,6 +115,9 @@ VALIDATION_METRICS = (
     "taken_to_die",
     "avg_speed",
     "max_speed",
+    "lg_pickups",
+    "rl_direct_hits",
+    "rl_attacks",
 )
 
 
@@ -177,7 +200,7 @@ def _validate_roster(roster: dict[str, Any] | None) -> list[str]:
     reasons: list[str] = []
     if not isinstance(roster, dict):
         return ["missing_roster_intent"]
-    if roster.get("schema") != ROSTER_SCHEMA:
+    if roster.get("schema") not in ROSTER_SCHEMAS:
         reasons.append("wrong_roster_schema")
 
     players = _roster_players(roster)
@@ -190,6 +213,8 @@ def _validate_roster(roster: dict[str, Any] | None) -> list[str]:
 
     komodo_count = 0
     leap_count = 0
+    candidate_count = 0
+    komodobot_candidates = 0
     control_count = 0
     skill20_controls = 0
     leap_role_teams: set[str] = set()
@@ -205,6 +230,10 @@ def _validate_roster(roster: dict[str, Any] | None) -> list[str]:
             komodo_count += 1
         elif role == "leap":
             leap_count += 1
+        elif role == "candidate":
+            candidate_count += 1
+            if p.get("bot_kind") == "komodobot":
+                komodobot_candidates += 1
         elif role == "control":
             control_count += 1
             if p.get("bot_kind") == "frogbot" and p.get("bot_skill") == 20:
@@ -222,15 +251,19 @@ def _validate_roster(roster: dict[str, Any] | None) -> list[str]:
     if len(leap_role_teams) > 1:
         reasons.append("roster_leap_roles_split_across_teams")
 
-    # Two supported shapes (docs/18 T0.1): one komodobot + seven skill-20 frogbot
-    # controls, OR four leap bots + four skill-20 frogbot controls. Both keep
-    # exactly two fixed teams of four; the leap team is whichever team holds the
-    # komodobot/leap roles.
-    one_komodobot_shape = (komodo_count == 1 and leap_count == 0
+    # Three supported shapes: one komodobot + seven skill-20 frogbot controls,
+    # four leap bots + four skill-20 frogbot controls (both docs/18 T0.1), OR
+    # the komodobots2 bench shape: four role="candidate" komodobots vs four
+    # skill-20 frogbot controls. All keep exactly two fixed teams of four; the
+    # leap team is whichever team holds the komodobot/leap/candidate roles.
+    one_komodobot_shape = (komodo_count == 1 and leap_count == 0 and candidate_count == 0
                            and control_count == 7 and skill20_controls == 7)
-    four_leap_shape = (leap_count == 4 and komodo_count == 0
+    four_leap_shape = (leap_count == 4 and komodo_count == 0 and candidate_count == 0
                        and control_count == 4 and skill20_controls == 4)
-    if not (one_komodobot_shape or four_leap_shape):
+    four_candidate_shape = (candidate_count == 4 and komodobot_candidates == 4
+                            and komodo_count == 0 and leap_count == 0
+                            and control_count == 4 and skill20_controls == 4)
+    if not (one_komodobot_shape or four_leap_shape or four_candidate_shape):
         reasons.append("roster_not_one_komodobot_or_four_leap_vs_four_skill20_frogbots")
     return reasons
 
@@ -689,7 +722,28 @@ def _bench_aggregate(games: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _game_from_artifacts(run_dir: Path, stats_path: Path, roster_path: Path | None) -> tuple[dict[str, Any], list[str]]:
+def _demo_url(run_dir: Path, run_id: str, demo_name: Any, demo_url_base: str | None) -> str | None:
+    """Resolve the served demo URL for a game.
+
+    komodobots2 bench runs carry the demo as ``demo.mvd`` in the run dir and the
+    sync publishes it as ``<demo_url_base>/<run_id>.mvd`` (hardlink) — when a
+    base is configured and the artifact exists, that published route wins.
+    Otherwise fall back to the KTX ONLINE_DEMOS_DIR route (/demos/online/<name>),
+    passing an already-absolute demo name through unchanged.
+    """
+    if demo_url_base and (run_dir / "demo.mvd").is_file():
+        return f"{demo_url_base.rstrip('/')}/{run_id}.mvd"
+    if isinstance(demo_name, str) and demo_name:
+        return demo_name if demo_name.startswith("/") else f"/demos/online/{demo_name}"
+    return None
+
+
+def _game_from_artifacts(
+    run_dir: Path,
+    stats_path: Path,
+    roster_path: Path | None,
+    demo_url_base: str | None = None,
+) -> tuple[dict[str, Any], list[str]]:
     normalized = kms.normalize_match(_read_json(stats_path), source_path=str(stats_path))
     roster = _read_json(roster_path) if roster_path else None
     run_id = _run_id(run_dir, roster, normalized["match"])
@@ -711,13 +765,9 @@ def _game_from_artifacts(run_dir: Path, stats_path: Path, roster_path: Path | No
         "demo": {
             "name": demo_name,
             # KTX records the validation demo into ONLINE_DEMOS_DIR (~/nquakesv/ktx/demos),
-            # which cloud_hub serves at /demos/online/<name> (verified HTTP 200). The old
-            # /demos/files/non-games/... prefix had no cloud_hub route (404), so the
-            # dashboard "watch demo" link could never resolve. Emit the served route.
-            # An already-absolute path (starts with "/") is passed through unchanged.
-            "url": (demo_name if isinstance(demo_name, str) and demo_name.startswith("/")
-                    else f"/demos/online/{demo_name}")
-            if isinstance(demo_name, str) and demo_name else None,
+            # which cloud_hub serves at /demos/online/<name> (verified HTTP 200); bench
+            # runs are instead published as <demo_url_base>/<run_id>.mvd hardlinks.
+            "url": _demo_url(run_dir, run_id, demo_name, demo_url_base),
         },
         "match": normalized["match"],
         "teams": normalized["teams"],
@@ -732,7 +782,7 @@ def _game_from_artifacts(run_dir: Path, stats_path: Path, roster_path: Path | No
     return game, validate_match({**normalized, "players": players}, roster)
 
 
-def build(runs_dir: Path) -> dict[str, Any]:
+def build(runs_dir: Path, demo_url_base: str | None = None) -> dict[str, Any]:
     scanned = 0
     skipped: dict[str, int] = {}
     games: list[dict[str, Any]] = []
@@ -754,7 +804,7 @@ def build(runs_dir: Path) -> dict[str, Any]:
             continue
         roster_path = _find_first(run_dir, ROSTER_FILENAMES)
         try:
-            game, reasons = _game_from_artifacts(run_dir, stats_path, roster_path)
+            game, reasons = _game_from_artifacts(run_dir, stats_path, roster_path, demo_url_base)
         except (OSError, json.JSONDecodeError, TypeError, KeyError) as exc:
             reason = "artifact_parse_failed"
             skipped[reason] = skipped.get(reason, 0) + 1
@@ -828,14 +878,46 @@ def summarize(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def merge_legacy(data: dict[str, Any], legacy: dict[str, Any]) -> dict[str, Any]:
+    """Prepend games from an earlier ledger snapshot (older era) onto a fresh build.
+
+    Used on servexeri where the synced bench run dirs only cover the komodobots2
+    era: the June validation-lab games live solely in the previous ledger file.
+    Games are keyed by run_id (fresh build wins on collision) and kept in
+    ascending chronological order (legacy run_ids predate bench run_ids). The
+    bench aggregate and provenance stay those of the fresh build; the legacy
+    contribution is recorded under provenance.legacy.
+    """
+    new_ids = {g.get("run_id") for g in data.get("games", [])}
+    legacy_games = [
+        g for g in legacy.get("games", [])
+        if isinstance(g, dict) and g.get("run_id") not in new_ids
+    ]
+    data["games"] = legacy_games + data.get("games", [])
+    data.setdefault("provenance", {})["legacy"] = {
+        "games_carried": len(legacy_games),
+        "source_schema": legacy.get("schema"),
+    }
+    return data
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build 4v4-validation.json from BotLab run artifacts.")
     parser.add_argument("--runs-dir", type=Path, default=DEFAULT_RUNS_DIR)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--summary", action="store_true")
+    parser.add_argument("--demo-url-base", default=None,
+                        help="served URL prefix for published bench demos (<base>/<run_id>.mvd)")
+    parser.add_argument("--legacy", type=Path, default=None,
+                        help="previous ledger JSON whose games are carried over (older era)")
     args = parser.parse_args(argv)
 
-    data = build(args.runs_dir)
+    data = build(args.runs_dir, demo_url_base=args.demo_url_base)
+    if args.legacy and args.legacy.is_file():
+        try:
+            data = merge_legacy(data, _read_json(args.legacy))
+        except (OSError, json.JSONDecodeError) as exc:
+            LOGGER.warning("legacy ledger %s unreadable (%s); building without it", args.legacy, exc)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n", encoding="utf-8")
     if args.summary:
