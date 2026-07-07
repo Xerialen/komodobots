@@ -70,9 +70,16 @@ class TestQtvPaneStatusDetection(unittest.TestCase):
         self.assertIn("scheduleAttachConnectedFallback();", _function_body("attach"))
 
     def test_connected_fallback_only_promotes_retrying_state(self):
+        """The fallback acts only from "retrying", and since the engine-boot
+        race fix (cbuf commands can be dropped right after FTEC appears) it
+        must VERIFY the stream via the client-state API: players present ->
+        connected, otherwise go around the retry loop instead of blindly
+        promoting."""
         body = _function_body("scheduleAttachConnectedFallback")
-        self.assertIn('if (state === "retrying")', body)
+        self.assertIn('if (state !== "retrying") return;', body)
+        self.assertIn("spectatablePlayers().length > 0", body)
         self.assertIn('setState("connected")', body)
+        self.assertIn("scheduleRetry();", body)
 
     def test_disconnect_clears_connected_fallback(self):
         body = _function_body("onQtvDisconnect")
