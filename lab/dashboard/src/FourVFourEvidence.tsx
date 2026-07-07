@@ -1527,8 +1527,23 @@ function trendScale(value: number | null, mk: string): number {
 // Build the full per-subject history client-side by mapping over every game in
 // the ledger (issue #253). Team scope uses team.totals (with the same null
 // fallback aggregation as the live view); player scope keys on slot.
-function buildTrendSubjects(ledger: ValidationLedger): { teams: TrendSubject[]; players: TrendSubject[] } {
+// Trends must compare like with like: only games sharing the latest game's
+// team-name pair are charted. Legacy-era games (carried into the ledger via
+// the builder's --legacy merge) use different team names and rosters — by
+// team name they would plot hard zeros, and by slot number they would chart
+// an unrelated era's bot under the current bot's label.
+function trendGames(ledger: ValidationLedger): ValidationGame[] {
   const games = ledger.games;
+  const latest = games.length ? games[games.length - 1] : null;
+  if (!latest) return games;
+  const names = new Set(latest.teams.map((t) => t.name));
+  return games.filter(
+    (g) => g.teams.length === names.size && g.teams.every((t) => names.has(t.name)),
+  );
+}
+
+function buildTrendSubjects(ledger: ValidationLedger): { teams: TrendSubject[]; players: TrendSubject[] } {
+  const games = trendGames(ledger);
   const latest = games.length ? games[games.length - 1] : null;
 
   const teamSubjects: TrendSubject[] = [];
@@ -1605,7 +1620,8 @@ function TrendSep() {
 
 function TrendsView({ ledger }: { ledger: ValidationLedger }) {
   const { teams, players } = useMemo(() => buildTrendSubjects(ledger), [ledger]);
-  const gameLabels = useMemo(() => ledger.games.map((_, i) => `G${i + 1}`), [ledger]);
+  // Same filtered list as buildTrendSubjects so labels align with hist arrays.
+  const gameLabels = useMemo(() => trendGames(ledger).map((_, i) => `G${i + 1}`), [ledger]);
 
   const [scope, setScope] = useState<"team" | "player">("team");
   const [mode, setMode] = useState<"single" | "four">("single");

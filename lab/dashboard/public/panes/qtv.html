@@ -101,12 +101,16 @@
     "use strict";
     // ---------------------------------------------------------------- params
     var q = new URLSearchParams(location.search);
+    // Params end up inside FTE console commands (qtvplay), so restrict them
+    // to address-safe characters — a crafted link must not be able to smuggle
+    // extra console commands into the viewer's engine.
+    function safeAddr(s) { return s && /^[\w.:/@-]+$/.test(s) ? s : null; }
     var PORT     = parseInt(q.get("port") || "28599", 10) || 28599;
-    var RELAY    = q.get("relay") || "ws://192.168.86.33:27599";
-    var MAP      = (q.get("map") || "dm3").toLowerCase();
+    var RELAY    = safeAddr(q.get("relay")) || "ws://192.168.86.33:27599";
+    var MAP      = (/^[a-z0-9_-]+$/i.test(q.get("map") || "") ? q.get("map") : "dm3").toLowerCase();
     // Optional explicit upstream ("tcp:host:port"), e.g. a lanister bench
     // server; without it the relay pulls loopback on the lab host.
-    var UPSTREAM = q.get("upstream") || null;
+    var UPSTREAM = safeAddr(q.get("upstream"));
 
     // The relay pulls upstreams over loopback on the lab host (servexeri).
     var LAB_QTV_HOST = "127.0.0.1";
@@ -340,6 +344,7 @@
       if (!engineReady) return;  // will be called again from waitForEngine
       clearRetry();
       setState("retrying");   // not confirmed connected until f_demostart fires
+      autotrackOn = true;     // fresh attach: f_demostart re-issues autotrack
       cbuf("disconnect");
       cbuf("closemenu");
       var upstream = UPSTREAM || ("tcp:" + LAB_QTV_HOST + ":" + currentPort);
@@ -528,7 +533,10 @@
       clearAttachConnectedFallback();
       clearRetry();
       setState("connected");
-      autotrackOn = true;   // f_demostart re-issues autotrack on every connect
+      // NOTE: autotrackOn is reset in attach(), not here — this fires on any
+      // log line matching isQtvConnectedLog (which includes the substring
+      // "autotrack"), so resetting here would flip the AUTO chip back on
+      // right after a manual POV pick echoes its cl_autotrack change.
       startPovBar();
     }
 

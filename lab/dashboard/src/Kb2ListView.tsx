@@ -1,5 +1,5 @@
 // List View — every recent lab match from the komodobots2 feed
-// (komodobots.kb2_matches.v1): when it ran, game duration, per-team frags,
+// (komodobots.kb2_matches.v2): when it ran, game duration, per-team frags,
 // frag margin, winner, the feature configuration it ran with (filterable) and
 // which configuration holds the record. KomodoBots design language (same
 // tokens/components as the evidence Match View).
@@ -323,8 +323,8 @@ function MatchRow({
                   <tbody>
                     {[...m.players]
                       .sort((a, b) => b.frags - a.frags)
-                      .map((p) => (
-                        <tr key={p.name}>
+                      .map((p, pi) => (
+                        <tr key={`${p.name}-${pi}`}>
                           <td style={{ padding: "2px 8px", color: "var(--text-body)" }}>{p.name}</td>
                           <td style={{ padding: "2px 8px" }}>
                             <TeamTag team={p.team === m.candidate.team ? "leap" : "frog"} label={p.team} size="sm" outline />

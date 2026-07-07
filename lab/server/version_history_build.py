@@ -170,7 +170,10 @@ def main(argv: list[str]) -> int:
     feed = load_feed(args.feed)
     doc = build(prs, summaries, feed, args.repo)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(doc, indent=1), encoding="utf-8")
+    # Atomic replace: the dashboard polls this file while we write.
+    tmp = args.out.with_suffix(".tmp")
+    tmp.write_text(json.dumps(doc, indent=1), encoding="utf-8")
+    tmp.replace(args.out)
     n_cur = sum(1 for v in doc["versions"] if str(v["pr"]) in summaries)
     print(f"wrote {args.out}: {len(doc['versions'])} merge(s), "
           f"{n_cur} with curated summaries")

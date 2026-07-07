@@ -40,9 +40,10 @@ Inputs per run dir (<data>/lab-runs/<run_id>/):
   demo.mvd       optional (synced later); published as a hardlink
                  <publish-dir>/<run_id>.mvd so /demos/files/... serves it.
 
-Deployment: runs on servexeri right after kb2hub-sync (see
-ExecStartPost hook), writing to /mnt/usb-ssd/non-games/lab/Komodobots/records/
-which the local-hub serves as /demos/records/kb2-matches.json.
+Deployment: runs on servexeri as step 4 of sync_from_lanister.sh (every
+sync pass — 10-min timer plus the bench_poller completion kick), writing to
+/mnt/usb-ssd/non-games/lab/Komodobots/records/ which the local-hub serves
+as /demos/records/kb2-matches.json.
 
 Stdlib only. Pure helpers are unit-tested by tests/test_kb2_matches_build.py.
 """
@@ -407,12 +408,23 @@ def build(data_dir: Path, *, demo_url_base: str, max_runs: int = 500) -> dict:
                       key=lambda d: d.name, reverse=True)
     matches: list[dict] = []
     scanned = 0
+    failed = 0
     for run_dir in run_dirs:
         scanned += 1
         if len(matches) >= max_runs:
             break
-        row = summarize_run(run_dir, demo_url_base=demo_url_base,
-                            ledger_run_ids=ledger_run_ids)
+        # Per-run guard: one corrupt artifact (e.g. a run-meta.json truncated
+        # by a dropped sftp transfer that still got stamped .synced) must cost
+        # exactly one row, never the whole feed — the sync's "a feed failure
+        # never fails the sync" intent depends on this (review P2 on PR #482).
+        try:
+            row = summarize_run(run_dir, demo_url_base=demo_url_base,
+                                ledger_run_ids=ledger_run_ids)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            failed += 1
+            LOGGER.warning("skipping run %s: %s: %s",
+                           run_dir.name, type(exc).__name__, exc)
+            continue
         if row is not None:
             matches.append(row)
 
@@ -430,7 +442,7 @@ def build(data_dir: Path, *, demo_url_base: str, max_runs: int = 500) -> dict:
         "generated_utc": datetime.now(timezone.utc)
             .strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source": {"data_dir": str(data_dir), "runs_scanned": scanned,
-                   "runs_included": len(matches)},
+                   "runs_included": len(matches), "runs_failed": failed},
         "matches": matches,
         "jumps": jumps,
         "jump_lanes": aggregate_jump_lanes(matches),

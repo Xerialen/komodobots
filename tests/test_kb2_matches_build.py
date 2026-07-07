@@ -86,6 +86,21 @@ class GapjumpParsing(unittest.TestCase):
         self.assertEqual(lanes["e12b"],
                          {"attempts": 1, "lands": 0, "fails": 1, "declines": 0})
 
+    def test_real_world_decline_line_format_is_counted(self):
+        # Verbatim from a bench server.log (2026-07-06): decline lines carry
+        # along/lat/vh/floor fields, no trial= and no hdist= — they must fall
+        # through GAPJUMP_RE and be counted by the decline matcher.
+        log = "\n".join([
+            "[2026-07-06 15:47:00] The match has begun!",
+            "[2026-07-06 15:47:44] [gapjump] lane=ra2ya result=APP_ABORT_TIMEOUT"
+            " along=-174 lat=6 vh=89 floor=389",
+            "[2026-07-06 15:47:49] [gapjump] lane=ya2ra result=APP_ABORT_TIMEOUT"
+            " along=-177 lat=-8 vh=8 floor=379",
+        ])
+        _jumps, lanes = kb.parse_gapjump_events(log)
+        self.assertEqual(lanes["ra2ya"], {"attempts": 0, "lands": 0, "fails": 0, "declines": 1})
+        self.assertEqual(lanes["ya2ra"]["declines"], 1)
+
     def test_app_engage_and_launch_are_not_declines(self):
         log = "\n".join([
             "[2026-07-07 04:30:06] The match has begun!",
@@ -218,6 +233,25 @@ class DemoPublishAndUrl(unittest.TestCase):
                      if x["run_id"] == "20260707T022951Z-p28601")
             self.assertIn("/demo-player/?demoUrl=", j["watch_url"])
             self.assertIn(f"from={max(1, j['t_s'] - 5)}", j["watch_url"])
+
+
+class CorruptRunGuard(unittest.TestCase):
+    def test_one_corrupt_run_meta_costs_one_row_not_the_feed(self):
+        # A run-meta.json truncated by a dropped sftp transfer (but stamped
+        # .synced) must be skipped with a warning — the rest of the feed
+        # still builds (review P2 on PR #482).
+        with tempfile.TemporaryDirectory() as td:
+            data = Path(td) / "data"
+            shutil.copytree(FIXTURES, data)
+            bad = data / "lab-runs" / "20260707T999999Z-p28999"
+            bad.mkdir()
+            (bad / "run-meta.json").write_text('{"run_id": "trunca', encoding="utf-8")
+            doc = kb.build(data, demo_url_base="/demos/files/kb2")
+            self.assertEqual(doc["source"]["runs_included"], 2)
+            self.assertEqual(doc["source"]["runs_failed"], 1)
+            self.assertNotIn(
+                "20260707T999999Z-p28999",
+                [m["run_id"] for m in doc["matches"]])
 
 
 class RecordHolderThreshold(unittest.TestCase):

@@ -919,7 +919,10 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, json.JSONDecodeError) as exc:
             LOGGER.warning("legacy ledger %s unreadable (%s); building without it", args.legacy, exc)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+    # Atomic replace: the dashboard polls this file every 15 s.
+    tmp = args.out.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+    tmp.replace(args.out)
     if args.summary:
         print(summarize(data))
     else:

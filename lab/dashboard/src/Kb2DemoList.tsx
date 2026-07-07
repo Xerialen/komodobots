@@ -1,5 +1,5 @@
 // Demo List — every successful gapjump from the lab feed
-// (komodobots.kb2_matches.v1 jumps[]), with a ▶ watch deep link into the hub
+// (komodobots.kb2_matches.v2 jumps[]), with a ▶ watch deep link into the hub
 // demo player (5 s pre-roll before the landing). Filterable by lane and
 // player. KomodoBots design language.
 

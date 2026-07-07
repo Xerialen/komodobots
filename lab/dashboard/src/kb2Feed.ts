@@ -1,8 +1,9 @@
 // Data layer for the komodobots2 match-history feed (komodobots.kb2_matches.v2,
 // built by lab/server/kb2_matches_build.py and served at
 // /demos/records/kb2-matches.json), the bench live feed (/v2/servers/bench,
-// written by the local-hub poller when lanister bench servers answer the QW
-// status probe) and the version-history feed (komodobots.kb2_versions.v1).
+// written by kb2 bench_poller.py, which infers liveness from the harness
+// write pattern on lanister — a run dir without run-meta.json is in
+// progress) and the version-history feed (komodobots.kb2_versions.v1).
 //
 // All fetches degrade gracefully: a 404 renders as an empty state, never an
 // error page — the dashboard must stay usable while a feed is still being
@@ -268,9 +269,10 @@ export function useKb2Versions(): Kb2VersionsFeed | null {
 
 export function fmtDuration(s: number | null): string {
   if (s == null || !Number.isFinite(s)) return "—";
-  const m = Math.floor(s / 60);
-  const sec = Math.round(s % 60);
-  return `${m}:${sec.toString().padStart(2, "0")}`;
+  // Round the total first so e.g. 299.7 renders "5:00", never "4:60".
+  const t = Math.round(s);
+  const m = Math.floor(t / 60);
+  return `${m}:${(t % 60).toString().padStart(2, "0")}`;
 }
 
 export function fmtUtc(iso: string | null): string {
