@@ -1,0 +1,58 @@
+{
+  "_comment": "Curated owner-language layer for version_history_build.py. Keyed by PR number in Xerialen/komodobots2. name = short display name; summary = jargon-free what-it-was-for; stamps = candidate_version stamps (prefix match) this merge shipped or governs — used to join bench margins and test-match counts.",
+  "31": {
+    "name": "Harvester & the dials",
+    "summary": "Wrote down everything we learned from teaching the bots to pick up leftover weapons and packs (the harvester) and from tuning their behavior knobs (the dials): what was tried, what worked, and the reports behind it.",
+    "stamps": ["kbot-0.26.0-harvest", "kbot-0.28.0-dials", "0.28.0-dials"]
+  },
+  "30": {
+    "name": "Pent-window rocket jump",
+    "summary": "Measured how humans rocket-jump from the pent area up to the window on dm3, taken from real match demos, so the bots can learn the same shortcut.",
+    "stamps": []
+  },
+  "28": {
+    "name": "Jump experiments E13/E14",
+    "summary": "Documented two jump experiments on dm3 — the mirrored chain jump and the sng chain — with the evidence for what the bots can and cannot land.",
+    "stamps": ["kbot-0.24.9-sngFloor"]
+  },
+  "27": {
+    "name": "Scratch runs don't block the bench",
+    "summary": "Quick test matches no longer hold the lock that counted benchmark matches need, so both can run at the same time without stepping on each other.",
+    "stamps": []
+  },
+  "23": {
+    "name": "Bench traffic control",
+    "summary": "The bench now decides on its own how many matches can run at once without overloading the machine, so batches can be fired off without planning around each other.",
+    "stamps": []
+  },
+  "18": {
+    "name": "Removed unused review machinery",
+    "summary": "Deleted an automated code-review layer that was never used, to keep the project simple.",
+    "stamps": []
+  },
+  "17": {
+    "name": "Speed-build idea disproven",
+    "summary": "Tested the idea that building running speed before a fight would win more fights — it did not, so the movement work was parked with the evidence written down.",
+    "stamps": []
+  },
+  "4": {
+    "name": "Bunnyhop theory",
+    "summary": "Collected everything known about making the bots bunnyhop across our projects, why earlier attempts failed, and a plan for if we ever un-park it.",
+    "stamps": []
+  },
+  "3": {
+    "name": "Pressure & flee-speed evidence",
+    "summary": "Ran and recorded batches measuring how the bots behave under pressure and when fleeing, plus hardening of the match protocol.",
+    "stamps": []
+  },
+  "2": {
+    "name": "The bench itself",
+    "summary": "Built the local 4v4 benchmark: our bots vs stock frogbots on dm3, fully automated match running and scoring. Everything else is measured with this.",
+    "stamps": ["frogbot-stock"]
+  },
+  "1": {
+    "name": "Program foundation",
+    "summary": "Wrote the plan: what the project is trying to achieve (beat stock skill-20 frogbots convincingly), how progress is measured, and the roadmap.",
+    "stamps": []
+  }
+}

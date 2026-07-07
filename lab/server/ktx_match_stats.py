@@ -113,6 +113,9 @@ def _metric_sources(player_index: int) -> dict[str, str | list[str]]:
         "rl_pickups": _source(player_index, "weapons", "rl", "pickups", "taken"),
         "rl_drops": _source(player_index, "weapons", "rl", "pickups", "dropped"),
         "enemy_rl_kills": _source(player_index, "weapons", "rl", "kills", "enemy"),
+        "lg_pickups": _source(player_index, "weapons", "lg", "pickups", "taken"),
+        "rl_direct_hits": _source(player_index, "weapons", "rl", "acc", "hits"),
+        "rl_attacks": _source(player_index, "weapons", "rl", "acc", "attacks"),
     }
 
 
@@ -203,6 +206,11 @@ def _normalize_player(player: dict[str, Any], index: int, warnings: list[str]) -
         "rl_pickups": _weapon_stat(player, "rl", "pickups", "taken"),
         "rl_drops": _weapon_stat(player, "rl", "pickups", "dropped"),
         "enemy_rl_kills": _weapon_stat(player, "rl", "kills", "enemy"),
+        "lg_pickups": _weapon_stat(player, "lg", "pickups", "taken"),
+        # KTX weapons.<w>.acc.hits for RL counts DIRECT rocket hits (attacks =
+        # rockets fired); the acc block is absent for players who never fired.
+        "rl_direct_hits": _weapon_stat(player, "rl", "acc", "hits"),
+        "rl_attacks": _weapon_stat(player, "rl", "acc", "attacks"),
     }
 
     bot_info = player.get("bot")
@@ -269,6 +277,9 @@ def _team_totals(players: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "rl_pickups",
             "rl_drops",
             "enemy_rl_kills",
+            "lg_pickups",
+            "rl_direct_hits",
+            "rl_attacks",
         ):
             totals[key] = sum(int(p["stats"].get(key) or 0) for p in members)
         denom = int(totals["kills"] or 0) + int(totals["deaths"] or 0)

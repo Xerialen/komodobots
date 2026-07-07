@@ -1,0 +1,13 @@
+[2026-07-07 04:30:06] matchdate: 2026-07-07 04:30:06 CEST
+[2026-07-07 04:30:06] The match has begun!
+[2026-07-07 04:30:47] [gapjump] lane=ra2ya trial=0 result=FAIL_GAP land_pos=601,-210,-48 hdist=96 peak_speed=409 tair=0.94 vreq=324
+[2026-07-07 04:31:35] [gapjump] lane=ra2ya trial=0 result=FAIL_GAP land_pos=594,-208,-45 hdist=102 peak_speed=415 tair=0.93 vreq=324
+[2026-07-07 04:31:36] [gapjump] lane=ra2ya trial=0 result=FAIL_GAP land_pos=596,-208,-41 hdist=101 peak_speed=416 tair=0.92 vreq=324
+[2026-07-07 04:31:42] [gapjump] lane=ra2ya trial=0 result=FAIL_GAP land_pos=593,-194,-41 hdist=112 peak_speed=446 tair=0.80 vreq=324
+[2026-07-07 04:31:46] [gapjump] lane=ra2ya trial=0 result=FAIL_GAP land_pos=631,-209,-44 hdist=75 peak_speed=469 tair=1.16 vreq=324
+[2026-07-07 04:32:08] [gapjump] lane=ra2ya trial=0 result=FAIL_GAP land_pos=598,-207,-43 hdist=100 peak_speed=416 tair=0.92 vreq=324
+[2026-07-07 04:32:23] [gapjump] lane=ra2ya slot=3 name=Angua trial=0 result=LAND land_pos=705,-230,56 hdist=48 peak_speed=425 tair=0.66 vreq=324
+[2026-07-07 04:33:31] [gapjump] lane=ra2ya slot=1 name=hib trial=0 result=LAND land_pos=672,-209,56 hdist=59 peak_speed=433 tair=0.67 vreq=324
+[2026-07-07 04:33:34] [gapjump] lane=ra2ya trial=0 result=FAIL_GAP land_pos=593,-209,-46 hdist=103 peak_speed=411 tair=0.94 vreq=324
+[2026-07-07 04:34:55] [gapjump] lane=ra2ya trial=0 result=FAIL_GAP land_pos=601,-208,-40 hdist=97 peak_speed=406 tair=0.92 vreq=324
+[2026-07-07 04:35:06] The match is over

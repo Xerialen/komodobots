@@ -58,19 +58,59 @@
     html, body { margin: 0; height: 100%; background: #06080d; color: #9ab; font: 13px monospace; overflow: hidden; }
     #fteCanvas { width: 100vw; height: 100vh; display: block; }
     #status { position: fixed; top: 8px; left: 10px; z-index: 10; white-space: pre; text-shadow: 0 0 3px #000; pointer-events: none; }
+    /* POV picker bar — dashboard design language (dark navy, mono, emerald accent) */
+    #povbar {
+      position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%);
+      z-index: 20; display: none; align-items: center; gap: 6px; flex-wrap: wrap;
+      justify-content: center; max-width: calc(100vw - 20px);
+      padding: 6px 10px; border: 1px solid #1c2a3a; border-radius: 8px;
+      background: rgba(6, 10, 16, 0.85); backdrop-filter: blur(2px);
+      transition: opacity 0.4s; opacity: 1;
+    }
+    #povbar.idle { opacity: 0; pointer-events: none; }
+    #povbar .povlabel {
+      font-size: 10px; letter-spacing: 0.14em; color: #64748b; text-transform: uppercase;
+      margin-right: 2px; user-select: none;
+    }
+    #povbar .chip {
+      font: 12px monospace; padding: 3px 9px; border-radius: 5px; cursor: pointer;
+      border: 1px solid #22334a; background: rgba(15, 23, 36, 0.9); color: #9fb8cc;
+      user-select: none; white-space: nowrap;
+    }
+    #povbar .chip:hover { border-color: #34d399; color: #d1fae5; }
+    #povbar .chip.tracked {
+      border-color: #34d399; background: rgba(16, 88, 60, 0.55); color: #6ee7b7; font-weight: bold;
+    }
+    #povbar .chip.auto.on {
+      border-color: #fbbf24; background: rgba(120, 84, 10, 0.4); color: #fcd34d; font-weight: bold;
+    }
+    #povbar .chip .frags { color: #64748b; margin-left: 5px; font-weight: normal; }
+    #povbar .chip.tracked .frags { color: #a7f3d0; }
+    #povbar .teamsep { width: 1px; height: 16px; background: #22334a; margin: 0 2px; }
+    #povbar .hint {
+      font-size: 10px; color: #3d4f63; margin-left: 6px; user-select: none; white-space: nowrap;
+    }
   </style>
 </head>
 <body>
   <canvas id="fteCanvas" oncontextmenu="event.preventDefault()" tabindex="0"></canvas>
   <div id="status">booting…</div>
+  <div id="povbar"></div>
 
   <script>
     "use strict";
     // ---------------------------------------------------------------- params
     var q = new URLSearchParams(location.search);
+    // Params end up inside FTE console commands (qtvplay), so restrict them
+    // to address-safe characters — a crafted link must not be able to smuggle
+    // extra console commands into the viewer's engine.
+    function safeAddr(s) { return s && /^[\w.:/@-]+$/.test(s) ? s : null; }
     var PORT     = parseInt(q.get("port") || "28599", 10) || 28599;
-    var RELAY    = q.get("relay") || "ws://192.168.86.33:27599";
-    var MAP      = (q.get("map") || "dm3").toLowerCase();
+    var RELAY    = safeAddr(q.get("relay")) || "ws://192.168.86.33:27599";
+    var MAP      = (/^[a-z0-9_-]+$/i.test(q.get("map") || "") ? q.get("map") : "dm3").toLowerCase();
+    // Optional explicit upstream ("tcp:host:port"), e.g. a lanister bench
+    // server; without it the relay pulls loopback on the lab host.
+    var UPSTREAM = safeAddr(q.get("upstream"));
 
     // The relay pulls upstreams over loopback on the lab host (servexeri).
     var LAB_QTV_HOST = "127.0.0.1";
@@ -120,6 +160,7 @@
 
     // Walk the FTE module's client-slot table the way the hub's getPlayers()
     // does: skip spectators and the ServeMe bot, return active player userids.
+    // Sorted team-first so the POV bar groups the two teams together.
     function spectatablePlayers() {
       try {
         var st = window.Module.getClientState();
@@ -129,9 +170,13 @@
           if (!p) continue;
           var nm = p.getNamePlain ? p.getNamePlain() : "";
           if (p.spectator !== 0 || nm === "" || nm === "[ServeMe]") continue;
-          out.push({ userid: p.userid, name: nm });
+          var tm = p.getTeamPlain ? p.getTeamPlain() : "";
+          out.push({ userid: p.userid, name: nm, team: tm, frags: p.frags | 0 });
         }
-        out.sort(function (a, b) { return a.name.localeCompare(b.name); });
+        out.sort(function (a, b) {
+          return a.team === b.team ? a.name.localeCompare(b.name)
+                                   : a.team.localeCompare(b.team);
+        });
         return out;
       } catch (e) { return []; }
     }
@@ -141,17 +186,115 @@
         return p ? p.userid : null;
       } catch (e) { return null; }
     }
+    // Manual POV pick: disable autotrack so it sticks (hub track() does the
+    // same — Autotrack.OFF = "user", Autotrack.ON = "stats", per hub types.ts).
+    var autotrackOn = true;   // f_demostart alias issues autotrack on connect
+    function trackUser(userid) {
+      autotrackOn = false;
+      cbuf("cl_autotrack user");
+      cbuf("track " + userid);
+      renderPovBar();
+    }
+    function enableAutotrack() {
+      autotrackOn = true;
+      cbuf("cl_autotrack stats");
+      renderPovBar();
+    }
     function trackByDelta(delta) {
       var players = spectatablePlayers();
       if (players.length === 0) return;
       var ids = players.map(function (p) { return p.userid; });
       var cur = trackedUserid();
       var idx = cur === null ? -1 : ids.indexOf(cur);
-      var next = ids[((idx === -1 ? 0 : idx) + delta + ids.length) % ids.length];
-      // disable autotrack so a manual POV pick sticks (hub track() does this)
-      cbuf("cl_autotrack user");
-      cbuf("track " + next);
+      trackUser(ids[((idx === -1 ? 0 : idx) + delta + ids.length) % ids.length]);
     }
+
+    // ------------------------------------------------------- POV picker bar
+    // Visible player picker so POV choice needs no keyboard knowledge: one chip
+    // per player (grouped by team, live frag count), an AUTO chip that restores
+    // stats-based autotrack, and a key hint. Rebuilt only when content changes
+    // so an imminent click isn't yanked from under the cursor.
+    var elPovBar = document.getElementById("povbar");
+    var povTimer = null;
+    var povSignature = "";
+
+    function renderPovBar() {
+      var players = spectatablePlayers();
+      if (players.length === 0) { elPovBar.style.display = "none"; povSignature = ""; return; }
+      var tracked = trackedUserid();
+      var sig = (autotrackOn ? "A" : "M") + "|" + tracked + "|" + players.map(function (p) {
+        return p.userid + ":" + p.name + ":" + p.team + ":" + p.frags;
+      }).join(",");
+      if (sig === povSignature) return;
+      povSignature = sig;
+
+      elPovBar.innerHTML = "";
+      var label = document.createElement("span");
+      label.className = "povlabel";
+      label.textContent = "pov";
+      elPovBar.appendChild(label);
+
+      var auto = document.createElement("span");
+      auto.className = "chip auto" + (autotrackOn ? " on" : "");
+      auto.textContent = "AUTO";
+      auto.title = "follow the action automatically (cl_autotrack stats)";
+      auto.addEventListener("mousedown", function (e) { e.preventDefault(); });
+      auto.addEventListener("click", enableAutotrack);
+      elPovBar.appendChild(auto);
+
+      var prevTeam = null;
+      players.forEach(function (p) {
+        if (prevTeam !== null && p.team !== prevTeam) {
+          var sep = document.createElement("span");
+          sep.className = "teamsep";
+          elPovBar.appendChild(sep);
+        }
+        prevTeam = p.team;
+        var chip = document.createElement("span");
+        chip.className = "chip" + (p.userid === tracked ? " tracked" : "");
+        chip.title = "track " + p.name + (p.team ? " (team " + p.team + ")" : "");
+        chip.textContent = p.name;
+        var fr = document.createElement("span");
+        fr.className = "frags";
+        fr.textContent = String(p.frags);
+        chip.appendChild(fr);
+        // preventDefault on mousedown keeps keyboard focus on the canvas so
+        // Space/arrows still cycle POV right after a click.
+        chip.addEventListener("mousedown", function (e) { e.preventDefault(); });
+        chip.addEventListener("click", function () { trackUser(p.userid); });
+        elPovBar.appendChild(chip);
+      });
+
+      var hint = document.createElement("span");
+      hint.className = "hint";
+      hint.textContent = "space next · ←→ cycle · tab scores";
+      elPovBar.appendChild(hint);
+      elPovBar.style.display = "flex";
+    }
+
+    function startPovBar() {
+      if (povTimer !== null) return;
+      povTimer = setInterval(renderPovBar, 700);
+      renderPovBar();
+    }
+    function stopPovBar() {
+      if (povTimer !== null) { clearInterval(povTimer); povTimer = null; }
+      elPovBar.style.display = "none";
+      povSignature = "";
+    }
+
+    // Fade the bar after mouse idle (like the hub player's control bar);
+    // reappear on any mouse movement.
+    (function () {
+      var idleTimer = null;
+      function poke() {
+        elPovBar.classList.remove("idle");
+        if (idleTimer !== null) clearTimeout(idleTimer);
+        idleTimer = setTimeout(function () { elPovBar.classList.add("idle"); }, 4000);
+      }
+      document.addEventListener("mousemove", poke);
+      poke();
+    })();
 
     // Keyboard: Tab -> scoreboard (hold), Space/Right -> next POV, Left -> prev.
     // Backquote toggles the console (so Tab is forwarded to scores, not eaten
@@ -201,9 +344,11 @@
       if (!engineReady) return;  // will be called again from waitForEngine
       clearRetry();
       setState("retrying");   // not confirmed connected until f_demostart fires
+      autotrackOn = true;     // fresh attach: f_demostart re-issues autotrack
       cbuf("disconnect");
       cbuf("closemenu");
-      cbuf("qtvplay tcp:" + LAB_QTV_HOST + ":" + currentPort + "@" + RELAY);
+      var upstream = UPSTREAM || ("tcp:" + LAB_QTV_HOST + ":" + currentPort);
+      cbuf("qtvplay " + upstream + "@" + RELAY);
       scheduleAttachConnectedFallback();
     }
 
@@ -222,8 +367,18 @@
       clearAttachConnectedFallback();
       attachConnectedTimer = setTimeout(function () {
         attachConnectedTimer = null;
-        if (state === "retrying") {
+        if (state !== "retrying") return;
+        // Confirm via the client-state API instead of assuming: if the stream
+        // is actually delivering players we're connected; otherwise the
+        // qtvplay was swallowed (engine-boot race — cbuf commands issued in
+        // the first moments after FTEC appears can be dropped silently, seen
+        // 2026-07-07) and we go around the normal retry loop, which
+        // re-issues qtvplay every QTV_RETRY_MS.
+        if (spectatablePlayers().length > 0) {
           setState("connected");
+          startPovBar();
+        } else {
+          scheduleRetry();
         }
       }, ASSUME_CONNECTED_AFTER_QTVPLAY_MS);
     }
@@ -245,6 +400,7 @@
           break;
         case "disconnect":
           clearRetry();
+          stopPovBar();
           setState("disconnected");
           if (engineReady) { cbuf("disconnect"); }
           break;
@@ -377,11 +533,17 @@
       clearAttachConnectedFallback();
       clearRetry();
       setState("connected");
+      // NOTE: autotrackOn is reset in attach(), not here — this fires on any
+      // log line matching isQtvConnectedLog (which includes the substring
+      // "autotrack"), so resetting here would flip the AUTO chip back on
+      // right after a manual POV pick echoes its cl_autotrack change.
+      startPovBar();
     }
 
     function onQtvDisconnect() {
       if (state === "disconnected") return;  // explicit disconnect — do not retry
       clearAttachConnectedFallback();
+      stopPovBar();
       setState("retrying");
       scheduleRetry();
     }

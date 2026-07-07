@@ -137,16 +137,18 @@ export function App() {
     return <CastingScoreboard />;
   }
 
-  // LD-H3 (#200): full-page 4v4 evidence report (the canonical wireframe).
-  const evidenceMode = getParam("evidence") === "1";
-  if (evidenceMode) {
-    return <FourVFourEvidence />;
-  }
-
   // #424 (T3.3): full-page attempt-recording gallery (every live run, indexed).
   const attemptsMode = getParam("attempts") === "1";
   if (attemptsMode) {
     return <BotAttemptsGallery />;
+  }
+
+  // The evidence hub is the master surface (owner direction, central
+  // dashboard): /botlab/ lands here, including old ?evidence=1 links. The
+  // multi-pane control shell moved behind ?lab=1.
+  const labMode = getParam("lab") === "1";
+  if (!labMode) {
+    return <FourVFourEvidence />;
   }
 
   const wsUrl = useMemo(() => getParam("ws") ?? DEFAULT_TELEMETRY_WS, []);

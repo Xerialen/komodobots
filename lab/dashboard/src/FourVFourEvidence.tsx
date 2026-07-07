@@ -23,6 +23,11 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { HeatmapView } from "./HeatmapView.tsx";
 import { logError } from "./logger.ts";
+import { Kb2ListView, FeatureChip } from "./Kb2ListView.tsx";
+import { Kb2DemoList } from "./Kb2DemoList.tsx";
+import { Kb2BenchStatus } from "./Kb2BenchStatus.tsx";
+import { Kb2VersionHistory } from "./Kb2VersionHistory.tsx";
+import { benchIsLive, useBenchServers, useKb2Feed } from "./kb2Feed.ts";
 
 interface ValidationTeam {
   name: string;
@@ -149,6 +154,9 @@ const BOT_COLUMNS: MetricDef[] = [
   { key: "team_damage", label: "Team", sub: "dmg", title: "Damage dealt to own team (lower is better)" },
   { key: "enemy_rl_kills", label: "RL", sub: "kills", title: "Enemies carrying RL killed" },
   { key: "rl_drops", label: "RL", sub: "drop", title: "Rocket launchers dropped" },
+  { key: "rl_pickups", label: "RL", sub: "take", title: "Rocket launchers picked up" },
+  { key: "lg_pickups", label: "LG", sub: "take", title: "Lightning guns picked up" },
+  { key: "rl_direct_hits", label: "RL", sub: "dir", title: "Direct rocket hits (of rockets fired)" },
   { key: "taken_to_die", label: "TTD", title: "Damage taken per death", precision: 0 },
 ];
 
@@ -166,6 +174,9 @@ const TEAM_METRICS: MetricDef[] = [
   { key: "team_damage", label: "Team dmg", title: "Damage dealt to own team (lower is better)" },
   { key: "enemy_rl_kills", label: "RL kills", title: "Enemies carrying RL killed" },
   { key: "rl_drops", label: "RL drop", title: "Rocket launchers dropped" },
+  { key: "rl_pickups", label: "RL take", title: "Rocket launchers picked up" },
+  { key: "lg_pickups", label: "LG take", title: "Lightning guns picked up" },
+  { key: "rl_direct_hits", label: "RL dir", title: "Direct rocket hits" },
   { key: "taken_to_die", label: "TTD", title: "Damage taken per death", precision: 0 },
 ];
 
@@ -220,12 +231,13 @@ function dataUrl(): string {
   return params.get("fixture") === "4v4" ? FIXTURE_URL : PRIMARY_URL;
 }
 
-type View = "live" | "trends" | "heatmap";
+type View = "live" | "trends" | "heatmap" | "list" | "demos" | "bench" | "versions";
+
+const NON_DEFAULT_VIEWS: View[] = ["trends", "heatmap", "list", "demos", "bench", "versions"];
 
 function initialView(): View {
   const v = new URLSearchParams(window.location.search).get("view");
-  if (v === "trends") return "trends";
-  if (v === "heatmap") return "heatmap";
+  if (v && (NON_DEFAULT_VIEWS as string[]).includes(v)) return v as View;
   return "live";
 }
 
@@ -233,7 +245,7 @@ function initialView(): View {
 // and keeps ?evidence=1 / ?fixture=4v4 intact.
 function setViewParam(view: View) {
   const url = new URL(window.location.href);
-  if (view === "trends" || view === "heatmap") url.searchParams.set("view", view);
+  if (NON_DEFAULT_VIEWS.includes(view)) url.searchParams.set("view", view);
   else url.searchParams.delete("view");
   window.history.replaceState(null, "", url.toString());
 }
@@ -485,7 +497,7 @@ export function TeamTag({
   );
 }
 
-const BADGE_TONES: Record<string, { bg: string; fg: string; bd: string }> = {
+export const BADGE_TONES: Record<string, { bg: string; fg: string; bd: string }> = {
   neutral: { bg: "var(--surface-inset)", fg: "var(--text-body)", bd: "var(--border-line)" },
   komodo: { bg: "var(--komodo-900)", fg: "var(--komodo-300)", bd: "var(--komodo-700)" },
   amber: { bg: "var(--amber-900)", fg: "var(--amber-300)", bd: "var(--amber-600)" },
@@ -493,7 +505,7 @@ const BADGE_TONES: Record<string, { bg: string; fg: string; bd: string }> = {
   live: { bg: "var(--amber-900)", fg: "var(--amber-300)", bd: "var(--amber-600)" },
 };
 
-function Badge({
+export function Badge({
   tone = "neutral",
   dot = false,
   live = false,
@@ -782,11 +794,13 @@ function TopBar({
   gateGreen,
   view,
   onView,
+  benchLive,
 }: {
-  game: ValidationGame;
+  game: ValidationGame | null;
   gateGreen: boolean | null;
   view: View;
   onView: (v: View) => void;
+  benchLive: boolean;
 }) {
   const tabStyle = (on: boolean): CSSProperties => ({
     fontFamily: "var(--font-display)",
@@ -838,7 +852,10 @@ function TopBar({
       </div>
       <nav style={{ display: "flex", gap: "var(--sp-6)", alignItems: "center", marginLeft: "var(--sp-4)" }}>
         <button data-evidence-tab="live" style={tabStyle(view === "live")} onClick={() => onView("live")}>
-          Live Stats
+          Match View
+        </button>
+        <button data-evidence-tab="list" style={tabStyle(view === "list")} onClick={() => onView("list")}>
+          List View
         </button>
         <button data-evidence-tab="trends" style={tabStyle(view === "trends")} onClick={() => onView("trends")}>
           Trends
@@ -846,27 +863,90 @@ function TopBar({
         <button data-evidence-tab="heatmap" style={tabStyle(view === "heatmap")} onClick={() => onView("heatmap")}>
           Heatmap
         </button>
+        <button data-evidence-tab="versions" style={tabStyle(view === "versions")} onClick={() => onView("versions")}>
+          Version History
+        </button>
+        {/* Bench Status + Demo List: action buttons beside the tabs (owner
+            direction). Bench pulses when matches are running on the bench. */}
+        <button
+          data-evidence-tab="bench"
+          onClick={() => onView("bench")}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 7,
+            fontFamily: "var(--font-display)",
+            fontWeight: 700,
+            fontSize: "var(--t-sm)",
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+            padding: "6px 12px",
+            marginLeft: "var(--sp-4)",
+            borderRadius: "var(--r-2)",
+            cursor: "pointer",
+            background: view === "bench" ? "var(--komodo-700)" : benchLive ? "var(--amber-900)" : "var(--surface-inset)",
+            color: view === "bench" ? "var(--paper-100)" : benchLive ? "var(--amber-300)" : "var(--text-muted)",
+            border: `1px solid ${view === "bench" ? "var(--komodo-500)" : benchLive ? "var(--amber-600)" : "var(--border-line)"}`,
+          }}
+        >
+          <span
+            className={benchLive ? "km-live-dot" : undefined}
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: "50%",
+              background: benchLive ? "var(--amber-300)" : "var(--ink-500)",
+              boxShadow: benchLive ? "0 0 6px var(--amber-300)" : "none",
+              animation: benchLive ? "km-pulse 1.4s var(--ease-in-out) infinite" : "none",
+            }}
+          />
+          Bench Status
+        </button>
+        <button
+          data-evidence-tab="demos"
+          onClick={() => onView("demos")}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 7,
+            fontFamily: "var(--font-display)",
+            fontWeight: 700,
+            fontSize: "var(--t-sm)",
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+            padding: "6px 12px",
+            borderRadius: "var(--r-2)",
+            cursor: "pointer",
+            background: view === "demos" ? "var(--komodo-700)" : "var(--surface-inset)",
+            color: view === "demos" ? "var(--paper-100)" : "var(--text-muted)",
+            border: `1px solid ${view === "demos" ? "var(--komodo-500)" : "var(--border-line)"}`,
+          }}
+        >
+          ▶ Demo List
+        </button>
       </nav>
       <div style={{ flex: 1 }} />
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "var(--sp-5)",
-          fontFamily: "var(--font-mono)",
-          fontSize: "var(--t-2xs)",
-          color: "var(--text-muted)",
-        }}
-      >
-        <span>
-          map <b style={{ color: "var(--text-body)" }}>{game.match.map}</b>
-        </span>
-        {(game.demo?.name ?? game.match.demo) && (
+      {game && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--sp-5)",
+            fontFamily: "var(--font-mono)",
+            fontSize: "var(--t-2xs)",
+            color: "var(--text-muted)",
+          }}
+        >
           <span>
-            demo <b style={{ color: "var(--text-body)" }}>{game.demo?.name ?? game.match.demo}</b>
+            map <b style={{ color: "var(--text-body)" }}>{game.match.map}</b>
           </span>
-        )}
-      </div>
+          {(game.demo?.name ?? game.match.demo) && (
+            <span>
+              demo <b style={{ color: "var(--text-body)" }}>{game.demo?.name ?? game.match.demo}</b>
+            </span>
+          )}
+        </div>
+      )}
       {gateGreen != null &&
         (gateGreen ? (
           <Badge tone="komodo" dot>
@@ -1415,6 +1495,15 @@ const TREND_METRICS: Record<string, TrendMetric> = {
   damage_done: { key: "damage_done", label: "Damage Given", unit: "", invert: false },
   damage_taken: { key: "damage_taken", label: "Damage Taken", unit: "", invert: true },
   deaths: { key: "deaths", label: "Deaths", unit: "", invert: true },
+  // owner requirement 2026-07-07: progress must be trackable for powerups,
+  // RL/LG control and survivability over time.
+  quad_pickups: { key: "quad_pickups", label: "Quad Pickups", unit: "", invert: false },
+  pent_pickups: { key: "pent_pickups", label: "Pent Pickups", unit: "", invert: false },
+  ring_pickups: { key: "ring_pickups", label: "Ring Pickups", unit: "", invert: false },
+  rl_pickups: { key: "rl_pickups", label: "RL Pickups", unit: "", invert: false },
+  lg_pickups: { key: "lg_pickups", label: "LG Pickups", unit: "", invert: false },
+  rl_direct_hits: { key: "rl_direct_hits", label: "Direct RL Hits", unit: "", invert: false },
+  taken_to_die: { key: "taken_to_die", label: "Taken To Die", unit: "", invert: false },
 };
 const TREND_FOUR = ["frags", "efficiency", "avg_speed", "damage_taken"];
 const TREND_METRIC_KEYS = Object.keys(TREND_METRICS);
@@ -1438,8 +1527,23 @@ function trendScale(value: number | null, mk: string): number {
 // Build the full per-subject history client-side by mapping over every game in
 // the ledger (issue #253). Team scope uses team.totals (with the same null
 // fallback aggregation as the live view); player scope keys on slot.
-function buildTrendSubjects(ledger: ValidationLedger): { teams: TrendSubject[]; players: TrendSubject[] } {
+// Trends must compare like with like: only games sharing the latest game's
+// team-name pair are charted. Legacy-era games (carried into the ledger via
+// the builder's --legacy merge) use different team names and rosters — by
+// team name they would plot hard zeros, and by slot number they would chart
+// an unrelated era's bot under the current bot's label.
+function trendGames(ledger: ValidationLedger): ValidationGame[] {
   const games = ledger.games;
+  const latest = games.length ? games[games.length - 1] : null;
+  if (!latest) return games;
+  const names = new Set(latest.teams.map((t) => t.name));
+  return games.filter(
+    (g) => g.teams.length === names.size && g.teams.every((t) => names.has(t.name)),
+  );
+}
+
+function buildTrendSubjects(ledger: ValidationLedger): { teams: TrendSubject[]; players: TrendSubject[] } {
+  const games = trendGames(ledger);
   const latest = games.length ? games[games.length - 1] : null;
 
   const teamSubjects: TrendSubject[] = [];
@@ -1516,7 +1620,8 @@ function TrendSep() {
 
 function TrendsView({ ledger }: { ledger: ValidationLedger }) {
   const { teams, players } = useMemo(() => buildTrendSubjects(ledger), [ledger]);
-  const gameLabels = useMemo(() => ledger.games.map((_, i) => `G${i + 1}`), [ledger]);
+  // Same filtered list as buildTrendSubjects so labels align with hist arrays.
+  const gameLabels = useMemo(() => trendGames(ledger).map((_, i) => `G${i + 1}`), [ledger]);
 
   const [scope, setScope] = useState<"team" | "player">("team");
   const [mode, setMode] = useState<"single" | "four">("single");
@@ -1868,6 +1973,17 @@ export function FourVFourEvidence() {
     onSelectGame(next === games.length - 1 ? null : games[next].run_id);
   };
 
+  // Bench live signal (TopBar pulse) + the kb2 lab feed (List View / Demo
+  // List / Match View config chips). Both degrade to empty when the hub
+  // feeds are not deployed.
+  const benchServers = useBenchServers();
+  const benchLive = benchIsLive(benchServers);
+  const kb2 = useKb2Feed();
+  const kb2Match = useMemo(
+    () => (game && kb2 ? kb2.matches.find((m) => m.run_id === game.run_id) ?? null : null),
+    [kb2, game],
+  );
+
   const pageStyle: CSSProperties = {
     minHeight: "100vh",
     background: "var(--bg-app)",
@@ -1881,7 +1997,11 @@ export function FourVFourEvidence() {
     justifyContent: "center",
   };
 
-  if (loading) {
+  // The kb2 views (List View / Demo List / Bench Status / Version History)
+  // render off their own feeds — the 4v4 validation ledger must not gate them.
+  const isKb2View = view === "list" || view === "demos" || view === "bench" || view === "versions";
+
+  if (loading && !isKb2View) {
     return (
       <main data-evidence-state="loading" style={centerStyle}>
         <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>loading 4v4 validation…</span>
@@ -1889,41 +2009,70 @@ export function FourVFourEvidence() {
     );
   }
 
-  if (error || !ledger) {
+  if ((error || !ledger || !game) && !isKb2View) {
     return (
-      <main data-evidence-state="error" style={centerStyle}>
-        <span style={{ color: "var(--neg-500)", fontFamily: "var(--font-mono)" }}>
-          4v4 validation unavailable — {error ?? "no ledger"}
-        </span>
+      <main data-evidence-state={error || !ledger ? "error" : "empty"} style={pageStyle}>
+        <TopBar game={null} gateGreen={null} view={view} onView={onView} benchLive={benchLive} />
+        <div style={{ ...centerStyle, minHeight: "60vh" }}>
+          {error || !ledger ? (
+            <span style={{ color: "var(--neg-500)", fontFamily: "var(--font-mono)" }}>
+              4v4 validation unavailable — {error ?? "no ledger"}
+            </span>
+          ) : (
+            <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>no valid 4v4 games yet</span>
+          )}
+        </div>
       </main>
     );
   }
 
-  if (!game) {
-    return (
-      <main data-evidence-state="empty" style={centerStyle}>
-        <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>no valid 4v4 games yet</span>
-      </main>
-    );
-  }
-
-  const bench = ledger.bench && ledger.bench.games_scored > 0 ? ledger.bench : undefined;
+  const bench = ledger?.bench && ledger.bench.games_scored > 0 ? ledger.bench : undefined;
   const gateGreen = bench ? bench.damage_matrix_gate_pass : null;
-  const orderedTeams = [...game.teams]
-    .map((team, idx) => ({ team, tone: toneForTeam(game, team.name, idx) }))
-    .sort((a, b) => (a.tone.side === b.tone.side ? 0 : a.tone.side === "LEAP" ? -1 : 1));
+  const orderedTeams = game
+    ? [...game.teams]
+        .map((team, idx) => ({ team, tone: toneForTeam(game, team.name, idx) }))
+        .sort((a, b) => (a.tone.side === b.tone.side ? 0 : a.tone.side === "LEAP" ? -1 : 1))
+    : [];
 
   const isTrends = view === "trends";
   const isHeatmap = view === "heatmap";
-  const title = isTrends
-    ? "4v4 KTX · Trends"
-    : isHeatmap
-    ? "4v4 KTX · Position Heatmap"
-    : "4v4 KTX · Live Stats Evidence";
+  const title =
+    view === "trends"
+      ? "4v4 KTX · Trends"
+      : view === "heatmap"
+      ? "4v4 KTX · Position Heatmap"
+      : view === "list"
+      ? "Lab Matches · List View"
+      : view === "demos"
+      ? "Landed Jumps · Demo List"
+      : view === "bench"
+      ? "Bench Status · Live"
+      : view === "versions"
+      ? "Version History · main"
+      : "4v4 KTX · Match View";
+
+  const subtitle =
+    view === "trends" && ledger
+      ? `${ledger.games.length} game(s) · oldest → newest`
+      : view === "heatmap" && game
+      ? `RUN ${game.run_id} · ${game.match.map} · positions + deaths`
+      : view === "list" && kb2
+      ? `${kb2.source.runs_included} run(s) · synced ${kb2.generated_utc}`
+      : view === "demos" && kb2
+      ? `${kb2.jumps.length} landed jump(s) across ${kb2.source.runs_included} run(s)`
+      : view === "bench"
+      ? benchLive
+        ? "matches running on the bench now"
+        : "bench idle"
+      : view === "versions"
+      ? "every merge to main, in plain language"
+      : game
+      ? `RUN ${game.run_id} · Δ vs ${game.previous_valid_run_id ?? "baseline"}`
+      : "";
 
   return (
     <main data-evidence-scoreboard style={pageStyle}>
-      <TopBar game={game} gateGreen={gateGreen} view={view} onView={onView} />
+      <TopBar game={view === "live" || isHeatmap ? game : null} gateGreen={gateGreen} view={view} onView={onView} benchLive={benchLive} />
       <div
         style={{
           maxWidth: "var(--view-max)",
@@ -1939,16 +2088,12 @@ export function FourVFourEvidence() {
             {title}
           </h1>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--t-2xs)", color: "var(--text-muted)", letterSpacing: "0.06em" }}>
-            {isTrends
-              ? `${ledger.games.length} game(s) · oldest → newest`
-              : isHeatmap
-              ? `RUN ${game.run_id} · ${game.match.map} · positions + deaths`
-              : `RUN ${game.run_id} · Δ vs ${game.previous_valid_run_id ?? "baseline"}`}
+            {subtitle}
           </span>
           {/* Game stepper + demo-watch link — game-scoped views only (Trends
               spans the whole ledger). Heatmap is per-game, so it keeps the
               stepper too. issue #253 / dashboard-3d-heatmap. */}
-          {!isTrends && (
+          {(view === "live" || isHeatmap) && game && (
             <div style={{ display: "inline-flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
               {games.length > 1 && (
                 <GameNav index={gameIndex} count={games.length} runId={game.run_id} onStep={onStepGame} />
@@ -1958,13 +2103,52 @@ export function FourVFourEvidence() {
           )}
         </div>
 
-        {isTrends ? (
-          <TrendsView ledger={ledger} />
-        ) : isHeatmap ? (
-          <HeatmapView game={game} />
-        ) : (
-          <LiveStats game={game} prev={prev} bench={bench} orderedTeams={orderedTeams} ledger={ledger} url={url} />
+        {/* Match View: the exact configuration this run was started with
+            (feature tags + raw cvars from the lab feed), with the record
+            holder flagged — owner ask: see active levers per match. */}
+        {view === "live" && kb2Match && (
+          <div data-evidence-config style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--t-2xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              config
+            </span>
+            {kb2Match.features.map((f) => (
+              <FeatureChip key={f} tag={f} isRecord={f === kb2?.record_holder.feature?.key} />
+            ))}
+            {Object.entries(kb2Match.cvars).map(([k, v]) => (
+              <span key={k} style={{ fontFamily: "var(--font-mono)", fontSize: "var(--t-2xs)", padding: "2px 6px", background: "var(--surface-inset)", border: "1px solid var(--border-line)", borderRadius: "var(--r-1)", color: "var(--text-muted)" }}>
+                {k}=<b style={{ color: "var(--text-body)" }}>{v}</b>
+              </span>
+            ))}
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--t-2xs)", color: "var(--text-muted)" }}>
+              {kb2Match.candidate.version}
+            </span>
+          </div>
         )}
+
+        {view === "list" ? (
+          <Kb2ListView
+            onOpenMatch={(runId) => {
+              // Owner requirement: clicking a match in List View opens Match
+              // View for that match. The run must exist in the validation
+              // ledger (bench runs do once the servexeri pipeline has built
+              // them); a missing run falls back to the latest game.
+              onSelectGame(runId);
+              onView("live");
+            }}
+          />
+        ) : view === "demos" ? (
+          <Kb2DemoList />
+        ) : view === "bench" ? (
+          <Kb2BenchStatus />
+        ) : view === "versions" ? (
+          <Kb2VersionHistory />
+        ) : isTrends && ledger ? (
+          <TrendsView ledger={ledger} />
+        ) : isHeatmap && game ? (
+          <HeatmapView game={game} />
+        ) : game && ledger ? (
+          <LiveStats game={game} prev={prev} bench={bench} orderedTeams={orderedTeams} ledger={ledger} url={url} />
+        ) : null}
       </div>
     </main>
   );

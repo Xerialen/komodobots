@@ -1,0 +1,9 @@
+[2026-07-07 04:15:23] matchdate: 2026-07-07 04:15:23 CEST
+[2026-07-07 04:15:23] The match has begun!
+[2026-07-07 04:15:59] [gapjump] lane=ra2ya slot=4 name=Rock trial=0 result=LAND land_pos=678,-211,56 hdist=57 peak_speed=433 tair=0.67 vreq=324
+[2026-07-07 04:16:12] [gapjump] lane=quad2ring slot=3 name=Angua trial=0 result=LAND land_pos=448,147,56 hdist=7 peak_speed=465 tair=0.67 vreq=344
+[2026-07-07 04:16:35] [gapjump] lane=ra2ya trial=0 result=FAIL_GAP land_pos=583,-209,-43 hdist=111 peak_speed=414 tair=0.93 vreq=324
+[2026-07-07 04:17:34] [gapjump] lane=ra2ya trial=0 result=FAIL_GAP land_pos=576,-207,-44 hdist=118 peak_speed=417 tair=0.93 vreq=324
+[2026-07-07 04:19:00] [gapjump] lane=ra2ya slot=2 name=dag trial=0 result=LAND land_pos=678,-212,56 hdist=56 peak_speed=429 tair=0.66 vreq=324
+[2026-07-07 04:20:20] [gapjump] lane=ra2ya trial=0 result=FAIL_GAP land_pos=595,-208,-44 hdist=101 peak_speed=410 tair=0.93 vreq=324
+[2026-07-07 04:20:23] The match is over
