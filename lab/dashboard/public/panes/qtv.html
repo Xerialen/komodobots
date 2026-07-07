@@ -362,9 +362,18 @@
       clearAttachConnectedFallback();
       attachConnectedTimer = setTimeout(function () {
         attachConnectedTimer = null;
-        if (state === "retrying") {
+        if (state !== "retrying") return;
+        // Confirm via the client-state API instead of assuming: if the stream
+        // is actually delivering players we're connected; otherwise the
+        // qtvplay was swallowed (engine-boot race — cbuf commands issued in
+        // the first moments after FTEC appears can be dropped silently, seen
+        // 2026-07-07) and we go around the normal retry loop, which
+        // re-issues qtvplay every QTV_RETRY_MS.
+        if (spectatablePlayers().length > 0) {
           setState("connected");
           startPovBar();
+        } else {
+          scheduleRetry();
         }
       }, ASSUME_CONNECTED_AFTER_QTVPLAY_MS);
     }
