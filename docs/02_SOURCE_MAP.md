@@ -346,6 +346,27 @@ Verification:
 Canonical home since LD-A1 (#84): `lab/dashboard/` in this repository — a self-contained
 Vite + React + TypeScript + three.js app built with base `/botlab/`.
 
+Central hub (feat/central-dashboard, 2026-07-07, owner direction): the evidence page
+is the master surface — `/botlab/` lands on it and the multi-pane control shell moved
+behind `?lab=1` (old `?evidence=1` links keep working). The evidence TopBar gained
+tabs/buttons: **Match View** (renamed from Live Stats; shows the run's exact cvars +
+feature tags from the kb2 feed), **List View** (`src/Kb2ListView.tsx` — every synced
+komodobots2 lab match with game duration, frag margin, winner, feature filters and
+record holders), **Version History** (`src/Kb2VersionHistory.tsx` — merges to main in
+owner language with bench impact), **Bench Status** (`src/Kb2BenchStatus.tsx` — live
+lanister bench servers, pulsing TopBar signal, inline FTE QTV spectate via the new
+`?upstream=` param on `public/panes/qtv.html`) and **Demo List**
+(`src/Kb2DemoList.tsx` — every landed gapjump with `/demo-player/` deep links; each
+match row also links `/mvd/?demoUrl=` into the MVD Analyzer hosted on the hub).
+Data layer: `src/kb2Feed.ts`. Feeds consumed (all degrade to empty states):
+`/demos/records/kb2-matches.json` (komodobots.kb2_matches.v1, built by
+`lab/server/kb2_matches_build.py` on servexeri after every kb2hub sync),
+`/demos/records/kb2-versions.json` (komodobots.kb2_versions.v1,
+`lab/server/version_history_build.py` + curated `kb2_version_summaries.json`, run
+where `gh` exists) and `/v2/servers/bench` (komodobots2 `dashboard/bench_poller.py`
+on servexeri, screen `kb2-bench-poller`). Tests: `tests/test_kb2_matches_build.py`,
+`tests/test_version_history_build.py` (fixtures under `tests/fixtures/kb2_matches/`).
+
 Hosted dashboard CI (LD-A3, #86): `.github/workflows/lab-dashboard-ci.yml`.
 It runs on GitHub-hosted `ubuntu-latest` for PRs touching `lab/**` or
 `tests/lab_*.py` (lab pytest files, which `PR Tests`' `test_*.py` unittest
