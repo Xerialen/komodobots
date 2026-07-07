@@ -13,9 +13,10 @@ the lab feed (komodobots.kb2_matches.v1) for measured impact:
   test_matches
       — scratch (non-ledger) matches seen in the lab feed for those stamps
 
-Runs where ``gh`` is available (pinnacle), fetching the matches feed from the
-hub; publish the output to servexeri /demos/records/ (same dir the feed
-lives in). Stdlib only; pure joins are unit-tested by
+Merged-PR listing prefers the ``gh`` CLI (pinnacle) and falls back to the
+GitHub REST API with a token from ``$GITHUB_TOKEN`` (servexeri, where the
+kb2hub-sync step runs this after every feed rebuild — automation decision
+2026-07-07). Stdlib only; pure joins are unit-tested by
 tests/test_version_history_build.py.
 """
 
@@ -24,6 +25,8 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
+import shutil
 import subprocess
 import sys
 import urllib.request
@@ -37,12 +40,48 @@ DEFAULT_REPO = "Xerialen/komodobots2"
 DEFAULT_SUMMARIES = Path(__file__).with_name("kb2_version_summaries.json")
 
 
-def fetch_merged_prs(repo: str) -> list[dict]:
+def _fetch_merged_prs_gh(repo: str) -> list[dict]:
     out = subprocess.run(
         ["gh", "pr", "list", "--repo", repo, "--state", "merged",
          "--base", "main", "--json", "number,title,mergedAt", "--limit", "200"],
         capture_output=True, text=True, check=True).stdout
     return json.loads(out)
+
+
+def _fetch_merged_prs_api(repo: str, token: str) -> list[dict]:
+    """GitHub REST fallback for hosts without gh (servexeri kb2hub-sync).
+
+    Pages /repos/<repo>/pulls?state=closed&base=main and keeps merged PRs,
+    normalized to the same {number,title,mergedAt} rows gh emits.
+    """
+    prs: list[dict] = []
+    for page in range(1, 5):  # 4 x 100 covers the same window as gh --limit 200
+        req = urllib.request.Request(
+            f"https://api.github.com/repos/{repo}/pulls"
+            f"?state=closed&base=main&per_page=100&page={page}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "kb2-versions-build",
+            })
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            batch = json.load(resp)
+        if not batch:
+            break
+        prs.extend(
+            {"number": p["number"], "title": p.get("title", ""),
+             "mergedAt": p.get("merged_at")}
+            for p in batch if p.get("merged_at"))
+    return prs
+
+
+def fetch_merged_prs(repo: str) -> list[dict]:
+    if shutil.which("gh"):
+        return _fetch_merged_prs_gh(repo)
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if token:
+        return _fetch_merged_prs_api(repo, token)
+    raise RuntimeError("neither gh CLI nor $GITHUB_TOKEN available")
 
 
 def load_feed(src: str) -> dict:
