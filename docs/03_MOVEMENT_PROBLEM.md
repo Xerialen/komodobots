@@ -599,3 +599,20 @@ The largest visible realism gap is movement.
 The largest visible movement gap is bunnyjumping.
 
 Therefore movement is the first laboratory target.
+
+## Integration theory (2026-07-03)
+
+`docs/29_BUNNYHOP_INTEGRATION_THEORY.md` synthesizes this document's mode 3-9
+history, the mode-13/25 evidence, the RL-on-speed line, komodobots2's weave
+bench ladder, and the engine pmove source into one cross-repo theory of why
+"tell the bots to use the bunnyjump" degrades match play (wrong action
+manifold, open-loop control, whole-actuator mode switching, reactive gating,
+speed-priced objectives), and the architecture to adopt instead
+(channel-ownership contract, analytic carve controller, speed-aware
+navigation, risk-priced gating, match-margin promotion evals). It is a
+hypothesis document: its falsifiable experiment ladder (E1-E5) is the
+validation plan, and E1 (live straight-runway check of the
+`d|v|^2 = 900 - c^2` carve law) is the next smallest useful experiment. It
+also flags one correction to prior evidence: the mode-13 K=26 "physics
+optimal" rationale conflicts with the pmove source (optimum is c=0 in open
+space; K=26 was likely a geometry-constrained optimum on trick.bsp).
