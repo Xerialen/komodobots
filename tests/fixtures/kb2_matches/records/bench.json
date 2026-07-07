@@ -1,0 +1,200 @@
+{
+ "schema": "komodobots2.bench.v1",
+ "bench": {
+  "frogbot-stock": {
+   "games_scored": 2,
+   "candidate_wins": 1,
+   "control_wins": 1,
+   "draws": 0,
+   "frag_margins": [
+    -6,
+    9
+   ],
+   "frag_margin_total": 3,
+   "frag_margin_mean": 1.5,
+   "frag_margin_stdev": 10.6066,
+   "damage": {
+    "candidate_damage_mean": 8033,
+    "control_damage_mean": 8007,
+    "intra_team_damage_total": 1321
+   }
+  },
+  "kbot-0.24.9-sngFloor.ws100": {
+   "games_scored": 18,
+   "candidate_wins": 8,
+   "control_wins": 10,
+   "draws": 0,
+   "frag_margins": [
+    -11,
+    16,
+    -7,
+    16,
+    7,
+    -25,
+    10,
+    -11,
+    -6,
+    -1,
+    -2,
+    -4,
+    7,
+    -17,
+    10,
+    7,
+    6,
+    -6
+   ],
+   "frag_margin_total": -11,
+   "frag_margin_mean": -0.6111,
+   "frag_margin_stdev": 11.3404,
+   "damage": {
+    "candidate_damage_mean": 8033.3,
+    "control_damage_mean": 8047.1,
+    "intra_team_damage_total": 9694
+   }
+  },
+  "kbot-0.26.0-harvest.comb-tl20": {
+   "games_scored": 3,
+   "candidate_wins": 3,
+   "control_wins": 0,
+   "draws": 0,
+   "frag_margins": [
+    4,
+    14,
+    3
+   ],
+   "frag_margin_total": 21,
+   "frag_margin_mean": 7,
+   "frag_margin_stdev": 6.0828,
+   "damage": {
+    "candidate_damage_mean": 32223.3,
+    "control_damage_mean": 32377,
+    "intra_team_damage_total": 5545
+   }
+  },
+  "kbot-0.28.0-dials.mid-tl20": {
+   "games_scored": 6,
+   "candidate_wins": 3,
+   "control_wins": 3,
+   "draws": 0,
+   "frag_margins": [
+    -17,
+    2,
+    24,
+    8,
+    -27,
+    -24
+   ],
+   "frag_margin_total": -34,
+   "frag_margin_mean": -5.6667,
+   "frag_margin_stdev": 20.2254,
+   "damage": {
+    "candidate_damage_mean": 30704.3,
+    "control_damage_mean": 31566.3,
+    "intra_team_damage_total": 11197
+   }
+  }
+ },
+ "games": [
+  {
+   "run_id": "20260706T072731Z-p28599",
+   "candidate_version": "frogbot-stock",
+   "gate_status": "complete",
+   "match": {
+    "map": "dm3",
+    "mode": "team",
+    "deathmatch": 1,
+    "teamplay": 2,
+    "timelimit": 5,
+    "duration": 300,
+    "demo": "4on4_red_vs_blue[dm3]20260706-0927.mvd",
+    "hostname": "komodobots2-4v4:28599",
+    "date": "2026-07-06 09:32:46 +0200"
+   },
+   "teams": [
+    {
+     "name": "blue",
+     "player_count": 4,
+     "frags": 57,
+     "damage_done": 9167,
+     "team_damage": 712
+    },
+    {
+     "name": "red",
+     "player_count": 4,
+     "frags": 51,
+     "damage_done": 7882,
+     "team_damage": 376
+    }
+   ]
+  },
+  {
+   "run_id": "20260706T073754Z-p28599",
+   "candidate_version": "frogbot-stock",
+   "gate_status": "complete",
+   "match": {
+    "map": "dm3",
+    "mode": "team",
+    "deathmatch": 1,
+    "teamplay": 2,
+    "timelimit": 5,
+    "duration": 300,
+    "demo": "4on4_red_vs_blue[dm3]20260706-0938.mvd",
+    "hostname": "komodobots2-4v4:28599",
+    "date": "2026-07-06 09:43:10 +0200"
+   },
+   "teams": [
+    {
+     "name": "blue",
+     "player_count": 4,
+     "frags": 42,
+     "damage_done": 6847,
+     "team_damage": 33
+    },
+    {
+     "name": "red",
+     "player_count": 4,
+     "frags": 51,
+     "damage_done": 8184,
+     "team_damage": 200
+    }
+   ]
+  },
+  {
+   "run_id": "20260706T134721Z-p28602",
+   "candidate_version": "kbot-0.24.9-sngFloor.ws100",
+   "gate_status": "complete",
+   "match": {
+    "map": "dm3",
+    "mode": "team",
+    "deathmatch": 1,
+    "teamplay": 2,
+    "timelimit": 5,
+    "duration": 300,
+    "demo": "4on4_red_vs_blue[dm3]20260706-1547.mvd",
+    "hostname": "komodobots2-4v4:28602",
+    "date": "2026-07-06 15:52:37 +0200"
+   },
+   "teams": [
+    {
+     "name": "blue",
+     "player_count": 4,
+     "frags": 56,
+     "damage_done": 8679,
+     "team_damage": 234
+    },
+    {
+     "name": "red",
+     "player_count": 4,
+     "frags": 45,
+     "damage_done": 7920,
+     "team_damage": 159
+    }
+   ]
+  }
+ ],
+ "provenance": {
+  "runs_scanned": 221,
+  "valid_games": 29
+ }
+}
