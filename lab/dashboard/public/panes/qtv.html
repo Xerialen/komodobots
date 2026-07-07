@@ -71,6 +71,9 @@
     var PORT     = parseInt(q.get("port") || "28599", 10) || 28599;
     var RELAY    = q.get("relay") || "ws://192.168.86.33:27599";
     var MAP      = (q.get("map") || "dm3").toLowerCase();
+    // Optional explicit upstream ("tcp:host:port"), e.g. a lanister bench
+    // server; without it the relay pulls loopback on the lab host.
+    var UPSTREAM = q.get("upstream") || null;
 
     // The relay pulls upstreams over loopback on the lab host (servexeri).
     var LAB_QTV_HOST = "127.0.0.1";
@@ -203,7 +206,8 @@
       setState("retrying");   // not confirmed connected until f_demostart fires
       cbuf("disconnect");
       cbuf("closemenu");
-      cbuf("qtvplay tcp:" + LAB_QTV_HOST + ":" + currentPort + "@" + RELAY);
+      var upstream = UPSTREAM || ("tcp:" + LAB_QTV_HOST + ":" + currentPort);
+      cbuf("qtvplay " + upstream + "@" + RELAY);
       scheduleAttachConnectedFallback();
     }
 

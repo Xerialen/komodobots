@@ -1,0 +1,27 @@
+{
+ "schema": "komodobots.kb2_versions.v1",
+ "generated_utc": "2026-07-07T00:00:00Z",
+ "repo": "Xerialen/komodobots2",
+ "versions": [
+  {
+   "merged_at": "2026-07-06T18:00:00Z",
+   "pr": 99,
+   "title": "feat: route policy champion consolidation",
+   "name": "Route policy",
+   "summary": "Lets the bots weigh which route to take based on what the team already controls, instead of always running the same laps.",
+   "stamps": ["routepol-champ-consol", "routepol-teamspread"],
+   "bench": { "games": 12, "margin_mean": 4.2, "wins": 8, "losses": 4 },
+   "test_matches": 31
+  },
+  {
+   "merged_at": "2026-07-04T10:00:00Z",
+   "pr": 87,
+   "title": "feat: harvest lane",
+   "name": "Harvester",
+   "summary": "Teaches the bots to pick up weapons and packs left on the floor after fights, so kills turn into equipment.",
+   "stamps": ["kbot-0.26.0-harvest.comb-tl20"],
+   "bench": { "games": 9, "margin_mean": 2.1, "wins": 5, "losses": 4 },
+   "test_matches": 22
+  }
+ ]
+}

@@ -1,0 +1,469 @@
+{
+ "schema": "komodobots.kb2_matches.v1",
+ "generated_utc": "2026-07-07T07:45:19Z",
+ "source": {
+  "data_dir": "tests\\fixtures\\kb2_matches",
+  "runs_scanned": 2,
+  "runs_included": 2
+ },
+ "matches": [
+  {
+   "run_id": "20260707T022951Z-p28601",
+   "started_utc": "2026-07-07T02:29:51Z",
+   "ended_utc": "2026-07-07T02:36:38Z",
+   "ok": true,
+   "error": null,
+   "map": "dm3",
+   "port": 28601,
+   "timelimit": 5,
+   "duration_s": 300,
+   "candidate": {
+    "team": "komo",
+    "brain": "kbot",
+    "version": "routepol-teamspread"
+   },
+   "control": {
+    "team": "fbots",
+    "brain": "frog",
+    "version": "frogbot-stock"
+   },
+   "team_frags": {
+    "komo": 43,
+    "fbots": 69
+   },
+   "frag_margin": -26,
+   "winner": "fbots",
+   "cvars": {
+    "k_hm": "1",
+    "k_hm_teams": "komo",
+    "k_hm_debug": "1",
+    "k_hm_fov": "120",
+    "k_kbot_routepolicy": "2",
+    "k_kbot_rp_w": "0.85",
+    "k_kbot_rp_weapon_boost": "1.5"
+   },
+   "features": [
+    "hm",
+    "fov",
+    "routepolicy"
+   ],
+   "in_ledger": false,
+   "demo": {
+    "name": "4on4_komo_vs_fbots[dm3]20260707-0430.mvd",
+    "url": null
+   },
+   "players": [
+    {
+     "name": "hib",
+     "team": "komo",
+     "frags": 9,
+     "deaths": 17,
+     "dmg_given": 1573,
+     "dmg_taken": 1851
+    },
+    {
+     "name": "dag",
+     "team": "komo",
+     "frags": 15,
+     "deaths": 21,
+     "dmg_given": 1972,
+     "dmg_taken": 2779
+    },
+    {
+     "name": "Angua",
+     "team": "komo",
+     "frags": 14,
+     "deaths": 22,
+     "dmg_given": 1496,
+     "dmg_taken": 2741
+    },
+    {
+     "name": "Rock",
+     "team": "komo",
+     "frags": 5,
+     "deaths": 14,
+     "dmg_given": 1525,
+     "dmg_taken": 1840
+    },
+    {
+     "name": "/ dizzy",
+     "team": "fbots",
+     "frags": 19,
+     "deaths": 15,
+     "dmg_given": 2640,
+     "dmg_taken": 2088
+    },
+    {
+     "name": "/ daisy",
+     "team": "fbots",
+     "frags": 12,
+     "deaths": 15,
+     "dmg_given": 2089,
+     "dmg_taken": 2032
+    },
+    {
+     "name": "/ denzil",
+     "team": "fbots",
+     "frags": 20,
+     "deaths": 6,
+     "dmg_given": 2069,
+     "dmg_taken": 871
+    },
+    {
+     "name": "/ dora",
+     "team": "fbots",
+     "frags": 18,
+     "deaths": 12,
+     "dmg_given": 2413,
+     "dmg_taken": 1575
+    }
+   ],
+   "jumps": {
+    "land": 2
+   }
+  },
+  {
+   "run_id": "20260707T021508Z-p28600",
+   "started_utc": "2026-07-07T02:15:08Z",
+   "ended_utc": "2026-07-07T02:21:54Z",
+   "ok": true,
+   "error": null,
+   "map": "dm3",
+   "port": 28600,
+   "timelimit": 5,
+   "duration_s": 300,
+   "candidate": {
+    "team": "komo",
+    "brain": "kbot",
+    "version": "routepol-champ-consol"
+   },
+   "control": {
+    "team": "fbots",
+    "brain": "frog",
+    "version": "frogbot-stock"
+   },
+   "team_frags": {
+    "komo": 33,
+    "fbots": 50
+   },
+   "frag_margin": -17,
+   "winner": "fbots",
+   "cvars": {
+    "k_hm": "1",
+    "k_hm_teams": "komo",
+    "k_hm_debug": "1",
+    "k_hm_fov": "120",
+    "k_kbot_routepolicy": "2",
+    "k_kbot_rp_w": "0.85",
+    "k_kbot_rp_weapon_boost": "1.5"
+   },
+   "features": [
+    "hm",
+    "fov",
+    "routepolicy"
+   ],
+   "in_ledger": false,
+   "demo": {
+    "name": "4on4_komo_vs_fbots[dm3]20260707-0415.mvd",
+    "url": null
+   },
+   "players": [
+    {
+     "name": "hib",
+     "team": "komo",
+     "frags": 5,
+     "deaths": 17,
+     "dmg_given": 1412,
+     "dmg_taken": 1912
+    },
+    {
+     "name": "dag",
+     "team": "komo",
+     "frags": 9,
+     "deaths": 16,
+     "dmg_given": 1519,
+     "dmg_taken": 1945
+    },
+    {
+     "name": "Angua",
+     "team": "komo",
+     "frags": 10,
+     "deaths": 18,
+     "dmg_given": 1926,
+     "dmg_taken": 2861
+    },
+    {
+     "name": "Rock",
+     "team": "komo",
+     "frags": 9,
+     "deaths": 6,
+     "dmg_given": 767,
+     "dmg_taken": 1454
+    },
+    {
+     "name": "/ dizzy",
+     "team": "fbots",
+     "frags": 8,
+     "deaths": 13,
+     "dmg_given": 1805,
+     "dmg_taken": 1639
+    },
+    {
+     "name": "/ daisy",
+     "team": "fbots",
+     "frags": 6,
+     "deaths": 10,
+     "dmg_given": 1747,
+     "dmg_taken": 1295
+    },
+    {
+     "name": "/ denzil",
+     "team": "fbots",
+     "frags": 22,
+     "deaths": 9,
+     "dmg_given": 2189,
+     "dmg_taken": 1431
+    },
+    {
+     "name": "/ dora",
+     "team": "fbots",
+     "frags": 14,
+     "deaths": 8,
+     "dmg_given": 2431,
+     "dmg_taken": 1259
+    }
+   ],
+   "jumps": {
+    "land": 3
+   }
+  }
+ ],
+ "jumps": [
+  {
+   "t_s": 205,
+   "lane": "ra2ya",
+   "name": "hib",
+   "hdist": 59,
+   "peak_speed": 433,
+   "tair": 0.67,
+   "run_id": "20260707T022951Z-p28601",
+   "map": "dm3",
+   "team": "komo",
+   "watch_url": null
+  },
+  {
+   "t_s": 137,
+   "lane": "ra2ya",
+   "name": "Angua",
+   "hdist": 48,
+   "peak_speed": 425,
+   "tair": 0.66,
+   "run_id": "20260707T022951Z-p28601",
+   "map": "dm3",
+   "team": "komo",
+   "watch_url": null
+  },
+  {
+   "t_s": 217,
+   "lane": "ra2ya",
+   "name": "dag",
+   "hdist": 56,
+   "peak_speed": 429,
+   "tair": 0.66,
+   "run_id": "20260707T021508Z-p28600",
+   "map": "dm3",
+   "team": "komo",
+   "watch_url": null
+  },
+  {
+   "t_s": 49,
+   "lane": "quad2ring",
+   "name": "Angua",
+   "hdist": 7,
+   "peak_speed": 465,
+   "tair": 0.67,
+   "run_id": "20260707T021508Z-p28600",
+   "map": "dm3",
+   "team": "komo",
+   "watch_url": null
+  },
+  {
+   "t_s": 36,
+   "lane": "ra2ya",
+   "name": "Rock",
+   "hdist": 57,
+   "peak_speed": 433,
+   "tair": 0.67,
+   "run_id": "20260707T021508Z-p28600",
+   "map": "dm3",
+   "team": "komo",
+   "watch_url": null
+  }
+ ],
+ "features": {
+  "hm": {
+   "matches": 2,
+   "wins": 0,
+   "losses": 2,
+   "draws": 0,
+   "margin_total": -43,
+   "margin_mean": -21.5,
+   "best": {
+    "run_id": "20260707T021508Z-p28600",
+    "frag_margin": -17
+   }
+  },
+  "fov": {
+   "matches": 2,
+   "wins": 0,
+   "losses": 2,
+   "draws": 0,
+   "margin_total": -43,
+   "margin_mean": -21.5,
+   "best": {
+    "run_id": "20260707T021508Z-p28600",
+    "frag_margin": -17
+   }
+  },
+  "routepolicy": {
+   "matches": 2,
+   "wins": 0,
+   "losses": 2,
+   "draws": 0,
+   "margin_total": -43,
+   "margin_mean": -21.5,
+   "best": {
+    "run_id": "20260707T021508Z-p28600",
+    "frag_margin": -17
+   }
+  }
+ },
+ "configs": {
+  "routepol-teamspread": {
+   "matches": 1,
+   "wins": 0,
+   "losses": 1,
+   "draws": 0,
+   "margin_total": -26,
+   "margin_mean": -26.0,
+   "best": {
+    "run_id": "20260707T022951Z-p28601",
+    "frag_margin": -26
+   }
+  },
+  "routepol-champ-consol": {
+   "matches": 1,
+   "wins": 0,
+   "losses": 1,
+   "draws": 0,
+   "margin_total": -17,
+   "margin_mean": -17.0,
+   "best": {
+    "run_id": "20260707T021508Z-p28600",
+    "frag_margin": -17
+   }
+  }
+ },
+ "record_holder": {
+  "feature": null,
+  "config": null
+ },
+ "ledger": {
+  "bench": {
+   "frogbot-stock": {
+    "games_scored": 2,
+    "candidate_wins": 1,
+    "control_wins": 1,
+    "draws": 0,
+    "frag_margins": [
+     -6,
+     9
+    ],
+    "frag_margin_total": 3,
+    "frag_margin_mean": 1.5,
+    "frag_margin_stdev": 10.6066,
+    "damage": {
+     "candidate_damage_mean": 8033,
+     "control_damage_mean": 8007,
+     "intra_team_damage_total": 1321
+    }
+   },
+   "kbot-0.24.9-sngFloor.ws100": {
+    "games_scored": 18,
+    "candidate_wins": 8,
+    "control_wins": 10,
+    "draws": 0,
+    "frag_margins": [
+     -11,
+     16,
+     -7,
+     16,
+     7,
+     -25,
+     10,
+     -11,
+     -6,
+     -1,
+     -2,
+     -4,
+     7,
+     -17,
+     10,
+     7,
+     6,
+     -6
+    ],
+    "frag_margin_total": -11,
+    "frag_margin_mean": -0.6111,
+    "frag_margin_stdev": 11.3404,
+    "damage": {
+     "candidate_damage_mean": 8033.3,
+     "control_damage_mean": 8047.1,
+     "intra_team_damage_total": 9694
+    }
+   },
+   "kbot-0.26.0-harvest.comb-tl20": {
+    "games_scored": 3,
+    "candidate_wins": 3,
+    "control_wins": 0,
+    "draws": 0,
+    "frag_margins": [
+     4,
+     14,
+     3
+    ],
+    "frag_margin_total": 21,
+    "frag_margin_mean": 7,
+    "frag_margin_stdev": 6.0828,
+    "damage": {
+     "candidate_damage_mean": 32223.3,
+     "control_damage_mean": 32377,
+     "intra_team_damage_total": 5545
+    }
+   },
+   "kbot-0.28.0-dials.mid-tl20": {
+    "games_scored": 6,
+    "candidate_wins": 3,
+    "control_wins": 3,
+    "draws": 0,
+    "frag_margins": [
+     -17,
+     2,
+     24,
+     8,
+     -27,
+     -24
+    ],
+    "frag_margin_total": -34,
+    "frag_margin_mean": -5.6667,
+    "frag_margin_stdev": 20.2254,
+    "damage": {
+     "candidate_damage_mean": 30704.3,
+     "control_damage_mean": 31566.3,
+     "intra_team_damage_total": 11197
+    }
+   }
+  },
+  "valid_games": 29
+ }
+}

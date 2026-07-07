@@ -43,12 +43,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
+
+LOGGER = logging.getLogger(__name__)
 
 SCHEMA = "komodobots.kb2_matches.v1"
 
