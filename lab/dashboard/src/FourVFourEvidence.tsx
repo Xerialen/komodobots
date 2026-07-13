@@ -27,6 +27,7 @@ import { Kb2ListView, FeatureChip } from "./Kb2ListView.tsx";
 import { Kb2DemoList } from "./Kb2DemoList.tsx";
 import { Kb2BenchStatus } from "./Kb2BenchStatus.tsx";
 import { Kb2VersionHistory } from "./Kb2VersionHistory.tsx";
+import { DragonbotPanel } from "./DragonbotPanel.tsx";
 import { benchIsLive, useBenchServers, useKb2Feed } from "./kb2Feed.ts";
 
 interface ValidationTeam {
@@ -231,9 +232,9 @@ function dataUrl(): string {
   return params.get("fixture") === "4v4" ? FIXTURE_URL : PRIMARY_URL;
 }
 
-type View = "live" | "trends" | "heatmap" | "list" | "demos" | "bench" | "versions";
+type View = "live" | "trends" | "heatmap" | "list" | "demos" | "bench" | "versions" | "dragonbot";
 
-const NON_DEFAULT_VIEWS: View[] = ["trends", "heatmap", "list", "demos", "bench", "versions"];
+const NON_DEFAULT_VIEWS: View[] = ["trends", "heatmap", "list", "demos", "bench", "versions", "dragonbot"];
 
 function initialView(): View {
   const v = new URLSearchParams(window.location.search).get("view");
@@ -865,6 +866,9 @@ function TopBar({
         </button>
         <button data-evidence-tab="versions" style={tabStyle(view === "versions")} onClick={() => onView("versions")}>
           Version History
+        </button>
+        <button data-evidence-tab="dragonbot" style={tabStyle(view === "dragonbot")} onClick={() => onView("dragonbot")}>
+          Dragonbot
         </button>
         {/* Bench Status + Demo List: action buttons beside the tabs (owner
             direction). Bench pulses when matches are running on the bench. */}
@@ -1998,8 +2002,10 @@ export function FourVFourEvidence() {
   };
 
   // The kb2 views (List View / Demo List / Bench Status / Version History)
-  // render off their own feeds — the 4v4 validation ledger must not gate them.
-  const isKb2View = view === "list" || view === "demos" || view === "bench" || view === "versions";
+  // and the Dragonbot view render off their own feeds — the 4v4 validation
+  // ledger must not gate them.
+  const isKb2View =
+    view === "list" || view === "demos" || view === "bench" || view === "versions" || view === "dragonbot";
 
   if (loading && !isKb2View) {
     return (
@@ -2049,6 +2055,8 @@ export function FourVFourEvidence() {
       ? "Bench Status · Live"
       : view === "versions"
       ? "Version History · main"
+      : view === "dragonbot"
+      ? "Dragonbot · Goals & Metrics"
       : "4v4 KTX · Match View";
 
   const subtitle =
@@ -2066,6 +2074,8 @@ export function FourVFourEvidence() {
         : "bench idle"
       : view === "versions"
       ? "every merge to main, in plain language"
+      : view === "dragonbot"
+      ? "Xerialen/dragonbot · goal ladder, metrics timeline, eval loop"
       : game
       ? `RUN ${game.run_id} · Δ vs ${game.previous_valid_run_id ?? "baseline"}`
       : "";
@@ -2142,6 +2152,8 @@ export function FourVFourEvidence() {
           <Kb2BenchStatus />
         ) : view === "versions" ? (
           <Kb2VersionHistory />
+        ) : view === "dragonbot" ? (
+          <DragonbotPanel />
         ) : isTrends && ledger ? (
           <TrendsView ledger={ledger} />
         ) : isHeatmap && game ? (
