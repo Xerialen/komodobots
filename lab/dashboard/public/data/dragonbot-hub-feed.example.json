@@ -1,0 +1,532 @@
+{
+ "schema": "dragonbot.hub_feed.v1",
+ "goals": [
+  {
+   "id": "G1",
+   "title": "Positive frag margin vs frogbot skill-10 (S10C control)",
+   "controlBatchId": "2026-07-12-baseline-s10c",
+   "metrics": {
+    "fragMargin": {
+     "mean": -17.020833,
+     "sigma": 9.628171,
+     "n": 48,
+     "source": {
+      "path": "artifacts/baselines/2026-07-12-baseline-s10c/aggregate.json",
+      "pointer": "aggregates[name='fragMargin']"
+     }
+    },
+    "dmgDiff": {
+     "mean": 3093.895833,
+     "sigma": 1220.402658,
+     "n": 48,
+     "source": {
+      "path": "artifacts/baselines/2026-07-12-baseline-s10c/aggregate.json",
+      "pointer": "aggregates[name='dmgDiff']"
+     }
+    }
+   },
+   "reference": "docs/current-stage.md control-reference bullet (2026-07-12 BASELINE-S10C): damage-positive at S10 but still frag-negative \u2014 see docs/diagnosis-frag-conversion.md for the root-caused gap (qualitative context, not a measured artifact value)."
+  },
+  {
+   "id": "G2",
+   "title": "Elite-shaped play per docs/elite-dm3-calibration.md",
+   "metrics": {
+    "quadShareWinner": {
+     "p25": 0.5,
+     "median": 0.6,
+     "p75": 0.7,
+     "n": 88,
+     "source": {
+      "path": "measure/corpus/elite/AGGREGATE.json",
+      "pointer": "byOutcome.winner.quad_share"
+     }
+    },
+    "quadShareLoser": {
+     "p25": 0.3,
+     "median": 0.4,
+     "p75": 0.5,
+     "n": 88,
+     "source": {
+      "path": "measure/corpus/elite/AGGREGATE.json",
+      "pointer": "byOutcome.loser.quad_share"
+     }
+    },
+    "raControlPctWinner": {
+     "p25": 25.0,
+     "median": 35,
+     "p75": 45.0,
+     "n": 87,
+     "source": {
+      "path": "measure/corpus/elite/AGGREGATE.json",
+      "pointer": "byOutcome.winner.ctl_RA"
+     }
+    },
+    "raControlPctLoser": {
+     "p25": 15.0,
+     "median": 20,
+     "p75": 30.0,
+     "n": 87,
+     "source": {
+      "path": "measure/corpus/elite/AGGREGATE.json",
+      "pointer": "byOutcome.loser.ctl_RA"
+     }
+    }
+   },
+   "validityCaveat": "outcome-confounded: bench matches are bot-vs-frogbot, elite bands are elite-vs-elite (docs/elite-dm3-calibration.md; docs/demo-evaluation-playbook.md \u00a710 validity taxonomy). Shape comparisons (rotation archetypes, doctrine) transfer across the skill gap; outcome numbers (frags, margins, control shares) do not."
+  }
+ ],
+ "batches": [
+  {
+   "batchId": "2026-07-12-baseline-s10c",
+   "date": "2026-07-12",
+   "role": "control",
+   "title": "BASELINE-S10C \u2014 active control reference (n=48)",
+   "kind": "control_batch",
+   "arms": [
+    "control"
+   ],
+   "validMatches": 48,
+   "invalidMatches": 0,
+   "metrics": {
+    "fragMargin": {
+     "mean": -17.020833,
+     "sigma": 9.628171,
+     "n": 48,
+     "source": {
+      "path": "artifacts/baselines/2026-07-12-baseline-s10c/aggregate.json",
+      "pointer": "aggregates[name='fragMargin']"
+     }
+    },
+    "dmgDiff": {
+     "mean": 3093.895833,
+     "sigma": 1220.402658,
+     "n": 48,
+     "source": {
+      "path": "artifacts/baselines/2026-07-12-baseline-s10c/aggregate.json",
+      "pointer": "aggregates[name='dmgDiff']"
+     }
+    },
+    "sg.accuracy": null
+   },
+   "analyzerSchemaVersion": null,
+   "decision": null,
+   "eval": null,
+   "notes": [
+    "Pre-contract batch: predates the measurement-plane merge (5cf6670); no per-match run-meta.json is committed for this batch, so analyzerSchemaVersion is null here \u2014 see artifacts/baselines/2026-07-12-baseline-s10c/PRE-CONTRACT.md."
+   ]
+  },
+  {
+   "batchId": "2026-07-12-gateA",
+   "date": "2026-07-12",
+   "role": "gate",
+   "title": "Gate A \u2014 first post-merge measurement-plane integration proof (n=8)",
+   "kind": "control_batch",
+   "arms": [
+    "control"
+   ],
+   "validMatches": 8,
+   "invalidMatches": 0,
+   "metrics": {
+    "fragMargin": {
+     "mean": -96,
+     "sigma": 12.409674,
+     "n": 8,
+     "source": {
+      "path": "artifacts/baselines/2026-07-12-gateA/aggregate.json",
+      "pointer": "aggregates[name='fragMargin']"
+     }
+    },
+    "dmgDiff": {
+     "mean": -5601.75,
+     "sigma": 1132.913784,
+     "n": 8,
+     "source": {
+      "path": "artifacts/baselines/2026-07-12-gateA/aggregate.json",
+      "pointer": "aggregates[name='dmgDiff']"
+     }
+    },
+    "sg.accuracy": null
+   },
+   "analyzerSchemaVersion": null,
+   "decision": null,
+   "eval": null,
+   "notes": [
+    "Retained as integration proof only, at skill-20 frogbots (not the S10C skill-10 control level) \u2014 see SUMMARY.md's 'Outcome context (not the point of this batch)'. analyzerSchemaVersion is null: this batch predates PR #31's schema-version stamping; SUMMARY.md reconstructs an unverified analyzer identity but no run-meta.json field records one."
+   ]
+  },
+  {
+   "batchId": "2026-07-13-gateD",
+   "date": "2026-07-13",
+   "role": "gate",
+   "title": "Gate D \u2014 first real ABBA sweep through the experiment plane",
+   "kind": "abba_experiment",
+   "arms": [
+    "reference",
+    "treatment"
+   ],
+   "validMatches": {
+    "reference": 6,
+    "treatment": 6
+   },
+   "invalidMatches": {
+    "reference": 0,
+    "treatment": 0
+   },
+   "metrics": {
+    "fragMargin": {
+     "reference": {
+      "mean": -30.166667,
+      "sigma": 16.042651,
+      "n": 6,
+      "source": {
+       "path": "artifacts/baselines/2026-07-13-gateD/ref/aggregate.json",
+       "pointer": "aggregates[name='fragMargin']"
+      }
+     },
+     "treatment": {
+      "mean": -29.333333,
+      "sigma": 10.595597,
+      "n": 6,
+      "source": {
+       "path": "artifacts/baselines/2026-07-13-gateD/trt/aggregate.json",
+       "pointer": "aggregates[name='fragMargin']"
+      }
+     }
+    },
+    "dmgDiff": {
+     "reference": {
+      "mean": 1909.833333,
+      "sigma": 1676.882037,
+      "n": 6,
+      "source": {
+       "path": "artifacts/baselines/2026-07-13-gateD/ref/aggregate.json",
+       "pointer": "aggregates[name='dmgDiff']"
+      }
+     },
+     "treatment": {
+      "mean": 1666.166667,
+      "sigma": 1369.864142,
+      "n": 6,
+      "source": {
+       "path": "artifacts/baselines/2026-07-13-gateD/trt/aggregate.json",
+       "pointer": "aggregates[name='dmgDiff']"
+      }
+     }
+    },
+    "sg.accuracy": {
+     "reference": {
+      "mean": 0.592653,
+      "sem": 0.004651,
+      "n": 6,
+      "reason": null,
+      "source": [
+       {
+        "path": "artifacts/baselines/2026-07-13-gateD/ref/m01/behavior-evidence.json",
+        "pointer": "questions[].metrics['sg.accuracy'].value",
+        "measured": true
+       },
+       {
+        "path": "artifacts/baselines/2026-07-13-gateD/ref/m02/behavior-evidence.json",
+        "pointer": "questions[].metrics['sg.accuracy'].value",
+        "measured": true
+       },
+       {
+        "path": "artifacts/baselines/2026-07-13-gateD/ref/m03/behavior-evidence.json",
+        "pointer": "questions[].metrics['sg.accuracy'].value",
+        "measured": true
+       },
+       {
+        "path": "artifacts/baselines/2026-07-13-gateD/ref/m04/behavior-evidence.json",
+        "pointer": "questions[].metrics['sg.accuracy'].value",
+        "measured": true
+       },
+       {
+        "path": "artifacts/baselines/2026-07-13-gateD/ref/m05/behavior-evidence.json",
+        "pointer": "questions[].metrics['sg.accuracy'].value",
+        "measured": true
+       },
+       {
+        "path": "artifacts/baselines/2026-07-13-gateD/ref/m06/behavior-evidence.json",
+        "pointer": "questions[].metrics['sg.accuracy'].value",
+        "measured": true
+       }
+      ]
+     },
+     "treatment": {
+      "mean": 0.503997,
+      "sem": 0.005443,
+      "n": 6,
+      "reason": null,
+      "source": [
+       {
+        "path": "artifacts/baselines/2026-07-13-gateD/trt/m01/behavior-evidence.json",
+        "pointer": "questions[].metrics['sg.accuracy'].value",
+        "measured": true
+       },
+       {
+        "path": "artifacts/baselines/2026-07-13-gateD/trt/m02/behavior-evidence.json",
+        "pointer": "questions[].metrics['sg.accuracy'].value",
+        "measured": true
+       },
+       {
+        "path": "artifacts/baselines/2026-07-13-gateD/trt/m03/behavior-evidence.json",
+        "pointer": "questions[].metrics['sg.accuracy'].value",
+        "measured": true
+       },
+       {
+        "path": "artifacts/baselines/2026-07-13-gateD/trt/m04/behavior-evidence.json",
+        "pointer": "questions[].metrics['sg.accuracy'].value",
+        "measured": true
+       },
+       {
+        "path": "artifacts/baselines/2026-07-13-gateD/trt/m05/behavior-evidence.json",
+        "pointer": "questions[].metrics['sg.accuracy'].value",
+        "measured": true
+       },
+       {
+        "path": "artifacts/baselines/2026-07-13-gateD/trt/m06/behavior-evidence.json",
+        "pointer": "questions[].metrics['sg.accuracy'].value",
+        "measured": true
+       }
+      ]
+     },
+     "meanDelta": {
+      "value": -0.088656,
+      "reason": null,
+      "derivation": {
+       "formulaId": "hubfeed.mean_delta.v1",
+       "inputs": [
+        {
+         "arm": "reference",
+         "source": [
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/ref/m01/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/ref/m02/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/ref/m03/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/ref/m04/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/ref/m05/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/ref/m06/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          }
+         ]
+        },
+        {
+         "arm": "treatment",
+         "source": [
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/trt/m01/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/trt/m02/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/trt/m03/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/trt/m04/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/trt/m05/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/trt/m06/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          }
+         ]
+        }
+       ]
+      }
+     },
+     "z": {
+      "value": -12.383035,
+      "reason": null,
+      "derivation": {
+       "formulaId": "hubfeed.two_sample_zscore.v1",
+       "inputs": [
+        {
+         "arm": "reference",
+         "source": [
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/ref/m01/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/ref/m02/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/ref/m03/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/ref/m04/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/ref/m05/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/ref/m06/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          }
+         ]
+        },
+        {
+         "arm": "treatment",
+         "source": [
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/trt/m01/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/trt/m02/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/trt/m03/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/trt/m04/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/trt/m05/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          },
+          {
+           "path": "artifacts/baselines/2026-07-13-gateD/trt/m06/behavior-evidence.json",
+           "pointer": "questions[].metrics['sg.accuracy'].value",
+           "measured": true
+          }
+         ]
+        }
+       ]
+      }
+     }
+    }
+   },
+   "analyzerSchemaVersion": 57,
+   "decision": {
+    "schema": "dragonbot.behavior_decision.v1",
+    "metric": "sg.accuracy",
+    "direction": "higher_better",
+    "minEffect": 0.03,
+    "referenceValue": 0.592447,
+    "treatmentValue": 0.505304,
+    "scoreDelta": -0.087143,
+    "passed": false,
+    "reason": "minimum_effect_not_met",
+    "decision": "point_estimate_block",
+    "source": {
+     "path": "artifacts/baselines/2026-07-13-gateD/decision.json",
+     "pointer": "primary"
+    }
+   },
+   "eval": {
+    "schema": "dragonbot.eval_rollup.v1",
+    "truthVerdict": "CLEAN",
+    "tacticalTally": {
+     "compliant": 29,
+     "deviant": 14,
+     "inconclusive": 5
+    },
+    "byLens": {
+     "spawn_opening": {
+      "COMPLIANT": 0,
+      "DEVIANT": 2,
+      "INCONCLUSIVE": 0
+     },
+     "stuck_candidate": {
+      "COMPLIANT": 0,
+      "DEVIANT": 2,
+      "INCONCLUSIVE": 4
+     },
+     "pent_window": {
+      "COMPLIANT": 3,
+      "DEVIANT": 1,
+      "INCONCLUSIVE": 0
+     },
+     "quad_phase": {
+      "COMPLIANT": 12,
+      "DEVIANT": 8,
+      "INCONCLUSIVE": 0
+     },
+     "finish_decision": {
+      "COMPLIANT": 10,
+      "DEVIANT": 0,
+      "INCONCLUSIVE": 0
+     },
+     "fight_cluster": {
+      "COMPLIANT": 4,
+      "DEVIANT": 1,
+      "INCONCLUSIVE": 1
+     }
+    },
+    "evaluatedMatches": [
+     "ref/m02",
+     "ref/m05"
+    ],
+    "reportPaths": [
+     "artifacts/baselines/2026-07-13-gateD/EVAL-ref-m02.md",
+     "artifacts/baselines/2026-07-13-gateD/EVAL-ref-m05.md"
+    ],
+    "source": {
+     "path": "artifacts/baselines/2026-07-13-gateD/eval-rollup.json",
+     "pointer": "."
+    }
+   },
+   "notes": [
+    "Deliberate known-direction regression (combat.aim.reactionDelayMs 80->120, one of ITER-17's three aim dials reverted) used as the plane-proof lever \u2014 point_estimate_block is the CORRECT, expected outcome here, not a defect."
+   ],
+   "analyzerSchemaVersionSource": {
+    "path": "artifacts/baselines/2026-07-13-gateD/aggregate.json",
+    "pointer": "analyzer_schema_version"
+   }
+  }
+ ]
+}
