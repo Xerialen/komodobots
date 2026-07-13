@@ -367,6 +367,41 @@ where `gh` exists) and `/v2/servers/bench` (komodobots2 `dashboard/bench_poller.
 on servexeri, screen `kb2-bench-poller`). Tests: `tests/test_kb2_matches_build.py`,
 `tests/test_version_history_build.py` (fixtures under `tests/fixtures/kb2_matches/`).
 
+Dragonbot goals & metrics (issue #483, 2026-07-13): a **Dragonbot** TopBar tab renders
+the Xerialen/dragonbot successor project's goal ladder, metrics timeline, and eval loop
+next to the komodobots2/kbot-era views above. `src/DragonbotPanel.tsx` (data layer
+`src/dragonbotFeed.ts`) reads `dragonbot.hub_feed.v1` and renders three stacked panels:
+Goal Ladder (G1 frag margin vs target with its ± band; G2 elite bands as a p25/median/p75
+table plus the outcome-confounded `validityCaveat` rendered verbatim — never paraphrased),
+Metrics Timeline (one card per batch-of-record: fragMargin/dmgDiff/sg.accuracy — a plain
+stat for a `control_batch`, reference-vs-treatment + meanDelta/z for an `abba_experiment`
+— and the ABBA decision PASS/BLOCK badge), and Eval Loop (per-batch truth CLEAN/SUSPECT
+badge, tactical COMPLIANT/DEVIANT/INCONCLUSIVE tally per lens, and links to the
+`EVAL-*.md` reports on GitHub). Every null/absent stat renders as `—`, never `0` — the
+upstream feed is explicit that a missing measurement (e.g. `sg.accuracy` before analyzer
+schema 57) is an honest gap, not a zero.
+
+Fetch pattern mirrors `kb2-versions.json`: the frontend never talks to GitHub. A new
+build script, `lab/server/dragonbot_hub_feed_build.py`, fetches the committed
+`artifacts/hub/goals-metrics.json` from Xerialen/dragonbot main over the GitHub REST
+contents API (token from `$GITHUB_TOKEN` or a parsed `~/.git-credentials` PAT — the
+owner's existing servexeri credential, throttled ~hourly since the feed only changes when
+a batch-of-record merges) and republishes it, wrapped with a build-side `fetchedUtc`
+timestamp, at `/demos/records/dragonbot-hub-feed.json`. Fail-closed at both layers: the
+build script never touches its output file on a failed/invalid fetch (the previous
+snapshot stays exactly as it was), and the frontend (`useDragonbotFeed` in
+`src/dragonbotFeed.ts`) never clears a previously-good in-memory snapshot on a failed
+same-origin poll either — it renders the last-good data with a stale banner instead
+(`isSnapshotStale` additionally flags a build-side-stale snapshot from `fetchedUtc`,
+independent of an outright fetch failure). Local dev/test fixture:
+`public/data/dragonbot-hub-feed.example.json` (`?fixture=dragonbot`); deliberately has no
+`fetchedUtc` (it is a hand-authored fixture, not a build artifact, so it never trips the
+build-side staleness check). Tests: `tests/test_dragonbot_hub_feed_build.py`.
+
+Servexeri deployment of `dragonbot_hub_feed_build.py` into the existing kb2hub-sync
+cadence (cron/systemd wiring, alongside `version_history_build.py`) is owner-coordinated
+and not part of this change — see the issue #483 PR for the outstanding step.
+
 Hosted dashboard CI (LD-A3, #86): `.github/workflows/lab-dashboard-ci.yml`.
 It runs on GitHub-hosted `ubuntu-latest` for PRs touching `lab/**` or
 `tests/lab_*.py` (lab pytest files, which `PR Tests`' `test_*.py` unittest

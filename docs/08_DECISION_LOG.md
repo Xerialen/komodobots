@@ -4534,3 +4534,56 @@ Codex remains the adversarial Reviewer + merge authority; the autonomous Coder (
 
 - If a second non-Codex opinion is wanted again: re-add `.gemini/config.yaml`, reinstall the app, or wire a
   different model.
+
+---
+
+## Decision
+
+Branch the Dragonbot goals & metrics work (issue #483) from `feat/central-dashboard`
+(open PR #482) instead of `main`.
+
+### Date
+
+2026-07-13
+
+### Decision
+
+Issue #483's acceptance criteria explicitly require the new Dragonbot section to sit
+alongside — and its smoke evidence to prove no regression to — the Match/List/Demo/Bench/
+Version views. Those views do not exist on `main` yet; they were introduced by PR #482
+(`feat/central-dashboard`), which is open, deployed to the live hub, but not yet
+independently reviewed/merged. `git log` confirms `feat/central-dashboard` is a strict
+superset of `main` (zero commits on `main` that are missing from it), so branching from
+its tip is equivalent to branching from "`main` after #482 fast-forwards" with no real
+divergence risk. This PR is opened with base `feat/central-dashboard`, not `main`.
+
+### Alternatives Considered
+
+- Branch from `main` as instructed literally. Rejected: the ticket's own acceptance
+  criteria (existing views unregressed) cannot be satisfied or even evidenced on `main`,
+  since those views are not present there.
+- Wait for #482 to merge before starting #483. Rejected by the owner's directive to
+  implement now; flagged here instead so the dependency is explicit and auditable.
+
+### Evidence
+
+- `git log origin/feat/central-dashboard..origin/main --oneline` returns 0 commits (no
+  divergence); `git log origin/main..origin/feat/central-dashboard --oneline` returns 10.
+- PR #482 (`feat/central-dashboard` -> `main`) is open, not yet reviewed/merged, per
+  `gh pr view 482`.
+
+### Expected Consequences
+
+- This PR (#483) technically stacks on an unmerged PR, which `AGENTS.md` flags as
+  non-default ("Stacked PRs are not the default. Do not create, continue, or merge
+  stacked PRs unless Benjamin explicitly authorizes stacking."). Recorded here as an
+  explicit, reasoned exception rather than a silent violation — the dependency is
+  structural (the ticket's own requirements), not a preference for stacking.
+  Independent review for #483 should confirm #482's state before approving, and merge
+  order should be #482 then #483 (or #483 rebased onto `main` post-merge, which — per the
+  zero-divergence evidence above — is a no-op rebase).
+
+### Revisit Conditions
+
+- Once #482 merges to `main`, retarget/rebase #483 onto `main` before its own merge (or
+  confirm the merge executor's base-branch handling already resolves this as a no-op).

@@ -171,6 +171,25 @@ Current evidence from the 2026-06-14 implementation run is stored at:
 - `lab/evidence/ld-h3-casting-scoreboard-1280x720.png`
 - `lab/evidence/ld-h3-4v4-validation-proof-2026-06-14.md`
 
+### Dragonbot goals & metrics (issue #483)
+
+Golden-path and feed-unreachable-fallback evidence, plus smoke screenshots of
+the Match/List/Demo/Bench/Version views proving no regression, captured via
+Python `playwright` against a local `vite` dev server (no `chrome-devtools`/
+`playwright` MCP server was available in that session — see
+`lab/evidence/issue483-dragonbot-goals-metrics-proof-2026-07-13.md` for the
+tooling note). Stored at:
+
+- `lab/evidence/issue483-dragonbot-golden-desktop.png`
+- `lab/evidence/issue483-dragonbot-golden-narrow.png`
+- `lab/evidence/issue483-dragonbot-stale-fallback.png`
+- `lab/evidence/issue483-smoke-match-view.png`
+- `lab/evidence/issue483-smoke-list-view.png`
+- `lab/evidence/issue483-smoke-demo-list.png`
+- `lab/evidence/issue483-smoke-bench-status.png`
+- `lab/evidence/issue483-smoke-version-history.png`
+- `lab/evidence/issue483-dragonbot-goals-metrics-proof-2026-07-13.md`
+
 ## Repeatable automation path
 
 When a manual browser case is repeated often or protects important behavior,
